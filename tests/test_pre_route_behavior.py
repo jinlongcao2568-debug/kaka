@@ -51,6 +51,11 @@ def _retry_rule(policy: dict, response_status: str) -> dict:
     return next(item for item in policy["retry_rules"] if item["response_status"] == response_status)
 
 
+def _feedback_mapping(response_status: str) -> dict:
+    entry = load_repo_json("contracts/sales/feedback_reason_catalog.json")["entries"][0]
+    return next(item for item in entry["mappings"] if item["response_status"] == response_status)
+
+
 def _policy_actions(actions: list[str]) -> dict[str, object]:
     parsed: dict[str, object] = {}
     for action in actions:
@@ -107,6 +112,7 @@ class TestPreRouteBehavior(unittest.TestCase):
     def test_stage8_conflict_cadence_retry_behavior(self) -> None:
         cadence_policy = _stage8_policy("contracts/sales/outreach_cadence_catalog.json")
         retry_policy = _stage8_policy("contracts/sales/retry_policy_catalog.json")
+        feedback_mapping = _feedback_mapping("NO_RESPONSE")
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(
             {
@@ -141,6 +147,7 @@ class TestPreRouteBehavior(unittest.TestCase):
         outreach_plan = stage8.record("outreach_plan")
         touch_record = stage8.record("touch_record")
         cadence_outputs = trace["outreach_cadence"]["outputs"]
+        retry_outputs = trace["retry_policy"]["outputs"]
         expected_profile = _select_cadence_profile(cadence_policy, urgency="NORMAL", window_urgency=50)
         expected_channel_override = _select_channel_override(cadence_policy, "PERSONAL_PHONE")
         expected_ladder = _select_channel_ladder(cadence_policy, "PERSONAL_PHONE")
@@ -168,10 +175,41 @@ class TestPreRouteBehavior(unittest.TestCase):
         )
         self.assertEqual(cadence_outputs.get("ladder_sequence_mode"), expected_ladder["sequence_mode"])
         self.assertFalse(cadence_outputs.get("live_execution_enabled"))
-        self.assertEqual(touch_record.get("feedback_reason"), "NO_RESPONSE")
-        self.assertEqual(touch_record.get("writeback_targets"), ["contact_target", "saleable_opportunity"])
+        self.assertEqual(retry_outputs.get("next_action"), expected_retry_rule["next_action"])
+        self.assertEqual(retry_outputs.get("backoff_hours_optional"), expected_retry_rule["backoff_hours"][0])
+        self.assertEqual(retry_outputs.get("feedback_reason"), feedback_mapping["feedback_reason"])
+        self.assertEqual(retry_outputs.get("next_step_optional"), feedback_mapping["next_step_optional"])
+        self.assertEqual(retry_outputs.get("writeback_targets"), feedback_mapping["writeback_targets"])
+        self.assertEqual(touch_record.get("feedback_reason"), feedback_mapping["feedback_reason"])
+        self.assertEqual(touch_record.get("next_step_optional"), feedback_mapping["next_step_optional"])
+        self.assertEqual(touch_record.get("writeback_targets"), feedback_mapping["writeback_targets"])
+        self.assertEqual(touch_record.get("writeback_target_optional"), feedback_mapping["writeback_targets"][0])
+        self.assertEqual(stage8.inputs.get("feedback_reason"), touch_record.get("feedback_reason"))
+        self.assertEqual(stage8.inputs.get("next_step_optional"), touch_record.get("next_step_optional"))
+        self.assertEqual(stage8.inputs.get("writeback_targets"), touch_record.get("writeback_targets"))
+        self.assertEqual(
+            stage8.inputs.get("writeback_target_optional"),
+            touch_record.get("writeback_target_optional"),
+        )
+        self.assertEqual(
+            stage8.inputs.get("failure_reason_tag_optional"),
+            touch_record.get("failure_reason_tag_optional"),
+        )
+        self.assertEqual(stage8.inputs.get("retry_count"), outreach_plan.get("retry_count"))
+        self.assertEqual(stage8.inputs.get("max_retry_count"), outreach_plan.get("max_retry_count"))
+        self.assertEqual(stage8.inputs.get("attempt_index"), touch_record.get("attempt_index"))
+        self.assertEqual(stage8.inputs.get("cadence_profile_id"), outreach_plan.get("cadence_profile_id"))
+        self.assertEqual(stage8.inputs.get("retry_policy_id"), outreach_plan.get("retry_policy_id"))
+        self.assertEqual(stage8.inputs.get("stop_policy_id"), outreach_plan.get("stop_policy_id"))
         self.assertEqual(stage8.handoff.get("plan_status"), "REVIEW_REQUIRED")
-        self.assertIsNotNone(stage8.inputs.get("next_touch_due_at_optional"))
+        self.assertEqual(
+            outreach_plan.get("next_touch_due_at_optional"),
+            "2026-04-16T00:00:00+00:00",
+        )
+        self.assertEqual(
+            stage8.inputs.get("next_touch_due_at_optional"),
+            "2026-04-16T00:00:00+00:00",
+        )
 
     def test_stage8_opt_out_stop_behavior(self) -> None:
         stop_policy = _stage8_policy("contracts/sales/touch_stop_condition_catalog.json")
@@ -340,6 +378,7 @@ class TestPreRouteBehavior(unittest.TestCase):
         )
 
     def test_stage8_connected_human_handoff_owner_and_sla(self) -> None:
+        feedback_mapping = _feedback_mapping("CONNECTED")
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(
             {
@@ -357,10 +396,16 @@ class TestPreRouteBehavior(unittest.TestCase):
         self.assertEqual(stage8.handoff.get("human_handoff_sla_hours_optional"), 8)
         self.assertEqual(stage8.handoff.get("human_handoff_sla_due_at_optional"), "2026-04-14T08:00:00Z")
         self.assertEqual(stage8.inputs.get("human_handoff_policy_id_optional"), "stage8_human_handoff_v1")
+        self.assertEqual(stage8.inputs.get("human_handoff_next_owner_role_optional"), "sales_user")
+        self.assertEqual(stage8.inputs.get("human_handoff_sla_hours_optional"), 8)
+        self.assertEqual(stage8.inputs.get("human_handoff_reason_optional"), "human_followup_required_after_connected")
+        self.assertEqual(stage8.record("touch_record").get("next_step_optional"), feedback_mapping["next_step_optional"])
+        self.assertEqual(stage8.record("touch_record").get("writeback_targets"), feedback_mapping["writeback_targets"])
         self.assertEqual(human_handoff.get("next_step_optional"), "HANDOFF_TO_SALES")
         self.assertEqual(human_handoff.get("reason_optional"), "human_followup_required_after_connected")
 
     def test_stage8_org_routed_human_handoff_owner_and_sla(self) -> None:
+        feedback_mapping = _feedback_mapping("ORG_ROUTED")
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(
             {
@@ -377,6 +422,11 @@ class TestPreRouteBehavior(unittest.TestCase):
         self.assertEqual(stage8.handoff.get("human_handoff_next_owner_role_optional"), "sales_user")
         self.assertEqual(stage8.handoff.get("human_handoff_sla_hours_optional"), 24)
         self.assertEqual(stage8.handoff.get("human_handoff_sla_due_at_optional"), "2026-04-15T00:00:00Z")
+        self.assertEqual(stage8.inputs.get("human_handoff_next_owner_role_optional"), "sales_user")
+        self.assertEqual(stage8.inputs.get("human_handoff_sla_hours_optional"), 24)
+        self.assertEqual(stage8.inputs.get("human_handoff_reason_optional"), "organization_route_followup_required")
+        self.assertEqual(stage8.record("touch_record").get("next_step_optional"), feedback_mapping["next_step_optional"])
+        self.assertEqual(stage8.record("touch_record").get("writeback_targets"), feedback_mapping["writeback_targets"])
         self.assertEqual(human_handoff.get("next_step_optional"), "WAIT_ORG_RESPONSE")
         self.assertEqual(human_handoff.get("reason_optional"), "organization_route_followup_required")
 

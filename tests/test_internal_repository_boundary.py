@@ -146,6 +146,34 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             stage8.inputs.get("permission_decision_state"),
         )
         self.assertTrue(replay["blocked_by_default"])
+        hydrated = hydrate_stage_bundle(
+            "stage8",
+            {"opportunity_id": stage8.record("contact_target").get("opportunity_id")},
+        )
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(hydrated.inputs["feedback_reason"], touch.get("feedback_reason"))
+        self.assertEqual(hydrated.inputs["next_step_optional"], touch.get("next_step_optional"))
+        self.assertEqual(hydrated.inputs["writeback_targets"], touch.get("writeback_targets"))
+        self.assertEqual(
+            hydrated.inputs["writeback_target_optional"],
+            touch.get("writeback_target_optional"),
+        )
+        self.assertEqual(
+            hydrated.inputs["failure_reason_tag_optional"],
+            touch.get("failure_reason_tag_optional"),
+        )
+        self.assertEqual(
+            hydrated.inputs["cadence_profile_id"],
+            stage8.record("outreach_plan").get("cadence_profile_id"),
+        )
+        self.assertEqual(
+            hydrated.inputs["retry_policy_id"],
+            stage8.record("outreach_plan").get("retry_policy_id"),
+        )
+        self.assertEqual(
+            hydrated.inputs["stop_policy_id"],
+            stage8.record("outreach_plan").get("stop_policy_id"),
+        )
 
     def test_stage9_repository_boundary_persists_internal_governed_writeback_loop(self) -> None:
         stage9 = self.result["stage9"]
@@ -265,6 +293,69 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             hydrated.record("procurement_decision_actor_profile").get("actor_id"),
             original_procurement_actor["actor_id"],
+        )
+
+    def test_stage8_repository_readback_prefers_persisted_formal_refs_over_loose_lookup(self) -> None:
+        stage8 = self.result["stage8"]
+        original_contact = dict(stage8.record("contact_target").data)
+        original_plan = dict(stage8.record("outreach_plan").data)
+        original_touch = dict(stage8.record("touch_record").data)
+
+        create_touch_record(stage8)
+
+        conflicting_contact = dict(original_contact)
+        conflicting_contact["contact_target_id"] = "CT-CONFLICT-PROJ-001"
+        conflicting_contact["contact_target_status"] = "BLOCKED"
+        conflicting_contact["contact_priority_score"] = -1
+
+        conflicting_plan = dict(original_plan)
+        conflicting_plan["outreach_plan_id"] = "PLAN-CONFLICT-PROJ-001"
+        conflicting_plan["plan_status"] = "BLOCKED"
+        conflicting_plan["retry_count"] = 99
+
+        conflicting_touch = dict(original_touch)
+        conflicting_touch["touch_record_id"] = "TOUCH-CONFLICT-PROJ-001"
+        conflicting_touch["contact_target_id"] = conflicting_contact["contact_target_id"]
+        conflicting_touch["outreach_plan_id"] = conflicting_plan["outreach_plan_id"]
+        conflicting_touch["touch_record_state"] = "CANCELLED"
+        conflicting_touch["feedback_reason"] = "CONFLICTING_FEEDBACK"
+        conflicting_touch["writeback_targets"] = ["contact_target"]
+
+        ContactTargetRepository().save(conflicting_contact)
+        OutreachPlanRepository().save(conflicting_plan)
+        TouchRecordRepository().save(conflicting_touch)
+
+        replay = list_contact_targets({"opportunity_id": original_touch["opportunity_id"]})
+        hydrated = hydrate_stage_bundle("stage8", {"opportunity_id": original_touch["opportunity_id"]})
+
+        self.assertEqual(
+            replay["preview_projection"]["touch_record_preview"]["touch_record_id"],
+            original_touch["touch_record_id"],
+        )
+        self.assertEqual(
+            replay["preview_projection"]["touch_record_preview"]["feedback_reason"],
+            original_touch["feedback_reason"],
+        )
+        self.assertEqual(
+            replay["preview_projection"]["outreach_plan_preview"]["outreach_plan_id"],
+            original_plan["outreach_plan_id"],
+        )
+        self.assertEqual(
+            replay["preview_projection"]["contact_target_preview"]["contact_target_id"],
+            original_contact["contact_target_id"],
+        )
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.record("touch_record").get("touch_record_id"),
+            original_touch["touch_record_id"],
+        )
+        self.assertEqual(
+            hydrated.record("outreach_plan").get("outreach_plan_id"),
+            original_plan["outreach_plan_id"],
+        )
+        self.assertEqual(
+            hydrated.record("contact_target").get("contact_target_id"),
+            original_contact["contact_target_id"],
         )
 
     def test_stage9_repository_readback_prefers_persisted_formal_refs_over_loose_lookup(self) -> None:

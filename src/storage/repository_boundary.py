@@ -80,6 +80,26 @@ STAGE_INPUT_FIELDS = {
         "semantic_trace",
         "semantic_decision_state",
         "semantic_additions",
+        "feedback_reason",
+        "next_step_optional",
+        "written_back_at_optional",
+        "stop_reason_optional",
+        "retry_scheduled_optional",
+        "writeback_targets",
+        "writeback_target_optional",
+        "failure_reason_tag_optional",
+        "human_handoff_policy_id_optional",
+        "human_handoff_next_owner_role_optional",
+        "human_handoff_sla_hours_optional",
+        "human_handoff_sla_due_at_optional",
+        "human_handoff_reason_optional",
+        "next_touch_due_at_optional",
+        "retry_count",
+        "max_retry_count",
+        "attempt_index",
+        "cadence_profile_id",
+        "retry_policy_id",
+        "stop_policy_id",
     ),
     9: (
         "policy_trace",
@@ -880,8 +900,41 @@ def _hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     )
 
 
-def _find_stage8_records(payload: Mapping[str, Any]) -> tuple[Any, Any, Any]:
+def _find_stage8_work_item(payload: Mapping[str, Any]) -> PersistedWorkItem | None:
     touch_record_id = str(payload.get("touch_record_id", "")).strip()
+    if touch_record_id:
+        return _get_stage_work_item(8, "touch_record", touch_record_id)
+
+    opportunity_id = str(payload.get("opportunity_id", "")).strip()
+    if not opportunity_id:
+        return None
+
+    candidates = [
+        item
+        for item in WorkItemRepository().list(stage_scope=8)
+        if item.surface_id == STAGE_SURFACE_IDS[8]
+        and item.primary_object_type == "touch_record"
+        and item.object_refs.get("opportunity_id") == opportunity_id
+    ]
+    if not candidates:
+        return None
+
+    candidates.sort(
+        key=lambda item: (
+            str(item.updated_at or ""),
+            str(item.created_at or ""),
+            str(item.primary_record_id or ""),
+        ),
+        reverse=True,
+    )
+    return candidates[0]
+
+
+def _find_stage8_records(payload: Mapping[str, Any]) -> tuple[Any, Any, Any]:
+    work_item = _find_stage8_work_item(payload)
+    touch_record_id = str(payload.get("touch_record_id", "")).strip()
+    if work_item is not None:
+        touch_record_id = str(work_item.primary_record_id or touch_record_id)
     touch_record = TouchRecordRepository().get_by_id(touch_record_id) if touch_record_id else None
     if not touch_record:
         opportunity_id = str(payload.get("opportunity_id", "")).strip()
@@ -889,8 +942,20 @@ def _find_stage8_records(payload: Mapping[str, Any]) -> tuple[Any, Any, Any]:
     if not touch_record:
         return None, None, None
 
-    contact_target = ContactTargetRepository().get_by_id(touch_record.object_refs.get("contact_target_id", ""))
-    outreach_plan = OutreachPlanRepository().get_by_id(touch_record.object_refs.get("outreach_plan_id", ""))
+    contact_target = None
+    outreach_plan = None
+    if work_item is not None:
+        contact_target_id = str(work_item.object_refs.get("contact_target_id", "")).strip()
+        outreach_plan_id = str(work_item.object_refs.get("outreach_plan_id", "")).strip()
+        if contact_target_id:
+            contact_target = ContactTargetRepository().get_by_id(contact_target_id)
+        if outreach_plan_id:
+            outreach_plan = OutreachPlanRepository().get_by_id(outreach_plan_id)
+
+    if contact_target is None:
+        contact_target = ContactTargetRepository().get_by_id(touch_record.object_refs.get("contact_target_id", ""))
+    if outreach_plan is None:
+        outreach_plan = OutreachPlanRepository().get_by_id(touch_record.object_refs.get("outreach_plan_id", ""))
     return contact_target, outreach_plan, touch_record
 
 
@@ -1276,12 +1341,40 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
             "governed_execution_mode",
             "approval_state",
             "plan_status",
+            "touch_record_state",
+            "response_status",
+            "feedback_reason",
+            "next_step_optional",
+            "stop_reason_optional",
+            "retry_scheduled_optional",
             "requested_delivery_surface",
+            "writeback_required",
             "writeback_targets",
+            "writeback_target_optional",
             "written_back_at_optional",
+            "failure_reason_tag_optional",
+            "retry_count",
+            "max_retry_count",
+            "attempt_index",
+            "cadence_profile_id",
+            "retry_policy_id",
+            "stop_policy_id",
         ):
             if record.get(field_name) not in (None, ""):
                 governed_context[field_name] = record.get(field_name)
+    if bundle.stage == 8:
+        human_handoff = bundle.record("touch_record").data.get("governed_metadata", {}).get("human_handoff", {})
+        if isinstance(human_handoff, Mapping):
+            optional_fields = {
+                "human_handoff_policy_id_optional": human_handoff.get("policy_id"),
+                "human_handoff_next_owner_role_optional": human_handoff.get("next_owner_role_optional"),
+                "human_handoff_sla_hours_optional": human_handoff.get("sla_hours_optional"),
+                "human_handoff_sla_due_at_optional": human_handoff.get("sla_due_at_optional"),
+                "human_handoff_reason_optional": human_handoff.get("reason_optional"),
+            }
+            for field_name, field_value in optional_fields.items():
+                if field_value not in (None, ""):
+                    governed_context[field_name] = field_value
     return governed_context
 
 

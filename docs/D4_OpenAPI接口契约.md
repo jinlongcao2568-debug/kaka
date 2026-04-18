@@ -927,6 +927,21 @@ GET /v1/contact-targets
 - `create_app()` 当前只包装既有 route table / projection / repository hydration；它不引入新的业务判断链。
 - Stage 1-6 若未来进入 transport 实现批，仍需单独更新 D4、D11、D12 与 release/readiness 口径。
 
+### 14.9 FF-09-S1 H-08 authoritative payload / human handoff API authority 补表（本轮新增）
+
+本补表用于把 H-08 最小 authoritative payload、optional preview/writeback fields 与 human handoff fields 收口到 Stage 8 -> Stage 9 的单一 API authority；不改写 Stage 9 typed workflow、runtime 或外部放行边界。
+
+| API / surface | sole authority | 必须/可选承接 | fallback / review path | 明确禁止 |
+|---|---|---|---|---|
+| Stage 9 typed ingest：`POST /orders`、`/payments`、`/deliveries`、`/opportunity-outcomes`、`/governance-feedback-events` | `handoff/stage8_to_stage9/contract.json#authoritative_payload.minimum_required_fields` | 必须消费 `opportunity_id`、`touch_record_id`、`response_status`、`saleability_status`、`crm_owner_state`；缺任一即 `BLOCK/REVIEW_REQUIRED` | 只允许沿 H-08 authoritative payload 进入 Stage 9 typed workflow；若与 `saleable_opportunity/touch_record` formal refs 不一致，必须阻断 | 不得从 Stage 8 route/workbench scattered fields、`project_id` fallback 或 service-local default 回填 |
+| Stage 9 governed preview / writeback projection | `handoff/stage8_to_stage9/contract.json#authoritative_payload.optional_preview_writeback_fields` | `plan_status`、`touch_record_state`、`feedback_reason`、`written_back_at_optional`、`governance_decision_state`、`permission_decision_state`、`semantic_decision_state` 仅在 H-08 存在时消费并投影 | optional 字段缺失只允许保持 optional；存在时不得丢弃、不得改写 owner | 不得把 Stage 9 typed object 自身状态反向当成 H-08 source，也不得绕过 H-08 直接读取 Stage 8 raw object field |
+| Stage 9 human handoff snapshot | `handoff/stage8_to_stage9/contract.json#authoritative_payload.optional_human_handoff_fields` + `docs/D9_联系对象与销售触达规范.md#D9-R-071-B-2` | `CONNECTED / ORG_ROUTED` 时只允许消费 `human_handoff_next_owner_role_optional`、`human_handoff_sla_hours_optional`、`human_handoff_sla_due_at_optional`、`human_handoff_reason_optional` 作为 governed internal follow-up metadata | 若命中 `CONNECTED / ORG_ROUTED` 但 H-08 未投影 owner/SLA/reason，则只允许 review/hold，不得静默补默认 owner/SLA | 不得把 human handoff 写成 Stage 9 delivery SLA、live execution unlock 或客户承诺 |
+| Stage 8 -> Stage 9 response envelope / readback | `capability_envelope`、`governance_envelope`、`semantic_envelope` + H-08 authoritative payload projection | Stage 9 preview/readback 只允许展示 H-08 authoritative snapshot 与已持久化 typed refs 的一致性结果 | 页面/API 只能展示 formal projection；异常时给出 review/block reason | 不得直接暴露 Stage 8 internal scattered fields 作为跨阶段 contract surface |
+
+补充说明：
+- H-08 仍保持 `saleable_opportunity + touch_record` 为 critical object set；`outreach_plan` 只作为 optional preview/writeback carrier，不提升为 hard dependency；
+- 本补表只收口 API contract authority，不放开 external software release、Stage 8 real execution 或 Stage 9 real payment/delivery/refund。
+
 
 
 

@@ -825,6 +825,18 @@ class Stage8Service:
             requested_gate_ids=outreach_gate_ids,
             audit_trail_present=bool(execution_vendor_payload["execution_trace_id_optional"]),
         )
+        runtime_writeback_targets = ensure_list(
+            runtime_state.resolve("writeback_targets", inputs.get("writeback_targets"))
+        )
+        runtime_writeback_target = runtime_state.resolve(
+            "writeback_target_optional",
+            inputs.get("writeback_target_optional"),
+        )
+        if not runtime_writeback_targets and runtime_writeback_target not in (None, ""):
+            runtime_writeback_targets = [runtime_writeback_target]
+        if runtime_writeback_target in (None, "") and runtime_writeback_targets:
+            runtime_writeback_target = runtime_writeback_targets[0]
+
         outreach_payload = {
             "outreach_plan_id": build_id("PLAN", project_id),
             "opportunity_id": saleable_opportunity.get("opportunity_id"),
@@ -839,25 +851,40 @@ class Stage8Service:
                 )
             ),
             "projection_mode": str(runtime_state.resolve("projection_mode", "INTERNAL_GOVERNED_PREVIEW")),
-            "cadence_profile_id": runtime_state.resolve("cadence_profile_id", "CADENCE-NORMAL"),
-            "retry_policy_id": str(runtime_state.resolve("retry_policy_id", "RETRY-001")),
-            "stop_policy_id": str(runtime_state.resolve("stop_policy_id", "STOP-001")),
+            "cadence_profile_id": str(
+                runtime_state.resolve("cadence_profile_id", inputs.get("cadence_profile_id"))
+            ),
+            "retry_policy_id": str(
+                runtime_state.resolve("retry_policy_id", inputs.get("retry_policy_id"))
+            ),
+            "stop_policy_id": str(
+                runtime_state.resolve("stop_policy_id", inputs.get("stop_policy_id"))
+            ),
             "primary_message": inputs.get("primary_message", "internal preview"),
             "planned_touch_at": inputs.get("planned_touch_at", now),
-            "attempt_index": int(runtime_state.resolve("attempt_index", 1)),
+            "attempt_index": int(runtime_state.resolve("attempt_index", inputs.get("attempt_index", 1))),
             "approval_state": approval_state,
             "plan_status": plan_status,
             "run_mode": run_mode,
             "automation_level": ensure_enum(
                 self.store, "automation_level", inputs.get("automation_level", "MANUAL")
             ),
-            "next_touch_due_at_optional": str(runtime_state.resolve("next_touch_due_at_optional", now)),
-            "retry_count": int(runtime_state.resolve("retry_count", 0)),
-            "max_retry_count": int(runtime_state.resolve("max_retry_count", 1)),
-            "stop_reason_optional": str(runtime_state.resolve("stop_reason_optional", inputs.get("stop_reason_optional", "NOT_STOPPED"))),
+            "next_touch_due_at_optional": str(
+                runtime_state.resolve(
+                    "next_touch_due_at_optional",
+                    inputs.get("next_touch_due_at_optional", now),
+                )
+            ),
+            "retry_count": int(runtime_state.resolve("retry_count", inputs.get("retry_count", 0))),
+            "max_retry_count": int(
+                runtime_state.resolve("max_retry_count", inputs.get("max_retry_count", 0))
+            ),
+            "stop_reason_optional": str(
+                runtime_state.resolve("stop_reason_optional", inputs.get("stop_reason_optional"))
+            ),
             "approval_run_required": bool(runtime_state.resolve("approval_run_required", run_mode in ("APPROVAL_RUN", "REAL_RUN"))),
             "writeback_required": bool(runtime_state.resolve("writeback_required", True)),
-            "writeback_target_optional": str(runtime_state.resolve("writeback_target_optional", "saleable_opportunity")),
+            "writeback_target_optional": str(runtime_writeback_target),
             "permission_decision_state": runtime_state.permission_decision_state,
             "governance_decision_state": runtime_state.governance_decision_state,
             "semantic_decision_state": runtime_state.semantic_decision_state,
@@ -898,7 +925,7 @@ class Stage8Service:
             projection_mode=outreach_payload["projection_mode"],
             run_mode=run_mode,
             approval_state=approval_state,
-            writeback_targets=[outreach_payload["writeback_target_optional"]],
+            writeback_targets=runtime_writeback_targets,
         )
 
         outreach_plan = self.store.build_record(
@@ -913,11 +940,11 @@ class Stage8Service:
         ]
         next_step_optional = runtime_state.resolve(
             "next_step_optional",
-            inputs.get("next_step_optional", "WAIT"),
+            inputs.get("next_step_optional"),
         )
         stop_reason_optional = runtime_state.resolve(
             "stop_reason_optional",
-            inputs.get("stop_reason_optional", "NOT_STOPPED"),
+            inputs.get("stop_reason_optional"),
         )
         retry_scheduled_optional = bool(
             runtime_state.resolve("retry_scheduled_optional", False)
@@ -931,9 +958,15 @@ class Stage8Service:
             ),
             now=now,
         )
-        if human_handoff:
+        if human_handoff and next_step_optional in (None, ""):
             next_step_optional = human_handoff["next_step_optional"]
-        written_back_at_optional = inputs.get("written_back_at_optional", now)
+        if human_handoff and next_step_optional not in (None, ""):
+            human_handoff["next_step_optional"] = next_step_optional
+        next_step_optional = str(next_step_optional or inputs.get("next_step_optional") or "WAIT")
+        written_back_at_optional = runtime_state.resolve(
+            "written_back_at_optional",
+            inputs.get("written_back_at_optional", now),
+        )
         touch_state = "CREATED"
         if runtime_state.permission_blocked_reasons or plan_status in ("CANCELLED", "BLOCKED"):
             touch_state = "CANCELLED"
@@ -952,6 +985,17 @@ class Stage8Service:
             requested_gate_ids=["internal_review_release"],
             audit_trail_present=bool(execution_vendor_payload["execution_trace_id_optional"] and written_back_at_optional),
         )
+        touch_writeback_targets = ensure_list(
+            runtime_state.resolve("writeback_targets", inputs.get("writeback_targets"))
+        )
+        touch_writeback_target = runtime_state.resolve(
+            "writeback_target_optional",
+            inputs.get("writeback_target_optional"),
+        )
+        if not touch_writeback_targets and touch_writeback_target not in (None, ""):
+            touch_writeback_targets = [touch_writeback_target]
+        if touch_writeback_target in (None, "") and touch_writeback_targets:
+            touch_writeback_target = touch_writeback_targets[0]
         touch_payload = {
             "touch_record_id": build_id("TOUCH", project_id),
             "opportunity_id": saleable_opportunity.get("opportunity_id"),
@@ -960,18 +1004,25 @@ class Stage8Service:
             "contact_target_id": contact_target.get("contact_target_id"),
             "outreach_plan_id": outreach_plan.get("outreach_plan_id"),
             "touch_at": inputs.get("touch_at", now),
-            "attempt_index": int(runtime_state.resolve("attempt_index", 1)),
+            "attempt_index": int(runtime_state.resolve("attempt_index", inputs.get("attempt_index", 1))),
             "touch_record_state": touch_state,
             "response_status": response_status,
-            "feedback_reason": str(runtime_state.resolve("feedback_reason", response_status)),
+            "feedback_reason": str(
+                runtime_state.resolve("feedback_reason", inputs.get("feedback_reason", response_status))
+            ),
             "next_step_optional": next_step_optional,
-            "stop_reason_optional": stop_reason_optional,
+            "stop_reason_optional": str(stop_reason_optional),
             "touch_channel": ensure_enum(self.store, "channel_family", inputs.get("channel_family")),
             "written_back_at_optional": written_back_at_optional,
             "retry_scheduled_optional": retry_scheduled_optional,
-            "failure_reason_tag_optional": str(runtime_state.resolve("failure_reason_tag_optional", response_status)),
-            "writeback_targets": ensure_list(runtime_state.resolve("writeback_targets", ["saleable_opportunity"])),
-            "writeback_target_optional": str(runtime_state.resolve("writeback_target_optional", "saleable_opportunity")),
+            "failure_reason_tag_optional": str(
+                runtime_state.resolve(
+                    "failure_reason_tag_optional",
+                    inputs.get("failure_reason_tag_optional", response_status),
+                )
+            ),
+            "writeback_targets": touch_writeback_targets,
+            "writeback_target_optional": str(touch_writeback_target),
             "permission_decision_state": runtime_state.permission_decision_state,
             "governance_decision_state": runtime_state.governance_decision_state,
             "semantic_decision_state": runtime_state.semantic_decision_state,
@@ -1076,6 +1127,8 @@ class Stage8Service:
         inputs_out["stop_reason_optional"] = touch_record.get("stop_reason_optional")
         inputs_out["retry_scheduled_optional"] = touch_record.get("retry_scheduled_optional")
         inputs_out["writeback_targets"] = touch_record.get("writeback_targets")
+        inputs_out["writeback_target_optional"] = touch_record.get("writeback_target_optional")
+        inputs_out["failure_reason_tag_optional"] = touch_record.get("failure_reason_tag_optional")
         inputs_out["human_handoff_policy_id_optional"] = human_handoff.get("policy_id") if human_handoff else None
         inputs_out["human_handoff_next_owner_role_optional"] = human_handoff.get("next_owner_role_optional") if human_handoff else None
         inputs_out["human_handoff_sla_hours_optional"] = human_handoff.get("sla_hours_optional") if human_handoff else None
@@ -1083,6 +1136,17 @@ class Stage8Service:
         inputs_out["human_handoff_reason_optional"] = human_handoff.get("reason_optional") if human_handoff else None
         inputs_out["next_touch_due_at_optional"] = runtime_state.resolve("next_touch_due_at_optional")
         inputs_out["retry_count"] = runtime_state.resolve("retry_count", outreach_plan.get("retry_count"))
+        inputs_out["max_retry_count"] = runtime_state.resolve(
+            "max_retry_count",
+            outreach_plan.get("max_retry_count"),
+        )
+        inputs_out["attempt_index"] = runtime_state.resolve(
+            "attempt_index",
+            touch_record.get("attempt_index"),
+        )
+        inputs_out["cadence_profile_id"] = outreach_plan.get("cadence_profile_id")
+        inputs_out["retry_policy_id"] = outreach_plan.get("retry_policy_id")
+        inputs_out["stop_policy_id"] = outreach_plan.get("stop_policy_id")
         inputs_out["stage8_resolution_trace"] = {
             "candidate_resolution": candidate_trace,
             "contact_candidate_collection_id": contact_candidate_collection.get("contact_candidate_collection_id"),

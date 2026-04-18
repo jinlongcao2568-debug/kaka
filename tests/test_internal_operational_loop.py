@@ -6,6 +6,7 @@ import unittest
 from api.routes.stage7 import list_stage7_work_items, refresh_saleable_opportunity, submit_stage7_operator_action
 from api.routes.stage8 import create_touch_record, list_stage8_work_items, submit_stage8_operator_action
 from api.routes.stage9 import create_governance_feedback_event, list_stage9_work_items, submit_stage9_operator_action
+import copy
 from helpers import load_fixture, run_internal_chain_to_stage7
 from shared.pipeline import run_internal_chain
 from storage import reset_default_storage
@@ -118,6 +119,46 @@ class TestInternalOperationalLoop(unittest.TestCase):
         self.assertEqual(approved["action_result"]["action_state"], "action_completed")
         self.assertEqual(approved["persisted_operational_context"]["current_operational_state"], "action_completed")
         self.assertEqual(approved["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "completed")
+
+    def test_stage8_work_item_exposes_persisted_writeback_and_handoff_context(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "run_mode": "APPROVAL_RUN",
+                "approval_state": "APPROVED",
+                "response_status": "CONNECTED",
+                "commercial_urgency_level": "HIGH",
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        created = create_touch_record(stage8)
+        queue = list_stage8_work_items({"opportunity_id": stage8.record("contact_target").get("opportunity_id")})
+
+        governed = created["persisted_operational_context"]["governed_context"]
+        queue_governed = queue["work_items"][0]["governed_context"]
+
+        self.assertEqual(created["operational_context_status"], "persisted")
+        self.assertEqual(governed["feedback_reason"], stage8.record("touch_record").get("feedback_reason"))
+        self.assertEqual(governed["next_step_optional"], stage8.record("touch_record").get("next_step_optional"))
+        self.assertEqual(governed["writeback_targets"], stage8.record("touch_record").get("writeback_targets"))
+        self.assertEqual(
+            governed["writeback_target_optional"],
+            stage8.record("touch_record").get("writeback_target_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_next_owner_role_optional"],
+            stage8.handoff.get("human_handoff_next_owner_role_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_sla_hours_optional"],
+            stage8.handoff.get("human_handoff_sla_hours_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_reason_optional"],
+            stage8.handoff.get("human_handoff_reason_optional"),
+        )
+        self.assertEqual(queue_governed, governed)
 
     def test_stage9_writeback_loop_and_governed_hold(self) -> None:
         stage9 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage9"]

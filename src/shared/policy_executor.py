@@ -298,6 +298,81 @@ def _matches_key_value_condition(condition: str, facts: Mapping[str, Any]) -> bo
     return str(actual) == expected_value.strip()
 
 
+def _coerce_assignment_value(value: str) -> Any:
+    token = value.strip()
+    lowered = token.casefold()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    if re.fullmatch(r"-?\d+", token):
+        return int(token)
+    return token
+
+
+def _parse_assignment_actions(actions: list[str]) -> dict[str, Any]:
+    parsed: dict[str, Any] = {}
+    for action in actions:
+        field_name, separator, raw_value = str(action).partition("=")
+        if not separator:
+            continue
+        parsed[field_name.strip()] = _coerce_assignment_value(raw_value)
+    return parsed
+
+
+def _resolve_condition_operand(token: str, facts: Mapping[str, Any]) -> Any:
+    candidate = token.strip()
+    if candidate in facts:
+        return facts[candidate]
+    return _coerce_assignment_value(candidate)
+
+
+def _matches_stage8_policy_condition(condition: str, facts: Mapping[str, Any]) -> bool:
+    normalized = str(condition).strip()
+    if not normalized:
+        return False
+
+    in_match = re.fullmatch(r"(?P<field>[A-Za-z0-9_]+)\s+in\s+\[(?P<values>[^\]]+)\]", normalized)
+    if in_match:
+        actual = facts.get(in_match.group("field"))
+        allowed = {
+            str(_coerce_assignment_value(token)).upper()
+            for token in in_match.group("values").split(",")
+            if token.strip()
+        }
+        return str(actual).upper() in allowed
+
+    compare_match = re.fullmatch(
+        r"(?P<left>[A-Za-z0-9_]+)\s*(?P<op>>=|<=|>|<)\s*(?P<right>[A-Za-z0-9_]+)",
+        normalized,
+    )
+    if compare_match:
+        left_value = _resolve_condition_operand(compare_match.group("left"), facts)
+        right_value = _resolve_condition_operand(compare_match.group("right"), facts)
+        if not (_is_number(left_value) and _is_number(right_value)):
+            return False
+        left_number = float(left_value)
+        right_number = float(right_value)
+        operator = compare_match.group("op")
+        if operator == ">=":
+            return left_number >= right_number
+        if operator == "<=":
+            return left_number <= right_number
+        if operator == ">":
+            return left_number > right_number
+        return left_number < right_number
+
+    equals_match = re.fullmatch(r"(?P<field>[A-Za-z0-9_]+)=(?P<value>.+)", normalized)
+    if equals_match:
+        actual = facts.get(equals_match.group("field"))
+        expected = _coerce_assignment_value(equals_match.group("value"))
+        if isinstance(expected, bool):
+            return bool(actual) is expected
+        return str(actual).upper() == str(expected).upper()
+
+    return False
+
+
 def _normalize_alias_token(value: Any, *, normalizer: str) -> str | None:
     if value in (None, ""):
         return None
@@ -2452,9 +2527,7 @@ class PolicyExecutor:
 
     def _evaluate_outreach_cadence(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
         catalog = self.load_policy("outreach_cadence")
-        strategy_catalog = self.load_policy("outreach_strategy")
         policy = catalog["policies"][0]
-        strategy_entry = strategy_catalog["entries"][0]
         urgency = context.input("commercial_urgency_level_optional", "NORMAL")
         window_urgency = state.resolve("window_urgency_score", context.input("window_urgency_score", 50))
         profile_id = _select_stage8_cadence_profile_id(urgency, window_urgency)
@@ -2463,15 +2536,6 @@ class PolicyExecutor:
         channel_override = next((item for item in policy["channel_overrides"] if item["channel_family"] == channel_family), {})
         channel_ladder = _select_stage8_channel_ladder(policy, channel_family)
         fallback_sequence = list(channel_ladder.get("fallback_sequence", []))
-        run_mode = context.input("run_mode", "DRY_RUN")
-        strategy_profile = next(
-            (item for item in strategy_entry.get("strategy_profiles", []) if item["run_mode"] == run_mode),
-            {},
-        )
-        requested_delivery_surface = context.input(
-            "requested_delivery_surface",
-            strategy_entry.get("defaultRequestedDeliverySurface", "INTERNAL_OPERATIONS"),
-        )
         next_touch = (_to_dt(context.now) or datetime.utcnow()) + timedelta(hours=profile["first_touch_sla_hours"])
         return self._decision(
             policy_key="outreach_cadence",
@@ -2479,20 +2543,9 @@ class PolicyExecutor:
             policy_id=policy["policy_id"],
             decision_state="REVIEW" if channel_override.get("requires_manual_review") else "ALLOW",
             outputs={
-                "requested_delivery_surface": requested_delivery_surface,
-                "projection_mode": strategy_profile.get("projection_mode", "INTERNAL_GOVERNED_PREVIEW"),
                 "cadence_profile_id": profile_id,
-                "retry_policy_id": str(
-                    policy.get("retry_policy_id")
-                    or self._ref_tail(strategy_entry.get("retryPolicyRef"), "RETRY-001")
-                ),
-                "stop_policy_id": str(
-                    policy.get("stop_policy_id")
-                    or self._ref_tail(strategy_entry.get("stopPolicyRef"), "STOP-001")
-                ),
-                "plan_status": strategy_profile.get("default_plan_status", "DRAFT"),
-                "approval_run_required": bool(strategy_profile.get("approval_run_required", run_mode in ("APPROVAL_RUN", "REAL_RUN"))),
-                "writeback_required": bool(strategy_profile.get("writeback_required", True)),
+                "retry_policy_id": str(policy.get("retry_policy_id", "RETRY-001")),
+                "stop_policy_id": str(policy.get("stop_policy_id", "STOP-001")),
                 "retry_count": int(context.input("retry_count", 0)),
                 "max_retry_count": int(channel_override.get("max_attempts_7d", profile["max_attempts_7d"])),
                 "attempt_index": int(context.input("attempt_index", 1)),
@@ -2516,44 +2569,127 @@ class PolicyExecutor:
             ],
         )
 
+    def _evaluate_feedback_reason(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
+        catalog = self.load_policy("feedback_reason")
+        entry = next(
+            (
+                item
+                for item in catalog.get("entries", [])
+                if int(item.get("stage", 0)) == 8 and str(item.get("objectType")) == "touch_record"
+            ),
+            catalog["entries"][0],
+        )
+        response_status = context.input("response_status", "NO_RESPONSE")
+        mapping = next(
+            (
+                item
+                for item in entry.get("mappings", [])
+                if item["response_status"] == response_status
+            ),
+            None,
+        )
+        written_back_at_optional = context.input(
+            "written_back_at_optional",
+            context.input("now", context.now),
+        )
+        if mapping is None:
+            return self._decision(
+                policy_key="feedback_reason",
+                catalog_id=catalog["catalogId"],
+                policy_id=None,
+                decision_state="FALLBACK",
+                outputs={
+                    "feedback_reason": response_status,
+                    "failure_reason_tag_optional": response_status,
+                    "next_step_optional": context.input("next_step_optional", "WAIT"),
+                    "stop_reason_optional": state.resolve("stop_reason_optional", context.input("stop_reason_optional")),
+                    "writeback_targets": _ensure_list(context.input("writeback_targets", [])),
+                    "writeback_target_optional": context.input("writeback_target_optional"),
+                    "written_back_at_optional": written_back_at_optional,
+                },
+                reasons=["response_status not mapped"],
+                fallback_used=True,
+            )
+
+        writeback_targets = list(mapping.get("writeback_targets", []))
+        return self._decision(
+            policy_key="feedback_reason",
+            catalog_id=catalog["catalogId"],
+            policy_id=response_status,
+            decision_state="ALLOW",
+            outputs={
+                "feedback_reason": mapping["feedback_reason"],
+                "failure_reason_tag_optional": mapping["failure_reason_tag_optional"],
+                "next_step_optional": mapping["next_step_optional"],
+                "stop_reason_optional": mapping.get(
+                    "stop_reason_optional",
+                    state.resolve("stop_reason_optional", context.input("stop_reason_optional")),
+                ),
+                "writeback_targets": writeback_targets,
+                "writeback_target_optional": next(iter(writeback_targets), None),
+                "written_back_at_optional": written_back_at_optional,
+            },
+            reasons=[f"response_status={response_status}"],
+        )
+
     def _evaluate_retry_policy(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
         catalog = self.load_policy("retry_policy")
-        feedback_catalog = self.load_policy("feedback_reason")
         policy = catalog["policies"][0]
         response_status = context.input("response_status", "NO_RESPONSE")
         retry_count = int(state.resolve("retry_count", context.input("retry_count", 0)))
         attempt_index = int(state.resolve("attempt_index", context.input("attempt_index", 1)))
-        rule = next((item for item in policy["retry_rules"] if item["response_status"] == response_status), None)
-        feedback_entry = next(
-            (
-                item
-                for item in feedback_catalog["entries"][0].get("mappings", [])
-                if item["response_status"] == response_status
-            ),
-            {},
+        max_retry_count = int(
+            state.resolve(
+                "max_retry_count",
+                context.input(
+                    "max_retry_count",
+                    policy.get("max_attempts_policy", {}).get("default_max_attempts", 0),
+                ),
+            )
         )
+        rule = next((item for item in policy["retry_rules"] if item["response_status"] == response_status), None)
+        feedback_decision = self._evaluate_feedback_reason(context, state)
+        feedback_outputs = dict(feedback_decision.outputs)
         outputs = {
+            **feedback_outputs,
             "retry_count": retry_count,
+            "max_retry_count": max_retry_count,
             "attempt_index": attempt_index,
             "retry_scheduled_optional": False,
-            "next_step_optional": feedback_entry.get("next_step_optional", "WAIT"),
-            "feedback_reason": feedback_entry.get("feedback_reason", response_status),
-            "failure_reason_tag_optional": feedback_entry.get("failure_reason_tag_optional", response_status),
-            "writeback_targets": list(feedback_entry.get("writeback_targets", ["saleable_opportunity"])),
-            "writeback_target_optional": next(iter(feedback_entry.get("writeback_targets", ["saleable_opportunity"])), "saleable_opportunity"),
+            "next_action": "REVIEW",
+            "backoff_hours_optional": None,
+            "next_touch_due_at_optional": state.resolve(
+                "next_touch_due_at_optional",
+                context.input("next_touch_due_at_optional"),
+            ),
         }
         decision_state = "ALLOW"
         reasons = [f"response_status={response_status}"]
+        fallback_used = feedback_decision.fallback_used
         if rule is None:
             decision_state = "FALLBACK"
+            fallback_used = True
             reasons = ["no retry rule matched"]
         else:
-            outputs["next_step_optional"] = feedback_entry.get("next_step_optional", rule["next_action"])
+            outputs["next_action"] = rule["next_action"]
+            effective_max_retries = int(rule.get("max_retries", max_retry_count or 0))
+            if max_retry_count > 0:
+                effective_max_retries = min(effective_max_retries, max_retry_count)
             if rule["next_action"] == "RETRY":
-                if retry_count < rule["max_retries"]:
+                if retry_count < effective_max_retries:
+                    backoff_steps = list(rule.get("backoff_hours", []))
+                    backoff_index = min(retry_count, len(backoff_steps) - 1) if backoff_steps else -1
+                    backoff_hours = backoff_steps[backoff_index] if backoff_index >= 0 else None
                     outputs["retry_count"] = retry_count + 1
                     outputs["attempt_index"] = attempt_index + 1
                     outputs["retry_scheduled_optional"] = True
+                    outputs["backoff_hours_optional"] = backoff_hours
+                    if backoff_hours is not None:
+                        next_touch = (_to_dt(context.now) or datetime.utcnow()) + timedelta(hours=int(backoff_hours))
+                        outputs["next_touch_due_at_optional"] = next_touch.isoformat(timespec="seconds")
+                    else:
+                        fallback_used = True
+                        reasons.append("backoff_hours_missing")
                 else:
                     decision_state = "REVIEW"
                     reasons.append("retry exhausted")
@@ -2562,8 +2698,6 @@ class PolicyExecutor:
                 for field_name in ("plan_status", "contact_target_status", "opt_out_state", "requires_manual_review"):
                     if field_name in rule:
                         outputs[field_name] = rule[field_name]
-        if feedback_entry.get("stop_reason_optional") and not outputs.get("stop_reason_optional"):
-            outputs["stop_reason_optional"] = feedback_entry["stop_reason_optional"]
         return self._decision(
             policy_key="retry_policy",
             catalog_id=catalog["catalogId"],
@@ -2571,7 +2705,7 @@ class PolicyExecutor:
             decision_state=decision_state,
             outputs=outputs,
             reasons=reasons,
-            fallback_used=(decision_state == "FALLBACK"),
+            fallback_used=(decision_state == "FALLBACK") or fallback_used,
         )
 
     def _evaluate_touch_stop(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
@@ -2588,7 +2722,10 @@ class PolicyExecutor:
                 state.resolve("candidate_compliance_decision", "REVIEW_REQUIRED"),
             )
         )
-        stop_semantics = str(state.resolve("stop_semantics", "NONE"))
+        stop_reason_optional = state.resolve(
+            "stop_reason_optional",
+            context.input("stop_reason_optional", "NOT_STOPPED"),
+        )
 
         outputs = {
             "contact_target_status": candidate_status,
@@ -2598,67 +2735,67 @@ class PolicyExecutor:
             ),
             "requires_manual_review": bool(candidate_status == "REVIEW_REQUIRED" or execution_decision in ("REVIEW_REQUIRED", "BLOCKED")),
             "auto_contact_allowed": bool(candidate_status == "ELIGIBLE" and execution_decision == "ALLOW_PREVIEW"),
-            "stop_reason_optional": str(state.resolve("stop_reason_optional", "NOT_STOPPED")),
+            "stop_reason_optional": str(stop_reason_optional or "NOT_STOPPED"),
+            "next_touch_due_at_optional": state.resolve(
+                "next_touch_due_at_optional",
+                context.input("next_touch_due_at_optional"),
+            ),
+        }
+        facts = {
+            "contact_legal_basis": legal_basis,
+            "opt_out_state": opt_out_state,
+            "contact_validity_status": context.input("contact_validity_status", state.resolve("contact_validity_status")),
+            "channel_policy_status": context.input("channel_policy_status", state.resolve("channel_policy_status")),
+            "frequency_policy_state": context.input(
+                "frequency_policy_state",
+                state.resolve("frequency_policy_state"),
+            ),
+            "quiet_hours_policy_state": context.input(
+                "quiet_hours_policy_state",
+                state.resolve("quiet_hours_policy_state"),
+            ),
+            "contact_conflict_flag": bool(
+                state.resolve("contact_conflict_flag", context.input("contact_conflict_flag", False))
+            ),
+            "execution_compliance_decision": execution_decision,
+            "retry_count": retry_count,
+            "max_retry_count": max_retry_count,
         }
         decision_state = "ALLOW"
-        if legal_basis == "BLOCKED" or opt_out_state in ("OPTED_OUT", "BLOCKED") or candidate_status in ("BLOCKED", "INVALID") or stop_semantics == "PERMANENT_BLOCK":
-            outputs.update(
-                {
-                    "contact_target_status": candidate_status if candidate_status == "INVALID" else "BLOCKED",
-                    "plan_status": "CANCELLED",
-                    "auto_contact_allowed": False,
-                    "stop_reason_optional": "permanent_block",
-                }
-            )
-            decision_state = "BLOCK"
-        elif stop_semantics == "EXECUTION_BLOCKED" or execution_decision == "BLOCKED":
-            outputs.update(
-                {
-                    "plan_status": "BLOCKED",
-                    "requires_manual_review": True,
-                    "auto_contact_allowed": False,
-                    "stop_reason_optional": "execution_blocked",
-                }
-            )
-            decision_state = "REVIEW"
-        elif stop_semantics == "QUIET_HOURS_SCHEDULE" or execution_decision == "SCHEDULED":
-            outputs.update(
-                {
-                    "plan_status": "SCHEDULED",
-                    "requires_manual_review": False,
-                    "auto_contact_allowed": False,
-                    "stop_reason_optional": "quiet_hours_block",
-                }
-            )
-            decision_state = "REVIEW"
-        elif candidate_status == "REVIEW_REQUIRED" or execution_decision == "REVIEW_REQUIRED":
-            outputs.update(
-                {
-                    "plan_status": "REVIEW_REQUIRED",
-                    "requires_manual_review": True,
-                    "auto_contact_allowed": False,
-                    "stop_reason_optional": "review_required",
-                }
-            )
-            decision_state = "REVIEW"
-        elif max_retry_count > 0 and retry_count >= max_retry_count:
-            outputs.update(
-                {
-                    "contact_target_status": "REVIEW_REQUIRED",
-                    "plan_status": "CANCELLED",
-                    "requires_manual_review": True,
-                    "auto_contact_allowed": False,
-                    "stop_reason_optional": "retry_exhausted",
-                }
-            )
-            decision_state = "REVIEW"
+        matched_rule: dict[str, Any] | None = None
+        matched_reason = "stop conditions clear"
+        for section_name, section_rules, section_state in (
+            ("permanent_block_conditions", policy.get("permanent_block_conditions", []), "BLOCK"),
+            ("review_conditions", policy.get("review_conditions", []), "REVIEW"),
+        ):
+            for rule in section_rules:
+                if _matches_stage8_policy_condition(str(rule.get("condition", "")), facts):
+                    matched_rule = dict(rule)
+                    matched_reason = str(rule.get("reason", section_name))
+                    decision_state = section_state
+                    break
+            if matched_rule is not None:
+                break
+
+        if matched_rule is None:
+            retry_rule = dict(policy.get("stop_after_retry", {}))
+            if retry_rule and _matches_stage8_policy_condition(str(retry_rule.get("condition", "")), facts):
+                matched_rule = retry_rule
+                matched_reason = str(retry_rule.get("reason", "retry_exhausted"))
+                decision_state = "REVIEW"
+
+        if matched_rule is not None:
+            outputs.update(_parse_assignment_actions(matched_rule.get("actions", [])))
+            outputs["auto_contact_allowed"] = False
+            if outputs.get("stop_reason_optional") in (None, "", "NOT_STOPPED"):
+                outputs["stop_reason_optional"] = matched_reason
         return self._decision(
             policy_key="touch_stop",
             catalog_id=catalog["catalogId"],
             policy_id=policy["policy_id"],
             decision_state=decision_state,
             outputs=outputs,
-            reasons=[outputs["stop_reason_optional"] if outputs["stop_reason_optional"] != "NOT_STOPPED" else "stop conditions clear"],
+            reasons=[matched_reason],
         )
 
     def _evaluate_payment_exception(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:

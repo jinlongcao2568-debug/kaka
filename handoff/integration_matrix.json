@@ -166,12 +166,26 @@
       "consumerStage": 9,
       "contractId": "H-08-STAGE8-TO-STAGE9",
       "criticalObjects": [
-        "touch_record",
-        "saleable_opportunity"
+        "saleable_opportunity",
+        "touch_record"
       ],
       "consumerMustNotRecompute": [
+        "opportunity_id",
+        "touch_record_id",
         "response_status",
-        "opportunity_grade"
+        "saleability_status",
+        "crm_owner_state",
+        "plan_status",
+        "touch_record_state",
+        "feedback_reason",
+        "written_back_at_optional",
+        "governance_decision_state",
+        "permission_decision_state",
+        "semantic_decision_state",
+        "human_handoff_next_owner_role_optional",
+        "human_handoff_sla_hours_optional",
+        "human_handoff_sla_due_at_optional",
+        "human_handoff_reason_optional"
       ],
       "readinessGate": "touch_trace_ready",
       "failureDisposition": "BLOCK"

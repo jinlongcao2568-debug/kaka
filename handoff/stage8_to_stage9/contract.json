@@ -37,7 +37,90 @@
     "written_back_at_optional",
     "governance_decision_state",
     "permission_decision_state",
-    "semantic_decision_state"
+    "semantic_decision_state",
+    "human_handoff_next_owner_role_optional",
+    "human_handoff_sla_hours_optional",
+    "human_handoff_sla_due_at_optional",
+    "human_handoff_reason_optional"
+  ],
+  "authoritative_payload": {
+    "minimum_required_fields": [
+      "opportunity_id",
+      "touch_record_id",
+      "response_status",
+      "saleability_status",
+      "crm_owner_state"
+    ],
+    "optional_preview_writeback_fields": [
+      "plan_status",
+      "touch_record_state",
+      "feedback_reason",
+      "written_back_at_optional",
+      "governance_decision_state",
+      "permission_decision_state",
+      "semantic_decision_state"
+    ],
+    "optional_human_handoff_fields": [
+      "human_handoff_next_owner_role_optional",
+      "human_handoff_sla_hours_optional",
+      "human_handoff_sla_due_at_optional",
+      "human_handoff_reason_optional"
+    ],
+    "conditional_required_when_response_status_in": {
+      "CONNECTED": [
+        "human_handoff_next_owner_role_optional",
+        "human_handoff_sla_hours_optional",
+        "human_handoff_sla_due_at_optional",
+        "human_handoff_reason_optional"
+      ],
+      "ORG_ROUTED": [
+        "human_handoff_next_owner_role_optional",
+        "human_handoff_sla_hours_optional",
+        "human_handoff_sla_due_at_optional",
+        "human_handoff_reason_optional"
+      ]
+    },
+    "stage9_forbidden_fallback_sources": [
+      "stage8_internal_scattered_fields",
+      "touch_record.governed_metadata.human_handoff_without_h08_projection",
+      "outreach_plan_raw_preview_state",
+      "service_local_owner_or_sla_defaults"
+    ]
+  },
+  "consumer_runtime_required_fields": [
+    "opportunity_id",
+    "touch_record_id",
+    "response_status",
+    "saleability_status",
+    "crm_owner_state"
+  ],
+  "producer_obligations": [
+    "Stage8 must project the H-08 minimum authoritative payload from saleable_opportunity and touch_record without substituting Stage8-local defaults.",
+    "Stage8 may project preview/writeback and human handoff optional fields only from outreach_plan/touch_record governed state when they are formally available.",
+    "Stage8 must keep human handoff next owner/SLA/reason machine-readable for CONNECTED/ORG_ROUTED and must not reduce them to free-text next-step only."
+  ],
+  "consumer_obligations": [
+    "Stage9 must treat opportunity_id, touch_record_id, response_status, saleability_status, and crm_owner_state as the only H-08 minimum authoritative payload and hard-fail when any are missing.",
+    "Stage9 may consume preview/writeback and human handoff optional fields only from H-08 when present and must not backfill them from Stage8 internal scattered fields.",
+    "Stage9 must keep H-08 human handoff next owner/SLA/reason as governed internal follow-up metadata only; they do not unlock live execution or define Stage9 delivery SLA."
+  ],
+  "consumer_must_not_recompute_fields": [
+    "opportunity_id",
+    "touch_record_id",
+    "response_status",
+    "saleability_status",
+    "crm_owner_state",
+    "plan_status",
+    "touch_record_state",
+    "feedback_reason",
+    "written_back_at_optional",
+    "governance_decision_state",
+    "permission_decision_state",
+    "semantic_decision_state",
+    "human_handoff_next_owner_role_optional",
+    "human_handoff_sla_hours_optional",
+    "human_handoff_sla_due_at_optional",
+    "human_handoff_reason_optional"
   ],
   "blocking_conditions": [
     "missing_touch_record",
@@ -47,13 +130,19 @@
     "missing_response_status",
     "missing_saleability_status",
     "missing_crm_owner_state",
+    "missing_human_handoff_owner_when_required",
+    "missing_human_handoff_sla_when_required",
+    "missing_human_handoff_due_at_when_required",
+    "missing_human_handoff_reason_when_required",
     "delivery_release_path_blocked"
   ],
   "success_criteria": [
     "order_flow_recordable",
     "negative_outcome_recordable",
     "governance_feedback_persistable",
-    "optional_preview_writeback_fields_consumed_when_present"
+    "optional_preview_writeback_fields_consumed_when_present",
+    "human_handoff_fields_projected_when_required",
+    "stage9_authoritative_payload_boundary_declared_without_stage8_scattered_field_fallback"
   ],
   "priority": "P1",
   "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-08-STAGE8-TO-STAGE9"

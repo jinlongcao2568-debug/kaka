@@ -40,6 +40,11 @@ def _select_channel_ladder(policy: dict, channel_family: str) -> dict:
     return next(item for item in policy["channel_ladders"] if item["entry_channel_family"] == channel_family)
 
 
+def _feedback_mapping(response_status: str) -> dict:
+    entry = load_repo_json("contracts/sales/feedback_reason_catalog.json")["entries"][0]
+    return next(item for item in entry["mappings"] if item["response_status"] == response_status)
+
+
 class TestStage8ResolutionClosure(unittest.TestCase):
     @staticmethod
     def _policy_decisions(stage8_bundle) -> dict[str, dict]:
@@ -768,6 +773,40 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         )
         self.assertEqual(cadence_outputs.get("ladder_sequence_mode"), expected_ladder["sequence_mode"])
         self.assertFalse(cadence_outputs.get("live_execution_enabled"))
+
+    def test_stage8_retry_trace_projects_feedback_writeback_from_single_contract(self) -> None:
+        feedback = _feedback_mapping("WRONG_ROLE")
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"response_status": "WRONG_ROLE"})
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        trace = self._policy_decisions(stage8)
+        retry_outputs = trace["retry_policy"]["outputs"]
+        touch_record = stage8.record("touch_record")
+
+        self.assertEqual(retry_outputs.get("next_action"), "RESELECT_CONTACT")
+        self.assertEqual(retry_outputs.get("feedback_reason"), feedback["feedback_reason"])
+        self.assertEqual(retry_outputs.get("next_step_optional"), feedback["next_step_optional"])
+        self.assertEqual(
+            retry_outputs.get("failure_reason_tag_optional"),
+            feedback["failure_reason_tag_optional"],
+        )
+        self.assertEqual(
+            retry_outputs.get("stop_reason_optional"),
+            feedback["stop_reason_optional"],
+        )
+        self.assertEqual(retry_outputs.get("writeback_targets"), feedback["writeback_targets"])
+        self.assertEqual(
+            retry_outputs.get("writeback_target_optional"),
+            feedback["writeback_targets"][0],
+        )
+        self.assertEqual(
+            retry_outputs.get("written_back_at_optional"),
+            touch_record.get("written_back_at_optional"),
+        )
+        self.assertEqual(touch_record.get("feedback_reason"), feedback["feedback_reason"])
+        self.assertEqual(touch_record.get("next_step_optional"), feedback["next_step_optional"])
+        self.assertEqual(touch_record.get("writeback_targets"), feedback["writeback_targets"])
 
 
 if __name__ == "__main__":
