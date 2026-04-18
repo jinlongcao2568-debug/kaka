@@ -1,12 +1,20 @@
 {
   "catalog_id": "platform-level-registry",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "DRAFT",
   "source_documents": [
     "docs/专题_来源覆盖与采集路由规范.md",
     "docs/D2_正式对象契约与字段字典.md",
     "docs/D11_测试验收与金标回归清单.md"
   ],
+  "baseline_scope": "representative_rollout_backlog_with_precedence",
+  "scope_model": {
+    "mode": "platform_level_authoritative_projection",
+    "notes": [
+      "platform level registry 只声明 representative baseline projection，不得被误写成全国全量来源承诺。",
+      "platform_level -> region_scope / coverage_tier / default_route 的 baseline 只服务 Stage1-2 authoritative baseline 与 regression。"
+    ]
+  },
   "entries": [
     {
       "platform_level": "NATIONAL",
@@ -115,5 +123,26 @@
       ],
       "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
     }
-  ]
+  ],
+  "canonical_authority": {
+    "producer_stage": "governance_contract",
+    "runtime_consumer_stages": [
+      "stage1_tasking",
+      "stage2_ingestion"
+    ],
+    "authority_scope": "platform_level_region_coverage_route_projection",
+    "canonical_fields": [
+      "platform_level",
+      "default_region_scope",
+      "default_coverage_tier",
+      "baseline_registry_refs",
+      "supported_source_families",
+      "default_routes",
+      "authoritative_baseline_state"
+    ],
+    "adapter_ready": true,
+    "adapter_contract_state": "RESERVED_NOT_LIVE",
+    "live_external_source_enabled": false,
+    "external_live_enablement_gate": "BLOCKED_BY_DEFAULT"
+  }
 }

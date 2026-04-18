@@ -82,3 +82,5 @@ notes:
   - any task exceeding limits must be split before execution
   - high-risk domains must be isolated in their own batch
   - task packet cannot be replaced by conversational summary; control/current_task.yaml is the formal machine-readable packet source
+  - baseline_dirty_paths is optional but recommended whenever the workspace already contains accepted tracked dirty paths from prior packets
+  - generated Python cache artifacts under __pycache__ and .pytest_cache are not treated as business-scope actual changed paths by readiness validation

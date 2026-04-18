@@ -91,6 +91,19 @@ function Normalize-Path {
     return ($Path -replace '\\', '/').Trim()
 }
 
+function Test-IgnoredGeneratedPath {
+    param([string]$Path)
+
+    $normalized = Normalize-Path $Path
+    if ($normalized -match '(^|/)\.pytest_cache(/|$)') {
+        return $true
+    }
+    if ($normalized -match '(^|/)__pycache__/.*\.(pyc|pyo)$') {
+        return $true
+    }
+    return $false
+}
+
 function Test-PatternMatch {
     param(
         [string]$Path,
@@ -132,7 +145,9 @@ function Get-ActualChangedPaths {
             return @()
         }
 
-        $porcelain = & git status --porcelain=v1 --untracked-files=no
+        # Force raw UTF-8-ish path emission so PowerShell does not have to consume git's
+        # quoted octal escapes for non-ASCII filenames.
+        $porcelain = & git -c core.quotepath=false status --porcelain=v1 --untracked-files=no
         if ($LASTEXITCODE -ne 0 -or -not $porcelain) {
             return @()
         }
@@ -372,6 +387,7 @@ if ($taskPacket -and $reviewGateMatrix -and @($classRanks.Keys).Count -gt 0) {
     }
 
     $detectedClassification = Classify-Paths -Paths $declaredPaths -ReviewMatrix $reviewGateMatrix
+    $baselineDirtyPaths = @($taskPacket.baseline_dirty_paths | ForEach-Object { Normalize-Path ([string]$_) })
     $declaredClass = [string]$taskPacket.change_class
     if (-not $classRanks.ContainsKey($declaredClass)) {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'DECLARED_CHANGE_CLASS_INVALID' -Message "Declared change_class $declaredClass is not defined in review_gate_matrix.yaml." -Path 'control/current_task.yaml'
@@ -415,6 +431,13 @@ if ($taskPacket -and $reviewGateMatrix -and @($classRanks.Keys).Count -gt 0) {
     $actualChangedPaths = Get-ActualChangedPaths -Root $root
     if (@($actualChangedPaths).Count -gt 0) {
         foreach ($actualPath in $actualChangedPaths) {
+            $normalizedActualPath = Normalize-Path $actualPath
+            if ($baselineDirtyPaths -contains $normalizedActualPath) {
+                continue
+            }
+            if (Test-IgnoredGeneratedPath -Path $normalizedActualPath) {
+                continue
+            }
             if (-not (Test-PatternMatch -Path $actualPath -Patterns @($taskPacket.allowed_modification_paths))) {
                 Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'ACTUAL_PATH_NOT_ALLOWED' -Message "Actual changed path $actualPath is outside allowed_modification_paths." -Path $actualPath
             }

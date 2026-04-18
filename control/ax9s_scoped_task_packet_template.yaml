@@ -13,6 +13,7 @@ change_class: MANDATORY_HUMAN_REVIEW
 change_domains:
   - automation_control_core
 declared_changed_paths: []
+baseline_dirty_paths: []
 allowed_modification_paths: []
 forbidden_modification_paths: []
 impacted_assets:

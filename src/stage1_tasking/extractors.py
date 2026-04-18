@@ -37,6 +37,8 @@ class Stage1Extraction:
     identity_resolution_rule_id: str
     clock_resolution_rule_id: str
     clock_precedence_rule_id: str
+    current_action_start_at_optional: str | None
+    current_action_deadline_at_optional: str | None
     baseline_collection_state: str
     rollout_enabled: bool
     backlog_reason_optional: str | None
@@ -54,7 +56,6 @@ def _year_bounds(now: str) -> tuple[str, str]:
 
 def _resolve_fallback_route(
     *,
-    payload: Mapping[str, Any],
     route_policy: Mapping[str, Any],
     source_entry: Mapping[str, Any],
     default_route: str,
@@ -62,7 +63,6 @@ def _resolve_fallback_route(
 ) -> tuple[str, list[str]]:
     fallback_reasons: list[str] = []
     candidates = [
-        payload.get("fallback_route"),
         source_entry.get("fallback_route"),
         *list(route_policy.get("route_fallback_order", [])),
     ]
@@ -71,8 +71,7 @@ def _resolve_fallback_route(
             continue
         resolved = ensure_enum_or_fallback(store, "route_type", str(candidate), fallback=default_route)
         if resolved != default_route:
-            if payload.get("fallback_route") is None:
-                fallback_reasons.append("fallback_route_from_registry_or_policy")
+            fallback_reasons.append("fallback_route_from_registry_or_policy")
             return resolved, fallback_reasons
     fallback_reasons.append("fallback_route_fell_back_to_default_route")
     return default_route, fallback_reasons
@@ -110,19 +109,23 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
 
     mismatch_reasons: list[str] = []
     declared_default_route = payload.get("default_route")
-    registry_default_route = str(source_entry.get("default_route", "")) or str(route_policy.get("default_route", ""))
-    policy_default_route = str(route_policy.get("default_route", "")) or registry_default_route
-    default_route = ensure_enum_or_fallback(
+    registry_default_route = ensure_enum_or_fallback(
         store,
         "route_type",
-        declared_default_route,
-        fallback=registry_default_route or policy_default_route,
+        str(source_entry.get("default_route", "")) or None,
+        fallback=str(route_policy.get("default_route", "")),
     )
-    if declared_default_route and declared_default_route not in {registry_default_route, policy_default_route}:
+    policy_default_route = ensure_enum_or_fallback(
+        store,
+        "route_type",
+        str(route_policy.get("default_route", "")) or None,
+        fallback=registry_default_route,
+    )
+    default_route = registry_default_route or policy_default_route
+    if declared_default_route and declared_default_route != default_route:
         mismatch_reasons.append("default_route_mismatch_requires_review")
 
     fallback_route, fallback_trace = _resolve_fallback_route(
-        payload=payload,
         route_policy=route_policy,
         source_entry=source_entry,
         default_route=default_route,
@@ -155,6 +158,12 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
         source_entry.get("clock_precedence_rule_id")
         or route_policy.get("clock_chain_relation", {}).get("clock_precedence_rule_id")
         or "CLOCK-PREC-DEFAULT"
+    )
+    current_action_start_raw = payload.get("current_action_start_at_optional")
+    current_action_deadline_raw = payload.get("current_action_deadline_at_optional")
+    current_action_start_at_optional = str(current_action_start_raw) if current_action_start_raw is not None else None
+    current_action_deadline_at_optional = (
+        str(current_action_deadline_raw) if current_action_deadline_raw is not None else None
     )
 
     requires_manual_review = (
@@ -189,6 +198,8 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
         identity_resolution_rule_id=str(payload.get("identity_resolution_rule_id", "ID-DEFAULT")),
         clock_resolution_rule_id=clock_resolution_rule_id,
         clock_precedence_rule_id=clock_precedence_rule_id,
+        current_action_start_at_optional=current_action_start_at_optional,
+        current_action_deadline_at_optional=current_action_deadline_at_optional,
         baseline_collection_state=baseline_collection_state,
         rollout_enabled=rollout_enabled,
         backlog_reason_optional=backlog_reason_optional,

@@ -34,7 +34,11 @@ class TestStage12Extractors(unittest.TestCase):
         backlog_ids = set(source_registry["rollout_scope"]["backlog_registry_refs"])
         source_authority = source_registry["canonical_authority"]
         family_authority = source_family_registry["canonical_authority"]
+        platform_authority = platform_level_registry["canonical_authority"]
 
+        self.assertEqual(source_registry["baseline_scope"], "representative_rollout_backlog_with_precedence")
+        self.assertEqual(source_family_registry["baseline_scope"], "representative_rollout_backlog_with_precedence")
+        self.assertEqual(platform_level_registry["baseline_scope"], "representative_rollout_backlog_with_precedence")
         self.assertEqual(source_authority["producer_stage"], "stage1_tasking")
         self.assertEqual(source_authority["consumer_stages"], ["stage2_ingestion"])
         self.assertEqual(source_authority["producer_interface"], "stage1_source_route_extractor")
@@ -55,6 +59,21 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("stage1_tasking", family_authority["runtime_consumer_stages"])
         self.assertEqual(family_authority["adapter_contract_state"], "RESERVED_NOT_LIVE")
         self.assertFalse(family_authority["live_external_source_enabled"])
+
+        self.assertEqual(platform_authority["producer_stage"], "governance_contract")
+        self.assertIn("stage1_tasking", platform_authority["runtime_consumer_stages"])
+        self.assertEqual(platform_authority["adapter_contract_state"], "RESERVED_NOT_LIVE")
+        self.assertFalse(platform_authority["live_external_source_enabled"])
+        for field_name in (
+            "platform_level",
+            "default_region_scope",
+            "default_coverage_tier",
+            "baseline_registry_refs",
+            "supported_source_families",
+            "default_routes",
+            "authoritative_baseline_state",
+        ):
+            self.assertIn(field_name, platform_authority["canonical_fields"])
 
         self.assertGreaterEqual(len(source_entries), 9)
         self.assertEqual(
@@ -121,9 +140,14 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(family_rollout_ids, rollout_ids)
         self.assertEqual(family_backlog_ids, backlog_ids)
 
+        platform_registry_ids: set[str] = set()
         for entry in platform_level_registry["entries"]:
             for registry_id in entry["baseline_registry_refs"]:
                 self.assertIn(registry_id, source_index)
+                self.assertEqual(source_index[registry_id]["platform_level"], entry["platform_level"])
+                platform_registry_ids.add(registry_id)
+
+        self.assertEqual(platform_registry_ids, set(source_index))
 
     def test_stage12_route_policy_baseline_covers_major_routes(self) -> None:
         route_catalog = load_contract("contracts/governance/route_policy_catalog.json")
@@ -205,6 +229,57 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(extraction.default_route, "LIST_TO_DETAIL")
         self.assertEqual(extraction.fallback_route, "DETAIL_DIRECT")
 
+    def test_stage1_h01_authority_fields_override_conflicting_raw_payload(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "source_registry_id": "SRC-REG-PROC-CITY-PDF",
+                "route_policy_id": "ROUTE-PROC-ATTACHMENT-001",
+                "default_route": "DETAIL_DIRECT",
+                "fallback_route": "SEMI_MANUAL",
+                "clock_precedence_rule_id": "CLOCK-PROC-ATTACHMENT-001",
+                "current_action_start_at_optional": "2026-04-01T00:00:00Z",
+                "current_action_deadline_at_optional": "2026-04-12T23:59:59Z",
+            }
+        )
+
+        stage1 = Stage1Service().run(payload)
+
+        self.assertEqual(stage1.handoff.get("source_registry_id"), "SRC-REG-PROC-NATIONAL-HTML")
+        self.assertEqual(stage1.handoff.get("route_policy_id"), "ROUTE-PROC-NOTICE-001")
+        self.assertEqual(stage1.handoff.get("default_route"), "LIST_TO_DETAIL")
+        self.assertEqual(stage1.handoff.get("fallback_route"), "DETAIL_DIRECT")
+        self.assertTrue(stage1.handoff.get("rollout_enabled"))
+        self.assertEqual(stage1.handoff.get("clock_precedence_rule_id"), "CLOCK-PROC-NOTICE-001")
+        self.assertEqual(stage1.inputs.get("source_registry_id"), "SRC-REG-PROC-NATIONAL-HTML")
+        self.assertEqual(stage1.inputs.get("route_policy_id"), "ROUTE-PROC-NOTICE-001")
+        self.assertEqual(stage1.inputs.get("default_route"), "LIST_TO_DETAIL")
+        self.assertEqual(stage1.inputs.get("fallback_route"), "DETAIL_DIRECT")
+        self.assertEqual(stage1.inputs.get("clock_precedence_rule_id"), "CLOCK-PROC-NOTICE-001")
+        self.assertIn(
+            "default_route_mismatch_requires_review",
+            stage1.inputs["stage12_extractor_trace"]["stage1"]["mismatch_reasons"],
+        )
+
+    def test_stage1_missing_deadline_fields_stay_unset_without_synthetic_fill(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "time_range_from": "2026-04-01",
+                "time_range_until": "2026-04-12",
+            }
+        )
+
+        extraction = extract_stage1(payload, Stage1Service().store, now=payload["now"])
+        stage1 = Stage1Service().run(payload)
+
+        self.assertFalse(extraction.requires_manual_review)
+        self.assertIsNone(extraction.current_action_start_at_optional)
+        self.assertIsNone(extraction.current_action_deadline_at_optional)
+        self.assertFalse(stage1.record("execution_context").get("requires_manual_review"))
+        self.assertNotIn("current_action_start_at_optional", stage1.handoff)
+        self.assertNotIn("current_action_deadline_at_optional", stage1.handoff)
+
     def test_stage1_rollout_scope_marks_backlog_entry_for_review(self) -> None:
         payload = load_fixture("internal_chain_happy.json")
         payload.update(
@@ -254,6 +329,14 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(stage1.inputs.get("baseline_collection_state"), "ELIGIBLE")
         self.assertTrue(stage1.inputs.get("rollout_enabled"))
         self.assertEqual(stage1.inputs.get("clock_precedence_rule_id"), "CLOCK-PROC-NOTICE-001")
+        self.assertEqual(
+            stage1.inputs.get("current_action_start_at_optional"),
+            "2026-04-01T00:00:00Z",
+        )
+        self.assertEqual(
+            stage1.inputs.get("current_action_deadline_at_optional"),
+            "2026-04-12T23:59:59Z",
+        )
 
     def test_stage2_consumes_h01_authority_instead_of_raw_input_override(self) -> None:
         payload = load_fixture("internal_chain_happy.json")

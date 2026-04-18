@@ -133,10 +133,10 @@ class Stage1Service:
             "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
             "requires_manual_review": requires_manual_review,
         }
-        if payload.get("current_action_start_at_optional"):
-            handoff["current_action_start_at_optional"] = payload["current_action_start_at_optional"]
-        if payload.get("current_action_deadline_at_optional"):
-            handoff["current_action_deadline_at_optional"] = payload["current_action_deadline_at_optional"]
+        if extracted.current_action_start_at_optional:
+            handoff["current_action_start_at_optional"] = extracted.current_action_start_at_optional
+        if extracted.current_action_deadline_at_optional:
+            handoff["current_action_deadline_at_optional"] = extracted.current_action_deadline_at_optional
 
         inputs_out = dict(payload)
         inputs_out.update(
@@ -153,6 +153,8 @@ class Stage1Service:
                 "backlog_reason_optional": extracted.backlog_reason_optional,
                 "clock_resolution_rule_id": extracted.clock_resolution_rule_id,
                 "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
+                "current_action_start_at_optional": extracted.current_action_start_at_optional,
+                "current_action_deadline_at_optional": extracted.current_action_deadline_at_optional,
                 "stage12_extractor_trace": {
                     "stage1": {
                         "fallback_reasons": extracted.fallback_reasons,
