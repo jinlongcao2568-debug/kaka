@@ -1,11 +1,57 @@
 {
-  "catalogVersion": "1.2.0",
+  "catalogVersion": "1.3.0",
   "catalogId": "outreach_cadence_catalog",
   "ownerDocs": [
+    "D2",
     "D3",
     "D9",
     "D11"
   ],
+  "authorityContract": {
+    "rule_code": "OUT-007",
+    "authoritative_policy_id": "OUTREACH-CADENCE-001",
+    "sole_machine_readable_authority": true,
+    "authoritative_owner_stage": "stage8_outreach",
+    "authoritative_persisted_outputs": [
+      "outreach_plan.cadence_profile_id",
+      "outreach_plan.retry_policy_id",
+      "outreach_plan.stop_policy_id",
+      "outreach_plan.next_touch_due_at_optional",
+      "outreach_plan.max_retry_count"
+    ],
+    "authoritative_trace_outputs": [
+      "outreach_cadence.channel_ladder_id",
+      "outreach_cadence.ladder_sequence",
+      "outreach_cadence.channel_fallback_sequence",
+      "outreach_cadence.fallback_channel_family_optional"
+    ],
+    "authority_scope": {
+      "profile_selection_rules_ref": "#policies/0/profile_selection_rules",
+      "cadence_profiles_ref": "#policies/0/cadence_profiles",
+      "channel_overrides_ref": "#policies/0/channel_overrides",
+      "channel_ladders_ref": "#policies/0/channel_ladders",
+      "quiet_hours_defaults_ref": "#policies/0/quiet_hours_defaults",
+      "schedule_rules_ref": "#policies/0/schedule_rules"
+    },
+    "fallback_review_path": {
+      "retry_policy_ref": "contracts/sales/retry_policy_catalog.json#authorityContract",
+      "stop_policy_ref": "contracts/sales/touch_stop_condition_catalog.json#authorityContract",
+      "upstream_compliance_ref": "contracts/sales/contact_compliance_matrix.json#precedence_order",
+      "review_when": [
+        "frequency_policy_state=BLOCK",
+        "approval missing for APPROVAL_RUN/REAL_RUN",
+        "opt_out_state!=ACTIVE"
+      ],
+      "schedule_only_when": [
+        "quiet_hours_policy_state=BLOCK"
+      ],
+      "forbidden_authoritative_substitutes": [
+        "service-local cadence profile defaults",
+        "hardcoded channel ladder / fallback sequence",
+        "tests/scripts-local retry/stop id literals"
+      ]
+    }
+  },
   "policies": [
     {
       "policy_id": "OUTREACH-CADENCE-001",
@@ -369,6 +415,7 @@
     "Cadence is internal-only and must not be treated as external delivery capability.",
     "Scheduling must respect quiet hours and opt-out before any outreach execution.",
     "Cadence 只负责 execution scheduling，不得把 candidate_compliance_decision 从 ALLOW_PREVIEW 误降级成 BLOCKED。",
-    "channel_ladders 只定义 governed preview 下的渠道梯度与 fallback 顺序，不表示自动切换成真实多渠道 live outreach。"
+    "channel_ladders 只定义 governed preview 下的渠道梯度与 fallback 顺序，不表示自动切换成真实多渠道 live outreach。",
+    "OUT-007 是 cadence_profile_id / retry_policy_id / stop_policy_id / channel ladder / fallback sequence 的唯一 machine-readable authority。"
   ]
 }

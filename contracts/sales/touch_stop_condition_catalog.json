@@ -1,10 +1,41 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "catalogId": "touch_stop_condition_catalog",
   "ownerDocs": [
+    "D2",
+    "D3",
     "D9",
     "D11"
   ],
+  "authorityContract": {
+    "rule_code": "OUT-009",
+    "authoritative_policy_id": "STOP-001",
+    "sole_machine_readable_authority": true,
+    "authoritative_owner_stage": "stage8_outreach",
+    "authoritative_persisted_outputs": [
+      "contact_target.contact_target_status",
+      "outreach_plan.plan_status",
+      "contact_target.requires_manual_review",
+      "contact_target.auto_contact_allowed",
+      "outreach_plan.next_touch_due_at_optional",
+      "outreach_plan.stop_reason_optional"
+    ],
+    "authority_scope": {
+      "permanent_block_conditions_ref": "#policies/0/permanent_block_conditions",
+      "review_conditions_ref": "#policies/0/review_conditions",
+      "stop_after_retry_ref": "#policies/0/stop_after_retry"
+    },
+    "fallback_review_path": {
+      "upstream_compliance_ref": "contracts/sales/contact_compliance_matrix.json#precedence_order",
+      "schedule_only_reason": "quiet_hours_policy_state=BLOCK",
+      "retry_exhausted_reason_ref": "#policies/0/stop_after_retry",
+      "forbidden_authoritative_substitutes": [
+        "service-local cancel/block if-else branches",
+        "treating contact_compliance_matrix as persisted stop action owner",
+        "turning quiet-hours schedule into permanent stop"
+      ]
+    }
+  },
   "policies": [
     {
       "policy_id": "STOP-001",
@@ -147,6 +178,7 @@
   "notes": [
     "Stop conditions must be enforced before any APPROVAL_RUN or REAL_RUN execution.",
     "Quiet-hours stop is temporary scheduling; legal basis/opt-out/invalid are permanent blocks.",
-    "candidate_compliance_decision 与 execution_compliance_decision 必须显式拆开；quiet hours 只改 execution plan，不降低 candidate preview。"
+    "candidate_compliance_decision 与 execution_compliance_decision 必须显式拆开；quiet hours 只改 execution plan，不降低 candidate preview。",
+    "OUT-009 是 permanent block / review / schedule / retry exhausted persisted action 的唯一 machine-readable authority；contact_compliance_matrix 只提供上游 candidate/execution 输入。"
   ]
 }

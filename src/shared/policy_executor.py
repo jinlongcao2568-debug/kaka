@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Any
+import re
+from typing import Any, Mapping
 
 from shared.context_packet import ContextPacket
 from shared.contract_loader import load_contract
@@ -13,6 +14,16 @@ def _to_dt(value: str | None) -> datetime | None:
     if not value:
         return None
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _sort_timestamp(value: Any) -> float:
+    parsed = _to_dt(str(value) if value not in (None, "") else None)
+    if parsed is None:
+        return float("inf")
+    try:
+        return -parsed.timestamp()
+    except (OverflowError, OSError, ValueError):
+        return float("inf")
 
 
 def _is_number(value: Any) -> bool:
@@ -161,6 +172,130 @@ def _ensure_list(value: Any) -> list[Any]:
     if isinstance(value, list):
         return list(value)
     return [value]
+
+
+def _contact_priority_role_key(role_cluster: Any) -> str:
+    normalized = str(role_cluster or "ORG_GATEKEEPER").upper()
+    return {
+        "PROCUREMENT_DECISION": "PROCUREMENT_DECISION_ACTOR",
+        "PROCUREMENT_DECISION_ACTOR": "PROCUREMENT_DECISION_ACTOR",
+        "LEGAL_ACTION": "LEGAL_ACTION_ACTOR",
+        "LEGAL_ACTION_ACTOR": "LEGAL_ACTION_ACTOR",
+        "CLIENT_AUTHORIZED_CONTACT": "CLIENT_AUTHORIZED_CONTACT",
+        "DELIVERY_COORDINATOR": "DELIVERY_COORDINATOR",
+        "ORG_GATEKEEPER": "ORG_GATEKEEPER",
+    }.get(normalized, normalized)
+
+
+def _contact_priority_organization_policy(policy: Mapping[str, Any]) -> dict[str, Any]:
+    default_policy = {
+        "organization_channel_families": [
+            "ORG_PHONE",
+            "ORG_EMAIL",
+            "PUBLIC_FORM",
+            "CRM_APPROVED_DIRECT",
+        ],
+        "minimum_primary_score": 60,
+        "personal_primary_allowed_when_org_path_unavailable": True,
+    }
+    for rule in policy.get("organization_first_rules", []):
+        match = re.search(r"\((?P<families>[^)]+)\).*score\s*>=\s*(?P<score>\d+)", str(rule))
+        if not match:
+            continue
+        families = [
+            token.strip()
+            for token in match.group("families").split("/")
+            if token.strip()
+        ]
+        if families:
+            default_policy["organization_channel_families"] = families
+        default_policy["minimum_primary_score"] = int(match.group("score"))
+        break
+    for rule in policy.get("organization_first_rules", []):
+        text = str(rule).casefold()
+        if "personal channel families can be primary only when no organization contact is eligible" in text:
+            default_policy["personal_primary_allowed_when_org_path_unavailable"] = True
+            break
+    return default_policy
+
+
+def _contact_priority_conflict_rules(policy: Mapping[str, Any]) -> list[dict[str, Any]]:
+    parsed_rules: list[dict[str, Any]] = []
+    for raw_rule in policy.get("conflict_rules", []):
+        text = str(raw_rule).casefold()
+        threshold_match = re.search(r"<=\s*(\d+)", text)
+        if not threshold_match:
+            continue
+        if "role_cluster" in text:
+            field_name = "role_cluster"
+            reason = f"role_cluster_diff_within_{threshold_match.group(1)}"
+        elif "channel_family" in text:
+            field_name = "channel_family"
+            reason = f"channel_family_diff_within_{threshold_match.group(1)}"
+        else:
+            continue
+        parsed_rules.append(
+            {
+                "field": field_name,
+                "score_diff_lte": int(threshold_match.group(1)),
+                "reason": reason,
+            }
+        )
+    return parsed_rules
+
+
+def _contact_priority_sort_key(policy: Mapping[str, Any], candidate: Mapping[str, Any]) -> tuple[Any, ...]:
+    score = int(candidate.get("contact_priority_score", candidate.get("score", 0)))
+    ordering: list[Any] = [-score]
+    for raw_tiebreaker in policy.get("tiebreakers", []):
+        tiebreaker = str(raw_tiebreaker).casefold()
+        if "higher legal basis weight" in tiebreaker:
+            ordering.append(-int(candidate.get("legal_basis_weight", 0)))
+        elif "higher source auditability" in tiebreaker:
+            ordering.append(-int(candidate.get("source_auditability_rank", 0)))
+        elif "more recent last_evaluated_at" in tiebreaker:
+            ordering.append(_sort_timestamp(candidate.get("last_evaluated_at")))
+        elif "organization channel over personal channel" in tiebreaker:
+            ordering.append(
+                0
+                if bool(
+                    candidate.get(
+                        "organization_channel_flag",
+                        candidate.get("organization_channel", False),
+                    )
+                )
+                else 1
+            )
+    ordering.append(str(candidate.get("candidate_id", "")))
+    return tuple(ordering)
+
+
+def _contact_priority_conflict(
+    policy: Mapping[str, Any],
+    ranked_candidates: list[Mapping[str, Any]],
+) -> tuple[bool, str]:
+    if len(ranked_candidates) < 2:
+        return False, "single candidate"
+    winner = ranked_candidates[0]
+    runner_up = ranked_candidates[1]
+    score_diff = int(winner.get("contact_priority_score", winner.get("score", 0))) - int(
+        runner_up.get("contact_priority_score", runner_up.get("score", 0))
+    )
+    for rule in _contact_priority_conflict_rules(policy):
+        if score_diff > int(rule["score_diff_lte"]):
+            continue
+        if str(winner.get(rule["field"], "")) == str(runner_up.get(rule["field"], "")):
+            continue
+        return True, str(rule["reason"])
+    return False, "single candidate"
+
+
+def _matches_key_value_condition(condition: str, facts: Mapping[str, Any]) -> bool:
+    field_name, separator, expected_value = str(condition).partition("=")
+    if not separator:
+        return False
+    actual = facts.get(field_name.strip())
+    return str(actual) == expected_value.strip()
 
 
 def _normalize_alias_token(value: Any, *, normalizer: str) -> str | None:
@@ -2060,7 +2195,14 @@ class PolicyExecutor:
 
     def _evaluate_contact_source_policy(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
         catalog = self.load_policy("contact_source_policy")
-        entry = catalog["entries"][0]
+        entry = next(
+            (
+                item
+                for item in catalog.get("entries", [])
+                if str(item.get("objectType")) == "contact_target" and int(item.get("stage", 0)) == 8
+            ),
+            catalog["entries"][0],
+        )
         source_family = context.input("source_family", "PROCUREMENT_NOTICE")
         auditability = context.input("source_auditability_state", "AUDITABLE")
         source_role = context.input("source_vendor_role", "PUBLIC_OFFICIAL_SOURCE")
@@ -2070,6 +2212,13 @@ class PolicyExecutor:
             "source_auditability_state": auditability,
             "source_vendor_role": source_role,
             "requires_manual_review": False,
+            "source_priority_weight": int(
+                entry.get("sourcePriorityWeights", {}).get(source_role, 0)
+            ),
+            "direct_projection_forbidden": source_role
+            in set(entry.get("directProjectionForbiddenSourceRoles", [])),
+            "formal_merge_required": source_role
+            in set(entry.get("formalMergeRequiredSourceRoles", [])),
         }
         decision_state = "ALLOW"
         reasons = ["source policy pass"]
@@ -2081,6 +2230,7 @@ class PolicyExecutor:
             decision_state = "REVIEW"
             outputs["requires_manual_review"] = True
             reasons = ["source policy review"]
+        outputs["source_policy_decision"] = decision_state
         return self._decision(
             policy_key="contact_source_policy",
             catalog_id=catalog["catalogId"],
@@ -2183,51 +2333,121 @@ class PolicyExecutor:
     def _evaluate_contact_priority(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
         catalog = self.load_policy("contact_priority")
         policy = catalog["policies"][0]
+        organization_policy = _contact_priority_organization_policy(policy)
         role_cluster = context.input("role_cluster", "ORG_GATEKEEPER")
-        role_key = {
-            "PROCUREMENT_DECISION": "PROCUREMENT_DECISION_ACTOR",
-            "LEGAL_ACTION": "LEGAL_ACTION_ACTOR",
-            "ORG_GATEKEEPER": "ORG_GATEKEEPER",
-        }.get(role_cluster, role_cluster)
+        role_key = _contact_priority_role_key(role_cluster)
         legal_basis = context.input("contact_legal_basis", "REVIEW_REQUIRED")
         channel_family = context.input("channel_family", "ORG_EMAIL")
         reasonableness = context.input("reasonable_expectation_status", "UNKNOWN")
         validity = context.input("contact_validity_status", "UNKNOWN")
         auditability = context.input("source_auditability_state", "AUDITABLE")
+        prior_decision_state = state.decision_state
+        source_merge_review_required = bool(context.input("source_merge_review_required", False))
+        restricted_channel_conflict = channel_family in {
+            "AUTHORIZED_PERSON_DIRECT",
+            "SOCIAL_DM",
+            "IM_DIRECT",
+            "PERSONAL_PHONE",
+            "PERSONAL_EMAIL",
+        }
+        scoring_facts = {
+            "channel_policy_status": context.input("channel_policy_status", "REVIEW"),
+            "contact_legal_basis": legal_basis,
+            "channel_family": channel_family,
+            "reasonable_expectation_status": reasonableness,
+            "contact_validity_status": validity,
+            "source_auditability_state": auditability,
+        }
 
         score = policy["scoring_model"]["base_score"]
-        score += policy["scoring_model"]["role_weights"].get(role_key, 0)
-        score += policy["scoring_model"]["legal_basis_weights"].get(legal_basis, -20)
-        score += policy["scoring_model"]["channel_family_weights"].get(channel_family, 0)
-        score += policy["scoring_model"]["reasonableness_weights"].get(reasonableness, 0)
-        score += policy["scoring_model"]["validity_weights"].get(validity, 0)
+        role_weight = int(policy["scoring_model"]["role_weights"].get(role_key, 0))
+        legal_basis_weight = int(
+            policy["scoring_model"]["legal_basis_weights"].get(legal_basis, -20)
+        )
+        channel_weight = int(
+            policy["scoring_model"]["channel_family_weights"].get(channel_family, 0)
+        )
+        reasonableness_weight = int(
+            policy["scoring_model"]["reasonableness_weights"].get(reasonableness, 0)
+        )
+        validity_weight = int(policy["scoring_model"]["validity_weights"].get(validity, 0))
+        score += role_weight
+        score += legal_basis_weight
+        score += channel_weight
+        score += reasonableness_weight
+        score += validity_weight
         if auditability != "AUDITABLE":
-            score += policy["scoring_model"]["auditability_penalty"]["penalty"]
+            score += int(policy["scoring_model"]["auditability_penalty"]["penalty"])
+        penalty_triggers: list[str] = []
+        requires_manual_review = (
+            prior_decision_state in ("REVIEW", "BLOCK")
+            or source_merge_review_required
+            or restricted_channel_conflict
+        )
+        for penalty_rule in policy["scoring_model"].get("policy_state_penalties", []):
+            condition = str(penalty_rule.get("condition", ""))
+            if not _matches_key_value_condition(condition, scoring_facts):
+                continue
+            score += int(penalty_rule.get("penalty", 0))
+            penalty_triggers.append(condition)
+            if penalty_rule.get("requires_manual_review", False):
+                requires_manual_review = True
         score = max(0, min(100, score))
-        conflict_flag = channel_family in ("PERSONAL_PHONE", "PERSONAL_EMAIL", "SOCIAL_DM", "IM_DIRECT")
+        organization_channel_flag = channel_family in set(
+            organization_policy["organization_channel_families"]
+        )
+        organization_first_eligible = (
+            organization_channel_flag
+            and score >= int(organization_policy["minimum_primary_score"])
+        )
+        source_auditability_rank = 1 if auditability == "AUDITABLE" else 0
+        decision_state = "BLOCK" if prior_decision_state == "BLOCK" else "REVIEW" if requires_manual_review else "ALLOW"
+        reason_tags = [
+            f"ROLE_{role_key}",
+            f"LEGAL_{legal_basis}",
+            f"CHANNEL_{channel_family}",
+            f"EXPECT_{reasonableness}",
+            f"VALIDITY_{validity}",
+            "AUDITABILITY_AUDITABLE" if auditability == "AUDITABLE" else "AUDITABILITY_REVIEW",
+        ]
+        if source_merge_review_required:
+            reason_tags.append("SOURCE_MERGE_REVIEW_REQUIRED")
+        if restricted_channel_conflict:
+            reason_tags.append("RESTRICTED_CHANNEL_CONFLICT")
+        for condition in penalty_triggers:
+            reason_tags.append(f"PENALTY_{_sanitize_reason_tag_value(condition)}")
 
         return self._decision(
             policy_key="contact_priority",
             catalog_id=catalog["catalogId"],
             policy_id=policy["policy_id"],
-            decision_state="REVIEW" if conflict_flag or score < 60 else "ALLOW",
+            decision_state=decision_state,
             outputs={
-                "primary_contact_flag": score >= 60 and channel_family.startswith("ORG_"),
+                "primary_contact_flag": organization_first_eligible,
                 "contact_priority_score": score,
-                "contact_priority_reason_tags": [
-                    f"ROLE_{role_key}",
-                    f"CHANNEL_{channel_family}",
-                    f"LEGAL_{legal_basis}",
-                    "AUDITABLE" if auditability == "AUDITABLE" else "AUDIT_REVIEW",
-                ],
-                "contact_candidate_rank": 1 if score >= 60 else 99,
-                "contact_selection_reason": f"role={role_key};channel={channel_family}",
-                "contact_conflict_flag": conflict_flag,
-                "contact_conflict_reason": "manual review required" if conflict_flag else "single candidate",
-                "requires_manual_review": conflict_flag
-                or state.resolve("candidate_compliance_decision", "ALLOW_PREVIEW") in ("REVIEW_REQUIRED", "BLOCKED"),
+                "contact_priority_reason_tags": reason_tags,
+                "contact_candidate_rank": 1 if score >= int(organization_policy["minimum_primary_score"]) else 99,
+                "contact_selection_reason": (
+                    f"score={score};role={role_key};legal_basis={legal_basis};channel={channel_family}"
+                ),
+                "contact_conflict_flag": bool(context.input("contact_conflict_flag", False))
+                or restricted_channel_conflict,
+                "contact_conflict_reason": str(
+                    context.input(
+                        "contact_conflict_reason",
+                        "restricted_channel_review"
+                        if restricted_channel_conflict
+                        else "single candidate",
+                    )
+                ),
+                "requires_manual_review": requires_manual_review,
+                "organization_channel_flag": organization_channel_flag,
+                "organization_first_eligible": organization_first_eligible,
+                "legal_basis_weight": legal_basis_weight,
+                "source_auditability_rank": source_auditability_rank,
+                "source_merge_review_required": source_merge_review_required,
             },
-            reasons=[f"priority_score={score}"],
+            reasons=[f"priority_score={score}", f"prior_state={prior_decision_state}"],
         )
 
     def _evaluate_outreach_cadence(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
@@ -2672,4 +2892,9 @@ class PolicyExecutor:
         )
 
 
-__all__ = ["PolicyExecutor"]
+__all__ = [
+    "PolicyExecutor",
+    "_contact_priority_conflict",
+    "_contact_priority_organization_policy",
+    "_contact_priority_sort_key",
+]

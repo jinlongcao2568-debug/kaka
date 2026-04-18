@@ -10,7 +10,12 @@ from typing import Any, Mapping
 
 from shared.context_packet import ContextPacket
 from shared.contract_loader import load_contract
-from shared.policy_executor import PolicyExecutor
+from shared.policy_executor import (
+    PolicyExecutor,
+    _contact_priority_conflict,
+    _contact_priority_organization_policy,
+    _contact_priority_sort_key,
+)
 from shared.state_packet import StatePacket
 
 
@@ -153,6 +158,19 @@ def _execution_fallback_vendor_id(
     if alternate_vendor_id:
         return str(alternate_vendor_id)
     return str(selected_vendor_id or candidate.get("execution_vendor_id_optional") or "")
+
+
+def _candidate_policy_state(
+    executor: PolicyExecutor,
+    context: ContextPacket,
+) -> tuple[StatePacket, dict[str, Any]]:
+    state = StatePacket(capability_mode="stage8_candidate_selection")
+    decisions: dict[str, Any] = {}
+    for policy_key in ("contact_source_policy", "contact_compliance", "contact_priority"):
+        decision = executor.execute(policy_key, context, state)
+        state.add_decision(decision)
+        decisions[policy_key] = decision
+    return state, decisions
 
 
 def _match_key(candidate: Mapping[str, Any], merge_policy: Mapping[str, Any]) -> str:
@@ -466,6 +484,9 @@ def select_contact_candidate(
     now: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     policy = _policy(settings)["candidateCollection"]
+    executor = PolicyExecutor(settings)
+    priority_policy = executor.load_policy("contact_priority")["policies"][0]
+    organization_policy = _contact_priority_organization_policy(priority_policy)
     merge_policy = policy.get("mergePolicy", {})
     source_policy_entry = next(
         (
@@ -475,7 +496,6 @@ def select_contact_candidate(
         ),
         {},
     )
-    executor = PolicyExecutor(settings)
     base = _base_candidate(inputs, now=now)
     pool = inputs.get("contact_candidate_pool")
     candidates = list(pool) if isinstance(pool, list) and pool else [base]
@@ -505,64 +525,114 @@ def select_contact_candidate(
             records={"saleable_opportunity": saleable_opportunity},
             inputs=merged,
         )
-        source_decision = executor.execute("contact_source_policy", context, StatePacket(capability_mode="stage8_candidate_selection"))
-        compliance_decision = executor.execute("contact_compliance", context, StatePacket(capability_mode="stage8_candidate_selection"))
-        priority_state = StatePacket(capability_mode="stage8_candidate_selection")
-        priority_decision = executor.execute("contact_priority", context, priority_state)
-        blocked = source_decision.decision_state == "BLOCK" or compliance_decision.decision_state == "BLOCK"
-        score = int(priority_decision.outputs.get("contact_priority_score", 0))
+        candidate_state, decisions = _candidate_policy_state(executor, context)
+        source_decision = decisions["contact_source_policy"]
+        compliance_decision = decisions["contact_compliance"]
+        priority_decision = decisions["contact_priority"]
+        blocked = source_decision.decision_state == "BLOCK" or str(
+            candidate_state.resolve("candidate_compliance_decision", "REVIEW_REQUIRED")
+        ) == "BLOCKED"
+        score = int(candidate_state.resolve("contact_priority_score", 0))
         ranked.append(
             {
                 **merged,
                 "score": score,
                 "priority_trace": priority_decision.trace,
+                "policy_trace": [decision.trace for decision in decisions.values()],
                 "blocked": blocked,
-                "organization_channel": merged.get("channel_family") in policy["organizationFirstChannelFamilies"],
-                "selected_reason": priority_decision.outputs.get("contact_selection_reason", "resolver selection"),
-                "contact_priority_reason_tags": priority_decision.outputs.get("contact_priority_reason_tags", []),
+                "requires_manual_review": bool(
+                    candidate_state.resolve("requires_manual_review", False)
+                ),
+                "organization_channel": bool(
+                    candidate_state.resolve("organization_channel_flag", False)
+                ),
+                "organization_first_eligible": bool(
+                    candidate_state.resolve("organization_first_eligible", False)
+                ),
+                "selected_reason": str(
+                    candidate_state.resolve("contact_selection_reason", "resolver selection")
+                ),
+                "contact_priority_reason_tags": candidate_state.resolve(
+                    "contact_priority_reason_tags",
+                    [],
+                ),
+                "candidate_compliance_decision": str(
+                    candidate_state.resolve("candidate_compliance_decision", "REVIEW_REQUIRED")
+                ),
+                "execution_compliance_decision": str(
+                    candidate_state.resolve("execution_compliance_decision", "REVIEW_REQUIRED")
+                ),
+                "source_policy_decision": str(
+                    candidate_state.resolve("source_policy_decision", source_decision.decision_state)
+                ),
+                "legal_basis_weight": int(candidate_state.resolve("legal_basis_weight", 0)),
+                "source_auditability_rank": int(
+                    candidate_state.resolve("source_auditability_rank", 0)
+                ),
             }
         )
 
     eligible = [candidate for candidate in ranked if not candidate["blocked"]]
-    org_eligible = [candidate for candidate in eligible if candidate["organization_channel"] and candidate["score"] >= int(policy["minimumPrimaryScore"])]
+    org_eligible = [
+        candidate for candidate in eligible if candidate["organization_first_eligible"]
+    ]
     selection_pool = org_eligible or eligible or ranked
-    selection_pool.sort(
-        key=lambda item: (
-            -int(item["score"]),
-            0 if item["organization_channel"] else 1,
-            0 if str(item.get("source_auditability_state")) == "AUDITABLE" else 1,
-            -_parse_time(str(item.get("last_evaluated_at"))).timestamp(),
-        )
-    )
+    selection_pool.sort(key=lambda item: _contact_priority_sort_key(priority_policy, item))
 
     selected = dict(selection_pool[0])
-    if len(candidates) == 1 or len(selection_pool) == 1:
-        conflict_flag = bool(selected["priority_trace"]["outputs"].get("contact_conflict_flag", False))
-        conflict_reason = str(selected["priority_trace"]["outputs"].get("contact_conflict_reason", "single candidate"))
-    else:
-        conflict_flag = False
-        conflict_reason = "single candidate"
-        second = selection_pool[1]
-        score_diff = int(selected["score"]) - int(second["score"])
-        if score_diff <= 5 and str(selected.get("role_cluster")) != str(second.get("role_cluster")):
-            conflict_flag = True
-            conflict_reason = "role_cluster_diff_within_5"
-        elif score_diff <= 3 and str(selected.get("channel_family")) != str(second.get("channel_family")):
-            conflict_flag = True
-            conflict_reason = "channel_family_diff_within_3"
+    baseline_conflict_flag = bool(
+        selected["priority_trace"]["outputs"].get("contact_conflict_flag", False)
+    )
+    baseline_conflict_reason = str(
+        selected["priority_trace"]["outputs"].get("contact_conflict_reason", "single candidate")
+    )
+    conflict_flag, conflict_reason = _contact_priority_conflict(priority_policy, selection_pool)
+    if baseline_conflict_flag:
+        conflict_flag = True
+        if not conflict_reason or conflict_reason == "single candidate":
+            conflict_reason = baseline_conflict_reason
 
     selected["primary_contact_flag"] = bool(
-        selected["priority_trace"]["outputs"].get(
-            "primary_contact_flag",
-            selected["organization_channel"] and int(selected["score"]) >= int(policy["minimumPrimaryScore"]),
+        int(selected["score"]) >= int(organization_policy["minimum_primary_score"])
+        and not selected["blocked"]
+        and not conflict_flag
+        and (
+            selected["organization_channel"]
+            or (
+                not org_eligible
+                and organization_policy[
+                    "personal_primary_allowed_when_org_path_unavailable"
+                ]
+            )
         )
     )
     selected["contact_priority_score"] = int(selected["score"])
-    selected["contact_priority_reason_tags"] = selected["priority_trace"]["outputs"].get("contact_priority_reason_tags", [])
+    selected["contact_priority_reason_tags"] = selected.get(
+        "contact_priority_reason_tags", []
+    )
     selected["contact_candidate_rank"] = 1
-    selected["contact_selection_reason"] = selected["priority_trace"]["outputs"].get("contact_selection_reason", selected["selected_reason"])
+    selection_reason = selected["selected_reason"]
+    if selected["organization_channel"]:
+        selection_reason = f"organization_first_selected;{selection_reason}"
+    elif not org_eligible:
+        selection_reason = f"organization_path_unavailable;{selection_reason}"
+    selected["contact_selection_reason"] = selection_reason
     selected["contact_conflict_flag"] = conflict_flag
     selected["contact_conflict_reason"] = conflict_reason
+    selected["requires_manual_review"] = bool(
+        selected.get("requires_manual_review", False)
+        or selected.get("source_merge_review_required", False)
+        or conflict_flag
+    )
+    selected["priority_trace"]["outputs"].update(
+        {
+            "primary_contact_flag": selected["primary_contact_flag"],
+            "contact_selection_reason": selected["contact_selection_reason"],
+            "contact_conflict_flag": conflict_flag,
+            "contact_conflict_reason": conflict_reason,
+            "requires_manual_review": selected["requires_manual_review"],
+        }
+    )
 
     trace = {
         "candidate_pool_mode": "CONTACT_TARGET_EQUIVALENT_COLLECTION",
@@ -586,7 +656,7 @@ def select_contact_candidate(
             {
                 key: value
                 for key, value in candidate.items()
-                if key != "priority_trace"
+                if key not in {"priority_trace", "policy_trace"}
             }
             for candidate in ranked
         ],
@@ -607,6 +677,13 @@ def select_contact_candidate(
                 ),
                 "source_merge_review_required": bool(entry.get("source_merge_review_required", False)),
                 "organization_channel": entry["organization_channel"],
+                "candidate_compliance_decision": entry.get(
+                    "candidate_compliance_decision"
+                ),
+                "execution_compliance_decision": entry.get(
+                    "execution_compliance_decision"
+                ),
+                "source_policy_decision": entry.get("source_policy_decision"),
                 "blocked": entry["blocked"],
             }
             for entry in selection_pool

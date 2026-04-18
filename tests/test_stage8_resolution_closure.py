@@ -151,6 +151,59 @@ class TestStage8ResolutionClosure(unittest.TestCase):
             "cand-org",
         )
 
+    def test_stage8_priority_tiebreaker_prefers_higher_legal_basis_before_recency(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["contact_candidate_pool"] = [
+            {
+                "candidate_id": "cand-public-newer",
+                "org_name": "Org Public",
+                "org_type": "ENTERPRISE",
+                "person_name_optional": "UNKNOWN",
+                "role_cluster": "PROCUREMENT_DECISION",
+                "source_vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+                "contact_channel": "EMAIL",
+                "channel_family": "ORG_EMAIL",
+                "contact_validity_status": "VALID",
+                "contact_legal_basis": "PUBLIC_ROLE_CONTACT",
+                "reasonable_expectation_status": "REASONABLE",
+                "channel_policy_status": "ALLOW",
+                "frequency_policy_state": "ALLOW",
+                "opt_out_state": "ACTIVE",
+                "quiet_hours_policy_state": "ALLOW",
+                "source_auditability_state": "AUDITABLE",
+                "last_evaluated_at": "2026-04-17T10:00:00Z",
+            },
+            {
+                "candidate_id": "cand-authorized-older",
+                "org_name": "Org Authorized",
+                "org_type": "ENTERPRISE",
+                "person_name_optional": "UNKNOWN",
+                "role_cluster": "PROCUREMENT_DECISION",
+                "source_vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+                "contact_channel": "EMAIL",
+                "channel_family": "ORG_EMAIL",
+                "contact_validity_status": "VALID",
+                "contact_legal_basis": "CUSTOMER_AUTHORIZED_CONTACT",
+                "reasonable_expectation_status": "REASONABLE",
+                "channel_policy_status": "ALLOW",
+                "frequency_policy_state": "ALLOW",
+                "opt_out_state": "ACTIVE",
+                "quiet_hours_policy_state": "ALLOW",
+                "source_auditability_state": "AUDITABLE",
+                "last_evaluated_at": "2026-04-17T09:00:00Z",
+            },
+        ]
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        collection = stage8.inputs["contact_candidate_collection_snapshot"]
+        selection_trace = stage8.inputs["contact_selection_trace_snapshot"]
+        contact_target = stage8.record("contact_target")
+
+        self.assertEqual(collection.get("winning_contact_candidate_id"), "cand-authorized-older")
+        self.assertEqual(selection_trace.get("winning_contact_candidate_id"), "cand-authorized-older")
+        self.assertEqual(contact_target.get("org_name"), "Org Authorized")
+        self.assertEqual(contact_target.get("contact_legal_basis"), "CUSTOMER_AUTHORIZED_CONTACT")
+
     def test_stage8_candidate_pool_conflict_trace_is_emitted(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload["contact_candidate_pool"] = [
@@ -202,6 +255,48 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertEqual(contact_target.get("contact_conflict_reason"), "role_cluster_diff_within_5")
         self.assertTrue(trace["conflict_flag"])
         self.assertEqual(trace["conflict_reason"], "role_cluster_diff_within_5")
+
+    def test_stage8_restricted_channel_review_persists_conflict_and_review_path(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["contact_candidate_pool"] = [
+            {
+                "candidate_id": "cand-personal-only",
+                "org_name": "Personal Candidate",
+                "org_type": "INDIVIDUAL",
+                "person_name_optional": "李四",
+                "role_cluster": "PROCUREMENT_DECISION",
+                "source_vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+                "contact_channel": "PHONE",
+                "channel_family": "PERSONAL_PHONE",
+                "contact_validity_status": "VALID",
+                "contact_legal_basis": "CUSTOMER_AUTHORIZED_CONTACT",
+                "reasonable_expectation_status": "REASONABLE",
+                "channel_policy_status": "ALLOW",
+                "frequency_policy_state": "ALLOW",
+                "opt_out_state": "ACTIVE",
+                "quiet_hours_policy_state": "ALLOW",
+                "source_auditability_state": "AUDITABLE",
+                "last_evaluated_at": "2026-04-17T10:00:00Z",
+            }
+        ]
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        contact_target = stage8.record("contact_target")
+        outreach_plan = stage8.record("outreach_plan")
+        trace = self._policy_decisions(stage8)
+
+        self.assertEqual(contact_target.get("contact_target_status"), "REVIEW_REQUIRED")
+        self.assertEqual(outreach_plan.get("plan_status"), "REVIEW_REQUIRED")
+        self.assertTrue(contact_target.get("contact_conflict_flag"))
+        self.assertTrue(contact_target.get("requires_manual_review"))
+        self.assertEqual(
+            trace["contact_compliance"]["outputs"]["candidate_compliance_decision"],
+            "REVIEW_REQUIRED",
+        )
+        self.assertEqual(
+            trace["contact_compliance"]["outputs"]["execution_compliance_decision"],
+            "REVIEW_REQUIRED",
+        )
 
     def test_stage8_formal_contact_candidate_collection_and_trace_are_emitted(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -620,6 +715,29 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertEqual(governed.get("candidate_compliance_decision"), "ALLOW_PREVIEW")
         self.assertEqual(governed.get("execution_compliance_decision"), "REVIEW_REQUIRED")
         self.assertEqual(governed.get("stop_semantics"), "EXECUTION_REVIEW_REQUIRED")
+
+    def test_stage8_quiet_hours_only_schedules_execution_and_keeps_candidate_eligible(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"quiet_hours_policy_state": "BLOCK"})
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        trace = self._policy_decisions(stage8)
+        governed = stage8.record("outreach_plan").get("governed_metadata", {})
+
+        self.assertEqual(stage8.record("contact_target").get("contact_target_status"), "ELIGIBLE")
+        self.assertEqual(stage8.record("outreach_plan").get("plan_status"), "SCHEDULED")
+        self.assertEqual(stage8.record("touch_record").get("touch_record_state"), "CREATED")
+        self.assertEqual(
+            trace["contact_compliance"]["outputs"]["candidate_compliance_decision"],
+            "ALLOW_PREVIEW",
+        )
+        self.assertEqual(
+            trace["contact_compliance"]["outputs"]["execution_compliance_decision"],
+            "SCHEDULED",
+        )
+        self.assertEqual(governed.get("candidate_compliance_decision"), "ALLOW_PREVIEW")
+        self.assertEqual(governed.get("execution_compliance_decision"), "SCHEDULED")
+        self.assertEqual(governed.get("stop_semantics"), "QUIET_HOURS_SCHEDULE")
 
     def test_stage8_outreach_cadence_trace_exposes_single_sourced_channel_ladder(self) -> None:
         cadence_policy = _outreach_cadence_policy()

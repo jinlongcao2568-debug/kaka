@@ -1,10 +1,47 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "catalogId": "retry_policy_catalog",
   "ownerDocs": [
+    "D2",
+    "D3",
     "D9",
     "D11"
   ],
+  "authorityContract": {
+    "rule_code": "OUT-008",
+    "authoritative_policy_id": "RETRY-001",
+    "sole_machine_readable_authority": true,
+    "authoritative_owner_stage": "stage8_outreach",
+    "authoritative_runtime_outputs": [
+      "runtime.next_action",
+      "runtime.backoff_hours"
+    ],
+    "authoritative_persisted_outputs": [
+      "outreach_plan.retry_count",
+      "outreach_plan.next_touch_due_at_optional",
+      "outreach_plan.plan_status",
+      "touch_record.attempt_index",
+      "touch_record.retry_scheduled_optional"
+    ],
+    "authority_scope": {
+      "retry_rules_ref": "#policies/0/retry_rules",
+      "max_attempts_policy_ref": "#policies/0/max_attempts_policy"
+    },
+    "fallback_review_path": {
+      "retry_exhausted_ref": "contracts/sales/touch_stop_condition_catalog.json#policies/0/stop_after_retry",
+      "feedback_projection_ref": "contracts/sales/feedback_reason_catalog.json#authorityContract",
+      "review_when": [
+        "response_status not mapped",
+        "retry_count or max_retry_count missing",
+        "contact no longer eligible for internal preview"
+      ],
+      "forbidden_authoritative_substitutes": [
+        "service-local max_retries/backoff literals",
+        "tests/scripts duplicated retry constants",
+        "reusing runtime.next_action as persisted touch_record.next_step_optional"
+      ]
+    }
+  },
   "policies": [
     {
       "policy_id": "RETRY-001",
@@ -96,6 +133,7 @@
   "notes": [
     "Retry is only allowed when compliance matrix returns ALLOW_PREVIEW and contact remains valid.",
     "Any DECLINED/OPTED_OUT response is treated as permanent stop with opt-out enforcement.",
-    "Retry/backoff 只改变 execution path，不得把 candidate_compliance_decision 误写成 live-ready 或 real send enabled。"
+    "Retry/backoff 只改变 execution path，不得把 candidate_compliance_decision 误写成 live-ready 或 real send enabled。",
+    "OUT-008 只拥有 runtime retry planner next_action/backoff 与 retry counter authority；persisted next_step/writeback 仍归 feedback_reason_catalog 所有。"
   ]
 }

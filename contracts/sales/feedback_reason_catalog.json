@@ -1,9 +1,44 @@
 {
-  "catalogVersion": "1.0.0",
+  "catalogVersion": "1.1.0",
   "catalogId": "feedback_reason_catalog",
   "ownerDocs": [
-    "D9"
+    "D2",
+    "D3",
+    "D9",
+    "D11"
   ],
+  "authorityContract": {
+    "rule_code": "OUT-010",
+    "authoritative_entry_ref": "#entries/0",
+    "sole_machine_readable_authority": true,
+    "authoritative_owner_stage": "stage8_outreach",
+    "authoritative_persisted_outputs": [
+      "touch_record.feedback_reason",
+      "touch_record.next_step_optional",
+      "touch_record.stop_reason_optional",
+      "touch_record.failure_reason_tag_optional",
+      "touch_record.writeback_targets",
+      "touch_record.written_back_at_optional"
+    ],
+    "authority_scope": {
+      "response_families_ref": "#entries/0/responseFamilies",
+      "mappings_ref": "#entries/0/mappings",
+      "blocking_policies_ref": "#entries/0/blockingPolicies"
+    },
+    "fallback_review_path": {
+      "retry_runtime_ref": "contracts/sales/retry_policy_catalog.json#authorityContract",
+      "review_when": [
+        "response_status not mapped",
+        "writeback_targets missing",
+        "written_back_at_optional missing on failure path"
+      ],
+      "forbidden_authoritative_substitutes": [
+        "service-local feedback reason dictionary",
+        "reusing runtime.next_action as persisted touch_record.next_step_optional",
+        "allowing downstream outcome taxonomy to overwrite Stage8 feedback mapping"
+      ]
+    }
+  },
   "entries": [
     {
       "objectType": "touch_record",
@@ -138,5 +173,10 @@
       ],
       "notes": "反馈原因用于治理回写，不对外放行。"
     }
+  ]
+  ,
+  "notes": [
+    "反馈原因用于治理回写，不对外放行。",
+    "OUT-010 只拥有 feedback_reason / persisted next_step / writeback_targets authority；runtime retry planner next_action 仍归 retry_policy_catalog 所有。"
   ]
 }
