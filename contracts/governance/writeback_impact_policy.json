@@ -1,9 +1,10 @@
 {
   "catalog_id": "writeback-impact-policy",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "status": "DRAFT",
   "source_documents": [
     "docs/L0.md",
+    "docs/D2_正式对象契约与字段字典.md",
     "docs/D10_订单支付交付与治理反馈规范.md",
     "docs/D11_测试验收与金标回归清单.md"
   ],
@@ -59,6 +60,41 @@
       "controlled_exception_record",
       "release_gates"
     ]
+  },
+  "source_ownership_layers": {
+    "outcome_authoritative_base": {
+      "contract_ref": "contracts/sales/outcome_taxonomy_catalog.json",
+      "canonical_entry_field": "authoritative_base_targets",
+      "legacy_runtime_entry_field": "writeback_targets",
+      "projected_feedback_only_field": "projected_feedback_only_targets",
+      "advisory_field": "advisory_targets",
+      "feedback_loop_contract_ref_field": "feedback_loop_contract_ref",
+      "compatibility_overlap_targets": {
+        "DELIVERY_ABANDONED": [
+          "governance_feedback_event"
+        ]
+      }
+    },
+    "governance_taxonomy_additive_only": {
+      "contract_ref": "contracts/sales/governance_feedback_policy_catalog.json",
+      "governance_owned_self_target_field": "governance_owned_self_target",
+      "canonical_additive_entry_field": "additive_writeback_targets",
+      "legacy_runtime_entry_field": "writeback_targets"
+    },
+    "payment_exception_additive_only": {
+      "contract_ref": "contracts/sales/payment_exception_catalog.json",
+      "canonical_additive_entry_field": "family_semantics[*].additive_writeback_targets"
+    },
+    "delivery_exception_additive_only": {
+      "contract_ref": "contracts/sales/delivery_exception_catalog.json",
+      "canonical_additive_entry_field": "family_semantics[*].additive_writeback_targets"
+    },
+    "upstream_feedback_loop": {
+      "contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1",
+      "projected_target_field": "mustWriteBackTo",
+      "advisory_target_field": "mustAdvisoryWriteBackTo",
+      "contract_bundle_field": "upstreamFeedbackLoopContracts"
+    }
   },
   "target_source_resolution_order": [
     "outcome_taxonomy",
@@ -133,27 +169,46 @@
     "outcome_taxonomy": {
       "contract_ref": "contracts/sales/outcome_taxonomy_catalog.json",
       "source_output_field": "outcome_writeback_targets",
+      "canonical_entry_field": "authoritative_base_targets",
+      "legacy_runtime_entry_field": "writeback_targets",
+      "projected_feedback_only_field": "projected_feedback_only_targets",
+      "advisory_targets_field": "advisory_targets",
       "merge_semantics": "AUTHORITATIVE_BASE",
       "persisted_stage9_record_target": "opportunity_outcome_event",
       "silent_override_forbidden": true,
-      "target_semantics": "BASE_TARGET_SET",
+      "target_semantics": "CANONICAL_AUTHORITATIVE_BASE + LEGACY_RUNTIME_CARRIER",
+      "compatibility_overlap_targets_optional": {
+        "DELIVERY_ABANDONED": [
+          "governance_feedback_event"
+        ]
+      },
       "authoritative_feedback_contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1"
     },
     "upstream_feedback_loop": {
       "contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1",
       "source_output_field": "upstream_feedback_projected_targets + upstream_feedback_advisory_targets",
+      "projected_target_field": "mustWriteBackTo",
+      "advisory_target_field": "mustAdvisoryWriteBackTo",
+      "contract_bundle_field": "upstreamFeedbackLoopContracts",
       "merge_semantics": "PROJECTED_FEEDBACK_ONLY",
       "persisted_stage9_record_target": "opportunity_outcome_event",
       "silent_override_forbidden": true,
-      "target_semantics": "PROJECTED_CONTRACT_ONLY + TRACE_ONLY_ADVISORY"
+      "target_semantics": "PROJECTED_CONTRACT_ONLY + TRACE_ONLY_ADVISORY",
+      "legacy_runtime_fields_unaffected": [
+        "outcome_writeback_targets",
+        "effective_writeback_targets"
+      ]
     },
     "governance_taxonomy": {
       "contract_ref": "contracts/sales/governance_feedback_policy_catalog.json",
       "source_output_field": "governance_writeback_targets_optional",
+      "governance_owned_self_target_field": "governance_owned_self_target",
+      "additive_entry_field": "additive_writeback_targets",
+      "legacy_runtime_entry_field": "writeback_targets",
       "merge_semantics": "ADDITIVE_ONLY",
       "persisted_stage9_record_target": "governance_feedback_event",
       "silent_override_forbidden": true,
-      "target_semantics": "ADDITIVE_GOVERNED_TARGETS"
+      "target_semantics": "GOVERNANCE_OWNED_SELF_TARGET + ADDITIVE_GOVERNED_TARGETS"
     },
     "payment_exception": {
       "contract_ref": "contracts/sales/payment_exception_catalog.json",
@@ -936,9 +991,11 @@
   "notes": [
     "writeback impact executor v0 is internal-only and additive; it does not persist target mutations directly.",
     "Only the four formal targets may receive machine-readable mutation projection in this batch.",
+    "source_ownership_layers is the canonical machine-readable summary of outcome authoritative base ownership, governance self-target ownership, additive source ownership, and upstream feedback projected/advisory ownership.",
     "writeback_source_contracts define authoritative outcome merge and additive governance/payment/delivery merge semantics.",
     "writeback_target_contracts formalize which targets are projected, persisted in Stage9 records, or trace-only advisory.",
-    "outcome_writeback_targets remains the raw outcome taxonomy target set; upstream feedback targets are exposed separately and merged through resolved writeback contracts.",
+    "outcome_writeback_targets remains the current raw outcome taxonomy legacy runtime carrier; authoritative_base_targets is the canonical base-owner field in outcome_taxonomy_catalog.",
+    "upstream feedback targets are exposed separately and merged through resolved writeback contracts without folding into legacy outcome_writeback_targets or effective_writeback_targets.",
     "target_source_resolution_order, additive_sources_allowed_targets, silent_override_forbidden_pairs, and upstream_feedback_loop_contract are the canonical non-service-local target semantics for Stage9 writeback resolution.",
     "Outcome writeback targets remain authoritative; governance and exception targets are additive only and may not silently override outcome targets.",
     "live payment/delivery/refund execution remains blocked by default."

@@ -1,18 +1,25 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "catalogId": "governance_feedback_policy_catalog",
   "writeback_source_family": "governance_taxonomy",
   "writeback_contract_ref": "contracts/governance/writeback_impact_policy.json#writeback_source_contracts.governance_taxonomy",
   "writeback_merge_semantics": "ADDITIVE_ONLY",
   "ownerDocs": [
+    "D2",
     "D10",
     "D3",
     "D11"
   ],
+  "target_field_roles": {
+    "governance_owned_self_target_field": "governance_owned_self_target",
+    "additive_writeback_targets_field": "additive_writeback_targets",
+    "legacy_runtime_carrier_field": "writeback_targets"
+  },
   "entries": [
     {
       "trigger_type": "FIELD_POLICY_VIOLATION",
       "semantic_owner": "governance_taxonomy",
+      "governance_owned_self_target": "governance_feedback_event",
       "required_actions": [
         "record governance feedback",
         "block delivery",
@@ -20,6 +27,10 @@
         "notify governance"
       ],
       "impact_scope": "DELIVERY_BLOCK",
+      "additive_writeback_targets": [
+        "project_fact",
+        "delivery_record"
+      ],
       "writeback_targets": [
         "project_fact",
         "delivery_record"
@@ -29,11 +40,16 @@
     {
       "trigger_type": "DELIVERY_BLOCK",
       "semantic_owner": "governance_taxonomy",
+      "governance_owned_self_target": "governance_feedback_event",
       "required_actions": [
         "pause delivery",
         "record governance feedback"
       ],
       "impact_scope": "DELIVERY_BLOCK",
+      "additive_writeback_targets": [
+        "delivery_record",
+        "release_gates"
+      ],
       "writeback_targets": [
         "delivery_record",
         "release_gates"
@@ -43,12 +59,17 @@
     {
       "trigger_type": "APPROVAL_MISSING",
       "semantic_owner": "governance_taxonomy",
+      "governance_owned_self_target": "governance_feedback_event",
       "required_actions": [
         "record governance feedback",
         "block execution",
         "request approval"
       ],
       "impact_scope": "APPROVAL_BLOCK",
+      "additive_writeback_targets": [
+        "order_record",
+        "payment_record"
+      ],
       "writeback_targets": [
         "order_record",
         "payment_record"
@@ -58,12 +79,17 @@
     {
       "trigger_type": "CONTACT_POLICY_VIOLATION",
       "semantic_owner": "governance_taxonomy",
+      "governance_owned_self_target": "governance_feedback_event",
       "required_actions": [
         "record governance feedback",
         "block outreach",
         "record violation"
       ],
       "impact_scope": "CONTACT_BLOCK",
+      "additive_writeback_targets": [
+        "contact_target",
+        "outreach_plan"
+      ],
       "writeback_targets": [
         "contact_target",
         "outreach_plan"
@@ -73,12 +99,17 @@
     {
       "trigger_type": "EVIDENCE_INSUFFICIENT",
       "semantic_owner": "governance_taxonomy",
+      "governance_owned_self_target": "governance_feedback_event",
       "required_actions": [
         "record governance feedback",
         "trigger stage5 recheck",
         "mark review_required"
       ],
       "impact_scope": "FACT_REFRESH",
+      "additive_writeback_targets": [
+        "project_fact",
+        "review_queue_profile"
+      ],
       "writeback_targets": [
         "project_fact",
         "review_queue_profile"
@@ -88,12 +119,17 @@
     {
       "trigger_type": "EXCEPTION_TRIGGERED",
       "semantic_owner": "governance_taxonomy",
+      "governance_owned_self_target": "governance_feedback_event",
       "required_actions": [
         "record governance feedback",
         "register controlled_exception_record",
         "block release until approved"
       ],
       "impact_scope": "EXCEPTION",
+      "additive_writeback_targets": [
+        "controlled_exception_record",
+        "release_gates"
+      ],
       "writeback_targets": [
         "controlled_exception_record",
         "release_gates"
@@ -103,12 +139,16 @@
     {
       "trigger_type": "ARCHIVE_FAILURE",
       "semantic_owner": "governance_taxonomy",
+      "governance_owned_self_target": "governance_feedback_event",
       "required_actions": [
         "record governance feedback",
         "block closure",
         "record archive failure"
       ],
       "impact_scope": "ARCHIVE_BLOCK",
+      "additive_writeback_targets": [
+        "delivery_record"
+      ],
       "writeback_targets": [
         "governance_feedback_event",
         "delivery_record"
@@ -118,11 +158,13 @@
     {
       "trigger_type": "OTHER",
       "semantic_owner": "governance_taxonomy",
+      "governance_owned_self_target": "governance_feedback_event",
       "required_actions": [
         "record governance feedback",
         "manual review"
       ],
       "impact_scope": "REVIEW",
+      "additive_writeback_targets": [],
       "writeback_targets": [
         "governance_feedback_event"
       ],
@@ -130,8 +172,10 @@
     }
   ],
   "notes": [
-    "Governance feedback taxonomy controls mandatory actions and additive writeback targets.",
+    "Governance feedback taxonomy controls mandatory actions, the governance-owned self target, and additive writeback targets.",
     "All governance feedback remains internal-only.",
+    "governance_owned_self_target is the canonical Stage9 self target; additive_writeback_targets is the canonical additive target set.",
+    "writeback_targets remains the current Stage9 legacy runtime carrier and may include governance_feedback_event in ARCHIVE_FAILURE/OTHER compatibility paths.",
     "Governance taxonomy may append governance-owned targets but may not redefine outcome_family or outcome_reason_tags."
   ]
 }
