@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.2.0",
+  "catalogVersion": "1.3.0",
   "catalogId": "opportunity_policy_catalog",
   "ownerDocs": [
     "D2",
@@ -161,15 +161,31 @@
         "sales_lead",
         "report_record"
       ],
+      "mustWriteBackContractSemantics": "PROJECTED_MUTATION_ONLY",
       "mustAdvisoryWriteBackTo": [
         "buyer_fit",
         "challenger_candidate_profile"
       ],
+      "mustAdvisoryWriteBackContractSemantics": "TRACE_ONLY_ADVISORY",
       "runtimeVisibilityFields": [
         "upstream_feedback_projected_targets",
         "upstream_feedback_advisory_targets",
         "writeback_target_contracts"
       ],
+      "writebackRoleFields": {
+        "projectedTargets": "mustWriteBackTo",
+        "advisoryTargets": "mustAdvisoryWriteBackTo",
+        "contractBundle": "upstreamFeedbackLoopContracts",
+        "resolvedRuntimeFields": [
+          "upstream_feedback_projected_targets",
+          "upstream_feedback_advisory_targets",
+          "resolved_effective_writeback_targets"
+        ],
+        "legacyRuntimeFieldsUnaffected": [
+          "outcome_writeback_targets",
+          "effective_writeback_targets"
+        ]
+      },
       "upstreamFeedbackLoopContracts": {
         "window_missed": {
           "projectedContractSemantics": "PROJECTED_MUTATION_ONLY",
@@ -423,6 +439,7 @@
   "notes": [
     "Expected bands are internal sales orchestration fields and do not create an external delivery promise.",
     "why_recommended must be generated from formal rule outputs; free-text override is forbidden in this batch.",
+    "mustWriteBackTo is the canonical upstream projected-only target set; mustAdvisoryWriteBackTo is the canonical upstream advisory trace-only target set.",
     "upstreamFeedbackLoopContracts only describes projected-only and advisory writeback semantics for Stage9 feedback loops; it does not authorize direct persistence into Stage6/7 objects.",
     "Stage6 authoritative inputs consumed by D8 objects must come from the declared stage6AuthoritativeInputContracts; missing inputs force review-only handling rather than local default or heuristic reconstruction.",
     "DEFAULT_CLUE, DEFAULT_RISK, heuristic competitor_quality_grade, and heuristic action_family are forbidden as authoritative substitutes."

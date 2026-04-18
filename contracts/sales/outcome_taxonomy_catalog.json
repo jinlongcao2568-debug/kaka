@@ -1,14 +1,32 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "catalogId": "outcome_taxonomy_catalog",
   "writeback_source_family": "outcome_taxonomy",
   "writeback_contract_ref": "contracts/governance/writeback_impact_policy.json#writeback_source_contracts.outcome_taxonomy",
   "writeback_merge_semantics": "AUTHORITATIVE_BASE",
   "ownerDocs": [
+    "D2",
     "D10",
     "D3",
     "D11"
   ],
+  "target_field_roles": {
+    "authoritative_base_field": "authoritative_base_targets",
+    "legacy_runtime_carrier_field": "writeback_targets",
+    "projected_feedback_only_field": "projected_feedback_only_targets",
+    "advisory_field": "advisory_targets",
+    "feedback_loop_contract_ref_field": "feedback_loop_contract_ref"
+  },
+  "legacy_runtime_compatibility": {
+    "canonical_owner_overrides": {
+      "governance_feedback_event": "governance_taxonomy"
+    },
+    "shared_owner_targets_allowed": {
+      "DELIVERY_ABANDONED": [
+        "governance_feedback_event"
+      ]
+    }
+  },
   "entries": [
     {
       "outcome_family": "WON",
@@ -18,6 +36,10 @@
         "DELIVERED_ACK"
       ],
       "writeback_targets": [
+        "project_fact",
+        "saleable_opportunity"
+      ],
+      "authoritative_base_targets": [
         "project_fact",
         "saleable_opportunity"
       ],
@@ -38,6 +60,10 @@
         "project_fact",
         "saleable_opportunity"
       ],
+      "authoritative_base_targets": [
+        "project_fact",
+        "saleable_opportunity"
+      ],
       "projected_feedback_only_targets": [],
       "advisory_targets": [],
       "recommendation_effect": "downgrade saleability_status=BLOCKED; trigger rescoring"
@@ -50,6 +76,10 @@
         "APPROVAL_DELAY"
       ],
       "writeback_targets": [
+        "project_fact",
+        "review_queue_profile"
+      ],
+      "authoritative_base_targets": [
         "project_fact",
         "review_queue_profile"
       ],
@@ -76,6 +106,10 @@
         "contact_target",
         "saleable_opportunity"
       ],
+      "authoritative_base_targets": [
+        "contact_target",
+        "saleable_opportunity"
+      ],
       "projected_feedback_only_targets": [
         "sales_lead",
         "report_record"
@@ -91,6 +125,10 @@
         "PAYER_UNRESOLVED"
       ],
       "writeback_targets": [
+        "order_record",
+        "payment_record"
+      ],
+      "authoritative_base_targets": [
         "order_record",
         "payment_record"
       ],
@@ -110,6 +148,9 @@
         "CHALLENGER_REJECTED"
       ],
       "writeback_targets": [
+        "project_fact"
+      ],
+      "authoritative_base_targets": [
         "project_fact"
       ],
       "projected_feedback_only_targets": [
@@ -140,6 +181,10 @@
         "project_fact",
         "governance_feedback_event"
       ],
+      "authoritative_base_targets": [
+        "delivery_record",
+        "project_fact"
+      ],
       "projected_feedback_only_targets": [
         "sales_lead",
         "report_record"
@@ -150,9 +195,11 @@
     }
   ],
   "notes": [
-    "Outcome taxonomy governs allowed reason tags and required base writeback targets.",
+    "Outcome taxonomy governs allowed reason tags and the canonical base writeback targets declared in authoritative_base_targets.",
     "Reason tags are internal-only and must not be exposed externally without field policy approval.",
+    "writeback_targets remains the current Stage9 legacy runtime carrier; authoritative_base_targets is the canonical owner field for source-ownership adjudication.",
     "Outcome taxonomy owns only the base target set; governance, payment_exception, delivery_exception, and upstream feedback loop targets are additive or projected-only per writeback contract.",
+    "DELIVERY_ABANDONED may keep governance_feedback_event only as a catalog-declared legacy runtime compatibility target; the canonical owner of governance_feedback_event remains governance_taxonomy.",
     "SIGNED under DELIVERY_ABANDONED is a coarse Stage9 marker for refund requested or approved after commercial commitment; the precise refund phase remains owned by payment_exception_family_optional."
   ]
 }

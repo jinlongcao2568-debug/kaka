@@ -26,6 +26,8 @@ impacted_assets:
   code: []
 required_scripts:
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+script_timeouts:
+  scripts/check-release.ps1: 300000
 stop_conditions:
   - "required script fails"
 definition_of_done:

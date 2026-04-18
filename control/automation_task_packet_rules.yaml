@@ -84,3 +84,5 @@ notes:
   - task packet cannot be replaced by conversational summary; control/current_task.yaml is the formal machine-readable packet source
   - baseline_dirty_paths is optional but recommended whenever the workspace already contains accepted tracked dirty paths from prior packets
   - generated Python cache artifacts under __pycache__ and .pytest_cache are not treated as business-scope actual changed paths by readiness validation
+  - script_timeouts is optional but recommended for long-running checks; scripts/check-release.ps1 should use at least 300000 ms before declaring a tool-layer timeout
+  - a tool-layer timeout without script FAIL/nonzero output is not a script failure until the command has been retried with the declared script_timeouts value
