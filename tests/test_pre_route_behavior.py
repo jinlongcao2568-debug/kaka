@@ -550,6 +550,10 @@ class TestPreRouteBehavior(unittest.TestCase):
             ["delivery_record", "project_fact", "governance_feedback_event"],
         )
         self.assertEqual(
+            stage9.inputs.get("outcome_authoritative_base_targets"),
+            ["delivery_record", "project_fact"],
+        )
+        self.assertEqual(
             stage9.inputs.get("upstream_feedback_projected_targets"),
             ["sales_lead", "report_record"],
         )
@@ -585,12 +589,14 @@ class TestPreRouteBehavior(unittest.TestCase):
             [
                 "delivery_record",
                 "project_fact",
-                "governance_feedback_event",
+                "opportunity_outcome_event",
                 "sales_lead",
                 "report_record",
                 "controlled_exception_record",
                 "release_gates",
+                "governance_feedback_event",
                 "saleable_opportunity",
+                "payment_record",
             ],
         )
         self.assertEqual(
@@ -623,6 +629,14 @@ class TestPreRouteBehavior(unittest.TestCase):
             .get("resolved_from_sources"),
             ["outcome_taxonomy", "delivery_exception"],
         )
+        self.assertEqual(
+            stage9.inputs.get("writeback_target_sources", {}).get("governance_feedback_event"),
+            ["governance_taxonomy"],
+        )
+        self.assertEqual(
+            stage9.inputs.get("writeback_target_sources", {}).get("opportunity_outcome_event"),
+            ["outcome_taxonomy"],
+        )
 
     def test_stage9_governance_targets_are_additive_not_override(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -642,6 +656,10 @@ class TestPreRouteBehavior(unittest.TestCase):
             ["contact_target", "saleable_opportunity"],
         )
         self.assertEqual(
+            stage9.inputs.get("outcome_authoritative_base_targets"),
+            ["contact_target", "saleable_opportunity"],
+        )
+        self.assertEqual(
             stage9.inputs.get("upstream_feedback_projected_targets"),
             ["sales_lead", "report_record"],
         )
@@ -655,7 +673,16 @@ class TestPreRouteBehavior(unittest.TestCase):
         )
         self.assertEqual(
             stage9.inputs.get("resolved_effective_writeback_targets"),
-            ["contact_target", "saleable_opportunity", "sales_lead", "report_record", "order_record", "payment_record"],
+            [
+                "contact_target",
+                "saleable_opportunity",
+                "opportunity_outcome_event",
+                "sales_lead",
+                "report_record",
+                "order_record",
+                "payment_record",
+                "governance_feedback_event",
+            ],
         )
         self.assertEqual(
             outcome.get("writeback_targets"),

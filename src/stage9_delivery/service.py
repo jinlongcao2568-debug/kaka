@@ -94,7 +94,10 @@ class Stage9Service:
         written_back_at_optional: str | None,
         upstream_governance_decision_state: str,
         outcome_writeback_targets: list[str],
+        outcome_authoritative_base_targets: list[str],
         governance_writeback_targets: list[str],
+        governance_legacy_writeback_targets: list[str],
+        governance_owned_self_target: str,
         payment_exception_writeback_targets: list[str],
         delivery_exception_writeback_targets: list[str],
         effective_writeback_targets: list[str],
@@ -114,7 +117,10 @@ class Stage9Service:
             "upstream_written_back_at_optional": written_back_at_optional,
             "upstream_governance_decision_state": upstream_governance_decision_state,
             "outcome_writeback_targets": list(outcome_writeback_targets),
+            "outcome_authoritative_base_targets": list(outcome_authoritative_base_targets),
             "governance_writeback_targets_optional": list(governance_writeback_targets),
+            "governance_legacy_writeback_targets": list(governance_legacy_writeback_targets),
+            "governance_owned_self_target": governance_owned_self_target,
             "payment_exception_writeback_targets_optional": list(payment_exception_writeback_targets),
             "delivery_exception_writeback_targets_optional": list(delivery_exception_writeback_targets),
             "effective_writeback_targets": list(effective_writeback_targets),
@@ -138,31 +144,64 @@ class Stage9Service:
         self,
         *,
         outcome_family: str,
+        projected_feedback_only_targets: list[str],
+        advisory_targets: list[str],
+        feedback_loop_contract_ref: str | None,
     ) -> dict[str, Any]:
         policy = self._outcome_feedback_policy()
         outcome_key = str(outcome_family or "").lower()
         required_outcomes = {str(item).lower() for item in policy.get("requiredOutcomes", [])}
-        if outcome_key not in required_outcomes:
+        if not (projected_feedback_only_targets or advisory_targets):
             return {
                 "upstream_feedback_projected_targets": [],
                 "upstream_feedback_advisory_targets": [],
                 "upstream_feedback_contracts": {},
             }
+        if outcome_key not in required_outcomes:
+            raise ValueError(
+                f"Stage9 upstream feedback loop outcome not declared: outcome_family={outcome_family}"
+            )
 
         contract = dict(policy.get("upstreamFeedbackLoopContracts", {}).get(outcome_key, {}))
+        if not contract:
+            raise ValueError(
+                f"Stage9 upstream feedback loop contract missing for outcome_family={outcome_family}"
+            )
         projected_contracts = dict(contract.get("projectedOnlyTargets", {}))
         advisory_contracts = dict(contract.get("advisoryTargets", {}))
+        missing_projected_targets = [
+            target for target in projected_feedback_only_targets if target not in projected_contracts
+        ]
+        missing_advisory_targets = [
+            target for target in advisory_targets if target not in advisory_contracts
+        ]
+        if missing_projected_targets or missing_advisory_targets:
+            raise ValueError(
+                "Stage9 upstream feedback loop target contract mismatch: "
+                f"missing_projected={missing_projected_targets}; "
+                f"missing_advisory={missing_advisory_targets}"
+            )
         return {
-            "upstream_feedback_projected_targets": list(projected_contracts.keys()),
-            "upstream_feedback_advisory_targets": list(advisory_contracts.keys()),
+            "upstream_feedback_projected_targets": list(projected_feedback_only_targets),
+            "upstream_feedback_advisory_targets": list(advisory_targets),
             "upstream_feedback_contracts": {
                 "outcome_family": outcome_key,
-                "projectedOnlyTargets": projected_contracts,
-                "advisoryTargets": advisory_contracts,
+                "feedback_loop_contract_ref": feedback_loop_contract_ref,
+                "projectedOnlyTargets": {
+                    target: projected_contracts[target] for target in projected_feedback_only_targets
+                },
+                "advisoryTargets": {
+                    target: advisory_contracts[target] for target in advisory_targets
+                },
                 "mustWriteBackTo": [
                     target
                     for target in policy.get("mustWriteBackTo", [])
-                    if target in {"sales_lead", "report_record"}
+                    if target in projected_feedback_only_targets
+                ],
+                "mustAdvisoryWriteBackTo": [
+                    target
+                    for target in policy.get("mustAdvisoryWriteBackTo", [])
+                    if target in advisory_targets
                 ],
             },
         }
@@ -444,14 +483,23 @@ class Stage9Service:
                 f"opportunity_id={h08_payload['opportunity_id']}; touch_record_id={h08_payload['touch_record_id']}"
             )
 
+        outcome_taxonomy_output = runtime_state.outputs.get("outcome_taxonomy", {})
         outcome_writeback_targets = ensure_list(
             runtime_state.outputs.get("outcome_taxonomy", {}).get("writeback_targets", ["project_fact"])
+        )
+        outcome_authoritative_base_targets = ensure_list(
+            outcome_taxonomy_output.get("authoritative_base_targets", outcome_writeback_targets)
         )
         resolved_outcome_family = str(
             runtime_state.resolve("outcome_family", runtime_inputs["outcome_family"])
         )
         upstream_feedback_contract = self._resolve_upstream_feedback_contract(
             outcome_family=resolved_outcome_family,
+            projected_feedback_only_targets=ensure_list(
+                outcome_taxonomy_output.get("projected_feedback_only_targets", [])
+            ),
+            advisory_targets=ensure_list(outcome_taxonomy_output.get("advisory_targets", [])),
+            feedback_loop_contract_ref=outcome_taxonomy_output.get("feedback_loop_contract_ref"),
         )
         upstream_feedback_projected_targets = ensure_list(
             upstream_feedback_contract.get("upstream_feedback_projected_targets", [])
@@ -459,8 +507,21 @@ class Stage9Service:
         upstream_feedback_advisory_targets = ensure_list(
             upstream_feedback_contract.get("upstream_feedback_advisory_targets", [])
         )
+        governance_taxonomy_output = runtime_state.outputs.get("governance_taxonomy", {})
         governance_writeback_targets = ensure_list(
-            runtime_state.outputs.get("governance_taxonomy", {}).get("writeback_targets", [])
+            runtime_state.outputs.get("governance_taxonomy", {}).get(
+                "additive_writeback_targets",
+                runtime_state.outputs.get("governance_taxonomy", {}).get("writeback_targets", []),
+            )
+        )
+        governance_legacy_writeback_targets = ensure_list(
+            governance_taxonomy_output.get("writeback_targets", governance_writeback_targets)
+        )
+        governance_owned_self_target = str(
+            governance_taxonomy_output.get(
+                "governance_owned_self_target",
+                "governance_feedback_event",
+            )
         )
         payment_exception_writeback_targets = ensure_list(
             runtime_state.resolve("payment_exception_writeback_targets_optional", [])
@@ -477,13 +538,14 @@ class Stage9Service:
             if target not in effective_writeback_targets:
                 effective_writeback_targets.append(target)
         writeback_target_resolution = self.impact_executor.resolve_effective_targets(
-            outcome_targets=outcome_writeback_targets,
+            outcome_targets=outcome_authoritative_base_targets,
             upstream_feedback_targets=(
                 upstream_feedback_projected_targets + upstream_feedback_advisory_targets
             ),
             governance_targets=governance_writeback_targets,
             payment_exception_targets=payment_exception_writeback_targets,
             delivery_exception_targets=delivery_exception_writeback_targets,
+            governance_self_target=governance_owned_self_target,
         )
         resolved_effective_writeback_targets = list(
             writeback_target_resolution["effective_writeback_targets"]
@@ -500,7 +562,10 @@ class Stage9Service:
             written_back_at_optional=written_back_at_optional,
             upstream_governance_decision_state=upstream_governance_decision_state,
             outcome_writeback_targets=outcome_writeback_targets,
+            outcome_authoritative_base_targets=outcome_authoritative_base_targets,
             governance_writeback_targets=governance_writeback_targets,
+            governance_legacy_writeback_targets=governance_legacy_writeback_targets,
+            governance_owned_self_target=governance_owned_self_target,
             payment_exception_writeback_targets=payment_exception_writeback_targets,
             delivery_exception_writeback_targets=delivery_exception_writeback_targets,
             effective_writeback_targets=effective_writeback_targets,
@@ -853,7 +918,7 @@ class Stage9Service:
                 runtime_state.resolve("impact_scope", "INTERNAL"),
             ),
             "feedback_reason": feedback_reason,
-            "writeback_targets": governance_writeback_targets or ["governance_feedback_event"],
+            "writeback_targets": governance_legacy_writeback_targets or [governance_owned_self_target],
             "governance_feedback_policy_id_optional": runtime_state.resolve(
                 "governance_feedback_policy_id_optional",
                 runtime_state.resolve("trigger_type", runtime_inputs["trigger_type"]),
@@ -990,10 +1055,13 @@ class Stage9Service:
             "written_back_at_optional": written_back_at_optional or now,
             "governed_execution_mode": governed_execution_mode,
             "outcome_writeback_targets": outcome_writeback_targets,
+            "outcome_authoritative_base_targets": outcome_authoritative_base_targets,
             "upstream_feedback_projected_targets": upstream_feedback_projected_targets,
             "upstream_feedback_advisory_targets": upstream_feedback_advisory_targets,
             "upstream_feedback_contracts": upstream_feedback_contract["upstream_feedback_contracts"],
             "governance_writeback_targets_optional": governance_writeback_targets,
+            "governance_legacy_writeback_targets": governance_legacy_writeback_targets,
+            "governance_owned_self_target": governance_owned_self_target,
             "payment_exception_writeback_targets_optional": payment_exception_writeback_targets,
             "delivery_exception_writeback_targets_optional": delivery_exception_writeback_targets,
             "effective_writeback_targets": effective_writeback_targets,
@@ -1046,10 +1114,13 @@ class Stage9Service:
             inputs={
                 **runtime_inputs,
                 "outcome_writeback_targets": outcome_writeback_targets,
+                "outcome_authoritative_base_targets": outcome_authoritative_base_targets,
                 "upstream_feedback_projected_targets": upstream_feedback_projected_targets,
                 "upstream_feedback_advisory_targets": upstream_feedback_advisory_targets,
                 "upstream_feedback_contracts": upstream_feedback_contract["upstream_feedback_contracts"],
                 "governance_writeback_targets_optional": governance_writeback_targets,
+                "governance_legacy_writeback_targets": governance_legacy_writeback_targets,
+                "governance_owned_self_target": governance_owned_self_target,
                 "payment_exception_writeback_targets_optional": payment_exception_writeback_targets,
                 "delivery_exception_writeback_targets_optional": delivery_exception_writeback_targets,
                 "effective_writeback_targets": effective_writeback_targets,

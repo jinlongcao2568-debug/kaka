@@ -2973,22 +2973,51 @@ class PolicyExecutor:
         if not isinstance(reason_tags, list):
             reason_tags = [reason_tags]
         entry = next((item for item in catalog["entries"] if item["outcome_family"] == outcome_family), None)
+        target_field_roles = dict(catalog.get("target_field_roles", {}))
         if entry is None:
             return self._decision(
                 policy_key="outcome_taxonomy",
                 catalog_id=catalog["catalogId"],
                 policy_id=None,
                 decision_state="REVIEW",
-                outputs={"writeback_targets": ["project_fact"], "recommendation_effect": "manual review", "outcome_reason_tags": reason_tags},
+                outputs={
+                    "writeback_source_family": catalog.get("writeback_source_family", "outcome_taxonomy"),
+                    "writeback_merge_semantics": catalog.get("writeback_merge_semantics", "AUTHORITATIVE_BASE"),
+                    "target_field_roles": target_field_roles,
+                    "writeback_targets": ["project_fact"],
+                    "authoritative_base_targets": ["project_fact"],
+                    "projected_feedback_only_targets": [],
+                    "advisory_targets": [],
+                    "feedback_loop_contract_ref": None,
+                    "recommendation_effect": "manual review",
+                    "outcome_reason_tags": reason_tags,
+                },
                 reasons=["unknown outcome_family"],
             )
         invalid_tags = [tag for tag in reason_tags if tag not in entry["allowed_reason_tags"]]
+        legacy_writeback_targets = _ensure_list(entry.get("writeback_targets", []))
+        authoritative_base_targets = _ensure_list(
+            entry.get("authoritative_base_targets", legacy_writeback_targets)
+        )
         return self._decision(
             policy_key="outcome_taxonomy",
             catalog_id=catalog["catalogId"],
             policy_id=outcome_family,
             decision_state="REVIEW" if invalid_tags else "ALLOW",
-            outputs={"writeback_targets": entry["writeback_targets"], "recommendation_effect": entry["recommendation_effect"], "outcome_reason_tags": reason_tags},
+            outputs={
+                "writeback_source_family": catalog.get("writeback_source_family", "outcome_taxonomy"),
+                "writeback_merge_semantics": catalog.get("writeback_merge_semantics", "AUTHORITATIVE_BASE"),
+                "target_field_roles": target_field_roles,
+                "writeback_targets": legacy_writeback_targets,
+                "authoritative_base_targets": authoritative_base_targets,
+                "projected_feedback_only_targets": _ensure_list(
+                    entry.get("projected_feedback_only_targets", [])
+                ),
+                "advisory_targets": _ensure_list(entry.get("advisory_targets", [])),
+                "feedback_loop_contract_ref": entry.get("feedback_loop_contract_ref"),
+                "recommendation_effect": entry["recommendation_effect"],
+                "outcome_reason_tags": reason_tags,
+            },
             reasons=[f"invalid_reason_tags={invalid_tags}"] if invalid_tags else ["outcome taxonomy matched"],
         )
 
@@ -2996,24 +3025,48 @@ class PolicyExecutor:
         catalog = self.load_policy("governance_taxonomy")
         trigger_type = state.resolve("trigger_type", context.input("trigger_type", "OTHER"))
         entry = next((item for item in catalog["entries"] if item["trigger_type"] == trigger_type), None)
+        target_field_roles = dict(catalog.get("target_field_roles", {}))
         if entry is None:
             return self._decision(
                 policy_key="governance_taxonomy",
                 catalog_id=catalog["catalogId"],
                 policy_id=None,
                 decision_state="REVIEW",
-                outputs={"required_actions": ["record audit"], "impact_scope": "REVIEW_REQUIRED", "writeback_targets": ["project_fact"], "recommendation_effect": "manual review"},
+                outputs={
+                    "writeback_source_family": catalog.get("writeback_source_family", "governance_taxonomy"),
+                    "writeback_merge_semantics": catalog.get("writeback_merge_semantics", "ADDITIVE_ONLY"),
+                    "target_field_roles": target_field_roles,
+                    "required_actions": ["record audit"],
+                    "impact_scope": "REVIEW_REQUIRED",
+                    "governance_owned_self_target": "governance_feedback_event",
+                    "additive_writeback_targets": ["project_fact"],
+                    "writeback_targets": ["project_fact"],
+                    "recommendation_effect": "manual review",
+                },
                 reasons=["unknown governance trigger"],
             )
+        additive_writeback_targets = _ensure_list(
+            entry.get("additive_writeback_targets", entry.get("writeback_targets", []))
+        )
         return self._decision(
             policy_key="governance_taxonomy",
             catalog_id=catalog["catalogId"],
             policy_id=trigger_type,
             decision_state="ALLOW",
             outputs={
+                "writeback_source_family": catalog.get("writeback_source_family", "governance_taxonomy"),
+                "writeback_merge_semantics": catalog.get("writeback_merge_semantics", "ADDITIVE_ONLY"),
+                "target_field_roles": target_field_roles,
                 "required_actions": entry["required_actions"],
                 "impact_scope": entry["impact_scope"],
-                "writeback_targets": entry["writeback_targets"],
+                "governance_owned_self_target": entry.get(
+                    "governance_owned_self_target",
+                    "governance_feedback_event",
+                ),
+                "additive_writeback_targets": additive_writeback_targets,
+                "writeback_targets": _ensure_list(
+                    entry.get("writeback_targets", additive_writeback_targets)
+                ),
                 "recommendation_effect": entry["recommendation_effect"],
                 "governance_feedback_policy_id_optional": trigger_type,
             },

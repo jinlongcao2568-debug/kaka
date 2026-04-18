@@ -112,7 +112,12 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         self.assertTrue(semantics["silent_override_outcome_targets_forbidden"])
         self.assertEqual(
             stage9.inputs["writeback_persistence_targets"],
-            ["delivery_record", "governance_feedback_event"],
+            [
+                "delivery_record",
+                "opportunity_outcome_event",
+                "governance_feedback_event",
+                "payment_record",
+            ],
         )
         self.assertEqual(
             stage9.inputs["writeback_projected_targets"],
@@ -123,12 +128,14 @@ class TestStage9ImpactExecutor(unittest.TestCase):
             [
                 "delivery_record",
                 "project_fact",
-                "governance_feedback_event",
+                "opportunity_outcome_event",
                 "sales_lead",
                 "report_record",
                 "controlled_exception_record",
                 "release_gates",
+                "governance_feedback_event",
                 "saleable_opportunity",
+                "payment_record",
             ],
         )
         self.assertEqual(
@@ -161,6 +168,10 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         )
         self.assertEqual(
             contracts["governance_feedback_event"]["resolved_from_sources"],
+            ["governance_taxonomy"],
+        )
+        self.assertEqual(
+            contracts["opportunity_outcome_event"]["resolved_from_sources"],
             ["outcome_taxonomy"],
         )
 
@@ -230,7 +241,15 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         )
         self.assertEqual(
             target_sources["governance_feedback_event"],
+            ["governance_taxonomy"],
+        )
+        self.assertEqual(
+            target_sources["opportunity_outcome_event"],
             ["outcome_taxonomy"],
+        )
+        self.assertEqual(
+            target_sources["payment_record"],
+            ["payment_exception"],
         )
         self.assertEqual(
             source_contracts["outcome_taxonomy"]["authoritative_feedback_contract_ref"],
@@ -341,7 +360,7 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         )
         self.assertEqual(
             stage9.inputs["writeback_target_sources"]["governance_feedback_event"],
-            ["outcome_taxonomy"],
+            ["governance_taxonomy"],
         )
 
     def test_payer_mismatch_keeps_outcome_and_governance_semantics_separate(self) -> None:
@@ -364,11 +383,49 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         )
         self.assertEqual(
             stage9.inputs["writeback_target_sources"]["payment_record"],
-            ["outcome_taxonomy"],
+            ["outcome_taxonomy", "payment_exception"],
         )
         self.assertEqual(
             set(stage9.inputs["impact_targets_projected_contract_only"]),
             {"sales_lead", "report_record"},
+        )
+
+    def test_policy_executor_exposes_canonical_source_contract_outputs(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "refund_state": "REQUESTED",
+                "outcome_family": "DELIVERY_ABANDONED",
+                "outcome_reason_tags": ["SIGNED"],
+                "trigger_type": "EXCEPTION_TRIGGERED",
+            }
+        )
+
+        stage9 = run_internal_chain(payload)["stage9"]
+        trace = {
+            entry["policy_key"]: entry["outputs"]
+            for entry in stage9.inputs["policy_trace"]
+            if "outputs" in entry
+        }
+        outcome_outputs = trace["outcome_taxonomy"]
+        governance_outputs = trace["governance_taxonomy"]
+
+        self.assertEqual(
+            outcome_outputs["writeback_targets"],
+            ["delivery_record", "project_fact", "governance_feedback_event"],
+        )
+        self.assertEqual(
+            outcome_outputs["authoritative_base_targets"],
+            ["delivery_record", "project_fact"],
+        )
+        self.assertEqual(
+            outcome_outputs["projected_feedback_only_targets"],
+            ["sales_lead", "report_record"],
+        )
+        self.assertEqual(governance_outputs["governance_owned_self_target"], "governance_feedback_event")
+        self.assertEqual(
+            governance_outputs["additive_writeback_targets"],
+            ["controlled_exception_record", "release_gates"],
         )
 
     def test_payment_exception_family_matrix_is_contract_driven(self) -> None:

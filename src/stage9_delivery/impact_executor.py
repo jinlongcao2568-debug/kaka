@@ -36,10 +36,17 @@ class ImpactExecutor:
         self.settings = settings
         self.policy = load_contract("contracts/governance/writeback_impact_policy.json", settings)
 
+    def _source_order(self) -> tuple[str, ...]:
+        order = tuple(self.policy.get("target_source_resolution_order") or self.SOURCE_ORDER)
+        missing = [source for source in self.SOURCE_ORDER if source not in order]
+        if missing:
+            raise ValueError(f"Stage9 writeback source resolution order missing source families: {missing}")
+        return order
+
     def describe_source_contracts(self) -> dict[str, Any]:
         source_contracts = self.policy.get("writeback_source_contracts", {})
         described: dict[str, dict[str, Any]] = {}
-        for source_name in self.SOURCE_ORDER:
+        for source_name in self._source_order():
             contract = dict(source_contracts.get(source_name, {}))
             if not contract:
                 raise ValueError(
@@ -78,14 +85,15 @@ class ImpactExecutor:
         governance_targets: list[str],
         payment_exception_targets: list[str],
         delivery_exception_targets: list[str],
+        governance_self_target: str | None = None,
     ) -> dict[str, Any]:
         source_contracts = self.describe_source_contracts()
         effective_targets: list[str] = []
         target_sources: dict[str, list[str]] = {}
 
-        def register_target(target: str, source_family: str) -> None:
+        def register_target(target: str, source_family: str, *, source_persisted_record: bool = False) -> None:
             contract = self._require_target_contract(target)
-            if source_family not in {"outcome_taxonomy"}:
+            if source_family != "outcome_taxonomy" and not source_persisted_record:
                 additive_sources = set(contract.get("additive_source_families_allowed", []))
                 if source_family not in additive_sources:
                     raise ValueError(
@@ -103,6 +111,11 @@ class ImpactExecutor:
             )
         for target in outcome_targets:
             register_target(target, "outcome_taxonomy")
+        register_target(
+            str(source_contracts["outcome_taxonomy"]["persisted_stage9_record_target"]),
+            "outcome_taxonomy",
+            source_persisted_record=True,
+        )
 
         if source_contracts["upstream_feedback_loop"]["merge_semantics"] != "PROJECTED_FEEDBACK_ONLY":
             raise ValueError(
@@ -123,6 +136,13 @@ class ImpactExecutor:
                 )
             for target in targets:
                 register_target(target, source_family)
+            persisted_target = str(source_contracts[source_family]["persisted_stage9_record_target"])
+            if targets or (source_family == "governance_taxonomy" and governance_self_target):
+                register_target(
+                    governance_self_target if source_family == "governance_taxonomy" and governance_self_target else persisted_target,
+                    source_family,
+                    source_persisted_record=True,
+                )
 
         return {
             "writeback_source_contracts": source_contracts,
