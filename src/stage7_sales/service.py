@@ -9,7 +9,6 @@ from typing import Any, Mapping
 
 from stage7_sales.resolution import resolve_actor_seed
 from shared.capability_runtime import CapabilityRuntime
-from shared.contract_loader import load_contract
 from shared.context_packet import ContextPacket
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.state_packet import StatePacket
@@ -34,319 +33,6 @@ def _optional_str(value: Any) -> str | None:
     if value in (None, ""):
         return None
     return str(value)
-
-
-def _normalize_alias_token(value: Any, *, normalizer: str) -> str | None:
-    if value in (None, ""):
-        return None
-    normalized = str(value).upper()
-    if normalizer == "UPPER_ALNUM":
-        normalized = "".join(ch for ch in normalized if ch.isalnum())
-    return normalized or None
-
-
-def _band_from_rules(score: int, rules: list[dict[str, Any]], *, key: str, default: str) -> str:
-    ordered = sorted(
-        (rule for rule in rules if key in rule),
-        key=lambda item: int(item.get("min_score", 0)),
-        reverse=True,
-    )
-    for rule in ordered:
-        if score >= int(rule.get("min_score", 0)):
-            return str(rule[key])
-    return default
-
-
-def _build_multi_competitor_ranking(
-    *,
-    settings: Any | None,
-    project_id: str,
-    inputs: Mapping[str, Any],
-    focus_bidder_id: str,
-    challenger_bidder_id: str,
-    challenger_profile_id: str,
-    candidate_position_label: str,
-    challenge_actionability_score: int,
-    execution_readiness_score: int,
-    confidence_score_seed: int | None,
-    real_competitor_count: int,
-) -> tuple[list[dict[str, Any]], list[str], dict[str, Any], dict[str, Any], dict[str, Any]]:
-    resolution_policy_doc = load_contract("contracts/sales/stage7_resolution_policy.json", settings)
-    competitor_catalog = load_contract("contracts/sales/competitor_confidence_catalog.json", settings)
-    resolution_policy = resolution_policy_doc["multiCompetitorResolution"]
-    entity_policy = resolution_policy["entityResolution"]
-    ranking_policy = resolution_policy["ranking"]
-    retention_policy = resolution_policy["retention"]
-    confidence_policy = competitor_catalog["policies"][0]
-    cutoff_policy = confidence_policy.get("cutoff_policy", {})
-    ranking_limit = int(confidence_policy.get("ranking_policy", {}).get("top_n_limit", 3))
-    position_order = {
-        str(label): int(priority)
-        for label, priority in ranking_policy.get("positionOrder", {}).items()
-    }
-    candidate_source_priority = {
-        str(label): int(priority)
-        for label, priority in entity_policy.get("candidateSourcePriority", {}).items()
-    }
-    alias_fields = [str(field_name) for field_name in entity_policy.get("aliasFields", [])]
-    alias_normalizer = str(entity_policy.get("aliasNormalizer", "UPPER_ALNUM"))
-    fallback_confidence = int(ranking_policy.get("fallbackConfidenceScore", 45))
-    confidence_band_rules = confidence_policy.get("confidence_band_rules", [])
-    cutoff_score = int(cutoff_policy.get("candidate_only_score_lt", 55))
-    cutoff_bands = {str(item) for item in cutoff_policy.get("candidate_only_confidence_bands", ["LOW"])}
-
-    def ranking_score(confidence_score: int, actionability_score: int, readiness_score: int) -> int:
-        weights = ranking_policy["weights"]
-        return round(
-            actionability_score * float(weights["challenge_actionability_score"])
-            + readiness_score * float(weights["execution_readiness_score"])
-            + confidence_score * float(weights["confidence_score_optional"])
-        )
-
-    def alias_tokens(raw_candidate: Mapping[str, Any]) -> list[str]:
-        tokens: list[str] = []
-        for field_name in alias_fields:
-            raw_value = raw_candidate.get(field_name)
-            values = raw_value if isinstance(raw_value, list) else [raw_value]
-            for value in values:
-                normalized = _normalize_alias_token(value, normalizer=alias_normalizer)
-                if normalized:
-                    tokens.append(normalized)
-        return sorted(set(tokens))
-
-    def canonical_entity_key(raw_candidate: Mapping[str, Any], alias_token_list: list[str]) -> str:
-        for field_name in entity_policy.get("canonicalIdPreference", []):
-            candidate_value = _optional_str(raw_candidate.get(field_name))
-            if candidate_value:
-                return f"{field_name}:{candidate_value}"
-        if alias_token_list:
-            return f"alias:{alias_token_list[0]}"
-        return f"fallback:{_optional_str(raw_candidate.get('candidate_id')) or build_id('MCAND', project_id, 'UNRESOLVED')}"
-
-    def candidate_only_reasons(candidate: Mapping[str, Any]) -> list[str]:
-        confidence_score = int(candidate["confidence_score_optional"])
-        confidence_band = _band_from_rules(
-            confidence_score,
-            confidence_band_rules,
-            key="band",
-            default="LOW",
-        )
-        reasons: list[str] = []
-        if confidence_score < cutoff_score:
-            reasons.append("CONFIDENCE_SCORE_LT_55")
-        if confidence_band in cutoff_bands:
-            reasons.append("CONFIDENCE_BAND_LOW")
-        return reasons
-
-    default_confidence = confidence_score_seed if confidence_score_seed is not None else max(
-        40,
-        min(100, round((challenge_actionability_score + execution_readiness_score) / 2)),
-    )
-    seed_candidate = {
-        "candidate_id": build_id("MCAND", project_id, "WINNER"),
-        "challenger_profile_id": challenger_profile_id,
-        "focus_bidder_id": focus_bidder_id,
-        "challenger_bidder_id": challenger_bidder_id,
-        "candidate_position_label": candidate_position_label,
-        "confidence_score_optional": default_confidence,
-        "challenge_actionability_score": challenge_actionability_score,
-        "execution_readiness_score": execution_readiness_score,
-        "ranking_reason_tags_optional": [
-            "STAGE6_FORMAL_CHALLENGER",
-            f"POSITION_{candidate_position_label}",
-            f"RANKING_POLICY_{resolution_policy['policyId']}",
-            f"CUTOFF_POLICY_{cutoff_policy.get('policy_id', 'COMP-CUTOFF-001')}",
-        ],
-        "ranking_score": ranking_score(default_confidence, challenge_actionability_score, execution_readiness_score),
-        "selected_flag": False,
-        "candidate_source": "STAGE6_CHALLENGER_PROFILE",
-    }
-    raw_candidates: list[dict[str, Any]] = [
-        {
-            **seed_candidate,
-            "_entity_key": f"challenger_bidder_id:{challenger_bidder_id}",
-            "_alias_tokens": [],
-        }
-    ]
-
-    raw_pool = inputs.get("multi_competitor_candidate_pool")
-    if isinstance(raw_pool, list):
-        for index, raw_candidate in enumerate(raw_pool, start=1):
-            if not isinstance(raw_candidate, Mapping):
-                continue
-            raw_profile_id = _optional_str(raw_candidate.get("challenger_profile_id")) or build_id(
-                "CHALT", project_id, f"{index:02d}"
-            )
-            raw_bidder_id = (
-                _optional_str(raw_candidate.get("challenger_bidder_id"))
-                or _optional_str(raw_candidate.get("bidder_id"))
-                or build_id("BID", project_id, f"MC{index:02d}")
-            )
-            raw_position = _optional_str(raw_candidate.get("candidate_position_label")) or "OTHER"
-            raw_confidence = _optional_int(raw_candidate.get("confidence_score_optional"))
-            raw_actionability = int(
-                raw_candidate.get(
-                    "challenge_actionability_score",
-                    raw_candidate.get(
-                        "challenge_actionability_score_optional",
-                        max(35, raw_confidence or 0, challenge_actionability_score - 8),
-                    ),
-                )
-            )
-            raw_readiness = int(
-                raw_candidate.get(
-                    "execution_readiness_score",
-                    raw_candidate.get(
-                        "execution_readiness_score_optional",
-                        max(30, raw_confidence or 0, execution_readiness_score - 10),
-                    ),
-                )
-            )
-            effective_confidence = raw_confidence if raw_confidence is not None else fallback_confidence
-            normalized_aliases = alias_tokens(raw_candidate)
-            raw_entity_key = canonical_entity_key(
-                {
-                    **raw_candidate,
-                    "challenger_profile_id": raw_profile_id,
-                    "challenger_bidder_id": raw_bidder_id,
-                },
-                normalized_aliases,
-            )
-            raw_candidates.append(
-                {
-                    "candidate_id": _optional_str(raw_candidate.get("candidate_id")) or build_id("MCAND", project_id, f"{index:02d}"),
-                    "challenger_profile_id": raw_profile_id,
-                    "focus_bidder_id": _optional_str(raw_candidate.get("focus_bidder_id")) or focus_bidder_id,
-                    "challenger_bidder_id": raw_bidder_id,
-                    "candidate_position_label": raw_position,
-                    "confidence_score_optional": effective_confidence,
-                    "ranking_reason_tags_optional": ensure_list(
-                        raw_candidate.get(
-                            "ranking_reason_tags_optional",
-                            [
-                                f"POSITION_{raw_position}",
-                                "POOL_CANDIDATE",
-                                f"RANKING_POLICY_{resolution_policy['policyId']}",
-                            ],
-                        )
-                    ),
-                    "challenge_actionability_score": raw_actionability,
-                    "execution_readiness_score": raw_readiness,
-                    "ranking_score": ranking_score(effective_confidence, raw_actionability, raw_readiness),
-                    "selected_flag": False,
-                    "candidate_source": _optional_str(raw_candidate.get("candidate_source")) or "DIRECT_POOL_INPUT",
-                    "_entity_key": raw_entity_key,
-                    "_alias_tokens": normalized_aliases,
-                }
-            )
-
-    deduped_candidates: dict[str, dict[str, Any]] = {}
-    alias_deduped_count = 0
-    for candidate in raw_candidates:
-        entity_key = str(candidate["_entity_key"])
-        existing = deduped_candidates.get(entity_key)
-        if existing is None:
-            deduped_candidates[entity_key] = candidate
-            continue
-        alias_deduped_count += 1
-        existing_priority = candidate_source_priority.get(str(existing["candidate_source"]), 99)
-        candidate_priority = candidate_source_priority.get(str(candidate["candidate_source"]), 99)
-        existing_key = (
-            existing_priority,
-            -int(existing["confidence_score_optional"]),
-            -int(existing["ranking_score"]),
-            position_order.get(str(existing["candidate_position_label"]), 99),
-            str(existing["candidate_id"]),
-        )
-        candidate_key = (
-            candidate_priority,
-            -int(candidate["confidence_score_optional"]),
-            -int(candidate["ranking_score"]),
-            position_order.get(str(candidate["candidate_position_label"]), 99),
-            str(candidate["candidate_id"]),
-        )
-        winner = candidate if candidate_key < existing_key else existing
-        loser = existing if winner is candidate else candidate
-        winner["ranking_reason_tags_optional"] = ensure_list(winner["ranking_reason_tags_optional"]) + [
-            "ENTITY_RESOLUTION_DEDUP",
-            f"DEDUPED_{loser['candidate_id']}",
-        ]
-        deduped_candidates[entity_key] = winner
-
-    candidates = list(deduped_candidates.values())
-    candidates.sort(
-        key=lambda item: (
-            -int(item["ranking_score"]),
-            -int(item["confidence_score_optional"]),
-            position_order.get(str(item["candidate_position_label"]), 99),
-            str(item["candidate_id"]),
-        )
-    )
-
-    top_n_limit = max(1, ranking_limit)
-    top_n_candidate_ids: list[str] = []
-    candidate_only_candidate_ids: list[str] = []
-    winner_candidate: dict[str, Any] | None = None
-    for rank, item in enumerate(candidates, start=1):
-        reasons = candidate_only_reasons(item)
-        if rank <= top_n_limit:
-            top_n_candidate_ids.append(str(item["candidate_id"]))
-        else:
-            reasons.append("RANK_GT_TOP_N")
-        item["candidate_rank"] = rank
-        if reasons:
-            candidate_only_candidate_ids.append(str(item["candidate_id"]))
-        item["ranking_reason_tags_optional"] = ensure_list(item["ranking_reason_tags_optional"]) + reasons
-        if winner_candidate is None and rank <= top_n_limit and not reasons:
-            winner_candidate = item
-
-    if winner_candidate is None:
-        winner_candidate = candidates[0]
-
-    for item in candidates:
-        item["selected_flag"] = item["candidate_id"] == winner_candidate["candidate_id"]
-
-    winning_candidate = dict(winner_candidate)
-    selection_trace = {
-        "selection_policy_id": resolution_policy["policyId"],
-        "sort_basis": list(ranking_policy.get("sortBasis", [])),
-        "ranking_mode": str(ranking_policy.get("rankingMode", "TOP_N_THEN_WINNER")),
-        "input_candidate_count": len(candidates),
-        "top_n_limit": top_n_limit,
-        "winner_selection_basis": [
-            f"winner_selection={retention_policy['winner_selection']}",
-            f"cutoff_policy_id={cutoff_policy.get('policy_id', 'COMP-CUTOFF-001')}",
-            f"real_competitor_count={real_competitor_count}",
-            f"winning_candidate_id={winning_candidate['candidate_id']}",
-            f"winning_challenger_profile_id={winning_candidate['challenger_profile_id']}",
-            f"candidate_only_candidate_ids={','.join(candidate_only_candidate_ids) if candidate_only_candidate_ids else 'NONE'}",
-        ],
-    }
-    trace_summary = {
-        "policy_id": resolution_policy["policyId"],
-        "candidate_only_candidate_ids": candidate_only_candidate_ids,
-        "alias_deduped_count": alias_deduped_count,
-        "deduped_candidate_count": len(candidates),
-    }
-    sanitized_candidates = [
-        {
-            "candidate_id": str(item["candidate_id"]),
-            "challenger_profile_id": str(item["challenger_profile_id"]),
-            "focus_bidder_id": str(item["focus_bidder_id"]),
-            "challenger_bidder_id": str(item["challenger_bidder_id"]),
-            "candidate_position_label": str(item["candidate_position_label"]),
-            "candidate_rank": int(item["candidate_rank"]),
-            "confidence_score_optional": int(item["confidence_score_optional"]),
-            "ranking_reason_tags_optional": ensure_list(item["ranking_reason_tags_optional"]),
-            "challenge_actionability_score": int(item["challenge_actionability_score"]),
-            "execution_readiness_score": int(item["execution_readiness_score"]),
-            "ranking_score": int(item["ranking_score"]),
-            "selected_flag": bool(item["selected_flag"]),
-            "candidate_source": str(item["candidate_source"]),
-        }
-        for item in candidates
-    ]
-    return sanitized_candidates, top_n_candidate_ids, winning_candidate, selection_trace, trace_summary
 
 
 class Stage7Service:
@@ -467,36 +153,6 @@ class Stage7Service:
                 inputs.get("current_action_deadline_at_optional", inputs.get("current_action_deadline_optional")),
             )
         )
-        (
-            multi_competitor_candidates,
-            top_n_competitor_ids,
-            winning_competitor_candidate,
-            competitor_selection_trace,
-            competitor_trace_summary,
-        ) = _build_multi_competitor_ranking(
-            settings=self.settings,
-            project_id=project_id,
-            inputs=inputs,
-            focus_bidder_id=focus_bidder_id,
-            challenger_bidder_id=challenger_bidder_id,
-            challenger_profile_id=challenger_profile_id,
-            candidate_position_label=candidate_position_label,
-            challenge_actionability_score=challenge_actionability_score,
-            execution_readiness_score=execution_readiness_score,
-            confidence_score_seed=_optional_int(confidence_score_seed),
-            real_competitor_count=int(stage6_handoff.get("real_competitor_count", project_fact.get("real_competitor_count", 0))),
-        )
-        challenger_profile_id = winning_competitor_candidate.get("challenger_profile_id", challenger_profile_id)
-        focus_bidder_id = winning_competitor_candidate.get("focus_bidder_id", focus_bidder_id)
-        challenger_bidder_id = winning_competitor_candidate.get("challenger_bidder_id", challenger_bidder_id)
-        candidate_position_label = winning_competitor_candidate.get("candidate_position_label", candidate_position_label)
-        challenge_actionability_score = int(
-            winning_competitor_candidate.get("challenge_actionability_score", challenge_actionability_score)
-        )
-        execution_readiness_score = int(
-            winning_competitor_candidate.get("execution_readiness_score", execution_readiness_score)
-        )
-        confidence_score_seed = winning_competitor_candidate.get("confidence_score_optional", confidence_score_seed)
 
         trace_rules: list[str] = []
         semantic_state = StatePacket(capability_mode="stage7_sales")
@@ -532,9 +188,14 @@ class Stage7Service:
                 "review_task_status": review_task_status,
                 "focus_bidder_id": focus_bidder_id,
                 "challenger_bidder_id": challenger_bidder_id,
+                "challenger_profile_id": challenger_profile_id,
+                "candidate_position_label": candidate_position_label,
                 "buyer_type_hint": buyer_type_hint,
                 "challenge_actionability_score": challenge_actionability_score,
                 "execution_readiness_score": execution_readiness_score,
+                "real_competitor_count": int(
+                    stage6_handoff.get("real_competitor_count", project_fact.get("real_competitor_count", 0))
+                ),
                 "project_value_score_optional": project_value_score_seed,
                 "normalized_price_amount_optional": normalized_price_amount_seed,
                 "price_conflict_gate_status_optional": price_conflict_gate_status_seed,
@@ -550,6 +211,22 @@ class Stage7Service:
                 raise ValueError(f"Stage7 formal policy derivation missing {field_name}")
             return value
 
+        multi_competitor_candidates = ensure_list(required_runtime_value("multi_competitor_candidates"))
+        top_n_competitor_ids = ensure_list(required_runtime_value("top_n_candidate_ids"))
+        winning_competitor_candidate = dict(required_runtime_value("winning_competitor_candidate"))
+        competitor_selection_trace = dict(required_runtime_value("competitor_selection_trace"))
+        competitor_trace_summary = dict(required_runtime_value("competitor_trace_summary"))
+        challenger_profile_id = winning_competitor_candidate.get("challenger_profile_id", challenger_profile_id)
+        focus_bidder_id = winning_competitor_candidate.get("focus_bidder_id", focus_bidder_id)
+        challenger_bidder_id = winning_competitor_candidate.get("challenger_bidder_id", challenger_bidder_id)
+        candidate_position_label = winning_competitor_candidate.get("candidate_position_label", candidate_position_label)
+        challenge_actionability_score = int(
+            winning_competitor_candidate.get("challenge_actionability_score", challenge_actionability_score)
+        )
+        execution_readiness_score = int(
+            winning_competitor_candidate.get("execution_readiness_score", execution_readiness_score)
+        )
+        confidence_score_seed = winning_competitor_candidate.get("confidence_score_optional", confidence_score_seed)
         project_value_score_optional = _optional_int(required_runtime_value("project_value_score"))
         opportunity_value_score_optional = _optional_int(required_runtime_value("opportunity_value_score"))
         normalized_price_amount_optional = _optional_number(
@@ -942,9 +619,12 @@ class Stage7Service:
             },
             "multi_competitor_collection": {
                 "policy_id": competitor_trace_summary["policy_id"],
+                "ranking_policy_id": competitor_trace_summary.get("ranking_policy_id"),
+                "cutoff_policy_id": competitor_trace_summary.get("cutoff_policy_id"),
                 "multi_competitor_collection_id": multi_competitor_collection.get("multi_competitor_collection_id"),
                 "candidate_count": len(multi_competitor_collection.get("candidate_list")),
                 "deduped_candidate_count": competitor_trace_summary["deduped_candidate_count"],
+                "top_n_limit": competitor_trace_summary.get("top_n_limit"),
                 "top_n_candidate_ids": multi_competitor_collection.get("top_n_candidate_ids"),
                 "winning_candidate_id": multi_competitor_collection.get("winning_candidate_id"),
                 "winning_challenger_profile_id": multi_competitor_collection.get("winning_challenger_profile_id"),

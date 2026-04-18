@@ -6,6 +6,7 @@ from typing import Any
 from shared.context_packet import ContextPacket
 from shared.contract_loader import load_contract
 from shared.state_packet import PolicyDecision, StatePacket
+from shared.utils import build_id
 
 
 def _to_dt(value: str | None) -> datetime | None:
@@ -140,6 +141,35 @@ def _render_reason_tags(templates: list[str], values: dict[str, Any]) -> list[st
 
 def _bucket_from_contract(score: float | int, buckets: list[dict[str, Any]], *, default: str = "LOW") -> str:
     return _band_from_min_score(score, buckets, label_key="bucket", default=default)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(value)
+
+
+def _optional_str(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def _ensure_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return list(value)
+    return [value]
+
+
+def _normalize_alias_token(value: Any, *, normalizer: str) -> str | None:
+    if value in (None, ""):
+        return None
+    normalized = str(value).upper()
+    if normalizer == "UPPER_ALNUM":
+        normalized = "".join(ch for ch in normalized if ch.isalnum())
+    return normalized or None
 
 
 def _select_stage8_cadence_profile_id(urgency: str, window_urgency: Any) -> str:
@@ -962,6 +992,7 @@ class PolicyExecutor:
         actionability_default, actionability_default_source = fallback("challenge_actionability_score")
         challenge_actionability, challenge_actionability_source, actionability_fallback = _resolve_with_contract_fallback(
             [
+                ("competitor_confidence.selected_candidate", state.resolve("selected_challenge_actionability_score")),
                 ("challenger_candidate_profile.challenge_actionability_score", challenger_profile.get("challenge_actionability_score")),
                 ("inputs.challenge_actionability_score", context.input("challenge_actionability_score")),
             ],
@@ -971,6 +1002,7 @@ class PolicyExecutor:
         readiness_default, readiness_default_source = fallback("execution_readiness_score")
         execution_readiness_score, execution_readiness_source, readiness_fallback = _resolve_with_contract_fallback(
             [
+                ("competitor_confidence.selected_candidate", state.resolve("selected_execution_readiness_score")),
                 ("challenger_candidate_profile.execution_readiness_score", challenger_profile.get("execution_readiness_score")),
                 ("inputs.execution_readiness_score", context.input("execution_readiness_score")),
             ],
@@ -1202,53 +1234,414 @@ class PolicyExecutor:
 
         external_use_grade = context.input("external_use_grade", "E2_REVIEW_READY")
         score = (
-            challenger.get("challenge_actionability_score", 0) * policy["weights"]["challenge_actionability_score"] / 100
-            + policy["component_scores"]["external_use_grade"].get(external_use_grade, 30) * policy["weights"]["external_use_grade"] / 100
-            + challenger.get("focus_bidder_attackability_score", 0) * policy["weights"]["focus_bidder_attackability_score"] / 100
-            + challenger.get("challenger_pain_score", 0) * policy["weights"]["challenger_pain_score"] / 100
-            + challenger.get("execution_readiness_score", 0) * policy["weights"]["execution_readiness_score"] / 100
+            _bounded_score(challenger.get("challenge_actionability_score", 0))
+            * policy["weights"]["challenge_actionability_score"]
+            / 100
+            + policy["component_scores"]["external_use_grade"].get(external_use_grade, 30)
+            * policy["weights"]["external_use_grade"]
+            / 100
+            + _bounded_score(challenger.get("focus_bidder_attackability_score", 0))
+            * policy["weights"]["focus_bidder_attackability_score"]
+            / 100
+            + _bounded_score(challenger.get("challenger_pain_score", 0))
+            * policy["weights"]["challenger_pain_score"]
+            / 100
+            + _bounded_score(challenger.get("execution_readiness_score", 0))
+            * policy["weights"]["execution_readiness_score"]
+            / 100
             + policy["component_scores"]["confidence_band_penalty"].get(context.input("confidence_band", "MEDIUM"), -10)
         )
-        score = round(max(0, min(100, score)))
-        confidence_band = _band_from_min_score(
-            score,
-            policy.get("confidence_band_rules", []),
-            label_key="band",
-            default="LOW",
-        )
-        quality_grade = _band_from_min_score(
-            score,
-            policy.get("quality_grade_rules", []),
-            label_key="grade",
-            default="D",
-        )
+        score = round(_bounded_score(score))
+
+        def confidence_band_for(score_value: int | float) -> str:
+            return _band_from_min_score(
+                score_value,
+                policy.get("confidence_band_rules", []),
+                label_key="band",
+                default="LOW",
+            )
+
+        def quality_grade_for(score_value: int | float) -> str:
+            return _band_from_min_score(
+                score_value,
+                policy.get("quality_grade_rules", []),
+                label_key="grade",
+                default="D",
+            )
+
+        confidence_band = confidence_band_for(score)
+        quality_grade = quality_grade_for(score)
         cutoff_policy = policy.get("cutoff_policy", {})
         evidence_ref_count = int(context.input("evidence_ref_count_optional", policy["evidence_requirements"]["min_evidence_refs"]))
-        cutoff_reasons: list[str] = []
-        if score < int(cutoff_policy.get("candidate_only_score_lt", 55)):
-            cutoff_reasons.append("score_below_candidate_only_cutoff")
-        if confidence_band in {str(item) for item in cutoff_policy.get("candidate_only_confidence_bands", ["LOW"])}:
-            cutoff_reasons.append(f"confidence_band={confidence_band}")
-        if (
-            evidence_ref_count < int(policy["evidence_requirements"]["min_evidence_refs"])
-            and external_use_grade not in ("E3_CLIENT_VISIBLE", "E4_EXTERNAL_ACTION_READY")
-        ):
-            cutoff_reasons.append("insufficient_evidence_refs")
+
+        def policy_cutoff_reasons(score_value: int, band_value: str) -> list[str]:
+            reasons: list[str] = []
+            if score_value < int(cutoff_policy.get("candidate_only_score_lt", 55)):
+                reasons.append("score_below_candidate_only_cutoff")
+            if band_value in {str(item) for item in cutoff_policy.get("candidate_only_confidence_bands", ["LOW"])}:
+                reasons.append(f"confidence_band={band_value}")
+            if (
+                evidence_ref_count < int(policy["evidence_requirements"]["min_evidence_refs"])
+                and external_use_grade not in ("E3_CLIENT_VISIBLE", "E4_EXTERNAL_ACTION_READY")
+            ):
+                reasons.append("insufficient_evidence_refs")
+            return reasons
+
+        cutoff_reasons = policy_cutoff_reasons(score, confidence_band)
+        base_outputs = {
+            "competitor_confidence_score": score,
+            "competitor_confidence_band": confidence_band,
+            "competitor_quality_grade": quality_grade,
+            "competitor_cutoff_reasons": cutoff_reasons,
+            "competitor_cutoff_policy_id_optional": cutoff_policy.get("policy_id"),
+            "competitor_ranking_policy_id_optional": policy.get("ranking_policy", {}).get("policy_id"),
+        }
+
+        if context.stage != 7 and context.capability_mode != "stage7_sales":
+            return self._decision(
+                policy_key="competitor_confidence",
+                catalog_id=catalog["catalogId"],
+                policy_id=policy["policy_id"],
+                decision_state="REVIEW" if cutoff_reasons or confidence_band == "LOW" or quality_grade == "D" else "ALLOW",
+                outputs=base_outputs,
+                reasons=[f"competitor_confidence_score={score}"] + [f"cutoff={reason}" for reason in cutoff_reasons],
+            )
+
+        resolution_policy = load_contract("contracts/sales/stage7_resolution_policy.json", self.settings)[
+            "multiCompetitorResolution"
+        ]
+        entity_policy = resolution_policy.get("entityResolution", {})
+        ranking_policy = policy.get("ranking_policy", {})
+        ranking_policy_id = ranking_policy.get("policy_id")
+        cutoff_policy_id = cutoff_policy.get("policy_id")
+        top_n_limit = max(1, int(ranking_policy.get("top_n_limit", 3)))
+        position_priority = {
+            str(label): int(priority)
+            for label, priority in ranking_policy.get("candidate_position_priority", {}).items()
+        }
+        candidate_source_priority = {
+            str(label): int(priority)
+            for label, priority in entity_policy.get("candidateSourcePriority", {}).items()
+        }
+        ranking_weights = ranking_policy.get("score_component_weights", {})
+        fallback_confidence = int(ranking_policy.get("fallback_confidence_score", 45))
+        sort_basis = list(ranking_policy.get("sort_order", []))
+        winner_selection = str(
+            ranking_policy.get(
+                "winner_selection",
+                resolution_policy.get("retention", {}).get("winner_selection", "highest_ranked_non_candidate_only_else_rank_1"),
+            )
+        )
+        candidate_only_tags = {str(item) for item in ranking_policy.get("candidate_only_reason_tags", [])}
+        candidate_only_bands = {str(item) for item in cutoff_policy.get("candidate_only_confidence_bands", ["LOW"])}
+        cutoff_score = int(cutoff_policy.get("candidate_only_score_lt", 55))
+        alias_fields = [str(field_name) for field_name in entity_policy.get("aliasFields", [])]
+        alias_normalizer = str(entity_policy.get("aliasNormalizer", "UPPER_ALNUM"))
+
+        def candidate_only_tag(prefix: str, fallback: str) -> str:
+            return next((tag for tag in candidate_only_tags if tag.startswith(prefix)), fallback)
+
+        score_cutoff_tag = candidate_only_tag("CONFIDENCE_SCORE_LT_", f"CONFIDENCE_SCORE_LT_{cutoff_score}")
+
+        def ranking_score(confidence_score: int, actionability_score: int, readiness_score: int) -> int:
+            return round(
+                _bounded_score(actionability_score) * float(ranking_weights.get("challenge_actionability_score", 0.45))
+                + _bounded_score(readiness_score) * float(ranking_weights.get("execution_readiness_score", 0.35))
+                + _bounded_score(confidence_score) * float(ranking_weights.get("confidence_score_optional", 0.20))
+            )
+
+        def alias_tokens(raw_candidate: dict[str, Any]) -> list[str]:
+            tokens: list[str] = []
+            for field_name in alias_fields:
+                raw_value = raw_candidate.get(field_name)
+                for value in _ensure_list(raw_value):
+                    normalized = _normalize_alias_token(value, normalizer=alias_normalizer)
+                    if normalized:
+                        tokens.append(normalized)
+            return sorted(set(tokens))
+
+        def canonical_entity_key(raw_candidate: dict[str, Any], alias_token_list: list[str]) -> str:
+            for field_name in entity_policy.get("canonicalIdPreference", []):
+                candidate_value = _optional_str(raw_candidate.get(field_name))
+                if candidate_value:
+                    return f"{field_name}:{candidate_value}"
+            if alias_token_list:
+                return f"alias:{alias_token_list[0]}"
+            return f"fallback:{_optional_str(raw_candidate.get('candidate_id')) or build_id('MCAND', context.project_id, 'UNRESOLVED')}"
+
+        def ranking_cutoff_reasons(candidate: dict[str, Any], rank: int) -> list[str]:
+            reasons: list[str] = []
+            if rank > top_n_limit:
+                reasons.append("RANK_GT_TOP_N")
+            confidence_score = int(candidate["confidence_score_optional"])
+            band = confidence_band_for(confidence_score)
+            if confidence_score < cutoff_score:
+                reasons.append(score_cutoff_tag)
+            if band in candidate_only_bands:
+                reasons.append(f"CONFIDENCE_BAND_{band}")
+            return [reason for reason in reasons if not candidate_only_tags or reason in candidate_only_tags]
+
+        focus_bidder_id = _optional_str(context.input("focus_bidder_id", challenger.get("focus_bidder_id"))) or build_id(
+            "FOCUS", context.project_id
+        )
+        challenger_bidder_id = _optional_str(
+            context.input("challenger_bidder_id", challenger.get("challenger_bidder_id"))
+        ) or build_id("BID", context.project_id, "CHALLENGER")
+        challenger_profile_id = _optional_str(
+            context.input("challenger_profile_id", challenger.get("challenger_profile_id"))
+        ) or build_id("CHAL", context.project_id)
+        candidate_position_label = _optional_str(
+            context.input("candidate_position_label", challenger.get("candidate_position_label"))
+        ) or "UNKNOWN"
+        challenge_actionability_score = int(
+            _optional_int(context.input("challenge_actionability_score", challenger.get("challenge_actionability_score"))) or 0
+        )
+        execution_readiness_score = int(
+            _optional_int(context.input("execution_readiness_score", challenger.get("execution_readiness_score"))) or 0
+        )
+        real_competitor_count = int(
+            context.input("real_competitor_count", context.record("project_fact").get("real_competitor_count", 0))
+        )
+
+        raw_candidates: list[dict[str, Any]] = [
+            {
+                "candidate_id": build_id("MCAND", context.project_id, "WINNER"),
+                "challenger_profile_id": challenger_profile_id,
+                "focus_bidder_id": focus_bidder_id,
+                "challenger_bidder_id": challenger_bidder_id,
+                "candidate_position_label": candidate_position_label,
+                "confidence_score_optional": score,
+                "challenge_actionability_score": challenge_actionability_score,
+                "execution_readiness_score": execution_readiness_score,
+                "ranking_reason_tags_optional": [
+                    "STAGE6_FORMAL_CHALLENGER",
+                    f"POSITION_{candidate_position_label}",
+                    f"RANKING_POLICY_{ranking_policy_id}",
+                    f"CUTOFF_POLICY_{cutoff_policy_id}",
+                ],
+                "ranking_score": ranking_score(score, challenge_actionability_score, execution_readiness_score),
+                "selected_flag": False,
+                "candidate_source": "STAGE6_CHALLENGER_PROFILE",
+                "_entity_key": f"challenger_bidder_id:{challenger_bidder_id}",
+                "_alias_tokens": [],
+            }
+        ]
+        raw_pool = context.input("multi_competitor_candidate_pool", [])
+        if isinstance(raw_pool, list):
+            for index, raw_candidate in enumerate(raw_pool, start=1):
+                if not isinstance(raw_candidate, dict):
+                    continue
+                raw_profile_id = _optional_str(raw_candidate.get("challenger_profile_id")) or build_id(
+                    "CHALT", context.project_id, f"{index:02d}"
+                )
+                raw_bidder_id = (
+                    _optional_str(raw_candidate.get("challenger_bidder_id"))
+                    or _optional_str(raw_candidate.get("bidder_id"))
+                    or build_id("BID", context.project_id, f"MC{index:02d}")
+                )
+                raw_position = _optional_str(raw_candidate.get("candidate_position_label")) or "OTHER"
+                raw_confidence = _optional_int(raw_candidate.get("confidence_score_optional"))
+                raw_actionability = int(
+                    raw_candidate.get(
+                        "challenge_actionability_score",
+                        raw_candidate.get(
+                            "challenge_actionability_score_optional",
+                            max(35, raw_confidence or 0, challenge_actionability_score - 8),
+                        ),
+                    )
+                )
+                raw_readiness = int(
+                    raw_candidate.get(
+                        "execution_readiness_score",
+                        raw_candidate.get(
+                            "execution_readiness_score_optional",
+                            max(30, raw_confidence or 0, execution_readiness_score - 10),
+                        ),
+                    )
+                )
+                effective_confidence = raw_confidence if raw_confidence is not None else fallback_confidence
+                normalized_aliases = alias_tokens(raw_candidate)
+                raw_entity_key = canonical_entity_key(
+                    {
+                        **raw_candidate,
+                        "challenger_profile_id": raw_profile_id,
+                        "challenger_bidder_id": raw_bidder_id,
+                    },
+                    normalized_aliases,
+                )
+                raw_candidates.append(
+                    {
+                        "candidate_id": _optional_str(raw_candidate.get("candidate_id")) or build_id(
+                            "MCAND", context.project_id, f"{index:02d}"
+                        ),
+                        "challenger_profile_id": raw_profile_id,
+                        "focus_bidder_id": _optional_str(raw_candidate.get("focus_bidder_id")) or focus_bidder_id,
+                        "challenger_bidder_id": raw_bidder_id,
+                        "candidate_position_label": raw_position,
+                        "confidence_score_optional": effective_confidence,
+                        "ranking_reason_tags_optional": _ensure_list(
+                            raw_candidate.get(
+                                "ranking_reason_tags_optional",
+                                [
+                                    f"POSITION_{raw_position}",
+                                    "POOL_CANDIDATE",
+                                    f"RANKING_POLICY_{ranking_policy_id}",
+                                    f"CUTOFF_POLICY_{cutoff_policy_id}",
+                                ],
+                            )
+                        ),
+                        "challenge_actionability_score": raw_actionability,
+                        "execution_readiness_score": raw_readiness,
+                        "ranking_score": ranking_score(effective_confidence, raw_actionability, raw_readiness),
+                        "selected_flag": False,
+                        "candidate_source": _optional_str(raw_candidate.get("candidate_source")) or "DIRECT_POOL_INPUT",
+                        "_entity_key": raw_entity_key,
+                        "_alias_tokens": normalized_aliases,
+                    }
+                )
+
+        deduped_candidates: dict[str, dict[str, Any]] = {}
+        alias_deduped_count = 0
+        for candidate in raw_candidates:
+            entity_key = str(candidate["_entity_key"])
+            existing = deduped_candidates.get(entity_key)
+            if existing is None:
+                deduped_candidates[entity_key] = candidate
+                continue
+            alias_deduped_count += 1
+            existing_key = (
+                candidate_source_priority.get(str(existing["candidate_source"]), 99),
+                -int(existing["confidence_score_optional"]),
+                -int(existing["ranking_score"]),
+                position_priority.get(str(existing["candidate_position_label"]), 99),
+                str(existing["candidate_id"]),
+            )
+            candidate_key = (
+                candidate_source_priority.get(str(candidate["candidate_source"]), 99),
+                -int(candidate["confidence_score_optional"]),
+                -int(candidate["ranking_score"]),
+                position_priority.get(str(candidate["candidate_position_label"]), 99),
+                str(candidate["candidate_id"]),
+            )
+            winner = candidate if candidate_key < existing_key else existing
+            loser = existing if winner is candidate else candidate
+            winner["ranking_reason_tags_optional"] = _ensure_list(winner["ranking_reason_tags_optional"]) + [
+                "ENTITY_RESOLUTION_DEDUP",
+                f"DEDUPED_{loser['candidate_id']}",
+            ]
+            deduped_candidates[entity_key] = winner
+
+        candidates = list(deduped_candidates.values())
+        candidates.sort(
+            key=lambda item: (
+                -int(item["ranking_score"]),
+                -int(item["confidence_score_optional"]),
+                position_priority.get(str(item["candidate_position_label"]), 99),
+                str(item["candidate_id"]),
+            )
+        )
+
+        top_n_candidate_ids: list[str] = []
+        candidate_only_candidate_ids: list[str] = []
+        winner_candidate: dict[str, Any] | None = None
+        for rank, item in enumerate(candidates, start=1):
+            reasons = ranking_cutoff_reasons(item, rank)
+            if rank <= top_n_limit:
+                top_n_candidate_ids.append(str(item["candidate_id"]))
+            item["candidate_rank"] = rank
+            if reasons:
+                candidate_only_candidate_ids.append(str(item["candidate_id"]))
+            item["ranking_reason_tags_optional"] = _ensure_list(item["ranking_reason_tags_optional"]) + reasons
+            if winner_candidate is None and rank <= top_n_limit and not reasons:
+                winner_candidate = item
+
+        if winner_candidate is None:
+            winner_candidate = candidates[0]
+
+        for item in candidates:
+            item["selected_flag"] = item["candidate_id"] == winner_candidate["candidate_id"]
+
+        def sanitized_candidate(item: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "candidate_id": str(item["candidate_id"]),
+                "challenger_profile_id": str(item["challenger_profile_id"]),
+                "focus_bidder_id": str(item["focus_bidder_id"]),
+                "challenger_bidder_id": str(item["challenger_bidder_id"]),
+                "candidate_position_label": str(item["candidate_position_label"]),
+                "candidate_rank": int(item["candidate_rank"]),
+                "confidence_score_optional": int(item["confidence_score_optional"]),
+                "ranking_reason_tags_optional": _ensure_list(item["ranking_reason_tags_optional"]),
+                "challenge_actionability_score": int(item["challenge_actionability_score"]),
+                "execution_readiness_score": int(item["execution_readiness_score"]),
+                "ranking_score": int(item["ranking_score"]),
+                "selected_flag": bool(item["selected_flag"]),
+                "candidate_source": str(item["candidate_source"]),
+            }
+
+        sanitized_candidates = [sanitized_candidate(item) for item in candidates]
+        winning_candidate = sanitized_candidate(winner_candidate)
+        selected_score = int(winning_candidate["confidence_score_optional"])
+        selected_band = confidence_band_for(selected_score)
+        selected_grade = quality_grade_for(selected_score)
+        selected_cutoff_reasons = policy_cutoff_reasons(selected_score, selected_band)
+        selection_trace = {
+            "selection_policy_id": resolution_policy["policyId"],
+            "authoritative_ranking_policy_id": ranking_policy_id,
+            "authoritative_cutoff_policy_id": cutoff_policy_id,
+            "authoritative_ranking_policy_ref": resolution_policy.get("ranking", {}).get("authoritativePolicyRef"),
+            "authoritative_cutoff_policy_ref": resolution_policy.get("retention", {}).get("authoritativePolicyRef"),
+            "sort_basis": sort_basis,
+            "ranking_mode": str(ranking_policy.get("ranking_mode", "TOP_N_RETAINED_WITH_CANDIDATE_ONLY_CUTOFF")),
+            "input_candidate_count": len(candidates),
+            "top_n_limit": top_n_limit,
+            "candidate_only_reason_tags": sorted(candidate_only_tags),
+            "winner_selection_basis": [
+                f"winner_selection={winner_selection}",
+                f"ranking_policy_id={ranking_policy_id}",
+                f"cutoff_policy_id={cutoff_policy_id}",
+                f"real_competitor_count={real_competitor_count}",
+                f"winning_candidate_id={winning_candidate['candidate_id']}",
+                f"winning_challenger_profile_id={winning_candidate['challenger_profile_id']}",
+                f"candidate_only_candidate_ids={','.join(candidate_only_candidate_ids) if candidate_only_candidate_ids else 'NONE'}",
+            ],
+        }
+        trace_summary = {
+            "policy_id": resolution_policy["policyId"],
+            "ranking_policy_id": ranking_policy_id,
+            "cutoff_policy_id": cutoff_policy_id,
+            "candidate_only_candidate_ids": candidate_only_candidate_ids,
+            "alias_deduped_count": alias_deduped_count,
+            "deduped_candidate_count": len(candidates),
+            "top_n_limit": top_n_limit,
+        }
+        outputs = {
+            **base_outputs,
+            "competitor_confidence_score": selected_score,
+            "competitor_confidence_band": selected_band,
+            "competitor_quality_grade": selected_grade,
+            "competitor_cutoff_reasons": selected_cutoff_reasons,
+            "selected_focus_bidder_id": winning_candidate["focus_bidder_id"],
+            "selected_challenger_bidder_id": winning_candidate["challenger_bidder_id"],
+            "selected_challenger_profile_id": winning_candidate["challenger_profile_id"],
+            "selected_candidate_position_label": winning_candidate["candidate_position_label"],
+            "selected_challenge_actionability_score": winning_candidate["challenge_actionability_score"],
+            "selected_execution_readiness_score": winning_candidate["execution_readiness_score"],
+            "selected_candidate_only_optional": winning_candidate["candidate_id"] in candidate_only_candidate_ids,
+            "multi_competitor_candidates": sanitized_candidates,
+            "top_n_candidate_ids": top_n_candidate_ids,
+            "winning_competitor_candidate": winning_candidate,
+            "competitor_selection_trace": selection_trace,
+            "competitor_trace_summary": trace_summary,
+        }
 
         return self._decision(
             policy_key="competitor_confidence",
             catalog_id=catalog["catalogId"],
             policy_id=policy["policy_id"],
-            decision_state="REVIEW" if cutoff_reasons or confidence_band == "LOW" or quality_grade == "D" else "ALLOW",
-            outputs={
-                "competitor_confidence_score": score,
-                "competitor_confidence_band": confidence_band,
-                "competitor_quality_grade": quality_grade,
-                "competitor_cutoff_reasons": cutoff_reasons,
-                "competitor_cutoff_policy_id_optional": cutoff_policy.get("policy_id"),
-                "competitor_ranking_policy_id_optional": policy.get("ranking_policy", {}).get("policy_id"),
-            },
-            reasons=[f"competitor_confidence_score={score}"] + [f"cutoff={reason}" for reason in cutoff_reasons],
+            decision_state="REVIEW" if selected_cutoff_reasons or selected_band == "LOW" or selected_grade == "D" else "ALLOW",
+            outputs=outputs,
+            reasons=[f"competitor_confidence_score={selected_score}"]
+            + [f"cutoff={reason}" for reason in selected_cutoff_reasons],
         )
 
     def _evaluate_value_scoring(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
@@ -1308,6 +1701,7 @@ class PolicyExecutor:
         challenge_actionability_default, challenge_actionability_default_source = fallback("challenge_actionability_score")
         challenge_actionability_score, challenge_actionability_source, challenge_actionability_fallback = _resolve_with_contract_fallback(
             [
+                ("competitor_confidence.selected_candidate", state.resolve("selected_challenge_actionability_score")),
                 ("challenger_candidate_profile.challenge_actionability_score", context.record("challenger_candidate_profile").get("challenge_actionability_score")),
                 ("inputs.challenge_actionability_score", context.input("challenge_actionability_score")),
             ],

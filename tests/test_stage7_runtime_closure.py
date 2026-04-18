@@ -306,6 +306,41 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertIn("SCOPE_MISMATCH", price_trace["review_flags"])
         self.assertEqual(price_trace["selected_candidate_trace"]["freshness_score"], 100)
 
+    def test_stage7_price_resolution_marks_stale_reference_only(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["price_source_set_optional"] = [
+            {
+                "source_type": "HISTORICAL_REFERENCE",
+                "amount": 1_000_000,
+                "currency": "CNY",
+                "tax_basis_optional": "EX_TAX",
+                "unit_basis_optional": "TOTAL_AMOUNT",
+                "lot_id_optional": "LOT-OLD",
+                "package_id_optional": "PKG-OLD",
+                "recency_days_optional": 500,
+            },
+            {
+                "source_type": "HISTORICAL_REFERENCE",
+                "amount": 1_200_000,
+                "currency": "CNY",
+                "tax_basis_optional": "EX_TAX",
+                "unit_basis_optional": "TOTAL_AMOUNT",
+                "lot_id_optional": "LOT-OLD",
+                "package_id_optional": "PKG-OLD",
+                "recency_days_optional": 420,
+            },
+        ]
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+        price_trace = stage7.inputs["stage7_resolution_trace"]["price_resolution"]
+
+        self.assertEqual(price_trace["selected_source_type"], "HISTORICAL_REFERENCE")
+        self.assertEqual(price_trace["selected_scope_key"], "LOT-OLD|PKG-OLD")
+        self.assertEqual(price_trace["selected_candidate_trace"]["freshness_score"], 35)
+        self.assertIn("STALE_REFERENCE", price_trace["review_flags"])
+        self.assertIn("STALE_REFERENCE_ONLY", price_trace["review_flags"])
+        self.assertEqual(stage7.handoff.get("price_conflict_gate_status_optional"), "REVIEW")
+
     def test_stage7_resolution_policy_asset_exists(self) -> None:
         policy = load_contract("contracts/sales/stage7_resolution_policy.json")
         actor_policy_ids = {entry["policyId"] for entry in policy["actorSeedPolicies"]}
@@ -367,9 +402,15 @@ class TestStage7RuntimeClosure(unittest.TestCase):
             collection.get("winning_challenger_profile_id"),
         )
         self.assertEqual(trace["policy_id"], "stage7_multi_competitor_resolution_v1")
+        self.assertEqual(trace["ranking_policy_id"], "COMP-RANK-001")
+        self.assertEqual(trace["cutoff_policy_id"], "COMP-CUTOFF-001")
+        self.assertEqual(trace["top_n_limit"], 3)
         self.assertEqual(trace["deduped_candidate_count"], len(collection.get("candidate_list")))
         self.assertEqual(trace["alias_deduped_count"], 1)
         self.assertIn("cand-low", trace["candidate_only_candidate_ids"])
+        self.assertEqual(trace["selection_trace"]["authoritative_ranking_policy_id"], "COMP-RANK-001")
+        self.assertEqual(trace["selection_trace"]["authoritative_cutoff_policy_id"], "COMP-CUTOFF-001")
+        self.assertIn("CONFIDENCE_SCORE_LT_55", trace["selection_trace"]["candidate_only_reason_tags"])
         low_candidate = next(item for item in collection.get("candidate_list") if item["candidate_id"] == "cand-low")
         self.assertIn("CONFIDENCE_SCORE_LT_55", low_candidate["ranking_reason_tags_optional"])
 
