@@ -14,6 +14,19 @@ from shared.state_packet import StatePacket
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag
 
 
+def _dedupe_strings(values: list[Any]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in (None, ""):
+            continue
+        text = str(value)
+        if text not in seen:
+            seen.add(text)
+            result.append(text)
+    return result
+
+
 class ProjectFactAggregator:
     def __init__(self, store: ContractStore) -> None:
         self.store = store
@@ -289,20 +302,6 @@ class ProjectFactAggregator:
         if serviceable_competitor_count is None:
             serviceable_competitor_count = 1 if sale_gate_status == "OPEN" and real_competitor_count > 0 else 0
 
-        competitor_quality_grade = inputs.get("competitor_quality_grade")
-        if not competitor_quality_grade:
-            competitor_quality_grade = {
-                ("OPEN", "HIGH"): "A",
-                ("OPEN", "MEDIUM"): "B",
-                ("OPEN", "LOW"): "C",
-                ("HOLD", "HIGH"): "B",
-                ("HOLD", "MEDIUM"): "C",
-                ("HOLD", "LOW"): "D",
-                ("REVIEW", "HIGH"): "B",
-                ("REVIEW", "MEDIUM"): "C",
-                ("REVIEW", "LOW"): "D",
-            }.get((sale_gate_status, confidence_band), "D")
-
         project_fact_payload = {
             "project_fact_id": build_id("FACT", project_id),
             "project_id": project_id,
@@ -310,8 +309,8 @@ class ProjectFactAggregator:
             "rule_gate_status": rule_gate_status,
             "evidence_gate_status": evidence_gate_status,
             "rule_hit_summary": inputs.get("rule_hit_summary", [rule_hit.get("rule_hit_id")]),
-            "clue_summary": inputs.get("clue_summary", ["DEFAULT_CLUE"]),
-            "risk_summary": inputs.get("risk_summary", ["DEFAULT_RISK"]),
+            "clue_summary": ensure_list(inputs.get("clue_summary")),
+            "risk_summary": ensure_list(inputs.get("risk_summary")),
             "coverage_sellable_state": ensure_enum(
                 self.store, "coverage_sellable_state", inputs.get("coverage_sellable_state")
             ),
@@ -323,77 +322,7 @@ class ProjectFactAggregator:
             ),
             "real_competitor_count": int(real_competitor_count),
             "serviceable_competitor_count": int(serviceable_competitor_count),
-            "competitor_quality_grade": ensure_enum(self.store, "competitor_quality_grade", competitor_quality_grade),
         }
-        project_fact_semantic = self.store.evaluate_object_semantics(
-            stage=6,
-            object_type="project_fact",
-            payload=project_fact_payload,
-            semantic_context={
-                "report_status": report_record.get("report_status"),
-            },
-        )
-        if project_fact_semantic:
-            semantic_state.add_semantic_validation(project_fact_semantic)
-            if project_fact_semantic.decision_state == "BLOCK":
-                project_fact_payload["sale_gate_status"] = "BLOCK"
-        project_fact = self.store.build_record("project_fact", project_fact_payload)
-
-        blocking_reasons = ensure_list(inputs.get("blocking_reasons"))
-        if not blocking_reasons:
-            if rule_gate_status != "PASS":
-                blocking_reasons.append("rule_gate_not_passed")
-            if evidence_gate_status != "PASS":
-                blocking_reasons.append("evidence_gate_not_passed")
-            if review_request:
-                blocking_reasons.append(review_request.get("missing_condition_family"))
-
-        action_family = ensure_enum(self.store, "action_family", inputs.get("action_family"))
-        if not inputs.get("action_family"):
-            action_family = "OBJECTION_PREP" if sale_gate_status == "OPEN" else "REVIEW_ONLY"
-
-        recommended_next_step = inputs.get("recommended_next_step")
-        if not recommended_next_step:
-            if sale_gate_status == "OPEN" and report_status == "ISSUED":
-                recommended_next_step = "prepare_stage7_commercial_objects"
-            elif sale_gate_status == "HOLD":
-                recommended_next_step = "hold_until_report_issued"
-            elif sale_gate_status == "REVIEW":
-                recommended_next_step = "route_stage7_as_restricted"
-            else:
-                recommended_next_step = "route_to_review_queue"
-
-        legal_action_payload = {
-            "action_id": build_id("LAR", project_id),
-            "project_id": project_id,
-            "action_family": action_family,
-            "applicable_regime": ensure_enum(
-                self.store, "procurement_regime", inputs.get("procurement_regime", "UNKNOWN")
-            ),
-            "competent_authority_scope": inputs.get(
-                "competent_authority_scope", "PROCUREMENT_AUTHORITY"
-            ),
-            "window_status": window_status,
-            "basis_summary": inputs.get(
-                "basis_summary",
-                f"rule={rule_gate_status}; evidence={evidence_gate_status}; evidence_ref={evidence.get('evidence_id')}; report={report_status}; confidence={confidence_band}",
-            ),
-            "blocking_reasons": blocking_reasons,
-            "recommended_next_step": recommended_next_step,
-        }
-        legal_action_semantic = self.store.evaluate_object_semantics(
-            stage=6,
-            object_type="legal_action_recommendation",
-            payload=legal_action_payload,
-            semantic_context={
-                "sale_gate_status": project_fact_payload["sale_gate_status"],
-            },
-        )
-        if legal_action_semantic:
-            semantic_state.add_semantic_validation(legal_action_semantic)
-            if legal_action_semantic.decision_state in ("REVIEW", "BLOCK"):
-                legal_action_payload["action_family"] = "REVIEW_ONLY"
-        legal_action_recommendation = self.store.build_record("legal_action_recommendation", legal_action_payload)
 
         focus_bidder_attackability_score = int(
             inputs.get(
@@ -471,6 +400,135 @@ class ProjectFactAggregator:
             challenger_payload,
         )
 
+        competitor_policy_context = ContextPacket.from_records(
+            capability_mode="stage6_fact_review",
+            stage=6,
+            project_id=project_id,
+            records={
+                "challenger_candidate_profile": challenger_candidate_profile,
+            },
+            inputs={
+                **dict(inputs),
+                "external_use_grade": inputs.get("external_use_grade"),
+                "confidence_band": confidence_band,
+                "evidence_ref_count_optional": inputs.get("evidence_ref_count_optional", 2),
+                "now": now,
+            },
+        )
+        competitor_policy_state = StatePacket(capability_mode="stage6_fact_review")
+        competitor_policy_decision = policy_executor.execute(
+            "competitor_confidence",
+            competitor_policy_context,
+            competitor_policy_state,
+        )
+        competitor_policy_state.add_decision(competitor_policy_decision)
+        competitor_outputs = competitor_policy_state.merged_outputs()
+        competitor_quality_grade = ensure_enum(
+            self.store,
+            "competitor_quality_grade",
+            str(competitor_outputs.get("competitor_quality_grade", "D")),
+        )
+        competitor_confidence_score = competitor_outputs.get("competitor_confidence_score")
+        competitor_confidence_band = competitor_outputs.get("competitor_confidence_band")
+
+        project_fact_payload["competitor_quality_grade"] = competitor_quality_grade
+        project_fact_semantic = self.store.evaluate_object_semantics(
+            stage=6,
+            object_type="project_fact",
+            payload=project_fact_payload,
+            semantic_context={
+                "report_status": report_record.get("report_status"),
+            },
+        )
+        if project_fact_semantic:
+            semantic_state.add_semantic_validation(project_fact_semantic)
+            if project_fact_semantic.decision_state == "BLOCK":
+                project_fact_payload["sale_gate_status"] = "BLOCK"
+        project_fact = self.store.build_record("project_fact", project_fact_payload)
+
+        blocking_reasons = ensure_list(inputs.get("blocking_reasons"))
+        if not blocking_reasons:
+            if rule_gate_status != "PASS":
+                blocking_reasons.append("rule_gate_not_passed")
+            if evidence_gate_status != "PASS":
+                blocking_reasons.append("evidence_gate_not_passed")
+            if report_status != "ISSUED":
+                blocking_reasons.append(f"report_status={report_status}")
+            if window_status in ("REVIEW_REQUIRED", "MISSED"):
+                blocking_reasons.append(f"window_status={window_status}")
+            if review_request and review_request.get("missing_condition_family"):
+                blocking_reasons.append(review_request.get("missing_condition_family"))
+            cutoff_reasons = ensure_list(competitor_outputs.get("competitor_cutoff_reasons"))
+            if competitor_policy_state.decision_state != "ALLOW":
+                if cutoff_reasons:
+                    blocking_reasons.extend(cutoff_reasons)
+                else:
+                    blocking_reasons.append("competitor_confidence_review_required")
+        blocking_reasons = _dedupe_strings(blocking_reasons)
+
+        action_chain_closed = (
+            sale_gate_status == "OPEN"
+            and report_status == "ISSUED"
+            and rule_gate_status == "PASS"
+            and evidence_gate_status == "PASS"
+            and window_status == "ACTIONABLE"
+        )
+        requested_action_family = inputs.get("action_family")
+        if action_chain_closed:
+            action_family = ensure_enum(
+                self.store,
+                "action_family",
+                requested_action_family or "OBJECTION_PREP",
+            )
+            recommended_next_step = inputs.get("recommended_next_step") or "prepare_stage7_commercial_objects"
+        else:
+            action_family = "REVIEW_ONLY"
+            recommended_next_step = inputs.get("recommended_next_step")
+            if not recommended_next_step:
+                recommended_next_step = (
+                    "hold_until_report_issued"
+                    if sale_gate_status == "HOLD" and report_status != "ISSUED"
+                    else "route_to_review_queue"
+                )
+
+        legal_action_payload = {
+            "action_id": build_id("LAR", project_id),
+            "project_id": project_id,
+            "action_family": action_family,
+            "applicable_regime": ensure_enum(
+                self.store, "procurement_regime", inputs.get("procurement_regime", "UNKNOWN")
+            ),
+            "competent_authority_scope": inputs.get(
+                "competent_authority_scope", "PROCUREMENT_AUTHORITY"
+            ),
+            "window_status": window_status,
+            "basis_summary": inputs.get(
+                "basis_summary",
+                f"rule={rule_gate_status}; evidence={evidence_gate_status}; evidence_ref={evidence.get('evidence_id')}; report={report_status}; confidence={confidence_band}",
+            ),
+            "blocking_reasons": blocking_reasons,
+            "recommended_next_step": recommended_next_step,
+        }
+        legal_action_semantic = self.store.evaluate_object_semantics(
+            stage=6,
+            object_type="legal_action_recommendation",
+            payload=legal_action_payload,
+            semantic_context={
+                "sale_gate_status": project_fact_payload["sale_gate_status"],
+            },
+        )
+        if legal_action_semantic:
+            semantic_state.add_semantic_validation(legal_action_semantic)
+            if legal_action_semantic.decision_state in ("REVIEW", "BLOCK"):
+                legal_action_payload["action_family"] = "REVIEW_ONLY"
+                if not action_chain_closed:
+                    legal_action_payload["recommended_next_step"] = (
+                        "hold_until_report_issued"
+                        if sale_gate_status == "HOLD" and report_status != "ISSUED"
+                        else "route_to_review_queue"
+                    )
+        legal_action_recommendation = self.store.build_record("legal_action_recommendation", legal_action_payload)
+
         handoff = {
             "project_id": project_id,
             "review_queue_profile_id": review_queue_profile.get("queue_profile_id"),
@@ -499,6 +557,8 @@ class ProjectFactAggregator:
             "procurement_decision_actor_org_name_seed": procurement_decision_actor_org_name_seed,
             "buyer_type_hint": buyer_type_hint,
         }
+        if competitor_confidence_score is not None:
+            handoff["confidence_score_optional"] = int(competitor_confidence_score)
         if review_request_id:
             handoff["linked_review_request_id_optional"] = review_request_id
             handoff["missing_condition_family_optional"] = missing_condition_family
@@ -532,6 +592,10 @@ class ProjectFactAggregator:
         inputs_out["review_queue_profile_id"] = review_queue_profile.get("queue_profile_id")
         inputs_out["report_id"] = report_record.get("report_id")
         inputs_out["minimum_release_level"] = report_record.get("minimum_release_level")
+        inputs_out["confidence_score_optional"] = (
+            int(competitor_confidence_score) if competitor_confidence_score is not None else None
+        )
+        inputs_out["confidence_band_optional"] = competitor_confidence_band
         inputs_out["linked_review_request_id_optional"] = review_request_id
         inputs_out["missing_condition_family_optional"] = missing_condition_family
         inputs_out["stage6_review_report_trace"] = {
@@ -559,6 +623,7 @@ class ProjectFactAggregator:
         }
         inputs_out["private_supplement_record_optional"] = private_supplement_record_optional
         inputs_out["stage6_review_queue_policy_trace"] = queue_policy_state.trace
+        inputs_out["stage6_competitor_confidence_trace"] = competitor_policy_state.trace
         inputs_out["semantic_trace"] = semantic_state.semantic_trace
         inputs_out["semantic_decision_state"] = semantic_state.semantic_decision_state
         inputs_out["semantic_additions"] = semantic_state.semantic_additions

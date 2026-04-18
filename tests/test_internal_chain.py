@@ -199,6 +199,13 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(
             stage6.record("legal_action_recommendation").get("action_family"), "OBJECTION_PREP"
         )
+        self.assertEqual(stage6.record("project_fact").get("clue_summary"), [])
+        self.assertEqual(stage6.record("project_fact").get("risk_summary"), [])
+        self.assertIn("confidence_score_optional", stage6.handoff)
+        self.assertEqual(
+            stage6.record("project_fact").get("competitor_quality_grade"),
+            stage6.handoff.get("competitor_quality_grade"),
+        )
         self.assertEqual(stage6.record("review_queue_profile").get("review_lane"), "STANDARD")
         self.assertEqual(stage6.record("review_queue_profile").get("review_priority_score"), 46)
         self.assertEqual(stage6.record("review_queue_profile").get("review_queue_bucket"), "NORMAL")
@@ -479,6 +486,7 @@ class TestInternalChain(unittest.TestCase):
             "commercial_urgency_level",
             "report_id",
             "minimum_release_level",
+            "confidence_score_optional",
         ):
             self.assertIn(field_name, self.contracts[6]["optional_payload_fields"])
             self.assertIn(field_name, handoff)
