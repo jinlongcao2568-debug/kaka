@@ -1,9 +1,9 @@
 {
   "registry_id": "golden-cases",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "metadata": {
     "status": "DRAFT",
-    "generated_at": "2026-04-13",
+    "generated_at": "2026-04-19",
     "source_documents": [
       "D11_测试验收与金标回归清单.md",
       "D13_公开可查边界能力清单.md",
@@ -2064,6 +2064,44 @@
       },
       "source_refs": [
         "D11-R-053"
+      ]
+    },
+    {
+      "case_id": "GC-RT-H08-PAYLOAD-CONNECTED-001",
+      "title": "H-08 handoff payload 在 connected human handoff path 仍闭合",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 8,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {
+          "run_mode": "APPROVAL_RUN",
+          "approval_state": "APPROVED",
+          "response_status": "CONNECTED",
+          "commercial_urgency_level": "HIGH"
+        }
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "H08_PAYLOAD_CLOSURE",
+        "required_payload_fields": [
+          "opportunity_id",
+          "touch_record_id",
+          "response_status",
+          "saleability_status",
+          "crm_owner_state"
+        ],
+        "producer_objects": [
+          "contact_target",
+          "outreach_plan",
+          "touch_record",
+          "saleable_opportunity"
+        ]
+      },
+      "source_refs": [
+        "D11-R-053",
+        "D11-R-053-AE"
       ]
     },
     {

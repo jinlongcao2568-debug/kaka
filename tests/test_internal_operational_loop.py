@@ -120,6 +120,89 @@ class TestInternalOperationalLoop(unittest.TestCase):
         self.assertEqual(approved["persisted_operational_context"]["current_operational_state"], "action_completed")
         self.assertEqual(approved["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "completed")
 
+    def test_stage8_hold_progression_reopens_governed_review_lane(self) -> None:
+        stage8 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage8"]
+        create_touch_record(stage8)
+        repo = WorkItemRepository()
+        persisted = repo.list(stage_scope=8)[0]
+        repo.save(replace(persisted, audit_refs={"operator_action_audit_ref": "AUD-STAGE8-READY"}))
+
+        submit_stage8_operator_action(
+            {
+                "opportunity_id": stage8.record("contact_target").get("opportunity_id"),
+                "touch_record_id": stage8.record("touch_record").get("touch_record_id"),
+                "action_id": "stage8_request_governed_review",
+                "button_flow_id": "submit_stage8_governed_review",
+                "reason": "submit draft for governed review",
+                "requested_by_role": "sales_user",
+                "requested_by": "卡卡罗特",
+            }
+        )
+        held = submit_stage8_operator_action(
+            {
+                "opportunity_id": stage8.record("contact_target").get("opportunity_id"),
+                "touch_record_id": stage8.record("touch_record").get("touch_record_id"),
+                "action_id": "stage8_put_governed_hold",
+                "button_flow_id": "hold_stage8_draft_progression",
+                "reason": "await governed clarification",
+                "requested_by_role": "delivery_governance_user",
+                "requested_by": "卡卡罗特",
+            }
+        )
+
+        self.assertEqual(held["action_result"]["action_state"], "governed_hold")
+        self.assertEqual(held["persisted_operational_context"]["current_operational_state"], "governed_hold")
+        self.assertEqual(held["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "in_review")
+        self.assertEqual(held["persisted_operational_context"]["pending_actions"], ["stage8_request_governed_review"])
+
+        queue = list_stage8_work_items({"opportunity_id": stage8.record("contact_target").get("opportunity_id")})
+        self.assertEqual(len(queue["work_items"]), 1)
+        self.assertEqual(queue["work_items"][0]["current_operational_state"], "governed_hold")
+        self.assertEqual(queue["work_items"][0]["last_action"]["action_id"], "stage8_put_governed_hold")
+        self.assertEqual(queue["work_items"][0]["pending_actions"], ["stage8_request_governed_review"])
+
+    def test_stage8_deny_progression_persists_denied_queue_state(self) -> None:
+        stage8 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage8"]
+        create_touch_record(stage8)
+        repo = WorkItemRepository()
+        persisted = repo.list(stage_scope=8)[0]
+        repo.save(replace(persisted, audit_refs={"operator_action_audit_ref": "AUD-STAGE8-READY"}))
+
+        submit_stage8_operator_action(
+            {
+                "opportunity_id": stage8.record("contact_target").get("opportunity_id"),
+                "touch_record_id": stage8.record("touch_record").get("touch_record_id"),
+                "action_id": "stage8_request_governed_review",
+                "button_flow_id": "submit_stage8_governed_review",
+                "reason": "submit draft for governed review",
+                "requested_by_role": "sales_user",
+                "requested_by": "卡卡罗特",
+            }
+        )
+        denied = submit_stage8_operator_action(
+            {
+                "opportunity_id": stage8.record("contact_target").get("opportunity_id"),
+                "touch_record_id": stage8.record("touch_record").get("touch_record_id"),
+                "action_id": "stage8_deny_draft_progression",
+                "button_flow_id": "deny_stage8_draft_progression",
+                "reason": "draft denied by governance review",
+                "requested_by_role": "delivery_governance_user",
+                "requested_by": "卡卡罗特",
+            }
+        )
+
+        self.assertEqual(denied["action_result"]["action_state"], "action_denied")
+        self.assertEqual(denied["persisted_operational_context"]["current_operational_state"], "action_denied")
+        self.assertEqual(denied["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "denied")
+        self.assertEqual(denied["persisted_operational_context"]["pending_actions"], [])
+
+        queue = list_stage8_work_items({"opportunity_id": stage8.record("contact_target").get("opportunity_id")})
+        self.assertEqual(len(queue["work_items"]), 1)
+        self.assertEqual(queue["work_items"][0]["current_operational_state"], "action_denied")
+        self.assertEqual(queue["work_items"][0]["assignment"]["assignment_lifecycle_state"], "denied")
+        self.assertEqual(queue["work_items"][0]["last_action"]["action_id"], "stage8_deny_draft_progression")
+        self.assertEqual(queue["work_items"][0]["pending_actions"], [])
+
     def test_stage8_work_item_exposes_persisted_writeback_and_handoff_context(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import unittest
 from pathlib import Path
@@ -22,6 +23,7 @@ from api.routes.stage7 import (
 )
 from api.routes.stage8 import (
     create_outreach_plan,
+    create_touch_record,
     list_contact_targets,
     list_stage8_work_items,
     register_stage8_routes,
@@ -135,6 +137,57 @@ class TestInternalSurfacePreview(unittest.TestCase):
             draft_response["persisted_operational_context"]["object_refs"]["touch_record_id"],
             stage8.record("touch_record").get("touch_record_id"),
         )
+
+    def test_stage8_persisted_surface_replays_writeback_and_human_handoff_without_unblocking(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "run_mode": "APPROVAL_RUN",
+                "approval_state": "APPROVED",
+                "response_status": "CONNECTED",
+                "commercial_urgency_level": "HIGH",
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        created = create_touch_record(stage8)
+        replay = list_contact_targets(
+            {
+                "opportunity_id": stage8.record("contact_target").get("opportunity_id"),
+                "touch_record_id": stage8.record("touch_record").get("touch_record_id"),
+            }
+        )
+        governed = replay["persisted_operational_context"]["governed_context"]
+
+        for response in (created, replay):
+            self.assertEqual(response["surface_id"], "outreach_workbench")
+            self.assertEqual(response["surface_mode"], "draft-only")
+            self.assertTrue(response["internal_only"])
+            self.assertTrue(response["blocked_by_default"])
+            self.assertFalse(response["live_execution_enabled"])
+            self.assertEqual(response["formalization_scope"], "INTERNAL_GOVERNED")
+            self.assertTrue(response["operational_loop_persisted"])
+            self.assertEqual(response["operational_context_status"], "persisted")
+            self.assertIn("persisted_operational_context", response)
+
+        self.assertEqual(governed["writeback_targets"], stage8.record("touch_record").get("writeback_targets"))
+        self.assertEqual(
+            governed["written_back_at_optional"],
+            stage8.record("touch_record").get("written_back_at_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_next_owner_role_optional"],
+            stage8.handoff.get("human_handoff_next_owner_role_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_sla_hours_optional"],
+            stage8.handoff.get("human_handoff_sla_hours_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_reason_optional"],
+            stage8.handoff.get("human_handoff_reason_optional"),
+        )
+        self.assertEqual(created["persisted_operational_context"]["governed_context"], governed)
 
     def test_stage9_preview_surface_is_draft_only_and_not_live(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

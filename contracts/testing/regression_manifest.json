@@ -1,10 +1,10 @@
 {
   "registry_id": "regression-manifest",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "metadata": {
     "package_name": "testing package round 1",
     "status": "DRAFT",
-    "generated_at": "2026-04-17",
+    "generated_at": "2026-04-19",
     "machine_path": "contracts/testing/regression_manifest.json",
     "scope": "minimum regression suites and triggers for pre-code readiness",
     "source_documents": [
@@ -33,7 +33,8 @@
       "stage9 consumer vs H-08 contract assertions added",
       "stage9 executor payment/delivery coverage added",
       "stage9 writeback target additive governance assertions added",
-      "stage8 compliance lattice candidate/execution split added"
+      "stage8 compliance lattice candidate/execution split added",
+      "stage8 pre-route/internal surface/operator regression closure tightened"
     ]
   },
   "suites": [
@@ -214,6 +215,8 @@
         "channel ladder and fallback sequence are observable in outreach_cadence runtime trace",
         "stop condition blocks execution on opt-out or policy block",
         "feedback reason and typed writeback targets are observable in runtime behavior",
+        "quiet hours, frequency review, approval gap and retry exhaustion remain distinct candidate vs execution compliance behaviors",
+        "CONNECTED/ORG_ROUTED human handoff paths keep H-08 minimum payload, writeback projection and human_handoff owner/SLA/reason authoritative",
         "failure/writeback fields and H-08 payload readiness are checkable before route-map start",
         "run-golden directly executes Stage8 failure/writeback and H-08 payload goldens"
       ],
@@ -232,6 +235,7 @@
       "blocking": true,
       "source_refs": [
         "D11-R-053",
+        "D11-R-053-AE",
         "D11-R-050-A"
       ]
     },
@@ -305,6 +309,8 @@
         "surface responses distinguish formal_object_refs from preview_projection",
         "api routes consume typed objects and decision states without recomputing main judgment",
         "stage8/stage9 surfaces keep blocked_by_default and live_execution_enabled=false",
+        "stage8 persisted replay keeps draft-only/internal-governed/blocked-by-default surface semantics after create_touch_record",
+        "stage8 persisted governed_context replays writeback and human handoff metadata without implying live execution",
         "page_surface_states/review_action_catalog/workbench/button flow/export template remain aligned",
         "internal preview contracts do not imply external-ready or live execution"
       ],
@@ -321,7 +327,8 @@
       ],
       "blocking": true,
       "source_refs": [
-        "D11-R-053-D"
+        "D11-R-053-D",
+        "D11-R-053-AE"
       ]
     },
     {
@@ -2310,6 +2317,7 @@
       "checks": [
         "stage7/stage8/stage9 preview surfaces must distinguish transient_preview_context from persisted_operational_context and must not pretend a work item already exists",
         "stage7/stage8/stage9 operator action routes persist action history and current operational state transitions",
+        "stage8 operator queue persists request_review, approve, deny, hold and return progression with assignment lifecycle and pending actions",
         "operator actions only consume formal objects, decision states, traces, governed metadata, review_action_catalog, and button_flow_catalog",
         "requiresApprovalChain operator actions stay blocked until a resolved reviewer chain is present and do not treat audit trace as approval-chain substitute",
         "operator action runtime returns structured WORKITEM-404-NOT_FOUND and ACTION-409-* envelopes instead of generic exceptions"
@@ -2331,7 +2339,8 @@
       ],
       "blocking": true,
       "source_refs": [
-        "D11-R-053-F"
+        "D11-R-053-F",
+        "D11-R-053-AE"
       ]
     },
     {
@@ -2340,6 +2349,7 @@
       "checks": [
         "stage7/stage8/stage9 work item queues persist item id, work item key, assignment lifecycle, pending actions, and last action",
         "queue retrieval replays action history without touching formal judgment fields",
+        "stage8 repository readback keeps persisted formal refs and governed writeback/human handoff metadata ahead of loose lookup",
         "surface routes can read back queue and work item state from repository after default session reopen"
       ],
       "triggers": [
@@ -2352,7 +2362,8 @@
       ],
       "blocking": true,
       "source_refs": [
-        "D11-R-053-F"
+        "D11-R-053-F",
+        "D11-R-053-AE"
       ]
     },
     {

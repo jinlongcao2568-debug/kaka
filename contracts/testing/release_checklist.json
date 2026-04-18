@@ -1,10 +1,10 @@
 {
   "registry_id": "release-checklist",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "metadata": {
     "package_name": "testing package round 1",
     "status": "DRAFT",
-    "generated_at": "2026-04-17",
+    "generated_at": "2026-04-19",
     "machine_path": "contracts/testing/release_checklist.json",
     "scope": "release readiness checklist for internal operations and leadpack delivery",
     "source_documents": [
@@ -599,7 +599,7 @@
       "items": [
         {
           "itemId": "REL-085",
-          "text": "Stage 8 minimal behavior regressions cover contact priority/conflict, cadence, retry, stop condition and failure/writeback readiness, and run-golden directly executes the Stage 8 failure/writeback golden.",
+          "text": "Stage 8 minimal behavior regressions cover contact priority/conflict, cadence, retry, stop condition, quiet-hours/frequency/approval-gap split, retry exhaustion, and failure/writeback readiness; run-golden directly executes the Stage 8 failure/writeback and H-08 payload goldens.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053"
@@ -644,6 +644,23 @@
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-O"
+          ]
+        },
+        {
+          "itemId": "REL-089B",
+          "text": "Stage 8 persisted governed preview/draft-only surfaces remain internal_only + blocked_by_default + live_execution_enabled=false + INTERNAL_GOVERNED after create_touch_record/list replay, and replay governed_context keeps writeback plus human handoff metadata machine-readable.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-AE"
+          ]
+        },
+        {
+          "itemId": "REL-089C",
+          "text": "Stage 8 operator queue persists request_review/approve/deny/hold/return progression with assignment lifecycle, pending actions, last_action/action_history, and repository readback keeps persisted refs/governed metadata precedence without creating a second decision system.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-AE",
+            "D11-R-053-F"
           ]
         }
       ]

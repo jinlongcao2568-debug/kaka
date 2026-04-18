@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import unittest
 
 from helpers import load_fixture
@@ -173,6 +174,76 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             hydrated.inputs["stop_policy_id"],
             stage8.record("outreach_plan").get("stop_policy_id"),
+        )
+
+    def test_stage8_repository_replays_connected_handoff_governed_metadata(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "run_mode": "APPROVAL_RUN",
+                "approval_state": "APPROVED",
+                "response_status": "CONNECTED",
+                "commercial_urgency_level": "HIGH",
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        created = create_touch_record(stage8)
+        replay = list_contact_targets(
+            {
+                "opportunity_id": stage8.record("contact_target").get("opportunity_id"),
+                "touch_record_id": stage8.record("touch_record").get("touch_record_id"),
+            }
+        )
+        hydrated = hydrate_stage_bundle(
+            "stage8",
+            {"opportunity_id": stage8.record("contact_target").get("opportunity_id")},
+        )
+        governed = replay["persisted_operational_context"]["governed_context"]
+
+        self.assertTrue(replay["operational_loop_persisted"])
+        self.assertEqual(replay["operational_context_status"], "persisted")
+        self.assertTrue(replay["blocked_by_default"])
+        self.assertFalse(replay["live_execution_enabled"])
+        self.assertEqual(replay["formalization_scope"], "INTERNAL_GOVERNED")
+        self.assertEqual(created["persisted_operational_context"]["governed_context"], governed)
+        self.assertEqual(governed["writeback_targets"], stage8.record("touch_record").get("writeback_targets"))
+        self.assertEqual(
+            governed["written_back_at_optional"],
+            stage8.record("touch_record").get("written_back_at_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_next_owner_role_optional"],
+            stage8.handoff.get("human_handoff_next_owner_role_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_sla_hours_optional"],
+            stage8.handoff.get("human_handoff_sla_hours_optional"),
+        )
+        self.assertEqual(
+            governed["human_handoff_reason_optional"],
+            stage8.handoff.get("human_handoff_reason_optional"),
+        )
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.inputs["writeback_targets"],
+            stage8.record("touch_record").get("writeback_targets"),
+        )
+        self.assertEqual(
+            hydrated.inputs["written_back_at_optional"],
+            stage8.record("touch_record").get("written_back_at_optional"),
+        )
+        self.assertEqual(
+            hydrated.inputs["human_handoff_next_owner_role_optional"],
+            stage8.handoff.get("human_handoff_next_owner_role_optional"),
+        )
+        self.assertEqual(
+            hydrated.inputs["human_handoff_sla_hours_optional"],
+            stage8.handoff.get("human_handoff_sla_hours_optional"),
+        )
+        self.assertEqual(
+            hydrated.inputs["human_handoff_reason_optional"],
+            stage8.handoff.get("human_handoff_reason_optional"),
         )
 
     def test_stage9_repository_boundary_persists_internal_governed_writeback_loop(self) -> None:
