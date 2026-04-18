@@ -1,14 +1,130 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "catalogId": "price_normalization_catalog",
   "ownerDocs": [
+    "D2",
     "D3",
     "D8",
     "D11"
   ],
+  "authorityContract": {
+    "rule_code": "PRICE-001",
+    "authoritative_policy_id": "PRICE-NORMALIZE-001",
+    "sole_machine_readable_authority": true,
+    "authoritative_owner_stage": "stage7_sales",
+    "authoritative_outputs": [
+      "normalized_price_amount_optional",
+      "price_conflict_gate_status_optional",
+      "price_signal_score_optional",
+      "price_band_optional",
+      "recommended_quote_band"
+    ],
+    "authority_scope": {
+      "source_priority_ref": "#policies/0/source_priority",
+      "tax_conversion_ref": "#policies/0/normalization.tax_conversion",
+      "unit_normalization_ref": "#policies/0/normalization.unit_normalization",
+      "lot_package_resolution_ref": "#policies/0/normalization.lot_package_resolution",
+      "freshness_decay_ref": "#policies/0/normalization.freshness_decay",
+      "review_flag_catalog_ref": "#reviewFlagCatalog",
+      "conflict_thresholds_ref": "#policies/0/conflict_thresholds",
+      "band_rules_ref": "#policies/0/band_rules",
+      "quote_band_mapping_ref": "#policies/0/quote_band_mapping",
+      "price_signal_score_matrix_ref": "#policies/0/price_signal_score_matrix"
+    },
+    "fallback_review_path": {
+      "allowed_decision_states": [
+        "ALLOW",
+        "REVIEW",
+        "BLOCK",
+        "FALLBACK"
+      ],
+      "consumer_boundary_ref": "contracts/sales/stage7_resolution_policy.json#boundaryContracts.priceCandidateResolution",
+      "allowed_fallback_inputs_ref": "contracts/sales/stage7_resolution_policy.json#priceCandidateResolution.fallbackInputs",
+      "forbidden_authoritative_substitutes": [
+        "raw bid_price seed without catalog normalization",
+        "service-local price conflict thresholds",
+        "manual recommended_quote_band override"
+      ]
+    }
+  },
+  "reviewFlagCatalog": [
+    {
+      "flag": "FX_RATE_MISSING",
+      "severity": "REVIEW",
+      "trigger": "currency != CNY and fx_rate missing",
+      "authority_ref": "#policies/0/normalization"
+    },
+    {
+      "flag": "MISSING_TAX_RATE",
+      "severity": "REVIEW",
+      "trigger": "tax_basis=INCL_TAX and tax_rate unavailable",
+      "authority_ref": "#policies/0/normalization.tax_conversion"
+    },
+    {
+      "flag": "UNKNOWN_TAX_BASIS",
+      "severity": "REVIEW",
+      "trigger": "selected candidate tax basis unresolved",
+      "authority_ref": "#policies/0/normalization.tax_conversion"
+    },
+    {
+      "flag": "MISSING_UNIT_QUANTITY",
+      "severity": "REVIEW",
+      "trigger": "non-total unit basis missing quantity",
+      "authority_ref": "#policies/0/normalization.unit_normalization"
+    },
+    {
+      "flag": "STALE_REFERENCE",
+      "severity": "REVIEW",
+      "trigger": "historical reference older than review threshold",
+      "authority_ref": "#policies/0/normalization.freshness_decay"
+    },
+    {
+      "flag": "SCOPE_MISMATCH",
+      "severity": "REVIEW",
+      "trigger": "lot/package scope differs across comparable candidates",
+      "authority_ref": "#policies/0/normalization.lot_package_resolution"
+    },
+    {
+      "flag": "TAX_BASIS_MIXED",
+      "severity": "REVIEW",
+      "trigger": "comparable candidates use mixed source tax basis",
+      "authority_ref": "#policies/0/conflict_thresholds"
+    },
+    {
+      "flag": "UNIT_BASIS_MIXED",
+      "severity": "REVIEW",
+      "trigger": "comparable candidates use mixed source unit basis",
+      "authority_ref": "#policies/0/conflict_thresholds"
+    },
+    {
+      "flag": "ONLY_LOW_RELIABILITY_SOURCES",
+      "severity": "REVIEW",
+      "trigger": "all comparable candidates fall below low reliability threshold",
+      "authority_ref": "#policies/0/conflict_thresholds"
+    },
+    {
+      "flag": "STALE_REFERENCE_ONLY",
+      "severity": "REVIEW",
+      "trigger": "only stale historical references remain comparable",
+      "authority_ref": "#policies/0/conflict_thresholds"
+    },
+    {
+      "flag": "DIRECT_FALLBACK_USED",
+      "severity": "REVIEW",
+      "trigger": "catalog candidate set missing and direct fallback input consumed",
+      "authority_ref": "#authorityContract.fallback_review_path"
+    },
+    {
+      "flag": "MISSING_NUMERIC_PRICE",
+      "severity": "REVIEW",
+      "trigger": "no numeric price candidate or fallback available",
+      "authority_ref": "#authorityContract.fallback_review_path"
+    }
+  ],
   "policies": [
     {
       "policy_id": "PRICE-NORMALIZE-001",
+      "rule_code": "PRICE-001",
       "title": "Price extraction, normalization and conflict resolution",
       "input_fields": [
         "bidder_candidate.bid_price_optional",
@@ -245,12 +361,15 @@
         "price_conflict_gate_status_optional",
         "price_signal_score_optional",
         "recommended_quote_band"
-      ]
+      ],
+      "review_flag_catalog_ref": "#reviewFlagCatalog"
     }
   ],
   "notes": [
     "price_source_set_optional is a merged internal list of price candidates.",
     "Normalized amount must resolve to CNY + EX_TAX + TOTAL_AMOUNT before ranking or quote-band projection.",
-    "price_conflict_gate_status uses gate_status enum to avoid new enum sets."
+    "price_conflict_gate_status uses gate_status enum to avoid new enum sets.",
+    "PRICE-001 is the sole machine-readable authority for source priority, tax/unit normalization, lot/package scope, freshness decay, review flags, and quote-band projection.",
+    "stage7_resolution_policy may only define price candidate consumer boundaries, dedup, fallback inputs, and trace hooks; it must not redefine PRICE-001 semantics."
   ]
 }

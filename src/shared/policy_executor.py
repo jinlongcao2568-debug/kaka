@@ -1351,8 +1351,24 @@ class PolicyExecutor:
             fallback_value=window_status_default,
             fallback_source=window_status_default_source,
         )
-        delivery_risk_state = project_fact.get("delivery_risk_state", context.input("delivery_risk_state", "REVIEW"))
-        coverage_sellable_state = project_fact.get("coverage_sellable_state", context.input("coverage_sellable_state", "RESTRICTED"))
+        delivery_risk_default, delivery_risk_default_source = fallback("delivery_risk_state")
+        delivery_risk_state, delivery_risk_source, delivery_risk_fallback = _resolve_with_contract_fallback(
+            [
+                ("project_fact.delivery_risk_state", project_fact.get("delivery_risk_state")),
+                ("inputs.delivery_risk_state", context.input("delivery_risk_state")),
+            ],
+            fallback_value=delivery_risk_default,
+            fallback_source=delivery_risk_default_source,
+        )
+        coverage_default, coverage_default_source = fallback("coverage_sellable_state")
+        coverage_sellable_state, coverage_source, coverage_fallback = _resolve_with_contract_fallback(
+            [
+                ("project_fact.coverage_sellable_state", project_fact.get("coverage_sellable_state")),
+                ("inputs.coverage_sellable_state", context.input("coverage_sellable_state")),
+            ],
+            fallback_value=coverage_default,
+            fallback_source=coverage_default_source,
+        )
 
         buyer_fit_score = state.resolve("buyer_fit_scorecard_score")
         buyer_fit_decision = None
@@ -1422,6 +1438,8 @@ class PolicyExecutor:
             "rule_gate_status": rule_gate_source,
             "evidence_gate_status": evidence_gate_source,
             "sale_gate_status": sale_gate_source,
+            "delivery_risk_state": delivery_risk_source,
+            "coverage_sellable_state": coverage_source,
             "window_status": window_status_source,
         }
         missing_formal_sources = [
@@ -1436,6 +1454,8 @@ class PolicyExecutor:
                 ("rule_gate_status", rule_gate_fallback),
                 ("evidence_gate_status", evidence_gate_fallback),
                 ("sale_gate_status", sale_gate_fallback),
+                ("delivery_risk_state", delivery_risk_fallback),
+                ("coverage_sellable_state", coverage_fallback),
                 ("window_status", window_status_fallback),
             )
             if used_fallback
@@ -1497,12 +1517,18 @@ class PolicyExecutor:
                 "opportunity_value_reason_tags": opportunity_reason_tags,
                 "value_derivation_trace": {
                     "model_ids": list(models.keys()),
+                    "model_gating_rules": {
+                        model_id: list(model.get("gating_rules", []))
+                        for model_id, model in models.items()
+                    },
                     "buyer_fit_score_source": buyer_fit_score_source,
                     "buyer_fit_policy_trace": buyer_fit_trace,
                     "gating_inputs": {
                         "rule_gate_status": rule_gate_status,
                         "evidence_gate_status": evidence_gate_status,
                         "sale_gate_status": sale_gate_status,
+                        "delivery_risk_state": delivery_risk_state,
+                        "coverage_sellable_state": coverage_sellable_state,
                         "window_status": window_status,
                     },
                     "component_sources_used": source_trace,

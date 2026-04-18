@@ -15,7 +15,10 @@ if str(TESTS) not in sys.path:
     sys.path.insert(0, str(TESTS))
 
 from helpers import load_fixture, run_internal_chain_to_stage7
+from shared.context_packet import ContextPacket
 from shared.contract_loader import load_contract
+from shared.policy_executor import PolicyExecutor
+from shared.state_packet import PolicyDecision, StatePacket
 
 
 class TestStage7RuntimeClosure(unittest.TestCase):
@@ -51,6 +54,18 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertIn("LEAD-VALUE-001", value_trace["model_ids"])
         self.assertIn("OPPORTUNITY-VALUE-001", value_trace["model_ids"])
         self.assertEqual(
+            value_trace["component_sources_used"]["coverage_sellable_state"],
+            "project_fact.coverage_sellable_state",
+        )
+        self.assertEqual(
+            value_trace["component_sources_used"]["delivery_risk_state"],
+            "project_fact.delivery_risk_state",
+        )
+        self.assertIn(
+            "window_status=MISSED -> lead_score max 54",
+            value_trace["model_gating_rules"]["LEAD-VALUE-001"],
+        )
+        self.assertEqual(
             stage7.record("saleable_opportunity").get("major_value_points"),
             stage7.inputs["stage7_resolution_trace"]["value_derivation"]["opportunity_value_reason_tags"],
         )
@@ -58,6 +73,103 @@ class TestStage7RuntimeClosure(unittest.TestCase):
             "lead_value_reason_tag_policy_id",
             stage7.inputs["stage7_resolution_trace"]["value_derivation"],
         )
+
+    def test_stage7_value_scoring_marks_missing_stage6_state_sources_via_contract_fallback(self) -> None:
+        context = ContextPacket.from_records(
+            capability_mode="stage7_sales",
+            stage=7,
+            project_id="PROJ-TEST",
+            records={
+                "project_fact": {
+                    "sale_gate_status": "OPEN",
+                    "rule_gate_status": "PASS",
+                    "evidence_gate_status": "PASS",
+                    "delivery_risk_state": None,
+                    "coverage_sellable_state": None,
+                    "competitor_quality_grade": "B",
+                },
+                "legal_action_recommendation": {
+                    "window_status": "ACTIONABLE",
+                },
+                "challenger_candidate_profile": {
+                    "challenge_actionability_score": 78,
+                },
+                "report_record": {
+                    "report_status": "ISSUED",
+                },
+            },
+            inputs={
+                "external_use_grade": "E3_CLIENT_VISIBLE",
+            },
+        )
+        state = StatePacket(capability_mode="stage7_sales")
+        state.add_decision(
+            PolicyDecision(
+                policy_key="window_value",
+                decision_state="ALLOW",
+                outputs={
+                    "window_urgency_score": 82,
+                    "window_status": "ACTIONABLE",
+                },
+                reasons=[],
+                trace={},
+            )
+        )
+        state.add_decision(
+            PolicyDecision(
+                policy_key="price_normalization",
+                decision_state="ALLOW",
+                outputs={
+                    "price_signal_score": 61,
+                },
+                reasons=[],
+                trace={},
+            )
+        )
+        state.add_decision(
+            PolicyDecision(
+                policy_key="competitor_confidence",
+                decision_state="ALLOW",
+                outputs={
+                    "competitor_confidence_score": 76,
+                    "competitor_confidence_band": "MEDIUM",
+                    "competitor_quality_grade": "B",
+                },
+                reasons=[],
+                trace={},
+            )
+        )
+        state.add_decision(
+            PolicyDecision(
+                policy_key="buyer_fit_scorecard",
+                decision_state="ALLOW",
+                outputs={
+                    "buyer_fit_scorecard_score": 88,
+                    "buyer_fit_derivation_trace": {
+                        "source": "seeded_test_decision",
+                    },
+                },
+                reasons=[],
+                trace={},
+            )
+        )
+
+        decision = PolicyExecutor().execute("value_scoring", context, state)
+        trace = decision.outputs["value_derivation_trace"]
+
+        self.assertEqual(decision.decision_state, "REVIEW")
+        self.assertIn("coverage_sellable_state", trace["missing_formal_sources"])
+        self.assertIn("delivery_risk_state", trace["missing_formal_sources"])
+        self.assertEqual(
+            trace["component_sources_used"]["coverage_sellable_state"],
+            "derivationPolicy.sourceFallbacks.coverage_sellable_state",
+        )
+        self.assertEqual(
+            trace["component_sources_used"]["delivery_risk_state"],
+            "derivationPolicy.sourceFallbacks.delivery_risk_state",
+        )
+        self.assertEqual(trace["gating_inputs"]["coverage_sellable_state"], "RESTRICTED")
+        self.assertEqual(trace["gating_inputs"]["delivery_risk_state"], "REVIEW")
 
     def test_stage7_expected_bands_and_reason_are_policy_outputs(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

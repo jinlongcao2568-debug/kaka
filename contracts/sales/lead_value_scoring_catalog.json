@@ -51,6 +51,14 @@
         "fallbackValue": "REVIEW",
         "contractSource": "derivationPolicy.sourceFallbacks.sale_gate_status"
       },
+      "delivery_risk_state": {
+        "fallbackValue": "REVIEW",
+        "contractSource": "derivationPolicy.sourceFallbacks.delivery_risk_state"
+      },
+      "coverage_sellable_state": {
+        "fallbackValue": "RESTRICTED",
+        "contractSource": "derivationPolicy.sourceFallbacks.coverage_sellable_state"
+      },
       "window_status": {
         "fallbackValue": "REVIEW_REQUIRED",
         "contractSource": "derivationPolicy.sourceFallbacks.window_status"

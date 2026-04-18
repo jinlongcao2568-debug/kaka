@@ -1,14 +1,85 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "catalogId": "stage7_resolution_policy",
   "ownerDocs": [
+    "D2",
     "D3",
     "D8",
     "D11"
   ],
+  "boundaryContracts": {
+    "actorSeedResolution": {
+      "role": "STAGE7_SEED_RESOLUTION_ONLY",
+      "allowed_consumers": [
+        "legal_action_actor_profile.actor_org_name",
+        "procurement_decision_actor_profile.actor_org_name",
+        "stage7_resolution_trace.actor_seed_provenance"
+      ],
+      "forbidden_writes": [
+        "project_fact",
+        "report_record",
+        "stage6_handoff.*_seed"
+      ]
+    },
+    "priceCandidateResolution": {
+      "role": "CONSUMER_PROJECTION_ONLY",
+      "authoritative_refs": {
+        "price_authority_ref": "contracts/sales/price_normalization_catalog.json#authorityContract",
+        "source_priority_ref": "contracts/sales/price_normalization_catalog.json#policies/0/source_priority",
+        "review_flag_catalog_ref": "contracts/sales/price_normalization_catalog.json#reviewFlagCatalog"
+      },
+      "allowed_local_fields": [
+        "dedupKey",
+        "selectedCandidateRule",
+        "fallbackInputs",
+        "normalizationHooks",
+        "traceFields"
+      ],
+      "forbidden_local_authority": [
+        "source_priority",
+        "tax_conversion",
+        "unit_normalization",
+        "lot_package_resolution",
+        "freshness_decay",
+        "review_flag_definitions"
+      ],
+      "allowed_consumers": [
+        "bidder_candidate.normalized_price_amount_optional",
+        "bidder_candidate.price_conflict_gate_status_optional",
+        "bidder_candidate.price_signal_score_optional",
+        "offer_recommendation.recommended_quote_band",
+        "stage7_resolution_trace.price_resolution"
+      ],
+      "forbidden_writes": [
+        "project_fact",
+        "stage6 authoritative price fields"
+      ]
+    },
+    "multiCompetitorResolution": {
+      "role": "CARRIER_AND_WINNER_PROJECTION_ONLY",
+      "authoritative_refs": {
+        "competitor_authority_ref": "contracts/sales/competitor_confidence_catalog.json#authorityContract",
+        "ranking_policy_ref": "contracts/sales/competitor_confidence_catalog.json#policies/0/ranking_policy",
+        "cutoff_policy_ref": "contracts/sales/competitor_confidence_catalog.json#policies/0/cutoff_policy",
+        "entity_hook_ref": "contracts/sales/challenger_profile_catalog.json#challenger_candidate_profile.stage7ResolutionHooks"
+      },
+      "allowed_consumers": [
+        "multi_competitor_collection",
+        "saleable_opportunity.challenger_profile_id",
+        "stage7_resolution_trace.multi_competitor_collection"
+      ],
+      "forbidden_writes": [
+        "project_fact.competitor_quality_grade",
+        "H-06.competitor_quality_grade",
+        "stage6 challenger authoritative fields"
+      ],
+      "winner_projection_rule": "saleable_opportunity.challenger_profile_id must equal multi_competitor_collection.winning_challenger_profile_id"
+    }
+  },
   "actorSeedPolicies": [
     {
       "policyId": "legal_action_actor_seed_resolution_v1",
+      "consumerBoundaryRef": "#boundaryContracts.actorSeedResolution",
       "targetField": "legal_action_actor_profile.actor_org_name",
       "resolutionOrder": [
         {
@@ -31,6 +102,7 @@
     },
     {
       "policyId": "procurement_decision_actor_seed_resolution_v1",
+      "consumerBoundaryRef": "#boundaryContracts.actorSeedResolution",
       "targetField": "procurement_decision_actor_profile.actor_org_name",
       "resolutionOrder": [
         {
@@ -54,6 +126,8 @@
   ],
   "priceCandidateResolution": {
     "policyId": "price_candidate_merge_v2",
+    "consumerBoundaryRef": "#boundaryContracts.priceCandidateResolution",
+    "authoritativePolicyRef": "contracts/sales/price_normalization_catalog.json#authorityContract",
     "sourcePriorityRef": "contracts/sales/price_normalization_catalog.json#policies/0/source_priority",
     "dedupKey": [
       "source_type",
@@ -103,6 +177,7 @@
   },
   "multiCompetitorResolution": {
     "policyId": "stage7_multi_competitor_resolution_v1",
+    "consumerBoundaryRef": "#boundaryContracts.multiCompetitorResolution",
     "carrierObject": "multi_competitor_collection",
     "entityResolution": {
       "canonicalIdPreference": [
@@ -124,6 +199,7 @@
       "dedupRule": "prefer_higher_source_priority_then_higher_confidence_then_higher_ranking_score"
     },
     "ranking": {
+      "authoritativePolicyRef": "contracts/sales/competitor_confidence_catalog.json#policies/0/ranking_policy",
       "rankingMode": "TOP_N_RETAINED_WITH_CANDIDATE_ONLY_CUTOFF",
       "weights": {
         "challenge_actionability_score": 0.45,
@@ -147,8 +223,10 @@
       }
     },
     "retention": {
+      "authoritativePolicyRef": "contracts/sales/competitor_confidence_catalog.json#policies/0/cutoff_policy",
       "top_n_limit_ref": "contracts/sales/competitor_confidence_catalog.json#policies/0/ranking_policy.top_n_limit",
       "candidate_only_cutoff_ref": "contracts/sales/competitor_confidence_catalog.json#policies/0/cutoff_policy",
+      "candidate_only_reason_tags_ref": "contracts/sales/competitor_confidence_catalog.json#policies/0/ranking_policy.candidate_only_reason_tags",
       "winner_selection": "highest_ranked_non_candidate_only_else_rank_1",
       "candidate_only_reason_tags": [
         "RANK_GT_TOP_N",

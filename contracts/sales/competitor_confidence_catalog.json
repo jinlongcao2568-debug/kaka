@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.2.0",
+  "catalogVersion": "1.3.0",
   "catalogId": "competitor_confidence_catalog",
   "ownerDocs": [
     "D2",
@@ -9,6 +9,7 @@
   ],
   "stage6AuthoritativeOutputContract": {
     "contractId": "STAGE6-COMPETITOR-GRADE-AUTHORITY-001",
+    "ruleCode": "COMP-001",
     "authoritativeProducerStage": "stage6_fact_review",
     "authoritativeOwnerObject": "project_fact",
     "authoritativeOutputPath": "project_fact.competitor_quality_grade",
@@ -44,9 +45,28 @@
       "heuristic competitor_quality_grade"
     ]
   },
+  "authorityContract": {
+    "rule_code": "COMP-001",
+    "sole_machine_readable_authority": true,
+    "authoritative_stage6_output_ref": "#stage6AuthoritativeOutputContract",
+    "authoritative_stage7_ranking_scope": {
+      "confidence_band_rules_ref": "#policies/0/confidence_band_rules",
+      "quality_grade_rules_ref": "#policies/0/quality_grade_rules",
+      "cutoff_policy_ref": "#policies/0/cutoff_policy",
+      "ranking_policy_ref": "#policies/0/ranking_policy"
+    },
+    "stage7_consumer_boundary_ref": "contracts/sales/stage7_resolution_policy.json#boundaryContracts.multiCompetitorResolution",
+    "forbidden_authoritative_substitutes": [
+      "service-local ranking literals",
+      "heuristic competitor_quality_grade",
+      "DEFAULT_CLUE",
+      "DEFAULT_RISK"
+    ]
+  },
   "policies": [
     {
       "policy_id": "COMP-CONFIDENCE-001",
+      "rule_code": "COMP-001",
       "title": "Competitor evidence accumulation and confidence scoring",
       "applies_to_objects": [
         "challenger_candidate_profile",
@@ -159,6 +179,13 @@
         "score_field": "confidence_score_optional",
         "top_n_limit": 3,
         "beyond_top_n_result": "CANDIDATE_ONLY",
+        "ranking_mode": "TOP_N_RETAINED_WITH_CANDIDATE_ONLY_CUTOFF",
+        "score_component_weights": {
+          "challenge_actionability_score": 0.45,
+          "execution_readiness_score": 0.35,
+          "confidence_score_optional": 0.20
+        },
+        "fallback_confidence_score": 45,
         "candidate_position_priority": {
           "WINNER": 0,
           "FIRST_CANDIDATE": 1,
@@ -168,9 +195,16 @@
           "UNKNOWN": 10
         },
         "sort_order": [
+          "ranking_score desc",
           "confidence_score_optional desc",
           "candidate_position_label asc",
-          "challenger_profile_id asc"
+          "candidate_id asc"
+        ],
+        "winner_selection": "highest_ranked_non_candidate_only_else_rank_1",
+        "candidate_only_reason_tags": [
+          "RANK_GT_TOP_N",
+          "CONFIDENCE_BAND_LOW",
+          "CONFIDENCE_SCORE_LT_55"
         ]
       },
       "output_fields": [
@@ -182,9 +216,11 @@
   ],
   "notes": [
     "Confidence scoring is deterministic and may only downgrade on insufficient evidence.",
+    "COMP-001 is the sole machine-readable authority for confidence bands, quality grade, TopN, candidate-only cutoff, ranking policy, and winner selection semantics.",
     "Stage7 multi-competitor ranking must consume cutoff_policy and ranking_policy rather than service-local literals.",
     "confidence_band uses existing enum confidence_band; quality grade aligns with competitor_quality_grade.",
     "competitor_quality_grade is authoritative only when the formal Stage6 inputs declared in stage6AuthoritativeOutputContract are present; missing inputs or cutoff must stay on review/candidate-only path.",
-    "DEFAULT_CLUE, DEFAULT_RISK, and heuristic competitor_quality_grade are forbidden as authoritative substitutes."
+    "DEFAULT_CLUE, DEFAULT_RISK, and heuristic competitor_quality_grade are forbidden as authoritative substitutes.",
+    "stage7_resolution_policy may only project COMP-001 into multi_competitor_collection carrier and winner binding; it must not redefine ranking or cutoff semantics."
   ]
 }
