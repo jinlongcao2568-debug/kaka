@@ -298,6 +298,21 @@ def _matches_key_value_condition(condition: str, facts: Mapping[str, Any]) -> bo
     return str(actual) == expected_value.strip()
 
 
+def _match_contract_rule(rules: list[dict[str, Any]], facts: Mapping[str, Any]) -> dict[str, Any] | None:
+    for rule in rules:
+        if _matches_key_value_condition(str(rule.get("condition", "")), facts):
+            return rule
+    return None
+
+
+def _merge_contract_state_sinks(*sources: Mapping[str, Any] | None) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for source in sources:
+        if source:
+            merged.update(dict(source))
+    return merged
+
+
 def _coerce_assignment_value(value: str) -> Any:
     token = value.strip()
     lowered = token.casefold()
@@ -2816,12 +2831,7 @@ class PolicyExecutor:
             "payer_mismatch_state": payer_mismatch_state,
             "payment_exception_family_optional": payment_exception_family,
         }
-        matched_rule = None
-        for rule in policy["mapping_rules"]:
-            field_name, expected_value = rule["condition"].split("=", 1)
-            if facts.get(field_name) == expected_value:
-                matched_rule = rule
-                break
+        matched_rule = _match_contract_rule(policy["mapping_rules"], facts)
 
         if matched_rule is None:
             return self._decision(
@@ -2834,51 +2844,45 @@ class PolicyExecutor:
             )
 
         exception_family = matched_rule["exception_family"]
-        outcome_reason_tags = {
-            "PARTIAL_PAYMENT": ["PAYMENT_FAILED"],
-            "PAYMENT_FAILURE": ["PAYMENT_FAILED"],
-            "AMOUNT_MISMATCH": ["AMOUNT_MISMATCH"],
-            "PAYER_MISMATCH": ["PAYER_CONFIRMED_MISMATCH"],
-            "REFUND_REQUESTED": ["SIGNED"],
-            "REFUND_APPROVED": ["SIGNED"],
-            "REFUND_COMPLETED": ["REFUND_COMPLETED"],
-            "WRITE_OFF_REVIEW": ["PAYMENT_FAILED"],
-            "CHARGEBACK_REVIEW": ["PAYMENT_FAILED"],
-        }.get(exception_family, [exception_family])
+        family_semantics = dict(policy.get("family_semantics", {}).get(exception_family, {}))
+        state_sinks = _merge_contract_state_sinks(
+            family_semantics.get("state_sinks"),
+            matched_rule.get("state_sinks"),
+        )
+        outcome_reason_tags = _ensure_list(
+            family_semantics.get("coarse_outcome_reason_tags", [exception_family])
+        )
         decision_state = (
             "BLOCK"
-            if exception_family in ("PAYMENT_FAILURE", "AMOUNT_MISMATCH", "PAYER_MISMATCH", "REFUND_COMPLETED")
+            if str(family_semantics.get("semantic_role", ""))
+            in {"TERMINAL_PAYMENT_BLOCK", "PAYMENT_IDENTITY_BLOCK", "TERMINAL_REFUND_CLOSURE"}
             else "REVIEW"
         )
         outputs: dict[str, Any] = {
             "payment_exception_family_optional": exception_family,
             "payment_exception_reason_optional": exception_family,
             "payment_exception_reason_tags_optional": [exception_family],
-            "outcome_family": matched_rule["outcome_family"],
+            "outcome_family": family_semantics.get(
+                "coarse_outcome_family",
+                matched_rule["outcome_family"],
+            ),
             "trigger_type": matched_rule["governance_trigger"],
             "outcome_reason_tags": outcome_reason_tags,
             "governance_feedback_triggered_optional": True,
-            "payment_exception_writeback_targets_optional": matched_rule.get(
-                "writeback_targets",
-                policy.get("writeback_targets", []),
+            "payment_exception_writeback_targets_optional": _ensure_list(
+                matched_rule.get("writeback_targets")
+                or family_semantics.get("additive_writeback_targets")
+                or policy.get("writeback_targets", [])
             ),
             "payer_match_state": "MATCHED",
             "amount_match_state": "MATCHED",
         }
-        outputs.update(dict(matched_rule.get("state_sinks", {})))
-        if exception_family == "AMOUNT_MISMATCH":
-            outputs["amount_mismatch_state_optional"] = "CONFIRMED"
-            outputs["amount_match_state"] = "MISMATCHED"
-        if exception_family == "PAYER_MISMATCH":
-            outputs["payer_mismatch_state"] = "CONFIRMED"
-            outputs["payer_match_state"] = "MISMATCHED"
+        outputs.update(state_sinks)
         if exception_family in {"REFUND_REQUESTED", "REFUND_APPROVED", "REFUND_COMPLETED"}:
             outputs["refund_amount_band_optional"] = context.input(
                 "refund_amount_band_optional",
                 context.input("amount_band"),
             )
-        if exception_family == "REFUND_COMPLETED":
-            outputs["archival_status"] = "ARCHIVE_EXCEPTION"
         return self._decision(
             policy_key="payment_exception",
             catalog_id=catalog["catalogId"],
@@ -2907,12 +2911,7 @@ class PolicyExecutor:
             "customer_ack_state_optional": customer_ack_state,
             "partial_delivery_state_optional": partial_delivery_state,
         }
-        matched_rule = None
-        for rule in policy["mapping_rules"]:
-            field_name, expected_value = rule["condition"].split("=", 1)
-            if facts.get(field_name) == expected_value:
-                matched_rule = rule
-                break
+        matched_rule = _match_contract_rule(policy["mapping_rules"], facts)
 
         if matched_rule is None:
             return self._decision(
@@ -2925,51 +2924,44 @@ class PolicyExecutor:
             )
 
         exception_family = matched_rule["exception_family"]
-        outcome_reason_tags = {
-            "REDELIVERY_REQUIRED": ["REDELIVERY_FAILED"],
-            "REWORK_REQUIRED": ["DELIVERY_REJECTED"],
-            "DELIVERY_FAILED": ["DELIVERY_FAILED"],
-            "ARCHIVE_FAILURE": ["ARCHIVE_FAILURE"],
-            "RETRIEVAL_FAILED": ["ARCHIVE_FAILURE"],
-        }.get(exception_family, [exception_family])
+        family_semantics = dict(policy.get("family_semantics", {}).get(exception_family, {}))
+        state_sinks = _merge_contract_state_sinks(
+            family_semantics.get("state_sinks"),
+            matched_rule.get("state_sinks"),
+        )
+        outcome_reason_tags = _ensure_list(
+            family_semantics.get("coarse_outcome_reason_tags", [exception_family])
+        )
         outputs: dict[str, Any] = {
             "delivery_exception_family_optional": exception_family,
             "delivery_exception_reason_optional": exception_family,
             "delivery_exception_reason_tags_optional": [exception_family],
             "governance_feedback_triggered_optional": True,
-            "delivery_exception_writeback_targets_optional": matched_rule.get(
-                "writeback_targets",
-                policy.get("writeback_targets", []),
+            "delivery_exception_writeback_targets_optional": _ensure_list(
+                matched_rule.get("writeback_targets")
+                or family_semantics.get("additive_writeback_targets")
+                or policy.get("writeback_targets", [])
             ),
         }
-        outputs.update(dict(matched_rule.get("state_sinks", {})))
+        outputs.update(state_sinks)
         if not (has_payment_exception and exception_family in ("ARCHIVE_FAILURE", "RETRIEVAL_FAILED")):
-            outputs["outcome_family"] = matched_rule["outcome_family"]
+            outputs["outcome_family"] = family_semantics.get(
+                "coarse_outcome_family",
+                matched_rule["outcome_family"],
+            )
             outputs["trigger_type"] = matched_rule["governance_trigger"]
             outputs["outcome_reason_tags"] = outcome_reason_tags
-        if exception_family == "REDELIVERY_REQUIRED":
-            outputs["redeliver_required_optional"] = True
-            outputs["customer_ack_state_optional"] = "PENDING"
-        if exception_family == "REWORK_REQUIRED":
-            outputs["resend_required_optional"] = True
-            outputs["customer_ack_state_optional"] = "REJECTED"
-        if exception_family == "PARTIAL_DELIVERY":
-            outputs["partial_delivery_state_optional"] = "PARTIAL"
-            outputs["customer_ack_state_optional"] = "PENDING"
-        if exception_family == "DELIVERY_REJECTED":
-            outputs["customer_ack_state_optional"] = "REJECTED"
-        if exception_family == "ACK_TIMEOUT":
-            outputs["customer_ack_state_optional"] = "TIMEOUT"
-        if exception_family == "ARCHIVE_FAILURE":
-            outputs["archival_status"] = "ARCHIVE_EXCEPTION"
-        if exception_family == "RETRIEVAL_FAILED":
-            outputs["retrieval_status"] = "FAILED"
 
         return self._decision(
             policy_key="delivery_exception",
             catalog_id=catalog["catalogId"],
             policy_id=policy["policy_id"],
-            decision_state="BLOCK" if exception_family in ("DELIVERY_FAILED", "ARCHIVE_FAILURE", "RETRIEVAL_FAILED") else "REVIEW",
+            decision_state=(
+                "BLOCK"
+                if str(family_semantics.get("semantic_role", ""))
+                in {"TERMINAL_DELIVERY_BLOCK", "ARCHIVE_BLOCK"}
+                else "REVIEW"
+            ),
             outputs=outputs,
             reasons=[f"delivery_exception_family={exception_family}"],
         )

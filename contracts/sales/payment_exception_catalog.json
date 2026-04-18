@@ -68,6 +68,9 @@
             "saleable_opportunity",
             "project_fact"
           ],
+          "state_sinks": {
+            "payment_status": "PARTIALLY_PAID"
+          },
           "recommendation_effect": "saleability_status=RESTRICTED; offer_recommendation_state=REVIEW_REQUIRED",
           "archive_policy": "audit_required_before_archival"
         },
@@ -82,6 +85,10 @@
             "order_record",
             "saleable_opportunity"
           ],
+          "state_sinks": {
+            "payment_status": "PAYMENT_EXCEPTION",
+            "delivery_status": "RELEASE_BLOCKED"
+          },
           "recommendation_effect": "saleability_status=BLOCKED",
           "archive_policy": "retain_payment_failure_audit"
         },
@@ -96,6 +103,12 @@
             "order_record",
             "saleable_opportunity"
           ],
+          "state_sinks": {
+            "payment_status": "PAYMENT_EXCEPTION",
+            "amount_mismatch_state_optional": "CONFIRMED",
+            "amount_match_state": "MISMATCHED",
+            "delivery_status": "RELEASE_BLOCKED"
+          },
           "recommendation_effect": "saleability_status=BLOCKED",
           "archive_policy": "approval_and_audit_required_before_archival"
         },
@@ -110,6 +123,12 @@
             "order_record",
             "delivery_record"
           ],
+          "state_sinks": {
+            "payment_status": "PAYMENT_EXCEPTION",
+            "payer_mismatch_state": "CONFIRMED",
+            "payer_match_state": "MISMATCHED",
+            "delivery_status": "RELEASE_BLOCKED"
+          },
           "recommendation_effect": "delivery blocked; governance review required",
           "archive_policy": "audit_required_before_archival"
         },
@@ -124,6 +143,10 @@
             "delivery_record",
             "saleable_opportunity"
           ],
+          "state_sinks": {
+            "refund_state": "REQUESTED",
+            "payment_status": "REFUND_PENDING"
+          },
           "recommendation_effect": "saleability_status=RESTRICTED; delivery paused for governed review",
           "archive_policy": "refund_chain_must_remain_traceable"
         },
@@ -138,6 +161,10 @@
             "delivery_record",
             "saleable_opportunity"
           ],
+          "state_sinks": {
+            "refund_state": "APPROVED",
+            "payment_status": "REFUND_PENDING"
+          },
           "recommendation_effect": "saleability_status=RESTRICTED; delivery paused for governed review",
           "archive_policy": "refund_chain_must_remain_traceable"
         },
@@ -152,6 +179,12 @@
             "saleable_opportunity",
             "project_fact"
           ],
+          "state_sinks": {
+            "refund_state": "COMPLETED",
+            "payment_status": "REFUNDED",
+            "archival_status": "ARCHIVE_EXCEPTION",
+            "delivery_status": "RELEASE_BLOCKED"
+          },
           "recommendation_effect": "saleability_status=BLOCKED; no further delivery recommendation",
           "archive_policy": "delivery_record.archival_status=ARCHIVE_EXCEPTION"
         },
@@ -166,6 +199,9 @@
             "order_record",
             "project_fact"
           ],
+          "state_sinks": {
+            "payment_status": "PAYMENT_EXCEPTION"
+          },
           "recommendation_effect": "governance review required",
           "archive_policy": "retain_original_payment_proof"
         },
@@ -180,11 +216,84 @@
             "order_record",
             "saleable_opportunity"
           ],
+          "state_sinks": {
+            "payment_status": "WRITE_OFF_REVIEW"
+          },
           "recommendation_effect": "review_required before archive",
           "archive_policy": "write_off_requires_audit"
         }
       },
       "mapping_rules": [
+        {
+          "condition": "payment_exception_family_optional=PARTIAL_PAYMENT",
+          "exception_family": "PARTIAL_PAYMENT",
+          "outcome_family": "LOST",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ]
+        },
+        {
+          "condition": "payment_exception_family_optional=PAYMENT_FAILURE",
+          "exception_family": "PAYMENT_FAILURE",
+          "outcome_family": "LOST",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "payment_exception_family_optional=AMOUNT_MISMATCH",
+          "exception_family": "AMOUNT_MISMATCH",
+          "outcome_family": "LOST",
+          "governance_trigger": "APPROVAL_MISSING",
+          "writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "payment_exception_family_optional=PAYER_MISMATCH",
+          "exception_family": "PAYER_MISMATCH",
+          "outcome_family": "PAYER_MISMATCH",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "order_record",
+            "delivery_record"
+          ]
+        },
+        {
+          "condition": "payment_exception_family_optional=REFUND_REQUESTED",
+          "exception_family": "REFUND_REQUESTED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "delivery_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "payment_exception_family_optional=REFUND_APPROVED",
+          "exception_family": "REFUND_APPROVED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "delivery_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "payment_exception_family_optional=REFUND_COMPLETED",
+          "exception_family": "REFUND_COMPLETED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ]
+        },
         {
           "condition": "payment_exception_family_optional=CHARGEBACK_REVIEW",
           "exception_family": "CHARGEBACK_REVIEW",

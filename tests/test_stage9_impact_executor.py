@@ -20,6 +20,11 @@ from stage9_delivery.impact_executor import ImpactExecutor
 
 
 class TestStage9ImpactExecutor(unittest.TestCase):
+    def _run_stage9(self, overrides: dict[str, object]) -> object:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(overrides)
+        return run_internal_chain(payload)["stage9"]
+
     def test_m6_contact_failed_projects_only_formal_targets(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update({"response_status": "WRONG_ROLE"})
@@ -365,6 +370,303 @@ class TestStage9ImpactExecutor(unittest.TestCase):
             set(stage9.inputs["impact_targets_projected_contract_only"]),
             {"sales_lead", "report_record"},
         )
+
+    def test_payment_exception_family_matrix_is_contract_driven(self) -> None:
+        cases = [
+            (
+                "PARTIAL_PAYMENT",
+                {"payment_exception_family_optional": "PARTIAL_PAYMENT"},
+                {
+                    "outcome_family": "LOST",
+                    "outcome_reason_tags": ["PAYMENT_FAILED"],
+                    "trigger_type": "DELIVERY_BLOCK",
+                    "payment_status": "PARTIALLY_PAID",
+                    "writeback_targets": ["saleable_opportunity", "project_fact"],
+                },
+            ),
+            (
+                "PAYMENT_FAILURE",
+                {"payment_exception_family_optional": "PAYMENT_FAILURE"},
+                {
+                    "outcome_family": "LOST",
+                    "outcome_reason_tags": ["PAYMENT_FAILED"],
+                    "trigger_type": "DELIVERY_BLOCK",
+                    "payment_status": "PAYMENT_EXCEPTION",
+                    "delivery_status": "RELEASE_BLOCKED",
+                    "writeback_targets": ["order_record", "saleable_opportunity"],
+                },
+            ),
+            (
+                "AMOUNT_MISMATCH",
+                {"payment_exception_family_optional": "AMOUNT_MISMATCH"},
+                {
+                    "outcome_family": "LOST",
+                    "outcome_reason_tags": ["AMOUNT_MISMATCH"],
+                    "trigger_type": "APPROVAL_MISSING",
+                    "payment_status": "PAYMENT_EXCEPTION",
+                    "delivery_status": "RELEASE_BLOCKED",
+                    "writeback_targets": ["order_record", "saleable_opportunity"],
+                    "amount_match_state": "MISMATCHED",
+                    "amount_mismatch_state_optional": "CONFIRMED",
+                },
+            ),
+            (
+                "PAYER_MISMATCH",
+                {"payment_exception_family_optional": "PAYER_MISMATCH"},
+                {
+                    "outcome_family": "PAYER_MISMATCH",
+                    "outcome_reason_tags": ["PAYER_CONFIRMED_MISMATCH"],
+                    "trigger_type": "DELIVERY_BLOCK",
+                    "payment_status": "PAYMENT_EXCEPTION",
+                    "delivery_status": "RELEASE_BLOCKED",
+                    "writeback_targets": ["order_record", "delivery_record"],
+                    "payer_match_state": "MISMATCHED",
+                },
+            ),
+            (
+                "REFUND_REQUESTED",
+                {"payment_exception_family_optional": "REFUND_REQUESTED"},
+                {
+                    "outcome_family": "DELIVERY_ABANDONED",
+                    "outcome_reason_tags": ["SIGNED"],
+                    "trigger_type": "EXCEPTION_TRIGGERED",
+                    "payment_status": "REFUND_PENDING",
+                    "refund_state": "REQUESTED",
+                    "writeback_targets": ["delivery_record", "saleable_opportunity"],
+                },
+            ),
+            (
+                "REFUND_APPROVED",
+                {"payment_exception_family_optional": "REFUND_APPROVED"},
+                {
+                    "outcome_family": "DELIVERY_ABANDONED",
+                    "outcome_reason_tags": ["SIGNED"],
+                    "trigger_type": "EXCEPTION_TRIGGERED",
+                    "payment_status": "REFUND_PENDING",
+                    "refund_state": "APPROVED",
+                    "writeback_targets": ["delivery_record", "saleable_opportunity"],
+                },
+            ),
+            (
+                "REFUND_COMPLETED",
+                {"payment_exception_family_optional": "REFUND_COMPLETED"},
+                {
+                    "outcome_family": "DELIVERY_ABANDONED",
+                    "outcome_reason_tags": ["REFUND_COMPLETED"],
+                    "trigger_type": "EXCEPTION_TRIGGERED",
+                    "payment_status": "REFUNDED",
+                    "refund_state": "COMPLETED",
+                    "delivery_status": "RELEASE_BLOCKED",
+                    "archival_status": "ARCHIVE_EXCEPTION",
+                    "writeback_targets": ["saleable_opportunity", "project_fact"],
+                },
+            ),
+        ]
+
+        for family, overrides, expected in cases:
+            with self.subTest(exception_family=family):
+                stage9 = self._run_stage9(overrides)
+                payment_record = stage9.record("payment_record")
+                delivery_record = stage9.record("delivery_record")
+                governance_feedback_event = stage9.record("governance_feedback_event")
+                opportunity_outcome_event = stage9.record("opportunity_outcome_event")
+
+                self.assertEqual(payment_record.get("payment_exception_family_optional"), family)
+                self.assertEqual(
+                    stage9.inputs["payment_exception_writeback_targets_optional"],
+                    expected["writeback_targets"],
+                )
+                self.assertEqual(
+                    opportunity_outcome_event.get("outcome_family"),
+                    expected["outcome_family"],
+                )
+                self.assertEqual(
+                    opportunity_outcome_event.get("outcome_reason_tags"),
+                    expected["outcome_reason_tags"],
+                )
+                self.assertEqual(
+                    governance_feedback_event.get("trigger_type"),
+                    expected["trigger_type"],
+                )
+                self.assertEqual(payment_record.get("payment_status"), expected["payment_status"])
+                if "refund_state" in expected:
+                    self.assertEqual(payment_record.get("refund_state"), expected["refund_state"])
+                    self.assertEqual(
+                        payment_record.get("refund_amount_band_optional"),
+                        payment_record.get("amount_band"),
+                    )
+                if "amount_match_state" in expected:
+                    self.assertEqual(
+                        payment_record.get("amount_match_state"),
+                        expected["amount_match_state"],
+                    )
+                    self.assertEqual(
+                        payment_record.get("amount_mismatch_state_optional"),
+                        expected["amount_mismatch_state_optional"],
+                    )
+                if "payer_match_state" in expected:
+                    self.assertEqual(
+                        payment_record.get("payer_match_state"),
+                        expected["payer_match_state"],
+                    )
+                if "delivery_status" in expected:
+                    self.assertEqual(
+                        delivery_record.get("delivery_status"),
+                        expected["delivery_status"],
+                    )
+                if "archival_status" in expected:
+                    self.assertEqual(
+                        delivery_record.get("archival_status"),
+                        expected["archival_status"],
+                    )
+                self.assertIn("POLICY:emit_decision:payment_exception", stage9.trace_rules)
+
+    def test_delivery_exception_family_matrix_is_contract_driven(self) -> None:
+        cases = [
+            (
+                "DELIVERY_REJECTED",
+                {"delivery_exception_family_optional": "DELIVERY_REJECTED"},
+                {
+                    "outcome_reason_tags": ["DELIVERY_REJECTED"],
+                    "trigger_type": "DELIVERY_BLOCK",
+                    "writeback_targets": ["saleable_opportunity", "project_fact"],
+                    "delivery_status": "RELEASE_BLOCKED",
+                    "customer_ack_state_optional": "REJECTED",
+                },
+            ),
+            (
+                "PARTIAL_DELIVERY",
+                {"delivery_exception_family_optional": "PARTIAL_DELIVERY"},
+                {
+                    "outcome_reason_tags": ["PARTIAL_DELIVERY"],
+                    "trigger_type": "DELIVERY_BLOCK",
+                    "writeback_targets": ["saleable_opportunity"],
+                    "customer_ack_state_optional": "PENDING",
+                    "partial_delivery_state_optional": "PARTIAL",
+                },
+            ),
+            (
+                "REDELIVERY_REQUIRED",
+                {"delivery_exception_family_optional": "REDELIVERY_REQUIRED"},
+                {
+                    "outcome_reason_tags": ["REDELIVERY_FAILED"],
+                    "trigger_type": "DELIVERY_BLOCK",
+                    "writeback_targets": ["delivery_record"],
+                    "delivery_status": "REDELIVERY_REQUIRED",
+                    "customer_ack_state_optional": "PENDING",
+                    "redeliver_required_optional": True,
+                },
+            ),
+            (
+                "REWORK_REQUIRED",
+                {"delivery_exception_family_optional": "REWORK_REQUIRED"},
+                {
+                    "outcome_reason_tags": ["DELIVERY_REJECTED"],
+                    "trigger_type": "DELIVERY_BLOCK",
+                    "writeback_targets": ["delivery_record", "project_fact"],
+                    "delivery_status": "REWORK_REQUIRED",
+                    "customer_ack_state_optional": "REJECTED",
+                    "resend_required_optional": True,
+                },
+            ),
+            (
+                "ACK_TIMEOUT",
+                {"delivery_exception_family_optional": "ACK_TIMEOUT"},
+                {
+                    "outcome_reason_tags": ["ACK_TIMEOUT"],
+                    "trigger_type": "DELIVERY_BLOCK",
+                    "writeback_targets": ["delivery_record"],
+                    "delivery_status": "ACK_PENDING",
+                    "customer_ack_state_optional": "TIMEOUT",
+                },
+            ),
+            (
+                "ARCHIVE_FAILURE",
+                {"delivery_exception_family_optional": "ARCHIVE_FAILURE"},
+                {
+                    "outcome_reason_tags": ["ARCHIVE_FAILURE"],
+                    "trigger_type": "ARCHIVE_FAILURE",
+                    "writeback_targets": ["delivery_record"],
+                    "delivery_status": "RELEASE_BLOCKED",
+                    "archival_status": "ARCHIVE_EXCEPTION",
+                },
+            ),
+            (
+                "RETRIEVAL_FAILED",
+                {"delivery_exception_family_optional": "RETRIEVAL_FAILED"},
+                {
+                    "outcome_reason_tags": ["ARCHIVE_FAILURE"],
+                    "trigger_type": "ARCHIVE_FAILURE",
+                    "writeback_targets": ["delivery_record"],
+                    "delivery_status": "RELEASE_BLOCKED",
+                    "retrieval_status": "FAILED",
+                },
+            ),
+        ]
+
+        for family, overrides, expected in cases:
+            with self.subTest(exception_family=family):
+                stage9 = self._run_stage9(overrides)
+                delivery_record = stage9.record("delivery_record")
+                governance_feedback_event = stage9.record("governance_feedback_event")
+                opportunity_outcome_event = stage9.record("opportunity_outcome_event")
+
+                self.assertEqual(
+                    delivery_record.get("delivery_exception_family_optional"),
+                    family,
+                )
+                self.assertEqual(
+                    stage9.inputs["delivery_exception_writeback_targets_optional"],
+                    expected["writeback_targets"],
+                )
+                self.assertEqual(
+                    opportunity_outcome_event.get("outcome_family"),
+                    "DELIVERY_ABANDONED",
+                )
+                self.assertEqual(
+                    opportunity_outcome_event.get("outcome_reason_tags"),
+                    expected["outcome_reason_tags"],
+                )
+                self.assertEqual(
+                    governance_feedback_event.get("trigger_type"),
+                    expected["trigger_type"],
+                )
+                if "customer_ack_state_optional" in expected:
+                    self.assertEqual(
+                        delivery_record.get("customer_ack_state_optional"),
+                        expected["customer_ack_state_optional"],
+                    )
+                if "delivery_status" in expected:
+                    self.assertEqual(
+                        delivery_record.get("delivery_status"),
+                        expected["delivery_status"],
+                    )
+                if "partial_delivery_state_optional" in expected:
+                    self.assertEqual(
+                        delivery_record.get("partial_delivery_state_optional"),
+                        expected["partial_delivery_state_optional"],
+                    )
+                if "redeliver_required_optional" in expected:
+                    self.assertEqual(
+                        delivery_record.get("redeliver_required_optional"),
+                        expected["redeliver_required_optional"],
+                    )
+                if "resend_required_optional" in expected:
+                    self.assertEqual(
+                        delivery_record.get("resend_required_optional"),
+                        expected["resend_required_optional"],
+                    )
+                if "archival_status" in expected:
+                    self.assertEqual(
+                        delivery_record.get("archival_status"),
+                        expected["archival_status"],
+                    )
+                if "retrieval_status" in expected:
+                    self.assertEqual(
+                        delivery_record.get("retrieval_status"),
+                        expected["retrieval_status"],
+                    )
+                self.assertIn("POLICY:emit_decision:delivery_exception", stage9.trace_rules)
 
     def test_writeback_contract_rejects_disallowed_additive_source(self) -> None:
         executor = ImpactExecutor()

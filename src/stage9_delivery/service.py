@@ -517,11 +517,18 @@ class Stage9Service:
             and order_status_default == "PENDING_APPROVAL"
         ):
             order_approval_state = "PENDING"
-        payment_status_value = runtime_inputs.get("payment_status", "NOT_STARTED")
+        resolved_refund_state = runtime_state.resolve(
+            "refund_state",
+            runtime_inputs.get("refund_state", "NOT_REQUESTED"),
+        )
+        payment_status_value = runtime_state.resolve(
+            "payment_status",
+            runtime_inputs.get("payment_status", "NOT_STARTED"),
+        )
         if payment_status_value == "NOT_STARTED":
-            if runtime_inputs.get("refund_state") == "COMPLETED":
+            if resolved_refund_state == "COMPLETED":
                 payment_status_value = "REFUNDED"
-            elif runtime_inputs.get("refund_state") in ("REQUESTED", "APPROVED"):
+            elif resolved_refund_state in ("REQUESTED", "APPROVED"):
                 payment_status_value = "REFUND_PENDING"
         payment_exception_family = runtime_state.resolve("payment_exception_family_optional")
         payment_exception_tags = ensure_list(
@@ -536,7 +543,7 @@ class Stage9Service:
             runtime_inputs.get("amount_mismatch_state_optional"),
         )
         refund_amount_band_optional = runtime_inputs.get("refund_amount_band_optional")
-        if runtime_inputs.get("refund_state") not in (None, "", "NOT_REQUESTED") and refund_amount_band_optional in (None, ""):
+        if resolved_refund_state not in (None, "", "NOT_REQUESTED") and refund_amount_band_optional in (None, ""):
             refund_amount_band_optional = runtime_inputs["amount_band"]
         payment_written_back_at = written_back_at_optional or now
         payer_match_state = runtime_state.resolve(
@@ -548,8 +555,6 @@ class Stage9Service:
             self._match_state_from_mismatch(amount_mismatch_state),
         )
         resolved_delivery_status = runtime_state.resolve("delivery_status", runtime_inputs["delivery_status"])
-        if payment_exception_family in {"PAYMENT_FAILURE", "AMOUNT_MISMATCH", "PAYER_MISMATCH", "REFUND_COMPLETED"}:
-            resolved_delivery_status = "RELEASE_BLOCKED"
         delivery_exception_family = runtime_state.resolve("delivery_exception_family_optional")
         delivery_exception_tags = ensure_list(
             runtime_state.resolve("delivery_exception_reason_tags_optional")
@@ -567,12 +572,6 @@ class Stage9Service:
                 customer_ack_state_optional = "ACKNOWLEDGED"
             elif resolved_delivery_status in ("DELIVERED", "ACK_PENDING"):
                 customer_ack_state_optional = "PENDING"
-            elif delivery_exception_family in {"DELIVERY_REJECTED", "REWORK_REQUIRED"}:
-                customer_ack_state_optional = "REJECTED"
-            elif delivery_exception_family in {"PARTIAL_DELIVERY", "REDELIVERY_REQUIRED"}:
-                customer_ack_state_optional = "PENDING"
-            elif delivery_exception_family == "ACK_TIMEOUT":
-                customer_ack_state_optional = "TIMEOUT"
             else:
                 customer_ack_state_optional = "NOT_REQUESTED"
         governance_effective_state = self._stricter_decision(
@@ -705,7 +704,7 @@ class Stage9Service:
             "payment_exception_reason_optional": payment_exception_reason or "NO_EXCEPTION",
             "payment_exception_reason_tags_optional": payment_exception_tags,
             "amount_mismatch_state_optional": amount_mismatch_state or "NO_MISMATCH",
-            "refund_state": runtime_inputs.get("refund_state", "NOT_REQUESTED"),
+            "refund_state": resolved_refund_state,
             "refund_amount_band_optional": refund_amount_band_optional or "NOT_APPLICABLE",
             "paid_at_optional": runtime_inputs.get("paid_at_optional", "NOT_PAID"),
             "written_back_at_optional": payment_written_back_at,

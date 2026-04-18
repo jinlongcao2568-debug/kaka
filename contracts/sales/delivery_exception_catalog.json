@@ -61,6 +61,9 @@
             "saleable_opportunity",
             "project_fact"
           ],
+          "state_sinks": {
+            "delivery_status": "RELEASE_BLOCKED"
+          },
           "recommendation_effect": "saleability_status=BLOCKED",
           "closure_rule": "formal closure forbidden"
         },
@@ -74,6 +77,10 @@
             "saleable_opportunity",
             "project_fact"
           ],
+          "state_sinks": {
+            "customer_ack_state_optional": "REJECTED",
+            "delivery_status": "RELEASE_BLOCKED"
+          },
           "recommendation_effect": "offer_recommendation_state=REVIEW_REQUIRED",
           "closure_rule": "formal closure forbidden until governance review"
         },
@@ -86,6 +93,10 @@
           "additive_writeback_targets": [
             "saleable_opportunity"
           ],
+          "state_sinks": {
+            "partial_delivery_state_optional": "PARTIAL",
+            "customer_ack_state_optional": "PENDING"
+          },
           "recommendation_effect": "saleability_status=RESTRICTED; offer_recommendation_state=REVIEW_REQUIRED",
           "closure_rule": "partial delivery never closes the loop"
         },
@@ -98,6 +109,11 @@
           "additive_writeback_targets": [
             "delivery_record"
           ],
+          "state_sinks": {
+            "redeliver_required_optional": true,
+            "customer_ack_state_optional": "PENDING",
+            "delivery_status": "REDELIVERY_REQUIRED"
+          },
           "recommendation_effect": "review_required until redelivery resolves",
           "closure_rule": "delivery remains open and blocked from closure"
         },
@@ -111,6 +127,11 @@
             "delivery_record",
             "project_fact"
           ],
+          "state_sinks": {
+            "resend_required_optional": true,
+            "customer_ack_state_optional": "REJECTED",
+            "delivery_status": "REWORK_REQUIRED"
+          },
           "recommendation_effect": "offer_recommendation_state=REVIEW_REQUIRED",
           "closure_rule": "delivery remains open and blocked from closure"
         },
@@ -123,6 +144,10 @@
           "additive_writeback_targets": [
             "delivery_record"
           ],
+          "state_sinks": {
+            "customer_ack_state_optional": "TIMEOUT",
+            "delivery_status": "ACK_PENDING"
+          },
           "recommendation_effect": "manual review before closure",
           "closure_rule": "timeout cannot auto-complete delivery"
         },
@@ -135,6 +160,10 @@
           "additive_writeback_targets": [
             "delivery_record"
           ],
+          "state_sinks": {
+            "archival_status": "ARCHIVE_EXCEPTION",
+            "delivery_status": "RELEASE_BLOCKED"
+          },
           "recommendation_effect": "delivery completion blocked",
           "closure_rule": "archive failure blocks closure"
         },
@@ -147,11 +176,33 @@
           "additive_writeback_targets": [
             "delivery_record"
           ],
+          "state_sinks": {
+            "retrieval_status": "FAILED",
+            "delivery_status": "RELEASE_BLOCKED"
+          },
           "recommendation_effect": "delivery completion blocked",
           "closure_rule": "retrieval failure blocks closure"
         }
       },
       "mapping_rules": [
+        {
+          "condition": "delivery_exception_family_optional=ARCHIVE_FAILURE",
+          "exception_family": "ARCHIVE_FAILURE",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "ARCHIVE_FAILURE",
+          "writeback_targets": [
+            "delivery_record"
+          ]
+        },
+        {
+          "condition": "delivery_exception_family_optional=RETRIEVAL_FAILED",
+          "exception_family": "RETRIEVAL_FAILED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "ARCHIVE_FAILURE",
+          "writeback_targets": [
+            "delivery_record"
+          ]
+        },
         {
           "condition": "delivery_exception_family_optional=DELIVERY_REJECTED",
           "exception_family": "DELIVERY_REJECTED",
