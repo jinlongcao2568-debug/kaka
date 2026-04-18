@@ -1,0 +1,66 @@
+version: 1
+id: automation_stop_conditions
+owner_docs:
+  - D1
+  - 自动化开发动作门禁表
+script_failures:
+  - script: scripts/validate-contracts.ps1
+    severity: P0
+    stop_on_fail: true
+  - script: scripts/run-governance-contracts.ps1
+    severity: P0
+    stop_on_fail: true
+  - script: scripts/run-golden.ps1
+    severity: P0
+    stop_on_fail: true
+  - script: scripts/check-release.ps1
+    severity: P0
+    stop_on_fail: true
+  - script: scripts/lint-drift.ps1
+    severity: P1
+    stop_on_fail: true
+  - script: scripts/doctor.ps1
+    severity: P1
+    stop_on_fail: true
+risk_triggers:
+  - trigger: external_facing_change
+    severity: P0
+    action: stop_and_handoff
+  - trigger: payment_or_delivery_execution
+    severity: P0
+    action: stop_and_handoff
+  - trigger: outreach_execution
+    severity: P0
+    action: stop_and_handoff
+  - trigger: high_restriction_field_release
+    severity: P0
+    action: stop_and_handoff
+  - trigger: new_enum_or_object
+    severity: P0
+    action: stop_and_request_confirmation
+  - trigger: new_exception_semantics
+    severity: P0
+    action: stop_and_request_confirmation
+  - trigger: approval_or_exception_semantics_change
+    severity: P0
+    action: stop_and_handoff
+review_gate_linkage:
+  classification_source: control/review_gate_matrix.yaml
+  mandatory_review_blocks_direct_batch: true
+  stop_and_escalate_blocks_batch: true
+  fail_when:
+    - missing_task_packet
+    - missing_declared_changed_paths
+    - change_class_below_required
+    - missing_human_review_declaration
+    - missing_required_owner_review
+    - forbidden_path_touched
+  action_on_fail: stop_and_handoff
+consecutive_failure_rule:
+  max_consecutive_failures: 2
+  scope: per-script
+  action: stop_and_handoff
+notes:
+  - any P0 stop must transfer to human approval
+  - external release remains blocked
+  - mandatory human review and stop/escalate classes must fail readiness/release checks when undeclared

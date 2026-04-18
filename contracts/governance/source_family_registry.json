@@ -1,0 +1,218 @@
+{
+  "catalog_id": "source-family-registry",
+  "version": "0.2.0",
+  "status": "DRAFT",
+  "source_documents": [
+    "docs/专题_来源覆盖与采集路由规范.md",
+    "docs/D2_正式对象契约与字段字典.md",
+    "docs/D11_测试验收与金标回归清单.md"
+  ],
+  "baseline_scope": "representative_rollout_backlog_with_precedence",
+  "scope_model": {
+    "mode": "family_registry_rollout_and_backlog_projection",
+    "notes": [
+      "family registry 只声明 representative rollout/backlog，不能被误写为全国全量来源承诺。",
+      "family 级 rollout/backlog 必须与 source_registry representative entry 对齐。"
+    ]
+  },
+  "entries": [
+    {
+      "source_family": "PROCUREMENT_NOTICE",
+      "display_name": "招标/采购公告",
+      "baseline_registry_refs": [
+        "SRC-REG-PROC-NATIONAL-HTML",
+        "SRC-REG-PROC-CITY-PDF"
+      ],
+      "baseline_route_policy_ids": [
+        "ROUTE-PROC-NOTICE-001",
+        "ROUTE-PROC-ATTACHMENT-001"
+      ],
+      "platform_level_refs": [
+        "NATIONAL",
+        "CITY"
+      ],
+      "carrier_type_refs": [
+        "HTML_PAGE",
+        "PDF_ATTACHMENT"
+      ],
+      "rollout_registry_refs": [
+        "SRC-REG-PROC-NATIONAL-HTML"
+      ],
+      "backlog_registry_refs": [
+        "SRC-REG-PROC-CITY-PDF"
+      ],
+      "default_route": "LIST_TO_DETAIL",
+      "manual_review_default": false,
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "source_family": "AWARD_ANNOUNCEMENT",
+      "display_name": "中标/成交公示",
+      "baseline_registry_refs": [
+        "SRC-REG-AWARD-CITY-HTML"
+      ],
+      "baseline_route_policy_ids": [
+        "ROUTE-AWARD-ANNOUNCEMENT-001"
+      ],
+      "platform_level_refs": [
+        "CITY"
+      ],
+      "carrier_type_refs": [
+        "HTML_PAGE"
+      ],
+      "rollout_registry_refs": [
+        "SRC-REG-AWARD-CITY-HTML"
+      ],
+      "backlog_registry_refs": [],
+      "default_route": "LIST_TO_DETAIL",
+      "manual_review_default": true,
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "source_family": "REGULATORY_PUBLICATION",
+      "display_name": "住建/监管公示",
+      "baseline_registry_refs": [
+        "SRC-REG-REG-NATIONAL-HTML"
+      ],
+      "baseline_route_policy_ids": [
+        "ROUTE-REG-PUBLICATION-001"
+      ],
+      "platform_level_refs": [
+        "NATIONAL"
+      ],
+      "carrier_type_refs": [
+        "HTML_PAGE"
+      ],
+      "rollout_registry_refs": [
+        "SRC-REG-REG-NATIONAL-HTML"
+      ],
+      "backlog_registry_refs": [],
+      "default_route": "DETAIL_DIRECT",
+      "manual_review_default": false,
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "source_family": "ENTERPRISE_REGISTRY",
+      "display_name": "企业信息/资质",
+      "baseline_registry_refs": [
+        "SRC-REG-ENTERPRISE-INDUSTRY-TABLE"
+      ],
+      "baseline_route_policy_ids": [
+        "ROUTE-ENTERPRISE-REGISTRY-001"
+      ],
+      "platform_level_refs": [
+        "INDUSTRY_PLATFORM"
+      ],
+      "carrier_type_refs": [
+        "TABLE_SEGMENT"
+      ],
+      "rollout_registry_refs": [
+        "SRC-REG-ENTERPRISE-INDUSTRY-TABLE"
+      ],
+      "backlog_registry_refs": [],
+      "default_route": "METADATA_ONLY",
+      "manual_review_default": true,
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "source_family": "JUDICIAL_CREDIT_RISK",
+      "display_name": "法院/处罚/信用/风险",
+      "baseline_registry_refs": [
+        "SRC-REG-JUDICIAL-NATIONAL-PDF",
+        "SRC-REG-JUDICIAL-COUNTY-IMAGE"
+      ],
+      "baseline_route_policy_ids": [
+        "ROUTE-JUDICIAL-ATTACHMENT-001",
+        "ROUTE-JUDICIAL-SEMI-MANUAL-001"
+      ],
+      "platform_level_refs": [
+        "NATIONAL",
+        "COUNTY"
+      ],
+      "carrier_type_refs": [
+        "PDF_ATTACHMENT",
+        "IMAGE_ATTACHMENT"
+      ],
+      "rollout_registry_refs": [
+        "SRC-REG-JUDICIAL-NATIONAL-PDF"
+      ],
+      "backlog_registry_refs": [
+        "SRC-REG-JUDICIAL-COUNTY-IMAGE"
+      ],
+      "default_route": "ATTACHMENT_FIRST",
+      "manual_review_default": true,
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "source_family": "ANNEX_QA_SUPPLEMENT",
+      "display_name": "附件/补遗/答疑",
+      "baseline_registry_refs": [
+        "SRC-REG-ANNEX-PROVINCE-DOC",
+        "SRC-REG-ANNEX-PROVINCE-TEXT"
+      ],
+      "baseline_route_policy_ids": [
+        "ROUTE-ANNEX-VERSION-001"
+      ],
+      "platform_level_refs": [
+        "PROVINCE"
+      ],
+      "carrier_type_refs": [
+        "DOC_ATTACHMENT",
+        "TEXT_SEGMENT"
+      ],
+      "rollout_registry_refs": [
+        "SRC-REG-ANNEX-PROVINCE-TEXT"
+      ],
+      "backlog_registry_refs": [
+        "SRC-REG-ANNEX-PROVINCE-DOC"
+      ],
+      "default_route": "VERSION_CHAIN",
+      "manual_review_default": true,
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "source_family": "OTHER_PUBLIC_SOURCE",
+      "display_name": "其他公开补充来源",
+      "baseline_registry_refs": [
+        "SRC-REG-OTHER-ENTERPRISE-TEXT"
+      ],
+      "baseline_route_policy_ids": [
+        "ROUTE-OTHER-REGISTER-001"
+      ],
+      "platform_level_refs": [
+        "ENTERPRISE_SITE"
+      ],
+      "carrier_type_refs": [
+        "TEXT_SEGMENT"
+      ],
+      "rollout_registry_refs": [],
+      "backlog_registry_refs": [
+        "SRC-REG-OTHER-ENTERPRISE-TEXT"
+      ],
+      "default_route": "REGISTER_ONLY",
+      "manual_review_default": true,
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    }
+  ],
+  "canonical_authority": {
+    "producer_stage": "governance_contract",
+    "runtime_consumer_stages": [
+      "stage1_tasking",
+      "stage2_ingestion"
+    ],
+    "authority_scope": "source_family_rollout_backlog_projection",
+    "canonical_fields": [
+      "source_family",
+      "baseline_registry_refs",
+      "baseline_route_policy_ids",
+      "rollout_registry_refs",
+      "backlog_registry_refs",
+      "default_route",
+      "manual_review_default",
+      "authoritative_baseline_state"
+    ],
+    "adapter_ready": true,
+    "adapter_contract_state": "RESERVED_NOT_LIVE",
+    "live_external_source_enabled": false
+  }
+}

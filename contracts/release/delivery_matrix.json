@@ -1,0 +1,1253 @@
+{
+  "matrix_id": "delivery-matrix",
+  "version": "0.1.2",
+  "metadata": {
+    "package_name": "governance/release package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-15",
+    "machine_path": "contracts/release/delivery_matrix.json",
+    "scope": "formal object x surface delivery policy",
+    "source_documents": [
+      "L0.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D13_公开可查边界能力清单.md",
+      "D11_测试验收与金标回归清单.md",
+      "D14_AI模型治理规范.md",
+      "裁决总表.md"
+    ],
+    "notes": [
+      "release layers aligned with D13",
+      "stage 7-9 internal operable, external blocked unless leadpack deliverable",
+      "stage 9 direct objects tightened to internal governed and projection-only for customer summaries",
+      "leadpack external delivery candidate package boundary is defined separately and remains internal-only candidate work",
+      "activation design / implementation prep remains design-prep only and cannot override object surface policy"
+    ]
+  },
+  "future_unlock_constraints": {
+    "leadpack_external_delivery_candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json",
+    "leadpack_activation_prep_transition_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+    "leadpack_activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+    "candidate_package_must_not_override_object_surface_policy": true,
+    "direct_stage8_stage9_object_export_remains_blocked": true
+  },
+  "surfaces": [
+    "INTERNAL_OPERATIONS",
+    "SALES_CONSUMABLE",
+    "LEADPACK_DELIVERABLE",
+    "DEMO_PREVIEW",
+    "EXTERNAL_PLATFORM"
+  ],
+  "objects": [
+    {
+      "object": "task_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-010"
+      ],
+      "notes": []
+    },
+    {
+      "object": "execution_context",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-010"
+      ],
+      "notes": []
+    },
+    {
+      "object": "public_chain",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-017"
+      ],
+      "notes": []
+    },
+    {
+      "object": "clock_chain_profile",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-017"
+      ],
+      "notes": []
+    },
+    {
+      "object": "notice_version_chain",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-017"
+      ],
+      "notes": []
+    },
+    {
+      "object": "project_base",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-017"
+      ],
+      "notes": []
+    },
+    {
+      "object": "field_lineage_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-017"
+      ],
+      "notes": []
+    },
+    {
+      "object": "bidder_candidate",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-010"
+      ],
+      "notes": []
+    },
+    {
+      "object": "project_manager",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-010"
+      ],
+      "notes": []
+    },
+    {
+      "object": "public_attack_surface",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-018"
+      ],
+      "notes": []
+    },
+    {
+      "object": "focus_bidder_verification_profile",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-018"
+      ],
+      "notes": []
+    },
+    {
+      "object": "pseudo_competitor_signal_set",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-018"
+      ],
+      "notes": []
+    },
+    {
+      "object": "evidence_grade_profile",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-018"
+      ],
+      "notes": []
+    },
+    {
+      "object": "rule_hit",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-019"
+      ],
+      "notes": []
+    },
+    {
+      "object": "evidence",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-019"
+      ],
+      "notes": []
+    },
+    {
+      "object": "review_request",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-019"
+      ],
+      "notes": []
+    },
+    {
+      "object": "rule_gate_decision",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-019"
+      ],
+      "notes": []
+    },
+    {
+      "object": "evidence_gate_decision",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-019"
+      ],
+      "notes": []
+    },
+    {
+      "object": "project_fact",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_RAW",
+        "LEADPACK_DELIVERABLE": "ALLOW_RAW",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "rule_gate_decision",
+        "evidence_gate_decision"
+      ],
+      "source_refs": [
+        "D7-R-020"
+      ],
+      "notes": []
+    },
+    {
+      "object": "legal_action_recommendation",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_RAW",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "rule_gate_decision",
+        "evidence_gate_decision"
+      ],
+      "source_refs": [
+        "D7-R-020"
+      ],
+      "notes": []
+    },
+    {
+      "object": "review_queue_profile",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-020"
+      ],
+      "notes": []
+    },
+    {
+      "object": "report_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "rule_gate_decision",
+        "evidence_gate_decision"
+      ],
+      "source_refs": [
+        "D7-R-020"
+      ],
+      "notes": []
+    },
+    {
+      "object": "challenger_candidate_profile",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": []
+    },
+    {
+      "object": "legal_action_actor_profile",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "external_action_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": []
+    },
+    {
+      "object": "procurement_decision_actor_profile",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": []
+    },
+    {
+      "object": "sales_lead",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": []
+    },
+    {
+      "object": "buyer_fit",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": []
+    },
+    {
+      "object": "challenger_buyer_fit",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": []
+    },
+    {
+      "object": "offer_recommendation",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": [
+        "推荐方案可脱敏入包。"
+      ]
+    },
+    {
+      "object": "saleable_opportunity",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "demo_preview_release",
+        "internal_review_release",
+        "client_report_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": [
+        "LeadPack 仅摘要交付，不构成对外软件能力。"
+      ]
+    },
+    {
+      "object": "account_context",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "ALLOW_PREVIEW",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "client_report_release",
+        "demo_preview_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-021"
+      ],
+      "notes": []
+    },
+    {
+      "object": "contact_target",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "high_restriction_contact_release",
+        "internal_review_release",
+        "client_report_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-022"
+      ],
+      "notes": [
+        "触达合规后仅摘要入包。"
+      ]
+    },
+    {
+      "object": "outreach_plan",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "high_restriction_contact_release",
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-022"
+      ],
+      "notes": [
+        "仅内部作战使用，不进入 LeadPack。"
+      ]
+    },
+    {
+      "object": "touch_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "ALLOW_SUMMARY",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "LEADPACK_DELIVERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "high_restriction_contact_release",
+        "internal_review_release",
+        "client_report_release"
+      ],
+      "required_gates": [
+        "project_fact"
+      ],
+      "source_refs": [
+        "D7-R-022"
+      ],
+      "notes": [
+        "仅结果摘要入包。"
+      ]
+    },
+    {
+      "object": "order_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "source_refs": [
+        "D7-R-062-A"
+      ],
+      "stage9Policy": {
+        "mode": "INTERNAL_GOVERNED",
+        "directLeadpackObject": "BLOCK",
+        "projectionOnly": true,
+        "writebackContractRef": "contracts/governance/writeback_impact_policy.json",
+        "outcomeTargetsAuthoritative": true,
+        "governanceTargetsAdditiveOnly": true,
+        "exceptionTargetsAdditiveOnly": true
+      },
+      "notes": [
+        "仅内部草案/审批/阻断承接；direct object 不入 LeadPack；external blocked。"
+      ]
+    },
+    {
+      "object": "payment_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "source_refs": [
+        "D7-R-062-A"
+      ],
+      "stage9Policy": {
+        "mode": "INTERNAL_GOVERNED",
+        "directLeadpackObject": "BLOCK",
+        "projectionOnly": true,
+        "writebackContractRef": "contracts/governance/writeback_impact_policy.json",
+        "outcomeTargetsAuthoritative": true,
+        "governanceTargetsAdditiveOnly": true,
+        "exceptionTargetsAdditiveOnly": true
+      },
+      "notes": [
+        "仅内部支付草案与异常回写；direct object 不入 LeadPack；external blocked。"
+      ]
+    },
+    {
+      "object": "delivery_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "source_refs": [
+        "D7-R-062-A"
+      ],
+      "stage9Policy": {
+        "mode": "INTERNAL_GOVERNED",
+        "directLeadpackObject": "BLOCK",
+        "projectionOnly": true,
+        "writebackContractRef": "contracts/governance/writeback_impact_policy.json",
+        "outcomeTargetsAuthoritative": true,
+        "governanceTargetsAdditiveOnly": true,
+        "exceptionTargetsAdditiveOnly": true
+      },
+      "notes": [
+        "仅内部交付预览与回写；release gate + 审批链 + 审计必需；direct object 不入 LeadPack。"
+      ]
+    },
+    {
+      "object": "opportunity_outcome_event",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "ALLOW_SUMMARY",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "source_refs": [
+        "D7-R-062-A"
+      ],
+      "stage9Policy": {
+        "mode": "INTERNAL_GOVERNED",
+        "directLeadpackObject": "BLOCK",
+        "projectionOnly": true,
+        "writebackContractRef": "contracts/governance/writeback_impact_policy.json",
+        "outcomeTargetsAuthoritative": true,
+        "governanceTargetsAdditiveOnly": true,
+        "exceptionTargetsAdditiveOnly": true
+      },
+      "notes": [
+        "仅内部结果回写对象；结果摘要仅内部消费；direct object 不入 LeadPack。"
+      ]
+    },
+    {
+      "object": "governance_feedback_event",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [
+        "internal_review_release"
+      ],
+      "source_refs": [
+        "D7-R-062-A"
+      ],
+      "stage9Policy": {
+        "mode": "INTERNAL_GOVERNED",
+        "directLeadpackObject": "BLOCK",
+        "projectionOnly": false,
+        "writebackContractRef": "contracts/governance/writeback_impact_policy.json",
+        "outcomeTargetsAuthoritative": true,
+        "governanceTargetsAdditiveOnly": true,
+        "exceptionTargetsAdditiveOnly": true
+      },
+      "notes": [
+        "仅内部治理对象；external blocked。"
+      ]
+    },
+    {
+      "object": "private_supplement_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_METADATA",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-024"
+      ],
+      "notes": []
+    },
+    {
+      "object": "controlled_exception_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_METADATA",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-024"
+      ],
+      "notes": []
+    },
+    {
+      "object": "model_governance_record",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-024"
+      ],
+      "notes": []
+    },
+    {
+      "object": "task_execution_context",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-010"
+      ],
+      "notes": []
+    },
+    {
+      "object": "project_identity_strategy",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-010"
+      ],
+      "notes": []
+    },
+    {
+      "object": "clock_strategy_profile",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-010"
+      ],
+      "notes": []
+    },
+    {
+      "object": "fixation_bundle",
+      "surface_policy": {
+        "INTERNAL_OPERATIONS": "ALLOW_RAW",
+        "SALES_CONSUMABLE": "BLOCK",
+        "LEADPACK_DELIVERABLE": "BLOCK",
+        "DEMO_PREVIEW": "BLOCK",
+        "EXTERNAL_PLATFORM": "BLOCK"
+      },
+      "release_level": "INTERNAL_OPERABLE",
+      "field_policy_refs": [
+        "field_policy_dictionary"
+      ],
+      "approval_chain_refs": [
+        "internal_review_release"
+      ],
+      "required_gates": [],
+      "source_refs": [
+        "D7-R-010"
+      ],
+      "notes": []
+    }
+  ],
+  "future_unlock_constraints": {
+    "prerequisite_matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
+    "leadpack_external_delivery_candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json",
+    "leadpack_activation_prep_evidence_pack_ref": "contracts/release/leadpack_activation_prep_evidence_pack.json",
+    "leadpack_activation_prep_transition_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+    "leadpack_activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+    "candidate_package_must_not_override_object_surface_policy": true,
+    "external_export_surface_blocked_until_prereqs_met": true,
+    "direct_stage8_stage9_object_export_never_default_open": true,
+    "notes": [
+      "delivery_matrix remains stronger than any future unlock request",
+      "approved projection or summary objects remain the only future-discussable external surfaces",
+      "activation prep review may only consume delivery-matrix verdicts and must not override object surface policy",
+      "activation design / implementation prep may define gates only; it must not enable direct Stage 8/9 object export"
+    ]
+  },
+  "strictness_rule": "D7 stricter rule applies: block if any upstream gate or field policy blocks",
+  "release_layers": [
+    "DEV_ALLOWED",
+    "INTERNAL_OPERABLE",
+    "LEADPACK_DELIVERABLE",
+    "EXTERNAL_BLOCKED"
+  ],
+  "leadpack_sku_relation": "LeadPack SKU is a commercial packaging layer; delivery matrix enforces release layers, not capability tiers"
+}

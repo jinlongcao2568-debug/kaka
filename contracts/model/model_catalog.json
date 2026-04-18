@@ -1,0 +1,108 @@
+{
+  "catalog_id": "model-catalog",
+  "version": "0.2.0",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "model governance boundary freeze",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/model/model_catalog.json",
+    "source_documents": [
+      "D14_AI模型治理规范.md",
+      "docs/技术实现决策页.md"
+    ]
+  },
+  "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
+  "adapter_contract": {
+    "required_adapters": [
+      "model_provider_adapter",
+      "tool_provider_adapter"
+    ],
+    "required_trace_fields": [
+      "provider_id",
+      "provider_type",
+      "provider_role",
+      "provider_trace_id",
+      "query_trace_id",
+      "source_audit_ref",
+      "fallback_provider_id",
+      "requires_manual_review"
+    ],
+    "binding_policy": "Provider identities remain unbound in the current phase."
+  },
+  "providers": [
+    {
+      "provider_id": "MODEL_PROVIDER_UNBOUND_GENERIC",
+      "provider_name": "未绑定通用大模型供应方",
+      "provider_type": "MODEL_PROVIDER",
+      "provider_role": "GENERAL_ASSIST_MODEL",
+      "binding_state": "UNBOUND",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "INTERNAL_ONLY",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED",
+        "EMERGENCY_OFF"
+      ],
+      "supported_usage_scopes": [
+        "INTERNAL_ASSIST",
+        "REVIEW_ASSIST",
+        "CLIENT_DELIVERY_ASSIST",
+        "EXTERNAL_ACTION_ASSIST"
+      ],
+      "current_status": "REGISTERED_NOT_BOUND",
+      "manual_review_default": true
+    },
+    {
+      "provider_id": "MODEL_PROVIDER_UNBOUND_FALLBACK",
+      "provider_name": "未绑定回退模型供应方",
+      "provider_type": "MODEL_PROVIDER",
+      "provider_role": "FALLBACK_ASSIST_MODEL",
+      "binding_state": "UNBOUND",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "EMERGENCY_OFF"
+      ],
+      "supported_usage_scopes": [
+        "INTERNAL_ASSIST",
+        "REVIEW_ASSIST"
+      ],
+      "current_status": "REGISTERED_NOT_BOUND",
+      "manual_review_default": true
+    }
+  ],
+  "models": [
+    {
+      "model_id": "GENERIC_LLM",
+      "model_family": "LLM",
+      "provider": "UNBOUND",
+      "provider_id": "MODEL_PROVIDER_UNBOUND_GENERIC",
+      "provider_type": "MODEL_PROVIDER",
+      "provider_role": "GENERAL_ASSIST_MODEL",
+      "model_provider_adapter": "model_provider_adapter",
+      "provider_binding_state": "UNBOUND",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "INTERNAL_ONLY",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED",
+        "EMERGENCY_OFF"
+      ],
+      "fallback_provider_id": "MODEL_PROVIDER_UNBOUND_FALLBACK",
+      "version": "UNBOUND",
+      "usage_scope": "INTERNAL_ASSIST",
+      "enabled": false,
+      "trace_required": true,
+      "notes": "供应商与型号不冻结；只冻结 provider 角色、适用范围与 trace / audit 语义。"
+    }
+  ],
+  "tool_provider_registry_ref": "contracts/model/tool_provider_registry_catalog.json",
+  "model_stage_signature_matrix_ref": "contracts/model/model_stage_signature_matrix.json",
+  "notes": [
+    "capability_mode is runtime-only and does not replace model release_state.",
+    "REAL_RUN_READY is reserved for future bound providers and does not weaken external blocked."
+  ]
+}

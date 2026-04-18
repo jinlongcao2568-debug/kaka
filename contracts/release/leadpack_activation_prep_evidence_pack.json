@@ -1,0 +1,170 @@
+{
+  "registry_id": "leadpack-activation-prep-evidence-pack",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D5",
+      "D7",
+      "D12",
+      "D13"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Machine-readable evidence-pack definition for leadpack candidate activation prep. This asset prepares review-only candidate activation prerequisites and does not authorize activation or external delivery.",
+    "machine_path": "contracts/release/leadpack_activation_prep_evidence_pack.json",
+    "candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json",
+    "runbook_ref": "contracts/release/leadpack_activation_prep_runbook.json",
+    "signoff_packet_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json",
+    "simulation_replay_ref": "contracts/release/leadpack_activation_prep_simulation_replay.json",
+    "transition_matrix_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+    "activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json"
+  },
+  "candidate_domain_id": "leadpack_external_delivery",
+  "evidence_pack_status_vocabulary": [
+    "CANDIDATE_GAP_ONLY",
+    "ACTIVATION_PREP_IN_PROGRESS",
+    "ACTIVATION_PREP_READY_FOR_REVIEW",
+    "ACTIVATION_PREP_HELD",
+    "ACTIVATION_PREP_DENIED"
+  ],
+  "evidence_pack_status": "ACTIVATION_PREP_READY_FOR_REVIEW",
+  "required_evidence_items": [
+    {
+      "item_id": "candidate_matrix_snapshot",
+      "evidence_type": "contract_snapshot",
+      "required_for_review": true
+    },
+    {
+      "item_id": "projection_boundary_verdict",
+      "evidence_type": "boundary_verdict",
+      "required_for_review": true
+    },
+    {
+      "item_id": "coverage_boundary_verdict",
+      "evidence_type": "coverage_verdict",
+      "required_for_review": true
+    },
+    {
+      "item_id": "delivery_matrix_verdict",
+      "evidence_type": "delivery_verdict",
+      "required_for_review": true
+    },
+    {
+      "item_id": "public_boundary_verdict",
+      "evidence_type": "boundary_verdict",
+      "required_for_review": true
+    },
+    {
+      "item_id": "export_simulation_replay_artifact",
+      "evidence_type": "simulation_artifact",
+      "required_for_review": true
+    },
+    {
+      "item_id": "approval_trace_snapshot",
+      "evidence_type": "trace_snapshot",
+      "required_for_review": true
+    },
+    {
+      "item_id": "audit_trace_snapshot",
+      "evidence_type": "trace_snapshot",
+      "required_for_review": true
+    },
+    {
+      "item_id": "signoff_packet_snapshot",
+      "evidence_type": "signoff_packet",
+      "required_for_review": true
+    },
+    {
+      "item_id": "prep_runbook_snapshot",
+      "evidence_type": "runbook_snapshot",
+      "required_for_review": true
+    }
+  ],
+  "evidence_item_sources": {
+    "candidate_matrix_snapshot": [
+      "contracts/release/leadpack_external_delivery_candidate_matrix.json"
+    ],
+    "projection_boundary_verdict": [
+      "contracts/release/leadpack_external_delivery_candidate_matrix.json#projection_boundary_rules",
+      "contracts/governance/public_boundary_registry.json#future_unlock_guardrails",
+      "contracts/release/delivery_matrix.json#future_unlock_constraints"
+    ],
+    "coverage_boundary_verdict": [
+      "contracts/governance/coverage_registry.json#future_unlock_constraints"
+    ],
+    "delivery_matrix_verdict": [
+      "contracts/release/delivery_matrix.json#future_unlock_constraints"
+    ],
+    "public_boundary_verdict": [
+      "contracts/governance/public_boundary_registry.json#future_unlock_guardrails"
+    ],
+    "export_simulation_replay_artifact": [
+      "contracts/release/leadpack_activation_prep_simulation_replay.json",
+      "simulateLeadpackExternalDeliveryExport"
+    ],
+    "approval_trace_snapshot": [
+      "previewLeadpackActivationPrepPacket",
+      "requestLeadpackActivationPrepReview"
+    ],
+    "audit_trace_snapshot": [
+      "previewLeadpackActivationPrepPacket",
+      "requestLeadpackActivationPrepReview"
+    ],
+    "signoff_packet_snapshot": [
+      "contracts/release/leadpack_activation_prep_signoff_packet.json"
+    ],
+    "prep_runbook_snapshot": [
+      "contracts/release/leadpack_activation_prep_runbook.json"
+    ]
+  },
+  "evidence_item_freshness": {
+    "candidate_matrix_snapshot": "refresh_on_candidate_matrix_change",
+    "projection_boundary_verdict": "refresh_on_projection_or_boundary_change",
+    "coverage_boundary_verdict": "refresh_on_coverage_or_boundary_change",
+    "delivery_matrix_verdict": "refresh_on_delivery_matrix_change",
+    "public_boundary_verdict": "refresh_on_boundary_registry_change",
+    "export_simulation_replay_artifact": "rebuild_for_each_activation_prep_review_request",
+    "approval_trace_snapshot": "rebuild_for_each_activation_prep_review_request",
+    "audit_trace_snapshot": "rebuild_for_each_activation_prep_review_request",
+    "signoff_packet_snapshot": "refresh_on_signoff_packet_change",
+    "prep_runbook_snapshot": "refresh_on_runbook_change"
+  },
+  "simulation_replay_required": true,
+  "approval_trace_required": true,
+  "audit_trace_required": true,
+  "projection_boundary_check_required": true,
+  "coverage_boundary_check_required": true,
+  "delivery_matrix_check_required": true,
+  "activation_denial_conditions": [
+    "direct_object_export_attempted",
+    "projection_boundary_violation",
+    "public_boundary_violation",
+    "coverage_boundary_override_attempted",
+    "missing_required_evidence_items",
+    "simulation_replay_missing",
+    "approval_trace_missing",
+    "audit_trace_missing",
+    "required_owner_signoff_missing_from_packet",
+    "external_delivery_or_live_execution_requested"
+  ],
+  "activation_blockers_remaining": [
+    "manual prep review still required",
+    "actual activation remains out of scope",
+    "external delivery remains approval-and-audit gated",
+    "external software release remains blocked",
+    "stage8/stage9 live execution remains blocked by default"
+  ],
+  "activation_design_prep_handoff": {
+    "source_go_no_go_decision": "GO",
+    "next_allowed_batch": "LEADPACK_ACTIVATION_DESIGN_IMPLEMENTATION_PREP_BATCH",
+    "design_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+    "go_does_not_authorize": [
+      "actual activation",
+      "external delivery",
+      "external software release",
+      "Stage 8/9 live execution",
+      "direct Stage 8/9 object export",
+      "implementation approval"
+    ]
+  }
+}

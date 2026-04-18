@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "opportunity_outcome_event",
+  "type": "object",
+  "description": "Internal governed typed workflow schema for opportunity_outcome_event.",
+  "source_refs": [
+    "D2-R-017",
+    "D2-R-065",
+    "D10-R-011",
+    "D10-R-066",
+    "D10-R-067"
+  ],
+  "enum_refs": [
+    "outcome_family",
+    "window_missed_state",
+    "contact_failure_state",
+    "payer_mismatch_state",
+    "trigger_type"
+  ],
+  "properties": {
+    "outcome_event_id": { "type": "string" },
+    "project_id": { "type": "string" },
+    "opportunity_id": { "type": "string" },
+    "outcome_family": { "type": "string" },
+    "outcome_reason_tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "is_false_positive": { "type": "boolean" },
+    "window_missed_state": { "type": "string" },
+    "contact_failure_state": { "type": "string" },
+    "payer_mismatch_state": { "type": "string" },
+    "feedback_reason": { "type": "string" },
+    "trigger_type": { "type": "string" },
+    "action_taken": { "type": "string" },
+    "writeback_targets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "governance_feedback_triggered_optional": { "type": "boolean" },
+    "written_back_at": { "type": "string" },
+    "written_back_at_optional": { "type": "string" },
+    "governed_execution_mode": { "type": "string" },
+    "permission_decision_state": { "type": "string" },
+    "governance_decision_state": { "type": "string" },
+    "semantic_decision_state": { "type": "string" },
+    "governed_metadata": { "type": "object" }
+  },
+  "required": [
+    "outcome_event_id",
+    "project_id",
+    "opportunity_id",
+    "outcome_family",
+    "outcome_reason_tags",
+    "is_false_positive",
+    "window_missed_state",
+    "contact_failure_state",
+    "payer_mismatch_state",
+    "feedback_reason",
+    "trigger_type",
+    "action_taken",
+    "writeback_targets",
+    "governance_feedback_triggered_optional",
+    "written_back_at",
+    "written_back_at_optional",
+    "governed_execution_mode",
+    "permission_decision_state",
+    "governance_decision_state",
+    "semantic_decision_state",
+    "governed_metadata"
+  ],
+  "additionalProperties": false
+}

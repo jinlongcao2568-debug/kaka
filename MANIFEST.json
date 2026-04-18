@@ -1,0 +1,98 @@
+{
+  "packageName": "标准仓库总包",
+  "currentFormalPaths": {
+    "L0": "docs/L0.md",
+    "judgmentIndex": "docs/裁决总表.md",
+    "checklist": "docs/开工前总清单.md",
+    "statusBoard": "docs/文档与资产状态板.md",
+    "goNoGo": "docs/正式业务代码开发开工裁决页.md",
+    "qualityReport": "docs/quality/文档体检报告_D1-D14_第三轮.md"
+  },
+  "docs": [
+    "D1_研发_Codex执行手册.md",
+    "D2_正式对象契约与字段字典.md",
+    "D3_正式规则码总表与判定说明书.md",
+    "D4_OpenAPI接口契约.md",
+    "D5_页面导出与人工复核规范.md",
+    "D6_字段策略字典与客户交付字段规范.md",
+    "D7_对象级交付矩阵与外发治理规范.md",
+    "D8_真实竞争者识别可售对象与销售推进规范.md",
+    "D9_联系对象与销售触达规范.md",
+    "D10_订单支付交付与治理反馈规范.md",
+    "D11_测试验收与金标回归清单.md",
+    "D12_部署发布与运行治理规范.md",
+    "D13_公开可查边界能力清单.md",
+    "D14_AI模型治理规范.md"
+  ],
+  "contracts": {
+    "schemas": [
+      "schema_catalog.json"
+    ],
+    "enums": [
+      "enum_catalog.json"
+    ],
+    "rules": [
+      "rule_catalog.json"
+    ],
+    "gates": [
+      "gate_policies.json"
+    ],
+    "api": [
+      "api_catalog.json",
+      "permission_matrix.json",
+      "error_code_catalog.json"
+    ],
+    "ui": [
+      "workbench_catalog.json",
+      "button_flow_catalog.json",
+      "export_template_catalog.json"
+    ],
+    "governance": [
+      "public_boundary_registry.json",
+      "coverage_registry.json",
+      "field_policy_dictionary.json",
+      "approval_chain_catalog.json"
+    ],
+    "release": [
+      "delivery_matrix.json",
+      "release_gates.json"
+    ],
+    "exceptions": [
+      "exception_policy_catalog.json"
+    ],
+    "sales": [
+      "challenger_profile_catalog.json",
+      "buyer_fit_scorecard.json",
+      "opportunity_policy_catalog.json",
+      "contact_policy_catalog.json"
+    ],
+    "testing": [
+      "l0_assertions.json",
+      "golden_cases.json",
+      "regression_manifest.json",
+      "release_checklist.json"
+    ]
+  },
+  "handoff": [
+    "stage_handoff_catalog.json",
+    "integration_matrix.json",
+    "example_payloads.json",
+    "validation_rules.json"
+  ],
+  "scripts": [
+    "validate-contracts.ps1",
+    "run-golden.ps1",
+    "run-governance-contracts.ps1",
+    "check-release.ps1",
+    "lint-drift.ps1",
+    "doctor.ps1"
+  ],
+  "control": [
+    "owners.yaml",
+    "current_task.yaml",
+    "approval_chain_state.yaml",
+    "exception_chain_state.yaml",
+    "reference_index.json"
+  ]
+}
+

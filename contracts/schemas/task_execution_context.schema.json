@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "task_execution_context",
+  "type": "object",
+  "description": "Schema skeleton for task_execution_context.",
+  "source_refs": [
+    "D2-R-017"
+  ],
+  "enum_refs": [
+    "review_lane"
+  ],
+  "properties": {
+    "task_execution_context_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "region_code": {
+      "type": "string"
+    },
+    "time_range_from": {
+      "type": "string"
+    },
+    "time_range_until": {
+      "type": "string"
+    },
+    "strategy_template_id": {
+      "type": "string"
+    },
+    "review_lane": {
+      "type": "string"
+    },
+    "project_rooting_policy": {
+      "type": "string"
+    },
+    "window_priority_policy": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_execution_context_id",
+    "task_id",
+    "region_code",
+    "time_range_from",
+    "time_range_until",
+    "strategy_template_id",
+    "review_lane",
+    "project_rooting_policy",
+    "window_priority_policy",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,124 @@
+{
+  "policyVersion": "1.0.1",
+  "policyId": "channel_vendor_execution_policy",
+  "ownerDocs": [
+    "D9",
+    "docs/技术实现决策页.md"
+  ],
+  "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
+  "policyStates": [
+    {
+      "state": "PREVIEW_ONLY",
+      "meaning": "仅允许生成候选内容、计划预览或人工确认前的展示。"
+    },
+    {
+      "state": "DRY_RUN",
+      "meaning": "仅允许模拟执行与回执预留，不触发真实发送。"
+    },
+    {
+      "state": "APPROVAL_REQUIRED",
+      "meaning": "只允许进入审批前置态；审批未通过不得真实执行。"
+    },
+    {
+      "state": "BLOCKED",
+      "meaning": "当前阶段禁止真实执行，只保留角色与审计语义。"
+    }
+  ],
+  "policyDefaults": {
+    "default_open": false,
+    "live_execution_enabled": false,
+    "external_action_enabled": false,
+    "direct_mutation_allowed": false,
+    "live_execution_requires_separate_release_gate": true
+  },
+  "requiredTraceFields": [
+    "vendor_id",
+    "vendor_type",
+    "vendor_role",
+    "execution_trace_id",
+    "vendor_response_ref",
+    "fallback_vendor_id",
+    "requires_manual_review"
+  ],
+  "entries": [
+    {
+      "vendor_id": "EXEC-ALIYUN-SMS",
+      "channel_role": "SMS",
+      "stage": 8,
+      "execution_policy_state": "BLOCKED",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_action_intents": ["PREVIEW_ONLY", "DRY_RUN"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "approval_required": true,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false,
+      "default_open": false,
+      "writeback_scope": "audit_reservation_only"
+    },
+    {
+      "vendor_id": "EXEC-ALIYUN-CALL",
+      "channel_role": "VOICE_CALL",
+      "stage": 8,
+      "execution_policy_state": "BLOCKED",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_action_intents": ["PREVIEW_ONLY", "DRY_RUN"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "approval_required": true,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false,
+      "default_open": false,
+      "writeback_scope": "audit_reservation_only"
+    },
+    {
+      "vendor_id": "EXEC-EMAIL-SERVICE",
+      "channel_role": "EMAIL",
+      "stage": 8,
+      "execution_policy_state": "APPROVAL_REQUIRED",
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_action_intents": ["PREVIEW_ONLY", "DRY_RUN", "APPROVAL_EXECUTION"],
+      "blocked_action_intents": ["LIVE_EXECUTION"],
+      "approval_required": true,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false,
+      "default_open": false,
+      "writeback_scope": "preview_or_approval_only"
+    },
+    {
+      "vendor_id": "EXEC-WECOM-BOT",
+      "channel_role": "WECOM_BOT",
+      "stage": 8,
+      "execution_policy_state": "BLOCKED",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_action_intents": ["PREVIEW_ONLY", "DRY_RUN"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "approval_required": true,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false,
+      "default_open": false,
+      "writeback_scope": "audit_reservation_only"
+    },
+    {
+      "vendor_id": "EXEC-EMAIL-SERVICE",
+      "channel_role": "EMAIL",
+      "stage": 9,
+      "execution_policy_state": "PREVIEW_ONLY",
+      "current_capability_mode": "DRY_RUN",
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_WRITEBACK", "DRY_RUN"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "approval_required": true,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false,
+      "default_open": false,
+      "writeback_scope": "result_writeback_reserved"
+    }
+  ],
+  "notes": [
+    "capability_mode refines execution runtime state and does not replace execution_policy_state.",
+    "REAL_RUN_READY is reserved and still requires approval plus release gates."
+  ]
+}

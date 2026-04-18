@@ -1,0 +1,256 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "price_normalization_catalog",
+  "ownerDocs": [
+    "D3",
+    "D8",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "PRICE-NORMALIZE-001",
+      "title": "Price extraction, normalization and conflict resolution",
+      "input_fields": [
+        "bidder_candidate.bid_price_optional",
+        "bidder_candidate.bid_price_currency_optional",
+        "project_base.estimated_contract_value_optional",
+        "project_base.budget_amount_optional",
+        "price_source_set_optional",
+        "price_source_set_optional[].tax_basis_optional",
+        "price_source_set_optional[].tax_rate_optional",
+        "price_source_set_optional[].unit_basis_optional",
+        "price_source_set_optional[].quantity_optional",
+        "price_source_set_optional[].lot_id_optional",
+        "price_source_set_optional[].package_id_optional",
+        "price_source_set_optional[].source_date_optional"
+      ],
+      "source_priority": [
+        {
+          "source_type": "BID_PRICE",
+          "priority": 1,
+          "reliability_score": 90
+        },
+        {
+          "source_type": "CONTRACT_AMOUNT",
+          "priority": 2,
+          "reliability_score": 85
+        },
+        {
+          "source_type": "BUDGET_AMOUNT",
+          "priority": 3,
+          "reliability_score": 70
+        },
+        {
+          "source_type": "HISTORICAL_REFERENCE",
+          "priority": 4,
+          "reliability_score": 50
+        },
+        {
+          "source_type": "MANUAL_INPUT",
+          "priority": 5,
+          "reliability_score": 40
+        }
+      ],
+      "normalization": {
+        "base_currency": "CNY",
+        "allow_fx_rate": true,
+        "fx_rate_required_for_non_cny": true,
+        "target_tax_basis": "EX_TAX",
+        "supported_tax_basis": [
+          "EX_TAX",
+          "INCL_TAX",
+          "UNKNOWN"
+        ],
+        "tax_conversion": {
+          "fallback_tax_rate": 0.09,
+          "review_if_unknown_on_selected_candidate": true,
+          "inclusive_to_target_formula": "amount / (1 + tax_rate)"
+        },
+        "unit_normalization": {
+          "target_unit_basis": "TOTAL_AMOUNT",
+          "supported_unit_basis": [
+            "TOTAL_AMOUNT",
+            "PER_ITEM",
+            "PER_PACKAGE",
+            "PER_SQM",
+            "UNKNOWN"
+          ],
+          "quantity_required_for_non_total": true,
+          "review_if_quantity_missing": true
+        },
+        "lot_package_resolution": {
+          "scope_fields": [
+            "lot_id_optional",
+            "package_id_optional"
+          ],
+          "review_if_scope_mismatch": true,
+          "default_scope_key": "GLOBAL"
+        },
+        "freshness_decay": {
+          "reference_source_types": [
+            "HISTORICAL_REFERENCE"
+          ],
+          "default_recency_days_when_missing": 9999,
+          "review_if_reference_older_than_days": 365,
+          "age_buckets": [
+            {
+              "max_days": 90,
+              "freshness_score": 100,
+              "reliability_penalty": 0
+            },
+            {
+              "max_days": 180,
+              "freshness_score": 80,
+              "reliability_penalty": 5
+            },
+            {
+              "max_days": 365,
+              "freshness_score": 60,
+              "reliability_penalty": 10
+            },
+            {
+              "max_days": 99999,
+              "freshness_score": 35,
+              "reliability_penalty": 20
+            }
+          ]
+        }
+      },
+      "conflict_thresholds": {
+        "relative_diff_review": 0.20,
+        "relative_diff_block": 0.50,
+        "recency_days_high_confidence": 90,
+        "low_reliability_score_threshold": 60,
+        "review_if_only_low_reliability_sources": true,
+        "review_if_scope_mismatch": true,
+        "review_if_unit_basis_mixed": true,
+        "review_if_tax_basis_mixed": true,
+        "review_if_stale_reference_only": true
+      },
+      "conflict_resolution": [
+        "if max/min >= 1.50 -> price_conflict_gate_status=BLOCK",
+        "if max/min between 1.20 and 1.50 -> price_conflict_gate_status=REVIEW",
+        "if max/min < 1.20 -> price_conflict_gate_status=PASS",
+        "if only low reliability sources -> price_conflict_gate_status=REVIEW",
+        "if lot/package scope mismatches -> price_conflict_gate_status=REVIEW",
+        "if tax basis or unit basis mismatch prevents comparability -> price_conflict_gate_status=REVIEW",
+        "if only stale historical references remain -> price_conflict_gate_status=REVIEW"
+      ],
+      "banding": {
+        "LOW": "amount < 1,000,000",
+        "MEDIUM": "1,000,000 <= amount < 5,000,000",
+        "HIGH": "5,000,000 <= amount < 20,000,000",
+        "VERY_HIGH": "amount >= 20,000,000",
+        "UNKNOWN": "amount missing"
+      },
+      "band_rules": [
+        {
+          "price_band": "LOW",
+          "lt": 1000000
+        },
+        {
+          "price_band": "MEDIUM",
+          "gte": 1000000,
+          "lt": 5000000
+        },
+        {
+          "price_band": "HIGH",
+          "gte": 5000000,
+          "lt": 20000000
+        },
+        {
+          "price_band": "VERY_HIGH",
+          "gte": 20000000
+        },
+        {
+          "price_band": "UNKNOWN",
+          "default": true
+        }
+      ],
+      "quote_band_mapping": {
+        "LOW": "LOW",
+        "MEDIUM": "MEDIUM",
+        "HIGH": "HIGH",
+        "VERY_HIGH": "HIGH",
+        "UNKNOWN": "CUSTOM"
+      },
+      "price_signal_score_rules": [
+        "PASS + LOW -> 55",
+        "PASS + MEDIUM -> 70",
+        "PASS + HIGH -> 85",
+        "PASS + VERY_HIGH -> 95",
+        "REVIEW + LOW -> 35",
+        "REVIEW + MEDIUM -> 45",
+        "REVIEW + HIGH -> 60",
+        "REVIEW + VERY_HIGH -> 70",
+        "BLOCK -> 0",
+        "UNKNOWN -> 30"
+      ],
+      "price_signal_score_matrix": [
+        {
+          "gate_status": "PASS",
+          "price_band": "LOW",
+          "score": 55
+        },
+        {
+          "gate_status": "PASS",
+          "price_band": "MEDIUM",
+          "score": 70
+        },
+        {
+          "gate_status": "PASS",
+          "price_band": "HIGH",
+          "score": 85
+        },
+        {
+          "gate_status": "PASS",
+          "price_band": "VERY_HIGH",
+          "score": 95
+        },
+        {
+          "gate_status": "REVIEW",
+          "price_band": "LOW",
+          "score": 35
+        },
+        {
+          "gate_status": "REVIEW",
+          "price_band": "MEDIUM",
+          "score": 45
+        },
+        {
+          "gate_status": "REVIEW",
+          "price_band": "HIGH",
+          "score": 60
+        },
+        {
+          "gate_status": "REVIEW",
+          "price_band": "VERY_HIGH",
+          "score": 70
+        },
+        {
+          "gate_status": "BLOCK",
+          "price_band": "ANY",
+          "score": 0
+        },
+        {
+          "gate_status": "UNKNOWN",
+          "price_band": "ANY",
+          "score": 30
+        }
+      ],
+      "output_fields": [
+        "normalized_price_amount_optional",
+        "normalized_price_currency_optional",
+        "price_band_optional",
+        "price_conflict_gate_status_optional",
+        "price_signal_score_optional",
+        "recommended_quote_band"
+      ]
+    }
+  ],
+  "notes": [
+    "price_source_set_optional is a merged internal list of price candidates.",
+    "Normalized amount must resolve to CNY + EX_TAX + TOTAL_AMOUNT before ranking or quote-band projection.",
+    "price_conflict_gate_status uses gate_status enum to avoid new enum sets."
+  ]
+}

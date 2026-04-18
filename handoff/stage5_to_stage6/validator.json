@@ -1,0 +1,10 @@
+{
+  "handoff_id": "H-05-STAGE5-TO-STAGE6",
+  "source_rules_ref": "handoff/validation_rules.json",
+  "rule_refs": [
+    "HV-005"
+  ],
+  "global_rule_refs": [
+    "HV-009"
+  ]
+}

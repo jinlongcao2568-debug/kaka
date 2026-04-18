@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "touch_record",
+  "type": "object",
+  "description": "Schema skeleton for touch_record.",
+  "source_refs": [
+    "D2-R-017",
+    "D2-R-093",
+    "D9-R-069"
+  ],
+  "enum_refs": [
+    "response_status",
+    "channel_family",
+    "touch_record_state",
+    "vendor_type",
+    "vendor_role"
+  ],
+  "properties": {
+    "touch_record_id": {
+      "type": "string"
+    },
+    "opportunity_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "saleability_status": {
+      "type": "string"
+    },
+    "contact_target_id": {
+      "type": "string"
+    },
+    "outreach_plan_id": {
+      "type": "string"
+    },
+    "execution_vendor_id_optional": {
+      "type": "string"
+    },
+    "execution_vendor_type_optional": {
+      "type": "string"
+    },
+    "execution_vendor_role_optional": {
+      "type": "string"
+    },
+    "touch_at": {
+      "type": "string"
+    },
+    "attempt_index": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "cadence_step_id_optional": {
+      "type": "string"
+    },
+    "touch_record_state": {
+      "type": "string"
+    },
+    "response_status": {
+      "type": "string"
+    },
+    "feedback_reason": {
+      "type": "string"
+    },
+    "next_step_optional": {
+      "type": "string"
+    },
+    "stop_reason_optional": {
+      "type": "string"
+    },
+    "touch_channel": {
+      "type": "string"
+    },
+    "written_back_at_optional": {
+      "type": "string"
+    },
+    "retry_scheduled_optional": {
+      "type": "boolean"
+    },
+    "failure_reason_tag_optional": {
+      "type": "string"
+    },
+    "writeback_targets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "writeback_target_optional": {
+      "type": "string"
+    },
+    "permission_decision_state": {
+      "type": "string"
+    },
+    "governance_decision_state": {
+      "type": "string"
+    },
+    "semantic_decision_state": {
+      "type": "string"
+    },
+    "governed_metadata": {
+      "type": "object"
+    },
+    "execution_trace_id_optional": {
+      "type": "string"
+    },
+    "vendor_response_ref_optional": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "touch_record_id",
+    "opportunity_id",
+    "project_id",
+    "saleability_status",
+    "contact_target_id",
+    "outreach_plan_id",
+    "execution_vendor_id_optional",
+    "execution_vendor_type_optional",
+    "execution_vendor_role_optional",
+    "touch_at",
+    "attempt_index",
+    "touch_record_state",
+    "response_status",
+    "feedback_reason",
+    "next_step_optional",
+    "stop_reason_optional",
+    "touch_channel",
+    "written_back_at_optional",
+    "retry_scheduled_optional",
+    "failure_reason_tag_optional",
+    "writeback_targets",
+    "writeback_target_optional",
+    "permission_decision_state",
+    "governance_decision_state",
+    "semantic_decision_state",
+    "governed_metadata",
+    "execution_trace_id_optional",
+    "vendor_response_ref_optional"
+  ],
+  "additionalProperties": false
+}

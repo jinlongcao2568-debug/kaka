@@ -1,0 +1,101 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "retry_policy_catalog",
+  "ownerDocs": [
+    "D9",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "RETRY-001",
+      "title": "Retry and backoff for outreach failures",
+      "applies_to_objects": [
+        "touch_record",
+        "outreach_plan",
+        "contact_target"
+      ],
+      "input_fields": [
+        "touch_record.response_status",
+        "touch_record.attempt_index",
+        "outreach_plan.cadence_profile_id",
+        "outreach_plan.retry_count",
+        "outreach_plan.max_retry_count"
+      ],
+      "output_fields": [
+        "outreach_plan.retry_count",
+        "outreach_plan.next_touch_due_at_optional",
+        "outreach_plan.plan_status",
+        "contact_target.contact_target_status",
+        "contact_target.opt_out_state",
+        "contact_target.requires_manual_review"
+      ],
+      "retry_rules": [
+        {
+          "response_status": "NO_RESPONSE",
+          "max_retries": 2,
+          "backoff_hours": [
+            48,
+            96
+          ],
+          "next_action": "RETRY"
+        },
+        {
+          "response_status": "FOLLOWUP_REQUIRED",
+          "max_retries": 1,
+          "backoff_hours": [
+            72
+          ],
+          "next_action": "RETRY"
+        },
+        {
+          "response_status": "ORG_ROUTED",
+          "next_action": "STOP_AND_WAIT",
+          "plan_status": "CANCELLED"
+        },
+        {
+          "response_status": "CONNECTED",
+          "next_action": "HANDOFF_TO_HUMAN",
+          "plan_status": "COMPLETED"
+        },
+        {
+          "response_status": "DECLINED",
+          "next_action": "PERMANENT_STOP",
+          "contact_target_status": "BLOCKED",
+          "opt_out_state": "OPTED_OUT"
+        },
+        {
+          "response_status": "OPTED_OUT",
+          "next_action": "PERMANENT_STOP",
+          "contact_target_status": "BLOCKED",
+          "opt_out_state": "OPTED_OUT"
+        },
+        {
+          "response_status": "WRONG_ROLE",
+          "next_action": "RESELECT_CONTACT",
+          "contact_target_status": "INVALID",
+          "requires_manual_review": true
+        },
+        {
+          "response_status": "INVALID_CONTACT",
+          "next_action": "RESELECT_CONTACT",
+          "contact_target_status": "INVALID"
+        },
+        {
+          "response_status": "OPPORTUNITY_CHANGED",
+          "next_action": "REVIEW_STAGE6_7",
+          "plan_status": "SUPERSEDED",
+          "requires_manual_review": true
+        }
+      ],
+      "max_attempts_policy": {
+        "default_max_attempts": 3,
+        "after_max_attempts": "REVIEW_REQUIRED"
+      }
+    }
+  ],
+  "notes": [
+    "Retry is only allowed when compliance matrix returns ALLOW_PREVIEW and contact remains valid.",
+    "Any DECLINED/OPTED_OUT response is treated as permanent stop with opt-out enforcement.",
+    "Retry/backoff 只改变 execution path，不得把 candidate_compliance_decision 误写成 live-ready 或 real send enabled。"
+  ]
+}

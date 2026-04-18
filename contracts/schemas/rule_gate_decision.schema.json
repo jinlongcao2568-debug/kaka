@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "rule_gate_decision",
+  "type": "object",
+  "description": "Schema skeleton for rule_gate_decision.",
+  "source_refs": [
+    "D2-R-017",
+    "D3-R-022"
+  ],
+  "enum_refs": [
+    "gate_status"
+  ],
+  "properties": {
+    "gate_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "gate_scope": {
+      "type": "string"
+    },
+    "rule_gate_status": {
+      "type": "string"
+    },
+    "passed_rule_hits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_rule_hits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "resolved_by_version_state": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "gate_id",
+    "project_id",
+    "gate_scope",
+    "rule_gate_status",
+    "passed_rule_hits",
+    "blocked_rule_hits",
+    "blocking_reasons",
+    "resolved_by_version_state"
+  ],
+  "additionalProperties": false
+}

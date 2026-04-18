@@ -1,0 +1,121 @@
+{
+  "matrix_id": "handoff-dependency-order",
+  "version": "2026-04-14",
+  "status": "DRAFT",
+  "source_refs": [
+    "D1-R-045",
+    "D1-R-047"
+  ],
+  "sequence": [
+    {
+      "handoff_id": "stage1_to_stage2",
+      "from_stage": 1,
+      "to_stage": 2,
+      "path": "handoff/stage1_to_stage2",
+      "required_files": [
+        "contract.json",
+        "example.json",
+        "validator.json"
+      ],
+      "depends_on": []
+    },
+    {
+      "handoff_id": "stage2_to_stage3",
+      "from_stage": 2,
+      "to_stage": 3,
+      "path": "handoff/stage2_to_stage3",
+      "required_files": [
+        "contract.json",
+        "example.json",
+        "validator.json"
+      ],
+      "depends_on": [
+        "stage1_to_stage2"
+      ]
+    },
+    {
+      "handoff_id": "stage3_to_stage4",
+      "from_stage": 3,
+      "to_stage": 4,
+      "path": "handoff/stage3_to_stage4",
+      "required_files": [
+        "contract.json",
+        "example.json",
+        "validator.json"
+      ],
+      "depends_on": [
+        "stage2_to_stage3"
+      ]
+    },
+    {
+      "handoff_id": "stage4_to_stage5",
+      "from_stage": 4,
+      "to_stage": 5,
+      "path": "handoff/stage4_to_stage5",
+      "required_files": [
+        "contract.json",
+        "example.json",
+        "validator.json"
+      ],
+      "depends_on": [
+        "stage3_to_stage4"
+      ]
+    },
+    {
+      "handoff_id": "stage5_to_stage6",
+      "from_stage": 5,
+      "to_stage": 6,
+      "path": "handoff/stage5_to_stage6",
+      "required_files": [
+        "contract.json",
+        "example.json",
+        "validator.json"
+      ],
+      "depends_on": [
+        "stage4_to_stage5"
+      ]
+    },
+    {
+      "handoff_id": "stage6_to_stage7",
+      "from_stage": 6,
+      "to_stage": 7,
+      "path": "handoff/stage6_to_stage7",
+      "required_files": [
+        "contract.json",
+        "example.json",
+        "validator.json"
+      ],
+      "depends_on": [
+        "stage5_to_stage6"
+      ]
+    },
+    {
+      "handoff_id": "stage7_to_stage8",
+      "from_stage": 7,
+      "to_stage": 8,
+      "path": "handoff/stage7_to_stage8",
+      "required_files": [
+        "contract.json",
+        "example.json",
+        "validator.json"
+      ],
+      "depends_on": [
+        "stage6_to_stage7"
+      ]
+    },
+    {
+      "handoff_id": "stage8_to_stage9",
+      "from_stage": 8,
+      "to_stage": 9,
+      "path": "handoff/stage8_to_stage9",
+      "required_files": [
+        "contract.json",
+        "example.json",
+        "validator.json"
+      ],
+      "depends_on": [
+        "stage7_to_stage8"
+      ]
+    }
+  ]
+}

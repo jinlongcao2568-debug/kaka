@@ -1,0 +1,119 @@
+{
+  "catalog_id": "platform-level-registry",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "source_documents": [
+    "docs/专题_来源覆盖与采集路由规范.md",
+    "docs/D2_正式对象契约与字段字典.md",
+    "docs/D11_测试验收与金标回归清单.md"
+  ],
+  "entries": [
+    {
+      "platform_level": "NATIONAL",
+      "display_name": "国家级",
+      "default_region_scope": "NATIONAL",
+      "default_coverage_tier": "T0_CORE",
+      "baseline_registry_refs": [
+        "SRC-REG-PROC-NATIONAL-HTML",
+        "SRC-REG-REG-NATIONAL-HTML",
+        "SRC-REG-JUDICIAL-NATIONAL-PDF"
+      ],
+      "supported_source_families": [
+        "PROCUREMENT_NOTICE",
+        "REGULATORY_PUBLICATION",
+        "JUDICIAL_CREDIT_RISK"
+      ],
+      "default_routes": [
+        "LIST_TO_DETAIL",
+        "DETAIL_DIRECT",
+        "ATTACHMENT_FIRST"
+      ],
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "platform_level": "PROVINCE",
+      "display_name": "省级",
+      "default_region_scope": "PROVINCE",
+      "default_coverage_tier": "T1_REGIONAL",
+      "baseline_registry_refs": [
+        "SRC-REG-ANNEX-PROVINCE-DOC",
+        "SRC-REG-ANNEX-PROVINCE-TEXT"
+      ],
+      "supported_source_families": [
+        "ANNEX_QA_SUPPLEMENT"
+      ],
+      "default_routes": [
+        "VERSION_CHAIN",
+        "ATTACHMENT_FIRST"
+      ],
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "platform_level": "CITY",
+      "display_name": "市级",
+      "default_region_scope": "CITY",
+      "default_coverage_tier": "T2_LOCAL",
+      "baseline_registry_refs": [
+        "SRC-REG-PROC-CITY-PDF",
+        "SRC-REG-AWARD-CITY-HTML"
+      ],
+      "supported_source_families": [
+        "PROCUREMENT_NOTICE",
+        "AWARD_ANNOUNCEMENT"
+      ],
+      "default_routes": [
+        "LIST_TO_DETAIL",
+        "ATTACHMENT_FIRST"
+      ],
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "platform_level": "COUNTY",
+      "display_name": "区县级",
+      "default_region_scope": "COUNTY",
+      "default_coverage_tier": "T2_LOCAL",
+      "baseline_registry_refs": [
+        "SRC-REG-JUDICIAL-COUNTY-IMAGE"
+      ],
+      "supported_source_families": [
+        "JUDICIAL_CREDIT_RISK"
+      ],
+      "default_routes": [
+        "SEMI_MANUAL"
+      ],
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "platform_level": "INDUSTRY_PLATFORM",
+      "display_name": "行业/专题平台",
+      "default_region_scope": "NATIONAL",
+      "default_coverage_tier": "T1_REGIONAL",
+      "baseline_registry_refs": [
+        "SRC-REG-ENTERPRISE-INDUSTRY-TABLE"
+      ],
+      "supported_source_families": [
+        "ENTERPRISE_REGISTRY"
+      ],
+      "default_routes": [
+        "METADATA_ONLY"
+      ],
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "platform_level": "ENTERPRISE_SITE",
+      "display_name": "企业自有公开页",
+      "default_region_scope": "CITY",
+      "default_coverage_tier": "T2_LOCAL",
+      "baseline_registry_refs": [
+        "SRC-REG-OTHER-ENTERPRISE-TEXT"
+      ],
+      "supported_source_families": [
+        "OTHER_PUBLIC_SOURCE"
+      ],
+      "default_routes": [
+        "REGISTER_ONLY"
+      ],
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    }
+  ]
+}

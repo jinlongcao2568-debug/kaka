@@ -1,0 +1,77 @@
+{
+  "catalogVersion": "1.0.1",
+  "catalogId": "outreach_strategy_catalog",
+  "ownerDocs": [
+    "D9"
+  ],
+  "entries": [
+    {
+      "objectType": "outreach_plan",
+      "stage": 8,
+      "requiredFields": [
+        "plan_status",
+        "run_mode",
+        "automation_level",
+        "approval_state",
+        "channel_strategy",
+        "planned_touch_at",
+        "cadence_profile_id",
+        "retry_policy_id",
+        "stop_policy_id",
+        "next_touch_due_at_optional",
+        "retry_count",
+        "max_retry_count"
+      ],
+      "sourceL0Refs": [
+        "L0-R-007",
+        "L0-R-008"
+      ],
+      "dependsOnObjects": [
+        "contact_target"
+      ],
+      "blockingPolicies": [
+        "approval_required",
+        "compliance_matrix_block"
+      ],
+      "releaseScope": "INTERNAL_ONLY_PREVIEW",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "cadencePolicyRef": "contracts/sales/outreach_cadence_catalog.json#OUTREACH-CADENCE-001",
+      "retryPolicyRef": "contracts/sales/retry_policy_catalog.json#RETRY-001",
+      "stopPolicyRef": "contracts/sales/touch_stop_condition_catalog.json#STOP-001",
+      "priorityPolicyRef": "contracts/sales/contact_priority_policy_catalog.json#CONTACT-PRIORITY-001",
+      "defaultRequestedDeliverySurface": "INTERNAL_OPERATIONS",
+      "strategy_profiles": [
+        {
+          "run_mode": "DRY_RUN",
+          "default_plan_status": "DRAFT",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "approval_run_required": false,
+          "writeback_required": true
+        },
+        {
+          "run_mode": "APPROVAL_RUN",
+          "default_plan_status": "APPROVAL_PENDING",
+          "projection_mode": "APPROVAL_GATED_PREVIEW",
+          "approval_run_required": true,
+          "writeback_required": true
+        },
+        {
+          "run_mode": "REAL_RUN",
+          "default_plan_status": "APPROVAL_PENDING",
+          "projection_mode": "REAL_EXECUTION_BLOCKED_BY_DEFAULT",
+          "approval_run_required": true,
+          "writeback_required": true
+        }
+      ],
+      "projection_rules": [
+        "requested_delivery_surface defaults to INTERNAL_OPERATIONS",
+        "LEADPACK_DELIVERABLE remains projection-only and is still governed by delivery matrix/release gates",
+        "REAL_RUN may only stay in preview-projection semantics until approval and release gates both pass"
+      ],
+      "notes": "触达计划仅限 internal preview / approval 运行。"
+    }
+  ]
+}

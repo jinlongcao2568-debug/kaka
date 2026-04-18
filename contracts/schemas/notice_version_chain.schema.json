@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "notice_version_chain",
+  "type": "object",
+  "description": "Schema skeleton for notice_version_chain.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-014"
+  ],
+  "enum_refs": [
+    "version_conflict_state",
+    "source_family",
+    "platform_level",
+    "region_scope",
+    "carrier_type",
+    "route_type",
+    "collection_state"
+  ],
+  "properties": {
+    "version_chain_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "source_family": {
+      "type": "string"
+    },
+    "platform_level": {
+      "type": "string"
+    },
+    "region_scope": {
+      "type": "string"
+    },
+    "carrier_type": {
+      "type": "string"
+    },
+    "source_registry_id": {
+      "type": "string"
+    },
+    "route_policy_id": {
+      "type": "string"
+    },
+    "default_route": {
+      "type": "string"
+    },
+    "fallback_route": {
+      "type": "string"
+    },
+    "collection_state": {
+      "type": "string"
+    },
+    "current_notice_version_id": {
+      "type": "string"
+    },
+    "superseded_version_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "replacement_edges": {
+      "type": "array",
+      "items": {}
+    },
+    "version_conflict_state": {
+      "type": "string"
+    },
+    "version_chain_strategy": {
+      "type": "string"
+    },
+    "winning_version_resolution_rule_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "version_chain_id",
+    "project_id",
+    "source_family",
+    "platform_level",
+    "region_scope",
+    "carrier_type",
+    "source_registry_id",
+    "route_policy_id",
+    "default_route",
+    "fallback_route",
+    "collection_state",
+    "current_notice_version_id",
+    "superseded_version_ids",
+    "replacement_edges",
+    "version_conflict_state",
+    "version_chain_strategy",
+    "winning_version_resolution_rule_id"
+  ],
+  "additionalProperties": false
+}

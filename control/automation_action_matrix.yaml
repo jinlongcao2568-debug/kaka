@@ -1,0 +1,63 @@
+version: 1
+id: automation_action_matrix
+owner_docs:
+  - D1
+  - 自动化开发动作门禁表
+notes:
+  - external-facing changes default blocked
+  - payment/delivery/outreach/high-restriction require manual approval
+review_gate_matrix: control/review_gate_matrix.yaml
+task_packet_source: control/current_task.yaml#currentTask.task_packet
+action_classes:
+  - id: DIRECT_EDIT
+    allow: direct_edit
+    description: low-risk append-only or control updates
+  - id: DRAFT_ONLY
+    allow: draft_only
+    description: medium-risk changes require manual review
+  - id: MANUAL_APPROVAL_REQUIRED
+    allow: manual_approval
+    description: high-risk changes must be approved before continue
+  - id: BLOCKED
+    allow: blocked
+    description: forbidden for automation
+change_class_to_action_class:
+  LOW_RISK_DIRECT: DIRECT_EDIT
+  DRAFT_WITH_REVIEW: DRAFT_ONLY
+  MANDATORY_HUMAN_REVIEW: MANUAL_APPROVAL_REQUIRED
+  STOP_AND_ESCALATE: BLOCKED
+actions:
+  - action_id: DOC_APPEND_ONLY
+    scope: docs/D1-D14 append-only and docs/自动化开发动作门禁表.md
+    action_class: DIRECT_EDIT
+    notes: append tables only; no正文 rewrite
+  - action_id: CONTROL_UPDATE
+    scope: control/current_task.yaml, control/repo_status.md, control/automation_*.yaml
+    action_class: DIRECT_EDIT
+  - action_id: MACHINE_ASSET_UPDATE
+    scope: contracts/**, handoff/**, testing/**, governance/**
+    action_class: DRAFT_ONLY
+    requires_manual_review: true
+  - action_id: SCRIPT_CHANGE
+    scope: scripts/**
+    action_class: MANUAL_APPROVAL_REQUIRED
+  - action_id: CODE_CHANGE
+    scope: src/**, tests/**, fixtures/**
+    action_class: MANUAL_APPROVAL_REQUIRED
+  - action_id: EXTERNAL_RELEASE
+    scope: external release, external delivery, external integrations
+    action_class: BLOCKED
+  - action_id: OUTREACH_EXECUTION
+    scope: stage8 outreach real sending
+    action_class: BLOCKED
+  - action_id: PAYMENT_DELIVERY_EXECUTION
+    scope: stage9 payment/delivery/refund execution
+    action_class: BLOCKED
+  - action_id: HIGH_RESTRICTION_FIELDS
+    scope: natural person high restriction or private supplement externalization
+    action_class: BLOCKED
+enforcement_rules:
+  - rule: all formal batches must declare change_class via review_gate_matrix
+  - rule: non-LOW_RISK_DIRECT batches must declare human_review_required=true
+  - rule: STOP_AND_ESCALATE domains can never continue as direct or draft batch
+  - rule: review gate classification is path/domain based; free-text intent cannot down-classify the batch

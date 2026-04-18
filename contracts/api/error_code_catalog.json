@@ -1,0 +1,184 @@
+{
+  "catalogVersion": "1.0.0",
+  "ownerDoc": "D4",
+  "categories": [
+    {
+      "category": "AUTH",
+      "items": [
+        {
+          "code": "AUTH-401-UNAUTHENTICATED",
+          "httpStatus": 401,
+          "message": "Authentication is required."
+        },
+        {
+          "code": "AUTH-403-FORBIDDEN_ROLE",
+          "httpStatus": 403,
+          "message": "Current role is not allowed to access this resource."
+        }
+      ]
+    },
+    {
+      "category": "FIELD",
+      "items": [
+        {
+          "code": "FIELD-403-REDACTED_FIELD",
+          "httpStatus": 403,
+          "message": "Requested field is redacted or restricted."
+        },
+        {
+          "code": "REQ-422-UNFROZEN_FIELD",
+          "httpStatus": 422,
+          "message": "Request references a field that is not frozen in formal contracts."
+        }
+      ]
+    },
+    {
+      "category": "DATA",
+      "items": [
+        {
+          "code": "DATA-404-PROJECT_NOT_FOUND",
+          "httpStatus": 404,
+          "message": "Project was not found."
+        },
+        {
+          "code": "DATA-409-VERSION_CONFLICT",
+          "httpStatus": 409,
+          "message": "Version, clock, or normalization conflict is unresolved."
+        }
+      ]
+    },
+    {
+      "category": "GATE",
+      "items": [
+        {
+          "code": "GATE-409-DUAL_GATE_BLOCKED",
+          "httpStatus": 409,
+          "message": "Dual-gate policy blocks this action."
+        },
+        {
+          "code": "GATE-409-REVIEW_REQUIRED",
+          "httpStatus": 409,
+          "message": "Review is required before this action can proceed."
+        }
+      ]
+    },
+    {
+      "category": "EXPORT",
+      "items": [
+        {
+          "code": "EXPORT-409-NOT_RELEASEABLE",
+          "httpStatus": 409,
+          "message": "Requested template is not releasable under current release gates."
+        },
+        {
+          "code": "AUDIT-428-APPROVAL_REQUIRED",
+          "httpStatus": 428,
+          "message": "Approval chain is incomplete for this export."
+        }
+      ]
+    },
+    {
+      "category": "CONTACT",
+      "items": [
+        {
+          "code": "CONTACT-409-COMPLIANCE_BLOCKED",
+          "httpStatus": 409,
+          "message": "Contact or outreach is blocked by compliance policy."
+        },
+        {
+          "code": "COVERAGE-409-NOT_SELLABLE",
+          "httpStatus": 409,
+          "message": "Coverage state does not permit sellable execution."
+        },
+        {
+          "code": "BATCH-423-CAPABILITY_NOT_EFFECTIVE",
+          "httpStatus": 423,
+          "message": "Capability is not effective for the current batch or phase."
+        },
+        {
+          "code": "LEADPACK-409-ACTIVATION_PREP_NOT_READY",
+          "httpStatus": 409,
+          "message": "Leadpack candidate activation prep packet is not ready for review."
+        },
+        {
+          "code": "LEADPACK-410-ACTIVATION_DESIGN_PREP_NOT_READY",
+          "httpStatus": 409,
+          "message": "Leadpack activation design / implementation prep packet or implementation decision prerequisites are not ready; missing owner signoff, approval chain, review gate, or audit refs must hold the decision."
+        }
+      ]
+    },
+    {
+      "category": "SURFACE",
+      "items": [
+        {
+          "code": "SURFACE-409-DRAFT_ONLY",
+          "httpStatus": 409,
+          "message": "This surface only supports internal draft flow."
+        },
+        {
+          "code": "SURFACE-409-PREVIEW_ONLY",
+          "httpStatus": 409,
+          "message": "This surface only supports governed preview."
+        },
+        {
+          "code": "SURFACE-423-GOVERNED_HOLD",
+          "httpStatus": 423,
+          "message": "The surface is currently in governed hold."
+        },
+        {
+          "code": "SURFACE-423-INTERNAL_ONLY",
+          "httpStatus": 423,
+          "message": "This surface is internal-only and cannot be treated as external-ready."
+        },
+        {
+          "code": "LIVE-423-EXECUTION_BLOCKED",
+          "httpStatus": 423,
+          "message": "Live execution is blocked by default for this surface."
+        },
+        {
+          "code": "WORKITEM-404-NOT_FOUND",
+          "httpStatus": 404,
+          "message": "Operational work item was not found for the requested internal surface.",
+          "runtimeEnforced": true,
+          "appliesToOperations": [
+            "submitStage7OperatorAction",
+            "submitStage8OperatorAction",
+            "submitStage9OperatorAction"
+          ]
+        },
+        {
+          "code": "ACTION-409-NOT_PENDING",
+          "httpStatus": 409,
+          "message": "Requested operator action is not pending for the current operational state.",
+          "runtimeEnforced": true,
+          "appliesToOperations": [
+            "submitStage7OperatorAction",
+            "submitStage8OperatorAction",
+            "submitStage9OperatorAction"
+          ]
+        },
+        {
+          "code": "ACTION-409-AUDIT_REQUIRED",
+          "httpStatus": 409,
+          "message": "Requested operator action requires audit trace before progression.",
+          "runtimeEnforced": true,
+          "appliesToOperations": [
+            "submitStage7OperatorAction",
+            "submitStage8OperatorAction",
+            "submitStage9OperatorAction"
+          ]
+        },
+        {
+          "code": "ACTION-409-APPROVAL_REQUIRED",
+          "httpStatus": 409,
+          "message": "Requested operator action requires a resolved approval chain before progression.",
+          "runtimeEnforced": true,
+          "appliesToOperations": [
+            "submitStage8OperatorAction",
+            "submitStage9OperatorAction"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,204 @@
+version: 1
+updated_at: "2026-04-16"
+state_type: "EXTERNAL_UNLOCK_PREREQUISITE_BASELINE"
+projection_only: true
+canonical_source_refs:
+  unlock_tier_vocabulary: "contracts/release/external_unlock_prerequisite_matrix.json#unlock_tier_vocabulary"
+  prerequisite_domains: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains"
+  decision_domains: "contracts/release/future_unlock_decision_matrix.json#capability_domains"
+matrix_ref: "contracts/release/external_unlock_prerequisite_matrix.json"
+decision_matrix_ref: "contracts/release/future_unlock_decision_matrix.json"
+leadpack_candidate_matrix_ref: "contracts/release/leadpack_external_delivery_candidate_matrix.json"
+leadpack_activation_prep_evidence_pack_ref: "contracts/release/leadpack_activation_prep_evidence_pack.json"
+leadpack_activation_prep_runbook_ref: "contracts/release/leadpack_activation_prep_runbook.json"
+leadpack_activation_prep_signoff_packet_ref: "contracts/release/leadpack_activation_prep_signoff_packet.json"
+leadpack_activation_prep_transition_ref: "contracts/release/leadpack_activation_prep_transition_matrix.json"
+leadpack_activation_design_implementation_prep_ref: "contracts/release/leadpack_activation_design_implementation_prep_matrix.json"
+leadpack_implementation_decision_readiness_packet_ref: "contracts/release/leadpack_implementation_decision_readiness_packet.json"
+decision_state_ref: "control/future_unlock_decision_state.yaml"
+prerequisite_gate_ref: "contracts/release/release_gates.json#future_unlock_prerequisite_gates"
+unlock_tier_vocabulary_ref: "contracts/release/external_unlock_prerequisite_matrix.json#unlock_tier_vocabulary"
+future_unlock_decision_batch_readiness: "READY_FOR_FUTURE_UNLOCK_DECISION_BATCH"
+external_release_status: "BLOCKED"
+unlock_batch_executed: false
+decision_batch_executed: true
+decision_batch_status: "COMPLETED"
+repo_readiness_at_decision_time: "READY_FOR_POST-R6_CANDIDATE_GAP_BATCH"
+candidate_gap_status_at_decision_time: "LEADPACK_CANDIDATE_GAP_ACTIVE"
+notes:
+  - "This file tracks prerequisite baseline status only."
+  - "control/external_unlock_prerequisite_state.yaml is a status mirror and not a canonical capability semantic source."
+  - "repo_readiness_at_decision_time and candidate_gap_status_at_decision_time are historical R6 decision-time snapshots, not current repo status sources."
+  - "READY_FOR_FUTURE_UNLOCK_DECISION_BATCH does not mean external release or live execution is unlocked."
+  - "R6 decision is completed in a separate decision matrix/state layer; prerequisite completion still does not authorize implementation."
+  - "leadpack candidate matrix adds the projection-only boundary required for the candidate gap batch."
+  - "leadpack activation prep assets are review-only prerequisites and still do not authorize activation or external delivery."
+  - "leadpack activation design / implementation prep assets define pre-implementation gates only and still do not authorize activation, implementation, external delivery or live execution."
+evidence_pack_templates:
+  external_release_core:
+    evidence_pack_required: true
+    required_test_suites:
+      - "REG-FUTURE-UNLOCK-PREREQUISITES"
+      - "REG-FUTURE-UNLOCK-EVIDENCE-PACK"
+      - "REG-FUTURE-UNLOCK-REVIEW-GATE"
+    required_release_checks:
+      - "REL-120"
+      - "REL-121"
+      - "REL-122"
+      - "REL-123"
+    required_owner_signoffs:
+      - "release_approver"
+      - "architecture_owner"
+      - "governance_owner"
+      - "testing_owner"
+      - "automation_owner"
+    required_control_assets:
+      - "control/release_manifest.yaml"
+      - "control/runtime_inventory.yaml"
+      - "control/model_release_manifest.yaml"
+      - "control/review_gate_matrix.yaml"
+    required_runtime_modes:
+      - "APPROVAL_REQUIRED"
+      - "EMERGENCY_OFF"
+    required_shadow_or_canary_state: "SHADOW_THEN_CANARY_REQUIRED"
+    unlock_denial_conditions:
+      - "missing rollback or emergency-off readiness"
+      - "missing owner signoff"
+      - "missing governance/runtime/semantic/architecture evidence"
+  provider_externalization:
+    evidence_pack_required: true
+    required_test_suites:
+      - "EVAL-EXTERNAL-SHADOW"
+      - "EVAL-EXTERNAL-BOUNDARY"
+      - "REG-FUTURE-UNLOCK-EVIDENCE-PACK"
+    required_release_checks:
+      - "REL-132"
+      - "REL-133"
+      - "REL-134"
+      - "REL-135"
+    required_owner_signoffs:
+      - "model_governance_owner"
+      - "governance_owner"
+      - "architecture_owner"
+      - "testing_owner"
+    required_control_assets:
+      - "control/model_release_manifest.yaml"
+      - "contracts/model/model_release_gates.json"
+      - "contracts/model/output_target_matrix.json"
+    required_runtime_modes:
+      - "BUILDABLE_BUT_OFF_BY_DEFAULT"
+      - "SHADOW_MODE"
+      - "EMERGENCY_OFF"
+    required_shadow_or_canary_state: "SHADOW_THEN_CANARY_REQUIRED"
+    unlock_denial_conditions:
+      - "model/tool output targets remain blocked"
+      - "provider audit trace or human review not ready"
+domain_states:
+  external_software_release:
+    unlock_tier: "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    current_default_status: "BLOCKED"
+    decision_state: "DENY_BY_DEFAULT_CONTINUE"
+    evidence_pack_template_ref: "external_release_core"
+    evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
+    owner_signoff_status: "NOT_REQUESTED"
+    shadow_or_canary_status: "NOT_STARTED"
+    denial_conditions_active: true
+  leadpack_external_delivery:
+    unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    current_default_status: "APPROVAL_AND_AUDIT_GATED"
+    decision_state: "FUTURE_UNLOCK_CANDIDATE"
+    evidence_pack_template_ref: "external_release_core"
+    evidence_pack_status: "ACTIVATION_PREP_READY_FOR_REVIEW"
+    owner_signoff_status: "REQUESTED_NOT_APPROVED"
+    shadow_or_canary_status: "NOT_REQUIRED"
+    denial_conditions_active: true
+    candidate_matrix_status: "DEFINED"
+    activation_prep_status: "ACTIVATION_PREP_READY_FOR_REVIEW"
+    activation_prep_runbook_status: "DEFINED"
+    activation_prep_simulation_replay_status: "REPLAY_READY"
+    activation_prep_signoff_packet_status: "PACKET_READY_FOR_REVIEW"
+    activation_prep_review_gate_status: "READY_FOR_REVIEW"
+    activation_design_implementation_prep_status: "ACTIVATION_DESIGN_PREP_READY_FOR_REVIEW"
+    implementation_prep_readiness_gate_status: "FORMAL_HOLD_SOURCES_DEFINED_NOT_IMPLEMENTATION_APPROVED"
+    implementation_decision_readiness_packet_status: "PACKET_HELD"
+    implementation_decision_readiness_packet_review_only: true
+    implementation_decision_ready: false
+    owner_signoff_states:
+      release_approver: "REQUESTED"
+      governance_owner: "REQUESTED"
+      testing_owner: "REQUESTED"
+    implementation_decision_hold_sources:
+      owner_signoff:
+        - "release_approver"
+        - "governance_owner"
+        - "testing_owner"
+      approval_chain:
+        - "internal_review_release"
+        - "client_report_release"
+      review_gate:
+        - "leadpack_candidate_review_gate"
+      audit_ref:
+        - "activation_design_decision_audit_ref"
+  stage8_live_execution:
+    unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    current_default_status: "BLOCKED_BY_DEFAULT"
+    decision_state: "DENY_BY_DEFAULT_CONTINUE"
+    evidence_pack_template_ref: "external_release_core"
+    evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
+    owner_signoff_status: "NOT_REQUESTED"
+    shadow_or_canary_status: "NOT_STARTED"
+    denial_conditions_active: true
+  stage9_live_payment_execution:
+    unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    current_default_status: "BLOCKED_BY_DEFAULT"
+    decision_state: "DENY_BY_DEFAULT_CONTINUE"
+    evidence_pack_template_ref: "external_release_core"
+    evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
+    owner_signoff_status: "NOT_REQUESTED"
+    shadow_or_canary_status: "NOT_STARTED"
+    denial_conditions_active: true
+  stage9_live_delivery_execution:
+    unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    current_default_status: "BLOCKED_BY_DEFAULT"
+    decision_state: "DENY_BY_DEFAULT_CONTINUE"
+    evidence_pack_template_ref: "external_release_core"
+    evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
+    owner_signoff_status: "NOT_REQUESTED"
+    shadow_or_canary_status: "NOT_STARTED"
+    denial_conditions_active: true
+  model_provider_externalized_usage:
+    unlock_tier: "BUILDABLE_BUT_OFF_BY_DEFAULT"
+    current_default_status: "OFF_BY_DEFAULT"
+    decision_state: "DENY_BY_DEFAULT_CONTINUE"
+    evidence_pack_template_ref: "provider_externalization"
+    evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
+    owner_signoff_status: "NOT_REQUESTED"
+    shadow_or_canary_status: "NOT_STARTED"
+    denial_conditions_active: true
+  tool_provider_externalized_usage:
+    unlock_tier: "SHADOW_ONLY"
+    current_default_status: "SHADOW_ONLY"
+    decision_state: "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN"
+    evidence_pack_template_ref: "provider_externalization"
+    evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
+    owner_signoff_status: "NOT_REQUESTED"
+    shadow_or_canary_status: "SHADOW_ONLY"
+    denial_conditions_active: true
+  source_vendor_externalized_usage:
+    unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    current_default_status: "INTERNAL_ONLY"
+    decision_state: "FUTURE_UNLOCK_CANDIDATE"
+    evidence_pack_template_ref: "external_release_core"
+    evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
+    owner_signoff_status: "NOT_REQUESTED"
+    shadow_or_canary_status: "NOT_REQUIRED"
+    denial_conditions_active: true
+  external_export_surface:
+    unlock_tier: "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    current_default_status: "BLOCKED"
+    decision_state: "FUTURE_UNLOCK_CANDIDATE"
+    evidence_pack_template_ref: "external_release_core"
+    evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
+    owner_signoff_status: "NOT_REQUESTED"
+    shadow_or_canary_status: "NOT_REQUIRED"
+    denial_conditions_active: true

@@ -1,0 +1,290 @@
+{
+  "policyVersion": "1.0.1",
+  "policyId": "source_vendor_usage_policy",
+  "ownerDocs": [
+    "D9",
+    "D3"
+  ],
+  "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
+  "usageStates": [
+    "review_only",
+    "support_only",
+    "internal_use",
+    "blocked"
+  ],
+  "policyDefaults": {
+    "allowed_action_intents": [
+      "PREVIEW_ONLY",
+      "INTERNAL_SOURCE_READ"
+    ],
+    "blocked_action_intents": [
+      "APPROVAL_EXECUTION",
+      "LIVE_EXECUTION"
+    ],
+    "default_main_source": false,
+    "formal_main_source_override_allowed": false,
+    "direct_contact_projection_allowed": false,
+    "direct_outreach_projection_allowed": false
+  },
+  "requiredTraceFields": [
+    "vendor_id",
+    "vendor_type",
+    "vendor_role",
+    "source_audit_ref",
+    "query_trace_id",
+    "vendor_response_ref",
+    "fallback_vendor_id",
+    "requires_manual_review"
+  ],
+  "stagePolicies": [
+    {
+      "stage_range": "1-2",
+      "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+      "usage_state": "support_only",
+      "current_capability_mode": "INTERNAL_ONLY",
+      "default_main_source": false,
+      "allowed_actions": [
+        "review",
+        "support",
+        "enrichment"
+      ],
+      "forbidden_actions": [
+        "primary_collection_route",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "1-2",
+      "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "usage_state": "review_only",
+      "current_capability_mode": "SHADOW_MODE",
+      "default_main_source": false,
+      "formal_merge_required": true,
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "allowed_actions": [
+        "review",
+        "support"
+      ],
+      "forbidden_actions": [
+        "primary_collection_route",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "1-2",
+      "vendor_role": "CONTACT_ENRICHMENT_SOURCE",
+      "usage_state": "blocked",
+      "current_capability_mode": "PERMANENTLY_BLOCKED",
+      "default_main_source": false,
+      "allowed_actions": [],
+      "forbidden_actions": [
+        "contact_candidate_generation",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "3-4",
+      "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+      "usage_state": "support_only",
+      "current_capability_mode": "INTERNAL_ONLY",
+      "allowed_actions": [
+        "support_verification",
+        "support_review"
+      ],
+      "forbidden_actions": [
+        "final_verification_decision",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "3-4",
+      "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "usage_state": "support_only",
+      "current_capability_mode": "SHADOW_MODE",
+      "default_main_source": false,
+      "formal_merge_required": true,
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "allowed_actions": [
+        "support_verification",
+        "support_review"
+      ],
+      "forbidden_actions": [
+        "final_verification_decision",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "5-6",
+      "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+      "usage_state": "support_only",
+      "current_capability_mode": "INTERNAL_GOVERNED",
+      "allowed_actions": [
+        "evidence_support_chain",
+        "explanation_support",
+        "review_support"
+      ],
+      "forbidden_actions": [
+        "single_source_gate_decision",
+        "single_source_project_fact_decision",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "5-6",
+      "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "usage_state": "support_only",
+      "current_capability_mode": "SHADOW_MODE",
+      "default_main_source": false,
+      "formal_merge_required": true,
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "allowed_actions": [
+        "evidence_support_chain",
+        "explanation_support",
+        "review_support"
+      ],
+      "forbidden_actions": [
+        "single_source_gate_decision",
+        "single_source_project_fact_decision",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "7",
+      "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+      "usage_state": "internal_use",
+      "current_capability_mode": "INTERNAL_GOVERNED",
+      "allowed_actions": [
+        "public_contact_support",
+        "buyer_fit_support"
+      ],
+      "forbidden_actions": [
+        "final_saleable_opportunity_decision",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "7",
+      "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "usage_state": "support_only",
+      "current_capability_mode": "SHADOW_MODE",
+      "default_main_source": false,
+      "formal_merge_required": true,
+      "carrier_path_required": [
+        "contact_candidate_collection",
+        "contact_selection_trace"
+      ],
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "allowed_actions": [
+        "public_contact_support",
+        "buyer_fit_support"
+      ],
+      "forbidden_actions": [
+        "final_saleable_opportunity_decision",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "7-8",
+      "vendor_role": "CONTACT_ENRICHMENT_SOURCE",
+      "usage_state": "internal_use",
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "formal_merge_required": true,
+      "carrier_path_required": [
+        "contact_candidate_collection",
+        "contact_selection_trace"
+      ],
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "allowed_actions": [
+        "contact_candidate_generation"
+      ],
+      "forbidden_actions": [
+        "formal_contact_release",
+        "formal_main_source_override",
+        "direct_contact_target_projection",
+        "direct_outreach_plan_projection"
+      ]
+    },
+    {
+      "stage_range": "8",
+      "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "usage_state": "support_only",
+      "current_capability_mode": "SHADOW_MODE",
+      "carrier_path_required": [
+        "contact_candidate_collection",
+        "contact_selection_trace"
+      ],
+      "formal_merge_required": true,
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ"],
+      "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
+      "allowed_actions": [
+        "contact_candidate_enrichment",
+        "formal_contact_merge"
+      ],
+      "forbidden_actions": [
+        "formal_contact_release",
+        "formal_main_source_override",
+        "channel_policy_override",
+        "direct_contact_target_projection",
+        "direct_outreach_plan_projection",
+        "compliance_bypass"
+      ]
+    },
+    {
+      "stage_range": "9",
+      "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+      "usage_state": "internal_use",
+      "current_capability_mode": "INTERNAL_GOVERNED",
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ", "INTERNAL_WRITEBACK"],
+      "blocked_action_intents": ["LIVE_EXECUTION"],
+      "allowed_actions": [
+        "audit_reference"
+      ],
+      "forbidden_actions": [
+        "payment_delivery_decision",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "9",
+      "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "usage_state": "internal_use",
+      "current_capability_mode": "SHADOW_MODE",
+      "default_main_source": false,
+      "formal_merge_required": true,
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ", "INTERNAL_WRITEBACK"],
+      "blocked_action_intents": ["LIVE_EXECUTION"],
+      "allowed_actions": [
+        "audit_reference"
+      ],
+      "forbidden_actions": [
+        "payment_delivery_decision",
+        "formal_main_source_override"
+      ]
+    },
+    {
+      "stage_range": "9",
+      "vendor_role": "CONTACT_ENRICHMENT_SOURCE",
+      "usage_state": "internal_use",
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ", "INTERNAL_WRITEBACK"],
+      "blocked_action_intents": ["LIVE_EXECUTION"],
+      "allowed_actions": [
+        "audit_reference"
+      ],
+      "forbidden_actions": [
+        "payment_delivery_decision",
+        "formal_main_source_override"
+      ]
+    }
+  ],
+  "notes": [
+    "capability_mode refines runtime behavior and does not replace usage_state.",
+    "CONTACT_ENRICHMENT_SOURCE remains blocked in stage 1-2 even though the family is buildable later.",
+    "Stage 8 third-party contact supplementation must first materialize into formal merge carriers before any contact_target/outreach consumption."
+  ]
+}

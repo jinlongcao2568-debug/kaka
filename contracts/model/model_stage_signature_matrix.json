@@ -1,0 +1,203 @@
+{
+  "matrix_id": "model-stage-signature-matrix",
+  "version": "1.0.0",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "model governance boundary freeze",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/model/model_stage_signature_matrix.json",
+    "source_documents": [
+      "D14_AI模型治理规范.md",
+      "docs/技术实现决策页.md"
+    ]
+  },
+  "stages": [
+    {
+      "stage": 1,
+      "stage_name": "任务编排",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": false,
+      "hard_dependency": false,
+      "assist_mode": "OPTIONAL_RESERVED",
+      "review_assist_only": false,
+      "signoff_requirement": "NO_FORMAL_SIGNOFF_UNLESS_REVIEW_WRITE",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "routing_explanation_draft",
+        "collection_gap_hint"
+      ],
+      "forbidden_uses": [
+        "primary_collection_judgment",
+        "main_source_decision"
+      ]
+    },
+    {
+      "stage": 2,
+      "stage_name": "公开链抓取",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": false,
+      "hard_dependency": false,
+      "assist_mode": "OPTIONAL_RESERVED",
+      "review_assist_only": false,
+      "signoff_requirement": "NO_FORMAL_SIGNOFF_UNLESS_REVIEW_WRITE",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "collection_exception_summary",
+        "recheck_hint"
+      ],
+      "forbidden_uses": [
+        "formal_collection_state_decision",
+        "version_clock_mainline_decision"
+      ]
+    },
+    {
+      "stage": 3,
+      "stage_name": "结构化解析与归一",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "assist_mode": "STRUCTURED_ASSIST",
+      "review_assist_only": false,
+      "signoff_requirement": "HUMAN_REVIEW_REQUIRED",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "candidate_extraction",
+        "normalization_suggestion",
+        "conflict_explanation",
+        "structured_candidate_completion"
+      ],
+      "forbidden_uses": [
+        "final_normalization_decision",
+        "final_conflict_resolution"
+      ]
+    },
+    {
+      "stage": 4,
+      "stage_name": "核验与补证",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "assist_mode": "REVIEW_ASSIST",
+      "review_assist_only": true,
+      "signoff_requirement": "HUMAN_REVIEW_REQUIRED",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "verification_explanation",
+        "supplement_suggestion",
+        "review_assist"
+      ],
+      "forbidden_uses": [
+        "verification_state_final_decision",
+        "final_evidence_pass_fail_decision"
+      ]
+    },
+    {
+      "stage": 5,
+      "stage_name": "规则与证据",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "assist_mode": "REVIEW_ASSIST",
+      "review_assist_only": true,
+      "signoff_requirement": "HUMAN_REVIEW_REQUIRED",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "evidence_summary",
+        "rule_hit_explanation",
+        "review_assist",
+        "evidence_chain_draft"
+      ],
+      "forbidden_uses": [
+        "rule_gate_decision",
+        "evidence_gate_decision",
+        "formal_gate_release_decision"
+      ]
+    },
+    {
+      "stage": 6,
+      "stage_name": "统一事实与报告",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "assist_mode": "REVIEW_ASSIST",
+      "review_assist_only": true,
+      "signoff_requirement": "HUMAN_REVIEW_REQUIRED",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "report_draft",
+        "review_draft",
+        "risk_summary",
+        "queue_assist"
+      ],
+      "forbidden_uses": [
+        "formal_report_pass_decision",
+        "project_fact_entry_decision"
+      ]
+    },
+    {
+      "stage": 7,
+      "stage_name": "商业承接与可售对象",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "assist_mode": "REVIEW_ASSIST",
+      "review_assist_only": true,
+      "signoff_requirement": "HUMAN_REVIEW_REQUIRED",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "buyer_fit_tag_suggestion",
+        "ranking_reason",
+        "opportunity_summary",
+        "recommendation_draft"
+      ],
+      "forbidden_uses": [
+        "saleable_opportunity_final_decision",
+        "final_offer_recommendation"
+      ]
+    },
+    {
+      "stage": 8,
+      "stage_name": "联系对象与销售触达",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "assist_mode": "REVIEW_ASSIST",
+      "review_assist_only": true,
+      "signoff_requirement": "HUMAN_REVIEW_REQUIRED",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "contact_message_draft",
+        "next_step_suggestion",
+        "strategy_explanation",
+        "review_assist"
+      ],
+      "forbidden_uses": [
+        "contact_target_release_decision",
+        "contact_legal_basis_final_decision",
+        "channel_family_final_decision",
+        "frequency_quiet_hours_opt_out_final_decision"
+      ]
+    },
+    {
+      "stage": 9,
+      "stage_name": "订单支付交付与治理反馈",
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "assist_mode": "REVIEW_ASSIST",
+      "review_assist_only": true,
+      "signoff_requirement": "HUMAN_REVIEW_REQUIRED",
+      "final_decision_prohibited": true,
+      "allowed_uses": [
+        "result_summary",
+        "exception_summary",
+        "governance_summary",
+        "delivery_note_draft"
+      ],
+      "forbidden_uses": [
+        "order_payment_delivery_final_decision",
+        "outcome_governance_writeback_final_decision"
+      ]
+    }
+  ]
+}

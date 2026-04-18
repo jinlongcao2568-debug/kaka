@@ -1,0 +1,217 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "contact_selection_trace",
+  "type": "object",
+  "description": "Formal trace object for Stage 8 winning contact selection and reselection decisions.",
+  "source_refs": [
+    "D2-R-017",
+    "D2-R-094-J",
+    "D9-R-071-B",
+    "D11-R-053-S"
+  ],
+  "properties": {
+    "contact_selection_trace_id": {
+      "type": "string"
+    },
+    "contact_candidate_collection_id": {
+      "type": "string"
+    },
+    "saleable_opportunity_id": {
+      "type": "string"
+    },
+    "multi_competitor_collection_id": {
+      "type": "string"
+    },
+    "winning_contact_candidate_id": {
+      "type": "string"
+    },
+    "selection_policy_id": {
+      "type": "string"
+    },
+    "selection_basis": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "merge_policy_id": {
+      "type": "string"
+    },
+    "dedupe_applied": {
+      "type": "boolean"
+    },
+    "source_conflict_candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "source_merge_review_required_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "trace_entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "type": "string"
+          },
+          "candidate_rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "role_cluster": {
+            "type": "string"
+          },
+          "channel_family": {
+            "type": "string"
+          },
+          "merge_key": {
+            "type": "string"
+          },
+          "merged_candidate_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "merged_source_roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "source_conflict_flag": {
+            "type": "boolean"
+          },
+          "source_conflict_reason_optional": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_merge_review_required": {
+            "type": "boolean"
+          },
+          "organization_channel": {
+            "type": "boolean"
+          },
+          "blocked": {
+            "type": "boolean"
+          },
+          "selected_flag": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "candidate_rank",
+          "score",
+          "role_cluster",
+          "channel_family",
+          "merge_key",
+          "merged_candidate_ids",
+          "merged_source_roles",
+          "source_conflict_flag",
+          "source_conflict_reason_optional",
+          "source_merge_review_required",
+          "organization_channel",
+          "blocked",
+          "selected_flag"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "winning_selection_reason": {
+      "type": "string"
+    },
+    "conflict_flag": {
+      "type": "boolean"
+    },
+    "conflict_reason_optional": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reselect_reason_optional": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "reselect_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "reselect_from_candidate_id": {
+            "type": "string"
+          },
+          "reselect_to_candidate_id": {
+            "type": "string"
+          },
+          "reselect_reason": {
+            "type": "string"
+          },
+          "trigger_response_status": {
+            "type": "string"
+          },
+          "recorded_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reselect_from_candidate_id",
+          "reselect_to_candidate_id",
+          "reselect_reason",
+          "trigger_response_status",
+          "recorded_at"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "created_by_stage": {
+      "type": "integer",
+      "enum": [
+        8
+      ]
+    },
+    "downstream_consumer": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "contact_selection_trace_id",
+    "contact_candidate_collection_id",
+    "saleable_opportunity_id",
+    "multi_competitor_collection_id",
+    "winning_contact_candidate_id",
+    "selection_policy_id",
+    "selection_basis",
+    "merge_policy_id",
+    "dedupe_applied",
+    "source_conflict_candidate_count",
+    "source_merge_review_required_count",
+    "trace_entries",
+    "winning_selection_reason",
+    "conflict_flag",
+    "reselect_history",
+    "created_by_stage",
+    "downstream_consumer"
+  ],
+  "additionalProperties": false
+}

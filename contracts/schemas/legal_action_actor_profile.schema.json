@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "legal_action_actor_profile",
+  "type": "object",
+  "description": "Schema skeleton for legal_action_actor_profile.",
+  "source_refs": [
+    "D2-R-017"
+  ],
+  "enum_refs": [
+    "actor_role_cluster",
+    "standing_state",
+    "action_window_state",
+    "actionability_state"
+  ],
+  "properties": {
+    "actor_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "actor_org_name": {
+      "type": "string"
+    },
+    "actor_role_cluster": {
+      "type": "string"
+    },
+    "standing_state": {
+      "type": "string"
+    },
+    "action_window_state": {
+      "type": "string"
+    },
+    "actionability_state": {
+      "type": "string"
+    },
+    "action_family_scope": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "actor_id",
+    "project_id",
+    "actor_org_name",
+    "actor_role_cluster",
+    "standing_state",
+    "action_window_state",
+    "actionability_state",
+    "action_family_scope"
+  ],
+  "additionalProperties": false
+}

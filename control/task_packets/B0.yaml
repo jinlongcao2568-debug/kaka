@@ -1,0 +1,118 @@
+version: 1
+batch_id: B0
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: BOOTSTRAP_ALREADY_PREPARED
+title: Semantic Source And Gate Baseline
+status: DONE
+objective: "Lock canonical sources, review gates, route-map semantics, and full-repair execution control assets before any runtime or workflow-wide repair."
+why_now: "Without a stable semantic source and gate baseline, later batches will drift across docs/contracts/control/runtime/tests."
+depends_on: []
+non_goals:
+  - "Do not execute any downstream runtime/business repair in this batch."
+  - "Do not weaken blocked or governed redlines."
+  - "not an external unlock implementation"
+affected_stages:
+  - control_plane
+  - execution_governance
+declared_changed_paths:
+  - control/ax9s_full_repair_plan.yaml
+  - control/ax9s_full_repair_status.yaml
+  - control/ax9s_validation_matrix.yaml
+  - control/ax9s_review_escalation_matrix.yaml
+  - control/ax9s_window_prompt_template.md
+  - control/ax9s_window_closeout_template.md
+  - control/ax9s_scoped_task_packet_template.yaml
+  - control/task_packets/**
+  - control/reference_index.json
+change_domains:
+  - automation_control_core
+  - governance_release_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+impacted_assets:
+  docs:
+    - docs/文档与资产状态板.md
+    - docs/AX9S_开发执行路由图.md
+  control:
+    - control/ax9s_full_repair_plan.yaml
+    - control/ax9s_full_repair_status.yaml
+    - control/ax9s_validation_matrix.yaml
+    - control/ax9s_review_escalation_matrix.yaml
+    - control/ax9s_window_prompt_template.md
+    - control/ax9s_window_closeout_template.md
+    - control/ax9s_scoped_task_packet_template.yaml
+    - control/task_packets
+    - control/reference_index.json
+  contracts: []
+  handoff: []
+  scripts: []
+  tests: []
+  code: []
+source_of_truth_refs:
+  docs:
+    - docs/L0.md
+    - docs/裁决总表.md
+    - docs/D1_研发_Codex执行手册.md
+    - docs/D11_测试验收与金标回归清单.md
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/D13_公开可查边界能力清单.md
+    - docs/D14_AI模型治理规范.md
+    - docs/技术实现决策页.md
+    - docs/文档与资产状态板.md
+  control:
+    - control/repo_status.md
+    - control/review_gate_matrix.yaml
+    - control/automation_task_packet_rules.yaml
+    - control/reference_index.json
+allowed_modification_paths:
+  - control/ax9s_full_repair_plan.yaml
+  - control/ax9s_full_repair_status.yaml
+  - control/ax9s_validation_matrix.yaml
+  - control/ax9s_review_escalation_matrix.yaml
+  - control/ax9s_window_prompt_template.md
+  - control/ax9s_window_closeout_template.md
+  - control/task_packets/**
+  - control/reference_index.json
+  - docs/文档与资产状态板.md
+  - docs/AX9S_开发执行路由图.md
+forbidden_modification_paths:
+  - docs/L0.md
+  - contracts/release/**
+  - contracts/governance/**
+  - src/**
+  - tests/**
+primary_outputs:
+  - "Full-repair canonical execution plan and status ledger"
+  - "B0-B10 machine-readable batch packets"
+  - "Window bootstrap and closeout templates"
+deliverables:
+  - "Full-repair canonical execution plan and status ledger"
+  - "B0-B10 machine-readable batch blueprints"
+  - "Scoped subpacket template"
+  - "Window bootstrap and closeout templates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+stop_conditions:
+  - "A second formal status source is introduced."
+  - "Any full-repair asset weakens blocked/governed redlines."
+  - "Any required script fails."
+definition_of_done:
+  - "A new window can determine the next batch from the status ledger without re-planning."
+  - "A new window can read one canonical prompt template and one canonical batch packet."
+  - "The sequence B0-B10 is fixed in a machine-readable plan."
+next_batch_entry_rule: "B0 is already done; B1 is the first executable downstream batch."
+required_owner_reviews:
+  - automation_owner
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+  - release_approver
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: OWNER_APPROVED_AFTER_BOOTSTRAP_PREP
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B0-S0
+    objective: "Bootstrap assets were already prepared in the repository; do not re-run as a new execution window."

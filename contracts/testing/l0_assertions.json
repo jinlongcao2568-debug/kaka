@@ -1,0 +1,143 @@
+{
+  "registry_id": "l0-assertions",
+  "version": "0.1.0",
+  "metadata": {
+    "package_name": "testing package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-12",
+    "machine_path": "contracts/testing/l0_assertions.json",
+    "scope": "load-bearing L0 assertions and blocking checks for pre-code readiness",
+    "source_documents": [
+      "L0.md",
+      "D11_测试验收与金标回归清单.md",
+      "D2_正式对象契约与字段字典.md",
+      "D3_正式规则码总表与判定说明书.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D13_公开可查边界能力清单.md",
+      "D14_AI模型治理规范.md",
+      "裁决总表.md"
+    ]
+  },
+  "assertions": [
+    {
+      "assertionId": "L0-A-001",
+      "title": "D 层输入不得进入正式公开主链",
+      "severity": "BLOCKER",
+      "blocking": true,
+      "checkFamilies": [
+        "public_boundary",
+        "delivery_release",
+        "api_surface",
+        "ui_surface",
+        "field_policy"
+      ],
+      "expected": "No D_NON_PUBLIC_OR_FORENSIC input may enter formal public model, client delivery, external action assist, external API, or top-level page judgement.",
+      "failureSignals": [
+        "D-tier sourceRefs appear in public release bundle",
+        "D-tier result promoted to AUTO_HIT or formal fact",
+        "governance-isolated object projected to client or external surfaces"
+      ],
+      "sourceRefs": [
+        "L0-A-001",
+        "D13-R-040",
+        "D7-R-018"
+      ]
+    },
+    {
+      "assertionId": "L0-A-002",
+      "title": "project_fact 是唯一正式统一事实中枢",
+      "severity": "BLOCKER",
+      "blocking": true,
+      "checkFamilies": [
+        "schema",
+        "api_surface",
+        "ui_surface",
+        "commercial_generation"
+      ],
+      "expected": "Top-level project judgement, formal report summary, and saleability decision must consume project_fact rather than recompute from lower-level objects.",
+      "failureSignals": [
+        "project detail API returns top-level judgement without project_fact linkage",
+        "UI recomputes main conclusion from rule_hit or raw notice",
+        "saleable_opportunity generated without project_fact"
+      ],
+      "sourceRefs": [
+        "L0-A-002",
+        "D2-R-038",
+        "D4-R-010",
+        "D5-R-010"
+      ]
+    },
+    {
+      "assertionId": "L0-A-003",
+      "title": "双闸门缺一不可",
+      "severity": "BLOCKER",
+      "blocking": true,
+      "checkFamilies": [
+        "rules",
+        "gates",
+        "release"
+      ],
+      "expected": "Formal upgrades require rule_gate_decision=PASS and evidence_gate_decision=PASS together.",
+      "failureSignals": [
+        "AUTO_HIT emitted with only one gate PASS",
+        "external action release allowed when any gate is REVIEW or BLOCK",
+        "manual override bypasses higher-priority block"
+      ],
+      "sourceRefs": [
+        "L0-A-003",
+        "D3-R-022",
+        "D7-R-016"
+      ]
+    },
+    {
+      "assertionId": "L0-A-004",
+      "title": "saleable_opportunity 必须消费阶段 6 正式对象",
+      "severity": "BLOCKER",
+      "blocking": true,
+      "checkFamilies": [
+        "schema",
+        "commercial_generation",
+        "api_surface"
+      ],
+      "expected": "saleable_opportunity may only originate from project_fact plus formal D8 objects such as challenger profile, buyer fit, and offer recommendation.",
+      "failureSignals": [
+        "sales lead generated directly from single rule hit",
+        "saleable_opportunity references CRM note or raw project notice as source of truth",
+        "commercial API bypasses project_fact"
+      ],
+      "sourceRefs": [
+        "L0-A-004",
+        "D8-R-030",
+        "D2-R-043"
+      ]
+    },
+    {
+      "assertionId": "L0-A-005",
+      "title": "自然人高限制触达必须受审批、频控与 quiet hours 约束",
+      "severity": "BLOCKER",
+      "blocking": true,
+      "checkFamilies": [
+        "field_policy",
+        "release",
+        "outreach",
+        "governance"
+      ],
+      "expected": "Any formal contact release involving natural person high restriction fields must satisfy lawful basis, approval chain, frequency policy, opt-out, and quiet-hours checks.",
+      "failureSignals": [
+        "contact_target auto_contact_allowed true without approval chain",
+        "raw phone or email exposed without mask or release gate",
+        "touch_record created when opt_out_state is active"
+      ],
+      "sourceRefs": [
+        "L0-A-005",
+        "D6-R-028",
+        "D7-R-016",
+        "D9-R-022"
+      ]
+    }
+  ]
+}
+
+
+

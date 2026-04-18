@@ -1,0 +1,78 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "opportunity_catalog",
+  "ownerDocs": [
+    "D8"
+  ],
+  "entries": [
+    {
+      "objectType": "sales_lead",
+      "stage": 7,
+      "requiredFields": [
+        "lead_id",
+        "project_id",
+        "lead_reason_summary",
+        "lead_score",
+        "lead_status"
+      ],
+      "sourceL0Refs": [
+        "L0-R-006",
+        "L0-R-007"
+      ],
+      "dependsOnObjects": [
+        "project_fact",
+        "challenger_candidate_profile"
+      ],
+      "blockingPolicies": [
+        "project_fact_required",
+        "dual_gate_required"
+      ],
+      "derivationRefs": [
+        "contracts/sales/lead_value_scoring_catalog.json#models/LEAD-VALUE-001"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "notes": "阶段 7 销售线索内部承接。"
+    },
+    {
+      "objectType": "saleable_opportunity",
+      "stage": 7,
+      "requiredFields": [
+        "opportunity_id",
+        "project_id",
+        "recommended_sku",
+        "buyer_fit_id",
+        "challenger_profile_id",
+        "saleability_status",
+        "crm_owner_state"
+      ],
+      "sourceL0Refs": [
+        "L0-R-006",
+        "L0-R-007"
+      ],
+      "dependsOnObjects": [
+        "project_fact",
+        "buyer_fit",
+        "offer_recommendation"
+      ],
+      "blockingPolicies": [
+        "coverage_delivery_gates",
+        "dual_gate_required"
+      ],
+      "derivationRefs": [
+        "contracts/sales/buyer_fit_scorecard.json#scorecards/general_buyer_fit_v1",
+        "contracts/sales/lead_value_scoring_catalog.json#models/OPPORTUNITY-VALUE-001",
+        "contracts/sales/opportunity_policy_catalog.json#expectedBandPolicies/OPPORTUNITY-BAND-001"
+      ],
+      "releaseScope": "INTERNAL_ONLY_PREVIEW",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "notes": "机会池内部预览，不对外放行。"
+    }
+  ]
+}

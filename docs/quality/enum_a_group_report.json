@@ -1,0 +1,299 @@
+{
+  "A_group": [
+    "action_family",
+    "award_determination_mode",
+    "candidate_group_label",
+    "candidate_order_mode",
+    "candidate_position_label",
+    "carrier_type",
+    "clock_state",
+    "commercial_urgency_level",
+    "competitor_quality_grade",
+    "confidence_band",
+    "conflict_state",
+    "cross_check_state",
+    "fixation_status",
+    "lineage_status",
+    "missing_condition_family",
+    "procurement_regime",
+    "project_manager_conflict_clue_status",
+    "provenance_chain_status",
+    "public_chain_status",
+    "report_status",
+    "retrieval_readiness_status",
+    "review_queue_bucket",
+    "saleability_status",
+    "verification_state",
+    "version_conflict_state",
+    "window_clock_state",
+    "window_risk_level",
+    "window_status"
+  ],
+  "B_group": [
+    "account_role_summary",
+    "action_window_state",
+    "actionability_state",
+    "actor_role_cluster",
+    "amount_band",
+    "approval_state",
+    "archival_status",
+    "buyer_type",
+    "channel_policy_status",
+    "commercial_status",
+    "contact_failure_state",
+    "contact_validity_status",
+    "crm_owner_state",
+    "delivery_status",
+    "lead_status",
+    "order_status",
+    "outcome_family",
+    "payer_mismatch_state",
+    "payment_authority_state",
+    "payment_status",
+    "procurement_authority_state",
+    "purchase_authority_state",
+    "reachable_state",
+    "reasonable_expectation_status",
+    "recommended_delivery_form",
+    "recommended_quote_band",
+    "response_status",
+    "retrieval_status",
+    "sku_code",
+    "standing_state",
+    "trigger_type",
+    "window_missed_state"
+  ],
+  "C_group": [
+    "exception_scope",
+    "exception_state",
+    "model_usage_scope",
+    "release_status",
+    "usable_scope"
+  ],
+  "A_report": [
+    {
+      "enum_name": "action_family",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "award_determination_mode",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "candidate_group_label",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "candidate_order_mode",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "candidate_position_label",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "carrier_type",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "clock_state",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "commercial_urgency_level",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "competitor_quality_grade",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "confidence_band",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "conflict_state",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "cross_check_state",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "fixation_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "lineage_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "missing_condition_family",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "procurement_regime",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "project_manager_conflict_clue_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "provenance_chain_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "public_chain_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "report_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "retrieval_readiness_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "review_queue_bucket",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "saleability_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "verification_state",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "version_conflict_state",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "window_clock_state",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "window_risk_level",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    },
+    {
+      "enum_name": "window_status",
+      "status": "VALIDATING_PLACEHOLDER",
+      "candidate_values": [],
+      "source_refs": [],
+      "confidence_level": "LOW",
+      "requires_manual_confirmation": true
+    }
+  ]
+}

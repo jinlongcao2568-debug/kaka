@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "review_queue_profile",
+  "type": "object",
+  "description": "Schema skeleton for review_queue_profile.",
+  "source_refs": [
+    "D2-R-046",
+    "D2-R-090",
+    "D2-R-094-I"
+  ],
+  "enum_refs": [
+    "review_lane",
+    "review_queue_bucket",
+    "window_risk_level",
+    "commercial_urgency_level"
+  ],
+  "properties": {
+    "queue_profile_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "review_lane": {
+      "type": "string",
+      "description": "Derived review lane from WINDOW-STATUS-001."
+    },
+    "review_priority_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Formal queue score derived from window urgency, risk, and commercial urgency."
+    },
+    "review_queue_bucket": {
+      "type": "string",
+      "description": "Formal bucket derived from WINDOW-STATUS-001 queue priority policy."
+    },
+    "window_risk_level": {
+      "type": "string",
+      "description": "Window risk level aligned with window_value_policy_catalog."
+    },
+    "commercial_urgency_level": {
+      "type": "string",
+      "description": "Commercial urgency input normalized by queue policy; defaults to NORMAL when absent."
+    },
+    "assigned_reviewer_optional": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "queue_profile_id",
+    "project_id",
+    "review_lane",
+    "review_priority_score",
+    "review_queue_bucket",
+    "window_risk_level",
+    "commercial_urgency_level",
+    "assigned_reviewer_optional"
+  ],
+  "additionalProperties": false
+}

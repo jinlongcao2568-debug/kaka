@@ -1,0 +1,15 @@
+{
+  "handoff_id": "H-08-STAGE8-TO-STAGE9",
+  "source_rules_ref": "handoff/validation_rules.json",
+  "rule_refs": [
+    "HV-008"
+  ],
+  "global_rule_refs": [
+    "HV-009"
+  ],
+  "notes": [
+    "enum confirmed: response_status, saleability_status, crm_owner_state",
+    "required payload completeness enforced by H-08 contract: opportunity_id, touch_record_id, response_status, saleability_status, crm_owner_state",
+    "Stage9 consumer must consume saleable_opportunity + touch_record and fail on missing H-08 required payload fields instead of synthesizing defaults"
+  ]
+}

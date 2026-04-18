@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "outreach_plan",
+  "type": "object",
+  "description": "Schema skeleton for outreach_plan.",
+  "source_refs": [
+    "D2-R-017",
+    "D2-R-093",
+    "D9-R-066",
+    "D9-R-068"
+  ],
+  "enum_refs": [
+    "channel_family",
+    "approval_state",
+    "plan_status",
+    "run_mode",
+    "automation_level",
+    "vendor_type",
+    "vendor_role"
+  ],
+  "properties": {
+    "outreach_plan_id": {
+      "type": "string"
+    },
+    "opportunity_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "saleability_status": {
+      "type": "string"
+    },
+    "contact_target_id": {
+      "type": "string"
+    },
+    "execution_vendor_id_optional": {
+      "type": "string"
+    },
+    "execution_vendor_type_optional": {
+      "type": "string"
+    },
+    "execution_vendor_role_optional": {
+      "type": "string"
+    },
+    "channel_strategy": {
+      "type": "string"
+    },
+    "requested_delivery_surface": {
+      "type": "string"
+    },
+    "projection_mode": {
+      "type": "string"
+    },
+    "cadence_profile_id": {
+      "type": "string"
+    },
+    "retry_policy_id": {
+      "type": "string"
+    },
+    "stop_policy_id": {
+      "type": "string"
+    },
+    "primary_message": {
+      "type": "string"
+    },
+    "planned_touch_at": {
+      "type": "string"
+    },
+    "attempt_index": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "approval_state": {
+      "type": "string"
+    },
+    "plan_status": {
+      "type": "string"
+    },
+    "run_mode": {
+      "type": "string"
+    },
+    "automation_level": {
+      "type": "string"
+    },
+    "next_touch_due_at_optional": {
+      "type": "string"
+    },
+    "retry_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_retry_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stop_reason_optional": {
+      "type": "string"
+    },
+    "approval_run_required": {
+      "type": "boolean"
+    },
+    "writeback_required": {
+      "type": "boolean"
+    },
+    "writeback_target_optional": {
+      "type": "string"
+    },
+    "permission_decision_state": {
+      "type": "string"
+    },
+    "governance_decision_state": {
+      "type": "string"
+    },
+    "semantic_decision_state": {
+      "type": "string"
+    },
+    "governed_metadata": {
+      "type": "object"
+    },
+    "execution_trace_id_optional": {
+      "type": "string"
+    },
+    "vendor_response_ref_optional": {
+      "type": "string"
+    },
+    "fallback_vendor_id_optional": {
+      "type": "string"
+    },
+    "requires_manual_review": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "outreach_plan_id",
+    "opportunity_id",
+    "project_id",
+    "saleability_status",
+    "contact_target_id",
+    "execution_vendor_id_optional",
+    "execution_vendor_type_optional",
+    "execution_vendor_role_optional",
+    "channel_strategy",
+    "requested_delivery_surface",
+    "projection_mode",
+    "cadence_profile_id",
+    "retry_policy_id",
+    "stop_policy_id",
+    "primary_message",
+    "planned_touch_at",
+    "attempt_index",
+    "approval_state",
+    "plan_status",
+    "run_mode",
+    "automation_level",
+    "next_touch_due_at_optional",
+    "retry_count",
+    "max_retry_count",
+    "stop_reason_optional",
+    "approval_run_required",
+    "writeback_required",
+    "writeback_target_optional",
+    "permission_decision_state",
+    "governance_decision_state",
+    "semantic_decision_state",
+    "governed_metadata",
+    "execution_trace_id_optional",
+    "vendor_response_ref_optional",
+    "fallback_vendor_id_optional",
+    "requires_manual_review"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,33 @@
+version: 1
+updated_at: "2026-04-14"
+status: "NO_ACTIVE_MODELS_REGISTERED"
+current_state: "ACTIVE"
+single_operator_mode: true
+responsible_role: "model_governance_owner"
+responsible_person: "卡卡罗特"
+fallback_person: ""
+escalation_path: []
+activation_condition: "model registration or governance review requested"
+source_refs:
+  - "D14-R-010"
+  - "D14-R-038"
+  - "D14-R-054"
+model_catalog_ref: "contracts/model/model_catalog.json"
+model_usage_policy_ref: "contracts/model/model_usage_policy.json"
+prompt_policy_catalog_ref: "contracts/model/prompt_policy_catalog.json"
+eval_suite_catalog_ref: "contracts/model/eval_suite_catalog.json"
+output_target_matrix_ref: "contracts/model/output_target_matrix.json"
+model_release_gates_ref: "contracts/model/model_release_gates.json"
+model_golden_cases_ref: "contracts/testing/model_golden_cases.json"
+release_states:
+  - "DRAFT"
+  - "VALIDATING"
+  - "INTERNAL_ONLY"
+  - "FORMAL_CONSTRAINED"
+  - "SUSPENDED"
+models: []
+notes:
+  - "Registry intentionally empty until model catalog, eval suites, and release gates are confirmed."
+  - "Models are internal-assist only; not allowed to decide external delivery."
+external_delivery_decision_allowed: false
+internal_assist_only: true

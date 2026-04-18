@@ -1,0 +1,229 @@
+{
+  "catalogVersion": "1.1.0",
+  "ownerDocs": [
+    "D9",
+    "D10",
+    "D2",
+    "D3"
+  ],
+  "sourceVendorRegistryRef": "contracts/sales/vendor_registry_catalog.json",
+  "sourceVendorUsagePolicyRef": "contracts/sales/source_vendor_usage_policy.json",
+  "executionVendorPolicyRef": "contracts/sales/channel_vendor_execution_policy.json",
+  "capabilityModeVocabularyRef": "control/runtime_inventory.yaml#capability_mode_vocabulary",
+  "contactTargetPolicy": {
+    "targetObject": "contact_target",
+    "requiredInputs": [
+      "saleable_opportunity",
+      "account_context",
+      "contact_source_metadata"
+    ],
+    "allowedSourceRoles": [
+      "PUBLIC_OFFICIAL_SOURCE",
+      "THIRD_PARTY_SUPPORT_SOURCE",
+      "CONTACT_ENRICHMENT_SOURCE"
+    ],
+    "forbiddenSourceFamilies": [
+      "GRAY_MARKET",
+      "UNAUDITABLE_IMPORT",
+      "SCRAPED_PERSONAL_DIRECTORY"
+    ],
+    "requiredFields": [
+      "opportunity_id",
+      "saleability_status",
+      "org_name",
+      "org_type",
+      "role",
+      "public_contact_source",
+      "source_vendor_id_optional",
+      "source_vendor_type_optional",
+      "source_vendor_role",
+      "source_audit_ref",
+      "query_trace_id",
+      "vendor_response_ref_optional",
+      "fallback_vendor_id_optional",
+      "contact_channel",
+      "channel_family",
+      "contact_validity_status",
+      "contact_legal_basis",
+      "reasonable_expectation_status",
+      "channel_policy_status",
+      "frequency_policy_state",
+      "opt_out_state",
+      "quiet_hours_policy_state",
+      "auto_contact_allowed",
+      "requires_manual_review",
+      "primary_contact_flag",
+      "contact_priority_score",
+      "contact_priority_reason_tags",
+      "contact_candidate_rank",
+      "contact_selection_reason",
+      "contact_conflict_flag",
+      "contact_conflict_reason"
+    ],
+    "requiredTraceFields": [
+      "source_audit_ref",
+      "query_trace_id",
+      "vendor_response_ref_optional",
+      "fallback_vendor_id_optional",
+      "requires_manual_review"
+    ],
+    "priorityPolicyRef": "contracts/sales/contact_priority_policy_catalog.json#CONTACT-PRIORITY-001",
+    "priorityOutputFields": [
+      "primary_contact_flag",
+      "contact_priority_score",
+      "contact_priority_reason_tags",
+      "contact_candidate_rank",
+      "contact_selection_reason",
+      "contact_conflict_flag",
+      "contact_conflict_reason"
+    ],
+    "conflictResolutionRules": [
+      "contact_conflict_flag=true requires_manual_review=true",
+      "organization-first rule applies unless org path invalid"
+    ],
+    "defaultHighRestrictionRule": {
+      "scope": "natural_person_precise_contact",
+      "requires_manual_review": true,
+      "defaultMaskRule": "PHONE_MASK"
+    },
+    "defaultCapabilityMode": "INTERNAL_GOVERNED"
+  },
+  "outreachPolicy": {
+    "targetObject": "outreach_plan",
+    "requiredStates": [
+      "contact_validity_status=VALID",
+      "contact_legal_basis in [PUBLIC_ROLE_CONTACT, CUSTOMER_AUTHORIZED_CONTACT, COMPLIANT_CRM_CONTACT]",
+      "channel_policy_status=ALLOW",
+      "frequency_policy_state=ALLOW",
+      "opt_out_state=ACTIVE",
+      "quiet_hours_policy_state=ALLOW"
+    ],
+    "requiredExecutionFields": [
+      "opportunity_id",
+      "execution_vendor_id_optional",
+      "execution_vendor_type_optional",
+      "execution_vendor_role_optional",
+      "channel_execution_adapter",
+      "execution_trace_id_optional",
+      "vendor_response_ref_optional",
+      "fallback_vendor_id_optional",
+      "requires_manual_review",
+      "requested_delivery_surface",
+      "projection_mode",
+      "permission_decision_state",
+      "governance_decision_state",
+      "semantic_decision_state",
+      "governed_metadata"
+    ],
+    "blockedWhen": [
+      "requires_manual_review=true and approval missing",
+      "contact_legal_basis in [REVIEW_REQUIRED,BLOCKED]",
+      "coverage_sellable_state in [NOT_READY,SUSPENDED]",
+      "execution_policy_state=BLOCKED"
+    ],
+    "reviewWhen": [
+      "contact_conflict_flag=true",
+      "channel_family in [AUTHORIZED_PERSON_DIRECT,SOCIAL_DM,IM_DIRECT,PERSONAL_PHONE,PERSONAL_EMAIL]",
+      "execution_policy_state=APPROVAL_REQUIRED"
+    ],
+    "allowedChannelFamilies": [
+      "ORG_EMAIL",
+      "ORG_PHONE",
+      "PUBLIC_FORM",
+      "CRM_APPROVED_DIRECT",
+      "AUTHORIZED_PERSON_DIRECT",
+      "SOCIAL_DM",
+      "IM_DIRECT",
+      "PERSONAL_PHONE",
+      "PERSONAL_EMAIL"
+    ],
+    "reviewRequiredChannelFamilies": [
+      "AUTHORIZED_PERSON_DIRECT",
+      "SOCIAL_DM",
+      "IM_DIRECT",
+      "PERSONAL_PHONE",
+      "PERSONAL_EMAIL"
+    ],
+    "allowedExecutionStates": [
+      "PREVIEW_ONLY",
+      "DRY_RUN",
+      "APPROVAL_REQUIRED"
+    ],
+    "blockedExecutionStates": [
+      "BLOCKED"
+    ],
+    "defaultCapabilityMode": "DRY_RUN",
+    "approvalCapabilityModes": [
+      "APPROVAL_REQUIRED"
+    ],
+    "realRunReadyCapabilityModes": [
+      "REAL_RUN_READY"
+    ],
+    "blockedCapabilityModes": [
+      "PERMANENTLY_BLOCKED",
+      "EMERGENCY_OFF"
+    ],
+    "defaultExecutionMode": "DRY_RUN",
+    "enumRefs": [
+      "channel_family",
+      "contact_legal_basis",
+      "channel_policy_status",
+      "frequency_policy_state",
+      "opt_out_state",
+      "quiet_hours_policy_state"
+    ],
+    "cadencePolicyRef": "contracts/sales/outreach_cadence_catalog.json#OUTREACH-CADENCE-001",
+    "retryPolicyRef": "contracts/sales/retry_policy_catalog.json#RETRY-001",
+    "stopPolicyRef": "contracts/sales/touch_stop_condition_catalog.json#STOP-001"
+  },
+  "touchRecordPolicy": {
+    "targetObject": "touch_record",
+    "requiredFields": [
+      "touch_record_id",
+      "opportunity_id",
+      "project_id",
+      "contact_target_id",
+      "touch_channel",
+      "touch_at",
+      "response_status",
+      "feedback_reason",
+      "next_step_optional",
+      "attempt_index",
+      "stop_reason_optional",
+      "written_back_at_optional",
+      "retry_scheduled_optional",
+      "failure_reason_tag_optional",
+      "writeback_targets",
+      "writeback_target_optional",
+      "permission_decision_state",
+      "governance_decision_state",
+      "semantic_decision_state",
+      "governed_metadata",
+      "execution_vendor_id_optional",
+      "execution_vendor_type_optional",
+      "execution_vendor_role_optional",
+      "execution_trace_id_optional",
+      "vendor_response_ref_optional"
+    ],
+    "mustLinkTo": [
+      "saleable_opportunity",
+      "contact_target",
+      "outreach_plan"
+    ],
+    "writebackTargets": [
+      "sales_lead",
+      "project_fact",
+      "opportunity_outcome_event"
+    ],
+    "executionWritebackModes": [
+      "PREVIEW_ONLY",
+      "DRY_RUN",
+      "APPROVAL_REQUIRED"
+    ],
+    "defaultCapabilityMode": "SHADOW_MODE"
+  },
+  "notes": [
+    "capability_mode is runtime-only and does not replace execution_policy_state or run_mode.",
+    "Stage 8 default remains DRY_RUN even when a vendor becomes REAL_RUN_READY."
+  ]
+}

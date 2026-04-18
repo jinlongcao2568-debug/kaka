@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "project_base",
+  "type": "object",
+  "description": "Stage3 formal structured truth root for project_base; downstream stages must consume this object rather than recompute parsed project truth.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-017"
+  ],
+  "enum_refs": [
+    "procurement_regime",
+    "candidate_order_mode",
+    "award_determination_mode",
+    "public_chain_status"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string"
+    },
+    "project_root_id": {
+      "type": "string"
+    },
+    "notice_version_id": {
+      "type": "string"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "region_code": {
+      "type": "string"
+    },
+    "source_family": {
+      "type": "string"
+    },
+    "procurement_regime": {
+      "type": "string"
+    },
+    "procurement_category": {
+      "type": "string"
+    },
+    "bid_eval_method": {
+      "type": "string"
+    },
+    "candidate_order_mode": {
+      "type": "string"
+    },
+    "award_determination_mode": {
+      "type": "string"
+    },
+    "public_chain_status": {
+      "type": "string"
+    },
+    "stage3_truth_layer_ref_optional": {
+      "type": "string"
+    },
+    "field_lineage_collection_ref_optional": {
+      "type": "string"
+    },
+    "bidder_candidate_collection_ref_optional": {
+      "type": "string"
+    },
+    "stage3_review_path_ref_optional": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_id",
+    "project_root_id",
+    "notice_version_id",
+    "project_name",
+    "region_code",
+    "source_family",
+    "procurement_regime",
+    "procurement_category",
+    "bid_eval_method",
+    "candidate_order_mode",
+    "award_determination_mode",
+    "public_chain_status"
+  ],
+  "additionalProperties": false
+}

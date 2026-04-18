@@ -1,0 +1,122 @@
+version: 1
+batch_id: B2
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Stage3 Truth Layer Closure
+status: NOT_STARTED
+objective: "Upgrade Stage3 from single-record parsing to a true truth-layer carrier with candidate collections, lineage closure, and unresolved/review paths."
+why_now: "Stage3 must be a real truth layer before verification and commercial chains can be hardened without drift."
+depends_on: [B1]
+non_goals:
+  - "Do not repair Stage4+ semantics in this blueprint."
+  - "Do not add a second parser truth system."
+  - "not an external unlock implementation"
+affected_stages:
+  - stage3_parsing
+declared_changed_paths:
+  - contracts/schemas/project_base.schema.json
+  - contracts/schemas/field_lineage_record.schema.json
+  - contracts/schemas/bidder_candidate.schema.json
+  - contracts/schemas/schema_catalog.json
+  - handoff/stage2_to_stage3/**
+  - handoff/stage3_to_stage4/**
+  - src/stage3_parsing/**
+  - tests/test_internal_chain.py
+impacted_assets:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D11_测试验收与金标回归清单.md
+  control: []
+  contracts:
+    - contracts/schemas/project_base.schema.json
+    - contracts/schemas/field_lineage_record.schema.json
+    - contracts/schemas/bidder_candidate.schema.json
+    - contracts/schemas/schema_catalog.json
+  handoff:
+    - handoff/stage2_to_stage3
+    - handoff/stage3_to_stage4
+  scripts: []
+  tests:
+    - tests/test_internal_chain.py
+    - tests/test_architecture_anti_drift.py
+    - tests/test_semantic_runtime_validator.py
+  code:
+    - src/stage3_parsing
+change_domains:
+  - shared_runtime_core
+  - scripts_and_tests_general
+  - automation_control_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D11_测试验收与金标回归清单.md
+  contracts:
+    - contracts/schemas/project_base.schema.json
+    - contracts/schemas/field_lineage_record.schema.json
+    - contracts/schemas/bidder_candidate.schema.json
+    - contracts/schemas/schema_catalog.json
+  handoff:
+    - handoff/stage2_to_stage3/contract.json
+    - handoff/stage3_to_stage4/contract.json
+allowed_modification_paths:
+  - docs/D2_正式对象契约与字段字典.md
+  - docs/D11_测试验收与金标回归清单.md
+  - contracts/schemas/project_base.schema.json
+  - contracts/schemas/field_lineage_record.schema.json
+  - contracts/schemas/bidder_candidate.schema.json
+  - contracts/schemas/schema_catalog.json
+  - handoff/stage2_to_stage3/**
+  - handoff/stage3_to_stage4/**
+  - src/stage3_parsing/**
+  - tests/test_internal_chain.py
+  - tests/test_architecture_anti_drift.py
+  - tests/test_semantic_runtime_validator.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - src/stage4_verification/**
+  - src/stage7_sales/**
+  - src/stage8_outreach/**
+  - src/stage9_delivery/**
+primary_outputs:
+  - "Stage3 candidate and lineage truth-layer closure"
+deliverables:
+  - "Stage3 candidate and lineage truth-layer closure"
+  - "Stage3 parser and handoff focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Stage4 or later starts owning Stage3 truth semantics."
+  - "A second parser truth carrier is introduced."
+  - "Any required script fails."
+definition_of_done:
+  - "Stage3 outputs are the sole truth-layer input to Stage4."
+  - "Lineage unresolved/conflicting/review states are formalized and tested."
+next_batch_entry_rule: "B2 must be DONE before B3 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B2-S1-lineage-and-schema
+    focus_paths:
+      - contracts/schemas/project_base.schema.json
+      - contracts/schemas/field_lineage_record.schema.json
+      - contracts/schemas/bidder_candidate.schema.json
+      - contracts/schemas/schema_catalog.json
+  - slice_id: B2-S2-stage3-runtime
+    focus_paths:
+      - src/stage3_parsing/**
+      - handoff/stage2_to_stage3/**
+      - handoff/stage3_to_stage4/**
+      - tests/test_internal_chain.py

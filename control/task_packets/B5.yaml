@@ -1,0 +1,158 @@
+version: 1
+batch_id: B5
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Stage8 Contact Orchestration Closure
+status: NOT_STARTED
+objective: "Close Stage8 candidate merge/conflict, cadence/retry/stop, vendor trace, human handoff, and operator semantics for stable internal governed orchestration."
+why_now: "Stage8 is the largest operator-friction surface and the direct producer of Stage9 touch facts."
+depends_on: [B4]
+non_goals:
+  - "Do not enable any live outreach path."
+  - "Do not default-open personal channels."
+  - "not an external unlock implementation"
+affected_stages:
+  - stage8_outreach
+declared_changed_paths:
+  - contracts/sales/contact_priority_policy_catalog.json
+  - contracts/sales/contact_source_policy_catalog.json
+  - contracts/sales/contact_compliance_matrix.json
+  - contracts/sales/outreach_cadence_catalog.json
+  - contracts/sales/retry_policy_catalog.json
+  - contracts/sales/touch_stop_condition_catalog.json
+  - contracts/sales/feedback_reason_catalog.json
+  - contracts/sales/stage8_resolution_policy.json
+  - src/shared/capability_runtime.py
+  - src/shared/policy_executor.py
+  - src/stage8_outreach/**
+  - tests/test_stage8_resolution_closure.py
+impacted_assets:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D9_联系对象与销售触达规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  control: []
+  contracts:
+    - contracts/sales/contact_priority_policy_catalog.json
+    - contracts/sales/contact_source_policy_catalog.json
+    - contracts/sales/contact_compliance_matrix.json
+    - contracts/sales/outreach_cadence_catalog.json
+    - contracts/sales/retry_policy_catalog.json
+    - contracts/sales/touch_stop_condition_catalog.json
+    - contracts/sales/feedback_reason_catalog.json
+    - contracts/sales/stage8_resolution_policy.json
+    - contracts/sales/vendor_registry_catalog.json
+    - contracts/sales/source_vendor_usage_policy.json
+    - contracts/sales/channel_vendor_execution_policy.json
+  handoff:
+    - handoff/stage7_to_stage8
+  scripts: []
+  tests:
+    - tests/test_pre_route_behavior.py
+    - tests/test_stage8_resolution_closure.py
+    - tests/test_runtime_governance_guards.py
+  code:
+    - src/shared/capability_runtime.py
+    - src/shared/policy_executor.py
+    - src/stage8_outreach
+change_domains:
+  - shared_runtime_core
+  - provider_vendor_source_policy_core
+  - stage8_stage9_high_risk_execution
+  - automation_control_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D9_联系对象与销售触达规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  contracts:
+    - contracts/sales/contact_priority_policy_catalog.json
+    - contracts/sales/contact_source_policy_catalog.json
+    - contracts/sales/contact_compliance_matrix.json
+    - contracts/sales/outreach_cadence_catalog.json
+    - contracts/sales/retry_policy_catalog.json
+    - contracts/sales/touch_stop_condition_catalog.json
+    - contracts/sales/feedback_reason_catalog.json
+    - contracts/sales/stage8_resolution_policy.json
+    - contracts/sales/vendor_registry_catalog.json
+    - contracts/sales/source_vendor_usage_policy.json
+    - contracts/sales/channel_vendor_execution_policy.json
+  handoff:
+    - handoff/stage7_to_stage8/contract.json
+allowed_modification_paths:
+  - docs/D2_正式对象契约与字段字典.md
+  - docs/D3_正式规则码总表与判定说明书.md
+  - docs/D9_联系对象与销售触达规范.md
+  - docs/D11_测试验收与金标回归清单.md
+  - contracts/sales/contact_priority_policy_catalog.json
+  - contracts/sales/contact_source_policy_catalog.json
+  - contracts/sales/contact_compliance_matrix.json
+  - contracts/sales/outreach_cadence_catalog.json
+  - contracts/sales/retry_policy_catalog.json
+  - contracts/sales/touch_stop_condition_catalog.json
+  - contracts/sales/feedback_reason_catalog.json
+  - contracts/sales/stage8_resolution_policy.json
+  - contracts/sales/vendor_registry_catalog.json
+  - contracts/sales/source_vendor_usage_policy.json
+  - contracts/sales/channel_vendor_execution_policy.json
+  - handoff/stage7_to_stage8/**
+  - src/shared/capability_runtime.py
+  - src/shared/policy_executor.py
+  - src/stage8_outreach/**
+  - tests/test_pre_route_behavior.py
+  - tests/test_stage8_resolution_closure.py
+  - tests/test_runtime_governance_guards.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - src/stage9_delivery/**
+  - contracts/release/**
+primary_outputs:
+  - "Stable governed Stage8 orchestration layer"
+deliverables:
+  - "Stable governed Stage8 orchestration layer"
+  - "Stage8 focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Any live outreach path becomes enabled."
+  - "Personal channels become default-open."
+  - "Any required script fails."
+definition_of_done:
+  - "Stage8 merge/conflict/cadence/retry/stop/handoff semantics are machine-readable and tested."
+  - "Vendor/source resolution remains governed and non-live."
+next_batch_entry_rule: "B5 must be DONE before B6 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+  - release_approver
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B5-S1-candidate-merge-and-conflict
+    focus_paths:
+      - contracts/sales/contact_priority_policy_catalog.json
+      - contracts/sales/contact_source_policy_catalog.json
+      - contracts/sales/contact_compliance_matrix.json
+      - contracts/sales/stage8_resolution_policy.json
+      - src/stage8_outreach/resolution.py
+  - slice_id: B5-S2-cadence-retry-stop-and-workbench
+    focus_paths:
+      - contracts/sales/outreach_cadence_catalog.json
+      - contracts/sales/retry_policy_catalog.json
+      - contracts/sales/touch_stop_condition_catalog.json
+      - contracts/sales/feedback_reason_catalog.json
+      - src/stage8_outreach/**
+      - tests/test_pre_route_behavior.py
+      - tests/test_stage8_resolution_closure.py

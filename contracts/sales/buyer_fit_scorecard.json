@@ -1,0 +1,293 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "buyer_fit_scorecard",
+  "ownerDocs": [
+    "D8",
+    "D11"
+  ],
+  "fallbackPolicy": {
+    "missingFormalSourceDecisionState": "REVIEW",
+    "missingFormalSourceReasonTag": "MISSING_FORMAL_SOURCE",
+    "sourceFallbacks": {
+      "sale_gate_status": {
+        "fallbackValue": "REVIEW",
+        "contractSource": "fallbackPolicy.sourceFallbacks.sale_gate_status"
+      },
+      "coverage_sellable_state": {
+        "fallbackValue": "RESTRICTED",
+        "contractSource": "fallbackPolicy.sourceFallbacks.coverage_sellable_state"
+      },
+      "crm_owner_state": {
+        "fallbackValue": "UNASSIGNED",
+        "contractSource": "fallbackPolicy.sourceFallbacks.crm_owner_state"
+      },
+      "report_status": {
+        "fallbackValue": "READY",
+        "contractSource": "fallbackPolicy.sourceFallbacks.report_status"
+      },
+      "challenge_actionability_score": {
+        "fallbackValue": 50,
+        "contractSource": "fallbackPolicy.sourceFallbacks.challenge_actionability_score"
+      },
+      "execution_readiness_score": {
+        "fallbackValue": 50,
+        "contractSource": "fallbackPolicy.sourceFallbacks.execution_readiness_score"
+      },
+      "competitor_quality_grade": {
+        "fallbackValue": "C",
+        "contractSource": "fallbackPolicy.sourceFallbacks.competitor_quality_grade"
+      },
+      "window_urgency_score": {
+        "fallbackValue": 50,
+        "contractSource": "fallbackPolicy.sourceFallbacks.window_urgency_score"
+      },
+      "window_status": {
+        "fallbackValue": "REVIEW_REQUIRED",
+        "contractSource": "fallbackPolicy.sourceFallbacks.window_status"
+      }
+    }
+  },
+  "scoreBuckets": [
+    {
+      "bucket": "HIGH",
+      "min_score": 80
+    },
+    {
+      "bucket": "MEDIUM",
+      "min_score": 60
+    },
+    {
+      "bucket": "LOW",
+      "min_score": 0
+    }
+  ],
+  "reasonTagPolicies": {
+    "buyer_fit": {
+      "policyId": "BUYER-FIT-TAGS-001",
+      "templates": [
+        "BUYER_FIT_SCORECARD",
+        "SALE_GATE_{sale_gate_status}",
+        "REPORT_{report_status}",
+        "WINDOW_{window_status}",
+        "GRADE_{buyer_fit_grade}",
+        "CRM_OWNER_{crm_owner_state}"
+      ]
+    },
+    "challenger_buyer_fit": {
+      "policyId": "CHALLENGER-BUYER-FIT-TAGS-001",
+      "templates": [
+        "CHALLENGER_BUYER_FIT_SCORECARD",
+        "CHALLENGER_PROFILE_CONSUMED",
+        "ACTIONABILITY_BUCKET_{challenge_actionability_bucket}",
+        "EXECUTION_READINESS_BUCKET_{execution_readiness_bucket}",
+        "WINDOW_{window_status}",
+        "GRADE_{challenger_buyer_fit_grade}"
+      ]
+    }
+  },
+  "dimensionDerivations": {
+    "base_fit_score": {
+      "outputField": "fit_score",
+      "formula": "weighted_component_sum",
+      "sources": {
+        "sale_gate_status": "project_fact.sale_gate_status",
+        "report_status": "report_record.report_status",
+        "competitor_quality_grade": "project_fact.competitor_quality_grade",
+        "window_urgency_score": "window_value_policy.window_urgency_score",
+        "challenge_actionability_score": "challenger_candidate_profile.challenge_actionability_score"
+      },
+      "component_scores": {
+        "sale_gate_status": {
+          "OPEN": 82,
+          "HOLD": 64,
+          "REVIEW": 56,
+          "BLOCK": 0
+        },
+        "report_status": {
+          "ISSUED": 85,
+          "READY": 65,
+          "DRAFT": 50,
+          "REVOKED": 0
+        },
+        "competitor_quality_grade": {
+          "A": 90,
+          "B": 78,
+          "C": 62,
+          "D": 35
+        }
+      },
+      "weights": {
+        "sale_gate_status": 0.35,
+        "report_status": 0.2,
+        "competitor_quality_grade": 0.2,
+        "window_urgency_score": 0.15,
+        "challenge_actionability_score": 0.1
+      },
+      "fallbackRule": "missing formal source -> REVIEW, no code-only default seed"
+    },
+    "purchase_intent_score": {
+      "outputField": "purchase_intent_score",
+      "formula": "report_status_mapping",
+      "source": "report_record.report_status",
+      "component_scores": {
+        "report_status": {
+          "ISSUED": 78,
+          "READY": 66,
+          "DRAFT": 52,
+          "REVOKED": 0
+        }
+      }
+    },
+    "payment_capacity_score": {
+      "outputField": "payment_capacity_score",
+      "formula": "sale_gate_status_mapping",
+      "source": "project_fact.sale_gate_status",
+      "component_scores": {
+        "sale_gate_status": {
+          "OPEN": 72,
+          "HOLD": 64,
+          "REVIEW": 58,
+          "BLOCK": 35
+        }
+      }
+    },
+    "window_urgency_score": {
+      "outputField": "window_urgency_score",
+      "formula": "policy_output",
+      "source": "window_value_policy.window_urgency_score"
+    },
+    "attack_motivation_score": {
+      "outputField": "attack_motivation_score",
+      "formula": "formal_challenger_actionability",
+      "source": "challenger_candidate_profile.challenge_actionability_score"
+    }
+  },
+  "scorecards": [
+    {
+      "scorecardId": "challenger_buyer_fit_v1",
+      "targetObject": "challenger_buyer_fit",
+      "dimensions": [
+        {
+          "field": "attack_motivation_score",
+          "weight": 0.25,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "attack_motivation_score"
+        },
+        {
+          "field": "purchase_intent_score",
+          "weight": 0.2,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "purchase_intent_score"
+        },
+        {
+          "field": "payment_capacity_score",
+          "weight": 0.15,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "payment_capacity_score"
+        },
+        {
+          "field": "window_urgency_score",
+          "weight": 0.2,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "window_urgency_score"
+        },
+        {
+          "field": "fit_score",
+          "weight": 0.2,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "general_buyer_fit_v1.score"
+        }
+      ],
+      "gradeBands": [
+        {
+          "grade": "A",
+          "minInclusive": 85
+        },
+        {
+          "grade": "B",
+          "minInclusive": 70
+        },
+        {
+          "grade": "C",
+          "minInclusive": 55
+        },
+        {
+          "grade": "D",
+          "minInclusive": 0
+        }
+      ],
+      "hardBlockers": [
+        "project_fact missing",
+        "sale_gate_status=BLOCK",
+        "coverage_sellable_state in [NOT_READY,SUSPENDED]",
+        "no actionable challenger candidate"
+      ]
+    },
+    {
+      "scorecardId": "general_buyer_fit_v1",
+      "targetObject": "buyer_fit",
+      "dimensions": [
+        {
+          "field": "fit_score",
+          "weight": 0.35,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "base_fit_score"
+        },
+        {
+          "field": "purchase_intent_score",
+          "weight": 0.25,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "purchase_intent_score"
+        },
+        {
+          "field": "payment_capacity_score",
+          "weight": 0.2,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "payment_capacity_score"
+        },
+        {
+          "field": "window_urgency_score",
+          "weight": 0.2,
+          "min": 0,
+          "max": 100,
+          "derivationRef": "window_urgency_score"
+        }
+      ],
+      "gradeBands": [
+        {
+          "grade": "A",
+          "minInclusive": 85
+        },
+        {
+          "grade": "B",
+          "minInclusive": 70
+        },
+        {
+          "grade": "C",
+          "minInclusive": 55
+        },
+        {
+          "grade": "D",
+          "minInclusive": 0
+        }
+      ],
+      "hardBlockers": [
+        "project_fact missing",
+        "crm_owner_state unresolved and no internal ownership route"
+      ]
+    }
+  ],
+  "notes": [
+    "All scorecard dimensions must derive from formal Stage6/Stage7 rule outputs or formal objects; service-local seed constants are not authoritative.",
+    "The scorecards are deterministic and do not introduce a model as final decision maker.",
+    "fit_reason_tags must be rendered from reasonTagPolicies; direct input override is not authoritative."
+  ]
+}

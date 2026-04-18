@@ -1,0 +1,160 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "stage7_resolution_policy",
+  "ownerDocs": [
+    "D3",
+    "D8",
+    "D11"
+  ],
+  "actorSeedPolicies": [
+    {
+      "policyId": "legal_action_actor_seed_resolution_v1",
+      "targetField": "legal_action_actor_profile.actor_org_name",
+      "resolutionOrder": [
+        {
+          "source": "stage6_handoff.legal_action_actor_org_name_seed",
+          "provenance": "H06_FORMAL_SEED"
+        },
+        {
+          "source": "inputs.legal_action_actor_org_name_seed",
+          "provenance": "DIRECT_INPUT_SEED"
+        },
+        {
+          "source": "inputs.legal_action_actor_org_name",
+          "provenance": "DIRECT_INPUT_NAME"
+        },
+        {
+          "source": "challenger_bidder_id",
+          "provenance": "CHALLENGER_BIDDER_FALLBACK"
+        }
+      ]
+    },
+    {
+      "policyId": "procurement_decision_actor_seed_resolution_v1",
+      "targetField": "procurement_decision_actor_profile.actor_org_name",
+      "resolutionOrder": [
+        {
+          "source": "stage6_handoff.procurement_decision_actor_org_name_seed",
+          "provenance": "H06_FORMAL_SEED"
+        },
+        {
+          "source": "inputs.procurement_decision_actor_org_name_seed",
+          "provenance": "DIRECT_INPUT_SEED"
+        },
+        {
+          "source": "inputs.procurement_actor_org_name",
+          "provenance": "DIRECT_INPUT_NAME"
+        },
+        {
+          "source": "project_id_template",
+          "provenance": "PROJECT_TEMPLATE_FALLBACK"
+        }
+      ]
+    }
+  ],
+  "priceCandidateResolution": {
+    "policyId": "price_candidate_merge_v2",
+    "sourcePriorityRef": "contracts/sales/price_normalization_catalog.json#policies/0/source_priority",
+    "dedupKey": [
+      "source_type",
+      "amount",
+      "currency",
+      "normalized_tax_basis",
+      "normalized_unit_basis",
+      "lot_id_optional",
+      "package_id_optional"
+    ],
+    "selectedCandidateRule": "highest_priority_then_adjusted_reliability_then_freshest",
+    "fallbackInputs": [
+      "normalized_price_amount_optional",
+      "bid_price",
+      "estimated_contract_value_optional"
+    ],
+    "normalizationHooks": {
+      "tax_basis_fields": [
+        "tax_basis_optional",
+        "tax_inclusive_optional",
+        "tax_rate_optional"
+      ],
+      "unit_fields": [
+        "unit_basis_optional",
+        "quantity_optional"
+      ],
+      "scope_fields": [
+        "lot_id_optional",
+        "package_id_optional"
+      ],
+      "freshness_fields": [
+        "recency_days_optional",
+        "source_date_optional"
+      ]
+    },
+    "traceFields": [
+      "selected_source_type",
+      "candidate_count",
+      "deduped_candidate_count",
+      "source_priority_applied",
+      "normalized_tax_basis",
+      "normalized_unit_basis",
+      "selected_scope_key",
+      "review_flags",
+      "selected_candidate_trace"
+    ]
+  },
+  "multiCompetitorResolution": {
+    "policyId": "stage7_multi_competitor_resolution_v1",
+    "carrierObject": "multi_competitor_collection",
+    "entityResolution": {
+      "canonicalIdPreference": [
+        "challenger_bidder_id",
+        "challenger_profile_id"
+      ],
+      "aliasFields": [
+        "challenger_org_name_optional",
+        "normalized_org_name_optional",
+        "alias_names_optional"
+      ],
+      "aliasNormalizer": "UPPER_ALNUM",
+      "candidateSourcePriority": {
+        "STAGE6_CHALLENGER_PROFILE": 0,
+        "H06_FORMAL_POOL": 1,
+        "DIRECT_POOL_INPUT": 2,
+        "MANUAL_POOL_INPUT": 3
+      },
+      "dedupRule": "prefer_higher_source_priority_then_higher_confidence_then_higher_ranking_score"
+    },
+    "ranking": {
+      "rankingMode": "TOP_N_RETAINED_WITH_CANDIDATE_ONLY_CUTOFF",
+      "weights": {
+        "challenge_actionability_score": 0.45,
+        "execution_readiness_score": 0.35,
+        "confidence_score_optional": 0.20
+      },
+      "fallbackConfidenceScore": 45,
+      "sortBasis": [
+        "ranking_score desc",
+        "confidence_score_optional desc",
+        "candidate_position_label asc",
+        "candidate_id asc"
+      ],
+      "positionOrder": {
+        "WINNER": 0,
+        "FIRST_CANDIDATE": 1,
+        "SECOND_CANDIDATE": 2,
+        "THIRD_CANDIDATE": 3,
+        "OTHER": 9,
+        "UNKNOWN": 10
+      }
+    },
+    "retention": {
+      "top_n_limit_ref": "contracts/sales/competitor_confidence_catalog.json#policies/0/ranking_policy.top_n_limit",
+      "candidate_only_cutoff_ref": "contracts/sales/competitor_confidence_catalog.json#policies/0/cutoff_policy",
+      "winner_selection": "highest_ranked_non_candidate_only_else_rank_1",
+      "candidate_only_reason_tags": [
+        "RANK_GT_TOP_N",
+        "CONFIDENCE_BAND_LOW",
+        "CONFIDENCE_SCORE_LT_55"
+      ]
+    }
+  }
+}

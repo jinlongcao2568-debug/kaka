@@ -1,0 +1,139 @@
+version: 1
+batch_id: B1
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Stage1-2 Authoritative Baseline Closure
+status: NOT_STARTED
+objective: "Close Stage1-2 source, route, version, clock, fallback, and route-failure authority as real producer contracts and adapter interfaces."
+why_now: "Stage1-2 are upstream producers; unstable authority here invalidates every downstream decision."
+depends_on: [B0]
+non_goals:
+  - "Do not widen source rollout to nationwide full coverage."
+  - "Do not open external source live capability."
+  - "Do not repair Stage3+ semantics in this blueprint."
+  - "not an external unlock implementation"
+affected_stages:
+  - stage1_tasking
+  - stage2_ingestion
+declared_changed_paths:
+  - contracts/governance/source_registry.json
+  - contracts/governance/route_policy_catalog.json
+  - src/stage1_tasking/**
+  - src/stage2_ingestion/**
+  - tests/test_stage12_extractors.py
+change_domains:
+  - shared_runtime_core
+  - scripts_and_tests_general
+  - automation_control_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+impacted_assets:
+  docs:
+    - docs/专题_来源覆盖与采集路由规范.md
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D11_测试验收与金标回归清单.md
+  control: []
+  contracts:
+    - contracts/governance/source_registry.json
+    - contracts/governance/source_family_registry.json
+    - contracts/governance/route_policy_catalog.json
+    - contracts/schemas/clock_chain_profile.schema.json
+    - contracts/schemas/notice_version_chain.schema.json
+  handoff:
+    - handoff/stage1_to_stage2
+    - handoff/stage2_to_stage3
+  scripts: []
+  tests:
+    - tests/test_stage12_extractors.py
+    - tests/test_internal_chain.py
+  code:
+    - src/stage1_tasking
+    - src/stage2_ingestion
+source_of_truth_refs:
+  docs:
+    - docs/专题_来源覆盖与采集路由规范.md
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D11_测试验收与金标回归清单.md
+  contracts:
+    - contracts/governance/source_registry.json
+    - contracts/governance/source_family_registry.json
+    - contracts/governance/route_policy_catalog.json
+    - contracts/schemas/clock_chain_profile.schema.json
+    - contracts/schemas/notice_version_chain.schema.json
+  handoff:
+    - handoff/stage1_to_stage2/contract.json
+    - handoff/stage2_to_stage3/contract.json
+allowed_modification_paths:
+  - docs/专题_来源覆盖与采集路由规范.md
+  - docs/D2_正式对象契约与字段字典.md
+  - docs/D3_正式规则码总表与判定说明书.md
+  - docs/D11_测试验收与金标回归清单.md
+  - contracts/governance/source_registry.json
+  - contracts/governance/source_family_registry.json
+  - contracts/governance/route_policy_catalog.json
+  - contracts/schemas/clock_chain_profile.schema.json
+  - contracts/schemas/notice_version_chain.schema.json
+  - handoff/stage1_to_stage2/**
+  - handoff/stage2_to_stage3/**
+  - src/stage1_tasking/**
+  - src/stage2_ingestion/**
+  - tests/test_stage12_extractors.py
+  - tests/test_internal_chain.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - src/stage3_parsing/**
+  - src/stage7_sales/**
+  - src/stage8_outreach/**
+  - src/stage9_delivery/**
+primary_outputs:
+  - "Stage1-2 authoritative source/route/version/clock closure"
+  - "Adapter and provenance reservation for real ingestion"
+deliverables:
+  - "Stage1-2 authoritative source/route/version/clock closure"
+  - "Adapter and provenance reservation for real ingestion"
+  - "Stage1-2 focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "A new source family or precedence semantic is required."
+  - "Stage1/2 producer authority shifts to a second source."
+  - "Any required script fails."
+definition_of_done:
+  - "Stage1-2 canonical producer ownership is machine-readable."
+  - "Route failure and precedence fallback are no longer code-local only."
+  - "Stage3 can consume Stage2 outputs without recomputing source/route authority."
+next_batch_entry_rule: "B1 must be DONE before B2 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+  - automation_owner
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B1-S1-source-route-canonicalization
+    focus_paths:
+      - contracts/governance/source_registry.json
+      - contracts/governance/source_family_registry.json
+      - contracts/governance/route_policy_catalog.json
+      - docs/专题_来源覆盖与采集路由规范.md
+      - docs/D2_正式对象契约与字段字典.md
+  - slice_id: B1-S2-stage1-runtime-activation
+    focus_paths:
+      - src/stage1_tasking/**
+      - handoff/stage1_to_stage2/**
+      - tests/test_stage12_extractors.py
+  - slice_id: B1-S3-stage2-runtime-precedence
+    focus_paths:
+      - src/stage2_ingestion/**
+      - handoff/stage2_to_stage3/**
+      - tests/test_internal_chain.py

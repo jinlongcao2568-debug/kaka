@@ -1,0 +1,280 @@
+{
+  "catalogVersion": "1.2.0",
+  "catalogId": "contact_compliance_matrix",
+  "ownerDocs": [
+    "D9",
+    "D3",
+    "D11"
+  ],
+  "evaluation_order": "FIRST_MATCH",
+  "decision_values": [
+    "ALLOW_PREVIEW",
+    "REVIEW_REQUIRED",
+    "BLOCKED"
+  ],
+  "execution_decision_values": [
+    "ALLOW_PREVIEW",
+    "REVIEW_REQUIRED",
+    "SCHEDULED",
+    "BLOCKED"
+  ],
+  "stop_semantics_values": [
+    "NONE",
+    "PERMANENT_BLOCK",
+    "EXECUTION_BLOCKED",
+    "EXECUTION_REVIEW_REQUIRED",
+    "QUIET_HOURS_SCHEDULE"
+  ],
+  "sourceRoleValues": [
+    "PUBLIC_OFFICIAL_SOURCE",
+    "THIRD_PARTY_SUPPORT_SOURCE",
+    "CONTACT_ENRICHMENT_SOURCE"
+  ],
+  "executionPolicyStates": [
+    "PREVIEW_ONLY",
+    "DRY_RUN",
+    "APPROVAL_REQUIRED",
+    "BLOCKED"
+  ],
+  "precedence_order": [
+    "candidate permanent block: legal basis blocked / opt-out blocked / invalid contact / channel blocked",
+    "candidate review: legal basis review / source audit missing / unreasonable expectation / restricted channel / contact conflict / channel review",
+    "execution schedule-only: quiet hours block keeps candidate preview but postpones execution",
+    "execution review-only: frequency block or approval-required execution without approval",
+    "eligible internal preview: candidate is compliant and execution is still governed preview-only"
+  ],
+  "matrix": [
+    {
+      "contact_legal_basis": "BLOCKED",
+      "decision": "BLOCKED",
+      "execution_decision": "BLOCKED",
+      "contact_target_status": "BLOCKED",
+      "requires_manual_review": true,
+      "stop_semantics": "PERMANENT_BLOCK",
+      "reason": "legal_basis_blocked"
+    },
+    {
+      "opt_out_state": [
+        "OPTED_OUT",
+        "BLOCKED"
+      ],
+      "decision": "BLOCKED",
+      "execution_decision": "BLOCKED",
+      "contact_target_status": "BLOCKED",
+      "requires_manual_review": true,
+      "stop_semantics": "PERMANENT_BLOCK",
+      "reason": "opt_out_blocked"
+    },
+    {
+      "contact_validity_status": "INVALID",
+      "decision": "BLOCKED",
+      "execution_decision": "BLOCKED",
+      "contact_target_status": "INVALID",
+      "requires_manual_review": true,
+      "stop_semantics": "PERMANENT_BLOCK",
+      "reason": "contact_invalid"
+    },
+    {
+      "channel_policy_status": [
+        "BLOCK",
+        "UNAVAILABLE"
+      ],
+      "decision": "BLOCKED",
+      "execution_decision": "BLOCKED",
+      "contact_target_status": "BLOCKED",
+      "requires_manual_review": true,
+      "stop_semantics": "PERMANENT_BLOCK",
+      "reason": "channel_policy_block"
+    },
+    {
+      "contact_legal_basis": "REVIEW_REQUIRED",
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "legal_basis_review"
+    },
+    {
+      "source_vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "third_party_support_source_review"
+    },
+    {
+      "source_auditability_state": [
+        "MISSING",
+        "BROKEN",
+        "UNAUDITABLE"
+      ],
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "source_audit_missing"
+    },
+    {
+      "reasonable_expectation_status": "UNREASONABLE",
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "expectation_unreasonable"
+    },
+    {
+      "channel_policy_status": "REVIEW",
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "channel_policy_review"
+    },
+    {
+      "contact_conflict_flag": true,
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "contact_conflict"
+    },
+    {
+      "quiet_hours_policy_state": "REVIEW",
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "quiet_hours_review"
+    },
+    {
+      "frequency_policy_state": "REVIEW",
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "frequency_review"
+    },
+    {
+      "opt_out_state": "PENDING_CONFIRMATION",
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "opt_out_pending"
+    },
+    {
+      "channel_family": [
+        "AUTHORIZED_PERSON_DIRECT",
+        "SOCIAL_DM",
+        "IM_DIRECT",
+        "PERSONAL_PHONE",
+        "PERSONAL_EMAIL"
+      ],
+      "contact_legal_basis": [
+        "PUBLIC_ROLE_CONTACT",
+        "CUSTOMER_AUTHORIZED_CONTACT",
+        "COMPLIANT_CRM_CONTACT"
+      ],
+      "opt_out_state": "ACTIVE",
+      "quiet_hours_policy_state": "ALLOW",
+      "frequency_policy_state": "ALLOW",
+      "decision": "REVIEW_REQUIRED",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "REVIEW_REQUIRED",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "restricted_channel_family"
+    },
+    {
+      "execution_policy_state": "BLOCKED",
+      "decision": "ALLOW_PREVIEW",
+      "execution_decision": "BLOCKED",
+      "contact_target_status": "ELIGIBLE",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_BLOCKED",
+      "reason": "execution_vendor_blocked"
+    },
+    {
+      "execution_policy_state": "APPROVAL_REQUIRED",
+      "run_mode": [
+        "APPROVAL_RUN",
+        "REAL_RUN"
+      ],
+      "approval_state": [
+        "NOT_REQUIRED",
+        "PENDING",
+        "REJECTED"
+      ],
+      "decision": "ALLOW_PREVIEW",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "ELIGIBLE",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "approval_missing_for_execution_vendor"
+    },
+    {
+      "quiet_hours_policy_state": "BLOCK",
+      "decision": "ALLOW_PREVIEW",
+      "execution_decision": "SCHEDULED",
+      "contact_target_status": "ELIGIBLE",
+      "requires_manual_review": false,
+      "stop_semantics": "QUIET_HOURS_SCHEDULE",
+      "reason": "quiet_hours_schedule_only"
+    },
+    {
+      "frequency_policy_state": "BLOCK",
+      "decision": "ALLOW_PREVIEW",
+      "execution_decision": "REVIEW_REQUIRED",
+      "contact_target_status": "ELIGIBLE",
+      "requires_manual_review": true,
+      "stop_semantics": "EXECUTION_REVIEW_REQUIRED",
+      "reason": "frequency_review_required"
+    },
+    {
+      "channel_family": [
+        "ORG_EMAIL",
+        "ORG_PHONE",
+        "PUBLIC_FORM",
+        "CRM_APPROVED_DIRECT"
+      ],
+      "contact_legal_basis": [
+        "PUBLIC_ROLE_CONTACT",
+        "CUSTOMER_AUTHORIZED_CONTACT",
+        "COMPLIANT_CRM_CONTACT"
+      ],
+      "source_vendor_role": [
+        "PUBLIC_OFFICIAL_SOURCE",
+        "CONTACT_ENRICHMENT_SOURCE"
+      ],
+      "source_auditability_state": "AUDITABLE",
+      "opt_out_state": "ACTIVE",
+      "quiet_hours_policy_state": "ALLOW",
+      "frequency_policy_state": "ALLOW",
+      "execution_policy_state": [
+        "PREVIEW_ONLY",
+        "DRY_RUN",
+        "APPROVAL_REQUIRED"
+      ],
+      "decision": "ALLOW_PREVIEW",
+      "execution_decision": "ALLOW_PREVIEW",
+      "contact_target_status": "ELIGIBLE",
+      "requires_manual_review": false,
+      "stop_semantics": "NONE",
+      "reason": "eligible_internal_preview"
+    }
+  ],
+  "notes": [
+    "合规矩阵只允许内部预览态放行；execution vendor 默认不打开真实执行。",
+    "decision 表示 candidate compliance；execution_decision 表示当前 execution compliance。",
+    "quiet_hours=BLOCK 只允许排期；frequency=BLOCK 与 approval missing 只允许 review，不得把 candidate preview 误写成 blocked。"
+  ]
+}

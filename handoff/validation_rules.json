@@ -1,0 +1,108 @@
+{
+  "catalogId": "ax9s-stage-handoff-validation-rules",
+  "version": "2026-04-12-round1",
+  "status": "DRAFT",
+  "rules": [
+    {
+      "ruleId": "HV-001",
+      "name": "阶段 2 输入必须来自阶段 1 正式任务上下文",
+      "appliesTo": "H-01-STAGE1-TO-STAGE2",
+      "checkType": "required_fields",
+      "requiredFields": [
+        "task_id",
+        "region_code",
+        "time_range_from",
+        "time_range_until",
+        "review_lane"
+      ],
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "ruleId": "HV-002",
+      "name": "阶段 3 不得在缺固定原始载体时启动正式解析",
+      "appliesTo": "H-02-STAGE2-TO-STAGE3",
+      "checkType": "blocking_condition_absent",
+      "blockingSignals": [
+        "missing_fixed_raw_carrier",
+        "unresolvable_notice_version"
+      ],
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "ruleId": "HV-003",
+      "name": "阶段 4 不得绕过 truth layer 重建 project_base",
+      "appliesTo": "H-03-STAGE3-TO-STAGE4",
+      "checkType": "must_not_recompute",
+      "mustNotRecompute": [
+        "project_root_id",
+        "notice_version_id",
+        "candidate_order_mode"
+      ],
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "ruleId": "HV-004",
+      "name": "阶段 5 不得在 D 层输入渗透时形成正式规则运行",
+      "appliesTo": "H-04-STAGE4-TO-STAGE5",
+      "checkType": "blocking_condition_absent",
+      "blockingSignals": [
+        "d_tier_input_detected"
+      ],
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "ruleId": "HV-005",
+      "name": "阶段 6 必须同时消费双闸门",
+      "appliesTo": "H-05-STAGE5-TO-STAGE6",
+      "checkType": "required_fields",
+      "requiredFields": [
+        "rule_gate_status",
+        "evidence_gate_status"
+      ],
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "ruleId": "HV-006",
+      "name": "阶段 7 不得绕过 project_fact 直接生成正式机会",
+      "appliesTo": "H-06-STAGE6-TO-STAGE7",
+      "checkType": "upstream_object_required",
+      "requiredObjects": [
+        "project_fact",
+        "challenger_candidate_profile"
+      ],
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "ruleId": "HV-007",
+      "name": "阶段 8 必须具备联系合法基础与频控状态",
+      "appliesTo": "H-07-STAGE7-TO-STAGE8",
+      "checkType": "required_fields",
+      "requiredFields": [
+        "contact_legal_basis",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state"
+      ],
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "ruleId": "HV-008",
+      "name": "阶段 9 不得在缺 touch_record 时形成正式结果回写",
+      "appliesTo": "H-08-STAGE8-TO-STAGE9",
+      "checkType": "required_fields",
+      "requiredFields": [
+        "touch_record_id",
+        "opportunity_id"
+      ],
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "ruleId": "HV-009",
+      "name": "顶层主判断不得绕开阶段 6 的 project_fact",
+      "appliesTo": "global",
+      "checkType": "global_invariant",
+      "statement": "saleable_opportunity, contact_target, order_record and delivery_record must not become the first top-level judgment source",
+      "failureDisposition": "BLOCK"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+version: 1
+templateState: NAMED_ASSIGNED
+single_operator_mode: true
+updated_at: "2026-04-14"
+notes:
+  - "Single operator mode enabled; named owner confirmed."
+owners:
+  product_owner:
+    display_name: "卡卡罗特"
+    role_cluster: "product"
+    responsible_role: "product_owner"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    assignment_status: "NAMED_ASSIGNED"
+    status_level: "ACTIVE"
+    current_state: "ACTIVE"
+    activation_condition: "named owner confirmed"
+    escalation_path: []
+    approval_scope:
+      - "L0 boundary confirmation"
+      - "D13 capability boundary"
+      - "D8-D10 commercial boundary"
+    backup_owner: ""
+  release_approver:
+    display_name: "卡卡罗特"
+    role_cluster: "release"
+    responsible_role: "release_approver"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    assignment_status: "NAMED_ASSIGNED"
+    status_level: "ACTIVE"
+    current_state: "ACTIVE"
+    activation_condition: "release approval required"
+    escalation_path: []
+    approval_scope:
+      - "internal leadops release approval"
+      - "leadpack delivery approval"
+    backup_owner: ""
+  exception_reviewer:
+    display_name: "卡卡罗特"
+    role_cluster: "exception"
+    responsible_role: "exception_reviewer"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    assignment_status: "NAMED_ASSIGNED"
+    status_level: "ACTIVE"
+    current_state: "ACTIVE"
+    activation_condition: "exception review required"
+    escalation_path: []
+    approval_scope:
+      - "exception chain review"
+      - "boundary exception review"
+    backup_owner: ""
+  model_governance_owner:
+    display_name: "卡卡罗特"
+    role_cluster: "model_governance"
+    responsible_role: "model_governance_owner"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    assignment_status: "NAMED_ASSIGNED"
+    status_level: "ACTIVE"
+    current_state: "ACTIVE"
+    activation_condition: "model governance review required"
+    escalation_path: []
+    approval_scope:
+      - "model registration"
+      - "model release gate"
+    backup_owner: ""
+  architecture_owner:
+    display_name: "卡卡罗特"
+    role_cluster: "architecture"
+    responsible_role: "architecture_owner"
+    responsible_person: "卡卡罗特"
+    assignment_status: "NAMED_ASSIGNED"
+    status_level: "ACTIVE"
+    current_state: "ACTIVE"
+    activation_condition: "named owner confirmed"
+    escalation_path: []
+    approval_scope:
+      - "D2 objects"
+      - "D3 rules and gates"
+      - "handoff contracts"
+      - "contracts structure"
+    backup_owner: ""
+  governance_owner:
+    display_name: "卡卡罗特"
+    role_cluster: "governance"
+    responsible_role: "governance_owner"
+    responsible_person: "卡卡罗特"
+    assignment_status: "NAMED_ASSIGNED"
+    status_level: "ACTIVE"
+    current_state: "ACTIVE"
+    activation_condition: "named owner confirmed"
+    escalation_path: []
+    approval_scope:
+      - "D6 field policy"
+      - "D7 release gates"
+      - "exceptions"
+      - "public boundary"
+    backup_owner: ""
+  testing_owner:
+    display_name: "卡卡罗特"
+    role_cluster: "testing"
+    responsible_role: "testing_owner"
+    responsible_person: "卡卡罗特"
+    assignment_status: "NAMED_ASSIGNED"
+    status_level: "ACTIVE"
+    current_state: "ACTIVE"
+    activation_condition: "named owner confirmed"
+    escalation_path: []
+    approval_scope:
+      - "D11"
+      - "golden"
+      - "regression"
+      - "release checklist"
+    backup_owner: ""
+  automation_owner:
+    display_name: "卡卡罗特"
+    role_cluster: "automation"
+    responsible_role: "automation_owner"
+    responsible_person: "卡卡罗特"
+    assignment_status: "NAMED_ASSIGNED"
+    status_level: "ACTIVE"
+    current_state: "ACTIVE"
+    activation_condition: "named owner confirmed"
+    escalation_path: []
+    approval_scope:
+      - "D1 execution constraints"
+      - "scripts"
+      - "doctor/lint/drift"
+      - "AI agent enforcement"
+    backup_owner: ""

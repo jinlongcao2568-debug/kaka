@@ -1,0 +1,335 @@
+{
+  "registry_id": "leadpack-activation-design-implementation-prep-matrix",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D5",
+      "D7",
+      "D12",
+      "D13"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Machine-readable activation design / implementation prep matrix for leadpack_external_delivery. This asset converts the GO decision into implementation-prep design gates only; it does not authorize actual activation, external delivery, external release, live execution, or direct object export.",
+    "machine_path": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+    "source_go_decision_ref": "1.G0 NO-G0 HOLD 决策结论(2).md",
+    "activation_prep_evidence_pack_ref": "contracts/release/leadpack_activation_prep_evidence_pack.json",
+    "activation_prep_signoff_packet_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json",
+    "activation_prep_transition_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+    "implementation_decision_readiness_packet_ref": "contracts/release/leadpack_implementation_decision_readiness_packet.json"
+  },
+  "candidate_domain_id": "leadpack_external_delivery",
+  "implementation_decision_readiness_packet_ref": "contracts/release/leadpack_implementation_decision_readiness_packet.json",
+  "scope": {
+    "design_prep_only": true,
+    "implementation_decision_only_after_gate": true,
+    "actual_activation_enabled": false,
+    "external_delivery_enabled": false,
+    "external_software_release_enabled": false,
+    "stage8_stage9_live_execution_enabled": false,
+    "direct_stage8_stage9_object_export_allowed": false,
+    "implementation_approved": false
+  },
+  "state_layering": {
+    "candidate_gap_states": [
+      "CANDIDATE_GAP_DEFINED"
+    ],
+    "activation_prep_states": [
+      "ACTIVATION_PREP_IN_PROGRESS",
+      "ACTIVATION_PREP_READY_FOR_REVIEW",
+      "ACTIVATION_PREP_HELD",
+      "ACTIVATION_PREP_DENIED"
+    ],
+    "activation_go_no_go_decision_states": [
+      "GO",
+      "NO_GO",
+      "HOLD"
+    ],
+    "activation_design_prep_states": [
+      "ACTIVATION_DESIGN_PREP_NOT_STARTED",
+      "ACTIVATION_DESIGN_PREP_IN_PROGRESS",
+      "ACTIVATION_DESIGN_PREP_READY_FOR_REVIEW",
+      "ACTIVATION_DESIGN_PREP_HELD",
+      "ACTIVATION_DESIGN_PREP_DENIED",
+      "ACTIVATION_DESIGN_PREP_ROLLED_BACK",
+      "ACTIVATION_DESIGN_PREP_EMERGENCY_OFF"
+    ],
+    "implementation_decision_states": [
+      "IMPLEMENTATION_DECISION_NOT_READY",
+      "IMPLEMENTATION_DECISION_READY_FOR_REVIEW",
+      "IMPLEMENTATION_DECISION_HELD",
+      "IMPLEMENTATION_DECISION_DENIED"
+    ],
+    "canonical_repo_readiness_must_not_change": true
+  },
+  "owner_signoff_execution": {
+    "owner_status_vocabulary": [
+      "DRAFT",
+      "DECLARED",
+      "REQUESTED",
+      "APPROVED",
+      "DENIED",
+      "HELD",
+      "EXPIRED",
+      "WITHDRAWN"
+    ],
+    "all_mandatory_owners_must_approve_before_implementation_decision": true,
+    "required_owner_signoffs": [
+      {
+        "owner_role": "release_approver",
+        "mandatory": true,
+        "default_status": "REQUESTED",
+        "state_source_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.release_approver",
+        "missing_or_pending_result": "HOLD",
+        "denied_result": "NO_GO"
+      },
+      {
+        "owner_role": "governance_owner",
+        "mandatory": true,
+        "default_status": "REQUESTED",
+        "state_source_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.governance_owner",
+        "missing_or_pending_result": "HOLD",
+        "denied_result": "NO_GO"
+      },
+      {
+        "owner_role": "testing_owner",
+        "mandatory": true,
+        "default_status": "REQUESTED",
+        "state_source_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.testing_owner",
+        "missing_or_pending_result": "HOLD",
+        "denied_result": "NO_GO"
+      }
+    ],
+    "actual_state_required": true,
+    "actual_state_source_refs": [
+      "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states",
+      "control/current_task.yaml#currentTask.task_packet.owner_signoff_states"
+    ],
+    "actual_owner_signoff_states": [
+      {
+        "owner_role": "release_approver",
+        "mandatory": true,
+        "declared": true,
+        "current_status": "REQUESTED",
+        "state_source_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.release_approver",
+        "implementation_decision_missing_result": "HOLD"
+      },
+      {
+        "owner_role": "governance_owner",
+        "mandatory": true,
+        "declared": true,
+        "current_status": "REQUESTED",
+        "state_source_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.governance_owner",
+        "implementation_decision_missing_result": "HOLD"
+      },
+      {
+        "owner_role": "testing_owner",
+        "mandatory": true,
+        "declared": true,
+        "current_status": "REQUESTED",
+        "state_source_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.testing_owner",
+        "implementation_decision_missing_result": "HOLD"
+      }
+    ],
+    "decision_mapping": {
+      "all_mandatory_owners_approved": "IMPLEMENTATION_DECISION_READY_FOR_REVIEW",
+      "any_mandatory_owner_denied": "IMPLEMENTATION_DECISION_DENIED",
+      "any_mandatory_owner_missing_pending_held_expired_or_withdrawn": "IMPLEMENTATION_DECISION_HELD"
+    },
+    "review_surface_ref": "requestLeadpackActivationDesignImplementationPrepReview",
+    "control_state_ref": "control/current_task.yaml#currentTask.task_packet.owner_reviews_required",
+    "testing_refs": [
+      "REL-179",
+      "REL-184",
+      "REG-LEADPACK-ACTIVATION-DESIGN-PREP"
+    ]
+  },
+  "approval_audit_prerequisites": {
+    "required_approval_chains_before_implementation_decision": [
+      "internal_review_release",
+      "client_report_release"
+    ],
+    "required_review_gates_before_implementation_decision": [
+      "leadpack_candidate_review_gate"
+    ],
+    "required_audit_refs_before_implementation_decision": [
+      "project_fact_audit_ref",
+      "candidate_projection_audit_ref",
+      "approval_chain_audit_ref",
+      "trace_bundle_ref",
+      "activation_design_decision_audit_ref"
+    ],
+    "implementation_decision_hold_sources": {
+      "owner_signoff": [
+        "owner_signoff_missing_or_not_approved"
+      ],
+      "approval_chain": [
+        "internal_review_release",
+        "client_report_release"
+      ],
+      "review_gate": [
+        "leadpack_candidate_review_gate"
+      ],
+      "audit_ref": [
+        "project_fact_audit_ref",
+        "candidate_projection_audit_ref",
+        "approval_chain_audit_ref",
+        "trace_bundle_ref",
+        "activation_design_decision_audit_ref"
+      ]
+    },
+    "allowed_missing_during_design_prep": [
+      "owner approval may be REQUESTED but not APPROVED yet",
+      "implementation decision audit ref may be absent until decision review is opened",
+      "client_report_release may remain pending because external delivery is not approved in this batch"
+    ],
+    "blocking_before_implementation_decision": [
+      "required owner approval not APPROVED",
+      "required approval missing or revoked",
+      "required review gate missing, held, or denied",
+      "required audit ref missing",
+      "review gate output is HOLD or NO_GO",
+      "direct object export requested",
+      "external delivery or live execution requested"
+    ],
+    "layering_rule": "owner signoff, approval chain, audit refs, and review gate are separate gates; passing one never implies passing the others"
+  },
+  "rollback_cancel_emergency_off": {
+    "controls": [
+      {
+        "control_id": "CANCEL_ACTIVATION_DESIGN_PREP",
+        "trigger_conditions": [
+          "owner cancels design prep",
+          "candidate scope regresses",
+          "external delivery requested prematurely"
+        ],
+        "resulting_state": "ACTIVATION_DESIGN_PREP_ROLLED_BACK",
+        "authority_roles": [
+          "release_approver",
+          "governance_owner"
+        ]
+      },
+      {
+        "control_id": "ROLLBACK_ACTIVATION_DESIGN_PREP",
+        "trigger_conditions": [
+          "design prep gate fails after prior ready-for-review",
+          "boundary or delivery matrix drift is detected",
+          "owner signoff is denied or withdrawn"
+        ],
+        "resulting_state": "ACTIVATION_DESIGN_PREP_ROLLED_BACK",
+        "authority_roles": [
+          "release_approver",
+          "governance_owner",
+          "testing_owner"
+        ]
+      },
+      {
+        "control_id": "EMERGENCY_OFF_ACTIVATION_PREP",
+        "trigger_conditions": [
+          "direct Stage 8/9 object export appears",
+          "external delivery or live execution is requested",
+          "approval or audit chain is bypassed",
+          "D-tier or private input leakage is detected"
+        ],
+        "resulting_state": "ACTIVATION_DESIGN_PREP_EMERGENCY_OFF",
+        "authority_roles": [
+          "release_approver",
+          "governance_owner"
+        ]
+      }
+    ],
+    "negative_review_paths": [
+      "ACTIVATION_DESIGN_PREP_HELD",
+      "ACTIVATION_DESIGN_PREP_DENIED",
+      "ACTIVATION_DESIGN_PREP_ROLLED_BACK",
+      "ACTIVATION_DESIGN_PREP_EMERGENCY_OFF"
+    ],
+    "more_restrictive_path_wins": true
+  },
+  "implementation_prep_readiness_gate": {
+    "gate_id": "leadpack_activation_implementation_prep_readiness_gate",
+    "manual_review_required": true,
+    "required_release_checks": [
+      "REL-179",
+      "REL-180",
+      "REL-181",
+      "REL-182",
+      "REL-183",
+      "REL-184",
+      "REL-185"
+    ],
+    "required_regression_suites": [
+      "REG-LEADPACK-ACTIVATION-DESIGN-PREP",
+      "REG-LEADPACK-IMPLEMENTATION-DECISION-READINESS-PACKET"
+    ],
+    "required_owner_signoff_roles": [
+      "release_approver",
+      "governance_owner",
+      "testing_owner"
+    ],
+    "required_owner_signoff_states": [
+      "APPROVED"
+    ],
+    "required_approval_chains": [
+      "internal_review_release",
+      "client_report_release"
+    ],
+    "required_review_gates": [
+      "leadpack_candidate_review_gate"
+    ],
+    "required_audit_refs": [
+      "project_fact_audit_ref",
+      "candidate_projection_audit_ref",
+      "approval_chain_audit_ref",
+      "trace_bundle_ref",
+      "activation_design_decision_audit_ref"
+    ],
+    "formal_hold_sources": [
+      {
+        "source_type": "owner_signoff",
+        "source_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states",
+        "hold_when": "any mandatory owner current_status is not APPROVED",
+        "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+      },
+      {
+        "source_type": "approval_chain",
+        "source_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json#approval_audit_prerequisites.required_approval_chains_before_implementation_decision",
+        "hold_when": "required approval chain is missing, pending, or revoked",
+        "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+      },
+      {
+        "source_type": "review_gate",
+        "source_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json#approval_audit_prerequisites.required_review_gates_before_implementation_decision",
+        "hold_when": "required review gate is missing or not ready",
+        "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+      },
+      {
+        "source_type": "audit_ref",
+        "source_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json#approval_audit_prerequisites.required_audit_refs_before_implementation_decision",
+        "hold_when": "required audit ref is missing",
+        "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+      }
+    ],
+    "hold_conditions": [
+      "owner signoff requested but not approved",
+      "approval chain pending or missing during design prep",
+      "review gate pending or missing during design prep",
+      "audit ref pending or missing during design prep",
+      "status layer mismatch not yet closed"
+    ],
+    "no_go_conditions": [
+      "owner signoff denied",
+      "direct object export attempted",
+      "external delivery or live execution requested",
+      "boundary check denied",
+      "emergency-off triggered"
+    ],
+    "next_allowed_state_if_passed": "ACTIVATION_IMPLEMENTATION_DECISION_READY_FOR_REVIEW",
+    "not_allowed_states": [
+      "ACTUAL_ACTIVATION_APPROVED",
+      "EXTERNAL_DELIVERY_APPROVED",
+      "LIVE_EXECUTION_APPROVED",
+      "IMPLEMENTATION_APPROVED"
+    ]
+  }
+}

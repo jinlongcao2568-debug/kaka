@@ -1,0 +1,120 @@
+{
+  "registry_id": "leadpack-activation-prep-signoff-packet",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D12",
+      "D13"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Machine-readable owner signoff packet definition for leadpack candidate activation prep. This packet prepares manual review only and does not authorize activation.",
+    "machine_path": "contracts/release/leadpack_activation_prep_signoff_packet.json",
+    "prerequisite_matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
+    "transition_matrix_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+    "activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+    "implementation_decision_readiness_packet_ref": "contracts/release/leadpack_implementation_decision_readiness_packet.json"
+  },
+  "candidate_domain_id": "leadpack_external_delivery",
+  "packet_status_vocabulary": [
+    "PACKET_NOT_STARTED",
+    "PACKET_DRAFT_READY",
+    "PACKET_READY_FOR_REVIEW",
+    "PACKET_HELD",
+    "PACKET_DENIED"
+  ],
+  "draft_packet_allowed": true,
+  "draft_packet_is_not_activation_ready": true,
+  "owner_signoff_execution_status_vocabulary": [
+    "DRAFT",
+    "DECLARED",
+    "REQUESTED",
+    "APPROVED",
+    "DENIED",
+    "HELD",
+    "EXPIRED",
+    "WITHDRAWN"
+  ],
+  "required_owner_signoffs": [
+    {
+      "owner_role": "release_approver",
+      "mandatory": true,
+      "default_status": "REQUESTED",
+      "actual_state_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.release_approver",
+      "missing_or_pending_result": "HOLD",
+      "denied_result": "NO_GO"
+    },
+    {
+      "owner_role": "governance_owner",
+      "mandatory": true,
+      "default_status": "REQUESTED",
+      "actual_state_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.governance_owner",
+      "missing_or_pending_result": "HOLD",
+      "denied_result": "NO_GO"
+    },
+    {
+      "owner_role": "testing_owner",
+      "mandatory": true,
+      "default_status": "REQUESTED",
+      "actual_state_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states.testing_owner",
+      "missing_or_pending_result": "HOLD",
+      "denied_result": "NO_GO"
+    }
+  ],
+  "owner_signoff_state_source": {
+    "contract_state_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json#actual_owner_signoff_states",
+    "control_state_ref": "control/current_task.yaml#currentTask.task_packet.owner_signoff_states",
+    "default_status_is_not_actual_signoff": true,
+    "missing_actual_state_result": "HOLD"
+  },
+  "actual_owner_signoff_states": [
+    {
+      "owner_role": "release_approver",
+      "mandatory": true,
+      "declared": true,
+      "current_status": "REQUESTED",
+      "signoff_state": "REQUESTED_NOT_APPROVED",
+      "state_source_ref": "control/current_task.yaml#currentTask.task_packet.owner_signoff_states.release_approver",
+      "implementation_decision_result": "HOLD"
+    },
+    {
+      "owner_role": "governance_owner",
+      "mandatory": true,
+      "declared": true,
+      "current_status": "REQUESTED",
+      "signoff_state": "REQUESTED_NOT_APPROVED",
+      "state_source_ref": "control/current_task.yaml#currentTask.task_packet.owner_signoff_states.governance_owner",
+      "implementation_decision_result": "HOLD"
+    },
+    {
+      "owner_role": "testing_owner",
+      "mandatory": true,
+      "declared": true,
+      "current_status": "REQUESTED",
+      "signoff_state": "REQUESTED_NOT_APPROVED",
+      "state_source_ref": "control/current_task.yaml#currentTask.task_packet.owner_signoff_states.testing_owner",
+      "implementation_decision_result": "HOLD"
+    }
+  ],
+  "execution_decision_mapping": {
+    "all_mandatory_owners_approved": "IMPLEMENTATION_DECISION_READY_FOR_REVIEW",
+    "any_mandatory_owner_denied": "NO_GO",
+    "any_mandatory_owner_missing_requested_held_expired_or_withdrawn": "HOLD"
+  },
+  "execution_policy_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json#owner_signoff_execution",
+  "packet_fields": [
+    "packet_id",
+    "candidate_domain_id",
+    "evidence_pack_ref",
+    "simulation_replay_ref",
+    "runbook_ref",
+    "review_gate_ref",
+    "required_release_checks",
+    "required_regression_suites",
+    "required_owner_signoffs",
+    "actual_owner_signoff_states",
+    "manual_review_required"
+  ],
+  "missing_mandatory_owner_result": "ACTIVATION_PREP_HELD",
+  "review_gate_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json#review_gate"
+}

@@ -1,0 +1,187 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "stage8_resolution_policy",
+  "ownerDocs": [
+    "D9",
+    "D11"
+  ],
+  "candidateCollection": {
+    "policyId": "contact_candidate_pool_equivalent_v1",
+    "collectionMode": "CONTACT_TARGET_EQUIVALENT_COLLECTION",
+    "organizationFirstChannelFamilies": [
+      "ORG_PHONE",
+      "ORG_EMAIL",
+      "PUBLIC_FORM",
+      "CRM_APPROVED_DIRECT"
+    ],
+    "minimumPrimaryScore": 60,
+    "excludeWhen": [
+      "contact_legal_basis=BLOCKED",
+      "opt_out_state in [OPTED_OUT,BLOCKED]",
+      "contact_validity_status=INVALID"
+    ],
+    "conflictRules": [
+      {
+        "when": "score_diff<=5 and role_cluster differs",
+        "reason": "role_cluster_diff_within_5"
+      },
+      {
+        "when": "score_diff<=3 and channel_family differs",
+        "reason": "channel_family_diff_within_3"
+      }
+    ],
+    "tieBreakers": [
+      "higher_score",
+      "organization_channel_first",
+      "auditability_auditable_first",
+      "newer_last_evaluated_at_first"
+    ],
+    "mergePolicy": {
+      "policyId": "contact_candidate_formal_merge_v1",
+      "matchKeyOrder": [
+        {
+          "key": "person_channel_identity",
+          "fields": [
+            "person_name_optional",
+            "contact_channel",
+            "channel_family"
+          ]
+        },
+        {
+          "key": "org_role_channel_identity",
+          "fields": [
+            "org_name",
+            "role_cluster",
+            "channel_family"
+          ]
+        },
+        {
+          "key": "org_channel_identity",
+          "fields": [
+            "org_name",
+            "channel_family"
+          ]
+        }
+      ],
+      "sourceConflictFields": [
+        "public_contact_source",
+        "source_vendor_role",
+        "source_vendor_id_optional",
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "channel_policy_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state"
+      ],
+      "sourceConflictReviewRequiredFields": [
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "channel_policy_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state"
+      ],
+      "formalMergeRequiredSourceRoles": [
+        "THIRD_PARTY_SUPPORT_SOURCE"
+      ],
+      "mergeStateVocabulary": [
+        "NOT_REQUIRED_SINGLE_SOURCE",
+        "FORMAL_MERGED_MULTI_SOURCE",
+        "REVIEW_REQUIRED_SINGLE_THIRD_PARTY"
+      ]
+    },
+    "traceFields": [
+      "candidate_pool_mode",
+      "candidate_pool_count",
+      "input_candidate_count",
+      "merge_policy_id",
+      "dedupe_applied",
+      "source_conflict_candidate_count",
+      "source_merge_review_required_count",
+      "eligible_candidate_count",
+      "selected_candidate_id",
+      "selected_candidate_source",
+      "selected_vendor_resolution"
+    ]
+  },
+  "sourceVendorResolution": {
+    "policyId": "source_vendor_resolution_v1",
+    "resolutionOrder": [
+      {
+        "source_role": "PUBLIC_OFFICIAL_SOURCE",
+        "preferredVendorIds": [
+          "SOURCE-OFFICIAL-WEBSITE"
+        ]
+      },
+      {
+        "source_role": "THIRD_PARTY_SUPPORT_SOURCE",
+        "preferredVendorIds": [
+          "SOURCE-TIANYANCHA",
+          "SOURCE-SHANGJIBAO"
+        ]
+      },
+      {
+        "source_role": "CONTACT_ENRICHMENT_SOURCE",
+        "preferredVendorIds": [
+          "SOURCE-AUTHORIZED-CRM"
+        ]
+      }
+    ]
+  },
+  "executionVendorResolution": {
+    "policyId": "execution_vendor_resolution_v1",
+    "channelFamilyToVendorIds": {
+      "ORG_EMAIL": [
+        "EXEC-EMAIL-SERVICE"
+      ],
+      "PUBLIC_FORM": [
+        "EXEC-EMAIL-SERVICE"
+      ],
+      "CRM_APPROVED_DIRECT": [
+        "EXEC-EMAIL-SERVICE"
+      ],
+      "ORG_PHONE": [
+        "EXEC-ALIYUN-CALL"
+      ],
+      "AUTHORIZED_PERSON_DIRECT": [
+        "EXEC-ALIYUN-CALL"
+      ],
+      "PERSONAL_PHONE": [
+        "EXEC-ALIYUN-CALL"
+      ],
+      "PERSONAL_EMAIL": [
+        "EXEC-EMAIL-SERVICE"
+      ]
+    }
+  },
+  "humanHandoff": {
+    "policyId": "stage8_human_handoff_v1",
+    "routes": {
+      "CONNECTED": {
+        "nextStep": "HANDOFF_TO_SALES",
+        "nextOwnerRole": "sales_user",
+        "slaHoursByUrgency": {
+          "CRITICAL": 4,
+          "HIGH": 8,
+          "NORMAL": 24,
+          "LOW": 48
+        },
+        "reason": "human_followup_required_after_connected"
+      },
+      "ORG_ROUTED": {
+        "nextStep": "WAIT_ORG_RESPONSE",
+        "nextOwnerRole": "sales_user",
+        "slaHoursByUrgency": {
+          "CRITICAL": 8,
+          "HIGH": 24,
+          "NORMAL": 48,
+          "LOW": 72
+        },
+        "reason": "organization_route_followup_required"
+      }
+    }
+  }
+}

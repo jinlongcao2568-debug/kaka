@@ -1,0 +1,24 @@
+{
+  "handoff_id": "H-05-STAGE5-TO-STAGE6",
+  "example_id": "EX-H05-MIN",
+  "payload": {
+    "project_id": "PRJ-001",
+    "rule_hit_id": "RH-PRJ-001",
+    "rule_hit_state": "REVIEW_REQUIRED",
+    "evidence_id": "EVD-PRJ-001",
+    "rule_gate_decision_id": "RGATE-PRJ-001",
+    "evidence_gate_decision_id": "EGATE-PRJ-001",
+    "rule_gate_status": "REVIEW",
+    "evidence_gate_status": "REVIEW",
+    "coverage_sellable_state": "RESTRICTED",
+    "delivery_risk_state": "REVIEW",
+    "review_request_id": "RR-PRJ-001",
+    "missing_condition_family": "MISSING_EVIDENCE",
+    "review_lane": "STANDARD",
+    "verification_state": "REVIEW",
+    "cross_check_state": "REVIEW",
+    "fixation_status": "SNAPSHOT_CAPTURED",
+    "provenance_chain_status": "PARTIAL",
+    "retrieval_readiness_status": "PARTIAL"
+  }
+}

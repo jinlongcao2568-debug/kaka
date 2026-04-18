@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "project_fact",
+  "type": "object",
+  "description": "Schema skeleton for project_fact.",
+  "source_refs": [
+    "D2-R-008",
+    "D13-R-010"
+  ],
+  "enum_refs": [
+    "sale_gate_status",
+    "gate_status",
+    "coverage_sellable_state",
+    "delivery_risk_state",
+    "manual_override_status",
+    "competitor_quality_grade"
+  ],
+  "properties": {
+    "project_fact_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "sale_gate_status": {
+      "type": "string"
+    },
+    "rule_gate_status": {
+      "type": "string"
+    },
+    "evidence_gate_status": {
+      "type": "string"
+    },
+    "rule_hit_summary": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "clue_summary": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risk_summary": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "coverage_sellable_state": {
+      "type": "string"
+    },
+    "delivery_risk_state": {
+      "type": "string"
+    },
+    "manual_override_status": {
+      "type": "string"
+    },
+    "real_competitor_count": {
+      "type": "integer"
+    },
+    "serviceable_competitor_count": {
+      "type": "integer"
+    },
+    "competitor_quality_grade": {
+      "type": "string"
+    },
+    "project_value_score_optional": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    }
+  },
+  "required": [
+    "project_fact_id",
+    "project_id",
+    "sale_gate_status",
+    "rule_gate_status",
+    "evidence_gate_status",
+    "rule_hit_summary",
+    "clue_summary",
+    "risk_summary",
+    "coverage_sellable_state",
+    "delivery_risk_state",
+    "manual_override_status",
+    "real_competitor_count",
+    "serviceable_competitor_count",
+    "competitor_quality_grade"
+  ],
+  "additionalProperties": false
+}

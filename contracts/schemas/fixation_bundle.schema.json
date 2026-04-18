@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "fixation_bundle",
+  "type": "object",
+  "description": "Schema skeleton for fixation_bundle.",
+  "source_refs": [
+    "D2-R-024"
+  ],
+  "enum_refs": [],
+  "properties": {
+    "fixation_bundle_id": {
+      "type": "string"
+    },
+    "carrier_type": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "capture_time": {
+      "type": "string"
+    },
+    "content_hash": {
+      "type": "string"
+    },
+    "storage_path": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "fixation_bundle_id",
+    "carrier_type",
+    "source_url",
+    "capture_time",
+    "content_hash",
+    "storage_path"
+  ],
+  "additionalProperties": false
+}

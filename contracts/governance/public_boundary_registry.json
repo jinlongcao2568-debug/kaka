@@ -1,0 +1,1623 @@
+{
+  "registry_id": "public-boundary-registry",
+  "version": "0.1.0",
+  "metadata": {
+    "package_name": "governance/release package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-12",
+    "machine_path": "contracts/governance/public_boundary_registry.json",
+    "scope": "formal machine-readable registry for capability boundary, release layer and consumption mapping",
+    "source_documents": [
+      "L0.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D13_公开可查边界能力清单.md",
+      "D11_测试验收与金标回归清单.md",
+      "D14_AI模型治理规范.md",
+      "裁决总表.md"
+    ],
+    "notes": []
+  },
+  "tiers": [
+    {
+      "tier": "A_PUBLIC_CORE",
+      "formal_definition": "Nationwide stable public core capability",
+      "default_results": [
+        "AUTO_HIT",
+        "CLUE",
+        "formal_fact_object"
+      ],
+      "commercial_promise_boundary": "May be sold as nationwide minimum formal capability within public and auditable boundary",
+      "release_floor": "INTERNAL_OPERABLE",
+      "requires_coverage_binding": false,
+      "forbidden_statements": [
+        "terminal illegality conclusion",
+        "automatic bid invalidation",
+        "automatic regulator or court replacement"
+      ],
+      "source_refs": [
+        "D13-R-007"
+      ],
+      "release_layer_baseline": "INTERNAL_OPERABLE",
+      "release_layer_notes": "release layer is a separate dimension from capability tier",
+      "release_floor_notes": "release_floor aligned with D13 release layers"
+    },
+    {
+      "tier": "B_PUBLIC_ENHANCED",
+      "formal_definition": "Construction-domain enhanced public capability",
+      "default_results": [
+        "CLUE",
+        "conditional_fact_object",
+        "REVIEW_REQUEST"
+      ],
+      "commercial_promise_boundary": "May only be promised within validated region/platform/source scope",
+      "release_floor": "INTERNAL_OPERABLE",
+      "requires_coverage_binding": true,
+      "required_governance_objects": [
+        "coverage_registry",
+        "public_granularity_state",
+        "fixation_readiness_state",
+        "retrieval_stability_state"
+      ],
+      "forbidden_statements": [
+        "nationwide default stable capability"
+      ],
+      "source_refs": [
+        "D13-R-008",
+        "D13-R-024"
+      ],
+      "release_layer_baseline": "INTERNAL_OPERABLE",
+      "release_layer_notes": "release layer is a separate dimension from capability tier",
+      "release_floor_notes": "release_floor aligned with D13 release layers"
+    },
+    {
+      "tier": "C_PUBLIC_CONDITIONAL",
+      "formal_definition": "Conditional public clue capability",
+      "default_results": [
+        "CLUE",
+        "OBSERVATION",
+        "REVIEW_REQUEST"
+      ],
+      "commercial_promise_boundary": "May not be marketed as default stable capability; must retain conditional wording",
+      "release_floor": "INTERNAL_OPERABLE",
+      "requires_coverage_binding": true,
+      "required_governance_objects": [
+        "coverage_registry",
+        "public_granularity_state"
+      ],
+      "forbidden_statements": [
+        "confirmed violation",
+        "certain bid invalidation",
+        "default customer-homepage conclusion"
+      ],
+      "source_refs": [
+        "D13-R-009",
+        "D13-R-034"
+      ],
+      "release_layer_baseline": "INTERNAL_OPERABLE",
+      "release_layer_notes": "release layer is a separate dimension from capability tier",
+      "release_floor_notes": "release_floor aligned with D13 release layers"
+    },
+    {
+      "tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "formal_definition": "Non-public, forensic, regulatory, or otherwise forbidden capability for the formal public chain",
+      "default_results": [
+        "REVIEW_REQUEST",
+        "governance_isolation_only"
+      ],
+      "commercial_promise_boundary": "May not be sold as formal public-chain capability",
+      "release_floor": "EXTERNAL_BLOCKED",
+      "requires_coverage_binding": false,
+      "forbidden_statements": [
+        "formal client conclusion",
+        "formal external primary evidence",
+        "formal legal action basis",
+        "formal public model input"
+      ],
+      "source_refs": [
+        "D13-R-010"
+      ],
+      "release_layer_baseline": "EXTERNAL_BLOCKED",
+      "release_layer_notes": "release layer is a separate dimension from capability tier",
+      "release_floor_notes": "release_floor aligned with D13 release layers"
+    }
+  ],
+  "capabilities": [
+    {
+      "capability_id": "A-01",
+      "name": "公开链完整性核验",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "formal_fact_object",
+        "CLUE"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        2,
+        6
+      ],
+      "input_objects": [
+        "task_record",
+        "execution_context",
+        "public_chain",
+        "clock_chain_profile",
+        "notice_version_chain"
+      ],
+      "output_objects": [
+        "public_chain",
+        "project_fact",
+        "legal_action_recommendation"
+      ],
+      "upgrade_conditions": [
+        "法定节点完整",
+        "版本与时钟无核心未解冲突",
+        "原始载体可回链",
+        "来源可审计"
+      ],
+      "downgrade_conditions": [
+        "存在节点缺失但不影响内部使用",
+        "存在待人工确认的轻微冲突"
+      ],
+      "blocking_conditions": [
+        "关键法定节点缺失",
+        "时钟链未解",
+        "版本链冲突未解",
+        "公开链不可固定"
+      ],
+      "governance_requirements": [
+        "受D3双闸门约束",
+        "版本/时钟门禁未解不得升级",
+        "D层输入渗透即阻断"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-013"
+      ],
+      "rule_refs": [
+        "PROC-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "public_chain",
+        "project_fact",
+        "legal_action_recommendation"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-02",
+      "name": "公示期与动作窗口门控",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "formal_fact_object",
+        "CLUE"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        1,
+        2,
+        6
+      ],
+      "input_objects": [
+        "clock_chain_profile",
+        "public_chain",
+        "project_fact"
+      ],
+      "output_objects": [
+        "clock_chain_profile",
+        "legal_action_recommendation"
+      ],
+      "upgrade_conditions": [
+        "制度类型明确",
+        "窗口状态明确",
+        "主管机关边界明确"
+      ],
+      "downgrade_conditions": [
+        "窗口边界存在待确认事项",
+        "仅形成内部复核或观察结论"
+      ],
+      "blocking_conditions": [
+        "制度类型不明",
+        "窗口状态不明",
+        "时钟冲突未解"
+      ],
+      "governance_requirements": [
+        "依赖clock_chain_profile完整",
+        "双闸门与制度裁决约束"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-014"
+      ],
+      "rule_refs": [
+        "PROC-003"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "clock_chain_profile",
+        "legal_action_recommendation"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-03",
+      "name": "评标方法与项目类型分型",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "formal_fact_object"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": false,
+      "stage_refs": [
+        3,
+        5
+      ],
+      "input_objects": [
+        "project_base",
+        "field_lineage_record"
+      ],
+      "output_objects": [
+        "project_base",
+        "rule_gate_decision",
+        "project_fact"
+      ],
+      "upgrade_conditions": [
+        "字段来源可追溯",
+        "制度口径明确",
+        "字段归一完成"
+      ],
+      "downgrade_conditions": [
+        "字段缺失",
+        "术语存在待确认映射"
+      ],
+      "blocking_conditions": [
+        "制度类型无法裁决"
+      ],
+      "governance_requirements": [
+        "依赖D2真相层字段",
+        "受D3规则前提目录约束"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-015"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "project_base",
+        "rule_gate_decision",
+        "project_fact"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-04",
+      "name": "候选集合攻击面核验",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "formal_fact_object",
+        "CLUE"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        6
+      ],
+      "input_objects": [
+        "project_base",
+        "bidder_candidate",
+        "public_chain"
+      ],
+      "output_objects": [
+        "public_attack_surface",
+        "project_fact"
+      ],
+      "upgrade_conditions": [
+        "候选集合完整",
+        "项目归一完成",
+        "公开链成立"
+      ],
+      "downgrade_conditions": [
+        "候选集合存在轻微缺口"
+      ],
+      "blocking_conditions": [
+        "项目归一未完成",
+        "候选集合不完整且无法补齐",
+        "版本链未解"
+      ],
+      "governance_requirements": [
+        "依赖bidder_candidate正式对象",
+        "受版本/时钟 gate 约束"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-016"
+      ],
+      "rule_refs": [
+        "ATTACK-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "public_attack_surface",
+        "project_fact"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-05",
+      "name": "公开版本冲突检测",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": false,
+      "stage_refs": [
+        2,
+        3,
+        5
+      ],
+      "input_objects": [
+        "notice_version_chain",
+        "field_lineage_record",
+        "project_base"
+      ],
+      "output_objects": [
+        "notice_version_chain",
+        "rule_gate_decision",
+        "review_request"
+      ],
+      "upgrade_conditions": [
+        "版本链完整",
+        "冲突可回链",
+        "冲突对规则结果有明确影响"
+      ],
+      "downgrade_conditions": [
+        "冲突存在但影响面尚不明确"
+      ],
+      "blocking_conditions": [
+        "版本链不完整",
+        "冲突无法解释且影响正式结论"
+      ],
+      "governance_requirements": [
+        "依赖notice_version_chain完整",
+        "受PROC-002等版本冲突规则约束"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-017"
+      ],
+      "rule_refs": [
+        "PROC-002",
+        "DOC-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "notice_version_chain",
+        "rule_gate_decision",
+        "review_request"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-06",
+      "name": "限制性条款与规则定向识别",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "CLUE"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5
+      ],
+      "input_objects": [
+        "project_base",
+        "field_lineage_record"
+      ],
+      "output_objects": [
+        "rule_hit",
+        "evidence",
+        "project_fact"
+      ],
+      "upgrade_conditions": [
+        "文本回链充分",
+        "前提完整",
+        "双闸门通过",
+        "证据达到外显阈值"
+      ],
+      "downgrade_conditions": [
+        "文本披露不足",
+        "制度口径需人工确认",
+        "表达存在解释空间"
+      ],
+      "blocking_conditions": [
+        "仅截图/OCR/模型摘要",
+        "关键条款无原始回链"
+      ],
+      "governance_requirements": [
+        "依赖QUAL规则目录",
+        "受D6字段策略与D7 release gate约束"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-018"
+      ],
+      "rule_refs": [
+        "QUAL-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "rule_hit",
+        "evidence",
+        "project_fact"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-07",
+      "name": "全国统一公开信用链核验",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "CLUE"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5
+      ],
+      "input_objects": [
+        "focus_bidder_verification_profile",
+        "project_base",
+        "evidence_grade_profile"
+      ],
+      "output_objects": [
+        "rule_hit",
+        "evidence",
+        "focus_bidder_verification_profile"
+      ],
+      "upgrade_conditions": [
+        "主体对齐可靠",
+        "记录可回链",
+        "证据等级达到E4_EXTERNAL_ACTION_READY"
+      ],
+      "downgrade_conditions": [
+        "主体存在待人工确认的弱匹配",
+        "外显阈值不足"
+      ],
+      "blocking_conditions": [
+        "主体无法稳定对齐",
+        "无原始回链"
+      ],
+      "governance_requirements": [
+        "依赖CREDIT规则与证据等级",
+        "D11正反匹配样本必备"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-019"
+      ],
+      "rule_refs": [
+        "CREDIT-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "rule_hit",
+        "evidence",
+        "focus_bidder_verification_profile"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-08",
+      "name": "真实竞争者识别",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "formal_fact_object",
+        "restricted_business_object"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        6
+      ],
+      "input_objects": [
+        "project_fact",
+        "public_attack_surface",
+        "pseudo_competitor_signal_set",
+        "bidder_candidate"
+      ],
+      "output_objects": [
+        "challenger_candidate_profile",
+        "legal_action_actor_profile",
+        "challenger_buyer_fit"
+      ],
+      "upgrade_conditions": [
+        "project_fact 已成立",
+        "双闸门通过",
+        "伪竞争者风险未触发核心阻断"
+      ],
+      "downgrade_conditions": [
+        "受损关系存在但执行就绪度不足"
+      ],
+      "blocking_conditions": [
+        "项目归一未完成",
+        "伪竞争者风险高",
+        "窗口与利益关系无法成立"
+      ],
+      "governance_requirements": [
+        "依赖商业对象层约束",
+        "受D3优先序与D7交付矩阵限制"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-020"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "challenger_candidate_profile",
+        "legal_action_actor_profile",
+        "challenger_buyer_fit"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE",
+        "LEADPACK_FORMATION"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-09",
+      "name": "法律动作建议对象化",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "formal_legal_action_object"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        6
+      ],
+      "input_objects": [
+        "project_fact",
+        "clock_chain_profile",
+        "rule_gate_decision",
+        "evidence_gate_decision"
+      ],
+      "output_objects": [
+        "legal_action_recommendation"
+      ],
+      "upgrade_conditions": [
+        "制度口径明确",
+        "主管机关边界明确",
+        "双闸门通过",
+        "证据等级达到阈值"
+      ],
+      "downgrade_conditions": [
+        "制度或主管机关尚需确认",
+        "仅能形成观察性动作建议或复核请求"
+      ],
+      "blocking_conditions": [
+        "制度未定",
+        "窗口未定",
+        "证据不足",
+        "边界不允许"
+      ],
+      "governance_requirements": [
+        "依赖D3结果语义",
+        "受D6字段策略与D7外发 gate约束"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-021"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "legal_action_recommendation"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE",
+        "LEADPACK_FORMATION"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "A-10",
+      "name": "公开证据等级治理",
+      "tier": "A_PUBLIC_CORE",
+      "default_results": [
+        "gate_object"
+      ],
+      "requires_coverage": false,
+      "requires_dual_gate": false,
+      "stage_refs": [
+        4,
+        5,
+        6
+      ],
+      "input_objects": [
+        "evidence",
+        "evidence_grade_profile",
+        "field_lineage_record"
+      ],
+      "output_objects": [
+        "evidence_grade_profile",
+        "evidence_gate_decision"
+      ],
+      "upgrade_conditions": [
+        "来源可追",
+        "固定可核",
+        "必要时可调阅",
+        "对象对齐成立"
+      ],
+      "downgrade_conditions": [
+        "原始载体存在但外显阈值不足"
+      ],
+      "blocking_conditions": [
+        "仅截图/OCR/模型摘要",
+        "关键主体对齐失败",
+        "原始载体缺失"
+      ],
+      "governance_requirements": [
+        "依赖D3证据等级",
+        "受D6字段策略与D7 release gate约束"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-022"
+      ],
+      "rule_refs": [
+        "GOV-001",
+        "GOV-002",
+        "GOV-003",
+        "GOV-004"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "evidence_grade_profile",
+        "evidence_gate_decision"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "capability_id": "B-01",
+      "name": "四库一平台业绩与人员信息核验",
+      "tier": "B_PUBLIC_ENHANCED",
+      "default_results": [
+        "CLUE",
+        "conditional_fact_object",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5
+      ],
+      "input_objects": [
+        "project_base",
+        "focus_bidder_verification_profile",
+        "field_lineage_record"
+      ],
+      "output_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "upgrade_conditions": [
+        "coverage已放行",
+        "平台稳定",
+        "原始页面稳定",
+        "主体对齐可靠",
+        "双闸门允许"
+      ],
+      "downgrade_conditions": [
+        "地区未覆盖",
+        "平台不稳",
+        "颗粒度不足",
+        "字段来源薄弱",
+        "主体对齐不充分"
+      ],
+      "blocking_conditions": [
+        "coverage未放行",
+        "D层输入渗透",
+        "对象对齐失败"
+      ],
+      "governance_requirements": [
+        "受coverage_registry约束",
+        "不得包装为全国默认能力"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-027"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "B-02",
+      "name": "项目经理注册信息与在建冲突核验",
+      "tier": "B_PUBLIC_ENHANCED",
+      "default_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5
+      ],
+      "input_objects": [
+        "project_base",
+        "project_manager",
+        "focus_bidder_verification_profile",
+        "field_lineage_record"
+      ],
+      "output_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "upgrade_conditions": [
+        "coverage已放行",
+        "公开单位链可回链",
+        "时间窗口一致",
+        "双闸门允许"
+      ],
+      "downgrade_conditions": [
+        "弱公开页面",
+        "主体匹配不稳定",
+        "颗粒度不足"
+      ],
+      "blocking_conditions": [
+        "依赖非公开社保/人事材料",
+        "coverage未放行",
+        "对象对齐失败"
+      ],
+      "governance_requirements": [
+        "受coverage_registry约束",
+        "不得以弱匹配升级为正式命中"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-028"
+      ],
+      "rule_refs": [
+        "PM-001",
+        "PM-002"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "B-03",
+      "name": "施工许可、竣工备案、合同订立公开核验",
+      "tier": "B_PUBLIC_ENHANCED",
+      "default_results": [
+        "CLUE",
+        "conditional_fact_object",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5
+      ],
+      "input_objects": [
+        "project_base",
+        "focus_bidder_verification_profile",
+        "field_lineage_record"
+      ],
+      "output_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "upgrade_conditions": [
+        "coverage已放行",
+        "公开颗粒度满足",
+        "固定能力与稳定性达标"
+      ],
+      "downgrade_conditions": [
+        "颗粒度不足",
+        "平台不稳"
+      ],
+      "blocking_conditions": [
+        "coverage未放行",
+        "D层输入渗透"
+      ],
+      "governance_requirements": [
+        "受coverage_registry约束",
+        "不得包装为全国默认能力"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-029"
+      ],
+      "rule_refs": [
+        "ENG-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "B-04",
+      "name": "企业主体关系与工程履约增强核验",
+      "tier": "B_PUBLIC_ENHANCED",
+      "default_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5
+      ],
+      "input_objects": [
+        "project_base",
+        "focus_bidder_verification_profile",
+        "field_lineage_record"
+      ],
+      "output_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "upgrade_conditions": [
+        "coverage已放行",
+        "主体关系可回链",
+        "双闸门允许"
+      ],
+      "downgrade_conditions": [
+        "主体弱匹配",
+        "履约链路缺原始载体"
+      ],
+      "blocking_conditions": [
+        "coverage未放行",
+        "对象对齐失败"
+      ],
+      "governance_requirements": [
+        "受coverage_registry约束",
+        "不得升级为全国默认能力"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-030"
+      ],
+      "rule_refs": [
+        "REL-001",
+        "ENG-002"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "BC-01",
+      "name": "项目经理近期变更注册单位与一致性强核查能力",
+      "tier": "B_PUBLIC_ENHANCED",
+      "default_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "input_objects": [
+        "project_base",
+        "project_manager",
+        "bidder_candidate",
+        "field_lineage_record",
+        "clock_chain_profile",
+        "notice_version_chain",
+        "focus_bidder_verification_profile"
+      ],
+      "output_objects": [
+        "project_manager",
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request",
+        "project_fact"
+      ],
+      "upgrade_conditions": [
+        "招标文件存在本单位人员/社保要求",
+        "时间窗口高度贴近",
+        "公开单位链存在可回链不一致",
+        "项目归一与版本/时钟链已完成裁决"
+      ],
+      "downgrade_conditions": [
+        "仅发现近期变更但无公开一致性冲突"
+      ],
+      "blocking_conditions": [
+        "仅弱公开",
+        "仅企业自填",
+        "仅同名模糊匹配",
+        "无原始回链",
+        "coverage未放行"
+      ],
+      "governance_requirements": [
+        "受coverage_registry约束",
+        "不得直接升级为当然不合格结论"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-032"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "project_manager",
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request",
+        "project_fact"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "BC-02",
+      "name": "关键人员单位链一致性核查能力",
+      "tier": "B_PUBLIC_ENHANCED",
+      "default_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "input_objects": [
+        "project_base",
+        "project_manager",
+        "bidder_candidate",
+        "field_lineage_record",
+        "clock_chain_profile",
+        "notice_version_chain",
+        "focus_bidder_verification_profile"
+      ],
+      "output_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request",
+        "project_fact"
+      ],
+      "upgrade_conditions": [
+        "身份稳定对齐",
+        "公开不一致可回链",
+        "双闸门允许",
+        "coverage放行"
+      ],
+      "downgrade_conditions": [
+        "仅弱公开页面",
+        "仅模糊匹配"
+      ],
+      "blocking_conditions": [
+        "关键身份无法稳定对齐",
+        "字段lineage不完整",
+        "D层社保/人事材料渗透"
+      ],
+      "governance_requirements": [
+        "受coverage_registry约束",
+        "不得把单位链不一致直接等同于社保不一致"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-033"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "evidence",
+        "review_request",
+        "project_fact"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "C-01",
+      "name": "公开附件内容核验",
+      "tier": "C_PUBLIC_CONDITIONAL",
+      "default_results": [
+        "CLUE",
+        "OBSERVATION"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "input_objects": [
+        "public_chain",
+        "field_lineage_record"
+      ],
+      "output_objects": [
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "upgrade_conditions": [
+        "附件真实可回链",
+        "原始固定件完整",
+        "字段来源切片可解释"
+      ],
+      "downgrade_conditions": [
+        "附件存在但颗粒度不足"
+      ],
+      "blocking_conditions": [
+        "附件无法固定",
+        "仅截图/OCR/转述"
+      ],
+      "governance_requirements": [
+        "受coverage_registry与颗粒度约束",
+        "不得冒充正式主结论"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-035"
+      ],
+      "rule_refs": [
+        "ATTACH-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "rule_hit",
+        "evidence",
+        "review_request"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "C-02",
+      "name": "评分异常与复核触发识别",
+      "tier": "C_PUBLIC_CONDITIONAL",
+      "default_results": [
+        "OBSERVATION",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5
+      ],
+      "input_objects": [
+        "project_base",
+        "evidence_grade_profile"
+      ],
+      "output_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "upgrade_conditions": [
+        "评分颗粒度充分",
+        "字段可回链",
+        "异常特征可解释"
+      ],
+      "downgrade_conditions": [
+        "存在弱异常但颗粒度不足"
+      ],
+      "blocking_conditions": [
+        "评分细项不存在",
+        "仅截图/转述"
+      ],
+      "governance_requirements": [
+        "受coverage_registry与颗粒度约束",
+        "不得写成终局违法结论"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-036"
+      ],
+      "rule_refs": [
+        "SCORE-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "C-03",
+      "name": "关键人员配置一致性线索识别",
+      "tier": "C_PUBLIC_CONDITIONAL",
+      "default_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5,
+        6
+      ],
+      "input_objects": [
+        "project_manager",
+        "field_lineage_record",
+        "focus_bidder_verification_profile"
+      ],
+      "output_objects": [
+        "rule_hit",
+        "review_request",
+        "project_fact"
+      ],
+      "upgrade_conditions": [
+        "公开不一致可回链",
+        "身份对齐可靠",
+        "请求核查前提明确"
+      ],
+      "downgrade_conditions": [
+        "仅弱披露或颗粒度不足"
+      ],
+      "blocking_conditions": [
+        "需要非公开社保/人事材料才能成立"
+      ],
+      "governance_requirements": [
+        "受coverage_registry约束",
+        "仅支持请求核查"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-037"
+      ],
+      "rule_refs": [
+        "PERSONNEL-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_objects": [
+        "rule_hit",
+        "review_request",
+        "project_fact"
+      ],
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "capability_id": "C-04",
+      "name": "履约异常、合同变更与后评估观察",
+      "tier": "C_PUBLIC_CONDITIONAL",
+      "default_results": [
+        "OBSERVATION",
+        "REVIEW_REQUEST"
+      ],
+      "requires_coverage": true,
+      "requires_dual_gate": true,
+      "stage_refs": [
+        4,
+        5,
+        9
+      ],
+      "input_objects": [
+        "project_base",
+        "public_chain"
+      ],
+      "output_objects": [
+        "rule_hit",
+        "review_request",
+        "governance_feedback_event"
+      ],
+      "upgrade_conditions": [
+        "公开链完整",
+        "原始载体稳定",
+        "颗粒度足够"
+      ],
+      "downgrade_conditions": [
+        "信息存在但仅能支持观察"
+      ],
+      "blocking_conditions": [
+        "依赖内部合同/履约材料"
+      ],
+      "governance_requirements": [
+        "受coverage_registry约束",
+        "不得冒充全国默认能力"
+      ],
+      "test_refs": [
+        "D11-R-053",
+        "D11-R-024"
+      ],
+      "source_refs": [
+        "D13-R-038"
+      ],
+      "rule_refs": [
+        "PERF-001"
+      ],
+      "non_rule_capability": false,
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_objects": [
+        "rule_hit",
+        "review_request",
+        "governance_feedback_event"
+      ],
+      "consumer_surfaces": [
+        "DELIVERY_WRITEBACK",
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    }
+  ],
+  "forbidden_capabilities": [
+    {
+      "capability_id": "D-01",
+      "name": "交易平台后台日志",
+      "formal_handling": "isolation_or_review_request_only",
+      "source_refs": [
+        "D13-R-039"
+      ]
+    },
+    {
+      "capability_id": "D-02",
+      "name": "登录轨迹、IP、设备指纹",
+      "formal_handling": "isolation_or_review_request_only",
+      "source_refs": [
+        "D13-R-039"
+      ]
+    },
+    {
+      "capability_id": "D-03",
+      "name": "私有 XML 与私有投标技术指纹",
+      "formal_handling": "forbidden_from_formal_public_chain",
+      "source_refs": [
+        "D13-R-039"
+      ]
+    },
+    {
+      "capability_id": "D-04",
+      "name": "保证金系统内部同源转出",
+      "formal_handling": "forbidden_from_formal_public_chain",
+      "source_refs": [
+        "D13-R-039"
+      ]
+    },
+    {
+      "capability_id": "D-05",
+      "name": "同人编标、同人办标等取证侧能力",
+      "formal_handling": "manual_review_or_controlled_exception_only",
+      "source_refs": [
+        "D13-R-039"
+      ]
+    },
+    {
+      "capability_id": "D-06",
+      "name": "非公开社保、人事档案与内部履历核验",
+      "formal_handling": "forbidden_from_formal_public_chain",
+      "source_refs": [
+        "D13-R-039"
+      ]
+    },
+    {
+      "capability_id": "D-07",
+      "name": "内部合同、内部履约、客户底稿直接核查",
+      "formal_handling": "not_formal_public_primary_evidence",
+      "source_refs": [
+        "D13-R-039"
+      ]
+    },
+    {
+      "capability_id": "D-08",
+      "name": "非法、灰色或不可审计联系人获取",
+      "formal_handling": "forbidden",
+      "source_refs": [
+        "D13-R-039"
+      ]
+    }
+  ],
+  "release_layers": [
+    {
+      "layer": "DEV_ALLOWED",
+      "meaning": "development and validation only"
+    },
+    {
+      "layer": "INTERNAL_OPERABLE",
+      "meaning": "internal analysis/operations and sales usage"
+    },
+    {
+      "layer": "LEADPACK_DELIVERABLE",
+      "meaning": "eligible for leadpack delivery after gates, approvals and audit"
+    },
+    {
+      "layer": "EXTERNAL_BLOCKED",
+      "meaning": "external promise and external platform release blocked"
+    }
+  ],
+  "consumer_surfaces": [
+    "INTERNAL_ANALYSIS",
+    "SALES_USAGE",
+    "LEADPACK_FORMATION",
+    "OUTREACH_EXECUTION",
+    "DELIVERY_WRITEBACK",
+    "EXTERNAL_EXPRESSION"
+  ],
+  "business_chain_stages": [
+    "高价值线索发现链",
+    "证据包与可售判断链",
+    "商业封装链",
+    "触达编排链",
+    "商务交付与反馈链"
+  ],
+  "value_priorities": [
+    {
+      "code": "P0",
+      "meaning": "核心变现能力"
+    },
+    {
+      "code": "P1",
+      "meaning": "商业增强能力"
+    },
+    {
+      "code": "P2",
+      "meaning": "治理与保护能力"
+    }
+  ],
+  "leadpack_sku_relation": "LeadPack SKU A/B/C/D is commercial packaging and is not equal to capability tier A/B/C/D",
+  "future_unlock_guardrails": {
+    "prerequisite_matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
+    "decision_matrix_ref": "contracts/release/future_unlock_decision_matrix.json",
+    "decision_state_ref": "control/future_unlock_decision_state.yaml",
+    "leadpack_candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json",
+    "leadpack_activation_prep_evidence_pack_ref": "contracts/release/leadpack_activation_prep_evidence_pack.json",
+    "leadpack_activation_prep_transition_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+    "leadpack_activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+    "external_release_remains_blocked_until_prereqs_met": true,
+    "leadpack_external_delivery_requires_approval_and_audit": true,
+    "leadpack_candidate_package_is_internal_only": true,
+    "never_default_open_capabilities": [
+      "personal_contact_channels",
+      "d_tier_or_private_inputs_to_external_surfaces",
+      "direct_stage8_stage9_object_export"
+    ],
+    "notes": [
+      "public capability tier or coverage state does not itself authorize future unlock",
+      "future unlock discussion must still pass evidence pack, owner signoff, rollback, and emergency-off prerequisites",
+      "R6 only classifies candidate/deny/blocked domains and does not authorize external implementation",
+      "leadpack candidate package may only expose approved projections, masked summaries and denial reasons; it may not expose live external delivery controls",
+      "leadpack activation prep review may only package evidence, replay, signoff and runbook assets; it may not claim activation-ready or external-ready",
+      "leadpack activation design / implementation prep may only define design gates and negative controls; it may not approve actual activation, external delivery or live execution"
+    ]
+  },
+  "stage_release_policy": {
+    "7": {
+      "dev_release": "DEV_ALLOWED",
+      "internal_release": "INTERNAL_OPERABLE",
+      "leadpack_release": "LEADPACK_DELIVERABLE",
+      "external_release": "EXTERNAL_BLOCKED"
+    },
+    "8": {
+      "dev_release": "DEV_ALLOWED",
+      "internal_release": "INTERNAL_OPERABLE",
+      "leadpack_release": "LEADPACK_DELIVERABLE",
+      "external_release": "EXTERNAL_BLOCKED"
+    },
+    "9": {
+      "dev_release": "DEV_ALLOWED",
+      "internal_release": "INTERNAL_OPERABLE",
+      "leadpack_release": "LEADPACK_DELIVERABLE",
+      "external_release": "EXTERNAL_BLOCKED"
+    }
+  }
+}

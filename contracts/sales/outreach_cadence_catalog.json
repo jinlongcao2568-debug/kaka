@@ -1,0 +1,374 @@
+{
+  "catalogVersion": "1.2.0",
+  "catalogId": "outreach_cadence_catalog",
+  "ownerDocs": [
+    "D3",
+    "D9",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "OUTREACH-CADENCE-001",
+      "title": "Cadence scheduling for stage 8 outreach",
+      "applies_to_objects": [
+        "outreach_plan",
+        "touch_record"
+      ],
+      "input_fields": [
+        "saleable_opportunity.commercial_urgency_level_optional",
+        "legal_action_recommendation.window_status",
+        "legal_action_recommendation.window_urgency_score_optional",
+        "contact_target.channel_family",
+        "contact_target.quiet_hours_policy_state",
+        "contact_target.frequency_policy_state",
+        "contact_target.opt_out_state"
+      ],
+      "output_fields": [
+        "outreach_plan.cadence_profile_id",
+        "outreach_plan.retry_policy_id",
+        "outreach_plan.stop_policy_id",
+        "outreach_plan.next_touch_due_at_optional",
+        "outreach_plan.max_retry_count",
+        "outreach_plan.retry_count",
+        "touch_record.attempt_index"
+      ],
+      "retry_policy_id": "RETRY-001",
+      "stop_policy_id": "STOP-001",
+      "profile_selection_rules": [
+        "commercial_urgency_level=CRITICAL => CADENCE-CRITICAL",
+        "commercial_urgency_level=HIGH => CADENCE-HIGH",
+        "commercial_urgency_level=NORMAL => CADENCE-NORMAL",
+        "commercial_urgency_level=LOW or missing => CADENCE-LOW",
+        "window_urgency_score_optional>=80 bumps one level up (max CRITICAL)"
+      ],
+      "cadence_profiles": [
+        {
+          "profile_id": "CADENCE-CRITICAL",
+          "first_touch_sla_hours": 4,
+          "second_touch_delay_hours": 24,
+          "min_gap_hours": 24,
+          "max_attempts_7d": 3,
+          "max_attempts_30d": 5
+        },
+        {
+          "profile_id": "CADENCE-HIGH",
+          "first_touch_sla_hours": 8,
+          "second_touch_delay_hours": 48,
+          "min_gap_hours": 36,
+          "max_attempts_7d": 2,
+          "max_attempts_30d": 4
+        },
+        {
+          "profile_id": "CADENCE-NORMAL",
+          "first_touch_sla_hours": 24,
+          "second_touch_delay_hours": 72,
+          "min_gap_hours": 48,
+          "max_attempts_7d": 2,
+          "max_attempts_30d": 3
+        },
+        {
+          "profile_id": "CADENCE-LOW",
+          "first_touch_sla_hours": 48,
+          "second_touch_delay_hours": 120,
+          "min_gap_hours": 72,
+          "max_attempts_7d": 1,
+          "max_attempts_30d": 2
+        }
+      ],
+      "channel_overrides": [
+        {
+          "channel_family": "ORG_PHONE",
+          "max_attempts_7d": 2,
+          "max_attempts_30d": 3,
+          "min_gap_hours": 48,
+          "allow_window_local": "09:30-18:30"
+        },
+        {
+          "channel_family": "ORG_EMAIL",
+          "max_attempts_7d": 2,
+          "max_attempts_30d": 4,
+          "min_gap_hours": 48,
+          "allow_window_local": "09:00-20:00"
+        },
+        {
+          "channel_family": "PUBLIC_FORM",
+          "max_attempts_7d": 1,
+          "max_attempts_30d": 1,
+          "min_gap_hours": 168,
+          "allow_window_local": "09:00-20:00"
+        },
+        {
+          "channel_family": "CRM_APPROVED_DIRECT",
+          "max_attempts_7d": 2,
+          "max_attempts_30d": 4,
+          "min_gap_hours": 36,
+          "allow_window_local": "09:00-20:00"
+        },
+        {
+          "channel_family": "AUTHORIZED_PERSON_DIRECT",
+          "max_attempts_7d": 1,
+          "max_attempts_30d": 1,
+          "min_gap_hours": 168,
+          "requires_manual_review": true,
+          "allow_window_local": "10:00-18:00"
+        },
+        {
+          "channel_family": "SOCIAL_DM",
+          "max_attempts_7d": 1,
+          "max_attempts_30d": 1,
+          "min_gap_hours": 168,
+          "requires_manual_review": true,
+          "allow_window_local": "10:00-18:00"
+        },
+        {
+          "channel_family": "IM_DIRECT",
+          "max_attempts_7d": 1,
+          "max_attempts_30d": 1,
+          "min_gap_hours": 168,
+          "requires_manual_review": true,
+          "allow_window_local": "10:00-18:00"
+        },
+        {
+          "channel_family": "PERSONAL_PHONE",
+          "max_attempts_7d": 1,
+          "max_attempts_30d": 1,
+          "min_gap_hours": 168,
+          "requires_manual_review": true,
+          "allow_window_local": "10:00-18:00"
+        },
+        {
+          "channel_family": "PERSONAL_EMAIL",
+          "max_attempts_7d": 1,
+          "max_attempts_30d": 1,
+          "min_gap_hours": 168,
+          "requires_manual_review": true,
+          "allow_window_local": "10:00-18:00"
+        }
+      ],
+      "channel_ladders": [
+        {
+          "ladder_id": "LADDER-ORG-PHONE-PRIMARY",
+          "entry_channel_family": "ORG_PHONE",
+          "step_sequence": [
+            "ORG_PHONE",
+            "ORG_EMAIL",
+            "PUBLIC_FORM"
+          ],
+          "fallback_sequence": [
+            "ORG_EMAIL",
+            "PUBLIC_FORM"
+          ],
+          "fallback_trigger_response_statuses": [
+            "NO_RESPONSE",
+            "FOLLOWUP_REQUIRED"
+          ],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": false
+        },
+        {
+          "ladder_id": "LADDER-ORG-EMAIL-PRIMARY",
+          "entry_channel_family": "ORG_EMAIL",
+          "step_sequence": [
+            "ORG_EMAIL",
+            "ORG_PHONE",
+            "PUBLIC_FORM"
+          ],
+          "fallback_sequence": [
+            "ORG_PHONE",
+            "PUBLIC_FORM"
+          ],
+          "fallback_trigger_response_statuses": [
+            "NO_RESPONSE",
+            "FOLLOWUP_REQUIRED"
+          ],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": false
+        },
+        {
+          "ladder_id": "LADDER-PUBLIC-FORM-SINGLE",
+          "entry_channel_family": "PUBLIC_FORM",
+          "step_sequence": [
+            "PUBLIC_FORM"
+          ],
+          "fallback_sequence": [],
+          "fallback_trigger_response_statuses": [],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": false
+        },
+        {
+          "ladder_id": "LADDER-CRM-DIRECT-GOVERNED",
+          "entry_channel_family": "CRM_APPROVED_DIRECT",
+          "step_sequence": [
+            "CRM_APPROVED_DIRECT",
+            "ORG_EMAIL",
+            "ORG_PHONE"
+          ],
+          "fallback_sequence": [
+            "ORG_EMAIL",
+            "ORG_PHONE"
+          ],
+          "fallback_trigger_response_statuses": [
+            "NO_RESPONSE",
+            "FOLLOWUP_REQUIRED"
+          ],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": false
+        },
+        {
+          "ladder_id": "LADDER-AUTHORIZED-DIRECT-REVIEW",
+          "entry_channel_family": "AUTHORIZED_PERSON_DIRECT",
+          "step_sequence": [
+            "AUTHORIZED_PERSON_DIRECT",
+            "CRM_APPROVED_DIRECT",
+            "ORG_EMAIL"
+          ],
+          "fallback_sequence": [
+            "CRM_APPROVED_DIRECT",
+            "ORG_EMAIL"
+          ],
+          "fallback_trigger_response_statuses": [
+            "NO_RESPONSE",
+            "FOLLOWUP_REQUIRED"
+          ],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": true
+        },
+        {
+          "ladder_id": "LADDER-SOCIAL-DM-REVIEW",
+          "entry_channel_family": "SOCIAL_DM",
+          "step_sequence": [
+            "SOCIAL_DM",
+            "CRM_APPROVED_DIRECT",
+            "ORG_EMAIL"
+          ],
+          "fallback_sequence": [
+            "CRM_APPROVED_DIRECT",
+            "ORG_EMAIL"
+          ],
+          "fallback_trigger_response_statuses": [
+            "NO_RESPONSE",
+            "FOLLOWUP_REQUIRED"
+          ],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": true
+        },
+        {
+          "ladder_id": "LADDER-IM-DIRECT-REVIEW",
+          "entry_channel_family": "IM_DIRECT",
+          "step_sequence": [
+            "IM_DIRECT",
+            "CRM_APPROVED_DIRECT",
+            "ORG_EMAIL"
+          ],
+          "fallback_sequence": [
+            "CRM_APPROVED_DIRECT",
+            "ORG_EMAIL"
+          ],
+          "fallback_trigger_response_statuses": [
+            "NO_RESPONSE",
+            "FOLLOWUP_REQUIRED"
+          ],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": true
+        },
+        {
+          "ladder_id": "LADDER-PERSONAL-PHONE-REVIEW",
+          "entry_channel_family": "PERSONAL_PHONE",
+          "step_sequence": [
+            "PERSONAL_PHONE",
+            "ORG_PHONE",
+            "ORG_EMAIL"
+          ],
+          "fallback_sequence": [
+            "ORG_PHONE",
+            "ORG_EMAIL"
+          ],
+          "fallback_trigger_response_statuses": [
+            "NO_RESPONSE",
+            "FOLLOWUP_REQUIRED"
+          ],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": true
+        },
+        {
+          "ladder_id": "LADDER-PERSONAL-EMAIL-REVIEW",
+          "entry_channel_family": "PERSONAL_EMAIL",
+          "step_sequence": [
+            "PERSONAL_EMAIL",
+            "ORG_EMAIL",
+            "PUBLIC_FORM"
+          ],
+          "fallback_sequence": [
+            "ORG_EMAIL",
+            "PUBLIC_FORM"
+          ],
+          "fallback_trigger_response_statuses": [
+            "NO_RESPONSE",
+            "FOLLOWUP_REQUIRED"
+          ],
+          "sequence_mode": "GOVERNED_PREVIEW_ONLY",
+          "live_execution_enabled": false,
+          "advance_requires_manual_review": true
+        }
+      ],
+      "quiet_hours_defaults": [
+        {
+          "channel_family": "ORG_PHONE",
+          "block_window_local": "18:31-09:29"
+        },
+        {
+          "channel_family": "ORG_EMAIL",
+          "block_window_local": "20:01-08:59"
+        },
+        {
+          "channel_family": "PUBLIC_FORM",
+          "block_window_local": "20:01-08:59"
+        },
+        {
+          "channel_family": "CRM_APPROVED_DIRECT",
+          "block_window_local": "20:01-08:59"
+        },
+        {
+          "channel_family": "AUTHORIZED_PERSON_DIRECT",
+          "block_window_local": "18:01-09:59"
+        },
+        {
+          "channel_family": "SOCIAL_DM",
+          "block_window_local": "18:01-09:59"
+        },
+        {
+          "channel_family": "IM_DIRECT",
+          "block_window_local": "18:01-09:59"
+        },
+        {
+          "channel_family": "PERSONAL_PHONE",
+          "block_window_local": "18:01-09:59"
+        },
+        {
+          "channel_family": "PERSONAL_EMAIL",
+          "block_window_local": "18:01-09:59"
+        }
+      ],
+      "schedule_rules": [
+        "if quiet_hours_policy_state=BLOCK => execution_compliance_decision=SCHEDULED and next_touch_due_at_optional = next allow window",
+        "if frequency_policy_state=BLOCK => execution_compliance_decision=REVIEW_REQUIRED and plan_status=REVIEW_REQUIRED",
+        "if execution_policy_state=APPROVAL_REQUIRED and run_mode in [APPROVAL_RUN,REAL_RUN] and approval_state!=APPROVED => execution_compliance_decision=REVIEW_REQUIRED",
+        "if opt_out_state!=ACTIVE => execution_compliance_decision=BLOCKED and plan_status=BLOCKED"
+      ]
+    }
+  ],
+  "notes": [
+    "Cadence is internal-only and must not be treated as external delivery capability.",
+    "Scheduling must respect quiet hours and opt-out before any outreach execution.",
+    "Cadence 只负责 execution scheduling，不得把 candidate_compliance_decision 从 ALLOW_PREVIEW 误降级成 BLOCKED。",
+    "channel_ladders 只定义 governed preview 下的渠道梯度与 fallback 顺序，不表示自动切换成真实多渠道 live outreach。"
+  ]
+}

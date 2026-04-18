@@ -1,0 +1,2393 @@
+{
+  "registry_id": "regression-manifest",
+  "version": "0.1.22",
+  "metadata": {
+    "package_name": "testing package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-17",
+    "machine_path": "contracts/testing/regression_manifest.json",
+    "scope": "minimum regression suites and triggers for pre-code readiness",
+    "source_documents": [
+      "L0.md",
+      "D11_测试验收与金标回归清单.md",
+      "D2_正式对象契约与字段字典.md",
+      "D3_正式规则码总表与判定说明书.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D13_公开可查边界能力清单.md",
+      "D14_AI模型治理规范.md",
+      "裁决总表.md"
+    ],
+    "notes": [
+      "D13 release layers and value priorities covered",
+      "quantized decision policy suites added",
+      "stage 8 execution detail suites added",
+      "stage 9 exception taxonomy suites added",
+      "stage 9 writeback source contract hard-fail assertions added",
+      "source/vendor/provider boundary suites added",
+      "stage 9 final internal governed alignment suites added",
+      "stage4-7 formal output and handoff alignment suites added",
+      "policy executor and runtime validator suites added",
+      "stage8-9 pre-route behavior suites added",
+      "stage8 failure path + H-08 closure assertions tightened",
+      "stage9 consumer vs H-08 contract assertions added",
+      "stage9 executor payment/delivery coverage added",
+      "stage9 writeback target additive governance assertions added",
+      "stage8 compliance lattice candidate/execution split added"
+    ]
+  },
+  "suites": [
+    {
+      "suite_id": "REG-P0-SINGLE-SOURCE",
+      "title": "单一事实源与文档口径一致性",
+      "checks": [
+        "single l0 working master present",
+        "single formal d13 source present",
+        "decision table references existing decision ids",
+        "no duplicate object vocabulary"
+      ],
+      "triggers": [
+        "L0 change",
+        "decision table change",
+        "D13 change",
+        "README/document status board change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-010"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-OBJECT-TRUTH",
+      "title": "对象与真相层回归",
+      "checks": [
+        "schema required fields",
+        "lineage minimum fields",
+        "version and clock object consistency",
+        "truth-to-fact consumer direction"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "D2 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-011"
+      ]
+    },
+    {
+      "suite_id": "REG-P1-SOURCE-COLLECTION",
+      "title": "阶段 1-2 来源覆盖与采集链回归",
+      "checks": [
+        "source family/platform/region/coverage enums present",
+        "collection_state transitions valid",
+        "default_route uses route_type",
+        "coverage downgrade/review rules exist",
+        "review/block mapped to collection_state"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "rule catalog change",
+        "D2 change",
+        "D3 change",
+        "D11 change",
+        "source route topic change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-044"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE7-SALES-STATE",
+      "title": "阶段 7 商业封装状态机回归",
+      "checks": [
+        "lead_status transitions valid",
+        "saleability_status transitions valid",
+        "offer_recommendation_state transitions valid",
+        "sales catalogs entries complete",
+        "buyer_fit dimensions have formal derivation sources",
+        "expected bands and why_recommended are runtime-derived from formal policies"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "rule catalog change",
+        "sales catalog change",
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-045"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE8-OUTREACH-STATE",
+      "title": "阶段 8 触达状态机与合规回归",
+      "checks": [
+        "contact_target_status transitions valid",
+        "plan_status transitions valid",
+        "touch_record_state transitions valid",
+        "contact compliance matrix enforced",
+        "internal preview only enforced"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "rule catalog change",
+        "sales catalog change",
+        "D9 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-045"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE8-COMPLIANCE-ALIGNMENT",
+      "title": "阶段 8 合规模型一致性回归",
+      "checks": [
+        "channel_family enum aligns with contact_channel_catalog",
+        "contact_legal_basis enum aligns with contact_compliance_matrix and contact_source_policy_catalog",
+        "contact_compliance_matrix covers ALLOW_PREVIEW/REVIEW_REQUIRED/BLOCKED",
+        "contact_compliance_matrix explicitly separates candidate_compliance_decision and execution_compliance_decision",
+        "quiet_hours BLOCK keeps candidate preview but turns execution into SCHEDULED",
+        "frequency BLOCK and approval-required execution without approval turn execution into REVIEW_REQUIRED without blocking candidate preview",
+        "restricted channel_family forces review_required",
+        "legal basis review/blocked prevents outreach execution",
+        "stage8 compliance decision fields remain internal/governance only in field policy and do not enter sales or leadpack surfaces"
+      ],
+      "triggers": [
+        "enum catalog change",
+        "sales catalog change",
+        "rule catalog change",
+        "D9 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-045",
+        "D11-R-053-R",
+        "D11-R-053-U"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE8-EXECUTION-DETAIL",
+      "title": "阶段 8 触达执行细则回归",
+      "checks": [
+        "contact_priority_policy_catalog present",
+        "outreach_cadence_catalog present",
+        "retry_policy_catalog present",
+        "touch_stop_condition_catalog present",
+        "outreach_cadence_catalog single-sources retry_policy_id/stop_policy_id and channel ladder/fallback sequence",
+        "feedback_reason_catalog present and consumed in stage8 writeback path",
+        "OUT-005/OUT-006/OUT-007/OUT-008/OUT-009/OUT-010 rule codes present",
+        "contact_policy_catalog includes priority outputs and cadence/retry/stop refs",
+        "contact_compliance_matrix covers reasonable_expectation_status and conflict flag",
+        "contact_target schema persists opportunity/source/priority/conflict fields for audit and replay",
+        "outreach_plan schema persists cadence/retry/approval_run/writeback/governed preview fields",
+        "touch_record schema persists attempt/feedback/writeback/governed metadata fields"
+      ],
+      "triggers": [
+        "sales catalog change",
+        "rule catalog change",
+        "field policy change",
+        "D9 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-050",
+        "D11-R-050-A"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE8-BEHAVIOR-PRE-ROUTE",
+      "title": "Stage 8 pre-route 行为回归",
+      "checks": [
+        "contact priority/conflict behavior is executable and traceable",
+        "cadence and retry outputs are observable in runtime behavior",
+        "channel ladder and fallback sequence are observable in outreach_cadence runtime trace",
+        "stop condition blocks execution on opt-out or policy block",
+        "feedback reason and typed writeback targets are observable in runtime behavior",
+        "failure/writeback fields and H-08 payload readiness are checkable before route-map start",
+        "run-golden directly executes Stage8 failure/writeback and H-08 payload goldens"
+      ],
+      "triggers": [
+        "stage8 service change",
+        "src/shared/policy_executor.py change",
+        "src/shared/capability_runtime.py change",
+        "handoff stage8_to_stage9 change",
+        "test_pre_route_behavior change",
+        "contracts/testing/golden_cases.json change",
+        "scripts/run-golden.ps1 change",
+        "check-semantic-alignment change",
+        "D9 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053",
+        "D11-R-050-A"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE9-EXCEPTION-TAXONOMY",
+      "title": "阶段 9 异常流与回写 taxonomy 回归",
+      "checks": [
+        "payment_exception_catalog present",
+        "delivery_exception_catalog present",
+        "outcome_taxonomy_catalog present",
+        "governance_feedback_policy_catalog present",
+        "PAY-903/PAY-904/PAY-905/DEL-903/DEL-904/DEL-905/OUT-902/GOV-902 rule codes present",
+        "D10/D11 taxonomy references aligned",
+        "archived/retrieval failure rules remain blocking",
+        "partial/rejected/redelivery paths remain review-required or blocked",
+        "payment_record schema persists payment proof/match/refund/writeback governed fields",
+        "delivery_record schema persists delivery_form/customer_ack/partial/resend/redeliver/writeback governed fields",
+        "opportunity_outcome_event persists feedback/trigger/action/writeback governed fields",
+        "governance_feedback_event persists feedback/writeback targets and governance policy impact fields"
+      ],
+      "triggers": [
+        "sales catalog change",
+        "rule catalog change",
+        "field policy change",
+        "D10 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-051"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE9-BEHAVIOR-PRE-ROUTE",
+      "title": "Stage 9 pre-route 行为回归",
+      "checks": [
+        "payment exception behavior is executable and not only catalog-defined, including CHARGEBACK_REVIEW",
+        "delivery exception behavior is executable and not only catalog-defined, including PARTIAL_DELIVERY / DELIVERY_REJECTED / ACK_TIMEOUT",
+        "outcome taxonomy keeps writeback_targets aligned with taxonomy entry",
+        "governance feedback taxonomy drives required_actions and impact_scope",
+        "payment_exception/delivery_exception/outcome_taxonomy/governance_taxonomy all appear in one stage9 decision chain",
+        "governance writeback targets remain additive/governed and do not override outcome writeback targets",
+        "payment and delivery exception writeback targets remain additive and visible in effective_writeback_targets",
+        "upstream feedback projected/advisory targets are exposed separately and merged only through resolved_effective_writeback_targets plus writeback_target_contracts",
+        "H-08 optional preview/writeback fields are consumed into Stage9 typed workflow when present",
+        "Stage9 remains INTERNAL_GOVERNED skeleton and does not imply live payment/delivery/refund execution",
+        "run-golden directly executes Stage9 consumer/executor/writeback goldens"
+      ],
+      "triggers": [
+        "stage9 service change",
+        "src/shared/policy_executor.py change",
+        "src/shared/capability_runtime.py change",
+        "sales catalog change",
+        "test_pre_route_behavior change",
+        "contracts/testing/golden_cases.json change",
+        "scripts/run-golden.ps1 change",
+        "check-semantic-alignment change",
+        "D10 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-INTERNAL-SURFACE-PREVIEW",
+      "title": "R4 internal surface / preview / draft-only 回归",
+      "checks": [
+        "stage7/8/9 route and schema modules expose internal preview or draft-only envelopes",
+        "surface responses distinguish formal_object_refs from preview_projection",
+        "api routes consume typed objects and decision states without recomputing main judgment",
+        "stage8/stage9 surfaces keep blocked_by_default and live_execution_enabled=false",
+        "page_surface_states/review_action_catalog/workbench/button flow/export template remain aligned",
+        "internal preview contracts do not imply external-ready or live execution"
+      ],
+      "triggers": [
+        "src/api/routes change",
+        "src/api/schemas change",
+        "src/api/projections.py change",
+        "contracts/api change",
+        "contracts/ui change",
+        "tests/test_internal_surface_preview.py change",
+        "D4 change",
+        "D5 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-D"
+      ]
+    },
+    {
+      "suite_id": "REG-P3-RUNTIME-GOV",
+      "title": "运行治理与发布资产回归",
+      "checks": [
+        "deployment_matrix present",
+        "runtime_policy_catalog present",
+        "release_manifest present",
+        "runtime_inventory present"
+      ],
+      "triggers": [
+        "deployment matrix change",
+        "runtime policy change",
+        "release manifest change",
+        "runtime inventory change",
+        "D12 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-046"
+      ]
+    },
+    {
+      "suite_id": "REG-P3-MODEL-GOV",
+      "title": "模型治理与输出边界回归",
+      "checks": [
+        "model catalog present",
+        "model usage policy present",
+        "prompt policy present",
+        "eval suite present",
+        "output target matrix present",
+        "model golden cases present",
+        "model release gates present"
+      ],
+      "triggers": [
+        "model catalog change",
+        "model policy change",
+        "model release gates change",
+        "model golden cases change",
+        "D14 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-046"
+      ]
+    },
+    {
+      "suite_id": "REG-P4-RULE-GATE",
+      "title": "规则、结果语义与双闸门回归",
+      "checks": [
+        "rule code integrity",
+        "default result bounds by capability tier",
+        "dual gate upgrade matrix",
+        "global blocking precedence"
+      ],
+      "triggers": [
+        "rule catalog change",
+        "gate policies change",
+        "D3 change",
+        "D13 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-012"
+      ]
+    },
+    {
+      "suite_id": "REG-P5-FACT-AND-ACTION",
+      "title": "统一事实与动作建议回归",
+      "checks": [
+        "project_fact consumer centrality",
+        "legal_action_recommendation minimum fields",
+        "sale gate projection rules"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "api catalog change",
+        "D2 change",
+        "D4 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-013"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE4-5-FORMAL-OUTPUT-CLOSURE",
+      "title": "阶段 4-5 正式产物与 handoff 收口回归",
+      "checks": [
+        "stage4 service emits pseudo_competitor_signal_set",
+        "stage4 handoff payload includes focus_bidder_id/public_capability_tier/external_use_grade/provenance_chain_status",
+        "stage5 review/block path emits review_request",
+        "stage5 outputs remain within H-05 producer set",
+        "stage5 handoff payload includes coverage_sellable_state/delivery_risk_state"
+      ],
+      "triggers": [
+        "stage4 service change",
+        "stage5 service change",
+        "handoff stage4_to_stage5 change",
+        "handoff stage5_to_stage6 change",
+        "schema catalog change",
+        "D2 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-051-F"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE6-7-FORMAL-OUTPUT-CLOSURE",
+      "title": "阶段 6-7 正式产物与 handoff 收口回归",
+      "checks": [
+        "stage6 service emits legal_action_recommendation and challenger_candidate_profile",
+        "stage6 handoff payload includes sale_gate_status/real_competitor_count/competitor_quality_grade/window_status/report_status/action_family and Stage7 actor/buyer seeds",
+        "stage7 service emits dual actor profiles, buyer_fit, challenger_buyer_fit, sales_lead, offer_recommendation, saleable_opportunity",
+        "stage7 outputs remain within H-07 producer set",
+        "stage7 handoff payload includes Stage7->8 required compliance fields"
+      ],
+      "triggers": [
+        "stage6 service change",
+        "stage7 service change",
+        "handoff stage6_to_stage7 change",
+        "handoff stage7_to_stage8 change",
+        "integration matrix change",
+        "schema catalog change",
+        "D2 change",
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-051-F"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE7-8-CANDIDATE-COLLECTION-CLOSURE",
+      "title": "Stage7-8 candidate collection formal carrier regression",
+      "checks": [
+        "stage7 emits multi_competitor_collection with candidate_list/top_n/winner/selection_trace",
+        "H-06 declares multi_competitor_collection in consumer_objects and H-07 projects formal collection refs",
+        "stage8 emits contact_candidate_collection and contact_selection_trace before contact_target finalization",
+        "contact_target winner fields remain aligned with contact_candidate_collection and contact_selection_trace",
+        "reselect history is formally persisted for wrong_role/invalid_contact or explicit reselect reason inputs",
+        "check-semantic-alignment fails when single challenger exists but collection carrier is missing or unused",
+        "selection_trace keeps policy_id/sort_basis/top_n_limit/winner_selection_basis machine-readable",
+        "candidate-only cutoff remains visible through ranking_reason_tags_optional or stage7 trace"
+      ],
+      "triggers": [
+        "docs/D2_正式对象契约与字段字典.md change",
+        "docs/D8_真实竞争者识别可售对象与销售推进规范.md change",
+        "docs/D9_联系对象与销售触达规范.md change",
+        "docs/D11_测试验收与金标回归清单.md change",
+        "contracts/schemas/schema_catalog.json change",
+        "contracts/schemas/competitor_candidate_collection.schema.json change",
+        "contracts/schemas/contact_candidate_collection.schema.json change",
+        "contracts/schemas/contact_selection_trace.schema.json change",
+        "handoff/stage6_to_stage7/** change",
+        "handoff/stage7_to_stage8/** change",
+        "src/stage7_sales/service.py change",
+        "src/stage8_outreach/service.py change",
+        "scripts/check-semantic-alignment.ps1 change",
+        "tests/test_stage7_runtime_closure.py change",
+        "tests/test_stage8_resolution_closure.py change",
+        "tests/test_internal_chain.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-L",
+        "D11-R-045"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE6-7-UPSTREAM-CONSUMPTION-CLOSURE",
+      "title": "Stage 6->7 正式输入消费与禁止私补回归",
+      "checks": [
+        "stage6 emits actor/buyer handoff seeds through H-06",
+        "stage7 consumes project_fact/legal_action_recommendation/challenger_candidate_profile/report_record without recomputing sale_gate_status/window_status/competitor_quality_grade",
+        "missing stage6 actor or buyer seed fields block consumer runtime",
+        "buyer_fit seed score and offer recommendation stay traceable through shared policy executor"
+      ],
+      "triggers": [
+        "stage6 service change",
+        "stage7 service change",
+        "src/shared/policy_executor.py change",
+        "src/shared/runtime_validator.py change",
+        "handoff stage6_to_stage7 change",
+        "schema catalog change",
+        "concrete schema change",
+        "D2 change",
+        "D8 change",
+        "D11 change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-D"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE4-7-DEPENDENCY-ALIGNMENT",
+      "title": "Stage4-7 producer/consumer 真实依赖一致性回归",
+      "checks": [
+        "stage5 dependencies align with H-04 criticalObjects",
+        "stage6 dependencies align with H-05 criticalObjects",
+        "stage7 dependencies align with H-06 criticalObjects",
+        "stage8 dependencies align with H-07 criticalObjects",
+        "stage6->7 and stage7->8 minimal chain tests stay green"
+      ],
+      "triggers": [
+        "stage5 service change",
+        "stage6 service change",
+        "stage7 service change",
+        "stage8 service comment/dependency change",
+        "integration matrix change",
+        "test_internal_chain change",
+        "check-semantic-alignment change",
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-051-F"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE8-9-HANDOFF-ALIGNMENT",
+      "title": "Stage8-9 handoff vs service 一致性回归",
+      "checks": [
+        "stage8 handoff and projected stage8 inputs satisfy H-08 required payload fields",
+        "stage8 service records align with H-08 producer_objects",
+        "stage8 failure path persists next_step_optional and written_back_at_optional before route-map start",
+        "stage9 service consumes saleable_opportunity and touch_record according to H-08 criticalObjects",
+        "stage9 fails when saleable_opportunity or H-08 required payload fields are missing",
+        "stage9 does not synthesize H-08 key fields from project_id or fallback defaults",
+        "validate-contracts independently asserts H-08 producer/consumer key set and Stage8 failure-field projection surfaces"
+      ],
+      "triggers": [
+        "stage8 service change",
+        "stage9 service change",
+        "handoff stage8_to_stage9 change",
+        "test_internal_chain change",
+        "scripts/validate-contracts.ps1 change",
+        "check-semantic-alignment change",
+        "D10 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-POLICY-EXECUTOR-UNIFIED",
+      "title": "统一 policy executor 回归",
+      "checks": [
+        "stage7_sales runs window/value/price/competitor via unified executor",
+        "stage8_outreach runs source/compliance/priority/cadence/retry/stop via unified executor",
+        "stage9_delivery runs outcome/governance taxonomy via unified executor",
+        "policy decisions emit traceable decision output with allow/review/block/fallback branches"
+      ],
+      "triggers": [
+        "src/shared/policy_executor.py change",
+        "src/shared/capability_runtime.py change",
+        "src/shared/context_packet.py change",
+        "src/shared/state_packet.py change",
+        "stage7 service change",
+        "stage8 service change",
+        "stage9 service change",
+        "D11 change",
+        "技术实现决策页 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE8-9-POLICY-EXECUTOR-COVERAGE",
+      "title": "Stage8-9 policy executor 消费覆盖回归",
+      "checks": [
+        "stage8 executor emits traceable decisions for source/compliance/priority/cadence/retry/stop",
+        "stage9 executor emits traceable decisions for payment_exception/delivery_exception/outcome_taxonomy/governance_taxonomy",
+        "trace retains policy_key/decision_state/outputs/reasons/catalog_id for pre-route review",
+        "validate-contracts independently asserts Stage9 policy sequence and additive writeback semantics"
+      ],
+      "triggers": [
+        "src/shared/policy_executor.py change",
+        "src/shared/capability_runtime.py change",
+        "stage8 service change",
+        "stage9 service change",
+        "test_pre_route_behavior change",
+        "scripts/validate-contracts.ps1 change",
+        "check-semantic-alignment change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-RUNTIME-VALIDATOR-STAGE7-9",
+      "title": "Stage7-9 runtime validator 回归",
+      "checks": [
+        "runtime validator enforces type/shape on stage7/8/9 critical objects",
+        "bool vs string drift is rejected",
+        "list vs scalar drift is rejected",
+        "missing runtime critical field is rejected",
+        "runtime validator strict profiles remain aligned with schema_catalog required fields"
+      ],
+      "triggers": [
+        "src/shared/runtime_validator.py change",
+        "src/shared/contracts_runtime.py change",
+        "schema catalog change",
+        "stage7 service change",
+        "stage8 service change",
+        "stage9 service change",
+        "tests change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-AGENT-LOOP-MINIMAL",
+      "title": "最小 agent loop 执行链回归",
+      "checks": [
+        "load context/state step exists",
+        "resolve capability mode step exists",
+        "load policy step exists",
+        "emit decision step exists",
+        "write trace step exists",
+        "fallback/review/block branches remain explicit in runtime trace"
+      ],
+      "triggers": [
+        "src/shared/capability_runtime.py change",
+        "src/shared/context_packet.py change",
+        "src/shared/state_packet.py change",
+        "tests change",
+        "技术实现决策页 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052"
+      ]
+    },
+    {
+      "suite_id": "REG-P7-OUTREACH-COMPLIANCE",
+      "title": "触达合规与高限制字段回归",
+      "checks": [
+        "field policy classification",
+        "approval chain existence",
+        "release gate blocking on opt-out/frequency/quiet hours",
+        "dry/approval/real run gating"
+      ],
+      "triggers": [
+        "field policy change",
+        "approval chain change",
+        "release gate change",
+        "D6 change",
+        "D7 change",
+        "D9 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-015"
+      ]
+    },
+    {
+      "suite_id": "REG-GOV-RELEASE",
+      "title": "治理放行与外发阻断回归",
+      "checks": [
+        "delivery matrix alignment",
+        "release gate alignment",
+        "public boundary registry alignment",
+        "release checklist pass before promotion"
+      ],
+      "triggers": [
+        "delivery matrix change",
+        "release gates change",
+        "boundary registry change",
+        "coverage registry change",
+        "D7 change",
+        "D13 change",
+        "D12 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-MODEL-GOV",
+      "title": "模型入链与正式输出治理回归",
+      "checks": [
+        "model tier restrictions",
+        "human review required for formal-chain constrained outputs",
+        "no prohibited model usage enters formal public chain"
+      ],
+      "triggers": [
+        "model registry change",
+        "D14 change",
+        "prompt template change",
+        "tool routing change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-017",
+        "D14-R-026"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-TRUTH-LAYER",
+      "title": "阶段真相层",
+      "checks": [],
+      "triggers": [
+        "governance change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-010"
+      ]
+    },
+    {
+      "suite_id": "REG-P4-RULE-DUAL-GATE",
+      "title": "规则与双闸门",
+      "checks": [],
+      "triggers": [
+        "governance change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-010"
+      ]
+    },
+    {
+      "suite_id": "REG-P5-FACT-ACTION",
+      "title": "统一事实与动作建议",
+      "checks": [],
+      "triggers": [
+        "governance change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-010"
+      ]
+    },
+    {
+      "suite_id": "REG-P8-RELEASE-GOVERNANCE",
+      "title": "release / governance",
+      "checks": [],
+      "triggers": [
+        "governance change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-010"
+      ]
+    },
+    {
+      "suite_id": "REG-P8-MODEL-GOVERNANCE",
+      "title": "model governance",
+      "checks": [],
+      "triggers": [
+        "governance change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-010"
+      ]
+    },
+    {
+      "suite_id": "REG-LEADPACK-DELIVERY-GATE",
+      "title": "线索包放行与交付门禁回归",
+      "checks": [
+        "leadpack deliverable requires evidence/review/gate/approval",
+        "delivery matrix leadpack surfaces align with D7",
+        "external platform surfaces remain blocked"
+      ],
+      "triggers": [
+        "delivery matrix change",
+        "release gate change",
+        "D7 change",
+        "D10 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-SALES-CONSUMPTION-GATE",
+      "title": "销售使用门回归",
+      "checks": [
+        "sales surfaces consume project_fact",
+        "sales visibility blocked when gate or field policy blocks"
+      ],
+      "triggers": [
+        "api catalog change",
+        "delivery matrix change",
+        "D7 change",
+        "D8 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-015"
+      ]
+    },
+    {
+      "suite_id": "REG-DELIVERY-WRITEBACK",
+      "title": "交付回写与结果闭环回归",
+      "checks": [
+        "delivery_record writeback to governance feedback",
+        "opportunity_outcome_event audit chain intact"
+      ],
+      "triggers": [
+        "D10 change",
+        "governance change",
+        "delivery matrix change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-BIZ-HIGH-VALUE-LEADS",
+      "title": "高价值线索形成回归",
+      "checks": [
+        "high-value lead gate consumes project_fact and dual gates",
+        "leadpack quality gate blocks insufficient evidence"
+      ],
+      "triggers": [
+        "D8 change",
+        "D11 change",
+        "delivery matrix change",
+        "release gate change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-BIZ-CHALLENGER-IDENTITY",
+      "title": "真实竞争者识别回归",
+      "checks": [
+        "challenger_candidate_profile aligns with project_fact",
+        "misjudgment recovery events are recorded"
+      ],
+      "triggers": [
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-BIZ-LEADPACK-SKU-OFFER",
+      "title": "LeadPack SKU / 推荐方案 / 报价带回归",
+      "checks": [
+        "offer_recommendation respects leadpack sku mapping",
+        "quote band uses strategy matrix configuration"
+      ],
+      "triggers": [
+        "D8 change",
+        "D7 change",
+        "field policy change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-BIZ-OUTREACH-MATRIX",
+      "title": "非轰炸式触达矩阵回归",
+      "checks": [
+        "channel family and quiet hours gating enforced",
+        "robotic channel not default main path"
+      ],
+      "triggers": [
+        "D9 change",
+        "field policy change",
+        "release gate change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-043"
+      ]
+    },
+    {
+      "suite_id": "REG-BIZ-DELIVERY-AUDIT",
+      "title": "议价 / 付款 / 交付 / 回写回归",
+      "checks": [
+        "negotiation remains within approved quote bands",
+        "delivery_record required before delivery completion",
+        "email send does not equal delivery completion"
+      ],
+      "triggers": [
+        "D10 change",
+        "release gate change",
+        "delivery matrix change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-BIZ-MISJUDGMENT-RECOVERY",
+      "title": "误判回收回归",
+      "checks": [
+        "governance_feedback_event required for misjudgment",
+        "opportunity_outcome_event recorded with audit chain"
+      ],
+      "triggers": [
+        "D8 change",
+        "D10 change",
+        "governance change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-P0-VALUE-PRIORITY",
+      "title": "P0 核心变现能力覆盖",
+      "checks": [
+        "P0 capabilities mapped to release layers",
+        "P0 chain coverage in public boundary registry",
+        "P0 tests include golden/regression/governance"
+      ],
+      "triggers": [
+        "public boundary registry change",
+        "regression manifest change",
+        "D13 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-041"
+      ]
+    },
+    {
+      "suite_id": "REG-P1-VALUE-PRIORITY",
+      "title": "P1 商业增强能力覆盖",
+      "checks": [
+        "P1 capabilities mapped to release layers",
+        "P1 tests include downgrade and boundary samples"
+      ],
+      "triggers": [
+        "public boundary registry change",
+        "regression manifest change",
+        "D13 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-041"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-VALUE-PRIORITY",
+      "title": "P2 治理与保护能力覆盖",
+      "checks": [
+        "P2 capability blocking samples exist",
+        "external blocked rules enforced"
+      ],
+      "triggers": [
+        "public boundary registry change",
+        "field policy change",
+        "release gates change",
+        "D13 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-042"
+      ]
+    },
+    {
+      "suite_id": "REG-RELEASE-LAYER",
+      "title": "放行层对齐回归",
+      "checks": [
+        "DEV_ALLOWED/INTERNAL_OPERABLE/LEADPACK_DELIVERABLE/EXTERNAL_BLOCKED present",
+        "delivery matrix and release gates use same release layers",
+        "external release remains blocked",
+        "legacy EXTERNAL_LEADPACK_DELIVERABLE token absent from formal docs/contracts/control export and approval surfaces"
+      ],
+      "triggers": [
+        "delivery matrix change",
+        "release gates change",
+        "public boundary registry change",
+        "D13 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-STAGE7-9-RELEASE-SPLIT",
+      "title": "阶段 7-9 内部放行与外部阻断拆分回归",
+      "checks": [
+        "stage 7-9 dev/internal/leadpack/external split present",
+        "external promise remains blocked for stage 7-9"
+      ],
+      "triggers": [
+        "public boundary registry change",
+        "release gates change",
+        "D13 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-016"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE3-CONFLICT-STATE",
+      "title": "阶段 3 冲突与归一状态机回归",
+      "checks": [
+        "lineage_status transitions valid",
+        "conflict_state transitions valid",
+        "version_conflict_state blocks normalization",
+        "lineage_status normalized requires conflict_state consistent"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "rule catalog change",
+        "D2 change",
+        "D3 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-047"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE4-VERIFICATION-STATE",
+      "title": "阶段 4 核验状态机回归",
+      "checks": [
+        "verification_state transitions valid",
+        "review/block triggers mapped to review_queue",
+        "verification_state pass required before rule_hit"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "rule catalog change",
+        "D2 change",
+        "D3 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-047"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE5-EVIDENCE-LIFECYCLE",
+      "title": "阶段 5 证据与规则命中生命周期回归",
+      "checks": [
+        "cross_check_state/fixation_status/provenance_chain_status transitions valid",
+        "retrieval_readiness_status review/block enforced",
+        "rule_hit_state review/block enforced",
+        "retrieval_readiness_status ready required for evidence_gate pass",
+        "rule_hit_state confirmed/superseded enforced"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "rule catalog change",
+        "D2 change",
+        "D3 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-047"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE6-REPORT-REVIEW-STATE",
+      "title": "阶段 6 报告与复核队列状态机回归",
+      "checks": [
+        "report_status transitions valid",
+        "review_task_status transitions valid",
+        "review_queue_bucket reprioritization valid",
+        "revoked report blocked from delivery",
+        "review_task_status superseded maps to report_status revoked"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "rule catalog change",
+        "D2 change",
+        "D3 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-047"
+      ]
+    },
+    {
+      "suite_id": "REG-P0-STAGE6-REVIEW-QUEUE-WINDOW-SCORING",
+      "title": "Stage6 review queue window scoring regression",
+      "checks": [
+        "review_priority_score derived from WINDOW-STATUS-001 queue formula rather than runtime literal",
+        "review_queue_bucket derived from machine-readable bucket rules",
+        "review_lane and window thresholds align across D8/contracts/runtime",
+        "commercial_urgency_level defaults to NORMAL when not provided"
+      ],
+      "triggers": [
+        "contracts/sales/window_value_policy_catalog.json change",
+        "contracts/schemas/review_queue_profile.schema.json change",
+        "contracts/rules/rule_catalog.json change",
+        "contracts/testing/regression_manifest.json change",
+        "docs/D2 change",
+        "docs/D3 change",
+        "docs/D8 change",
+        "docs/D11 change",
+        "src/stage6_fact_review/fact_aggregator.py change",
+        "src/shared/policy_executor.py change",
+        "tests/test_stage56_evaluators.py change",
+        "tests/test_internal_chain.py change",
+        "tests/test_pre_route_behavior.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-Q"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE9-EXECUTION-ALIGNMENT",
+      "title": "阶段 9 规则/字段/预览承接回归",
+      "checks": [
+        "stage9 rule group covers order/payment/delivery/outcome/governance lifecycle",
+        "stage9 rule codes present (ORD-901/902, PAY-901/902/903/904/905, DEL-901/902/903/904/905, OUT-901/902, GOV-901/902)",
+        "stage9 field policy coverage for payment/delivery/outcome/governance fields",
+        "api/ui stage9 surfaces are internal preview or internal writeback only",
+        "delivery matrix keeps stage9 direct objects internal governed and external blocked",
+        "release gates require stage9 outcome/governance writeback and projection-only delivery policy",
+        "blocked/review/archived/retrieval assertions remain active"
+      ],
+      "triggers": [
+        "rule catalog change",
+        "field policy change",
+        "api catalog change",
+        "workbench catalog change",
+        "delivery matrix change",
+        "release gates change",
+        "D10 change",
+        "D6 change",
+        "D7 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-048"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-STAGE9-FIELD-RELEASE-CONSISTENCY",
+      "title": "阶段 9 字段策略与放行一致性回归",
+      "checks": [
+        "stage9 key fields mark direct leadpack as blocked or projection-only",
+        "order/payment/delivery/outcome/governance workbench and api entries use the same stage9 action semantics",
+        "delivery matrix and release gates use the same stage9 gate bindings",
+        "written_back_at, archival_status, retention_until and retrieval_status assertions remain blocking"
+      ],
+      "triggers": [
+        "field policy change",
+        "api catalog change",
+        "workbench catalog change",
+        "delivery matrix change",
+        "release gates change",
+        "D4 change",
+        "D5 change",
+        "D6 change",
+        "D7 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-051-E"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-WINDOW-VALUE-POLICY",
+      "title": "时间窗口量化决策回归",
+      "checks": [
+        "window_value_policy_catalog present",
+        "window thresholds align with D8",
+        "WIN-001/002 rule codes present"
+      ],
+      "triggers": [
+        "rule catalog change",
+        "sales catalog change",
+        "D2 change",
+        "D3 change",
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-049",
+        "D8-R-084"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-VALUE-SCORING-POLICY",
+      "title": "项目/线索/商机价值评分回归",
+      "checks": [
+        "lead_value_scoring_catalog present",
+        "score weights and banding align with D8",
+        "VAL-001 rule code present",
+        "project_value_score, lead_score and opportunity_value_score follow catalog weights and gating",
+        "opportunity_value_score consumes buyer_fit scorecard output rather than code-only seed"
+      ],
+      "triggers": [
+        "rule catalog change",
+        "sales catalog change",
+        "D2 change",
+        "D3 change",
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-049",
+        "D8-R-085",
+        "D11-R-053-R",
+        "D8-R-091"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-PRICE-NORMALIZATION",
+      "title": "价格归一与冲突裁决回归",
+      "checks": [
+        "price_normalization_catalog present",
+        "price conflict thresholds align with D8",
+        "PRICE-001 rule code present",
+        "tax basis/unit basis/lot-package/freshness hooks are machine-readable",
+        "stage7 runtime consumes normalized amount from policy output rather than raw seed"
+      ],
+      "triggers": [
+        "rule catalog change",
+        "sales catalog change",
+        "D2 change",
+        "D3 change",
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-049",
+        "D8-R-086",
+        "D3-R-056-F",
+        "D8-R-091-A",
+        "D11-R-053-T"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-COMPETITOR-CONFIDENCE",
+      "title": "竞争者置信度与截断回归",
+      "checks": [
+        "competitor_confidence_catalog present",
+        "confidence band thresholds align with D8",
+        "COMP-001 rule code present",
+        "top_n limit, candidate-only cutoff and confidence cutoff are machine-readable",
+        "stage7 ranking consumes stage7_resolution_policy rather than service-local literals"
+      ],
+      "triggers": [
+        "rule catalog change",
+        "sales catalog change",
+        "D3 change",
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-049",
+        "D8-R-087",
+        "D3-R-056-F",
+        "D8-R-091-A",
+        "D11-R-053-T"
+      ]
+    },
+    {
+      "suite_id": "REG-P2-SKU-RECOMMENDATION",
+      "title": "SKU/交付形态/报价带推荐回归",
+      "checks": [
+        "sku_recommendation_policy_catalog present",
+        "sku matrix aligns with D8",
+        "SKU-001 rule code present",
+        "expected_close_days_band and expected_delivery_cost_band derive from opportunity_policy_catalog",
+        "why_recommended derives from formal rule outputs and keeps why_recommended_rule_outputs trace"
+      ],
+      "triggers": [
+        "rule catalog change",
+        "sales catalog change",
+        "D3 change",
+        "D8 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-049",
+        "D8-R-088",
+        "D11-R-053-R",
+        "D8-R-091"
+      ]
+    },
+    {
+      "suite_id": "REG-P3-MODEL-STAGE-SIGNATURE",
+      "title": "模型阶段签字矩阵回归",
+      "checks": [
+        "model_stage_signature_matrix present",
+        "stage 1-2 optional reserved and not hard dependency",
+        "stage 3-9 final_decision_prohibited enforced",
+        "stage 8 legal basis/channel/frequency/quiet hours/opt-out final decisions blocked",
+        "stage 9 order/payment/delivery final decisions blocked",
+        "model_governance_record schema reserves provider trace and human review fields for formal-chain model usage"
+      ],
+      "triggers": [
+        "model policy change",
+        "model stage signature matrix change",
+        "schema catalog change",
+        "D2 change",
+        "D14 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-051-A",
+        "D14-R-056-B"
+      ]
+    },
+    {
+      "suite_id": "REG-P3-SOURCE-VENDOR-PROVIDER-ALIGNMENT",
+      "title": "source/vendor/provider 分层一致性回归",
+      "checks": [
+        "vendor_registry_catalog present",
+        "source_vendor_usage_policy present",
+        "channel_vendor_execution_policy present",
+        "tool_provider_registry_catalog present",
+        "tool_usage_policy_catalog present",
+        "contact catalogs consume unified source/vendor semantics",
+        "model catalogs consume unified provider semantics",
+        "schema_catalog contact_target/outreach_plan/touch_record/model_governance_record consume unified vendor/provider enums",
+        "enum_catalog uses vendor_type/vendor_role/provider_type and avoids parallel class enums"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "sales catalog change",
+        "model catalog change",
+        "model policy change",
+        "D2 change",
+        "D9 change",
+        "D14 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-051-B",
+        "D9-R-070-A",
+        "D14-R-056-C"
+      ]
+    },
+    {
+      "suite_id": "REG-P3-TRACE-AUDIT-RESERVATION",
+      "title": "trace / audit 预留字段回归",
+      "checks": [
+        "schema_catalog contact_target reserves source vendor, source_audit_ref and query_trace_id fields",
+        "schema_catalog outreach_plan and touch_record reserve execution vendor and execution trace fields",
+        "schema_catalog model_governance_record reserves provider_id/provider_type/provider_trace_id and human review fields",
+        "source policies declare source_audit_ref and query_trace_id",
+        "execution policies declare execution_trace_id and vendor_response_ref",
+        "model/tool policies declare provider_id/provider_type/provider_trace_id",
+        "enum_catalog provides vendor_type/vendor_role/provider_type without parallel class enums",
+        "fallback_vendor_id and fallback_provider_id reserved",
+        "missing trace fields degrade to review or block"
+      ],
+      "triggers": [
+        "schema catalog change",
+        "enum catalog change",
+        "sales catalog change",
+        "model catalog change",
+        "model policy change",
+        "D2 change",
+        "D6 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-051-C",
+        "D11-R-051-D",
+        "D2-R-094-A",
+        "D6-R-055-A"
+      ]
+    },
+    {
+      "suite_id": "REG-CONTROL-STATE-ALIGNMENT",
+      "title": "control 状态面对齐回归",
+      "checks": [
+        "current_task currentPhase matches repo_status and milestone_status phase",
+        "current_task is no longer AUTO_DEV_NAVIGATION_PACK",
+        "current readiness conclusion aligns across current_task, repo_status and 状态板",
+        "docs_layer semantics explicitly mean effective package rather than every individual doc",
+        "AX9S routing map is marked as candidate navigation asset and not formal status source"
+      ],
+      "triggers": [
+        "control current_task change",
+        "control milestone_status change",
+        "control repo_status change",
+        "状态板 change",
+        "AX9S route map change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D1-R-022",
+        "D1-R-040"
+      ]
+    },
+    {
+      "suite_id": "REG-CHANGE-CLASS-REVIEW-GATE",
+      "title": "change class / review gate 回归",
+      "checks": [
+        "review_gate_matrix defines LOW_RISK_DIRECT/DRAFT_WITH_REVIEW/MANDATORY_HUMAN_REVIEW/STOP_AND_ESCALATE",
+        "review_gate_matrix covers shared_runtime/governance_release/provider_vendor_source/stage8_stage9/automation_control domains",
+        "automation_action_matrix maps change_class to execution action classes",
+        "declared change_class cannot be lower than matrix-derived classification"
+      ],
+      "triggers": [
+        "control/review_gate_matrix.yaml change",
+        "control/automation_action_matrix.yaml change",
+        "control/current_task.yaml change",
+        "docs/自动化开发动作门禁表.md change",
+        "D1 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-A"
+      ]
+    },
+    {
+      "suite_id": "REG-TASK-PACKET-HARD-GATE",
+      "title": "task packet 硬门槛回归",
+      "checks": [
+        "current_task task_packet carries required fields",
+        "declared_changed_paths are present and remain inside allowed_modification_paths",
+        "forbidden paths are absent from task packet scope",
+        "required scripts/stop conditions/definition_of_done/deliverables are declared"
+      ],
+      "triggers": [
+        "control/current_task.yaml change",
+        "control/automation_task_packet_rules.yaml change",
+        "docs/自动开发任务包模板.md change",
+        "scripts/check-automation-readiness.ps1 change",
+        "D1 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-A"
+      ]
+    },
+    {
+      "suite_id": "REG-REVIEW-GATE-STOP-LINKAGE",
+      "title": "review gate 与停机联动回归",
+      "checks": [
+        "automation_stop_conditions links missing task packet, missing review and wrong change class to stop/fail",
+        "MANDATORY_HUMAN_REVIEW blocks direct batches",
+        "STOP_AND_ESCALATE domains fail readiness immediately"
+      ],
+      "triggers": [
+        "control/automation_stop_conditions.yaml change",
+        "control/review_gate_matrix.yaml change",
+        "scripts/check-automation-readiness.ps1 change",
+        "scripts/check-release.ps1 change",
+        "D1 change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-A"
+      ]
+    },
+    {
+      "suite_id": "REG-RELEASE-READINESS-REVIEW-GATE",
+      "title": "release/readiness review gate 回归",
+      "checks": [
+        "check-automation-readiness fails on missing task packet/missing review/wrong change class",
+        "check-release invokes automation readiness before pass",
+        "release_checklist carries formal review gate assertions"
+      ],
+      "triggers": [
+        "scripts/check-automation-readiness.ps1 change",
+        "scripts/check-release.ps1 change",
+        "contracts/testing/release_checklist.json change",
+        "contracts/testing/regression_manifest.json change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-A"
+      ]
+    },
+    {
+      "suite_id": "REG-P0-CAPABILITY-RUNTIME-PERMISSION",
+      "title": "capability_mode 运行时权限层回归",
+      "checks": [
+        "runtime permission resolver exists and consumes runtime_inventory/runtime_policy/model_release_manifest",
+        "stage8 risky path resolves source/execution/stage8_execution before policy execution",
+        "stage9 risky path resolves stage9_execution before internal writeback",
+        "EMERGENCY_OFF and PERMANENTLY_BLOCKED short-circuit before downstream policy execution",
+        "REAL_RUN_READY does not override EXTERNAL_BLOCKED",
+        "permission_trace and additive governance data are emitted for stage8/stage9 runtime paths"
+      ],
+      "triggers": [
+        "src/shared/capability_runtime.py change",
+        "src/shared/context_packet.py change",
+        "src/shared/state_packet.py change",
+        "src/stage8_outreach/service.py change",
+        "src/stage9_delivery/service.py change",
+        "control/runtime_inventory.yaml change",
+        "control/model_release_manifest.yaml change",
+        "contracts/release/runtime_policy_catalog.json change",
+        "contracts/sales/source_vendor_usage_policy.json change",
+        "contracts/sales/channel_vendor_execution_policy.json change",
+        "contracts/model/model_usage_policy.json change",
+        "contracts/model/tool_usage_policy_catalog.json change",
+        "tests change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052-A"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-SERVICE-HARDCODE-ANTI-REGRESSION",
+      "title": "service hardcode anti-regression",
+      "checks": [
+        "stage6-9 services keep using shared runtime chain rather than direct governance hardcode",
+        "services do not directly load governance/release catalogs",
+        "stage9 does not regrow a private policy loop"
+      ],
+      "triggers": [
+        "src/stage6_fact_review/service.py change",
+        "src/stage7_sales/service.py change",
+        "src/stage8_outreach/service.py change",
+        "src/stage9_delivery/service.py change",
+        "src/shared/capability_runtime.py change",
+        "src/shared/runtime_validator.py change",
+        "tests change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052-B"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-GOVERNANCE-CONSUMPTION-ANTI-REGRESSION",
+      "title": "governance consumption anti-regression",
+      "checks": [
+        "stage8/9 runtime paths still consume permission + governance + semantic layers",
+        "critical governance assets remain behaviorally consumed, not just statically present"
+      ],
+      "triggers": [
+        "src/shared/runtime_validator.py change",
+        "src/stage8_outreach/service.py change",
+        "src/stage9_delivery/service.py change",
+        "contracts/governance change",
+        "contracts/release change",
+        "contracts/sales change",
+        "scripts/check-semantic-alignment.ps1 change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052-B"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-SCHEMA-MODEL-API-DRIFT-ANTI-REGRESSION",
+      "title": "schema/model/api drift anti-regression",
+      "checks": [
+        "critical schema catalog entries remain aligned with concrete schema files",
+        "placeholder models remain minimal and do not silently drift from schema intent",
+        "api stage skeletons keep stage-scoped object/request names"
+      ],
+      "triggers": [
+        "contracts/schemas change",
+        "src/stage*/models.py change",
+        "src/api/routes change",
+        "src/api/schemas change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052-B"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-STAGE9-SECOND-LOOP-ANTI-REGRESSION",
+      "title": "Stage 9 second-loop anti-regression",
+      "checks": [
+        "stage9 service does not define a private policy loop",
+        "stage9 service does not call runtime.executor.execute directly",
+        "stage9 service keeps permission/governance/semantic trace layers"
+      ],
+      "triggers": [
+        "src/stage9_delivery/service.py change",
+        "src/shared/capability_runtime.py change",
+        "tests change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052-B"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-UNUSED-CATALOG-PARTIAL-CONSUMPTION",
+      "title": "unused catalog / partial consumption anti-regression",
+      "checks": [
+        "critical runtime catalogs are explicitly classified as FULL_RUNTIME / INTENTIONAL_PARTIAL / UNDECLARED_PARTIAL / UNUSED",
+        "intentional partial coverage requires a declared reason instead of silent partial runtime consumption",
+        "Stage1-2 source/route baseline, Stage7 resolution policy, source/vendor/provider, runtime policy, stage9 taxonomy and writeback catalogs do not become runtime-unused or undeclared-partial"
+      ],
+      "triggers": [
+        "src/shared/capability_runtime.py change",
+        "src/shared/policy_executor.py change",
+        "src/shared/runtime_validator.py change",
+        "src/stage8_outreach/service.py change",
+        "src/stage9_delivery/service.py change",
+        "src/stage9_delivery/impact_executor.py change",
+        "contracts/governance change",
+        "contracts/release change",
+        "contracts/sales change",
+        "contracts/model change",
+        "control/runtime_inventory.yaml change",
+        "tests/test_architecture_anti_drift.py change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-P"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-GOVERNANCE-RUNTIME-CONSUMPTION-CLOSURE",
+      "title": "governance asset runtime consumption closure",
+      "checks": [
+        "stage1 and stage2 authoritative baseline runtime consumes source_registry and route_policy authority instead of raw input override",
+        "stage8 and stage9 permission_trace prove source/vendor/provider policy runtime consumption",
+        "stage8 and stage9 governance_trace keep field_policy/delivery_matrix/release_gates object-level guard evidence",
+        "stage9 writeback impact policy stays visible through impact executor state and writeback target contracts"
+      ],
+      "triggers": [
+        "src/shared/capability_runtime.py change",
+        "src/shared/runtime_validator.py change",
+        "src/stage8_outreach/service.py change",
+        "src/stage9_delivery/service.py change",
+        "src/stage9_delivery/impact_executor.py change",
+        "contracts/governance change",
+        "contracts/release change",
+        "contracts/sales change",
+        "contracts/model change",
+        "control/runtime_inventory.yaml change",
+        "tests/test_architecture_anti_drift.py change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-P"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-SCHEMA-VALIDATOR-MODEL-DRIFT",
+      "title": "schema/catalog/runtime-validator/model drift anti-regression",
+      "checks": [
+        "Stage1-2 baseline objects keep exact required-field alignment between schema_catalog and concrete schema",
+        "critical Stage7-9 objects keep exact required-field alignment between schema_catalog and concrete schema",
+        "runtime_validator strict profiles keep Stage1-2 baseline and Stage7-9 field types aligned with concrete schema and enum refs",
+        "placeholder models and api skeletons remain minimal and do not silently replace formal schema ownership"
+      ],
+      "triggers": [
+        "contracts/schemas change",
+        "contracts/enums/enum_catalog.json change",
+        "src/shared/runtime_validator.py change",
+        "src/stage*/models.py change",
+        "src/api/schemas change",
+        "tests/test_architecture_anti_drift.py change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-P"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-HANDOFF-PRODUCER-CONSUMER-DRIFT",
+      "title": "H-01/H-06/H-07/H-08 producer/consumer drift anti-regression",
+      "checks": [
+        "H-01/H-06/H-07/H-08 happy-path producer sets stay aligned with service outputs",
+        "H-01/H-06/H-07/H-08 required payload projection remains machine-readable on the producer bundle",
+        "H-01/H-06/H-07/H-08 consumer criticalObjects remain aligned with actual .record dependencies and runtime consumption",
+        "H-07/H-08 optional runtime consumer access via .records.get(...) stays explicit and remains declared on the upstream producer contract"
+      ],
+      "triggers": [
+        "handoff/stage1_to_stage2/** change",
+        "handoff/stage6_to_stage7/** change",
+        "handoff/stage7_to_stage8/** change",
+        "handoff/stage8_to_stage9/** change",
+        "handoff/integration_matrix.json change",
+        "src/stage1_tasking/service.py change",
+        "src/stage2_ingestion/service.py change",
+        "src/stage7_sales/service.py change",
+        "src/stage8_outreach/service.py change",
+        "src/stage9_delivery/service.py change",
+        "tests/test_architecture_anti_drift.py change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-P"
+      ]
+    },
+    {
+      "suite_id": "REG-ARCH-UNIFIED-RUNTIME-SPINE",
+      "title": "unified runtime spine anti-regression",
+      "checks": [
+        "stage7 keeps handoff -> policy executor -> semantic validator order",
+        "stage8 and stage9 risky paths keep permission resolver -> policy executor -> governance guard -> semantic validator order",
+        "stage7-9 services do not instantiate PolicyExecutor/CapabilityResolver/RuntimeValidator directly or regrow second loops",
+        "stage7-9 runtime keeps behavior-level permission/policy/governance/semantic traces visible on the stage bundle"
+      ],
+      "triggers": [
+        "src/stage7_sales/service.py change",
+        "src/stage8_outreach/service.py change",
+        "src/stage9_delivery/service.py change",
+        "src/shared/capability_runtime.py change",
+        "src/shared/policy_executor.py change",
+        "src/shared/runtime_validator.py change",
+        "tests/test_architecture_anti_drift.py change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-P"
+      ]
+    },
+    {
+      "suite_id": "REG-FUTURE-UNLOCK-PREREQUISITES",
+      "title": "Future external unlock prerequisite matrix regression",
+      "checks": [
+        "external unlock prerequisite matrix exists and covers required capability domains",
+        "unlock tier vocabulary distinguishes permanently blocked, deny-by-default, shadow-only and future unlockable domains",
+        "release/control/model manifests reference the prerequisite matrix and keep external release blocked"
+      ],
+      "triggers": [
+        "contracts/release/external_unlock_prerequisite_matrix.json change",
+        "control/external_unlock_prerequisite_state.yaml change",
+        "control/release_manifest.yaml change",
+        "control/runtime_inventory.yaml change",
+        "control/model_release_manifest.yaml change",
+        "docs/D12_部署发布与运行治理规范.md change",
+        "docs/D13_公开可查边界能力清单.md change",
+        "docs/D14_AI模型治理规范.md change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-030-A",
+        "D13-R-073-A",
+        "D14-R-044-A"
+      ]
+    },
+    {
+      "suite_id": "REG-FUTURE-UNLOCK-EVIDENCE-PACK",
+      "title": "Future external unlock evidence pack and denial regression",
+      "checks": [
+        "each future unlock domain declares evidence_pack_required and required control/test/signoff assets",
+        "shadow or canary requirements are machine-readable for high-risk domains",
+        "unlock denial conditions remain stronger than any future unlock request"
+      ],
+      "triggers": [
+        "contracts/release/external_unlock_prerequisite_matrix.json change",
+        "contracts/model/eval_suite_catalog.json change",
+        "contracts/model/output_target_matrix.json change",
+        "contracts/model/model_release_gates.json change",
+        "contracts/governance/public_boundary_registry.json change",
+        "contracts/governance/coverage_registry.json change",
+        "contracts/testing/release_checklist.json change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-030-A",
+        "D13-R-073-A",
+        "D14-R-044-A"
+      ]
+    },
+    {
+      "suite_id": "REG-FUTURE-UNLOCK-REVIEW-GATE",
+      "title": "Future external unlock review gate regression",
+      "checks": [
+        "future external unlock prerequisite assets are at least MANDATORY_HUMAN_REVIEW",
+        "future external unlock decision assets are MANDATORY_HUMAN_REVIEW",
+        "future external unlock activation assets are STOP_AND_ESCALATE",
+        "current task packet declares the decision batch as decision-only and not implementation-approved"
+      ],
+      "triggers": [
+        "control/review_gate_matrix.yaml change",
+        "control/current_task.yaml change",
+        "docs/AX9S_开发执行路由图.md change",
+        "docs/正式业务代码开发开工裁决页.md change",
+        "docs/文档与资产状态板.md change",
+        "control/repo_status.md change",
+        "control/milestone_status.yaml change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-030-A"
+      ]
+    },
+    {
+      "suite_id": "REG-FUTURE-UNLOCK-DECISION-MATRIX",
+      "title": "Future unlock decision matrix regression",
+      "checks": [
+        "future unlock decision matrix exists and covers all prerequisite domains",
+        "candidate/deny/long-term blocked buckets match the formal R6 decision",
+        "sequence order is machine-readable and does not imply implementation approval"
+      ],
+      "triggers": [
+        "contracts/release/future_unlock_decision_matrix.json change",
+        "control/future_unlock_decision_state.yaml change",
+        "control/repo_status.md change",
+        "control/milestone_status.yaml change",
+        "docs/AX9S_开发执行路由图.md change",
+        "docs/文档与资产状态板.md change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-030-A",
+        "D13-R-073-A",
+        "D14-R-044-A"
+      ]
+    },
+    {
+      "suite_id": "REG-FUTURE-UNLOCK-STATE-SYNC",
+      "title": "Future unlock decision state sync regression",
+      "checks": [
+        "repo_status/current_task/milestone/status board align on post-R6 readiness",
+        "prerequisite state, release manifest and model manifest reference the decision matrix/state",
+        "candidate domains remain non-implementation and deny/blocked domains remain blocked"
+      ],
+      "triggers": [
+        "control/current_task.yaml change",
+        "control/repo_status.md change",
+        "control/milestone_status.yaml change",
+        "control/external_unlock_prerequisite_state.yaml change",
+        "control/release_manifest.yaml change",
+        "control/model_release_manifest.yaml change",
+        "docs/正式业务代码开发开工裁决页.md change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-030-A",
+        "D13-R-073-A",
+        "D14-R-044-A"
+      ]
+    },
+    {
+      "suite_id": "REG-INTERNAL-PERSISTENCE-BOUNDARY",
+      "title": "Stage 7/8/9 repository boundary regression",
+      "checks": [
+        "Stage 7 repository boundary persists saleable_opportunity / offer_recommendation / buyer_fit formal payloads",
+        "Stage 8 repository boundary persists contact_target / outreach_plan / touch_record formal payloads with decision and trace metadata",
+        "Stage 9 repository boundary persists order / payment / delivery / outcome / governance formal payloads with governed writeback metadata",
+        "repository layer does not recompute saleability, governance, capability mode or typed workflow outcomes"
+      ],
+      "triggers": [
+        "src/storage/** change",
+        "src/api/projections.py change",
+        "src/api/routes/stage7.py change",
+        "src/api/routes/stage8.py change",
+        "src/api/routes/stage9.py change",
+        "tests/test_internal_repository_boundary.py change",
+        "contracts/api/** change",
+        "contracts/ui/** change",
+        "D2 change",
+        "D4 change",
+        "D5 change",
+        "D11 change",
+        "D12 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-052",
+        "D11-R-053-D"
+      ]
+    },
+    {
+      "suite_id": "REG-INTERNAL-PERSISTENCE-SURFACES",
+      "title": "Repository-backed preview surface regression",
+      "checks": [
+        "Stage 7 preview surface can read repository-backed formal state after refresh/write",
+        "Stage 8 preview surface can read repository-backed governed preview/draft state after create/writeback",
+        "Stage 9 preview surface can read repository-backed typed workflow and governance feedback state after draft/writeback"
+      ],
+      "triggers": [
+        "src/storage/** change",
+        "src/api/projections.py change",
+        "src/api/routes/stage7.py change",
+        "src/api/routes/stage8.py change",
+        "src/api/routes/stage9.py change",
+        "tests/test_internal_repository_boundary.py change",
+        "tests/test_internal_surface_preview.py change",
+        "contracts/api/** change",
+        "contracts/ui/** change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-D"
+      ]
+    },
+    {
+      "suite_id": "REG-INTERNAL-PERSISTENCE-WRITEBACK",
+      "title": "Repository-backed writeback persistence regression",
+      "checks": [
+        "Stage 8 touch_record writeback fields persist and remain readable",
+        "Stage 9 payment/delivery/outcome/governance writeback fields persist and remain readable",
+        "internal-only / governed-only boundaries remain unchanged after persistence"
+      ],
+      "triggers": [
+        "src/storage/** change",
+        "src/api/routes/stage8.py change",
+        "src/api/routes/stage9.py change",
+        "tests/test_internal_repository_boundary.py change",
+        "contracts/testing/release_checklist.json change",
+        "D11 change",
+        "D12 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053",
+        "D11-R-053-D"
+      ]
+    },
+    {
+      "suite_id": "REG-LEADPACK-CANDIDATE-GAP",
+      "title": "LeadPack external delivery candidate gap regression",
+      "checks": [
+        "leadpack candidate matrix exists and remains the single machine-readable projection boundary source",
+        "candidate preview/export simulation surfaces stay internal-only, candidate-only and projection-only",
+        "candidate review request, hold and denial actions remain machine-readable and never imply live external delivery",
+        "current readiness/docs/testing continue to classify this branch as candidate gap rather than activation-prep or unlock implementation"
+      ],
+      "triggers": [
+        "contracts/release/leadpack_external_delivery_candidate_matrix.json change",
+        "contracts/release/delivery_matrix.json change",
+        "contracts/release/external_unlock_prerequisite_matrix.json change",
+        "contracts/release/future_unlock_decision_matrix.json change",
+        "contracts/governance/public_boundary_registry.json change",
+        "contracts/governance/coverage_registry.json change",
+        "contracts/api/** change",
+        "contracts/ui/** change",
+        "src/api/projections.py change",
+        "src/api/routes/stage7.py change",
+        "src/api/schemas/stage7.py change",
+        "control/current_task.yaml change",
+        "control/repo_status.md change",
+        "control/future_unlock_decision_state.yaml change",
+        "control/external_unlock_prerequisite_state.yaml change",
+        "docs/D5_页面导出与人工复核规范.md change",
+        "docs/D7_对象级交付矩阵与外发治理规范.md change",
+        "docs/D12_部署发布与运行治理规范.md change",
+        "docs/D13_公开可查边界能力清单.md change",
+        "docs/技术实现决策页.md change",
+        "docs/文档与资产状态板.md change",
+        "docs/AX9S_开发执行路由图.md change",
+        "tests/test_internal_surface_preview.py change",
+        "tests/test_external_unlock_prerequisites.py change",
+        "tests/test_leadpack_candidate_surface.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-041",
+        "D13-R-074"
+      ]
+    },
+    {
+      "suite_id": "REG-LEADPACK-ACTIVATION-PREP",
+      "title": "LeadPack candidate activation prep regression",
+      "checks": [
+        "leadpack activation prep evidence pack exists and remains machine-readable",
+        "activation prep runbook covers go/hold/deny/return/rollback paths without implying activation",
+        "simulation replay artifact binds candidate matrix, projection boundary, masking rules and trace evidence",
+        "signoff packet and review gate remain review-only and never claim activation-ready or external-ready",
+        "activation prep APIs and UI surfaces fail formally when evidence, replay, signoff packet or boundary checks are incomplete"
+      ],
+      "triggers": [
+        "contracts/release/leadpack_activation_prep_evidence_pack.json change",
+        "contracts/release/leadpack_activation_prep_runbook.json change",
+        "contracts/release/leadpack_activation_prep_simulation_replay.json change",
+        "contracts/release/leadpack_activation_prep_signoff_packet.json change",
+        "contracts/release/leadpack_activation_prep_transition_matrix.json change",
+        "contracts/release/leadpack_external_delivery_candidate_matrix.json change",
+        "contracts/release/external_unlock_prerequisite_matrix.json change",
+        "contracts/release/delivery_matrix.json change",
+        "contracts/governance/public_boundary_registry.json change",
+        "contracts/governance/coverage_registry.json change",
+        "contracts/api/** change",
+        "contracts/ui/** change",
+        "src/api/projections.py change",
+        "src/api/routes/stage7.py change",
+        "src/api/schemas/stage7.py change",
+        "control/current_task.yaml change",
+        "control/repo_status.md change",
+        "control/external_unlock_prerequisite_state.yaml change",
+        "control/future_unlock_decision_state.yaml change",
+        "docs/D5_页面导出与人工复核规范.md change",
+        "docs/D7_对象级交付矩阵与外发治理规范.md change",
+        "docs/D12_部署发布与运行治理规范.md change",
+        "docs/D13_公开可查边界能力清单.md change",
+        "docs/技术实现决策页.md change",
+        "docs/文档与资产状态板.md change",
+        "docs/AX9S_开发执行路由图.md change",
+        "tests/test_leadpack_activation_prep.py change",
+        "tests/test_internal_surface_preview.py change",
+        "tests/test_external_unlock_prerequisites.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-041-C",
+        "D13-R-074-A"
+      ]
+    },
+    {
+      "suite_id": "REG-LEADPACK-ACTIVATION-DESIGN-PREP",
+      "title": "LeadPack activation design / implementation prep regression",
+      "checks": [
+        "activation design / implementation prep matrix exists and remains design-prep only",
+        "owner signoff execution states are actual state-backed and can map missing/denied owners to HOLD/NO-GO",
+        "approval chains, review gates, audit refs and owner signoff states stay layered separately",
+        "leadpack_candidate_review_gate is not listed as an approval-chain prerequisite",
+        "missing approval, review gate, audit ref or owner signoff creates formal implementation decision HOLD sources",
+        "activation prep, GO/NO-GO/HOLD, design prep and implementation decision states are not mixed with canonical repo readiness",
+        "rollback, cancel and emergency-off design controls exist and keep external/live/direct export blocked",
+        "implementation-prep readiness gate can fail before any implementation decision"
+      ],
+      "triggers": [
+        "contracts/release/leadpack_activation_design_implementation_prep_matrix.json change",
+        "contracts/release/leadpack_activation_prep_signoff_packet.json change",
+        "contracts/release/leadpack_activation_prep_transition_matrix.json change",
+        "contracts/release/release_gates.json change",
+        "contracts/release/external_unlock_prerequisite_matrix.json change",
+        "contracts/release/future_unlock_decision_matrix.json change",
+        "contracts/release/delivery_matrix.json change",
+        "contracts/governance/public_boundary_registry.json change",
+        "contracts/governance/coverage_registry.json change",
+        "contracts/api/** change",
+        "contracts/ui/** change",
+        "contracts/testing/** change",
+        "src/api/projections.py change",
+        "src/api/routes/stage7.py change",
+        "src/api/schemas/stage7.py change",
+        "control/current_task.yaml change",
+        "control/repo_status.md change",
+        "control/external_unlock_prerequisite_state.yaml change",
+        "control/future_unlock_decision_state.yaml change",
+        "docs/D5_页面导出与人工复核规范.md change",
+        "docs/D7_对象级交付矩阵与外发治理规范.md change",
+        "docs/D12_部署发布与运行治理规范.md change",
+        "docs/D13_公开可查边界能力清单.md change",
+        "docs/技术实现决策页.md change",
+        "docs/文档与资产状态板.md change",
+        "docs/AX9S_开发执行路由图.md change",
+        "docs/裁决总表.md change",
+        "tests/test_leadpack_activation_design_prep.py change",
+        "tests/test_internal_surface_preview.py change",
+        "tests/test_external_unlock_prerequisites.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-041-D",
+        "D13-R-074-B"
+      ]
+    },
+    {
+      "suite_id": "REG-LEADPACK-IMPLEMENTATION-DECISION-READINESS-PACKET",
+      "title": "LeadPack implementation decision readiness packet regression",
+      "checks": [
+        "implementation decision readiness packet exists and is review-only",
+        "packet status remains HELD while owner signoff, approval, review gate or audit sources are missing",
+        "owner signoff, approval chain, review gate and audit summaries stay layered separately",
+        "review-only surface exposes hold sources without any approve/go/no-go/implementation action",
+        "implementation, activation, external delivery and live execution remain not approved"
+      ],
+      "triggers": [
+        "contracts/release/leadpack_implementation_decision_readiness_packet.json change",
+        "contracts/release/leadpack_activation_design_implementation_prep_matrix.json change",
+        "contracts/release/leadpack_activation_prep_signoff_packet.json change",
+        "contracts/api/** change",
+        "contracts/ui/** change",
+        "contracts/testing/** change",
+        "src/api/projections.py change",
+        "src/api/routes/stage7.py change",
+        "src/api/schemas/stage7.py change",
+        "control/current_task.yaml change",
+        "control/repo_status.md change",
+        "control/external_unlock_prerequisite_state.yaml change",
+        "control/future_unlock_decision_state.yaml change",
+        "tests/test_leadpack_implementation_decision_readiness_packet.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D12-R-041-E",
+        "D13-R-074-C"
+      ]
+    },
+    {
+      "suite_id": "REG-P1-STAGE1-2-SOURCE-ROUTE-CLOSURE",
+      "title": "Stage1-2 source/route/fixation/clock closure regression",
+      "checks": [
+        "source_registry baseline is authoritative rather than sample-only and covers the minimum source family/platform/carrier scope used by the route map",
+        "source_family_registry and platform_level_registry machine-readably declare family/platform baseline",
+        "route_policy baseline covers LIST_TO_DETAIL/DETAIL_DIRECT/ATTACHMENT_FIRST/VERSION_CHAIN/METADATA_ONLY/SEMI_MANUAL/REGISTER_ONLY with fallback/review/block semantics",
+        "stage1 projects source_registry_id/route_policy_id/default_route/fallback_route and baseline carrier/source/platform fields through H-01",
+        "stage2 consumes H-01 authority instead of raw payload override and persists route decision/fallback/review/block signals on public_chain",
+        "stage2 emits fixation_bundle plus version/clock/deadline baseline fields on notice_version_chain/clock_chain_profile",
+        "stage3 consumes fixation_bundle and clock conflict semantics"
+      ],
+      "triggers": [
+        "contracts/governance/source_registry.json change",
+        "contracts/governance/route_policy_catalog.json change",
+        "handoff stage1_to_stage2 change",
+        "handoff stage2_to_stage3 change",
+        "src/stage1_tasking/service.py change",
+        "src/stage2_ingestion/service.py change",
+        "src/stage3_parsing/service.py change",
+        "contracts/schemas change",
+        "scripts/validate-contracts.ps1 change",
+        "scripts/check-semantic-alignment.ps1 change",
+        "tests change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D2-R-094-G",
+        "D2-R-094-H",
+        "D11-R-053-E",
+        "D11-R-053-O"
+      ]
+    },
+    {
+      "suite_id": "REG-POST-REPAIR-STATE-SYNC",
+      "title": "Post-repair state source authority sync regression",
+      "checks": [
+        "repo_status/current_task/milestone/status_board/opening_decision_page/release_manifest/model_release_manifest share the same canonical readiness token",
+        "candidate-gap/strategic-branch/closure-review/mainline-selection are tracked as layered state dimensions rather than mixed current readiness tokens",
+        "reference_index formalStatusSources point to the active repo status sources and treat future unlock states as historical decision snapshots"
+      ],
+      "triggers": [
+        "control/current_task.yaml change",
+        "control/repo_status.md change",
+        "control/milestone_status.yaml change",
+        "control/release_manifest.yaml change",
+        "control/model_release_manifest.yaml change",
+        "control/reference_index.json change",
+        "docs/正式业务代码开发开工裁决页.md change",
+        "docs/文档与资产状态板.md change",
+        "docs/AX9S_开发执行路由图.md change",
+        "scripts/check-semantic-alignment.ps1 change",
+        "scripts/check-release.ps1 change",
+        "tests/test_post_repair_state_sync.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-E"
+      ]
+    },
+    {
+      "suite_id": "REG-P1-SALE-GATE-CANONICAL",
+      "title": "sale_gate_status canonical vocabulary regression",
+      "checks": [
+        "sale_gate_status enum equals OPEN/REVIEW/HOLD/BLOCK",
+        "stage6 emits OPEN/HOLD/REVIEW/BLOCK and no longer emits ALLOW",
+        "stage7/runtime/policy executor consume OPEN/HOLD semantics",
+        "tests and scripts reject legacy ALLOW vocabulary"
+      ],
+      "triggers": [
+        "contracts/enums/enum_catalog.json change",
+        "docs/L0.md change",
+        "src/stage6_fact_review/service.py change",
+        "src/stage7_sales/service.py change",
+        "src/shared/runtime_validator.py change",
+        "src/shared/policy_executor.py change",
+        "tests change",
+        "scripts/validate-contracts.ps1 change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D3-R-056-E",
+        "D11-R-053-E"
+      ]
+    },
+    {
+      "suite_id": "REG-P1-EARLY-RUNTIME-VALIDATOR",
+      "title": "Stage1-5 early runtime validator regression",
+      "checks": [
+        "shared runtime_validator enforces additionalProperties for early critical objects",
+        "shared runtime_validator enforces array/object/bool/number shapes for early critical objects",
+        "H-01 to H-05 consumer runtime checks block missing critical objects or required fields"
+      ],
+      "triggers": [
+        "src/shared/runtime_validator.py change",
+        "src/shared/contracts_runtime.py change",
+        "contracts/schemas change",
+        "handoff change",
+        "tests/test_semantic_runtime_validator.py change",
+        "tests/test_arch_optimization_a.py change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-E"
+      ]
+    },
+    {
+      "suite_id": "REG-P1-WRITEBACK-IMPACT-DEFER",
+      "title": "writeback impact executor + formal contract internal v0 regression",
+      "checks": [
+        "writeback_impact_policy declares INTERNAL_V0_ACTIVE and runtime_executor_enabled=true",
+        "runtime_inventory declares active internal writeback impact executor state",
+        "writeback_target_contracts cover all effective outcome/governance/payment/delivery writeback targets with mutation/persistence semantics",
+        "sales_lead and report_record are projected-only upstream feedback targets for required Stage9 outcome loops",
+        "buyer_fit and challenger_candidate_profile remain advisory trace-only targets and are not conflated with projected-only or persisted targets",
+        "writeback_source_contracts declare authoritative outcome base and additive governance/payment/delivery source semantics",
+        "upstream_feedback_projected_targets and upstream_feedback_advisory_targets stay separate from legacy outcome_writeback_targets and effective_writeback_targets fields",
+        "undeclared target contracts or disallowed additive sources hard-fail instead of degrading to UNDECLARED placeholder contracts",
+        "stage9 runtime exposes additive machine-readable impact mutation projection only for formal targets, projected-contract traces for upstream targets, and advisory traces without enabling live target persistence"
+      ],
+      "triggers": [
+        "contracts/governance/writeback_impact_policy.json change",
+        "control/runtime_inventory.yaml change",
+        "docs/D10_订单支付交付与治理反馈规范.md change",
+        "docs/D11_测试验收与金标回归清单.md change",
+        "tests/test_pre_route_behavior.py change",
+        "scripts/validate-contracts.ps1 change",
+        "scripts/check-semantic-alignment.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D10-R-067-C",
+        "D10-R-067-E",
+        "D11-R-053-E",
+        "D11-R-053-V",
+        "D11-R-053-W"
+      ]
+    },
+    {
+      "suite_id": "REG-INTERNAL-PRODUCT-OPERATOR-LOOP",
+      "title": "Internal product operator loop regression",
+      "checks": [
+        "stage7/stage8/stage9 preview surfaces must distinguish transient_preview_context from persisted_operational_context and must not pretend a work item already exists",
+        "stage7/stage8/stage9 operator action routes persist action history and current operational state transitions",
+        "operator actions only consume formal objects, decision states, traces, governed metadata, review_action_catalog, and button_flow_catalog",
+        "requiresApprovalChain operator actions stay blocked until a resolved reviewer chain is present and do not treat audit trace as approval-chain substitute",
+        "operator action runtime returns structured WORKITEM-404-NOT_FOUND and ACTION-409-* envelopes instead of generic exceptions"
+      ],
+      "triggers": [
+        "src/storage/** change",
+        "src/api/projections.py change",
+        "src/api/routes/stage7.py change",
+        "src/api/routes/stage8.py change",
+        "src/api/routes/stage9.py change",
+        "src/api/schemas/stage7.py change",
+        "src/api/schemas/stage8.py change",
+        "src/api/schemas/stage9.py change",
+        "contracts/api/** change",
+        "contracts/ui/** change",
+        "tests/test_internal_operational_loop.py change",
+        "tests/test_internal_surface_preview.py change",
+        "tests/test_internal_operational_hardening.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-F"
+      ]
+    },
+    {
+      "suite_id": "REG-INTERNAL-WORK-ITEM-QUEUE",
+      "title": "Repository-backed internal work item queue regression",
+      "checks": [
+        "stage7/stage8/stage9 work item queues persist item id, work item key, assignment lifecycle, pending actions, and last action",
+        "queue retrieval replays action history without touching formal judgment fields",
+        "surface routes can read back queue and work item state from repository after default session reopen"
+      ],
+      "triggers": [
+        "src/storage/** change",
+        "src/api/routes/stage7.py change",
+        "src/api/routes/stage8.py change",
+        "src/api/routes/stage9.py change",
+        "tests/test_internal_operational_loop.py change",
+        "tests/test_internal_repository_boundary.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-F"
+      ]
+    },
+    {
+      "suite_id": "REG-FORMAL-SINK-QUANT-FIELDS",
+      "title": "Formal sink quantitative field regression",
+      "checks": [
+        "value score fields exist in project_fact and saleable_opportunity schema/catalog and Stage7 projection",
+        "price intermediate fields exist in bidder_candidate schema/catalog and H-06/H-07 optional payload",
+        "confidence score remains anchored on single challenger_candidate_profile formal sink while candidate collection is handled by separate collection carriers",
+        "current action start/deadline fields exist in clock_chain_profile schema/catalog and are consumed in Stage7/8 trace",
+        "check-semantic-alignment fails when D2/schema/handoff/runtime sink coverage drifts"
+      ],
+      "triggers": [
+        "docs/D2_正式对象契约与字段字典.md change",
+        "docs/D8_真实竞争者识别可售对象与销售推进规范.md change",
+        "docs/D11_测试验收与金标回归清单.md change",
+        "contracts/schemas/schema_catalog.json change",
+        "contracts/schemas/project_fact.schema.json change",
+        "contracts/schemas/saleable_opportunity.schema.json change",
+        "contracts/schemas/bidder_candidate.schema.json change",
+        "contracts/schemas/challenger_candidate_profile.schema.json change",
+        "contracts/schemas/clock_chain_profile.schema.json change",
+        "handoff/stage6_to_stage7/** change",
+        "handoff/stage7_to_stage8/** change",
+        "src/stage7_sales/service.py change",
+        "src/stage8_outreach/service.py change",
+        "scripts/check-semantic-alignment.ps1 change",
+        "tests/test_formal_sink_fields.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D2-R-092-A",
+        "D8-R-090",
+        "D11-R-053-O"
+      ]
+    }
+  ]
+}

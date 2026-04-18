@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "clock_chain_profile",
+  "type": "object",
+  "description": "Schema skeleton for clock_chain_profile.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-011"
+  ],
+  "enum_refs": [
+    "clock_state",
+    "conflict_state",
+    "collection_state"
+  ],
+  "properties": {
+    "clock_chain_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "publication_clock_state": {
+      "type": "string"
+    },
+    "first_seen_clock_state": {
+      "type": "string"
+    },
+    "correction_clock_state": {
+      "type": "string"
+    },
+    "reply_clock_state": {
+      "type": "string"
+    },
+    "remedy_clock_state": {
+      "type": "string"
+    },
+    "clock_resolution_rule_id": {
+      "type": "string"
+    },
+    "current_action_clock": {
+      "type": "string"
+    },
+    "current_action_start_at_optional": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "current_action_deadline_at_optional": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "clock_conflict_state": {
+      "type": "string"
+    },
+    "collection_state": {
+      "type": "string"
+    },
+    "requires_manual_review": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "clock_chain_id",
+    "project_id",
+    "publication_clock_state",
+    "first_seen_clock_state",
+    "correction_clock_state",
+    "reply_clock_state",
+    "remedy_clock_state",
+    "clock_resolution_rule_id",
+    "current_action_clock",
+    "clock_conflict_state",
+    "collection_state",
+    "requires_manual_review"
+  ],
+  "additionalProperties": false
+}

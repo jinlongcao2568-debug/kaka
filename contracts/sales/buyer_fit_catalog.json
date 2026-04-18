@@ -1,0 +1,72 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "buyer_fit_catalog",
+  "ownerDocs": [
+    "D8"
+  ],
+  "entries": [
+    {
+      "objectType": "buyer_fit",
+      "stage": 7,
+      "requiredFields": [
+        "buyer_fit_id",
+        "project_id",
+        "buyer_type",
+        "fit_score",
+        "attack_motivation_score",
+        "purchase_intent_score",
+        "payment_capacity_score"
+      ],
+      "sourceL0Refs": [
+        "L0-R-006",
+        "L0-R-007"
+      ],
+      "dependsOnObjects": [
+        "project_fact",
+        "actor profiles"
+      ],
+      "blockingPolicies": [
+        "project_fact_required",
+        "dual_gate_required"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "notes": "买方适配承接，仅内部消费。"
+    },
+    {
+      "objectType": "challenger_buyer_fit",
+      "stage": 7,
+      "requiredFields": [
+        "challenger_buyer_fit_id",
+        "project_id",
+        "buyer_type",
+        "fit_score",
+        "attack_motivation_score",
+        "purchase_intent_score",
+        "payment_capacity_score"
+      ],
+      "sourceL0Refs": [
+        "L0-R-006",
+        "L0-R-007"
+      ],
+      "dependsOnObjects": [
+        "project_fact",
+        "challenger_candidate_profile",
+        "actor profiles"
+      ],
+      "blockingPolicies": [
+        "project_fact_required",
+        "dual_gate_required"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "notes": "挑战者买方适配承接。"
+    }
+  ]
+}

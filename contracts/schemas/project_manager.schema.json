@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "project_manager",
+  "type": "object",
+  "description": "Schema skeleton for project_manager.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-024"
+  ],
+  "enum_refs": [
+    "project_manager_conflict_clue_status"
+  ],
+  "properties": {
+    "project_manager_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "project_manager_name": {
+      "type": "string"
+    },
+    "project_manager_cert_specialty": {
+      "type": "string"
+    },
+    "project_manager_cert_level": {
+      "type": "string"
+    },
+    "project_manager_cert_unit": {
+      "type": "string"
+    },
+    "project_manager_conflict_clue_status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_manager_id",
+    "project_id",
+    "project_manager_name",
+    "project_manager_cert_specialty",
+    "project_manager_cert_level",
+    "project_manager_cert_unit",
+    "project_manager_conflict_clue_status"
+  ],
+  "additionalProperties": false
+}

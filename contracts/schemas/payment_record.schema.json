@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "payment_record",
+  "type": "object",
+  "description": "Internal governed typed workflow schema for payment_record.",
+  "source_refs": [
+    "D2-R-017",
+    "D2-R-063",
+    "D10-R-009",
+    "D10-R-064"
+  ],
+  "enum_refs": [
+    "payment_status",
+    "amount_band"
+  ],
+  "properties": {
+    "payment_id": { "type": "string" },
+    "project_id": { "type": "string" },
+    "order_id": { "type": "string" },
+    "payment_status": { "type": "string" },
+    "payment_proof_state": { "type": "string" },
+    "payer_match_state": { "type": "string" },
+    "amount_match_state": { "type": "string" },
+    "amount_band": { "type": "string" },
+    "payment_exception_family_optional": { "type": "string" },
+    "payment_exception_reason_optional": { "type": "string" },
+    "payment_exception_reason_tags_optional": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "amount_mismatch_state_optional": { "type": "string" },
+    "refund_state": { "type": "string" },
+    "refund_amount_band_optional": { "type": "string" },
+    "paid_at_optional": { "type": "string" },
+    "written_back_at_optional": { "type": "string" },
+    "governed_execution_mode": { "type": "string" },
+    "permission_decision_state": { "type": "string" },
+    "governance_decision_state": { "type": "string" },
+    "semantic_decision_state": { "type": "string" },
+    "governed_metadata": { "type": "object" }
+  },
+  "required": [
+    "payment_id",
+    "project_id",
+    "order_id",
+    "payment_status",
+    "payment_proof_state",
+    "payer_match_state",
+    "amount_match_state",
+    "amount_band",
+    "refund_state",
+    "paid_at_optional",
+    "written_back_at_optional",
+    "governed_execution_mode",
+    "permission_decision_state",
+    "governance_decision_state",
+    "semantic_decision_state",
+    "governed_metadata"
+  ],
+  "additionalProperties": false
+}

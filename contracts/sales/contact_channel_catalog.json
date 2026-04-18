@@ -1,0 +1,120 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "contact_channel_catalog",
+  "ownerDocs": [
+    "D9",
+    "D3"
+  ],
+  "capabilityModeVocabularyRef": "control/runtime_inventory.yaml#capability_mode_vocabulary",
+  "executionVendorRegistryRef": "contracts/sales/vendor_registry_catalog.json",
+  "channelVendorExecutionPolicyRef": "contracts/sales/channel_vendor_execution_policy.json",
+  "executionPolicyStates": [
+    "PREVIEW_ONLY",
+    "DRY_RUN",
+    "APPROVAL_REQUIRED",
+    "BLOCKED"
+  ],
+  "entries": [
+    {
+      "objectType": "contact_channel_policy",
+      "stage": 8,
+      "requiredFields": [
+        "channel_family",
+        "channel_policy_status",
+        "quiet_hours_policy_state",
+        "frequency_policy_state",
+        "execution_policy_state",
+        "requires_manual_review"
+      ],
+      "sourceL0Refs": [
+        "L0-R-007",
+        "L0-R-008"
+      ],
+      "dependsOnObjects": [
+        "contact_target"
+      ],
+      "blockingPolicies": [
+        "quiet_hours_block",
+        "frequency_block",
+        "channel_policy_block",
+        "execution_vendor_block"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045",
+        "D11-R-051-B"
+      ],
+      "internalOnly": true,
+      "channelFamilies": [
+        "ORG_EMAIL",
+        "ORG_PHONE",
+        "PUBLIC_FORM",
+        "CRM_APPROVED_DIRECT",
+        "AUTHORIZED_PERSON_DIRECT",
+        "SOCIAL_DM",
+        "IM_DIRECT",
+        "PERSONAL_PHONE",
+        "PERSONAL_EMAIL"
+      ],
+      "allowedChannelFamilies": [
+        "ORG_EMAIL",
+        "ORG_PHONE",
+        "PUBLIC_FORM",
+        "CRM_APPROVED_DIRECT"
+      ],
+      "reviewRequiredChannelFamilies": [
+        "AUTHORIZED_PERSON_DIRECT",
+        "SOCIAL_DM",
+        "IM_DIRECT",
+        "PERSONAL_PHONE",
+        "PERSONAL_EMAIL"
+      ],
+      "blockedChannelFamilies": [],
+      "defaultPriorityOrder": [
+        "ORG_PHONE",
+        "ORG_EMAIL",
+        "PUBLIC_FORM",
+        "CRM_APPROVED_DIRECT",
+        "AUTHORIZED_PERSON_DIRECT",
+        "SOCIAL_DM",
+        "IM_DIRECT",
+        "PERSONAL_PHONE",
+        "PERSONAL_EMAIL"
+      ],
+      "defaultExecutionStateByChannelFamily": {
+        "ORG_PHONE": "PREVIEW_ONLY",
+        "ORG_EMAIL": "PREVIEW_ONLY",
+        "PUBLIC_FORM": "PREVIEW_ONLY",
+        "CRM_APPROVED_DIRECT": "APPROVAL_REQUIRED",
+        "AUTHORIZED_PERSON_DIRECT": "BLOCKED",
+        "SOCIAL_DM": "BLOCKED",
+        "IM_DIRECT": "BLOCKED",
+        "PERSONAL_PHONE": "BLOCKED",
+        "PERSONAL_EMAIL": "BLOCKED"
+      },
+      "channelWeights": {
+        "ORG_PHONE": 10,
+        "ORG_EMAIL": 10,
+        "PUBLIC_FORM": 5,
+        "CRM_APPROVED_DIRECT": 8,
+        "AUTHORIZED_PERSON_DIRECT": 2,
+        "SOCIAL_DM": -10,
+        "IM_DIRECT": -10,
+        "PERSONAL_PHONE": -15,
+        "PERSONAL_EMAIL": -15
+      },
+      "defaultCapabilityModeByChannelFamily": {
+        "ORG_PHONE": "DRY_RUN",
+        "ORG_EMAIL": "DRY_RUN",
+        "PUBLIC_FORM": "DRY_RUN",
+        "CRM_APPROVED_DIRECT": "APPROVAL_REQUIRED",
+        "AUTHORIZED_PERSON_DIRECT": "PERMANENTLY_BLOCKED",
+        "SOCIAL_DM": "PERMANENTLY_BLOCKED",
+        "IM_DIRECT": "PERMANENTLY_BLOCKED",
+        "PERSONAL_PHONE": "PERMANENTLY_BLOCKED",
+        "PERSONAL_EMAIL": "PERMANENTLY_BLOCKED"
+      },
+      "notes": "渠道家族与执行 vendor 策略解耦；当前 phase 只允许 preview/dry_run/approval 语义，不默认真实触达。"
+    }
+  ]
+}

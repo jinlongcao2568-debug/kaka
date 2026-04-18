@@ -1,0 +1,137 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "governance_feedback_policy_catalog",
+  "writeback_source_family": "governance_taxonomy",
+  "writeback_contract_ref": "contracts/governance/writeback_impact_policy.json#writeback_source_contracts.governance_taxonomy",
+  "writeback_merge_semantics": "ADDITIVE_ONLY",
+  "ownerDocs": [
+    "D10",
+    "D3",
+    "D11"
+  ],
+  "entries": [
+    {
+      "trigger_type": "FIELD_POLICY_VIOLATION",
+      "semantic_owner": "governance_taxonomy",
+      "required_actions": [
+        "record governance feedback",
+        "block delivery",
+        "record audit",
+        "notify governance"
+      ],
+      "impact_scope": "DELIVERY_BLOCK",
+      "writeback_targets": [
+        "project_fact",
+        "delivery_record"
+      ],
+      "recommendation_effect": "saleability_status=RESTRICTED"
+    },
+    {
+      "trigger_type": "DELIVERY_BLOCK",
+      "semantic_owner": "governance_taxonomy",
+      "required_actions": [
+        "pause delivery",
+        "record governance feedback"
+      ],
+      "impact_scope": "DELIVERY_BLOCK",
+      "writeback_targets": [
+        "delivery_record",
+        "release_gates"
+      ],
+      "recommendation_effect": "offer_recommendation_state=REVIEW_REQUIRED"
+    },
+    {
+      "trigger_type": "APPROVAL_MISSING",
+      "semantic_owner": "governance_taxonomy",
+      "required_actions": [
+        "record governance feedback",
+        "block execution",
+        "request approval"
+      ],
+      "impact_scope": "APPROVAL_BLOCK",
+      "writeback_targets": [
+        "order_record",
+        "payment_record"
+      ],
+      "recommendation_effect": "saleability_status=RESTRICTED"
+    },
+    {
+      "trigger_type": "CONTACT_POLICY_VIOLATION",
+      "semantic_owner": "governance_taxonomy",
+      "required_actions": [
+        "record governance feedback",
+        "block outreach",
+        "record violation"
+      ],
+      "impact_scope": "CONTACT_BLOCK",
+      "writeback_targets": [
+        "contact_target",
+        "outreach_plan"
+      ],
+      "recommendation_effect": "require manual review before any further touch"
+    },
+    {
+      "trigger_type": "EVIDENCE_INSUFFICIENT",
+      "semantic_owner": "governance_taxonomy",
+      "required_actions": [
+        "record governance feedback",
+        "trigger stage5 recheck",
+        "mark review_required"
+      ],
+      "impact_scope": "FACT_REFRESH",
+      "writeback_targets": [
+        "project_fact",
+        "review_queue_profile"
+      ],
+      "recommendation_effect": "downgrade confidence and rescoring"
+    },
+    {
+      "trigger_type": "EXCEPTION_TRIGGERED",
+      "semantic_owner": "governance_taxonomy",
+      "required_actions": [
+        "record governance feedback",
+        "register controlled_exception_record",
+        "block release until approved"
+      ],
+      "impact_scope": "EXCEPTION",
+      "writeback_targets": [
+        "controlled_exception_record",
+        "release_gates"
+      ],
+      "recommendation_effect": "pause recommendations"
+    },
+    {
+      "trigger_type": "ARCHIVE_FAILURE",
+      "semantic_owner": "governance_taxonomy",
+      "required_actions": [
+        "record governance feedback",
+        "block closure",
+        "record archive failure"
+      ],
+      "impact_scope": "ARCHIVE_BLOCK",
+      "writeback_targets": [
+        "governance_feedback_event",
+        "delivery_record"
+      ],
+      "recommendation_effect": "block delivery completion"
+    },
+    {
+      "trigger_type": "OTHER",
+      "semantic_owner": "governance_taxonomy",
+      "required_actions": [
+        "record governance feedback",
+        "manual review"
+      ],
+      "impact_scope": "REVIEW",
+      "writeback_targets": [
+        "governance_feedback_event"
+      ],
+      "recommendation_effect": "manual review"
+    }
+  ],
+  "notes": [
+    "Governance feedback taxonomy controls mandatory actions and additive writeback targets.",
+    "All governance feedback remains internal-only.",
+    "Governance taxonomy may append governance-owned targets but may not redefine outcome_family or outcome_reason_tags."
+  ]
+}

@@ -1,0 +1,150 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "competitor_confidence_catalog",
+  "ownerDocs": [
+    "D3",
+    "D8",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "COMP-CONFIDENCE-001",
+      "title": "Competitor evidence accumulation and confidence scoring",
+      "applies_to_objects": [
+        "challenger_candidate_profile",
+        "pseudo_competitor_signal_set",
+        "evidence_grade_profile"
+      ],
+      "evidence_requirements": {
+        "min_distinct_source_families": 2,
+        "allow_single_source_if_external_grade": "E4_EXTERNAL_ACTION_READY",
+        "min_evidence_refs": 2
+      },
+      "component_scores": {
+        "external_use_grade": {
+          "E1_INTERNAL_ONLY": 10,
+          "E2_REVIEW_READY": 30,
+          "E3_CLIENT_VISIBLE": 60,
+          "E4_EXTERNAL_ACTION_READY": 90
+        },
+        "candidate_position_label": {
+          "WINNER": 10,
+          "FIRST_CANDIDATE": 5,
+          "SECOND_CANDIDATE": 0,
+          "THIRD_CANDIDATE": -5,
+          "OTHER": -10,
+          "UNKNOWN": -10
+        },
+        "confidence_band_penalty": {
+          "LOW": -20,
+          "MEDIUM": -10,
+          "HIGH": 0
+        }
+      },
+      "weights": {
+        "challenge_actionability_score": 35,
+        "external_use_grade": 25,
+        "focus_bidder_attackability_score": 15,
+        "challenger_pain_score": 15,
+        "execution_readiness_score": 10
+      },
+      "confidence_band_thresholds": {
+        "HIGH": "score >= 80",
+        "MEDIUM": "score between 60 and 79",
+        "LOW": "score < 60"
+      },
+      "confidence_band_rules": [
+        {
+          "band": "HIGH",
+          "min_score": 80
+        },
+        {
+          "band": "MEDIUM",
+          "min_score": 60
+        },
+        {
+          "band": "LOW",
+          "min_score": 0
+        }
+      ],
+      "quality_grade_thresholds": {
+        "A": "score >= 85",
+        "B": "score between 70 and 84",
+        "C": "score between 55 and 69",
+        "D": "score < 55"
+      },
+      "quality_grade_rules": [
+        {
+          "grade": "A",
+          "min_score": 85
+        },
+        {
+          "grade": "B",
+          "min_score": 70
+        },
+        {
+          "grade": "C",
+          "min_score": 55
+        },
+        {
+          "grade": "D",
+          "min_score": 0
+        }
+      ],
+      "cutoff_rules": [
+        "score < 55 -> challenger_profile_status=REVIEW_REQUIRED",
+        "evidence refs < 2 and external_use_grade < E3 -> REVIEW_REQUIRED",
+        "pseudo_competitor_signal_set.confidence_band=LOW -> REVIEW_REQUIRED"
+      ],
+      "cutoff_policy": {
+        "policy_id": "COMP-CUTOFF-001",
+        "candidate_only_score_lt": 55,
+        "candidate_only_confidence_bands": [
+          "LOW"
+        ],
+        "candidate_only_result": "CANDIDATE_ONLY",
+        "manual_review_result": "REVIEW_REQUIRED",
+        "retain_even_if_cutoff": true,
+        "review_required_when": [
+          "score < 55",
+          "evidence refs < 2 and external_use_grade < E3",
+          "pseudo_competitor_signal_set.confidence_band=LOW"
+        ]
+      },
+      "ranking_rules": [
+        "rank by confidence_score desc",
+        "keep top 3 per project_id",
+        "others set challenger_profile_status=CANDIDATE_ONLY"
+      ],
+      "ranking_policy": {
+        "policy_id": "COMP-RANK-001",
+        "score_field": "confidence_score_optional",
+        "top_n_limit": 3,
+        "beyond_top_n_result": "CANDIDATE_ONLY",
+        "candidate_position_priority": {
+          "WINNER": 0,
+          "FIRST_CANDIDATE": 1,
+          "SECOND_CANDIDATE": 2,
+          "THIRD_CANDIDATE": 3,
+          "OTHER": 9,
+          "UNKNOWN": 10
+        },
+        "sort_order": [
+          "confidence_score_optional desc",
+          "candidate_position_label asc",
+          "challenger_profile_id asc"
+        ]
+      },
+      "output_fields": [
+        "confidence_score_optional",
+        "confidence_band_optional",
+        "competitor_quality_grade_optional"
+      ]
+    }
+  ],
+  "notes": [
+    "Confidence scoring is deterministic and may only downgrade on insufficient evidence.",
+    "Stage7 multi-competitor ranking must consume cutoff_policy and ranking_policy rather than service-local literals.",
+    "confidence_band uses existing enum confidence_band; quality grade aligns with competitor_quality_grade."
+  ]
+}

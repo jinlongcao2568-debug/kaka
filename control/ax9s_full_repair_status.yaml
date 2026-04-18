@@ -1,0 +1,100 @@
+version: 1
+program_id: AX9S_FULL_REPAIR_EXECUTION_PLAN
+updated_at: "2026-04-18"
+status: FULL_REPAIR_COMPLETE_REVIEW_READY
+window_bootstrap_ready: false
+active_batch_id: null
+active_subpacket_id: null
+active_batch_state: NOT_STARTED
+next_batch_recommended: null
+current_execution_branch: main
+last_completed_subpacket: B10-S2-final-status-closeout
+next_subpacket_recommended: null
+current_task_yaml_semantics: "control/current_task.yaml remains the formal active task source; new windows must activate an executable scoped subpacket rather than a raw batch blueprint."
+batch_order:
+  - B0
+  - B1
+  - B2
+  - B3
+  - B4
+  - B5
+  - B6
+  - B7
+  - B8
+  - B9
+  - B10
+batch_states:
+  B0: DONE
+  B1: DONE
+  B2: DONE
+  B3: DONE
+  B4: DONE
+  B5: DONE
+  B6: DONE
+  B7: DONE
+  B8: DONE
+  B9: DONE
+  B10: DONE
+completed_batches: [B0, B1, B2, B3, B4, B5, B6, B7, B8, B9, B10]
+blocked_batches: []
+review_required_batches: []
+last_completed_batch: B10
+last_closeout_ref: "B10-closeout-S2-final-status-closeout-complete"
+subpacket_states:
+  B1-S1-source-route-canonicalization: DONE
+  B1-S2-stage1-runtime-activation: DONE
+  B1-S3-stage2-runtime-precedence: DONE
+  B2-S1-lineage-and-schema: DONE
+  B2-S2-stage3-runtime: DONE
+  B3-S1-stage4-5-gate-and-evidence: DONE
+  B3-S2-stage6-review-report: DONE
+  B4-S1-value-buyer-fit: DONE
+  B5-S1-candidate-merge-and-conflict: DONE
+  B6-S1-taxonomy-and-contract-semantics: DONE
+  B7-S1-runtime-vocabulary-and-precedence: DONE
+  B8-S1-repository-boundary: DONE
+  B8-S1R-current-task-review-gate-drift: DONE
+  B9-S1-registry-and-policy-layer: DONE
+  B10-S1-regression-and-release-hardening: DONE
+  B10-S2-final-status-closeout: DONE
+next_window_start_files: []
+activation_requirements:
+  - "Previous batch state must be DONE."
+  - "Selected batch blueprint must be converted into one executable scoped subpacket."
+  - "The executable scoped subpacket must be copied into control/current_task.yaml before code changes."
+  - "Batch branch/checkpoint must be declared."
+  - "Required owner review roles must be present."
+batch_exit_requirements:
+  - "Required scripts executed."
+  - "Closeout summary written using the window closeout template."
+  - "Batch state updated to DONE, IN_PROGRESS, REVIEW_REQUIRED, or BLOCKED."
+  - "No automatic activation of the next batch."
+known_global_blockers:
+  - "External software release remains blocked."
+  - "Stage 8 live execution remains governed / approval-gated / blocked by default."
+  - "Stage 9 live payment/delivery/refund remains governed / approval-gated / blocked by default."
+  - "No future unlock implementation is authorized by this program."
+notes:
+  - "This ledger is the machine-readable execution status for the full-repair sequence."
+  - "B0 is treated as completed bootstrap preparation because the program control assets and templates have already been created in the repository."
+  - "Each new execution window must read this ledger before selecting a batch blueprint and deriving a scoped subpacket."
+  - "B2-S1-lineage-and-schema and B2-S2-stage3-runtime are complete; B2 is closed as DONE in this window."
+  - "B3-S1-stage4-5-gate-and-evidence and B3-S2-stage6-review-report are both closed as DONE; B3 is fully closed in this window."
+  - "B4-S1-value-buyer-fit is complete; B4 is closed as DONE in this window."
+  - "B4-S2 price/competitor/quote-band closure required no new patch because existing contracts/runtime/tests already satisfied the remaining B4 definition_of_done."
+  - "B5-S1-candidate-merge-and-conflict is complete in this window."
+  - "B5-S2 cadence/retry/stop/workbench closure required no new patch because existing contracts/runtime/tests already satisfied the remaining B5 definition_of_done."
+  - "B6-S1-taxonomy-and-contract-semantics is complete in this window."
+  - "B6-S2 stage9-runtime-and-feedback required no new patch because the existing runtime/handoff/tests already satisfied the remaining B6 definition_of_done once taxonomy/writeback contract semantics were re-closed."
+  - "B7-S1-runtime-vocabulary-and-precedence is complete in this window."
+  - "B7-S2 docs/decision-layer convergence required no patch because the existing docs and future-unlock decision surfaces already matched the canonical capability vocabulary and projection-only / decision-only boundaries once B7-S1 closed runtime precedence."
+  - "B8-S1-repository-boundary completed repository boundary, persistence readback, and persisted preview anti-drift closure, but the window is now REVIEW_REQUIRED because repo-wide tests still hard-code current_task.task_packet to B7-S1."
+  - "B8-S1R-current-task-review-gate-drift repaired the repo-wide test drift that hard-coded current_task.task_packet to B7-S1."
+  - "B8 is closed as DONE after check-semantic-alignment, validate-contracts, python tests/run_tests.py, and check-release passed in this window."
+  - "B9-S1-registry-and-policy-layer closed provider/vendor/source/model/tool registry and usage policy boundaries without opening live external provider/vendor behavior."
+  - "B9-S2 adapter-and-shadow-runtime required no new patch because existing capability_runtime provider/tool resolvers, Stage8/9 input-gated provider hooks, and focused tests already satisfy the remaining B9 definition_of_done."
+  - "B9 is closed as DONE after check-automation-readiness, check-semantic-alignment, validate-contracts, check-release, and python tests/run_tests.py passed in this window."
+  - "B10-S1-regression-and-release-hardening completed with check-automation-readiness, check-semantic-alignment, validate-contracts, run-golden, run-governance-contracts, check-release, and python tests/run_tests.py all passing."
+  - "B10-S2-final-status-closeout completed and closed B10 as the last batch; no additional batch or subpacket remains."
+  - "FULL_REPAIR_COMPLETE_REVIEW_READY is the AX9S full-repair program control-state closeout token only; it is not the repo readiness source. Repo readiness remains governed by control/repo_status.md, control/current_task.yaml, control/milestone_status.yaml, control/release_manifest.yaml, and docs/文档与资产状态板.md."
+  - "Repository has no scripts/search.ps1; repository-wide text search falls back to rg in this window."

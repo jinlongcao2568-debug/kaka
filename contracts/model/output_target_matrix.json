@@ -1,0 +1,303 @@
+{
+  "matrix_id": "model-output-target-matrix",
+  "version": "0.2.0",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "model governance boundary freeze",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/model/output_target_matrix.json",
+    "source_documents": [
+      "D14_AI模型治理规范.md",
+      "D3_正式规则码总表与判定说明书.md",
+      "D9_联系对象与销售触达规范.md"
+    ]
+  },
+  "assistable_targets": [
+    {
+      "target": "internal_note",
+      "stages": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "allowed_scopes": [
+        "INTERNAL_ASSIST"
+      ],
+      "ingress_mode": "ASSIST_ONLY"
+    },
+    {
+      "target": "field_candidate_buffer",
+      "stages": [
+        3
+      ],
+      "allowed_scopes": [
+        "INTERNAL_ASSIST",
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "review_request",
+      "stages": [
+        3,
+        4,
+        5,
+        8,
+        9
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "report_record.draft_section",
+      "stages": [
+        6
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST",
+        "CLIENT_DELIVERY_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "legal_action_recommendation.reason_summary_candidate",
+      "stages": [
+        5,
+        6
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "project_fact.explanation_summary_candidate",
+      "stages": [
+        6
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "challenger_candidate_profile.reason_tags_candidate",
+      "stages": [
+        7
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "buyer_fit.fit_reason_tags_candidate",
+      "stages": [
+        7
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "challenger_buyer_fit.fit_reason_tags_candidate",
+      "stages": [
+        7
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "offer_recommendation.recommendation_reason_draft",
+      "stages": [
+        7
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "outreach_plan.message_draft",
+      "stages": [
+        8
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "opportunity_outcome_event.summary_draft",
+      "stages": [
+        9
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "governance_feedback_event.summary_draft",
+      "stages": [
+        9
+      ],
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "ingress_mode": "REVIEW_REQUIRED"
+    }
+  ],
+  "review_required_targets": [
+    "field_candidate_buffer",
+    "review_request",
+    "report_record.draft_section",
+    "legal_action_recommendation.reason_summary_candidate",
+    "project_fact.explanation_summary_candidate",
+    "challenger_candidate_profile.reason_tags_candidate",
+    "buyer_fit.fit_reason_tags_candidate",
+    "challenger_buyer_fit.fit_reason_tags_candidate",
+    "offer_recommendation.recommendation_reason_draft",
+    "outreach_plan.message_draft",
+    "opportunity_outcome_event.summary_draft",
+    "governance_feedback_event.summary_draft"
+  ],
+  "blocked_targets": [
+    {
+      "target": "rule_gate_decision",
+      "reason": "final_gate_decision_prohibited"
+    },
+    {
+      "target": "evidence_gate_decision",
+      "reason": "final_gate_decision_prohibited"
+    },
+    {
+      "target": "public_chain.statutory_node_completeness",
+      "reason": "stage1_2_main_collection_decision_prohibited"
+    },
+    {
+      "target": "notice_version_chain.winning_version_resolution_rule_id",
+      "reason": "version_resolution_final_decision_prohibited"
+    },
+    {
+      "target": "project_fact.rule_gate_status",
+      "reason": "formal_gate_status_prohibited"
+    },
+    {
+      "target": "project_fact.evidence_gate_status",
+      "reason": "formal_gate_status_prohibited"
+    },
+    {
+      "target": "saleable_opportunity.saleability_status",
+      "reason": "formal_saleability_decision_prohibited"
+    },
+    {
+      "target": "offer_recommendation.final_recommendation_decision",
+      "reason": "final_recommendation_prohibited"
+    },
+    {
+      "target": "contact_target.contact_legal_basis",
+      "reason": "formal_contact_compliance_decision_prohibited"
+    },
+    {
+      "target": "contact_target.channel_family",
+      "reason": "formal_contact_compliance_decision_prohibited"
+    },
+    {
+      "target": "contact_target.frequency_policy_state",
+      "reason": "formal_contact_compliance_decision_prohibited"
+    },
+    {
+      "target": "contact_target.opt_out_state",
+      "reason": "formal_contact_compliance_decision_prohibited"
+    },
+    {
+      "target": "contact_target.quiet_hours_policy_state",
+      "reason": "formal_contact_compliance_decision_prohibited"
+    },
+    {
+      "target": "order_record.commercial_status",
+      "reason": "formal_stage9_status_prohibited"
+    },
+    {
+      "target": "payment_record.payment_status",
+      "reason": "formal_stage9_status_prohibited"
+    },
+    {
+      "target": "delivery_record.delivery_status",
+      "reason": "formal_stage9_status_prohibited"
+    }
+  ],
+  "allowed_targets": [
+    {
+      "target": "internal_note",
+      "allowed_scopes": [
+        "INTERNAL_ASSIST"
+      ],
+      "review_required": false,
+      "ingress_mode": "ASSIST_ONLY"
+    },
+    {
+      "target": "review_request",
+      "allowed_scopes": [
+        "REVIEW_ASSIST"
+      ],
+      "review_required": true,
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "report_record.draft_section",
+      "allowed_scopes": [
+        "REVIEW_ASSIST",
+        "CLIENT_DELIVERY_ASSIST"
+      ],
+      "review_required": true,
+      "ingress_mode": "REVIEW_REQUIRED"
+    },
+    {
+      "target": "leadpack_summary",
+      "allowed_scopes": [
+        "CLIENT_DELIVERY_ASSIST"
+      ],
+      "review_required": true,
+      "release_layer_required": "LEADPACK_DELIVERABLE",
+      "ingress_mode": "REVIEW_REQUIRED"
+    }
+  ],
+  "future_external_unlock_constraints": {
+    "matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
+    "decision_matrix_ref": "contracts/release/future_unlock_decision_matrix.json",
+    "external_unlock_denied_by_default": true,
+    "required_before_any_externalized_usage": [
+      "output target remains formally allowed",
+      "human review remains required where declared",
+      "release layer and field policy do not widen automatically",
+      "restricted targets remain blocked until prerequisite evidence and signoff are complete",
+      "R6 decision state does not itself authorize client/external model implementation"
+    ],
+    "never_default_open_targets": [
+      "project_fact.final_conclusion",
+      "saleable_opportunity.saleability_status",
+      "contact_target.contact_legal_basis",
+      "order_record.commercial_status",
+      "payment_record.payment_status",
+      "delivery_record.delivery_status"
+    ]
+  },
+  "notes": [
+    "Model outputs may only enter assist/draft/review targets.",
+    "External release remains blocked; client/external output must stay behind review and release gates.",
+    "Future externalized usage remains denied by default until prerequisite evidence and signoff are complete."
+  ]
+}

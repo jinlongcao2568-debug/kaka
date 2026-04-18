@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "focus_bidder_verification_profile",
+  "type": "object",
+  "description": "Schema skeleton for focus_bidder_verification_profile.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-020"
+  ],
+  "enum_refs": [
+    "verification_state"
+  ],
+  "properties": {
+    "verification_profile_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "focus_bidder_id": {
+      "type": "string"
+    },
+    "illegality_risk_state": {
+      "type": "string"
+    },
+    "qualification_state": {
+      "type": "string"
+    },
+    "performance_state": {
+      "type": "string"
+    },
+    "personnel_state": {
+      "type": "string"
+    },
+    "credit_state": {
+      "type": "string"
+    },
+    "financial_change_state": {
+      "type": "string"
+    },
+    "production_condition_state": {
+      "type": "string"
+    },
+    "bid_bond_state": {
+      "type": "string"
+    },
+    "relation_conflict_state": {
+      "type": "string"
+    },
+    "consortium_consistency_state": {
+      "type": "string"
+    },
+    "verification_state": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "verification_profile_id",
+    "project_id",
+    "focus_bidder_id",
+    "illegality_risk_state",
+    "qualification_state",
+    "performance_state",
+    "personnel_state",
+    "credit_state",
+    "financial_change_state",
+    "production_condition_state",
+    "bid_bond_state",
+    "relation_conflict_state",
+    "consortium_consistency_state",
+    "verification_state"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "project_identity_strategy",
+  "type": "object",
+  "description": "Schema skeleton for project_identity_strategy.",
+  "source_refs": [
+    "D2-R-021"
+  ],
+  "enum_refs": [],
+  "properties": {
+    "project_identity_strategy_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "project_root_strategy": {
+      "type": "string"
+    },
+    "region_code": {
+      "type": "string"
+    },
+    "procurement_regime_hint": {
+      "type": "string"
+    },
+    "identity_resolution_rule_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "project_identity_strategy_id",
+    "task_id",
+    "project_root_strategy",
+    "region_code",
+    "procurement_regime_hint",
+    "identity_resolution_rule_id",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

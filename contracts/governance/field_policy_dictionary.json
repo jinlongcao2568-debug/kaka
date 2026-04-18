@@ -1,0 +1,1817 @@
+{
+  "dictionary_id": "field-policy-dictionary",
+  "version": "0.1.5",
+  "metadata": {
+    "package_name": "governance/release package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-15",
+    "machine_path": "contracts/governance/field_policy_dictionary.json",
+    "scope": "formal field-classification for internal analysis, sales consumption and leadpack delivery",
+    "source_documents": [
+      "L0.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D13_公开可查边界能力清单.md",
+      "D11_测试验收与金标回归清单.md",
+      "D14_AI模型治理规范.md",
+      "裁决总表.md"
+    ],
+    "notes": [
+      "release layers aligned with D13",
+      "stage 8 execution fields appended",
+      "stage 9 exception and taxonomy fields appended",
+      "stage 9 direct-object field boundaries tightened to internal governed",
+      "stage 8/9 schema typed fields aligned with audit, replay and writeback requirements"
+    ]
+  },
+  "fieldClasses": [
+    {
+      "fieldClass": "PUBLIC_FACT",
+      "defaultVisibility": "LEADPACK_DELIVERABLE",
+      "defaultMaskRule": "NONE",
+      "sourceRefs": [
+        "D6-R-006"
+      ]
+    },
+    {
+      "fieldClass": "CLIENT_SUMMARY",
+      "defaultVisibility": "LEADPACK_DELIVERABLE",
+      "defaultMaskRule": "SUMMARY_ONLY",
+      "sourceRefs": [
+        "D6-R-006"
+      ]
+    },
+    {
+      "fieldClass": "INTERNAL_REASONING",
+      "defaultVisibility": "INTERNAL_REVIEW",
+      "defaultMaskRule": "FULL_BLOCK",
+      "sourceRefs": [
+        "D6-R-006"
+      ]
+    },
+    {
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "defaultVisibility": "GOVERNANCE_ONLY",
+      "defaultMaskRule": "METADATA_ONLY",
+      "sourceRefs": [
+        "D6-R-006"
+      ]
+    },
+    {
+      "fieldClass": "NATURAL_PERSON_HIGH_RESTRICTION",
+      "defaultVisibility": "RESTRICTED_RELEASE",
+      "defaultMaskRule": "NAME_MASK",
+      "sourceRefs": [
+        "D6-R-006"
+      ]
+    },
+    {
+      "fieldClass": "PRIVATE_SUPPLEMENT_ISOLATED",
+      "defaultVisibility": "ISOLATED_ONLY",
+      "defaultMaskRule": "METADATA_ONLY",
+      "sourceRefs": [
+        "D6-R-006"
+      ]
+    },
+    {
+      "fieldClass": "SYSTEM_CONTROL",
+      "defaultVisibility": "INTERNAL_REVIEW",
+      "defaultMaskRule": "NONE",
+      "sourceRefs": [
+        "D6-R-006"
+      ]
+    }
+  ],
+  "maskRules": [
+    {
+      "maskRule": "NONE",
+      "description": "Allow raw value when object and release gates permit"
+    },
+    {
+      "maskRule": "SUMMARY_ONLY",
+      "description": "Allow summary projection only"
+    },
+    {
+      "maskRule": "NAME_MASK",
+      "description": "Mask personal name to partial form"
+    },
+    {
+      "maskRule": "PHONE_MASK",
+      "description": "Mask phone number to partial form"
+    },
+    {
+      "maskRule": "EMAIL_MASK",
+      "description": "Mask email local-part or domain as policy requires"
+    },
+    {
+      "maskRule": "HASH_ONLY",
+      "description": "Only irreversible identifier may remain"
+    },
+    {
+      "maskRule": "METADATA_ONLY",
+      "description": "Only state/time/approval/source metadata may remain"
+    },
+    {
+      "maskRule": "FULL_BLOCK",
+      "description": "Field may not be exposed on target surface"
+    }
+  ],
+  "entries": [
+    {
+      "fieldPath": "project_fact.rule_hit_summary",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "LEADPACK_DELIVERABLE",
+        "DEMO_PREVIEW",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D6-R-022",
+        "D7-R-012"
+      ]
+    },
+    {
+      "fieldPath": "project_fact.clue_summary",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "LEADPACK_DELIVERABLE",
+        "DEMO_PREVIEW",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D6-R-022",
+        "D7-R-012"
+      ]
+    },
+    {
+      "fieldPath": "legal_action_recommendation.window_status",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "LEADPACK_DELIVERABLE",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D6-R-023",
+        "D7-R-013"
+      ]
+    },
+    {
+      "fieldPath": "field_lineage_record.source_slice_ref",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024"
+      ]
+    },
+    {
+      "fieldPath": "rule_gate_decision.blocking_reasons",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-025"
+      ]
+    },
+    {
+      "fieldPath": "evidence_gate_decision.visibility_reason_summary",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-025"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.person_name",
+      "fieldClass": "NATURAL_PERSON_HIGH_RESTRICTION",
+      "maskRule": "NAME_MASK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "RESTRICTED_RELEASE",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "high_restriction_field_view",
+        "high_restriction_contact_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-027",
+        "D9-R-018"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_value",
+      "fieldClass": "NATURAL_PERSON_HIGH_RESTRICTION",
+      "maskRule": "PHONE_MASK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "RESTRICTED_RELEASE",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "high_restriction_contact_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-027",
+        "D9-R-018"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.public_contact_source",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D9-R-015"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_channel",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D9-R-020"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.channel_family",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE",
+        "LEADPACK_DELIVERABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D7-R-022",
+        "D9-R-021"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_legal_basis",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D6-R-056",
+        "D7-R-063",
+        "D9-R-018",
+        "D9-R-071"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.channel_policy_status",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D6-R-056",
+        "D7-R-063",
+        "D9-R-023",
+        "D9-R-071"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.frequency_policy_state",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D6-R-056",
+        "D7-R-063",
+        "D9-R-025",
+        "D9-R-071"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.opt_out_state",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D6-R-056",
+        "D7-R-063",
+        "D9-R-027",
+        "D9-R-071"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.quiet_hours_policy_state",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D6-R-056",
+        "D7-R-063",
+        "D9-R-026",
+        "D9-R-071"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.reasonable_expectation_status",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D6-R-056",
+        "D7-R-063",
+        "D9-R-028",
+        "D9-R-071"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.primary_message",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D9-R-033"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.channel_strategy",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-024",
+        "D9-R-033"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.response_status",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE",
+        "LEADPACK_DELIVERABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D7-R-022",
+        "D9-R-038"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.touch_channel",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE",
+        "LEADPACK_DELIVERABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D7-R-022",
+        "D9-R-021"
+      ]
+    },
+    {
+      "fieldPath": "private_supplement_record.content",
+      "fieldClass": "PRIVATE_SUPPLEMENT_ISOLATED",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "ISOLATED_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "private_supplement_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-028",
+        "D7-R-020"
+      ]
+    },
+    {
+      "fieldPath": "controlled_exception_record.exception_reason",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "boundary_exception"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-029",
+        "D7-R-020"
+      ]
+    },
+    {
+      "fieldPath": "offer_recommendation.sku_code",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE",
+        "LEADPACK_DELIVERABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D7-R-060"
+      ]
+    },
+    {
+      "fieldPath": "offer_recommendation.recommended_quote_band",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE",
+        "LEADPACK_DELIVERABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D7-R-060"
+      ]
+    },
+    {
+      "fieldPath": "offer_recommendation.recommended_delivery_form",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE",
+        "LEADPACK_DELIVERABLE"
+      ],
+      "requiredApprovalChains": [
+        "client_report_release"
+      ],
+      "requiredReleaseLevel": "LEADPACK_DELIVERABLE",
+      "sourceRefs": [
+        "D7-R-060"
+      ]
+    },
+    {
+      "fieldPath": "order_record.commercial_status",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "blockedWhen": [
+        "approval chain missing",
+        "audit trail missing",
+        "sale gate not open"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "order_record.amount_band",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "blockedWhen": [
+        "approval chain missing",
+        "audit trail missing"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "payment_record.payment_status",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "blockedWhen": [
+        "payment proof missing",
+        "payer mismatch confirmed",
+        "payment exception or refund present"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "payment_record.amount_band",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "blockedWhen": [
+        "audit trail missing",
+        "payment status blocked"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.delivery_status",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "blockedWhen": [
+        "release gate missing",
+        "delivery exception unresolved",
+        "archival or retrieval failure"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.delivered_at_optional",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "preview not converted to audited writeback"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.archival_status",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "archival_status!=ARCHIVED"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.retention_until",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "retention_until missing"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.retrieval_status",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "retrieval_status in [FAILED,BLOCKED]"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.outcome_family",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "blockedWhen": [
+        "written_back_at missing",
+        "taxonomy invalid"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.outcome_reason_tags",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "non-taxonomy value present"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.is_false_positive",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D10-R-066"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.window_missed_state",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.contact_failure_state",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.payer_mismatch_state",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.written_back_at",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "written_back_at missing"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.writeback_targets",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "writeback_targets missing",
+        "taxonomy invalid"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D10-R-066"
+      ]
+    },
+    {
+      "fieldPath": "opportunity_outcome_event.governance_feedback_triggered_optional",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "sourceRefs": [
+        "D6-R-055-D",
+        "D10-R-067"
+      ]
+    },
+    {
+      "fieldPath": "governance_feedback_event.trigger_type",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "trigger_type invalid"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "governance_feedback_event.trigger_summary",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "trigger_summary missing"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "governance_feedback_event.action_taken",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "action_taken missing"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "governance_feedback_event.written_back_at",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "reviewRequired": true,
+      "directLeadpackPolicy": "BLOCK",
+      "blockedWhen": [
+        "written_back_at missing"
+      ],
+      "sourceRefs": [
+        "D6-R-055-D"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.role_cluster",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.source_family",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.source_auditability_state",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.primary_contact_flag",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_priority_score",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_priority_reason_tags",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_candidate_rank",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_conflict_flag",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_selection_reason",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "contact_target.contact_conflict_reason",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-065"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.cadence_profile_id",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.retry_policy_id",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.stop_policy_id",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-068"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.retry_count",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.max_retry_count",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.next_touch_due_at_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.stop_reason_optional",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-068"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.approval_run_required",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066",
+        "D9-R-068"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.writeback_required",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066",
+        "D9-R-069"
+      ]
+    },
+    {
+      "fieldPath": "outreach_plan.writeback_target_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066",
+        "D9-R-069"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.attempt_index",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.cadence_step_id_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-069"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.next_step_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-069"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.stop_reason_optional",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-068",
+        "D9-R-069"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.written_back_at_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-069"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.retry_scheduled_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "NONE",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-066",
+        "D9-R-069"
+      ]
+    },
+    {
+      "fieldPath": "touch_record.failure_reason_tag_optional",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-054",
+        "D9-R-069"
+      ]
+    },
+    {
+      "fieldPath": "payment_record.payment_proof_state",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-064"
+      ]
+    },
+    {
+      "fieldPath": "payment_record.payment_exception_family_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-064"
+      ]
+    },
+    {
+      "fieldPath": "payment_record.payment_exception_reason_tags_optional",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-064"
+      ]
+    },
+    {
+      "fieldPath": "payment_record.amount_mismatch_state_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-064"
+      ]
+    },
+    {
+      "fieldPath": "payment_record.refund_state",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-064"
+      ]
+    },
+    {
+      "fieldPath": "payment_record.refund_amount_band_optional",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.delivery_exception_family_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-065"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.delivery_exception_reason_tags_optional",
+      "fieldClass": "INTERNAL_REASONING",
+      "maskRule": "FULL_BLOCK",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-065"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.customer_ack_state_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.delivery_form",
+      "fieldClass": "CLIENT_SUMMARY",
+      "maskRule": "SUMMARY_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "SALES_CONSUMABLE"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-065"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.partial_delivery_state_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-065"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.resend_required_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-065"
+      ]
+    },
+    {
+      "fieldPath": "delivery_record.redeliver_required_optional",
+      "fieldClass": "SYSTEM_CONTROL",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-065"
+      ]
+    },
+    {
+      "fieldPath": "governance_feedback_event.governance_feedback_policy_id_optional",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-067"
+      ]
+    },
+    {
+      "fieldPath": "governance_feedback_event.impact_scope_optional",
+      "fieldClass": "GOVERNANCE_RESTRICTED",
+      "maskRule": "METADATA_ONLY",
+      "allowedSurfaces": [
+        "INTERNAL_OPERATIONS",
+        "GOVERNANCE_ONLY"
+      ],
+      "requiredApprovalChains": [
+        "internal_review_release"
+      ],
+      "requiredReleaseLevel": "INTERNAL_OPERABLE",
+      "sourceRefs": [
+        "D6-R-055",
+        "D10-R-067"
+      ]
+    }
+  ],
+  "scope_adjustments": {
+    "usable_scope": {
+      "REVIEW_ONLY": {
+        "allowedSurfaces": [
+          "INTERNAL_OPERATIONS"
+        ],
+        "maskRuleOverride": "METADATA_ONLY",
+        "notes": [
+          "review only; no sales or leadpack delivery"
+        ]
+      },
+      "GOVERNANCE_ONLY": {
+        "allowedSurfaces": [
+          "GOVERNANCE_ONLY"
+        ],
+        "maskRuleOverride": "METADATA_ONLY",
+        "notes": [
+          "governance only; audit use"
+        ]
+      },
+      "DELIVERY_REFERENCE": {
+        "allowedSurfaces": [
+          "LEADPACK_DELIVERABLE"
+        ],
+        "maskRuleOverride": "SUMMARY_ONLY",
+        "notes": [
+          "summary/reference only; approvals required"
+        ]
+      },
+      "BLOCKED": {
+        "allowedSurfaces": [],
+        "maskRuleOverride": "FULL_BLOCK",
+        "notes": [
+          "block from any delivery surface"
+        ]
+      }
+    },
+    "exception_scope": {
+      "PRIVATE_SUPPLEMENT_IMPACT": {
+        "maskRuleOverride": "METADATA_ONLY",
+        "requiredApprovalChain": "private_supplement_release"
+      },
+      "DELIVERY_RELEASE": {
+        "requiredApprovalChain": "boundary_exception"
+      },
+      "CONTACT_RESTRICTION": {
+        "requiredApprovalChain": "high_restriction_contact_release",
+        "maskRuleOverride": "NAME_MASK"
+      }
+    },
+    "release_status_constraints": {
+      "INTERNAL_ONLY": "model-derived fields cannot exceed INTERNAL_OPERATIONS",
+      "REVIEW_ONLY": "model-derived fields cannot exceed INTERNAL_OPERATIONS",
+      "RELEASED": "model-derived fields may enter LEADPACK_DELIVERABLE when other gates allow",
+      "SUSPENDED": "model-derived fields must be withdrawn or blocked",
+      "REVOKED": "model-derived fields must be blocked"
+    }
+  },
+  "absoluteBlockRules": [
+    "D-tier derived fields may not be exposed on leadpack deliverable, demo or external platform surfaces",
+    "internal reasoning fields may not be leaked via error bodies, tooltips, export comments, logs or cache payloads",
+    "natural person high-restriction fields require lawful basis, approval, audit and release gate alignment"
+  ],
+  "release_layers": [
+    "DEV_ALLOWED",
+    "INTERNAL_OPERABLE",
+    "LEADPACK_DELIVERABLE",
+    "EXTERNAL_BLOCKED"
+  ]
+}

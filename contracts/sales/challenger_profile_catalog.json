@@ -1,0 +1,93 @@
+{
+  "catalogVersion": "1.1.0",
+  "ownerDocs": [
+    "D8",
+    "D2"
+  ],
+  "entities": [
+    {
+      "entityId": "challenger_candidate_profile",
+      "stage": 6,
+      "requiredFields": [
+        "challenger_profile_id",
+        "project_id",
+        "focus_bidder_id",
+        "challenger_bidder_id",
+        "candidate_position_label",
+        "focus_bidder_attackability_score",
+        "challenger_pain_score",
+        "succession_gain_score",
+        "execution_readiness_score",
+        "challenge_actionability_score"
+      ],
+      "derivedFrom": [
+        "project_fact",
+        "public_attack_surface",
+        "bidder_candidate",
+        "pseudo_competitor_signal_set"
+      ],
+      "mustNotBypass": [
+        "project_fact",
+        "dual_gate",
+        "public_boundary_registry"
+      ],
+      "stage7ResolutionHooks": {
+        "entity_resolution_policy_ref": "contracts/sales/stage7_resolution_policy.json#multiCompetitorResolution.entityResolution",
+        "carrier_object": "multi_competitor_collection",
+        "canonical_identity_fields": [
+          "challenger_bidder_id",
+          "challenger_profile_id"
+        ],
+        "alias_input_fields": [
+          "challenger_org_name_optional",
+          "normalized_org_name_optional",
+          "alias_names_optional"
+        ],
+        "winner_projection_fields": [
+          "winning_candidate_id",
+          "winning_challenger_profile_id"
+        ]
+      }
+    },
+    {
+      "entityId": "legal_action_actor_profile",
+      "stage": 7,
+      "requiredFields": [
+        "actor_id",
+        "project_id",
+        "actor_org_name",
+        "actor_role_cluster",
+        "standing_state",
+        "action_window_state",
+        "actionability_state",
+        "action_family_scope"
+      ],
+      "derivedFrom": [
+        "challenger_candidate_profile",
+        "legal_action_recommendation",
+        "project_fact"
+      ],
+      "notes": "回答谁最可能依法发起正式动作。"
+    },
+    {
+      "entityId": "procurement_decision_actor_profile",
+      "stage": 7,
+      "requiredFields": [
+        "actor_id",
+        "project_id",
+        "actor_org_name",
+        "actor_role_cluster",
+        "procurement_authority_state",
+        "purchase_authority_state",
+        "payment_authority_state",
+        "reachable_state"
+      ],
+      "derivedFrom": [
+        "challenger_candidate_profile",
+        "buyer_fit",
+        "account_context"
+      ],
+      "notes": "回答谁最可能拍板采购 / 付款。"
+    }
+  ]
+}

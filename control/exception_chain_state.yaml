@@ -1,0 +1,64 @@
+version: 1
+templateState: NAMED_ASSIGNED
+single_operator_mode: true
+updated_at: "2026-04-14"
+notes:
+  - "Single operator mode; named exception reviewer confirmed."
+exceptionFamilies:
+  coverage_hold_exception:
+    enabled: true
+    responsible_role: "exception_reviewer"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    required_role: "governance"
+    escalation_path: []
+    activation_condition: "coverage hold requested"
+    current_blockers: []
+    current_open_records: 0
+    open_records: 0
+  delivery_release_exception:
+    enabled: true
+    responsible_role: "exception_reviewer"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    required_role: "governance"
+    escalation_path: []
+    activation_condition: "delivery release exception requested"
+    current_blockers: []
+    current_open_records: 0
+    open_records: 0
+  private_supplement_impact_exception:
+    enabled: true
+    responsible_role: "exception_reviewer"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    required_role: "governance"
+    escalation_path: []
+    activation_condition: "private supplement impact exception requested"
+    current_blockers: []
+    current_open_records: 0
+    open_records: 0
+  contact_restriction_exception:
+    enabled: true
+    responsible_role: "exception_reviewer"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    required_role: "governance"
+    escalation_path: []
+    activation_condition: "contact restriction exception requested"
+    current_blockers: []
+    current_open_records: 0
+    open_records: 0
+hardForbidden:
+  - "promote D tier to public main chain"
+  - "bypass dual gate"
+  - "bypass approval chain"
+  - "expose private supplement body to client/API/export"

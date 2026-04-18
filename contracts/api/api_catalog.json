@@ -1,0 +1,1206 @@
+{
+  "catalogVersion": "1.0.2",
+  "ownerDoc": "D4",
+  "sourceL0Refs": [
+    "L0-R-005",
+    "L0-R-007",
+    "L0-R-008",
+    "L0-R-010"
+  ],
+  "groups": [
+    {
+      "groupId": "task_orchestration",
+      "title": "任务编排",
+      "surfaceState": "development_open",
+      "operations": [
+        {
+          "operationId": "createTask",
+          "method": "POST",
+          "path": "/tasks",
+          "primaryObjects": [
+            "task"
+          ],
+          "requestSchemaRef": "task_create_request",
+          "responseSchemaRef": "task_create_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "notes": "创建任务，不形成业务结论。"
+        }
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surface": "INTERNAL_ANALYSIS",
+      "release_layer": "DEV_ALLOWED"
+    },
+    {
+      "groupId": "project_fact",
+      "title": "项目与统一事实",
+      "surfaceState": "internal_only",
+      "operations": [
+        {
+          "operationId": "listProjects",
+          "method": "GET",
+          "path": "/projects",
+          "primaryObjects": [
+            "project_fact"
+          ],
+          "requestSchemaRef": "project_list_request",
+          "responseSchemaRef": "project_list_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "notes": "列表页主判断优先消费 project_fact。"
+        },
+        {
+          "operationId": "getProjectFacts",
+          "method": "GET",
+          "path": "/projects/{project_id}/facts",
+          "primaryObjects": [
+            "project_fact"
+          ],
+          "requestSchemaRef": "project_fact_get_request",
+          "responseSchemaRef": "project_fact_get_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "LEADPACK_DELIVERABLE",
+          "notes": "统一事实中枢接口。 内部运营接口，仅内部返回；可作为 LeadPack 导出输入。"
+        },
+        {
+          "operationId": "rebuildProjectFacts",
+          "method": "POST",
+          "path": "/projects/{project_id}/rebuild",
+          "primaryObjects": [
+            "project_fact"
+          ],
+          "requestSchemaRef": "project_rebuild_request",
+          "responseSchemaRef": "project_rebuild_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "notes": "触发统一事实重建。"
+        }
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surface": "INTERNAL_ANALYSIS",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "public_chain_and_trace",
+      "title": "公开链与溯源",
+      "surfaceState": "internal_only",
+      "operations": [
+        {
+          "operationId": "getPublicChain",
+          "method": "GET",
+          "path": "/projects/{project_id}/public-chain",
+          "primaryObjects": [
+            "public_chain"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "public_chain_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getClockChain",
+          "method": "GET",
+          "path": "/projects/{project_id}/clock-chain",
+          "primaryObjects": [
+            "clock_chain_profile"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "clock_chain_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getVersionChain",
+          "method": "GET",
+          "path": "/projects/{project_id}/version-chain",
+          "primaryObjects": [
+            "notice_version_chain"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "version_chain_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getFieldLineage",
+          "method": "GET",
+          "path": "/projects/{project_id}/field-lineage",
+          "primaryObjects": [
+            "field_lineage_record"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "field_lineage_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        }
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surface": "INTERNAL_ANALYSIS",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "rules_evidence_and_review",
+      "title": "规则、证据与复核",
+      "surfaceState": "internal_only",
+      "operations": [
+        {
+          "operationId": "getRuleHits",
+          "method": "GET",
+          "path": "/projects/{project_id}/rule-hits",
+          "primaryObjects": [
+            "rule_hit"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "rule_hits_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getEvidence",
+          "method": "GET",
+          "path": "/projects/{project_id}/evidence",
+          "primaryObjects": [
+            "evidence"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "evidence_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getRuleGates",
+          "method": "GET",
+          "path": "/projects/{project_id}/rule-gates",
+          "primaryObjects": [
+            "rule_gate_decision"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "rule_gates_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getEvidenceGates",
+          "method": "GET",
+          "path": "/projects/{project_id}/evidence-gates",
+          "primaryObjects": [
+            "evidence_gate_decision"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "evidence_gates_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getReviewRequests",
+          "method": "GET",
+          "path": "/projects/{project_id}/review-requests",
+          "primaryObjects": [
+            "review_request"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "review_requests_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        }
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surface": "INTERNAL_ANALYSIS",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "reports_and_legal_actions",
+      "title": "报告与 LeadPack 导出",
+      "surfaceState": "internal_only",
+      "operations": [
+        {
+          "operationId": "getReportRecord",
+          "method": "GET",
+          "path": "/projects/{project_id}/report-record",
+          "primaryObjects": [
+            "report_record"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "report_record_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getLegalActions",
+          "method": "GET",
+          "path": "/projects/{project_id}/legal-actions",
+          "primaryObjects": [
+            "legal_action_recommendation"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "legal_actions_response",
+          "rolesAllowed": [
+            "product_admin",
+            "verification_analyst",
+            "human_reviewer",
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "LEADPACK_DELIVERABLE",
+          "notes": "内部运营接口，仅内部返回；可作为 LeadPack 导出输入。"
+        },
+        {
+          "operationId": "exportReport",
+          "method": "POST",
+          "path": "/reports/{report_id}/export",
+          "primaryObjects": [
+            "report_record"
+          ],
+          "requestSchemaRef": "report_export_request",
+          "responseSchemaRef": "report_export_response",
+          "rolesAllowed": [
+            "human_reviewer",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "LEADPACK_DELIVERABLE",
+          "notes": "导出动作必须受模板、审批链、release gate 控制。 LeadPack 导出与复核入口，仅内部操作。"
+        }
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surface": "SALES_USAGE",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "sales_surfaces",
+      "title": "内部销售与商业封装",
+      "surfaceState": "external_delivery_blocked",
+      "stateProfileRef": "stage7_internal_preview_surface",
+      "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceStateSource": "formal_object_status + decision_states + governed_context",
+      "canonicalEnvelopeFields": [
+        "capability_envelope",
+        "governance_envelope",
+        "semantic_envelope"
+      ],
+      "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "operations": [
+        {
+          "operationId": "listSaleableOpportunities",
+          "method": "GET",
+          "path": "/saleable-opportunities",
+          "primaryObjects": [
+            "saleable_opportunity"
+          ],
+          "requestSchemaRef": "saleable_opportunity_list_request",
+          "responseSchemaRef": "saleable_opportunity_list_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "previewEnvelopeRef": "Stage7Response",
+          "repositoryBacked": true,
+          "repositoryBoundary": [
+            "saleable_opportunity",
+            "offer_recommendation",
+            "buyer_fit",
+            "legal_action_actor_profile",
+            "procurement_decision_actor_profile"
+          ],
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "notes": "阶段 7 internal preview / draft 接口，仅内部返回；现已从 repository boundary 读取正式对象，不得从低级线索反推主判断；对外仍阻断。"
+        },
+        {
+          "operationId": "refreshSaleableOpportunity",
+          "method": "POST",
+          "path": "/saleable-opportunities/{opportunity_id}/refresh",
+          "primaryObjects": [
+            "saleable_opportunity"
+          ],
+          "requestSchemaRef": "saleable_opportunity_refresh_request",
+          "responseSchemaRef": "saleable_opportunity_refresh_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "previewEnvelopeRef": "Stage7Response",
+          "repositoryBacked": true,
+          "repositoryBoundary": [
+            "saleable_opportunity",
+            "offer_recommendation",
+            "buyer_fit",
+            "legal_action_actor_profile",
+            "procurement_decision_actor_profile"
+          ],
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "notes": "内部运营接口，internal preview / draft 使用；refresh 会把正式对象写入 internal repository boundary；对外仍阻断。"
+        },
+        {
+          "operationId": "listStage7WorkItems",
+          "method": "GET",
+          "path": "/saleable-opportunity-work-items",
+          "primaryObjects": [
+            "saleable_opportunity"
+          ],
+          "requestSchemaRef": "stage7_work_item_list_request",
+          "responseSchemaRef": "stage7_work_item_list_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "notes": "Stage 7 internal operator queue；只读取 repository-backed persisted work item / assignment lifecycle / pending action state；不得在读路径自动补建 work item。"
+        },
+        {
+          "operationId": "submitStage7OperatorAction",
+          "method": "POST",
+          "path": "/saleable-opportunities/{opportunity_id}/operator-actions",
+          "primaryObjects": [
+            "saleable_opportunity"
+          ],
+          "requestSchemaRef": "stage7_operator_action_request",
+          "responseSchemaRef": "stage7_operator_action_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "errorCodeRefs": [
+            "WORKITEM-404-NOT_FOUND",
+            "ACTION-409-NOT_PENDING",
+            "ACTION-409-AUDIT_REQUIRED"
+          ],
+          "notes": "Stage 7 internal operator action 只更新 work item / action history，不重算 formal judgment；runtime 必须消费 review_action_catalog + button_flow_catalog。"
+        }
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surface": "LEADPACK_FORMATION",
+      "release_layer": "INTERNAL_OPERABLE",
+      "leadpack_deliverable_input": true
+    },
+    {
+      "groupId": "outreach_surfaces",
+      "title": "内部触达与编排",
+      "surfaceState": "external_delivery_blocked",
+      "stateProfileRef": "stage8_governed_preview_surface",
+      "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceStateSource": "formal_object_status + decision_states + governed_context",
+      "canonicalEnvelopeFields": [
+        "capability_envelope",
+        "governance_envelope",
+        "semantic_envelope"
+      ],
+      "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "operations": [
+        {
+          "operationId": "listContactTargets",
+          "method": "GET",
+          "path": "/contact-targets",
+          "primaryObjects": [
+            "contact_target"
+          ],
+          "requestSchemaRef": "contact_targets_list_request",
+          "responseSchemaRef": "contact_targets_list_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "previewEnvelopeRef": "Stage8Response",
+          "repositoryBacked": true,
+          "repositoryBoundary": [
+            "contact_target",
+            "outreach_plan",
+            "touch_record"
+          ],
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "notes": "内部运营接口，internal preview / draft 使用；现在从 repository boundary 读取 governed state；LeadPack 仅允许结果摘要投影；对外触达仍阻断。"
+        },
+        {
+          "operationId": "checkContactCompliance",
+          "method": "POST",
+          "path": "/contact-targets/compliance-check",
+          "primaryObjects": [
+            "contact_target",
+            "outreach_plan"
+          ],
+          "requestSchemaRef": "contact_compliance_check_request",
+          "responseSchemaRef": "contact_compliance_check_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "previewEnvelopeRef": "Stage8Response",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "notes": "内部合规校验接口，直接返回 semantic_envelope.surface_state 与 canonical reason；不触发真实触达。"
+        },
+        {
+          "operationId": "createOutreachPlan",
+          "method": "POST",
+          "path": "/outreach-plans",
+          "primaryObjects": [
+            "outreach_plan"
+          ],
+          "requestSchemaRef": "outreach_plan_create_request",
+          "responseSchemaRef": "outreach_plan_create_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "draft-only",
+          "previewEnvelopeRef": "Stage8Response",
+          "repositoryBacked": true,
+          "repositoryBoundary": [
+            "contact_target",
+            "outreach_plan",
+            "touch_record"
+          ],
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "notes": "内部运营接口，internal preview / draft 使用；create 动作会把 governed preview / draft 状态写入 repository boundary；draft_created 只能读取 governance_envelope.action_availability.createOutreachPlan，不触发真实触达。"
+        },
+        {
+          "operationId": "createTouchRecord",
+          "method": "POST",
+          "path": "/touch-records",
+          "primaryObjects": [
+            "touch_record"
+          ],
+          "requestSchemaRef": "touch_record_create_request",
+          "responseSchemaRef": "touch_record_create_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "draft-only",
+          "previewEnvelopeRef": "Stage8Response",
+          "repositoryBacked": true,
+          "repositoryBoundary": [
+            "contact_target",
+            "outreach_plan",
+            "touch_record"
+          ],
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "notes": "内部运营接口，internal preview / draft 使用；touch_record writeback 字段会落到 repository boundary；若 plan_status 未 APPROVED 或 run_mode=DRY_RUN 必须返回阻断；对外触达仍阻断。"
+        },
+        {
+          "operationId": "listStage8WorkItems",
+          "method": "GET",
+          "path": "/outreach-work-items",
+          "primaryObjects": [
+            "contact_target",
+            "outreach_plan",
+            "touch_record"
+          ],
+          "requestSchemaRef": "stage8_work_item_list_request",
+          "responseSchemaRef": "stage8_work_item_list_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "draft-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "notes": "Stage 8 governed operator queue；只读取 internal-only persisted work item / assignment lifecycle / pending actions / trace audit state。"
+        },
+        {
+          "operationId": "submitStage8OperatorAction",
+          "method": "POST",
+          "path": "/outreach-workbench/{opportunity_id}/operator-actions",
+          "primaryObjects": [
+            "contact_target",
+            "outreach_plan",
+            "touch_record"
+          ],
+          "requestSchemaRef": "stage8_operator_action_request",
+          "responseSchemaRef": "stage8_operator_action_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "draft-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "errorCodeRefs": [
+            "WORKITEM-404-NOT_FOUND",
+            "ACTION-409-NOT_PENDING",
+            "ACTION-409-AUDIT_REQUIRED",
+            "ACTION-409-APPROVAL_REQUIRED"
+          ],
+          "notes": "Stage 8 internal operator action 只推进 governed review/progression state，不触发真实触达；runtime 必须消费 review_action_catalog + button_flow_catalog，并把 requiresApprovalChain 收口为 resolved reviewer chain hard gate。"
+        }
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surface": "OUTREACH_EXECUTION",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "orders_and_delivery",
+      "title": "内部交付与回写",
+      "surfaceState": "external_delivery_blocked",
+      "formalizationScope": "INTERNAL_GOVERNED",
+      "stateProfileRef": "stage9_internal_governed_surface",
+      "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceStateSource": "formal_object_status + decision_states + governed_context",
+      "canonicalEnvelopeFields": [
+        "capability_envelope",
+        "governance_envelope",
+        "semantic_envelope"
+      ],
+      "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
+      "externalReady": false,
+      "operations": [
+        {
+          "operationId": "listOrders",
+          "method": "GET",
+          "path": "/orders",
+          "primaryObjects": [
+            "order_record"
+          ],
+          "requestSchemaRef": "orders_list_request",
+          "responseSchemaRef": "orders_list_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "stage9Action": "order_draft_read",
+          "surfaceSemantics": "draft_summary_only",
+          "surfaceModeRef": "draft-only",
+          "previewEnvelopeRef": "Stage9Response",
+          "repositoryBacked": true,
+          "repositoryBoundary": [
+            "order_record",
+            "payment_record",
+            "delivery_record",
+            "opportunity_outcome_event",
+            "governance_feedback_event"
+          ],
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "notes": "内部交付预览/草案，现在从 repository boundary 读取 typed workflow 状态摘要；外发仍阻断。"
+        },
+        {
+          "operationId": "createOrder",
+          "method": "POST",
+          "path": "/orders",
+          "primaryObjects": [
+            "order_record"
+          ],
+          "requestSchemaRef": "order_create_request",
+          "responseSchemaRef": "order_create_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "stage9Action": "order_draft",
+          "surfaceSemantics": "draft_only",
+          "surfaceModeRef": "draft-only",
+          "previewEnvelopeRef": "Stage9Response",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "blockedBy": [
+            "approval chain missing",
+            "audit trail missing",
+            "sale gate not open"
+          ],
+          "notes": "内部交付预览/草案；create 动作会把 order/payment/delivery/outcome/governance 的 internal governed state 写入 repository boundary；审批链/审计缺失返回 BLOCK/REVIEW_REQUIRED。"
+        },
+        {
+          "operationId": "createPaymentRecord",
+          "method": "POST",
+          "path": "/payments",
+          "primaryObjects": [
+            "payment_record"
+          ],
+          "requestSchemaRef": "payment_create_request",
+          "responseSchemaRef": "payment_create_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "stage9Action": "payment_draft",
+          "surfaceSemantics": "draft_only",
+          "surfaceModeRef": "draft-only",
+          "previewEnvelopeRef": "Stage9Response",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "blockedBy": [
+            "payment proof missing",
+            "payer mismatch confirmed",
+            "audit trail missing"
+          ],
+          "notes": "内部交付预览/草案；支付凭证缺失需阻断。"
+        },
+        {
+          "operationId": "createDeliveryRecord",
+          "method": "POST",
+          "path": "/deliveries",
+          "primaryObjects": [
+            "delivery_record"
+          ],
+          "requestSchemaRef": "delivery_create_request",
+          "responseSchemaRef": "delivery_create_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "stage9Action": "delivery_preview",
+          "surfaceSemantics": "preview_only",
+          "surfaceModeRef": "preview-only",
+          "previewEnvelopeRef": "Stage9Response",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "blockedBy": [
+            "release gate blocked",
+            "approval chain missing",
+            "audit trail missing",
+            "delivery matrix blocked"
+          ],
+          "notes": "内部交付预览/草案；release gate 未通过返回 BLOCK。"
+        },
+        {
+          "operationId": "listOpportunityOutcomes",
+          "method": "GET",
+          "path": "/projects/{project_id}/opportunity-outcomes",
+          "primaryObjects": [
+            "opportunity_outcome_event"
+          ],
+          "requestSchemaRef": "project_id_only_request",
+          "responseSchemaRef": "opportunity_outcome_list_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "stage9Action": "outcome_writeback_read",
+          "surfaceSemantics": "internal_only_query",
+          "surfaceModeRef": "preview-only",
+          "previewEnvelopeRef": "Stage9Response",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "notes": "内部回写查询，仅内部返回；外发阻断。"
+        },
+        {
+          "operationId": "createOpportunityOutcomeEvent",
+          "method": "POST",
+          "path": "/opportunity-outcomes",
+          "primaryObjects": [
+            "opportunity_outcome_event"
+          ],
+          "requestSchemaRef": "opportunity_outcome_create_request",
+          "responseSchemaRef": "opportunity_outcome_create_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "stage9Action": "outcome_writeback",
+          "surfaceSemantics": "internal_writeback_only",
+          "surfaceModeRef": "draft-only",
+          "previewEnvelopeRef": "Stage9Response",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "blockedBy": [
+            "taxonomy invalid",
+            "written_back_at missing",
+            "audit trail missing"
+          ],
+          "notes": "内部回写入口；需审计链；external blocked。"
+        }
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surface": "DELIVERY_WRITEBACK",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "leadpack_candidate_surfaces",
+      "title": "LeadPack 候选包预览与导出仿真",
+      "surfaceState": "internal_only",
+      "formalizationScope": "INTERNAL_GOVERNED",
+      "stateProfileRef": "leadpack_external_delivery_candidate_surface",
+      "candidateOnly": true,
+      "externalDeliveryEnabled": false,
+      "operations": [
+        {
+          "operationId": "previewLeadpackExternalDeliveryCandidate",
+          "method": "GET",
+          "path": "/leadpack-external-delivery-candidates/{opportunity_id}",
+          "primaryObjects": [
+            "saleable_opportunity",
+            "offer_recommendation",
+            "buyer_fit",
+            "contact_target",
+            "touch_record",
+            "payment_record",
+            "delivery_record",
+            "opportunity_outcome_event"
+          ],
+          "requestSchemaRef": "leadpack_external_delivery_candidate_request",
+          "responseSchemaRef": "leadpack_external_delivery_candidate_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "candidateOnly": true,
+          "externalDeliveryEnabled": false,
+          "requiresReview": true,
+          "liveExecutionEnabled": false,
+          "notes": "内部候选包预览面；只组合 Stage 7/8/9 正式对象投影，不重算主判断，不形成真实外发。"
+        },
+        {
+          "operationId": "requestLeadpackExternalDeliveryCandidateReview",
+          "method": "POST",
+          "path": "/leadpack-external-delivery-candidates/{opportunity_id}/review-requests",
+          "primaryObjects": [
+            "saleable_opportunity",
+            "report_record"
+          ],
+          "requestSchemaRef": "leadpack_external_delivery_candidate_request",
+          "responseSchemaRef": "leadpack_external_delivery_candidate_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "candidateOnly": true,
+          "externalDeliveryEnabled": false,
+      "requiresReview": true,
+      "liveExecutionEnabled": false,
+      "requiredReviewGateRefs": [
+        "leadpack_candidate_review_gate"
+      ],
+      "notes": "内部 governed review request；review gate 与 approval chain 分开返回，审批前置、review gate 和 denial/hold 原因必须一并返回。"
+        },
+        {
+          "operationId": "simulateLeadpackExternalDeliveryExport",
+          "method": "POST",
+          "path": "/leadpack-external-delivery-candidates/{opportunity_id}/export-simulations",
+          "primaryObjects": [
+            "saleable_opportunity",
+            "offer_recommendation",
+            "buyer_fit",
+            "contact_target",
+            "touch_record",
+            "payment_record",
+            "delivery_record",
+            "opportunity_outcome_event"
+          ],
+          "requestSchemaRef": "leadpack_external_delivery_candidate_request",
+          "responseSchemaRef": "leadpack_external_delivery_candidate_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "candidateOnly": true,
+          "externalDeliveryEnabled": false,
+          "requiresReview": true,
+          "liveExecutionEnabled": false,
+          "notes": "只做 internal export simulation；输出仍是 candidate-only，不触发任何真实 external delivery。"
+        },
+        {
+          "operationId": "previewLeadpackActivationPrepPacket",
+          "method": "GET",
+          "path": "/leadpack-external-delivery-candidates/{opportunity_id}/activation-prep-packet",
+          "primaryObjects": [
+            "saleable_opportunity",
+            "report_record"
+          ],
+          "requestSchemaRef": "leadpack_activation_prep_request",
+          "responseSchemaRef": "leadpack_activation_prep_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "candidateOnly": true,
+          "externalDeliveryEnabled": false,
+          "requiresReview": true,
+          "liveExecutionEnabled": false,
+          "notes": "内部 activation-prep packet 预览；只组合 evidence pack / replay / signoff / runbook / readiness transition，不构成 activation-ready 或 external-ready。"
+        },
+        {
+          "operationId": "requestLeadpackActivationPrepReview",
+          "method": "POST",
+          "path": "/leadpack-external-delivery-candidates/{opportunity_id}/activation-prep-review-requests",
+          "primaryObjects": [
+            "saleable_opportunity",
+            "report_record"
+          ],
+          "requestSchemaRef": "leadpack_activation_prep_request",
+          "responseSchemaRef": "leadpack_activation_prep_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "candidateOnly": true,
+          "externalDeliveryEnabled": false,
+          "requiresReview": true,
+          "liveExecutionEnabled": false,
+          "errorCodeRefs": [
+            "LEADPACK-409-ACTIVATION_PREP_NOT_READY"
+          ],
+          "notes": "内部 activation-prep review request；evidence pack / replay / signoff / boundary check 任一缺失时必须正式失败，但即使通过也只表示 ready-for-review，不表示 activation-ready。"
+        },
+        {
+          "operationId": "previewLeadpackActivationDesignImplementationPrepPacket",
+          "method": "GET",
+          "path": "/leadpack-external-delivery-candidates/{opportunity_id}/activation-design-implementation-prep-packet",
+          "primaryObjects": [
+            "saleable_opportunity",
+            "report_record"
+          ],
+          "requestSchemaRef": "leadpack_activation_design_implementation_prep_request",
+          "responseSchemaRef": "leadpack_activation_design_implementation_prep_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "candidateOnly": true,
+          "externalDeliveryEnabled": false,
+          "requiresReview": true,
+          "liveExecutionEnabled": false,
+          "notes": "内部 activation design / implementation prep packet 预览；只组合 owner signoff execution、approval/audit layering、state layering、rollback/emergency-off 与 implementation-prep gate，不构成 implementation-approved。"
+        },
+        {
+          "operationId": "previewLeadpackImplementationDecisionReadinessPacket",
+          "method": "GET",
+          "path": "/leadpack-external-delivery-candidates/{opportunity_id}/implementation-decision-readiness-packet",
+          "primaryObjects": [
+            "saleable_opportunity",
+            "report_record"
+          ],
+          "requestSchemaRef": "leadpack_implementation_decision_readiness_packet_request",
+          "responseSchemaRef": "leadpack_implementation_decision_readiness_packet_response",
+          "rolesAllowed": [
+            "sales_user",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "candidateOnly": true,
+          "externalDeliveryEnabled": false,
+          "requiresReview": true,
+          "liveExecutionEnabled": false,
+          "implementationDecisionExecuted": false,
+          "implementationApproved": false,
+          "notes": "内部 implementation decision readiness packet 预览；只汇总 owner signoff、approval chain、review gate、audit refs 与 HOLD sources，供后续人工裁决是否进入 implementation decision，不执行 decision 或 implementation。"
+        },
+        {
+          "operationId": "requestLeadpackActivationDesignImplementationPrepReview",
+          "method": "POST",
+          "path": "/leadpack-external-delivery-candidates/{opportunity_id}/activation-design-implementation-prep-review-requests",
+          "primaryObjects": [
+            "saleable_opportunity",
+            "report_record"
+          ],
+          "requestSchemaRef": "leadpack_activation_design_implementation_prep_request",
+          "responseSchemaRef": "leadpack_activation_design_implementation_prep_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "candidateOnly": true,
+          "externalDeliveryEnabled": false,
+      "requiresReview": true,
+      "liveExecutionEnabled": false,
+      "requiredReviewGateRefs": [
+        "leadpack_candidate_review_gate"
+      ],
+      "errorCodeRefs": [
+        "LEADPACK-410-ACTIVATION_DESIGN_PREP_NOT_READY"
+      ],
+      "notes": "内部 activation design / implementation prep review request；owner signoff、approval chain、review gate、audit refs 各自形成状态源。design prep assets、negative controls、release checks 或 regression 任一缺失时必须正式失败；implementation decision 前置缺口只能进入 HOLD，不表示 implementation-approved。"
+        }
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surface": "LEADPACK_FORMATION",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "groupId": "governance",
+      "title": "治理与例外",
+      "surfaceState": "internal_only",
+      "formalizationScope": "INTERNAL_GOVERNED",
+      "operations": [
+        {
+          "operationId": "getCoverageStatus",
+          "method": "GET",
+          "path": "/coverage-status",
+          "primaryObjects": [
+            "coverage_registry"
+          ],
+          "requestSchemaRef": "coverage_status_request",
+          "responseSchemaRef": "coverage_status_response",
+          "rolesAllowed": [
+            "product_admin",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "getDeliveryMatrix",
+          "method": "GET",
+          "path": "/delivery-matrix",
+          "primaryObjects": [
+            "delivery_matrix"
+          ],
+          "requestSchemaRef": "delivery_matrix_request",
+          "responseSchemaRef": "delivery_matrix_response",
+          "rolesAllowed": [
+            "product_admin",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE"
+        },
+        {
+          "operationId": "postExceptionRecord",
+          "method": "POST",
+          "path": "/exception-records",
+          "primaryObjects": [
+            "controlled_exception_record"
+          ],
+          "requestSchemaRef": "exception_record_create_request",
+          "responseSchemaRef": "exception_record_create_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "notes": [
+            "Future implementation depends on confirmed C-group enums: exception_scope, exception_state."
+          ]
+        },
+        {
+          "operationId": "listGovernanceFeedbackEvents",
+          "method": "GET",
+          "path": "/governance-feedback-events",
+          "primaryObjects": [
+            "governance_feedback_event"
+          ],
+          "requestSchemaRef": "governance_feedback_list_request",
+          "responseSchemaRef": "governance_feedback_list_response",
+          "rolesAllowed": [
+            "product_admin",
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "preview-only",
+          "previewEnvelopeRef": "Stage9Response",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "notes": "治理反馈列表，仅内部可见。"
+        },
+        {
+          "operationId": "createGovernanceFeedbackEvent",
+          "method": "POST",
+          "path": "/governance-feedback-events",
+          "primaryObjects": [
+            "governance_feedback_event"
+          ],
+          "requestSchemaRef": "governance_feedback_create_request",
+          "responseSchemaRef": "governance_feedback_create_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "stage9Action": "governance_feedback_writeback",
+          "surfaceSemantics": "internal_writeback_only",
+          "surfaceModeRef": "draft-only",
+          "previewEnvelopeRef": "Stage9Response",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "blockedBy": [
+            "trigger_type invalid",
+            "action_taken missing",
+            "audit trail missing"
+          ],
+          "notes": "内部治理反馈写入；external blocked。"
+        },
+        {
+          "operationId": "listStage9WorkItems",
+          "method": "GET",
+          "path": "/order-delivery-work-items",
+          "primaryObjects": [
+            "order_record",
+            "payment_record",
+            "delivery_record",
+            "opportunity_outcome_event",
+            "governance_feedback_event"
+          ],
+          "requestSchemaRef": "stage9_work_item_list_request",
+          "responseSchemaRef": "stage9_work_item_list_response",
+          "rolesAllowed": [
+            "delivery_governance_user",
+            "sales_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "draft-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "notes": "Stage 9 internal operator queue；只承接 internal governed persisted work item、assignment lifecycle 和 action history。"
+        },
+        {
+          "operationId": "submitStage9OperatorAction",
+          "method": "POST",
+          "path": "/order-delivery-workbench/{opportunity_id}/operator-actions",
+          "primaryObjects": [
+            "order_record",
+            "payment_record",
+            "delivery_record",
+            "opportunity_outcome_event",
+            "governance_feedback_event"
+          ],
+          "requestSchemaRef": "stage9_operator_action_request",
+          "responseSchemaRef": "stage9_operator_action_response",
+          "rolesAllowed": [
+            "delivery_governance_user"
+          ],
+          "resultLevel": "INTERNAL_OPERABLE",
+          "surfaceModeRef": "draft-only",
+          "repositoryBacked": true,
+          "internalOnly": true,
+          "liveExecutionEnabled": false,
+          "blockedByDefault": true,
+          "errorCodeRefs": [
+            "WORKITEM-404-NOT_FOUND",
+            "ACTION-409-NOT_PENDING",
+            "ACTION-409-AUDIT_REQUIRED",
+            "ACTION-409-APPROVAL_REQUIRED"
+          ],
+          "notes": "Stage 9 internal operator action 只推进 draft/writeback/review/deny/hold/return 状态，不触发真实 payment/delivery；runtime 必须消费 review_action_catalog + button_flow_catalog，并把 requiresApprovalChain 收口为 resolved reviewer chain hard gate。"
+        }
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surface": "INTERNAL_ANALYSIS",
+      "release_layer": "INTERNAL_OPERABLE"
+    }
+  ],
+  "release_layers": [
+    "DEV_ALLOWED",
+    "INTERNAL_OPERABLE",
+    "LEADPACK_DELIVERABLE",
+    "EXTERNAL_BLOCKED"
+  ],
+  "leadpack_sku_relation": "LeadPack SKU is commercial packaging, not capability tier"
+}

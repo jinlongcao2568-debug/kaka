@@ -1,0 +1,137 @@
+{
+  "registry_id": "model-registry",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "model governance round 1",
+    "generated_at": "2026-04-13",
+    "machine_path": "contracts/model/model_registry.json",
+    "source_documents": [
+      "L0.md",
+      "D14_AI\u6a21\u578b\u6cbb\u7406\u89c4\u8303.md",
+      "D11_\u6d4b\u8bd5\u9a8c\u6536\u4e0e\u91d1\u6807\u56de\u5f52\u6e05\u5355.md",
+      "D12_\u90e8\u7f72\u53d1\u5e03\u4e0e\u8fd0\u884c\u6cbb\u7406\u89c4\u8303.md",
+      "\u88c1\u51b3\u603b\u8868.md"
+    ]
+  },
+  "usage_tiers": [
+    {
+      "tier_id": "M0_INTERNAL_ASSIST",
+      "description": "Internal assist only; no formal object writes.",
+      "source_refs": [
+        "D14-R-011"
+      ]
+    },
+    {
+      "tier_id": "M1_REVIEW_ASSIST",
+      "description": "Review assist; outputs must remain in review flow.",
+      "source_refs": [
+        "D14-R-011"
+      ]
+    },
+    {
+      "tier_id": "M2_STRUCTURED_ASSIST",
+      "description": "Structured candidates with field-level validation and human confirmation.",
+      "source_refs": [
+        "D14-R-011"
+      ]
+    },
+    {
+      "tier_id": "M3_FORMAL_CHAIN_CONSTRAINED",
+      "description": "Formal-chain constrained; requires governance record, evaluation, approval, and frozen review rules.",
+      "source_refs": [
+        "D14-R-011",
+        "D14-R-037"
+      ]
+    },
+    {
+      "tier_id": "M4_PROHIBITED",
+      "description": "Prohibited from formal chain.",
+      "source_refs": [
+        "D14-R-012"
+      ]
+    }
+  ],
+  "release_states": [
+    {
+      "state": "DRAFT",
+      "meaning": "Draft, not evaluated or approved.",
+      "allowed_actions": [
+        "internal_dev_test"
+      ],
+      "source_refs": [
+        "D14-R-039"
+      ]
+    },
+    {
+      "state": "VALIDATING",
+      "meaning": "Validating; internal grey usage only.",
+      "allowed_actions": [
+        "internal_grey"
+      ],
+      "source_refs": [
+        "D14-R-039"
+      ]
+    },
+    {
+      "state": "INTERNAL_ONLY",
+      "meaning": "Internal only; can be used for M0/M1.",
+      "allowed_actions": [
+        "internal_only"
+      ],
+      "source_refs": [
+        "D14-R-039"
+      ]
+    },
+    {
+      "state": "FORMAL_CONSTRAINED",
+      "meaning": "Formal constrained; can enter controlled formal objects with review and gates.",
+      "allowed_actions": [
+        "formal_constrained"
+      ],
+      "source_refs": [
+        "D14-R-039",
+        "D14-R-037"
+      ]
+    },
+    {
+      "state": "SUSPENDED",
+      "meaning": "Suspended; no new formal calls.",
+      "allowed_actions": [
+        "freeze"
+      ],
+      "source_refs": [
+        "D14-R-039",
+        "D14-R-040"
+      ]
+    }
+  ],
+  "model_governance_record_required_fields": [
+    "model_record_id",
+    "model_usage_scope",
+    "model_family",
+    "model_provider",
+    "model_version",
+    "prompt_template_id",
+    "prompt_template_version",
+    "retrieval_policy_id_optional",
+    "input_boundary_note",
+    "input_object_refs",
+    "input_data_classification",
+    "output_target_object",
+    "output_target_field_refs",
+    "output_surface_family",
+    "human_review_required"
+  ],
+  "models": [],
+  "source_refs": [
+    "D14-R-013",
+    "D14-R-015",
+    "D14-R-038",
+    "D14-R-054"
+  ],
+  "notes": [
+    "Registry intentionally empty until real model entries are approved.",
+    "Do not register models that bypass D14 governance gates."
+  ]
+}

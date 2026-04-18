@@ -1,0 +1,198 @@
+{
+  "catalogVersion": "1.0.1",
+  "catalogId": "vendor_registry_catalog",
+  "ownerDocs": [
+    "D9",
+    "D2",
+    "docs/技术实现决策页.md"
+  ],
+  "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
+  "registry_defaults": {
+    "default_open": false,
+    "live_execution_enabled": false,
+    "external_action_enabled": false,
+    "direct_mutation_allowed": false,
+    "trace_fields_required": [
+      "vendor_id",
+      "vendor_type",
+      "vendor_role",
+      "source_audit_ref",
+      "query_trace_id",
+      "vendor_response_ref",
+      "fallback_vendor_id",
+      "requires_manual_review"
+    ]
+  },
+  "entries": [
+    {
+      "vendor_id": "SOURCE-OFFICIAL-WEBSITE",
+      "vendor_name": "企业官网/官方公示页",
+      "vendor_type": "SOURCE_VENDOR",
+      "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+      "supported_stage_range": {
+        "from": 1,
+        "to": 8
+      },
+      "audit_capable": true,
+      "execution_capable": false,
+      "current_status": "INTERNAL_SUPPORT_ONLY",
+      "current_capability_mode": "INTERNAL_ONLY",
+      "allowed_capability_modes": ["INTERNAL_ONLY", "INTERNAL_GOVERNED", "SHADOW_MODE"],
+      "manual_review_default": false,
+      "default_open": false,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false
+    },
+    {
+      "vendor_id": "SOURCE-TIANYANCHA",
+      "vendor_name": "天眼查",
+      "vendor_type": "SOURCE_VENDOR",
+      "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "supported_stage_range": {
+        "from": 1,
+        "to": 8
+      },
+      "audit_capable": true,
+      "execution_capable": false,
+      "current_status": "INTERNAL_SUPPORT_ONLY",
+      "current_capability_mode": "SHADOW_MODE",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "SHADOW_MODE", "INTERNAL_GOVERNED"],
+      "manual_review_default": true,
+      "formal_merge_required": true,
+      "direct_contact_projection_allowed": false,
+      "default_open": false,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false
+    },
+    {
+      "vendor_id": "SOURCE-SHANGJIBAO",
+      "vendor_name": "商机宝",
+      "vendor_type": "SOURCE_VENDOR",
+      "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
+      "supported_stage_range": {
+        "from": 1,
+        "to": 8
+      },
+      "audit_capable": true,
+      "execution_capable": false,
+      "current_status": "INTERNAL_SUPPORT_ONLY",
+      "current_capability_mode": "SHADOW_MODE",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "SHADOW_MODE", "INTERNAL_GOVERNED"],
+      "manual_review_default": true,
+      "formal_merge_required": true,
+      "direct_contact_projection_allowed": false,
+      "default_open": false,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false
+    },
+    {
+      "vendor_id": "SOURCE-AUTHORIZED-CRM",
+      "vendor_name": "已授权 CRM",
+      "vendor_type": "SOURCE_VENDOR",
+      "vendor_role": "CONTACT_ENRICHMENT_SOURCE",
+      "supported_stage_range": {
+        "from": 7,
+        "to": 9
+      },
+      "audit_capable": true,
+      "execution_capable": false,
+      "current_status": "INTERNAL_SUPPORT_ONLY",
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "APPROVAL_REQUIRED", "SHADOW_MODE", "DRY_RUN"],
+      "manual_review_default": true,
+      "formal_merge_required": true,
+      "direct_contact_projection_allowed": false,
+      "default_open": false,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false
+    },
+    {
+      "vendor_id": "EXEC-ALIYUN-SMS",
+      "vendor_name": "阿里短信",
+      "vendor_type": "EXECUTION_VENDOR",
+      "vendor_role": "EXECUTION_VENDOR",
+      "supported_stage_range": {
+        "from": 8,
+        "to": 9
+      },
+      "audit_capable": true,
+      "execution_capable": true,
+      "current_status": "BLOCKED",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "manual_review_default": true,
+      "default_open": false,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false
+    },
+    {
+      "vendor_id": "EXEC-ALIYUN-CALL",
+      "vendor_name": "阿里电话",
+      "vendor_type": "EXECUTION_VENDOR",
+      "vendor_role": "EXECUTION_VENDOR",
+      "supported_stage_range": {
+        "from": 8,
+        "to": 9
+      },
+      "audit_capable": true,
+      "execution_capable": true,
+      "current_status": "BLOCKED",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "manual_review_default": true,
+      "default_open": false,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false
+    },
+    {
+      "vendor_id": "EXEC-EMAIL-SERVICE",
+      "vendor_name": "邮件服务商",
+      "vendor_type": "EXECUTION_VENDOR",
+      "vendor_role": "EXECUTION_VENDOR",
+      "supported_stage_range": {
+        "from": 8,
+        "to": 9
+      },
+      "audit_capable": true,
+      "execution_capable": true,
+      "current_status": "APPROVAL_REQUIRED",
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_capability_modes": ["DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "manual_review_default": true,
+      "default_open": false,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false
+    },
+    {
+      "vendor_id": "EXEC-WECOM-BOT",
+      "vendor_name": "企业微信机器人",
+      "vendor_type": "EXECUTION_VENDOR",
+      "vendor_role": "EXECUTION_VENDOR",
+      "supported_stage_range": {
+        "from": 8,
+        "to": 9
+      },
+      "audit_capable": true,
+      "execution_capable": true,
+      "current_status": "BLOCKED",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "manual_review_default": true,
+      "default_open": false,
+      "live_execution_enabled": false,
+      "external_action_enabled": false,
+      "direct_mutation_allowed": false
+    }
+  ],
+  "notes": [
+    "capability_mode is runtime-only and does not weaken current_status or release redlines.",
+    "execution vendors may be buildable-but-off without being externally released."
+  ]
+}

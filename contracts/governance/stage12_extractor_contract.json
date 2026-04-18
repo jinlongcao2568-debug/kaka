@@ -1,0 +1,86 @@
+{
+  "catalog_id": "stage12-extractor-contract",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "source_documents": [
+    "docs/专题_来源覆盖与采集路由规范.md",
+    "docs/D11_测试验收与金标回归清单.md"
+  ],
+  "interfaces": [
+    {
+      "interface_id": "stage1_source_route_extractor",
+      "producer_stage": 1,
+      "consumer_stage": 2,
+      "owned_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "input_priority": [
+        "payload.source_family/platform_level/region_scope/coverage_tier/carrier_type",
+        "contracts/governance/source_registry.json",
+        "contracts/governance/route_policy_catalog.json"
+      ],
+      "fallback_taxonomy": [
+        "fallback_route_from_registry_or_policy",
+        "fallback_route_fell_back_to_default_route"
+      ],
+      "mismatch_taxonomy": [
+        "default_route_mismatch_requires_review"
+      ],
+      "consumer_must_not_recompute": true
+    },
+    {
+      "interface_id": "stage1_time_window_extractor",
+      "producer_stage": 1,
+      "consumer_stage": 2,
+      "owned_fields": [
+        "time_range_from",
+        "time_range_until",
+        "window_priority_policy",
+        "clock_resolution_rule_id"
+      ],
+      "input_priority": [
+        "payload.time_range_from/time_range_until",
+        "payload.now year bounds",
+        "payload.window_priority_policy/clock_resolution_rule_id"
+      ],
+      "fallback_taxonomy": [
+        "time_range_from_from_now_year",
+        "time_range_until_from_now_year"
+      ],
+      "consumer_must_not_recompute": true
+    },
+    {
+      "interface_id": "stage2_collection_clock_version_extractor",
+      "producer_stage": 2,
+      "consumer_stage": 3,
+      "owned_fields": [
+        "collection_state",
+        "clock_conflict_state",
+        "window_clock_state",
+        "winning_version_resolution_rule_id",
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at"
+      ],
+      "input_priority": [
+        "H-01 authority fields",
+        "stage1.execution_context",
+        "payload first_seen/last_retrieved/version fields",
+        "payload flags"
+      ],
+      "fallback_taxonomy": [
+        "default_route_source=h01_authority",
+        "winning_version_resolution_rule_id_source=fallback_default"
+      ],
+      "review_taxonomy": [
+        "collection_state_requires_review",
+        "clock_conflict_requires_review"
+      ],
+      "consumer_must_not_recompute": true
+    }
+  ]
+}

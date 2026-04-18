@@ -1,0 +1,279 @@
+{
+  "catalogVersion": "1.0.0",
+  "ownerDoc": "D5",
+  "surfaceStates": [
+    {
+      "stateId": "preview-ready",
+      "meaning": "Formal objects are readable and may be previewed internally without enabling live execution."
+    },
+    {
+      "stateId": "draft-only",
+      "meaning": "Surface may create or update internal drafts only."
+    },
+    {
+      "stateId": "review-required",
+      "meaning": "Formal objects are readable but any next action must route to review."
+    },
+    {
+      "stateId": "blocked",
+      "meaning": "Surface must show blockers and must not proceed."
+    },
+    {
+      "stateId": "governed-hold",
+      "meaning": "Surface remains internal and governed, but formal objects are held pending approval, audit, or typed closure."
+    }
+  ],
+  "surfaceModes": [
+    {
+      "modeId": "preview-only",
+      "meaning": "Read-only or preview-only consumption; no live execution."
+    },
+    {
+      "modeId": "draft-only",
+      "meaning": "Internal draft/writeback preparation only; no live execution."
+    },
+    {
+      "modeId": "internal-writeback",
+      "meaning": "Internal governed writeback only."
+    }
+  ],
+  "surfaceAccessLevels": [
+    {
+      "accessId": "internal-readable",
+      "meaning": "Readable internally, but not operable because review/block applies."
+    },
+    {
+      "accessId": "internal-operable",
+      "meaning": "Operable internally under existing governed boundaries."
+    }
+  ],
+  "operationalStates": [
+    {
+      "stateId": "preview_ready",
+      "meaning": "Formal read model is hydrated and internally previewable."
+    },
+    {
+      "stateId": "draft_only",
+      "meaning": "Only internal draft progression is allowed."
+    },
+    {
+      "stateId": "review_required",
+      "meaning": "Operator loop must route through governed review before progression."
+    },
+    {
+      "stateId": "governed_hold",
+      "meaning": "Internal loop is held by governance, approval, audit, or release blockers."
+    },
+    {
+      "stateId": "ready_for_internal_operator_action",
+      "meaning": "A queued work item is actionable by an internal operator without changing formal judgment."
+    },
+    {
+      "stateId": "action_submitted",
+      "meaning": "An internal operator action request is persisted and awaiting governed completion."
+    },
+    {
+      "stateId": "action_completed",
+      "meaning": "The latest internal operator action completed within governed internal boundaries."
+    },
+    {
+      "stateId": "action_denied",
+      "meaning": "The latest internal operator action was denied and remains internal-only."
+    },
+    {
+      "stateId": "action_returned_for_revision",
+      "meaning": "The latest internal operator action was returned for revision and requires follow-up."
+    }
+  ],
+  "workQueueProfiles": [
+    {
+      "profileId": "stage7_internal_operator_queue",
+      "stageScope": 7,
+      "allowedSurfaceOperationalStates": [
+        "preview_ready",
+        "review_required",
+        "governed_hold"
+      ],
+      "allowedCurrentOperationalStates": [
+        "review_required",
+        "ready_for_internal_operator_action",
+        "action_completed",
+        "action_returned_for_revision"
+      ],
+      "workItemKeyComponents": ["stage_scope", "surface_id", "primary_object_type", "primary_record_id"],
+      "lifecycleStates": ["unassigned", "assigned", "in_review", "returned", "completed", "denied"],
+      "operationalLifecycleMap": {
+        "ready_for_internal_operator_action": "assigned",
+        "review_required": "in_review",
+        "governed_hold": "in_review",
+        "action_returned_for_revision": "returned",
+        "action_completed": "completed",
+        "action_denied": "denied"
+      },
+      "assignmentPolicy": {
+        "assignmentProfileId": "stage7_internal_assignment",
+        "rosterBinding": "currentTask.operator_assignment_roster.stage7",
+        "assignedOwnerRole": "sales_user",
+        "reviewerRole": "sales_user",
+        "simplifiedBoundary": [
+          "no_claim",
+          "no_reassign",
+          "no_parallel_assignment"
+        ]
+      }
+    },
+    {
+      "profileId": "stage8_governed_operator_queue",
+      "stageScope": 8,
+      "allowedSurfaceOperationalStates": [
+        "draft_only",
+        "review_required",
+        "governed_hold"
+      ],
+      "allowedCurrentOperationalStates": [
+        "ready_for_internal_operator_action",
+        "action_submitted",
+        "action_completed",
+        "action_denied",
+        "action_returned_for_revision",
+        "governed_hold"
+      ],
+      "workItemKeyComponents": ["stage_scope", "surface_id", "primary_object_type", "primary_record_id"],
+      "lifecycleStates": ["unassigned", "assigned", "in_review", "returned", "completed", "denied"],
+      "operationalLifecycleMap": {
+        "ready_for_internal_operator_action": "assigned",
+        "review_required": "in_review",
+        "governed_hold": "in_review",
+        "action_submitted": "in_review",
+        "action_returned_for_revision": "returned",
+        "action_completed": "completed",
+        "action_denied": "denied"
+      },
+      "assignmentPolicy": {
+        "assignmentProfileId": "stage8_governed_assignment",
+        "rosterBinding": "currentTask.operator_assignment_roster.stage8",
+        "assignedOwnerRole": "sales_user",
+        "reviewerRole": "delivery_governance_user",
+        "simplifiedBoundary": [
+          "no_claim",
+          "no_reassign",
+          "governed_single_reviewer_lane"
+        ]
+      }
+    },
+    {
+      "profileId": "stage9_internal_operator_queue",
+      "stageScope": 9,
+      "allowedSurfaceOperationalStates": [
+        "preview_ready",
+        "draft_only",
+        "review_required",
+        "governed_hold"
+      ],
+      "allowedCurrentOperationalStates": [
+        "ready_for_internal_operator_action",
+        "action_submitted",
+        "action_completed",
+        "action_denied",
+        "action_returned_for_revision",
+        "governed_hold"
+      ],
+      "workItemKeyComponents": ["stage_scope", "surface_id", "primary_object_type", "primary_record_id"],
+      "lifecycleStates": ["unassigned", "assigned", "in_review", "returned", "completed", "denied"],
+      "operationalLifecycleMap": {
+        "ready_for_internal_operator_action": "assigned",
+        "review_required": "in_review",
+        "governed_hold": "in_review",
+        "action_submitted": "in_review",
+        "action_returned_for_revision": "returned",
+        "action_completed": "completed",
+        "action_denied": "denied"
+      },
+      "assignmentPolicy": {
+        "assignmentProfileId": "stage9_governed_assignment",
+        "rosterBinding": "currentTask.operator_assignment_roster.stage9",
+        "assignedOwnerRole": "delivery_governance_user",
+        "reviewerRole": "delivery_governance_user",
+        "simplifiedBoundary": [
+          "no_claim",
+          "no_reassign",
+          "governed_single_reviewer_lane"
+        ]
+      }
+    }
+  ],
+  "profiles": [
+    {
+      "profileId": "stage7_internal_preview_surface",
+      "defaultState": "preview-ready",
+      "repositoryBackedReadModel": true,
+      "allowedStates": [
+        "preview-ready",
+        "review-required",
+        "blocked",
+        "governed-hold"
+      ],
+      "defaultMode": "preview-only"
+    },
+    {
+      "profileId": "leadpack_external_delivery_candidate_surface",
+      "defaultState": "review-required",
+      "repositoryBackedReadModel": true,
+      "allowedStates": [
+        "preview-ready",
+        "review-required",
+        "blocked",
+        "governed-hold"
+      ],
+      "defaultMode": "preview-only"
+    },
+    {
+      "profileId": "leadpack_activation_design_prep_surface",
+      "defaultState": "review-required",
+      "repositoryBackedReadModel": true,
+      "allowedStates": [
+        "preview-ready",
+        "review-required",
+        "blocked",
+        "governed-hold"
+      ],
+      "defaultMode": "preview-only"
+    },
+    {
+      "profileId": "leadpack_implementation_decision_readiness_packet_surface",
+      "defaultState": "governed-hold",
+      "repositoryBackedReadModel": true,
+      "allowedStates": [
+        "review-required",
+        "governed-hold",
+        "blocked"
+      ],
+      "defaultMode": "preview-only"
+    },
+    {
+      "profileId": "stage8_governed_preview_surface",
+      "defaultState": "draft-only",
+      "repositoryBackedReadModel": true,
+      "allowedStates": [
+        "draft-only",
+        "review-required",
+        "blocked",
+        "governed-hold"
+      ],
+      "defaultMode": "draft-only"
+    },
+    {
+      "profileId": "stage9_internal_governed_surface",
+      "defaultState": "draft-only",
+      "repositoryBackedReadModel": true,
+      "allowedStates": [
+        "draft-only",
+        "review-required",
+        "blocked",
+        "governed-hold",
+        "preview-ready"
+      ],
+      "defaultMode": "draft-only"
+    }
+  ]
+}

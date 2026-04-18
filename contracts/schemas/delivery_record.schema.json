@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "delivery_record",
+  "type": "object",
+  "description": "Internal governed typed workflow schema for delivery_record.",
+  "source_refs": [
+    "D2-R-017",
+    "D2-R-064",
+    "D10-R-010",
+    "D10-R-065"
+  ],
+  "enum_refs": [
+    "delivery_status",
+    "delivery_form",
+    "archival_status",
+    "retrieval_status"
+  ],
+  "properties": {
+    "delivery_id": { "type": "string" },
+    "project_id": { "type": "string" },
+    "order_id": { "type": "string" },
+    "payment_id_optional": { "type": "string" },
+    "delivery_form": { "type": "string" },
+    "delivery_status": { "type": "string" },
+    "delivered_at_optional": { "type": "string" },
+    "customer_ack_state_optional": { "type": "string" },
+    "delivery_exception_family_optional": { "type": "string" },
+    "delivery_exception_reason_optional": { "type": "string" },
+    "delivery_exception_reason_tags_optional": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "partial_delivery_state_optional": { "type": "string" },
+    "resend_required_optional": { "type": "boolean" },
+    "redeliver_required_optional": { "type": "boolean" },
+    "archival_status": { "type": "string" },
+    "retention_until": { "type": "string" },
+    "retrieval_status": { "type": "string" },
+    "written_back_at_optional": { "type": "string" },
+    "governed_execution_mode": { "type": "string" },
+    "permission_decision_state": { "type": "string" },
+    "governance_decision_state": { "type": "string" },
+    "semantic_decision_state": { "type": "string" },
+    "governed_metadata": { "type": "object" }
+  },
+  "required": [
+    "delivery_id",
+    "project_id",
+    "order_id",
+    "payment_id_optional",
+    "delivery_form",
+    "delivery_status",
+    "delivered_at_optional",
+    "customer_ack_state_optional",
+    "archival_status",
+    "retention_until",
+    "retrieval_status",
+    "written_back_at_optional",
+    "governed_execution_mode",
+    "permission_decision_state",
+    "governance_decision_state",
+    "semantic_decision_state",
+    "governed_metadata"
+  ],
+  "additionalProperties": false
+}

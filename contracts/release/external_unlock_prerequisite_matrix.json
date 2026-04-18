@@ -1,0 +1,553 @@
+{
+  "registry_id": "external-unlock-prerequisite-matrix",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D12",
+      "D13",
+      "D14"
+    ],
+    "purpose": "Machine-readable prerequisite matrix for any future external unlock discussion. This asset defines prerequisites only and does not authorize unlock.",
+    "canonical_source_for": [
+      "unlock_tier_vocabulary",
+      "future_unlock_prerequisite_baseline"
+    ],
+    "machine_path": "contracts/release/external_unlock_prerequisite_matrix.json",
+    "leadpack_candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json",
+    "leadpack_activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json"
+  },
+  "unlock_tier_vocabulary": [
+    "PERMANENTLY_BLOCKED",
+    "BUILDABLE_BUT_OFF_BY_DEFAULT",
+    "SHADOW_ONLY",
+    "APPROVAL_GATED_FUTURE_UNLOCK",
+    "INTERNAL_ONLY",
+    "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+  ],
+  "shadow_or_canary_state_vocabulary": [
+    "NOT_REQUIRED",
+    "SHADOW_REQUIRED",
+    "CANARY_REQUIRED",
+    "SHADOW_THEN_CANARY_REQUIRED"
+  ],
+  "evidence_pack_fields": [
+    "evidence_pack_required",
+    "required_test_suites",
+    "required_release_checks",
+    "required_owner_signoffs",
+    "required_control_assets",
+    "required_runtime_modes",
+    "required_shadow_or_canary_state",
+    "unlock_denial_conditions"
+  ],
+  "capability_domains": [
+    {
+      "capability_domain_id": "external_software_release",
+      "current_default_status": "BLOCKED",
+      "future_unlock_allowed": true,
+      "unlock_tier": "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET",
+      "minimum_prerequisite_level": "FULL_EXTERNAL_DECISION_PACKET",
+      "required_gates": [
+        "external_api_release",
+        "external_unlock_evidence_pack_ready",
+        "external_unlock_owner_signoff_ready",
+        "external_unlock_shadow_canary_ready",
+        "external_unlock_rollback_ready"
+      ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "REG-FUTURE-UNLOCK-PREREQUISITES",
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK",
+        "REG-FUTURE-UNLOCK-REVIEW-GATE"
+      ],
+      "required_release_checks": [
+        "REL-120",
+        "REL-121",
+        "REL-122",
+        "REL-123"
+      ],
+      "required_owner_signoffs": [
+        "release_approver",
+        "architecture_owner",
+        "governance_owner",
+        "testing_owner",
+        "automation_owner"
+      ],
+      "required_control_assets": [
+        "control/release_manifest.yaml",
+        "control/runtime_inventory.yaml",
+        "control/external_unlock_prerequisite_state.yaml",
+        "control/review_gate_matrix.yaml"
+      ],
+      "required_runtime_modes": [
+        "APPROVAL_REQUIRED",
+        "EMERGENCY_OFF"
+      ],
+      "required_shadow_or_canary_state": "SHADOW_THEN_CANARY_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "external_release_status not BLOCKED before formal decision batch",
+        "missing release bundle rollback plan or emergency off target",
+        "missing runtime/governance/semantic/architecture evidence pack",
+        "missing required owner signoffs",
+        "public boundary or field policy still blocks target surface"
+      ],
+      "never_default_open_conditions": [
+        "no external software release may become default-open without a separate future unlock decision batch"
+      ]
+    },
+    {
+      "capability_domain_id": "leadpack_external_delivery",
+      "current_default_status": "APPROVAL_AND_AUDIT_GATED",
+      "future_unlock_allowed": true,
+      "unlock_tier": "APPROVAL_GATED_FUTURE_UNLOCK",
+      "minimum_prerequisite_level": "ACTIVATION_PREP_REVIEW_READY",
+      "candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json",
+      "activation_prep_evidence_pack_ref": "contracts/release/leadpack_activation_prep_evidence_pack.json",
+      "activation_prep_runbook_ref": "contracts/release/leadpack_activation_prep_runbook.json",
+      "activation_prep_signoff_packet_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json",
+  "activation_prep_transition_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+  "activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+  "implementation_decision_readiness_packet_ref": "contracts/release/leadpack_implementation_decision_readiness_packet.json",
+  "required_gates": [
+    "client_report_release",
+    "external_action_release",
+    "leadpack_activation_prep_review_gate",
+        "leadpack_activation_implementation_prep_ready",
+    "external_unlock_evidence_pack_ready",
+    "external_unlock_owner_signoff_ready"
+  ],
+  "required_approval_chains": [
+    "client_report_release",
+    "external_action_release"
+  ],
+  "required_review_gates": [
+    "leadpack_candidate_review_gate",
+    "leadpack_activation_prep_review_gate",
+    "leadpack_activation_implementation_prep_ready"
+  ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "REG-FUTURE-UNLOCK-PREREQUISITES",
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK",
+        "REG-LEADPACK-ACTIVATION-PREP",
+        "REG-LEADPACK-ACTIVATION-DESIGN-PREP",
+        "REG-LEADPACK-IMPLEMENTATION-DECISION-READINESS-PACKET"
+      ],
+      "required_release_checks": [
+        "REL-124",
+        "REL-125",
+        "REL-154",
+        "REL-155",
+        "REL-173",
+        "REL-174",
+        "REL-175",
+        "REL-176",
+        "REL-177",
+        "REL-178",
+        "REL-179",
+        "REL-180",
+        "REL-181",
+        "REL-182",
+        "REL-183",
+        "REL-184",
+        "REL-185"
+      ],
+      "required_owner_signoffs": [
+        "release_approver",
+        "governance_owner",
+        "testing_owner"
+      ],
+      "required_control_assets": [
+        "control/release_manifest.yaml",
+        "control/external_unlock_prerequisite_state.yaml",
+        "control/future_unlock_decision_state.yaml"
+      ],
+      "required_runtime_modes": [
+        "INTERNAL_GOVERNED",
+        "APPROVAL_REQUIRED"
+      ],
+      "required_shadow_or_canary_state": "NOT_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "direct object export still blocked by delivery matrix",
+        "approval chain incomplete or audit chain incomplete",
+        "projection/export still exposes restricted fields",
+        "candidate matrix not completed or candidate preview/export simulation not replayable",
+        "activation prep evidence pack is incomplete",
+        "activation prep signoff packet is incomplete",
+        "activation prep review gate is not ready",
+    "activation design / implementation prep gate is not ready",
+    "owner signoff execution state is missing, denied or expired",
+    "approval, review gate, or audit prerequisites are conflated or missing"
+  ],
+      "never_default_open_conditions": [
+        "leadpack external delivery may only consume approved projections, never direct Stage 8/9 raw objects",
+        "leadpack candidate package remains internal-only until a later activation-prep batch explicitly changes readiness",
+        "activation prep ready for review still does not authorize activation or external delivery",
+        "activation design / implementation prep ready for review still does not authorize implementation"
+      ]
+    },
+    {
+      "capability_domain_id": "stage8_live_execution",
+      "current_default_status": "BLOCKED_BY_DEFAULT",
+      "future_unlock_allowed": true,
+      "unlock_tier": "APPROVAL_GATED_FUTURE_UNLOCK",
+      "minimum_prerequisite_level": "SHADOW_CANARY_AND_SIGNOFF",
+      "required_gates": [
+        "internal_review_release",
+        "high_restriction_contact_release",
+        "external_unlock_evidence_pack_ready",
+        "external_unlock_owner_signoff_ready",
+        "external_unlock_shadow_canary_ready",
+        "external_unlock_rollback_ready"
+      ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "REG-FUTURE-UNLOCK-PREREQUISITES",
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK",
+        "REG-FUTURE-UNLOCK-REVIEW-GATE"
+      ],
+      "required_release_checks": [
+        "REL-126",
+        "REL-127"
+      ],
+      "required_owner_signoffs": [
+        "governance_owner",
+        "architecture_owner",
+        "testing_owner",
+        "release_approver"
+      ],
+      "required_control_assets": [
+        "control/runtime_inventory.yaml",
+        "control/external_unlock_prerequisite_state.yaml",
+        "control/release_manifest.yaml"
+      ],
+      "required_runtime_modes": [
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "EMERGENCY_OFF"
+      ],
+      "required_shadow_or_canary_state": "SHADOW_THEN_CANARY_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "high restriction field release is not fully audited",
+        "quiet-hours/frequency/opt-out guardrails are not replayable",
+        "live execution proof cannot be rolled back or emergency-stopped"
+      ],
+      "never_default_open_conditions": [
+        "stage8 live execution may never become default-open for personal contact channels"
+      ]
+    },
+    {
+      "capability_domain_id": "stage9_live_payment_execution",
+      "current_default_status": "BLOCKED_BY_DEFAULT",
+      "future_unlock_allowed": true,
+      "unlock_tier": "APPROVAL_GATED_FUTURE_UNLOCK",
+      "minimum_prerequisite_level": "SHADOW_CANARY_AND_SIGNOFF",
+      "required_gates": [
+        "internal_review_release",
+        "external_unlock_evidence_pack_ready",
+        "external_unlock_owner_signoff_ready",
+        "external_unlock_shadow_canary_ready",
+        "external_unlock_rollback_ready"
+      ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "REG-FUTURE-UNLOCK-PREREQUISITES",
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK",
+        "REG-FUTURE-UNLOCK-REVIEW-GATE"
+      ],
+      "required_release_checks": [
+        "REL-128",
+        "REL-129"
+      ],
+      "required_owner_signoffs": [
+        "release_approver",
+        "governance_owner",
+        "architecture_owner",
+        "testing_owner"
+      ],
+      "required_control_assets": [
+        "control/release_manifest.yaml",
+        "control/external_unlock_prerequisite_state.yaml"
+      ],
+      "required_runtime_modes": [
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "EMERGENCY_OFF"
+      ],
+      "required_shadow_or_canary_state": "SHADOW_THEN_CANARY_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "payer or amount match controls are not replayable",
+        "refund and audit writeback is not reversible",
+        "payment proof, rollback, or kill-switch evidence is missing"
+      ],
+      "never_default_open_conditions": [
+        "stage9 live payment execution may not become default-open under internal or external surfaces"
+      ]
+    },
+    {
+      "capability_domain_id": "stage9_live_delivery_execution",
+      "current_default_status": "BLOCKED_BY_DEFAULT",
+      "future_unlock_allowed": true,
+      "unlock_tier": "APPROVAL_GATED_FUTURE_UNLOCK",
+      "minimum_prerequisite_level": "SHADOW_CANARY_AND_SIGNOFF",
+      "required_gates": [
+        "internal_review_release",
+        "external_unlock_evidence_pack_ready",
+        "external_unlock_owner_signoff_ready",
+        "external_unlock_shadow_canary_ready",
+        "external_unlock_rollback_ready"
+      ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "REG-FUTURE-UNLOCK-PREREQUISITES",
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK",
+        "REG-FUTURE-UNLOCK-REVIEW-GATE"
+      ],
+      "required_release_checks": [
+        "REL-130",
+        "REL-131"
+      ],
+      "required_owner_signoffs": [
+        "release_approver",
+        "governance_owner",
+        "architecture_owner",
+        "testing_owner"
+      ],
+      "required_control_assets": [
+        "control/release_manifest.yaml",
+        "control/external_unlock_prerequisite_state.yaml"
+      ],
+      "required_runtime_modes": [
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "EMERGENCY_OFF"
+      ],
+      "required_shadow_or_canary_state": "SHADOW_THEN_CANARY_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "delivery archive/retrieval controls are not replayable",
+        "customer acknowledgement and delivery exception writeback cannot be reversed",
+        "delivery export still violates field policy or boundary registry"
+      ],
+      "never_default_open_conditions": [
+        "stage9 live delivery execution may not become default-open under any internal or external surface"
+      ]
+    },
+    {
+      "capability_domain_id": "model_provider_externalized_usage",
+      "current_default_status": "OFF_BY_DEFAULT",
+      "future_unlock_allowed": true,
+      "unlock_tier": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "minimum_prerequisite_level": "MODEL_EVAL_AND_BOUNDARY_READY",
+      "required_gates": [
+        "model_externalization_eval_ready",
+        "external_unlock_evidence_pack_ready",
+        "external_unlock_owner_signoff_ready"
+      ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "EVAL-EXTERNAL-SHADOW",
+        "EVAL-EXTERNAL-BOUNDARY",
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK"
+      ],
+      "required_release_checks": [
+        "REL-132",
+        "REL-133"
+      ],
+      "required_owner_signoffs": [
+        "model_governance_owner",
+        "governance_owner",
+        "testing_owner"
+      ],
+      "required_control_assets": [
+        "control/model_release_manifest.yaml",
+        "contracts/model/model_release_gates.json",
+        "contracts/model/output_target_matrix.json"
+      ],
+      "required_runtime_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "EMERGENCY_OFF"
+      ],
+      "required_shadow_or_canary_state": "SHADOW_THEN_CANARY_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "eval suite or golden boundary tests not green",
+        "model output target matrix still blocks requested external target",
+        "human review bypass attempted for external or client-facing use"
+      ],
+      "never_default_open_conditions": [
+        "model provider usage may not directly authorize external release or auto-trigger external action"
+      ]
+    },
+    {
+      "capability_domain_id": "tool_provider_externalized_usage",
+      "current_default_status": "SHADOW_ONLY",
+      "future_unlock_allowed": true,
+      "unlock_tier": "SHADOW_ONLY",
+      "minimum_prerequisite_level": "SHADOW_AUDIT_AND_BOUNDARY_READY",
+      "required_gates": [
+        "provider_externalization_boundary_ready",
+        "external_unlock_evidence_pack_ready",
+        "external_unlock_owner_signoff_ready"
+      ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "EVAL-EXTERNAL-BOUNDARY",
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK"
+      ],
+      "required_release_checks": [
+        "REL-134"
+      ],
+      "required_owner_signoffs": [
+        "model_governance_owner",
+        "architecture_owner",
+        "governance_owner"
+      ],
+      "required_control_assets": [
+        "control/model_release_manifest.yaml",
+        "contracts/model/output_target_matrix.json"
+      ],
+      "required_runtime_modes": [
+        "SHADOW_MODE",
+        "EMERGENCY_OFF"
+      ],
+      "required_shadow_or_canary_state": "SHADOW_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "tool provider lacks audit trace or bounded target matrix",
+        "tool provider attempts direct external mutation path"
+      ],
+      "never_default_open_conditions": [
+        "tool provider externalized usage may not become default-open; shadow and explicit approval remain mandatory"
+      ]
+    },
+    {
+      "capability_domain_id": "source_vendor_externalized_usage",
+      "current_default_status": "INTERNAL_ONLY",
+      "future_unlock_allowed": true,
+      "unlock_tier": "APPROVAL_GATED_FUTURE_UNLOCK",
+      "minimum_prerequisite_level": "BOUNDARY_AND_SOURCE_AUDIT_READY",
+      "required_gates": [
+        "external_unlock_evidence_pack_ready",
+        "external_unlock_owner_signoff_ready",
+        "provider_externalization_boundary_ready"
+      ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK",
+        "REG-FUTURE-UNLOCK-PREREQUISITES"
+      ],
+      "required_release_checks": [
+        "REL-135"
+      ],
+      "required_owner_signoffs": [
+        "governance_owner",
+        "architecture_owner",
+        "testing_owner"
+      ],
+      "required_control_assets": [
+        "control/runtime_inventory.yaml",
+        "contracts/governance/public_boundary_registry.json",
+        "contracts/governance/coverage_registry.json"
+      ],
+      "required_runtime_modes": [
+        "INTERNAL_ONLY",
+        "APPROVAL_REQUIRED",
+        "EMERGENCY_OFF"
+      ],
+      "required_shadow_or_canary_state": "NOT_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "source legality or auditability is unclear",
+        "coverage or public boundary still marks the source family restricted",
+        "personal, private, or unauthorized channels are requested"
+      ],
+      "never_default_open_conditions": [
+        "personal channels, private sources, and D-tier adjacent sources remain permanently blocked from default externalization"
+      ]
+    },
+    {
+      "capability_domain_id": "external_export_surface",
+      "current_default_status": "BLOCKED",
+      "future_unlock_allowed": true,
+      "unlock_tier": "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET",
+      "minimum_prerequisite_level": "PROJECTION_BOUNDARY_AND_APPROVAL_READY",
+      "required_gates": [
+        "client_report_release",
+        "external_unlock_evidence_pack_ready",
+        "external_unlock_owner_signoff_ready",
+        "provider_externalization_boundary_ready"
+      ],
+      "evidence_pack_required": true,
+      "required_test_suites": [
+        "REG-FUTURE-UNLOCK-EVIDENCE-PACK",
+        "REG-FUTURE-UNLOCK-PREREQUISITES"
+      ],
+      "required_release_checks": [
+        "REL-136",
+        "REL-137"
+      ],
+      "required_owner_signoffs": [
+        "release_approver",
+        "governance_owner",
+        "testing_owner"
+      ],
+      "required_control_assets": [
+        "control/release_manifest.yaml",
+        "contracts/release/delivery_matrix.json",
+        "contracts/governance/public_boundary_registry.json"
+      ],
+      "required_runtime_modes": [
+        "INTERNAL_GOVERNED",
+        "APPROVAL_REQUIRED",
+        "EMERGENCY_OFF"
+      ],
+      "required_shadow_or_canary_state": "NOT_REQUIRED",
+      "rollback_required": true,
+      "emergency_off_required": true,
+      "unlock_denial_conditions": [
+        "direct object export still blocked",
+        "field policy or boundary registry still blocks target projection",
+        "audit chain or approval chain incomplete"
+      ],
+      "never_default_open_conditions": [
+        "external export may only use approved projection or summary surfaces, never raw direct objects"
+      ]
+    }
+  ],
+  "never_default_open_capabilities": [
+    {
+      "capability_id": "personal_contact_channels",
+      "default_tier": "PERMANENTLY_BLOCKED",
+      "reason": "personal phone/email/social/IM channels must never become default-open"
+    },
+    {
+      "capability_id": "d_tier_or_private_inputs_to_external_surfaces",
+      "default_tier": "PERMANENTLY_BLOCKED",
+      "reason": "D-tier, private supplement, or non-public evidence must never enter default external surfaces"
+    },
+    {
+      "capability_id": "direct_stage8_stage9_object_export",
+      "default_tier": "PERMANENTLY_BLOCKED",
+      "reason": "Stage 8/9 direct objects may not become default external deliverables"
+    }
+  ],
+  "notes": [
+    "This matrix defines prerequisite requirements only; it does not authorize unlock.",
+    "External software release remains BLOCKED until a later decision batch explicitly passes all prerequisites."
+  ]
+}

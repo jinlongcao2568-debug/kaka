@@ -1,0 +1,142 @@
+{
+  "registry_id": "model-release-gates",
+  "version": "0.1.1",
+  "status": "DRAFT",
+  "external_release_blocked": true,
+  "capability_mode_vocabulary_ref": "control/runtime_inventory.yaml#capability_mode_vocabulary",
+  "capability_mode_rules": {
+    "model_provider_default": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+    "tool_provider_default": "SHADOW_MODE",
+    "real_run_ready_does_not_imply_formal_release": true,
+    "emergency_off_overrides_release_state": true
+  },
+  "future_externalization_prerequisites": {
+    "matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
+    "decision_matrix_ref": "contracts/release/future_unlock_decision_matrix.json",
+    "domains": [
+      "model_provider_externalized_usage",
+      "tool_provider_externalized_usage"
+    ],
+    "required_eval_suites": [
+      "EVAL-EXTERNAL-SHADOW",
+      "EVAL-EXTERNAL-BOUNDARY",
+      "EVAL-EXTERNAL-CANARY"
+    ],
+    "required_owner_signoffs": [
+      "model_governance_owner",
+      "governance_owner",
+      "architecture_owner",
+      "testing_owner"
+    ],
+    "required_shadow_or_canary_state": "SHADOW_THEN_CANARY_REQUIRED",
+    "unlock_denial_conditions": [
+      "output_target_matrix blocks requested external surface",
+      "eval suites or goldens not green",
+      "rollback or emergency off path missing"
+    ]
+  },
+  "future_externalization_decision_policy": {
+    "candidate_not_equivalent_to_approved": true,
+    "model_provider_externalized_usage": "DENY_BY_DEFAULT_CONTINUE",
+    "tool_provider_externalized_usage": "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN",
+    "any_later_implementation_requires_separate_batch": true
+  },
+  "release_states": [
+    {
+      "state": "DRAFT",
+      "meaning": "Draft, not evaluated or approved.",
+      "allowed_actions": [
+        "internal_dev_test"
+      ],
+      "source_refs": [
+        "D14-R-039"
+      ]
+    },
+    {
+      "state": "VALIDATING",
+      "meaning": "Validating; internal grey usage only.",
+      "allowed_actions": [
+        "internal_grey"
+      ],
+      "source_refs": [
+        "D14-R-039"
+      ]
+    },
+    {
+      "state": "INTERNAL_ONLY",
+      "meaning": "Internal only; can be used for M0/M1.",
+      "allowed_actions": [
+        "internal_only"
+      ],
+      "source_refs": [
+        "D14-R-039"
+      ]
+    },
+    {
+      "state": "FORMAL_CONSTRAINED",
+      "meaning": "Formal constrained; can enter controlled formal objects with review and gates.",
+      "allowed_actions": [
+        "formal_constrained"
+      ],
+      "source_refs": [
+        "D14-R-039",
+        "D14-R-037"
+      ]
+    },
+    {
+      "state": "SUSPENDED",
+      "meaning": "Suspended; no new formal calls.",
+      "allowed_actions": [
+        "freeze"
+      ],
+      "source_refs": [
+        "D14-R-039",
+        "D14-R-040"
+      ]
+    }
+  ],
+  "allowed_transitions": {
+    "DRAFT": [
+      "VALIDATING"
+    ],
+    "VALIDATING": [
+      "INTERNAL_ONLY",
+      "SUSPENDED"
+    ],
+    "INTERNAL_ONLY": [
+      "FORMAL_CONSTRAINED",
+      "SUSPENDED"
+    ],
+    "FORMAL_CONSTRAINED": [
+      "SUSPENDED"
+    ],
+    "SUSPENDED": [
+      "VALIDATING"
+    ]
+  },
+  "minimum_requirements_for_formal_constrained": [
+    "model_catalog_registered",
+    "prompt_policy_registered",
+    "eval_suite_and_goldens_passed",
+    "output_target_matrix_declared",
+    "D11_regression_included",
+    "D12_release_gate_allowed",
+    "approval_chain_completed",
+    "rollback_target_registered"
+  ],
+  "blocking_conditions": [
+    "D_tier_input_in_formal_chain",
+    "model_output_used_as_primary_evidence",
+    "high_restriction_field_plaintext_leak",
+    "model_writes_final_conclusion_without_review",
+    "bypass_human_review_for_client_or_external_release",
+    "model_run_not_auditable",
+    "critical_goldens_failed",
+    "rollback_path_missing"
+  ],
+  "source_refs": [
+    "D14-R-037",
+    "D14-R-039",
+    "D14-R-040"
+  ]
+}

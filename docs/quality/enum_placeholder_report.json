@@ -1,0 +1,1088 @@
+[
+  {
+    "enum_name": "account_role_summary",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "account_context"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "action_family",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "legal_action_recommendation"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "action_window_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "legal_action_actor_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "actionability_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "legal_action_actor_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "actor_role_cluster",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "legal_action_actor_profile",
+      "procurement_decision_actor_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "amount_band",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "order_record",
+      "payment_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "approval_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "outreach_plan"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "archival_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "delivery_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "award_determination_mode",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "project_base"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "buyer_type",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "buyer_fit",
+      "challenger_buyer_fit"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "candidate_group_label",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "bidder_candidate"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "candidate_order_mode",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "project_base"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "candidate_position_label",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "challenger_candidate_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "carrier_type",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "evidence"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "channel_family",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "contact_target",
+      "outreach_plan",
+      "touch_record"
+    ],
+    "source_refs": [
+      "D9_联系对象与销售触达规范.md"
+    ],
+    "inferred_from_docs": [
+      "AUTHORIZED_PERSON_DIRECT",
+      "CRM_APPROVED_DIRECT",
+      "IM_DIRECT",
+      "ORG_EMAIL",
+      "ORG_PHONE",
+      "PERSONAL_EMAIL",
+      "PERSONAL_PHONE",
+      "PUBLIC_FORM",
+      "SOCIAL_DM"
+    ],
+    "inferred_from_contracts": [
+      "EMAIL"
+    ],
+    "candidate_values": [
+      "AUTHORIZED_PERSON_DIRECT",
+      "CRM_APPROVED_DIRECT",
+      "IM_DIRECT",
+      "ORG_EMAIL",
+      "ORG_PHONE",
+      "PERSONAL_EMAIL",
+      "PERSONAL_PHONE",
+      "PUBLIC_FORM",
+      "SOCIAL_DM"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "channel_policy_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "contact_target"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "clock_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "clock_chain_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "commercial_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "order_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "commercial_urgency_level",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "review_queue_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "competitor_quality_grade",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "project_fact"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [
+      "MEDIUM"
+    ],
+    "candidate_values": [
+      "MEDIUM"
+    ],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "confidence_band",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "pseudo_competitor_signal_set"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "conflict_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "field_lineage_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "contact_failure_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "opportunity_outcome_event"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "contact_legal_basis",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "contact_target"
+    ],
+    "source_refs": [
+      "D9_联系对象与销售触达规范.md"
+    ],
+    "inferred_from_docs": [
+      "BLOCKED",
+      "COMPLIANT_CRM_CONTACT",
+      "CUSTOMER_AUTHORIZED_CONTACT",
+      "PUBLIC_ROLE_CONTACT",
+      "REVIEW_REQUIRED"
+    ],
+    "inferred_from_contracts": [
+      "PUBLIC_BUSINESS_CONTACT"
+    ],
+    "candidate_values": [
+      "BLOCKED",
+      "COMPLIANT_CRM_CONTACT",
+      "CUSTOMER_AUTHORIZED_CONTACT",
+      "PUBLIC_ROLE_CONTACT",
+      "REVIEW_REQUIRED"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "contact_validity_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "contact_target"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "crm_owner_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "saleable_opportunity"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [
+      "ASSIGNED"
+    ],
+    "candidate_values": [
+      "ASSIGNED"
+    ],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "cross_check_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "evidence",
+      "evidence_grade_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "delivery_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "delivery_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "exception_scope",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "controlled_exception_record"
+    ],
+    "source_refs": [
+      "D7_对象级交付矩阵与外发治理规范.md"
+    ],
+    "inferred_from_docs": [
+      "COVERAGE_HOLD",
+      "DELIVERY_RELEASE",
+      "PRIVATE_SUPPLEMENT_IMPACT",
+      "CONTACT_RESTRICTION",
+      "OTHER"
+    ],
+    "inferred_from_contracts": [],
+    "candidate_values": [
+      "COVERAGE_HOLD",
+      "DELIVERY_RELEASE",
+      "PRIVATE_SUPPLEMENT_IMPACT",
+      "CONTACT_RESTRICTION",
+      "OTHER"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "exception_state",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "controlled_exception_record"
+    ],
+    "source_refs": [
+      "D10_订单支付交付与治理反馈规范.md"
+    ],
+    "inferred_from_docs": [
+      "PENDING",
+      "APPROVED",
+      "REJECTED",
+      "ROLLED_BACK",
+      "EXPIRED"
+    ],
+    "inferred_from_contracts": [],
+    "candidate_values": [
+      "PENDING",
+      "APPROVED",
+      "REJECTED",
+      "ROLLED_BACK",
+      "EXPIRED"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "fixation_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "evidence_grade_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "frequency_policy_state",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "contact_target"
+    ],
+    "source_refs": [
+      "D9_联系对象与销售触达规范.md"
+    ],
+    "inferred_from_docs": [
+      "ALLOW",
+      "BLOCK",
+      "REVIEW"
+    ],
+    "inferred_from_contracts": [
+      "PASS"
+    ],
+    "candidate_values": [
+      "ALLOW",
+      "BLOCK",
+      "REVIEW"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "lead_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "sales_lead"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "lineage_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "field_lineage_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "missing_condition_family",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "review_request"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "model_usage_scope",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "model_governance_record"
+    ],
+    "source_refs": [
+      "D14_AI模型治理规范.md"
+    ],
+    "inferred_from_docs": [
+      "INTERNAL_ASSIST",
+      "REVIEW_ASSIST",
+      "CLIENT_DELIVERY_ASSIST",
+      "EXTERNAL_ACTION_ASSIST"
+    ],
+    "inferred_from_contracts": [],
+    "candidate_values": [
+      "INTERNAL_ASSIST",
+      "REVIEW_ASSIST",
+      "CLIENT_DELIVERY_ASSIST",
+      "EXTERNAL_ACTION_ASSIST"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "opt_out_state",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "contact_target"
+    ],
+    "source_refs": [
+      "D9_联系对象与销售触达规范.md"
+    ],
+    "inferred_from_docs": [
+      "ACTIVE",
+      "BLOCKED",
+      "OPTED_OUT",
+      "PENDING_CONFIRMATION"
+    ],
+    "inferred_from_contracts": [
+      "NONE"
+    ],
+    "candidate_values": [
+      "ACTIVE",
+      "BLOCKED",
+      "OPTED_OUT",
+      "PENDING_CONFIRMATION"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "order_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "order_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "outcome_family",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "opportunity_outcome_event"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "payer_mismatch_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "opportunity_outcome_event"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "payment_authority_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "procurement_decision_actor_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "payment_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "payment_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "procurement_authority_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "procurement_decision_actor_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "procurement_regime",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "legal_action_recommendation",
+      "project_base"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "project_manager_conflict_clue_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "project_manager"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "provenance_chain_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "evidence_grade_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "public_chain_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "project_base",
+      "public_chain"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "purchase_authority_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "procurement_decision_actor_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "quiet_hours_policy_state",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "contact_target"
+    ],
+    "source_refs": [
+      "D9_联系对象与销售触达规范.md"
+    ],
+    "inferred_from_docs": [
+      "ALLOW",
+      "BLOCK",
+      "REVIEW"
+    ],
+    "inferred_from_contracts": [
+      "PASS"
+    ],
+    "candidate_values": [
+      "ALLOW",
+      "BLOCK",
+      "REVIEW"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "reachable_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "procurement_decision_actor_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "reasonable_expectation_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "contact_target"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "recommended_delivery_form",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "offer_recommendation"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "recommended_quote_band",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "offer_recommendation"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "release_status",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "model_governance_record"
+    ],
+    "source_refs": [
+      "D12_部署发布与运行治理规范.md"
+    ],
+    "inferred_from_docs": [
+      "INTERNAL_ONLY",
+      "REVIEW_ONLY",
+      "RELEASED",
+      "SUSPENDED",
+      "REVOKED"
+    ],
+    "inferred_from_contracts": [],
+    "candidate_values": [
+      "INTERNAL_ONLY",
+      "REVIEW_ONLY",
+      "RELEASED",
+      "SUSPENDED",
+      "REVOKED"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "report_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "report_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "response_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "touch_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [
+      "RESPONDED"
+    ],
+    "candidate_values": [
+      "RESPONDED"
+    ],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "retrieval_readiness_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "evidence_grade_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "retrieval_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "delivery_record"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "review_queue_bucket",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "review_queue_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "saleability_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "saleable_opportunity"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [
+      "READY",
+      "REVIEW"
+    ],
+    "candidate_values": [
+      "READY",
+      "REVIEW"
+    ],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "sku_code",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "offer_recommendation",
+      "saleable_opportunity"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "standing_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "legal_action_actor_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "trigger_type",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "governance_feedback_event"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "usable_scope",
+    "current_status": "CONFIRMED_FROM_DOCS",
+    "owning_objects": [
+      "private_supplement_record"
+    ],
+    "source_refs": [
+      "D7_对象级交付矩阵与外发治理规范.md"
+    ],
+    "inferred_from_docs": [
+      "REVIEW_ONLY",
+      "GOVERNANCE_ONLY",
+      "DELIVERY_REFERENCE",
+      "BLOCKED"
+    ],
+    "inferred_from_contracts": [],
+    "candidate_values": [
+      "REVIEW_ONLY",
+      "GOVERNANCE_ONLY",
+      "DELIVERY_REFERENCE",
+      "BLOCKED"
+    ],
+    "confidence_level": "HIGH",
+    "requires_manual_confirmation": false
+  },
+  {
+    "enum_name": "verification_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "focus_bidder_verification_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "version_conflict_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "notice_version_chain"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "window_clock_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "public_chain"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "window_missed_state",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "opportunity_outcome_event"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "window_risk_level",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "review_queue_profile"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [],
+    "candidate_values": [],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  },
+  {
+    "enum_name": "window_status",
+    "current_status": "VALIDATING_PLACEHOLDER",
+    "owning_objects": [
+      "legal_action_recommendation",
+      "public_attack_surface"
+    ],
+    "source_refs": [],
+    "inferred_from_docs": [],
+    "inferred_from_contracts": [
+      "OPEN"
+    ],
+    "candidate_values": [
+      "OPEN"
+    ],
+    "confidence_level": "LOW",
+    "requires_manual_confirmation": true
+  }
+]

@@ -1,0 +1,216 @@
+version: 1
+templateState: "NAMED_ASSIGNED"
+single_operator_mode: true
+updated_at: "2026-04-18"
+currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
+currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
+current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
+navigation_state: "AX9S_FULL_REPAIR_CLOSED"
+responsible_role: "single_operator"
+responsible_person: "卡卡罗特"
+escalation_path: []
+activation_condition: "B10-S2-final-status-closeout 已完成；AX9S full-repair 程序已整体关账并停机；无下一批。"
+state_dimensions:
+  candidate_gap_active: false
+  strategic_branch_active: false
+  closure_review_active: false
+  closure_review_completed: true
+  mainline_selection_ready: true
+currentTask:
+  task_id: "AX9S-B10-S2-final-status-closeout"
+  title: "Final full-repair status closeout"
+  owner_role: "single_operator"
+  responsible_role: "single_operator"
+  responsible_person: "卡卡罗特"
+  linked_docs:
+    - "control/ax9s_full_repair_plan.yaml"
+    - "control/ax9s_full_repair_status.yaml"
+    - "control/ax9s_full_repair_coverage_matrix.yaml"
+    - "control/ax9s_validation_matrix.yaml"
+    - "control/ax9s_review_escalation_matrix.yaml"
+    - "control/task_packets/B10.yaml"
+    - "control/ax9s_scoped_task_packet_template.yaml"
+    - "control/automation_task_packet_rules.yaml"
+    - "control/repo_status.md"
+    - "control/milestone_status.yaml"
+    - "control/release_manifest.yaml"
+    - "docs/文档与资产状态板.md"
+  capability_adjudication_source: "B10 scoped subpacket + final control closeout surfaces"
+  objective: "在不改写 repo readiness 语义的前提下，关闭 B10 与 AX9S full-repair 程序状态账本，并明确无下一批。"
+  operator_assignment_roster:
+    stage4:
+      assigned_owner_role: "single_operator"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "architecture_owner"
+      reviewer: "卡卡罗特"
+    stage5:
+      assigned_owner_role: "single_operator"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "governance_owner"
+      reviewer: "卡卡罗特"
+    stage6:
+      assigned_owner_role: "single_operator"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "architecture_owner"
+      reviewer: "卡卡罗特"
+    stage7:
+      assigned_owner_role: "sales_user"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "sales_user"
+      reviewer: "卡卡罗特"
+    stage8:
+      assigned_owner_role: "sales_user"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "delivery_governance_user"
+      reviewer: "卡卡罗特"
+    stage9:
+      assigned_owner_role: "delivery_governance_user"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "delivery_governance_user"
+      reviewer: "卡卡罗特"
+    testing:
+      assigned_owner_role: "testing_owner"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "testing_owner"
+      reviewer: "卡卡罗特"
+    governance:
+      assigned_owner_role: "governance_owner"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "governance_owner"
+      reviewer: "卡卡罗特"
+  task_packet:
+    version: 1
+    packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
+    source_blueprint_batch_id: "B10"
+    packet_id: "B10-S2-final-status-closeout"
+    subpacket_id: "B10-S2-final-status-closeout"
+    title: "Final full-repair status closeout"
+    status: "CLOSED"
+    objective: "在不改写 repo readiness 语义的前提下，关闭 B10 与 AX9S full-repair 程序状态账本，并明确无下一批。"
+    non_goals:
+      - "不改写 repo 主 readiness 语义"
+      - "不修改 regression manifest / release checklist / scripts / tests"
+      - "不回头重开 B1-B9 或 B10-S1"
+      - "不做任何业务语义修复"
+      - "不做 docs/L0.md、contracts/*、handoff/*、src/** 变更"
+      - "不开放 external release"
+      - "不开放 live execution"
+      - "不把 internal-governed / dry-run / preview 写成 live-ready"
+      - "不补 scripts/search.ps1"
+      - "不启动 B11 或任何新批次"
+      - "not an external unlock implementation"
+    affected_stages:
+      - "full_repair_program_closeout"
+      - "automation_control"
+    risk_level: "HIGH"
+    change_class: "MANDATORY_HUMAN_REVIEW"
+    change_domains:
+      - "governance_release_core"
+      - "automation_control_core"
+      - "future_external_unlock_prereq_core"
+    declared_changed_paths:
+      - "control/current_task.yaml"
+      - "control/ax9s_full_repair_status.yaml"
+      - "control/repo_status.md"
+      - "control/milestone_status.yaml"
+      - "control/release_manifest.yaml"
+      - "docs/文档与资产状态板.md"
+    allowed_modification_paths:
+      - "control/current_task.yaml"
+      - "control/ax9s_full_repair_status.yaml"
+      - "control/repo_status.md"
+      - "control/milestone_status.yaml"
+      - "control/release_manifest.yaml"
+      - "docs/文档与资产状态板.md"
+    forbidden_modification_paths:
+      - "docs/L0.md"
+      - "contracts/release/external_unlock_activation_matrix.json"
+      - "contracts/**"
+      - "handoff/**"
+      - "scripts/**"
+      - "tests/**"
+      - "contracts/governance/**"
+      - "contracts/sales/**"
+      - "contracts/model/**"
+      - "src/**"
+    impacted_assets:
+      docs:
+        - "docs/文档与资产状态板.md"
+      control:
+        - "control/current_task.yaml"
+        - "control/ax9s_full_repair_status.yaml"
+        - "control/release_manifest.yaml"
+      contracts: []
+      handoff: []
+      scripts: []
+      tests: []
+      code: []
+    required_scripts:
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-governance-contracts.ps1"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1"
+      - "python tests/run_tests.py"
+    stop_conditions:
+      - "Any required script fails."
+      - "Repo readiness semantics are rewritten instead of keeping FULL_REPAIR_COMPLETE_REVIEW_READY as program-only control state."
+      - "Any change attempts external release or live execution."
+      - "Any new batch or new scoped subpacket is proposed."
+    definition_of_done:
+      - "B10-S2-final-status-closeout is activated as an executable scoped subpacket derived from B10, not a raw B10 blueprint copy."
+      - "B10 is marked DONE and B0-B10 are fully closed in control/ax9s_full_repair_status.yaml."
+      - "control/ax9s_full_repair_status.yaml status is FULL_REPAIR_COMPLETE_REVIEW_READY and is explicitly documented as full-repair program control state, not repo readiness source."
+      - "control/current_task.yaml records B10-S2 as CLOSED, states that full-repair is complete and halted, and declares no next batch."
+      - "repo_status/milestone_status/release_manifest/status_board are aligned for final control closeout without changing READY_FOR_POST-REPAIR_MAINLINE_SELECTION or opening external/live paths."
+    deliverables:
+      - "B10-S2 scoped subpacket activation"
+      - "B10 and full-repair program closeout"
+      - "Final control/status alignment with no next batch"
+    human_review_required: true
+    owner_reviews_required:
+      - "automation_owner"
+      - "architecture_owner"
+      - "governance_owner"
+      - "model_governance_owner"
+      - "testing_owner"
+      - "release_approver"
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: "REQUESTED_NOT_APPROVED"
+    notes:
+      - "Derived from control/ax9s_scoped_task_packet_template.yaml, control/task_packets/B10.yaml, and control/automation_task_packet_rules.yaml."
+      - "B10.yaml remains a PROGRAM_BATCH_BLUEPRINT and was not copied verbatim into current_task."
+      - "Repository has no scripts/search.ps1, so repository search falls back to rg in this window."
+      - "B10-S1 completed with all required scripts passing before this closeout packet was activated."
+      - "B10-S2 closes only program-level status/control surfaces and cannot change repo readiness or open any external/live path."
+      - "B10 is the last batch; after this packet closes there is no next batch."
+  hardBlockers:
+    - "external leadpack delivery remains gated by approval + audit"
+    - "external software release remains blocked"
+    - "stage8 real execution remains governed / approval-gated / blocked by default"
+    - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
+  allowed_actions:
+    - "无下一批；AX9S full-repair 程序已停机"
+  forbidden_actions:
+    - "直接复制 B10 blueprint 到 current_task"
+    - "回退到 B10-S1 或新增任何 B10 之外的子包"
+    - "启动 B11 或任何自动下一批"
+    - "修改 docs/L0.md"
+    - "修改 contracts/release/external_unlock_activation_matrix.json"
+    - "修改 contracts/**"
+    - "修改 contracts/governance/**"
+    - "修改 contracts/sales/**"
+    - "修改 contracts/model/**"
+    - "修改 handoff/**"
+    - "修改 scripts/**"
+    - "修改 tests/**"
+    - "修改 src/**"
+    - "开放 external release 或 live execution"
+    - "补 scripts/search.ps1"
+  nextActions:
+    - "无下一批"
+    - "AX9S full-repair 程序已停机"
+  status_note: "B10 已整体完成；B0-B10 全部完成；required scripts 已通过；full-repair 程序已完成；无下一批；已停机。仓库无 scripts/search.ps1，本窗口全文检索按规则 fallback 到 rg。"

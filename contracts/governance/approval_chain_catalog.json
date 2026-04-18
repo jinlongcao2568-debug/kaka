@@ -1,0 +1,185 @@
+{
+  "catalog_id": "approval-chain-catalog",
+  "version": "0.1.0",
+  "metadata": {
+    "package_name": "governance/release package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-12",
+    "machine_path": "contracts/governance/approval_chain_catalog.json",
+    "scope": "formal approval chains and SoD requirements",
+    "source_documents": [
+      "L0.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D13_公开可查边界能力清单.md",
+      "D11_测试验收与金标回归清单.md",
+      "D14_AI模型治理规范.md",
+      "裁决总表.md"
+    ]
+  },
+  "chains": [
+    {
+      "approvalChainId": "internal_review_release",
+      "purpose": "Internal review brief or internal workbench release",
+      "minimumApproverRoles": [
+        "human_reviewer"
+      ],
+      "sodRequired": false,
+      "auditRequired": true,
+      "sourceRefs": [
+        "D6-R-012",
+        "D7-R-016"
+      ]
+    },
+    {
+      "approvalChainId": "client_report_release",
+      "purpose": "Client-visible report, client-visible API projection, or approved summary delivery",
+      "minimumApproverRoles": [
+        "human_reviewer",
+        "delivery_governance_user"
+      ],
+      "sodRequired": true,
+      "auditRequired": true,
+      "sourceRefs": [
+        "D6-R-012",
+        "D7-R-016"
+      ]
+    },
+    {
+      "approvalChainId": "external_action_release",
+      "purpose": "External action assistance package",
+      "minimumApproverRoles": [
+        "human_reviewer",
+        "delivery_governance_user"
+      ],
+      "sodRequired": true,
+      "auditRequired": true,
+      "additionalConditions": [
+        "E4_EXTERNAL_ACTION_READY",
+        "dual_gate_PASS",
+        "primary_carrier_traceable"
+      ],
+      "sourceRefs": [
+        "D6-R-012",
+        "D7-R-016"
+      ]
+    },
+    {
+      "approvalChainId": "high_restriction_field_view",
+      "purpose": "View natural person high-restriction field",
+      "minimumApproverRoles": [
+        "delivery_governance_user"
+      ],
+      "sodRequired": true,
+      "auditRequired": true,
+      "sourceRefs": [
+        "D6-R-012"
+      ]
+    },
+    {
+      "approvalChainId": "high_restriction_contact_release",
+      "purpose": "Release formal contact_target for action",
+      "minimumApproverRoles": [
+        "delivery_governance_user",
+        "sales_user"
+      ],
+      "sodRequired": true,
+      "auditRequired": true,
+      "additionalConditions": [
+        "lawful_basis_present",
+        "frequency_policy_pass",
+        "quiet_hours_policy_pass",
+        "opt_out_absent"
+      ],
+      "sourceRefs": [
+        "D6-R-012",
+        "D9-R-022",
+        "D7-R-016"
+      ]
+    },
+    {
+      "approvalChainId": "coverage_state_change",
+      "purpose": "Promote or demote coverage state",
+      "minimumApproverRoles": [
+        "product_admin",
+        "delivery_governance_user"
+      ],
+      "sodRequired": true,
+      "auditRequired": true,
+      "sourceRefs": [
+        "D6-R-012",
+        "D7-R-025"
+      ]
+    },
+    {
+      "approvalChainId": "delivery_matrix_change",
+      "purpose": "Change object release policy or delivery matrix",
+      "minimumApproverRoles": [
+        "delivery_governance_user"
+      ],
+      "sodRequired": true,
+      "auditRequired": true,
+      "additionalConditions": [
+        "regression_passed",
+        "release_checklist_passed"
+      ],
+      "sourceRefs": [
+        "D6-R-012",
+        "D7-R-026"
+      ]
+    },
+    {
+      "approvalChainId": "private_supplement_release",
+      "purpose": "Move private supplement toward impact-eligible release within isolated scope",
+      "minimumApproverRoles": [
+        "human_reviewer",
+        "delivery_governance_user"
+      ],
+      "sodRequired": true,
+      "auditRequired": true,
+      "sourceRefs": [
+        "D6-R-012",
+        "D7-R-020"
+      ]
+    },
+    {
+      "approvalChainId": "boundary_exception",
+      "purpose": "Controlled boundary exception",
+      "minimumApproverRoles": [
+        "product_admin",
+        "delivery_governance_user"
+      ],
+      "sodRequired": true,
+      "auditRequired": true,
+      "additionalConditions": [
+        "short_lived",
+        "rollback_plan_present",
+        "scope_explicit",
+        "no_D_tier_promotion"
+      ],
+      "sourceRefs": [
+        "D6-R-012",
+        "D7-R-020"
+      ]
+    }
+  ],
+  "sodRules": [
+    {
+      "ruleId": "SOD-001",
+      "rule": "Requester and approver may not be the same identity for any client/external/high-restriction release",
+      "sourceRefs": [
+        "D6-R-013"
+      ]
+    },
+    {
+      "ruleId": "SOD-002",
+      "rule": "Creator, approver and releaser of private supplement or controlled exception may not collapse into one role chain",
+      "sourceRefs": [
+        "D7-R-020"
+      ]
+    }
+  ]
+}
+
+
+

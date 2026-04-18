@@ -1,0 +1,4726 @@
+{
+  "catalog_id": "enum-catalog",
+  "version": "0.1.2",
+  "metadata": {
+    "package_name": "contracts core package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-14",
+    "source_documents": [
+      "L0.md",
+      "D2_正式对象契约与字段字典.md",
+      "D3_正式规则码总表与判定说明书.md",
+      "D13_公开可查边界能力清单.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D11_测试验收与金标回归清单.md"
+    ],
+      "notes": [
+        "This is the first machine-readable core package for pre-code readiness.",
+        "The package freezes minimum stable contracts and is intended to be extended in later rounds rather than replaced.",
+        "Any implementation must consume these catalogs without creating a second vocabulary.",
+        "Shared state families are allowed only when semantic ownership remains explicit and single-sourced."
+      ],
+    "machine_path": "contracts/enums/enum_catalog.json",
+    "scope": "minimum stable enums required by schema/rule/gate catalogs"
+  },
+  "enums": [
+    {
+      "enum_name": "document_status",
+      "description": "Formal document lifecycle state",
+      "source_refs": [
+        "D1-R-",
+        "D5-R-"
+      ],
+      "values": [
+        {
+          "value": "DRAFT",
+          "meaning": "Draft state pending formal effectiveness"
+        },
+        {
+          "value": "EFFECTIVE",
+          "meaning": "Current effective formal baseline"
+        },
+        {
+          "value": "SUPERSEDED",
+          "meaning": "Replaced by a newer effective version"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status"
+    },
+    {
+      "enum_name": "public_capability_tier",
+      "description": "Formal capability boundary tier",
+      "source_refs": [
+        "D3-R-010",
+        "D13-R-005"
+      ],
+      "values": [
+        {
+          "value": "A_PUBLIC_CORE",
+          "meaning": "Nationwide stable public core capability"
+        },
+        {
+          "value": "B_PUBLIC_ENHANCED",
+          "meaning": "Construction-domain enhanced public capability"
+        },
+        {
+          "value": "C_PUBLIC_CONDITIONAL",
+          "meaning": "Conditional public clue capability"
+        },
+        {
+          "value": "D_NON_PUBLIC_OR_FORENSIC",
+          "meaning": "Non-public, forensic, or regulatory capability forbidden in formal public chain"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "tier"
+    },
+    {
+      "enum_name": "result_type",
+      "description": "Formal result semantics",
+      "source_refs": [
+        "D3-R-006"
+      ],
+      "values": [
+        {
+          "value": "AUTO_HIT",
+          "meaning": "Formal hit with sufficient public evidence and dual-gate pass"
+        },
+        {
+          "value": "CLUE",
+          "meaning": "Strong clue that retains risk and review semantics"
+        },
+        {
+          "value": "OBSERVATION",
+          "meaning": "Weak or incomplete observed signal"
+        },
+        {
+          "value": "REVIEW_REQUEST",
+          "meaning": "Formal request for review or supplementary verification"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "type"
+    },
+    {
+      "enum_name": "external_use_grade",
+      "description": "Evidence external use grade",
+      "source_refs": [
+        "D3-R-018"
+      ],
+      "values": [
+        {
+          "value": "E1_INTERNAL_ONLY",
+          "meaning": "Internal only; not client-visible"
+        },
+        {
+          "value": "E2_REVIEW_READY",
+          "meaning": "Enough for formal review requests"
+        },
+        {
+          "value": "E3_CLIENT_VISIBLE",
+          "meaning": "Enough for constrained client-visible summaries"
+        },
+        {
+          "value": "E4_EXTERNAL_ACTION_READY",
+          "meaning": "Enough for external action assistance"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "grade"
+    },
+    {
+      "enum_name": "gate_status",
+      "description": "Shared status enum for dual gates",
+      "source_refs": [
+        "D3-R-022"
+      ],
+      "values": [
+        {
+          "value": "PASS",
+          "meaning": "Gate passed; may proceed to next judgment step"
+        },
+        {
+          "value": "REVIEW",
+          "meaning": "Gate requires review; may not upgrade to formal hit"
+        },
+        {
+          "value": "BLOCK",
+          "meaning": "Gate blocked; may not upgrade and must route to review/governance"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status"
+    },
+    {
+      "enum_name": "coverage_sellable_state",
+      "description": "Governance sellable coverage state",
+      "source_refs": [
+        "L0-coverage",
+        "D13-R-040"
+      ],
+      "values": [
+        {
+          "value": "NOT_READY",
+          "meaning": "Not ready for sellable use"
+        },
+        {
+          "value": "VALIDATING",
+          "meaning": "Validation in progress"
+        },
+        {
+          "value": "SELLABLE",
+          "meaning": "Sellable in validated scope"
+        },
+        {
+          "value": "RESTRICTED",
+          "meaning": "Restricted saleability with explicit limitations"
+        },
+        {
+          "value": "SUSPENDED",
+          "meaning": "Temporarily suspended"
+        },
+        {
+          "value": "RECOVERING",
+          "meaning": "Recovering after suspension or quality incident"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state"
+    },
+    {
+      "enum_name": "release_level",
+      "description": "Formal release level for internal leadops and leadpack delivery",
+      "source_refs": [
+        "D6-R-",
+        "D7-R-006"
+      ],
+      "values": [
+        {
+          "value": "DEV_ALLOWED",
+          "meaning": "Development/preview allowed; not for internal operations"
+        },
+        {
+          "value": "INTERNAL_OPERABLE",
+          "meaning": "Internal operations and sales consumable"
+        },
+        {
+          "value": "LEADPACK_DELIVERABLE",
+          "meaning": "Leadpack deliverable after gates and approvals"
+        },
+        {
+          "value": "EXTERNAL_BLOCKED",
+          "meaning": "Externally blocked and may not be promised or released"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "level"
+    },
+    {
+      "enum_name": "delivery_form",
+      "description": "Formal delivery form",
+      "source_refs": [
+        "D7-R-006"
+      ],
+      "values": [
+        {
+          "value": "INTERNAL_REVIEW",
+          "meaning": "Internal review delivery form"
+        },
+        {
+          "value": "CLIENT_DELIVERY",
+          "meaning": "Formal client delivery form"
+        },
+        {
+          "value": "EXTERNAL_ACTION_ASSIST",
+          "meaning": "Formal external action assistance form"
+        },
+        {
+          "value": "DEMO_PREVIEW",
+          "meaning": "Demo or preview form"
+        },
+        {
+          "value": "EXTERNAL_API",
+          "meaning": "Controlled external API form"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "form"
+    },
+    {
+      "enum_name": "field_classification",
+      "description": "Field policy class",
+      "source_refs": [
+        "D6-R-"
+      ],
+      "values": [
+        {
+          "value": "PUBLIC_FACT",
+          "meaning": "Stable fact field in formal fact/report chain"
+        },
+        {
+          "value": "CLIENT_SUMMARY",
+          "meaning": "Client-visible summary field"
+        },
+        {
+          "value": "INTERNAL_REASONING",
+          "meaning": "Internal reasoning/tracing/gate field"
+        },
+        {
+          "value": "GOVERNANCE_RESTRICTED",
+          "meaning": "Governance-only field"
+        },
+        {
+          "value": "NATURAL_PERSON_HIGH_RESTRICTION",
+          "meaning": "Natural-person high restriction field"
+        },
+        {
+          "value": "PRIVATE_SUPPLEMENT_ISOLATED",
+          "meaning": "Private supplement or isolated field"
+        },
+        {
+          "value": "SYSTEM_CONTROL",
+          "meaning": "Audit, archive, retention, or system control field"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other"
+    },
+    {
+      "enum_name": "masking_rule",
+      "description": "Field masking rule",
+      "source_refs": [
+        "D6-R-"
+      ],
+      "values": [
+        {
+          "value": "NONE",
+          "meaning": "No masking"
+        },
+        {
+          "value": "SUMMARY_ONLY",
+          "meaning": "Summary text only"
+        },
+        {
+          "value": "NAME_MASK",
+          "meaning": "Mask person name"
+        },
+        {
+          "value": "PHONE_MASK",
+          "meaning": "Mask phone number"
+        },
+        {
+          "value": "EMAIL_MASK",
+          "meaning": "Mask email"
+        },
+        {
+          "value": "ORG_ROLE_SUMMARY",
+          "meaning": "Organization and role summary only"
+        },
+        {
+          "value": "HASH_ONLY",
+          "meaning": "Hash only"
+        },
+        {
+          "value": "METADATA_ONLY",
+          "meaning": "Metadata only"
+        },
+        {
+          "value": "FULL_BLOCK",
+          "meaning": "Fully blocked"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other"
+    },
+    {
+      "enum_name": "review_lane",
+      "description": "Review lane",
+      "source_refs": [
+        "D1-R-",
+        "D2-R-017"
+      ],
+      "values": [
+        {
+          "value": "STANDARD",
+          "meaning": "Standard review lane"
+        },
+        {
+          "value": "FAST_WINDOW",
+          "meaning": "Fast lane for short legal action windows"
+        },
+        {
+          "value": "HIGH_PRIORITY",
+          "meaning": "High-priority review lane"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "lane"
+    },
+    {
+      "enum_name": "task_state",
+      "description": "Task execution state",
+      "source_refs": [
+        "D1-R-"
+      ],
+      "values": [
+        {
+          "value": "QUEUED",
+          "meaning": "Task queued"
+        },
+        {
+          "value": "RUNNING",
+          "meaning": "Task running"
+        },
+        {
+          "value": "PAUSED",
+          "meaning": "Task paused"
+        },
+        {
+          "value": "FAILED",
+          "meaning": "Task failed"
+        },
+        {
+          "value": "COMPLETED",
+          "meaning": "Task completed"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state"
+    },
+    {
+      "enum_name": "sale_gate_status",
+      "description": "Sale gate status",
+      "source_refs": [
+        "L0-sale-gate",
+        "D2-R-017"
+      ],
+      "values": [
+        {
+          "value": "OPEN",
+          "meaning": "All current commercial prerequisites passed; may proceed in allowed internal scope"
+        },
+        {
+          "value": "REVIEW",
+          "meaning": "Requires review before proceeding"
+        },
+        {
+          "value": "HOLD",
+          "meaning": "Dual gates passed but downstream formal issuance or readiness is not yet complete"
+        },
+        {
+          "value": "BLOCK",
+          "meaning": "Blocked from proceeding"
+        }
+      ],
+      "semantic_notes": "Commercial sale gate status controlling saleability entry and downstream commercialization.",
+      "status": "REUSED_COMMON_STATE_FAMILY",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status"
+    },
+    {
+      "enum_name": "delivery_risk_state",
+      "description": "Delivery risk state",
+      "source_refs": [
+        "D7-R-006",
+        "D11-R-"
+      ],
+      "values": [
+        {
+          "value": "ALLOW",
+          "meaning": "Delivery risk acceptable"
+        },
+        {
+          "value": "REVIEW",
+          "meaning": "Delivery risk requires review"
+        },
+        {
+          "value": "BLOCK",
+          "meaning": "Delivery risk blocks release or delivery"
+        }
+      ],
+      "semantic_notes": "Delivery/release risk status controlling outbound release and delivery gating.",
+      "status": "REUSED_COMMON_STATE_FAMILY",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state"
+    },
+    {
+      "enum_name": "manual_override_status",
+      "description": "Manual override status",
+      "source_refs": [
+        "L0-manual-override",
+        "D7-R-"
+      ],
+      "values": [
+        {
+          "value": "NONE",
+          "meaning": "No manual override in effect"
+        },
+        {
+          "value": "PENDING",
+          "meaning": "Manual override request pending approval"
+        },
+        {
+          "value": "APPROVED_LIMITED",
+          "meaning": "Approved in a limited scope"
+        },
+        {
+          "value": "REJECTED",
+          "meaning": "Manual override rejected"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status"
+    },
+    {
+      "enum_name": "contact_policy_state",
+      "description": "Shared enum for contact validity, channel policy, frequency, opt-out, and quiet-hours states",
+      "source_refs": [
+        "D9-R-",
+        "D11-R-"
+      ],
+      "values": [
+        {
+          "value": "ALLOW",
+          "meaning": "Compliant and allowed"
+        },
+        {
+          "value": "REVIEW",
+          "meaning": "Needs approval or review"
+        },
+        {
+          "value": "BLOCK",
+          "meaning": "Blocked by compliance policy"
+        }
+      ],
+      "semantic_notes": "Contact compliance state covering legal basis, frequency, opt-out and quiet-hours constraints.",
+      "status": "REUSED_COMMON_STATE_FAMILY",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state"
+    },
+    {
+      "enum_name": "vendor_type",
+      "description": "Unified vendor classification for source-side and execution-side external vendors.",
+      "source_refs": [
+        "D2-R-094-A",
+        "D9-R-070-A",
+        "D9-R-070-B"
+      ],
+      "values": [
+        {
+          "value": "SOURCE_VENDOR",
+          "meaning": "Vendor used for public official source intake, third-party support lookup, or contact enrichment."
+        },
+        {
+          "value": "EXECUTION_VENDOR",
+          "meaning": "Vendor used only to execute approved outreach plans or write back execution results."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "type",
+      "owning_objects": [
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "semantic_notes": "Shared vendor type enum prevents a second parallel source_vendor_class or execution_vendor_class vocabulary."
+    },
+    {
+      "enum_name": "vendor_role",
+      "description": "Unified vendor role classification for source enrichment and outreach execution semantics.",
+      "source_refs": [
+        "D2-R-094-A",
+        "D9-R-070-A",
+        "D9-R-070-B"
+      ],
+      "values": [
+        {
+          "value": "PUBLIC_OFFICIAL_SOURCE",
+          "meaning": "Official public source such as company website or regulator disclosure page."
+        },
+        {
+          "value": "THIRD_PARTY_SUPPORT_SOURCE",
+          "meaning": "Third-party support source used for review, verification support, or enrichment only."
+        },
+        {
+          "value": "CONTACT_ENRICHMENT_SOURCE",
+          "meaning": "Source role used only to form contact_target candidates under compliance controls."
+        },
+        {
+          "value": "EXECUTION_VENDOR",
+          "meaning": "Execution-only vendor role used for preview, dry-run, approval-gated outreach execution and writeback."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "role",
+      "owning_objects": [
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "semantic_notes": "Shared vendor role enum replaces separate source_vendor_class and execution_vendor_class enums."
+    },
+    {
+      "enum_name": "provider_type",
+      "description": "Unified provider classification for model and tool providers.",
+      "source_refs": [
+        "D2-R-094-A",
+        "D14-R-056-C"
+      ],
+      "values": [
+        {
+          "value": "MODEL_PROVIDER",
+          "meaning": "Primary provider that serves model inference capability."
+        },
+        {
+          "value": "TOOL_PROVIDER",
+          "meaning": "Provider that serves auxiliary tool/query capability used by model workflows."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "type",
+      "owning_objects": [
+        "model_governance_record"
+      ],
+      "semantic_notes": "Shared provider type enum replaces a second parallel tool_provider_class vocabulary."
+    },
+    {
+      "enum_name": "opportunity_grade",
+      "description": "Opportunity grade",
+      "source_refs": [
+        "D8-R-"
+      ],
+      "values": [
+        {
+          "value": "A",
+          "meaning": "Highest priority and readiness"
+        },
+        {
+          "value": "B",
+          "meaning": "Strong but not highest priority"
+        },
+        {
+          "value": "C",
+          "meaning": "Medium priority"
+        },
+        {
+          "value": "D",
+          "meaning": "Low priority or heavily constrained"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "grade"
+    },
+    {
+      "enum_name": "release_state",
+      "description": "Release state for isolated supplements and exceptions",
+      "source_refs": [
+        "D7-R-"
+      ],
+      "values": [
+        {
+          "value": "ISOLATED",
+          "meaning": "Isolated and not eligible for release"
+        },
+        {
+          "value": "REVIEW_ELIGIBLE",
+          "meaning": "May be reviewed for limited impact"
+        },
+        {
+          "value": "IMPACT_ELIGIBLE",
+          "meaning": "May affect review/fact chain in approved scope"
+        },
+        {
+          "value": "RELEASED",
+          "meaning": "Released in approved scope"
+        },
+        {
+          "value": "REVOKED",
+          "meaning": "Release revoked"
+        }
+      ],
+      "status": "CONFIRMED_FROM_CONTRACTS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state"
+    },
+    {
+      "enum_name": "account_role_summary",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "LEGAL_ACTION",
+          "meaning": ""
+        },
+        {
+          "value": "PROCUREMENT_DECISION",
+          "meaning": ""
+        },
+        {
+          "value": "PAYMENT_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "ORG_GATEKEEPER",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other",
+      "owning_objects": [
+        "account_context"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "action_family",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D13.md#enum-supplement",
+        "D2.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NO_ACTION",
+          "meaning": ""
+        },
+        {
+          "value": "REVIEW_ONLY",
+          "meaning": ""
+        },
+        {
+          "value": "OBJECTION_PREP",
+          "meaning": ""
+        },
+        {
+          "value": "COMPLAINT_REPORT",
+          "meaning": ""
+        },
+        {
+          "value": "EVIDENCE_PRESERVATION",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "family",
+      "owning_objects": [
+        "legal_action_recommendation"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "action_window_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D9.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "WITHIN_WINDOW",
+          "meaning": ""
+        },
+        {
+          "value": "OUT_OF_WINDOW",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "legal_action_actor_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "actionability_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D9.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "ACTIONABLE",
+          "meaning": ""
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": ""
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "legal_action_actor_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "actor_role_cluster",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "LEGAL_ACTION",
+          "meaning": ""
+        },
+        {
+          "value": "PROCUREMENT_DECISION",
+          "meaning": ""
+        },
+        {
+          "value": "PAYMENT_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "ORG_GATEKEEPER",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other",
+      "owning_objects": [
+        "legal_action_actor_profile",
+        "procurement_decision_actor_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "amount_band",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "LOW",
+          "meaning": ""
+        },
+        {
+          "value": "MEDIUM",
+          "meaning": ""
+        },
+        {
+          "value": "HIGH",
+          "meaning": ""
+        },
+        {
+          "value": "VERY_HIGH",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "band",
+      "owning_objects": [
+        "order_record",
+        "payment_record"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "approval_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D9.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NOT_REQUIRED",
+          "meaning": ""
+        },
+        {
+          "value": "PENDING",
+          "meaning": ""
+        },
+        {
+          "value": "APPROVED",
+          "meaning": ""
+        },
+        {
+          "value": "REJECTED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "outreach_plan"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "archival_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NOT_ARCHIVED",
+          "meaning": ""
+        },
+        {
+          "value": "ARCHIVING",
+          "meaning": ""
+        },
+        {
+          "value": "ARCHIVED",
+          "meaning": ""
+        },
+        {
+          "value": "ARCHIVE_EXCEPTION",
+          "meaning": ""
+        },
+        {
+          "value": "RETRIEVAL_LOCKED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "delivery_record"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "award_determination_mode",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D2.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "LOWEST_PRICE",
+          "meaning": ""
+        },
+        {
+          "value": "COMPREHENSIVE_SCORE",
+          "meaning": ""
+        },
+        {
+          "value": "REASONABLE_LOW_PRICE",
+          "meaning": ""
+        },
+        {
+          "value": "NEGOTIATION",
+          "meaning": ""
+        },
+        {
+          "value": "OTHER",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "mode",
+      "owning_objects": [
+        "project_base"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "buyer_type",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "GOVERNMENT",
+          "meaning": ""
+        },
+        {
+          "value": "STATE_OWNED",
+          "meaning": ""
+        },
+        {
+          "value": "ENTERPRISE",
+          "meaning": ""
+        },
+        {
+          "value": "INSTITUTION",
+          "meaning": ""
+        },
+        {
+          "value": "OTHER",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "type",
+      "owning_objects": [
+        "buyer_fit",
+        "challenger_buyer_fit"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "candidate_group_label",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D2.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "WINNING_GROUP",
+          "meaning": ""
+        },
+        {
+          "value": "CANDIDATE_GROUP",
+          "meaning": ""
+        },
+        {
+          "value": "DISQUALIFIED_GROUP",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other",
+      "owning_objects": [
+        "bidder_candidate"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "candidate_order_mode",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D2.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "ORDERED",
+          "meaning": ""
+        },
+        {
+          "value": "UNORDERED",
+          "meaning": ""
+        },
+        {
+          "value": "SINGLE_WINNER",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "mode",
+      "owning_objects": [
+        "project_base"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "candidate_position_label",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "WINNER",
+          "meaning": ""
+        },
+        {
+          "value": "FIRST_CANDIDATE",
+          "meaning": ""
+        },
+        {
+          "value": "SECOND_CANDIDATE",
+          "meaning": ""
+        },
+        {
+          "value": "THIRD_CANDIDATE",
+          "meaning": ""
+        },
+        {
+          "value": "OTHER",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other",
+      "owning_objects": [
+        "challenger_candidate_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "carrier_type",
+      "description": "Stage 1-2 source carrier type",
+      "source_refs": [
+        "专题_来源覆盖与采集路由规范.md",
+        "D2-R-088"
+      ],
+      "values": [
+        {
+          "value": "HTML_PAGE",
+          "meaning": "HTML page content"
+        },
+        {
+          "value": "PDF_ATTACHMENT",
+          "meaning": "PDF attachment"
+        },
+        {
+          "value": "DOC_ATTACHMENT",
+          "meaning": "DOC/DOCX attachment"
+        },
+        {
+          "value": "IMAGE_ATTACHMENT",
+          "meaning": "Image scan attachment"
+        },
+        {
+          "value": "TABLE_SEGMENT",
+          "meaning": "Table segment or structured table page"
+        },
+        {
+          "value": "TEXT_SEGMENT",
+          "meaning": "Plain text segment"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "type",
+      "owning_objects": [
+        "public_chain",
+        "notice_version_chain",
+        "field_lineage_record"
+      ],
+      "semantic_notes": "Stage 1-2 carrier types for source collection and parsing."
+    },
+    {
+      "enum_name": "source_family",
+      "description": "Stage 1-2 source family classification",
+      "source_refs": [
+        "专题_来源覆盖与采集路由规范.md",
+        "D2-R-088"
+      ],
+      "values": [
+        {
+          "value": "PROCUREMENT_NOTICE",
+          "meaning": "Procurement / tender notice family"
+        },
+        {
+          "value": "AWARD_ANNOUNCEMENT",
+          "meaning": "Award or transaction announcement family"
+        },
+        {
+          "value": "REGULATORY_PUBLICATION",
+          "meaning": "Regulatory / construction public disclosure family"
+        },
+        {
+          "value": "ENTERPRISE_REGISTRY",
+          "meaning": "Enterprise registry / qualification family"
+        },
+        {
+          "value": "JUDICIAL_CREDIT_RISK",
+          "meaning": "Judicial / credit / risk public disclosure family"
+        },
+        {
+          "value": "ANNEX_QA_SUPPLEMENT",
+          "meaning": "Annex, addendum, Q&A family"
+        },
+        {
+          "value": "OTHER_PUBLIC_SOURCE",
+          "meaning": "Other public source family"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "family",
+      "owning_objects": [
+        "execution_context",
+        "public_chain",
+        "notice_version_chain",
+        "field_lineage_record"
+      ],
+      "semantic_notes": "Stage 1-2 source family drives route selection and review requirements."
+    },
+    {
+      "enum_name": "platform_level",
+      "description": "Stage 1-2 platform level classification",
+      "source_refs": [
+        "专题_来源覆盖与采集路由规范.md",
+        "D2-R-088"
+      ],
+      "values": [
+        {
+          "value": "NATIONAL",
+          "meaning": "National level platform"
+        },
+        {
+          "value": "PROVINCE",
+          "meaning": "Provincial level platform"
+        },
+        {
+          "value": "CITY",
+          "meaning": "City level platform"
+        },
+        {
+          "value": "COUNTY",
+          "meaning": "County level platform"
+        },
+        {
+          "value": "INDUSTRY_PLATFORM",
+          "meaning": "Industry or domain platform"
+        },
+        {
+          "value": "ENTERPRISE_SITE",
+          "meaning": "Enterprise self-managed public site"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "level",
+      "owning_objects": [
+        "execution_context",
+        "public_chain",
+        "notice_version_chain",
+        "field_lineage_record"
+      ],
+      "semantic_notes": "Platform level classification for stage 1-2 collection routing and coverage."
+    },
+    {
+      "enum_name": "region_scope",
+      "description": "Stage 1-2 region scope classification",
+      "source_refs": [
+        "专题_来源覆盖与采集路由规范.md",
+        "D2-R-088"
+      ],
+      "values": [
+        {
+          "value": "NATIONAL",
+          "meaning": "Nationwide scope"
+        },
+        {
+          "value": "PROVINCE",
+          "meaning": "Province scope"
+        },
+        {
+          "value": "CITY",
+          "meaning": "City scope"
+        },
+        {
+          "value": "COUNTY",
+          "meaning": "County scope"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "scope",
+      "owning_objects": [
+        "execution_context",
+        "public_chain",
+        "notice_version_chain"
+      ],
+      "semantic_notes": "Region scope is an input to coverage tier and gating."
+    },
+    {
+      "enum_name": "coverage_tier",
+      "description": "Stage 1-2 coverage tier classification",
+      "source_refs": [
+        "专题_来源覆盖与采集路由规范.md",
+        "D2-R-088"
+      ],
+      "values": [
+        {
+          "value": "T0_CORE",
+          "meaning": "Nationwide core coverage"
+        },
+        {
+          "value": "T1_REGIONAL",
+          "meaning": "Regional or provincial coverage"
+        },
+        {
+          "value": "T2_LOCAL",
+          "meaning": "Local city/county coverage"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "tier",
+      "owning_objects": [
+        "execution_context",
+        "public_chain",
+        "field_lineage_record"
+      ],
+      "semantic_notes": "Coverage tier is used for downgrade/review/block decisions; it is not an external promise."
+    },
+    {
+      "enum_name": "route_type",
+      "description": "Stage 1-2 collection route type",
+      "source_refs": [
+        "专题_来源覆盖与采集路由规范.md",
+        "D2-R-088"
+      ],
+      "values": [
+        {
+          "value": "LIST_TO_DETAIL",
+          "meaning": "List discovery to detail fetch"
+        },
+        {
+          "value": "DETAIL_DIRECT",
+          "meaning": "Direct detail fetch"
+        },
+        {
+          "value": "ATTACHMENT_FIRST",
+          "meaning": "Attachment-first route"
+        },
+        {
+          "value": "VERSION_CHAIN",
+          "meaning": "Version chain tracking"
+        },
+        {
+          "value": "METADATA_ONLY",
+          "meaning": "Metadata-only collection"
+        },
+        {
+          "value": "SEMI_MANUAL",
+          "meaning": "Semi-manual supplement route"
+        },
+        {
+          "value": "REGISTER_ONLY",
+          "meaning": "Register-only, no automated collection"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "route",
+      "owning_objects": [
+        "execution_context",
+        "public_chain",
+        "notice_version_chain"
+      ],
+      "semantic_notes": "Route type guides collection workflow and review requirement."
+    },
+    {
+      "enum_name": "collection_state",
+      "description": "Stage 1-2 collection lifecycle state",
+      "source_refs": [
+        "专题_来源覆盖与采集路由规范.md",
+        "D2-R-088",
+        "D3-R-051"
+      ],
+      "values": [
+        {
+          "value": "DISCOVERED",
+          "meaning": "Source discovered but not evaluated"
+        },
+        {
+          "value": "ELIGIBLE",
+          "meaning": "Eligible for collection"
+        },
+        {
+          "value": "SCHEDULED",
+          "meaning": "Scheduled for collection"
+        },
+        {
+          "value": "FETCHED",
+          "meaning": "Collection completed"
+        },
+        {
+          "value": "PARSED",
+          "meaning": "Parsing completed"
+        },
+        {
+          "value": "NORMALIZED",
+          "meaning": "Normalization completed"
+        },
+        {
+          "value": "VERIFIED",
+          "meaning": "Verification completed"
+        },
+        {
+          "value": "EVIDENCED",
+          "meaning": "Evidence chain established"
+        },
+        {
+          "value": "FACT_READY",
+          "meaning": "Ready for fact layer"
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": "Manual review required"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "Blocked from chain"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "public_chain",
+        "clock_chain_profile",
+        "notice_version_chain",
+        "field_lineage_record"
+      ],
+      "semantic_notes": "Stage 1-2 collection lifecycle state used for routing, review and blocking decisions. Representative source baseline may start at DISCOVERED/ELIGIBLE/REVIEW_REQUIRED/BLOCKED, while Stage 2 collection runtime projects those baseline states into PARSED/REVIEW_REQUIRED/BLOCKED through route_policy.collection_state_runtime_map.",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "DISCOVERED -> ELIGIBLE",
+          "ELIGIBLE -> SCHEDULED",
+          "SCHEDULED -> FETCHED",
+          "FETCHED -> PARSED",
+          "PARSED -> NORMALIZED",
+          "NORMALIZED -> VERIFIED",
+          "VERIFIED -> EVIDENCED",
+          "EVIDENCED -> FACT_READY",
+          "DISCOVERED -> REVIEW_REQUIRED",
+          "ELIGIBLE -> REVIEW_REQUIRED",
+          "SCHEDULED -> REVIEW_REQUIRED",
+          "FETCHED -> REVIEW_REQUIRED",
+          "PARSED -> REVIEW_REQUIRED",
+          "NORMALIZED -> REVIEW_REQUIRED",
+          "VERIFIED -> REVIEW_REQUIRED",
+          "EVIDENCED -> REVIEW_REQUIRED",
+          "DISCOVERED -> BLOCKED",
+          "ELIGIBLE -> BLOCKED",
+          "SCHEDULED -> BLOCKED",
+          "FETCHED -> BLOCKED",
+          "PARSED -> BLOCKED",
+          "NORMALIZED -> BLOCKED",
+          "VERIFIED -> BLOCKED",
+          "EVIDENCED -> BLOCKED"
+        ],
+        "blocked_transitions": [
+          "BLOCKED -> FACT_READY"
+        ],
+        "actors": [
+          "system for automated routing",
+          "reviewer for manual review and downgrade/restore"
+        ],
+        "system_actions": {
+          "REVIEW_REQUIRED": "hold pipeline until review completes",
+          "BLOCKED": "exclude from formal chain"
+        },
+        "stage12_runtime_projection": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        }
+      }
+    },
+    {
+      "enum_name": "channel_family",
+      "description": "Stage 8 outreach channel family for compliance alignment.",
+      "source_refs": [
+        "D9_联系对象与销售触达规范.md",
+        "D2_正式对象契约与字段字典.md"
+      ],
+      "values": [
+        {
+          "value": "ORG_EMAIL",
+          "meaning": "Organization public/service email entry."
+        },
+        {
+          "value": "ORG_PHONE",
+          "meaning": "Organization public phone or hotline."
+        },
+        {
+          "value": "PUBLIC_FORM",
+          "meaning": "Public web form or ticketing entry."
+        },
+        {
+          "value": "CRM_APPROVED_DIRECT",
+          "meaning": "Compliant CRM direct channel."
+        },
+        {
+          "value": "AUTHORIZED_PERSON_DIRECT",
+          "meaning": "Customer-authorized person direct contact (high restriction)."
+        },
+        {
+          "value": "SOCIAL_DM",
+          "meaning": "Social media direct message (high restriction)."
+        },
+        {
+          "value": "IM_DIRECT",
+          "meaning": "Instant messaging direct contact (high restriction)."
+        },
+        {
+          "value": "PERSONAL_PHONE",
+          "meaning": "Natural person phone contact (high restriction)."
+        },
+        {
+          "value": "PERSONAL_EMAIL",
+          "meaning": "Natural person email contact (high restriction)."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "family",
+      "semantic_notes": "ORG_* / PUBLIC_FORM default allowed; direct-person families require manual review by default; internal preview only."
+    },
+    {
+      "enum_name": "channel_policy_status",
+      "description": "Stage 8 channel policy state for outreach compliance.",
+      "source_refs": [
+        "D9_联系对象与销售触达规范.md",
+        "D2_正式对象契约与字段字典.md"
+      ],
+      "values": [
+        {
+          "value": "ALLOW",
+          "meaning": "Channel allowed for current context."
+        },
+        {
+          "value": "REVIEW",
+          "meaning": "Manual review required before use."
+        },
+        {
+          "value": "BLOCK",
+          "meaning": "Channel blocked for current context."
+        },
+        {
+          "value": "UNAVAILABLE",
+          "meaning": "Channel unavailable or not auditable."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "contact_target"
+      ],
+      "semantic_notes": "Aligned with D9 channel policy; used by contact compliance matrix."
+    },
+    {
+      "enum_name": "clock_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#enum-table"
+      ],
+      "values": [
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        },
+        {
+          "value": "NOT_APPLICABLE",
+          "meaning": ""
+        },
+        {
+          "value": "OPEN",
+          "meaning": ""
+        },
+        {
+          "value": "DUE_SOON",
+          "meaning": ""
+        },
+        {
+          "value": "EXPIRED",
+          "meaning": ""
+        },
+        {
+          "value": "CLOSED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "clock_chain_profile"
+      ],
+      "semantic_notes": "Values frozen in L0 enum table."
+    },
+    {
+      "enum_name": "commercial_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "DRAFT",
+          "meaning": ""
+        },
+        {
+          "value": "PENDING_APPROVAL",
+          "meaning": ""
+        },
+        {
+          "value": "APPROVED",
+          "meaning": ""
+        },
+        {
+          "value": "CONFIRMED",
+          "meaning": ""
+        },
+        {
+          "value": "ON_HOLD",
+          "meaning": ""
+        },
+        {
+          "value": "CANCELLED",
+          "meaning": ""
+        },
+        {
+          "value": "TERMINATED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "order_record"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "commercial_urgency_level",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F"
+      ],
+      "values": [
+        {
+          "value": "CRITICAL",
+          "meaning": ""
+        },
+        {
+          "value": "HIGH",
+          "meaning": ""
+        },
+        {
+          "value": "NORMAL",
+          "meaning": ""
+        },
+        {
+          "value": "LOW",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "level",
+      "owning_objects": [
+        "review_queue_profile"
+      ],
+      "semantic_notes": "Values frozen in L0 Appendix F."
+    },
+    {
+      "enum_name": "competitor_quality_grade",
+      "description": "Auto-generated from observed machine asset values",
+      "source_refs": [
+        "L0.md#Appendix-F.1"
+      ],
+      "values": [
+        {
+          "value": "A",
+          "meaning": ""
+        },
+        {
+          "value": "B",
+          "meaning": ""
+        },
+        {
+          "value": "C",
+          "meaning": ""
+        },
+        {
+          "value": "D",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "grade",
+      "owning_objects": [
+        "project_fact"
+      ],
+      "semantic_notes": "Values frozen in L0 Appendix F.1."
+    },
+    {
+      "enum_name": "confidence_band",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "LOW",
+          "meaning": ""
+        },
+        {
+          "value": "MEDIUM",
+          "meaning": ""
+        },
+        {
+          "value": "HIGH",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "band",
+      "owning_objects": [
+        "pseudo_competitor_signal_set"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "conflict_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "CONSISTENT",
+          "meaning": "字段来源与版本一致，可进入归一与下游消费。"
+        },
+        {
+          "value": "CONFLICTING",
+          "meaning": "存在冲突字段值，必须进入复核或等待裁决。"
+        },
+        {
+          "value": "UNRESOLVED",
+          "meaning": "冲突未解或缺裁决依据，阻断升级。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "field_lineage_record"
+      ],
+      "semantic_notes": "阶段3字段冲突状态，用于驱动复核与阻断路径。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "CONSISTENT -> CONFLICTING",
+          "CONFLICTING -> CONSISTENT",
+          "CONFLICTING -> UNRESOLVED",
+          "UNRESOLVED -> CONSISTENT",
+          "UNRESOLVED -> CONFLICTING"
+        ],
+        "blocked_transitions": [
+          "UNRESOLVED -> CONSISTENT (without resolution rule)"
+        ],
+        "actors": [
+          "system for conflict detection",
+          "reviewer for manual resolution"
+        ],
+        "system_actions": {
+          "CONFLICTING": "route to review_queue and freeze downstream normalization",
+          "UNRESOLVED": "block downstream consumption until resolved",
+          "CONSISTENT": "allow normalization and downstream consumption"
+        }
+      }
+    },
+    {
+      "enum_name": "contact_failure_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NO_RESPONSE",
+          "meaning": ""
+        },
+        {
+          "value": "INVALID_CONTACT",
+          "meaning": ""
+        },
+        {
+          "value": "OPTED_OUT",
+          "meaning": ""
+        },
+        {
+          "value": "WRONG_ROLE",
+          "meaning": ""
+        },
+        {
+          "value": "UNREACHABLE",
+          "meaning": ""
+        },
+        {
+          "value": "OTHER",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "opportunity_outcome_event"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "contact_legal_basis",
+      "description": "Stage 8 legal basis for contact and outreach compliance.",
+      "source_refs": [
+        "D9_联系对象与销售触达规范.md"
+      ],
+      "values": [
+        {
+          "value": "BLOCKED",
+          "meaning": "Legal basis invalid or prohibited."
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": "Legal basis unresolved; requires human review."
+        },
+        {
+          "value": "PUBLIC_ROLE_CONTACT",
+          "meaning": "Publicly auditable business or role contact."
+        },
+        {
+          "value": "CUSTOMER_AUTHORIZED_CONTACT",
+          "meaning": "Explicit customer authorization or provided contact."
+        },
+        {
+          "value": "COMPLIANT_CRM_CONTACT",
+          "meaning": "Compliant CRM-sourced contact with audit trail."
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other",
+      "semantic_notes": "Missing or uncertain basis must resolve to REVIEW_REQUIRED/BLOCKED; internal preview only."
+    },
+    {
+      "enum_name": "contact_validity_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D9.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "VALID",
+          "meaning": ""
+        },
+        {
+          "value": "INVALID",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "contact_target"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "crm_owner_state",
+      "description": "Auto-generated from observed machine asset values",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "UNASSIGNED",
+          "meaning": ""
+        },
+        {
+          "value": "ASSIGNED",
+          "meaning": ""
+        },
+        {
+          "value": "WORKING",
+          "meaning": ""
+        },
+        {
+          "value": "ON_HOLD",
+          "meaning": ""
+        },
+        {
+          "value": "CLOSED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "saleable_opportunity"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "cross_check_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "NOT_RUN",
+          "meaning": "尚未进行交叉核验。"
+        },
+        {
+          "value": "PASS",
+          "meaning": "交叉核验通过，证据可继续升级。"
+        },
+        {
+          "value": "REVIEW",
+          "meaning": "交叉核验存在缺口，需要复核。"
+        },
+        {
+          "value": "BLOCK",
+          "meaning": "交叉核验失败或不可审计，阻断升级。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "evidence",
+        "evidence_grade_profile"
+      ],
+      "semantic_notes": "证据交叉核验状态，用于证据生命周期裁决。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "NOT_RUN -> PASS",
+          "NOT_RUN -> REVIEW",
+          "NOT_RUN -> BLOCK",
+          "REVIEW -> PASS",
+          "REVIEW -> BLOCK",
+          "PASS -> REVIEW"
+        ],
+        "blocked_transitions": [
+          "BLOCK -> PASS"
+        ],
+        "actors": [
+          "system for automated cross-check",
+          "reviewer for manual cross-check"
+        ],
+        "system_actions": {
+          "REVIEW": "freeze evidence upgrade until manual review completes",
+          "BLOCK": "exclude evidence from gate pass"
+        }
+      }
+    },
+    {
+      "enum_name": "delivery_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NOT_READY",
+          "meaning": ""
+        },
+        {
+          "value": "READY_FOR_RELEASE",
+          "meaning": ""
+        },
+        {
+          "value": "RELEASE_BLOCKED",
+          "meaning": ""
+        },
+        {
+          "value": "DELIVERED",
+          "meaning": ""
+        },
+        {
+          "value": "ACK_PENDING",
+          "meaning": ""
+        },
+        {
+          "value": "ACKNOWLEDGED",
+          "meaning": ""
+        },
+        {
+          "value": "REWORK_REQUIRED",
+          "meaning": ""
+        },
+        {
+          "value": "REDELIVERY_REQUIRED",
+          "meaning": ""
+        },
+        {
+          "value": "CLOSED",
+          "meaning": ""
+        },
+        {
+          "value": "TERMINATED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "delivery_record"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "exception_scope",
+      "description": "Controlled exception family scope",
+      "source_refs": [
+        "D7-R-041",
+        "D7-R-020",
+        "D6-R-029",
+        "contracts/exceptions/exception_policy_catalog.json"
+      ],
+      "values": [
+        {
+          "value": "COVERAGE_HOLD",
+          "meaning": "Coverage hold exception"
+        },
+        {
+          "value": "DELIVERY_RELEASE",
+          "meaning": "Delivery release exception"
+        },
+        {
+          "value": "PRIVATE_SUPPLEMENT_IMPACT",
+          "meaning": "Private supplement impact exception"
+        },
+        {
+          "value": "CONTACT_RESTRICTION",
+          "meaning": "Contact restriction exception"
+        },
+        {
+          "value": "OTHER",
+          "meaning": "Other controlled exception"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "family",
+      "owning_objects": [
+        "controlled_exception_record"
+      ],
+      "semantic_notes": "C-group frozen enum; controls governed exception family and its allowed scope; does not bypass L0 boundary, dual gates, or release gates.",
+      "decision_rules": [
+        "exception_scope selects the approval chain and exception policy family; controlled_exception_record is mandatory.",
+        "scope may only limit, defer, restrict or allow within gated scope; it cannot promote D-tier or bypass dual gates.",
+        "scope impact must be reflected in delivery_matrix and field_policy_dictionary before any release."
+      ],
+      "mapping_notes": [
+        "COVERAGE_HOLD -> approval_chain: boundary_exception; affects coverage_registry and coverage_promotion_release gate.",
+        "DELIVERY_RELEASE -> approval_chain: boundary_exception; affects delivery_matrix/release_gates only within approved scope.",
+        "PRIVATE_SUPPLEMENT_IMPACT -> approval_chain: private_supplement_release; affects private_supplement_record usable_scope/release_state.",
+        "CONTACT_RESTRICTION -> approval_chain: high_restriction_contact_release; affects contact_target/outreach_plan; does not change field_class.",
+        "OTHER -> requires explicit scope, duration and rollback_plan; cannot be used as a blanket bypass."
+      ],
+      "example_cases": [
+        {
+          "case_id": "EXC-SCOPE-01",
+          "scope": "COVERAGE_HOLD",
+          "scenario": "source stability regresses during validation",
+          "decision": "hold coverage promotion and block leadpack release",
+          "expected_effect": "coverage_sellable_state remains VALIDATING; release gates remain BLOCK"
+        },
+        {
+          "case_id": "EXC-SCOPE-02",
+          "scope": "DELIVERY_RELEASE",
+          "scenario": "approved leadpack summary for internal pilot",
+          "decision": "allow limited leadpack delivery for approved objects",
+          "expected_effect": "delivery_matrix allows summary fields only with audit and approval"
+        },
+        {
+          "case_id": "EXC-SCOPE-03",
+          "scope": "PRIVATE_SUPPLEMENT_IMPACT",
+          "scenario": "private supplement reviewed for impact eligibility",
+          "decision": "usable_scope set to REVIEW_ONLY; no external exposure",
+          "expected_effect": "private supplement content stays isolated; delivery uses metadata only"
+        }
+      ]
+    },
+    {
+      "enum_name": "exception_state",
+      "description": "Controlled exception lifecycle state",
+      "source_refs": [
+        "D10-R-037",
+        "D7-R-020",
+        "contracts/exceptions/exception_policy_catalog.json"
+      ],
+      "values": [
+        {
+          "value": "PENDING",
+          "meaning": "Pending approval"
+        },
+        {
+          "value": "APPROVED",
+          "meaning": "Approved"
+        },
+        {
+          "value": "REJECTED",
+          "meaning": "Rejected"
+        },
+        {
+          "value": "ROLLED_BACK",
+          "meaning": "Rolled back"
+        },
+        {
+          "value": "EXPIRED",
+          "meaning": "Expired"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "controlled_exception_record"
+      ],
+      "semantic_notes": "C-group frozen enum; lifecycle for controlled_exception_record; does not override L0 boundaries or dual-gate blockers.",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "PENDING -> APPROVED",
+          "PENDING -> REJECTED",
+          "PENDING -> EXPIRED",
+          "APPROVED -> ROLLED_BACK",
+          "APPROVED -> EXPIRED"
+        ],
+        "blocked_transitions": [
+          "REJECTED -> APPROVED",
+          "EXPIRED -> APPROVED",
+          "ROLLED_BACK -> APPROVED"
+        ],
+        "actors": [
+          "governance_owner/release_approver for approve or reject",
+          "system for expire on effective_until",
+          "governance_owner for rollback"
+        ],
+        "system_actions": {
+          "PENDING": "hold release and require approval chain",
+          "APPROVED": "apply scoped restriction or limited allowance with audit",
+          "REJECTED": "keep default gates; no override",
+          "ROLLED_BACK": "revoke temporary allowance and restore default gates",
+          "EXPIRED": "auto revert; close exception record"
+        }
+      },
+      "decision_rules": [
+        "exception_state never bypasses D-tier, dual-gate or release-gate blockers.",
+        "APPROVED requires approval chain completion, audit trail, and rollback_plan.",
+        "EXPIRED and ROLLED_BACK must trigger release re-evaluation and governance feedback."
+      ],
+      "mapping_notes": [
+        "PENDING blocks release_gates and delivery_matrix exceptions until approval completes.",
+        "APPROVED allows only the approved scope and duration; other gates remain enforced.",
+        "REJECTED, ROLLED_BACK, EXPIRED reset to default governance rules."
+      ],
+      "example_cases": [
+        {
+          "case_id": "EXC-STATE-01",
+          "state_path": "PENDING -> APPROVED",
+          "scenario": "delivery_release exception approved for a single leadpack batch",
+          "expected_effect": "limited delivery allowed with audit; no external platform release"
+        },
+        {
+          "case_id": "EXC-STATE-02",
+          "state_path": "PENDING -> REJECTED",
+          "scenario": "coverage hold request rejected due to missing rollback_plan",
+          "expected_effect": "coverage rules unchanged; release remains blocked"
+        },
+        {
+          "case_id": "EXC-STATE-03",
+          "state_path": "APPROVED -> EXPIRED",
+          "scenario": "temporary contact restriction exception reaches effective_until",
+          "expected_effect": "contact release blocked again; audit record closed"
+        }
+      ]
+    },
+    {
+      "enum_name": "fixation_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "NOT_FIXED",
+          "meaning": "未固定原始载体或证据包。"
+        },
+        {
+          "value": "SNAPSHOT_CAPTURED",
+          "meaning": "已完成快照捕获，待校验。"
+        },
+        {
+          "value": "HASH_LOCKED",
+          "meaning": "已哈希锁定并可审计。"
+        },
+        {
+          "value": "ARCHIVED",
+          "meaning": "已归档，作为审计固定件。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "evidence_grade_profile",
+        "evidence"
+      ],
+      "semantic_notes": "证据固定件生命周期状态，驱动证据可审计性判断。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "NOT_FIXED -> SNAPSHOT_CAPTURED",
+          "SNAPSHOT_CAPTURED -> HASH_LOCKED",
+          "HASH_LOCKED -> ARCHIVED",
+          "SNAPSHOT_CAPTURED -> NOT_FIXED"
+        ],
+        "blocked_transitions": [
+          "ARCHIVED -> NOT_FIXED"
+        ],
+        "actors": [
+          "system for capture and hashing",
+          "reviewer for audit confirmation"
+        ],
+        "system_actions": {
+          "NOT_FIXED": "block evidence upgrade to external use",
+          "HASH_LOCKED": "allow evidence to enter gate evaluation"
+        }
+      }
+    },
+    {
+      "enum_name": "frequency_policy_state",
+      "description": "Auto-generated from observed machine asset values",
+      "source_refs": [
+        "D9_联系对象与销售触达规范.md"
+      ],
+      "values": [
+        {
+          "value": "ALLOW",
+          "meaning": ""
+        },
+        {
+          "value": "BLOCK",
+          "meaning": ""
+        },
+        {
+          "value": "REVIEW",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state"
+    },
+    {
+      "enum_name": "lead_status",
+      "description": "Stage 7 sales lead lifecycle state.",
+      "source_refs": [
+        "D8-R-081",
+        "D2-R-089"
+      ],
+      "values": [
+        {
+          "value": "NEW",
+          "meaning": "Lead created"
+        },
+        {
+          "value": "REVIEW",
+          "meaning": "Lead under review"
+        },
+        {
+          "value": "QUALIFIED",
+          "meaning": "Lead qualified for opportunity formation"
+        },
+        {
+          "value": "DISQUALIFIED",
+          "meaning": "Lead disqualified or blocked"
+        },
+        {
+          "value": "CLOSED",
+          "meaning": "Lead closed"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "sales_lead"
+      ],
+      "semantic_notes": "Lead lifecycle state for stage 7; DISQUALIFIED is treated as blocked in stage 7.",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "NEW -> REVIEW",
+          "NEW -> QUALIFIED",
+          "REVIEW -> QUALIFIED",
+          "REVIEW -> DISQUALIFIED",
+          "QUALIFIED -> CLOSED",
+          "QUALIFIED -> DISQUALIFIED",
+          "DISQUALIFIED -> CLOSED"
+        ],
+        "blocked_transitions": [
+          "DISQUALIFIED -> QUALIFIED"
+        ],
+        "actors": [
+          "system for rule evaluation",
+          "reviewer for manual downgrade or close"
+        ]
+      }
+    },
+    {
+      "enum_name": "offer_recommendation_state",
+      "description": "Stage 7 offer recommendation lifecycle state.",
+      "source_refs": [
+        "D8-R-081",
+        "D2-R-089"
+      ],
+      "values": [
+        {
+          "value": "DRAFT",
+          "meaning": "Draft recommendation"
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": "Requires manual review"
+        },
+        {
+          "value": "APPROVED",
+          "meaning": "Approved recommendation"
+        },
+        {
+          "value": "REJECTED",
+          "meaning": "Rejected recommendation"
+        },
+        {
+          "value": "SUPERSEDED",
+          "meaning": "Superseded by newer recommendation"
+        },
+        {
+          "value": "CLOSED",
+          "meaning": "Closed or expired"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "Blocked by governance or gate"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "offer_recommendation"
+      ],
+      "semantic_notes": "Offer recommendation lifecycle state used in stage 7.",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "DRAFT -> REVIEW_REQUIRED",
+          "DRAFT -> APPROVED",
+          "REVIEW_REQUIRED -> APPROVED",
+          "REVIEW_REQUIRED -> REJECTED",
+          "APPROVED -> SUPERSEDED",
+          "APPROVED -> CLOSED",
+          "REJECTED -> CLOSED"
+        ],
+        "blocked_transitions": [
+          "BLOCKED -> APPROVED"
+        ],
+        "actors": [
+          "system for automated qualification",
+          "reviewer for approval or reject"
+        ]
+      }
+    },
+    {
+      "enum_name": "lineage_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#enum-table",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "EXTRACTED",
+          "meaning": "已抽取并回链，但尚未完成归一。"
+        },
+        {
+          "value": "NORMALIZED",
+          "meaning": "归一完成且冲突已消解，可进入下游消费。"
+        },
+        {
+          "value": "CONFLICTING",
+          "meaning": "归一过程中出现冲突，需复核或裁决。"
+        },
+        {
+          "value": "UNVERIFIED",
+          "meaning": "缺来源切片/置信度或证据不足，禁止升级。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "field_lineage_record"
+      ],
+      "semantic_notes": "字段级归一生命周期状态，决定是否允许进入阶段4-6。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "EXTRACTED -> NORMALIZED",
+          "EXTRACTED -> CONFLICTING",
+          "EXTRACTED -> UNVERIFIED",
+          "CONFLICTING -> NORMALIZED",
+          "CONFLICTING -> UNVERIFIED",
+          "UNVERIFIED -> EXTRACTED",
+          "UNVERIFIED -> NORMALIZED"
+        ],
+        "blocked_transitions": [
+          "CONFLICTING -> NORMALIZED (without resolution rule)"
+        ],
+        "actors": [
+          "system for normalization",
+          "reviewer for conflict resolution"
+        ],
+        "system_actions": {
+          "CONFLICTING": "route to review_queue; freeze downstream usage",
+          "UNVERIFIED": "block downstream usage until evidence补齐",
+          "NORMALIZED": "allow downstream consumption to stage4-6"
+        }
+      }
+    },
+    {
+      "enum_name": "missing_condition_family",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D3.md#enum-supplement",
+        "D11.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "MISSING_PUBLIC_PAGE",
+          "meaning": ""
+        },
+        {
+          "value": "MISSING_ATTACHMENT",
+          "meaning": ""
+        },
+        {
+          "value": "MISSING_CLOCK",
+          "meaning": ""
+        },
+        {
+          "value": "MISSING_IDENTITY",
+          "meaning": ""
+        },
+        {
+          "value": "MISSING_EVIDENCE",
+          "meaning": ""
+        },
+        {
+          "value": "MISSING_RELEASE_CONDITION",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "family",
+      "owning_objects": [
+        "review_request"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "model_usage_scope",
+      "description": "Model usage scope",
+      "source_refs": [
+        "D14-R-015",
+        "D14-R-053",
+        "D12-R-037",
+        "D7-R-060"
+      ],
+      "values": [
+        {
+          "value": "INTERNAL_ASSIST",
+          "meaning": "Internal assist"
+        },
+        {
+          "value": "REVIEW_ASSIST",
+          "meaning": "Review assist"
+        },
+        {
+          "value": "CLIENT_DELIVERY_ASSIST",
+          "meaning": "Client delivery assist"
+        },
+        {
+          "value": "EXTERNAL_ACTION_ASSIST",
+          "meaning": "External action assist"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "scope",
+      "owning_objects": [
+        "model_governance_record"
+      ],
+      "semantic_notes": "C-group frozen enum; defines model output usage boundary in model governance record; never authorizes external release or replaces formal gates.",
+      "decision_rules": [
+        "model_usage_scope only declares allowable usage surfaces; it does not approve delivery or external release.",
+        "CLIENT_DELIVERY_ASSIST and EXTERNAL_ACTION_ASSIST require release_status = RELEASED and D12/D7 gate alignment.",
+        "model outputs must respect usable_scope and field policy dictionary before entering leadpack or external-facing bundles.",
+        "human review is mandatory for any model output that affects governance, delivery or external suggestion."
+      ],
+      "mapping_notes": [
+        "INTERNAL_ASSIST -> internal analysis only; allows extraction/attribution/ranking suggestions; no leadpack delivery.",
+        "REVIEW_ASSIST -> review queue only; may generate review_request or governance_feedback_event; no client delivery.",
+        "CLIENT_DELIVERY_ASSIST -> leadpack summary/reference only; requires release_status RELEASED and usable_scope DELIVERY_REFERENCE.",
+        "EXTERNAL_ACTION_ASSIST -> outreach/action suggestions for internal operators; requires RELEASED and approvals; never auto-trigger external action."
+      ],
+      "example_cases": [
+        {
+          "case_id": "MODEL-SCOPE-01",
+          "scope": "INTERNAL_ASSIST",
+          "scenario": "internal lead ranking assistant in ops dashboard",
+          "decision": "allow ranking suggestions internally only",
+          "expected_effect": "no leadpack exposure; audit only"
+        },
+        {
+          "case_id": "MODEL-SCOPE-02",
+          "scope": "REVIEW_ASSIST",
+          "scenario": "model flags evidence gaps for governance review",
+          "decision": "generate review_request for human approval",
+          "expected_effect": "review queue only; delivery blocked until approved"
+        },
+        {
+          "case_id": "MODEL-SCOPE-03",
+          "scope": "CLIENT_DELIVERY_ASSIST",
+          "scenario": "model drafts leadpack summary for approved objects",
+          "decision": "allow summary reference with audit and masking",
+          "expected_effect": "summary only; no raw field exposure"
+        }
+      ]
+    },
+    {
+      "enum_name": "opt_out_state",
+      "description": "Auto-generated from observed machine asset values",
+      "source_refs": [
+        "D9_联系对象与销售触达规范.md"
+      ],
+      "values": [
+        {
+          "value": "ACTIVE",
+          "meaning": ""
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": ""
+        },
+        {
+          "value": "OPTED_OUT",
+          "meaning": ""
+        },
+        {
+          "value": "PENDING_CONFIRMATION",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state"
+    },
+    {
+      "enum_name": "order_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "DRAFT",
+          "meaning": ""
+        },
+        {
+          "value": "PENDING_APPROVAL",
+          "meaning": ""
+        },
+        {
+          "value": "APPROVED",
+          "meaning": ""
+        },
+        {
+          "value": "CONFIRMED",
+          "meaning": ""
+        },
+        {
+          "value": "ON_HOLD",
+          "meaning": ""
+        },
+        {
+          "value": "CANCELLED",
+          "meaning": ""
+        },
+        {
+          "value": "TERMINATED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "order_record"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "outcome_family",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "WON",
+          "meaning": ""
+        },
+        {
+          "value": "LOST",
+          "meaning": ""
+        },
+        {
+          "value": "WINDOW_MISSED",
+          "meaning": ""
+        },
+        {
+          "value": "CONTACT_FAILED",
+          "meaning": ""
+        },
+        {
+          "value": "PAYER_MISMATCH",
+          "meaning": ""
+        },
+        {
+          "value": "FALSE_POSITIVE",
+          "meaning": ""
+        },
+        {
+          "value": "DELIVERY_ABANDONED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "family",
+      "owning_objects": [
+        "opportunity_outcome_event"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "payer_mismatch_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NO_MISMATCH",
+          "meaning": ""
+        },
+        {
+          "value": "SUSPECTED",
+          "meaning": ""
+        },
+        {
+          "value": "CONFIRMED",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "opportunity_outcome_event"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "payment_authority_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "FULL_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "LIMITED_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "NO_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "procurement_decision_actor_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "payment_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NOT_STARTED",
+          "meaning": ""
+        },
+        {
+          "value": "INVOICED_OPTIONAL",
+          "meaning": ""
+        },
+        {
+          "value": "PENDING_PAYMENT",
+          "meaning": ""
+        },
+        {
+          "value": "PARTIALLY_PAID",
+          "meaning": ""
+        },
+        {
+          "value": "PAID",
+          "meaning": ""
+        },
+        {
+          "value": "PAYMENT_EXCEPTION",
+          "meaning": ""
+        },
+        {
+          "value": "REFUND_PENDING",
+          "meaning": ""
+        },
+        {
+          "value": "REFUNDED",
+          "meaning": ""
+        },
+        {
+          "value": "WRITE_OFF_REVIEW",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "payment_record"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "procurement_authority_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "FULL_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "LIMITED_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "NO_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "procurement_decision_actor_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "procurement_regime",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D2.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "OPEN_TENDER",
+          "meaning": ""
+        },
+        {
+          "value": "INVITED_TENDER",
+          "meaning": ""
+        },
+        {
+          "value": "NEGOTIATION",
+          "meaning": ""
+        },
+        {
+          "value": "SINGLE_SOURCE",
+          "meaning": ""
+        },
+        {
+          "value": "OTHER",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other",
+      "owning_objects": [
+        "legal_action_recommendation",
+        "project_base"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "project_manager_conflict_clue_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D13.md#enum-supplement",
+        "D2.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NONE",
+          "meaning": ""
+        },
+        {
+          "value": "CLUE",
+          "meaning": ""
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": ""
+        },
+        {
+          "value": "CONFIRMED_CONFLICT",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "project_manager"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "provenance_chain_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "COMPLETE",
+          "meaning": "来源链完整且可回链。"
+        },
+        {
+          "value": "PARTIAL",
+          "meaning": "来源链部分缺失，需复核或补证。"
+        },
+        {
+          "value": "BROKEN",
+          "meaning": "来源链断裂或不可回链，阻断升级。"
+        },
+        {
+          "value": "UNVERIFIED",
+          "meaning": "尚未核验来源链。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "evidence_grade_profile",
+        "evidence"
+      ],
+      "semantic_notes": "证据来源链完整性状态，用于证据等级与 gate 判定。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "UNVERIFIED -> PARTIAL",
+          "UNVERIFIED -> COMPLETE",
+          "UNVERIFIED -> BROKEN",
+          "PARTIAL -> COMPLETE",
+          "PARTIAL -> BROKEN",
+          "BROKEN -> PARTIAL"
+        ],
+        "blocked_transitions": [
+          "BROKEN -> COMPLETE (without supplemental evidence)"
+        ],
+        "actors": [
+          "system for provenance evaluation",
+          "reviewer for manual supplementation"
+        ],
+        "system_actions": {
+          "PARTIAL": "route to review and downgrade external use",
+          "BROKEN": "block evidence from gate pass"
+        }
+      }
+    },
+    {
+      "enum_name": "public_chain_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1"
+      ],
+      "values": [
+        {
+          "value": "COMPLETE",
+          "meaning": ""
+        },
+        {
+          "value": "PARTIAL",
+          "meaning": ""
+        },
+        {
+          "value": "BROKEN",
+          "meaning": ""
+        },
+        {
+          "value": "UNVERIFIED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "project_base",
+        "public_chain"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "purchase_authority_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "FULL_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "LIMITED_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "NO_AUTHORITY",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "procurement_decision_actor_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "quiet_hours_policy_state",
+      "description": "Auto-generated from observed machine asset values",
+      "source_refs": [
+        "D9_联系对象与销售触达规范.md"
+      ],
+      "values": [
+        {
+          "value": "ALLOW",
+          "meaning": ""
+        },
+        {
+          "value": "BLOCK",
+          "meaning": ""
+        },
+        {
+          "value": "REVIEW",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state"
+    },
+    {
+      "enum_name": "reachable_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D9.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "REACHABLE",
+          "meaning": ""
+        },
+        {
+          "value": "UNREACHABLE",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "procurement_decision_actor_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "reasonable_expectation_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D9.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "REASONABLE",
+          "meaning": ""
+        },
+        {
+          "value": "UNREASONABLE",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "contact_target"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "recommended_delivery_form",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "PROJECT_BRIEF",
+          "meaning": ""
+        },
+        {
+          "value": "EVIDENCE_PACK",
+          "meaning": ""
+        },
+        {
+          "value": "OBJECTION_DRAFT",
+          "meaning": ""
+        },
+        {
+          "value": "ANALYSIS_REPORT",
+          "meaning": ""
+        },
+        {
+          "value": "COMPETITION_SUMMARY",
+          "meaning": ""
+        },
+        {
+          "value": "SCORING_EVIDENCE_SET",
+          "meaning": ""
+        },
+        {
+          "value": "RISK_REPORT",
+          "meaning": ""
+        },
+        {
+          "value": "PERFORMANCE_TRACKING",
+          "meaning": ""
+        },
+        {
+          "value": "ORG_BEHAVIOR_SUMMARY",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "form",
+      "owning_objects": [
+        "offer_recommendation"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "recommended_quote_band",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "LOW",
+          "meaning": ""
+        },
+        {
+          "value": "MEDIUM",
+          "meaning": ""
+        },
+        {
+          "value": "HIGH",
+          "meaning": ""
+        },
+        {
+          "value": "CUSTOM",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "band",
+      "owning_objects": [
+        "offer_recommendation"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "release_status",
+      "description": "Model governance release status",
+      "source_refs": [
+        "D12-R-012",
+        "D12-R-037",
+        "D14-R-053",
+        "D7-R-060"
+      ],
+      "values": [
+        {
+          "value": "INTERNAL_ONLY",
+          "meaning": "Internal only"
+        },
+        {
+          "value": "REVIEW_ONLY",
+          "meaning": "Review only"
+        },
+        {
+          "value": "RELEASED",
+          "meaning": "Released for formal chain"
+        },
+        {
+          "value": "SUSPENDED",
+          "meaning": "Suspended"
+        },
+        {
+          "value": "REVOKED",
+          "meaning": "Revoked"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "model_governance_record"
+      ],
+      "semantic_notes": "C-group frozen enum; governs model release eligibility across internal review and leadpack delivery; formal chain usage requires RELEASED and gate alignment.",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "INTERNAL_ONLY -> REVIEW_ONLY",
+          "REVIEW_ONLY -> INTERNAL_ONLY",
+          "REVIEW_ONLY -> RELEASED",
+          "RELEASED -> SUSPENDED",
+          "SUSPENDED -> INTERNAL_ONLY",
+          "SUSPENDED -> RELEASED",
+          "INTERNAL_ONLY -> REVOKED",
+          "REVIEW_ONLY -> REVOKED",
+          "RELEASED -> REVOKED",
+          "SUSPENDED -> REVOKED"
+        ],
+        "blocked_transitions": [
+          "REVOKED -> RELEASED",
+          "REVOKED -> REVIEW_ONLY",
+          "REVOKED -> INTERNAL_ONLY"
+        ],
+        "actors": [
+          "release_approver for REVIEW_ONLY/RELEASED",
+          "governance_owner for SUSPENDED/REVOKED",
+          "system for SUSPENDED on regression or gate failure"
+        ],
+        "system_actions": {
+          "INTERNAL_ONLY": "restrict output to internal operations; block leadpack delivery",
+          "REVIEW_ONLY": "allow review queue only; require human approval for any downstream use",
+          "RELEASED": "allow use under release gates and approval chains; still subject to external block",
+          "SUSPENDED": "freeze delivery usage; trigger rollback and re-evaluation",
+          "REVOKED": "invalidate release; block all downstream usage and require incident record"
+        }
+      },
+      "decision_rules": [
+        "RELEASED requires D11 regression PASS, release_gates PASS, and approval chain completion.",
+        "SUSPENDED is mandatory when gate failure, exception rollback, or boundary violation is detected.",
+        "REVOKED is mandatory for unauthorized release, D-tier boundary breach, or missing audit trail."
+      ],
+      "mapping_notes": [
+        "INTERNAL_ONLY/REVIEW_ONLY align to INTERNAL_OPERABLE surfaces only; leadpack delivery remains blocked.",
+        "RELEASED allows leadpack delivery if delivery_matrix and field policy gates pass; external release remains blocked.",
+        "SUSPENDED forces downgrade to INTERNAL_ONLY until re-approved; gates reset to BLOCK.",
+        "REVOKED blocks all surfaces; requires new governance record to re-enter."
+      ],
+      "example_cases": [
+        {
+          "case_id": "REL-STATUS-01",
+          "state_path": "INTERNAL_ONLY -> REVIEW_ONLY",
+          "scenario": "model passes internal eval but requires human review",
+          "expected_effect": "review queue enabled; no leadpack exposure"
+        },
+        {
+          "case_id": "REL-STATUS-02",
+          "state_path": "REVIEW_ONLY -> RELEASED",
+          "scenario": "approval chain and gate checks complete for leadpack pilot",
+          "expected_effect": "leadpack summary allowed with audit; external release still blocked"
+        },
+        {
+          "case_id": "REL-STATUS-03",
+          "state_path": "RELEASED -> SUSPENDED",
+          "scenario": "post-release regression detected in governance checks",
+          "expected_effect": "delivery halted, rollback initiated, status downgraded"
+        }
+      ]
+    },
+    {
+      "enum_name": "report_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "DRAFT",
+          "meaning": "草拟中，尚未进入正式复核。"
+        },
+        {
+          "value": "READY",
+          "meaning": "已具备复核条件，进入复核队列。"
+        },
+        {
+          "value": "ISSUED",
+          "meaning": "内部正式出具或入包，仍受外发阻断。"
+        },
+        {
+          "value": "REVOKED",
+          "meaning": "被阻断、撤销或被新报告替代。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "report_record"
+      ],
+      "semantic_notes": "阶段6报告生命周期状态，控制复核、出具与撤销。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "DRAFT -> READY",
+          "READY -> ISSUED",
+          "READY -> REVOKED",
+          "DRAFT -> REVOKED",
+          "ISSUED -> REVOKED"
+        ],
+        "blocked_transitions": [
+          "REVOKED -> ISSUED",
+          "REVOKED -> READY"
+        ],
+        "actors": [
+          "system for readiness evaluation",
+          "reviewer for approval/revoke"
+        ],
+        "system_actions": {
+          "READY": "enqueue review task",
+          "ISSUED": "allow internal export; external still blocked",
+          "REVOKED": "block downstream delivery, mark audit record, and close superseded report"
+        }
+      }
+    },
+    {
+      "enum_name": "contact_target_status",
+      "description": "Stage 8 contact target lifecycle state.",
+      "source_refs": [
+        "D9-R-063",
+        "D2-R-089"
+      ],
+      "values": [
+        {
+          "value": "DRAFT",
+          "meaning": "Draft contact target"
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": "Requires compliance review"
+        },
+        {
+          "value": "ELIGIBLE",
+          "meaning": "Eligible for outreach planning"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "Blocked by compliance or policy"
+        },
+        {
+          "value": "INVALID",
+          "meaning": "Invalid contact target"
+        },
+        {
+          "value": "ARCHIVED",
+          "meaning": "Archived contact target"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "contact_target"
+      ],
+      "semantic_notes": "Stage 8 contact target lifecycle state.",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "DRAFT -> REVIEW_REQUIRED",
+          "DRAFT -> ELIGIBLE",
+          "REVIEW_REQUIRED -> ELIGIBLE",
+          "REVIEW_REQUIRED -> BLOCKED",
+          "ELIGIBLE -> BLOCKED",
+          "ELIGIBLE -> ARCHIVED"
+        ],
+        "blocked_transitions": [
+          "BLOCKED -> ELIGIBLE"
+        ],
+        "actors": [
+          "system for compliance evaluation",
+          "reviewer for manual override"
+        ]
+      }
+    },
+    {
+      "enum_name": "plan_status",
+      "description": "Stage 8 outreach plan lifecycle state.",
+      "source_refs": [
+        "D9-R-063",
+        "D2-R-089"
+      ],
+      "values": [
+        {
+          "value": "DRAFT",
+          "meaning": "Draft plan"
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": "Plan requires review"
+        },
+        {
+          "value": "APPROVAL_PENDING",
+          "meaning": "Awaiting approval"
+        },
+        {
+          "value": "APPROVED",
+          "meaning": "Approved for execution"
+        },
+        {
+          "value": "REJECTED",
+          "meaning": "Rejected in approval"
+        },
+        {
+          "value": "SCHEDULED",
+          "meaning": "Scheduled for execution"
+        },
+        {
+          "value": "EXECUTING",
+          "meaning": "Execution in progress"
+        },
+        {
+          "value": "COMPLETED",
+          "meaning": "Execution completed"
+        },
+        {
+          "value": "CANCELLED",
+          "meaning": "Plan cancelled"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "Blocked by compliance or policy"
+        },
+        {
+          "value": "SUPERSEDED",
+          "meaning": "Superseded by another plan"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "outreach_plan"
+      ],
+      "semantic_notes": "Stage 8 outreach plan lifecycle state.",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "DRAFT -> REVIEW_REQUIRED",
+          "DRAFT -> APPROVAL_PENDING",
+          "APPROVAL_PENDING -> APPROVED",
+          "APPROVAL_PENDING -> REJECTED",
+          "APPROVED -> SCHEDULED",
+          "SCHEDULED -> EXECUTING",
+          "EXECUTING -> COMPLETED",
+          "EXECUTING -> CANCELLED"
+        ],
+        "blocked_transitions": [
+          "BLOCKED -> APPROVED"
+        ],
+        "actors": [
+          "system for run-mode gating",
+          "approver for approval transitions"
+        ]
+      }
+    },
+    {
+      "enum_name": "touch_record_state",
+      "description": "Stage 8 touch record lifecycle state.",
+      "source_refs": [
+        "D9-R-063",
+        "D2-R-089"
+      ],
+      "values": [
+        {
+          "value": "CREATED",
+          "meaning": "Record created"
+        },
+        {
+          "value": "SENT",
+          "meaning": "Message sent"
+        },
+        {
+          "value": "RESPONDED",
+          "meaning": "Response received"
+        },
+        {
+          "value": "FAILED",
+          "meaning": "Send failed"
+        },
+        {
+          "value": "CANCELLED",
+          "meaning": "Cancelled"
+        },
+        {
+          "value": "ARCHIVED",
+          "meaning": "Archived"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "touch_record"
+      ],
+      "semantic_notes": "Stage 8 touch record lifecycle state."
+    },
+    {
+      "enum_name": "run_mode",
+      "description": "Stage 8 outreach execution run mode.",
+      "source_refs": [
+        "D9-R-063",
+        "D2-R-089"
+      ],
+      "values": [
+        {
+          "value": "DRY_RUN",
+          "meaning": "Simulation only, no real contact"
+        },
+        {
+          "value": "APPROVAL_RUN",
+          "meaning": "Execution after approval"
+        },
+        {
+          "value": "REAL_RUN",
+          "meaning": "Real contact execution"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "mode",
+      "owning_objects": [
+        "outreach_plan"
+      ],
+      "semantic_notes": "Run mode only applies to internal outreach execution."
+    },
+    {
+      "enum_name": "automation_level",
+      "description": "Stage 8 automation level for outreach planning.",
+      "source_refs": [
+        "D9-R-063",
+        "D2-R-089"
+      ],
+      "values": [
+        {
+          "value": "MANUAL",
+          "meaning": "Manual only"
+        },
+        {
+          "value": "ASSISTED",
+          "meaning": "Assisted automation"
+        },
+        {
+          "value": "AUTOMATED",
+          "meaning": "Automated execution under governance"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "level",
+      "owning_objects": [
+        "outreach_plan"
+      ],
+      "semantic_notes": "Automation level is internal-only and subject to approval."
+    },
+    {
+      "enum_name": "response_status",
+      "description": "Auto-generated from observed machine asset values",
+      "source_refs": [
+        "D9.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NO_RESPONSE",
+          "meaning": ""
+        },
+        {
+          "value": "ORG_ROUTED",
+          "meaning": ""
+        },
+        {
+          "value": "CONNECTED",
+          "meaning": ""
+        },
+        {
+          "value": "DECLINED",
+          "meaning": ""
+        },
+        {
+          "value": "OPTED_OUT",
+          "meaning": ""
+        },
+        {
+          "value": "WRONG_ROLE",
+          "meaning": ""
+        },
+        {
+          "value": "INVALID_CONTACT",
+          "meaning": ""
+        },
+        {
+          "value": "FOLLOWUP_REQUIRED",
+          "meaning": ""
+        },
+        {
+          "value": "OPPORTUNITY_CHANGED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "touch_record"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "retrieval_readiness_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "READY",
+          "meaning": "可调阅且可回链，允许进入证据包。"
+        },
+        {
+          "value": "PARTIAL",
+          "meaning": "可调阅但不完整，需复核或补证。"
+        },
+        {
+          "value": "NOT_READY",
+          "meaning": "尚不可调阅或缺关键依赖。"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "不可调阅或触发禁入条件。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "evidence_grade_profile",
+        "evidence"
+      ],
+      "semantic_notes": "证据可调阅状态，用于证据包与报告出具前置判断。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "NOT_READY -> PARTIAL",
+          "NOT_READY -> READY",
+          "NOT_READY -> BLOCKED",
+          "PARTIAL -> READY",
+          "PARTIAL -> BLOCKED",
+          "READY -> BLOCKED",
+          "BLOCKED -> NOT_READY"
+        ],
+        "blocked_transitions": [
+          "BLOCKED -> READY"
+        ],
+        "actors": [
+          "system for retrieval checks",
+          "reviewer for manual override"
+        ],
+        "system_actions": {
+          "PARTIAL": "allow internal review only",
+          "BLOCKED": "exclude from evidence pack",
+          "READY": "allow evidence_gate evaluation and evidence pack inclusion"
+        }
+      }
+    },
+    {
+      "enum_name": "retrieval_status",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NOT_AVAILABLE",
+          "meaning": ""
+        },
+        {
+          "value": "REQUESTED",
+          "meaning": ""
+        },
+        {
+          "value": "READY",
+          "meaning": ""
+        },
+        {
+          "value": "RETRIEVED",
+          "meaning": ""
+        },
+        {
+          "value": "FAILED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "delivery_record"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "review_queue_bucket",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#enum-table",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "CRITICAL_WINDOW",
+          "meaning": "窗口紧急，必须优先复核。"
+        },
+        {
+          "value": "HIGH",
+          "meaning": "高优先级复核队列。"
+        },
+        {
+          "value": "NORMAL",
+          "meaning": "常规复核队列。"
+        },
+        {
+          "value": "LOW",
+          "meaning": "低优先级复核队列。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "bucket",
+      "owning_objects": [
+        "review_queue_profile"
+      ],
+      "semantic_notes": "复核队列优先级桶，用于排队与复核 SLA。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "CRITICAL_WINDOW -> HIGH",
+          "HIGH -> NORMAL",
+          "NORMAL -> LOW",
+          "LOW -> HIGH",
+          "HIGH -> CRITICAL_WINDOW"
+        ],
+        "blocked_transitions": [],
+        "actors": [
+          "system for priority scoring",
+          "reviewer for manual reprioritization"
+        ],
+        "system_actions": {
+          "CRITICAL_WINDOW": "assign immediate reviewer",
+          "LOW": "allow deferred review"
+        }
+      }
+    },
+    {
+      "enum_name": "saleability_status",
+      "description": "Stage 7 saleable opportunity lifecycle state.",
+      "source_refs": [
+        "L0.md#Appendix-F",
+        "D8-R-081",
+        "D2-R-089"
+      ],
+      "values": [
+        {
+          "value": "CANDIDATE",
+          "meaning": "Candidate opportunity"
+        },
+        {
+          "value": "RESTRICTED",
+          "meaning": "Restricted opportunity (core only)"
+        },
+        {
+          "value": "QUALIFIED",
+          "meaning": "Qualified opportunity"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "Blocked opportunity"
+        },
+        {
+          "value": "CLOSED",
+          "meaning": "Closed opportunity"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "saleable_opportunity"
+      ],
+      "semantic_notes": "Stage 7 opportunity lifecycle state aligned with D8.",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "CANDIDATE -> RESTRICTED",
+          "CANDIDATE -> QUALIFIED",
+          "RESTRICTED -> QUALIFIED",
+          "RESTRICTED -> BLOCKED",
+          "QUALIFIED -> CLOSED",
+          "QUALIFIED -> RESTRICTED",
+          "QUALIFIED -> BLOCKED",
+          "BLOCKED -> RESTRICTED"
+        ],
+        "blocked_transitions": [
+          "BLOCKED -> QUALIFIED"
+        ],
+        "actors": [
+          "system for automated gate evaluation",
+          "reviewer for manual downgrade or restore"
+        ]
+      }
+    },
+    {
+      "enum_name": "sku_code",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "SKU-A",
+          "meaning": ""
+        },
+        {
+          "value": "SKU-B",
+          "meaning": ""
+        },
+        {
+          "value": "SKU-C",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "other",
+      "owning_objects": [
+        "offer_recommendation",
+        "saleable_opportunity"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "standing_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D8.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "HAS_STANDING",
+          "meaning": ""
+        },
+        {
+          "value": "LIMITED_STANDING",
+          "meaning": ""
+        },
+        {
+          "value": "NO_STANDING",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "legal_action_actor_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "trigger_type",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "FIELD_POLICY_VIOLATION",
+          "meaning": ""
+        },
+        {
+          "value": "DELIVERY_BLOCK",
+          "meaning": ""
+        },
+        {
+          "value": "APPROVAL_MISSING",
+          "meaning": ""
+        },
+        {
+          "value": "CONTACT_POLICY_VIOLATION",
+          "meaning": ""
+        },
+        {
+          "value": "EVIDENCE_INSUFFICIENT",
+          "meaning": ""
+        },
+        {
+          "value": "EXCEPTION_TRIGGERED",
+          "meaning": ""
+        },
+        {
+          "value": "ARCHIVE_FAILURE",
+          "meaning": ""
+        },
+        {
+          "value": "OTHER",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "type",
+      "owning_objects": [
+        "governance_feedback_event"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "usable_scope",
+      "description": "Private supplement usable scope",
+      "source_refs": [
+        "D7-R-030",
+        "D6-R-029",
+        "D7-R-060"
+      ],
+      "values": [
+        {
+          "value": "REVIEW_ONLY",
+          "meaning": "Review-only usage"
+        },
+        {
+          "value": "GOVERNANCE_ONLY",
+          "meaning": "Governance-only usage"
+        },
+        {
+          "value": "DELIVERY_REFERENCE",
+          "meaning": "Delivery reference only"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "Blocked from use"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": [],
+      "inferred_from_files": true,
+      "requires_manual_confirmation": false,
+      "semantic_group": "scope",
+      "owning_objects": [
+        "private_supplement_record"
+      ],
+      "semantic_notes": "C-group frozen enum; constrains who may consume private supplement content; does not change release_status or release_layer by itself.",
+      "decision_rules": [
+        "usable_scope only narrows consumption; it never expands release_layer or approval requirements.",
+        "DELIVERY_REFERENCE requires field policy and delivery matrix alignment before any leadpack use.",
+        "BLOCKED overrides any other allowance; content must be excluded from delivery bundles."
+      ],
+      "mapping_notes": [
+        "REVIEW_ONLY -> internal review surfaces only; no sales or leadpack delivery.",
+        "GOVERNANCE_ONLY -> governance-only surfaces; may be used for exception evaluation.",
+        "DELIVERY_REFERENCE -> leadpack summary/reference allowed with masking and approvals.",
+        "BLOCKED -> no consumption; must be excluded from delivery, sales and external outputs."
+      ],
+      "example_cases": [
+        {
+          "case_id": "USABLE-SCOPE-01",
+          "scope": "REVIEW_ONLY",
+          "scenario": "private supplement evidence under governance review",
+          "decision": "restrict to internal review and audit",
+          "expected_effect": "no sales/leadpack exposure"
+        },
+        {
+          "case_id": "USABLE-SCOPE-02",
+          "scope": "DELIVERY_REFERENCE",
+          "scenario": "approved supplement used to draft leadpack summary",
+          "decision": "allow summary reference with mask rules",
+          "expected_effect": "summary only; raw values blocked"
+        },
+        {
+          "case_id": "USABLE-SCOPE-03",
+          "scope": "BLOCKED",
+          "scenario": "supplement fails audit or source legitimacy",
+          "decision": "exclude from all delivery and sales surfaces",
+          "expected_effect": "delivery matrix treats as blocked"
+        }
+      ]
+    },
+    {
+      "enum_name": "verification_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "NOT_RUN",
+          "meaning": "尚未进行核验或核验前置条件不足。"
+        },
+        {
+          "value": "PASS",
+          "meaning": "核验通过且证据满足公开边界。"
+        },
+        {
+          "value": "REVIEW",
+          "meaning": "核验需人工复核或补证。"
+        },
+        {
+          "value": "BLOCK",
+          "meaning": "核验被阻断或触发不可用条件。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "focus_bidder_verification_profile",
+        "public_attack_surface"
+      ],
+      "semantic_notes": "阶段4核验生命周期状态，用于核验画像与攻击面对象。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "NOT_RUN -> PASS",
+          "NOT_RUN -> REVIEW",
+          "NOT_RUN -> BLOCK",
+          "REVIEW -> PASS",
+          "REVIEW -> BLOCK",
+          "PASS -> REVIEW",
+          "BLOCK -> REVIEW"
+        ],
+        "blocked_transitions": [
+          "BLOCK -> PASS"
+        ],
+        "actors": [
+          "system for automated verification",
+          "reviewer for manual verification"
+        ],
+        "system_actions": {
+          "REVIEW": "create review_request and enqueue review_queue",
+          "BLOCK": "prevent downstream rule_hit and project_fact consumption",
+          "PASS": "allow downstream rule_hit evaluation"
+        }
+      }
+    },
+    {
+      "enum_name": "version_conflict_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#enum-table",
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "CONSISTENT",
+          "meaning": "版本链一致，当前版本可作为主版本进入归一。"
+        },
+        {
+          "value": "CONFLICTING",
+          "meaning": "版本链存在冲突或替代关系未明。"
+        },
+        {
+          "value": "UNRESOLVED",
+          "meaning": "冲突未解或缺裁决依据，阻断进入主链。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "notice_version_chain"
+      ],
+      "semantic_notes": "阶段2-3版本冲突状态，驱动版本链复核与阻断。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "CONSISTENT -> CONFLICTING",
+          "CONFLICTING -> CONSISTENT",
+          "CONFLICTING -> UNRESOLVED",
+          "UNRESOLVED -> CONSISTENT"
+        ],
+        "blocked_transitions": [
+          "UNRESOLVED -> CONSISTENT (without winning_version_resolution_rule_id)"
+        ],
+        "actors": [
+          "system for version chain evaluation",
+          "reviewer for conflict resolution"
+        ],
+        "system_actions": {
+          "CONFLICTING": "hold normalization and notify review queue",
+          "UNRESOLVED": "block downstream project_base normalization"
+        }
+      }
+    },
+    {
+      "enum_name": "window_clock_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#5.6"
+      ],
+      "values": [
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        },
+        {
+          "value": "NOT_APPLICABLE",
+          "meaning": ""
+        },
+        {
+          "value": "OPEN",
+          "meaning": ""
+        },
+        {
+          "value": "DUE_SOON",
+          "meaning": ""
+        },
+        {
+          "value": "EXPIRED",
+          "meaning": ""
+        },
+        {
+          "value": "CLOSED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "public_chain"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "window_missed_state",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "D10.md#enum-supplement"
+      ],
+      "values": [
+        {
+          "value": "NOT_MISSED",
+          "meaning": ""
+        },
+        {
+          "value": "MISSED",
+          "meaning": ""
+        },
+        {
+          "value": "UNKNOWN",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "opportunity_outcome_event"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "window_risk_level",
+      "description": "Values pending confirmation from docs; no machine assets found.",
+      "source_refs": [
+        "L0.md#Appendix-F.1"
+      ],
+      "values": [
+        {
+          "value": "LOW",
+          "meaning": ""
+        },
+        {
+          "value": "MEDIUM",
+          "meaning": ""
+        },
+        {
+          "value": "HIGH",
+          "meaning": ""
+        },
+        {
+          "value": "CRITICAL",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "level",
+      "owning_objects": [
+        "review_queue_profile"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "window_status",
+      "description": "Auto-generated from observed machine asset values",
+      "source_refs": [
+        "L0.md#Appendix-F.1"
+      ],
+      "values": [
+        {
+          "value": "NOT_APPLICABLE",
+          "meaning": ""
+        },
+        {
+          "value": "ACTIONABLE",
+          "meaning": ""
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": ""
+        },
+        {
+          "value": "MISSED",
+          "meaning": ""
+        },
+        {
+          "value": "CLOSED",
+          "meaning": ""
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "status",
+      "owning_objects": [
+        "legal_action_recommendation",
+        "public_attack_surface"
+      ],
+      "semantic_notes": "Values frozen by controlled design."
+    },
+    {
+      "enum_name": "rule_hit_state",
+      "description": "Stage 5 rule_hit lifecycle state.",
+      "source_refs": [
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "DETECTED",
+          "meaning": "规则命中已记录，待完善证据与边界说明。"
+        },
+        {
+          "value": "REVIEW_REQUIRED",
+          "meaning": "存在冲突或证据不足，需复核。"
+        },
+        {
+          "value": "READY_FOR_GATE",
+          "meaning": "满足门禁评估条件，进入 gate 判定。"
+        },
+        {
+          "value": "CONFIRMED",
+          "meaning": "门禁通过，允许进入统一事实。"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "门禁阻断或触发禁入条件。"
+        },
+        {
+          "value": "SUPERSEDED",
+          "meaning": "被新版本/新规则结果替代。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "rule_hit"
+      ],
+      "semantic_notes": "规则命中生命周期状态，配合 gate 与 review 机制。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "DETECTED -> READY_FOR_GATE",
+          "DETECTED -> REVIEW_REQUIRED",
+          "REVIEW_REQUIRED -> READY_FOR_GATE",
+          "READY_FOR_GATE -> CONFIRMED",
+          "READY_FOR_GATE -> BLOCKED",
+          "REVIEW_REQUIRED -> BLOCKED",
+          "CONFIRMED -> SUPERSEDED"
+        ],
+        "blocked_transitions": [
+          "BLOCKED -> CONFIRMED",
+          "SUPERSEDED -> READY_FOR_GATE"
+        ],
+        "actors": [
+          "system for gate evaluation",
+          "reviewer for manual override"
+        ],
+        "system_actions": {
+          "REVIEW_REQUIRED": "create review_request and enqueue review_queue",
+          "BLOCKED": "exclude from project_fact",
+          "CONFIRMED": "eligible for gate decision output",
+          "SUPERSEDED": "mark as replaced and exclude from project_fact"
+        }
+      }
+    },
+    {
+      "enum_name": "review_task_status",
+      "description": "Stage 6 report review task lifecycle state.",
+      "source_refs": [
+        "D2-R-090",
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "values": [
+        {
+          "value": "NOT_READY",
+          "meaning": "尚未满足复核前置条件。"
+        },
+        {
+          "value": "IN_REVIEW",
+          "meaning": "进入复核队列处理中。"
+        },
+        {
+          "value": "APPROVED",
+          "meaning": "复核通过，允许出具。"
+        },
+        {
+          "value": "BLOCKED",
+          "meaning": "复核阻断或发现重大缺口。"
+        },
+        {
+          "value": "SUPERSEDED",
+          "meaning": "被更高版本或新报告替代。"
+        },
+        {
+          "value": "CLOSED",
+          "meaning": "复核流程结束并归档。"
+        }
+      ],
+      "status": "CONFIRMED_FROM_DOCS",
+      "values_confirmed": true,
+      "placeholder_values": false,
+      "inferred_from_files": false,
+      "requires_manual_confirmation": false,
+      "semantic_group": "state",
+      "owning_objects": [
+        "report_record"
+      ],
+      "semantic_notes": "报告复核任务状态，控制进入/退出复核队列。",
+      "state_transition_notes": {
+        "allowed_transitions": [
+          "NOT_READY -> IN_REVIEW",
+          "IN_REVIEW -> APPROVED",
+          "IN_REVIEW -> BLOCKED",
+          "APPROVED -> CLOSED",
+          "BLOCKED -> CLOSED",
+          "APPROVED -> SUPERSEDED",
+          "SUPERSEDED -> CLOSED"
+        ],
+        "blocked_transitions": [
+          "BLOCKED -> APPROVED",
+          "CLOSED -> IN_REVIEW"
+        ],
+        "actors": [
+          "reviewer for approval/block",
+          "system for auto-close"
+        ],
+        "system_actions": {
+          "IN_REVIEW": "assign reviewer and track SLA",
+          "BLOCKED": "halt report issuance and trigger governance notice",
+          "APPROVED": "allow report_status to move to ISSUED",
+          "SUPERSEDED": "force report_status to REVOKED and close review"
+        }
+      }
+    }
+  ]
+}

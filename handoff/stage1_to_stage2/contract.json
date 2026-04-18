@@ -1,0 +1,80 @@
+{
+  "handoff_id": "H-01-STAGE1-TO-STAGE2",
+  "from_stage": 1,
+  "to_stage": 2,
+  "name": "任务编排与时钟管理 -> 公开链抓取",
+  "producer_objects": [
+    "task_execution_context",
+    "project_identity_strategy",
+    "clock_strategy_profile",
+    "execution_context"
+  ],
+  "consumer_objects": [
+    "public_chain",
+    "clock_chain_profile",
+    "notice_version_chain"
+  ],
+  "required_upstream_conditions": [
+    "region_code_declared",
+    "time_range_declared",
+    "procurement_regime_strategy_declared",
+    "review_lane_declared"
+  ],
+  "required_payload_fields": [
+    "task_id",
+    "region_code",
+    "time_range_from",
+    "time_range_until",
+    "strategy_template_id",
+    "review_lane",
+    "project_rooting_policy",
+    "window_priority_policy",
+    "source_registry_id",
+    "route_policy_id",
+    "default_route",
+    "fallback_route"
+  ],
+  "optional_payload_fields": [
+    "source_family",
+    "platform_level",
+    "region_scope",
+    "coverage_tier",
+    "carrier_type",
+    "clock_resolution_rule_id",
+    "clock_precedence_rule_id",
+    "baseline_collection_state",
+    "rollout_enabled",
+    "backlog_reason_optional",
+    "current_action_start_at_optional",
+    "current_action_deadline_at_optional"
+  ],
+  "consumer_runtime_required_fields": [
+    "task_id",
+    "region_code",
+    "time_range_from",
+    "time_range_until",
+    "review_lane",
+    "project_rooting_policy",
+    "window_priority_policy",
+    "source_registry_id",
+    "route_policy_id",
+    "default_route",
+    "fallback_route"
+  ],
+  "blocking_conditions": [
+    "missing_region_or_time_range",
+    "missing_review_lane",
+    "missing_project_rooting_policy"
+  ],
+  "success_criteria": [
+    "raw_source_entry_discovered",
+    "initial_public_chain_created",
+    "clock_chain_initialized",
+    "version_chain_initialized",
+    "authoritative_source_route_baseline_projected",
+    "rollout_scope_evaluated",
+    "clock_precedence_baseline_resolved"
+  ],
+  "priority": "P0",
+  "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-01-STAGE1-TO-STAGE2"
+}

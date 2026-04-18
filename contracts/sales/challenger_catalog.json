@@ -1,0 +1,40 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "challenger_catalog",
+  "ownerDocs": [
+    "D8"
+  ],
+  "entries": [
+    {
+      "objectType": "challenger_candidate_profile",
+      "stage": 6,
+      "requiredFields": [
+        "challenger_profile_id",
+        "project_id",
+        "focus_bidder_id",
+        "challenger_bidder_id",
+        "candidate_position_label",
+        "challenge_actionability_score"
+      ],
+      "sourceL0Refs": [
+        "L0-R-006",
+        "L0-R-007"
+      ],
+      "dependsOnObjects": [
+        "project_fact",
+        "public_attack_surface",
+        "bidder_candidate"
+      ],
+      "blockingPolicies": [
+        "project_fact_required",
+        "dual_gate_required"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "notes": "真实竞争者候选集合，仅内部承接。"
+    }
+  ]
+}

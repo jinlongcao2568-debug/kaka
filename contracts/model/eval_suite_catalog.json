@@ -1,0 +1,62 @@
+{
+  "catalog_id": "eval-suite-catalog",
+  "version": "0.1.1",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "model governance round 1",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/model/eval_suite_catalog.json",
+    "source_documents": [
+      "D14_AI模型治理规范.md",
+      "D11_测试验收与金标回归清单.md"
+    ]
+  },
+  "suites": [
+    {
+      "suite_id": "EVAL-INTERNAL-ASSIST",
+      "scope": "INTERNAL_ASSIST",
+      "metrics": ["accuracy", "hallucination_rate", "boundary_leak"],
+      "risk_level": "LOW",
+      "output_targets": ["internal_note", "review_request"],
+      "golden_case_ref": "model_golden_cases.json"
+    },
+    {
+      "suite_id": "EVAL-REVIEW-ASSIST",
+      "scope": "REVIEW_ASSIST",
+      "metrics": ["accuracy", "traceability", "boundary_leak"],
+      "risk_level": "MEDIUM",
+      "output_targets": ["review_request", "governance_feedback_event"],
+      "golden_case_ref": "model_golden_cases.json"
+    },
+    {
+      "suite_id": "EVAL-EXTERNAL-SHADOW",
+      "scope": "EXTERNAL_SHADOW",
+      "metrics": ["accuracy", "boundary_leak", "audit_trace_completeness"],
+      "risk_level": "HIGH",
+      "output_targets": ["review_request", "governance_feedback_event"],
+      "golden_case_ref": "model_golden_cases.json",
+      "prerequisite_for_domains": ["model_provider_externalized_usage"]
+    },
+    {
+      "suite_id": "EVAL-EXTERNAL-BOUNDARY",
+      "scope": "EXTERNAL_BOUNDARY_GUARD",
+      "metrics": ["boundary_leak", "restricted_field_leak", "prompt_injection_resistance"],
+      "risk_level": "HIGH",
+      "output_targets": ["review_request", "governance_feedback_event"],
+      "golden_case_ref": "model_golden_cases.json",
+      "prerequisite_for_domains": [
+        "model_provider_externalized_usage",
+        "tool_provider_externalized_usage"
+      ]
+    },
+    {
+      "suite_id": "EVAL-EXTERNAL-CANARY",
+      "scope": "EXTERNAL_CANARY",
+      "metrics": ["accuracy", "rollback_recovery", "canary_error_budget"],
+      "risk_level": "HIGH",
+      "output_targets": ["review_request", "governance_feedback_event"],
+      "golden_case_ref": "model_golden_cases.json",
+      "prerequisite_for_domains": ["model_provider_externalized_usage"]
+    }
+  ]
+}

@@ -1,0 +1,314 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "delivery_exception_catalog",
+  "ownerDocs": [
+    "D10",
+    "D3",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "DEL-EX-001",
+      "title": "Delivery exception taxonomy and writeback",
+      "writeback_source_family": "delivery_exception",
+      "writeback_contract_ref": "contracts/governance/writeback_impact_policy.json#writeback_source_contracts.delivery_exception",
+      "writeback_merge_semantics": "ADDITIVE_ONLY",
+      "persisted_stage9_record_target": "delivery_record",
+      "applies_to_objects": [
+        "delivery_record",
+        "opportunity_outcome_event",
+        "governance_feedback_event"
+      ],
+      "input_fields": [
+        "delivery_record.delivery_status",
+        "delivery_record.delivery_form",
+        "delivery_record.archival_status",
+        "delivery_record.retrieval_status",
+        "delivery_record.delivery_exception_family_optional",
+        "delivery_record.delivery_exception_reason_tags_optional",
+        "delivery_record.customer_ack_state_optional"
+      ],
+      "output_fields": [
+        "delivery_record.delivery_exception_family_optional",
+        "delivery_record.delivery_exception_reason_tags_optional",
+        "opportunity_outcome_event.outcome_family",
+        "governance_feedback_event.trigger_type",
+        "delivery_exception_writeback_targets_optional"
+      ],
+      "matching_precedence": [
+        "delivery_exception_family_optional explicit family override",
+        "archival_status / retrieval_status closure blockers",
+        "delivery_status lifecycle fallback"
+      ],
+      "exception_families": [
+        "DELIVERY_FAILED",
+        "DELIVERY_REJECTED",
+        "PARTIAL_DELIVERY",
+        "REDELIVERY_REQUIRED",
+        "REWORK_REQUIRED",
+        "ACK_TIMEOUT",
+        "ARCHIVE_FAILURE",
+        "RETRIEVAL_FAILED"
+      ],
+      "family_semantics": {
+        "DELIVERY_FAILED": {
+          "semantic_role": "TERMINAL_DELIVERY_BLOCK",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "DELIVERY_FAILED"
+          ],
+          "additive_writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ],
+          "recommendation_effect": "saleability_status=BLOCKED",
+          "closure_rule": "formal closure forbidden"
+        },
+        "DELIVERY_REJECTED": {
+          "semantic_role": "CUSTOMER_REJECTION",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "DELIVERY_REJECTED"
+          ],
+          "additive_writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ],
+          "recommendation_effect": "offer_recommendation_state=REVIEW_REQUIRED",
+          "closure_rule": "formal closure forbidden until governance review"
+        },
+        "PARTIAL_DELIVERY": {
+          "semantic_role": "PARTIAL_FULFILLMENT_REVIEW",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "PARTIAL_DELIVERY"
+          ],
+          "additive_writeback_targets": [
+            "saleable_opportunity"
+          ],
+          "recommendation_effect": "saleability_status=RESTRICTED; offer_recommendation_state=REVIEW_REQUIRED",
+          "closure_rule": "partial delivery never closes the loop"
+        },
+        "REDELIVERY_REQUIRED": {
+          "semantic_role": "REDELIVERY_PENDING",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "REDELIVERY_FAILED"
+          ],
+          "additive_writeback_targets": [
+            "delivery_record"
+          ],
+          "recommendation_effect": "review_required until redelivery resolves",
+          "closure_rule": "delivery remains open and blocked from closure"
+        },
+        "REWORK_REQUIRED": {
+          "semantic_role": "REWORK_PENDING",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "DELIVERY_REJECTED"
+          ],
+          "additive_writeback_targets": [
+            "delivery_record",
+            "project_fact"
+          ],
+          "recommendation_effect": "offer_recommendation_state=REVIEW_REQUIRED",
+          "closure_rule": "delivery remains open and blocked from closure"
+        },
+        "ACK_TIMEOUT": {
+          "semantic_role": "ACK_REVIEW_PENDING",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "ACK_TIMEOUT"
+          ],
+          "additive_writeback_targets": [
+            "delivery_record"
+          ],
+          "recommendation_effect": "manual review before closure",
+          "closure_rule": "timeout cannot auto-complete delivery"
+        },
+        "ARCHIVE_FAILURE": {
+          "semantic_role": "ARCHIVE_BLOCK",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "ARCHIVE_FAILURE"
+          ],
+          "additive_writeback_targets": [
+            "delivery_record"
+          ],
+          "recommendation_effect": "delivery completion blocked",
+          "closure_rule": "archive failure blocks closure"
+        },
+        "RETRIEVAL_FAILED": {
+          "semantic_role": "ARCHIVE_BLOCK",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "ARCHIVE_FAILURE"
+          ],
+          "additive_writeback_targets": [
+            "delivery_record"
+          ],
+          "recommendation_effect": "delivery completion blocked",
+          "closure_rule": "retrieval failure blocks closure"
+        }
+      },
+      "mapping_rules": [
+        {
+          "condition": "delivery_exception_family_optional=DELIVERY_REJECTED",
+          "exception_family": "DELIVERY_REJECTED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ],
+          "state_sinks": {
+            "customer_ack_state_optional": "REJECTED"
+          }
+        },
+        {
+          "condition": "delivery_exception_family_optional=PARTIAL_DELIVERY",
+          "exception_family": "PARTIAL_DELIVERY",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "saleable_opportunity"
+          ],
+          "state_sinks": {
+            "partial_delivery_state_optional": "PARTIAL",
+            "customer_ack_state_optional": "PENDING"
+          }
+        },
+        {
+          "condition": "delivery_exception_family_optional=ACK_TIMEOUT",
+          "exception_family": "ACK_TIMEOUT",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "delivery_record"
+          ],
+          "state_sinks": {
+            "customer_ack_state_optional": "TIMEOUT"
+          }
+        },
+        {
+          "condition": "delivery_exception_family_optional=REWORK_REQUIRED",
+          "exception_family": "REWORK_REQUIRED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "delivery_record",
+            "project_fact"
+          ],
+          "state_sinks": {
+            "resend_required_optional": true,
+            "customer_ack_state_optional": "REJECTED"
+          }
+        },
+        {
+          "condition": "delivery_exception_family_optional=REDELIVERY_REQUIRED",
+          "exception_family": "REDELIVERY_REQUIRED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "delivery_record"
+          ],
+          "state_sinks": {
+            "redeliver_required_optional": true,
+            "customer_ack_state_optional": "PENDING"
+          }
+        },
+        {
+          "condition": "delivery_exception_family_optional=DELIVERY_FAILED",
+          "exception_family": "DELIVERY_FAILED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ]
+        },
+        {
+          "condition": "archival_status=ARCHIVE_EXCEPTION",
+          "exception_family": "ARCHIVE_FAILURE",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "ARCHIVE_FAILURE",
+          "writeback_targets": [
+            "delivery_record"
+          ],
+          "state_sinks": {
+            "archival_status": "ARCHIVE_EXCEPTION"
+          }
+        },
+        {
+          "condition": "retrieval_status=FAILED",
+          "exception_family": "RETRIEVAL_FAILED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "ARCHIVE_FAILURE",
+          "writeback_targets": [
+            "delivery_record"
+          ],
+          "state_sinks": {
+            "retrieval_status": "FAILED"
+          }
+        },
+        {
+          "condition": "delivery_status=REWORK_REQUIRED",
+          "exception_family": "REWORK_REQUIRED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "delivery_record",
+            "project_fact"
+          ],
+          "state_sinks": {
+            "resend_required_optional": true,
+            "customer_ack_state_optional": "REJECTED"
+          }
+        },
+        {
+          "condition": "delivery_status=REDELIVERY_REQUIRED",
+          "exception_family": "REDELIVERY_REQUIRED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "delivery_record"
+          ],
+          "state_sinks": {
+            "redeliver_required_optional": true,
+            "customer_ack_state_optional": "PENDING"
+          }
+        },
+        {
+          "condition": "delivery_status=TERMINATED",
+          "exception_family": "DELIVERY_FAILED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ]
+        }
+      ],
+      "writeback_targets": [
+        "delivery_record",
+        "saleable_opportunity",
+        "project_fact"
+      ],
+      "recommendation_impact": [
+        "exception_family in [DELIVERY_FAILED,DELIVERY_REJECTED] => saleability_status=BLOCKED",
+        "exception_family in [PARTIAL_DELIVERY,REDELIVERY_REQUIRED,REWORK_REQUIRED,ACK_TIMEOUT] => saleability_status=RESTRICTED and offer_recommendation_state=REVIEW_REQUIRED",
+        "exception_family in [ARCHIVE_FAILURE,RETRIEVAL_FAILED] => delivery completion blocked until audit and retrieval recovery"
+      ],
+      "archive_policy": [
+        "delivery_exception_family_optional not null => require audit_ref before archival",
+        "ARCHIVE_FAILURE or RETRIEVAL_FAILED => block delivery_record closure",
+        "PARTIAL_DELIVERY or REDELIVERY_REQUIRED or REWORK_REQUIRED => final closure forbidden until exception cleared"
+      ]
+    }
+  ],
+  "notes": [
+    "Delivery exceptions must be written back before closure.",
+    "The precise delivery semantic owner is delivery_exception_family_optional; outcome_family remains the coarse closure bucket for Stage9 runtime and upstream feedback contracts.",
+    "Partial delivery, redelivery, and rework must remain distinct families even when they share the same coarse outcome_family."
+  ]
+}

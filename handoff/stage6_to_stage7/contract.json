@@ -1,0 +1,124 @@
+{
+  "handoff_id": "H-06-STAGE6-TO-STAGE7",
+  "from_stage": 6,
+  "to_stage": 7,
+  "name": "统一事实 -> 商业承接与可售对象",
+  "producer_objects": [
+    "project_fact",
+    "legal_action_recommendation",
+    "review_queue_profile",
+    "challenger_candidate_profile",
+    "report_record"
+  ],
+  "consumer_objects": [
+    "multi_competitor_collection",
+    "legal_action_actor_profile",
+    "procurement_decision_actor_profile",
+    "buyer_fit",
+    "challenger_buyer_fit",
+    "offer_recommendation",
+    "sales_lead",
+    "saleable_opportunity"
+  ],
+  "required_upstream_conditions": [
+    "project_fact_ready",
+    "challenger_profile_ready",
+    "sale_gate_not_blocked"
+  ],
+  "required_payload_fields": [
+    "project_id",
+    "sale_gate_status",
+    "real_competitor_count",
+    "competitor_quality_grade",
+    "window_status",
+    "report_status",
+    "review_task_status",
+    "action_family",
+    "challenger_profile_id",
+    "focus_bidder_id",
+    "challenger_bidder_id",
+    "challenge_actionability_score",
+    "execution_readiness_score",
+    "legal_action_actor_org_name_seed",
+    "procurement_decision_actor_org_name_seed",
+    "buyer_type_hint"
+  ],
+  "optional_payload_fields": [
+    "review_queue_profile_id",
+    "review_lane",
+    "review_priority_score",
+    "review_queue_bucket",
+    "window_risk_level",
+    "commercial_urgency_level",
+    "report_id",
+    "minimum_release_level",
+    "linked_review_request_id_optional",
+    "missing_condition_family_optional",
+    "private_supplement_record_id_optional",
+    "private_supplement_release_state_optional",
+    "private_supplement_usable_scope_optional",
+    "private_supplement_written_back_policy_optional",
+    "project_value_score_optional",
+    "normalized_price_amount_optional",
+    "price_conflict_gate_status_optional",
+    "confidence_score_optional",
+    "current_action_start_at_optional",
+    "current_action_deadline_at_optional"
+  ],
+  "consumer_runtime_required_fields": [
+    "project_id",
+    "sale_gate_status",
+    "real_competitor_count",
+    "competitor_quality_grade",
+    "window_status",
+    "report_status",
+    "review_task_status",
+    "action_family",
+    "challenger_profile_id",
+    "focus_bidder_id",
+    "challenger_bidder_id",
+    "challenge_actionability_score",
+    "execution_readiness_score",
+    "legal_action_actor_org_name_seed",
+    "procurement_decision_actor_org_name_seed",
+    "buyer_type_hint"
+  ],
+  "producer_obligations": [
+    "Stage6 must project the unified fact hub as the only authoritative source for Stage7 commercial seed fields.",
+    "Stage6 must carry review/report state and any isolated supplement references as machine-readable metadata without leaking supplement content into Stage7 formal objects.",
+    "Stage6 must not downgrade H-05 gate authority into free-form Stage7 defaults."
+  ],
+  "consumer_obligations": [
+    "Stage7 may consume H-06 authoritative fields for sale_gate_status, competitor_quality_grade, window_status, report_status, review_task_status, action_family, challenger profile seeds, and formal sink optionals when present.",
+    "Stage7 must not recompute Stage6 unified fact decisions from Stage5 gate inputs, review_queue internals, or private supplement content.",
+    "Stage7 may only observe private supplement references/release states; it must not consume supplement body content as a commercial input."
+  ],
+  "consumer_must_not_recompute_fields": [
+    "sale_gate_status",
+    "competitor_quality_grade",
+    "window_status",
+    "report_status",
+    "review_task_status",
+    "action_family",
+    "challenger_profile_id",
+    "focus_bidder_id",
+    "challenger_bidder_id",
+    "challenge_actionability_score",
+    "execution_readiness_score",
+    "buyer_type_hint"
+  ],
+  "blocking_conditions": [
+    "missing_project_fact",
+    "missing_challenger_profile",
+    "sale_gate_blocked"
+  ],
+  "success_criteria": [
+    "multi_competitor_collection_created_or_projected",
+    "dual_actor_profiles_created",
+    "buyer_fit_created",
+    "saleable_opportunity_created_or_restricted",
+    "formal_sink_optional_fields_projected_when_present"
+  ],
+  "priority": "P1",
+  "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-06-STAGE6-TO-STAGE7"
+}

@@ -1,0 +1,2161 @@
+{
+  "registry_id": "golden-cases",
+  "version": "0.2.0",
+  "metadata": {
+    "status": "DRAFT",
+    "generated_at": "2026-04-13",
+    "source_documents": [
+      "D11_测试验收与金标回归清单.md",
+      "D13_公开可查边界能力清单.md",
+      "D3_正式规则码总表与判定说明书.md"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "GC-A-01-POS-001",
+      "title": "A-01 正向成立样本",
+      "capability_id": "A-01",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "PASS",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "AUTO_HIT",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "PASS",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-013",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-01-NEG-001",
+      "title": "A-01 反向不成立样本",
+      "capability_id": "A-01",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-013",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-01-DOWN-001",
+      "title": "A-01 降级样本",
+      "capability_id": "A-01",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-013",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-01-BLOCK-001",
+      "title": "A-01 阻断样本",
+      "capability_id": "A-01",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-013",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-02-POS-001",
+      "title": "A-02 正向成立样本",
+      "capability_id": "A-02",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 1,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-014",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-02-NEG-001",
+      "title": "A-02 反向不成立样本",
+      "capability_id": "A-02",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 1,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-014",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-02-DOWN-001",
+      "title": "A-02 降级样本",
+      "capability_id": "A-02",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 1,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-014",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-02-BLOCK-001",
+      "title": "A-02 阻断样本",
+      "capability_id": "A-02",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 1,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-014",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-03-POS-001",
+      "title": "A-03 正向成立样本",
+      "capability_id": "A-03",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 3,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-015",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-03-NEG-001",
+      "title": "A-03 反向不成立样本",
+      "capability_id": "A-03",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 3,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-015",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-03-DOWN-001",
+      "title": "A-03 降级样本",
+      "capability_id": "A-03",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 3,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-015",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-03-BLOCK-001",
+      "title": "A-03 阻断样本",
+      "capability_id": "A-03",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 3,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-015",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-04-POS-001",
+      "title": "A-04 正向成立样本",
+      "capability_id": "A-04",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-016",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-04-NEG-001",
+      "title": "A-04 反向不成立样本",
+      "capability_id": "A-04",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-016",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-04-DOWN-001",
+      "title": "A-04 降级样本",
+      "capability_id": "A-04",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-016",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-04-BLOCK-001",
+      "title": "A-04 阻断样本",
+      "capability_id": "A-04",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-016",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-05-POS-001",
+      "title": "A-05 正向成立样本",
+      "capability_id": "A-05",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-017",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-05-NEG-001",
+      "title": "A-05 反向不成立样本",
+      "capability_id": "A-05",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-017",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-05-DOWN-001",
+      "title": "A-05 降级样本",
+      "capability_id": "A-05",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-017",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-05-BLOCK-001",
+      "title": "A-05 阻断样本",
+      "capability_id": "A-05",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-017",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-06-POS-001",
+      "title": "A-06 正向成立样本",
+      "capability_id": "A-06",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "PASS",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "AUTO_HIT",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "PASS",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-018",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-06-NEG-001",
+      "title": "A-06 反向不成立样本",
+      "capability_id": "A-06",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-018",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-06-DOWN-001",
+      "title": "A-06 降级样本",
+      "capability_id": "A-06",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-018",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-06-BLOCK-001",
+      "title": "A-06 阻断样本",
+      "capability_id": "A-06",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-018",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-07-POS-001",
+      "title": "A-07 正向成立样本",
+      "capability_id": "A-07",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "PASS",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "AUTO_HIT",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "PASS",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-019",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-07-NEG-001",
+      "title": "A-07 反向不成立样本",
+      "capability_id": "A-07",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-019",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-07-DOWN-001",
+      "title": "A-07 降级样本",
+      "capability_id": "A-07",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-019",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-07-BLOCK-001",
+      "title": "A-07 阻断样本",
+      "capability_id": "A-07",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-019",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-08-POS-001",
+      "title": "A-08 正向成立样本",
+      "capability_id": "A-08",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 6,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-020",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-08-NEG-001",
+      "title": "A-08 反向不成立样本",
+      "capability_id": "A-08",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 6,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-020",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-08-DOWN-001",
+      "title": "A-08 降级样本",
+      "capability_id": "A-08",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 6,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-020",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-08-BLOCK-001",
+      "title": "A-08 阻断样本",
+      "capability_id": "A-08",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 6,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-020",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-09-POS-001",
+      "title": "A-09 正向成立样本",
+      "capability_id": "A-09",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 6,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-021",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-09-NEG-001",
+      "title": "A-09 反向不成立样本",
+      "capability_id": "A-09",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 6,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-021",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-09-DOWN-001",
+      "title": "A-09 降级样本",
+      "capability_id": "A-09",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 6,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-021",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-09-BLOCK-001",
+      "title": "A-09 阻断样本",
+      "capability_id": "A-09",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 6,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-021",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-A-10-POS-001",
+      "title": "A-10 正向成立样本",
+      "capability_id": "A-10",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "SELLABLE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-022",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-A-10-NEG-001",
+      "title": "A-10 反向不成立样本",
+      "capability_id": "A-10",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-022",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-10-DOWN-001",
+      "title": "A-10 降级样本",
+      "capability_id": "A-10",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "A_PUBLIC_CORE"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-022",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-A-10-BLOCK-001",
+      "title": "A-10 阻断样本",
+      "capability_id": "A-10",
+      "capability_tier": "A_PUBLIC_CORE",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-022",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-B-01-POS-001",
+      "title": "B-01 正向成立样本",
+      "capability_id": "B-01",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-027",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-B-01-NEG-001",
+      "title": "B-01 反向不成立样本",
+      "capability_id": "B-01",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-027",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-B-01-DOWN-001",
+      "title": "B-01 降级样本",
+      "capability_id": "B-01",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-027",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-B-01-BLOCK-001",
+      "title": "B-01 阻断样本",
+      "capability_id": "B-01",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-027",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-B-02-POS-001",
+      "title": "B-02 正向成立样本",
+      "capability_id": "B-02",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-028",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-B-02-NEG-001",
+      "title": "B-02 反向不成立样本",
+      "capability_id": "B-02",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-028",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-B-02-DOWN-001",
+      "title": "B-02 降级样本",
+      "capability_id": "B-02",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-028",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-B-02-BLOCK-001",
+      "title": "B-02 阻断样本",
+      "capability_id": "B-02",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-028",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-B-03-POS-001",
+      "title": "B-03 正向成立样本",
+      "capability_id": "B-03",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-029",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-B-03-NEG-001",
+      "title": "B-03 反向不成立样本",
+      "capability_id": "B-03",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-029",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-B-03-DOWN-001",
+      "title": "B-03 降级样本",
+      "capability_id": "B-03",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-029",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-B-03-BLOCK-001",
+      "title": "B-03 阻断样本",
+      "capability_id": "B-03",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-029",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-B-04-POS-001",
+      "title": "B-04 正向成立样本",
+      "capability_id": "B-04",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-030",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-B-04-NEG-001",
+      "title": "B-04 反向不成立样本",
+      "capability_id": "B-04",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-030",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-B-04-DOWN-001",
+      "title": "B-04 降级样本",
+      "capability_id": "B-04",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-030",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-B-04-BLOCK-001",
+      "title": "B-04 阻断样本",
+      "capability_id": "B-04",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-030",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-BC-01-POS-001",
+      "title": "BC-01 正向成立样本",
+      "capability_id": "BC-01",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 1,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-032",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-BC-01-NEG-001",
+      "title": "BC-01 反向不成立样本",
+      "capability_id": "BC-01",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 1,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-032",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-BC-01-DOWN-001",
+      "title": "BC-01 降级样本",
+      "capability_id": "BC-01",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 1,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-032",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-BC-01-BLOCK-001",
+      "title": "BC-01 阻断样本",
+      "capability_id": "BC-01",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 1,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-032",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-BC-02-POS-001",
+      "title": "BC-02 正向成立样本",
+      "capability_id": "BC-02",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-033",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-BC-02-NEG-001",
+      "title": "BC-02 反向不成立样本",
+      "capability_id": "BC-02",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-033",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-BC-02-DOWN-001",
+      "title": "BC-02 降级样本",
+      "capability_id": "BC-02",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "B_PUBLIC_ENHANCED"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-033",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-BC-02-BLOCK-001",
+      "title": "BC-02 阻断样本",
+      "capability_id": "BC-02",
+      "capability_tier": "B_PUBLIC_ENHANCED",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-033",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-C-01-POS-001",
+      "title": "C-01 正向成立样本",
+      "capability_id": "C-01",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-035",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-C-01-NEG-001",
+      "title": "C-01 反向不成立样本",
+      "capability_id": "C-01",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-035",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-C-01-DOWN-001",
+      "title": "C-01 降级样本",
+      "capability_id": "C-01",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-035",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-C-01-BLOCK-001",
+      "title": "C-01 阻断样本",
+      "capability_id": "C-01",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 2,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-035",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-C-02-POS-001",
+      "title": "C-02 正向成立样本",
+      "capability_id": "C-02",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-036",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-C-02-NEG-001",
+      "title": "C-02 反向不成立样本",
+      "capability_id": "C-02",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-036",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-C-02-DOWN-001",
+      "title": "C-02 降级样本",
+      "capability_id": "C-02",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-036",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-C-02-BLOCK-001",
+      "title": "C-02 阻断样本",
+      "capability_id": "C-02",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-036",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-C-03-POS-001",
+      "title": "C-03 正向成立样本",
+      "capability_id": "C-03",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "CLUE",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-037",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-C-03-NEG-001",
+      "title": "C-03 反向不成立样本",
+      "capability_id": "C-03",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-037",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-C-03-DOWN-001",
+      "title": "C-03 降级样本",
+      "capability_id": "C-03",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-037",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-C-03-BLOCK-001",
+      "title": "C-03 阻断样本",
+      "capability_id": "C-03",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-037",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-C-04-POS-001",
+      "title": "C-04 正向成立样本",
+      "capability_id": "C-04",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "positive",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "OBSERVATION",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "ALLOW"
+      },
+      "source_refs": [
+        "D13-R-038",
+        "D11-R-022"
+      ]
+    },
+    {
+      "case_id": "GC-C-04-NEG-001",
+      "title": "C-04 反向不成立样本",
+      "capability_id": "C-04",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "negative",
+        "coverage_state": "NOT_READY",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "REVIEW",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "internal_review_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-038",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-C-04-DOWN-001",
+      "title": "C-04 降级样本",
+      "capability_id": "C-04",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "downgrade",
+        "coverage_state": "VALIDATING",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "boundary_state": "C_PUBLIC_CONDITIONAL"
+      },
+      "expected": {
+        "result_type": "REVIEW_REQUEST",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "release_gate": "client_report_release",
+        "release_decision": "REVIEW"
+      },
+      "source_refs": [
+        "D13-R-038",
+        "D11-R-024"
+      ]
+    },
+    {
+      "case_id": "GC-C-04-BLOCK-001",
+      "title": "C-04 阻断样本",
+      "capability_id": "C-04",
+      "capability_tier": "C_PUBLIC_CONDITIONAL",
+      "target_stage": 4,
+      "input_profile": {
+        "scenario": "block",
+        "coverage_state": "SUSPENDED",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
+      },
+      "expected": {
+        "result_type": "BLOCK",
+        "rule_gate_status": "BLOCK",
+        "evidence_gate_status": "BLOCK",
+        "release_gate": "internal_review_release",
+        "release_decision": "BLOCK"
+      },
+      "source_refs": [
+        "D13-R-038",
+        "D11-R-025"
+      ]
+    },
+    {
+      "case_id": "GC-RT-STAGE8-FAILURE-001",
+      "title": "Stage 8 failure path 回写字段闭合",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 8,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {
+          "response_status": "WRONG_ROLE"
+        }
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "STAGE8_FAILURE_WRITEBACK",
+        "next_step_optional": "RESELECT_CONTACT",
+        "require_written_back_at_optional": true
+      },
+      "source_refs": [
+        "D11-R-053"
+      ]
+    },
+    {
+      "case_id": "GC-RT-H08-PAYLOAD-001",
+      "title": "H-08 handoff payload 正式闭合",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 8,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {}
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "H08_PAYLOAD_CLOSURE",
+        "required_payload_fields": [
+          "opportunity_id",
+          "touch_record_id",
+          "response_status",
+          "saleability_status",
+          "crm_owner_state"
+        ],
+        "producer_objects": [
+          "contact_target",
+          "outreach_plan",
+          "touch_record",
+          "saleable_opportunity"
+        ]
+      },
+      "source_refs": [
+        "D11-R-053"
+      ]
+    },
+    {
+      "case_id": "GC-RT-STAGE9-CONSUMER-001",
+      "title": "Stage 9 consumer 正式消费 saleable_opportunity + touch_record",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 9,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {}
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "STAGE9_CONSUMER_H08"
+      },
+      "source_refs": [
+        "D11-R-053"
+      ]
+    },
+    {
+      "case_id": "GC-RT-STAGE9-EXECUTOR-001",
+      "title": "Stage 9 executor 四段 coverage 闭合",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 9,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {
+          "refund_state": "COMPLETED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "outcome_reason_tags": [
+            "REFUND_COMPLETED"
+          ],
+          "trigger_type": "EXCEPTION_TRIGGERED"
+        }
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "STAGE9_EXECUTOR_COVERAGE",
+        "policy_keys": [
+          "payment_exception",
+          "delivery_exception",
+          "outcome_taxonomy",
+          "governance_taxonomy"
+        ],
+        "payment_exception_family_optional": "REFUND_COMPLETED",
+        "archival_status": "ARCHIVE_EXCEPTION"
+      },
+      "source_refs": [
+        "D11-R-051",
+        "D11-R-053"
+      ]
+    },
+    {
+      "case_id": "GC-RT-STAGE9-WRITEBACK-001",
+      "title": "Stage 9 writeback additive 语义闭合",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 9,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {
+          "response_status": "NO_RESPONSE",
+          "crm_owner_state": "UNASSIGNED"
+        }
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "STAGE9_WRITEBACK_ADDITIVE",
+        "outcome_writeback_targets": [
+          "contact_target",
+          "saleable_opportunity"
+        ],
+        "governance_writeback_targets_optional": [
+          "order_record",
+          "payment_record"
+        ],
+        "effective_writeback_targets": [
+          "contact_target",
+          "saleable_opportunity",
+          "order_record",
+          "payment_record"
+        ]
+      },
+      "source_refs": [
+        "D10-R-067",
+        "D11-R-053"
+      ]
+    }
+  ]
+}

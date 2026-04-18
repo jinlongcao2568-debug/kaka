@@ -1,0 +1,376 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "window_value_policy_catalog",
+  "ownerDocs": [
+    "D2",
+    "D3",
+    "D8",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "WINDOW-STATUS-001",
+      "title": "Action window status, review lane, and queue scoring",
+      "applies_to_objects": [
+        "clock_chain_profile",
+        "legal_action_recommendation",
+        "review_queue_profile"
+      ],
+      "input_fields": [
+        "clock_chain_profile.current_action_clock",
+        "clock_chain_profile.current_action_start_at_optional",
+        "clock_chain_profile.current_action_deadline_at_optional",
+        "clock_chain_profile.clock_conflict_state",
+        "public_chain.window_clock_state",
+        "project_fact.sale_gate_status",
+        "review_queue_profile.commercial_urgency_level"
+      ],
+      "output_fields": [
+        "legal_action_recommendation.window_status",
+        "clock_chain_profile.window_urgency_score_optional",
+        "review_queue_profile.window_risk_level",
+        "review_queue_profile.review_lane",
+        "review_queue_profile.review_priority_score",
+        "review_queue_profile.review_queue_bucket",
+        "review_queue_profile.commercial_urgency_level"
+      ],
+      "thresholds": {
+        "due_soon_days": 3,
+        "urgent_days": 7,
+        "normal_days": 14
+      },
+      "status_rules": [
+        {
+          "rule_id": "WINDOW-CONFLICT-REVIEW",
+          "clock_conflict_states": [
+            "CONFLICTING",
+            "UNRESOLVED"
+          ],
+          "window_status": "REVIEW_REQUIRED",
+          "window_risk_level": "HIGH",
+          "reason": "clock_conflict_requires_review"
+        },
+        {
+          "rule_id": "WINDOW-CLOCK-UNKNOWN",
+          "current_action_clock_states": [
+            "UNKNOWN",
+            "NOT_APPLICABLE"
+          ],
+          "window_status": "REVIEW_REQUIRED",
+          "window_risk_level": "MEDIUM",
+          "reason": "action_clock_unknown"
+        },
+        {
+          "rule_id": "WINDOW-DEADLINE-MISSING",
+          "deadline_missing": true,
+          "window_status": "REVIEW_REQUIRED",
+          "window_risk_level": "MEDIUM",
+          "reason": "deadline_missing"
+        },
+        {
+          "rule_id": "WINDOW-MISSED",
+          "days_remaining": {
+            "lt": 0
+          },
+          "window_status": "MISSED",
+          "window_risk_level": "CRITICAL",
+          "reason": "action_window_missed"
+        },
+        {
+          "rule_id": "WINDOW-ACTIONABLE",
+          "days_remaining": {
+            "gte": 0
+          },
+          "window_status": "ACTIONABLE",
+          "reason": "action_window_open"
+        }
+      ],
+      "status_fallback_rules": [
+        {
+          "rule_id": "WINDOW-EXISTING-STATUS-ACTIONABLE",
+          "deadline_missing": true,
+          "existing_window_statuses": [
+            "ACTIONABLE"
+          ],
+          "window_status": "ACTIONABLE",
+          "window_risk_level": "MEDIUM",
+          "window_urgency_score": 60,
+          "review_lane": "STANDARD",
+          "reason": "existing_window_status_actionable_fallback"
+        },
+        {
+          "rule_id": "WINDOW-EXISTING-STATUS-REVIEW",
+          "deadline_missing": true,
+          "existing_window_statuses": [
+            "REVIEW_REQUIRED",
+            "CLOSED"
+          ],
+          "window_status": "REVIEW_REQUIRED",
+          "window_risk_level": "MEDIUM",
+          "window_urgency_score": 50,
+          "review_lane": "STANDARD",
+          "reason": "existing_window_status_review_fallback"
+        },
+        {
+          "rule_id": "WINDOW-SALE-GATE-ACTIONABLE",
+          "deadline_missing": true,
+          "window_status_missing": true,
+          "clock_conflict_states_excluded": [
+            "CONFLICTING",
+            "UNRESOLVED"
+          ],
+          "current_action_clock_states_excluded": [
+            "UNKNOWN",
+            "NOT_APPLICABLE"
+          ],
+          "sale_gate_statuses": [
+            "OPEN",
+            "HOLD"
+          ],
+          "window_status": "ACTIONABLE",
+          "window_risk_level": "MEDIUM",
+          "window_urgency_score": 60,
+          "review_lane": "STANDARD",
+          "reason": "sale_gate_actionable_fallback"
+        },
+        {
+          "rule_id": "WINDOW-SALE-GATE-REVIEW",
+          "deadline_missing": true,
+          "window_status_missing": true,
+          "sale_gate_statuses": [
+            "REVIEW",
+            "BLOCK"
+          ],
+          "window_status": "REVIEW_REQUIRED",
+          "window_risk_level": "MEDIUM",
+          "window_urgency_score": 50,
+          "review_lane": "STANDARD",
+          "reason": "sale_gate_review_fallback"
+        }
+      ],
+      "window_risk_rules": [
+        {
+          "rule_id": "WINDOW-RISK-CRITICAL",
+          "days_remaining": {
+            "gte": 0,
+            "lte": 3
+          },
+          "window_risk_level": "CRITICAL"
+        },
+        {
+          "rule_id": "WINDOW-RISK-HIGH",
+          "days_remaining": {
+            "gte": 4,
+            "lte": 7
+          },
+          "window_risk_level": "HIGH"
+        },
+        {
+          "rule_id": "WINDOW-RISK-MEDIUM",
+          "days_remaining": {
+            "gte": 8,
+            "lte": 14
+          },
+          "window_risk_level": "MEDIUM"
+        },
+        {
+          "rule_id": "WINDOW-RISK-LOW",
+          "days_remaining": {
+            "gt": 14
+          },
+          "window_risk_level": "LOW"
+        }
+      ],
+      "urgency_score_rules": [
+        {
+          "rule_id": "WINDOW-URGENCY-MISSED",
+          "days_remaining": {
+            "lt": 0
+          },
+          "urgency_score": 0
+        },
+        {
+          "rule_id": "WINDOW-URGENCY-CRITICAL",
+          "days_remaining": {
+            "gte": 0,
+            "lte": 3
+          },
+          "urgency_score": 95
+        },
+        {
+          "rule_id": "WINDOW-URGENCY-HIGH",
+          "days_remaining": {
+            "gte": 4,
+            "lte": 7
+          },
+          "urgency_score": 80
+        },
+        {
+          "rule_id": "WINDOW-URGENCY-MEDIUM",
+          "days_remaining": {
+            "gte": 8,
+            "lte": 14
+          },
+          "urgency_score": 60
+        },
+        {
+          "rule_id": "WINDOW-URGENCY-LOW",
+          "days_remaining": {
+            "gt": 14
+          },
+          "urgency_score": 40
+        },
+        {
+          "rule_id": "WINDOW-URGENCY-REVIEW",
+          "window_statuses": [
+            "REVIEW_REQUIRED"
+          ],
+          "urgency_score": 50
+        }
+      ],
+      "review_lane_rules": [
+        {
+          "rule_id": "WINDOW-LANE-MISSED",
+          "window_statuses": [
+            "MISSED"
+          ],
+          "review_lane": "FAST_WINDOW"
+        },
+        {
+          "rule_id": "WINDOW-LANE-CRITICAL",
+          "days_remaining": {
+            "gte": 0,
+            "lte": 3
+          },
+          "review_lane": "FAST_WINDOW"
+        },
+        {
+          "rule_id": "WINDOW-LANE-HIGH",
+          "days_remaining": {
+            "gte": 4,
+            "lte": 7
+          },
+          "review_lane": "HIGH_PRIORITY"
+        },
+        {
+          "rule_id": "WINDOW-LANE-STANDARD",
+          "days_remaining": {
+            "gte": 8
+          },
+          "review_lane": "STANDARD"
+        },
+        {
+          "rule_id": "WINDOW-LANE-DEFAULT",
+          "default": true,
+          "review_lane": "STANDARD"
+        }
+      ],
+      "queue_priority_policy": {
+        "input_fields": [
+          "legal_action_recommendation.window_status",
+          "review_queue_profile.window_risk_level",
+          "clock_chain_profile.window_urgency_score_optional",
+          "review_queue_profile.commercial_urgency_level"
+        ],
+        "output_fields": [
+          "review_queue_profile.review_priority_score",
+          "review_queue_profile.review_queue_bucket",
+          "review_queue_profile.commercial_urgency_level"
+        ],
+        "commercial_urgency_default": "NORMAL",
+        "score_formula": "clamp(round(window_urgency_score * 0.6 + window_risk_level_weight + commercial_urgency_level_weight), 0, 100)",
+        "weights": {
+          "window_urgency_weight": 0.6,
+          "window_risk_level_weights": {
+            "LOW": 0,
+            "MEDIUM": 5,
+            "HIGH": 15,
+            "CRITICAL": 25
+          },
+          "commercial_urgency_level_weights": {
+            "LOW": 0,
+            "NORMAL": 5,
+            "HIGH": 10,
+            "CRITICAL": 15
+          }
+        },
+        "score_overrides": [
+          {
+            "rule_id": "QUEUE-SCORE-MISSED",
+            "window_statuses": [
+              "MISSED"
+            ],
+            "review_priority_score": 100
+          },
+          {
+            "rule_id": "QUEUE-SCORE-REVIEW-HIGH-FLOOR",
+            "window_statuses": [
+              "REVIEW_REQUIRED"
+            ],
+            "commercial_urgency_levels": [
+              "CRITICAL",
+              "HIGH"
+            ],
+            "min_score": 65
+          },
+          {
+            "rule_id": "QUEUE-SCORE-REVIEW-NORMAL-FLOOR",
+            "window_statuses": [
+              "REVIEW_REQUIRED"
+            ],
+            "commercial_urgency_levels": [
+              "NORMAL",
+              "LOW"
+            ],
+            "min_score": 40
+          }
+        ],
+        "bucket_rules": [
+          {
+            "rule_id": "QUEUE-BUCKET-MISSED",
+            "window_statuses": [
+              "MISSED"
+            ],
+            "review_queue_bucket": "CRITICAL_WINDOW"
+          },
+          {
+            "rule_id": "QUEUE-BUCKET-CRITICAL",
+            "score": {
+              "gte": 85
+            },
+            "review_queue_bucket": "CRITICAL_WINDOW"
+          },
+          {
+            "rule_id": "QUEUE-BUCKET-HIGH",
+            "score": {
+              "gte": 65
+            },
+            "review_queue_bucket": "HIGH"
+          },
+          {
+            "rule_id": "QUEUE-BUCKET-NORMAL",
+            "score": {
+              "gte": 40
+            },
+            "review_queue_bucket": "NORMAL"
+          },
+          {
+            "rule_id": "QUEUE-BUCKET-LOW",
+            "default": true,
+            "review_queue_bucket": "LOW"
+          }
+        ]
+      },
+      "failure_actions": [
+        "window_status=REVIEW_REQUIRED forces review_queue_profile",
+        "window_status=MISSED downgrades saleability and blocks external action"
+      ]
+    }
+  ],
+  "notes": [
+    "Policy freezes window thresholds, fallback rules, review lane mapping, and queue scoring formula.",
+    "days_remaining is derived from current_action_deadline_at_optional minus evaluation date.",
+    "window_status drives legal_action_recommendation, review lane selection, and queue bucket scoring.",
+    "review_priority_score is derived from window_urgency_score, window_risk_level, and commercial_urgency_level rather than runtime literals."
+  ]
+}

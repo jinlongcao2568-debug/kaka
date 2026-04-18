@@ -1,0 +1,70 @@
+version: 1
+updated_at: "2026-04-18"
+release_status: "INTERNAL_OPERABLE"
+internal_leadops_status: "READY"
+external_release_status: "BLOCKED"
+full_repair_program:
+  status: "FULL_REPAIR_COMPLETE_REVIEW_READY"
+  status_semantics: "Program control closeout only; not a repo readiness source."
+  last_completed_batch: "B10"
+  next_batch_recommended: null
+  halted: true
+release_bundle:
+  bundle_type: "INTERNAL_RELEASE"
+  target_env: "PRODUCTION_INTERNAL"
+  release_layer: "INTERNAL_OPERABLE"
+  rollback_ready: true
+  release_gates_required: true
+capability_runtime_projection:
+  projection_only: true
+  runtime_policy_ref: "contracts/release/runtime_policy_catalog.json#capability_families"
+  runtime_inventory_ref: "control/runtime_inventory.yaml#capability_family_state_projection"
+  runtime_resolver_precedence_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence"
+  current_mode_projection_ref: "control/runtime_inventory.yaml#capability_family_state_projection"
+  release_layer_ceiling_projection_ref: "control/runtime_inventory.yaml#capability_family_state_projection"
+  mode_resolution_source: false
+  release_layer_semantics_source: false
+  external_blocked_redline_retained: true
+future_external_unlock_prerequisites:
+  projection_only: true
+  matrix_ref: "contracts/release/external_unlock_prerequisite_matrix.json"
+  state_ref: "control/external_unlock_prerequisite_state.yaml"
+  prerequisite_gate_ref: "contracts/release/release_gates.json#future_unlock_prerequisite_gates"
+  current_prerequisite_state: "MACHINE_READABLE_BASELINE_DEFINED"
+  future_unlock_decision_batch_readiness: "READY_FOR_FUTURE_UNLOCK_DECISION_BATCH"
+  external_unlock_decision_state: "R6_DECISION_COMPLETED_NOT_IMPLEMENTATION_APPROVED"
+  rollback_ready: true
+  emergency_off_ready: true
+future_external_unlock_decision:
+  projection_only: true
+  matrix_ref: "contracts/release/future_unlock_decision_matrix.json"
+  state_ref: "control/future_unlock_decision_state.yaml"
+  decision_batch_status: "COMPLETED"
+  repo_readiness: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
+  candidate_gap_active: false
+  strategic_branch_active: false
+  closure_review_active: false
+  closure_review_completed: true
+  mainline_selection_ready: true
+  approved_for_unlock_implementation: false
+  default_strategic_path: "CONTINUE_INTERNAL_FIRST"
+  candidate_domains:
+    - "leadpack_external_delivery"
+    - "source_vendor_externalized_usage"
+    - "external_export_surface"
+  deny_by_default_domains:
+    - "external_software_release"
+    - "stage8_live_execution"
+    - "stage9_live_payment_execution"
+    - "stage9_live_delivery_execution"
+    - "model_provider_externalized_usage"
+  long_term_blocked_domains:
+    - "tool_provider_externalized_usage"
+notes:
+  - "External software release remains blocked."
+  - "AX9S full-repair program is closed as FULL_REPAIR_COMPLETE_REVIEW_READY; repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION."
+  - "Release bundles must reference contracts/testing/governance snapshots."
+  - "control/release_manifest.yaml is a projection-only release/status mirror and not a capability semantic source."
+  - "Future unlock prerequisite baseline is defined and R6 decision is now recorded separately from any implementation approval."
+  - "R6 decision is complete, but no unlock implementation is approved."
+  - "Current repo readiness is READY_FOR_POST-REPAIR_MAINLINE_SELECTION; R6-path tokens remain decision-time history only."

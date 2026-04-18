@@ -1,0 +1,68 @@
+{
+  "matrix_id": "deployment-matrix",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "release governance round 1",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/release/deployment_matrix.json",
+    "source_documents": [
+      "D12_部署发布与运行治理规范.md",
+      "D13_公开可查边界能力清单.md"
+    ]
+  },
+  "environment_tiers": [
+    {
+      "tier": "local",
+      "mapped_envs": ["LOCAL_DEV"],
+      "release_layer": "DEV_ALLOWED",
+      "external_status": "EXTERNAL_BLOCKED",
+      "default_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "INTERNAL_ONLY", "SHADOW_MODE", "DRY_RUN"]
+    },
+    {
+      "tier": "internal_pilot",
+      "mapped_envs": ["INTEGRATION", "PRE_RELEASE", "PRODUCTION_INTERNAL"],
+      "release_layer": "INTERNAL_OPERABLE",
+      "external_status": "EXTERNAL_BLOCKED",
+      "default_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "INTERNAL_ONLY", "INTERNAL_GOVERNED", "SHADOW_MODE", "DRY_RUN", "APPROVAL_REQUIRED"]
+    },
+    {
+      "tier": "future_external",
+      "mapped_envs": ["PRODUCTION_CLIENT", "PRODUCTION_ACTION", "DR_STANDBY"],
+      "release_layer": "LEADPACK_DELIVERABLE",
+      "external_status": "EXTERNAL_BLOCKED",
+      "default_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "INTERNAL_ONLY", "INTERNAL_GOVERNED", "SHADOW_MODE", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY"]
+    }
+  ],
+  "deployment_matrix": [
+    {
+      "bundle_type": "INTERNAL_RELEASE",
+      "allowed_envs": ["INTEGRATION", "PRE_RELEASE", "PRODUCTION_INTERNAL"],
+      "release_gates_required": true,
+      "external_allowed": false
+    },
+    {
+      "bundle_type": "CLIENT_RELEASE",
+      "allowed_envs": ["PRODUCTION_CLIENT"],
+      "release_gates_required": true,
+      "external_allowed": false
+    },
+    {
+      "bundle_type": "ACTION_RELEASE",
+      "allowed_envs": ["PRODUCTION_ACTION"],
+      "release_gates_required": true,
+      "external_allowed": false
+    },
+    {
+      "bundle_type": "ROLLBACK_RELEASE",
+      "allowed_envs": ["LOCAL_DEV", "INTEGRATION", "PRE_RELEASE", "PRODUCTION_INTERNAL", "PRODUCTION_CLIENT", "PRODUCTION_ACTION", "DR_STANDBY"],
+      "release_gates_required": true,
+      "external_allowed": false
+    }
+  ],
+  "notes": [
+    "External software release remains blocked.",
+    "Future external tier is reserved only and does not imply release approval.",
+    "capability_mode is runtime-only and does not override release_layer."
+  ]
+}

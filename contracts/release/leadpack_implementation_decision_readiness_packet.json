@@ -1,0 +1,224 @@
+{
+  "registry_id": "leadpack-implementation-decision-readiness-packet",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D12",
+      "D13"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Machine-readable, review-only human readiness packet for deciding whether leadpack_external_delivery may enter a later implementation decision batch. This packet does not execute the implementation decision and does not approve implementation, activation, external delivery, or live execution.",
+    "machine_path": "contracts/release/leadpack_implementation_decision_readiness_packet.json",
+    "design_prep_matrix_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+    "signoff_packet_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json",
+    "transition_matrix_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+    "candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json"
+  },
+  "candidate_domain_id": "leadpack_external_delivery",
+  "decision_scope": {
+    "readiness_packet_only": true,
+    "human_decision_readiness_review_only": true,
+    "implementation_decision_executed": false,
+    "implementation_decision_ready": false,
+    "decision_not_equal_to_implementation_approval": true,
+    "implementation_approved": false,
+    "actual_activation_not_approved": true,
+    "external_delivery_not_approved": true,
+    "external_software_release_enabled": false,
+    "stage8_stage9_live_execution_enabled": false,
+    "direct_stage8_stage9_object_export_allowed": false
+  },
+  "implementation_decision_packet_status_vocabulary": [
+    "PACKET_DRAFT",
+    "PACKET_HELD",
+    "PACKET_READY_FOR_HUMAN_REVIEW",
+    "PACKET_DENIED",
+    "PACKET_WITHDRAWN"
+  ],
+  "implementation_decision_packet_status": "PACKET_HELD",
+  "implementation_decision_ready": false,
+  "readiness_state": "IMPLEMENTATION_DECISION_HELD",
+  "required_owner_signoffs": [
+    "release_approver",
+    "governance_owner",
+    "testing_owner"
+  ],
+  "actual_owner_signoff_states": [
+    {
+      "owner_role": "release_approver",
+      "mandatory": true,
+      "current_status": "REQUESTED",
+      "signoff_state": "REQUESTED_NOT_APPROVED",
+      "hard_blocker": true,
+      "missing_or_pending_result": "HOLD"
+    },
+    {
+      "owner_role": "governance_owner",
+      "mandatory": true,
+      "current_status": "REQUESTED",
+      "signoff_state": "REQUESTED_NOT_APPROVED",
+      "hard_blocker": true,
+      "missing_or_pending_result": "HOLD"
+    },
+    {
+      "owner_role": "testing_owner",
+      "mandatory": true,
+      "current_status": "REQUESTED",
+      "signoff_state": "REQUESTED_NOT_APPROVED",
+      "hard_blocker": true,
+      "missing_or_pending_result": "HOLD"
+    }
+  ],
+  "required_approval_chains": [
+    "internal_review_release",
+    "client_report_release"
+  ],
+  "actual_approval_states": [
+    {
+      "approval_chain_id": "internal_review_release",
+      "current_status": "MISSING_OR_PENDING",
+      "required_status": "APPROVED",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "approval_chain_id": "client_report_release",
+      "current_status": "MISSING_OR_PENDING",
+      "required_status": "APPROVED",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    }
+  ],
+  "required_review_gates": [
+    "leadpack_candidate_review_gate"
+  ],
+  "actual_review_gate_states": [
+    {
+      "review_gate_id": "leadpack_candidate_review_gate",
+      "current_status": "MISSING_OR_PENDING",
+      "required_status": "PASSED_OR_READY_FOR_REVIEW",
+      "must_not_be_treated_as_approval": true,
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    }
+  ],
+  "required_audit_refs": [
+    "project_fact_audit_ref",
+    "candidate_projection_audit_ref",
+    "approval_chain_audit_ref",
+    "trace_bundle_ref",
+    "activation_design_decision_audit_ref"
+  ],
+  "actual_audit_ref_states": [
+    {
+      "audit_ref": "project_fact_audit_ref",
+      "current_status": "PRESENT_OR_TRACE_BACKED",
+      "resulting_state_if_missing": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "audit_ref": "candidate_projection_audit_ref",
+      "current_status": "PRESENT_OR_TRACE_BACKED",
+      "resulting_state_if_missing": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "audit_ref": "approval_chain_audit_ref",
+      "current_status": "PRESENT_OR_TRACE_BACKED",
+      "resulting_state_if_missing": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "audit_ref": "trace_bundle_ref",
+      "current_status": "PRESENT_OR_TRACE_BACKED",
+      "resulting_state_if_missing": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "audit_ref": "activation_design_decision_audit_ref",
+      "current_status": "MISSING",
+      "resulting_state_if_missing": "IMPLEMENTATION_DECISION_HELD"
+    }
+  ],
+  "readiness_summaries": {
+    "owner_signoff": {
+      "ready": false,
+      "missing_or_pending": [
+        "release_approver",
+        "governance_owner",
+        "testing_owner"
+      ]
+    },
+    "approval": {
+      "ready": false,
+      "missing_or_pending": [
+        "internal_review_release",
+        "client_report_release"
+      ]
+    },
+    "review_gate": {
+      "ready": false,
+      "missing_or_pending": [
+        "leadpack_candidate_review_gate"
+      ]
+    },
+    "audit": {
+      "ready": false,
+      "missing_or_pending": [
+        "activation_design_decision_audit_ref"
+      ]
+    }
+  },
+  "hold_sources": [
+    {
+      "source_type": "owner_signoff",
+      "source_id": "release_approver",
+      "reason": "owner_signoff_not_approved:release_approver",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "source_type": "owner_signoff",
+      "source_id": "governance_owner",
+      "reason": "owner_signoff_not_approved:governance_owner",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "source_type": "owner_signoff",
+      "source_id": "testing_owner",
+      "reason": "owner_signoff_not_approved:testing_owner",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "source_type": "approval_chain",
+      "source_id": "internal_review_release",
+      "reason": "approval_missing_or_pending:internal_review_release",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "source_type": "approval_chain",
+      "source_id": "client_report_release",
+      "reason": "approval_missing_or_pending:client_report_release",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "source_type": "review_gate",
+      "source_id": "leadpack_candidate_review_gate",
+      "reason": "review_gate_missing_or_pending:leadpack_candidate_review_gate",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    },
+    {
+      "source_type": "audit_ref",
+      "source_id": "activation_design_decision_audit_ref",
+      "reason": "audit_ref_missing_or_pending:activation_design_decision_audit_ref",
+      "resulting_state": "IMPLEMENTATION_DECISION_HELD"
+    }
+  ],
+  "blocking_conditions": [
+    "any mandatory owner signoff is not APPROVED",
+    "any required approval chain is missing or pending",
+    "any required review gate is missing or pending",
+    "any required audit ref is missing",
+    "actual activation, external delivery, live execution, or direct object export is requested"
+  ],
+  "review_surface": {
+    "preview_operation_id": "previewLeadpackImplementationDecisionReadinessPacket",
+    "surface_id": "review_report_workbench",
+    "surface_mode": "preview-only",
+    "approve_or_go_action_allowed": false,
+    "implementation_action_allowed": false
+  }
+}

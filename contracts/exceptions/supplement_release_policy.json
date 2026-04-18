@@ -1,0 +1,39 @@
+{
+  "policy_id": "private-supplement-release-policy",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "source_refs": [
+    "D7-R-030",
+    "D7-R-042",
+    "D7-R-050",
+    "D7-R-051"
+  ],
+  "default_release_state": "ISOLATED",
+  "allowed_transitions": {
+    "ISOLATED": [
+      "REVIEW_ELIGIBLE"
+    ],
+    "REVIEW_ELIGIBLE": [
+      "IMPACT_ELIGIBLE",
+      "ISOLATED"
+    ],
+    "IMPACT_ELIGIBLE": [
+      "RELEASED",
+      "REVIEW_ELIGIBLE"
+    ],
+    "RELEASED": [
+      "REVOKED"
+    ],
+    "REVOKED": []
+  },
+  "forbidden_effects": [
+    "write_to_project_base",
+    "write_to_field_lineage_record",
+    "replace_public_evidence",
+    "create_public_auto_hit_without_dual_gate"
+  ],
+  "notes": [
+    "Subset policy for private_supplement_record release scope.",
+    "Must remain isolated unless approval chain and governance checks pass."
+  ]
+}

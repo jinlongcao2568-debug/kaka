@@ -1,0 +1,29 @@
+{
+  "handoff_id": "H-07-STAGE7-TO-STAGE8",
+  "example_id": "EX-H07-MIN",
+  "payload": {
+    "opportunity_id": "OPP-001",
+    "saleability_status": "RESTRICTED",
+    "source_family": "PROCUREMENT_NOTICE",
+    "channel_family": "ORG_EMAIL",
+    "channel_policy_status": "ALLOW",
+    "contact_validity_status": "VALID",
+    "contact_legal_basis": "PUBLIC_ROLE_CONTACT",
+    "reasonable_expectation_status": "REASONABLE",
+    "frequency_policy_state": "ALLOW",
+    "opt_out_state": "ACTIVE",
+    "quiet_hours_policy_state": "ALLOW",
+    "commercial_urgency_level_optional": "NORMAL",
+    "role_cluster": "PROCUREMENT_DECISION",
+    "multi_competitor_collection_id_optional": "MCOMP-PRJ-001",
+    "winning_competitor_candidate_id_optional": "MCAND-PRJ-001-WIN",
+    "winning_challenger_profile_id_optional": "CH-PRJ-001",
+    "project_value_score_optional": 67,
+    "opportunity_value_score_optional": 72,
+    "normalized_price_amount_optional": 8000000,
+    "price_conflict_gate_status_optional": "PASS",
+    "confidence_score_optional": 64,
+    "current_action_start_at_optional": "2026-04-17T00:00:00Z",
+    "current_action_deadline_at_optional": "2026-04-20T00:00:00Z"
+  }
+}

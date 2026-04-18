@@ -1,0 +1,22 @@
+{
+  "handoff_id": "H-04-STAGE4-TO-STAGE5",
+  "example_id": "EX-H-04-STAGE4-TO-STAGE5-MIN",
+  "payload": {
+    "project_id": "PRJ-001",
+    "focus_bidder_id": "BID-001",
+    "public_attack_surface_id": "PAS-PRJ-001",
+    "verification_profile_id": "VFP-PRJ-001",
+    "evidence_grade_profile_id": "EGP-PRJ-001",
+    "public_capability_tier": "A_PUBLIC_CORE",
+    "verification_state": "PASS",
+    "external_use_grade": "E2_REVIEW_READY",
+    "cross_check_state": "PASS",
+    "fixation_status": "HASH_LOCKED",
+    "provenance_chain_status": "COMPLETE",
+    "retrieval_readiness_status": "READY",
+    "lineage_status": "NORMALIZED",
+    "conflict_state": "CONSISTENT",
+    "pseudo_competitor_signal_set_id": "PCS-PRJ-001",
+    "confidence_band": "MEDIUM"
+  }
+}

@@ -1,0 +1,312 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "payment_exception_catalog",
+  "ownerDocs": [
+    "D10",
+    "D3",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "PAY-EX-001",
+      "title": "Payment exception taxonomy and writeback",
+      "writeback_source_family": "payment_exception",
+      "writeback_contract_ref": "contracts/governance/writeback_impact_policy.json#writeback_source_contracts.payment_exception",
+      "writeback_merge_semantics": "ADDITIVE_ONLY",
+      "persisted_stage9_record_target": "payment_record",
+      "applies_to_objects": [
+        "payment_record",
+        "order_record",
+        "opportunity_outcome_event",
+        "governance_feedback_event"
+      ],
+      "input_fields": [
+        "payment_record.payment_status",
+        "payment_record.refund_state",
+        "payment_record.refund_amount_band_optional",
+        "payment_record.payment_proof_state",
+        "payment_record.amount_band",
+        "payment_record.amount_mismatch_state_optional",
+        "payment_record.payment_exception_family_optional",
+        "payment_record.payment_exception_reason_tags_optional",
+        "opportunity_outcome_event.outcome_family"
+      ],
+      "output_fields": [
+        "payment_record.payment_exception_family_optional",
+        "payment_record.payment_exception_reason_tags_optional",
+        "payment_record.amount_mismatch_state_optional",
+        "opportunity_outcome_event.outcome_family",
+        "governance_feedback_event.trigger_type",
+        "payment_exception_writeback_targets_optional"
+      ],
+      "matching_precedence": [
+        "payment_exception_family_optional explicit family override",
+        "payer_mismatch_state / amount_mismatch_state governance blockers",
+        "refund_state lifecycle",
+        "payment_status fallback"
+      ],
+      "exception_families": [
+        "PARTIAL_PAYMENT",
+        "PAYMENT_FAILURE",
+        "AMOUNT_MISMATCH",
+        "PAYER_MISMATCH",
+        "REFUND_REQUESTED",
+        "REFUND_APPROVED",
+        "REFUND_COMPLETED",
+        "CHARGEBACK_REVIEW",
+        "WRITE_OFF_REVIEW"
+      ],
+      "family_semantics": {
+        "PARTIAL_PAYMENT": {
+          "semantic_role": "NON_TERMINAL_PAYMENT_EXCEPTION",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "LOST",
+          "coarse_outcome_reason_tags": [
+            "PAYMENT_FAILED"
+          ],
+          "additive_writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ],
+          "recommendation_effect": "saleability_status=RESTRICTED; offer_recommendation_state=REVIEW_REQUIRED",
+          "archive_policy": "audit_required_before_archival"
+        },
+        "PAYMENT_FAILURE": {
+          "semantic_role": "TERMINAL_PAYMENT_BLOCK",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "LOST",
+          "coarse_outcome_reason_tags": [
+            "PAYMENT_FAILED"
+          ],
+          "additive_writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ],
+          "recommendation_effect": "saleability_status=BLOCKED",
+          "archive_policy": "retain_payment_failure_audit"
+        },
+        "AMOUNT_MISMATCH": {
+          "semantic_role": "TERMINAL_PAYMENT_BLOCK",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "LOST",
+          "coarse_outcome_reason_tags": [
+            "AMOUNT_MISMATCH"
+          ],
+          "additive_writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ],
+          "recommendation_effect": "saleability_status=BLOCKED",
+          "archive_policy": "approval_and_audit_required_before_archival"
+        },
+        "PAYER_MISMATCH": {
+          "semantic_role": "PAYMENT_IDENTITY_BLOCK",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "PAYER_MISMATCH",
+          "coarse_outcome_reason_tags": [
+            "PAYER_CONFIRMED_MISMATCH"
+          ],
+          "additive_writeback_targets": [
+            "order_record",
+            "delivery_record"
+          ],
+          "recommendation_effect": "delivery blocked; governance review required",
+          "archive_policy": "audit_required_before_archival"
+        },
+        "REFUND_REQUESTED": {
+          "semantic_role": "REFUND_LIFECYCLE_IN_FLIGHT",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "SIGNED"
+          ],
+          "additive_writeback_targets": [
+            "delivery_record",
+            "saleable_opportunity"
+          ],
+          "recommendation_effect": "saleability_status=RESTRICTED; delivery paused for governed review",
+          "archive_policy": "refund_chain_must_remain_traceable"
+        },
+        "REFUND_APPROVED": {
+          "semantic_role": "REFUND_LIFECYCLE_IN_FLIGHT",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "SIGNED"
+          ],
+          "additive_writeback_targets": [
+            "delivery_record",
+            "saleable_opportunity"
+          ],
+          "recommendation_effect": "saleability_status=RESTRICTED; delivery paused for governed review",
+          "archive_policy": "refund_chain_must_remain_traceable"
+        },
+        "REFUND_COMPLETED": {
+          "semantic_role": "TERMINAL_REFUND_CLOSURE",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "DELIVERY_ABANDONED",
+          "coarse_outcome_reason_tags": [
+            "REFUND_COMPLETED"
+          ],
+          "additive_writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ],
+          "recommendation_effect": "saleability_status=BLOCKED; no further delivery recommendation",
+          "archive_policy": "delivery_record.archival_status=ARCHIVE_EXCEPTION"
+        },
+        "CHARGEBACK_REVIEW": {
+          "semantic_role": "PAYMENT_EXCEPTION_REVIEW",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "LOST",
+          "coarse_outcome_reason_tags": [
+            "PAYMENT_FAILED"
+          ],
+          "additive_writeback_targets": [
+            "order_record",
+            "project_fact"
+          ],
+          "recommendation_effect": "governance review required",
+          "archive_policy": "retain_original_payment_proof"
+        },
+        "WRITE_OFF_REVIEW": {
+          "semantic_role": "PAYMENT_EXCEPTION_REVIEW",
+          "precision_owner": "payment_exception_family_optional",
+          "coarse_outcome_family": "LOST",
+          "coarse_outcome_reason_tags": [
+            "PAYMENT_FAILED"
+          ],
+          "additive_writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ],
+          "recommendation_effect": "review_required before archive",
+          "archive_policy": "write_off_requires_audit"
+        }
+      },
+      "mapping_rules": [
+        {
+          "condition": "payment_exception_family_optional=CHARGEBACK_REVIEW",
+          "exception_family": "CHARGEBACK_REVIEW",
+          "outcome_family": "LOST",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "order_record",
+            "project_fact"
+          ]
+        },
+        {
+          "condition": "payment_exception_family_optional=WRITE_OFF_REVIEW",
+          "exception_family": "WRITE_OFF_REVIEW",
+          "outcome_family": "LOST",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "payer_mismatch_state=CONFIRMED",
+          "exception_family": "PAYER_MISMATCH",
+          "outcome_family": "PAYER_MISMATCH",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "order_record",
+            "delivery_record"
+          ]
+        },
+        {
+          "condition": "amount_mismatch_state_optional=CONFIRMED",
+          "exception_family": "AMOUNT_MISMATCH",
+          "outcome_family": "LOST",
+          "governance_trigger": "APPROVAL_MISSING",
+          "writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "refund_state=COMPLETED",
+          "exception_family": "REFUND_COMPLETED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ]
+        },
+        {
+          "condition": "refund_state=APPROVED",
+          "exception_family": "REFUND_APPROVED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "delivery_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "refund_state=REQUESTED",
+          "exception_family": "REFUND_REQUESTED",
+          "outcome_family": "DELIVERY_ABANDONED",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "delivery_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "payment_status=PAYMENT_EXCEPTION",
+          "exception_family": "PAYMENT_FAILURE",
+          "outcome_family": "LOST",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "condition": "payment_status=PARTIALLY_PAID",
+          "exception_family": "PARTIAL_PAYMENT",
+          "outcome_family": "LOST",
+          "governance_trigger": "DELIVERY_BLOCK",
+          "writeback_targets": [
+            "saleable_opportunity",
+            "project_fact"
+          ]
+        },
+        {
+          "condition": "payment_status=WRITE_OFF_REVIEW",
+          "exception_family": "WRITE_OFF_REVIEW",
+          "outcome_family": "LOST",
+          "governance_trigger": "EXCEPTION_TRIGGERED",
+          "writeback_targets": [
+            "order_record",
+            "saleable_opportunity"
+          ]
+        }
+      ],
+      "writeback_targets": [
+        "order_record",
+        "saleable_opportunity",
+        "project_fact",
+        "delivery_record"
+      ],
+      "recommendation_impact": [
+        "exception_family in [PAYMENT_FAILURE,AMOUNT_MISMATCH,PAYER_MISMATCH,REFUND_COMPLETED] => saleability_status=BLOCKED",
+        "exception_family in [PARTIAL_PAYMENT,REFUND_REQUESTED,REFUND_APPROVED] => saleability_status=RESTRICTED and offer_recommendation_state=REVIEW_REQUIRED",
+        "exception_family in [CHARGEBACK_REVIEW,WRITE_OFF_REVIEW] => recommendation review stays governed and archive remains blocked until audit"
+      ],
+      "archive_policy": [
+        "refund_state in [APPROVED,COMPLETED] => delivery_record.archival_status=ARCHIVE_EXCEPTION",
+        "payment_exception_family_optional not null => require audit_ref before archival",
+        "exception_family in [PARTIAL_PAYMENT,AMOUNT_MISMATCH,PAYER_MISMATCH] => final closure forbidden until audit + approval chain clear"
+      ]
+    }
+  ],
+  "notes": [
+    "Payment exceptions are internal-only and must trigger outcome/governance writeback.",
+    "The precise payment semantic owner is payment_exception_family_optional; outcome_family remains the coarse commercial bucket for Stage9 runtime and upstream feedback contracts.",
+    "Refund requested or approved keeps the precise refund phase on payment_exception_family_optional while coarse outcome_family remains DELIVERY_ABANDONED with SIGNED as the pre-refund commercial reason tag."
+  ]
+}

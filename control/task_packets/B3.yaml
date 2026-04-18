@@ -1,0 +1,140 @@
+version: 1
+batch_id: B3
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Stage4-6 Verification Review Report Supplement Closure
+status: NOT_STARTED
+objective: "Close Stage4-6 verification, evidence, review queue, report, and supplement loops as the single unified fact hub."
+why_now: "Stage6 is the unified fact center; if it remains thin, Stage7-9 will continue to rely on implicit defaults."
+depends_on: [B2]
+non_goals:
+  - "Do not repair Stage7+ semantics in this blueprint."
+  - "Do not bypass project_fact as the unified fact hub."
+  - "not an external unlock implementation"
+affected_stages:
+  - stage4_verification
+  - stage5_rules_evidence
+  - stage6_fact_review
+declared_changed_paths:
+  - contracts/rules/rule_catalog.json
+  - contracts/schemas/review_queue_profile.schema.json
+  - contracts/schemas/report_record.schema.json
+  - contracts/schemas/private_supplement_record.schema.json
+  - handoff/stage4_to_stage5/**
+  - handoff/stage5_to_stage6/**
+  - handoff/stage6_to_stage7/**
+  - src/stage4_verification/**
+  - src/stage5_rules_evidence/**
+  - src/stage6_fact_review/**
+  - tests/test_stage56_evaluators.py
+impacted_assets:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D5_页面导出与人工复核规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  control: []
+  contracts:
+    - contracts/rules/rule_catalog.json
+    - contracts/schemas/review_queue_profile.schema.json
+    - contracts/schemas/report_record.schema.json
+    - contracts/schemas/private_supplement_record.schema.json
+  handoff:
+    - handoff/stage4_to_stage5
+    - handoff/stage5_to_stage6
+    - handoff/stage6_to_stage7
+  scripts: []
+  tests:
+    - tests/test_stage56_evaluators.py
+    - tests/test_internal_chain.py
+    - tests/test_pre_route_behavior.py
+  code:
+    - src/stage4_verification
+    - src/stage5_rules_evidence
+    - src/stage6_fact_review
+change_domains:
+  - shared_runtime_core
+  - governance_release_core
+  - scripts_and_tests_general
+  - automation_control_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D5_页面导出与人工复核规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  contracts:
+    - contracts/rules/rule_catalog.json
+    - contracts/schemas/review_queue_profile.schema.json
+    - contracts/schemas/report_record.schema.json
+    - contracts/schemas/private_supplement_record.schema.json
+  handoff:
+    - handoff/stage4_to_stage5/contract.json
+    - handoff/stage5_to_stage6/contract.json
+    - handoff/stage6_to_stage7/contract.json
+allowed_modification_paths:
+  - docs/D2_正式对象契约与字段字典.md
+  - docs/D3_正式规则码总表与判定说明书.md
+  - docs/D5_页面导出与人工复核规范.md
+  - docs/D11_测试验收与金标回归清单.md
+  - contracts/rules/rule_catalog.json
+  - contracts/schemas/review_queue_profile.schema.json
+  - contracts/schemas/report_record.schema.json
+  - contracts/schemas/private_supplement_record.schema.json
+  - handoff/stage4_to_stage5/**
+  - handoff/stage5_to_stage6/**
+  - handoff/stage6_to_stage7/**
+  - src/stage4_verification/**
+  - src/stage5_rules_evidence/**
+  - src/stage6_fact_review/**
+  - tests/test_stage56_evaluators.py
+  - tests/test_internal_chain.py
+  - tests/test_pre_route_behavior.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - src/stage7_sales/**
+  - src/stage8_outreach/**
+  - src/stage9_delivery/**
+primary_outputs:
+  - "Unified verification/review/report/supplement closure"
+deliverables:
+  - "Unified verification/review/report/supplement closure"
+  - "Stage4-6 focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Report or supplement semantics attempt to bypass project_fact."
+  - "A new review lane or release gate semantic is needed."
+  - "Any required script fails."
+definition_of_done:
+  - "Stage6 is the sole unified fact hub for downstream chains."
+  - "Review, report, and supplement loops are machine-readable and tested."
+next_batch_entry_rule: "B3 must be DONE before B4 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+  - release_approver
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B3-S1-stage4-5-gate-and-evidence
+    focus_paths:
+      - src/stage4_verification/**
+      - src/stage5_rules_evidence/**
+      - contracts/rules/rule_catalog.json
+  - slice_id: B3-S2-stage6-review-report
+    focus_paths:
+      - src/stage6_fact_review/**
+      - contracts/schemas/review_queue_profile.schema.json
+      - contracts/schemas/report_record.schema.json
+      - tests/test_stage56_evaluators.py

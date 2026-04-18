@@ -1,0 +1,56 @@
+version: 1
+matrix_id: AX9S_FULL_REPAIR_REVIEW_ESCALATION
+updated_at: "2026-04-17"
+defaults:
+  stop_and_report_after_scripts: true
+  one_window_one_batch: true
+  stop_if_scope_crosses_next_batch: true
+  stop_if_new_object_or_enum_semantics_needed: true
+  stop_if_canonical_source_conflicts: true
+batches:
+  B0:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [automation_owner, architecture_owner, governance_owner, testing_owner, release_approver]
+    escalate_on: [canonical_source_conflict, review_gate_semantics_change, task_packet_enforcement_conflict]
+  B1:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [architecture_owner, governance_owner, testing_owner, automation_owner]
+    escalate_on: [source_route_authority_conflict, new_source_family_needed, external_source_enable_request]
+  B2:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [architecture_owner, testing_owner, governance_owner]
+    escalate_on: [truth_layer_owner_conflict, second_candidate_system_attempt]
+  B3:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [architecture_owner, governance_owner, testing_owner, release_approver]
+    escalate_on: [supplement_chain_boundary_change, report_release_semantics_change]
+  B4:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [architecture_owner, governance_owner, testing_owner]
+    escalate_on: [new_commercial_grade_semantics, new_price_or_competitor_object_family]
+  B5:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [architecture_owner, governance_owner, testing_owner, release_approver]
+    escalate_on: [contact_execution_live_enable_attempt, personal_channel_default_open_attempt, source_merge_boundary_conflict]
+  B6:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [architecture_owner, governance_owner, testing_owner, release_approver]
+    escalate_on: [direct_stage9_live_execution_attempt, direct_persistence_semantics_change_without_contract, governance_feedback_target_override]
+  B7:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [architecture_owner, governance_owner, testing_owner, model_governance_owner, automation_owner]
+    escalate_on: [capability_mode_vocabulary_change, external_redline_weakening, unlock_decision_semantics_change]
+  B8:
+    default_change_class: DRAFT_WITH_REVIEW
+    required_owner_reviews: [architecture_owner, testing_owner, automation_owner]
+    escalate_on: [transport_scope_expands_to_stage1_6_runtime_ready, preview_surface_exposes_internal_only_fields]
+  B9:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [architecture_owner, governance_owner, testing_owner, model_governance_owner]
+    escalate_on: [bound_provider_live_enable_attempt, adapter_contract_bypasses_capability_runtime]
+  B10:
+    default_change_class: MANDATORY_HUMAN_REVIEW
+    required_owner_reviews: [automation_owner, architecture_owner, governance_owner, testing_owner, release_approver]
+    escalate_on: [release_checklist_regression, closeout_without_all_required_scripts]
+notes:
+  - "This matrix is specific to the full-repair program and complements control/review_gate_matrix.yaml."

@@ -1,0 +1,133 @@
+{
+  "registry_id": "leadpack-activation-prep-transition-matrix",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D12",
+      "D13"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Machine-readable candidate-specific release/readiness transition for leadpack activation prep. This matrix must not be interpreted as activation-ready or external-ready.",
+    "machine_path": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+    "evidence_pack_ref": "contracts/release/leadpack_activation_prep_evidence_pack.json",
+    "runbook_ref": "contracts/release/leadpack_activation_prep_runbook.json",
+    "signoff_packet_ref": "contracts/release/leadpack_activation_prep_signoff_packet.json",
+    "activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json"
+  },
+  "candidate_domain_id": "leadpack_external_delivery",
+  "prep_status_vocabulary": [
+    "CANDIDATE_GAP_DEFINED",
+    "ACTIVATION_PREP_IN_PROGRESS",
+    "ACTIVATION_PREP_READY_FOR_REVIEW",
+    "ACTIVATION_PREP_HELD",
+    "ACTIVATION_PREP_DENIED"
+  ],
+  "go_no_go_decision_vocabulary": [
+    "GO",
+    "NO_GO",
+    "HOLD"
+  ],
+  "activation_design_prep_status_vocabulary": [
+    "ACTIVATION_DESIGN_PREP_NOT_STARTED",
+    "ACTIVATION_DESIGN_PREP_IN_PROGRESS",
+    "ACTIVATION_DESIGN_PREP_READY_FOR_REVIEW",
+    "ACTIVATION_DESIGN_PREP_HELD",
+    "ACTIVATION_DESIGN_PREP_DENIED",
+    "ACTIVATION_DESIGN_PREP_ROLLED_BACK",
+    "ACTIVATION_DESIGN_PREP_EMERGENCY_OFF"
+  ],
+  "transitions": [
+    {
+      "from": "CANDIDATE_GAP_DEFINED",
+      "to": "ACTIVATION_PREP_IN_PROGRESS",
+      "requires": [
+        "candidate matrix defined",
+        "evidence pack contract defined",
+        "runbook contract defined",
+        "signoff packet contract defined"
+      ]
+    },
+    {
+      "from": "ACTIVATION_PREP_IN_PROGRESS",
+      "to": "ACTIVATION_PREP_READY_FOR_REVIEW",
+      "requires": [
+        "required evidence items present",
+        "simulation replay ready",
+        "signoff packet ready for review",
+        "boundary and projection checks attached"
+      ]
+    },
+    {
+      "from": "ACTIVATION_PREP_IN_PROGRESS",
+      "to": "ACTIVATION_PREP_HELD",
+      "requires": [
+        "hold condition from runbook"
+      ]
+    },
+    {
+      "from": "ACTIVATION_PREP_IN_PROGRESS",
+      "to": "ACTIVATION_PREP_DENIED",
+      "requires": [
+        "denial condition from runbook"
+      ]
+    },
+    {
+      "from": "ACTIVATION_PREP_HELD",
+      "to": "ACTIVATION_PREP_IN_PROGRESS",
+      "requires": [
+        "return for revision path resolved"
+      ]
+    },
+    {
+      "from": "ACTIVATION_PREP_HELD",
+      "to": "CANDIDATE_GAP_DEFINED",
+      "requires": [
+        "rollback or cancel prep"
+      ]
+    }
+  ],
+  "review_gate": {
+    "gate_id": "leadpack_activation_prep_review_gate",
+    "gate_type": "review_gate",
+    "manual_review_required": true,
+    "gate_status_vocabulary": [
+      "NOT_REQUESTED",
+      "READY_FOR_REVIEW",
+      "PASSED",
+      "HELD",
+      "DENIED"
+    ],
+    "current_gate_status": "READY_FOR_REVIEW",
+    "must_not_be_treated_as_approval": true,
+    "required_release_checks": [
+      "REL-173",
+      "REL-174",
+      "REL-175",
+      "REL-176",
+      "REL-177",
+      "REL-178"
+    ],
+    "required_regression_suites": [
+      "REG-LEADPACK-ACTIVATION-PREP"
+    ],
+    "required_owner_signoff_roles": [
+      "release_approver",
+      "governance_owner",
+      "testing_owner"
+    ],
+    "activation_ready_claim_forbidden": true,
+    "external_ready_claim_forbidden": true
+  },
+  "activation_design_prep_entry": {
+    "source_decision": "GO",
+    "requires": [
+      "activation prep ready for review",
+      "GO decision explicitly bounded to design / implementation prep",
+      "actual activation remains not approved",
+      "external delivery remains not approved"
+    ],
+    "resulting_status": "ACTIVATION_DESIGN_PREP_IN_PROGRESS",
+    "design_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json"
+  }
+}

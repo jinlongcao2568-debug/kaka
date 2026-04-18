@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "model_governance_record",
+  "type": "object",
+  "description": "Schema skeleton for model_governance_record.",
+  "source_refs": [
+    "D2-R-017",
+    "D14-R",
+    "D14-R-015"
+  ],
+  "enum_refs": [
+    "model_usage_scope",
+    "release_status",
+    "provider_type"
+  ],
+  "properties": {
+    "model_record_id": {
+      "type": "string"
+    },
+    "model_usage_scope": {
+      "type": "string"
+    },
+    "model_id": {
+      "type": "string"
+    },
+    "provider_id": {
+      "type": "string"
+    },
+    "provider_type": {
+      "type": "string"
+    },
+    "input_boundary_note": {
+      "type": "string"
+    },
+    "output_target_object": {
+      "type": "string"
+    },
+    "human_review_required": {
+      "type": "boolean"
+    },
+    "release_status": {
+      "type": "string"
+    },
+    "provider_trace_id": {
+      "type": "string"
+    },
+    "tool_provider_id_optional": {
+      "type": "string"
+    },
+    "fallback_provider_id_optional": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "model_record_id",
+    "model_usage_scope",
+    "model_id",
+    "provider_id",
+    "provider_type",
+    "input_boundary_note",
+    "output_target_object",
+    "human_review_required",
+    "release_status",
+    "provider_trace_id",
+    "tool_provider_id_optional",
+    "fallback_provider_id_optional"
+  ],
+  "additionalProperties": false,
+  "semantic_notes": "Future implementation depends on confirmed C-group enums: model_usage_scope, release_status."
+}

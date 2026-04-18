@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "evidence",
+  "type": "object",
+  "description": "Schema skeleton for evidence.",
+  "source_refs": [
+    "D2-R-017",
+    "D3-R-018"
+  ],
+  "enum_refs": [
+    "carrier_type",
+    "cross_check_state",
+    "fixation_status",
+    "external_use_grade",
+    "provenance_chain_status",
+    "retrieval_readiness_status"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "evidence_family": {
+      "type": "string"
+    },
+    "source_document_ref": {
+      "type": "string"
+    },
+    "source_slice_ref": {
+      "type": "string"
+    },
+    "carrier_type": {
+      "type": "string"
+    },
+    "cross_check_state": {
+      "type": "string"
+    },
+    "fixation_status": {
+      "type": "string"
+    },
+    "external_use_grade": {
+      "type": "string"
+    },
+    "provenance_chain_status": {
+      "type": "string"
+    },
+    "retrieval_readiness_status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_id",
+    "project_id",
+    "evidence_family",
+    "source_document_ref",
+    "source_slice_ref",
+    "carrier_type",
+    "cross_check_state",
+    "fixation_status",
+    "external_use_grade",
+    "provenance_chain_status",
+    "retrieval_readiness_status"
+  ],
+  "additionalProperties": false
+}

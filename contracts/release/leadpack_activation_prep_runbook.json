@@ -1,0 +1,96 @@
+{
+  "registry_id": "leadpack-activation-prep-runbook",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D5",
+      "D7",
+      "D12",
+      "D13"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Machine-readable runbook for leadpack candidate activation prep. This asset formalizes positive and negative prep paths without authorizing activation.",
+    "machine_path": "contracts/release/leadpack_activation_prep_runbook.json"
+  },
+  "candidate_domain_id": "leadpack_external_delivery",
+  "prep_status_vocabulary": [
+    "CANDIDATE_GAP_DEFINED",
+    "ACTIVATION_PREP_IN_PROGRESS",
+    "ACTIVATION_PREP_READY_FOR_REVIEW",
+    "ACTIVATION_PREP_HELD",
+    "ACTIVATION_PREP_DENIED"
+  ],
+  "runbook_actions": [
+    {
+      "runbook_action_id": "OPEN_PREP_PACKET",
+      "reviewActionId": "leadpack_activation_prep_open_packet",
+      "buttonFlowId": "open_leadpack_activation_prep_packet",
+      "trigger_conditions": [
+        "candidate matrix defined"
+      ],
+      "resulting_prep_status": "ACTIVATION_PREP_IN_PROGRESS"
+    },
+    {
+      "runbook_action_id": "REQUEST_PREP_REVIEW",
+      "reviewActionId": "leadpack_activation_prep_request_review",
+      "buttonFlowId": "request_leadpack_activation_prep_review",
+      "trigger_conditions": [
+        "required evidence items present",
+        "simulation replay ready",
+        "signoff packet drafted",
+        "projection/boundary checks attached"
+      ],
+      "resulting_prep_status": "ACTIVATION_PREP_READY_FOR_REVIEW"
+    },
+    {
+      "runbook_action_id": "HOLD_PREP",
+      "reviewActionId": "leadpack_activation_prep_mark_hold",
+      "buttonFlowId": "leadpack_activation_prep_hold_notice",
+      "trigger_conditions": [
+        "prep evidence stale or missing",
+        "approval trace missing",
+        "audit trace missing",
+        "coverage or delivery matrix check unresolved"
+      ],
+      "resulting_prep_status": "ACTIVATION_PREP_HELD"
+    },
+    {
+      "runbook_action_id": "DENY_PREP",
+      "reviewActionId": "leadpack_activation_prep_mark_denied",
+      "buttonFlowId": "leadpack_activation_prep_denied_notice",
+      "trigger_conditions": [
+        "boundary violation",
+        "direct object export attempted",
+        "external delivery or live execution requested",
+        "forbidden field or provider/source leakage detected"
+      ],
+      "resulting_prep_status": "ACTIVATION_PREP_DENIED"
+    },
+    {
+      "runbook_action_id": "RETURN_FOR_REVISION",
+      "reviewActionId": "leadpack_activation_prep_return_for_revision",
+      "buttonFlowId": "leadpack_activation_prep_return_notice",
+      "trigger_conditions": [
+        "packet incomplete but revisable",
+        "signoff packet missing required attachments",
+        "simulation replay needs refresh"
+      ],
+      "resulting_prep_status": "ACTIVATION_PREP_IN_PROGRESS"
+    },
+    {
+      "runbook_action_id": "ROLLBACK_OR_CANCEL_PREP",
+      "reviewActionId": "leadpack_activation_prep_cancel",
+      "buttonFlowId": "leadpack_activation_prep_cancel_notice",
+      "trigger_conditions": [
+        "owner cancels prep",
+        "candidate scope regresses",
+        "prep packet must roll back to candidate-gap only"
+      ],
+      "resulting_prep_status": "CANDIDATE_GAP_DEFINED"
+    }
+  ],
+  "strictness_rule": "more_restrictive_path_wins",
+  "external_delivery_enabled": false,
+  "direct_object_export_allowed": false
+}

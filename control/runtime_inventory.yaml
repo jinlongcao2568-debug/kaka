@@ -1,0 +1,259 @@
+version: 1
+updated_at: "2026-04-18"
+capability_mode_vocabulary_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary"
+provider_vendor_policy_projection:
+  projection_only: true
+  trace_only_projection: true
+  mode_resolution_source: false
+  release_layer_semantics_source: false
+  live_provider_binding_source: false
+  canonical_runtime_policy_ref: "contracts/release/runtime_policy_catalog.json"
+  registry_policy_refs:
+    model_usage_policy: "contracts/model/model_usage_policy.json"
+    tool_provider_registry_catalog: "contracts/model/tool_provider_registry_catalog.json"
+    tool_usage_policy_catalog: "contracts/model/tool_usage_policy_catalog.json"
+    vendor_registry_catalog: "contracts/sales/vendor_registry_catalog.json"
+    source_vendor_usage_policy: "contracts/sales/source_vendor_usage_policy.json"
+    channel_vendor_execution_policy: "contracts/sales/channel_vendor_execution_policy.json"
+  allowed_projection_roles:
+    - "status_mirror"
+    - "trace_inventory"
+    - "operator_context"
+  forbidden_projection_roles:
+    - "capability_mode_decision_source"
+    - "release_layer_decision_source"
+    - "live_provider_binding_source"
+    - "external_action_authority"
+capability_mode_vocabulary:
+  projected_from: "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary"
+  projection_only: true
+capability_mode_rules:
+  projected_from: "contracts/release/runtime_policy_catalog.json#capability_mode_rules"
+  projection_only: true
+capability_mode_priority_order:
+  projected_from: "contracts/release/runtime_policy_catalog.json#capability_mode_priority_order"
+  projection_only: true
+runtime_resolver_precedence:
+  projected_from: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence"
+  projection_only: true
+control_projection_consumption_boundary:
+  canonical_runtime_policy_ref: "contracts/release/runtime_policy_catalog.json"
+  runtime_resolver_precedence_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence"
+  trace_only_projection: true
+  mode_resolution_source: false
+  release_layer_semantics_source: false
+  projection_only: true
+action_intents:
+  projected_from: "contracts/release/runtime_policy_catalog.json#action_intents"
+  projection_only: true
+decision_matrix:
+  projected_from: "contracts/release/runtime_policy_catalog.json#decision_matrix"
+  projection_only: true
+environment_default_capability_modes:
+  local:
+    - "BUILDABLE_BUT_OFF_BY_DEFAULT"
+    - "INTERNAL_ONLY"
+    - "SHADOW_MODE"
+    - "DRY_RUN"
+  internal_pilot:
+    - "BUILDABLE_BUT_OFF_BY_DEFAULT"
+    - "INTERNAL_ONLY"
+    - "INTERNAL_GOVERNED"
+    - "SHADOW_MODE"
+    - "DRY_RUN"
+    - "APPROVAL_REQUIRED"
+  future_external:
+    - "BUILDABLE_BUT_OFF_BY_DEFAULT"
+    - "INTERNAL_ONLY"
+    - "INTERNAL_GOVERNED"
+    - "SHADOW_MODE"
+    - "DRY_RUN"
+    - "APPROVAL_REQUIRED"
+    - "REAL_RUN_READY"
+environment_tiers:
+  local:
+    mapped_envs: ["LOCAL_DEV"]
+    components:
+      - "api_service"
+      - "worker_service"
+      - "postgres"
+      - "object_storage"
+    external_status: "EXTERNAL_BLOCKED"
+    default_capability_modes:
+      - "BUILDABLE_BUT_OFF_BY_DEFAULT"
+      - "INTERNAL_ONLY"
+      - "SHADOW_MODE"
+      - "DRY_RUN"
+  internal_pilot:
+    mapped_envs: ["INTEGRATION", "PRE_RELEASE", "PRODUCTION_INTERNAL"]
+    components:
+      - "api_service"
+      - "worker_service"
+      - "postgres"
+      - "object_storage"
+      - "audit_log"
+    external_status: "EXTERNAL_BLOCKED"
+    default_capability_modes:
+      - "BUILDABLE_BUT_OFF_BY_DEFAULT"
+      - "INTERNAL_ONLY"
+      - "INTERNAL_GOVERNED"
+      - "SHADOW_MODE"
+      - "DRY_RUN"
+      - "APPROVAL_REQUIRED"
+  future_external:
+    mapped_envs: ["PRODUCTION_CLIENT", "PRODUCTION_ACTION", "DR_STANDBY"]
+    components:
+      - "api_service"
+      - "worker_service"
+      - "postgres"
+      - "object_storage"
+      - "audit_log"
+      - "approval_chain"
+    external_status: "EXTERNAL_BLOCKED"
+    default_capability_modes:
+      - "BUILDABLE_BUT_OFF_BY_DEFAULT"
+      - "INTERNAL_ONLY"
+      - "INTERNAL_GOVERNED"
+      - "SHADOW_MODE"
+      - "DRY_RUN"
+      - "APPROVAL_REQUIRED"
+      - "REAL_RUN_READY"
+capability_family_state_projection:
+  external_source:
+    projected_current_mode: "INTERNAL_ONLY"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[external_source]"
+    projection_only: true
+  contact_enrichment:
+    projected_current_mode: "APPROVAL_REQUIRED"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[contact_enrichment]"
+    projection_only: true
+  execution_vendor:
+    projected_current_mode: "DRY_RUN"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[execution_vendor]"
+    projection_only: true
+  model_provider:
+    projected_current_mode: "BUILDABLE_BUT_OFF_BY_DEFAULT"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[model_provider]"
+    projection_only: true
+  tool_provider:
+    projected_current_mode: "SHADOW_MODE"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[tool_provider]"
+    projection_only: true
+  stage8_execution:
+    projected_current_mode: "DRY_RUN"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[stage8_execution]"
+    projection_only: true
+  stage9_execution:
+    projected_current_mode: "SHADOW_MODE"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[stage9_execution]"
+    projection_only: true
+  delivery_export_variants:
+    projected_current_mode: "INTERNAL_GOVERNED"
+    projected_release_layer_ceiling: "LEADPACK_DELIVERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[delivery_export_variants]"
+    projection_only: true
+  risky_automation:
+    projected_current_mode: "APPROVAL_REQUIRED"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[risky_automation]"
+    projection_only: true
+  emergency_off:
+    projected_current_mode: "EMERGENCY_OFF"
+    projected_release_layer_ceiling: "EXTERNAL_BLOCKED"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[emergency_off]"
+    projection_only: true
+future_unlock_tier_vocabulary:
+  projected_from: "contracts/release/external_unlock_prerequisite_matrix.json#unlock_tier_vocabulary"
+  projection_only: true
+future_unlock_tier_rules:
+  projected_from: "contracts/release/external_unlock_prerequisite_matrix.json"
+  projection_only: true
+future_unlock_decision_matrix_ref: "contracts/release/future_unlock_decision_matrix.json"
+future_unlock_decision_state_ref: "control/future_unlock_decision_state.yaml"
+future_unlock_domain_map:
+  external_software_release:
+    projected_unlock_tier: "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    projected_decision_status: "DENY_BY_DEFAULT_CONTINUE"
+    projected_sequence_order: 6
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[external_software_release]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[external_software_release]"
+  leadpack_external_delivery:
+    projected_unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    projected_decision_status: "FUTURE_UNLOCK_CANDIDATE"
+    projected_sequence_order: 1
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[leadpack_external_delivery]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[leadpack_external_delivery]"
+  stage8_live_execution:
+    projected_unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    projected_decision_status: "DENY_BY_DEFAULT_CONTINUE"
+    projected_sequence_order: 5
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[stage8_live_execution]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[stage8_live_execution]"
+  stage9_live_payment_execution:
+    projected_unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    projected_decision_status: "DENY_BY_DEFAULT_CONTINUE"
+    projected_sequence_order: 8
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[stage9_live_payment_execution]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[stage9_live_payment_execution]"
+  stage9_live_delivery_execution:
+    projected_unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    projected_decision_status: "DENY_BY_DEFAULT_CONTINUE"
+    projected_sequence_order: 7
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[stage9_live_delivery_execution]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[stage9_live_delivery_execution]"
+  model_provider_externalized_usage:
+    projected_unlock_tier: "BUILDABLE_BUT_OFF_BY_DEFAULT"
+    projected_decision_status: "DENY_BY_DEFAULT_CONTINUE"
+    projected_sequence_order: 4
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[model_provider_externalized_usage]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[model_provider_externalized_usage]"
+  tool_provider_externalized_usage:
+    projected_unlock_tier: "SHADOW_ONLY"
+    projected_decision_status: "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN"
+    projected_sequence_order: 99
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[tool_provider_externalized_usage]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[tool_provider_externalized_usage]"
+  source_vendor_externalized_usage:
+    projected_unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
+    projected_decision_status: "FUTURE_UNLOCK_CANDIDATE"
+    projected_sequence_order: 2
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[source_vendor_externalized_usage]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[source_vendor_externalized_usage]"
+  external_export_surface:
+    projected_unlock_tier: "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    projected_decision_status: "FUTURE_UNLOCK_CANDIDATE"
+    projected_sequence_order: 3
+    projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[external_export_surface]"
+    projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[external_export_surface]"
+never_default_open_capabilities:
+  - "personal contact channels"
+  - "D-tier or private inputs on external surfaces"
+  - "direct stage8/stage9 object export"
+notes:
+  - "Future external tier is reserved only and not released."
+  - "control/runtime_inventory.yaml is a projection-only control surface for capability and future-unlock state."
+  - "capability_mode is a runtime dimension and does not replace release_layer."
+  - "EXTERNAL_BLOCKED remains the external redline even when capability_mode becomes REAL_RUN_READY."
+  - "future_unlock_tier is a prerequisite/deployment decision dimension and does not itself authorize unlock."
+  - "future_unlock_decision_matrix adds strategic sequencing and candidate/deny/blocked classification without authorizing implementation."
+writeback_impact_executor:
+  current_state: "INTERNAL_V0_ACTIVE"
+  runtime_executor_enabled: true
+  typed_writeback_supported: true
+  governed_target_accumulation_supported: true
+  mutation_mode: "ADDITIVE_INTERNAL_ONLY"
+  live_target_persistence_enabled: false
+  formal_targets:
+    - "project_fact"
+    - "saleable_opportunity"
+    - "contact_target"
+    - "review_queue_profile"
+  policy_ref: "contracts/governance/writeback_impact_policy.json"
+  next_batch_gate: "target persistence batch + owner signoff + release checklist expansion"

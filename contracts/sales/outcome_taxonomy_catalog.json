@@ -1,0 +1,158 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "outcome_taxonomy_catalog",
+  "writeback_source_family": "outcome_taxonomy",
+  "writeback_contract_ref": "contracts/governance/writeback_impact_policy.json#writeback_source_contracts.outcome_taxonomy",
+  "writeback_merge_semantics": "AUTHORITATIVE_BASE",
+  "ownerDocs": [
+    "D10",
+    "D3",
+    "D11"
+  ],
+  "entries": [
+    {
+      "outcome_family": "WON",
+      "allowed_reason_tags": [
+        "SIGNED",
+        "PAID_CONFIRMED",
+        "DELIVERED_ACK"
+      ],
+      "writeback_targets": [
+        "project_fact",
+        "saleable_opportunity"
+      ],
+      "recommendation_effect": "close opportunity; no further recommendation"
+    },
+    {
+      "outcome_family": "LOST",
+      "allowed_reason_tags": [
+        "PRICE_REJECTED",
+        "SCOPE_MISMATCH",
+        "PAYMENT_FAILED",
+        "AMOUNT_MISMATCH",
+        "BUDGET_WITHDRAWN",
+        "COMPETITOR_WON",
+        "DELIVERY_FAILED"
+      ],
+      "writeback_targets": [
+        "project_fact",
+        "saleable_opportunity"
+      ],
+      "projected_feedback_only_targets": [],
+      "advisory_targets": [],
+      "recommendation_effect": "downgrade saleability_status=BLOCKED; trigger rescoring"
+    },
+    {
+      "outcome_family": "WINDOW_MISSED",
+      "allowed_reason_tags": [
+        "WINDOW_EXPIRED",
+        "LATE_CONTACT",
+        "APPROVAL_DELAY"
+      ],
+      "writeback_targets": [
+        "project_fact",
+        "review_queue_profile"
+      ],
+      "projected_feedback_only_targets": [
+        "sales_lead",
+        "report_record"
+      ],
+      "advisory_targets": [
+        "buyer_fit"
+      ],
+      "feedback_loop_contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1.upstreamFeedbackLoopContracts.window_missed",
+      "recommendation_effect": "force review and adjust urgency score"
+    },
+    {
+      "outcome_family": "CONTACT_FAILED",
+      "allowed_reason_tags": [
+        "NO_RESPONSE",
+        "INVALID_CONTACT",
+        "WRONG_ROLE",
+        "OPTED_OUT",
+        "CHANNEL_BLOCKED"
+      ],
+      "writeback_targets": [
+        "contact_target",
+        "saleable_opportunity"
+      ],
+      "projected_feedback_only_targets": [
+        "sales_lead",
+        "report_record"
+      ],
+      "advisory_targets": [],
+      "feedback_loop_contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1.upstreamFeedbackLoopContracts.contact_failed",
+      "recommendation_effect": "reselect contact and mark opportunity review_required"
+    },
+    {
+      "outcome_family": "PAYER_MISMATCH",
+      "allowed_reason_tags": [
+        "PAYER_CONFIRMED_MISMATCH",
+        "PAYER_UNRESOLVED"
+      ],
+      "writeback_targets": [
+        "order_record",
+        "payment_record"
+      ],
+      "projected_feedback_only_targets": [
+        "sales_lead",
+        "report_record"
+      ],
+      "advisory_targets": [],
+      "feedback_loop_contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1.upstreamFeedbackLoopContracts.payer_mismatch",
+      "recommendation_effect": "block delivery and require governance review"
+    },
+    {
+      "outcome_family": "FALSE_POSITIVE",
+      "allowed_reason_tags": [
+        "EVIDENCE_RETRACTED",
+        "FACT_CONFLICT",
+        "CHALLENGER_REJECTED"
+      ],
+      "writeback_targets": [
+        "project_fact"
+      ],
+      "projected_feedback_only_targets": [
+        "sales_lead",
+        "report_record"
+      ],
+      "advisory_targets": [
+        "buyer_fit",
+        "challenger_candidate_profile"
+      ],
+      "feedback_loop_contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1.upstreamFeedbackLoopContracts.false_positive",
+      "recommendation_effect": "trigger stage6/7 refresh and downgrade confidence"
+    },
+    {
+      "outcome_family": "DELIVERY_ABANDONED",
+      "allowed_reason_tags": [
+        "SIGNED",
+        "REFUND_COMPLETED",
+        "DELIVERY_FAILED",
+        "DELIVERY_REJECTED",
+        "PARTIAL_DELIVERY",
+        "ACK_TIMEOUT",
+        "REDELIVERY_FAILED",
+        "ARCHIVE_FAILURE"
+      ],
+      "writeback_targets": [
+        "delivery_record",
+        "project_fact",
+        "governance_feedback_event"
+      ],
+      "projected_feedback_only_targets": [
+        "sales_lead",
+        "report_record"
+      ],
+      "advisory_targets": [],
+      "feedback_loop_contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1.upstreamFeedbackLoopContracts.delivery_abandoned",
+      "recommendation_effect": "close opportunity; block further delivery"
+    }
+  ],
+  "notes": [
+    "Outcome taxonomy governs allowed reason tags and required base writeback targets.",
+    "Reason tags are internal-only and must not be exposed externally without field policy approval.",
+    "Outcome taxonomy owns only the base target set; governance, payment_exception, delivery_exception, and upstream feedback loop targets are additive or projected-only per writeback contract.",
+    "SIGNED under DELIVERY_ABANDONED is a coarse Stage9 marker for refund requested or approved after commercial commitment; the precise refund phase remains owned by payment_exception_family_optional."
+  ]
+}

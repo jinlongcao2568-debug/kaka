@@ -1,0 +1,607 @@
+{
+  "catalogVersion": "1.0.2",
+  "ownerDoc": "D5",
+  "workbenches": [
+    {
+      "workbenchId": "task_entry",
+      "title": "任务入口 / 任务编排页",
+      "surfaceState": "ACTIVE_BATCH2",
+      "primaryObjects": [
+        "task"
+      ],
+      "sections": [
+        "task_form",
+        "task_status",
+        "rebuild_controls"
+      ],
+      "notes": "仅用于任务启动、重跑、窗口期提示。",
+      "visibilityLevels": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "consumerSurfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "valuePriority": "P0",
+      "release_layer": "DEV_ALLOWED"
+    },
+    {
+      "workbenchId": "project_fact_workbench",
+      "title": "项目事实工作台",
+      "surfaceState": "ACTIVE_BATCH2",
+      "primaryObjects": [
+        "project_fact",
+        "legal_action_recommendation"
+      ],
+      "sections": [
+        "top_summary",
+        "fact_summary",
+        "legal_action_summary",
+        "navigation_links"
+      ],
+      "notes": "顶层主判断优先消费 project_fact。",
+      "visibilityLevels": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "consumerSurfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "valuePriority": "P0",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "workbenchId": "public_chain_workbench",
+      "title": "公开链与核验工作台",
+      "surfaceState": "ACTIVE_BATCH2",
+      "primaryObjects": [
+        "public_chain",
+        "clock_chain_profile",
+        "notice_version_chain",
+        "public_attack_surface",
+        "evidence_grade_profile"
+      ],
+      "sections": [
+        "timeline",
+        "version_chain",
+        "attack_surface",
+        "evidence_grade"
+      ],
+      "visibilityLevels": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "consumerSurfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "valuePriority": "P0",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "workbenchId": "evidence_workbench",
+      "title": "证据工作台",
+      "surfaceState": "ACTIVE_BATCH2",
+      "primaryObjects": [
+        "rule_hit",
+        "evidence",
+        "rule_gate_decision",
+        "evidence_gate_decision",
+        "review_request",
+        "field_lineage_record"
+      ],
+      "sections": [
+        "rule_hits",
+        "dual_gates",
+        "evidence_trace",
+        "review_requests"
+      ],
+      "visibilityLevels": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "consumerSurfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "valuePriority": "P0",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "workbenchId": "review_report_workbench",
+      "title": "复核与报告工作台",
+      "surfaceState": "ACTIVE_BATCH2",
+      "stateProfileRef": "leadpack_external_delivery_candidate_surface",
+      "primaryObjects": [
+        "report_record",
+        "review_queue_profile",
+        "legal_action_recommendation",
+        "private_supplement_record"
+      ],
+      "sections": [
+        "queue",
+        "report_summary",
+        "leadpack_candidate_preview",
+        "candidate_denial_status",
+        "export_actions",
+        "supplement_metadata"
+      ],
+      "panels": [
+        {
+          "panelId": "leadpack_candidate_preview_panel",
+          "mode": "preview_only",
+          "reviewActions": [
+            "leadpack_candidate_open_preview",
+            "leadpack_candidate_request_review",
+            "leadpack_candidate_request_export_simulation"
+          ],
+          "allowedActions": [
+            "open candidate preview",
+            "request governed review",
+            "request export simulation"
+          ],
+          "blockedActions": [
+            "enable external delivery"
+          ]
+        },
+        {
+          "panelId": "leadpack_candidate_denial_panel",
+          "mode": "preview_only",
+          "reviewActions": [
+            "leadpack_candidate_mark_hold",
+            "leadpack_candidate_mark_denied"
+          ],
+          "allowedActions": [
+            "view hold reasons",
+            "view denial reasons",
+            "trace missing approvals"
+          ],
+          "blockedActions": [
+            "approve external send"
+          ]
+        },
+        {
+          "panelId": "leadpack_activation_prep_panel",
+          "mode": "preview_only",
+          "reviewActions": [
+            "leadpack_activation_prep_open_packet",
+            "leadpack_activation_prep_request_review",
+            "leadpack_activation_prep_mark_hold",
+            "leadpack_activation_prep_mark_denied",
+            "leadpack_activation_prep_return_for_revision",
+            "leadpack_activation_prep_cancel"
+          ],
+          "allowedActions": [
+            "open activation prep packet",
+            "request activation prep review",
+            "view simulation replay",
+            "view signoff packet",
+            "view hold or denial runbook"
+          ],
+          "blockedActions": [
+            "mark activation ready",
+            "start external delivery",
+            "export direct objects"
+          ]
+        },
+    {
+      "panelId": "leadpack_activation_design_prep_panel",
+          "mode": "preview_only",
+          "reviewActions": [
+            "leadpack_activation_design_prep_open_packet",
+            "leadpack_activation_design_prep_request_review",
+            "leadpack_activation_design_prep_mark_hold",
+            "leadpack_activation_design_prep_mark_denied",
+            "leadpack_activation_design_prep_emergency_off"
+          ],
+        "allowedActions": [
+          "open activation design prep packet",
+          "request activation design prep review",
+          "view owner signoff execution states",
+          "view actual owner signoff states",
+          "view approval, review gate and audit prerequisite gaps",
+          "view rollback, cancel and emergency-off controls",
+          "view implementation-prep readiness gate"
+        ],
+          "blockedActions": [
+            "approve implementation",
+            "mark activation approved",
+            "start external delivery",
+            "start live execution",
+        "export direct objects"
+      ]
+    },
+    {
+      "panelId": "leadpack_implementation_decision_readiness_packet_panel",
+      "mode": "preview_only",
+      "reviewActions": [
+        "leadpack_implementation_decision_readiness_open_packet"
+      ],
+      "allowedActions": [
+        "open implementation decision readiness packet",
+        "view owner signoff readiness summary",
+        "view approval readiness summary",
+        "view review gate readiness summary",
+        "view audit readiness summary",
+        "view merged hold sources"
+      ],
+      "blockedActions": [
+        "approve implementation",
+        "execute implementation decision",
+        "mark activation approved",
+        "start external delivery",
+        "start live execution",
+        "export direct objects"
+      ]
+    }
+  ],
+      "visibilityLevels": [
+        "MANAGEMENT_REVIEW"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "notes": "LeadPack 导出与复核仅内部管理可见。leadpack_external_delivery 候选包也只允许在这里做 preview/review/export simulation 与 activation-prep packet/review，不形成真实外发。",
+      "consumerSurfaces": [
+        "INTERNAL_ANALYSIS",
+        "LEADPACK_FORMATION"
+      ],
+      "valuePriority": "P2",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "workbenchId": "opportunity_pool",
+      "title": "内部机会池",
+      "surfaceState": "INTERNAL_PREVIEW",
+      "stateProfileRef": "stage7_internal_preview_surface",
+      "surfaceStateField": "semantic_envelope.surface_state",
+      "canonicalEnvelopeFields": [
+        "capability_envelope",
+        "governance_envelope",
+        "semantic_envelope"
+      ],
+      "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "primaryObjects": [
+        "saleable_opportunity",
+        "challenger_candidate_profile",
+        "legal_action_actor_profile",
+        "procurement_decision_actor_profile"
+      ],
+      "sections": [
+        "preview_notice",
+        "work_item_queue",
+        "operational_state_summary",
+        "compliance_status_panel",
+        "blocked_review_banner",
+        "field_masking_notice",
+        "preview_only_actions",
+        "operator_action_history"
+      ],
+      "panels": [
+        {
+          "panelId": "opportunity_preview_panel",
+          "mode": "preview_only",
+          "reviewActions": [
+            "stage7_open_internal_preview",
+            "stage7_mark_reviewed",
+            "stage7_return_for_revision"
+          ]
+        },
+        {
+          "panelId": "offer_recommendation_preview_panel",
+          "mode": "preview_only",
+          "reviewActions": [
+            "stage7_open_internal_preview",
+            "stage7_mark_reviewed",
+            "stage7_return_for_revision"
+          ]
+        },
+        {
+          "panelId": "stage7_operator_queue_panel",
+          "mode": "preview_only",
+          "workQueueProfileRef": "stage7_internal_operator_queue",
+          "reviewActions": [
+            "stage7_open_internal_preview",
+            "stage7_mark_reviewed",
+            "stage7_return_for_revision"
+          ]
+        }
+      ],
+      "notes": "internal preview / draft 页面，不得形成真实外部执行面。仅限内部作战台使用，不面向客户工作台；页面必须直接消费 canonical envelope，不得自行推断 blocked/review/governed。",
+      "repositoryBacked": true,
+      "repositoryBoundary": [
+        "saleable_opportunity",
+        "offer_recommendation",
+        "buyer_fit",
+        "legal_action_actor_profile",
+        "procurement_decision_actor_profile"
+      ],
+      "visibilityLevels": [
+        "INTERNAL_ANALYSIS",
+        "SALES_CONSUMABLE"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "consumerSurfaces": [
+        "SALES_USAGE",
+        "LEADPACK_FORMATION"
+      ],
+      "valuePriority": "P0",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "workbenchId": "outreach_workbench",
+      "title": "内部触达台",
+      "surfaceState": "INTERNAL_PREVIEW",
+      "stateProfileRef": "stage8_governed_preview_surface",
+      "surfaceStateField": "semantic_envelope.surface_state",
+      "canonicalEnvelopeFields": [
+        "capability_envelope",
+        "governance_envelope",
+        "semantic_envelope"
+      ],
+      "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "primaryObjects": [
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "sections": [
+        "preview_notice",
+        "work_item_queue",
+        "operational_state_summary",
+        "blocked_review_banner",
+        "writeback_summary",
+        "audit_status",
+        "operator_action_history"
+      ],
+      "panels": [
+        {
+          "panelId": "contact_target_preview_panel",
+          "mode": "preview_only",
+          "reviewActions": [
+            "stage8_request_governed_review",
+            "stage8_put_governed_hold",
+            "stage8_return_for_revision"
+          ]
+        },
+        {
+          "panelId": "outreach_plan_draft_panel",
+          "mode": "draft_only",
+          "reviewActions": [
+            "stage8_request_governed_review",
+            "stage8_approve_draft_progression",
+            "stage8_deny_draft_progression",
+            "stage8_put_governed_hold",
+            "stage8_return_for_revision"
+          ]
+        },
+        {
+          "panelId": "touch_record_preview_panel",
+          "mode": "draft_only",
+          "reviewActions": [
+            "stage8_request_governed_review",
+            "stage8_approve_draft_progression",
+            "stage8_deny_draft_progression",
+            "stage8_put_governed_hold",
+            "stage8_return_for_revision"
+          ]
+        },
+        {
+          "panelId": "stage8_operator_queue_panel",
+          "mode": "draft_only",
+          "workQueueProfileRef": "stage8_governed_operator_queue",
+          "reviewActions": [
+            "stage8_request_governed_review",
+            "stage8_approve_draft_progression",
+            "stage8_deny_draft_progression",
+            "stage8_put_governed_hold",
+            "stage8_return_for_revision"
+          ]
+        }
+      ],
+      "visibilityLevels": [
+        "SALES_CONSUMABLE",
+        "MANAGEMENT_REVIEW"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "notes": "internal preview / draft 页面，仅限内部作战台使用；必须展示合规判定与阻断/待审原因，不得触发真实发送；页面必须直接消费 canonical envelope，不得自行推断 blocked/review/governed。",
+      "repositoryBacked": true,
+      "repositoryBoundary": [
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "consumerSurfaces": [
+        "OUTREACH_EXECUTION",
+        "SALES_USAGE"
+      ],
+      "valuePriority": "P0",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "workbenchId": "order_delivery_workbench",
+      "title": "内部交付与回写台",
+      "surfaceState": "INTERNAL_PREVIEW",
+      "formalizationScope": "INTERNAL_GOVERNED",
+      "stateProfileRef": "stage9_internal_governed_surface",
+      "surfaceStateField": "semantic_envelope.surface_state",
+      "canonicalEnvelopeFields": [
+        "capability_envelope",
+        "governance_envelope",
+        "semantic_envelope"
+      ],
+      "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "primaryObjects": [
+        "order_record",
+        "payment_record",
+        "delivery_record",
+        "opportunity_outcome_event",
+        "governance_feedback_event"
+      ],
+      "sections": [
+        "preview_notice",
+        "work_item_queue",
+        "operational_state_summary",
+        "compliance_status_panel",
+        "blocked_review_banner",
+        "writeback_summary",
+        "audit_status",
+        "preview_only_actions",
+        "operator_action_history"
+      ],
+      "visibilityLevels": [
+        "SALES_CONSUMABLE",
+        "MANAGEMENT_REVIEW"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "notes": "internal preview / draft 页面，仅限内部交付与回写预览；不得触发真实支付或交付动作；页面必须直接消费 canonical envelope，不得自行推断 blocked/review/governed。",
+      "repositoryBacked": true,
+      "repositoryBoundary": [
+        "order_record",
+        "payment_record",
+        "delivery_record",
+        "opportunity_outcome_event",
+        "governance_feedback_event"
+      ],
+      "consumerSurfaces": [
+        "DELIVERY_WRITEBACK",
+        "SALES_USAGE"
+      ],
+      "panels": [
+        {
+          "panelId": "order_draft_panel",
+          "mode": "draft_only",
+          "reviewActions": [
+            "stage9_submit_draft_writeback",
+            "stage9_mark_reviewed",
+            "stage9_return_for_revision"
+          ],
+          "allowedActions": [
+            "create draft",
+            "submit review",
+            "view blockers"
+          ],
+          "blockedActions": [
+            "confirm external delivery"
+          ]
+        },
+        {
+          "panelId": "payment_draft_panel",
+          "mode": "draft_only",
+          "reviewActions": [
+            "stage9_submit_draft_writeback",
+            "stage9_deny_draft_writeback",
+            "stage9_put_governed_hold"
+          ],
+          "allowedActions": [
+            "record payment draft",
+            "record refund or mismatch",
+            "view blockers"
+          ],
+          "blockedActions": [
+            "execute real payment"
+          ]
+        },
+        {
+          "panelId": "delivery_preview_panel",
+          "mode": "preview_only",
+          "reviewActions": [
+            "stage9_submit_draft_writeback",
+            "stage9_mark_reviewed",
+            "stage9_put_governed_hold"
+          ],
+          "allowedActions": [
+            "preview delivery payload",
+            "view release gate",
+            "record partial/reject/redeliver states"
+          ],
+          "blockedActions": [
+            "mark customer delivery complete"
+          ]
+        },
+        {
+          "panelId": "outcome_writeback_review_panel",
+          "mode": "internal_writeback",
+          "reviewActions": [
+            "stage9_submit_draft_writeback",
+            "stage9_mark_reviewed",
+            "stage9_return_for_revision"
+          ],
+          "allowedActions": [
+            "select outcome taxonomy",
+            "submit writeback",
+            "view audit status"
+          ],
+          "blockedActions": [
+            "skip writeback and close"
+          ]
+        },
+        {
+          "panelId": "governance_feedback_review_panel",
+          "mode": "internal_governance_record",
+          "reviewActions": [
+            "stage9_submit_draft_writeback",
+            "stage9_deny_draft_writeback",
+            "stage9_put_governed_hold"
+          ],
+          "allowedActions": [
+            "record trigger",
+            "record action",
+            "escalate to governance console"
+          ],
+          "blockedActions": [
+            "export governance record"
+          ]
+        },
+        {
+          "panelId": "stage9_operator_queue_panel",
+          "mode": "internal_writeback",
+          "workQueueProfileRef": "stage9_internal_operator_queue",
+          "reviewActions": [
+            "stage9_submit_draft_writeback",
+            "stage9_mark_reviewed",
+            "stage9_deny_draft_writeback",
+            "stage9_put_governed_hold",
+            "stage9_return_for_revision"
+          ]
+        }
+      ],
+      "valuePriority": "P0",
+      "release_layer": "INTERNAL_OPERABLE"
+    },
+    {
+      "workbenchId": "governance_console",
+      "title": "治理后台",
+      "surfaceState": "ACTIVE_BATCH3",
+      "primaryObjects": [
+        "coverage_registry",
+        "delivery_matrix",
+        "field_policy_dictionary",
+        "controlled_exception_record"
+      ],
+      "sections": [
+        "coverage",
+        "release_matrix",
+        "field_policy",
+        "exceptions"
+      ],
+      "visibilityLevels": [
+        "MANAGEMENT_REVIEW"
+      ],
+      "exposure": "INTERNAL_ONLY",
+      "notes": "LeadPack 导出与复核仅内部管理可见。",
+      "consumerSurfaces": [
+        "INTERNAL_ANALYSIS"
+      ],
+      "valuePriority": "P2",
+      "release_layer": "INTERNAL_OPERABLE"
+    }
+  ],
+  "release_layers": [
+    "DEV_ALLOWED",
+    "INTERNAL_OPERABLE",
+    "LEADPACK_DELIVERABLE",
+    "EXTERNAL_BLOCKED"
+  ],
+  "value_priorities": [
+    "P0",
+    "P1",
+    "P2"
+  ]
+}

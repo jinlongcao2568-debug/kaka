@@ -1,0 +1,145 @@
+{
+  "catalog_id": "tool-usage-policy-catalog",
+  "version": "1.0.1",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "model governance boundary freeze",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/model/tool_usage_policy_catalog.json",
+    "source_documents": [
+      "D14_AI模型治理规范.md"
+    ]
+  },
+  "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
+  "policy_defaults": {
+    "direct_mutation_allowed": false,
+    "external_action_enabled": false,
+    "live_execution_enabled": false,
+    "default_open": false,
+    "long_term_default_open_allowed": false
+  },
+  "required_trace_fields": [
+    "provider_id",
+    "provider_type",
+    "provider_role",
+    "provider_trace_id",
+    "query_trace_id",
+    "source_audit_ref",
+    "fallback_provider_id",
+    "requires_manual_review"
+  ],
+  "allowed_action_intents": [
+    "PREVIEW_ONLY",
+    "INTERNAL_SOURCE_READ"
+  ],
+  "blocked_action_intents": [
+    "APPROVAL_EXECUTION",
+    "INTERNAL_WRITEBACK",
+    "LIVE_EXECUTION"
+  ],
+  "policies": [
+    {
+      "policy_id": "TOOL-USAGE-001",
+      "provider_role": "ENTERPRISE_INFO_SUPPORT_TOOL",
+      "current_capability_mode": "SHADOW_MODE",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED",
+        "EMERGENCY_OFF"
+      ],
+      "allowed_stages": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "usage_mode": "support_only",
+      "allowed_actions": [
+        "enterprise_info_lookup",
+        "verification_support_lookup",
+        "public_contact_support_lookup"
+      ],
+      "forbidden_actions": [
+        "formal_gate_decision",
+        "formal_contact_release_decision",
+        "direct_mutation",
+        "direct_external_action"
+      ],
+      "requires_manual_review": true,
+      "direct_mutation_allowed": false,
+      "external_action_enabled": false,
+      "live_execution_enabled": false,
+      "default_open": false
+    },
+    {
+      "policy_id": "TOOL-USAGE-002",
+      "provider_role": "CONTACT_ENRICHMENT_SUPPORT_TOOL",
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "APPROVAL_REQUIRED",
+        "SHADOW_MODE",
+        "DRY_RUN",
+        "EMERGENCY_OFF"
+      ],
+      "allowed_stages": [
+        7,
+        8
+      ],
+      "usage_mode": "support_only",
+      "allowed_actions": [
+        "contact_candidate_enrichment"
+      ],
+      "forbidden_actions": [
+        "formal_contact_release_decision",
+        "channel_policy_override",
+        "direct_mutation",
+        "direct_external_action"
+      ],
+      "requires_manual_review": true,
+      "direct_mutation_allowed": false,
+      "external_action_enabled": false,
+      "live_execution_enabled": false,
+      "default_open": false
+    },
+    {
+      "policy_id": "TOOL-USAGE-003",
+      "provider_role": "INTERNAL_OBJECT_QUERY_TOOL",
+      "current_capability_mode": "INTERNAL_GOVERNED",
+      "allowed_capability_modes": [
+        "INTERNAL_ONLY",
+        "INTERNAL_GOVERNED",
+        "SHADOW_MODE",
+        "EMERGENCY_OFF"
+      ],
+      "allowed_stages": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "usage_mode": "review_only",
+      "allowed_actions": [
+        "internal_object_query",
+        "governance_summary_query"
+      ],
+      "forbidden_actions": [
+        "external_data_fetch_without_registry",
+        "final_state_writeback_decision",
+        "direct_mutation",
+        "direct_external_action"
+      ],
+      "requires_manual_review": true,
+      "direct_mutation_allowed": false,
+      "external_action_enabled": false,
+      "live_execution_enabled": false,
+      "default_open": false
+    }
+  ]
+}

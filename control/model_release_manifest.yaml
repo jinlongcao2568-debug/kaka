@@ -1,0 +1,118 @@
+version: 1
+updated_at: "2026-04-18"
+model_release_state: "INTERNAL_ONLY"
+external_release_status: "BLOCKED"
+capability_mode_vocabulary_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary"
+provider_vendor_release_projection:
+  projection_only: true
+  trace_only_projection: true
+  mode_resolution_source: false
+  release_layer_semantics_source: false
+  live_provider_binding_source: false
+  canonical_runtime_policy_ref: "contracts/release/runtime_policy_catalog.json"
+  registry_policy_refs:
+    model_usage_policy: "contracts/model/model_usage_policy.json"
+    tool_provider_registry_catalog: "contracts/model/tool_provider_registry_catalog.json"
+    tool_usage_policy_catalog: "contracts/model/tool_usage_policy_catalog.json"
+    vendor_registry_catalog: "contracts/sales/vendor_registry_catalog.json"
+    source_vendor_usage_policy: "contracts/sales/source_vendor_usage_policy.json"
+    channel_vendor_execution_policy: "contracts/sales/channel_vendor_execution_policy.json"
+  current_externalization_authority: false
+  current_live_provider_authority: false
+capability_mode_rules:
+  projected_from: "contracts/release/runtime_policy_catalog.json#capability_mode_rules"
+  projection_only: true
+runtime_resolver_precedence_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence"
+control_projection_consumption_boundary:
+  canonical_runtime_policy_ref: "contracts/release/runtime_policy_catalog.json"
+  runtime_inventory_ref: "control/runtime_inventory.yaml#capability_family_state_projection"
+  trace_only_projection: true
+  mode_resolution_source: false
+  release_layer_semantics_source: false
+  projection_only: true
+runtime_permission_layer:
+  enabled: true
+  stage8_action_intent: "PREVIEW_ONLY"
+  stage9_action_intent: "INTERNAL_WRITEBACK"
+  capability_family_policy_ref: "contracts/release/runtime_policy_catalog.json#capability_families"
+  decision_matrix_ref: "contracts/release/runtime_policy_catalog.json#decision_matrix"
+  release_layer_redline: "EXTERNAL_BLOCKED"
+  provider_action_intents:
+    model_provider:
+      - "PREVIEW_ONLY"
+      - "INTERNAL_SOURCE_READ"
+    tool_provider:
+      - "PREVIEW_ONLY"
+      - "INTERNAL_SOURCE_READ"
+  short_circuit_modes:
+    - "EMERGENCY_OFF"
+    - "PERMANENTLY_BLOCKED"
+eval_summary:
+  latest_suite: "EVAL-INTERNAL-ASSIST"
+  status: "PENDING"
+  notes: "No active models registered; evals pending."
+internal_only: true
+models: []
+provider_family_projection:
+  model_provider:
+    projected_current_capability_mode: "BUILDABLE_BUT_OFF_BY_DEFAULT"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[model_provider]"
+    projection_only: true
+  tool_provider:
+    projected_current_capability_mode: "SHADOW_MODE"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[tool_provider]"
+    projection_only: true
+runtime_execution_projection:
+  stage8_execution:
+    projected_current_capability_mode: "DRY_RUN"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[stage8_execution]"
+    projection_only: true
+  stage9_execution:
+    projected_current_capability_mode: "SHADOW_MODE"
+    projected_release_layer_ceiling: "INTERNAL_OPERABLE"
+    projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[stage9_execution]"
+    projection_only: true
+future_externalization_prerequisites:
+  projection_only: true
+  matrix_ref: "contracts/release/external_unlock_prerequisite_matrix.json"
+  decision_matrix_ref: "contracts/release/future_unlock_decision_matrix.json"
+  decision_state_ref: "control/future_unlock_decision_state.yaml"
+  state_ref: "control/external_unlock_prerequisite_state.yaml"
+  unlock_tier_vocabulary_ref: "contracts/release/external_unlock_prerequisite_matrix.json#unlock_tier_vocabulary"
+  relevant_domains:
+    - "model_provider_externalized_usage"
+    - "tool_provider_externalized_usage"
+  required_eval_suites:
+    - "EVAL-EXTERNAL-SHADOW"
+    - "EVAL-EXTERNAL-BOUNDARY"
+    - "EVAL-EXTERNAL-CANARY"
+  required_owner_signoffs:
+    - "model_governance_owner"
+    - "governance_owner"
+    - "architecture_owner"
+    - "testing_owner"
+  required_shadow_or_canary_state: "SHADOW_THEN_CANARY_REQUIRED"
+  current_prerequisite_state: "MACHINE_READABLE_BASELINE_DEFINED"
+  externalization_decision_state: "R6_DECISION_COMPLETED_NOT_IMPLEMENTATION_APPROVED"
+future_externalization_decision:
+  projection_only: true
+  repo_readiness: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
+  candidate_gap_active: false
+  strategic_branch_active: false
+  closure_review_active: false
+  closure_review_completed: true
+  mainline_selection_ready: true
+  approved_for_unlock_implementation: false
+  model_provider_externalized_usage: "DENY_BY_DEFAULT_CONTINUE"
+  tool_provider_externalized_usage: "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN"
+notes:
+  - "Model outputs must remain internal assist or review assist."
+  - "No model output may directly enter formal external delivery."
+  - "control/model_release_manifest.yaml is a projection-only control surface for provider/runtime capability state."
+  - "capability_mode does not weaken external blocked or release_layer."
+  - "Future provider externalization requires the dedicated prerequisite matrix and signoff pack."
+  - "R6 decision keeps model provider externalization deny-by-default and tool provider externalization long-term blocked from default-open paths."
+  - "Current repo readiness is READY_FOR_POST-REPAIR_MAINLINE_SELECTION; R6-path tokens remain decision-time history only."

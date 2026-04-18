@@ -1,0 +1,3222 @@
+{
+  "catalog_id": "rule-catalog",
+  "version": "0.1.6",
+  "metadata": {
+    "package_name": "contracts core package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-15",
+    "source_documents": [
+      "L0.md",
+      "D2_正式对象契约与字段字典.md",
+      "D3_正式规则码总表与判定说明书.md",
+      "D13_公开可查边界能力清单.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D11_测试验收与金标回归清单.md"
+    ],
+    "notes": [
+      "This is the first machine-readable core package for pre-code readiness.",
+      "The package freezes minimum stable contracts and is intended to be extended in later rounds rather than replaced.",
+      "Any implementation must consume these catalogs without creating a second vocabulary.",
+      "consumer surfaces and release layer aligned with D13",
+      "quantized decision policies appended for window/value/price/competitor/sku",
+      "stage 8 execution policies appended for contact priority/cadence/retry/stop/writeback",
+      "stage 9 exception and outcome taxonomy rules appended",
+      "stage 9 internal governed rule group finalized for lifecycle, writeback and release blocking"
+    ],
+    "machine_path": "contracts/rules/rule_catalog.json",
+    "scope": "formal rule directory with result, evidence and boundary constraints"
+  },
+  "rule_groups": [
+    {
+      "group_id": "stage9_internal_governed",
+      "stage": 9,
+      "formalization_scope": "INTERNAL_GOVERNED",
+      "sourceRefs": [
+        "D3-R-056-C",
+        "D10-R-067-A",
+        "D11-R-051-E"
+      ],
+      "objects": [
+        {
+          "object": "order_record",
+          "canonical_states": [
+            "draft",
+            "review",
+            "ready",
+            "blocked",
+            "superseded",
+            "archived"
+          ],
+          "system_expression": {
+            "draft": [
+              "commercial_status=DRAFT"
+            ],
+            "review": [
+              "commercial_status=PENDING_APPROVAL"
+            ],
+            "ready": [
+              "commercial_status in [APPROVED,CONFIRMED]"
+            ],
+            "blocked": [
+              "commercial_status=ON_HOLD",
+              "ORD-901"
+            ],
+            "superseded": [
+              "commercial_status in [CANCELLED,TERMINATED]",
+              "ORD-902"
+            ],
+            "archived": [
+              "linked delivery_record.archival_status=ARCHIVED"
+            ]
+          },
+          "rule_codes": [
+            "ORD-901",
+            "ORD-902"
+          ],
+          "direct_delivery_policy": "BLOCK_DIRECT_OBJECT_EXTERNAL"
+        },
+        {
+          "object": "payment_record",
+          "canonical_states": [
+            "ready",
+            "pending",
+            "received",
+            "partial",
+            "mismatch",
+            "refunded",
+            "cancelled",
+            "blocked"
+          ],
+          "system_expression": {
+            "ready": [
+              "payment_status in [NOT_STARTED,INVOICED_OPTIONAL]"
+            ],
+            "pending": [
+              "payment_status=PENDING_PAYMENT"
+            ],
+            "received": [
+              "payment_status=PAID"
+            ],
+            "partial": [
+              "payment_status=PARTIALLY_PAID",
+              "PAY-903"
+            ],
+            "mismatch": [
+              "amount_mismatch_state_optional=CONFIRMED",
+              "PAY-903"
+            ],
+            "refunded": [
+              "payment_status in [REFUND_PENDING,REFUNDED]",
+              "PAY-904"
+            ],
+            "cancelled": [
+              "linked order_record.commercial_status in [CANCELLED,TERMINATED]"
+            ],
+            "blocked": [
+              "payment_status=PAYMENT_EXCEPTION",
+              "PAY-901",
+              "PAY-902",
+              "PAY-905"
+            ]
+          },
+          "rule_codes": [
+            "PAY-901",
+            "PAY-902",
+            "PAY-903",
+            "PAY-904",
+            "PAY-905"
+          ],
+          "direct_delivery_policy": "BLOCK_DIRECT_OBJECT_EXTERNAL"
+        },
+        {
+          "object": "delivery_record",
+          "canonical_states": [
+            "ready",
+            "preview",
+            "delivered",
+            "partial",
+            "rejected",
+            "resend_required",
+            "redeliver_required",
+            "archived",
+            "blocked"
+          ],
+          "system_expression": {
+            "ready": [
+              "delivery_status=READY_FOR_RELEASE"
+            ],
+            "preview": [
+              "workbench surfaceState=INTERNAL_PREVIEW",
+              "delivery_status in [NOT_READY,READY_FOR_RELEASE]"
+            ],
+            "delivered": [
+              "delivery_status in [DELIVERED,ACK_PENDING,ACKNOWLEDGED]"
+            ],
+            "partial": [
+              "delivery_exception_family_optional=PARTIAL_DELIVERY",
+              "DEL-904"
+            ],
+            "rejected": [
+              "delivery_exception_family_optional=DELIVERY_REJECTED",
+              "DEL-903"
+            ],
+            "resend_required": [
+              "delivery_exception_family_optional=REWORK_REQUIRED",
+              "DEL-904"
+            ],
+            "redeliver_required": [
+              "delivery_exception_family_optional=REDELIVERY_REQUIRED",
+              "DEL-904"
+            ],
+            "archived": [
+              "archival_status=ARCHIVED"
+            ],
+            "blocked": [
+              "delivery_status=RELEASE_BLOCKED",
+              "DEL-901",
+              "DEL-902",
+              "DEL-905"
+            ]
+          },
+          "rule_codes": [
+            "DEL-901",
+            "DEL-902",
+            "DEL-903",
+            "DEL-904",
+            "DEL-905"
+          ],
+          "direct_delivery_policy": "BLOCK_DIRECT_OBJECT_EXTERNAL"
+        },
+        {
+          "object": "opportunity_outcome_event",
+          "canonical_states": [
+            "draft",
+            "written",
+            "review_required",
+            "archived"
+          ],
+          "system_expression": {
+            "draft": [
+              "written_back_at missing"
+            ],
+            "written": [
+              "written_back_at present"
+            ],
+            "review_required": [
+              "OUT-901",
+              "OUT-902"
+            ],
+            "archived": [
+              "audit chain complete"
+            ]
+          },
+          "rule_codes": [
+            "OUT-901",
+            "OUT-902"
+          ],
+          "direct_delivery_policy": "BLOCK_DIRECT_OBJECT_EXTERNAL"
+        },
+        {
+          "object": "governance_feedback_event",
+          "canonical_states": [
+            "draft",
+            "written",
+            "review_required",
+            "archived"
+          ],
+          "system_expression": {
+            "draft": [
+              "written_back_at missing"
+            ],
+            "written": [
+              "written_back_at present"
+            ],
+            "review_required": [
+              "GOV-901",
+              "GOV-902"
+            ],
+            "archived": [
+              "governance audit complete"
+            ]
+          },
+          "rule_codes": [
+            "GOV-901",
+            "GOV-902"
+          ],
+          "direct_delivery_policy": "INTERNAL_ONLY"
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "rule_code": "PROC-001",
+      "name": "法定公开节点缺失",
+      "topic": "PROC",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-01",
+      "upstream_objects": [
+        "public_chain",
+        "clock_chain_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-028",
+        "D13-R-013"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PROC-002",
+      "name": "多版本或多时钟冲突未解",
+      "topic": "PROC",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-05",
+      "upstream_objects": [
+        "notice_version_chain",
+        "clock_chain_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-028",
+        "D13-R-017"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PROC-003",
+      "name": "公示窗口已失效或动作窗口不成立",
+      "topic": "PROC",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-02",
+      "upstream_objects": [
+        "clock_chain_profile",
+        "project_fact"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "legal_action_recommendation"
+      ],
+      "source_refs": [
+        "D3-R-028",
+        "D13-R-014"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "QUAL-001",
+      "name": "限制性资格条款命中",
+      "topic": "QUAL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-06",
+      "upstream_objects": [
+        "project_base",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "evidence"
+      ],
+      "source_refs": [
+        "D3-R-028",
+        "D13-R-018"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "DOC-001",
+      "name": "关键字段前后版本冲突",
+      "topic": "DOC",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-05",
+      "upstream_objects": [
+        "notice_version_chain",
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-028",
+        "D13-R-017"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "CREDIT-001",
+      "name": "全国公开信用链限制命中",
+      "topic": "CREDIT",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "AUTO_HIT",
+      "minimum_external_use_grade": "E4_EXTERNAL_ACTION_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-07",
+      "upstream_objects": [
+        "focus_bidder_verification_profile",
+        "evidence_grade_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "evidence"
+      ],
+      "source_refs": [
+        "D3-R-028",
+        "D13-R-019"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "ATTACK-001",
+      "name": "候选集合攻击面正式成立",
+      "topic": "ATTACK",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-04",
+      "upstream_objects": [
+        "public_attack_surface",
+        "bidder_candidate"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "project_fact"
+      ],
+      "source_refs": [
+        "D3-R-028",
+        "D13-R-016"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PM-001",
+      "name": "项目经理注册信息公开冲突线索",
+      "topic": "PM",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-02",
+      "upstream_objects": [
+        "project_manager",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "evidence"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-028"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "PM-002",
+      "name": "项目经理在建冲突公开线索",
+      "topic": "PM",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-02",
+      "upstream_objects": [
+        "project_manager",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-028"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "REL-001",
+      "name": "公开主体关系冲突线索",
+      "topic": "REL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-04",
+      "upstream_objects": [
+        "project_base",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "evidence"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-030"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "ENG-001",
+      "name": "施工许可或竣工备案公开异常线索",
+      "topic": "ENG",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-03",
+      "upstream_objects": [
+        "focus_bidder_verification_profile",
+        "coverage_registry"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-029"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "ENG-002",
+      "name": "合同订立或履约增强字段异常线索",
+      "topic": "ENG",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "B_PUBLIC_ENHANCED",
+      "capability_id": "B-04",
+      "upstream_objects": [
+        "focus_bidder_verification_profile",
+        "coverage_registry"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-029",
+        "D13-R-030"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "ATTACH-001",
+      "name": "公开附件内容异常线索",
+      "topic": "ATTACH",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
+      "capability_id": "C-01",
+      "upstream_objects": [
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-030",
+        "D13-R-035"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "SCORE-001",
+      "name": "评分细项异常观察",
+      "topic": "SCORE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
+      "capability_id": "C-02",
+      "upstream_objects": [
+        "evidence_grade_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit"
+      ],
+      "source_refs": [
+        "D3-R-030",
+        "D13-R-036"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "PERSONNEL-001",
+      "name": "关键人员配置一致性公开线索",
+      "topic": "PERSONNEL",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
+      "capability_id": "C-03",
+      "upstream_objects": [
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-030",
+        "D13-R-037"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "PERF-001",
+      "name": "履约异常或合同变更观察",
+      "topic": "PERF",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
+      "capability_id": "C-04",
+      "upstream_objects": [
+        "coverage_registry"
+      ],
+      "downstream_objects": [
+        "rule_hit"
+      ],
+      "source_refs": [
+        "D3-R-030",
+        "D13-R-038"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "GOV-001",
+      "name": "D层输入渗透阻断",
+      "topic": "GOV",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "any_object"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-031",
+        "D13-R-022"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "GOV-002",
+      "name": "不可审计来源阻断",
+      "topic": "GOV",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "any_object"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-031",
+        "D13-R-022"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "GOV-003",
+      "name": "主证仅为截图/OCR/模型摘要阻断",
+      "topic": "GOV",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "evidence",
+        "evidence_grade_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "evidence_gate_decision"
+      ],
+      "source_refs": [
+        "D3-R-031",
+        "D13-R-022"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "GOV-004",
+      "name": "非法或灰色联系人获取阻断",
+      "topic": "GOV",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "contact_target"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-031",
+        "D13-R-022"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "unresolved version or clock conflict",
+        "missing unified project identity"
+      ],
+      "notes": [],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "SRC-001",
+      "name": "来源家族与平台层级不匹配",
+      "topic": "SRC",
+      "status": "DRAFT",
+      "stage": 1,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-01",
+      "upstream_objects": [
+        "execution_context",
+        "public_chain"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-051",
+        "D13-R-013"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "missing unified project identity"
+      ],
+      "notes": [
+        "REVIEW_REQUEST maps to collection_state REVIEW_REQUIRED for stage 1-2"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "SRC-002",
+      "name": "coverage 不足降级或复核",
+      "topic": "SRC",
+      "status": "DRAFT",
+      "stage": 2,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-01",
+      "upstream_objects": [
+        "public_chain",
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-051",
+        "D13-R-013"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "missing unified project identity"
+      ],
+      "notes": [
+        "Coverage tier below threshold triggers downgrade or review."
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "SRC-003",
+      "name": "robots 或法律限制阻断",
+      "topic": "SRC",
+      "status": "DRAFT",
+      "stage": 2,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-01",
+      "upstream_objects": [
+        "public_chain"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-051",
+        "D13-R-013"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "missing unified project identity"
+      ],
+      "notes": [
+        "BLOCK maps to collection_state BLOCKED for stage 1-2."
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "SRC-004",
+      "name": "附件缺失或 OCR 退化",
+      "topic": "SRC",
+      "status": "DRAFT",
+      "stage": 2,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
+      "capability_id": "C-01",
+      "upstream_objects": [
+        "notice_version_chain",
+        "public_chain"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-051",
+        "D13-R-035"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "missing unified project identity"
+      ],
+      "notes": [
+        "Manual supplementation may restore the chain after review."
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "SRC-005",
+      "name": "版本链或时钟链冲突未解",
+      "topic": "SRC",
+      "status": "DRAFT",
+      "stage": 2,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-05",
+      "upstream_objects": [
+        "notice_version_chain",
+        "clock_chain_profile"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-051",
+        "D13-R-017"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "missing unified project identity"
+      ],
+      "notes": [
+        "Unresolved conflicts require review; severe cases may block."
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "SALE-001",
+      "name": "销售线索前置条件缺失",
+      "topic": "SALE",
+      "status": "DRAFT",
+      "stage": 7,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-08",
+      "upstream_objects": [
+        "sales_lead",
+        "project_fact"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D8-R-081",
+        "D11-R-045"
+      ],
+      "blocked_by": [
+        "missing project_fact",
+        "dual actor not resolved"
+      ],
+      "notes": [
+        "lead_status moves to REVIEW when prerequisites are missing."
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "SALE-002",
+      "name": "可售机会阻断与降级",
+      "topic": "SALE",
+      "status": "DRAFT",
+      "stage": 7,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-08",
+      "upstream_objects": [
+        "saleable_opportunity",
+        "buyer_fit",
+        "offer_recommendation"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D8-R-081",
+        "D11-R-045"
+      ],
+      "blocked_by": [
+        "coverage_sellable_state blocked",
+        "delivery_risk_state blocked",
+        "gate failure"
+      ],
+      "notes": [
+        "saleability_status moves to BLOCKED or RESTRICTED when gate/coverage/delivery blocks."
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "SALE-003",
+      "name": "推荐方案前置条件不满足",
+      "topic": "SALE",
+      "status": "DRAFT",
+      "stage": 7,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-08",
+      "upstream_objects": [
+        "offer_recommendation",
+        "buyer_fit"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D8-R-081",
+        "D11-R-045"
+      ],
+      "blocked_by": [
+        "missing buyer_fit",
+        "actor not resolved",
+        "gate failure"
+      ],
+      "notes": [
+        "offer_recommendation_state moves to REVIEW_REQUIRED when prerequisites missing."
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "OUT-001",
+      "name": "触达合规阻断",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "contact_target"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D9-R-022",
+        "D9-R-030",
+        "D11-R-045"
+      ],
+      "blocked_by": [
+        "contact_legal_basis=BLOCKED",
+        "opt_out_state in [OPTED_OUT,BLOCKED]",
+        "quiet_hours_policy_state=BLOCK",
+        "frequency_policy_state=BLOCK",
+        "channel_policy_status=BLOCK",
+        "channel_policy_status=UNAVAILABLE"
+      ],
+      "notes": [
+        "contact_target_status moves to BLOCKED when compliance fails."
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "OUT-002",
+      "name": "触达计划审批与运行模式约束",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "outreach_plan"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D9-R-034",
+        "D9-R-035",
+        "D11-R-045"
+      ],
+      "blocked_by": [
+        "run_mode in [APPROVAL_RUN,REAL_RUN] and approval_state!=APPROVED"
+      ],
+      "notes": [
+        "plan_status remains REVIEW_REQUIRED until approval is complete."
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "OUT-003",
+      "name": "触达记录写入阻断",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "touch_record",
+        "outreach_plan"
+      ],
+      "downstream_objects": [
+        "rule_hit"
+      ],
+      "source_refs": [
+        "D9-R-035",
+        "D9-R-038",
+        "D11-R-045"
+      ],
+      "blocked_by": [
+        "plan_status not APPROVED",
+        "run_mode=DRY_RUN"
+      ],
+      "notes": [
+        "touch_record_state may only advance when plan is approved."
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "OUT-004",
+      "name": "触达合规待审",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "contact_target"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "review_request"
+      ],
+      "source_refs": [
+        "D9-R-030",
+        "D9-R-031",
+        "D11-R-045"
+      ],
+      "blocked_by": [
+        "contact_legal_basis=REVIEW_REQUIRED",
+        "opt_out_state=PENDING_CONFIRMATION",
+        "quiet_hours_policy_state=REVIEW",
+        "frequency_policy_state=REVIEW",
+        "channel_policy_status=REVIEW",
+        "channel_family in [AUTHORIZED_PERSON_DIRECT,SOCIAL_DM,IM_DIRECT,PERSONAL_PHONE,PERSONAL_EMAIL]"
+      ],
+      "notes": [
+        "requires_manual_review must be true for restricted channel families or unresolved basis."
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "STATE-301",
+      "name": "字段归一冲突进入复核",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 3,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "field_lineage_record",
+        "notice_version_chain"
+      ],
+      "downstream_objects": [
+        "review_request",
+        "review_queue_profile"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "missing unified project identity"
+      ],
+      "notes": [
+        "transition: conflict_state CONFLICTING -> review_queue",
+        "lineage_status set to CONFLICTING"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-302",
+      "name": "字段来源缺失阻断",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 3,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "missing source slice",
+        "missing normalization rule"
+      ],
+      "notes": [
+        "transition: lineage_status -> UNVERIFIED",
+        "conflict_state -> UNRESOLVED"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-303",
+      "name": "字段冲突裁决完成/归一通过",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 3,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "field_lineage_record",
+        "notice_version_chain"
+      ],
+      "downstream_objects": [
+        "field_lineage_record"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "version_conflict_state!=CONSISTENT",
+        "missing normalization rule"
+      ],
+      "notes": [
+        "transition: lineage_status -> NORMALIZED",
+        "conflict_state -> CONSISTENT"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-401",
+      "name": "核验缺口进入 REVIEW",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 4,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "public_attack_surface",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "review_request",
+        "review_queue_profile"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "unresolved lineage conflict",
+        "missing public evidence"
+      ],
+      "notes": [
+        "transition: verification_state -> REVIEW"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-402",
+      "name": "核验阻断",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 4,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "public_attack_surface",
+        "focus_bidder_verification_profile"
+      ],
+      "downstream_objects": [
+        "review_request"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "D_NON_PUBLIC_OR_FORENSIC inputs",
+        "identity mismatch"
+      ],
+      "notes": [
+        "transition: verification_state -> BLOCK"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-403",
+      "name": "核验通过",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 4,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "public_attack_surface",
+        "focus_bidder_verification_profile",
+        "evidence_grade_profile"
+      ],
+      "downstream_objects": [
+        "public_attack_surface",
+        "focus_bidder_verification_profile"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "unresolved lineage conflict",
+        "evidence_grade_profile blocked"
+      ],
+      "notes": [
+        "transition: verification_state -> PASS"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-501",
+      "name": "证据链不完整进入 REVIEW",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "evidence",
+        "evidence_grade_profile"
+      ],
+      "downstream_objects": [
+        "review_request",
+        "evidence_gate_decision"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "missing provenance chain",
+        "cross_check_state=REVIEW"
+      ],
+      "notes": [
+        "transition: retrieval_readiness_status -> PARTIAL"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-502",
+      "name": "证据不可用阻断",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "evidence",
+        "evidence_grade_profile"
+      ],
+      "downstream_objects": [
+        "evidence_gate_decision"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "fixation_status=NOT_FIXED",
+        "provenance_chain_status=BROKEN",
+        "cross_check_state=BLOCK"
+      ],
+      "notes": [
+        "transition: retrieval_readiness_status -> BLOCKED"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-503",
+      "name": "规则命中需复核",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "rule_hit",
+        "evidence_gate_decision"
+      ],
+      "downstream_objects": [
+        "review_request",
+        "rule_gate_decision"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "evidence_gate_status=REVIEW",
+        "evidence grade below threshold"
+      ],
+      "notes": [
+        "transition: rule_hit_state -> REVIEW_REQUIRED"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-504",
+      "name": "规则命中阻断",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "rule_hit",
+        "rule_gate_decision"
+      ],
+      "downstream_objects": [
+        "rule_gate_decision"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "rule_gate_status=BLOCK",
+        "D_NON_PUBLIC_OR_FORENSIC inputs"
+      ],
+      "notes": [
+        "transition: rule_hit_state -> BLOCKED"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-505",
+      "name": "证据可用入闸",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "evidence",
+        "evidence_grade_profile"
+      ],
+      "downstream_objects": [
+        "evidence",
+        "evidence_gate_decision"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "cross_check_state!=PASS",
+        "fixation_status!=HASH_LOCKED",
+        "provenance_chain_status!=COMPLETE"
+      ],
+      "notes": [
+        "transition: retrieval_readiness_status -> READY"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-506",
+      "name": "规则命中进入门禁评估",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "rule_hit",
+        "evidence_gate_decision",
+        "field_lineage_record"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "rule_gate_decision"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "evidence_gate_status!=PASS",
+        "lineage_status!=NORMALIZED",
+        "conflict_state!=CONSISTENT"
+      ],
+      "notes": [
+        "transition: rule_hit_state -> READY_FOR_GATE"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-507",
+      "name": "规则命中确认",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "rule_hit",
+        "rule_gate_decision",
+        "evidence_gate_decision"
+      ],
+      "downstream_objects": [
+        "rule_hit",
+        "project_fact"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "rule_gate_status!=PASS",
+        "evidence_gate_status!=PASS"
+      ],
+      "notes": [
+        "transition: rule_hit_state -> CONFIRMED"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-508",
+      "name": "规则命中被新版本替代",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "rule_hit",
+        "notice_version_chain"
+      ],
+      "downstream_objects": [
+        "rule_hit"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "no superseding version or rule_hit"
+      ],
+      "notes": [
+        "transition: rule_hit_state -> SUPERSEDED"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-601",
+      "name": "报告进入复核队列",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 6,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "report_record",
+        "review_queue_profile",
+        "review_request"
+      ],
+      "downstream_objects": [
+        "report_record",
+        "review_queue_profile"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "missing project_fact"
+      ],
+      "notes": [
+        "transition: report_status DRAFT -> READY",
+        "review_task_status -> IN_REVIEW"
+      ],
+      "business_chain_stage": "统一事实与报告链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-602",
+      "name": "报告出具",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 6,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "report_record",
+        "project_fact",
+        "review_queue_profile"
+      ],
+      "downstream_objects": [
+        "report_record"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "rule_gate_status=BLOCK",
+        "evidence_gate_status=BLOCK"
+      ],
+      "notes": [
+        "transition: report_status READY -> ISSUED",
+        "review_task_status -> CLOSED"
+      ],
+      "business_chain_stage": "统一事实与报告链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-603",
+      "name": "报告撤销或阻断",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 6,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "report_record",
+        "rule_gate_decision",
+        "evidence_gate_decision"
+      ],
+      "downstream_objects": [
+        "report_record"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "review_task_status=BLOCKED",
+        "gate failure"
+      ],
+      "notes": [
+        "transition: report_status -> REVOKED",
+        "review_task_status -> CLOSED"
+      ],
+      "business_chain_stage": "统一事实与报告链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-604",
+      "name": "报告被新结论覆盖",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 6,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "report_record",
+        "project_fact"
+      ],
+      "downstream_objects": [
+        "report_record",
+        "review_queue_profile"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D11-R-047"
+      ],
+      "blocked_by": [
+        "missing new project_fact"
+      ],
+      "notes": [
+        "transition: report_status -> REVOKED",
+        "review_task_status -> SUPERSEDED"
+      ],
+      "business_chain_stage": "统一事实与报告链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "STATE-605",
+      "name": "复核队列优先级重分桶",
+      "topic": "STATE",
+      "status": "DRAFT",
+      "stage": 6,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "review_queue_profile"
+      ],
+      "downstream_objects": [
+        "review_queue_profile"
+      ],
+      "source_refs": [
+        "D3-R-052",
+        "D3-R-056-B",
+        "D11-R-047",
+        "D11-R-053-Q"
+      ],
+      "blocked_by": [
+        "review_lane missing",
+        "missing priority inputs",
+        "window_value policy output missing"
+      ],
+      "input_fields": [
+        "legal_action_recommendation.window_status",
+        "review_queue_profile.window_risk_level",
+        "clock_chain_profile.window_urgency_score_optional",
+        "review_queue_profile.commercial_urgency_level"
+      ],
+      "output_fields": [
+        "review_queue_profile.review_priority_score",
+        "review_queue_profile.review_queue_bucket",
+        "review_queue_profile.review_lane"
+      ],
+      "transition_rules": [
+        {
+          "rule_id": "QUEUE-BUCKET-MISSED",
+          "window_status": "MISSED",
+          "target_bucket": "CRITICAL_WINDOW"
+        },
+        {
+          "rule_id": "QUEUE-BUCKET-CRITICAL",
+          "score_gte": 85,
+          "target_bucket": "CRITICAL_WINDOW"
+        },
+        {
+          "rule_id": "QUEUE-BUCKET-HIGH",
+          "score_gte": 65,
+          "target_bucket": "HIGH"
+        },
+        {
+          "rule_id": "QUEUE-BUCKET-NORMAL",
+          "score_gte": 40,
+          "target_bucket": "NORMAL"
+        },
+        {
+          "rule_id": "QUEUE-BUCKET-LOW",
+          "default": true,
+          "target_bucket": "LOW"
+        }
+      ],
+      "notes": [
+        "policy: window_value_policy_catalog WINDOW-STATUS-001.queue_priority_policy",
+        "formula: review_priority_score=clamp(round(window_urgency_score*0.6+window_risk_level_weight+commercial_urgency_level_weight),0,100)",
+        "transition: review_queue_bucket reprioritize"
+      ],
+      "business_chain_stage": "统一事实与报告链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "ORD-901",
+      "name": "订单承接与商业状态门禁",
+      "topic": "ORDER",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "saleable_opportunity",
+        "offer_recommendation",
+        "order_record"
+      ],
+      "downstream_objects": [
+        "order_record",
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-053",
+        "D10-R-021",
+        "D10-R-022"
+      ],
+      "blocked_by": [
+        "sale_gate_status!=OPEN",
+        "approval chain missing",
+        "audit_ref missing",
+        "release gate blocked"
+      ],
+      "notes": [
+        "commercial_status may only advance to CONFIRMED after approval and audit."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "ORD-902",
+      "name": "订单终止与回写",
+      "topic": "ORDER",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "order_record"
+      ],
+      "downstream_objects": [
+        "opportunity_outcome_event"
+      ],
+      "source_refs": [
+        "D3-R-053",
+        "D10-R-021",
+        "D10-R-025"
+      ],
+      "blocked_by": [
+        "commercial_status in [CANCELLED,TERMINATED] and written_back_at missing"
+      ],
+      "notes": [
+        "order termination must trigger outcome writeback."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PAY-901",
+      "name": "支付确认门禁",
+      "topic": "PAYMENT",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "payment_record",
+        "order_record"
+      ],
+      "downstream_objects": [
+        "payment_record",
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-053",
+        "D10-R-023"
+      ],
+      "blocked_by": [
+        "payment_status=PAID but payment_proof_state missing",
+        "audit_ref missing",
+        "order_status not CONFIRMED"
+      ],
+      "notes": [
+        "payment completion requires auditable proof."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PAY-902",
+      "name": "付款方不匹配阻断",
+      "topic": "PAYMENT",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "payment_record"
+      ],
+      "downstream_objects": [
+        "delivery_record",
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-053",
+        "D10-R-023"
+      ],
+      "blocked_by": [
+        "payer_mismatch_state=CONFIRMED"
+      ],
+      "notes": [
+        "delivery must not proceed when payer mismatch is confirmed."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PAY-903",
+      "name": "部分付款与金额不符处理",
+      "topic": "PAYMENT",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "payment_record",
+        "order_record"
+      ],
+      "downstream_objects": [
+        "payment_record",
+        "governance_feedback_event",
+        "opportunity_outcome_event"
+      ],
+      "source_refs": [
+        "D3-R-056",
+        "D10-R-064",
+        "D11-R-051"
+      ],
+      "blocked_by": [
+        "payment_status=PARTIALLY_PAID",
+        "amount_mismatch_state_optional=CONFIRMED"
+      ],
+      "notes": [
+        "policy: payment_exception_catalog PAY-EX-001"
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PAY-904",
+      "name": "异常支付与退款回写",
+      "topic": "PAYMENT",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "payment_record"
+      ],
+      "downstream_objects": [
+        "opportunity_outcome_event",
+        "governance_feedback_event",
+        "delivery_record"
+      ],
+      "source_refs": [
+        "D3-R-056",
+        "D10-R-064",
+        "D11-R-051"
+      ],
+      "blocked_by": [
+        "payment_status=PAYMENT_EXCEPTION",
+        "refund_state in [REQUESTED,APPROVED,COMPLETED]"
+      ],
+      "notes": [
+        "policy: payment_exception_catalog PAY-EX-001"
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PAY-905",
+      "name": "支付异常阻断交付",
+      "topic": "PAYMENT",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "payment_record",
+        "delivery_record"
+      ],
+      "downstream_objects": [
+        "delivery_record",
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-056",
+        "D10-R-064",
+        "D11-R-051"
+      ],
+      "blocked_by": [
+        "payment_status in [PAYMENT_EXCEPTION,REFUND_PENDING,REFUNDED,WRITE_OFF_REVIEW]"
+      ],
+      "notes": [
+        "payment exceptions block delivery progression."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "DEL-901",
+      "name": "交付放行门禁",
+      "topic": "DELIVERY",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "delivery_record",
+        "payment_record",
+        "order_record"
+      ],
+      "downstream_objects": [
+        "delivery_record",
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-053",
+        "D10-R-024",
+        "D10-R-028"
+      ],
+      "blocked_by": [
+        "delivery_status=READY_FOR_RELEASE but approval chain missing",
+        "release gate blocked",
+        "field policy blocked",
+        "payment_status in [NOT_STARTED,PENDING_PAYMENT,PAYMENT_EXCEPTION,REFUND_PENDING]"
+      ],
+      "notes": [
+        "delivery_status may only advance to DELIVERED when release gates pass."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "DEL-902",
+      "name": "交付归档与调阅阻断",
+      "topic": "DELIVERY",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "delivery_record"
+      ],
+      "downstream_objects": [
+        "delivery_record",
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-053",
+        "D10-R-031"
+      ],
+      "blocked_by": [
+        "archival_status=ARCHIVE_EXCEPTION",
+        "retention_until missing",
+        "retrieval_status=FAILED"
+      ],
+      "notes": [
+        "archival failure blocks delivery closure."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "DEL-903",
+      "name": "交付失败与拒收处理",
+      "topic": "DELIVERY",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "delivery_record"
+      ],
+      "downstream_objects": [
+        "opportunity_outcome_event",
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-056",
+        "D10-R-065",
+        "D11-R-051"
+      ],
+      "blocked_by": [
+        "delivery_status in [REWORK_REQUIRED,REDELIVERY_REQUIRED,TERMINATED]"
+      ],
+      "notes": [
+        "policy: delivery_exception_catalog DEL-EX-001"
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "DEL-904",
+      "name": "部分交付与补发回写",
+      "topic": "DELIVERY",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "delivery_record"
+      ],
+      "downstream_objects": [
+        "delivery_record",
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-056",
+        "D10-R-065",
+        "D11-R-051"
+      ],
+      "blocked_by": [
+        "delivery_exception_family_optional=PARTIAL_DELIVERY",
+        "delivery_status=REDELIVERY_REQUIRED"
+      ],
+      "notes": [
+        "partial delivery must not close delivery_record."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "DEL-905",
+      "name": "归档失败与调阅失败阻断",
+      "topic": "DELIVERY",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "delivery_record"
+      ],
+      "downstream_objects": [
+        "governance_feedback_event"
+      ],
+      "source_refs": [
+        "D3-R-056",
+        "D10-R-065",
+        "D11-R-051"
+      ],
+      "blocked_by": [
+        "archival_status=ARCHIVE_EXCEPTION",
+        "retrieval_status=FAILED"
+      ],
+      "notes": [
+        "archive/retrieval failure blocks closure."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "OUT-901",
+      "name": "负结果回写强制",
+      "topic": "OUTCOME",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "opportunity_outcome_event",
+        "delivery_record",
+        "payment_record"
+      ],
+      "downstream_objects": [
+        "project_fact",
+        "saleable_opportunity"
+      ],
+      "source_refs": [
+        "D3-R-053",
+        "D10-R-025",
+        "D10-R-040"
+      ],
+      "blocked_by": [
+        "outcome_family in [LOST,WINDOW_MISSED,CONTACT_FAILED,PAYER_MISMATCH,FALSE_POSITIVE,DELIVERY_ABANDONED] and written_back_at missing"
+      ],
+      "notes": [
+        "negative outcomes must be written back to stage 6/7/8."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "OUT-902",
+      "name": "结果 taxonomy 校验与回写",
+      "topic": "OUTCOME",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "opportunity_outcome_event"
+      ],
+      "downstream_objects": [
+        "project_fact",
+        "saleable_opportunity"
+      ],
+      "source_refs": [
+        "D3-R-056",
+        "D10-R-066",
+        "D11-R-051"
+      ],
+      "blocked_by": [
+        "outcome_reason_tags contains non-taxonomy values",
+        "written_back_at missing"
+      ],
+      "notes": [
+        "policy: outcome_taxonomy_catalog"
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "GOV-901",
+      "name": "治理反馈触发与写回",
+      "topic": "GOV",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "governance_feedback_event",
+        "delivery_record",
+        "order_record"
+      ],
+      "downstream_objects": [
+        "governance_feedback_event",
+        "project_fact"
+      ],
+      "source_refs": [
+        "D3-R-053",
+        "D10-R-036"
+      ],
+      "blocked_by": [
+        "delivery_status=RELEASE_BLOCKED",
+        "approval chain missing",
+        "field policy violation",
+        "audit_ref missing"
+      ],
+      "notes": [
+        "governance feedback required for blocked delivery or policy violation."
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P2"
+    },
+    {
+      "rule_code": "GOV-902",
+      "name": "治理反馈 taxonomy 校验",
+      "topic": "GOV",
+      "status": "DRAFT",
+      "stage": 9,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "governance_feedback_event"
+      ],
+      "downstream_objects": [
+        "governance_feedback_event",
+        "release_gates"
+      ],
+      "source_refs": [
+        "D3-R-056",
+        "D10-R-067",
+        "D11-R-051"
+      ],
+      "blocked_by": [
+        "trigger_type not in governance_feedback_policy_catalog",
+        "written_back_at missing"
+      ],
+      "notes": [
+        "policy: governance_feedback_policy_catalog"
+      ],
+      "business_chain_stage": "商务交付与反馈链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "WIN-001",
+      "name": "动作窗口状态判定",
+      "topic": "WINDOW",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-02",
+      "upstream_objects": [
+        "clock_chain_profile",
+        "public_chain"
+      ],
+      "downstream_objects": [
+        "legal_action_recommendation",
+        "review_queue_profile"
+      ],
+      "source_refs": [
+        "D3-R-054",
+        "D8-R-084"
+      ],
+      "blocked_by": [
+        "clock_conflict_state=CONFLICTING",
+        "current_action_deadline missing"
+      ],
+      "notes": [
+        "policy: window_value_policy_catalog WINDOW-STATUS-001"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "OUT-005",
+      "name": "主联系人选择与优先级裁决",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "contact_target",
+        "saleable_opportunity",
+        "legal_action_actor_profile",
+        "procurement_decision_actor_profile"
+      ],
+      "downstream_objects": [
+        "contact_target",
+        "outreach_plan"
+      ],
+      "source_refs": [
+        "D3-R-055",
+        "D9-R-065",
+        "D11-R-050"
+      ],
+      "blocked_by": [
+        "contact_legal_basis=BLOCKED",
+        "opt_out_state in [OPTED_OUT,BLOCKED]",
+        "contact_validity_status=INVALID",
+        "channel_policy_status in [BLOCK,UNAVAILABLE]"
+      ],
+      "notes": [
+        "policy: contact_priority_policy_catalog CONTACT-PRIORITY-001"
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "OUT-006",
+      "name": "多联系人冲突转人工",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "contact_target"
+      ],
+      "downstream_objects": [
+        "review_request",
+        "outreach_plan"
+      ],
+      "source_refs": [
+        "D3-R-055",
+        "D9-R-065",
+        "D11-R-050"
+      ],
+      "blocked_by": [
+        "contact_conflict_flag=true",
+        "requires_manual_review=true"
+      ],
+      "notes": [
+        "conflict resolution requires manual review before execution."
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "OUT-007",
+      "name": "触达节奏与计划排期",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "outreach_plan",
+        "contact_target",
+        "saleable_opportunity",
+        "legal_action_recommendation"
+      ],
+      "downstream_objects": [
+        "outreach_plan"
+      ],
+      "source_refs": [
+        "D3-R-055",
+        "D9-R-066",
+        "D11-R-050"
+      ],
+      "blocked_by": [
+        "quiet_hours_policy_state=BLOCK",
+        "frequency_policy_state=BLOCK",
+        "opt_out_state in [OPTED_OUT,BLOCKED]"
+      ],
+      "notes": [
+        "policy: outreach_cadence_catalog OUTREACH-CADENCE-001"
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "OUT-008",
+      "name": "触达失败重试与回退",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "touch_record",
+        "outreach_plan",
+        "contact_target"
+      ],
+      "downstream_objects": [
+        "outreach_plan",
+        "contact_target"
+      ],
+      "source_refs": [
+        "D3-R-055",
+        "D9-R-066",
+        "D11-R-050"
+      ],
+      "blocked_by": [
+        "retry_count >= max_retry_count",
+        "response_status in [DECLINED,OPTED_OUT]"
+      ],
+      "notes": [
+        "policy: retry_policy_catalog RETRY-001"
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "OUT-009",
+      "name": "触达停止与永久阻断",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "BLOCK",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "contact_target",
+        "outreach_plan"
+      ],
+      "downstream_objects": [
+        "contact_target",
+        "outreach_plan"
+      ],
+      "source_refs": [
+        "D3-R-055",
+        "D9-R-068",
+        "D11-R-050"
+      ],
+      "blocked_by": [
+        "contact_legal_basis=BLOCKED",
+        "opt_out_state in [OPTED_OUT,BLOCKED]",
+        "contact_validity_status=INVALID",
+        "channel_policy_status in [BLOCK,UNAVAILABLE]"
+      ],
+      "notes": [
+        "policy: touch_stop_condition_catalog STOP-001"
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "OUT-010",
+      "name": "触达失败回写与下一步",
+      "topic": "OUTREACH",
+      "status": "DRAFT",
+      "stage": 8,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "touch_record",
+        "contact_target",
+        "saleable_opportunity"
+      ],
+      "downstream_objects": [
+        "opportunity_outcome_event",
+        "project_fact",
+        "saleable_opportunity"
+      ],
+      "source_refs": [
+        "D3-R-055",
+        "D9-R-069",
+        "D11-R-050"
+      ],
+      "blocked_by": [
+        "response_status in [INVALID_CONTACT,WRONG_ROLE,OPTED_OUT,DECLINED,NO_RESPONSE] and written_back_at missing"
+      ],
+      "notes": [
+        "failure writeback taxonomy for stage 8 outcomes."
+      ],
+      "business_chain_stage": "触达编排链",
+      "consumer_surfaces": [
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "WIN-002",
+      "name": "窗口已失效强制降级",
+      "topic": "WINDOW",
+      "status": "DRAFT",
+      "stage": 5,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E2_REVIEW_READY",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-02",
+      "upstream_objects": [
+        "clock_chain_profile",
+        "legal_action_recommendation"
+      ],
+      "downstream_objects": [
+        "review_queue_profile",
+        "saleable_opportunity"
+      ],
+      "source_refs": [
+        "D3-R-054",
+        "D8-R-084"
+      ],
+      "blocked_by": [
+        "window_status=MISSED",
+        "window_status=REVIEW_REQUIRED"
+      ],
+      "notes": [
+        "policy: window_value_policy_catalog WINDOW-STATUS-001"
+      ],
+      "business_chain_stage": "高价值线索发现链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "VAL-001",
+      "name": "项目/线索/商机价值评分与分层",
+      "topic": "VALUE",
+      "status": "DRAFT",
+      "stage": 6,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "project_fact",
+        "buyer_fit",
+        "challenger_candidate_profile"
+      ],
+      "downstream_objects": [
+        "sales_lead",
+        "saleable_opportunity",
+        "offer_recommendation"
+      ],
+      "source_refs": [
+        "D3-R-054",
+        "D8-R-085"
+      ],
+      "blocked_by": [
+        "rule_gate_status=BLOCK",
+        "evidence_gate_status=BLOCK"
+      ],
+      "notes": [
+        "policy: lead_value_scoring_catalog PROJECT/LEAD/OPPORTUNITY models",
+        "internal scoring only; no external promise"
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "PRICE-001",
+      "name": "价格归一与冲突裁决",
+      "topic": "PRICE",
+      "status": "DRAFT",
+      "stage": 6,
+      "default_result": "REVIEW_REQUEST",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "bidder_candidate",
+        "project_base"
+      ],
+      "downstream_objects": [
+        "offer_recommendation",
+        "saleable_opportunity"
+      ],
+      "source_refs": [
+        "D3-R-054",
+        "D8-R-086"
+      ],
+      "blocked_by": [
+        "price_conflict_gate_status_optional=BLOCK",
+        "normalized_price_amount_optional missing"
+      ],
+      "notes": [
+        "policy: price_normalization_catalog PRICE-NORMALIZE-001"
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    },
+    {
+      "rule_code": "COMP-001",
+      "name": "竞争者证据累积与置信度",
+      "topic": "COMPETITOR",
+      "status": "DRAFT",
+      "stage": 6,
+      "default_result": "CLUE",
+      "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
+      "public_capability_tier": "A_PUBLIC_CORE",
+      "capability_id": "A-08",
+      "upstream_objects": [
+        "challenger_candidate_profile",
+        "pseudo_competitor_signal_set",
+        "evidence_grade_profile"
+      ],
+      "downstream_objects": [
+        "challenger_candidate_profile",
+        "saleable_opportunity"
+      ],
+      "source_refs": [
+        "D3-R-054",
+        "D8-R-087"
+      ],
+      "blocked_by": [
+        "confidence_band=LOW",
+        "evidence refs < 2"
+      ],
+      "notes": [
+        "policy: competitor_confidence_catalog COMP-CONFIDENCE-001"
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P0"
+    },
+    {
+      "rule_code": "SKU-001",
+      "name": "SKU/交付形态/报价带推荐",
+      "topic": "SKU",
+      "status": "DRAFT",
+      "stage": 7,
+      "default_result": "OBSERVATION",
+      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
+      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+      "capability_id": "A-10",
+      "upstream_objects": [
+        "saleable_opportunity",
+        "buyer_fit",
+        "challenger_candidate_profile",
+        "bidder_candidate"
+      ],
+      "downstream_objects": [
+        "offer_recommendation"
+      ],
+      "source_refs": [
+        "D3-R-054",
+        "D8-R-088"
+      ],
+      "blocked_by": [
+        "delivery_risk_state=BLOCK",
+        "coverage_sellable_state in [NOT_READY,SUSPENDED]",
+        "price_conflict_gate_status_optional=BLOCK"
+      ],
+      "notes": [
+        "policy: sku_recommendation_policy_catalog SKU-RECOMMEND-001"
+      ],
+      "business_chain_stage": "商业封装链",
+      "consumer_surfaces": [
+        "INTERNAL_ANALYSIS",
+        "SALES_USAGE"
+      ],
+      "release_layer": "INTERNAL_OPERABLE",
+      "value_priority": "P1"
+    }
+  ]
+}

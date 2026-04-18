@@ -1,0 +1,152 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "touch_stop_condition_catalog",
+  "ownerDocs": [
+    "D9",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "STOP-001",
+      "title": "Stop/review/block conditions for outreach execution",
+      "applies_to_objects": [
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "input_fields": [
+        "contact_target.contact_legal_basis",
+        "contact_target.opt_out_state",
+        "contact_target.frequency_policy_state",
+        "contact_target.quiet_hours_policy_state",
+        "contact_target.channel_policy_status",
+        "contact_target.contact_validity_status",
+        "contact_target.contact_conflict_flag",
+        "runtime.candidate_compliance_decision",
+        "runtime.execution_compliance_decision",
+        "outreach_plan.approval_state",
+        "outreach_plan.approval_run_required",
+        "outreach_plan.retry_count",
+        "outreach_plan.max_retry_count",
+        "touch_record.response_status"
+      ],
+      "output_fields": [
+        "contact_target.contact_target_status",
+        "outreach_plan.plan_status",
+        "contact_target.requires_manual_review",
+        "contact_target.auto_contact_allowed",
+        "outreach_plan.next_touch_due_at_optional",
+        "outreach_plan.stop_reason_optional"
+      ],
+      "permanent_block_conditions": [
+        {
+          "condition": "contact_legal_basis=BLOCKED",
+          "actions": [
+            "contact_target_status=BLOCKED",
+            "plan_status=CANCELLED",
+            "auto_contact_allowed=false"
+          ],
+          "reason": "legal_basis_blocked"
+        },
+        {
+          "condition": "opt_out_state in [OPTED_OUT,BLOCKED]",
+          "actions": [
+            "contact_target_status=BLOCKED",
+            "plan_status=CANCELLED",
+            "auto_contact_allowed=false"
+          ],
+          "reason": "opt_out_blocked"
+        },
+        {
+          "condition": "contact_validity_status=INVALID",
+          "actions": [
+            "contact_target_status=INVALID",
+            "plan_status=CANCELLED"
+          ],
+          "reason": "contact_invalid"
+        },
+        {
+          "condition": "channel_policy_status in [BLOCK,UNAVAILABLE]",
+          "actions": [
+            "contact_target_status=BLOCKED",
+            "plan_status=CANCELLED"
+          ],
+          "reason": "channel_unavailable"
+        }
+      ],
+      "review_conditions": [
+        {
+          "condition": "contact_legal_basis=REVIEW_REQUIRED",
+          "actions": [
+            "requires_manual_review=true",
+            "contact_target_status=REVIEW_REQUIRED",
+            "plan_status=REVIEW_REQUIRED"
+          ],
+          "reason": "legal_basis_review"
+        },
+        {
+          "condition": "frequency_policy_state=BLOCK",
+          "actions": [
+            "requires_manual_review=true",
+            "plan_status=REVIEW_REQUIRED"
+          ],
+          "reason": "frequency_review_required"
+        },
+        {
+          "condition": "quiet_hours_policy_state=BLOCK",
+          "actions": [
+            "plan_status=SCHEDULED"
+          ],
+          "reason": "quiet_hours_block"
+        },
+        {
+          "condition": "contact_conflict_flag=true",
+          "actions": [
+            "requires_manual_review=true",
+            "plan_status=REVIEW_REQUIRED"
+          ],
+          "reason": "contact_conflict"
+        },
+        {
+          "condition": "channel_policy_status=REVIEW",
+          "actions": [
+            "requires_manual_review=true",
+            "contact_target_status=REVIEW_REQUIRED",
+            "plan_status=REVIEW_REQUIRED"
+          ],
+          "reason": "channel_review"
+        },
+        {
+          "condition": "execution_compliance_decision=REVIEW_REQUIRED",
+          "actions": [
+            "requires_manual_review=true",
+            "plan_status=REVIEW_REQUIRED"
+          ],
+          "reason": "execution_review_required"
+        },
+        {
+          "condition": "execution_compliance_decision=BLOCKED",
+          "actions": [
+            "requires_manual_review=true",
+            "plan_status=BLOCKED",
+            "auto_contact_allowed=false"
+          ],
+          "reason": "execution_blocked"
+        }
+      ],
+      "stop_after_retry": {
+        "condition": "retry_count >= max_retry_count",
+        "actions": [
+          "plan_status=CANCELLED",
+          "contact_target_status=REVIEW_REQUIRED"
+        ],
+        "reason": "retry_exhausted"
+      }
+    }
+  ],
+  "notes": [
+    "Stop conditions must be enforced before any APPROVAL_RUN or REAL_RUN execution.",
+    "Quiet-hours stop is temporary scheduling; legal basis/opt-out/invalid are permanent blocks.",
+    "candidate_compliance_decision 与 execution_compliance_decision 必须显式拆开；quiet hours 只改 execution plan，不降低 candidate preview。"
+  ]
+}

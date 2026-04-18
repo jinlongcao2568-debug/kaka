@@ -1,0 +1,90 @@
+{
+  "handoff_id": "H-05-STAGE5-TO-STAGE6",
+  "from_stage": 5,
+  "to_stage": 6,
+  "name": "规则与证据 -> 统一事实、动作建议与正式报告",
+  "producer_objects": [
+    "rule_hit",
+    "evidence",
+    "rule_gate_decision",
+    "evidence_gate_decision",
+    "review_request"
+  ],
+  "consumer_objects": [
+    "project_fact",
+    "legal_action_recommendation",
+    "review_queue_profile",
+    "report_record",
+    "challenger_candidate_profile"
+  ],
+  "required_upstream_conditions": [
+    "dual_gates_present",
+    "version_and_clock_state_resolved_or_reviewed",
+    "governance_state_present"
+  ],
+  "required_payload_fields": [
+    "project_id",
+    "rule_hit_id",
+    "rule_hit_state",
+    "evidence_id",
+    "rule_gate_decision_id",
+    "evidence_gate_decision_id",
+    "rule_gate_status",
+    "evidence_gate_status",
+    "coverage_sellable_state",
+    "delivery_risk_state"
+  ],
+  "consumer_runtime_required_fields": [
+    "project_id",
+    "rule_hit_id",
+    "rule_hit_state",
+    "evidence_id",
+    "rule_gate_decision_id",
+    "evidence_gate_decision_id",
+    "rule_gate_status",
+    "evidence_gate_status",
+    "coverage_sellable_state",
+    "delivery_risk_state"
+  ],
+  "producer_obligations": [
+    "Stage5 must emit authoritative dual-gate ids/status and review_request metadata whenever review or block paths are entered.",
+    "Stage5 must keep H-05 payloads aligned with rule_hit/evidence/formal gate records rather than free-form Stage6 defaults.",
+    "Stage5 must not drop review_request metadata when Stage6 unified fact closure still depends on review or supplement loops."
+  ],
+  "optional_payload_fields": [
+    "review_request_id",
+    "missing_condition_family",
+    "review_lane",
+    "verification_state",
+    "cross_check_state",
+    "fixation_status",
+    "provenance_chain_status",
+    "retrieval_readiness_status"
+  ],
+  "consumer_obligations": [
+    "Stage6 must consume Stage5 dual-gate outputs and review_request as the authoritative gate conclusion inputs for project_fact, review_queue_profile, and report_record.",
+    "Stage6 may project Stage5 dual-gate results into sale_gate_status, review queue, and report status, but must not recompute rule_gate_status or evidence_gate_status from raw evidence or Stage4 inputs.",
+    "BLOCK and REVIEW dispositions must follow Stage5 gate authority and review_request semantics, not free-form Stage6 heuristics.",
+    "Any private supplement loop created in Stage6 must stay linked to review_request and remain isolated from the public formal chain."
+  ],
+  "consumer_must_not_recompute_fields": [
+    "rule_hit_state",
+    "rule_gate_status",
+    "evidence_gate_status",
+    "coverage_sellable_state",
+    "delivery_risk_state"
+  ],
+  "blocking_conditions": [
+    "missing_dual_gates",
+    "version_conflict_unresolved",
+    "cannot_form_project_fact",
+    "missing_gate_authority_payload"
+  ],
+  "success_criteria": [
+    "project_fact_created",
+    "legal_action_recommendation_created",
+    "formal_review_lane_created"
+  ],
+  "priority": "P0",
+  "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-05-STAGE5-TO-STAGE6"
+}

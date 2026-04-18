@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "procurement_decision_actor_profile",
+  "type": "object",
+  "description": "Schema skeleton for procurement_decision_actor_profile.",
+  "source_refs": [
+    "D2-R-017"
+  ],
+  "enum_refs": [
+    "actor_role_cluster",
+    "procurement_authority_state",
+    "purchase_authority_state",
+    "payment_authority_state",
+    "reachable_state"
+  ],
+  "properties": {
+    "actor_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "actor_org_name": {
+      "type": "string"
+    },
+    "actor_role_cluster": {
+      "type": "string"
+    },
+    "procurement_authority_state": {
+      "type": "string"
+    },
+    "purchase_authority_state": {
+      "type": "string"
+    },
+    "payment_authority_state": {
+      "type": "string"
+    },
+    "reachable_state": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "actor_id",
+    "project_id",
+    "actor_org_name",
+    "actor_role_cluster",
+    "procurement_authority_state",
+    "purchase_authority_state",
+    "payment_authority_state",
+    "reachable_state"
+  ],
+  "additionalProperties": false
+}

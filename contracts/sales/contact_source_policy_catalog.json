@@ -1,0 +1,172 @@
+{
+  "catalogVersion": "1.2.0",
+  "catalogId": "contact_source_policy_catalog",
+  "ownerDocs": [
+    "D9",
+    "D2",
+    "D3"
+  ],
+  "sourceVendorRegistryRef": "contracts/sales/vendor_registry_catalog.json",
+  "sourceVendorUsagePolicyRef": "contracts/sales/source_vendor_usage_policy.json",
+  "sourceRoleLayers": [
+    "PUBLIC_OFFICIAL_SOURCE",
+    "THIRD_PARTY_SUPPORT_SOURCE",
+    "CONTACT_ENRICHMENT_SOURCE"
+  ],
+  "entries": [
+    {
+      "objectType": "contact_target",
+      "stage": 8,
+      "requiredFields": [
+        "public_contact_source",
+        "source_vendor_id_optional",
+        "source_vendor_type_optional",
+        "source_vendor_role",
+        "source_auditability_state",
+        "source_audit_ref",
+        "query_trace_id",
+        "vendor_response_ref_optional",
+        "fallback_vendor_id_optional",
+        "contact_channel",
+        "channel_family",
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "channel_policy_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state",
+        "contact_target_status",
+        "requires_manual_review"
+      ],
+      "requiredTraceFields": [
+        "source_audit_ref",
+        "query_trace_id",
+        "vendor_response_ref_optional",
+        "fallback_vendor_id_optional",
+        "requires_manual_review"
+      ],
+      "sourceL0Refs": [
+        "L0-R-007",
+        "L0-R-008"
+      ],
+      "dependsOnObjects": [
+        "saleable_opportunity",
+        "account_context"
+      ],
+      "blockingPolicies": [
+        "opt_out_block",
+        "quiet_hours_block",
+        "frequency_block",
+        "channel_policy_block"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045",
+        "D11-R-051-B",
+        "D11-R-051-C"
+      ],
+      "internalOnly": true,
+      "allowedSourceRoles": [
+        "PUBLIC_OFFICIAL_SOURCE",
+        "THIRD_PARTY_SUPPORT_SOURCE",
+        "CONTACT_ENRICHMENT_SOURCE"
+      ],
+      "defaultPrimarySourceForbiddenStages": [
+        1,
+        2
+      ],
+      "rolePolicies": {
+        "PUBLIC_OFFICIAL_SOURCE": "internal_use",
+        "THIRD_PARTY_SUPPORT_SOURCE": "support_only",
+        "CONTACT_ENRICHMENT_SOURCE": "internal_use"
+      },
+      "forbiddenSourceFamilies": [
+        "GRAY_MARKET",
+        "UNAUDITABLE_IMPORT",
+        "SCRAPED_PERSONAL_DIRECTORY"
+      ],
+      "reviewRequiredLegalBasis": [
+        "REVIEW_REQUIRED"
+      ],
+      "blockedLegalBasis": [
+        "BLOCKED"
+      ],
+      "formalMergeCarrierObjects": [
+        "contact_candidate_collection",
+        "contact_selection_trace"
+      ],
+      "formalMergeRequiredSourceRoles": [
+        "THIRD_PARTY_SUPPORT_SOURCE"
+      ],
+      "directProjectionForbiddenSourceRoles": [
+        "THIRD_PARTY_SUPPORT_SOURCE",
+        "CONTACT_ENRICHMENT_SOURCE"
+      ],
+      "sourceConflictReviewRequiredFields": [
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "channel_policy_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state"
+      ],
+      "sourcePriorityWeights": {
+        "PUBLIC_OFFICIAL_SOURCE": 20,
+        "CONTACT_ENRICHMENT_SOURCE": 10,
+        "THIRD_PARTY_SUPPORT_SOURCE": 5
+      },
+      "enumRefs": [
+        "contact_legal_basis",
+        "channel_family",
+        "channel_policy_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state"
+      ],
+      "notes": "Stage 8 联系候选来源统一受 source/vendor 分层治理；source_layer 由 source_vendor_type_optional + source_vendor_role 表达；contact_enrichment_adapter 仅保留为文档/实现语义；第三方来源默认不能直接放行，且第三方联系方式补充必须先 materialize 到 formal collection/trace merge。"
+    },
+    {
+      "objectType": "contact_candidate_collection",
+      "stage": 8,
+      "requiredFields": [
+        "contact_candidate_collection_id",
+        "candidate_list",
+        "winning_contact_candidate_id",
+        "selection_trace_id",
+        "merge_policy_id",
+        "dedupe_applied",
+        "source_conflict_candidate_count",
+        "source_merge_review_required_count"
+      ],
+      "requiredTraceFields": [
+        "merge_policy_id",
+        "candidate_list[*].merge_key",
+        "candidate_list[*].merged_candidate_ids",
+        "candidate_list[*].formal_merge_state",
+        "candidate_list[*].source_conflict_flag",
+        "candidate_list[*].source_conflict_reason",
+        "candidate_list[*].source_conflict_fields"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-053-S"
+      ],
+      "internalOnly": true,
+      "allowedSourceRoles": [
+        "PUBLIC_OFFICIAL_SOURCE",
+        "THIRD_PARTY_SUPPORT_SOURCE",
+        "CONTACT_ENRICHMENT_SOURCE"
+      ],
+      "formalMergeRequiredSourceRoles": [
+        "THIRD_PARTY_SUPPORT_SOURCE"
+      ],
+      "directProjectionForbiddenSourceRoles": [
+        "THIRD_PARTY_SUPPORT_SOURCE",
+        "CONTACT_ENRICHMENT_SOURCE"
+      ],
+      "notes": "任何 third-party/contact enrichment 联系方式补充都必须先进入 contact_candidate_collection / contact_selection_trace 的 formal merge carrier，再由 contact_target 消费 winner snapshot。"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "handoff_id": "H-01-STAGE1-TO-STAGE2",
+  "example_id": "EX-H01-MIN",
+  "payload": {
+    "task_id": "TASK-001",
+    "region_code": "320500",
+    "time_range_from": "2026-04-01",
+    "time_range_until": "2026-04-12",
+    "strategy_template_id": "public-core-standard",
+    "review_lane": "STANDARD",
+    "project_rooting_policy": "NOTICE_CHAIN_FIRST",
+    "window_priority_policy": "ACTION_WINDOW_FIRST",
+    "source_family": "PROCUREMENT_NOTICE",
+    "platform_level": "NATIONAL",
+    "region_scope": "NATIONAL",
+    "coverage_tier": "T0_CORE",
+    "carrier_type": "HTML_PAGE",
+    "source_registry_id": "SRC-REG-PROC-NATIONAL-HTML",
+    "route_policy_id": "ROUTE-PROC-NOTICE-001",
+    "default_route": "LIST_TO_DETAIL",
+    "fallback_route": "DETAIL_DIRECT",
+    "baseline_collection_state": "ELIGIBLE",
+    "rollout_enabled": true,
+    "backlog_reason_optional": null,
+    "clock_resolution_rule_id": "CLOCK-DEFAULT",
+    "clock_precedence_rule_id": "CLOCK-PROC-NOTICE-001",
+    "current_action_start_at_optional": "2026-04-01T00:00:00Z",
+    "current_action_deadline_at_optional": "2026-04-12T23:59:59Z"
+  }
+}

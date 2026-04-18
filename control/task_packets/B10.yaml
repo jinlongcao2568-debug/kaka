@@ -1,0 +1,126 @@
+version: 1
+batch_id: B10
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Full Chain Hardening And Release Readiness
+status: NOT_STARTED
+objective: "Perform the final all-chain anti-drift, regression, release-check, and closeout hardening after B0-B9 are complete."
+why_now: "This is the final stabilization pass; running it early would produce false confidence."
+depends_on: [B9]
+non_goals:
+  - "Do not introduce new business semantics in the hardening pass."
+  - "Do not reopen earlier batches inside this blueprint."
+  - "not an external unlock implementation"
+affected_stages:
+  - full_chain
+declared_changed_paths:
+  - contracts/testing/regression_manifest.json
+  - contracts/testing/release_checklist.json
+  - control/repo_status.md
+  - control/current_task.yaml
+  - control/milestone_status.yaml
+  - control/release_manifest.yaml
+  - scripts/**
+  - tests/**
+impacted_assets:
+  docs:
+    - docs/D11_测试验收与金标回归清单.md
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/文档与资产状态板.md
+  control:
+    - control/repo_status.md
+    - control/current_task.yaml
+    - control/milestone_status.yaml
+    - control/release_manifest.yaml
+  contracts:
+    - contracts/testing/regression_manifest.json
+    - contracts/testing/release_checklist.json
+  handoff: []
+  scripts:
+    - scripts
+  tests:
+    - tests
+  code: []
+change_domains:
+  - automation_control_core
+  - governance_release_core
+  - scripts_and_tests_general
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D11_测试验收与金标回归清单.md
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/文档与资产状态板.md
+  contracts:
+    - contracts/testing/regression_manifest.json
+    - contracts/testing/release_checklist.json
+  control:
+    - control/repo_status.md
+    - control/current_task.yaml
+    - control/milestone_status.yaml
+    - control/release_manifest.yaml
+allowed_modification_paths:
+  - docs/D11_测试验收与金标回归清单.md
+  - docs/D12_部署发布与运行治理规范.md
+  - docs/文档与资产状态板.md
+  - contracts/testing/regression_manifest.json
+  - contracts/testing/release_checklist.json
+  - control/repo_status.md
+  - control/current_task.yaml
+  - control/milestone_status.yaml
+  - control/release_manifest.yaml
+  - scripts/**
+  - tests/**
+forbidden_modification_paths:
+  - docs/L0.md
+  - contracts/release/external_unlock_activation_matrix.json
+  - src/stage8_outreach/**
+  - src/stage9_delivery/**
+primary_outputs:
+  - "Program-level hardening, final anti-drift, and closeout readiness"
+deliverables:
+  - "Program-level hardening, final anti-drift, and closeout readiness"
+  - "Final full-chain validation and status closeout"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-governance-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Any required script fails."
+  - "Release checklist or regression manifest loses prior required coverage."
+  - "Closeout is attempted without all prior batches marked DONE."
+definition_of_done:
+  - "All B0-B9 batches are DONE."
+  - "Formal scripts and test suite pass."
+  - "Program closeout state is machine-readable and non-ambiguous."
+next_batch_entry_rule: "No next batch; B10 closes the program."
+required_owner_reviews:
+  - automation_owner
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+  - release_approver
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B10-S1-regression-and-release-hardening
+    focus_paths:
+      - contracts/testing/regression_manifest.json
+      - contracts/testing/release_checklist.json
+      - scripts/**
+      - tests/**
+  - slice_id: B10-S2-final-status-closeout
+    focus_paths:
+      - control/repo_status.md
+      - control/current_task.yaml
+      - control/milestone_status.yaml
+      - control/release_manifest.yaml
+      - docs/文档与资产状态板.md

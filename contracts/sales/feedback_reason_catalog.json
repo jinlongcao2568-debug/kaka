@@ -1,0 +1,142 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "feedback_reason_catalog",
+  "ownerDocs": [
+    "D9"
+  ],
+  "entries": [
+    {
+      "objectType": "touch_record",
+      "stage": 8,
+      "requiredFields": [
+        "touch_record_state",
+        "response_status",
+        "feedback_reason",
+        "next_step_optional",
+        "writeback_targets"
+      ],
+      "sourceL0Refs": [
+        "L0-R-008"
+      ],
+      "dependsOnObjects": [
+        "outreach_plan",
+        "contact_target"
+      ],
+      "blockingPolicies": [
+        "plan_status_approved_required"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "responseFamilies": [
+        "ORG_ROUTED",
+        "NO_RESPONSE",
+        "CONNECTED",
+        "DECLINED",
+        "OPTED_OUT",
+        "WRONG_ROLE",
+        "INVALID_CONTACT",
+        "FOLLOWUP_REQUIRED",
+        "OPPORTUNITY_CHANGED"
+      ],
+      "mappings": [
+        {
+          "response_status": "NO_RESPONSE",
+          "feedback_reason": "NO_RESPONSE",
+          "failure_reason_tag_optional": "NO_RESPONSE",
+          "next_step_optional": "RETRY_AFTER_CADENCE",
+          "writeback_targets": [
+            "contact_target",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "response_status": "ORG_ROUTED",
+          "feedback_reason": "ORG_ROUTED",
+          "failure_reason_tag_optional": "ORG_ROUTED",
+          "next_step_optional": "WAIT_ORG_RESPONSE",
+          "writeback_targets": [
+            "touch_record"
+          ]
+        },
+        {
+          "response_status": "CONNECTED",
+          "feedback_reason": "CONNECTED",
+          "failure_reason_tag_optional": "CONNECTED",
+          "next_step_optional": "HANDOFF_TO_SALES",
+          "writeback_targets": [
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "response_status": "DECLINED",
+          "feedback_reason": "DECLINED",
+          "failure_reason_tag_optional": "DECLINED",
+          "next_step_optional": "STOP_PERMANENT",
+          "stop_reason_optional": "permanent_block",
+          "writeback_targets": [
+            "contact_target",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "response_status": "OPTED_OUT",
+          "feedback_reason": "OPTED_OUT",
+          "failure_reason_tag_optional": "OPTED_OUT",
+          "next_step_optional": "STOP_PERMANENT",
+          "stop_reason_optional": "permanent_block",
+          "writeback_targets": [
+            "contact_target",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "response_status": "WRONG_ROLE",
+          "feedback_reason": "WRONG_ROLE",
+          "failure_reason_tag_optional": "WRONG_ROLE",
+          "next_step_optional": "RESELECT_CONTACT",
+          "stop_reason_optional": "reselect_contact",
+          "writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "project_fact"
+          ]
+        },
+        {
+          "response_status": "INVALID_CONTACT",
+          "feedback_reason": "INVALID_CONTACT",
+          "failure_reason_tag_optional": "INVALID_CONTACT",
+          "next_step_optional": "RESELECT_CONTACT",
+          "stop_reason_optional": "invalid_contact",
+          "writeback_targets": [
+            "contact_target",
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "response_status": "FOLLOWUP_REQUIRED",
+          "feedback_reason": "FOLLOWUP_REQUIRED",
+          "failure_reason_tag_optional": "FOLLOWUP_REQUIRED",
+          "next_step_optional": "SCHEDULE_FOLLOWUP",
+          "writeback_targets": [
+            "saleable_opportunity"
+          ]
+        },
+        {
+          "response_status": "OPPORTUNITY_CHANGED",
+          "feedback_reason": "OPPORTUNITY_CHANGED",
+          "failure_reason_tag_optional": "OPPORTUNITY_CHANGED",
+          "next_step_optional": "REVIEW_STAGE6_7",
+          "stop_reason_optional": "review_stage6_7",
+          "writeback_targets": [
+            "project_fact",
+            "saleable_opportunity"
+          ]
+        }
+      ],
+      "notes": "反馈原因用于治理回写，不对外放行。"
+    }
+  ]
+}

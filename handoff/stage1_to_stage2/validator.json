@@ -1,0 +1,14 @@
+{
+  "handoff_id": "H-01-STAGE1-TO-STAGE2",
+  "source_rules_ref": "handoff/validation_rules.json",
+  "rule_refs": [
+    "HV-001"
+  ],
+  "global_rule_refs": [
+    "HV-009"
+  ],
+  "notes": [
+    "authoritative baseline fields may appear as optional payload on H-01: source_family/platform_level/region_scope/coverage_tier/carrier_type/clock_resolution_rule_id/current_action_start_at_optional/current_action_deadline_at_optional",
+    "Stage2 must consume carrier_type and route authority from H-01 / execution_context rather than raw payload override"
+  ]
+}

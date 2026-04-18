@@ -1,0 +1,45 @@
+version: 1
+packet_kind: EXECUTABLE_SCOPED_SUBPACKET
+source_blueprint_batch_id: "{{BATCH_ID}}"
+subpacket_id: "{{BATCH_ID}}-S1"
+title: "{{TITLE}}"
+status: DRAFT
+objective: "{{OBJECTIVE}}"
+non_goals:
+  - "not an external unlock implementation"
+affected_stages: []
+risk_level: HIGH
+change_class: MANDATORY_HUMAN_REVIEW
+change_domains:
+  - automation_control_core
+declared_changed_paths: []
+allowed_modification_paths: []
+forbidden_modification_paths: []
+impacted_assets:
+  docs: []
+  control: []
+  contracts: []
+  handoff: []
+  scripts: []
+  tests: []
+  code: []
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+stop_conditions:
+  - "required script fails"
+definition_of_done:
+  - "{{DEFINITION_OF_DONE}}"
+deliverables:
+  - "{{DELIVERABLE}}"
+human_review_required: true
+owner_reviews_required:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+notes:
+  - "This template is the executable packet shape to be copied into control/current_task.yaml#currentTask.task_packet."
+  - "The scoped subpacket must satisfy control/automation_task_packet_rules.yaml max scope constraints."

@@ -1,0 +1,153 @@
+version: 1
+batch_id: B7
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Capability Opening Strategy Convergence
+status: NOT_STARTED
+objective: "Unify buildable-but-off, shadow, dry-run, approval-required, internal-only, and permanently blocked semantics across docs/control/contracts/runtime."
+why_now: "After core workflow semantics are stable, capability opening language must converge to prevent future drift and false blocking."
+depends_on: [B6]
+non_goals:
+  - "Do not weaken external blocked or approval/audit redlines."
+  - "Do not enable any live path."
+  - "not an external unlock implementation"
+affected_stages:
+  - shared_capability_runtime
+  - governance_release
+declared_changed_paths:
+  - contracts/release/runtime_policy_catalog.json
+  - contracts/release/external_unlock_prerequisite_matrix.json
+  - contracts/release/future_unlock_decision_matrix.json
+  - contracts/model/model_usage_policy.json
+  - contracts/model/tool_usage_policy_catalog.json
+  - contracts/sales/source_vendor_usage_policy.json
+  - contracts/sales/channel_vendor_execution_policy.json
+  - control/runtime_inventory.yaml
+  - control/model_release_manifest.yaml
+  - src/shared/capability_runtime.py
+  - tests/test_capability_permission_layer.py
+impacted_assets:
+  docs:
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/D13_公开可查边界能力清单.md
+    - docs/D14_AI模型治理规范.md
+    - docs/技术实现决策页.md
+    - docs/AX9S_开发执行路由图.md
+  control:
+    - control/runtime_inventory.yaml
+    - control/model_release_manifest.yaml
+    - control/release_manifest.yaml
+    - control/external_unlock_prerequisite_state.yaml
+    - control/future_unlock_decision_state.yaml
+  contracts:
+    - contracts/release/runtime_policy_catalog.json
+    - contracts/release/external_unlock_prerequisite_matrix.json
+    - contracts/release/future_unlock_decision_matrix.json
+    - contracts/model/model_usage_policy.json
+    - contracts/model/tool_usage_policy_catalog.json
+    - contracts/sales/source_vendor_usage_policy.json
+    - contracts/sales/channel_vendor_execution_policy.json
+  handoff: []
+  scripts: []
+  tests:
+    - tests/test_capability_permission_layer.py
+    - tests/test_architecture_anti_drift.py
+    - tests/test_external_unlock_prerequisites.py
+  code:
+    - src/shared/capability_runtime.py
+change_domains:
+  - governance_release_core
+  - provider_vendor_source_policy_core
+  - automation_control_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/D13_公开可查边界能力清单.md
+    - docs/D14_AI模型治理规范.md
+    - docs/技术实现决策页.md
+    - docs/AX9S_开发执行路由图.md
+  contracts:
+    - contracts/release/runtime_policy_catalog.json
+    - contracts/release/external_unlock_prerequisite_matrix.json
+    - contracts/release/future_unlock_decision_matrix.json
+    - contracts/model/model_usage_policy.json
+    - contracts/model/tool_usage_policy_catalog.json
+    - contracts/sales/source_vendor_usage_policy.json
+    - contracts/sales/channel_vendor_execution_policy.json
+  control:
+    - control/runtime_inventory.yaml
+    - control/model_release_manifest.yaml
+    - control/release_manifest.yaml
+    - control/external_unlock_prerequisite_state.yaml
+    - control/future_unlock_decision_state.yaml
+allowed_modification_paths:
+  - docs/D12_部署发布与运行治理规范.md
+  - docs/D13_公开可查边界能力清单.md
+  - docs/D14_AI模型治理规范.md
+  - docs/技术实现决策页.md
+  - docs/AX9S_开发执行路由图.md
+  - contracts/release/runtime_policy_catalog.json
+  - contracts/release/external_unlock_prerequisite_matrix.json
+  - contracts/release/future_unlock_decision_matrix.json
+  - contracts/model/model_usage_policy.json
+  - contracts/model/tool_usage_policy_catalog.json
+  - contracts/sales/source_vendor_usage_policy.json
+  - contracts/sales/channel_vendor_execution_policy.json
+  - control/runtime_inventory.yaml
+  - control/model_release_manifest.yaml
+  - control/release_manifest.yaml
+  - control/external_unlock_prerequisite_state.yaml
+  - control/future_unlock_decision_state.yaml
+  - src/shared/capability_runtime.py
+  - tests/test_capability_permission_layer.py
+  - tests/test_architecture_anti_drift.py
+  - tests/test_external_unlock_prerequisites.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - src/stage8_outreach/**
+  - src/stage9_delivery/**
+primary_outputs:
+  - "Single capability/opening vocabulary and runtime precedence"
+deliverables:
+  - "Single capability/opening vocabulary and runtime precedence"
+  - "Capability and future-unlock focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Any external redline is weakened."
+  - "A new capability mode vocabulary is introduced without approval."
+  - "Any required script fails."
+definition_of_done:
+  - "All capability families use one canonical runtime/opening vocabulary."
+  - "Buildable-but-off, shadow, dry-run, and blocked semantics are no longer conflated."
+next_batch_entry_rule: "B7 must be DONE before B8 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+  - model_governance_owner
+  - automation_owner
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B7-S1-runtime-vocabulary-and-precedence
+    focus_paths:
+      - contracts/release/runtime_policy_catalog.json
+      - control/runtime_inventory.yaml
+      - src/shared/capability_runtime.py
+  - slice_id: B7-S2-docs-and-decision-layer-convergence
+    focus_paths:
+      - docs/D12_部署发布与运行治理规范.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/D14_AI模型治理规范.md
+      - docs/技术实现决策页.md
+      - contracts/release/future_unlock_decision_matrix.json

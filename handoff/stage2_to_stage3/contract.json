@@ -1,0 +1,86 @@
+{
+  "handoff_id": "H-02-STAGE2-TO-STAGE3",
+  "from_stage": 2,
+  "to_stage": 3,
+  "name": "公开链抓取 -> 结构化解析与关键对象抽取",
+  "producer_objects": [
+    "public_chain",
+    "clock_chain_profile",
+    "notice_version_chain",
+    "fixation_bundle"
+  ],
+  "consumer_objects": [
+    "project_base",
+    "field_lineage_record",
+    "bidder_candidate",
+    "project_manager"
+  ],
+  "required_upstream_conditions": [
+    "raw_carrier_fixed",
+    "notice_version_resolvable",
+    "clock_context_present"
+  ],
+  "required_payload_fields": [
+    "project_id",
+    "clock_chain_id",
+    "version_chain_id",
+    "fixation_bundle_id",
+    "origin_carrier_type",
+    "first_seen_at",
+    "last_retrieved_at"
+  ],
+  "optional_payload_fields": [
+    "source_registry_id",
+    "route_policy_id",
+    "fallback_route",
+    "route_decision_state",
+    "route_review_reasons",
+    "winning_version_resolution_rule_id",
+    "clock_resolution_rule_id"
+  ],
+  "consumer_runtime_required_fields": [
+    "project_id",
+    "clock_chain_id",
+    "version_chain_id",
+    "fixation_bundle_id",
+    "origin_carrier_type",
+    "first_seen_at",
+    "last_retrieved_at",
+    "clock_conflict_state",
+    "collection_state"
+  ],
+  "stage3_truth_layer_output_obligations": [
+    "Stage3 must produce project_base as the formal project truth root.",
+    "Stage3 must produce field_lineage_record for key parsed fields with source slice, parser confidence, normalization rule, lineage_status, and conflict_state.",
+    "Stage3 must produce bidder_candidate as candidate-collection members rather than a single implied candidate truth.",
+    "Stage3 must carry unresolved or conflicting lineage into review/block paths before Stage4 verification consumption."
+  ],
+  "unresolved_or_conflicting_lineage_paths": [
+    {
+      "condition": "missing source slice, missing normalization rule, or unverified field lineage",
+      "lineage_status": "UNVERIFIED",
+      "conflict_state": "UNRESOLVED",
+      "disposition": "BLOCK_STAGE4_OR_REVIEW"
+    },
+    {
+      "condition": "multi-version, clock, or field conflict is unresolved",
+      "lineage_status": "CONFLICTING",
+      "conflict_state": "CONFLICTING",
+      "disposition": "REVIEW_REQUIRED"
+    }
+  ],
+  "blocking_conditions": [
+    "missing_fixed_raw_carrier",
+    "unresolvable_notice_version",
+    "missing_clock_chain_id"
+  ],
+  "success_criteria": [
+    "fixation_bundle_created",
+    "clock_conflict_state_declared",
+    "stage3_parse_inputs_ready",
+    "collection_state_runtime_mapping_resolved",
+    "version_precedence_resolved"
+  ],
+  "priority": "P0",
+  "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-02-STAGE2-TO-STAGE3"
+}

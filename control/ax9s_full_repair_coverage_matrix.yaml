@@ -1,0 +1,132 @@
+version: 1
+matrix_id: AX9S_FULL_REPAIR_COVERAGE_MATRIX
+updated_at: "2026-04-17"
+status: COVERAGE_BLUEPRINT_READY
+purpose: "Prove that the B0-B10 full-repair blueprints cover the requested high-priority full repair scope."
+overall_judgment: COVERED_BY_BLUEPRINT_SEQUENCE
+coverage_semantics:
+  COVERED_BY_BLUEPRINT_SEQUENCE: "The issue is intentionally assigned to one or more ordered repair batches."
+  COVERED_BY_GUARDRAIL_ONLY: "The issue is intentionally controlled as a redline or non-goal, not implemented as a live capability."
+priority_rationale:
+  - "B0 fixes execution governance before any business repair."
+  - "B1-B3 repair upstream producer and truth/fact layers before downstream commercial and execution layers."
+  - "B4-B6 repair commercial, contact, and feedback loops in dependency order."
+  - "B7 repairs capability opening semantics after core workflow semantics are stable."
+  - "B8-B10 repair surfaces, adapter reservations, and final hardening last."
+dimension_coverage:
+  implementation_granularity:
+    status: COVERED_BY_BLUEPRINT_SEQUENCE
+    covered_by: [B1, B2, B3, B4, B5, B6]
+  architecture_optimization:
+    status: COVERED_BY_BLUEPRINT_SEQUENCE
+    covered_by: [B0, B1, B2, B3, B4, B5, B6, B7, B8, B9, B10]
+  capability_opening_strategy:
+    status: COVERED_BY_BLUEPRINT_SEQUENCE
+    covered_by: [B7, B9, B10]
+issue_coverage:
+  - issue_id: SOURCE_COVERAGE_COLLECTION_ROUTE
+    user_problem: "来源覆盖、采集路由、真实采集、fallback、降级、异常"
+    target_batches: [B1]
+    expected_repair: "Stage1-2 source/route baseline becomes authoritative and adapter-ready."
+    priority: P0
+  - issue_id: VERSION_CLOCK_WINDOW
+    user_problem: "版本链、时钟链、deadline provenance、窗口识别、窗口评分"
+    target_batches: [B1, B3, B4]
+    expected_repair: "Close precedence in B1, review queue consumption in B3, value scoring consumption in B4."
+    priority: P0
+  - issue_id: STAGE3_TRUTH_LAYER
+    user_problem: "Stage3 解析层仍偏单对象/单候选，容易脑补 parser truth layer"
+    target_batches: [B2]
+    expected_repair: "Formalize Stage3 candidate, lineage, unresolved, and review paths."
+    priority: P0
+  - issue_id: VERIFICATION_EVIDENCE_GATE_REPORT_REVIEW
+    user_problem: "核验、证据、规则命中、gate、报告、review queue、补证闭环"
+    target_batches: [B3]
+    expected_repair: "Close Stage4-6 verification/evidence/report/review/supplement as the unified fact hub."
+    priority: P0
+  - issue_id: LEAD_PROJECT_OPPORTUNITY_VALUE
+    user_problem: "项目价值、线索价值、商机价值评分组成和后续校准"
+    target_batches: [B4, B6]
+    expected_repair: "Close deterministic scoring in B4 and feedback influence in B6."
+    priority: P0
+  - issue_id: PRICE_QUOTE_BAND
+    user_problem: "报价抽取、归一、去噪、冲突处理、价格带匹配、报价带推荐"
+    target_batches: [B4]
+    expected_repair: "Close price normalization, conflict, signal score, and quote-band mapping."
+    priority: P0
+  - issue_id: COMPETITOR_CONFIDENCE_RANKING
+    user_problem: "真实竞争者命名归一、证据累积、排序、置信度"
+    target_batches: [B4]
+    expected_repair: "Close competitor confidence, entity resolution, TopN, and candidate-only behavior."
+    priority: P0
+  - issue_id: BUYER_FIT_SKU_RECOMMENDATION
+    user_problem: "buyer fit、推荐理由、SKU 推荐、推荐报价带逻辑"
+    target_batches: [B4]
+    expected_repair: "Make buyer fit and offer recommendation deterministic and traceable."
+    priority: P0
+  - issue_id: CONTACT_TARGET_ENRICHMENT_CONFLICT
+    user_problem: "多联系人裁决、联系方式来源冲突、contact enrichment merge"
+    target_batches: [B5, B9]
+    expected_repair: "Close contact merge/conflict in B5 and adapter reservation in B9."
+    priority: P0
+  - issue_id: OUTREACH_CADENCE_RETRY_STOP_WRITEBACK
+    user_problem: "首触达、二次触达、重试、转人工、stop condition、失败回写"
+    target_batches: [B5]
+    expected_repair: "Make Stage8 cadence/retry/stop/handoff/writeback stable and non-live."
+    priority: P0
+  - issue_id: PAYMENT_REFUND_PARTIAL_MISMATCH
+    user_problem: "部分付款、金额不符、退款、撤销"
+    target_batches: [B6]
+    expected_repair: "Close payment exception taxonomy and governed writeback semantics."
+    priority: P0
+  - issue_id: DELIVERY_PARTIAL_REJECT_RESEND_DELAY
+    user_problem: "部分交付、拒收、重发、补发、延迟交付、归档/调阅"
+    target_batches: [B6]
+    expected_repair: "Close delivery exception taxonomy and durable workflow boundaries."
+    priority: P0
+  - issue_id: OUTCOME_GOVERNANCE_FEEDBACK_LOOP
+    user_problem: "outcome taxonomy、governance feedback taxonomy、反馈反向影响未来推荐/规则/排序"
+    target_batches: [B6, B10]
+    expected_repair: "Make outcome/governance feedback durable enough for upstream refresh and harden tests."
+    priority: P0
+  - issue_id: MODEL_PROVIDER_STAGE_VALUE
+    user_problem: "模型在哪些阶段值得接入，哪些只是可以接，哪些不值得"
+    target_batches: [B7, B9]
+    expected_repair: "Converge model usage boundaries and reserve adapters without live dependency."
+    priority: P1
+  - issue_id: CAPABILITY_SWITCH_LAYER
+    user_problem: "哪些能力应该做开关而不是硬封死"
+    target_batches: [B7, B9]
+    expected_repair: "Unify capability modes and distinguish buildable-but-off from permanently blocked."
+    priority: P0
+  - issue_id: EXTERNAL_SOURCE_VENDOR_PROVIDER
+    user_problem: "外部 source/vendor/provider 接入不要被写死，但不能默认开放"
+    target_batches: [B7, B9]
+    expected_repair: "Preserve redlines while making adapter and shadow/dry-run lanes buildable."
+    priority: P1
+  - issue_id: PERSISTENCE_API_WORKBENCH_SURFACE
+    user_problem: "API、workbench、repository、preview surface 不形成第二套语义"
+    target_batches: [B8]
+    expected_repair: "Align persistence and internal preview/draft surfaces after workflow semantics are stable."
+    priority: P1
+  - issue_id: FULL_CHAIN_TEST_RELEASE_HARDENING
+    user_problem: "全量修复后保证稳定性、脚本、回归、发布门禁"
+    target_batches: [B10]
+    expected_repair: "Final hardening, full regression, and status closeout after B0-B9."
+    priority: P0
+redline_coverage:
+  - redline: "External software release remains blocked."
+    enforced_by: [B0, B7, B10]
+    coverage_status: COVERED_BY_GUARDRAIL_ONLY
+  - redline: "Stage 8 live outreach remains blocked by default."
+    enforced_by: [B5, B7, B9]
+    coverage_status: COVERED_BY_GUARDRAIL_ONLY
+  - redline: "Stage 9 live payment/delivery/refund remains blocked by default."
+    enforced_by: [B6, B7, B10]
+    coverage_status: COVERED_BY_GUARDRAIL_ONLY
+  - redline: "Direct Stage8/Stage9 object export remains blocked."
+    enforced_by: [B7, B8, B10]
+    coverage_status: COVERED_BY_GUARDRAIL_ONLY
+notes:
+  - "This matrix proves planning coverage, not implementation completion."
+  - "Execution still requires one scoped subpacket per window."

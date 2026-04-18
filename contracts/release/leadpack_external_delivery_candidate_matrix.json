@@ -1,0 +1,300 @@
+{
+  "registry_id": "leadpack-external-delivery-candidate-matrix",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D5",
+      "D7",
+      "D12",
+      "D13"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Machine-readable candidate package boundary for leadpack_external_delivery. This asset defines internal-only candidate preview, export simulation, approval, audit and denial conditions. It does not authorize live external delivery.",
+    "machine_path": "contracts/release/leadpack_external_delivery_candidate_matrix.json",
+    "source_refs": [
+      "L0-R-007",
+      "L0-R-008",
+      "D7-R-021",
+      "D7-R-022",
+      "D7-R-062-A"
+    ]
+  },
+  "candidate_domain_id": "leadpack_external_delivery",
+  "candidate_status": "INTERNAL_ONLY_CANDIDATE_DEFINED",
+  "candidate_scope": {
+    "internal_only": true,
+    "candidate_only": true,
+    "external_delivery_enabled": false,
+    "requires_review": true,
+    "minimum_release_level": "INTERNAL_OPERABLE",
+    "current_runtime_lane": "INTERNAL_GOVERNED_PROJECTION_ONLY",
+    "allowed_surfaces": [
+      "review_report_workbench",
+      "governance_console"
+    ],
+    "candidate_surface_profile_id": "leadpack_external_delivery_candidate_surface",
+    "preview_operation_id": "previewLeadpackExternalDeliveryCandidate",
+    "review_request_operation_id": "requestLeadpackExternalDeliveryCandidateReview",
+    "export_simulation_operation_id": "simulateLeadpackExternalDeliveryExport"
+  },
+  "projection_only": true,
+  "direct_object_export_allowed": false,
+  "allowed_projection_components": [
+    {
+      "component_id": "stage7.opportunity_summary",
+      "source_object": "saleable_opportunity",
+      "classification": "allowed_projection",
+      "projection_mode": "summary_only",
+      "allowed_fields": [
+        "opportunity_id",
+        "saleability_status",
+        "opportunity_grade",
+        "recommended_sku",
+        "crm_owner_state"
+      ]
+    },
+    {
+      "component_id": "stage7.offer_summary",
+      "source_object": "offer_recommendation",
+      "classification": "allowed_projection",
+      "projection_mode": "summary_only",
+      "allowed_fields": [
+        "offer_recommendation_state",
+        "sku_code",
+        "recommended_delivery_form",
+        "recommended_quote_band"
+      ]
+    },
+    {
+      "component_id": "stage7.buyer_fit_summary",
+      "source_object": "buyer_fit",
+      "classification": "allowed_projection",
+      "projection_mode": "summary_only",
+      "allowed_fields": [
+        "buyer_type",
+        "fit_score",
+        "fit_reason_tags"
+      ]
+    },
+    {
+      "component_id": "stage8.contact_activity_digest",
+      "source_object": "contact_target",
+      "classification": "masked_projection",
+      "projection_mode": "masked_summary",
+      "allowed_fields": [
+        "contact_target_status",
+        "role_cluster",
+        "contact_channel",
+        "contact_validity_status",
+        "requires_manual_review",
+        "blocking_reasons"
+      ],
+      "masked_fields": [
+        "person_name_optional",
+        "contact_value",
+        "contact_handle",
+        "org_contact_value_optional"
+      ]
+    },
+    {
+      "component_id": "stage8.touch_activity_digest",
+      "source_object": "touch_record",
+      "classification": "summary_only",
+      "projection_mode": "result_digest_only",
+      "allowed_fields": [
+        "touch_record_state",
+        "response_status",
+        "feedback_reason",
+        "next_step_optional"
+      ]
+    },
+    {
+      "component_id": "stage9.fulfillment_summary",
+      "source_object": "delivery_record",
+      "classification": "summary_only",
+      "projection_mode": "outcome_digest_only",
+      "allowed_fields": [
+        "delivery_status",
+        "delivery_form",
+        "customer_ack_state_optional",
+        "delivery_exception_family_optional"
+      ]
+    },
+    {
+      "component_id": "stage9.payment_summary",
+      "source_object": "payment_record",
+      "classification": "summary_only",
+      "projection_mode": "outcome_digest_only",
+      "allowed_fields": [
+        "payment_status",
+        "payment_proof_state",
+        "payer_match_state",
+        "amount_match_state",
+        "refund_state"
+      ]
+    },
+    {
+      "component_id": "stage9.outcome_summary",
+      "source_object": "opportunity_outcome_event",
+      "classification": "summary_only",
+      "projection_mode": "outcome_digest_only",
+      "allowed_fields": [
+        "outcome_family",
+        "outcome_reason_tags"
+      ]
+    }
+  ],
+  "projection_boundary_rules": [
+    {
+      "object": "saleable_opportunity",
+      "classification": "allowed_projection",
+      "projection_mode": "summary_only"
+    },
+    {
+      "object": "offer_recommendation",
+      "classification": "allowed_projection",
+      "projection_mode": "summary_only"
+    },
+    {
+      "object": "buyer_fit",
+      "classification": "allowed_projection",
+      "projection_mode": "summary_only"
+    },
+    {
+      "object": "contact_target",
+      "classification": "masked_projection",
+      "projection_mode": "masked_summary"
+    },
+    {
+      "object": "touch_record",
+      "classification": "summary_only",
+      "projection_mode": "activity_digest_only"
+    },
+    {
+      "object": "outreach_plan",
+      "classification": "forbidden",
+      "projection_mode": "blocked"
+    },
+    {
+      "object": "order_record",
+      "classification": "forbidden",
+      "projection_mode": "blocked"
+    },
+    {
+      "object": "payment_record",
+      "classification": "summary_only",
+      "projection_mode": "outcome_digest_only"
+    },
+    {
+      "object": "delivery_record",
+      "classification": "summary_only",
+      "projection_mode": "outcome_digest_only"
+    },
+    {
+      "object": "opportunity_outcome_event",
+      "classification": "summary_only",
+      "projection_mode": "outcome_digest_only"
+    },
+    {
+      "object": "governance_feedback_event",
+      "classification": "forbidden",
+      "projection_mode": "blocked"
+    }
+  ],
+  "forbidden_components": [
+    {
+      "component_id": "stage8.outreach_plan_direct_export",
+      "source_object": "outreach_plan",
+      "reason": "plan object is internal execution/governed state and may not enter leadpack candidate surfaces directly"
+    },
+    {
+      "component_id": "stage9.order_record_direct_export",
+      "source_object": "order_record",
+      "reason": "Stage 9 direct commercial object export remains blocked"
+    },
+    {
+      "component_id": "stage9.payment_record_direct_export",
+      "source_object": "payment_record",
+      "reason": "Stage 9 direct payment object export remains blocked"
+    },
+    {
+      "component_id": "stage9.delivery_record_direct_export",
+      "source_object": "delivery_record",
+      "reason": "Stage 9 direct delivery object export remains blocked"
+    },
+    {
+      "component_id": "stage9.governance_feedback_direct_export",
+      "source_object": "governance_feedback_event",
+      "reason": "governance record is internal-only and may not enter leadpack candidate surfaces"
+    },
+    {
+      "component_id": "provider_vendor_source_refs",
+      "source_object": "trace_and_vendor_metadata",
+      "reason": "provider/vendor/source refs must not leak into candidate package"
+    }
+  ],
+  "required_approvals": [
+    "internal_review_release",
+    "client_report_release"
+  ],
+  "required_review_gates": [
+    "leadpack_candidate_review_gate"
+  ],
+  "review_gate_prerequisites": {
+    "leadpack_candidate_review_gate": {
+      "gate_type": "review_gate",
+      "required_state": "PASSED_OR_READY_FOR_REVIEW",
+      "missing_or_pending_result": "HOLD",
+      "denied_result": "NO_GO",
+      "must_not_be_treated_as_approval": true
+    }
+  },
+  "required_audit_refs": [
+    "project_fact_audit_ref",
+    "candidate_projection_audit_ref",
+    "approval_chain_audit_ref",
+    "trace_bundle_ref"
+  ],
+  "required_boundary_checks": [
+    "delivery_matrix_projection_only_alignment",
+    "field_policy_masking_alignment",
+    "public_boundary_never_default_open_alignment",
+    "coverage_registry_supporting_evidence_only",
+    "stage8_stage9_direct_object_export_blocked"
+  ],
+  "required_masking_or_summary_rules": [
+    "high restriction contact fields must be removed or masked",
+    "provider/vendor/source refs must be removed",
+    "internal traces and governance traces must be summarized only as audit-presence flags",
+    "writeback metadata must be summarized and must not expose raw internal lifecycle payloads",
+    "Stage 8 compliance decision fields remain internal/governance only"
+  ],
+  "denial_conditions": [
+    "required approvals missing",
+    "required audit refs missing",
+    "delivery matrix or field policy still blocks requested component",
+    "candidate package still contains direct Stage 8 or Stage 9 objects",
+    "restricted fields, private inputs or personal contact channels remain exposed",
+    "attempt to enable live external delivery or external platform release",
+    "candidate package not built from repository-backed formal objects and preview projections"
+  ],
+  "why_not_live": [
+    "external software release remains blocked",
+    "Stage 8 live execution remains governed and blocked by default",
+    "Stage 9 live payment/delivery/refund remains governed and blocked by default",
+    "candidate package is only an internal preview/export simulation contract"
+  ],
+  "why_not_now": [
+    "current batch only closes candidate package boundary, preview and denial path",
+    "future activation prep still needs activation playbook, rollback drill, owner signoff packet and candidate-specific release checklist",
+    "candidate approval does not authorize real external send"
+  ],
+  "future_activation_prereqs_remaining": [
+    "candidate review evidence pack completed",
+    "candidate denial and hold runbook validated",
+    "candidate export simulation replay and audit trace verified",
+    "owner signoff packet for later activation-prep batch prepared",
+    "release/readiness state explicitly transitions in a separate activation-prep batch"
+  ]
+}

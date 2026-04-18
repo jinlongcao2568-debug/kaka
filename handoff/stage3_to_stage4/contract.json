@@ -1,0 +1,99 @@
+{
+  "handoff_id": "H-03-STAGE3-TO-STAGE4",
+  "from_stage": 3,
+  "to_stage": 4,
+  "name": "结构化解析 -> 关键对象定向公开核验与冲突预判",
+  "producer_objects": [
+    "project_base",
+    "field_lineage_record",
+    "bidder_candidate",
+    "project_manager"
+  ],
+  "consumer_objects": [
+    "public_attack_surface",
+    "focus_bidder_verification_profile",
+    "pseudo_competitor_signal_set",
+    "evidence_grade_profile"
+  ],
+  "required_upstream_conditions": [
+    "project_base_ready",
+    "field_lineage_minimum_ready",
+    "candidate_set_minimum_ready"
+  ],
+  "required_payload_fields": [
+    "project_id",
+    "project_root_id",
+    "notice_version_id",
+    "candidate_order_mode",
+    "award_determination_mode",
+    "public_chain_status",
+    "lineage_status",
+    "conflict_state",
+    "fixation_bundle_id"
+  ],
+  "consumer_runtime_required_fields": [
+    "project_id",
+    "project_root_id",
+    "notice_version_id",
+    "candidate_order_mode",
+    "award_determination_mode",
+    "public_chain_status",
+    "lineage_status",
+    "conflict_state",
+    "fixation_bundle_id"
+  ],
+  "optional_payload_fields": [
+    "source_registry_id",
+    "route_policy_id",
+    "route_decision_state",
+    "route_review_reasons",
+    "winning_version_resolution_rule_id",
+    "clock_resolution_rule_id",
+    "version_conflict_state",
+    "clock_conflict_state",
+    "stage3_truth_layer_ref_optional",
+    "field_lineage_collection_ref_optional",
+    "bidder_candidate_collection_ref_optional",
+    "candidate_collection_ref_optional",
+    "stage3_review_path_ref_optional",
+    "unresolved_reason_optional"
+  ],
+  "consumer_obligations": [
+    "Stage4 must consume Stage3 producer objects project_base, field_lineage_record, bidder_candidate, and project_manager as read-only parsed truth input.",
+    "Stage4 must not recompute project identity, notice version, candidate order, lineage status, conflict state, or candidate set truth from raw Stage2 payload or ad hoc parser output.",
+    "Stage4 may only derive verification objects from Stage3 truth-layer carriers and must route unresolved/conflicting lineage to REVIEW or BLOCK."
+  ],
+  "consumer_must_not_recompute_fields": [
+    "project_root_id",
+    "notice_version_id",
+    "candidate_order_mode",
+    "award_determination_mode",
+    "lineage_status",
+    "conflict_state",
+    "candidate_collection_ref_optional"
+  ],
+  "unresolved_or_conflicting_lineage_paths": [
+    {
+      "condition": "lineage_status != NORMALIZED",
+      "stage4_disposition": "REVIEW_OR_BLOCK",
+      "reason": "Stage4 cannot make verification PASS from unresolved Stage3 parsed truth."
+    },
+    {
+      "condition": "conflict_state != CONSISTENT",
+      "stage4_disposition": "REVIEW_OR_BLOCK",
+      "reason": "Stage4 cannot silently resolve lineage conflicts by recomputing parsed fields."
+    }
+  ],
+  "blocking_conditions": [
+    "missing_project_base",
+    "field_lineage_incomplete_for_key_fields",
+    "candidate_set_incomplete"
+  ],
+  "success_criteria": [
+    "verification_profiles_created",
+    "public_attack_surface_created",
+    "evidence_grade_profile_initialized"
+  ],
+  "priority": "P0",
+  "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-03-STAGE3-TO-STAGE4"
+}

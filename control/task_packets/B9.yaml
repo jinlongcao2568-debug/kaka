@@ -1,0 +1,138 @@
+version: 1
+batch_id: B9
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Provider Vendor Adapter Reservation And Shadow Expansion
+status: NOT_STARTED
+objective: "Standardize source/vendor/model/tool/execution adapter interfaces and shadow paths without opening any live externalized behavior."
+why_now: "Adapters should be designed only after semantics, persistence, and capability modes are stable."
+depends_on: [B8]
+non_goals:
+  - "Do not bind or enable live external providers/vendors."
+  - "Do not bypass capability runtime, audit, or review."
+  - "not an external unlock implementation"
+affected_stages:
+  - provider_vendor_adapter_layer
+declared_changed_paths:
+  - contracts/model/model_usage_policy.json
+  - contracts/model/tool_provider_registry_catalog.json
+  - contracts/model/tool_usage_policy_catalog.json
+  - contracts/sales/vendor_registry_catalog.json
+  - contracts/sales/source_vendor_usage_policy.json
+  - contracts/sales/channel_vendor_execution_policy.json
+  - control/runtime_inventory.yaml
+  - control/model_release_manifest.yaml
+  - src/shared/capability_runtime.py
+  - src/stage8_outreach/resolution.py
+  - tests/test_capability_permission_layer.py
+impacted_assets:
+  docs:
+    - docs/D9_联系对象与销售触达规范.md
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/D13_公开可查边界能力清单.md
+    - docs/D14_AI模型治理规范.md
+  control:
+    - control/runtime_inventory.yaml
+    - control/model_release_manifest.yaml
+  contracts:
+    - contracts/model/model_usage_policy.json
+    - contracts/model/tool_provider_registry_catalog.json
+    - contracts/model/tool_usage_policy_catalog.json
+    - contracts/sales/vendor_registry_catalog.json
+    - contracts/sales/source_vendor_usage_policy.json
+    - contracts/sales/channel_vendor_execution_policy.json
+  handoff: []
+  scripts: []
+  tests:
+    - tests/test_capability_permission_layer.py
+    - tests/test_stage8_resolution_closure.py
+    - tests/test_architecture_anti_drift.py
+  code:
+    - src/shared/capability_runtime.py
+    - src/stage8_outreach/resolution.py
+change_domains:
+  - provider_vendor_source_policy_core
+  - automation_control_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D9_联系对象与销售触达规范.md
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/D13_公开可查边界能力清单.md
+    - docs/D14_AI模型治理规范.md
+  contracts:
+    - contracts/model/model_usage_policy.json
+    - contracts/model/tool_provider_registry_catalog.json
+    - contracts/model/tool_usage_policy_catalog.json
+    - contracts/sales/vendor_registry_catalog.json
+    - contracts/sales/source_vendor_usage_policy.json
+    - contracts/sales/channel_vendor_execution_policy.json
+  control:
+    - control/runtime_inventory.yaml
+    - control/model_release_manifest.yaml
+allowed_modification_paths:
+  - docs/D9_联系对象与销售触达规范.md
+  - docs/D12_部署发布与运行治理规范.md
+  - docs/D13_公开可查边界能力清单.md
+  - docs/D14_AI模型治理规范.md
+  - contracts/model/model_usage_policy.json
+  - contracts/model/tool_provider_registry_catalog.json
+  - contracts/model/tool_usage_policy_catalog.json
+  - contracts/sales/vendor_registry_catalog.json
+  - contracts/sales/source_vendor_usage_policy.json
+  - contracts/sales/channel_vendor_execution_policy.json
+  - control/runtime_inventory.yaml
+  - control/model_release_manifest.yaml
+  - src/shared/capability_runtime.py
+  - src/stage8_outreach/resolution.py
+  - tests/test_capability_permission_layer.py
+  - tests/test_stage8_resolution_closure.py
+  - tests/test_architecture_anti_drift.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - contracts/release/**
+  - src/stage9_delivery/**
+primary_outputs:
+  - "Bounded adapter reservation and shadow-ready contracts"
+deliverables:
+  - "Bounded adapter reservation and shadow-ready contracts"
+  - "Provider/vendor focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Any provider/vendor path attempts live execution."
+  - "Adapter contracts bypass capability runtime or audit trace."
+  - "Any required script fails."
+definition_of_done:
+  - "Adapter interfaces exist for future shadow/dry-run/approval paths."
+  - "No live externalized path is opened."
+next_batch_entry_rule: "B9 must be DONE before B10 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+  - model_governance_owner
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B9-S1-registry-and-policy-layer
+    focus_paths:
+      - contracts/model/model_usage_policy.json
+      - contracts/model/tool_provider_registry_catalog.json
+      - contracts/model/tool_usage_policy_catalog.json
+      - contracts/sales/vendor_registry_catalog.json
+      - contracts/sales/source_vendor_usage_policy.json
+      - contracts/sales/channel_vendor_execution_policy.json
+  - slice_id: B9-S2-adapter-and-shadow-runtime
+    focus_paths:
+      - src/shared/capability_runtime.py
+      - src/stage8_outreach/resolution.py
+      - tests/test_capability_permission_layer.py

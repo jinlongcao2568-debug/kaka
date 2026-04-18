@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "field_lineage_record",
+  "type": "object",
+  "description": "Stage3 formal field-level lineage carrier for source slice, normalization, conflict, unresolved, and review-path closure.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-014"
+  ],
+  "enum_refs": [
+    "lineage_status",
+    "conflict_state",
+    "source_family",
+    "platform_level",
+    "carrier_type",
+    "coverage_tier",
+    "collection_state"
+  ],
+  "properties": {
+    "field_lineage_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "owning_object_type": {
+      "type": "string"
+    },
+    "owning_object_id": {
+      "type": "string"
+    },
+    "field_name": {
+      "type": "string"
+    },
+    "source_notice_version_id": {
+      "type": "string"
+    },
+    "source_document_ref": {
+      "type": "string"
+    },
+    "source_slice_ref": {
+      "type": "string"
+    },
+    "source_family": {
+      "type": "string"
+    },
+    "platform_level": {
+      "type": "string"
+    },
+    "carrier_type": {
+      "type": "string"
+    },
+    "coverage_tier": {
+      "type": "string"
+    },
+    "collection_state": {
+      "type": "string"
+    },
+    "parser_confidence_score": {
+      "type": "number"
+    },
+    "normalization_rule_id": {
+      "type": "string"
+    },
+    "lineage_status": {
+      "type": "string"
+    },
+    "conflict_state": {
+      "type": "string"
+    },
+    "normalized_value_ref_optional": {
+      "type": "string"
+    },
+    "lineage_conflict_group_id_optional": {
+      "type": "string"
+    },
+    "unresolved_reason_optional": {
+      "type": "string"
+    },
+    "review_path_optional": {
+      "type": "string"
+    },
+    "candidate_collection_ref_optional": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "field_lineage_id",
+    "project_id",
+    "owning_object_type",
+    "owning_object_id",
+    "field_name",
+    "source_notice_version_id",
+    "source_document_ref",
+    "source_slice_ref",
+    "source_family",
+    "platform_level",
+    "carrier_type",
+    "coverage_tier",
+    "collection_state",
+    "parser_confidence_score",
+    "normalization_rule_id",
+    "lineage_status",
+    "conflict_state"
+  ],
+  "additionalProperties": false
+}

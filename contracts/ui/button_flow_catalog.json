@@ -1,0 +1,587 @@
+{
+  "catalogVersion": "1.0.0",
+  "ownerDoc": "D5",
+  "flows": [
+    {
+      "flowId": "nav_to_project_fact",
+      "buttonType": "navigation",
+      "fromWorkbench": "task_entry",
+      "toWorkbench": "project_fact_workbench",
+      "allowedWhen": [
+        "project_exists"
+      ],
+      "blockedWhen": [],
+      "notes": "导航按钮只跳转到正式工作台。"
+    },
+    {
+      "flowId": "create_task",
+      "buttonType": "task",
+      "fromWorkbench": "task_entry",
+      "apiOperationId": "createTask",
+      "allowedWhen": [
+        "region_selected",
+        "time_range_selected",
+        "strategy_template_selected"
+      ],
+      "blockedWhen": [
+        "missing_form_fields"
+      ]
+    },
+    {
+      "flowId": "rebuild_project_fact",
+      "buttonType": "task",
+      "fromWorkbench": "task_entry",
+      "apiOperationId": "rebuildProjectFacts",
+      "allowedWhen": [
+        "project_id_present"
+      ],
+      "blockedWhen": [
+        "project_id_missing"
+      ]
+    },
+    {
+      "flowId": "open_review_queue",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "allowedWhen": [
+        "review_queue_profile_exists"
+      ],
+      "blockedWhen": []
+    },
+    {
+      "flowId": "apply_export",
+      "buttonType": "export",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "exportReport",
+      "allowedWhen": [
+        "template_selected",
+        "release_gate_pass_or_review_route"
+      ],
+      "blockedWhen": [
+        "approval_missing",
+        "release_level_insufficient"
+      ]
+    },
+    {
+      "flowId": "open_leadpack_candidate_preview",
+      "buttonType": "preview",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "previewLeadpackExternalDeliveryCandidate",
+      "reviewActionId": "leadpack_candidate_open_preview",
+      "allowedWhen": [
+        "internal_only_surface",
+        "candidate_only_surface",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested",
+        "live_execution_requested"
+      ]
+    },
+    {
+      "flowId": "request_leadpack_candidate_review",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "requestLeadpackExternalDeliveryCandidateReview",
+      "reviewActionId": "leadpack_candidate_request_review",
+      "allowedWhen": [
+        "candidate_surface_review_required_or_governed_hold",
+        "leadpack_candidate_review_gate_requested",
+        "approval_chain_available",
+        "audit_trace_present"
+      ],
+      "blockedWhen": [
+        "external_surface_requested",
+        "live_execution_requested"
+      ]
+    },
+    {
+      "flowId": "request_leadpack_candidate_export_simulation",
+      "buttonType": "export",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "simulateLeadpackExternalDeliveryExport",
+      "reviewActionId": "leadpack_candidate_request_export_simulation",
+      "allowedWhen": [
+        "candidate_surface_preview_ready_or_review_required",
+        "internal_only_surface",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "external_delivery_requested",
+        "release_gate_blocked"
+      ]
+    },
+    {
+      "flowId": "leadpack_candidate_hold_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_candidate_mark_hold",
+      "allowedWhen": [
+        "candidate_surface_governed_hold"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ],
+      "notes": "候选包进入 hold 时只能显示原因、缺口与所需审批，不得转成真实外发。"
+    },
+    {
+      "flowId": "leadpack_candidate_denied_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_candidate_mark_denied",
+      "allowedWhen": [
+        "candidate_surface_blocked_or_denied"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ],
+      "notes": "候选包 denial 只形成内部审计与否决意见，不触发任何 external send。"
+    },
+    {
+      "flowId": "open_leadpack_activation_prep_packet",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "previewLeadpackActivationPrepPacket",
+      "reviewActionId": "leadpack_activation_prep_open_packet",
+      "allowedWhen": [
+        "candidate_surface_preview_ready_or_review_required",
+        "internal_only_surface",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested",
+        "live_execution_requested"
+      ]
+    },
+    {
+      "flowId": "request_leadpack_activation_prep_review",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "requestLeadpackActivationPrepReview",
+      "reviewActionId": "leadpack_activation_prep_request_review",
+      "allowedWhen": [
+        "candidate_surface_review_required_or_governed_hold",
+        "approval_chain_available",
+        "audit_trace_present"
+      ],
+      "blockedWhen": [
+        "external_surface_requested",
+        "live_execution_requested"
+      ]
+    },
+    {
+      "flowId": "leadpack_activation_prep_hold_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_activation_prep_mark_hold",
+      "allowedWhen": [
+        "candidate_surface_governed_hold"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "leadpack_activation_prep_denied_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_activation_prep_mark_denied",
+      "allowedWhen": [
+        "candidate_surface_blocked_or_denied"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "leadpack_activation_prep_return_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_activation_prep_return_for_revision",
+      "allowedWhen": [
+        "candidate_surface_governed_hold"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "leadpack_activation_prep_cancel_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_activation_prep_cancel",
+      "allowedWhen": [
+        "candidate_surface_governed_hold"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "open_leadpack_activation_design_prep_packet",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "previewLeadpackActivationDesignImplementationPrepPacket",
+      "reviewActionId": "leadpack_activation_design_prep_open_packet",
+      "allowedWhen": [
+        "activation_prep_ready_for_review",
+        "go_decision_bounded_to_design_prep",
+        "internal_only_surface"
+      ],
+      "blockedWhen": [
+        "external_surface_requested",
+        "live_execution_requested",
+        "direct_object_export_requested"
+      ]
+    },
+    {
+      "flowId": "request_leadpack_activation_design_prep_review",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "requestLeadpackActivationDesignImplementationPrepReview",
+      "reviewActionId": "leadpack_activation_design_prep_request_review",
+      "allowedWhen": [
+        "activation_design_prep_assets_present",
+        "actual_owner_signoff_states_defined",
+        "approval_review_gate_audit_sources_layered",
+        "rollback_cancel_emergency_off_defined"
+      ],
+      "blockedWhen": [
+        "external_surface_requested",
+        "live_execution_requested",
+        "direct_object_export_requested"
+      ]
+    },
+    {
+      "flowId": "open_leadpack_implementation_decision_readiness_packet",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "apiOperationId": "previewLeadpackImplementationDecisionReadinessPacket",
+      "reviewActionId": "leadpack_implementation_decision_readiness_open_packet",
+      "allowedWhen": [
+        "activation_design_prep_assets_present",
+        "formal_hold_sources_defined",
+        "internal_only_surface"
+      ],
+      "blockedWhen": [
+        "implementation_approval_requested",
+        "external_surface_requested",
+        "live_execution_requested",
+        "direct_object_export_requested"
+      ]
+    },
+    {
+      "flowId": "leadpack_activation_design_prep_hold_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_activation_design_prep_mark_hold",
+      "allowedWhen": [
+        "owner_signoff_pending_or_approval_review_gate_audit_gap"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "leadpack_activation_design_prep_denied_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_activation_design_prep_mark_denied",
+      "allowedWhen": [
+        "owner_denied_or_boundary_violation"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "leadpack_activation_design_prep_emergency_off_notice",
+      "buttonType": "review",
+      "fromWorkbench": "review_report_workbench",
+      "reviewActionId": "leadpack_activation_design_prep_emergency_off",
+      "allowedWhen": [
+        "direct_object_export_or_live_execution_requested"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "opportunity_preview_block_notice",
+      "buttonType": "preview",
+      "fromWorkbench": "opportunity_pool",
+      "allowedWhen": [
+        "surface_state_blocked_or_review_required"
+      ],
+      "blockedWhen": [
+        "live_execution_requested"
+      ],
+      "notes": "即使进入 internal preview，也只能展示阻断/待审说明，不得接真实执行接口。"
+    },
+    {
+      "flowId": "open_stage7_internal_preview",
+      "buttonType": "preview",
+      "fromWorkbench": "opportunity_pool",
+      "apiOperationId": "listSaleableOpportunities",
+      "reviewActionId": "stage7_open_internal_preview",
+      "allowedWhen": [
+        "surface_state_preview_ready_or_review_required",
+        "internal_only_surface",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "list_stage7_work_items",
+      "buttonType": "queue",
+      "fromWorkbench": "opportunity_pool",
+      "apiOperationId": "listStage7WorkItems",
+      "allowedWhen": [
+        "repository_state_available",
+        "internal_only_surface"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "submit_stage7_mark_reviewed",
+      "buttonType": "review",
+      "fromWorkbench": "opportunity_pool",
+      "apiOperationId": "submitStage7OperatorAction",
+      "reviewActionId": "stage7_mark_reviewed",
+      "allowedWhen": [
+        "surface_state_preview_ready_or_review_required",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "submit_stage7_return_for_revision",
+      "buttonType": "review",
+      "fromWorkbench": "opportunity_pool",
+      "apiOperationId": "submitStage7OperatorAction",
+      "reviewActionId": "stage7_return_for_revision",
+      "allowedWhen": [
+        "surface_state_preview_ready_or_review_required"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "submit_stage8_governed_review",
+      "buttonType": "review",
+      "fromWorkbench": "outreach_workbench",
+      "apiOperationId": "submitStage8OperatorAction",
+      "reviewActionId": "stage8_request_governed_review",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required",
+        "approval_chain_available",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "live_execution_requested",
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "list_stage8_work_items",
+      "buttonType": "queue",
+      "fromWorkbench": "outreach_workbench",
+      "apiOperationId": "listStage8WorkItems",
+      "allowedWhen": [
+        "repository_state_available",
+        "internal_only_surface"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "approve_stage8_draft_progression",
+      "buttonType": "review",
+      "fromWorkbench": "outreach_workbench",
+      "apiOperationId": "submitStage8OperatorAction",
+      "reviewActionId": "stage8_approve_draft_progression",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required",
+        "approval_chain_available",
+        "audit_trace_present"
+      ],
+      "blockedWhen": [
+        "live_execution_requested",
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "deny_stage8_draft_progression",
+      "buttonType": "review",
+      "fromWorkbench": "outreach_workbench",
+      "apiOperationId": "submitStage8OperatorAction",
+      "reviewActionId": "stage8_deny_draft_progression",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required",
+        "approval_chain_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "hold_stage8_draft_progression",
+      "buttonType": "review",
+      "fromWorkbench": "outreach_workbench",
+      "apiOperationId": "submitStage8OperatorAction",
+      "reviewActionId": "stage8_put_governed_hold",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required",
+        "approval_chain_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "return_stage8_for_revision",
+      "buttonType": "review",
+      "fromWorkbench": "outreach_workbench",
+      "apiOperationId": "submitStage8OperatorAction",
+      "reviewActionId": "stage8_return_for_revision",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required",
+        "approval_chain_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "open_stage9_order_draft",
+      "buttonType": "draft",
+      "fromWorkbench": "order_delivery_workbench",
+      "apiOperationId": "submitStage9OperatorAction",
+      "reviewActionId": "stage9_submit_draft_writeback",
+      "allowedWhen": [
+        "surface_state_draft_only_or_governed_hold",
+        "approval_chain_available",
+        "internal_only_surface",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "live_execution_requested",
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "list_stage9_work_items",
+      "buttonType": "queue",
+      "fromWorkbench": "order_delivery_workbench",
+      "apiOperationId": "listStage9WorkItems",
+      "allowedWhen": [
+        "repository_state_available",
+        "internal_only_surface"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "open_stage9_delivery_preview",
+      "buttonType": "preview",
+      "fromWorkbench": "order_delivery_workbench",
+      "apiOperationId": "submitStage9OperatorAction",
+      "reviewActionId": "stage9_submit_draft_writeback",
+      "allowedWhen": [
+        "surface_state_preview_ready_or_governed_hold",
+        "approval_chain_available",
+        "internal_only_surface",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "release_gate_blocked",
+        "live_execution_requested",
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "submit_stage9_governance_feedback",
+      "buttonType": "review",
+      "fromWorkbench": "order_delivery_workbench",
+      "apiOperationId": "submitStage9OperatorAction",
+      "reviewActionId": "stage9_submit_draft_writeback",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required_or_governed_hold",
+        "approval_chain_available",
+        "audit_trace_present",
+        "repository_state_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested",
+        "live_execution_requested"
+      ]
+    },
+    {
+      "flowId": "mark_stage9_reviewed",
+      "buttonType": "review",
+      "fromWorkbench": "order_delivery_workbench",
+      "apiOperationId": "submitStage9OperatorAction",
+      "reviewActionId": "stage9_mark_reviewed",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required_or_governed_hold",
+        "approval_chain_available",
+        "audit_trace_present"
+      ],
+      "blockedWhen": [
+        "external_surface_requested",
+        "live_execution_requested"
+      ]
+    },
+    {
+      "flowId": "deny_stage9_draft_writeback",
+      "buttonType": "review",
+      "fromWorkbench": "order_delivery_workbench",
+      "apiOperationId": "submitStage9OperatorAction",
+      "reviewActionId": "stage9_deny_draft_writeback",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required_or_governed_hold",
+        "approval_chain_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "hold_stage9_draft_writeback",
+      "buttonType": "review",
+      "fromWorkbench": "order_delivery_workbench",
+      "apiOperationId": "submitStage9OperatorAction",
+      "reviewActionId": "stage9_put_governed_hold",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required_or_governed_hold",
+        "approval_chain_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    },
+    {
+      "flowId": "return_stage9_for_revision",
+      "buttonType": "review",
+      "fromWorkbench": "order_delivery_workbench",
+      "apiOperationId": "submitStage9OperatorAction",
+      "reviewActionId": "stage9_return_for_revision",
+      "allowedWhen": [
+        "surface_state_draft_only_or_review_required_or_governed_hold",
+        "approval_chain_available"
+      ],
+      "blockedWhen": [
+        "external_surface_requested"
+      ]
+    }
+  ]
+}

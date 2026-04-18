@@ -1,0 +1,272 @@
+# Stage: stage3_parsing
+# Consumes formal objects: project_base, field_lineage_record, bidder_candidate, project_manager
+# Dependent handoff: H-02-STAGE2-TO-STAGE3, H-03-STAGE3-TO-STAGE4
+# Dependent schema/contracts: handoff/stage_handoff_catalog.json, contracts/schemas/schema_catalog.json, contracts/enums/enum_catalog.json
+
+from __future__ import annotations
+
+from typing import Any, Mapping
+
+from shared.contracts_runtime import ContractStore, StageBundle
+from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag, resolve_bundle
+
+
+class Stage3Service:
+    def __init__(self, settings: Any | None = None) -> None:
+        self.settings = settings
+        self.store = ContractStore.default(settings)
+
+    def run(self, payload: Mapping[str, Any] | StageBundle) -> StageBundle:
+        stage2_bundle = resolve_bundle(payload)
+        inputs = stage2_bundle.inputs or {}
+        flags = inputs.get("flags", {})
+
+        public_chain = stage2_bundle.record("public_chain")
+        clock_chain_profile = stage2_bundle.record("clock_chain_profile")
+        notice_version_chain = stage2_bundle.record("notice_version_chain")
+        fixation_bundle = stage2_bundle.record("fixation_bundle")
+
+        project_id = public_chain.get("project_id")
+        source_registry_id = stage2_bundle.handoff.get("source_registry_id") or public_chain.get("source_registry_id") or inputs.get("source_registry_id")
+        route_policy_id = stage2_bundle.handoff.get("route_policy_id") or public_chain.get("route_policy_id") or inputs.get("route_policy_id")
+        route_decision_state = stage2_bundle.handoff.get("route_decision_state") or public_chain.get("route_decision_state") or inputs.get("route_decision_state", "ALLOW")
+        route_review_reasons = ensure_list(
+            stage2_bundle.handoff.get("route_review_reasons")
+            or public_chain.get("route_review_reasons")
+            or inputs.get("route_review_reasons")
+        )
+        winning_version_resolution_rule_id = (
+            stage2_bundle.handoff.get("winning_version_resolution_rule_id")
+            or notice_version_chain.get("winning_version_resolution_rule_id")
+            or inputs.get("winning_version_resolution_rule_id")
+        )
+        clock_resolution_rule_id = (
+            stage2_bundle.handoff.get("clock_resolution_rule_id")
+            or clock_chain_profile.get("clock_resolution_rule_id")
+            or inputs.get("clock_resolution_rule_id")
+        )
+        version_conflict_state = notice_version_chain.get("version_conflict_state")
+        clock_conflict_state = clock_chain_profile.get(
+            "clock_conflict_state",
+            stage2_bundle.handoff.get(
+                "clock_conflict_state",
+                stage2_bundle.inputs.get("clock_conflict_state", "CONSISTENT"),
+            ),
+        )
+        conflict_state = "CONFLICTING" if get_flag(flags, "field_conflict") else "CONSISTENT"
+        if get_flag(flags, "missing_source"):
+            conflict_state = "UNRESOLVED"
+        lineage_status = "EXTRACTED" if conflict_state == "CONSISTENT" else "CONFLICTING"
+        if conflict_state == "UNRESOLVED":
+            lineage_status = "UNVERIFIED"
+        collection_state = public_chain.get("collection_state")
+        stage3_truth_layer_ref = build_id("ST3TL", project_id)
+        lineage_collection_ref = build_id("LINEAGE", project_id)
+        candidate_collection_ref = build_id("CSET", project_id)
+        lineage_conflict_group_id = build_id("LCG", project_id)
+        candidate_conflict_group_id = build_id("CCG", project_id)
+
+        trace_rules: list[str] = []
+        missing_source = get_flag(flags, "missing_source")
+        unresolved_reason_optional: str | None = None
+        if missing_source:
+            apply_rule(self.store, trace_rules, "STATE-302")
+            lineage_status = "UNVERIFIED"
+            conflict_state = "UNRESOLVED"
+            unresolved_reason_optional = "missing_source_slice_or_normalization_rule"
+            if collection_state != "BLOCKED":
+                collection_state = "REVIEW_REQUIRED"
+        elif (
+            conflict_state in ("CONFLICTING", "UNRESOLVED")
+            or version_conflict_state != "CONSISTENT"
+            or clock_conflict_state != "CONSISTENT"
+        ):
+            apply_rule(self.store, trace_rules, "STATE-301")
+            lineage_status = "CONFLICTING"
+            conflict_state = "CONFLICTING"
+            if version_conflict_state != "CONSISTENT":
+                unresolved_reason_optional = "version_conflict_requires_review"
+            elif clock_conflict_state != "CONSISTENT":
+                unresolved_reason_optional = "clock_conflict_requires_review"
+            else:
+                unresolved_reason_optional = "field_conflict_requires_review"
+            if collection_state != "BLOCKED":
+                collection_state = "REVIEW_REQUIRED"
+        else:
+            apply_rule(self.store, trace_rules, "STATE-303")
+            lineage_status = "NORMALIZED"
+            conflict_state = "CONSISTENT"
+            if collection_state not in ("BLOCKED", "REVIEW_REQUIRED"):
+                collection_state = "NORMALIZED"
+        stage3_review_path_ref = (
+            "STAGE3_READY_FOR_STAGE4"
+            if lineage_status == "NORMALIZED" and conflict_state == "CONSISTENT"
+            else "STAGE3_REVIEW_REQUIRED"
+        )
+        derived_public_chain_status = inputs.get("public_chain_status")
+        if not derived_public_chain_status:
+            if route_decision_state == "BLOCK" or collection_state == "BLOCKED":
+                derived_public_chain_status = "BROKEN"
+            elif (
+                route_decision_state == "REVIEW"
+                or collection_state == "REVIEW_REQUIRED"
+                or version_conflict_state != "CONSISTENT"
+                or clock_conflict_state != "CONSISTENT"
+            ):
+                derived_public_chain_status = "PARTIAL"
+            else:
+                derived_public_chain_status = "COMPLETE"
+        candidate_order_mode = ensure_enum(self.store, "candidate_order_mode", inputs.get("candidate_order_mode"))
+        candidate_collection_role = (
+            "ORDERED_PRIMARY_CANDIDATE"
+            if candidate_order_mode == "ORDERED"
+            else "CANDIDATE_COLLECTION_MEMBER"
+        )
+
+        field_lineage_payload = {
+            "field_lineage_id": build_id("FL", project_id),
+            "project_id": project_id,
+            "owning_object_type": inputs.get("owning_object_type", "project_base"),
+            "owning_object_id": inputs.get("owning_object_id", project_id),
+            "field_name": inputs.get("field_name", "project_name"),
+            "source_notice_version_id": notice_version_chain.get("current_notice_version_id"),
+            "source_document_ref": inputs.get("source_document_ref", "DOC-001"),
+            "source_slice_ref": inputs.get("source_slice_ref", "SLICE-001"),
+            "source_family": public_chain.get("source_family"),
+            "platform_level": public_chain.get("platform_level"),
+            "carrier_type": fixation_bundle.get("carrier_type"),
+            "coverage_tier": public_chain.get("coverage_tier"),
+            "parser_confidence_score": inputs.get("parser_confidence_score", 0.92),
+            "normalization_rule_id": inputs.get("normalization_rule_id", "NR-DEFAULT"),
+            "lineage_status": lineage_status,
+            "conflict_state": conflict_state,
+            "collection_state": collection_state,
+            "normalized_value_ref_optional": "project_base.project_name",
+            "review_path_optional": stage3_review_path_ref,
+            "candidate_collection_ref_optional": candidate_collection_ref,
+        }
+        if unresolved_reason_optional:
+            field_lineage_payload["unresolved_reason_optional"] = unresolved_reason_optional
+        if conflict_state != "CONSISTENT":
+            field_lineage_payload["lineage_conflict_group_id_optional"] = lineage_conflict_group_id
+        updated_lineage = self.store.build_record("field_lineage_record", field_lineage_payload)
+
+        project_base = self.store.build_record(
+            "project_base",
+            {
+                "project_id": project_id,
+                "project_root_id": inputs.get("project_root_id", build_id("ROOT", project_id)),
+                "notice_version_id": notice_version_chain.get("current_notice_version_id"),
+                "project_name": inputs.get("project_name", "UNKNOWN_PROJECT"),
+                "region_code": inputs.get("region_code", "CN"),
+                "source_family": public_chain.get("source_family"),
+                "procurement_regime": ensure_enum(self.store, "procurement_regime", inputs.get("procurement_regime")),
+                "procurement_category": inputs.get("procurement_category", "GENERAL"),
+                "bid_eval_method": inputs.get("bid_eval_method", "STANDARD"),
+                "candidate_order_mode": candidate_order_mode,
+                "award_determination_mode": ensure_enum(self.store, "award_determination_mode", inputs.get("award_determination_mode")),
+                "public_chain_status": ensure_enum(self.store, "public_chain_status", derived_public_chain_status),
+                "stage3_truth_layer_ref_optional": stage3_truth_layer_ref,
+                "field_lineage_collection_ref_optional": lineage_collection_ref,
+                "bidder_candidate_collection_ref_optional": candidate_collection_ref,
+                "stage3_review_path_ref_optional": stage3_review_path_ref,
+            },
+        )
+
+        bidder_candidate_payload = {
+            "bidder_candidate_id": build_id("BID", project_id, "01"),
+            "project_id": project_id,
+            "bidder_name": inputs.get("bidder_name", "DEFAULT_BIDDER"),
+            "candidate_group_label": ensure_enum(self.store, "candidate_group_label", inputs.get("candidate_group_label")),
+            "candidate_rank_optional": inputs.get("candidate_rank_optional", 1),
+            "bid_price": inputs.get("bid_price", 1000000.0),
+            "total_score": inputs.get("total_score", 90.0),
+            "is_invalid": bool(inputs.get("bidder_invalid", False)),
+            "candidate_collection_ref_optional": candidate_collection_ref,
+            "candidate_collection_role_optional": candidate_collection_role,
+            "candidate_source_lineage_ids_optional": [updated_lineage.get("field_lineage_id")],
+        }
+        if conflict_state != "CONSISTENT":
+            bidder_candidate_payload["candidate_conflict_group_id_optional"] = candidate_conflict_group_id
+            bidder_candidate_payload["candidate_review_path_optional"] = stage3_review_path_ref
+        bidder_candidate = self.store.build_record("bidder_candidate", bidder_candidate_payload)
+
+        project_manager = self.store.build_record(
+            "project_manager",
+            {
+                "project_manager_id": build_id("PM", project_id),
+                "project_id": project_id,
+                "project_manager_name": inputs.get("project_manager_name", "DEFAULT_PM"),
+                "project_manager_cert_specialty": inputs.get("project_manager_cert_specialty", "GENERAL"),
+                "project_manager_cert_level": inputs.get("project_manager_cert_level", "LEVEL-1"),
+                "project_manager_cert_unit": inputs.get("project_manager_cert_unit", "UNIT"),
+                "project_manager_conflict_clue_status": ensure_enum(
+                    self.store,
+                    "project_manager_conflict_clue_status",
+                    inputs.get("project_manager_conflict_clue_status"),
+                ),
+            },
+        )
+
+        handoff = {
+            "project_id": project_id,
+            "project_root_id": project_base.get("project_root_id"),
+            "notice_version_id": project_base.get("notice_version_id"),
+            "candidate_order_mode": project_base.get("candidate_order_mode"),
+            "award_determination_mode": project_base.get("award_determination_mode"),
+            "public_chain_status": project_base.get("public_chain_status"),
+            "lineage_status": lineage_status,
+            "conflict_state": conflict_state,
+            "fixation_bundle_id": fixation_bundle.get("fixation_bundle_id"),
+            "source_registry_id": source_registry_id,
+            "route_policy_id": route_policy_id,
+            "route_decision_state": route_decision_state,
+            "route_review_reasons": route_review_reasons,
+            "winning_version_resolution_rule_id": winning_version_resolution_rule_id,
+            "clock_resolution_rule_id": clock_resolution_rule_id,
+            "stage3_truth_layer_ref_optional": stage3_truth_layer_ref,
+            "field_lineage_collection_ref_optional": lineage_collection_ref,
+            "bidder_candidate_collection_ref_optional": candidate_collection_ref,
+            "candidate_collection_ref_optional": candidate_collection_ref,
+            "stage3_review_path_ref_optional": stage3_review_path_ref,
+            "version_conflict_state": version_conflict_state,
+            "clock_conflict_state": clock_conflict_state,
+        }
+        if unresolved_reason_optional:
+            handoff["unresolved_reason_optional"] = unresolved_reason_optional
+
+        inputs_out = dict(inputs)
+        inputs_out["lineage_status"] = lineage_status
+        inputs_out["conflict_state"] = conflict_state
+        inputs_out["version_conflict_state"] = version_conflict_state
+        inputs_out["clock_conflict_state"] = clock_conflict_state
+        inputs_out["fixation_bundle_id"] = fixation_bundle.get("fixation_bundle_id")
+        inputs_out["source_registry_id"] = source_registry_id
+        inputs_out["route_policy_id"] = route_policy_id
+        inputs_out["route_decision_state"] = route_decision_state
+        inputs_out["route_review_reasons"] = route_review_reasons
+        inputs_out["winning_version_resolution_rule_id"] = winning_version_resolution_rule_id
+        inputs_out["clock_resolution_rule_id"] = clock_resolution_rule_id
+        inputs_out["stage3_truth_layer_ref_optional"] = stage3_truth_layer_ref
+        inputs_out["field_lineage_collection_ref_optional"] = lineage_collection_ref
+        inputs_out["bidder_candidate_collection_ref_optional"] = candidate_collection_ref
+        inputs_out["candidate_collection_ref_optional"] = candidate_collection_ref
+        inputs_out["stage3_review_path_ref_optional"] = stage3_review_path_ref
+        if unresolved_reason_optional:
+            inputs_out["unresolved_reason_optional"] = unresolved_reason_optional
+
+        return StageBundle(
+            stage=3,
+            records={
+                "field_lineage_record": updated_lineage,
+                "project_base": project_base,
+                "bidder_candidate": bidder_candidate,
+                "project_manager": project_manager,
+            },
+            handoff=handoff,
+            trace_rules=trace_rules,
+            inputs=inputs_out,
+        )
+
+    def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
+        return result.handoff

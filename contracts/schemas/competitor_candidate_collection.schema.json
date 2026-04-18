@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "multi_competitor_collection",
+  "type": "object",
+  "description": "Formal carrier for Stage 7 multi-competitor ranking, TopN retention and winning selection trace.",
+  "source_refs": [
+    "D2-R-017",
+    "D8-R-004",
+    "D11-R-045"
+  ],
+  "properties": {
+    "multi_competitor_collection_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "opportunity_id": {
+      "type": "string"
+    },
+    "candidate_list": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "candidate_id": {
+            "type": "string"
+          },
+          "challenger_profile_id": {
+            "type": "string"
+          },
+          "focus_bidder_id": {
+            "type": "string"
+          },
+          "challenger_bidder_id": {
+            "type": "string"
+          },
+          "candidate_position_label": {
+            "type": "string"
+          },
+          "candidate_rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "confidence_score_optional": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100
+          },
+          "ranking_reason_tags_optional": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "challenge_actionability_score": {
+            "type": "number"
+          },
+          "execution_readiness_score": {
+            "type": "number"
+          },
+          "ranking_score": {
+            "type": "number"
+          },
+          "selected_flag": {
+            "type": "boolean"
+          },
+          "candidate_source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "challenger_profile_id",
+          "focus_bidder_id",
+          "challenger_bidder_id",
+          "candidate_position_label",
+          "candidate_rank",
+          "ranking_reason_tags_optional",
+          "challenge_actionability_score",
+          "execution_readiness_score",
+          "ranking_score",
+          "selected_flag",
+          "candidate_source"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "top_n_candidate_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "winning_candidate_id": {
+      "type": "string"
+    },
+    "winning_challenger_profile_id": {
+      "type": "string"
+    },
+    "selection_trace": {
+      "type": "object",
+      "properties": {
+        "selection_policy_id": {
+          "type": "string"
+        },
+        "sort_basis": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ranking_mode": {
+          "type": "string"
+        },
+        "input_candidate_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "top_n_limit": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "winner_selection_basis": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "selection_policy_id",
+        "sort_basis",
+        "ranking_mode",
+        "input_candidate_count",
+        "top_n_limit",
+        "winner_selection_basis"
+      ],
+      "additionalProperties": false
+    },
+    "created_by_stage": {
+      "type": "integer",
+      "enum": [
+        7
+      ]
+    },
+    "downstream_consumer": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "multi_competitor_collection_id",
+    "project_id",
+    "opportunity_id",
+    "candidate_list",
+    "top_n_candidate_ids",
+    "winning_candidate_id",
+    "winning_challenger_profile_id",
+    "selection_trace",
+    "created_by_stage",
+    "downstream_consumer"
+  ],
+  "additionalProperties": false
+}

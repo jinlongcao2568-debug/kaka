@@ -1,0 +1,625 @@
+{
+  "catalog_id": "gate-policies",
+  "version": "0.1.0",
+  "metadata": {
+    "package_name": "contracts core package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-12",
+    "source_documents": [
+      "L0.md",
+      "D2_正式对象契约与字段字典.md",
+      "D3_正式规则码总表与判定说明书.md",
+      "D13_公开可查边界能力清单.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D11_测试验收与金标回归清单.md"
+    ],
+    "notes": [
+      "This is the first machine-readable core package for pre-code readiness.",
+      "The package freezes minimum stable contracts and is intended to be extended in later rounds rather than replaced.",
+      "Any implementation must consume these catalogs without creating a second vocabulary.",
+      "release layers aligned with D13"
+    ],
+    "machine_path": "contracts/gates/gate_policies.json",
+    "scope": "formal dual-gate policies, upgrade matrix and global precedence"
+  },
+  "gate_objects": [
+    {
+      "gate": "rule_gate_decision",
+      "status_enum": "gate_status",
+      "source_refs": [
+        "D3-R-022"
+      ],
+      "pass_meaning": "Rule premises, dependencies, boundary state, version state and clock state all pass",
+      "review_meaning": "Rule is plausible but needs review or conflict resolution",
+      "block_meaning": "Rule premises fail or forbidden conditions are present"
+    },
+    {
+      "gate": "evidence_gate_decision",
+      "status_enum": "gate_status",
+      "source_refs": [
+        "D3-R-022"
+      ],
+      "pass_meaning": "Evidence is traceable, fixed and reaches target grade",
+      "review_meaning": "Evidence supports internal review but not client/external use",
+      "block_meaning": "Evidence lacks carrier, fixation, traceability, or uses forbidden primary forms"
+    }
+  ],
+  "global_precedence": [
+    {
+      "order": 1,
+      "name": "public_boundary_and_hard_legal_gates",
+      "rule": "D-tier, non-traceable, or non-auditable inputs are immediate blockers"
+    },
+    {
+      "order": 2,
+      "name": "project_identity_version_clock_integrity",
+      "rule": "project identity, version and clock conflicts must be resolved before upgrade"
+    },
+    {
+      "order": 3,
+      "name": "dual_gate",
+      "rule": "rule_gate_decision and evidence_gate_decision must both pass for formal hit upgrade"
+    },
+    {
+      "order": 4,
+      "name": "governance_gates",
+      "rule": "coverage, release, delivery and field policy gates may further constrain result or release"
+    },
+    {
+      "order": 5,
+      "name": "sale_gate_and_objectization",
+      "rule": "sale gate may guide commercial objectization only after higher gates allow it"
+    },
+    {
+      "order": 6,
+      "name": "manual_override_and_controlled_exception",
+      "rule": "manual override may only downgrade or restrict; it may not overrule higher-priority blockers"
+    }
+  ],
+  "scope_influence": {
+    "exception_scope": {
+      "COVERAGE_HOLD": {
+        "effect": "force delivery and release gates to BLOCK until coverage recovers",
+        "approvalChainId": "boundary_exception"
+      },
+      "DELIVERY_RELEASE": {
+        "effect": "allow scoped delivery only after approval; other gates remain enforced",
+        "approvalChainId": "boundary_exception"
+      },
+      "PRIVATE_SUPPLEMENT_IMPACT": {
+        "effect": "restrict usable_scope and field visibility to metadata/summary",
+        "approvalChainId": "private_supplement_release"
+      },
+      "CONTACT_RESTRICTION": {
+        "effect": "enforce restricted contact gate and audit requirements",
+        "approvalChainId": "high_restriction_contact_release"
+      }
+    },
+    "exception_state": {
+      "PENDING": "block delivery/release gates until approval completes",
+      "APPROVED": "allow only approved scope and duration; dual gate still required",
+      "REJECTED": "revert to default gate outcomes",
+      "ROLLED_BACK": "revoke any allowance and re-evaluate gates",
+      "EXPIRED": "auto-revert; re-run gate checks"
+    },
+    "usable_scope": {
+      "REVIEW_ONLY": "limit surfaces to internal review only",
+      "GOVERNANCE_ONLY": "limit surfaces to governance only",
+      "DELIVERY_REFERENCE": "allow leadpack summary with mask and approval",
+      "BLOCKED": "force block on any delivery surface"
+    }
+  },
+  "upgrade_matrix": [
+    {
+      "when": {
+        "public_capability_tier": "A_PUBLIC_CORE",
+        "rule_gate": "PASS",
+        "evidence_gate": "PASS",
+        "minimum_external_use_grade": "E4_EXTERNAL_ACTION_READY",
+        "high_priority_blockers": false,
+        "coverage_sellable_state": null
+      },
+      "allow_result": "AUTO_HIT",
+      "notes": [
+        "formal hit still does not equal terminal illegality conclusion"
+      ]
+    },
+    {
+      "when": {
+        "public_capability_tier": "A_PUBLIC_CORE",
+        "rule_gate": "PASS",
+        "evidence_gate": "REVIEW",
+        "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
+        "high_priority_blockers": null,
+        "coverage_sellable_state": null
+      },
+      "allow_result": "CLUE",
+      "notes": [
+        "retain risk and review semantics"
+      ]
+    },
+    {
+      "when": {
+        "public_capability_tier": "B_PUBLIC_ENHANCED",
+        "rule_gate": [
+          "PASS",
+          "REVIEW"
+        ],
+        "evidence_gate": [
+          "PASS",
+          "REVIEW"
+        ],
+        "minimum_external_use_grade": null,
+        "high_priority_blockers": null,
+        "coverage_sellable_state": "SELLABLE"
+      },
+      "allow_result": [
+        "CLUE",
+        "conditional_fact_object"
+      ],
+      "notes": [
+        "never market as nationwide default capability"
+      ]
+    },
+    {
+      "when": {
+        "public_capability_tier": "C_PUBLIC_CONDITIONAL",
+        "rule_gate": null,
+        "evidence_gate": null,
+        "minimum_external_use_grade": null,
+        "high_priority_blockers": null,
+        "coverage_sellable_state": null
+      },
+      "allow_result": [
+        "CLUE",
+        "OBSERVATION",
+        "REVIEW_REQUEST"
+      ],
+      "notes": [
+        "C tier cannot be normalized into AUTO_HIT"
+      ]
+    },
+    {
+      "when": {
+        "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
+        "rule_gate": null,
+        "evidence_gate": null,
+        "minimum_external_use_grade": null,
+        "high_priority_blockers": null,
+        "coverage_sellable_state": null
+      },
+      "allow_result": [
+        "REVIEW_REQUEST",
+        "governance_isolation_only"
+      ],
+      "notes": [
+        "forbidden from the formal public chain"
+      ]
+    }
+  ],
+  "degrade_matrix": [
+    {
+      "trigger": "primary evidence degrades to screenshot/OCR/model summary",
+      "result": [
+        "REVIEW_REQUEST",
+        "BLOCK"
+      ]
+    },
+    {
+      "trigger": "key subject alignment degrades from stable to weak match",
+      "result": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ]
+    },
+    {
+      "trigger": "coverage/platform/granularity requirements fall below threshold",
+      "result": [
+        "OBSERVATION",
+        "REVIEW_REQUEST",
+        "BLOCK"
+      ]
+    },
+    {
+      "trigger": "version/clock conflict becomes non-resolvable",
+      "result": [
+        "REVIEW_REQUEST",
+        "BLOCK"
+      ]
+    }
+  ],
+  "block_conditions": [
+    "any D_NON_PUBLIC_OR_FORENSIC input attempts to enter the formal public chain",
+    "project identity is unresolved",
+    "core version or clock conflict is unresolved",
+    "either dual gate is BLOCK",
+    "formal release attempts to use screenshot/OCR/model summary as sole primary evidence",
+    "contact source is illegal, grey or non-auditable",
+    "manual override attempts to overrule a higher-priority blocker"
+  ],
+  "capability_constraints": [
+    {
+      "capability_id": "A-01",
+      "requires_dual_gate": true,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "PROC-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-013"
+      ]
+    },
+    {
+      "capability_id": "A-02",
+      "requires_dual_gate": true,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "PROC-003"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-014"
+      ]
+    },
+    {
+      "capability_id": "A-03",
+      "requires_dual_gate": false,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "source_refs": [
+        "D13-R-015"
+      ]
+    },
+    {
+      "capability_id": "A-04",
+      "requires_dual_gate": true,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "ATTACK-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-016"
+      ]
+    },
+    {
+      "capability_id": "A-05",
+      "requires_dual_gate": false,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "PROC-002",
+        "DOC-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-017"
+      ]
+    },
+    {
+      "capability_id": "A-06",
+      "requires_dual_gate": true,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "QUAL-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-018"
+      ]
+    },
+    {
+      "capability_id": "A-07",
+      "requires_dual_gate": true,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "CREDIT-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-019"
+      ]
+    },
+    {
+      "capability_id": "A-08",
+      "requires_dual_gate": true,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "source_refs": [
+        "D13-R-020"
+      ]
+    },
+    {
+      "capability_id": "A-09",
+      "requires_dual_gate": true,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "source_refs": [
+        "D13-R-021"
+      ]
+    },
+    {
+      "capability_id": "A-10",
+      "requires_dual_gate": false,
+      "requires_coverage": false,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "GOV-001",
+        "GOV-002",
+        "GOV-003",
+        "GOV-004"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-022"
+      ]
+    },
+    {
+      "capability_id": "B-01",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "source_refs": [
+        "D13-R-027"
+      ]
+    },
+    {
+      "capability_id": "B-02",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "PM-001",
+        "PM-002"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-028"
+      ]
+    },
+    {
+      "capability_id": "B-03",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "ENG-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-029"
+      ]
+    },
+    {
+      "capability_id": "B-04",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "REL-001",
+        "ENG-002"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-030"
+      ]
+    },
+    {
+      "capability_id": "BC-01",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "source_refs": [
+        "D13-R-032"
+      ]
+    },
+    {
+      "capability_id": "BC-02",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "CLUE",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [],
+      "non_rule_capability": true,
+      "source_refs": [
+        "D13-R-033"
+      ]
+    },
+    {
+      "capability_id": "C-01",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "OBSERVATION",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "ATTACH-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-035"
+      ]
+    },
+    {
+      "capability_id": "C-02",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "OBSERVATION",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "SCORE-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-036"
+      ]
+    },
+    {
+      "capability_id": "C-03",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "OBSERVATION",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "PERSONNEL-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-037"
+      ]
+    },
+    {
+      "capability_id": "C-04",
+      "requires_dual_gate": true,
+      "requires_coverage": true,
+      "default_degrade_results": [
+        "OBSERVATION",
+        "REVIEW_REQUEST"
+      ],
+      "rule_refs": [
+        "PERF-001"
+      ],
+      "non_rule_capability": false,
+      "source_refs": [
+        "D13-R-038"
+      ]
+    }
+  ],
+  "release_layer_policies": [
+    {
+      "release_layer": "DEV_ALLOWED",
+      "requirements": [
+        "schema present",
+        "no D-tier contamination"
+      ],
+      "notes": [
+        "development/validation only"
+      ]
+    },
+    {
+      "release_layer": "INTERNAL_OPERABLE",
+      "requirements": [
+        "rule/evidence gates not BLOCK",
+        "coverage governance applied",
+        "audit trail present"
+      ],
+      "notes": [
+        "internal analysis/operations and sales usage"
+      ]
+    },
+    {
+      "release_layer": "LEADPACK_DELIVERABLE",
+      "requirements": [
+        "dual gate PASS where required",
+        "field policy allows delivery",
+        "delivery matrix allows object",
+        "approval chain completed",
+        "audit trail complete"
+      ],
+      "notes": [
+        "leadpack deliverable only after gates and approvals"
+      ]
+    },
+    {
+      "release_layer": "EXTERNAL_BLOCKED",
+      "requirements": [
+        "external software release blocked by policy"
+      ],
+      "notes": [
+        "external promise remains blocked"
+      ]
+    }
+  ],
+  "stage_release_policy": {
+    "7": {
+      "dev_release": "DEV_ALLOWED",
+      "internal_release": "INTERNAL_OPERABLE",
+      "leadpack_release": "LEADPACK_DELIVERABLE",
+      "external_release": "EXTERNAL_BLOCKED"
+    },
+    "8": {
+      "dev_release": "DEV_ALLOWED",
+      "internal_release": "INTERNAL_OPERABLE",
+      "leadpack_release": "LEADPACK_DELIVERABLE",
+      "external_release": "EXTERNAL_BLOCKED"
+    },
+    "9": {
+      "dev_release": "DEV_ALLOWED",
+      "internal_release": "INTERNAL_OPERABLE",
+      "leadpack_release": "LEADPACK_DELIVERABLE",
+      "external_release": "EXTERNAL_BLOCKED"
+    }
+  },
+  "blockingConditions": [
+    "external release remains blocked by policy"
+  ]
+}

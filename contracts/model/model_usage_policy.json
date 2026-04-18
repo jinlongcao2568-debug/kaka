@@ -1,0 +1,359 @@
+{
+  "policy_id": "model-usage-policy",
+  "version": "0.2.1",
+  "status": "DRAFT",
+  "stage_signature_matrix_ref": "contracts/model/model_stage_signature_matrix.json",
+  "tool_usage_policy_ref": "contracts/model/tool_usage_policy_catalog.json",
+  "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
+  "usage_tiers": [
+    {
+      "tier_id": "M0_INTERNAL_ASSIST",
+      "description": "Internal assist only; no formal object writes.",
+      "source_refs": [
+        "D14-R-011"
+      ]
+    },
+    {
+      "tier_id": "M1_REVIEW_ASSIST",
+      "description": "Review assist; outputs must remain in review flow.",
+      "source_refs": [
+        "D14-R-011"
+      ]
+    },
+    {
+      "tier_id": "M2_STRUCTURED_ASSIST",
+      "description": "Structured candidates with field-level validation and human confirmation.",
+      "source_refs": [
+        "D14-R-011"
+      ]
+    },
+    {
+      "tier_id": "M3_FORMAL_CHAIN_CONSTRAINED",
+      "description": "Formal-chain constrained; requires governance record, evaluation, approval, and frozen review rules.",
+      "source_refs": [
+        "D14-R-011",
+        "D14-R-037"
+      ]
+    },
+    {
+      "tier_id": "M4_PROHIBITED",
+      "description": "Prohibited from formal chain.",
+      "source_refs": [
+        "D14-R-012"
+      ]
+    }
+  ],
+  "default_rules": {
+    "initial_tier": "M0_INTERNAL_ASSIST",
+    "final_decision_prohibited_all_stages": true,
+    "live_external_provider_prohibited": true,
+    "allowed_usage_modes": [
+      "internal_assist",
+      "review_assist",
+      "structured_assist",
+      "shadow_evaluation"
+    ],
+    "formal_write_mode": "human_review_required_before_any_formal_object_write",
+    "promotion_requirements": [
+      "model_catalog_registered",
+      "prompt_policy_registered",
+      "eval_suite_and_goldens_passed",
+      "output_target_matrix_declared",
+      "D11_regression_included",
+      "D12_release_gate_allowed",
+      "approval_chain_completed",
+      "rollback_target_registered"
+    ],
+    "prohibited_cases": [
+      "D_tier_input_in_formal_chain",
+      "model_output_used_as_primary_evidence",
+      "high_restriction_field_plaintext_leak",
+      "model_writes_final_conclusion_without_review",
+      "bypass_human_review_for_client_or_external_release",
+      "model_run_not_auditable",
+      "critical_goldens_failed",
+      "rollback_path_missing"
+    ]
+  },
+  "capability_mode_matrix": {
+    "model_provider_default": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+    "tool_provider_default": "SHADOW_MODE",
+    "stage8_execution_default": "APPROVAL_REQUIRED",
+    "stage9_execution_default": "SHADOW_MODE",
+    "non_override_release_state": true,
+    "emergency_off_overrides_all": true
+  },
+  "allowed_action_intents": [
+    "PREVIEW_ONLY",
+    "INTERNAL_SOURCE_READ"
+  ],
+  "blocked_action_intents": [
+    "APPROVAL_EXECUTION",
+    "INTERNAL_WRITEBACK",
+    "LIVE_EXECUTION"
+  ],
+  "stage_action_intent_defaults": {
+    "allowed_action_intents": [
+      "PREVIEW_ONLY",
+      "INTERNAL_SOURCE_READ"
+    ],
+    "blocked_action_intents": [
+      "APPROVAL_EXECUTION",
+      "INTERNAL_WRITEBACK",
+      "LIVE_EXECUTION"
+    ],
+    "final_decision_prohibited": true,
+    "default_runtime_binding": "SHADOW_OR_REVIEW_ASSIST_ONLY"
+  },
+  "trace_requirements": [
+    "provider_id",
+    "provider_type",
+    "provider_role",
+    "provider_trace_id",
+    "query_trace_id",
+    "source_audit_ref",
+    "fallback_provider_id",
+    "requires_manual_review"
+  ],
+  "stage_boundaries": [
+    {
+      "stage": 1,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": false,
+      "hard_dependency": false,
+      "review_assist_only": false,
+      "final_decision_prohibited": true,
+      "allowed_actions": [
+        "routing_explanation_draft",
+        "collection_gap_hint"
+      ],
+      "forbidden_actions": [
+        "primary_collection_judgment",
+        "main_source_decision"
+      ]
+    },
+    {
+      "stage": 2,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": false,
+      "hard_dependency": false,
+      "review_assist_only": false,
+      "final_decision_prohibited": true,
+      "allowed_actions": [
+        "collection_exception_summary",
+        "recheck_hint"
+      ],
+      "forbidden_actions": [
+        "formal_collection_state_decision",
+        "version_clock_mainline_decision"
+      ]
+    },
+    {
+      "stage": 3,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "review_assist_only": false,
+      "final_decision_prohibited": true,
+      "allowed_actions": [
+        "candidate_extraction",
+        "normalization_suggestion",
+        "conflict_explanation",
+        "structured_candidate_completion"
+      ],
+      "forbidden_actions": [
+        "final_normalization_decision",
+        "final_conflict_resolution"
+      ]
+    },
+    {
+      "stage": 4,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "review_assist_only": true,
+      "final_decision_prohibited": true,
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_actions": [
+        "verification_explanation",
+        "supplement_suggestion",
+        "review_assist"
+      ],
+      "forbidden_actions": [
+        "verification_state_final_decision"
+      ]
+    },
+    {
+      "stage": 5,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "review_assist_only": true,
+      "final_decision_prohibited": true,
+      "current_capability_mode": "SHADOW_MODE",
+      "allowed_actions": [
+        "evidence_summary",
+        "rule_hit_explanation",
+        "review_assist",
+        "evidence_chain_draft"
+      ],
+      "forbidden_actions": [
+        "rule_gate_decision",
+        "evidence_gate_decision"
+      ]
+    },
+    {
+      "stage": 6,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "review_assist_only": true,
+      "final_decision_prohibited": true,
+      "allowed_actions": [
+        "report_draft",
+        "review_draft",
+        "risk_summary",
+        "queue_assist"
+      ],
+      "forbidden_actions": [
+        "formal_report_pass_decision",
+        "project_fact_entry_decision"
+      ]
+    },
+    {
+      "stage": 7,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "review_assist_only": true,
+      "final_decision_prohibited": true,
+      "allowed_actions": [
+        "buyer_fit_tag_suggestion",
+        "ranking_reason",
+        "opportunity_summary",
+        "recommendation_draft"
+      ],
+      "forbidden_actions": [
+        "saleable_opportunity_final_decision",
+        "final_offer_recommendation"
+      ]
+    },
+    {
+      "stage": 8,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "review_assist_only": true,
+      "final_decision_prohibited": true,
+      "allowed_actions": [
+        "contact_message_draft",
+        "next_step_suggestion",
+        "strategy_explanation",
+        "review_assist"
+      ],
+      "forbidden_actions": [
+        "contact_target_release_decision",
+        "contact_legal_basis_final_decision",
+        "channel_family_final_decision",
+        "frequency_quiet_hours_opt_out_final_decision"
+      ]
+    },
+    {
+      "stage": 9,
+      "model_assist_allowed": true,
+      "tool_assist_allowed": true,
+      "hard_dependency": false,
+      "review_assist_only": true,
+      "final_decision_prohibited": true,
+      "allowed_actions": [
+        "result_summary",
+        "exception_summary",
+        "governance_summary",
+        "delivery_note_draft"
+      ],
+      "forbidden_actions": [
+        "order_payment_delivery_final_decision",
+        "outcome_governance_writeback_final_decision"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "usage_scope": "INTERNAL_ASSIST",
+      "allowed_actions": [
+        "extract",
+        "attribute",
+        "rank",
+        "summarize"
+      ],
+      "forbidden_actions": [
+        "final_delivery_decision",
+        "final_touch_decision",
+        "final_order_decision"
+      ],
+      "review_required": false,
+      "allowed_output_targets": [
+        "internal_note",
+        "field_candidate_buffer"
+      ]
+    },
+    {
+      "usage_scope": "REVIEW_ASSIST",
+      "allowed_actions": [
+        "evidence_gap_detection",
+        "review_suggestion",
+        "risk_tagging"
+      ],
+      "forbidden_actions": [
+        "final_delivery_decision",
+        "final_touch_decision",
+        "final_gate_decision"
+      ],
+      "review_required": true,
+      "allowed_output_targets": [
+        "review_request",
+        "governance_feedback_event",
+        "report_record.draft_section"
+      ]
+    },
+    {
+      "usage_scope": "CLIENT_DELIVERY_ASSIST",
+      "allowed_actions": [
+        "summary_draft",
+        "structured_explanation"
+      ],
+      "forbidden_actions": [
+        "direct_external_delivery",
+        "auto_touch",
+        "auto_order"
+      ],
+      "review_required": true,
+      "allowed_output_targets": [
+        "leadpack_summary",
+        "report_record.draft_section"
+      ]
+    },
+    {
+      "usage_scope": "EXTERNAL_ACTION_ASSIST",
+      "allowed_actions": [
+        "action_suggestion"
+      ],
+      "forbidden_actions": [
+        "auto_execute_action",
+        "auto_contact",
+        "auto_delivery"
+      ],
+      "review_required": true,
+      "allowed_output_targets": [
+        "review_request"
+      ]
+    }
+  ],
+  "source_refs": [
+    "D14-R-010",
+    "D14-R-012",
+    "D14-R-037",
+    "D14-R-040",
+    "D14-R-056-B"
+  ]
+}

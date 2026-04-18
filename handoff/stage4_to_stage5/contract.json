@@ -1,0 +1,91 @@
+{
+  "handoff_id": "H-04-STAGE4-TO-STAGE5",
+  "from_stage": 4,
+  "to_stage": 5,
+  "name": "公开核验 -> 规则与证据",
+  "producer_objects": [
+    "public_attack_surface",
+    "focus_bidder_verification_profile",
+    "pseudo_competitor_signal_set",
+    "evidence_grade_profile"
+  ],
+  "consumer_objects": [
+    "rule_hit",
+    "evidence",
+    "rule_gate_decision",
+    "evidence_gate_decision",
+    "review_request"
+  ],
+  "required_upstream_conditions": [
+    "verification_profile_ready",
+    "public_boundary_tier_assigned",
+    "evidence_grade_initialized"
+  ],
+  "required_payload_fields": [
+    "project_id",
+    "focus_bidder_id",
+    "public_capability_tier",
+    "verification_state",
+    "external_use_grade",
+    "cross_check_state",
+    "fixation_status",
+    "provenance_chain_status",
+    "retrieval_readiness_status",
+    "lineage_status",
+    "conflict_state",
+    "pseudo_competitor_signal_set_id",
+    "confidence_band"
+  ],
+  "consumer_runtime_required_fields": [
+    "project_id",
+    "focus_bidder_id",
+    "public_capability_tier",
+    "verification_state",
+    "external_use_grade",
+    "cross_check_state",
+    "fixation_status",
+    "provenance_chain_status",
+    "retrieval_readiness_status",
+    "lineage_status",
+    "conflict_state",
+    "pseudo_competitor_signal_set_id",
+    "confidence_band"
+  ],
+  "optional_payload_fields": [
+    "public_attack_surface_id",
+    "verification_profile_id",
+    "evidence_grade_profile_id"
+  ],
+  "consumer_obligations": [
+    "Stage5 must consume Stage4 producer objects as the single formal verification and evidence-precondition source.",
+    "Stage5 must not re-derive verification_state, cross_check_state, fixation_status, provenance_chain_status, retrieval_readiness_status, lineage_status, or conflict_state from raw pre-Stage4 inputs or flags.",
+    "Stage5 may only derive rule/evidence gate artifacts from Stage4 formal outputs plus scoped governance inputs."
+  ],
+  "consumer_must_not_recompute_fields": [
+    "public_capability_tier",
+    "verification_state",
+    "external_use_grade",
+    "cross_check_state",
+    "fixation_status",
+    "provenance_chain_status",
+    "retrieval_readiness_status",
+    "lineage_status",
+    "conflict_state",
+    "pseudo_competitor_signal_set_id",
+    "confidence_band"
+  ],
+  "blocking_conditions": [
+    "d_tier_input_detected",
+    "missing_evidence_grade_profile",
+    "missing_public_boundary_tier",
+    "missing_verification_state",
+    "missing_evidence_precondition_state"
+  ],
+  "success_criteria": [
+    "rule_hits_created",
+    "evidence_created",
+    "dual_gates_created"
+  ],
+  "priority": "P0",
+  "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-04-STAGE4-TO-STAGE5"
+}

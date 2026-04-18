@@ -1,0 +1,101 @@
+version: 1
+templateState: NAMED_ASSIGNED
+single_operator_mode: true
+updated_at: "2026-04-14"
+notes:
+  - "Single operator mode; named approver confirmed."
+approvalChains:
+  internal_review_release:
+    enabled: true
+    responsible_role: "testing_owner"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    approver: "卡卡罗特"
+    backup_approver: ""
+    required_role: "testing"
+    required_roles:
+      - "testing"
+    escalation_path: []
+    activation_condition: "internal review release requested"
+    current_blockers: []
+  client_report_release:
+    enabled: true
+    responsible_role: "release_approver"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    approver: "卡卡罗特"
+    backup_approver: ""
+    required_role: "governance"
+    required_roles:
+      - "human_reviewer"
+      - "governance"
+    escalation_path: []
+    activation_condition: "leadpack delivery report release"
+    current_blockers: []
+  external_action_release:
+    enabled: true
+    responsible_role: "release_approver"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    approver: "卡卡罗特"
+    backup_approver: ""
+    required_role: "governance"
+    required_roles:
+      - "human_reviewer"
+      - "governance"
+    escalation_path: []
+    activation_condition: "leadpack action assist release requested"
+    current_blockers: []
+  high_restriction_field_view:
+    enabled: true
+    responsible_role: "governance_owner"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    approver: "卡卡罗特"
+    backup_approver: ""
+    required_role: "governance"
+    required_roles:
+      - "governance"
+    escalation_path: []
+    activation_condition: "high restriction field view requested"
+    current_blockers: []
+  high_restriction_contact_release:
+    enabled: true
+    responsible_role: "governance_owner"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    approver: "卡卡罗特"
+    backup_approver: ""
+    required_role: "governance"
+    required_roles:
+      - "governance"
+      - "sales_control"
+    escalation_path: []
+    activation_condition: "high restriction contact release requested"
+    current_blockers: []
+  boundary_exception:
+    enabled: true
+    responsible_role: "governance_owner"
+    responsible_person: "卡卡罗特"
+    fallback_person: ""
+    current_state: "ACTIVE"
+    state_level: "NAMED_ASSIGNED"
+    approver: "卡卡罗特"
+    backup_approver: ""
+    required_role: "governance"
+    required_roles:
+      - "governance"
+      - "architecture"
+    escalation_path: []
+    activation_condition: "boundary exception requested"
+    current_blockers: []

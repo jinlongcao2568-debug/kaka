@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "public_chain",
+  "type": "object",
+  "description": "Schema skeleton for public_chain.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-010"
+  ],
+  "enum_refs": [
+    "public_chain_status",
+    "window_clock_state",
+    "source_family",
+    "platform_level",
+    "region_scope",
+    "coverage_tier",
+    "carrier_type",
+    "route_type",
+    "collection_state"
+  ],
+  "properties": {
+    "public_chain_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "announcement_url": {
+      "type": "string"
+    },
+    "source_family": {
+      "type": "string"
+    },
+    "platform_level": {
+      "type": "string"
+    },
+    "region_scope": {
+      "type": "string"
+    },
+    "coverage_tier": {
+      "type": "string"
+    },
+    "carrier_type": {
+      "type": "string"
+    },
+    "source_registry_id": {
+      "type": "string"
+    },
+    "route_policy_id": {
+      "type": "string"
+    },
+    "default_route": {
+      "type": "string"
+    },
+    "fallback_route": {
+      "type": "string"
+    },
+    "route_decision_state": {
+      "type": "string"
+    },
+    "route_review_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "route_downgrade_signals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "route_block_signals": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "collection_state": {
+      "type": "string"
+    },
+    "requires_manual_review": {
+      "type": "boolean"
+    },
+    "timeline_nodes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_node_set": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "node_presence_matrix": {
+      "type": "object"
+    },
+    "statutory_node_completeness": {
+      "type": "boolean"
+    },
+    "window_clock_state": {
+      "type": "string"
+    },
+    "clock_chain_id": {
+      "type": "string"
+    },
+    "version_chain_id": {
+      "type": "string"
+    },
+    "first_seen_at": {
+      "type": "string"
+    },
+    "last_retrieved_at": {
+      "type": "string"
+    },
+    "origin_carrier_type": {
+      "type": "string"
+    },
+    "fixation_bundle_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "public_chain_id",
+    "project_id",
+    "announcement_url",
+    "source_family",
+    "platform_level",
+    "region_scope",
+    "coverage_tier",
+    "carrier_type",
+    "source_registry_id",
+    "route_policy_id",
+    "default_route",
+    "fallback_route",
+    "route_decision_state",
+    "route_review_reasons",
+    "route_downgrade_signals",
+    "route_block_signals",
+    "collection_state",
+    "requires_manual_review",
+    "timeline_nodes",
+    "required_node_set",
+    "node_presence_matrix",
+    "statutory_node_completeness",
+    "window_clock_state",
+    "clock_chain_id",
+    "version_chain_id",
+    "first_seen_at",
+    "last_retrieved_at",
+    "origin_carrier_type",
+    "fixation_bundle_id"
+  ],
+  "additionalProperties": false
+}

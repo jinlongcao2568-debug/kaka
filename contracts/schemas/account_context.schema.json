@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "account_context",
+  "type": "object",
+  "description": "Schema skeleton for account_context.",
+  "source_refs": [
+    "D2-R-017"
+  ],
+  "enum_refs": [
+    "account_role_summary"
+  ],
+  "properties": {
+    "account_context_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "org_name": {
+      "type": "string"
+    },
+    "org_type": {
+      "type": "string"
+    },
+    "account_role_summary": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "account_context_id",
+    "project_id",
+    "org_name",
+    "org_type",
+    "account_role_summary"
+  ],
+  "additionalProperties": false
+}

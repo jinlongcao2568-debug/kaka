@@ -1,0 +1,18 @@
+{
+  "handoff_id": "H-08-STAGE8-TO-STAGE9",
+  "example_id": "EX-H08-MIN",
+  "payload": {
+    "opportunity_id": "OPP-001",
+    "touch_record_id": "TOUCH-001",
+    "response_status": "NO_RESPONSE",
+    "saleability_status": "QUALIFIED",
+    "crm_owner_state": "UNASSIGNED",
+    "plan_status": "DRAFT",
+    "touch_record_state": "CREATED",
+    "feedback_reason": "NO_RESPONSE",
+    "written_back_at_optional": "2026-04-14T00:00:00Z",
+    "governance_decision_state": "ALLOW",
+    "permission_decision_state": "ALLOW",
+    "semantic_decision_state": "ALLOW"
+  }
+}

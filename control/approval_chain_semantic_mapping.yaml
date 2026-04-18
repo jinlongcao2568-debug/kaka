@@ -1,0 +1,51 @@
+version: 1
+updated_at: "2026-04-15"
+purpose: "Map legacy approvalChainId names to internal leadops semantics (no renames yet)"
+notes:
+  - "Legacy ids are retained for compatibility; semantics are updated to leadpack delivery."
+  - "Do not rename ids until governance sign-off."
+mapping:
+  internal_review_release:
+    semantic_name: "internal_operations_release"
+    meaning: "内部运营/复核放行（内部可用）"
+    release_level: "INTERNAL_OPERABLE"
+  client_report_release:
+    semantic_name: "leadpack_report_release"
+    meaning: "线索包交付报告放行（外发受控）"
+    release_level: "LEADPACK_DELIVERABLE"
+  external_action_release:
+    semantic_name: "leadpack_action_assist_release"
+    meaning: "线索包动作辅助放行（外发受控）"
+    release_level: "LEADPACK_DELIVERABLE"
+  demo_preview_release:
+    semantic_name: "dev_preview_release"
+    meaning: "预览/演示放行（仅开发预览）"
+    release_level: "DEV_ALLOWED"
+  external_api_release:
+    semantic_name: "external_platform_release_blocked"
+    meaning: "外部平台接口放行（默认阻断）"
+    release_level: "EXTERNAL_BLOCKED"
+  high_restriction_field_view:
+    semantic_name: "restricted_field_view"
+    meaning: "高限制字段查看审批"
+    release_level: "INTERNAL_OPERABLE"
+  high_restriction_contact_release:
+    semantic_name: "restricted_contact_release"
+    meaning: "高限制联系对象释放审批"
+    release_level: "INTERNAL_OPERABLE"
+  coverage_state_change:
+    semantic_name: "coverage_state_change"
+    meaning: "coverage 状态治理审批"
+    release_level: "INTERNAL_OPERABLE"
+  delivery_matrix_change:
+    semantic_name: "delivery_matrix_change"
+    meaning: "交付矩阵变更审批"
+    release_level: "INTERNAL_OPERABLE"
+  private_supplement_release:
+    semantic_name: "private_supplement_release"
+    meaning: "私有补证影响释放审批"
+    release_level: "INTERNAL_OPERABLE"
+  boundary_exception:
+    semantic_name: "boundary_exception"
+    meaning: "边界受控例外审批"
+    release_level: "INTERNAL_OPERABLE"

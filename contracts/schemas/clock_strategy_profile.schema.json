@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "clock_strategy_profile",
+  "type": "object",
+  "description": "Schema skeleton for clock_strategy_profile.",
+  "source_refs": [
+    "D2-R-025"
+  ],
+  "enum_refs": [],
+  "properties": {
+    "clock_strategy_profile_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "procurement_regime_strategy": {
+      "type": "string"
+    },
+    "window_priority_policy": {
+      "type": "string"
+    },
+    "clock_resolution_rule_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "clock_strategy_profile_id",
+    "task_id",
+    "procurement_regime_strategy",
+    "window_priority_policy",
+    "clock_resolution_rule_id",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

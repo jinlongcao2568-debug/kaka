@@ -1,0 +1,68 @@
+{
+  "registry_id": "leadpack-activation-prep-simulation-replay",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D5",
+      "D7",
+      "D12",
+      "D13"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Machine-readable replay artifact contract for leadpack activation prep. This asset binds export simulation output back to projection, masking, boundary and trace requirements.",
+    "machine_path": "contracts/release/leadpack_activation_prep_simulation_replay.json",
+    "candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json"
+  },
+  "artifact_type": "LEADPACK_ACTIVATION_PREP_SIMULATION_REPLAY",
+  "replay_status_vocabulary": [
+    "REPLAY_PENDING",
+    "REPLAY_READY",
+    "REPLAY_HELD",
+    "REPLAY_INVALID"
+  ],
+  "source_operation_id": "simulateLeadpackExternalDeliveryExport",
+  "replay_surface_id": "review_report_workbench",
+  "required_trace_refs": [
+    "candidate_projection_audit_ref",
+    "approval_chain_audit_ref",
+    "trace_bundle_ref"
+  ],
+  "required_projection_rules": [
+    "projection_only=true",
+    "direct_object_export_allowed=false",
+    "allowed_projection_components resolved from leadpack candidate matrix"
+  ],
+  "required_boundary_checks": [
+    "delivery_matrix_projection_only_alignment",
+    "field_policy_masking_alignment",
+    "public_boundary_never_default_open_alignment",
+    "coverage_registry_supporting_evidence_only",
+    "stage8_stage9_direct_object_export_blocked"
+  ],
+  "required_masking_rules": [
+    "high restriction contact fields must be masked or removed",
+    "provider/vendor/source refs must be removed",
+    "internal traces and governance traces remain audit-presence only",
+    "outreach_plan and governance_feedback_event remain forbidden in replay output"
+  ],
+  "artifact_fields": [
+    "artifact_id",
+    "source_operation_id",
+    "candidate_matrix_ref",
+    "projection_component_counts",
+    "forbidden_component_ids",
+    "boundary_check_results",
+    "missing_approvals",
+    "missing_review_gates",
+    "missing_audit_refs",
+    "trace_refs"
+  ],
+  "replay_failure_conditions": [
+    "candidate_matrix missing",
+    "projection boundary rules missing",
+    "trace refs missing",
+    "masked or forbidden rules unresolved",
+    "direct object export still visible"
+  ]
+}

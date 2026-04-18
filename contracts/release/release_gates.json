@@ -1,0 +1,487 @@
+{
+  "registry_id": "release-gates",
+  "version": "0.1.3",
+  "metadata": {
+    "package_name": "governance/release package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-15",
+    "machine_path": "contracts/release/release_gates.json",
+    "scope": "formal release gates for internal operations, sales consumption and leadpack delivery",
+    "source_documents": [
+      "L0.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D13_公开可查边界能力清单.md",
+      "D11_测试验收与金标回归清单.md",
+      "D14_AI模型治理规范.md",
+      "裁决总表.md"
+    ],
+    "notes": [
+      "release layers aligned with D13",
+      "stage 9 gate alignment finalized without creating new release gate ids",
+      "future external unlock prerequisite gates define evidence/signoff/shadow/rollback readiness only and do not authorize unlock",
+      "leadpack activation implementation prep gate is design-prep only and does not authorize activation"
+    ]
+  },
+  "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
+  "future_unlock_prerequisite_matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
+  "future_unlock_decision_matrix_ref": "contracts/release/future_unlock_decision_matrix.json",
+  "capability_mode_rules": {
+    "non_override_release_layer": true,
+    "external_block_redline_kept": true,
+    "permanently_blocked_and_emergency_off_override_all": true,
+    "real_run_ready_requires_gate_and_approval": true
+  },
+  "future_unlock_prerequisite_gates": [
+    {
+      "gateId": "external_unlock_evidence_pack_ready",
+      "appliesToDomains": [
+        "external_software_release",
+        "leadpack_external_delivery",
+        "stage8_live_execution",
+        "stage9_live_payment_execution",
+        "stage9_live_delivery_execution",
+        "model_provider_externalized_usage",
+        "tool_provider_externalized_usage",
+        "source_vendor_externalized_usage",
+        "external_export_surface"
+      ],
+      "requirements": [
+        "required regression and release checks passed",
+        "runtime/governance/semantic/architecture evidence pack present",
+        "coverage and public boundary snapshots attached"
+      ],
+      "blockedByDefault": true
+    },
+    {
+      "gateId": "external_unlock_owner_signoff_ready",
+      "appliesToDomains": [
+        "external_software_release",
+        "leadpack_external_delivery",
+        "stage8_live_execution",
+        "stage9_live_payment_execution",
+        "stage9_live_delivery_execution",
+        "model_provider_externalized_usage",
+        "tool_provider_externalized_usage",
+        "source_vendor_externalized_usage",
+        "external_export_surface"
+      ],
+      "requirements": [
+        "required owner signoffs complete",
+        "review gate output is at least MANDATORY_HUMAN_REVIEW",
+        "no STOP_AND_ESCALATE issue unresolved"
+      ],
+      "blockedByDefault": true
+    },
+    {
+      "gateId": "external_unlock_shadow_canary_ready",
+      "appliesToDomains": [
+        "external_software_release",
+        "stage8_live_execution",
+        "stage9_live_payment_execution",
+        "stage9_live_delivery_execution",
+        "model_provider_externalized_usage"
+      ],
+      "requirements": [
+        "required shadow or canary lane declared",
+        "canary rollback threshold documented",
+        "post-shadow review evidence recorded"
+      ],
+      "blockedByDefault": true
+    },
+    {
+      "gateId": "external_unlock_rollback_ready",
+      "appliesToDomains": [
+        "external_software_release",
+        "leadpack_external_delivery",
+        "stage8_live_execution",
+        "stage9_live_payment_execution",
+        "stage9_live_delivery_execution",
+        "external_export_surface"
+      ],
+      "requirements": [
+        "rollback target registered",
+        "emergency off path registered",
+        "kill-switch owner and replay verification steps documented"
+      ],
+      "blockedByDefault": true
+    },
+    {
+      "gateId": "leadpack_activation_implementation_prep_ready",
+      "appliesToDomains": [
+        "leadpack_external_delivery"
+      ],
+      "requirements": [
+        "activation design prep matrix is present",
+        "owner signoff execution states are actual state-backed, not default-status only",
+        "approval chain, review gate, audit refs and owner signoff prerequisites are layered and traceable",
+        "approval/audit/review/signoff missing conditions are formal HOLD sources before implementation decision",
+        "implementation decision readiness packet is present and review-only",
+        "rollback, cancel and emergency-off design controls are present",
+        "implementation-prep readiness checklist and regression are green",
+        "actual activation, external delivery, external release and live execution remain disabled"
+      ],
+      "blockedByDefault": true
+    },
+    {
+      "gateId": "model_externalization_eval_ready",
+      "appliesToDomains": [
+        "model_provider_externalized_usage"
+      ],
+      "requirements": [
+        "externalization eval suites green",
+        "golden and leakage checks green",
+        "output target matrix still bounded"
+      ],
+      "blockedByDefault": true
+    },
+    {
+      "gateId": "provider_externalization_boundary_ready",
+      "appliesToDomains": [
+        "tool_provider_externalized_usage",
+        "source_vendor_externalized_usage",
+        "external_export_surface"
+      ],
+      "requirements": [
+        "public boundary and field policy still enforce projection-only output",
+        "provider/source auditability remains traceable",
+        "direct raw object exposure remains blocked"
+      ],
+      "blockedByDefault": true
+    }
+  ],
+  "future_unlock_decision_rules": {
+    "decision_only_not_implementation": true,
+    "candidate_not_equivalent_to_approved": true,
+    "unlock_implementation_requires_decision_matrix": true,
+    "deny_or_long_term_blocked_must_fail_unlock_implementation": true,
+    "activation_or_go_live_requires_separate_batch": true
+  },
+  "gates": [
+    {
+      "releaseGateId": "internal_review_release",
+      "surface": "INTERNAL_OPERATIONS",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "requirements": [
+        "object exists in formal schema catalog",
+        "field policy allows internal surface",
+        "audit trail is present",
+        "delivery matrix allows internal surface",
+        "stage9 audit required before commercial/payment/delivery confirmation",
+        "stage9 direct objects remain internal only unless transformed into approved projection objects"
+      ],
+      "approvalChainId": "internal_review_release",
+      "sourceRefs": [
+        "D7-R-016"
+      ]
+    },
+    {
+      "releaseGateId": "sales_consumption_release",
+      "surface": "SALES_CONSUMABLE",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "requirements": [
+        "delivery matrix allows sales surface",
+        "field policy allows sales surface",
+        "audit trail is present"
+      ],
+      "approvalChainId": "internal_review_release",
+      "sourceRefs": [
+        "D7-R-060"
+      ]
+    },
+    {
+      "releaseGateId": "client_report_release",
+      "surface": "LEADPACK_DELIVERABLE",
+      "minimumReleaseLevel": "LEADPACK_DELIVERABLE",
+      "requirements": [
+        "field policy allows target fields",
+        "delivery matrix allows target object",
+        "required approval chain completed",
+        "evidence grade reaches at least E3_CLIENT_VISIBLE",
+        "no D-tier contamination",
+        "stage9 outcome/governance writeback recorded before leadpack delivery",
+        "stage9 direct objects are not themselves leadpack deliverables; only approved projections may consume their summaries"
+      ],
+      "approvalChainId": "client_report_release",
+      "sourceRefs": [
+        "D7-R-016",
+        "D6-R-022"
+      ]
+    },
+    {
+      "releaseGateId": "external_action_release",
+      "surface": "LEADPACK_DELIVERABLE",
+      "minimumReleaseLevel": "LEADPACK_DELIVERABLE",
+      "requirements": [
+        "dual gates PASS for required action basis",
+        "evidence grade reaches E4_EXTERNAL_ACTION_READY",
+        "primary evidence carrier is traceable and fixed",
+        "required approval chain completed",
+        "competent authority scope and window status are present"
+      ],
+      "approvalChainId": "external_action_release",
+      "sourceRefs": [
+        "D7-R-016",
+        "D13-R-023"
+      ]
+    },
+    {
+      "releaseGateId": "demo_preview_release",
+      "surface": "DEMO_PREVIEW",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "requirements": [
+        "strong disclaimer present",
+        "mask rules applied",
+        "no internal reasoning leakage",
+        "no natural person raw contact value exposed"
+      ],
+      "approvalChainId": "internal_review_release",
+      "sourceRefs": [
+        "D7-R-016"
+      ]
+    },
+    {
+      "releaseGateId": "external_api_release",
+      "surface": "RESTRICTED_RELEASE",
+      "minimumReleaseLevel": "EXTERNAL_BLOCKED",
+      "requirements": [
+        "external platform release remains blocked by current policy",
+        "approval mapping must retain EXTERNAL_BLOCKED semantics",
+        "API surface may not expose governance-isolated or internal reasoning objects",
+        "gate is retained only as a blocked semantic placeholder for future governance review",
+        "stage9 direct objects remain blocked by policy"
+      ],
+      "approvalChainId": "external_api_release",
+      "sourceRefs": [
+        "D7-R-016"
+      ],
+      "blockedByDefault": true
+    },
+    {
+      "releaseGateId": "coverage_promotion_release",
+      "surface": "GOVERNANCE_ONLY",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "requirements": [
+        "coverage promotion requirements satisfied",
+        "governance approval completed",
+        "regression passed",
+        "release checklist passed"
+      ],
+      "approvalChainId": "coverage_state_change",
+      "sourceRefs": [
+        "D7-R-025",
+        "D11-R-040"
+      ]
+    },
+    {
+      "releaseGateId": "high_restriction_contact_release",
+      "surface": "RESTRICTED_RELEASE",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "requirements": [
+        "lawful basis present",
+        "frequency policy PASS",
+        "quiet hours policy PASS",
+        "opt-out absent",
+        "approval chain completed",
+        "audit event persisted"
+      ],
+      "approvalChainId": "high_restriction_contact_release",
+      "sourceRefs": [
+        "D7-R-016",
+        "D9-R-022"
+      ]
+    }
+  ],
+  "stage9_object_gate_alignment": [
+    {
+      "object": "order_record",
+      "action": "order_draft",
+      "allowedGates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "blockedGates": [
+        "client_report_release",
+        "external_api_release"
+      ],
+      "requiredConditions": [
+        "approval chain present",
+        "audit trail present"
+      ],
+      "sourceRefs": [
+        "D4-R-073-A",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "object": "payment_record",
+      "action": "payment_draft",
+      "allowedGates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "blockedGates": [
+        "client_report_release",
+        "external_api_release"
+      ],
+      "requiredConditions": [
+        "payment proof or audit present for received state",
+        "no payer mismatch block"
+      ],
+      "sourceRefs": [
+        "D4-R-073-A",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "object": "delivery_record",
+      "action": "delivery_preview",
+      "allowedGates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "blockedGates": [
+        "client_report_release",
+        "external_api_release"
+      ],
+      "requiredConditions": [
+        "release gate present",
+        "approval chain present",
+        "audit trail present",
+        "archival or retrieval not failed"
+      ],
+      "sourceRefs": [
+        "D4-R-073-A",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "object": "opportunity_outcome_event",
+      "action": "outcome_writeback",
+      "allowedGates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "blockedGates": [
+        "client_report_release",
+        "external_api_release"
+      ],
+      "requiredConditions": [
+        "taxonomy valid",
+        "written_back_at present",
+        "audit trail present"
+      ],
+      "sourceRefs": [
+        "D4-R-073-A",
+        "D7-R-062-A"
+      ]
+    },
+    {
+      "object": "governance_feedback_event",
+      "action": "governance_feedback_writeback",
+      "allowedGates": [
+        "internal_review_release"
+      ],
+      "blockedGates": [
+        "sales_consumption_release",
+        "client_report_release",
+        "external_api_release"
+      ],
+      "requiredConditions": [
+        "trigger and action valid",
+        "written_back_at present",
+        "governance audit present"
+      ],
+      "sourceRefs": [
+        "D4-R-073-A",
+        "D7-R-062-A"
+      ]
+    }
+  ],
+  "blockingConditions": [
+    "any D-tier derived content enters target release bundle",
+    "formal leadpack/demo/external platform release relies solely on screenshot, OCR or model summary",
+    "delivery matrix blocks object",
+    "field policy blocks field",
+    "approval chain incomplete",
+    "dual-gate block persists",
+    "release checklist fails",
+    "external release remains blocked by policy",
+    "stage9 draft/preview must not be treated as external delivery",
+    "stage9 direct object must not bypass projection-only policy"
+  ],
+  "release_status_rules": {
+    "INTERNAL_ONLY": {
+      "allowedGates": [
+        "internal_review_release",
+        "sales_consumption_release"
+      ],
+      "blockedGates": [
+        "client_report_release",
+        "external_api_release"
+      ],
+      "notes": [
+        "internal surfaces only; leadpack delivery remains blocked"
+      ]
+    },
+    "REVIEW_ONLY": {
+      "allowedGates": [
+        "internal_review_release"
+      ],
+      "blockedGates": [
+        "sales_consumption_release",
+        "client_report_release",
+        "external_api_release"
+      ],
+      "notes": [
+        "review queue only; requires human approval before any downstream use"
+      ]
+    },
+    "RELEASED": {
+      "allowedGates": [
+        "internal_review_release",
+        "sales_consumption_release",
+        "client_report_release"
+      ],
+      "blockedGates": [
+        "external_api_release"
+      ],
+      "notes": [
+        "leadpack deliverable allowed when gates pass; external platform remains blocked by policy"
+      ]
+    },
+    "SUSPENDED": {
+      "forcedBlockGates": [
+        "client_report_release",
+        "external_api_release"
+      ],
+      "notes": [
+        "trigger rollback and downgrade to internal-only surfaces"
+      ]
+    },
+    "REVOKED": {
+      "forcedBlockGates": [
+        "internal_review_release",
+        "sales_consumption_release",
+        "client_report_release",
+        "external_api_release"
+      ],
+      "notes": [
+        "release invalidated; new governance record required for re-entry"
+      ]
+    }
+  },
+  "downgrade_triggers": [
+    "D11 regression fails or release checklist fails",
+    "exception_state rolled back or expired",
+    "audit trail missing or approval chain revoked",
+    "boundary or dual-gate violation detected"
+  ],
+  "releaseChecklistPath": "contracts/testing/release_checklist.json",
+  "release_layers": [
+    "DEV_ALLOWED",
+    "INTERNAL_OPERABLE",
+    "LEADPACK_DELIVERABLE",
+    "EXTERNAL_BLOCKED"
+  ]
+}

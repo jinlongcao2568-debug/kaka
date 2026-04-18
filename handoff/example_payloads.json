@@ -1,0 +1,80 @@
+{
+  "catalogId": "ax9s-stage-handoff-example-payloads",
+  "version": "2026-04-12-round1",
+  "status": "DRAFT",
+  "examples": [
+    {
+      "handoffId": "H-01-STAGE1-TO-STAGE2",
+      "exampleId": "EX-H01-MIN",
+      "payload": {
+        "task_id": "TASK-001",
+        "region_code": "320500",
+        "time_range_from": "2026-04-01",
+        "time_range_until": "2026-04-12",
+        "strategy_template_id": "public-core-standard",
+        "review_lane": "STANDARD",
+        "project_rooting_policy": "NOTICE_CHAIN_FIRST",
+        "window_priority_policy": "ACTION_WINDOW_FIRST"
+      }
+    },
+    {
+      "handoffId": "H-02-STAGE2-TO-STAGE3",
+      "exampleId": "EX-H02-MIN",
+      "payload": {
+        "project_id": "PRJ-001",
+        "clock_chain_id": "CLK-001",
+        "version_chain_id": "VER-001",
+        "fixation_bundle_id": "FIX-001",
+        "origin_carrier_type": "PUBLIC_NOTICE_PAGE",
+        "first_seen_at": "2026-04-12T09:00:00+08:00",
+        "last_retrieved_at": "2026-04-12T09:10:00+08:00"
+      }
+    },
+    {
+      "handoffId": "H-05-STAGE5-TO-STAGE6",
+      "exampleId": "EX-H05-MIN",
+      "payload": {
+        "project_id": "PRJ-001",
+        "rule_gate_status": "PASS",
+        "evidence_gate_status": "REVIEW",
+        "coverage_sellable_state": "RESTRICTED",
+        "delivery_risk_state": "REVIEW"
+      }
+    },
+    {
+      "handoffId": "H-06-STAGE6-TO-STAGE7",
+      "exampleId": "EX-H06-MIN",
+      "payload": {
+        "project_id": "PRJ-001",
+        "sale_gate_status": "REVIEW",
+        "real_competitor_count": 1,
+        "competitor_quality_grade": "MEDIUM",
+        "window_status": "OPEN"
+      }
+    },
+    {
+      "handoffId": "H-07-STAGE7-TO-STAGE8",
+      "exampleId": "EX-H07-MIN",
+      "payload": {
+        "opportunity_id": "OPP-001",
+        "saleability_status": "REVIEW",
+        "channel_family": "EMAIL",
+        "contact_legal_basis": "PUBLIC_BUSINESS_CONTACT",
+        "frequency_policy_state": "PASS",
+        "opt_out_state": "NONE",
+        "quiet_hours_policy_state": "PASS"
+      }
+    },
+    {
+      "handoffId": "H-08-STAGE8-TO-STAGE9",
+      "exampleId": "EX-H08-MIN",
+      "payload": {
+        "opportunity_id": "OPP-001",
+        "touch_record_id": "TOUCH-001",
+        "response_status": "RESPONDED",
+        "saleability_status": "READY",
+        "crm_owner_state": "ASSIGNED"
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "handoff_id": "H-02-STAGE2-TO-STAGE3",
+  "example_id": "EX-H02-MIN",
+  "payload": {
+    "project_id": "PRJ-001",
+    "clock_chain_id": "CLK-001",
+    "version_chain_id": "VER-001",
+    "fixation_bundle_id": "FIX-001",
+    "origin_carrier_type": "HTML_PAGE",
+    "first_seen_at": "2026-04-12T09:00:00+08:00",
+    "last_retrieved_at": "2026-04-12T09:10:00+08:00",
+    "clock_conflict_state": "CONSISTENT",
+    "collection_state": "PARSED",
+    "source_registry_id": "SRC-REG-PROC-NATIONAL-HTML",
+    "route_policy_id": "ROUTE-PROC-NOTICE-001",
+    "fallback_route": "DETAIL_DIRECT",
+    "route_decision_state": "ALLOW",
+    "route_review_reasons": [],
+    "winning_version_resolution_rule_id": "VERSION-PROC-NOTICE-001",
+    "clock_resolution_rule_id": "CLOCK-DEFAULT"
+  }
+}

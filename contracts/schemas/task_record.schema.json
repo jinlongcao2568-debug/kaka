@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "task_record",
+  "type": "object",
+  "description": "Schema skeleton for task_record.",
+  "source_refs": [
+    "D2-R-017"
+  ],
+  "enum_refs": [
+    "review_lane",
+    "task_state"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string"
+    },
+    "region_code": {
+      "type": "string"
+    },
+    "time_range_from": {
+      "type": "string"
+    },
+    "time_range_until": {
+      "type": "string"
+    },
+    "strategy_template_id": {
+      "type": "string"
+    },
+    "review_lane": {
+      "type": "string"
+    },
+    "task_state": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_id",
+    "region_code",
+    "time_range_from",
+    "time_range_until",
+    "strategy_template_id",
+    "review_lane",
+    "task_state",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

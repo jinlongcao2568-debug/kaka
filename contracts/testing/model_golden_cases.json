@@ -1,0 +1,48 @@
+{
+  "registry_id": "model-golden-cases",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "testing package round 1",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/testing/model_golden_cases.json",
+    "source_documents": [
+      "D14_AI模型治理规范.md",
+      "D11_测试验收与金标回归清单.md"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "MODEL-GOLD-001",
+      "usage_scope": "INTERNAL_ASSIST",
+      "input_summary": "internal extraction from public_chain",
+      "expected_output_target": "internal_note",
+      "must_not_output_targets": [
+        "saleable_opportunity",
+        "contact_target",
+        "outreach_plan"
+      ]
+    },
+    {
+      "case_id": "MODEL-GOLD-002",
+      "usage_scope": "REVIEW_ASSIST",
+      "input_summary": "evidence gap detection",
+      "expected_output_target": "review_request",
+      "must_not_output_targets": [
+        "leadpack_summary",
+        "delivery_record"
+      ]
+    },
+    {
+      "case_id": "MODEL-GOLD-003",
+      "usage_scope": "CLIENT_DELIVERY_ASSIST",
+      "input_summary": "leadpack summary candidate",
+      "expected_output_target": "leadpack_summary",
+      "must_not_output_targets": [
+        "order_record",
+        "delivery_record"
+      ],
+      "review_required": true
+    }
+  ]
+}

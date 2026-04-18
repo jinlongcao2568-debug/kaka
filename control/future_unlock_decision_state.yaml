@@ -1,0 +1,92 @@
+version: 1
+updated_at: "2026-04-16"
+state_type: "FUTURE_UNLOCK_DECISION"
+decision_scope: "DECISION_ONLY_NOT_IMPLEMENTATION"
+projection_only: true
+canonical_source_refs:
+  decision_domains: "contracts/release/future_unlock_decision_matrix.json#capability_domains"
+  recommended_sequence: "contracts/release/future_unlock_decision_matrix.json#recommended_sequence"
+  prerequisite_domains: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains"
+prerequisite_matrix_ref: "contracts/release/external_unlock_prerequisite_matrix.json"
+decision_matrix_ref: "contracts/release/future_unlock_decision_matrix.json"
+leadpack_candidate_matrix_ref: "contracts/release/leadpack_external_delivery_candidate_matrix.json"
+leadpack_activation_prep_evidence_pack_ref: "contracts/release/leadpack_activation_prep_evidence_pack.json"
+leadpack_activation_prep_transition_ref: "contracts/release/leadpack_activation_prep_transition_matrix.json"
+leadpack_activation_design_implementation_prep_ref: "contracts/release/leadpack_activation_design_implementation_prep_matrix.json"
+leadpack_implementation_decision_readiness_packet_ref: "contracts/release/leadpack_implementation_decision_readiness_packet.json"
+prerequisite_state_ref: "control/external_unlock_prerequisite_state.yaml"
+repo_phase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
+decision_batch_status: "COMPLETED"
+repo_readiness_at_decision_time: "READY_FOR_POST-R6_CANDIDATE_GAP_BATCH"
+candidate_gap_status_at_decision_time: "LEADPACK_CANDIDATE_GAP_ACTIVE"
+approved_for_unlock_implementation: false
+external_release_status: "BLOCKED"
+default_strategic_path: "CONTINUE_INTERNAL_FIRST"
+future_unlock_candidate_domains:
+  - "leadpack_external_delivery"
+  - "source_vendor_externalized_usage"
+  - "external_export_surface"
+deny_by_default_continue_domains:
+  - "external_software_release"
+  - "stage8_live_execution"
+  - "stage9_live_payment_execution"
+  - "stage9_live_delivery_execution"
+  - "model_provider_externalized_usage"
+long_term_blocked_or_never_default_open_domains:
+  - "tool_provider_externalized_usage"
+recommended_sequence:
+  - order: 1
+    capability_domain_id: "leadpack_external_delivery"
+    lane_requirement: "INTERNAL_GOVERNED_PROJECTION_ONLY"
+  - order: 2
+    capability_domain_id: "source_vendor_externalized_usage"
+    lane_requirement: "INTERNAL_GOVERNED_OR_SHADOW_FIRST"
+  - order: 3
+    capability_domain_id: "external_export_surface"
+    lane_requirement: "PROJECTION_ONLY_AND_CANARY_IF_EXTERNAL_SURFACE_EXPANDS"
+  - order: 4
+    capability_domain_id: "model_provider_externalized_usage"
+    lane_requirement: "SHADOW_THEN_CANARY_REQUIRED"
+  - order: 5
+    capability_domain_id: "stage8_live_execution"
+    lane_requirement: "SHADOW_THEN_CANARY_REQUIRED"
+  - order: 6
+    capability_domain_id: "external_software_release"
+    lane_requirement: "STRATEGY_REASSESSMENT_ONLY"
+  - order: 7
+    capability_domain_id: "stage9_live_delivery_execution"
+    lane_requirement: "SHADOW_THEN_CANARY_REQUIRED"
+  - order: 8
+    capability_domain_id: "stage9_live_payment_execution"
+    lane_requirement: "SHADOW_THEN_CANARY_REQUIRED"
+notes:
+  - "R6 concludes that prerequisite completion does not imply unlock approval."
+  - "control/future_unlock_decision_state.yaml is a decision/status mirror and not a canonical capability semantic source."
+  - "repo_readiness_at_decision_time and candidate_gap_status_at_decision_time are historical R6 decision-time snapshots, not current repo status sources."
+  - "Default post-R6 path is continue internal implementation, not external unlock implementation."
+  - "Candidate domains may only enter a later decision-to-design gap batch; deny and blocked domains remain non-implementation paths."
+  - "leadpack_external_delivery candidate matrix is now the formal projection boundary source for the candidate gap batch."
+  - "leadpack activation prep readiness is a follow-up review-only state and still does not authorize activation or external delivery."
+  - "leadpack activation design / implementation prep readiness is a design gate only and still does not approve implementation."
+followup_states:
+  leadpack_external_delivery:
+    activation_prep_status: "ACTIVATION_PREP_READY_FOR_REVIEW"
+    activation_prep_review_only: true
+    activation_design_implementation_prep_status: "ACTIVATION_DESIGN_PREP_READY_FOR_REVIEW"
+    implementation_prep_readiness_gate_status: "FORMAL_HOLD_SOURCES_DEFINED_NOT_IMPLEMENTATION_APPROVED"
+    implementation_decision_readiness_packet_status: "PACKET_HELD"
+    implementation_decision_readiness_packet_review_only: true
+    implementation_decision_ready: false
+    implementation_approved: false
+    implementation_decision_hold_sources:
+      owner_signoff:
+        - "release_approver"
+        - "governance_owner"
+        - "testing_owner"
+      approval_chain:
+        - "internal_review_release"
+        - "client_report_release"
+      review_gate:
+        - "leadpack_candidate_review_gate"
+      audit_ref:
+        - "activation_design_decision_audit_ref"

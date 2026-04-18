@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "challenger_candidate_profile",
+  "type": "object",
+  "description": "Schema skeleton for challenger_candidate_profile.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-027"
+  ],
+  "enum_refs": [
+    "candidate_position_label"
+  ],
+  "properties": {
+    "challenger_profile_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "focus_bidder_id": {
+      "type": "string"
+    },
+    "challenger_bidder_id": {
+      "type": "string"
+    },
+    "candidate_position_label": {
+      "type": "string"
+    },
+    "focus_bidder_attackability_score": {
+      "type": "number"
+    },
+    "challenger_pain_score": {
+      "type": "number"
+    },
+    "succession_gain_score": {
+      "type": "number"
+    },
+    "execution_readiness_score": {
+      "type": "number"
+    },
+    "challenge_actionability_score": {
+      "type": "number"
+    },
+    "confidence_score_optional": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    }
+  },
+  "required": [
+    "challenger_profile_id",
+    "project_id",
+    "focus_bidder_id",
+    "challenger_bidder_id",
+    "candidate_position_label",
+    "focus_bidder_attackability_score",
+    "challenger_pain_score",
+    "succession_gain_score",
+    "execution_readiness_score",
+    "challenge_actionability_score"
+  ],
+  "additionalProperties": false
+}

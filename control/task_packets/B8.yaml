@@ -1,0 +1,123 @@
+version: 1
+batch_id: B8
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Persistence Surface And Workbench Convergence
+status: NOT_STARTED
+objective: "Converge repository boundaries, preview surfaces, work items, transport contracts, and workbenches on the now-stable formal object semantics."
+why_now: "Surfaces should be tightened only after formal object and workflow semantics are closed."
+depends_on: [B7]
+non_goals:
+  - "Do not promote Stage1-6 transport to runtime-ready without separate approval."
+  - "Do not expose internal-only blocked fields."
+  - "not an external unlock implementation"
+affected_stages:
+  - api_transport
+  - storage
+  - workbench_surfaces
+declared_changed_paths:
+  - contracts/api/**
+  - contracts/ui/**
+  - src/api/**
+  - src/storage/**
+  - tests/test_internal_repository_boundary.py
+  - tests/test_api_transport_bootstrap.py
+  - tests/test_internal_surface_preview.py
+  - tests/test_external_unlock_prerequisites.py
+impacted_assets:
+  docs:
+    - docs/D4_OpenAPI接口契约.md
+    - docs/D5_页面导出与人工复核规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  control:
+    - control/review_gate_matrix.yaml
+  contracts:
+    - contracts/api
+    - contracts/ui
+  handoff: []
+  scripts: []
+  tests:
+    - tests/test_internal_repository_boundary.py
+    - tests/test_api_transport_bootstrap.py
+    - tests/test_internal_surface_preview.py
+    - tests/test_external_unlock_prerequisites.py
+  code:
+    - src/api
+    - src/storage
+change_domains:
+  - scripts_and_tests_general
+  - automation_control_core
+change_class: DRAFT_WITH_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D4_OpenAPI接口契约.md
+    - docs/D5_页面导出与人工复核规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  contracts:
+    - contracts/api/api_catalog.json
+    - contracts/ui/workbench_catalog.json
+    - contracts/ui/export_template_catalog.json
+  control:
+    - control/review_gate_matrix.yaml
+allowed_modification_paths:
+  - docs/D4_OpenAPI接口契约.md
+  - docs/D5_页面导出与人工复核规范.md
+  - docs/D11_测试验收与金标回归清单.md
+  - contracts/api/**
+  - contracts/ui/**
+  - src/api/**
+  - src/storage/**
+  - tests/test_internal_repository_boundary.py
+  - tests/test_api_transport_bootstrap.py
+  - tests/test_internal_surface_preview.py
+  - tests/test_external_unlock_prerequisites.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - contracts/release/**
+  - src/stage8_outreach/**
+  - src/stage9_delivery/**
+primary_outputs:
+  - "Stable repository, transport, preview, and workbench convergence"
+deliverables:
+  - "Stable repository, transport, preview, and workbench convergence"
+  - "API/storage/surface focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Stage1-6 transport is incorrectly upgraded from controlled unavailable without explicit approval."
+  - "Preview surfaces expose internal-only blocked fields."
+  - "Any required script fails."
+definition_of_done:
+  - "Transport, repository, and preview surfaces consume the formal object layer without second semantics."
+next_batch_entry_rule: "B8 must be DONE before B9 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - testing_owner
+  - automation_owner
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B8-S1-repository-boundary
+    focus_paths:
+      - src/storage/**
+      - tests/test_internal_repository_boundary.py
+  - slice_id: B8-S1R-current-task-review-gate-drift
+    focus_paths:
+      - control/current_task.yaml
+      - control/ax9s_full_repair_status.yaml
+      - control/task_packets/B8.yaml
+      - tests/test_external_unlock_prerequisites.py
+  - slice_id: B8-S2-api-and-preview-surfaces
+    focus_paths:
+      - src/api/**
+      - contracts/api/**
+      - contracts/ui/**
+      - tests/test_api_transport_bootstrap.py
+      - tests/test_internal_surface_preview.py

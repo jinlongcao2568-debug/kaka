@@ -1,0 +1,74 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "actor_catalog",
+  "ownerDocs": [
+    "D8"
+  ],
+  "entries": [
+    {
+      "objectType": "legal_action_actor_profile",
+      "stage": 7,
+      "requiredFields": [
+        "actor_id",
+        "project_id",
+        "actor_org_name",
+        "actor_role_cluster",
+        "standing_state",
+        "action_window_state",
+        "actionability_state"
+      ],
+      "sourceL0Refs": [
+        "L0-R-006",
+        "L0-R-007"
+      ],
+      "dependsOnObjects": [
+        "challenger_candidate_profile",
+        "legal_action_recommendation",
+        "project_fact"
+      ],
+      "blockingPolicies": [
+        "project_fact_required",
+        "dual_gate_required"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "notes": "法律行动主体拆分承接。"
+    },
+    {
+      "objectType": "procurement_decision_actor_profile",
+      "stage": 7,
+      "requiredFields": [
+        "actor_id",
+        "project_id",
+        "actor_org_name",
+        "actor_role_cluster",
+        "procurement_authority_state",
+        "purchase_authority_state",
+        "payment_authority_state",
+        "reachable_state"
+      ],
+      "sourceL0Refs": [
+        "L0-R-006",
+        "L0-R-007"
+      ],
+      "dependsOnObjects": [
+        "challenger_candidate_profile",
+        "buyer_fit",
+        "account_context"
+      ],
+      "blockingPolicies": [
+        "project_fact_required",
+        "dual_gate_required"
+      ],
+      "releaseScope": "INTERNAL_ONLY",
+      "testRefs": [
+        "D11-R-045"
+      ],
+      "internalOnly": true,
+      "notes": "采购决策主体拆分承接。"
+    }
+  ]
+}

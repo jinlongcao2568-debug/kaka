@@ -1,0 +1,160 @@
+{
+  "matrixId": "ax9s-stage-integration-matrix",
+  "version": "2026-04-12-round1",
+  "status": "DRAFT",
+  "rows": [
+    {
+      "producerStage": 1,
+      "consumerStage": 2,
+      "contractId": "H-01-STAGE1-TO-STAGE2",
+      "criticalObjects": [
+        "task_execution_context",
+        "project_identity_strategy",
+        "clock_strategy_profile",
+        "execution_context"
+      ],
+      "consumerMustNotRecompute": [
+        "window_priority_policy",
+        "project_rooting_policy",
+        "source_family",
+        "platform_level",
+        "region_scope",
+        "coverage_tier",
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route",
+        "baseline_collection_state",
+        "rollout_enabled",
+        "backlog_reason_optional",
+        "clock_precedence_rule_id"
+      ],
+      "readinessGate": "stage1_context_ready",
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "producerStage": 2,
+      "consumerStage": 3,
+      "contractId": "H-02-STAGE2-TO-STAGE3",
+      "criticalObjects": [
+        "public_chain",
+        "clock_chain_profile",
+        "notice_version_chain",
+        "fixation_bundle"
+      ],
+      "consumerMustNotRecompute": [
+        "first_seen_at",
+        "version_chain_id",
+        "source_registry_id",
+        "route_policy_id",
+        "fallback_route",
+        "route_decision_state",
+        "route_review_reasons",
+        "winning_version_resolution_rule_id",
+        "clock_resolution_rule_id",
+        "clock_conflict_state",
+        "collection_state"
+      ],
+      "readinessGate": "raw_carrier_fixed_and_traceable",
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "producerStage": 3,
+      "consumerStage": 4,
+      "contractId": "H-03-STAGE3-TO-STAGE4",
+      "criticalObjects": [
+        "project_base",
+        "field_lineage_record",
+        "bidder_candidate"
+      ],
+      "consumerMustNotRecompute": [
+        "project_root_id",
+        "notice_version_id",
+        "candidate_order_mode"
+      ],
+      "readinessGate": "truth_layer_ready",
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "producerStage": 4,
+      "consumerStage": 5,
+      "contractId": "H-04-STAGE4-TO-STAGE5",
+      "criticalObjects": [
+        "public_attack_surface",
+        "focus_bidder_verification_profile",
+        "pseudo_competitor_signal_set",
+        "evidence_grade_profile"
+      ],
+      "consumerMustNotRecompute": [
+        "public_capability_tier",
+        "external_use_grade"
+      ],
+      "readinessGate": "public_verification_ready",
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "producerStage": 5,
+      "consumerStage": 6,
+      "contractId": "H-05-STAGE5-TO-STAGE6",
+      "criticalObjects": [
+        "rule_gate_decision",
+        "evidence_gate_decision",
+        "rule_hit",
+        "evidence"
+      ],
+      "consumerMustNotRecompute": [
+        "rule_gate_status",
+        "evidence_gate_status"
+      ],
+      "readinessGate": "dual_gate_present",
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "producerStage": 6,
+      "consumerStage": 7,
+      "contractId": "H-06-STAGE6-TO-STAGE7",
+      "criticalObjects": [
+        "project_fact",
+        "challenger_candidate_profile",
+        "legal_action_recommendation",
+        "report_record"
+      ],
+      "consumerMustNotRecompute": [
+        "sale_gate_status",
+        "competitor_quality_grade",
+        "window_status"
+      ],
+      "readinessGate": "formal_fact_ready",
+      "failureDisposition": "RESTRICT"
+    },
+    {
+      "producerStage": 7,
+      "consumerStage": 8,
+      "contractId": "H-07-STAGE7-TO-STAGE8",
+      "criticalObjects": [
+        "saleable_opportunity"
+      ],
+      "consumerMustNotRecompute": [
+        "saleability_status",
+        "opportunity_id"
+      ],
+      "readinessGate": "commercial_object_ready",
+      "failureDisposition": "BLOCK"
+    },
+    {
+      "producerStage": 8,
+      "consumerStage": 9,
+      "contractId": "H-08-STAGE8-TO-STAGE9",
+      "criticalObjects": [
+        "touch_record",
+        "saleable_opportunity"
+      ],
+      "consumerMustNotRecompute": [
+        "response_status",
+        "opportunity_grade"
+      ],
+      "readinessGate": "touch_trace_ready",
+      "failureDisposition": "BLOCK"
+    }
+  ]
+}

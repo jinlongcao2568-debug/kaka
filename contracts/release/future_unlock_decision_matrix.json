@@ -1,0 +1,340 @@
+{
+  "registry_id": "future-unlock-decision-matrix",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "owner_docs": [
+      "D12",
+      "D13",
+      "D14"
+    ],
+    "generated_at": "2026-04-16",
+    "purpose": "Formal R6 future unlock decision matrix built on top of the prerequisite baseline. This asset records strategic decision only and does not authorize unlock implementation.",
+    "canonical_source_for": [
+      "future_unlock_decision_buckets",
+      "future_unlock_recommended_sequence"
+    ],
+    "machine_path": "contracts/release/future_unlock_decision_matrix.json",
+    "prerequisite_matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
+    "decision_state_ref": "control/future_unlock_decision_state.yaml",
+    "leadpack_candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json"
+  },
+  "decision_status_vocabulary": [
+    "FUTURE_UNLOCK_CANDIDATE",
+    "DENY_BY_DEFAULT_CONTINUE",
+    "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN"
+  ],
+  "recommended_next_phase_vocabulary": [
+    "CANDIDATE_DECISION_TO_DESIGN_GAP",
+    "CONTINUE_INTERNAL_ONLY_IMPLEMENTATION",
+    "SHADOW_OR_CANARY_DESIGN_ONLY",
+    "NO_UNLOCK_PATH_RECOMMENDED"
+  ],
+  "minimum_next_batch_type_vocabulary": [
+    "INTERNAL_GOVERNED_PROJECTION_DESIGN_BATCH",
+    "SOURCE_VENDOR_INTERNAL_GOVERNED_GAP_BATCH",
+    "PROJECTION_ONLY_EXTERNAL_SURFACE_GAP_BATCH",
+    "MODEL_EXTERNALIZATION_SHADOW_DESIGN_BATCH",
+    "HIGH_RISK_SHADOW_CANARY_GAP_BATCH",
+    "EXTERNAL_SOFTWARE_RELEASE_STRATEGY_REASSESSMENT_BATCH",
+    "NO_FURTHER_UNLOCK_BATCH"
+  ],
+  "default_position_after_decision_vocabulary": [
+    "APPROVAL_AND_AUDIT_GATED_CONTINUE",
+    "BLOCKED_CONTINUE",
+    "BLOCKED_BY_DEFAULT_CONTINUE",
+    "INTERNAL_ONLY_CONTINUE",
+    "OFF_BY_DEFAULT_CONTINUE",
+    "SHADOW_ONLY_CONTINUE"
+  ],
+  "decision_buckets": {
+    "FUTURE_UNLOCK_CANDIDATE": [
+      "leadpack_external_delivery",
+      "source_vendor_externalized_usage",
+      "external_export_surface"
+    ],
+    "DENY_BY_DEFAULT_CONTINUE": [
+      "external_software_release",
+      "stage8_live_execution",
+      "stage9_live_payment_execution",
+      "stage9_live_delivery_execution",
+      "model_provider_externalized_usage"
+    ],
+    "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN": [
+      "tool_provider_externalized_usage"
+    ]
+  },
+  "capability_domains": [
+    {
+      "capability_domain_id": "external_software_release",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "decision_rationale": "商业必要性低于 projection 型外发路径，且会同时放大产品化、支持、合规与 owner 控制复杂度；prerequisite 已齐，但不值得把它作为 R6 后的优先 unlock 方向。",
+      "recommended_next_phase": "CONTINUE_INTERNAL_ONLY_IMPLEMENTATION",
+      "minimum_next_batch_type": "EXTERNAL_SOFTWARE_RELEASE_STRATEGY_REASSESSMENT_BATCH",
+      "required_preconditions_already_met": [
+        "prerequisite matrix already machine-readable",
+        "release/runtime/model manifests already reference prerequisite baseline",
+        "rollback and emergency-off readiness are already declared as prerequisites"
+      ],
+      "remaining_blockers": [
+        "R6 decision does not approve implementation",
+        "external software release remains BLOCKED",
+        "no productized external operating model or owner-control plan has been approved"
+      ],
+      "future_unlock_sequence_order": 6,
+      "default_position_after_decision": "BLOCKED_CONTINUE",
+      "why_not_now": "对当前 internal-first 平台的干扰最大，但近期商业增益最弱；继续 internal-first 更优。",
+      "never_default_open": false,
+      "pre_discussion_lane_requirement": "INTERNAL_ONLY_REASSESSMENT"
+    },
+    {
+      "capability_domain_id": "leadpack_external_delivery",
+      "decision_status": "FUTURE_UNLOCK_CANDIDATE",
+      "decision_rationale": "与现有 LeadPack 商业形态最贴近，且当前 already approval+audit gated；如果未来要进入 unlock 候选，优先级最高，但仍只能讨论 projection-only + 审批审计强化，不是放开 live execution。",
+      "recommended_next_phase": "CANDIDATE_DECISION_TO_DESIGN_GAP",
+      "minimum_next_batch_type": "INTERNAL_GOVERNED_PROJECTION_DESIGN_BATCH",
+      "candidate_matrix_ref": "contracts/release/leadpack_external_delivery_candidate_matrix.json",
+  "activation_prep_evidence_pack_ref": "contracts/release/leadpack_activation_prep_evidence_pack.json",
+  "activation_prep_transition_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
+  "activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
+  "implementation_decision_readiness_packet_ref": "contracts/release/leadpack_implementation_decision_readiness_packet.json",
+      "required_preconditions_already_met": [
+        "approval chain and audit chain are already formalized",
+        "delivery matrix already enforces projection-only external delivery",
+        "release checklist and regression already cover prerequisite baseline",
+        "candidate matrix can be attached as the single projection boundary source",
+        "activation prep evidence pack, runbook, replay artifact, signoff packet and review gate can be assembled as review-only assets",
+        "activation design / implementation prep matrix can define owner signoff execution, approval/audit layering, status hardening, rollback/cancel/emergency-off and implementation-prep gate without approving implementation"
+      ],
+      "remaining_blockers": [
+        "R6 only classifies it as candidate and does not authorize implementation",
+        "every external delivery remains approval-and-audit gated",
+    "activation prep still requires manual review and owner signoff before any later activation discussion",
+    "activation prep ready for review is not activation-ready and not external-ready",
+    "activation design / implementation prep ready for review is not implementation-approved",
+    "implementation decision requires separate approval chain, review gate, audit ref and owner signoff state sources"
+  ],
+      "future_unlock_sequence_order": 1,
+      "default_position_after_decision": "APPROVAL_AND_AUDIT_GATED_CONTINUE",
+      "why_not_now": "现有 prerequisite 只证明它值得进入候选序列，不证明 external delivery contract、projection scope、rollback playbook 已设计完成。",
+      "never_default_open": true,
+      "pre_discussion_lane_requirement": "INTERNAL_GOVERNED_PROJECTION_ONLY"
+    },
+    {
+      "capability_domain_id": "stage8_live_execution",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "decision_rationale": "真实触达对合规、审计、停机和非技术 owner 的控制要求过高；即使 future-unlockable，也必须先走 shadow/internal-governed，再考虑 canary。",
+      "recommended_next_phase": "SHADOW_OR_CANARY_DESIGN_ONLY",
+      "minimum_next_batch_type": "HIGH_RISK_SHADOW_CANARY_GAP_BATCH",
+      "required_preconditions_already_met": [
+        "runtime permission layer is already in place",
+        "high-restriction release gate and audit prerequisites are already defined",
+        "shadow/canary and rollback prerequisites are already machine-readable"
+      ],
+      "remaining_blockers": [
+        "Stage 8 live execution remains blocked by default",
+        "no shadow lane, canary threshold or owner-operated runbook has been approved",
+        "personal contact channels remain never-default-open"
+      ],
+      "future_unlock_sequence_order": 5,
+      "default_position_after_decision": "BLOCKED_BY_DEFAULT_CONTINUE",
+      "why_not_now": "它会直接放大触达合规和 owner 控制负担，不适合在 R6 后立即进入实现候选。",
+      "never_default_open": false,
+      "pre_discussion_lane_requirement": "SHADOW_THEN_CANARY_REQUIRED"
+    },
+    {
+      "capability_domain_id": "stage9_live_payment_execution",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "decision_rationale": "涉及资金、退款、审计回放和逆操作能力，风险最高；商业收益不能覆盖治理成本，因此继续 deny-by-default。",
+      "recommended_next_phase": "SHADOW_OR_CANARY_DESIGN_ONLY",
+      "minimum_next_batch_type": "HIGH_RISK_SHADOW_CANARY_GAP_BATCH",
+      "required_preconditions_already_met": [
+        "payment replay and rollback are already captured as prerequisites",
+        "runtime permission layer and emergency-off semantics already exist",
+        "release checklist already blocks live payment by default"
+      ],
+      "remaining_blockers": [
+        "Stage 9 live payment execution remains blocked by default",
+        "no reversible payment runbook has been approved",
+        "refund and audit replay controls are not approved for live use"
+      ],
+      "future_unlock_sequence_order": 8,
+      "default_position_after_decision": "BLOCKED_BY_DEFAULT_CONTINUE",
+      "why_not_now": "资金链路对 owner 控制和责任链要求最高，近期不值得进入 implementation 候选。",
+      "never_default_open": false,
+      "pre_discussion_lane_requirement": "SHADOW_THEN_CANARY_REQUIRED"
+    },
+    {
+      "capability_domain_id": "stage9_live_delivery_execution",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "decision_rationale": "真实交付虽然比真实支付略低风险，但仍会引入归档、回放、客户确认和异常补发责任；必须保持 deny-by-default。",
+      "recommended_next_phase": "SHADOW_OR_CANARY_DESIGN_ONLY",
+      "minimum_next_batch_type": "HIGH_RISK_SHADOW_CANARY_GAP_BATCH",
+      "required_preconditions_already_met": [
+        "delivery replay and rollback prerequisites are already machine-readable",
+        "Stage 9 typed workflow and governed writeback skeleton already exist",
+        "release checklist already keeps direct Stage 9 delivery blocked"
+      ],
+      "remaining_blockers": [
+        "Stage 9 live delivery execution remains blocked by default",
+        "no reversible delivery acknowledgement runbook has been approved",
+        "archive/retrieval/partial-redelivery controls are not approved for live use"
+      ],
+      "future_unlock_sequence_order": 7,
+      "default_position_after_decision": "BLOCKED_BY_DEFAULT_CONTINUE",
+      "why_not_now": "它会直接把 internal governed skeleton 推向真实履约责任，当前不应进入实现候选。",
+      "never_default_open": false,
+      "pre_discussion_lane_requirement": "SHADOW_THEN_CANARY_REQUIRED"
+    },
+    {
+      "capability_domain_id": "model_provider_externalized_usage",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "decision_rationale": "外部化模型使用存在边界泄漏、外部表述误用和 owner 难以直观控制的问题；虽然有 eval/output-target prerequisite，但目前更适合作为后续 shadow 设计议题，而不是 immediate candidate。",
+      "recommended_next_phase": "SHADOW_OR_CANARY_DESIGN_ONLY",
+      "minimum_next_batch_type": "MODEL_EXTERNALIZATION_SHADOW_DESIGN_BATCH",
+      "required_preconditions_already_met": [
+        "external shadow/boundary/canary eval suites are already defined",
+        "output target matrix already blocks final decisions and external leakage",
+        "model governance signoff prerequisites are already formalized"
+      ],
+      "remaining_blockers": [
+        "model externalized usage remains off by default",
+        "no approved shadow lane or bounded external assist surface exists",
+        "R6 does not approve any client-facing model implementation"
+      ],
+      "future_unlock_sequence_order": 4,
+      "default_position_after_decision": "OFF_BY_DEFAULT_CONTINUE",
+      "why_not_now": "当前仓库的商业主路径不是 externalized model assist；先做 projection/value path 更划算。",
+      "never_default_open": false,
+      "pre_discussion_lane_requirement": "SHADOW_THEN_CANARY_REQUIRED"
+    },
+    {
+      "capability_domain_id": "tool_provider_externalized_usage",
+      "decision_status": "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN",
+      "decision_rationale": "外部 tool/provider 直接动作最容易突破 audit、审批和 owner 控制边界；在当前 internal-first 平台下缺乏足够商业必要性，不应进入近期 unlock 路径。",
+      "recommended_next_phase": "NO_UNLOCK_PATH_RECOMMENDED",
+      "minimum_next_batch_type": "NO_FURTHER_UNLOCK_BATCH",
+      "required_preconditions_already_met": [
+        "shadow-only prerequisite baseline already exists",
+        "boundary eval and audit trace prerequisites are already formalized"
+      ],
+      "remaining_blockers": [
+        "tool provider externalized usage remains shadow only",
+        "no approved direct mutation or external action contract exists",
+        "R6 explicitly rejects near-term unlock sequencing for this domain"
+      ],
+      "future_unlock_sequence_order": 99,
+      "default_position_after_decision": "SHADOW_ONLY_CONTINUE",
+      "why_not_now": "它对 owner 控制最不友好，也最容易把 decision batch误滑成 implementation batch。",
+      "never_default_open": true,
+      "pre_discussion_lane_requirement": "NO_ACTIVE_UNLOCK_SEQUENCE"
+    },
+    {
+      "capability_domain_id": "source_vendor_externalized_usage",
+      "decision_status": "FUTURE_UNLOCK_CANDIDATE",
+      "decision_rationale": "在不触碰 live execution 的前提下，扩展 source/vendor externalized usage 有明确商业价值，且更符合 internal-governed 先行模式；因此可进入候选序列，但只讨论受审计、可回放、非个人/非私有渠道。",
+      "recommended_next_phase": "CANDIDATE_DECISION_TO_DESIGN_GAP",
+      "minimum_next_batch_type": "SOURCE_VENDOR_INTERNAL_GOVERNED_GAP_BATCH",
+      "required_preconditions_already_met": [
+        "source/vendor/provider boundary catalogs are already frozen",
+        "trace and audit reservation fields are already present",
+        "contact/source policy already blocks personal, private and unauthorized channels"
+      ],
+      "remaining_blockers": [
+        "R6 only promotes it to candidate and does not authorize implementation",
+        "candidate surface and query trace contract still need a design gap batch",
+        "personal/private/unauthorized channels remain denied"
+      ],
+      "future_unlock_sequence_order": 2,
+      "default_position_after_decision": "INTERNAL_ONLY_CONTINUE",
+      "why_not_now": "当前只具备 prerequisite baseline，还没有把 candidate vendor/source role、approval path 和 owner control 做成 post-R6 设计包。",
+      "never_default_open": true,
+      "pre_discussion_lane_requirement": "INTERNAL_GOVERNED_SHADOW_FIRST_WHEN_EXTERNAL_DATA_PATH_EXISTS"
+    },
+    {
+      "capability_domain_id": "external_export_surface",
+      "decision_status": "FUTURE_UNLOCK_CANDIDATE",
+      "decision_rationale": "若未来要扩展 external surface，最可讨论的也只能是 approved projection/summary surface；它有商业意义，但必须排在 leadpack delivery 与 source/vendor candidate 之后。",
+      "recommended_next_phase": "CANDIDATE_DECISION_TO_DESIGN_GAP",
+      "minimum_next_batch_type": "PROJECTION_ONLY_EXTERNAL_SURFACE_GAP_BATCH",
+      "required_preconditions_already_met": [
+        "delivery matrix already keeps direct stage8/stage9 object export blocked",
+        "public boundary and field policy already enforce projection-only semantics",
+        "approval and audit prerequisites are already formalized"
+      ],
+      "remaining_blockers": [
+        "external export surface remains BLOCKED",
+        "only approved projection contracts are discussable",
+        "no canary/internal-governed export envelope has been approved"
+      ],
+      "future_unlock_sequence_order": 3,
+      "default_position_after_decision": "BLOCKED_CONTINUE",
+      "why_not_now": "它的价值依赖前置 projection contract 稳定，必须晚于 leadpack delivery 与 source/vendor candidate。",
+      "never_default_open": true,
+      "pre_discussion_lane_requirement": "INTERNAL_GOVERNED_PROJECTION_ONLY"
+    }
+  ],
+  "recommended_sequence": [
+    {
+      "order": 1,
+      "capability_domain_id": "leadpack_external_delivery",
+      "decision_status": "FUTURE_UNLOCK_CANDIDATE",
+      "lane_requirement": "INTERNAL_GOVERNED_PROJECTION_ONLY",
+      "why_this_order": "最贴近现有商业交付形态，且不要求 live execution 或 external software release。"
+    },
+    {
+      "order": 2,
+      "capability_domain_id": "source_vendor_externalized_usage",
+      "decision_status": "FUTURE_UNLOCK_CANDIDATE",
+      "lane_requirement": "INTERNAL_GOVERNED_OR_SHADOW_FIRST",
+      "why_this_order": "可增强上游线索质量，但仍能保持 internal-governed 与 trace-first。"
+    },
+    {
+      "order": 3,
+      "capability_domain_id": "external_export_surface",
+      "decision_status": "FUTURE_UNLOCK_CANDIDATE",
+      "lane_requirement": "PROJECTION_ONLY_AND_CANARY_IF_EXTERNAL_SURFACE_EXPANDS",
+      "why_this_order": "只能在 projection contract 已稳定后才值得讨论。"
+    },
+    {
+      "order": 4,
+      "capability_domain_id": "model_provider_externalized_usage",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "lane_requirement": "SHADOW_THEN_CANARY_REQUIRED",
+      "why_this_order": "有 bounded assist 价值，但不应挤占前述更直接的业务路径。"
+    },
+    {
+      "order": 5,
+      "capability_domain_id": "stage8_live_execution",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "lane_requirement": "SHADOW_THEN_CANARY_REQUIRED",
+      "why_this_order": "只有在 internal-first 路线稳定后，才可能讨论真实触达。"
+    },
+    {
+      "order": 6,
+      "capability_domain_id": "external_software_release",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "lane_requirement": "STRATEGY_REASSESSMENT_ONLY",
+      "why_this_order": "产品化与运维成本高，近期不应优先于更窄、更可控的外发路径。"
+    },
+    {
+      "order": 7,
+      "capability_domain_id": "stage9_live_delivery_execution",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "lane_requirement": "SHADOW_THEN_CANARY_REQUIRED",
+      "why_this_order": "真实交付责任应晚于 candidate surface 与触达路径评估。"
+    },
+    {
+      "order": 8,
+      "capability_domain_id": "stage9_live_payment_execution",
+      "decision_status": "DENY_BY_DEFAULT_CONTINUE",
+      "lane_requirement": "SHADOW_THEN_CANARY_REQUIRED",
+      "why_this_order": "资金与退款链路风险最高，放在序列最后。"
+    }
+  ],
+  "notes": [
+    "R6 decision matrix is decision-only and does not authorize unlock implementation.",
+    "FUTURE_UNLOCK_CANDIDATE means worth entering a later decision-to-design gap batch, not approved to build live execution or external release.",
+    "Any later unlock implementation still requires a separate batch, mandatory human review, and domain-specific escalation where applicable."
+  ]
+}

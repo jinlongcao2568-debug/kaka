@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "evidence_grade_profile",
+  "type": "object",
+  "description": "Schema skeleton for evidence_grade_profile.",
+  "source_refs": [
+    "D2-R-017",
+    "D3-R-018",
+    "D13-R-019"
+  ],
+  "enum_refs": [
+    "public_capability_tier",
+    "cross_check_state",
+    "external_use_grade",
+    "provenance_chain_status",
+    "fixation_status",
+    "retrieval_readiness_status"
+  ],
+  "properties": {
+    "evidence_grade_profile_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "source_level": {
+      "type": "string"
+    },
+    "public_capability_tier": {
+      "type": "string"
+    },
+    "cross_check_state": {
+      "type": "string"
+    },
+    "external_use_grade": {
+      "type": "string"
+    },
+    "requires_manual_confirmation": {
+      "type": "boolean"
+    },
+    "provenance_chain_status": {
+      "type": "string"
+    },
+    "fixation_status": {
+      "type": "string"
+    },
+    "retrieval_readiness_status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_grade_profile_id",
+    "project_id",
+    "source_level",
+    "public_capability_tier",
+    "cross_check_state",
+    "external_use_grade",
+    "requires_manual_confirmation",
+    "provenance_chain_status",
+    "fixation_status",
+    "retrieval_readiness_status"
+  ],
+  "additionalProperties": false
+}

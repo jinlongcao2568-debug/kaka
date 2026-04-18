@@ -1,0 +1,2147 @@
+{
+  "catalog_id": "schema-catalog",
+  "version": "0.1.6",
+  "metadata": {
+    "package_name": "contracts core package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-18",
+    "source_documents": [
+      "L0.md",
+      "D2_正式对象契约与字段字典.md",
+      "D3_正式规则码总表与判定说明书.md",
+      "D13_公开可查边界能力清单.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D11_测试验收与金标回归清单.md"
+    ],
+    "notes": [
+      "This is the first machine-readable core package for pre-code readiness.",
+      "The package freezes minimum stable contracts and is intended to be extended in later rounds rather than replaced.",
+      "Any implementation must consume these catalogs without creating a second vocabulary."
+    ],
+    "machine_path": "contracts/schemas/schema_catalog.json",
+    "scope": "formal objects and their minimum stable contract surface"
+  },
+  "layers": [
+    {
+      "layer": "orchestration",
+      "default_stage": 1
+    },
+    {
+      "layer": "truth",
+      "default_stage": 3
+    },
+    {
+      "layer": "verification",
+      "default_stage": 4
+    },
+    {
+      "layer": "rule_evidence",
+      "default_stage": 5
+    },
+    {
+      "layer": "fact",
+      "default_stage": 6
+    },
+    {
+      "layer": "commercial",
+      "default_stage": 7
+    },
+    {
+      "layer": "outreach",
+      "default_stage": 8
+    },
+    {
+      "layer": "delivery",
+      "default_stage": 9
+    },
+    {
+      "layer": "governance_isolation",
+      "default_stage": "cross_stage"
+    }
+  ],
+  "schemas": [
+    {
+      "object": "task_record",
+      "stage": 1,
+      "layer": "orchestration",
+      "required": [
+        "task_id",
+        "region_code",
+        "time_range_from",
+        "time_range_until",
+        "strategy_template_id",
+        "review_lane",
+        "task_state",
+        "created_at"
+      ],
+      "source_refs": [
+        "D2-R-017"
+      ],
+      "upstream_dependencies": [
+        "startup_request"
+      ],
+      "downstream_consumers": [
+        "execution_context"
+      ],
+      "enum_refs": [
+        "review_lane",
+        "task_state"
+      ],
+      "hard_constraints": [
+        "must not directly form business conclusions"
+      ]
+    },
+    {
+      "object": "execution_context",
+      "stage": 1,
+      "layer": "orchestration",
+      "required": [
+        "context_id",
+        "task_id",
+        "project_unification_strategy",
+        "review_lane",
+        "window_priority",
+        "region_scope",
+        "source_family",
+        "platform_level",
+        "coverage_tier",
+        "carrier_type",
+        "default_route",
+        "source_registry_id",
+        "route_policy_id",
+        "fallback_route",
+        "requires_manual_review",
+        "created_at"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-088",
+        "D2-R-094-H"
+      ],
+      "upstream_dependencies": [
+        "task_record"
+      ],
+      "downstream_consumers": [
+        "public_chain",
+        "clock_chain_profile",
+        "notice_version_chain"
+      ],
+      "enum_refs": [
+        "review_lane",
+        "region_scope",
+        "source_family",
+        "platform_level",
+        "coverage_tier",
+        "carrier_type",
+        "route_type"
+      ],
+      "hard_constraints": [
+        "must freeze unification strategy and review lane before stage 2",
+        "must freeze source registry and route policy before stage 2",
+        "carrier_type must be authoritative on H-01 and must not be recomputed from raw stage2 input"
+      ]
+    },
+    {
+      "object": "public_chain",
+      "stage": 2,
+      "layer": "truth",
+      "required": [
+        "public_chain_id",
+        "project_id",
+        "announcement_url",
+        "source_family",
+        "platform_level",
+        "region_scope",
+        "coverage_tier",
+        "carrier_type",
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route",
+        "route_decision_state",
+        "route_review_reasons",
+        "route_downgrade_signals",
+        "route_block_signals",
+        "collection_state",
+        "requires_manual_review",
+        "timeline_nodes",
+        "required_node_set",
+        "node_presence_matrix",
+        "statutory_node_completeness",
+        "window_clock_state",
+        "clock_chain_id",
+        "version_chain_id",
+        "first_seen_at",
+        "last_retrieved_at",
+        "origin_carrier_type",
+        "fixation_bundle_id"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-010",
+        "D2-R-088",
+        "D2-R-094-H"
+      ],
+      "upstream_dependencies": [
+        "execution_context"
+      ],
+      "downstream_consumers": [
+        "project_base",
+        "project_fact",
+        "legal_action_recommendation"
+      ],
+      "enum_refs": [
+        "public_chain_status",
+        "window_clock_state",
+        "source_family",
+        "platform_level",
+        "region_scope",
+        "coverage_tier",
+        "carrier_type",
+        "route_type",
+        "collection_state"
+      ],
+      "hard_constraints": [
+        "not a URL list; it is a statutory public disclosure judgement object",
+        "must carry fixation and first-seen/last-retrieved metadata before stage 3",
+        "route decision, fallback, downgrade and review signals must be machine-readable on public_chain before stage 3"
+      ]
+    },
+    {
+      "object": "clock_chain_profile",
+      "stage": 2,
+      "layer": "truth",
+      "required": [
+        "clock_chain_id",
+        "project_id",
+        "publication_clock_state",
+        "first_seen_clock_state",
+        "correction_clock_state",
+        "reply_clock_state",
+        "remedy_clock_state",
+        "clock_resolution_rule_id",
+        "current_action_clock",
+        "clock_conflict_state",
+        "collection_state",
+        "requires_manual_review"
+      ],
+      "optional": [
+        "current_action_start_at_optional",
+        "current_action_deadline_at_optional"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-011",
+        "D2-R-088",
+        "D2-R-094-H"
+      ],
+      "upstream_dependencies": [
+        "public_chain"
+      ],
+      "downstream_consumers": [
+        "project_fact",
+        "legal_action_recommendation",
+        "review_queue_profile"
+      ],
+      "enum_refs": [
+        "clock_state",
+        "conflict_state",
+        "collection_state"
+      ],
+      "hard_constraints": [
+        "multi-clock conflicts must not be collapsed into a single window",
+        "clock_conflict_state must be produced by stage 2 before stage 3",
+        "clock_resolution_rule_id and optional action deadline fields form the minimum authoritative clock baseline for downstream reference"
+      ]
+    },
+    {
+      "object": "notice_version_chain",
+      "stage": 2,
+      "layer": "truth",
+      "required": [
+        "version_chain_id",
+        "project_id",
+        "source_family",
+        "platform_level",
+        "region_scope",
+        "carrier_type",
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route",
+        "collection_state",
+        "current_notice_version_id",
+        "superseded_version_ids",
+        "replacement_edges",
+        "version_conflict_state",
+        "version_chain_strategy",
+        "winning_version_resolution_rule_id"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-014",
+        "D2-R-088",
+        "D2-R-094-H"
+      ],
+      "upstream_dependencies": [
+        "public_chain"
+      ],
+      "downstream_consumers": [
+        "project_base",
+        "rule_gate_decision",
+        "project_fact"
+      ],
+      "enum_refs": [
+        "version_conflict_state",
+        "source_family",
+        "platform_level",
+        "region_scope",
+        "carrier_type",
+        "route_type",
+        "collection_state"
+      ],
+      "hard_constraints": [
+        "unresolved multi-version conflicts block formal unification",
+        "version_chain_strategy must remain machine-readable so route baseline does not overstate multi-version maturity"
+      ]
+    },
+    {
+      "object": "project_base",
+      "stage": 3,
+      "layer": "truth",
+      "required": [
+        "project_id",
+        "project_root_id",
+        "notice_version_id",
+        "project_name",
+        "region_code",
+        "source_family",
+        "procurement_regime",
+        "procurement_category",
+        "bid_eval_method",
+        "candidate_order_mode",
+        "award_determination_mode",
+        "public_chain_status"
+      ],
+      "optional": [
+        "stage3_truth_layer_ref_optional",
+        "field_lineage_collection_ref_optional",
+        "bidder_candidate_collection_ref_optional",
+        "stage3_review_path_ref_optional"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-027",
+        "D13-R-017"
+      ],
+      "upstream_dependencies": [
+        "public_chain",
+        "notice_version_chain"
+      ],
+      "downstream_consumers": [
+        "public_attack_surface",
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "project_fact"
+      ],
+      "enum_refs": [
+        "procurement_regime",
+        "candidate_order_mode",
+        "award_determination_mode",
+        "public_chain_status"
+      ],
+      "hard_constraints": [
+        "stage 3 truth object must not be replaced by a second portrait model",
+        "stage 4 and later consumers must consume stage 3 project_base rather than recompute parsed project truth",
+        "unresolved stage 3 truth or review path keeps downstream verification in review/block rather than silent success"
+      ]
+    },
+    {
+      "object": "field_lineage_record",
+      "stage": 3,
+      "layer": "truth",
+      "required": [
+        "field_lineage_id",
+        "project_id",
+        "owning_object_type",
+        "owning_object_id",
+        "field_name",
+        "source_notice_version_id",
+        "source_document_ref",
+        "source_slice_ref",
+        "source_family",
+        "platform_level",
+        "carrier_type",
+        "coverage_tier",
+        "collection_state",
+        "parser_confidence_score",
+        "normalization_rule_id",
+        "lineage_status",
+        "conflict_state"
+      ],
+      "optional": [
+        "normalized_value_ref_optional",
+        "lineage_conflict_group_id_optional",
+        "unresolved_reason_optional",
+        "review_path_optional",
+        "candidate_collection_ref_optional"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-028",
+        "D13-R-014",
+        "D2-R-088",
+        "D2-R-090"
+      ],
+      "upstream_dependencies": [
+        "project_base",
+        "notice_version_chain"
+      ],
+      "downstream_consumers": [
+        "all objects that consume key extracted fields"
+      ],
+      "enum_refs": [
+        "lineage_status",
+        "conflict_state",
+        "source_family",
+        "platform_level",
+        "carrier_type",
+        "coverage_tier",
+        "collection_state"
+      ],
+      "hard_constraints": [
+        "key fields without slice ref, normalization rule id, or confidence cannot enter the formal chain",
+        "lineage_status may only become NORMALIZED when version_conflict_state=CONSISTENT",
+        "Stage3 truth layer ownership for normalization, conflict, unresolved, and review path remains in field_lineage_record",
+        "conflict_state=CONFLICTING or UNRESOLVED must produce a review/block path before Stage4 verification can pass",
+        "normalization and conflict carrier fields must remain in field_lineage_record and must not be regenerated by Stage4+ consumers"
+      ]
+    },
+    {
+      "object": "bidder_candidate",
+      "stage": 3,
+      "layer": "truth",
+      "required": [
+        "bidder_candidate_id",
+        "project_id",
+        "bidder_name",
+        "candidate_group_label",
+        "candidate_rank_optional",
+        "bid_price",
+        "total_score",
+        "is_invalid"
+      ],
+      "optional": [
+        "normalized_price_amount_optional",
+        "price_conflict_gate_status_optional",
+        "candidate_collection_ref_optional",
+        "candidate_collection_role_optional",
+        "candidate_source_lineage_ids_optional",
+        "candidate_conflict_group_id_optional",
+        "candidate_review_path_optional"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-029",
+        "D13-R-018"
+      ],
+      "upstream_dependencies": [
+        "project_base"
+      ],
+      "downstream_consumers": [
+        "public_attack_surface",
+        "challenger_candidate_profile"
+      ],
+      "enum_refs": [
+        "candidate_group_label"
+      ],
+      "hard_constraints": [
+        "candidate rank or order must not be fabricated",
+        "bidder_candidate is a candidate-collection member and cannot be treated as the only candidate truth carrier",
+        "candidate collection, source lineage, conflict group, and review path metadata must remain Stage3 truth-layer data for downstream read-only consumption"
+      ]
+    },
+    {
+      "object": "project_manager",
+      "stage": 3,
+      "layer": "truth",
+      "required": [
+        "project_manager_id",
+        "project_id",
+        "project_manager_name",
+        "project_manager_cert_specialty",
+        "project_manager_cert_level",
+        "project_manager_cert_unit",
+        "project_manager_conflict_clue_status"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-024"
+      ],
+      "upstream_dependencies": [
+        "project_base"
+      ],
+      "downstream_consumers": [
+        "focus_bidder_verification_profile",
+        "rule_hit",
+        "review_request"
+      ],
+      "enum_refs": [
+        "project_manager_conflict_clue_status"
+      ],
+      "hard_constraints": [
+        "only public consistency information may be consumed; non-public social insurance data is forbidden in formal public chain"
+      ]
+    },
+    {
+      "object": "public_attack_surface",
+      "stage": 4,
+      "layer": "verification",
+      "required": [
+        "public_attack_surface_id",
+        "project_id",
+        "focus_bidder_id",
+        "candidate_set_ids",
+        "ranked_candidate_ids_optional",
+        "primary_attack_points",
+        "public_supporting_refs",
+        "window_status",
+        "verification_state"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-017",
+        "D2-R-090"
+      ],
+      "upstream_dependencies": [
+        "project_base",
+        "bidder_candidate",
+        "public_chain"
+      ],
+      "downstream_consumers": [
+        "project_fact",
+        "challenger_candidate_profile"
+      ],
+      "enum_refs": [
+        "window_status",
+        "verification_state"
+      ],
+      "hard_constraints": [
+        "attack surface must not be treated as a terminal illegality conclusion",
+        "verification_state must be PASS before rule_hit or project_fact consumption"
+      ]
+    },
+    {
+      "object": "focus_bidder_verification_profile",
+      "stage": 4,
+      "layer": "verification",
+      "required": [
+        "verification_profile_id",
+        "project_id",
+        "focus_bidder_id",
+        "illegality_risk_state",
+        "qualification_state",
+        "performance_state",
+        "personnel_state",
+        "credit_state",
+        "financial_change_state",
+        "production_condition_state",
+        "bid_bond_state",
+        "relation_conflict_state",
+        "consortium_consistency_state",
+        "verification_state"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-020",
+        "D2-R-090"
+      ],
+      "upstream_dependencies": [
+        "project_base",
+        "project_manager"
+      ],
+      "downstream_consumers": [
+        "rule_hit",
+        "project_fact"
+      ],
+      "enum_refs": [
+        "verification_state"
+      ],
+      "hard_constraints": [
+        "only publicly auditable objects may be verified here",
+        "verification_state must be PASS before rule_hit eligibility"
+      ]
+    },
+    {
+      "object": "pseudo_competitor_signal_set",
+      "stage": 4,
+      "layer": "verification",
+      "required": [
+        "signal_set_id",
+        "project_id",
+        "candidate_ids",
+        "signal_tags",
+        "confidence_band",
+        "explanation"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-026"
+      ],
+      "upstream_dependencies": [
+        "project_base",
+        "bidder_candidate"
+      ],
+      "downstream_consumers": [
+        "challenger_candidate_profile"
+      ],
+      "enum_refs": [
+        "confidence_band"
+      ],
+      "hard_constraints": [
+        "conservative filtering and review input only"
+      ]
+    },
+    {
+      "object": "evidence_grade_profile",
+      "stage": 4,
+      "layer": "verification",
+      "required": [
+        "evidence_grade_profile_id",
+        "project_id",
+        "source_level",
+        "public_capability_tier",
+        "cross_check_state",
+        "external_use_grade",
+        "requires_manual_confirmation",
+        "provenance_chain_status",
+        "fixation_status",
+        "retrieval_readiness_status"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D3-R-018",
+        "D13-R-019"
+      ],
+      "upstream_dependencies": [
+        "public_chain",
+        "field_lineage_record"
+      ],
+      "downstream_consumers": [
+        "evidence_gate_decision",
+        "project_fact"
+      ],
+      "enum_refs": [
+        "public_capability_tier",
+        "cross_check_state",
+        "external_use_grade",
+        "provenance_chain_status",
+        "fixation_status",
+        "retrieval_readiness_status"
+      ],
+      "hard_constraints": [
+        "evidence grade is a gating prerequisite, not a comment field"
+      ]
+    },
+    {
+      "object": "rule_hit",
+      "stage": 5,
+      "layer": "rule_evidence",
+      "required": [
+        "rule_hit_id",
+        "project_id",
+        "rule_code",
+        "result_type",
+        "rule_hit_state",
+        "evidence_refs",
+        "boundary_note",
+        "evidence_grade",
+        "source_object_refs"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D3-R-027",
+        "D2-R-090"
+      ],
+      "upstream_dependencies": [
+        "project_base",
+        "verification objects"
+      ],
+      "downstream_consumers": [
+        "rule_gate_decision",
+        "project_fact"
+      ],
+      "enum_refs": [
+        "result_type",
+        "rule_hit_state",
+        "external_use_grade"
+      ],
+      "hard_constraints": [
+        "cannot be upgraded without evidence and dual gates",
+        "rule_hit_state must be READY_FOR_GATE before rule_gate_decision evaluation",
+        "rule_hit_state=CONFIRMED requires rule_gate_status=PASS and evidence_gate_status=PASS",
+        "rule_hit_state=SUPERSEDED must be excluded from project_fact"
+      ]
+    },
+    {
+      "object": "evidence",
+      "stage": 5,
+      "layer": "rule_evidence",
+      "required": [
+        "evidence_id",
+        "project_id",
+        "evidence_family",
+        "source_document_ref",
+        "source_slice_ref",
+        "carrier_type",
+        "cross_check_state",
+        "fixation_status",
+        "external_use_grade",
+        "provenance_chain_status",
+        "retrieval_readiness_status"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D3-R-018",
+        "D2-R-090"
+      ],
+      "upstream_dependencies": [
+        "source documents",
+        "field_lineage_record"
+      ],
+      "downstream_consumers": [
+        "evidence_gate_decision",
+        "report_record"
+      ],
+      "enum_refs": [
+        "carrier_type",
+        "cross_check_state",
+        "fixation_status",
+        "external_use_grade",
+        "provenance_chain_status",
+        "retrieval_readiness_status"
+      ],
+      "hard_constraints": [
+        "screenshots/OCR/model summaries cannot alone serve as primary evidence",
+        "retrieval_readiness_status must be READY before evidence_gate_decision PASS"
+      ]
+    },
+    {
+      "object": "review_request",
+      "stage": 5,
+      "layer": "rule_evidence",
+      "required": [
+        "review_request_id",
+        "project_id",
+        "requested_materials",
+        "missing_condition_family",
+        "target_object_type",
+        "target_object_id",
+        "review_lane"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D3-R-006"
+      ],
+      "upstream_dependencies": [
+        "rule_hit",
+        "evidence"
+      ],
+      "downstream_consumers": [
+        "review_queue_profile",
+        "private_supplement_record"
+      ],
+      "enum_refs": [
+        "review_lane",
+        "missing_condition_family"
+      ],
+      "hard_constraints": [
+        "must not be disguised as an established conclusion"
+      ]
+    },
+    {
+      "object": "rule_gate_decision",
+      "stage": 5,
+      "layer": "rule_evidence",
+      "required": [
+        "gate_id",
+        "project_id",
+        "gate_scope",
+        "rule_gate_status",
+        "passed_rule_hits",
+        "blocked_rule_hits",
+        "blocking_reasons",
+        "resolved_by_version_state"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D3-R-022"
+      ],
+      "upstream_dependencies": [
+        "rule_hit",
+        "notice_version_chain",
+        "clock_chain_profile"
+      ],
+      "downstream_consumers": [
+        "project_fact",
+        "legal_action_recommendation"
+      ],
+      "enum_refs": [
+        "gate_status"
+      ],
+      "hard_constraints": [
+        "must operate together with evidence_gate_decision"
+      ]
+    },
+    {
+      "object": "evidence_gate_decision",
+      "stage": 5,
+      "layer": "rule_evidence",
+      "required": [
+        "gate_id",
+        "project_id",
+        "gate_scope",
+        "evidence_gate_status",
+        "minimum_external_use_grade",
+        "blocking_evidence_refs",
+        "manual_confirmation_required",
+        "visibility_reason_summary"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D3-R-022"
+      ],
+      "upstream_dependencies": [
+        "evidence",
+        "evidence_grade_profile"
+      ],
+      "downstream_consumers": [
+        "project_fact",
+        "report_record"
+      ],
+      "enum_refs": [
+        "gate_status",
+        "external_use_grade"
+      ],
+      "hard_constraints": [
+        "must operate together with rule_gate_decision"
+      ]
+    },
+    {
+      "object": "project_fact",
+      "stage": 6,
+      "layer": "fact",
+      "required": [
+        "project_fact_id",
+        "project_id",
+        "sale_gate_status",
+        "rule_gate_status",
+        "evidence_gate_status",
+        "rule_hit_summary",
+        "clue_summary",
+        "risk_summary",
+        "coverage_sellable_state",
+        "delivery_risk_state",
+        "manual_override_status",
+        "real_competitor_count",
+        "serviceable_competitor_count",
+        "competitor_quality_grade"
+      ],
+      "optional": [
+        "project_value_score_optional"
+      ],
+      "source_refs": [
+        "D2-R-008",
+        "D13-R-010",
+        "D2-R-090"
+      ],
+      "upstream_dependencies": [
+        "rule_gate_decision",
+        "evidence_gate_decision",
+        "review conclusions"
+      ],
+      "downstream_consumers": [
+        "api",
+        "ui",
+        "report_record",
+        "sales_lead",
+        "saleable_opportunity"
+      ],
+      "enum_refs": [
+        "sale_gate_status",
+        "gate_status",
+        "coverage_sellable_state",
+        "delivery_risk_state",
+        "manual_override_status",
+        "competitor_quality_grade"
+      ],
+      "hard_constraints": [
+        "the only formal unified fact hub"
+      ]
+    },
+    {
+      "object": "legal_action_recommendation",
+      "stage": 6,
+      "layer": "fact",
+      "required": [
+        "action_id",
+        "project_id",
+        "action_family",
+        "applicable_regime",
+        "competent_authority_scope",
+        "window_status",
+        "basis_summary",
+        "blocking_reasons",
+        "recommended_next_step"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-028"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "clock_chain_profile",
+        "dual gates"
+      ],
+      "downstream_consumers": [
+        "api",
+        "ui",
+        "report_record",
+        "external action assist"
+      ],
+      "enum_refs": [
+        "action_family",
+        "procurement_regime",
+        "window_status"
+      ],
+      "hard_constraints": [
+        "must not be generated without regime, time window and competent authority boundary"
+      ]
+    },
+    {
+      "object": "review_queue_profile",
+      "stage": 6,
+      "layer": "fact",
+      "required": [
+        "queue_profile_id",
+        "project_id",
+        "review_lane",
+        "review_priority_score",
+        "review_queue_bucket",
+        "window_risk_level",
+        "commercial_urgency_level",
+        "assigned_reviewer_optional"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-090"
+      ],
+      "upstream_dependencies": [
+        "review_request"
+      ],
+      "downstream_consumers": [
+        "review workbench",
+        "report_record"
+      ],
+      "enum_refs": [
+        "review_lane",
+        "review_queue_bucket",
+        "window_risk_level",
+        "commercial_urgency_level"
+      ],
+      "hard_constraints": [
+        "all constrained review must enter a formal queue",
+        "review_queue_bucket reprioritization must retain review_lane and audit trail"
+      ]
+    },
+    {
+      "object": "report_record",
+      "stage": 6,
+      "layer": "fact",
+      "required": [
+        "report_id",
+        "project_id",
+        "brief_path",
+        "evidence_pack_path",
+        "objection_draft_path",
+        "review_task_status",
+        "report_status",
+        "review_lane",
+        "review_sla_due_at",
+        "minimum_release_level"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D7-R-006",
+        "D2-R-090"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "legal_action_recommendation",
+        "review_queue_profile"
+      ],
+      "downstream_consumers": [
+        "ui",
+        "export",
+        "audit"
+      ],
+      "enum_refs": [
+        "report_status",
+        "review_lane",
+        "release_level",
+        "review_task_status"
+      ],
+      "hard_constraints": [
+        "formal reports must consume project_fact",
+        "review_task_status must be APPROVED before report_status=ISSUED",
+        "review_task_status=SUPERSEDED must map to report_status=REVOKED",
+        "report_status=REVOKED blocks delivery and leadpack use"
+      ]
+    },
+    {
+      "object": "challenger_candidate_profile",
+      "stage": 6,
+      "layer": "commercial",
+      "required": [
+        "challenger_profile_id",
+        "project_id",
+        "focus_bidder_id",
+        "challenger_bidder_id",
+        "candidate_position_label",
+        "focus_bidder_attackability_score",
+        "challenger_pain_score",
+        "succession_gain_score",
+        "execution_readiness_score",
+        "challenge_actionability_score"
+      ],
+      "optional": [
+        "confidence_score_optional"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-027"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "public_attack_surface",
+        "pseudo_competitor_signal_set"
+      ],
+      "downstream_consumers": [
+        "legal_action_actor_profile",
+        "challenger_buyer_fit",
+        "saleable_opportunity"
+      ],
+      "enum_refs": [
+        "candidate_position_label"
+      ],
+      "hard_constraints": [
+        "cannot be replaced by a temporary competitor tag or list"
+      ]
+    },
+    {
+      "object": "multi_competitor_collection",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "multi_competitor_collection_id",
+        "project_id",
+        "opportunity_id",
+        "candidate_list",
+        "top_n_candidate_ids",
+        "winning_candidate_id",
+        "winning_challenger_profile_id",
+        "selection_trace",
+        "created_by_stage",
+        "downstream_consumer"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D8-R-004",
+        "D11-R-045"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "challenger_candidate_profile",
+        "saleable_opportunity"
+      ],
+      "downstream_consumers": [
+        "saleable_opportunity",
+        "contact_candidate_collection",
+        "contact_selection_trace",
+        "contact_target"
+      ],
+      "enum_refs": [
+        "candidate_position_label"
+      ],
+      "hard_constraints": [
+        "must keep TopN/ranking/winning selection as a formal carrier rather than free trace only",
+        "winning challenger reference must stay aligned with the stage7 commercial chain"
+      ]
+    },
+    {
+      "object": "legal_action_actor_profile",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "actor_id",
+        "project_id",
+        "actor_org_name",
+        "actor_role_cluster",
+        "standing_state",
+        "action_window_state",
+        "actionability_state",
+        "action_family_scope"
+      ],
+      "source_refs": [
+        "D2-R-017"
+      ],
+      "upstream_dependencies": [
+        "challenger_candidate_profile",
+        "project_fact"
+      ],
+      "downstream_consumers": [
+        "saleable_opportunity"
+      ],
+      "enum_refs": [
+        "actor_role_cluster",
+        "standing_state",
+        "action_window_state",
+        "actionability_state"
+      ],
+      "hard_constraints": [
+        "answers who is most likely to lawfully initiate formal action"
+      ]
+    },
+    {
+      "object": "procurement_decision_actor_profile",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "actor_id",
+        "project_id",
+        "actor_org_name",
+        "actor_role_cluster",
+        "procurement_authority_state",
+        "purchase_authority_state",
+        "payment_authority_state",
+        "reachable_state"
+      ],
+      "source_refs": [
+        "D2-R-017"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "organization context"
+      ],
+      "downstream_consumers": [
+        "saleable_opportunity"
+      ],
+      "enum_refs": [
+        "actor_role_cluster",
+        "procurement_authority_state",
+        "purchase_authority_state",
+        "payment_authority_state",
+        "reachable_state"
+      ],
+      "hard_constraints": [
+        "answers who is most likely to approve purchase/payment"
+      ]
+    },
+    {
+      "object": "sales_lead",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "lead_id",
+        "project_id",
+        "lead_reason_summary",
+        "lead_score",
+        "lead_status",
+        "generated_at"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-089"
+      ],
+      "upstream_dependencies": [
+        "project_fact"
+      ],
+      "downstream_consumers": [
+        "saleable_opportunity"
+      ],
+      "enum_refs": [
+        "lead_status"
+      ],
+      "hard_constraints": [
+        "cannot exist before unified fact is formed"
+      ]
+    },
+    {
+      "object": "buyer_fit",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "buyer_fit_id",
+        "project_id",
+        "buyer_type",
+        "fit_score",
+        "attack_motivation_score",
+        "purchase_intent_score",
+        "payment_capacity_score",
+        "window_urgency_score",
+        "fit_reason_tags"
+      ],
+      "source_refs": [
+        "D2-R-017"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "actor profiles"
+      ],
+      "downstream_consumers": [
+        "saleable_opportunity"
+      ],
+      "enum_refs": [
+        "buyer_type"
+      ],
+      "hard_constraints": [
+        "fit does not replace actor objects"
+      ]
+    },
+    {
+      "object": "challenger_buyer_fit",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "challenger_buyer_fit_id",
+        "project_id",
+        "buyer_type",
+        "fit_score",
+        "attack_motivation_score",
+        "purchase_intent_score",
+        "payment_capacity_score",
+        "window_urgency_score",
+        "fit_reason_tags"
+      ],
+      "source_refs": [
+        "D2-R-017"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "challenger_candidate_profile",
+        "actor profiles"
+      ],
+      "downstream_consumers": [
+        "saleable_opportunity"
+      ],
+      "enum_refs": [
+        "buyer_type"
+      ],
+      "hard_constraints": [
+        "fit does not replace actor objects"
+      ]
+    },
+    {
+      "object": "offer_recommendation",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "offer_recommendation_id",
+        "project_id",
+        "offer_recommendation_state",
+        "sku_code",
+        "recommended_delivery_form",
+        "recommended_quote_band",
+        "why_recommended",
+        "prerequisites"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-089"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "buyer_fit"
+      ],
+      "downstream_consumers": [
+        "saleable_opportunity"
+      ],
+      "enum_refs": [
+        "offer_recommendation_state",
+        "sku_code",
+        "recommended_delivery_form",
+        "recommended_quote_band"
+      ],
+      "hard_constraints": [
+        "must match opportunity grade and time window"
+      ]
+    },
+    {
+      "object": "saleable_opportunity",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "opportunity_id",
+        "project_id",
+        "recommended_sku",
+        "buyer_fit_id",
+        "challenger_profile_id",
+        "opportunity_grade",
+        "saleability_status",
+        "major_value_points",
+        "blocking_reasons",
+        "expected_close_days_band",
+        "expected_contract_value_band",
+        "expected_delivery_cost_band",
+        "crm_owner_state"
+      ],
+      "optional": [
+        "opportunity_value_score_optional"
+      ],
+      "source_refs": [
+        "D2-R-008",
+        "D13-R-010",
+        "D2-R-089"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "challenger_candidate_profile",
+        "buyer_fit",
+        "offer_recommendation"
+      ],
+      "downstream_consumers": [
+        "contact_target",
+        "crm",
+        "sales"
+      ],
+      "enum_refs": [
+        "sku_code",
+        "opportunity_grade",
+        "saleability_status",
+        "crm_owner_state"
+      ],
+      "hard_constraints": [
+        "must not be generated from a single rule, announcement, or sales note"
+      ]
+    },
+    {
+      "object": "account_context",
+      "stage": 7,
+      "layer": "commercial",
+      "required": [
+        "account_context_id",
+        "project_id",
+        "org_name",
+        "org_type",
+        "account_role_summary"
+      ],
+      "source_refs": [
+        "D2-R-017"
+      ],
+      "upstream_dependencies": [
+        "project_fact",
+        "commercial objects"
+      ],
+      "downstream_consumers": [
+        "contact_target"
+      ],
+      "enum_refs": [
+        "account_role_summary"
+      ],
+      "hard_constraints": [
+        "carries account and organization context only"
+      ]
+    },
+    {
+      "object": "contact_candidate_collection",
+      "stage": 8,
+      "layer": "outreach",
+      "required": [
+        "contact_candidate_collection_id",
+        "saleable_opportunity_id",
+        "project_id",
+        "multi_competitor_collection_id",
+        "winning_challenger_profile_id",
+        "candidate_list",
+        "winning_contact_candidate_id",
+        "selection_trace_id",
+        "reselect_history",
+        "created_by_stage",
+        "downstream_consumer"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D9-R-061",
+        "D11-R-045"
+      ],
+      "upstream_dependencies": [
+        "saleable_opportunity",
+        "multi_competitor_collection",
+        "lawful contact source"
+      ],
+      "downstream_consumers": [
+        "contact_selection_trace",
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "enum_refs": [
+        "actor_role_cluster",
+        "source_family",
+        "channel_family",
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "channel_policy_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state"
+      ],
+      "hard_constraints": [
+        "must formalize candidate pool, winning candidate and reselection history before contact_target is finalized",
+        "must remain internal governed carrier and not bypass compliance or approval gates"
+      ]
+    },
+    {
+      "object": "contact_selection_trace",
+      "stage": 8,
+      "layer": "outreach",
+      "required": [
+        "contact_selection_trace_id",
+        "contact_candidate_collection_id",
+        "saleable_opportunity_id",
+        "multi_competitor_collection_id",
+        "winning_contact_candidate_id",
+        "selection_policy_id",
+        "selection_basis",
+        "trace_entries",
+        "winning_selection_reason",
+        "conflict_flag",
+        "reselect_history",
+        "created_by_stage",
+        "downstream_consumer"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D9-R-061",
+        "D11-R-045"
+      ],
+      "upstream_dependencies": [
+        "contact_candidate_collection"
+      ],
+      "downstream_consumers": [
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "enum_refs": [
+        "actor_role_cluster",
+        "channel_family",
+        "response_status"
+      ],
+      "hard_constraints": [
+        "winning contact selection and reselection trace must not remain runtime-only free text",
+        "must keep winning candidate aligned with contact_candidate_collection"
+      ]
+    },
+    {
+      "object": "contact_target",
+      "stage": 8,
+      "layer": "outreach",
+      "required": [
+        "contact_target_id",
+        "opportunity_id",
+        "project_id",
+        "saleability_status",
+        "org_name",
+        "org_type",
+        "person_name_optional",
+        "role_cluster",
+        "public_contact_source",
+        "source_family",
+        "source_auditability_state",
+        "source_vendor_id_optional",
+        "source_vendor_type_optional",
+        "source_vendor_role",
+        "contact_channel",
+        "channel_family",
+        "contact_target_status",
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "channel_policy_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state",
+        "auto_contact_allowed",
+        "source_audit_ref",
+        "query_trace_id",
+        "vendor_response_ref_optional",
+        "fallback_vendor_id_optional",
+        "requires_manual_review",
+        "primary_contact_flag",
+        "contact_priority_score",
+        "contact_priority_reason_tags",
+        "contact_candidate_rank",
+        "contact_selection_reason",
+        "contact_conflict_flag",
+        "contact_conflict_reason",
+        "blocking_reasons",
+        "last_evaluated_at"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-093",
+        "D9-R-065",
+        "D6-R",
+        "D7-R",
+        "D2-R-089",
+        "D2-R-094-A"
+      ],
+      "upstream_dependencies": [
+        "saleable_opportunity",
+        "account_context",
+        "lawful contact source"
+      ],
+      "downstream_consumers": [
+        "outreach_plan"
+      ],
+      "enum_refs": [
+        "actor_role_cluster",
+        "source_family",
+        "channel_family",
+        "contact_target_status",
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "channel_policy_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state",
+        "vendor_type",
+        "vendor_role"
+      ],
+      "hard_constraints": [
+        "may only come from public, authorized or compliant integrated sources",
+        "missing source vendor or trace fields must keep the object in review-only or blocked state",
+        "upstream opportunity_id and saleability_status must stay aligned with stage7 saleable_opportunity",
+        "priority and conflict fields are internal-only and must not bypass the formal compliance gate"
+      ]
+    },
+    {
+      "object": "outreach_plan",
+      "stage": 8,
+      "layer": "outreach",
+      "required": [
+        "outreach_plan_id",
+        "opportunity_id",
+        "project_id",
+        "saleability_status",
+        "contact_target_id",
+        "execution_vendor_id_optional",
+        "execution_vendor_type_optional",
+        "execution_vendor_role_optional",
+        "channel_strategy",
+        "requested_delivery_surface",
+        "projection_mode",
+        "cadence_profile_id",
+        "retry_policy_id",
+        "stop_policy_id",
+        "primary_message",
+        "planned_touch_at",
+        "attempt_index",
+        "approval_state",
+        "plan_status",
+        "run_mode",
+        "automation_level",
+        "next_touch_due_at_optional",
+        "retry_count",
+        "max_retry_count",
+        "stop_reason_optional",
+        "approval_run_required",
+        "writeback_required",
+        "writeback_target_optional",
+        "permission_decision_state",
+        "governance_decision_state",
+        "semantic_decision_state",
+        "governed_metadata",
+        "execution_trace_id_optional",
+        "vendor_response_ref_optional",
+        "fallback_vendor_id_optional",
+        "requires_manual_review"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-093",
+        "D9-R-066",
+        "D9-R-068",
+        "D2-R-089",
+        "D2-R-094-A"
+      ],
+      "upstream_dependencies": [
+        "contact_target",
+        "channel rules"
+      ],
+      "downstream_consumers": [
+        "touch_record"
+      ],
+      "enum_refs": [
+        "channel_family",
+        "approval_state",
+        "plan_status",
+        "run_mode",
+        "automation_level",
+        "vendor_type",
+        "vendor_role"
+      ],
+      "hard_constraints": [
+        "cannot be generated if channel rules do not pass",
+        "non-preview execution may not proceed without execution trace and vendor audit fields",
+        "approval/writeback control fields must not be inferred only at runtime",
+        "governed preview metadata must be persisted on the formal plan object, not only in transient trace"
+      ]
+    },
+    {
+      "object": "touch_record",
+      "stage": 8,
+      "layer": "outreach",
+      "required": [
+        "touch_record_id",
+        "opportunity_id",
+        "project_id",
+        "saleability_status",
+        "contact_target_id",
+        "outreach_plan_id",
+        "execution_vendor_id_optional",
+        "execution_vendor_type_optional",
+        "execution_vendor_role_optional",
+        "touch_at",
+        "attempt_index",
+        "touch_record_state",
+        "response_status",
+        "feedback_reason",
+        "next_step_optional",
+        "stop_reason_optional",
+        "touch_channel",
+        "written_back_at_optional",
+        "retry_scheduled_optional",
+        "failure_reason_tag_optional",
+        "writeback_targets",
+        "writeback_target_optional",
+        "permission_decision_state",
+        "governance_decision_state",
+        "semantic_decision_state",
+        "governed_metadata",
+        "execution_trace_id_optional",
+        "vendor_response_ref_optional"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-093",
+        "D9-R-069",
+        "D2-R-089",
+        "D2-R-094-A"
+      ],
+      "upstream_dependencies": [
+        "outreach_plan"
+      ],
+      "downstream_consumers": [
+        "project_fact refresh",
+        "opportunity_outcome_event"
+      ],
+      "enum_refs": [
+        "response_status",
+        "channel_family",
+        "touch_record_state",
+        "vendor_type",
+        "vendor_role"
+      ],
+      "hard_constraints": [
+        "without touch_record it is invalid to claim contact has occurred",
+        "records missing execution trace or vendor response ref must not count as formal execution evidence",
+        "failed touches must retain typed next-step/writeback state before closure",
+        "touch_record must persist governed writeback metadata for stage7/stage9 consumers even in preview mode"
+      ]
+    },
+    {
+      "object": "order_record",
+      "stage": 9,
+      "layer": "delivery",
+      "required": [
+        "order_id",
+        "project_id",
+        "opportunity_id",
+        "touch_record_id",
+        "response_status",
+        "saleability_status",
+        "crm_owner_state",
+        "commercial_status",
+        "order_status",
+        "approval_state",
+        "archival_status",
+        "amount_band",
+        "plan_status",
+        "touch_record_state",
+        "governed_execution_mode",
+        "permission_decision_state",
+        "governance_decision_state",
+        "semantic_decision_state",
+        "governed_metadata",
+        "created_at"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-062",
+        "D10-R-008"
+      ],
+      "upstream_dependencies": [
+        "saleable_opportunity",
+        "touch_record",
+        "outreach_plan"
+      ],
+      "downstream_consumers": [
+        "payment_record",
+        "delivery_record"
+      ],
+      "enum_refs": [
+        "commercial_status",
+        "order_status",
+        "approval_state",
+        "archival_status",
+        "amount_band",
+        "plan_status",
+        "touch_record_state",
+        "response_status",
+        "saleability_status",
+        "crm_owner_state"
+      ],
+      "hard_constraints": [
+        "oral status is not a substitute",
+        "must persist H-08 preview/writeback state when provided",
+        "must remain internal governed skeleton and not imply live order execution"
+      ]
+    },
+    {
+      "object": "payment_record",
+      "stage": 9,
+      "layer": "delivery",
+      "required": [
+        "payment_id",
+        "project_id",
+        "order_id",
+        "payment_status",
+        "payment_proof_state",
+        "payer_match_state",
+        "amount_match_state",
+        "amount_band",
+        "refund_state",
+        "paid_at_optional",
+        "written_back_at_optional",
+        "governed_execution_mode",
+        "permission_decision_state",
+        "governance_decision_state",
+        "semantic_decision_state",
+        "governed_metadata"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-063",
+        "D10-R-064"
+      ],
+      "upstream_dependencies": [
+        "order_record",
+        "touch_record"
+      ],
+      "downstream_consumers": [
+        "delivery_record"
+      ],
+      "enum_refs": [
+        "payment_status",
+        "amount_band"
+      ],
+      "hard_constraints": [
+        "oral status is not a substitute",
+        "payment completion requires typed proof state and refund/exception persistence",
+        "payer/amount match workflow must be typed rather than inferred from free text",
+        "CHARGEBACK_REVIEW and other formal payment exceptions must be runtime-consumable and publish exception-specific writeback targets"
+      ]
+    },
+    {
+      "object": "delivery_record",
+      "stage": 9,
+      "layer": "delivery",
+      "required": [
+        "delivery_id",
+        "project_id",
+        "order_id",
+        "payment_id_optional",
+        "delivery_form",
+        "delivery_status",
+        "delivered_at_optional",
+        "customer_ack_state_optional",
+        "archival_status",
+        "retention_until",
+        "retrieval_status",
+        "written_back_at_optional",
+        "governed_execution_mode",
+        "permission_decision_state",
+        "governance_decision_state",
+        "semantic_decision_state",
+        "governed_metadata"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-064",
+        "D10-R-065"
+      ],
+      "upstream_dependencies": [
+        "order_record",
+        "payment_record",
+        "touch_record"
+      ],
+      "downstream_consumers": [
+        "governance_feedback_event"
+      ],
+      "enum_refs": [
+        "delivery_status",
+        "delivery_form",
+        "archival_status",
+        "retrieval_status"
+      ],
+      "hard_constraints": [
+        "must not rewrite stage 3 truth",
+        "delivery exception projections must remain typed and review/block closure when unresolved",
+        "customer ack, retrieval and archive states must remain governed internal only",
+        "PARTIAL_DELIVERY / DELIVERY_REJECTED / ACK_TIMEOUT must be runtime-consumable and publish exception-specific writeback targets"
+      ]
+    },
+    {
+      "object": "opportunity_outcome_event",
+      "stage": 9,
+      "layer": "delivery",
+      "required": [
+        "outcome_event_id",
+        "project_id",
+        "opportunity_id",
+        "outcome_family",
+        "outcome_reason_tags",
+        "is_false_positive",
+        "window_missed_state",
+        "contact_failure_state",
+        "payer_mismatch_state",
+        "feedback_reason",
+        "trigger_type",
+        "action_taken",
+        "writeback_targets",
+        "governance_feedback_triggered_optional",
+        "written_back_at",
+        "written_back_at_optional",
+        "governed_execution_mode",
+        "permission_decision_state",
+        "governance_decision_state",
+        "semantic_decision_state",
+        "governed_metadata"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-065",
+        "D10-R-066",
+        "D10-R-067"
+      ],
+      "upstream_dependencies": [
+        "saleable_opportunity",
+        "touch_record",
+        "delivery_record",
+        "governance_feedback_event"
+      ],
+      "downstream_consumers": [
+        "project_fact refresh",
+        "commercial calibration"
+      ],
+      "enum_refs": [
+        "outcome_family",
+        "window_missed_state",
+        "contact_failure_state",
+        "payer_mismatch_state",
+        "trigger_type"
+      ],
+      "hard_constraints": [
+        "false positives and lost deals must be formally persisted",
+        "writeback targets must align with taxonomy and governance trigger requirements",
+        "H-08 feedback_reason and written_back_at_optional must be consumable when present",
+        "outcome writeback targets remain authoritative; governance/payment/delivery additive targets must be expressed by formal writeback contract rather than silent override"
+      ]
+    },
+    {
+      "object": "governance_feedback_event",
+      "stage": 9,
+      "layer": "delivery",
+      "required": [
+        "governance_feedback_event_id",
+        "project_id",
+        "trigger_type",
+        "trigger_summary",
+        "action_taken",
+        "feedback_reason",
+        "writeback_targets",
+        "written_back_at",
+        "written_back_at_optional",
+        "archive_scope",
+        "impact_scope_optional",
+        "governed_execution_mode",
+        "permission_decision_state",
+        "governance_decision_state",
+        "semantic_decision_state",
+        "governed_metadata"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D2-R-066",
+        "D10-R-012",
+        "D10-R-067"
+      ],
+      "upstream_dependencies": [
+        "delivery_record",
+        "touch_record",
+        "governance action"
+      ],
+      "downstream_consumers": [
+        "project_fact refresh",
+        "governance workbench"
+      ],
+      "enum_refs": [
+        "trigger_type"
+      ],
+      "hard_constraints": [
+        "governance outcomes must not remain only in notes",
+        "trigger/action/writeback fields must stay typed and governed",
+        "writeback_target_contracts must distinguish persisted Stage9 objects from trace-only or projected targets"
+      ]
+    },
+    {
+      "object": "private_supplement_record",
+      "stage": "cross_stage",
+      "layer": "governance_isolation",
+      "required": [
+        "supplement_id",
+        "project_id",
+        "linked_review_request_id",
+        "material_family",
+        "source_owner",
+        "lawful_basis",
+        "usable_scope",
+        "release_state",
+        "visible_roles",
+        "written_back_policy"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-047"
+      ],
+      "upstream_dependencies": [
+        "review_request"
+      ],
+      "downstream_consumers": [
+        "governance only"
+      ],
+      "enum_refs": [
+        "release_state",
+        "usable_scope"
+      ],
+      "hard_constraints": [
+        "must not silently flow into the public formal chain"
+      ]
+    },
+    {
+      "object": "controlled_exception_record",
+      "stage": "cross_stage",
+      "layer": "governance_isolation",
+      "required": [
+        "exception_id",
+        "project_id_optional",
+        "exception_scope",
+        "exception_reason",
+        "effective_from",
+        "effective_until",
+        "rollback_plan",
+        "approved_by_role",
+        "exception_state",
+        "audit_ref"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D13-R-050"
+      ],
+      "upstream_dependencies": [
+        "governance decision"
+      ],
+      "downstream_consumers": [
+        "governance only"
+      ],
+      "enum_refs": [
+        "exception_scope",
+        "exception_state"
+      ],
+      "hard_constraints": [
+        "may only limit or delay capability; must not elevate forbidden inputs"
+      ]
+    },
+    {
+      "object": "model_governance_record",
+      "stage": "cross_stage",
+      "layer": "governance_isolation",
+      "required": [
+        "model_record_id",
+        "model_usage_scope",
+        "model_id",
+        "provider_id",
+        "provider_type",
+        "input_boundary_note",
+        "output_target_object",
+        "human_review_required",
+        "release_status",
+        "provider_trace_id",
+        "tool_provider_id_optional",
+        "fallback_provider_id_optional"
+      ],
+      "source_refs": [
+        "D2-R-017",
+        "D14-R",
+        "D2-R-094-A"
+      ],
+      "upstream_dependencies": [
+        "model policy"
+      ],
+      "downstream_consumers": [
+        "governance only"
+      ],
+      "enum_refs": [
+        "model_usage_scope",
+        "release_status",
+        "provider_type"
+      ],
+      "hard_constraints": [
+        "required when model output enters the formal chain",
+        "provider metadata and provider trace are mandatory when model output is eligible to enter the formal chain"
+      ]
+    },
+    {
+      "object": "task_execution_context",
+      "stage": 1,
+      "layer": "orchestration",
+      "required": [
+        "task_execution_context_id",
+        "task_id",
+        "region_code",
+        "time_range_from",
+        "time_range_until",
+        "strategy_template_id",
+        "review_lane",
+        "project_rooting_policy",
+        "window_priority_policy",
+        "created_at"
+      ],
+      "source_refs": [
+        "D2-R-017"
+      ],
+      "upstream_dependencies": [
+        "task_record"
+      ],
+      "downstream_consumers": [
+        "public_chain",
+        "clock_chain_profile",
+        "notice_version_chain"
+      ],
+      "enum_refs": [
+        "review_lane"
+      ],
+      "hard_constraints": [
+        "must not directly form business conclusions"
+      ]
+    },
+    {
+      "object": "project_identity_strategy",
+      "stage": 1,
+      "layer": "orchestration",
+      "required": [
+        "project_identity_strategy_id",
+        "task_id",
+        "project_root_strategy",
+        "region_code",
+        "procurement_regime_hint",
+        "identity_resolution_rule_id",
+        "created_at"
+      ],
+      "source_refs": [
+        "D2-R-021"
+      ],
+      "upstream_dependencies": [
+        "task_record"
+      ],
+      "downstream_consumers": [
+        "execution_context",
+        "task_execution_context",
+        "project_base"
+      ],
+      "enum_refs": [],
+      "hard_constraints": [
+        "must align with formal project identity policy"
+      ]
+    },
+    {
+      "object": "clock_strategy_profile",
+      "stage": 1,
+      "layer": "orchestration",
+      "required": [
+        "clock_strategy_profile_id",
+        "task_id",
+        "procurement_regime_strategy",
+        "window_priority_policy",
+        "clock_resolution_rule_id",
+        "created_at"
+      ],
+      "source_refs": [
+        "D2-R-025"
+      ],
+      "upstream_dependencies": [
+        "task_record"
+      ],
+      "downstream_consumers": [
+        "clock_chain_profile",
+        "public_chain"
+      ],
+      "enum_refs": [],
+      "hard_constraints": [
+        "must not override formal clock_chain_profile"
+      ]
+    },
+    {
+      "object": "fixation_bundle",
+      "stage": 2,
+      "layer": "truth",
+      "required": [
+        "fixation_bundle_id",
+        "carrier_type",
+        "source_url",
+        "capture_time",
+        "content_hash",
+        "storage_path"
+      ],
+      "source_refs": [
+        "D2-R-024"
+      ],
+      "upstream_dependencies": [
+        "public_chain"
+      ],
+      "downstream_consumers": [
+        "evidence",
+        "evidence_grade_profile"
+      ],
+      "enum_refs": [],
+      "hard_constraints": [
+        "fixation bundle must be traceable and auditable"
+      ]
+    }
+  ]
+}

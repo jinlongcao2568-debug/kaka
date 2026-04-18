@@ -1,0 +1,337 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "opportunity_policy_catalog",
+  "ownerDocs": [
+    "D8",
+    "D10"
+  ],
+  "policies": [
+    {
+      "policyId": "saleable_opportunity_generation_v1",
+      "targetObject": "saleable_opportunity",
+      "requiredInputs": [
+        "project_fact",
+        "challenger_candidate_profile",
+        "offer_recommendation",
+        "buyer_fit or challenger_buyer_fit",
+        "lead_value_scoring_catalog outputs",
+        "buyer_fit_scorecard outputs",
+        "sku_recommendation_policy outputs"
+      ],
+      "forbiddenInputs": [
+        "single_rule_hit_only",
+        "crm_note_only",
+        "single_page_only",
+        "free_text_why_recommended_override",
+        "D_NON_PUBLIC_OR_FORENSIC direct input"
+      ],
+      "requiredStates": [
+        "project_fact exists",
+        "sale_gate_status != BLOCK",
+        "rule_gate_status in [PASS,REVIEW]",
+        "evidence_gate_status in [PASS,REVIEW]"
+      ],
+      "outputFields": [
+        "opportunity_id",
+        "project_id",
+        "recommended_sku",
+        "buyer_fit_id",
+        "challenger_profile_id",
+        "opportunity_grade",
+        "saleability_status",
+        "major_value_points",
+        "blocking_reasons",
+        "expected_close_days_band",
+        "expected_contract_value_band",
+        "expected_delivery_cost_band",
+        "crm_owner_state",
+        "opportunity_value_score_optional"
+      ],
+      "blockedWhen": [
+        "project_root unresolved",
+        "version or clock conflict unresolved",
+        "coverage_sellable_state in [NOT_READY,SUSPENDED]",
+        "delivery_risk_state=BLOCK"
+      ]
+    },
+    {
+      "policyId": "opportunity_outcome_writeback_v1",
+      "targetObject": "opportunity_outcome_event",
+      "requiredOutcomes": [
+        "won",
+        "lost",
+        "window_missed",
+        "contact_failed",
+        "payer_mismatch",
+        "false_positive",
+        "delivery_abandoned"
+      ],
+      "mustWriteBackTo": [
+        "sales_lead",
+        "report_record"
+      ],
+      "mustAdvisoryWriteBackTo": [
+        "buyer_fit",
+        "challenger_candidate_profile"
+      ],
+      "runtimeVisibilityFields": [
+        "upstream_feedback_projected_targets",
+        "upstream_feedback_advisory_targets",
+        "writeback_target_contracts"
+      ],
+      "upstreamFeedbackLoopContracts": {
+        "window_missed": {
+          "projectedContractSemantics": "PROJECTED_MUTATION_ONLY",
+          "advisoryContractSemantics": "TRACE_ONLY_ADVISORY",
+          "directPersistenceForbidden": true,
+          "projectedOnlyTargets": {
+            "sales_lead": {
+              "fieldPatches": {
+                "lead_status": "REVIEW"
+              },
+              "effectSummary": "window missed requires lead re-qualification"
+            },
+            "report_record": {
+              "fieldPatches": {
+                "report_status": "REVIEW_REQUIRED"
+              },
+              "effectSummary": "window missed marks report output stale"
+            }
+          },
+          "advisoryTargets": {
+            "buyer_fit": {
+              "fieldPatches": {
+                "fit_refresh_required": true,
+                "fit_refresh_reason": "WINDOW_MISSED"
+              },
+              "effectSummary": "window urgency change requires buyer fit refresh"
+            }
+          }
+        },
+        "contact_failed": {
+          "projectedContractSemantics": "PROJECTED_MUTATION_ONLY",
+          "advisoryContractSemantics": "TRACE_ONLY_ADVISORY",
+          "directPersistenceForbidden": true,
+          "projectedOnlyTargets": {
+            "sales_lead": {
+              "fieldPatches": {
+                "lead_status": "REVIEW"
+              },
+              "effectSummary": "contact failure reopens lead qualification"
+            },
+            "report_record": {
+              "fieldPatches": {
+                "report_status": "REVIEW_REQUIRED"
+              },
+              "effectSummary": "contact failure requires report follow-up refresh"
+            }
+          },
+          "advisoryTargets": {}
+        },
+        "false_positive": {
+          "projectedContractSemantics": "PROJECTED_MUTATION_ONLY",
+          "advisoryContractSemantics": "TRACE_ONLY_ADVISORY",
+          "directPersistenceForbidden": true,
+          "projectedOnlyTargets": {
+            "sales_lead": {
+              "fieldPatches": {
+                "lead_status": "DISQUALIFIED"
+              },
+              "effectSummary": "false positive disqualifies current lead projection"
+            },
+            "report_record": {
+              "fieldPatches": {
+                "report_status": "REVIEW_REQUIRED"
+              },
+              "effectSummary": "false positive invalidates current report conclusion"
+            }
+          },
+          "advisoryTargets": {
+            "buyer_fit": {
+              "fieldPatches": {
+                "fit_refresh_required": true,
+                "fit_refresh_reason": "FALSE_POSITIVE"
+              },
+              "effectSummary": "false positive requires buyer fit re-score"
+            },
+            "challenger_candidate_profile": {
+              "fieldPatches": {
+                "profile_refresh_required": true,
+                "profile_refresh_reason": "FALSE_POSITIVE"
+              },
+              "effectSummary": "false positive requires challenger profile refresh"
+            }
+          }
+        },
+        "payer_mismatch": {
+          "projectedContractSemantics": "PROJECTED_MUTATION_ONLY",
+          "advisoryContractSemantics": "TRACE_ONLY_ADVISORY",
+          "directPersistenceForbidden": true,
+          "projectedOnlyTargets": {
+            "sales_lead": {
+              "fieldPatches": {
+                "lead_status": "REVIEW"
+              },
+              "effectSummary": "payer mismatch returns lead to governed review"
+            },
+            "report_record": {
+              "fieldPatches": {
+                "report_status": "REVIEW_REQUIRED"
+              },
+              "effectSummary": "payer mismatch requires refreshed report guidance"
+            }
+          },
+          "advisoryTargets": {}
+        },
+        "delivery_abandoned": {
+          "projectedContractSemantics": "PROJECTED_MUTATION_ONLY",
+          "advisoryContractSemantics": "TRACE_ONLY_ADVISORY",
+          "directPersistenceForbidden": true,
+          "projectedOnlyTargets": {
+            "sales_lead": {
+              "fieldPatches": {
+                "lead_status": "REVIEW"
+              },
+              "effectSummary": "delivery failure returns lead to governed review"
+            },
+            "report_record": {
+              "fieldPatches": {
+                "report_status": "REVIEW_REQUIRED"
+              },
+              "effectSummary": "delivery failure requires refreshed report guidance"
+            }
+          },
+          "advisoryTargets": {}
+        }
+      }
+    }
+  ],
+  "expectedBandPolicies": [
+    {
+      "policy_id": "OPPORTUNITY-BAND-001",
+      "title": "Expected close and delivery cost band derivation",
+      "inputs": [
+        "window_status",
+        "window_urgency_score",
+        "opportunity_grade",
+        "recommended_delivery_form",
+        "price_band"
+      ],
+      "close_days_rules": [
+        {
+          "rule_id": "CLOSE-MISSED",
+          "window_statuses": [
+            "MISSED",
+            "CLOSED"
+          ],
+          "expected_close_days_band": "MISSED_WINDOW",
+          "decision_state": "REVIEW"
+        },
+        {
+          "rule_id": "CLOSE-FAST",
+          "window_statuses": [
+            "ACTIONABLE"
+          ],
+          "window_urgency_score": {
+            "gte": 80
+          },
+          "expected_close_days_band": "0-7D",
+          "decision_state": "ALLOW"
+        },
+        {
+          "rule_id": "CLOSE-STANDARD",
+          "window_statuses": [
+            "ACTIONABLE"
+          ],
+          "window_urgency_score": {
+            "gte": 55,
+            "lt": 80
+          },
+          "expected_close_days_band": "8-14D",
+          "decision_state": "ALLOW"
+        },
+        {
+          "rule_id": "CLOSE-LONG",
+          "window_statuses": [
+            "ACTIONABLE"
+          ],
+          "window_urgency_score": {
+            "lt": 55
+          },
+          "expected_close_days_band": "15-30D",
+          "decision_state": "ALLOW"
+        },
+        {
+          "rule_id": "CLOSE-REVIEW",
+          "expected_close_days_band": "REVIEW_REQUIRED",
+          "decision_state": "REVIEW"
+        }
+      ],
+      "delivery_cost_rules": [
+        {
+          "rule_id": "COST-HIGH-FORMS",
+          "recommended_delivery_forms": [
+            "OBJECTION_DRAFT",
+            "SCORING_EVIDENCE_SET",
+            "PERFORMANCE_TRACKING"
+          ],
+          "expected_delivery_cost_band": "HIGH",
+          "decision_state": "ALLOW"
+        },
+        {
+          "rule_id": "COST-MEDIUM-FORMS",
+          "recommended_delivery_forms": [
+            "EVIDENCE_PACK",
+            "ANALYSIS_REPORT",
+            "RISK_REPORT",
+            "ORG_BEHAVIOR_SUMMARY"
+          ],
+          "expected_delivery_cost_band": "MEDIUM",
+          "decision_state": "ALLOW"
+        },
+        {
+          "rule_id": "COST-LOW-FORMS",
+          "recommended_delivery_forms": [
+            "PROJECT_BRIEF",
+            "COMPETITION_SUMMARY"
+          ],
+          "expected_delivery_cost_band": "LOW",
+          "decision_state": "ALLOW"
+        },
+        {
+          "rule_id": "COST-REVIEW",
+          "expected_delivery_cost_band": "CUSTOM",
+          "decision_state": "REVIEW"
+        }
+      ],
+      "whyRecommendedTemplateId": "WHY-RECOMMENDED-001",
+      "whyRecommendedTemplate": "policy={policy};sku={sku};grade={grade};window={window};close_band={close_band};cost_band={cost_band};quote_band={quote_band}",
+      "whyRecommendedFields": [
+        "policy",
+        "sku",
+        "grade",
+        "window",
+        "close_band",
+        "cost_band",
+        "quote_band"
+      ],
+      "formalSinkProjection": {
+        "project_value_score_optional": "lead_value_scoring_catalog#PROJECT-VALUE-001",
+        "opportunity_value_score_optional": "lead_value_scoring_catalog#OPPORTUNITY-VALUE-001",
+        "expected_close_days_band": "OPPORTUNITY-BAND-001.close_days_rules",
+        "expected_delivery_cost_band": "OPPORTUNITY-BAND-001.delivery_cost_rules",
+        "why_recommended": "OPPORTUNITY-BAND-001.whyRecommendedTemplate"
+      },
+      "outputFields": [
+        "saleable_opportunity.expected_close_days_band",
+        "saleable_opportunity.expected_delivery_cost_band",
+        "offer_recommendation.why_recommended"
+      ]
+    }
+  ],
+  "notes": [
+    "Expected bands are internal sales orchestration fields and do not create an external delivery promise.",
+    "why_recommended must be generated from formal rule outputs; free-text override is forbidden in this batch.",
+    "upstreamFeedbackLoopContracts only describes projected-only and advisory writeback semantics for Stage9 feedback loops; it does not authorize direct persistence into Stage6/7 objects."
+  ]
+}

@@ -1,0 +1,104 @@
+version: 1
+plan_id: AX9S_FULL_REPAIR_EXECUTION_PLAN
+updated_at: "2026-04-17"
+status: READY_FOR_WINDOW_BOOTSTRAP
+program_goal: "Execute the full high-priority AX9S repair program in a stable order without re-planning per window."
+program_scope: "Internal governed full-repair program for stage1-stage9 formal chain, capability opening strategy, and supporting control/runtime/test surfaces."
+not_status_source: true
+canonical_status_sources:
+  - control/repo_status.md
+  - control/current_task.yaml
+  - control/milestone_status.yaml
+  - control/release_manifest.yaml
+  - docs/文档与资产状态板.md
+required_read_order:
+  - docs/L0.md
+  - docs/裁决总表.md
+  - docs/D1_研发_Codex执行手册.md
+  - control/repo_status.md
+  - control/current_task.yaml
+  - control/milestone_status.yaml
+  - control/ax9s_full_repair_plan.yaml
+  - control/ax9s_full_repair_status.yaml
+  - control/ax9s_full_repair_coverage_matrix.yaml
+  - control/ax9s_validation_matrix.yaml
+  - control/ax9s_review_escalation_matrix.yaml
+  - control/task_packets
+execution_rules:
+  one_window_one_batch: true
+  one_primary_goal_per_window: true
+  strict_order_enforced: true
+  skip_batch_forbidden: true
+  parallel_main_batches_forbidden: true
+  next_batch_requires_previous_done: true
+  batch_blueprint_requires_scoped_subpacket: true
+  current_task_activation_required_before_code_change: true
+  current_task_must_point_to_active_batch: true
+  current_task_yaml_is_not_auto_rewritten_by_plan: true
+  stop_after_required_scripts: true
+  stop_after_control_round: true
+  stop_after_skeleton_round: true
+  producer_before_consumer: true
+  canonical_source_before_runtime: true
+  runtime_before_surface: true
+  internal_governed_before_external_or_live: true
+program_non_goals:
+  - "Do not auto-open any external software release path."
+  - "Do not auto-open any Stage 8 live execution path."
+  - "Do not auto-open any Stage 9 live payment, delivery, refund, or export path."
+  - "Do not weaken external blocked, approval chain, audit chain, or emergency off semantics."
+  - "Do not create a second source of truth for objects, rules, states, capability modes, or release gates."
+activation_flow:
+  - "Read ax9s_full_repair_status.yaml to find next batch."
+  - "Read control/task_packets/<batch>.yaml as the program batch blueprint."
+  - "Derive one executable scoped subpacket from control/ax9s_scoped_task_packet_template.yaml within automation scope limits."
+  - "Copy the executable scoped subpacket into control/current_task.yaml#currentTask.task_packet only after confirming the previous batch is DONE."
+  - "Restrict edits to the packet allowed paths."
+  - "Run the batch-specific required scripts."
+  - "Stop and update closeout summary before any next-batch activation."
+automation_scope_constraints_ref: control/automation_task_packet_rules.yaml
+scoped_subpacket_template_ref: control/ax9s_scoped_task_packet_template.yaml
+coverage_matrix_ref: control/ax9s_full_repair_coverage_matrix.yaml
+batch_sequence:
+  - batch_id: B0
+    title: Semantic Source And Gate Baseline
+    why_first: "Lock canonical sources, review gates, and anti-drift expectations before any runtime or object repair."
+  - batch_id: B1
+    title: Stage1-2 Authoritative Baseline Closure
+    why_first: "Stage1-2 are upstream producers; unstable source/route/version/clock semantics invalidate downstream work."
+  - batch_id: B2
+    title: Stage3 Truth Layer Closure
+    why_first: "Stage3 must become a real truth layer before strengthening verification and commercial logic."
+  - batch_id: B3
+    title: Stage4-6 Verification Review Report Supplement Closure
+    why_first: "Stage6 is the unified fact hub and must be stable before Stage7-9 are further hardened."
+  - batch_id: B4
+    title: Stage7 Commercial Object Closure
+    why_first: "High-value lead, competitor, price, buyer fit, and offer logic are the core leverage layer."
+  - batch_id: B5
+    title: Stage8 Contact Orchestration Closure
+    why_first: "Operator friction, merge/conflict, cadence, retry, and human handoff must be stabilized before Stage9 durable closure."
+  - batch_id: B6
+    title: Stage9 Durable Workflow And Feedback Closure
+    why_first: "Outcome, governance feedback, and durable upstream refresh are the key missing closure loop."
+  - batch_id: B7
+    title: Capability Opening Strategy Convergence
+    why_first: "All buildable-but-off vs blocked semantics must be unified after core runtime and workflow semantics are stable."
+  - batch_id: B8
+    title: Persistence Surface And Workbench Convergence
+    why_first: "Repository/API/UI/workbench consumption should be tightened only after formal objects and governed flows are closed."
+  - batch_id: B9
+    title: Provider Vendor Adapter Reservation And Shadow Expansion
+    why_first: "Adapters should be standardized only after semantics, persistence, and capability modes are stable."
+  - batch_id: B10
+    title: Full Chain Hardening And Release Readiness
+    why_first: "Final anti-drift, regression, release, and closeout strengthening is the last stabilization pass."
+global_required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-governance-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+notes:
+  - "This plan is a control asset for stable execution ordering; it does not change current repo readiness by itself."
+  - "B0-B10 under control/task_packets are batch blueprints, not direct current_task activation payloads."
+  - "New windows must read this plan together with the selected batch blueprint, the scoped subpacket template, and the status ledger."

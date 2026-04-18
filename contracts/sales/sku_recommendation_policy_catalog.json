@@ -1,0 +1,80 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "sku_recommendation_policy_catalog",
+  "ownerDocs": [
+    "D3",
+    "D8",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "SKU-RECOMMEND-001",
+      "title": "SKU, delivery form and quote band recommendation",
+      "inputs": [
+        "saleable_opportunity.opportunity_grade",
+        "buyer_fit.fit_score",
+        "challenger_candidate_profile.challenge_actionability_score",
+        "window_urgency_score",
+        "price_band_optional",
+        "price_conflict_gate_status_optional",
+        "external_use_grade",
+        "delivery_risk_state",
+        "coverage_sellable_state"
+      ],
+      "preconditions": [
+        "project_fact exists",
+        "challenger_candidate_profile exists",
+        "buyer_fit exists",
+        "rule_gate_status != BLOCK",
+        "evidence_gate_status != BLOCK"
+      ],
+      "review_only_triggers": [
+        "coverage_sellable_state in [NOT_READY,SUSPENDED]",
+        "delivery_risk_state=BLOCK",
+        "price_conflict_gate_status_optional=BLOCK",
+        "external_use_grade=E1_INTERNAL_ONLY"
+      ],
+      "recommendation_matrix": [
+        {
+          "when": "opportunity_grade=A and fit_score>=80 and window_urgency_score>=70 and external_use_grade>=E3",
+          "sku_code": "SKU-A",
+          "recommended_delivery_form": "OBJECTION_DRAFT",
+          "recommended_quote_band": "HIGH"
+        },
+        {
+          "when": "opportunity_grade=B and fit_score>=65 and external_use_grade>=E3",
+          "sku_code": "SKU-B",
+          "recommended_delivery_form": "EVIDENCE_PACK",
+          "recommended_quote_band": "MEDIUM"
+        },
+        {
+          "when": "opportunity_grade=C and fit_score>=50 and external_use_grade>=E2",
+          "sku_code": "SKU-C",
+          "recommended_delivery_form": "ANALYSIS_REPORT",
+          "recommended_quote_band": "LOW"
+        },
+        {
+          "when": "opportunity_grade=D or fit_score<50",
+          "sku_code": "SKU-C",
+          "recommended_delivery_form": "PROJECT_BRIEF",
+          "recommended_quote_band": "CUSTOM"
+        }
+      ],
+      "fallback_rules": [
+        "if price_band_optional=UNKNOWN -> recommended_quote_band=CUSTOM",
+        "if window_status=MISSED -> offer_recommendation_state=REVIEW_REQUIRED",
+        "if review_only_triggers matched -> offer_recommendation_state=REVIEW_REQUIRED"
+      ],
+      "output_fields": [
+        "offer_recommendation.sku_code",
+        "offer_recommendation.recommended_delivery_form",
+        "offer_recommendation.recommended_quote_band",
+        "offer_recommendation.offer_blocking_reasons_optional"
+      ]
+    }
+  ],
+  "notes": [
+    "SKU-D is not used in this batch; D-grade opportunities remain review-only under SKU-C with CUSTOM quote band.",
+    "Delivery form choices are internal-only and must still pass D6/D7 release gates."
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "bidder_candidate",
+  "type": "object",
+  "description": "Stage3 formal bidder candidate member and candidate-collection carrier; candidate rank/order must remain sourced and must not be fabricated downstream.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-018"
+  ],
+  "enum_refs": [
+    "candidate_group_label"
+  ],
+  "properties": {
+    "bidder_candidate_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "bidder_name": {
+      "type": "string"
+    },
+    "candidate_group_label": {
+      "type": "string"
+    },
+    "candidate_rank_optional": {
+      "type": "integer"
+    },
+    "bid_price": {
+      "type": "number"
+    },
+    "total_score": {
+      "type": "number"
+    },
+    "is_invalid": {
+      "type": "boolean"
+    },
+    "normalized_price_amount_optional": {
+      "type": "number"
+    },
+    "price_conflict_gate_status_optional": {
+      "type": "string"
+    },
+    "candidate_collection_ref_optional": {
+      "type": "string"
+    },
+    "candidate_collection_role_optional": {
+      "type": "string"
+    },
+    "candidate_source_lineage_ids_optional": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "candidate_conflict_group_id_optional": {
+      "type": "string"
+    },
+    "candidate_review_path_optional": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "bidder_candidate_id",
+    "project_id",
+    "bidder_name",
+    "candidate_group_label",
+    "candidate_rank_optional",
+    "bid_price",
+    "total_score",
+    "is_invalid"
+  ],
+  "additionalProperties": false
+}

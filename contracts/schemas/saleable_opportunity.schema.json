@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "saleable_opportunity",
+  "type": "object",
+  "description": "Schema skeleton for saleable_opportunity.",
+  "source_refs": [
+    "D2-R-008",
+    "D13-R-010"
+  ],
+  "enum_refs": [
+    "sku_code",
+    "opportunity_grade",
+    "saleability_status",
+    "crm_owner_state"
+  ],
+  "properties": {
+    "opportunity_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "recommended_sku": {
+      "type": "string"
+    },
+    "buyer_fit_id": {
+      "type": "string"
+    },
+    "challenger_profile_id": {
+      "type": "string"
+    },
+    "opportunity_grade": {
+      "type": "string"
+    },
+    "saleability_status": {
+      "type": "string"
+    },
+    "major_value_points": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "expected_close_days_band": {
+      "type": "string"
+    },
+    "expected_contract_value_band": {
+      "type": "string"
+    },
+    "expected_delivery_cost_band": {
+      "type": "string"
+    },
+    "crm_owner_state": {
+      "type": "string"
+    },
+    "opportunity_value_score_optional": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    }
+  },
+  "required": [
+    "opportunity_id",
+    "project_id",
+    "recommended_sku",
+    "buyer_fit_id",
+    "challenger_profile_id",
+    "opportunity_grade",
+    "saleability_status",
+    "major_value_points",
+    "blocking_reasons",
+    "expected_close_days_band",
+    "expected_contract_value_band",
+    "expected_delivery_cost_band",
+    "crm_owner_state"
+  ],
+  "additionalProperties": false
+}

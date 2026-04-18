@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "controlled_exception_record",
+  "type": "object",
+  "description": "Schema skeleton for controlled_exception_record.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-050",
+    "D7-R-041",
+    "D10-R-037"
+  ],
+  "enum_refs": [
+    "exception_scope",
+    "exception_state"
+  ],
+  "properties": {
+    "exception_id": {
+      "type": "string"
+    },
+    "project_id_optional": {
+      "type": "string"
+    },
+    "exception_scope": {
+      "type": "string"
+    },
+    "exception_reason": {
+      "type": "string"
+    },
+    "effective_from": {
+      "type": "string"
+    },
+    "effective_until": {
+      "type": "string"
+    },
+    "rollback_plan": {
+      "type": "string"
+    },
+    "approved_by_role": {
+      "type": "string"
+    },
+    "exception_state": {
+      "type": "string"
+    },
+    "audit_ref": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "exception_id",
+    "project_id_optional",
+    "exception_scope",
+    "exception_reason",
+    "effective_from",
+    "effective_until",
+    "rollback_plan",
+    "approved_by_role",
+    "exception_state",
+    "audit_ref"
+  ],
+  "additionalProperties": false,
+  "semantic_notes": "Future implementation depends on confirmed C-group enums: exception_scope, exception_state."
+}

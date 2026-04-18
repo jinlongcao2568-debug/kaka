@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "legal_action_recommendation",
+  "type": "object",
+  "description": "Schema skeleton for legal_action_recommendation.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-028"
+  ],
+  "enum_refs": [
+    "action_family",
+    "procurement_regime",
+    "window_status"
+  ],
+  "properties": {
+    "action_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "action_family": {
+      "type": "string"
+    },
+    "applicable_regime": {
+      "type": "string"
+    },
+    "competent_authority_scope": {
+      "type": "string"
+    },
+    "window_status": {
+      "type": "string"
+    },
+    "basis_summary": {
+      "type": "string"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "recommended_next_step": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "action_id",
+    "project_id",
+    "action_family",
+    "applicable_regime",
+    "competent_authority_scope",
+    "window_status",
+    "basis_summary",
+    "blocking_reasons",
+    "recommended_next_step"
+  ],
+  "additionalProperties": false
+}

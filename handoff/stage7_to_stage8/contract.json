@@ -1,0 +1,110 @@
+{
+  "handoff_id": "H-07-STAGE7-TO-STAGE8",
+  "from_stage": 7,
+  "to_stage": 8,
+  "name": "商业承接 -> 联系对象与销售触达",
+  "producer_objects": [
+    "sales_lead",
+    "saleable_opportunity",
+    "multi_competitor_collection",
+    "legal_action_actor_profile",
+    "procurement_decision_actor_profile",
+    "buyer_fit",
+    "challenger_buyer_fit",
+    "offer_recommendation"
+  ],
+  "consumer_objects": [
+    "contact_candidate_collection",
+    "contact_selection_trace",
+    "contact_target",
+    "outreach_plan",
+    "touch_record"
+  ],
+  "required_upstream_conditions": [
+    "opportunity_ready",
+    "contact_legal_basis_available",
+    "channel_policy_resolved",
+    "contact_validity_resolved",
+    "reasonable_expectation_resolved"
+  ],
+  "required_payload_fields": [
+    "opportunity_id",
+    "saleability_status",
+    "source_family",
+    "channel_family",
+    "channel_policy_status",
+    "contact_validity_status",
+    "contact_legal_basis",
+    "reasonable_expectation_status",
+    "frequency_policy_state",
+    "opt_out_state",
+    "quiet_hours_policy_state",
+    "commercial_urgency_level_optional",
+    "role_cluster"
+  ],
+  "optional_payload_fields": [
+    "multi_competitor_collection_id_optional",
+    "winning_competitor_candidate_id_optional",
+    "winning_challenger_profile_id_optional",
+    "project_value_score_optional",
+    "opportunity_value_score_optional",
+    "normalized_price_amount_optional",
+    "price_conflict_gate_status_optional",
+    "confidence_score_optional",
+    "current_action_start_at_optional",
+    "current_action_deadline_at_optional"
+  ],
+  "consumer_runtime_required_fields": [
+    "opportunity_id",
+    "saleability_status",
+    "source_family",
+    "channel_family",
+    "channel_policy_status",
+    "contact_validity_status",
+    "contact_legal_basis",
+    "reasonable_expectation_status",
+    "frequency_policy_state",
+    "opt_out_state",
+    "quiet_hours_policy_state",
+    "commercial_urgency_level_optional",
+    "role_cluster"
+  ],
+  "consumer_object_sequence": [
+    "contact_candidate_collection",
+    "contact_selection_trace",
+    "contact_target",
+    "outreach_plan",
+    "touch_record"
+  ],
+  "contact_merge_requirements": {
+    "formal_merge_required_source_roles": [
+      "THIRD_PARTY_SUPPORT_SOURCE"
+    ],
+    "source_conflict_must_materialize_to": [
+      "contact_candidate_collection",
+      "contact_selection_trace"
+    ],
+    "winner_snapshot_consumers": [
+      "contact_target",
+      "outreach_plan",
+      "touch_record"
+    ]
+  },
+  "blocking_conditions": [
+    "missing_saleable_opportunity",
+    "missing_legal_basis",
+    "high_restriction_contact_not_approved"
+  ],
+  "success_criteria": [
+    "contact_candidate_collection_created",
+    "contact_selection_trace_created",
+    "contact_merge_dedupe_materialized_before_contact_target",
+    "source_conflict_materialized_in_collection_and_trace",
+    "contact_target_created",
+    "outreach_plan_created_or_blocked_with_reason",
+    "touch_record_persistable",
+    "formal_sink_optional_fields_consumable_when_present"
+  ],
+  "priority": "P1",
+  "source_catalog_ref": "handoff/stage_handoff_catalog.json#H-07-STAGE7-TO-STAGE8"
+}

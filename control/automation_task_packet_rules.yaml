@@ -1,0 +1,84 @@
+version: 1
+id: automation_task_packet_rules
+owner_docs:
+  - D1
+  - 自动化开发动作门禁表
+task_packet_source:
+  file: control/current_task.yaml
+  path: currentTask.task_packet
+max_scope:
+  max_files: 10
+  max_docs: 5
+  max_control: 3
+  max_machine_assets: 4
+single_focus:
+  required: true
+  rule: one stage or one theme per batch
+split_required_when:
+  - cross_stage_changes
+  - payment_or_delivery_or_outreach_execution
+  - external_facing_changes
+ordering_rules:
+  - docs_first_then_machine_assets
+  - control_updates_require_stop_and_report
+stop_rules_alignment:
+  - batch_stop_rules_from_agents: true
+classification_source: control/review_gate_matrix.yaml
+required_fields:
+  - objective
+  - non_goals
+  - affected_stages
+  - declared_changed_paths
+  - allowed_modification_paths
+  - forbidden_modification_paths
+  - impacted_assets
+  - required_scripts
+  - stop_conditions
+  - definition_of_done
+  - deliverables
+  - risk_level
+  - change_class
+  - change_domains
+  - human_review_required
+  - owner_reviews_required
+field_rules:
+  objective: non_empty_string
+  non_goals: non_empty_array
+  affected_stages: non_empty_array
+  declared_changed_paths: non_empty_array
+  allowed_modification_paths: non_empty_array
+  forbidden_modification_paths: non_empty_array
+  impacted_assets: non_empty_object
+  required_scripts: non_empty_array
+  stop_conditions: non_empty_array
+  definition_of_done: non_empty_array
+  deliverables: non_empty_array
+  risk_level: enum(HIGH,MEDIUM,LOW)
+  change_class: review_gate_matrix.change_classes.id
+  change_domains: non_empty_array
+  human_review_required: boolean
+  owner_reviews_required: array
+requires_task_packet_for:
+  - "src/**"
+  - "tests/**"
+  - "scripts/**"
+  - "control/automation_*.yaml"
+  - "control/review_gate_matrix.yaml"
+  - "contracts/governance/**"
+  - "contracts/release/**"
+  - "contracts/testing/regression_manifest.json"
+  - "contracts/testing/release_checklist.json"
+  - "contracts/model/**"
+  - "contracts/sales/source_vendor_usage_policy.json"
+  - "contracts/sales/channel_vendor_execution_policy.json"
+fail_conditions:
+  - missing_required_fields
+  - missing_declared_changed_paths
+  - change_class_below_required
+  - missing_human_review_for_non_low_risk
+  - missing_required_owner_review
+  - forbidden_path_touched
+notes:
+  - any task exceeding limits must be split before execution
+  - high-risk domains must be isolated in their own batch
+  - task packet cannot be replaced by conversational summary; control/current_task.yaml is the formal machine-readable packet source

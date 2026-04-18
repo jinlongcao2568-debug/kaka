@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "governance_feedback_event",
+  "type": "object",
+  "description": "Internal governed typed workflow schema for governance_feedback_event.",
+  "source_refs": [
+    "D2-R-017",
+    "D2-R-066",
+    "D10-R-012",
+    "D10-R-067"
+  ],
+  "enum_refs": [
+    "trigger_type"
+  ],
+  "properties": {
+    "governance_feedback_event_id": { "type": "string" },
+    "project_id": { "type": "string" },
+    "trigger_type": { "type": "string" },
+    "trigger_summary": { "type": "string" },
+    "action_taken": { "type": "string" },
+    "feedback_reason": { "type": "string" },
+    "writeback_targets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "written_back_at": { "type": "string" },
+    "written_back_at_optional": { "type": "string" },
+    "archive_scope": { "type": "string" },
+    "governance_feedback_policy_id_optional": { "type": "string" },
+    "impact_scope_optional": { "type": "string" },
+    "governed_execution_mode": { "type": "string" },
+    "permission_decision_state": { "type": "string" },
+    "governance_decision_state": { "type": "string" },
+    "semantic_decision_state": { "type": "string" },
+    "governed_metadata": { "type": "object" }
+  },
+  "required": [
+    "governance_feedback_event_id",
+    "project_id",
+    "trigger_type",
+    "trigger_summary",
+    "action_taken",
+    "feedback_reason",
+    "writeback_targets",
+    "written_back_at",
+    "written_back_at_optional",
+    "archive_scope",
+    "impact_scope_optional",
+    "governed_execution_mode",
+    "permission_decision_state",
+    "governance_decision_state",
+    "semantic_decision_state",
+    "governed_metadata"
+  ],
+  "additionalProperties": false
+}

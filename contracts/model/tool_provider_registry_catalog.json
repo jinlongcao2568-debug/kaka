@@ -1,0 +1,134 @@
+{
+  "catalog_id": "tool-provider-registry-catalog",
+  "version": "1.0.1",
+  "status": "DRAFT",
+  "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
+  "registry_defaults": {
+    "current_status": "REGISTERED_NOT_BOUND",
+    "allowed_action_intents": [
+      "PREVIEW_ONLY",
+      "INTERNAL_SOURCE_READ"
+    ],
+    "blocked_action_intents": [
+      "APPROVAL_EXECUTION",
+      "INTERNAL_WRITEBACK",
+      "LIVE_EXECUTION"
+    ],
+    "direct_mutation_allowed": false,
+    "external_action_enabled": false,
+    "live_execution_enabled": false,
+    "default_open": false,
+    "long_term_default_open_allowed": false,
+    "manual_review_default": true
+  },
+  "metadata": {
+    "package_name": "model governance boundary freeze",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/model/tool_provider_registry_catalog.json",
+    "source_documents": [
+      "D14_AI模型治理规范.md",
+      "docs/技术实现决策页.md"
+    ]
+  },
+  "providers": [
+    {
+      "provider_id": "TOOL_PROVIDER_UNBOUND_ENTERPRISE_INFO",
+      "provider_name": "未绑定企业信息查询工具",
+      "provider_type": "TOOL_PROVIDER",
+      "provider_role": "ENTERPRISE_INFO_SUPPORT_TOOL",
+      "supported_stage_range": {
+        "from": 3,
+        "to": 8
+      },
+      "audit_capable": true,
+      "current_status": "REGISTERED_NOT_BOUND",
+      "current_capability_mode": "SHADOW_MODE",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED",
+        "EMERGENCY_OFF"
+      ],
+      "allowed_action_intents": [
+        "PREVIEW_ONLY",
+        "INTERNAL_SOURCE_READ"
+      ],
+      "blocked_action_intents": [
+        "APPROVAL_EXECUTION",
+        "INTERNAL_WRITEBACK",
+        "LIVE_EXECUTION"
+      ],
+      "manual_review_default": true,
+      "direct_mutation_allowed": false,
+      "external_action_enabled": false,
+      "live_execution_enabled": false,
+      "default_open": false
+    },
+    {
+      "provider_id": "TOOL_PROVIDER_UNBOUND_CONTACT_ENRICHMENT",
+      "provider_name": "未绑定联系方式补充工具",
+      "provider_type": "TOOL_PROVIDER",
+      "provider_role": "CONTACT_ENRICHMENT_SUPPORT_TOOL",
+      "supported_stage_range": {
+        "from": 7,
+        "to": 8
+      },
+      "audit_capable": true,
+      "current_status": "REGISTERED_NOT_BOUND",
+      "current_capability_mode": "SHADOW_MODE",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "SHADOW_MODE",
+        "INTERNAL_GOVERNED",
+        "EMERGENCY_OFF"
+      ],
+      "allowed_action_intents": [
+        "PREVIEW_ONLY",
+        "INTERNAL_SOURCE_READ"
+      ],
+      "blocked_action_intents": [
+        "APPROVAL_EXECUTION",
+        "INTERNAL_WRITEBACK",
+        "LIVE_EXECUTION"
+      ],
+      "manual_review_default": true,
+      "direct_mutation_allowed": false,
+      "external_action_enabled": false,
+      "live_execution_enabled": false,
+      "default_open": false
+    },
+    {
+      "provider_id": "TOOL_PROVIDER_UNBOUND_INTERNAL_QUERY",
+      "provider_name": "未绑定内部对象查询工具",
+      "provider_type": "TOOL_PROVIDER",
+      "provider_role": "INTERNAL_OBJECT_QUERY_TOOL",
+      "supported_stage_range": {
+        "from": 3,
+        "to": 9
+      },
+      "audit_capable": true,
+      "current_status": "REGISTERED_NOT_BOUND",
+      "current_capability_mode": "INTERNAL_GOVERNED",
+      "allowed_capability_modes": [
+        "INTERNAL_ONLY",
+        "INTERNAL_GOVERNED",
+        "SHADOW_MODE",
+        "EMERGENCY_OFF"
+      ],
+      "allowed_action_intents": [
+        "PREVIEW_ONLY",
+        "INTERNAL_SOURCE_READ"
+      ],
+      "blocked_action_intents": [
+        "APPROVAL_EXECUTION",
+        "INTERNAL_WRITEBACK",
+        "LIVE_EXECUTION"
+      ],
+      "manual_review_default": true,
+      "direct_mutation_allowed": false,
+      "external_action_enabled": false,
+      "live_execution_enabled": false,
+      "default_open": false
+    }
+  ]
+}

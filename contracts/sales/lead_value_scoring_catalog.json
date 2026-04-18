@@ -1,0 +1,290 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "lead_value_scoring_catalog",
+  "ownerDocs": [
+    "D3",
+    "D6",
+    "D8",
+    "D11"
+  ],
+  "derivationPolicy": {
+    "deterministic": true,
+    "finalDecisionMaker": "rules_and_human_governance",
+    "modelAsFinalDecisionMaker": false,
+    "buyerFitInput": "buyer_fit_scorecard.general_buyer_fit_v1.score",
+    "buyerFitReplayPolicy": "buyer_fit_scorecard",
+    "buyerFitReplayTraceLabel": "buyer_fit_scorecard_policy_replay",
+    "sourceFallbacks": {
+      "window_urgency_score": {
+        "fallbackValue": 50,
+        "contractSource": "derivationPolicy.sourceFallbacks.window_urgency_score"
+      },
+      "price_signal_score": {
+        "fallbackValue": 30,
+        "contractSource": "derivationPolicy.sourceFallbacks.price_signal_score"
+      },
+      "competitor_quality_grade": {
+        "fallbackValue": "C",
+        "contractSource": "derivationPolicy.sourceFallbacks.competitor_quality_grade"
+      },
+      "external_use_grade": {
+        "fallbackValue": "E2_REVIEW_READY",
+        "contractSource": "derivationPolicy.sourceFallbacks.external_use_grade"
+      },
+      "competitor_confidence_score": {
+        "fallbackValue": 40,
+        "contractSource": "derivationPolicy.sourceFallbacks.competitor_confidence_score"
+      },
+      "challenge_actionability_score": {
+        "fallbackValue": 60,
+        "contractSource": "derivationPolicy.sourceFallbacks.challenge_actionability_score"
+      },
+      "rule_gate_status": {
+        "fallbackValue": "REVIEW",
+        "contractSource": "derivationPolicy.sourceFallbacks.rule_gate_status"
+      },
+      "evidence_gate_status": {
+        "fallbackValue": "REVIEW",
+        "contractSource": "derivationPolicy.sourceFallbacks.evidence_gate_status"
+      },
+      "sale_gate_status": {
+        "fallbackValue": "REVIEW",
+        "contractSource": "derivationPolicy.sourceFallbacks.sale_gate_status"
+      },
+      "window_status": {
+        "fallbackValue": "REVIEW_REQUIRED",
+        "contractSource": "derivationPolicy.sourceFallbacks.window_status"
+      }
+    }
+  },
+  "reasonTagPolicies": {
+    "project_value": {
+      "policyId": "PROJECT-VALUE-TAGS-001",
+      "templates": [
+        "PROJECT_VALUE_MODEL",
+        "WINDOW_{window_status}",
+        "SALE_GATE_{sale_gate_status}",
+        "PROJECT_BAND_{project_value_band}",
+        "EXTERNAL_USE_{external_use_grade}"
+      ]
+    },
+    "lead_value": {
+      "policyId": "LEAD-VALUE-TAGS-001",
+      "templates": [
+        "LEAD_VALUE_MODEL",
+        "LEAD_BAND_{lead_value_band}",
+        "WINDOW_{window_status}",
+        "COMPETITOR_CONFIDENCE_BAND_{competitor_confidence_band}",
+        "EXTERNAL_USE_{external_use_grade}"
+      ]
+    },
+    "opportunity_value": {
+      "policyId": "OPPORTUNITY-VALUE-TAGS-001",
+      "templates": [
+        "OPPORTUNITY_VALUE_MODEL",
+        "OPPORTUNITY_GRADE_{opportunity_grade}",
+        "WINDOW_{window_status}",
+        "BUYER_FIT_POLICY_CONSUMED",
+        "DELIVERY_RISK_{delivery_risk_state}"
+      ]
+    }
+  },
+  "models": [
+    {
+      "model_id": "PROJECT-VALUE-001",
+      "title": "Project value scoring",
+      "score_scale": "0-100",
+      "inputs": [
+        "window_urgency_score",
+        "external_use_grade",
+        "coverage_sellable_state",
+        "delivery_risk_state",
+        "competitor_quality_grade",
+        "price_signal_score"
+      ],
+      "component_scores": {
+        "external_use_grade": {
+          "E1_INTERNAL_ONLY": 10,
+          "E2_REVIEW_READY": 30,
+          "E3_CLIENT_VISIBLE": 60,
+          "E4_EXTERNAL_ACTION_READY": 90
+        },
+        "coverage_sellable_state": {
+          "SELLABLE": 100,
+          "RESTRICTED": 70,
+          "VALIDATING": 50,
+          "NOT_READY": 20,
+          "RECOVERING": 40,
+          "SUSPENDED": 0
+        },
+        "delivery_risk_state": {
+          "ALLOW": 100,
+          "REVIEW": 60,
+          "BLOCK": 0
+        },
+        "competitor_quality_grade": {
+          "A": 100,
+          "B": 75,
+          "C": 50,
+          "D": 25
+        }
+      },
+      "weights": {
+        "window_urgency_score": 25,
+        "external_use_grade": 20,
+        "coverage_sellable_state": 15,
+        "delivery_risk_state": 15,
+        "competitor_quality_grade": 15,
+        "price_signal_score": 10
+      },
+      "gradeBands": [
+        {
+          "grade": "A",
+          "minInclusive": 85
+        },
+        {
+          "grade": "B",
+          "minInclusive": 70
+        },
+        {
+          "grade": "C",
+          "minInclusive": 55
+        },
+        {
+          "grade": "D",
+          "minInclusive": 0
+        }
+      ],
+      "banding": {
+        "A": "score >= 85",
+        "B": "score between 70 and 84",
+        "C": "score between 55 and 69",
+        "D": "score < 55"
+      },
+      "output_mapping": {
+        "project_value_score": "derived_only",
+        "project_value_band": "derived_only"
+      },
+      "gating_rules": [
+        "rule_gate_status=BLOCK or evidence_gate_status=BLOCK -> score=0, band=D",
+        "sale_gate_status=BLOCK -> score=0, band=D",
+        "window_status=MISSED -> band downgraded by 1 tier"
+      ]
+    },
+    {
+      "model_id": "LEAD-VALUE-001",
+      "title": "Lead value scoring",
+      "score_scale": "0-100",
+      "inputs": [
+        "project_value_score",
+        "challenger_confidence_score",
+        "window_urgency_score",
+        "external_use_grade"
+      ],
+      "component_scores": {
+        "external_use_grade": {
+          "E1_INTERNAL_ONLY": 10,
+          "E2_REVIEW_READY": 30,
+          "E3_CLIENT_VISIBLE": 60,
+          "E4_EXTERNAL_ACTION_READY": 90
+        }
+      },
+      "weights": {
+        "project_value_score": 50,
+        "challenger_confidence_score": 20,
+        "window_urgency_score": 15,
+        "external_use_grade": 15
+      },
+      "gradeBands": [
+        {
+          "grade": "A",
+          "minInclusive": 85
+        },
+        {
+          "grade": "B",
+          "minInclusive": 70
+        },
+        {
+          "grade": "C",
+          "minInclusive": 55
+        },
+        {
+          "grade": "D",
+          "minInclusive": 0
+        }
+      ],
+      "banding": {
+        "A": "score >= 85",
+        "B": "score between 70 and 84",
+        "C": "score between 55 and 69",
+        "D": "score < 55"
+      },
+      "output_mapping": {
+        "lead_score": "sales_lead.lead_score",
+        "lead_value_band": "derived_only"
+      },
+      "gating_rules": [
+        "project_fact missing -> lead_score=0",
+        "window_status=MISSED -> lead_score max 54"
+      ]
+    },
+    {
+      "model_id": "OPPORTUNITY-VALUE-001",
+      "title": "Opportunity value scoring",
+      "score_scale": "0-100",
+      "inputs": [
+        "project_value_score",
+        "buyer_fit.fit_score",
+        "challenge_actionability_score",
+        "price_signal_score",
+        "window_urgency_score"
+      ],
+      "weights": {
+        "project_value_score": 30,
+        "buyer_fit.fit_score": 25,
+        "challenge_actionability_score": 20,
+        "price_signal_score": 15,
+        "window_urgency_score": 10
+      },
+      "gradeBands": [
+        {
+          "grade": "A",
+          "minInclusive": 85
+        },
+        {
+          "grade": "B",
+          "minInclusive": 70
+        },
+        {
+          "grade": "C",
+          "minInclusive": 55
+        },
+        {
+          "grade": "D",
+          "minInclusive": 0
+        }
+      ],
+      "banding": {
+        "A": "score >= 85",
+        "B": "score between 70 and 84",
+        "C": "score between 55 and 69",
+        "D": "score < 55"
+      },
+      "output_mapping": {
+        "opportunity_value_score": "derived_only",
+        "opportunity_grade": "saleable_opportunity.opportunity_grade"
+      },
+      "gating_rules": [
+        "sale_gate_status=BLOCK -> opportunity_grade=D",
+        "delivery_risk_state=BLOCK -> opportunity_grade=D",
+        "coverage_sellable_state in [NOT_READY,SUSPENDED] -> opportunity_grade=D"
+      ]
+    }
+  ],
+  "notes": [
+    "Scores are deterministic; no ML-based weighting in this batch.",
+    "Banding uses A/B/C/D to align with opportunity_grade semantics.",
+    "OPPORTUNITY-VALUE-001 must consume the buyer_fit scorecard output rather than opaque code-only seeds.",
+    "lead_reason_summary and major_value_points must consume reasonTagPolicies rather than direct free-text overrides."
+  ]
+}

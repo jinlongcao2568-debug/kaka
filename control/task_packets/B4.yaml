@@ -1,0 +1,135 @@
+version: 1
+batch_id: B4
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Stage7 Commercial Object Closure
+status: NOT_STARTED
+objective: "Fully close Stage7 value, price, competitor, buyer fit, offer, and opportunity derivation with no hidden service-local seeds."
+why_now: "Stage7 is the highest-leverage commercial layer and the main input to Stage8/9."
+depends_on: [B3]
+non_goals:
+  - "Do not repair Stage8/9 semantics in this blueprint."
+  - "Do not open any external promise or live commercial path."
+  - "not an external unlock implementation"
+affected_stages:
+  - stage7_sales
+declared_changed_paths:
+  - contracts/sales/lead_value_scoring_catalog.json
+  - contracts/sales/price_normalization_catalog.json
+  - contracts/sales/competitor_confidence_catalog.json
+  - contracts/sales/buyer_fit_scorecard.json
+  - contracts/sales/sku_recommendation_policy_catalog.json
+  - contracts/sales/opportunity_policy_catalog.json
+  - src/shared/policy_executor.py
+  - src/stage7_sales/**
+  - tests/test_stage7_runtime_closure.py
+  - tests/test_formal_sink_fields.py
+impacted_assets:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  control: []
+  contracts:
+    - contracts/sales/window_value_policy_catalog.json
+    - contracts/sales/lead_value_scoring_catalog.json
+    - contracts/sales/price_normalization_catalog.json
+    - contracts/sales/competitor_confidence_catalog.json
+    - contracts/sales/buyer_fit_scorecard.json
+    - contracts/sales/sku_recommendation_policy_catalog.json
+    - contracts/sales/opportunity_policy_catalog.json
+  handoff: []
+  scripts: []
+  tests:
+    - tests/test_stage7_runtime_closure.py
+    - tests/test_formal_sink_fields.py
+    - tests/test_internal_chain.py
+  code:
+    - src/shared/policy_executor.py
+    - src/stage7_sales
+change_domains:
+  - shared_runtime_core
+  - governance_release_core
+  - scripts_and_tests_general
+  - automation_control_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  contracts:
+    - contracts/sales/window_value_policy_catalog.json
+    - contracts/sales/lead_value_scoring_catalog.json
+    - contracts/sales/price_normalization_catalog.json
+    - contracts/sales/competitor_confidence_catalog.json
+    - contracts/sales/buyer_fit_scorecard.json
+    - contracts/sales/sku_recommendation_policy_catalog.json
+    - contracts/sales/opportunity_policy_catalog.json
+allowed_modification_paths:
+  - docs/D2_正式对象契约与字段字典.md
+  - docs/D3_正式规则码总表与判定说明书.md
+  - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+  - docs/D11_测试验收与金标回归清单.md
+  - contracts/sales/window_value_policy_catalog.json
+  - contracts/sales/lead_value_scoring_catalog.json
+  - contracts/sales/price_normalization_catalog.json
+  - contracts/sales/competitor_confidence_catalog.json
+  - contracts/sales/buyer_fit_scorecard.json
+  - contracts/sales/sku_recommendation_policy_catalog.json
+  - contracts/sales/opportunity_policy_catalog.json
+  - src/shared/policy_executor.py
+  - src/stage7_sales/**
+  - tests/test_stage7_runtime_closure.py
+  - tests/test_formal_sink_fields.py
+  - tests/test_internal_chain.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - src/stage8_outreach/**
+  - src/stage9_delivery/**
+  - contracts/release/**
+primary_outputs:
+  - "Deterministic Stage7 commercial engine closure"
+deliverables:
+  - "Deterministic Stage7 commercial engine closure"
+  - "Stage7 focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Any Stage7 decision still depends on opaque code-only seeds."
+  - "A new commercial grade or object family is required."
+  - "Any required script fails."
+definition_of_done:
+  - "Stage7 derivation is single-sourced by formal policy and contracts."
+  - "Price, competitor, buyer fit, and expected bands are traceable and tested."
+next_batch_entry_rule: "B4 must be DONE before B5 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B4-S1-value-buyer-fit
+    focus_paths:
+      - contracts/sales/lead_value_scoring_catalog.json
+      - contracts/sales/buyer_fit_scorecard.json
+      - src/stage7_sales/**
+      - tests/test_stage7_runtime_closure.py
+  - slice_id: B4-S2-price-competitor-offer
+    focus_paths:
+      - contracts/sales/price_normalization_catalog.json
+      - contracts/sales/competitor_confidence_catalog.json
+      - contracts/sales/sku_recommendation_policy_catalog.json
+      - contracts/sales/opportunity_policy_catalog.json
+      - tests/test_formal_sink_fields.py

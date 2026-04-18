@@ -1,0 +1,217 @@
+version: 1
+id: review_gate_matrix
+owner_docs:
+  - D1
+  - D11
+  - 自动化开发动作门禁表
+purpose: "Classify formal changes by touched assets and enforce review/stop gates before automation or release checks pass."
+task_packet_required: true
+match_strategy: highest_rank_wins
+change_classes:
+  - id: LOW_RISK_DIRECT
+    rank: 0
+    automation_action: DIRECT_EDIT
+    human_review_required: false
+    signoff_required: false
+    description: "Low-risk append-only doc/control sync that does not touch runtime, governance, release, provider/vendor, Stage 8/9 execution, or automation gate semantics."
+  - id: DRAFT_WITH_REVIEW
+    rank: 1
+    automation_action: DRAFT_ONLY
+    human_review_required: true
+    signoff_required: true
+    description: "Medium-risk contracts/handoff/testing/scripts/tests changes that may draft patches but must stop for human review before continue."
+  - id: MANDATORY_HUMAN_REVIEW
+    rank: 2
+    automation_action: MANUAL_APPROVAL_REQUIRED
+    human_review_required: true
+    signoff_required: true
+    description: "High-risk shared runtime, governance/release, provider/vendor/source policy, Stage 8/9 execution, or automation control changes that require declared human review and owner signoff."
+  - id: STOP_AND_ESCALATE
+    rank: 3
+    automation_action: BLOCKED
+    human_review_required: true
+    signoff_required: true
+    description: "Changes that must stop immediately and escalate to the named owners; automation cannot continue as a controlled batch."
+domains:
+  - domain_id: approval_exception_semantics
+    change_class: STOP_AND_ESCALATE
+    description: "Approval-chain, exception, or external release semantics that require human confirmation gates."
+    file_globs:
+      - "control/approval_chain_state.yaml"
+      - "control/exception_chain_state.yaml"
+      - "contracts/governance/approval_chain_catalog.json"
+      - "contracts/exceptions/**"
+    required_owner_reviews:
+      - "governance_owner"
+      - "architecture_owner"
+      - "exception_reviewer"
+    stop_reason: "approval_or_exception_semantics_change"
+  - domain_id: shared_runtime_core
+    change_class: MANDATORY_HUMAN_REVIEW
+    description: "Shared runtime core that can change capability, governance, semantic, or pipeline behavior."
+    file_globs:
+      - "src/shared/capability_runtime.py"
+      - "src/shared/policy_executor.py"
+      - "src/shared/runtime_validator.py"
+      - "src/shared/contracts_runtime.py"
+      - "src/shared/pipeline.py"
+    required_owner_reviews:
+      - "architecture_owner"
+      - "governance_owner"
+      - "testing_owner"
+  - domain_id: governance_release_core
+    change_class: MANDATORY_HUMAN_REVIEW
+    description: "Governance/release contracts and formal testing release surfaces."
+    file_globs:
+      - "contracts/governance/**"
+      - "contracts/release/**"
+      - "contracts/testing/regression_manifest.json"
+      - "contracts/testing/release_checklist.json"
+      - "docs/D6_字段策略字典与客户交付字段规范.md"
+      - "docs/D7_对象级交付矩阵与外发治理规范.md"
+      - "docs/D11_测试验收与金标回归清单.md"
+      - "docs/D12_部署发布与运行治理规范.md"
+      - "docs/D13_公开可查边界能力清单.md"
+    required_owner_reviews:
+      - "architecture_owner"
+      - "governance_owner"
+      - "testing_owner"
+  - domain_id: provider_vendor_source_policy_core
+    change_class: MANDATORY_HUMAN_REVIEW
+    description: "Provider/vendor/source usage policy and runtime inventory/release manifests."
+    file_globs:
+      - "contracts/model/model_usage_policy.json"
+      - "contracts/model/tool_usage_policy_catalog.json"
+      - "contracts/model/tool_provider_registry_catalog.json"
+      - "contracts/model/model_release_gates.json"
+      - "contracts/model/model_registry.json"
+      - "contracts/sales/vendor_registry_catalog.json"
+      - "contracts/sales/source_vendor_usage_policy.json"
+      - "contracts/sales/channel_vendor_execution_policy.json"
+      - "contracts/sales/contact_source_policy_catalog.json"
+      - "contracts/sales/contact_compliance_matrix.json"
+      - "control/runtime_inventory.yaml"
+      - "control/model_release_manifest.yaml"
+    required_owner_reviews:
+      - "architecture_owner"
+      - "governance_owner"
+      - "model_governance_owner"
+  - domain_id: future_external_unlock_prereq_core
+    change_class: MANDATORY_HUMAN_REVIEW
+    description: "Machine-readable prerequisite, evidence-pack, and future-unlock baseline assets. This domain defines prerequisites only and does not authorize unlock."
+    file_globs:
+      - "contracts/release/external_unlock_prerequisite_matrix.json"
+      - "contracts/model/eval_suite_catalog.json"
+      - "contracts/model/output_target_matrix.json"
+      - "control/external_unlock_prerequisite_state.yaml"
+      - "control/release_manifest.yaml"
+      - "docs/D12_部署发布与运行治理规范.md"
+      - "docs/D13_公开可查边界能力清单.md"
+      - "docs/D14_AI模型治理规范.md"
+      - "docs/技术实现决策页.md"
+      - "docs/正式业务代码开发开工裁决页.md"
+      - "docs/文档与资产状态板.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "control/repo_status.md"
+      - "control/milestone_status.yaml"
+    required_owner_reviews:
+      - "release_approver"
+      - "architecture_owner"
+      - "governance_owner"
+      - "model_governance_owner"
+      - "testing_owner"
+  - domain_id: future_external_unlock_decision
+    change_class: MANDATORY_HUMAN_REVIEW
+    description: "Formal R6 decision-layer assets that classify future candidate/deny/blocked domains. Decision batches require human review and owner signoff, but still do not authorize implementation."
+    file_globs:
+      - "contracts/release/future_unlock_decision_matrix.json"
+      - "control/future_unlock_decision_state.yaml"
+      - "control/reference_index.json"
+    required_owner_reviews:
+      - "release_approver"
+      - "architecture_owner"
+      - "governance_owner"
+      - "testing_owner"
+      - "model_governance_owner"
+      - "automation_owner"
+  - domain_id: future_external_unlock_activation
+    change_class: STOP_AND_ESCALATE
+    description: "Any asset that attempts to request, approve, activate, or go-live a future unlock implementation must stop and escalate to named owners."
+    file_globs:
+      - "control/external_unlock_decision.yaml"
+      - "control/external_unlock_signoff.yaml"
+      - "contracts/release/external_unlock_activation_matrix.json"
+      - "contracts/release/external_unlock_go_live_decision.json"
+    required_owner_reviews:
+      - "release_approver"
+      - "architecture_owner"
+      - "governance_owner"
+      - "testing_owner"
+      - "model_governance_owner"
+    stop_reason: "future_external_unlock_activation_requested"
+  - domain_id: stage8_stage9_high_risk_execution
+    change_class: MANDATORY_HUMAN_REVIEW
+    description: "Stage 8/9 high-risk execution and handoff behavior."
+    file_globs:
+      - "src/stage8_outreach/**"
+      - "src/stage9_delivery/**"
+      - "handoff/stage7_to_stage8/**"
+      - "handoff/stage8_to_stage9/**"
+    required_owner_reviews:
+      - "architecture_owner"
+      - "governance_owner"
+      - "testing_owner"
+  - domain_id: automation_control_core
+    change_class: MANDATORY_HUMAN_REVIEW
+    description: "Automation control, readiness/release scripts, and machine-readable task packet enforcement."
+    file_globs:
+      - "control/automation_action_matrix.yaml"
+      - "control/automation_stop_conditions.yaml"
+      - "control/automation_task_packet_rules.yaml"
+      - "control/review_gate_matrix.yaml"
+      - "control/current_task.yaml"
+      - "control/repo_status.md"
+      - "control/reference_index.json"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/自动开发任务包模板.md"
+      - "docs/D1_研发_Codex执行手册.md"
+      - "scripts/check-automation-readiness.ps1"
+      - "scripts/check-release.ps1"
+      - "tests/test_review_gate_controls.py"
+    required_owner_reviews:
+      - "automation_owner"
+      - "governance_owner"
+      - "testing_owner"
+  - domain_id: scripts_and_tests_general
+    change_class: DRAFT_WITH_REVIEW
+    description: "General scripts/tests changes still require human review even when they do not hit a higher-risk domain."
+    file_globs:
+      - "scripts/**"
+      - "tests/**"
+    required_owner_reviews:
+      - "automation_owner"
+      - "testing_owner"
+  - domain_id: machine_assets_general
+    change_class: DRAFT_WITH_REVIEW
+    description: "General contracts/handoff/testing machine assets require draft + review."
+    file_globs:
+      - "contracts/**"
+      - "handoff/**"
+    required_owner_reviews:
+      - "testing_owner"
+  - domain_id: low_risk_docs_control_sync
+    change_class: LOW_RISK_DIRECT
+    description: "Low-risk docs/control synchronization outside high-risk domains."
+    file_globs:
+      - "docs/**"
+      - "control/**"
+    required_owner_reviews: []
+validation_rules:
+  fail_if_declared_change_class_is_lower_than_required: true
+  fail_if_human_review_missing_for_non_low_risk: true
+  fail_if_required_owner_reviews_missing: true
+  fail_if_forbidden_path_declared_or_changed: true
+  fail_if_stop_and_escalate_domain_present: true
+notes:
+  - "This matrix does not relax any existing blocked line; it only hardens review/change entry gating."
+  - "Task packet source is control/current_task.yaml -> currentTask.task_packet."

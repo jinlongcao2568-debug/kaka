@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "review_request",
+  "type": "object",
+  "description": "Schema skeleton for review_request.",
+  "source_refs": [
+    "D2-R-017",
+    "D3-R-006"
+  ],
+  "enum_refs": [
+    "review_lane",
+    "missing_condition_family"
+  ],
+  "properties": {
+    "review_request_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "requested_materials": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_condition_family": {
+      "type": "string"
+    },
+    "target_object_type": {
+      "type": "string"
+    },
+    "target_object_id": {
+      "type": "string"
+    },
+    "review_lane": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "review_request_id",
+    "project_id",
+    "requested_materials",
+    "missing_condition_family",
+    "target_object_type",
+    "target_object_id",
+    "review_lane"
+  ],
+  "additionalProperties": false
+}

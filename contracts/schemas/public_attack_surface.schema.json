@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "public_attack_surface",
+  "type": "object",
+  "description": "Schema skeleton for public_attack_surface.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-017"
+  ],
+  "enum_refs": [
+    "window_status",
+    "verification_state"
+  ],
+  "properties": {
+    "public_attack_surface_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "focus_bidder_id": {
+      "type": "string"
+    },
+    "candidate_set_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ranked_candidate_ids_optional": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "primary_attack_points": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "public_supporting_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "window_status": {
+      "type": "string"
+    },
+    "verification_state": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "public_attack_surface_id",
+    "project_id",
+    "focus_bidder_id",
+    "candidate_set_ids",
+    "ranked_candidate_ids_optional",
+    "primary_attack_points",
+    "public_supporting_refs",
+    "window_status",
+    "verification_state"
+  ],
+  "additionalProperties": false
+}

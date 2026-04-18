@@ -1,0 +1,138 @@
+version: 1
+batch_id: B6
+packet_kind: PROGRAM_BATCH_BLUEPRINT
+activation_mode: REQUIRES_SCOPED_SUBPACKET
+title: Stage9 Durable Workflow And Feedback Closure
+status: NOT_STARTED
+objective: "Close Stage9 order/payment/delivery/outcome/governance workflow and make feedback durable enough to drive real upstream refresh."
+why_now: "Stage9 is where the current forward-strong but backward-weak closure gap is most visible."
+depends_on: [B5]
+non_goals:
+  - "Do not enable live payment, delivery, refund, or export execution."
+  - "Do not blur projected/advisory/persisted semantics."
+  - "not an external unlock implementation"
+affected_stages:
+  - stage9_delivery
+declared_changed_paths:
+  - contracts/sales/payment_exception_catalog.json
+  - contracts/sales/delivery_exception_catalog.json
+  - contracts/sales/outcome_taxonomy_catalog.json
+  - contracts/sales/governance_feedback_policy_catalog.json
+  - contracts/governance/writeback_impact_policy.json
+  - contracts/sales/opportunity_policy_catalog.json
+  - handoff/stage8_to_stage9/**
+  - src/shared/capability_runtime.py
+  - src/shared/policy_executor.py
+  - src/stage9_delivery/**
+  - tests/test_stage9_impact_executor.py
+impacted_assets:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D10_订单支付交付与治理反馈规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  control: []
+  contracts:
+    - contracts/sales/payment_exception_catalog.json
+    - contracts/sales/delivery_exception_catalog.json
+    - contracts/sales/outcome_taxonomy_catalog.json
+    - contracts/sales/governance_feedback_policy_catalog.json
+    - contracts/governance/writeback_impact_policy.json
+    - contracts/sales/opportunity_policy_catalog.json
+  handoff:
+    - handoff/stage8_to_stage9
+  scripts: []
+  tests:
+    - tests/test_stage9_impact_executor.py
+    - tests/test_internal_chain.py
+    - tests/test_runtime_governance_guards.py
+  code:
+    - src/shared/capability_runtime.py
+    - src/shared/policy_executor.py
+    - src/stage9_delivery
+change_domains:
+  - shared_runtime_core
+  - governance_release_core
+  - stage8_stage9_high_risk_execution
+  - automation_control_core
+change_class: MANDATORY_HUMAN_REVIEW
+human_review_required: true
+source_of_truth_refs:
+  docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D10_订单支付交付与治理反馈规范.md
+    - docs/D11_测试验收与金标回归清单.md
+  contracts:
+    - contracts/sales/payment_exception_catalog.json
+    - contracts/sales/delivery_exception_catalog.json
+    - contracts/sales/outcome_taxonomy_catalog.json
+    - contracts/sales/governance_feedback_policy_catalog.json
+    - contracts/governance/writeback_impact_policy.json
+    - contracts/sales/opportunity_policy_catalog.json
+  handoff:
+    - handoff/stage8_to_stage9/contract.json
+allowed_modification_paths:
+  - docs/D2_正式对象契约与字段字典.md
+  - docs/D3_正式规则码总表与判定说明书.md
+  - docs/D10_订单支付交付与治理反馈规范.md
+  - docs/D11_测试验收与金标回归清单.md
+  - contracts/sales/payment_exception_catalog.json
+  - contracts/sales/delivery_exception_catalog.json
+  - contracts/sales/outcome_taxonomy_catalog.json
+  - contracts/sales/governance_feedback_policy_catalog.json
+  - contracts/governance/writeback_impact_policy.json
+  - contracts/sales/opportunity_policy_catalog.json
+  - handoff/stage8_to_stage9/**
+  - src/shared/capability_runtime.py
+  - src/shared/policy_executor.py
+  - src/stage9_delivery/**
+  - tests/test_stage9_impact_executor.py
+  - tests/test_internal_chain.py
+  - tests/test_runtime_governance_guards.py
+forbidden_modification_paths:
+  - docs/L0.md
+  - contracts/release/**
+  - src/stage8_outreach/**
+primary_outputs:
+  - "Durable Stage9 typed workflow and feedback closure"
+deliverables:
+  - "Durable Stage9 typed workflow and feedback closure"
+  - "Stage9 focused regression updates"
+required_scripts:
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - python tests/run_tests.py
+stop_conditions:
+  - "Any live payment/delivery/refund execution path becomes enabled."
+  - "Projected/advisory/persisted writeback semantics become ambiguous."
+  - "Any required script fails."
+definition_of_done:
+  - "Stage9 outcome/governance writeback is durable enough to drive formal upstream refresh."
+  - "Payment, delivery, archive, and feedback exception paths are taxonomy-backed and tested."
+next_batch_entry_rule: "B6 must be DONE before B7 may be activated."
+required_owner_reviews:
+  - architecture_owner
+  - governance_owner
+  - testing_owner
+  - release_approver
+review_evidence:
+  declared: true
+  signoff_required: true
+  signoff_status: REQUESTED_NOT_APPROVED
+scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
+suggested_execution_slices:
+  - slice_id: B6-S1-taxonomy-and-contract-semantics
+    focus_paths:
+      - contracts/sales/payment_exception_catalog.json
+      - contracts/sales/delivery_exception_catalog.json
+      - contracts/sales/outcome_taxonomy_catalog.json
+      - contracts/sales/governance_feedback_policy_catalog.json
+      - contracts/governance/writeback_impact_policy.json
+  - slice_id: B6-S2-stage9-runtime-and-feedback
+    focus_paths:
+      - src/stage9_delivery/**
+      - handoff/stage8_to_stage9/**
+      - tests/test_stage9_impact_executor.py

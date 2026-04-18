@@ -1,0 +1,431 @@
+{
+  "catalogVersion": "1.0.0",
+  "ownerDoc": "D4",
+  "roles": [
+    "product_admin",
+    "verification_analyst",
+    "human_reviewer",
+    "sales_user",
+    "delivery_governance_user",
+    "client_readonly"
+  ],
+  "resources": [
+    {
+      "resourceId": "project_fact",
+      "actions": {
+        "read": [
+          "product_admin",
+          "verification_analyst",
+          "human_reviewer",
+          "sales_user",
+          "delivery_governance_user",
+          "client_readonly"
+        ],
+        "write": [],
+        "export": [
+          "human_reviewer",
+          "delivery_governance_user"
+        ]
+      }
+    },
+    {
+      "resourceId": "field_lineage_record",
+      "actions": {
+        "read": [
+          "product_admin",
+          "verification_analyst",
+          "human_reviewer"
+        ],
+        "write": [],
+        "export": []
+      }
+    },
+    {
+      "resourceId": "rule_gate_decision",
+      "actions": {
+        "read": [
+          "product_admin",
+          "verification_analyst",
+          "human_reviewer"
+        ],
+        "write": [],
+        "export": []
+      }
+    },
+    {
+      "resourceId": "evidence_gate_decision",
+      "actions": {
+        "read": [
+          "product_admin",
+          "verification_analyst",
+          "human_reviewer"
+        ],
+        "write": [],
+        "export": []
+      }
+    },
+    {
+      "resourceId": "report_record",
+      "actions": {
+        "read": [
+          "product_admin",
+          "verification_analyst",
+          "human_reviewer",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "human_reviewer"
+        ],
+        "export": [
+          "human_reviewer",
+          "delivery_governance_user"
+        ]
+      }
+    },
+    {
+      "resourceId": "legal_action_recommendation",
+      "actions": {
+        "read": [
+          "product_admin",
+          "verification_analyst",
+          "human_reviewer",
+          "sales_user",
+          "delivery_governance_user",
+          "client_readonly"
+        ],
+        "write": [],
+        "export": [
+          "human_reviewer",
+          "delivery_governance_user"
+        ]
+      }
+    },
+    {
+      "resourceId": "private_supplement_record_metadata",
+      "actions": {
+        "read": [
+          "delivery_governance_user",
+          "human_reviewer"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      }
+    },
+    {
+      "resourceId": "contact_target_summary",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "requires approved lawful basis",
+        "requires channel policy pass",
+        "high restriction fields redacted by default"
+      ]
+    },
+    {
+      "resourceId": "coverage_registry",
+      "actions": {
+        "read": [
+          "product_admin",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      }
+    },
+    {
+      "resourceId": "delivery_matrix",
+      "actions": {
+        "read": [
+          "product_admin",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      }
+    },
+    {
+      "resourceId": "stage7_internal_preview",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "export": [
+          "delivery_governance_user"
+        ]
+      },
+      "conditions": [
+        "internal preview only",
+        "formal objects may be projected but not re-judged",
+        "repository-backed retrieval only",
+        "surface state must be consumed from semantic_envelope.surface_state",
+        "capability and governance display must consume canonical envelope fields directly"
+      ]
+    },
+    {
+      "resourceId": "stage7_internal_work_items",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal operator queue only",
+        "consumes formal objects and traces only",
+        "must not re-judge saleability or governance"
+      ]
+    },
+    {
+      "resourceId": "leadpack_external_delivery_candidate",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal candidate preview only",
+        "candidate package is projection-only and direct object export remains blocked",
+        "external delivery is disabled",
+        "governed review or export simulation may be requested but not executed externally"
+      ]
+    },
+    {
+      "resourceId": "leadpack_activation_prep_packet",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal activation-prep packet only",
+        "candidate-only and projection-only surface",
+        "draft signoff packet is allowed but does not imply activation-ready",
+        "external delivery and live execution remain disabled"
+      ]
+    },
+    {
+      "resourceId": "leadpack_activation_design_implementation_prep_packet",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+      "internal activation design / implementation prep only",
+      "owner signoff, approval chain, review gate and audit refs remain separate state sources",
+      "missing owner signoff, approval, review gate or audit ref keeps implementation decision in HOLD",
+      "implementation decision may be requested only after readiness gate review",
+      "actual activation, external delivery, live execution and direct object export remain disabled"
+      ]
+    },
+    {
+      "resourceId": "leadpack_implementation_decision_readiness_packet",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [],
+        "export": []
+      },
+      "conditions": [
+        "internal implementation decision readiness packet only",
+        "review-only and human decision-readiness only",
+        "implementation_decision_ready remains false while HOLD sources exist",
+        "implementation, actual activation, external delivery, live execution and direct object export remain disabled"
+      ]
+    },
+    {
+      "resourceId": "stage8_governed_preview",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal preview and draft only",
+        "live outreach execution remains blocked by default",
+        "high restriction fields remain redacted",
+        "repository-backed governed retrieval only",
+        "surface state must be consumed from semantic_envelope.surface_state",
+        "draft/writeback availability must consume governance_envelope.action_availability directly"
+      ]
+    },
+    {
+      "resourceId": "stage8_internal_work_items",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal governed queue only",
+        "operator actions remain review/draft only",
+        "live outreach execution remains blocked by default"
+      ]
+    },
+    {
+      "resourceId": "stage9_internal_governed_preview",
+      "actions": {
+        "read": [
+          "delivery_governance_user",
+          "sales_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal governed preview and draft only",
+        "real payment or delivery execution remains blocked by default",
+        "governance and audit traces must be visible before writeback",
+        "repository-backed typed workflow retrieval only",
+        "surface state must be consumed from semantic_envelope.surface_state",
+        "draft/writeback availability must consume governance_envelope.action_availability directly"
+      ]
+    },
+    {
+      "resourceId": "stage9_internal_work_items",
+      "actions": {
+        "read": [
+          "delivery_governance_user",
+          "sales_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal governed queue only",
+        "operator actions remain draft/writeback/review only",
+        "real payment or delivery execution remains blocked by default"
+      ]
+    },
+    {
+      "resourceId": "governance_feedback_preview",
+      "actions": {
+        "read": [
+          "product_admin",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal only",
+        "not a customer-facing receipt"
+      ]
+    },
+    {
+      "resourceId": "stage7_operator_action",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal operator action only",
+        "must update work item and audit trace only",
+        "must not re-judge formal sales outcome"
+      ]
+    },
+    {
+      "resourceId": "stage8_operator_action",
+      "actions": {
+        "read": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "write": [
+          "sales_user",
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal governed operator action only",
+        "must not trigger live outreach execution",
+        "must update work item, action history, and governed metadata only"
+      ]
+    },
+    {
+      "resourceId": "stage9_operator_action",
+      "actions": {
+        "read": [
+          "delivery_governance_user"
+        ],
+        "write": [
+          "delivery_governance_user"
+        ],
+        "export": []
+      },
+      "conditions": [
+        "internal governed operator action only",
+        "must not trigger live payment or delivery execution",
+        "must update work item, action history, and writeback operational state only"
+      ]
+    }
+  ]
+}

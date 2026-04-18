@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "report_record",
+  "type": "object",
+  "description": "Schema skeleton for report_record.",
+  "source_refs": [
+    "D2-R-017",
+    "D7-R-006"
+  ],
+  "enum_refs": [
+    "report_status",
+    "review_lane",
+    "release_level"
+  ],
+  "properties": {
+    "report_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "brief_path": {
+      "type": "string"
+    },
+    "evidence_pack_path": {
+      "type": "string"
+    },
+    "objection_draft_path": {
+      "type": "string"
+    },
+    "review_task_status": {
+      "type": "string"
+    },
+    "report_status": {
+      "type": "string"
+    },
+    "review_lane": {
+      "type": "string"
+    },
+    "review_sla_due_at": {
+      "type": "string"
+    },
+    "minimum_release_level": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "report_id",
+    "project_id",
+    "brief_path",
+    "evidence_pack_path",
+    "objection_draft_path",
+    "review_task_status",
+    "report_status",
+    "review_lane",
+    "review_sla_due_at",
+    "minimum_release_level"
+  ],
+  "additionalProperties": false
+}

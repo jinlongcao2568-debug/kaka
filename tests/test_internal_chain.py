@@ -1,0 +1,918 @@
+from __future__ import annotations
+
+import copy
+import unittest
+
+from helpers import (
+    extract_service_record_dependencies,
+    load_fixture,
+    load_repo_json,
+    run_internal_chain_to_stage7,
+)
+from shared.contracts_runtime import ContractRecord, ContractStore, StageBundle
+from shared.pipeline import run_internal_chain
+from stage9_delivery.service import Stage9Service
+
+
+class TestInternalChain(unittest.TestCase):
+    def setUp(self) -> None:
+        self.store = ContractStore.default()
+        self.contracts = {
+            1: load_repo_json("handoff/stage1_to_stage2/contract.json"),
+            2: load_repo_json("handoff/stage2_to_stage3/contract.json"),
+            3: load_repo_json("handoff/stage3_to_stage4/contract.json"),
+            4: load_repo_json("handoff/stage4_to_stage5/contract.json"),
+            5: load_repo_json("handoff/stage5_to_stage6/contract.json"),
+            6: load_repo_json("handoff/stage6_to_stage7/contract.json"),
+            7: load_repo_json("handoff/stage7_to_stage8/contract.json"),
+            8: load_repo_json("handoff/stage8_to_stage9/contract.json"),
+        }
+        self.integration_rows = {
+            row["contractId"]: row for row in load_repo_json("handoff/integration_matrix.json")["rows"]
+        }
+
+    def _assert_h08_payload_ready(self, payload: dict[str, object]) -> None:
+        missing_fields = [
+            field_name
+            for field_name in self.contracts[8]["required_payload_fields"]
+            if field_name not in payload
+        ]
+        self.assertFalse(missing_fields, f"H-08 payload missing required fields: {missing_fields}")
+
+    def _build_stage8_bundle(self, payload: dict[str, object] | None = None) -> StageBundle:
+        result = run_internal_chain(payload or load_fixture("internal_chain_happy.json"))
+        return result["stage8"]
+
+    def test_happy_path_stage4_to_stage7_formal_outputs(self) -> None:
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+
+        stage1 = result["stage1"]
+        self.assertEqual(
+            set(stage1.records.keys()),
+            {
+                "task_execution_context",
+                "project_identity_strategy",
+                "clock_strategy_profile",
+                "execution_context",
+            },
+        )
+        self.assertEqual(stage1.handoff.get("default_route"), "LIST_TO_DETAIL")
+        self.assertEqual(stage1.handoff.get("source_registry_id"), "SRC-REG-PROC-NATIONAL-HTML")
+        self.assertEqual(stage1.handoff.get("route_policy_id"), "ROUTE-PROC-NOTICE-001")
+
+        stage2 = result["stage2"]
+        self.assertEqual(
+            set(stage2.records.keys()),
+            {
+                "public_chain",
+                "clock_chain_profile",
+                "notice_version_chain",
+                "fixation_bundle",
+            },
+        )
+        self.assertEqual(stage2.record("fixation_bundle").get("carrier_type"), "HTML_PAGE")
+        self.assertEqual(stage2.record("clock_chain_profile").get("clock_conflict_state"), "CONSISTENT")
+        self.assertEqual(stage2.handoff.get("fixation_bundle_id"), stage2.record("fixation_bundle").get("fixation_bundle_id"))
+        self.assertEqual(stage2.handoff.get("source_registry_id"), "SRC-REG-PROC-NATIONAL-HTML")
+        self.assertEqual(stage2.handoff.get("route_policy_id"), "ROUTE-PROC-NOTICE-001")
+        self.assertEqual(stage2.handoff.get("fallback_route"), "DETAIL_DIRECT")
+        self.assertEqual(stage2.handoff.get("route_decision_state"), "ALLOW")
+        self.assertEqual(stage2.handoff.get("route_review_reasons"), [])
+        self.assertEqual(stage2.handoff.get("winning_version_resolution_rule_id"), "VERSION-PROC-NOTICE-001")
+        self.assertEqual(stage2.handoff.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
+
+        stage3 = result["stage3"]
+        self.assertEqual(
+            set(stage3.records.keys()),
+            {
+                "field_lineage_record",
+                "project_base",
+                "bidder_candidate",
+                "project_manager",
+            },
+        )
+        self.assertEqual(stage3.handoff.get("fixation_bundle_id"), stage2.record("fixation_bundle").get("fixation_bundle_id"))
+        self.assertEqual(stage3.handoff.get("source_registry_id"), stage2.handoff.get("source_registry_id"))
+        self.assertEqual(stage3.handoff.get("route_policy_id"), stage2.handoff.get("route_policy_id"))
+        self.assertEqual(stage3.handoff.get("route_decision_state"), stage2.handoff.get("route_decision_state"))
+        self.assertEqual(stage3.handoff.get("winning_version_resolution_rule_id"), stage2.handoff.get("winning_version_resolution_rule_id"))
+        self.assertEqual(stage3.handoff.get("clock_resolution_rule_id"), stage2.handoff.get("clock_resolution_rule_id"))
+        project_id = stage3.record("project_base").get("project_id")
+        self.assertEqual(stage3.record("project_base").get("stage3_truth_layer_ref_optional"), f"ST3TL-{project_id}")
+        self.assertEqual(stage3.record("project_base").get("field_lineage_collection_ref_optional"), f"LINEAGE-{project_id}")
+        self.assertEqual(stage3.record("project_base").get("bidder_candidate_collection_ref_optional"), f"CSET-{project_id}")
+        self.assertEqual(stage3.record("project_base").get("stage3_review_path_ref_optional"), "STAGE3_READY_FOR_STAGE4")
+        self.assertEqual(stage3.record("field_lineage_record").get("normalized_value_ref_optional"), "project_base.project_name")
+        self.assertEqual(stage3.record("field_lineage_record").get("review_path_optional"), "STAGE3_READY_FOR_STAGE4")
+        self.assertEqual(stage3.record("field_lineage_record").get("candidate_collection_ref_optional"), f"CSET-{project_id}")
+        self.assertEqual(stage3.record("bidder_candidate").get("candidate_collection_ref_optional"), f"CSET-{project_id}")
+        self.assertEqual(
+            stage3.record("bidder_candidate").get("candidate_source_lineage_ids_optional"),
+            [stage3.record("field_lineage_record").get("field_lineage_id")],
+        )
+        self.assertEqual(stage3.inputs.get("stage3_truth_layer_ref_optional"), f"ST3TL-{project_id}")
+        self.assertEqual(stage3.inputs.get("candidate_collection_ref_optional"), f"CSET-{project_id}")
+        self.assertEqual(stage3.inputs.get("route_policy_id"), stage2.handoff.get("route_policy_id"))
+
+        stage4 = result["stage4"]
+        self.assertEqual(
+            set(stage4.records.keys()),
+            {
+                "public_attack_surface",
+                "focus_bidder_verification_profile",
+                "pseudo_competitor_signal_set",
+                "evidence_grade_profile",
+            },
+        )
+        self.assertEqual(
+            stage4.record("focus_bidder_verification_profile").get("verification_state"), "PASS"
+        )
+        self.assertEqual(stage4.record("pseudo_competitor_signal_set").get("confidence_band"), "MEDIUM")
+        for field_name in (
+            "verification_state",
+            "cross_check_state",
+            "fixation_status",
+            "retrieval_readiness_status",
+            "lineage_status",
+            "conflict_state",
+            "pseudo_competitor_signal_set_id",
+            "confidence_band",
+        ):
+            self.assertIn(field_name, self.contracts[4]["required_payload_fields"])
+            self.assertIn(field_name, stage4.handoff)
+            self.assertIn(field_name, stage4.inputs)
+        self.assertEqual(
+            stage4.handoff.get("verification_state"),
+            stage4.record("focus_bidder_verification_profile").get("verification_state"),
+        )
+        self.assertEqual(
+            stage4.handoff.get("cross_check_state"),
+            stage4.record("evidence_grade_profile").get("cross_check_state"),
+        )
+        self.assertEqual(stage4.handoff.get("lineage_status"), "NORMALIZED")
+        self.assertEqual(stage4.handoff.get("conflict_state"), "CONSISTENT")
+
+        stage5 = result["stage5"]
+        self.assertEqual(
+            set(stage5.records.keys()),
+            {"evidence", "rule_hit", "rule_gate_decision", "evidence_gate_decision"},
+        )
+        self.assertEqual(stage5.record("evidence").get("retrieval_readiness_status"), "READY")
+        self.assertEqual(stage5.record("rule_hit").get("rule_hit_state"), "CONFIRMED")
+        for field_name in (
+            "rule_hit_id",
+            "rule_hit_state",
+            "evidence_id",
+            "rule_gate_decision_id",
+            "evidence_gate_decision_id",
+            "rule_gate_status",
+            "evidence_gate_status",
+            "coverage_sellable_state",
+            "delivery_risk_state",
+        ):
+            self.assertIn(field_name, self.contracts[5]["required_payload_fields"])
+            self.assertIn(field_name, stage5.handoff)
+            self.assertIn(field_name, stage5.inputs)
+        self.assertEqual(
+            stage5.handoff.get("rule_gate_decision_id"),
+            stage5.record("rule_gate_decision").get("gate_id"),
+        )
+        self.assertEqual(
+            stage5.handoff.get("evidence_gate_decision_id"),
+            stage5.record("evidence_gate_decision").get("gate_id"),
+        )
+        self.assertEqual(stage5.handoff.get("rule_hit_state"), stage5.record("rule_hit").get("rule_hit_state"))
+
+        stage6 = result["stage6"]
+        self.assertEqual(
+            set(stage6.records.keys()),
+            {
+                "project_fact",
+                "legal_action_recommendation",
+                "review_queue_profile",
+                "report_record",
+                "challenger_candidate_profile",
+            },
+        )
+        self.assertEqual(stage6.record("project_fact").get("sale_gate_status"), "OPEN")
+        self.assertEqual(stage6.record("report_record").get("report_status"), "ISSUED")
+        self.assertEqual(
+            stage6.record("legal_action_recommendation").get("action_family"), "OBJECTION_PREP"
+        )
+        self.assertEqual(stage6.record("review_queue_profile").get("review_lane"), "STANDARD")
+        self.assertEqual(stage6.record("review_queue_profile").get("review_priority_score"), 46)
+        self.assertEqual(stage6.record("review_queue_profile").get("review_queue_bucket"), "NORMAL")
+
+        stage7 = result["stage7"]
+        self.assertEqual(
+            set(stage7.records.keys()),
+            {
+                "multi_competitor_collection",
+                "legal_action_actor_profile",
+                "procurement_decision_actor_profile",
+                "buyer_fit",
+                "challenger_buyer_fit",
+                "sales_lead",
+                "offer_recommendation",
+                "saleable_opportunity",
+            },
+        )
+        opportunity = stage7.record("saleable_opportunity")
+        self.assertEqual(opportunity.get("saleability_status"), "QUALIFIED")
+        self.assertEqual(opportunity.get("buyer_fit_id"), stage7.record("buyer_fit").get("buyer_fit_id"))
+        self.assertIn("BUYER_FIT_SCORECARD", stage7.record("buyer_fit").get("fit_reason_tags"))
+        self.assertIn("CHALLENGER_BUYER_FIT_SCORECARD", stage7.record("challenger_buyer_fit").get("fit_reason_tags"))
+        self.assertIn("LEAD_VALUE_MODEL", stage7.record("sales_lead").get("lead_reason_summary"))
+        self.assertIn("OPPORTUNITY_VALUE_MODEL", opportunity.get("major_value_points"))
+        self.assertEqual(
+            opportunity.get("challenger_profile_id"),
+            stage6.record("challenger_candidate_profile").get("challenger_profile_id"),
+        )
+        self.assertEqual(
+            stage7.record("legal_action_actor_profile").get("action_family_scope"),
+            stage6.record("legal_action_recommendation").get("action_family"),
+        )
+        self.assertEqual(
+            stage7.record("multi_competitor_collection").get("selection_trace").get("selection_policy_id"),
+            "stage7_multi_competitor_resolution_v1",
+        )
+
+    def test_review_block_paths_stage4_to_stage7(self) -> None:
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_block.json"))
+
+        stage4 = result["stage4"]
+        self.assertEqual(stage4.record("public_attack_surface").get("verification_state"), "REVIEW")
+        self.assertEqual(stage4.record("pseudo_competitor_signal_set").get("confidence_band"), "LOW")
+
+        stage5 = result["stage5"]
+        self.assertIn("review_request", stage5.records)
+        self.assertEqual(stage5.record("review_request").get("missing_condition_family"), "MISSING_EVIDENCE")
+        self.assertEqual(stage5.record("rule_hit").get("rule_hit_state"), "REVIEW_REQUIRED")
+        self.assertIn("review_request_id", self.contracts[5]["optional_payload_fields"])
+        self.assertEqual(
+            stage5.handoff.get("review_request_id"),
+            stage5.record("review_request").get("review_request_id"),
+        )
+        self.assertEqual(
+            stage5.handoff.get("missing_condition_family"),
+            stage5.record("review_request").get("missing_condition_family"),
+        )
+        self.assertEqual(stage5.handoff.get("review_lane"), stage5.record("review_request").get("review_lane"))
+
+        stage6 = result["stage6"]
+        self.assertEqual(stage6.record("project_fact").get("sale_gate_status"), "REVIEW")
+        self.assertEqual(stage6.record("report_record").get("report_status"), "REVOKED")
+        self.assertEqual(
+            stage6.record("legal_action_recommendation").get("action_family"), "REVIEW_ONLY"
+        )
+
+        stage7 = result["stage7"]
+        self.assertEqual(stage7.record("sales_lead").get("lead_status"), "REVIEW")
+        self.assertEqual(stage7.record("saleable_opportunity").get("saleability_status"), "BLOCKED")
+        self.assertEqual(
+            stage7.record("legal_action_actor_profile").get("actionability_state"), "REVIEW_REQUIRED"
+        )
+
+    def test_handoff_producer_sets_cover_service_outputs(self) -> None:
+        happy = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        blocked = run_internal_chain_to_stage7(load_fixture("internal_chain_block.json"))
+
+        stage_contract_map = {
+            "stage1": self.contracts[1],
+            "stage2": self.contracts[2],
+            "stage3": self.contracts[3],
+            "stage4": self.contracts[4],
+            "stage5": self.contracts[5],
+            "stage6": self.contracts[6],
+            "stage7": self.contracts[7],
+        }
+
+        for stage_key, contract in stage_contract_map.items():
+            declared = set(contract["producer_objects"])
+            self.assertTrue(set(happy[stage_key].records.keys()).issubset(declared))
+            self.assertTrue(set(blocked[stage_key].records.keys()).issubset(declared))
+
+        self.assertIn("review_request", blocked["stage5"].records)
+        self.assertNotIn("review_request", happy["stage5"].records)
+
+    def test_stage3_truth_layer_handoff_requires_lineage_state_for_stage4(self) -> None:
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        stage3 = result["stage3"]
+        h03 = self.contracts[3]
+
+        for field_name in ("lineage_status", "conflict_state", "fixation_bundle_id"):
+            self.assertIn(field_name, h03["required_payload_fields"])
+            self.assertIn(field_name, h03["consumer_runtime_required_fields"])
+
+        validation = self.store.evaluate_handoff_consumer(
+            producer_bundle=stage3,
+            consumer_stage=4,
+        )
+        self.assertEqual(validation.decision_state, "ALLOW")
+        for field_name in h03["required_payload_fields"]:
+            resolved = stage3.handoff.get(field_name, stage3.inputs.get(field_name))
+            if resolved in (None, ""):
+                resolved = next(
+                    (
+                        record.get(field_name)
+                        for record in stage3.records.values()
+                        if record.get(field_name) not in (None, "")
+                    ),
+                    None,
+                )
+            self.assertIsNotNone(resolved, field_name)
+
+        lineage_data = dict(stage3.record("field_lineage_record").data)
+        lineage_data.pop("lineage_status")
+        broken_bundle = StageBundle(
+            stage=3,
+            records={
+                **stage3.records,
+                "field_lineage_record": ContractRecord(
+                    object_type="field_lineage_record",
+                    data=lineage_data,
+                ),
+            },
+            handoff={
+                key: value
+                for key, value in stage3.handoff.items()
+                if key != "lineage_status"
+            },
+            trace_rules=list(stage3.trace_rules),
+            inputs={
+                key: value
+                for key, value in stage3.inputs.items()
+                if key != "lineage_status"
+            },
+        )
+        broken_validation = self.store.evaluate_handoff_consumer(
+            producer_bundle=broken_bundle,
+            consumer_stage=4,
+        )
+        self.assertEqual(broken_validation.decision_state, "BLOCK")
+        self.assertIn("lineage_status", broken_validation.reasons[0])
+
+    def test_stage3_review_path_materializes_when_lineage_is_unresolved(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["flags"] = {"missing_source": True}
+
+        result = run_internal_chain_to_stage7(payload)
+        stage3 = result["stage3"]
+
+        self.assertEqual(stage3.record("project_base").get("stage3_review_path_ref_optional"), "STAGE3_REVIEW_REQUIRED")
+        self.assertEqual(stage3.record("field_lineage_record").get("review_path_optional"), "STAGE3_REVIEW_REQUIRED")
+        self.assertEqual(
+            stage3.record("field_lineage_record").get("unresolved_reason_optional"),
+            "missing_source_slice_or_normalization_rule",
+        )
+        self.assertEqual(
+            stage3.record("bidder_candidate").get("candidate_review_path_optional"),
+            "STAGE3_REVIEW_REQUIRED",
+        )
+
+    def test_stage2_projects_h02_optional_precedence_fields(self) -> None:
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        stage2 = result["stage2"]
+        h02 = self.contracts[2]
+
+        for field_name in (
+            "source_registry_id",
+            "route_policy_id",
+            "fallback_route",
+            "route_decision_state",
+            "route_review_reasons",
+            "winning_version_resolution_rule_id",
+            "clock_resolution_rule_id",
+        ):
+            self.assertIn(field_name, h02["optional_payload_fields"])
+            self.assertIn(field_name, stage2.handoff)
+            self.assertIn(field_name, stage2.inputs)
+
+        self.assertEqual(stage2.handoff.get("source_registry_id"), "SRC-REG-PROC-NATIONAL-HTML")
+        self.assertEqual(stage2.handoff.get("route_policy_id"), "ROUTE-PROC-NOTICE-001")
+        self.assertEqual(stage2.handoff.get("fallback_route"), "DETAIL_DIRECT")
+        self.assertEqual(stage2.handoff.get("route_decision_state"), "ALLOW")
+        self.assertEqual(stage2.handoff.get("route_review_reasons"), [])
+        self.assertEqual(stage2.handoff.get("winning_version_resolution_rule_id"), "VERSION-PROC-NOTICE-001")
+        self.assertEqual(stage2.handoff.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
+        self.assertEqual(stage2.inputs.get("version_precedence_source"), "source_registry")
+        self.assertEqual(stage2.inputs.get("clock_precedence_source"), "source_registry")
+
+    def test_consumer_dependency_sets_align_with_integration_matrix(self) -> None:
+        expected = {
+            "H-01-STAGE1-TO-STAGE2": sorted(
+                self.integration_rows["H-01-STAGE1-TO-STAGE2"]["criticalObjects"]
+            ),
+            "H-02-STAGE2-TO-STAGE3": sorted(
+                self.integration_rows["H-02-STAGE2-TO-STAGE3"]["criticalObjects"]
+            ),
+            "H-03-STAGE3-TO-STAGE4": sorted(
+                self.integration_rows["H-03-STAGE3-TO-STAGE4"]["criticalObjects"]
+            ),
+            "H-04-STAGE4-TO-STAGE5": sorted(
+                self.integration_rows["H-04-STAGE4-TO-STAGE5"]["criticalObjects"]
+            ),
+            "H-05-STAGE5-TO-STAGE6": sorted(
+                self.integration_rows["H-05-STAGE5-TO-STAGE6"]["criticalObjects"]
+            ),
+            "H-06-STAGE6-TO-STAGE7": sorted(
+                self.integration_rows["H-06-STAGE6-TO-STAGE7"]["criticalObjects"]
+            ),
+            "H-07-STAGE7-TO-STAGE8": sorted(
+                self.integration_rows["H-07-STAGE7-TO-STAGE8"]["criticalObjects"]
+            ),
+            "H-08-STAGE8-TO-STAGE9": sorted(
+                self.integration_rows["H-08-STAGE8-TO-STAGE9"]["criticalObjects"]
+            ),
+        }
+        actual = {
+            "H-01-STAGE1-TO-STAGE2": extract_service_record_dependencies(
+                "src/stage2_ingestion/service.py"
+            ),
+            "H-02-STAGE2-TO-STAGE3": extract_service_record_dependencies(
+                "src/stage3_parsing/service.py"
+            ),
+            "H-03-STAGE3-TO-STAGE4": extract_service_record_dependencies(
+                "src/stage4_verification/service.py"
+            ),
+            "H-04-STAGE4-TO-STAGE5": extract_service_record_dependencies(
+                "src/stage5_rules_evidence/service.py"
+            ),
+            "H-05-STAGE5-TO-STAGE6": extract_service_record_dependencies(
+                "src/stage6_fact_review/service.py"
+            ),
+            "H-06-STAGE6-TO-STAGE7": extract_service_record_dependencies(
+                "src/stage7_sales/service.py"
+            ),
+            "H-07-STAGE7-TO-STAGE8": extract_service_record_dependencies(
+                "src/stage8_outreach/service.py"
+            ),
+            "H-08-STAGE8-TO-STAGE9": extract_service_record_dependencies(
+                "src/stage9_delivery/service.py"
+            ),
+        }
+        self.assertEqual(actual, expected)
+
+    def test_stage6_to_stage7_minimal_chain(self) -> None:
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        handoff = result["stage6"].handoff
+        for field_name in self.contracts[6]["required_payload_fields"]:
+            self.assertIn(field_name, handoff)
+        self.assertIn("consumer_obligations", self.contracts[6])
+        self.assertIn("consumer_must_not_recompute_fields", self.contracts[6])
+        for field_name in (
+            "sale_gate_status",
+            "competitor_quality_grade",
+            "window_status",
+            "report_status",
+            "review_task_status",
+            "action_family",
+            "challenger_profile_id",
+        ):
+            self.assertIn(field_name, self.contracts[6]["consumer_must_not_recompute_fields"])
+        for field_name in (
+            "review_queue_profile_id",
+            "review_lane",
+            "review_priority_score",
+            "review_queue_bucket",
+            "window_risk_level",
+            "commercial_urgency_level",
+            "report_id",
+            "minimum_release_level",
+        ):
+            self.assertIn(field_name, self.contracts[6]["optional_payload_fields"])
+            self.assertIn(field_name, handoff)
+            self.assertIn(field_name, result["stage6"].inputs)
+
+        stage7_outputs = set(result["stage7"].records.keys())
+        self.assertEqual(stage7_outputs, set(self.contracts[6]["consumer_objects"]))
+        self.assertEqual(result["stage7"].record("buyer_fit").get("buyer_type"), "GOVERNMENT")
+        self.assertEqual(
+            result["stage7"].record("procurement_decision_actor_profile").get("actor_role_cluster"),
+            "PROCUREMENT_DECISION",
+        )
+        self.assertEqual(
+            result["stage7"].record("legal_action_actor_profile").get("actor_org_name"),
+            handoff["legal_action_actor_org_name_seed"],
+        )
+        self.assertEqual(
+            result["stage7"].record("procurement_decision_actor_profile").get("actor_org_name"),
+            handoff["procurement_decision_actor_org_name_seed"],
+        )
+        self.assertEqual(
+            result["stage7"].record("buyer_fit").get("buyer_type"),
+            handoff["buyer_type_hint"],
+        )
+
+    def test_stage6_supplement_reference_stays_out_of_stage7_formal_surface(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_block.json"))
+        payload.update(
+            {
+                "supplement_material_family": "MISSING_ATTACHMENT_BACKFILL",
+                "supplement_source_owner": "MANUAL_REVIEW",
+            }
+        )
+        result = run_internal_chain_to_stage7(payload)
+        stage6 = result["stage6"]
+        stage7 = result["stage7"]
+
+        self.assertIn("private_supplement_record_optional", stage6.inputs)
+        self.assertEqual(
+            stage6.handoff.get("private_supplement_release_state_optional"),
+            "REVIEW_ELIGIBLE",
+        )
+        self.assertNotIn("private_supplement_record", stage7.records)
+        self.assertNotIn("private_supplement_record_id_optional", stage7.handoff)
+
+    def test_stage6_hold_state_when_report_not_issued(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["flags"] = {}
+
+        result = run_internal_chain_to_stage7(payload)
+        stage6 = result["stage6"]
+        stage7 = result["stage7"]
+
+        self.assertEqual(stage6.record("project_fact").get("sale_gate_status"), "HOLD")
+        self.assertEqual(stage6.record("report_record").get("report_status"), "READY")
+        self.assertEqual(stage6.record("legal_action_recommendation").get("action_family"), "REVIEW_ONLY")
+        self.assertEqual(stage7.record("sales_lead").get("lead_status"), "REVIEW")
+        self.assertEqual(stage7.record("saleable_opportunity").get("saleability_status"), "RESTRICTED")
+
+    def test_stage6_review_queue_uses_window_formula_for_urgent_window(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "commercial_urgency_level": "HIGH",
+                "current_action_deadline_at_optional": "2026-04-20T00:00:00Z",
+            }
+        )
+
+        result = run_internal_chain_to_stage7(payload)
+        stage6 = result["stage6"]
+
+        self.assertEqual(stage6.record("legal_action_recommendation").get("window_status"), "ACTIONABLE")
+        self.assertEqual(stage6.record("review_queue_profile").get("review_lane"), "HIGH_PRIORITY")
+        self.assertEqual(stage6.record("review_queue_profile").get("review_priority_score"), 73)
+        self.assertEqual(stage6.record("review_queue_profile").get("review_queue_bucket"), "HIGH")
+        self.assertEqual(stage6.inputs.get("window_urgency_score"), 80)
+
+    def test_stage7_blocks_when_stage6_formal_seed_inputs_are_missing(self) -> None:
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        broken_bundle = StageBundle(
+            stage=6,
+            records=dict(result["stage6"].records),
+            handoff={
+                key: value
+                for key, value in result["stage6"].handoff.items()
+                if key not in {"legal_action_actor_org_name_seed", "buyer_type_hint"}
+            },
+            trace_rules=list(result["stage6"].trace_rules),
+            inputs={
+                key: value
+                for key, value in result["stage6"].inputs.items()
+                if key not in {"legal_action_actor_org_name_seed", "buyer_type_hint"}
+            },
+        )
+        validation = self.store.evaluate_handoff_consumer(
+            producer_bundle=broken_bundle,
+            consumer_stage=7,
+        )
+        self.assertEqual(validation.decision_state, "BLOCK")
+
+    def test_stage7_to_stage8_minimal_chain(self) -> None:
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        handoff = result["stage7"].handoff
+        for field_name in self.contracts[7]["required_payload_fields"]:
+            self.assertIn(field_name, handoff)
+
+        critical_objects = set(self.integration_rows["H-07-STAGE7-TO-STAGE8"]["criticalObjects"])
+        self.assertTrue(critical_objects.issubset(set(result["stage7"].records.keys())))
+        self.assertEqual(
+            extract_service_record_dependencies("src/stage8_outreach/service.py"),
+            sorted(critical_objects),
+        )
+        self.assertEqual(
+            handoff["commercial_urgency_level_optional"],
+            result["stage7"].inputs["commercial_urgency_level_optional"],
+        )
+        self.assertEqual(
+            handoff["role_cluster"],
+            result["stage7"].record("procurement_decision_actor_profile").get("actor_role_cluster"),
+        )
+
+    def test_stage8_blocks_when_stage7_required_fields_are_missing(self) -> None:
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        broken_bundle = StageBundle(
+            stage=7,
+            records=dict(result["stage7"].records),
+            handoff={
+                key: value
+                for key, value in result["stage7"].handoff.items()
+                if key not in {"channel_policy_status", "commercial_urgency_level_optional"}
+            },
+            trace_rules=list(result["stage7"].trace_rules),
+            inputs={
+                key: value
+                for key, value in result["stage7"].inputs.items()
+                if key not in {"channel_policy_status", "commercial_urgency_level_optional"}
+            },
+        )
+        validation = self.store.evaluate_handoff_consumer(
+            producer_bundle=broken_bundle,
+            consumer_stage=8,
+        )
+        self.assertEqual(validation.decision_state, "BLOCK")
+
+    def test_stage8_to_stage9_payload_and_producer_set_closure(self) -> None:
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage8 = result["stage8"]
+
+        self.assertTrue(set(self.contracts[8]["producer_objects"]).issubset(set(stage8.records.keys())))
+        self.assertIn("contact_candidate_collection_snapshot", stage8.inputs)
+        self.assertIn("contact_selection_trace_snapshot", stage8.inputs)
+        self._assert_h08_payload_ready(stage8.handoff)
+        self._assert_h08_payload_ready(stage8.inputs)
+
+        saleable_opportunity = stage8.record("saleable_opportunity")
+        contact_target = stage8.record("contact_target")
+        outreach_plan = stage8.record("outreach_plan")
+        touch_record = stage8.record("touch_record")
+        expected_projection = {
+            "opportunity_id": saleable_opportunity.get("opportunity_id"),
+            "touch_record_id": touch_record.get("touch_record_id"),
+            "response_status": touch_record.get("response_status"),
+            "saleability_status": saleable_opportunity.get("saleability_status"),
+            "crm_owner_state": saleable_opportunity.get("crm_owner_state"),
+        }
+        for field_name, expected_value in expected_projection.items():
+            self.assertEqual(stage8.handoff.get(field_name), expected_value, field_name)
+            self.assertEqual(stage8.inputs.get(field_name), expected_value, field_name)
+        self.assertEqual(contact_target.get("opportunity_id"), saleable_opportunity.get("opportunity_id"))
+        self.assertEqual(outreach_plan.get("requested_delivery_surface"), "INTERNAL_OPERATIONS")
+        self.assertEqual(outreach_plan.get("projection_mode"), "INTERNAL_GOVERNED_PREVIEW")
+
+    def test_stage8_failure_path_persists_writeback_fields(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"response_status": "WRONG_ROLE"})
+
+        result = run_internal_chain(payload)
+        stage8 = result["stage8"]
+        touch_record = stage8.record("touch_record")
+
+        self.assertEqual(touch_record.get("next_step_optional"), "RESELECT_CONTACT")
+        self.assertEqual(touch_record.get("feedback_reason"), "WRONG_ROLE")
+        self.assertIsNotNone(touch_record.get("written_back_at_optional"))
+        self.assertEqual(
+            touch_record.get("writeback_targets"),
+            ["contact_target", "saleable_opportunity", "project_fact"],
+        )
+        self.assertEqual(stage8.handoff.get("touch_record_id"), touch_record.get("touch_record_id"))
+        self.assertEqual(stage8.inputs.get("written_back_at_optional"), touch_record.get("written_back_at_optional"))
+
+    def test_stage8_quiet_hours_schedule_path_keeps_candidate_preview(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"quiet_hours_policy_state": "BLOCK"})
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        contact_target = stage8.record("contact_target")
+        outreach_plan = stage8.record("outreach_plan")
+        touch_record = stage8.record("touch_record")
+
+        self.assertEqual(contact_target.get("contact_target_status"), "ELIGIBLE")
+        self.assertFalse(contact_target.get("requires_manual_review"))
+        self.assertEqual(outreach_plan.get("plan_status"), "SCHEDULED")
+        self.assertEqual(touch_record.get("touch_record_state"), "CREATED")
+        self.assertEqual(
+            outreach_plan.get("governed_metadata", {}).get("candidate_compliance_decision"),
+            "ALLOW_PREVIEW",
+        )
+        self.assertEqual(
+            outreach_plan.get("governed_metadata", {}).get("execution_compliance_decision"),
+            "SCHEDULED",
+        )
+
+    def test_h08_payload_missing_required_field_fails_assertion(self) -> None:
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        broken_payload = dict(result["stage8"].handoff)
+        broken_payload.pop("crm_owner_state")
+
+        with self.assertRaises(AssertionError):
+            self._assert_h08_payload_ready(broken_payload)
+
+    def test_stage9_consumes_h08_records_and_fields(self) -> None:
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage8 = result["stage8"]
+        stage9 = result["stage9"]
+
+        opportunity = stage8.record("saleable_opportunity")
+        touch_record = stage8.record("touch_record")
+        order_record = stage9.record("order_record")
+        governance_feedback = stage9.record("governance_feedback_event")
+        outcome = stage9.record("opportunity_outcome_event")
+
+        self.assertEqual(order_record.get("opportunity_id"), opportunity.get("opportunity_id"))
+        self.assertEqual(order_record.get("order_status"), "PENDING_APPROVAL")
+        self.assertEqual(order_record.get("touch_record_id"), touch_record.get("touch_record_id"))
+        self.assertEqual(order_record.get("plan_status"), stage8.handoff.get("plan_status"))
+        self.assertEqual(order_record.get("touch_record_state"), touch_record.get("touch_record_state"))
+        self.assertEqual(order_record.get("governed_execution_mode"), "INTERNAL_GOVERNED")
+        self.assertFalse(order_record.get("governed_metadata").get("live_execution_enabled"))
+        self.assertEqual(governance_feedback.get("trigger_type"), "APPROVAL_MISSING")
+        trigger_summary = governance_feedback.get("trigger_summary")
+        self.assertIn(opportunity.get("opportunity_id"), trigger_summary)
+        self.assertIn(touch_record.get("touch_record_id"), trigger_summary)
+        self.assertIn(touch_record.get("response_status"), trigger_summary)
+        self.assertIn(opportunity.get("saleability_status"), trigger_summary)
+        self.assertIn(opportunity.get("crm_owner_state"), trigger_summary)
+        self.assertEqual(governance_feedback.get("feedback_reason"), touch_record.get("feedback_reason"))
+        self.assertEqual(
+            governance_feedback.get("written_back_at_optional"),
+            touch_record.get("written_back_at_optional"),
+        )
+        self.assertEqual(outcome.get("outcome_family"), "CONTACT_FAILED")
+        self.assertEqual(outcome.get("contact_failure_state"), touch_record.get("response_status"))
+        self.assertEqual(outcome.get("feedback_reason"), touch_record.get("feedback_reason"))
+        self.assertEqual(outcome.get("trigger_type"), governance_feedback.get("trigger_type"))
+        self.assertEqual(
+            stage9.record("payment_record").get("written_back_at_optional"),
+            touch_record.get("written_back_at_optional"),
+        )
+        self.assertEqual(
+            stage9.record("delivery_record").get("written_back_at_optional"),
+            touch_record.get("written_back_at_optional"),
+        )
+        self.assertEqual(
+            stage9.inputs.get("outcome_writeback_targets"),
+            ["contact_target", "saleable_opportunity"],
+        )
+        self.assertEqual(
+            stage9.inputs.get("governance_writeback_targets_optional"),
+            ["order_record", "payment_record"],
+        )
+        self.assertEqual(
+            stage9.inputs.get("effective_writeback_targets"),
+            [
+                "contact_target",
+                "saleable_opportunity",
+                "order_record",
+                "payment_record",
+            ],
+        )
+        self.assertEqual(outcome.get("writeback_targets"), ["contact_target", "saleable_opportunity"])
+
+    def test_stage9_response_and_saleability_change_runtime_decision(self) -> None:
+        connected_payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        connected_payload.update(
+            {
+                "crm_owner_state": "ASSIGNED",
+                "response_status": "CONNECTED",
+            }
+        )
+        connected_result = run_internal_chain(connected_payload)
+        self.assertEqual(
+            connected_result["stage9"].record("order_record").get("order_status"),
+            "DRAFT",
+        )
+        self.assertEqual(
+            connected_result["stage9"].record("delivery_record").get("delivery_status"),
+            "NOT_READY",
+        )
+
+        wrong_role_payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        wrong_role_payload.update(
+            {
+                "crm_owner_state": "ASSIGNED",
+                "response_status": "WRONG_ROLE",
+            }
+        )
+        wrong_role_result = run_internal_chain(wrong_role_payload)
+        self.assertEqual(
+            wrong_role_result["stage9"].record("order_record").get("order_status"),
+            "ON_HOLD",
+        )
+        self.assertEqual(
+            wrong_role_result["stage9"].record("delivery_record").get("delivery_status"),
+            "RELEASE_BLOCKED",
+        )
+        self.assertEqual(
+            wrong_role_result["stage9"].record("opportunity_outcome_event").get("outcome_family"),
+            "CONTACT_FAILED",
+        )
+        self.assertEqual(
+            wrong_role_result["stage9"].record("opportunity_outcome_event").get("contact_failure_state"),
+            "WRONG_ROLE",
+        )
+
+        blocked_result = run_internal_chain(load_fixture("internal_chain_block.json"))
+        self.assertEqual(
+            blocked_result["stage9"].record("order_record").get("order_status"),
+            "ON_HOLD",
+        )
+        self.assertEqual(
+            blocked_result["stage9"].record("delivery_record").get("delivery_status"),
+            "RELEASE_BLOCKED",
+        )
+        self.assertEqual(
+            blocked_result["stage9"].record("governance_feedback_event").get("trigger_type"),
+            "EVIDENCE_INSUFFICIENT",
+        )
+
+    def test_stage9_partial_payment_keeps_legacy_targets_clean_and_precise_exception_family(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"payment_status": "PARTIALLY_PAID"})
+
+        stage9 = run_internal_chain(payload)["stage9"]
+
+        self.assertEqual(
+            stage9.record("payment_record").get("payment_exception_family_optional"),
+            "PARTIAL_PAYMENT",
+        )
+        self.assertEqual(stage9.record("opportunity_outcome_event").get("outcome_family"), "LOST")
+        self.assertEqual(
+            stage9.inputs.get("payment_exception_writeback_targets_optional"),
+            ["saleable_opportunity", "project_fact"],
+        )
+        self.assertEqual(
+            stage9.inputs.get("effective_writeback_targets"),
+            [
+                "project_fact",
+                "saleable_opportunity",
+                "delivery_record",
+                "release_gates",
+            ],
+        )
+        self.assertNotIn("buyer_fit", stage9.inputs.get("effective_writeback_targets"))
+        self.assertEqual(
+            stage9.inputs.get("writeback_target_sources", {}).get("project_fact"),
+            ["outcome_taxonomy", "payment_exception"],
+        )
+
+    def test_stage9_false_positive_feedback_loop_keeps_advisory_targets_out_of_base_outcome_targets(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "outcome_family": "FALSE_POSITIVE",
+                "outcome_reason_tags": ["FACT_CONFLICT"],
+                "is_false_positive": True,
+            }
+        )
+
+        stage9 = run_internal_chain(payload)["stage9"]
+
+        self.assertEqual(stage9.inputs.get("outcome_writeback_targets"), ["project_fact"])
+        self.assertEqual(
+            set(stage9.inputs.get("upstream_feedback_advisory_targets", [])),
+            {"buyer_fit", "challenger_candidate_profile"},
+        )
+        self.assertEqual(
+            stage9.inputs.get("writeback_target_sources", {}).get("buyer_fit"),
+            ["upstream_feedback_loop"],
+        )
+        self.assertEqual(
+            stage9.inputs.get("writeback_target_sources", {}).get("challenger_candidate_profile"),
+            ["upstream_feedback_loop"],
+        )
+
+    def test_stage9_missing_upstream_contract_data_fails(self) -> None:
+        stage8 = self._build_stage8_bundle()
+        service = Stage9Service()
+
+        missing_opportunity_bundle = StageBundle(
+            stage=8,
+            records={key: value for key, value in stage8.records.items() if key != "saleable_opportunity"},
+            handoff=dict(stage8.handoff),
+            trace_rules=list(stage8.trace_rules),
+            inputs=dict(stage8.inputs),
+        )
+        with self.assertRaisesRegex(ValueError, "saleable_opportunity"):
+            service.run(missing_opportunity_bundle)
+
+        missing_handoff_field_bundle = StageBundle(
+            stage=8,
+            records=dict(stage8.records),
+            handoff={key: value for key, value in stage8.handoff.items() if key != "crm_owner_state"},
+            trace_rules=list(stage8.trace_rules),
+            inputs=dict(stage8.inputs),
+        )
+        with self.assertRaisesRegex(ValueError, "complete H-08 payload fields"):
+            service.run(missing_handoff_field_bundle)
+
+    def test_superseded_paths_stage4_to_stage7(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["flags"] = {"report_superseded": True, "rule_superseded": True}
+        result = run_internal_chain_to_stage7(payload)
+
+        stage5 = result["stage5"]
+        self.assertEqual(stage5.record("rule_hit").get("rule_hit_state"), "SUPERSEDED")
+        self.assertIn("review_request", stage5.records)
+
+        stage6 = result["stage6"]
+        self.assertEqual(stage6.record("report_record").get("report_status"), "REVOKED")
+        self.assertEqual(stage6.record("report_record").get("review_task_status"), "SUPERSEDED")
+        self.assertEqual(
+            stage6.record("legal_action_recommendation").get("action_family"), "REVIEW_ONLY"
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

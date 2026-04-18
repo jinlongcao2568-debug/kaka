@@ -1,0 +1,171 @@
+{
+  "catalog_version": "1.0.0",
+  "owner_docs": [
+    "D7",
+    "D6",
+    "D13"
+  ],
+  "source_l0_refs": [
+    "L0-R-001",
+    "L0-R-005",
+    "L0-R-008",
+    "L0-R-010",
+    "L0-A-001"
+  ],
+  "exception_families": [
+    {
+      "family_id": "coverage_hold_exception",
+      "title": "coverage \u6682\u7f13\u4f8b\u5916",
+      "allowed_purpose": [
+        "temporary hold",
+        "validation buffer",
+        "recovery control"
+      ],
+      "allowed_actions": [
+        "LIMIT",
+        "DEFER",
+        "SUSPEND"
+      ],
+      "forbidden_actions": [
+        "PROMOTE_D_TIER",
+        "BYPASS_RELEASE_GATE",
+        "OVERRIDE_PROJECT_FACT"
+      ],
+      "requires_approval_chain": "boundary_exception",
+      "default_duration_days": 14,
+      "sod_required": true
+    },
+    {
+      "family_id": "delivery_release_exception",
+      "title": "\u4ea4\u4ed8\u653e\u884c\u4f8b\u5916",
+      "allowed_purpose": [
+        "delivery hold",
+        "manual governance hold",
+        "template restriction"
+      ],
+      "allowed_actions": [
+        "LIMIT",
+        "DEFER"
+      ],
+      "forbidden_actions": [
+        "FORCE_EXTERNAL_RELEASE",
+        "BYPASS_APPROVAL_CHAIN"
+      ],
+      "requires_approval_chain": "boundary_exception",
+      "default_duration_days": 7,
+      "sod_required": true
+    },
+    {
+      "family_id": "private_supplement_impact_exception",
+      "title": "\u79c1\u6709\u8865\u8bc1\u5f71\u54cd\u8303\u56f4\u4f8b\u5916",
+      "allowed_purpose": [
+        "review enrichment",
+        "governance review",
+        "release eligibility review"
+      ],
+      "allowed_actions": [
+        "MARK_IMPACT_ELIGIBLE",
+        "LIMIT",
+        "DEFER"
+      ],
+      "forbidden_actions": [
+        "WRITE_TO_TRUTH_LAYER",
+        "PROMOTE_TO_PUBLIC_MAIN_CHAIN"
+      ],
+      "requires_approval_chain": "private_supplement_release",
+      "default_duration_days": 10,
+      "sod_required": true
+    },
+    {
+      "family_id": "contact_restriction_exception",
+      "title": "\u9ad8\u9650\u5236\u8054\u7cfb\u5bf9\u8c61\u4f8b\u5916",
+      "allowed_purpose": [
+        "manual outreach review",
+        "channel override review"
+      ],
+      "allowed_actions": [
+        "LIMIT",
+        "DEFER",
+        "MANUAL_REVIEW_ONLY"
+      ],
+      "forbidden_actions": [
+        "AUTO_RELEASE_HIGH_RESTRICTION_CONTACT",
+        "BYPASS_QUIET_HOURS",
+        "BYPASS_OPT_OUT"
+      ],
+      "requires_approval_chain": "high_restriction_contact_release",
+      "default_duration_days": 3,
+      "sod_required": true
+    }
+  ],
+  "private_supplement_policy": {
+    "default_release_state": "ISOLATED",
+    "allowed_transitions": {
+      "isolated": [
+        "REVIEW_ELIGIBLE"
+      ],
+      "review_eligible": [
+        "IMPACT_ELIGIBLE",
+        "ISOLATED"
+      ],
+      "impact_eligible": [
+        "RELEASED",
+        "REVIEW_ELIGIBLE"
+      ],
+      "released": [
+        "REVOKED"
+      ],
+      "revoked": []
+    },
+    "forbidden_effects": [
+      "write_to_project_base",
+      "write_to_field_lineage_record",
+      "replace_public_evidence",
+      "create_public_auto_hit_without_dual_gate"
+    ]
+  },
+  "controlled_exception_policy": {
+    "default_exception_state": "PENDING",
+    "allowed_transitions": {
+      "pending": [
+        "APPROVED",
+        "REJECTED",
+        "EXPIRED"
+      ],
+      "approved": [
+        "ROLLED_BACK",
+        "EXPIRED"
+      ],
+      "rejected": [],
+      "rolled_back": [],
+      "expired": []
+    },
+    "must_record_fields": [
+      "exception_scope",
+      "exception_reason",
+      "effective_from",
+      "effective_until",
+      "rollback_plan",
+      "approved_by_role",
+      "affected_objects",
+      "audit_ref"
+    ],
+    "hard_forbidden_targets": [
+      "D_NON_PUBLIC_OR_FORENSIC public promotion",
+      "project_fact override against higher priority gate",
+      "external release without approval chain",
+      "client-visible exposure of private supplement body"
+    ]
+  },
+  "notes": [
+    "C-group enums exception_scope/exception_state confirmed; aligned with D7/D10 freeze tables."
+  ],
+  "source_refs": [
+    "D7-R-040",
+    "D7-R-041",
+    "D7-R-042",
+    "D7-R-050",
+    "D7-R-051",
+    "D10-R-037"
+  ]
+}

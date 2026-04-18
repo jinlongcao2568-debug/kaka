@@ -1,0 +1,1068 @@
+{
+  "catalog_id": "route-policy-catalog",
+  "version": "0.3.0",
+  "status": "DRAFT",
+  "source_documents": [
+    "docs/L0.md",
+    "docs/专题_来源覆盖与采集路由规范.md",
+    "docs/D2_正式对象契约与字段字典.md",
+    "docs/D11_测试验收与金标回归清单.md"
+  ],
+  "baseline_scope": "representative_rollout_backlog_with_precedence",
+  "policies": [
+    {
+      "route_policy_id": "ROUTE-PROC-NOTICE-001",
+      "route_type": "LIST_TO_DETAIL",
+      "source_family_refs": [
+        "PROCUREMENT_NOTICE"
+      ],
+      "platform_level_refs": [
+        "NATIONAL"
+      ],
+      "carrier_type_refs": [
+        "HTML_PAGE"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-PROC-NATIONAL-HTML"
+      ],
+      "default_route": "LIST_TO_DETAIL",
+      "fallback_route": "DETAIL_DIRECT",
+      "route_fallback_order": [
+        "LIST_TO_DETAIL",
+        "DETAIL_DIRECT",
+        "ATTACHMENT_FIRST"
+      ],
+      "default_decision": "ALLOW",
+      "downgrade_signals": [
+        "coverage_tier_downgraded"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "coverage_review",
+        "version_conflict",
+        "clock_conflict_state in [CONFLICTING,UNRESOLVED]"
+      ],
+      "review_signals": [
+        "default_route_mismatch_requires_review",
+        "collection_state_requires_review",
+        "clock_conflict_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "NOTICE_REPLACEMENT_CHAIN",
+        "review_when_missing": true,
+        "winning_version_resolution_rule_id": "VERSION-PROC-NOTICE-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-PROC-NOTICE-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "route_policy_id": "ROUTE-PROC-ATTACHMENT-001",
+      "route_type": "ATTACHMENT_FIRST",
+      "source_family_refs": [
+        "PROCUREMENT_NOTICE"
+      ],
+      "platform_level_refs": [
+        "CITY"
+      ],
+      "carrier_type_refs": [
+        "PDF_ATTACHMENT"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-PROC-CITY-PDF"
+      ],
+      "default_route": "ATTACHMENT_FIRST",
+      "fallback_route": "DETAIL_DIRECT",
+      "route_fallback_order": [
+        "ATTACHMENT_FIRST",
+        "DETAIL_DIRECT",
+        "SEMI_MANUAL"
+      ],
+      "default_decision": "REVIEW",
+      "downgrade_signals": [
+        "attachment_quality_degraded"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "coverage_review",
+        "attachment_missing",
+        "clock_conflict_state in [CONFLICTING,UNRESOLVED]"
+      ],
+      "review_signals": [
+        "collection_state_requires_review",
+        "clock_conflict_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "NOTICE_REPLACEMENT_CHAIN",
+        "review_when_missing": true,
+        "winning_version_resolution_rule_id": "VERSION-PROC-NOTICE-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-PROC-ATTACHMENT-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "route_policy_id": "ROUTE-AWARD-ANNOUNCEMENT-001",
+      "route_type": "LIST_TO_DETAIL",
+      "source_family_refs": [
+        "AWARD_ANNOUNCEMENT"
+      ],
+      "platform_level_refs": [
+        "CITY"
+      ],
+      "carrier_type_refs": [
+        "HTML_PAGE"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-AWARD-CITY-HTML"
+      ],
+      "default_route": "LIST_TO_DETAIL",
+      "fallback_route": "DETAIL_DIRECT",
+      "route_fallback_order": [
+        "LIST_TO_DETAIL",
+        "DETAIL_DIRECT",
+        "VERSION_CHAIN"
+      ],
+      "default_decision": "ALLOW",
+      "downgrade_signals": [
+        "award_notice_detail_missing"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "coverage_review",
+        "version_conflict"
+      ],
+      "review_signals": [
+        "collection_state_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "ANNOUNCEMENT_REPLACEMENT_CHAIN",
+        "review_when_missing": true,
+        "winning_version_resolution_rule_id": "VERSION-AWARD-ANNOUNCEMENT-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-AWARD-ANNOUNCEMENT-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "route_policy_id": "ROUTE-REG-PUBLICATION-001",
+      "route_type": "DETAIL_DIRECT",
+      "source_family_refs": [
+        "REGULATORY_PUBLICATION"
+      ],
+      "platform_level_refs": [
+        "NATIONAL"
+      ],
+      "carrier_type_refs": [
+        "HTML_PAGE"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-REG-NATIONAL-HTML"
+      ],
+      "default_route": "DETAIL_DIRECT",
+      "fallback_route": "METADATA_ONLY",
+      "route_fallback_order": [
+        "DETAIL_DIRECT",
+        "METADATA_ONLY",
+        "REGISTER_ONLY"
+      ],
+      "default_decision": "ALLOW",
+      "downgrade_signals": [
+        "regulatory_surface_downgraded_to_metadata"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "coverage_review",
+        "clock_conflict_state in [CONFLICTING,UNRESOLVED]"
+      ],
+      "review_signals": [
+        "clock_conflict_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "LATEST_ONLY",
+        "review_when_missing": false,
+        "winning_version_resolution_rule_id": "VERSION-REGULATORY-LATEST-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-REGULATORY-PUBLICATION-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "route_policy_id": "ROUTE-ENTERPRISE-REGISTRY-001",
+      "route_type": "METADATA_ONLY",
+      "source_family_refs": [
+        "ENTERPRISE_REGISTRY"
+      ],
+      "platform_level_refs": [
+        "INDUSTRY_PLATFORM"
+      ],
+      "carrier_type_refs": [
+        "TABLE_SEGMENT"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-ENTERPRISE-INDUSTRY-TABLE"
+      ],
+      "default_route": "METADATA_ONLY",
+      "fallback_route": "SEMI_MANUAL",
+      "route_fallback_order": [
+        "METADATA_ONLY",
+        "SEMI_MANUAL",
+        "REGISTER_ONLY"
+      ],
+      "default_decision": "REVIEW",
+      "downgrade_signals": [
+        "metadata_only_downgrade"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "coverage_review",
+        "metadata_incomplete"
+      ],
+      "review_signals": [
+        "collection_state_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "METADATA_REFRESH_CHAIN",
+        "review_when_missing": false,
+        "winning_version_resolution_rule_id": "VERSION-ENTERPRISE-REGISTRY-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-ENTERPRISE-REGISTRY-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "route_policy_id": "ROUTE-JUDICIAL-ATTACHMENT-001",
+      "route_type": "ATTACHMENT_FIRST",
+      "source_family_refs": [
+        "JUDICIAL_CREDIT_RISK"
+      ],
+      "platform_level_refs": [
+        "NATIONAL"
+      ],
+      "carrier_type_refs": [
+        "PDF_ATTACHMENT"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-JUDICIAL-NATIONAL-PDF"
+      ],
+      "default_route": "ATTACHMENT_FIRST",
+      "fallback_route": "SEMI_MANUAL",
+      "route_fallback_order": [
+        "ATTACHMENT_FIRST",
+        "SEMI_MANUAL",
+        "REGISTER_ONLY"
+      ],
+      "default_decision": "REVIEW",
+      "downgrade_signals": [
+        "attachment_ocr_review"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "attachment_missing",
+        "ocr_degraded",
+        "clock_conflict_state in [CONFLICTING,UNRESOLVED]"
+      ],
+      "review_signals": [
+        "collection_state_requires_review",
+        "clock_conflict_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "ATTACHMENT_WITH_VERSION_TRACE",
+        "review_when_missing": true,
+        "winning_version_resolution_rule_id": "VERSION-JUDICIAL-ATTACHMENT-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-JUDICIAL-ATTACHMENT-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "route_policy_id": "ROUTE-JUDICIAL-SEMI-MANUAL-001",
+      "route_type": "SEMI_MANUAL",
+      "source_family_refs": [
+        "JUDICIAL_CREDIT_RISK"
+      ],
+      "platform_level_refs": [
+        "COUNTY"
+      ],
+      "carrier_type_refs": [
+        "IMAGE_ATTACHMENT"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-JUDICIAL-COUNTY-IMAGE"
+      ],
+      "default_route": "SEMI_MANUAL",
+      "fallback_route": "REGISTER_ONLY",
+      "route_fallback_order": [
+        "SEMI_MANUAL",
+        "REGISTER_ONLY"
+      ],
+      "default_decision": "REVIEW",
+      "downgrade_signals": [
+        "ocr_degraded"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "image_attachment_requires_manual_review",
+        "clock_conflict_state in [CONFLICTING,UNRESOLVED]"
+      ],
+      "review_signals": [
+        "collection_state_requires_review",
+        "clock_conflict_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "ATTACHMENT_WITH_VERSION_TRACE",
+        "review_when_missing": true,
+        "winning_version_resolution_rule_id": "VERSION-JUDICIAL-ATTACHMENT-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-JUDICIAL-SEMI-MANUAL-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "route_policy_id": "ROUTE-ANNEX-VERSION-001",
+      "route_type": "VERSION_CHAIN",
+      "source_family_refs": [
+        "ANNEX_QA_SUPPLEMENT"
+      ],
+      "platform_level_refs": [
+        "PROVINCE"
+      ],
+      "carrier_type_refs": [
+        "DOC_ATTACHMENT",
+        "TEXT_SEGMENT"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-ANNEX-PROVINCE-DOC",
+        "SRC-REG-ANNEX-PROVINCE-TEXT"
+      ],
+      "default_route": "VERSION_CHAIN",
+      "fallback_route": "ATTACHMENT_FIRST",
+      "route_fallback_order": [
+        "VERSION_CHAIN",
+        "ATTACHMENT_FIRST",
+        "SEMI_MANUAL"
+      ],
+      "default_decision": "REVIEW",
+      "downgrade_signals": [
+        "version_chain_downgraded_to_attachment"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "version_conflict",
+        "attachment_missing",
+        "clock_conflict_state in [CONFLICTING,UNRESOLVED]"
+      ],
+      "review_signals": [
+        "collection_state_requires_review",
+        "clock_conflict_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "ANNEX_VERSION_CHAIN",
+        "review_when_missing": true,
+        "winning_version_resolution_rule_id": "VERSION-ANNEX-CHAIN-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-ANNEX-CHAIN-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    },
+    {
+      "route_policy_id": "ROUTE-OTHER-REGISTER-001",
+      "route_type": "REGISTER_ONLY",
+      "source_family_refs": [
+        "OTHER_PUBLIC_SOURCE"
+      ],
+      "platform_level_refs": [
+        "ENTERPRISE_SITE"
+      ],
+      "carrier_type_refs": [
+        "TEXT_SEGMENT"
+      ],
+      "source_registry_refs": [
+        "SRC-REG-OTHER-ENTERPRISE-TEXT"
+      ],
+      "default_route": "REGISTER_ONLY",
+      "fallback_route": "SEMI_MANUAL",
+      "route_fallback_order": [
+        "REGISTER_ONLY",
+        "SEMI_MANUAL"
+      ],
+      "default_decision": "REVIEW",
+      "downgrade_signals": [
+        "register_only_no_auto_collection"
+      ],
+      "review_conditions": [
+        "source_mismatch",
+        "coverage_review",
+        "register_only_requires_manual_confirmation"
+      ],
+      "review_signals": [
+        "collection_state_requires_review"
+      ],
+      "block_conditions": [
+        "robots_block"
+      ],
+      "blocked_signals": [
+        "robots_block"
+      ],
+      "version_chain_relation": {
+        "strategy": "REGISTER_ONLY",
+        "review_when_missing": false,
+        "winning_version_resolution_rule_id": "VERSION-REGISTER-ONLY-001",
+        "precedence_order": [
+          "payload.winning_version_resolution_rule_id",
+          "source_registry.winning_version_resolution_rule_id",
+          "route_policy.version_chain_relation.winning_version_resolution_rule_id"
+        ]
+      },
+      "clock_chain_relation": {
+        "clock_resolution_rule_id": "CLOCK-DEFAULT",
+        "clock_precedence_rule_id": "CLOCK-REGISTER-ONLY-001",
+        "conflict_policy": "REVIEW_REQUIRED_ON_CONFLICT",
+        "precedence_order": [
+          "clock_strategy_profile.clock_resolution_rule_id",
+          "source_registry.clock_precedence_rule_id",
+          "route_policy.clock_chain_relation.clock_precedence_rule_id"
+        ]
+      },
+      "action_deadline_relation": {
+        "source_object": "clock_chain_profile",
+        "required_fields": [
+          "current_action_start_at_optional",
+          "current_action_deadline_at_optional"
+        ],
+        "review_when_missing": true,
+        "deadline_provenance_requirement": {
+          "required": true,
+          "source_object": "clock_chain_profile",
+          "deadline_fields": [
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional"
+          ],
+          "anchor_fields": [
+            "source_registry_id",
+            "route_policy_id",
+            "clock_precedence_rule_id",
+            "clock_resolution_rule_id"
+          ],
+          "review_when_missing": true,
+          "live_external_clock_lookup_enabled": false
+        }
+      },
+      "required_h01_fields": [
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route"
+      ],
+      "required_h02_fields": [
+        "fixation_bundle_id",
+        "origin_carrier_type",
+        "first_seen_at",
+        "last_retrieved_at",
+        "clock_conflict_state"
+      ],
+      "collection_state_runtime_map": {
+        "baseline_to_runtime": {
+          "DISCOVERED": "REVIEW_REQUIRED",
+          "ELIGIBLE": "PARSED",
+          "SCHEDULED": "PARSED",
+          "FETCHED": "PARSED",
+          "PARSED": "PARSED",
+          "REVIEW_REQUIRED": "REVIEW_REQUIRED",
+          "BLOCKED": "BLOCKED"
+        },
+        "success_state": "PARSED",
+        "review_state": "REVIEW_REQUIRED",
+        "block_state": "BLOCKED"
+      },
+      "authoritative_baseline_state": "MINIMUM_AUTHORITATIVE_BASELINE"
+    }
+  ],
+  "canonical_authority": {
+    "producer_stage": "stage1_tasking",
+    "consumer_stages": [
+      "stage2_ingestion"
+    ],
+    "producer_interface": "stage1_source_route_extractor",
+    "authority_scope": "route_fallback_review_block_version_clock_deadline_baseline",
+    "canonical_fields": [
+      "route_policy_id",
+      "route_type",
+      "source_registry_refs",
+      "default_route",
+      "fallback_route",
+      "route_fallback_order",
+      "default_decision",
+      "downgrade_signals",
+      "review_conditions",
+      "block_conditions",
+      "version_chain_relation",
+      "clock_chain_relation",
+      "action_deadline_relation"
+    ],
+    "adapter_ready": true,
+    "adapter_contract_state": "RESERVED_NOT_LIVE",
+    "live_external_source_enabled": false,
+    "external_live_enablement_gate": "BLOCKED_BY_DEFAULT"
+  }
+}

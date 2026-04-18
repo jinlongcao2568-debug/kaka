@@ -1,0 +1,47 @@
+{
+  "catalog_id": "prompt-policy-catalog",
+  "version": "0.1.0",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "model governance round 1",
+    "generated_at": "2026-04-14",
+    "machine_path": "contracts/model/prompt_policy_catalog.json",
+    "source_documents": [
+      "D14_AI模型治理规范.md"
+    ]
+  },
+  "policies": [
+    {
+      "prompt_id": "PROMPT_INTERNAL_EXTRACT",
+      "usage_scope": "INTERNAL_ASSIST",
+      "allowed_outputs": [
+        "internal_note",
+        "review_request"
+      ],
+      "forbidden_outputs": [
+        "saleable_opportunity",
+        "contact_target",
+        "outreach_plan",
+        "touch_record",
+        "order_record",
+        "delivery_record"
+      ],
+      "notes": "仅用于内部抽取与归因，不得直达正式外发对象。"
+    },
+    {
+      "prompt_id": "PROMPT_REVIEW_SUMMARY",
+      "usage_scope": "REVIEW_ASSIST",
+      "allowed_outputs": [
+        "review_request",
+        "governance_feedback_event"
+      ],
+      "forbidden_outputs": [
+        "saleable_opportunity",
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "notes": "仅用于复核辅助与治理回写。"
+    }
+  ]
+}

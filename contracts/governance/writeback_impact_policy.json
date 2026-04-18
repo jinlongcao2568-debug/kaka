@@ -1,0 +1,946 @@
+{
+  "catalog_id": "writeback-impact-policy",
+  "version": "0.5.0",
+  "status": "DRAFT",
+  "source_documents": [
+    "docs/L0.md",
+    "docs/D10_订单支付交付与治理反馈规范.md",
+    "docs/D11_测试验收与金标回归清单.md"
+  ],
+  "current_state": "INTERNAL_V0_ACTIVE",
+  "contract_state": "FORMAL_CONTRACT_ACTIVE",
+  "runtime_executor_enabled": true,
+  "typed_writeback_supported": true,
+  "governed_target_accumulation_supported": true,
+  "mutation_mode": "ADDITIVE_INTERNAL_ONLY",
+  "live_target_persistence_enabled": false,
+  "formal_targets": [
+    "project_fact",
+    "saleable_opportunity",
+    "contact_target",
+    "review_queue_profile"
+  ],
+  "contract_semantics": {
+    "outcome_targets_authoritative": true,
+    "governance_targets_additive_only": true,
+    "payment_exception_targets_additive_only": true,
+    "delivery_exception_targets_additive_only": true,
+    "silent_override_outcome_targets_forbidden": true,
+    "projected_mutations_internal_only": true,
+    "direct_target_persistence_blocked": true,
+    "projected_only_targets_do_not_persist": true,
+    "advisory_targets_are_trace_only": true,
+    "persisted_targets_remain_internal_only": true,
+    "upstream_feedback_projected_targets_contract_only": true,
+    "service_local_target_semantics_forbidden": true
+  },
+  "target_semantic_groups": {
+    "projected_only_targets": [
+      "project_fact",
+      "saleable_opportunity",
+      "contact_target",
+      "review_queue_profile",
+      "sales_lead",
+      "report_record"
+    ],
+    "persisted_targets": [
+      "order_record",
+      "payment_record",
+      "delivery_record",
+      "opportunity_outcome_event",
+      "governance_feedback_event"
+    ],
+    "advisory_targets": [
+      "buyer_fit",
+      "challenger_candidate_profile",
+      "outreach_plan"
+    ],
+    "trace_only_governance_targets": [
+      "controlled_exception_record",
+      "release_gates"
+    ]
+  },
+  "target_source_resolution_order": [
+    "outcome_taxonomy",
+    "upstream_feedback_loop",
+    "governance_taxonomy",
+    "payment_exception",
+    "delivery_exception"
+  ],
+  "additive_sources_allowed_targets": {
+    "upstream_feedback_loop": [
+      "sales_lead",
+      "report_record",
+      "buyer_fit",
+      "challenger_candidate_profile"
+    ],
+    "governance_taxonomy": [
+      "project_fact",
+      "contact_target",
+      "review_queue_profile",
+      "order_record",
+      "payment_record",
+      "delivery_record",
+      "governance_feedback_event",
+      "controlled_exception_record",
+      "release_gates",
+      "outreach_plan"
+    ],
+    "payment_exception": [
+      "project_fact",
+      "saleable_opportunity",
+      "order_record",
+      "delivery_record"
+    ],
+    "delivery_exception": [
+      "project_fact",
+      "saleable_opportunity",
+      "delivery_record"
+    ]
+  },
+  "silent_override_forbidden_pairs": [
+    {
+      "base_source": "outcome_taxonomy",
+      "additive_source": "governance_taxonomy",
+      "rule": "governance_taxonomy may append targets only; it may not replace outcome base targets"
+    },
+    {
+      "base_source": "outcome_taxonomy",
+      "additive_source": "payment_exception",
+      "rule": "payment_exception may append targets only; it may not replace outcome base targets"
+    },
+    {
+      "base_source": "outcome_taxonomy",
+      "additive_source": "delivery_exception",
+      "rule": "delivery_exception may append targets only; it may not replace outcome base targets"
+    },
+    {
+      "base_source": "outcome_taxonomy",
+      "additive_source": "upstream_feedback_loop",
+      "rule": "upstream feedback targets must stay in resolved_effective_writeback_targets and never backflow into outcome_writeback_targets"
+    }
+  ],
+  "upstream_feedback_loop_contract": {
+    "contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1",
+    "projected_targets_field": "upstream_feedback_projected_targets",
+    "advisory_targets_field": "upstream_feedback_advisory_targets",
+    "merge_semantics": "PROJECTED_FEEDBACK_ONLY",
+    "projected_target_semantics": "PROJECTED_MUTATION_ONLY",
+    "advisory_target_semantics": "TRACE_ONLY_CONTRACT",
+    "direct_persistence_forbidden": true
+  },
+  "writeback_source_contracts": {
+    "outcome_taxonomy": {
+      "contract_ref": "contracts/sales/outcome_taxonomy_catalog.json",
+      "source_output_field": "outcome_writeback_targets",
+      "merge_semantics": "AUTHORITATIVE_BASE",
+      "persisted_stage9_record_target": "opportunity_outcome_event",
+      "silent_override_forbidden": true,
+      "target_semantics": "BASE_TARGET_SET",
+      "authoritative_feedback_contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1"
+    },
+    "upstream_feedback_loop": {
+      "contract_ref": "contracts/sales/opportunity_policy_catalog.json#policies.opportunity_outcome_writeback_v1",
+      "source_output_field": "upstream_feedback_projected_targets + upstream_feedback_advisory_targets",
+      "merge_semantics": "PROJECTED_FEEDBACK_ONLY",
+      "persisted_stage9_record_target": "opportunity_outcome_event",
+      "silent_override_forbidden": true,
+      "target_semantics": "PROJECTED_CONTRACT_ONLY + TRACE_ONLY_ADVISORY"
+    },
+    "governance_taxonomy": {
+      "contract_ref": "contracts/sales/governance_feedback_policy_catalog.json",
+      "source_output_field": "governance_writeback_targets_optional",
+      "merge_semantics": "ADDITIVE_ONLY",
+      "persisted_stage9_record_target": "governance_feedback_event",
+      "silent_override_forbidden": true,
+      "target_semantics": "ADDITIVE_GOVERNED_TARGETS"
+    },
+    "payment_exception": {
+      "contract_ref": "contracts/sales/payment_exception_catalog.json",
+      "source_output_field": "payment_exception_writeback_targets_optional",
+      "merge_semantics": "ADDITIVE_ONLY",
+      "persisted_stage9_record_target": "payment_record",
+      "silent_override_forbidden": true,
+      "target_semantics": "ADDITIVE_EXCEPTION_TARGETS"
+    },
+    "delivery_exception": {
+      "contract_ref": "contracts/sales/delivery_exception_catalog.json",
+      "source_output_field": "delivery_exception_writeback_targets_optional",
+      "merge_semantics": "ADDITIVE_ONLY",
+      "persisted_stage9_record_target": "delivery_record",
+      "silent_override_forbidden": true,
+      "target_semantics": "ADDITIVE_EXCEPTION_TARGETS"
+    }
+  },
+  "target_contracts": {
+    "project_fact": {
+      "target_family": "FACT_REFRESH",
+      "mutation_semantics": "PROJECTED_MUTATION_ONLY",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy",
+        "payment_exception",
+        "delivery_exception"
+      ],
+      "future_input_roles": [
+        "ranking_input",
+        "strategy_input",
+        "fact_refresh_input"
+      ]
+    },
+    "saleable_opportunity": {
+      "target_family": "COMMERCIAL_STATE",
+      "mutation_semantics": "PROJECTED_MUTATION_ONLY",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": false,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "payment_exception",
+        "delivery_exception"
+      ],
+      "future_input_roles": [
+        "recommendation_input",
+        "strategy_input"
+      ]
+    },
+    "contact_target": {
+      "target_family": "CONTACT_STATE",
+      "mutation_semantics": "PROJECTED_MUTATION_ONLY",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy"
+      ],
+      "future_input_roles": [
+        "contact_reselection_input",
+        "strategy_input"
+      ]
+    },
+    "review_queue_profile": {
+      "target_family": "REVIEW_PRIORITY",
+      "mutation_semantics": "PROJECTED_MUTATION_ONLY",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy"
+      ],
+      "future_input_roles": [
+        "queue_ranking_input",
+        "strategy_input"
+      ]
+    },
+    "sales_lead": {
+      "target_family": "LEAD_STATE",
+      "mutation_semantics": "PROJECTED_MUTATION_ONLY",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": false,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "upstream_feedback_loop"
+      ],
+      "future_input_roles": [
+        "lead_queue_input",
+        "strategy_input"
+      ]
+    },
+    "report_record": {
+      "target_family": "REPORT_REFRESH",
+      "mutation_semantics": "PROJECTED_MUTATION_ONLY",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": false,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "upstream_feedback_loop"
+      ],
+      "future_input_roles": [
+        "report_refresh_input",
+        "strategy_input"
+      ]
+    },
+    "order_record": {
+      "target_family": "ORDER_WORKFLOW",
+      "mutation_semantics": "PERSISTED_STAGE9_RECORD",
+      "persistence_semantics": "PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy",
+        "payment_exception"
+      ],
+      "future_input_roles": [
+        "payment_delivery_gate_input"
+      ]
+    },
+    "payment_record": {
+      "target_family": "PAYMENT_WORKFLOW",
+      "mutation_semantics": "PERSISTED_STAGE9_RECORD",
+      "persistence_semantics": "PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy"
+      ],
+      "future_input_roles": [
+        "refund_review_input",
+        "payment_gate_input"
+      ]
+    },
+    "delivery_record": {
+      "target_family": "DELIVERY_WORKFLOW",
+      "mutation_semantics": "PERSISTED_STAGE9_RECORD",
+      "persistence_semantics": "PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy",
+        "payment_exception",
+        "delivery_exception"
+      ],
+      "future_input_roles": [
+        "delivery_gate_input",
+        "delivery_review_input"
+      ]
+    },
+    "opportunity_outcome_event": {
+      "target_family": "OUTCOME_WRITEBACK",
+      "mutation_semantics": "PERSISTED_STAGE9_RECORD",
+      "persistence_semantics": "PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": false,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [],
+      "future_input_roles": [
+        "recommendation_input",
+        "ranking_input",
+        "strategy_input"
+      ]
+    },
+    "governance_feedback_event": {
+      "target_family": "GOVERNANCE_WRITEBACK",
+      "mutation_semantics": "PERSISTED_STAGE9_RECORD",
+      "persistence_semantics": "PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy"
+      ],
+      "future_input_roles": [
+        "governance_workbench_input",
+        "strategy_input"
+      ]
+    },
+    "controlled_exception_record": {
+      "target_family": "CONTROLLED_EXCEPTION",
+      "mutation_semantics": "TRACE_ONLY_CONTRACT",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy"
+      ],
+      "future_input_roles": [
+        "exception_register_input"
+      ]
+    },
+    "release_gates": {
+      "target_family": "GOVERNANCE_GATE",
+      "mutation_semantics": "TRACE_ONLY_CONTRACT",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy"
+      ],
+      "future_input_roles": [
+        "release_gate_review_input"
+      ]
+    },
+    "buyer_fit": {
+      "target_family": "BUYER_SCORING",
+      "mutation_semantics": "TRACE_ONLY_CONTRACT",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": false,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "upstream_feedback_loop"
+      ],
+      "future_input_roles": [
+        "ranking_input",
+        "strategy_input"
+      ]
+    },
+    "challenger_candidate_profile": {
+      "target_family": "CHALLENGER_SCORING",
+      "mutation_semantics": "TRACE_ONLY_CONTRACT",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": false,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "upstream_feedback_loop"
+      ],
+      "future_input_roles": [
+        "ranking_input",
+        "strategy_input"
+      ]
+    },
+    "outreach_plan": {
+      "target_family": "OUTREACH_CONTROL",
+      "mutation_semantics": "TRACE_ONLY_CONTRACT",
+      "persistence_semantics": "NOT_PERSISTED_IN_STAGE9_RUNTIME",
+      "additive_governance_allowed": true,
+      "silent_override_forbidden": true,
+      "additive_source_families_allowed": [
+        "governance_taxonomy"
+      ],
+      "future_input_roles": [
+        "outreach_hold_input"
+      ]
+    }
+  },
+  "rules": [
+    {
+      "rule_id": "IMPACT-WON-OPPORTUNITY-001",
+      "match": {
+        "outcome_family": [
+          "WON"
+        ]
+      },
+      "target": "saleable_opportunity",
+      "field_patches": {
+        "saleability_status": "CLOSED",
+        "crm_owner_state": "CLOSED"
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "OUTCOME_WON"
+        ]
+      },
+      "effect_summary": "close opportunity after positive outcome"
+    },
+    {
+      "rule_id": "IMPACT-WON-FACT-001",
+      "match": {
+        "outcome_family": [
+          "WON"
+        ]
+      },
+      "target": "project_fact",
+      "field_patches": {
+        "sale_gate_status": "HOLD",
+        "delivery_risk_state": "ALLOW"
+      },
+      "append_lists": {
+        "clue_summary": [
+          "OUTCOME_WON"
+        ],
+        "risk_summary": [
+          "NO_FURTHER_ACTION"
+        ]
+      },
+      "effect_summary": "move fact chain to post-win hold"
+    },
+    {
+      "rule_id": "IMPACT-LOST-OPPORTUNITY-001",
+      "match": {
+        "outcome_family": [
+          "LOST"
+        ]
+      },
+      "target": "saleable_opportunity",
+      "field_patches": {
+        "saleability_status": "BLOCKED"
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "OUTCOME_LOST"
+        ]
+      },
+      "effect_summary": "block opportunity after lost outcome"
+    },
+    {
+      "rule_id": "IMPACT-LOST-FACT-001",
+      "match": {
+        "outcome_family": [
+          "LOST"
+        ]
+      },
+      "target": "project_fact",
+      "field_patches": {
+        "sale_gate_status": "REVIEW"
+      },
+      "append_lists": {
+        "risk_summary": [
+          "OUTCOME_LOST_RESCORING_REQUIRED"
+        ]
+      },
+      "effect_summary": "require fact refresh after loss"
+    },
+    {
+      "rule_id": "IMPACT-WINDOW-MISSED-FACT-001",
+      "match": {
+        "outcome_family": [
+          "WINDOW_MISSED"
+        ]
+      },
+      "target": "project_fact",
+      "field_patches": {
+        "sale_gate_status": "HOLD"
+      },
+      "append_lists": {
+        "clue_summary": [
+          "WINDOW_MISSED"
+        ]
+      },
+      "effect_summary": "hold fact chain and record window miss"
+    },
+    {
+      "rule_id": "IMPACT-WINDOW-MISSED-QUEUE-001",
+      "match": {
+        "outcome_family": [
+          "WINDOW_MISSED"
+        ]
+      },
+      "target": "review_queue_profile",
+      "field_patches": {
+        "review_queue_bucket": "CRITICAL_WINDOW",
+        "window_risk_level": "CRITICAL",
+        "commercial_urgency_level": "CRITICAL",
+        "review_priority_score": 100
+      },
+      "effect_summary": "reprioritize review queue after window miss"
+    },
+    {
+      "rule_id": "IMPACT-WINDOW-MISSED-LEAD-001",
+      "match": {
+        "outcome_family": [
+          "WINDOW_MISSED"
+        ]
+      },
+      "target": "sales_lead",
+      "field_patches": {
+        "lead_status": "REVIEW"
+      },
+      "append_lists": {
+        "status_reasons": [
+          "WINDOW_MISSED"
+        ]
+      },
+      "effect_summary": "re-qualify lead after window miss"
+    },
+    {
+      "rule_id": "IMPACT-WINDOW-MISSED-REPORT-001",
+      "match": {
+        "outcome_family": [
+          "WINDOW_MISSED"
+        ]
+      },
+      "target": "report_record",
+      "field_patches": {
+        "report_status": "REVIEW_REQUIRED"
+      },
+      "append_lists": {
+        "refresh_reasons": [
+          "WINDOW_MISSED"
+        ]
+      },
+      "effect_summary": "mark report record stale after window miss"
+    },
+    {
+      "rule_id": "IMPACT-WINDOW-MISSED-BUYER-FIT-001",
+      "match": {
+        "outcome_family": [
+          "WINDOW_MISSED"
+        ]
+      },
+      "target": "buyer_fit",
+      "field_patches": {
+        "fit_refresh_required": true,
+        "fit_refresh_reason": "WINDOW_MISSED"
+      },
+      "effect_summary": "refresh buyer fit after window miss"
+    },
+    {
+      "rule_id": "IMPACT-CONTACT-FAILED-NO-RESPONSE-001",
+      "match": {
+        "outcome_family": [
+          "CONTACT_FAILED"
+        ],
+        "feedback_reason": [
+          "NO_RESPONSE"
+        ]
+      },
+      "target": "contact_target",
+      "field_patches": {
+        "contact_target_status": "REVIEW_REQUIRED",
+        "requires_manual_review": true
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "CONTACT_FAILED_NO_RESPONSE"
+        ]
+      },
+      "effect_summary": "reselect contact after no response"
+    },
+    {
+      "rule_id": "IMPACT-CONTACT-FAILED-INVALID-001",
+      "match": {
+        "outcome_family": [
+          "CONTACT_FAILED"
+        ],
+        "feedback_reason": [
+          "INVALID_CONTACT"
+        ]
+      },
+      "target": "contact_target",
+      "field_patches": {
+        "contact_target_status": "INVALID",
+        "requires_manual_review": true
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "CONTACT_FAILED_INVALID_CONTACT"
+        ]
+      },
+      "effect_summary": "invalidate contact after invalid response"
+    },
+    {
+      "rule_id": "IMPACT-CONTACT-FAILED-WRONG-ROLE-001",
+      "match": {
+        "outcome_family": [
+          "CONTACT_FAILED"
+        ],
+        "feedback_reason": [
+          "WRONG_ROLE"
+        ]
+      },
+      "target": "contact_target",
+      "field_patches": {
+        "contact_target_status": "INVALID",
+        "requires_manual_review": true,
+        "contact_conflict_flag": true,
+        "contact_conflict_reason": "wrong_role_reselect_required"
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "CONTACT_FAILED_WRONG_ROLE"
+        ]
+      },
+      "effect_summary": "force reselect when role is wrong"
+    },
+    {
+      "rule_id": "IMPACT-CONTACT-FAILED-OPTED-OUT-001",
+      "match": {
+        "outcome_family": [
+          "CONTACT_FAILED"
+        ],
+        "feedback_reason": [
+          "OPTED_OUT"
+        ]
+      },
+      "target": "contact_target",
+      "field_patches": {
+        "contact_target_status": "BLOCKED",
+        "requires_manual_review": true
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "CONTACT_FAILED_OPTED_OUT"
+        ]
+      },
+      "effect_summary": "block future touch after opt-out"
+    },
+    {
+      "rule_id": "IMPACT-CONTACT-FAILED-OPPORTUNITY-001",
+      "match": {
+        "outcome_family": [
+          "CONTACT_FAILED"
+        ]
+      },
+      "target": "saleable_opportunity",
+      "field_patches": {
+        "saleability_status": "RESTRICTED"
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "CONTACT_RESELECT_REQUIRED"
+        ]
+      },
+      "effect_summary": "restrict opportunity pending contact reselection"
+    },
+    {
+      "rule_id": "IMPACT-CONTACT-FAILED-LEAD-001",
+      "match": {
+        "outcome_family": [
+          "CONTACT_FAILED"
+        ]
+      },
+      "target": "sales_lead",
+      "field_patches": {
+        "lead_status": "REVIEW"
+      },
+      "append_lists": {
+        "status_reasons": [
+          "CONTACT_FAILED"
+        ]
+      },
+      "effect_summary": "re-qualify sales lead after contact failure"
+    },
+    {
+      "rule_id": "IMPACT-CONTACT-FAILED-REPORT-001",
+      "match": {
+        "outcome_family": [
+          "CONTACT_FAILED"
+        ]
+      },
+      "target": "report_record",
+      "field_patches": {
+        "report_status": "REVIEW_REQUIRED"
+      },
+      "append_lists": {
+        "refresh_reasons": [
+          "CONTACT_FAILED"
+        ]
+      },
+      "effect_summary": "re-open report guidance after contact failure"
+    },
+    {
+      "rule_id": "IMPACT-FALSE-POSITIVE-FACT-001",
+      "match": {
+        "outcome_family": [
+          "FALSE_POSITIVE"
+        ]
+      },
+      "target": "project_fact",
+      "field_patches": {
+        "sale_gate_status": "REVIEW",
+        "competitor_quality_grade": "D"
+      },
+      "append_lists": {
+        "risk_summary": [
+          "FALSE_POSITIVE_REVIEW_REQUIRED"
+        ]
+      },
+      "effect_summary": "downgrade fact confidence after false positive"
+    },
+    {
+      "rule_id": "IMPACT-FALSE-POSITIVE-LEAD-001",
+      "match": {
+        "outcome_family": [
+          "FALSE_POSITIVE"
+        ]
+      },
+      "target": "sales_lead",
+      "field_patches": {
+        "lead_status": "DISQUALIFIED"
+      },
+      "append_lists": {
+        "status_reasons": [
+          "FALSE_POSITIVE"
+        ]
+      },
+      "effect_summary": "disqualify sales lead after false positive feedback"
+    },
+    {
+      "rule_id": "IMPACT-FALSE-POSITIVE-REPORT-001",
+      "match": {
+        "outcome_family": [
+          "FALSE_POSITIVE"
+        ]
+      },
+      "target": "report_record",
+      "field_patches": {
+        "report_status": "REVIEW_REQUIRED"
+      },
+      "append_lists": {
+        "refresh_reasons": [
+          "FALSE_POSITIVE"
+        ]
+      },
+      "effect_summary": "mark report record stale after false positive feedback"
+    },
+    {
+      "rule_id": "IMPACT-FALSE-POSITIVE-BUYER-FIT-001",
+      "match": {
+        "outcome_family": [
+          "FALSE_POSITIVE"
+        ]
+      },
+      "target": "buyer_fit",
+      "field_patches": {
+        "fit_refresh_required": true,
+        "fit_refresh_reason": "FALSE_POSITIVE"
+      },
+      "effect_summary": "refresh buyer fit after false positive"
+    },
+    {
+      "rule_id": "IMPACT-FALSE-POSITIVE-CHALLENGER-001",
+      "match": {
+        "outcome_family": [
+          "FALSE_POSITIVE"
+        ]
+      },
+      "target": "challenger_candidate_profile",
+      "field_patches": {
+        "profile_refresh_required": true,
+        "profile_refresh_reason": "FALSE_POSITIVE"
+      },
+      "effect_summary": "refresh challenger profile after false positive"
+    },
+    {
+      "rule_id": "IMPACT-PAYER-MISMATCH-LEAD-001",
+      "match": {
+        "outcome_family": [
+          "PAYER_MISMATCH"
+        ]
+      },
+      "target": "sales_lead",
+      "field_patches": {
+        "lead_status": "REVIEW"
+      },
+      "append_lists": {
+        "status_reasons": [
+          "PAYER_MISMATCH"
+        ]
+      },
+      "effect_summary": "return lead to governed review after payer mismatch"
+    },
+    {
+      "rule_id": "IMPACT-PAYER-MISMATCH-REPORT-001",
+      "match": {
+        "outcome_family": [
+          "PAYER_MISMATCH"
+        ]
+      },
+      "target": "report_record",
+      "field_patches": {
+        "report_status": "REVIEW_REQUIRED"
+      },
+      "append_lists": {
+        "refresh_reasons": [
+          "PAYER_MISMATCH"
+        ]
+      },
+      "effect_summary": "refresh report guidance after payer mismatch"
+    },
+    {
+      "rule_id": "IMPACT-DELIVERY-ABANDONED-LEAD-001",
+      "match": {
+        "outcome_family": [
+          "DELIVERY_ABANDONED"
+        ]
+      },
+      "target": "sales_lead",
+      "field_patches": {
+        "lead_status": "REVIEW"
+      },
+      "append_lists": {
+        "status_reasons": [
+          "DELIVERY_ABANDONED"
+        ]
+      },
+      "effect_summary": "return lead to review after delivery failure"
+    },
+    {
+      "rule_id": "IMPACT-DELIVERY-ABANDONED-REPORT-001",
+      "match": {
+        "outcome_family": [
+          "DELIVERY_ABANDONED"
+        ]
+      },
+      "target": "report_record",
+      "field_patches": {
+        "report_status": "REVIEW_REQUIRED"
+      },
+      "append_lists": {
+        "refresh_reasons": [
+          "DELIVERY_ABANDONED"
+        ]
+      },
+      "effect_summary": "refresh report guidance after delivery failure"
+    },
+    {
+      "rule_id": "IMPACT-EVIDENCE-INSUFFICIENT-FACT-001",
+      "match": {
+        "trigger_type": [
+          "EVIDENCE_INSUFFICIENT"
+        ]
+      },
+      "target": "project_fact",
+      "field_patches": {
+        "sale_gate_status": "REVIEW"
+      },
+      "append_lists": {
+        "risk_summary": [
+          "EVIDENCE_INSUFFICIENT"
+        ]
+      },
+      "effect_summary": "force fact review after evidence insufficiency"
+    },
+    {
+      "rule_id": "IMPACT-EVIDENCE-INSUFFICIENT-QUEUE-001",
+      "match": {
+        "trigger_type": [
+          "EVIDENCE_INSUFFICIENT"
+        ]
+      },
+      "target": "review_queue_profile",
+      "field_patches": {
+        "review_queue_bucket": "CRITICAL_WINDOW",
+        "window_risk_level": "HIGH",
+        "commercial_urgency_level": "HIGH",
+        "review_priority_score": 95
+      },
+      "effect_summary": "reprioritize queue after evidence insufficiency"
+    },
+    {
+      "rule_id": "IMPACT-CONTACT-POLICY-VIOLATION-001",
+      "match": {
+        "trigger_type": [
+          "CONTACT_POLICY_VIOLATION"
+        ]
+      },
+      "target": "contact_target",
+      "field_patches": {
+        "contact_target_status": "BLOCKED",
+        "requires_manual_review": true
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "CONTACT_POLICY_VIOLATION"
+        ]
+      },
+      "effect_summary": "block contact when governance flags contact policy violation"
+    },
+    {
+      "rule_id": "IMPACT-APPROVAL-MISSING-OPPORTUNITY-001",
+      "match": {
+        "trigger_type": [
+          "APPROVAL_MISSING"
+        ]
+      },
+      "target": "saleable_opportunity",
+      "field_patches": {
+        "saleability_status": "RESTRICTED"
+      },
+      "append_lists": {
+        "blocking_reasons": [
+          "APPROVAL_BLOCK"
+        ]
+      },
+      "effect_summary": "keep opportunity restricted until approval chain clears"
+    }
+  ],
+  "notes": [
+    "writeback impact executor v0 is internal-only and additive; it does not persist target mutations directly.",
+    "Only the four formal targets may receive machine-readable mutation projection in this batch.",
+    "writeback_source_contracts define authoritative outcome merge and additive governance/payment/delivery merge semantics.",
+    "writeback_target_contracts formalize which targets are projected, persisted in Stage9 records, or trace-only advisory.",
+    "outcome_writeback_targets remains the raw outcome taxonomy target set; upstream feedback targets are exposed separately and merged through resolved writeback contracts.",
+    "target_source_resolution_order, additive_sources_allowed_targets, silent_override_forbidden_pairs, and upstream_feedback_loop_contract are the canonical non-service-local target semantics for Stage9 writeback resolution.",
+    "Outcome writeback targets remain authoritative; governance and exception targets are additive only and may not silently override outcome targets.",
+    "live payment/delivery/refund execution remains blocked by default."
+  ]
+}

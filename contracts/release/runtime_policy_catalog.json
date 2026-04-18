@@ -1,0 +1,365 @@
+{
+  "catalog_id": "runtime-policy-catalog",
+  "version": "0.1.2",
+  "status": "DRAFT",
+  "metadata": {
+    "package_name": "release governance round 1",
+    "generated_at": "2026-04-18",
+    "machine_path": "contracts/release/runtime_policy_catalog.json",
+    "source_documents": [
+      "D12_部署发布与运行治理规范.md"
+    ]
+  },
+  "capability_mode_vocabulary": [
+    "PERMANENTLY_BLOCKED",
+    "BUILDABLE_BUT_OFF_BY_DEFAULT",
+    "INTERNAL_ONLY",
+    "INTERNAL_GOVERNED",
+    "APPROVAL_REQUIRED",
+    "SHADOW_MODE",
+    "DRY_RUN",
+    "REAL_RUN_READY",
+    "EMERGENCY_OFF"
+  ],
+  "capability_mode_rules": {
+    "non_override_release_layer": true,
+    "external_block_redline_kept": true,
+    "permanently_blocked_and_emergency_off_override_all": true,
+    "real_run_ready_requires_release_gate_and_approval": true,
+    "real_run_ready_does_not_override_external_blocked_release_layer": true,
+    "control_projection_trace_only": true,
+    "control_projection_cannot_override_runtime_policy": true
+  },
+  "canonical_source_for": [
+    "capability_mode_vocabulary",
+    "capability_mode_rules",
+    "capability_mode_priority_order",
+    "runtime_resolver_precedence",
+    "action_intents",
+    "decision_matrix",
+    "capability_families"
+  ],
+  "runtime_resolver_precedence": {
+    "effective_capability_mode_sources": [
+      "runtime_override",
+      "target_policy_current_capability_mode",
+      "target_registry_current_capability_mode",
+      "family_current_capability_mode"
+    ],
+    "within_precedence_group_resolution": "MOST_RESTRICTIVE_BY_PRIORITY_ORDER",
+    "control_projection_sources_ignored_for_mode_resolution": [
+      "control/runtime_inventory.yaml",
+      "control/model_release_manifest.yaml",
+      "control/release_manifest.yaml"
+    ],
+    "release_layer_redline": "EXTERNAL_BLOCKED",
+    "protected_short_circuit_modes": [
+      "EMERGENCY_OFF",
+      "PERMANENTLY_BLOCKED"
+    ]
+  },
+  "canonical_future_unlock_sources": {
+    "unlock_tier_vocabulary": "contracts/release/external_unlock_prerequisite_matrix.json#unlock_tier_vocabulary",
+    "prerequisite_domains": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains",
+    "decision_domains": "contracts/release/future_unlock_decision_matrix.json#capability_domains",
+    "recommended_sequence": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence"
+  },
+  "future_unlock_tier_vocabulary_ref": "contracts/release/external_unlock_prerequisite_matrix.json#unlock_tier_vocabulary",
+  "future_unlock_matrix_ref": "contracts/release/external_unlock_prerequisite_matrix.json",
+  "future_unlock_decision_matrix_ref": "contracts/release/future_unlock_decision_matrix.json",
+  "capability_mode_priority_order": [
+    "EMERGENCY_OFF",
+    "PERMANENTLY_BLOCKED",
+    "BUILDABLE_BUT_OFF_BY_DEFAULT",
+    "SHADOW_MODE",
+    "DRY_RUN",
+    "APPROVAL_REQUIRED",
+    "INTERNAL_ONLY",
+    "INTERNAL_GOVERNED",
+    "REAL_RUN_READY"
+  ],
+  "action_intents": {
+    "INTERNAL_SOURCE_READ": {
+      "meaning": "internal source/vendor/provider read or lookup",
+      "live_side_effect": false
+    },
+    "PREVIEW_ONLY": {
+      "meaning": "preview-only rendering or draft generation",
+      "live_side_effect": false
+    },
+    "DRY_RUN": {
+      "meaning": "simulate execution without real side effects",
+      "live_side_effect": false
+    },
+    "APPROVAL_EXECUTION": {
+      "meaning": "approval-gated internal execution path",
+      "live_side_effect": false
+    },
+    "LIVE_EXECUTION": {
+      "meaning": "real vendor/provider execution path",
+      "live_side_effect": true
+    },
+    "INTERNAL_WRITEBACK": {
+      "meaning": "internal governed writeback path",
+      "live_side_effect": false
+    }
+  },
+  "decision_matrix": {
+    "INTERNAL_SOURCE_READ": {
+      "INTERNAL_ONLY": { "decision": "ALLOW", "review_required": false },
+      "INTERNAL_GOVERNED": { "decision": "ALLOW", "review_required": false },
+      "SHADOW_MODE": { "decision": "ALLOW", "review_required": false },
+      "APPROVAL_REQUIRED": { "decision": "REVIEW", "review_required": true }
+    },
+    "PREVIEW_ONLY": {
+      "BUILDABLE_BUT_OFF_BY_DEFAULT": { "decision": "ALLOW", "review_required": false },
+      "INTERNAL_ONLY": { "decision": "ALLOW", "review_required": false },
+      "INTERNAL_GOVERNED": { "decision": "ALLOW", "review_required": false },
+      "APPROVAL_REQUIRED": { "decision": "ALLOW", "review_required": false },
+      "SHADOW_MODE": { "decision": "ALLOW", "review_required": false },
+      "DRY_RUN": { "decision": "ALLOW", "review_required": false },
+      "REAL_RUN_READY": { "decision": "ALLOW", "review_required": false }
+    },
+    "DRY_RUN": {
+      "BUILDABLE_BUT_OFF_BY_DEFAULT": { "decision": "ALLOW", "review_required": false },
+      "INTERNAL_ONLY": { "decision": "ALLOW", "review_required": false },
+      "INTERNAL_GOVERNED": { "decision": "ALLOW", "review_required": false },
+      "APPROVAL_REQUIRED": { "decision": "ALLOW", "review_required": false },
+      "SHADOW_MODE": { "decision": "ALLOW", "review_required": false },
+      "DRY_RUN": { "decision": "ALLOW", "review_required": false },
+      "REAL_RUN_READY": { "decision": "ALLOW", "review_required": false }
+    },
+    "APPROVAL_EXECUTION": {
+      "APPROVAL_REQUIRED": { "decision": "REVIEW", "review_required": true },
+      "INTERNAL_GOVERNED": { "decision": "REVIEW", "review_required": true },
+      "REAL_RUN_READY": { "decision": "REVIEW", "review_required": true }
+    },
+    "LIVE_EXECUTION": {
+      "BUILDABLE_BUT_OFF_BY_DEFAULT": { "decision": "BLOCK", "review_required": false },
+      "INTERNAL_ONLY": { "decision": "BLOCK", "review_required": false },
+      "INTERNAL_GOVERNED": { "decision": "BLOCK", "review_required": false },
+      "APPROVAL_REQUIRED": { "decision": "BLOCK", "review_required": false },
+      "SHADOW_MODE": { "decision": "BLOCK", "review_required": false },
+      "DRY_RUN": { "decision": "BLOCK", "review_required": false },
+      "REAL_RUN_READY": { "decision": "ALLOW", "review_required": false }
+    },
+    "INTERNAL_WRITEBACK": {
+      "SHADOW_MODE": { "decision": "ALLOW", "review_required": false },
+      "DRY_RUN": { "decision": "ALLOW", "review_required": false },
+      "INTERNAL_GOVERNED": { "decision": "ALLOW", "review_required": false },
+      "APPROVAL_REQUIRED": { "decision": "REVIEW", "review_required": true }
+    }
+  },
+  "capability_families": [
+    {
+      "family_id": "external_source",
+      "current_capability_mode": "INTERNAL_ONLY",
+      "allowed_capability_modes": ["INTERNAL_ONLY", "INTERNAL_GOVERNED", "SHADOW_MODE"],
+      "release_layer_ceiling": "INTERNAL_OPERABLE",
+      "default_action_intents": ["INTERNAL_SOURCE_READ", "PREVIEW_ONLY"]
+    },
+    {
+      "family_id": "contact_enrichment",
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "APPROVAL_REQUIRED", "SHADOW_MODE", "DRY_RUN"],
+      "release_layer_ceiling": "INTERNAL_OPERABLE",
+      "default_action_intents": ["INTERNAL_SOURCE_READ", "PREVIEW_ONLY", "DRY_RUN"]
+    },
+    {
+      "family_id": "execution_vendor",
+      "current_capability_mode": "DRY_RUN",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "release_layer_ceiling": "INTERNAL_OPERABLE",
+      "default_action_intents": ["PREVIEW_ONLY", "DRY_RUN", "APPROVAL_EXECUTION", "LIVE_EXECUTION"]
+    },
+    {
+      "family_id": "model_provider",
+      "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "INTERNAL_ONLY", "SHADOW_MODE", "INTERNAL_GOVERNED", "EMERGENCY_OFF"],
+      "release_layer_ceiling": "INTERNAL_OPERABLE",
+      "default_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ"]
+    },
+    {
+      "family_id": "tool_provider",
+      "current_capability_mode": "SHADOW_MODE",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "SHADOW_MODE", "INTERNAL_GOVERNED", "EMERGENCY_OFF"],
+      "release_layer_ceiling": "INTERNAL_OPERABLE",
+      "default_action_intents": ["PREVIEW_ONLY", "INTERNAL_SOURCE_READ"]
+    },
+    {
+      "family_id": "stage8_execution",
+      "current_capability_mode": "DRY_RUN",
+      "allowed_capability_modes": ["DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "release_layer_ceiling": "INTERNAL_OPERABLE",
+      "default_action_intents": ["PREVIEW_ONLY", "DRY_RUN", "APPROVAL_EXECUTION", "LIVE_EXECUTION"]
+    },
+    {
+      "family_id": "stage9_execution",
+      "current_capability_mode": "SHADOW_MODE",
+      "allowed_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "SHADOW_MODE", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY", "EMERGENCY_OFF"],
+      "release_layer_ceiling": "INTERNAL_OPERABLE",
+      "default_action_intents": ["PREVIEW_ONLY", "INTERNAL_WRITEBACK", "DRY_RUN", "APPROVAL_EXECUTION", "LIVE_EXECUTION"]
+    },
+    {
+      "family_id": "delivery_export_variants",
+      "current_capability_mode": "INTERNAL_GOVERNED",
+      "allowed_capability_modes": ["INTERNAL_ONLY", "INTERNAL_GOVERNED", "APPROVAL_REQUIRED", "DRY_RUN", "EMERGENCY_OFF"],
+      "release_layer_ceiling": "LEADPACK_DELIVERABLE"
+    },
+    {
+      "family_id": "risky_automation",
+      "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_capability_modes": ["APPROVAL_REQUIRED", "SHADOW_MODE", "DRY_RUN", "EMERGENCY_OFF"],
+      "release_layer_ceiling": "INTERNAL_OPERABLE"
+    },
+    {
+      "family_id": "emergency_off",
+      "current_capability_mode": "EMERGENCY_OFF",
+      "allowed_capability_modes": ["EMERGENCY_OFF"],
+      "release_layer_ceiling": "EXTERNAL_BLOCKED"
+    }
+  ],
+  "future_unlock_domains": [
+    {
+      "capability_domain_id": "external_software_release",
+      "mapped_families": ["delivery_export_variants", "risky_automation"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[external_software_release]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[external_software_release]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[external_software_release]"
+    },
+    {
+      "capability_domain_id": "leadpack_external_delivery",
+      "mapped_families": ["delivery_export_variants"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[leadpack_external_delivery]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[leadpack_external_delivery]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[leadpack_external_delivery]"
+    },
+    {
+      "capability_domain_id": "stage8_live_execution",
+      "mapped_families": ["stage8_execution", "execution_vendor"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[stage8_live_execution]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[stage8_live_execution]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[stage8_live_execution]"
+    },
+    {
+      "capability_domain_id": "stage9_live_payment_execution",
+      "mapped_families": ["stage9_execution", "execution_vendor"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[stage9_live_payment_execution]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[stage9_live_payment_execution]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[stage9_live_payment_execution]"
+    },
+    {
+      "capability_domain_id": "stage9_live_delivery_execution",
+      "mapped_families": ["stage9_execution", "delivery_export_variants", "execution_vendor"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[stage9_live_delivery_execution]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[stage9_live_delivery_execution]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[stage9_live_delivery_execution]"
+    },
+    {
+      "capability_domain_id": "model_provider_externalized_usage",
+      "mapped_families": ["model_provider"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[model_provider_externalized_usage]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[model_provider_externalized_usage]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[model_provider_externalized_usage]"
+    },
+    {
+      "capability_domain_id": "tool_provider_externalized_usage",
+      "mapped_families": ["tool_provider"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[tool_provider_externalized_usage]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[tool_provider_externalized_usage]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[tool_provider_externalized_usage]"
+    },
+    {
+      "capability_domain_id": "source_vendor_externalized_usage",
+      "mapped_families": ["external_source", "contact_enrichment"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[source_vendor_externalized_usage]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[source_vendor_externalized_usage]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[source_vendor_externalized_usage]"
+    },
+    {
+      "capability_domain_id": "external_export_surface",
+      "mapped_families": ["delivery_export_variants"],
+      "prerequisite_entry_ref": "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[external_export_surface]",
+      "decision_entry_ref": "contracts/release/future_unlock_decision_matrix.json#capability_domains[external_export_surface]",
+      "recommended_sequence_ref": "contracts/release/future_unlock_decision_matrix.json#recommended_sequence[external_export_surface]"
+    }
+  ],
+  "future_unlock_decision_rules": {
+    "candidate_not_equivalent_to_approved": true,
+    "post_r6_default_path": "CONTINUE_INTERNAL_FIRST",
+    "activation_requires_separate_batch": true
+  },
+  "policies": [
+    {
+      "policy_id": "RUNTIME-LOGGING",
+      "scope": "all_environments",
+      "requirements": [
+        "application_logs",
+        "error_logs",
+        "key_task_logs",
+        "audit_trace_points"
+      ],
+      "notes": "Minimum runtime logging for internal leadops."
+    },
+    {
+      "policy_id": "RUNTIME-MONITORING",
+      "scope": "internal_pilot",
+      "requirements": [
+        "service_health_checks",
+        "alert_on_gate_failure",
+        "rollback_trigger_ready"
+      ],
+      "notes": "Monitoring must be sufficient for rollback verification."
+    },
+    {
+      "policy_id": "RUNTIME-ROLLBACK",
+      "scope": "all_formal",
+      "requirements": [
+        "rollback_plan_registered",
+        "rollback_verification_steps",
+        "post_rollback_audit_record"
+      ],
+      "notes": "Rollback is mandatory for any formal release bundle."
+    },
+    {
+      "policy_id": "RUNTIME-AUDIT",
+      "scope": "internal_pilot",
+      "requirements": [
+        "release_manifest_snapshot",
+        "runtime_inventory_snapshot",
+        "approval_chain_record"
+      ],
+      "notes": "Runtime audit must be traceable for every release."
+    },
+    {
+      "policy_id": "RUNTIME-EXTERNAL-BLOCK",
+      "scope": "future_external",
+      "requirements": [
+        "external_release_blocked",
+        "no_external_delivery_without_gate"
+      ],
+      "notes": "External software release remains blocked in current phase."
+    },
+    {
+      "policy_id": "RUNTIME-FUTURE-UNLOCK-PREREQS",
+      "scope": "future_external",
+      "requirements": [
+        "external_unlock_prerequisite_matrix_present",
+        "evidence_pack_complete_before_any_unlock_decision",
+        "owner_signoff_complete_before_any_unlock_decision",
+        "rollback_and_emergency_off_registered"
+      ],
+      "notes": "Defines the machine-readable prerequisite baseline before any future unlock decision batch."
+    },
+    {
+      "policy_id": "RUNTIME-FUTURE-UNLOCK-DENY-BY-DEFAULT",
+      "scope": "future_external",
+      "requirements": [
+        "personal contact channels remain permanently blocked",
+        "direct stage8/stage9 object export remains blocked",
+        "provider/tool/source externalization remains denied until prerequisite tiers are satisfied"
+      ],
+      "notes": "Deny-by-default remains stronger than any future unlock request."
+    }
+  ]
+}

@@ -1,0 +1,130 @@
+{
+  "catalogVersion": "1.1.0",
+  "catalogId": "contact_priority_policy_catalog",
+  "ownerDocs": [
+    "D2",
+    "D3",
+    "D9",
+    "D11"
+  ],
+  "policies": [
+    {
+      "policy_id": "CONTACT-PRIORITY-001",
+      "title": "Primary contact selection, organization-first and conflict resolution",
+      "applies_to_objects": [
+        "contact_target",
+        "outreach_plan"
+      ],
+      "input_fields": [
+        "contact_target.contact_legal_basis",
+        "contact_target.channel_family",
+        "contact_target.channel_policy_status",
+        "contact_target.frequency_policy_state",
+        "contact_target.opt_out_state",
+        "contact_target.quiet_hours_policy_state",
+        "contact_target.contact_validity_status",
+        "contact_target.reasonable_expectation_status",
+        "contact_candidate_collection.candidate_list[*].formal_merge_state",
+        "contact_candidate_collection.candidate_list[*].source_conflict_flag",
+        "contact_candidate_collection.candidate_list[*].source_conflict_fields",
+        "contact_candidate_collection.candidate_list[*].source_merge_review_required",
+        "contact_target.role_cluster",
+        "contact_target.source_family",
+        "contact_target.source_auditability_state",
+        "contact_target.last_evaluated_at",
+        "saleable_opportunity.opportunity_grade",
+        "saleable_opportunity.commercial_urgency_level_optional",
+        "legal_action_actor_profile.actionability_state_optional",
+        "procurement_decision_actor_profile.reachable_state_optional"
+      ],
+      "output_fields": [
+        "contact_target.primary_contact_flag",
+        "contact_target.contact_priority_score",
+        "contact_target.contact_priority_reason_tags",
+        "contact_target.contact_candidate_rank",
+        "contact_target.contact_selection_reason",
+        "contact_target.contact_conflict_flag",
+        "contact_target.contact_conflict_reason"
+      ],
+      "gating_rules": [
+        "contact_target_status in [ELIGIBLE,REVIEW_REQUIRED] may enter ranking",
+        "contact_legal_basis=BLOCKED or opt_out_state in [OPTED_OUT,BLOCKED] => exclude",
+        "contact_validity_status=INVALID => exclude",
+        "THIRD_PARTY_SUPPORT_SOURCE candidate may rank only after formal merge materializes in contact_candidate_collection/contact_selection_trace",
+        "source_merge_review_required=true keeps candidate in ranking but must force manual review before execution"
+      ],
+      "scoring_model": {
+        "base_score": 50,
+        "role_weights": {
+          "PROCUREMENT_DECISION_ACTOR": 25,
+          "LEGAL_ACTION_ACTOR": 20,
+          "CLIENT_AUTHORIZED_CONTACT": 15,
+          "DELIVERY_COORDINATOR": 10,
+          "ORG_GATEKEEPER": 5
+        },
+        "legal_basis_weights": {
+          "PUBLIC_ROLE_CONTACT": 15,
+          "CUSTOMER_AUTHORIZED_CONTACT": 20,
+          "COMPLIANT_CRM_CONTACT": 10,
+          "REVIEW_REQUIRED": -20,
+          "BLOCKED": -100
+        },
+        "channel_family_weights": {
+          "ORG_PHONE": 10,
+          "ORG_EMAIL": 10,
+          "PUBLIC_FORM": 5,
+          "CRM_APPROVED_DIRECT": 8,
+          "AUTHORIZED_PERSON_DIRECT": 2,
+          "SOCIAL_DM": -10,
+          "IM_DIRECT": -10,
+          "PERSONAL_PHONE": -15,
+          "PERSONAL_EMAIL": -15
+        },
+        "reasonableness_weights": {
+          "REASONABLE": 10,
+          "UNKNOWN": 0,
+          "UNREASONABLE": -20
+        },
+        "validity_weights": {
+          "VALID": 10,
+          "UNKNOWN": 0,
+          "INVALID": -50
+        },
+        "auditability_penalty": {
+          "condition": "source_auditability_state!=AUDITABLE",
+          "penalty": -15
+        },
+        "policy_state_penalties": [
+          {
+            "condition": "channel_policy_status=REVIEW",
+            "penalty": -10,
+            "requires_manual_review": true
+          }
+        ]
+      },
+      "organization_first_rules": [
+        "organization channel families (ORG_PHONE/ORG_EMAIL/PUBLIC_FORM/CRM_APPROVED_DIRECT) must be selected if any score >= 60",
+        "personal channel families can be primary only when no organization contact is eligible or all organization contacts are INVALID/BLOCKED"
+      ],
+      "conflict_rules": [
+        "if top two scores difference <= 5 and role_cluster differs => contact_conflict_flag=true and requires_manual_review=true",
+        "if top two scores difference <= 3 and channel_family differs => contact_conflict_flag=true"
+      ],
+      "tiebreakers": [
+        "higher legal basis weight",
+        "higher source auditability",
+        "more recent last_evaluated_at",
+        "organization channel over personal channel"
+      ],
+      "failure_actions": [
+        "conflict_flag=true => outreach_plan.plan_status=REVIEW_REQUIRED",
+        "no eligible contact => contact_target_status=BLOCKED"
+      ]
+    }
+  ],
+  "notes": [
+    "Primary contact selection is organization-first by default; personal contact requires explicit failure of organization path.",
+    "Scores are internal-only and must not be exposed to external delivery surfaces.",
+    "Ranking must consume formal merge/dedupe outputs rather than raw multi-source candidate rows."
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "challenger_buyer_fit",
+  "type": "object",
+  "description": "Schema skeleton for challenger_buyer_fit.",
+  "source_refs": [
+    "D2-R-017"
+  ],
+  "enum_refs": [
+    "buyer_type"
+  ],
+  "properties": {
+    "challenger_buyer_fit_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "buyer_type": {
+      "type": "string"
+    },
+    "fit_score": {
+      "type": "number"
+    },
+    "attack_motivation_score": {
+      "type": "number"
+    },
+    "purchase_intent_score": {
+      "type": "number"
+    },
+    "payment_capacity_score": {
+      "type": "number"
+    },
+    "window_urgency_score": {
+      "type": "number"
+    },
+    "fit_reason_tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": [
+    "challenger_buyer_fit_id",
+    "project_id",
+    "buyer_type",
+    "fit_score",
+    "attack_motivation_score",
+    "purchase_intent_score",
+    "payment_capacity_score",
+    "window_urgency_score",
+    "fit_reason_tags"
+  ],
+  "additionalProperties": false
+}

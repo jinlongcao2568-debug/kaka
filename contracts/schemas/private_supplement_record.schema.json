@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "private_supplement_record",
+  "type": "object",
+  "description": "Schema skeleton for private_supplement_record.",
+  "source_refs": [
+    "D2-R-017",
+    "D13-R-047",
+    "D7-R-030"
+  ],
+  "enum_refs": [
+    "release_state",
+    "usable_scope"
+  ],
+  "properties": {
+    "supplement_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "linked_review_request_id": {
+      "type": "string"
+    },
+    "material_family": {
+      "type": "string"
+    },
+    "source_owner": {
+      "type": "string"
+    },
+    "lawful_basis": {
+      "type": "string"
+    },
+    "usable_scope": {
+      "type": "string"
+    },
+    "release_state": {
+      "type": "string"
+    },
+    "visible_roles": {
+      "type": "string"
+    },
+    "written_back_policy": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "supplement_id",
+    "project_id",
+    "linked_review_request_id",
+    "material_family",
+    "source_owner",
+    "lawful_basis",
+    "usable_scope",
+    "release_state",
+    "visible_roles",
+    "written_back_policy"
+  ],
+  "additionalProperties": false,
+  "semantic_notes": "Future implementation depends on confirmed C-group enum: usable_scope."
+}

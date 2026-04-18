@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "execution_context",
+  "type": "object",
+  "description": "Schema skeleton for execution_context.",
+  "source_refs": [
+    "D2-R-017"
+  ],
+  "enum_refs": [
+    "review_lane",
+    "region_scope",
+    "source_family",
+    "platform_level",
+    "coverage_tier",
+    "carrier_type",
+    "route_type"
+  ],
+  "properties": {
+    "context_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "project_unification_strategy": {
+      "type": "string"
+    },
+    "review_lane": {
+      "type": "string"
+    },
+    "window_priority": {
+      "type": "string"
+    },
+    "region_scope": {
+      "type": "string"
+    },
+    "source_family": {
+      "type": "string"
+    },
+    "platform_level": {
+      "type": "string"
+    },
+    "coverage_tier": {
+      "type": "string"
+    },
+    "carrier_type": {
+      "type": "string"
+    },
+    "default_route": {
+      "type": "string"
+    },
+    "source_registry_id": {
+      "type": "string"
+    },
+    "route_policy_id": {
+      "type": "string"
+    },
+    "fallback_route": {
+      "type": "string"
+    },
+    "requires_manual_review": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "context_id",
+    "task_id",
+    "project_unification_strategy",
+    "review_lane",
+    "window_priority",
+    "region_scope",
+    "source_family",
+    "platform_level",
+    "coverage_tier",
+    "carrier_type",
+    "default_route",
+    "source_registry_id",
+    "route_policy_id",
+    "fallback_route",
+    "requires_manual_review",
+    "created_at"
+  ],
+  "additionalProperties": false
+}

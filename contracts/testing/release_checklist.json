@@ -1,0 +1,1395 @@
+{
+  "registry_id": "release-checklist",
+  "version": "0.1.15",
+  "metadata": {
+    "package_name": "testing package round 1",
+    "status": "DRAFT",
+    "generated_at": "2026-04-17",
+    "machine_path": "contracts/testing/release_checklist.json",
+    "scope": "release readiness checklist for internal operations and leadpack delivery",
+    "source_documents": [
+      "L0.md",
+      "D11_测试验收与金标回归清单.md",
+      "D2_正式对象契约与字段字典.md",
+      "D3_正式规则码总表与判定说明书.md",
+      "D6_字段策略字典与客户交付字段规范.md",
+      "D7_对象级交付矩阵与外发治理规范.md",
+      "D13_公开可查边界能力清单.md",
+      "D14_AI模型治理规范.md",
+      "裁决总表.md"
+    ]
+  },
+  "sections": [
+    {
+      "sectionId": "REL-SEC-01",
+      "title": "文档与裁决一致性",
+      "items": [
+        {
+          "itemId": "REL-001",
+          "text": "L0 working master, D1-D14 and 裁决总表 use one vocabulary.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-040"
+          ]
+        },
+        {
+          "itemId": "REL-002",
+          "text": "No duplicate formal D13 or duplicate top-level decision source exists.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-040",
+            "D13-R-043"
+          ]
+        },
+        {
+          "itemId": "REL-003",
+          "text": "All formal decision ids referenced in docs exist in 裁决总表.",
+          "blocking": true,
+          "sourceRefs": [
+            "L0-R-004",
+            "D11-R-040"
+          ]
+        },
+        {
+          "itemId": "REL-004",
+          "text": "LeadPack SKU A/B/C/D is treated as commercial packaging, not capability tier A/B/C/D.",
+          "blocking": true,
+          "sourceRefs": [
+            "D13-R-070"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-02",
+      "title": "contracts 核心承接",
+      "items": [
+        {
+          "itemId": "REL-010",
+          "text": "schema_catalog, enum_catalog, rule_catalog and gate_policies are present and aligned.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-041"
+          ]
+        },
+        {
+          "itemId": "REL-011",
+          "text": "No schema or enum introduces a second state vocabulary or object name.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-041"
+          ]
+        },
+        {
+          "itemId": "REL-012",
+          "text": "Governance and release machine assets exist and use the same ids as docs.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-041",
+            "D7-R-027"
+          ]
+        },
+        {
+          "itemId": "REL-013",
+          "text": "Delivery writeback and governance feedback records are required for leadpack delivery.",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-022",
+            "D11-R-016"
+          ]
+        },
+        {
+          "itemId": "REL-014",
+          "text": "Stage 9 exception taxonomy catalogs and rules are present (payment/delivery/outcome/governance).",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-064",
+            "D10-R-065",
+            "D10-R-066",
+            "D10-R-067",
+            "D11-R-051"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-03",
+      "title": "双闸门、边界与外发阻断",
+      "items": [
+        {
+          "itemId": "REL-020",
+          "text": "Dual-gate upgrade matrix matches D3 and blocks formal upgrade when any gate is not PASS.",
+          "blocking": true,
+          "sourceRefs": [
+            "L0-A-003",
+            "D11-R-042"
+          ]
+        },
+        {
+          "itemId": "REL-021",
+          "text": "Any D-tier derived object or field is blocked from leadpack delivery, demo and external platform surfaces.",
+          "blocking": true,
+          "sourceRefs": [
+            "L0-A-001",
+            "D11-R-042"
+          ]
+        },
+        {
+          "itemId": "REL-022",
+          "text": "Leadpack/demo release never relies solely on screenshot, OCR text or model summary.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-042",
+            "D7-R-018"
+          ]
+        },
+        {
+          "itemId": "REL-023",
+          "text": "Leadpack delivery requires evidence, review, gate and approval with full audit chain.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-016",
+            "D7-R-060"
+          ]
+        },
+        {
+          "itemId": "REL-024",
+          "text": "Sales consumption gate enforces internal-only visibility when leadpack delivery is blocked.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-015",
+            "D7-R-060"
+          ]
+        },
+        {
+          "itemId": "REL-025",
+          "text": "Release layers (DEV_ALLOWED/INTERNAL_OPERABLE/LEADPACK_DELIVERABLE/EXTERNAL_BLOCKED) are consistent across boundary registry, delivery matrix and release gates.",
+          "blocking": true,
+          "sourceRefs": [
+            "D13-R-067"
+          ]
+        },
+        {
+          "itemId": "REL-025A",
+          "text": "Legacy release token EXTERNAL_LEADPACK_DELIVERABLE is absent from formal docs/contracts/control export and approval surfaces.",
+          "blocking": true,
+          "sourceRefs": [
+            "D13-R-067"
+          ]
+        },
+        {
+          "itemId": "REL-026",
+          "text": "External release remains BLOCKED; internal operable does not equal external software release.",
+          "blocking": true,
+          "sourceRefs": [
+            "D13-R-071"
+          ]
+        },
+        {
+          "itemId": "REL-027",
+          "text": "LeadPack deliverable requires approval chain and audit chain before delivery.",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-022",
+            "D11-R-016"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-04",
+      "title": "高限制字段、触达与合规",
+      "items": [
+        {
+          "itemId": "REL-030",
+          "text": "Natural-person high restriction fields require lawful basis, approval chain, frequency policy, opt-out and quiet-hours checks.",
+          "blocking": true,
+          "sourceRefs": [
+            "L0-A-005",
+            "D11-R-043"
+          ]
+        },
+        {
+          "itemId": "REL-031",
+          "text": "contact_target and touch_record do not execute when outreach gate blocks.",
+          "blocking": true,
+          "sourceRefs": [
+            "D9-R-022",
+            "D11-R-043"
+          ]
+        },
+        {
+          "itemId": "REL-032",
+          "text": "No raw high-restriction contact value appears in demo or leadpack delivery surfaces.",
+          "blocking": true,
+          "sourceRefs": [
+            "D6-R-028",
+            "D11-R-043"
+          ]
+        },
+        {
+          "itemId": "REL-033",
+          "text": "Stage 8 compliance decision fields (legal basis/frequency/quiet hours/opt-out/channel policy/reasonable expectation) remain internal/governance only and never enter sales or leadpack surfaces.",
+          "blocking": true,
+          "sourceRefs": [
+            "D6-R-056",
+            "D7-R-063",
+            "D9-R-071"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-05",
+      "title": "模型与运行治理",
+      "items": [
+        {
+          "itemId": "REL-040",
+          "text": "Model governance record, model tier and human review requirements are aligned with D14.",
+          "blocking": true,
+          "sourceRefs": [
+            "D14-R-026"
+          ]
+        },
+        {
+          "itemId": "REL-041",
+          "text": "Release manifest, rollback plan and governance snapshot are prepared for target environment.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-018"
+          ]
+        },
+        {
+          "itemId": "REL-042",
+          "text": "All mandatory regression suites in regression_manifest have passed.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-044"
+          ]
+        },
+        {
+          "itemId": "REL-043",
+          "text": "deployment_matrix and runtime_policy_catalog are present and aligned with D12 runtime tiers.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-038"
+          ]
+        },
+        {
+          "itemId": "REL-044",
+          "text": "model_catalog, model_usage_policy, prompt_policy_catalog, eval_suite_catalog and output_target_matrix are present.",
+          "blocking": true,
+          "sourceRefs": [
+            "D14-R-054"
+          ]
+        },
+        {
+          "itemId": "REL-045",
+          "text": "Model outputs are blocked from formal external delivery objects without review and release gates.",
+          "blocking": true,
+          "sourceRefs": [
+            "D14-R-038",
+            "D11-R-046"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-06",
+      "title": "经营主链外发与交付门",
+      "items": [
+        {
+          "itemId": "REL-060",
+          "text": "LeadPack quality gate is satisfied before any leadpack export.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-016"
+          ]
+        },
+        {
+          "itemId": "REL-061",
+          "text": "Sales usage gate requires quality gate, delivery matrix and approvals to be satisfied.",
+          "blocking": true,
+          "sourceRefs": [
+            "D7-R-060",
+            "D11-R-015"
+          ]
+        },
+        {
+          "itemId": "REL-062",
+          "text": "Outreach compliance gate (lawful basis, quiet hours, approval) is enforced before any outreach execution.",
+          "blocking": true,
+          "sourceRefs": [
+            "D9-R-022",
+            "D11-R-043"
+          ]
+        },
+        {
+          "itemId": "REL-065",
+          "text": "channel_family enum and contact_channel_catalog are aligned with D9 formal values.",
+          "blocking": true,
+          "sourceRefs": [
+            "D9-R-021",
+            "D11-R-043"
+          ]
+        },
+        {
+          "itemId": "REL-066",
+          "text": "contact_legal_basis enum aligns with contact_compliance_matrix and contact_source_policy_catalog.",
+          "blocking": true,
+          "sourceRefs": [
+            "D9-R-018",
+            "D11-R-043"
+          ]
+        },
+        {
+          "itemId": "REL-067",
+          "text": "Compliance matrix decisions (ALLOW_PREVIEW/REVIEW_REQUIRED/BLOCKED) are enforced; restricted channel families force review.",
+          "blocking": true,
+          "sourceRefs": [
+            "D9-R-031",
+            "D11-R-043"
+          ]
+        },
+        {
+          "itemId": "REL-068",
+          "text": "Stage 8 execution policies (priority/cadence/retry/stop/feedback) are present and enforced; contact_target/outreach_plan/touch_record typed fields cover opportunity/source/priority/conflict/attempt/writeback/governed preview metadata before outreach execution.",
+          "blocking": true,
+          "sourceRefs": [
+            "D9-R-065",
+            "D9-R-066",
+            "D9-R-068",
+            "D11-R-050"
+          ]
+        },
+        {
+          "itemId": "REL-063",
+          "text": "Negotiation, payment, delivery and audit gates are satisfied; email send does not equal delivery completion.",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-022",
+            "D11-R-016"
+          ]
+        },
+        {
+          "itemId": "REL-064",
+          "text": "Result writeback completeness gate is satisfied (delivery_record + outcome + governance feedback).",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-022",
+            "D11-R-016"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-06A",
+      "title": "Stage 6-7 商业输入闭合",
+      "items": [
+        {
+          "itemId": "REL-069A",
+          "text": "Stage 6 formally emits project_fact/report_record/legal_action_recommendation/challenger_candidate_profile and H-06 carries the Stage 7 actor/buyer minimum seed fields.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-D"
+          ]
+        },
+        {
+          "itemId": "REL-069B",
+          "text": "Stage 7 consumes Stage 6 formal inputs and blocks/reviews when H-06 critical payload fields are missing instead of privately补造关键主输入。",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-D"
+          ]
+        },
+        {
+          "itemId": "REL-069C",
+          "text": "Stage 7 offer/saleable outputs remain internal-only minimal closure; they are not treated as fully ready external commercial flow.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-D"
+          ]
+        },
+        {
+          "itemId": "REL-069D",
+          "text": "Stage 7 formally emits multi_competitor_collection and H-07 carries minimal formal refs (collection id / winning candidate id / winning challenger profile id) for Stage 8 consumption.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-045"
+          ]
+        },
+        {
+          "itemId": "REL-069E",
+          "text": "Stage 8 formally emits contact_candidate_collection and contact_selection_trace before finalizing contact_target, and wrong_role/invalid_contact or explicit reselection reasons persist reselect_history.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-045"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-07",
+      "title": "阶段 9 商务交付与回写",
+      "items": [
+        {
+          "itemId": "REL-070",
+          "text": "Stage 9 rule codes (ORD/PAY/DEL/OUT/GOV) are present and enforced; payment_proof_state, approval or audit missing must block.",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-063",
+            "D11-R-048"
+          ]
+        },
+        {
+          "itemId": "REL-071",
+          "text": "Stage 9 field policy covers payment/delivery/outcome/governance fields and aligns with delivery matrix.",
+          "blocking": true,
+          "sourceRefs": [
+            "D6-R-052",
+            "D7-R-061"
+          ]
+        },
+        {
+          "itemId": "REL-072",
+          "text": "Order/payment/delivery/workbench APIs are internal preview only; external delivery remains blocked.",
+          "blocking": true,
+          "sourceRefs": [
+            "D4-R-022",
+            "D5-R-046"
+          ]
+        },
+        {
+          "itemId": "REL-073",
+          "text": "Outcome/governance writeback, typed writeback_targets and archival/retention requirements are satisfied before closure.",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-063",
+            "D11-R-048"
+          ]
+        },
+        {
+          "itemId": "REL-074",
+          "text": "Stage 9 direct objects remain internal governed: draft/preview/internal writeback allowed, typed delivery_form/customer_ack/partial/redelivery state retained, direct leadpack or external delivery blocked.",
+          "blocking": true,
+          "sourceRefs": [
+            "D7-R-062-A",
+            "D11-R-051-E"
+          ]
+        },
+        {
+          "itemId": "REL-075",
+          "text": "Stage 9 key fields declare review-required and approval/audit conditions before any ready/received/delivered/closure state is used.",
+          "blocking": true,
+          "sourceRefs": [
+            "D6-R-055-D",
+            "D11-R-051-E"
+          ]
+        },
+        {
+          "itemId": "REL-076",
+          "text": "Order/payment/delivery APIs and workbench panels only implement order draft, payment draft, delivery preview, outcome writeback and governance feedback writeback semantics.",
+          "blocking": true,
+          "sourceRefs": [
+            "D4-R-073-A",
+            "D11-R-051-E"
+          ]
+        },
+        {
+          "itemId": "REL-077",
+          "text": "Archived/retrieval failure, partial delivery, rejected delivery and payment mismatch still force review or block and never allow closure.",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-067-A",
+            "D11-R-051",
+            "D11-R-051-E"
+          ]
+        },
+        {
+          "itemId": "REL-078",
+          "text": "Stage 9 delivery matrix and release gates agree on projection-only customer summaries and keep external software release blocked.",
+          "blocking": true,
+          "sourceRefs": [
+            "D7-R-062-A",
+            "D11-R-051-E"
+          ]
+        },
+        {
+          "itemId": "REL-079",
+          "text": "Stage 7/8/9 internal surfaces expose preview/draft-only envelopes that consume formal objects, decision states and traces without recomputing main judgment.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-D"
+          ]
+        },
+        {
+          "itemId": "REL-079A",
+          "text": "Stage 8/9 internal surfaces keep live_execution_enabled=false and blocked_by_default=true; external release remains blocked.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-D"
+          ]
+        },
+        {
+          "itemId": "REL-079B",
+          "text": "page_surface_states/review_action_catalog/workbench/button flow/export template remain aligned for internal-only preview and draft-only review flows.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-D"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-08",
+      "title": "接入边界冻结",
+      "items": [
+        {
+          "itemId": "REL-080",
+          "text": "source vendor classification is frozen and consistent across enum_catalog, vendor registry, source usage policy, contact schemas and contact catalogs.",
+          "blocking": true,
+          "sourceRefs": [
+            "D9-R-070-A",
+            "D11-R-051-B"
+          ]
+        },
+        {
+          "itemId": "REL-081",
+          "text": "execution vendor classification is frozen in enum/schema and execution policies; real execution remains blocked or approval-gated by policy.",
+          "blocking": true,
+          "sourceRefs": [
+            "D9-R-070-B",
+            "D11-R-051-B"
+          ]
+        },
+        {
+          "itemId": "REL-082",
+          "text": "MODEL_PROVIDER and TOOL_PROVIDER remain unbound while provider_type, trace requirements and governance-object承接 are frozen.",
+          "blocking": true,
+          "sourceRefs": [
+            "D14-R-056-C",
+            "D14-R-056-D"
+          ]
+        },
+        {
+          "itemId": "REL-083",
+          "text": "Model stage signature matrix exists and keeps final decisions prohibited for stages 3-9.",
+          "blocking": true,
+          "sourceRefs": [
+            "D14-R-056-B",
+            "D11-R-051-A"
+          ]
+        },
+        {
+          "itemId": "REL-084",
+          "text": "Source/vendor/provider trace and audit fields are reserved in schema_catalog and policy catalogs, and any missing trace forces review or block.",
+          "blocking": true,
+          "sourceRefs": [
+            "D2-R-094-A",
+            "D6-R-055-A",
+            "D11-R-051-C",
+            "D11-R-051-D"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-09",
+      "title": "Pre-Route Readiness",
+      "items": [
+        {
+          "itemId": "REL-085",
+          "text": "Stage 8 minimal behavior regressions cover contact priority/conflict, cadence, retry, stop condition and failure/writeback readiness, and run-golden directly executes the Stage 8 failure/writeback golden.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053"
+          ]
+        },
+        {
+          "itemId": "REL-086",
+          "text": "Stage 9 minimal behavior regressions cover CHARGEBACK_REVIEW, PARTIAL_DELIVERY, DELIVERY_REJECTED, ACK_TIMEOUT plus payment/delivery/outcome/governance taxonomy behavior, and run-golden directly executes the Stage 9 consumer/executor/writeback goldens.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053"
+          ]
+        },
+        {
+          "itemId": "REL-087",
+          "text": "H-08 handoff required payload fields and Stage 8 producer set are machine-checkable and aligned before route-map start, and validate-contracts independently asserts the producer/consumer key set.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053"
+          ]
+        },
+        {
+          "itemId": "REL-088",
+          "text": "Stage 8/9 executor consumption is machine-checkable: traceable decisions exist, Stage 9 one-chain executor covers payment_exception/delivery_exception/outcome/governance policies, and validate-contracts/check-semantic-alignment independently assert policy sequence + additive writeback contract semantics.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053"
+          ]
+        },
+        {
+          "itemId": "REL-089",
+          "text": "Stage 9 typed workflow persists H-08 optional preview/writeback fields when present (plan_status/touch_record_state/feedback_reason/written_back_at_optional/governance_decision_state) while staying INTERNAL_GOVERNED and projection-only.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053",
+            "D11-R-053-C"
+          ]
+        },
+        {
+          "itemId": "REL-089A",
+          "text": "Formal sink quantitative fields (project/opportunity value, price intermediate fields, confidence score, current action start/deadline) are aligned across D2, schema/schema_catalog, H-06/H-07 optional payload, Stage7 projection trace, Stage8 consumption trace and semantic anti-drift checks.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-O"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-10",
+      "title": "Capability Runtime Permission Layer",
+      "items": [
+        {
+          "itemId": "REL-090",
+          "text": "runtime_inventory/runtime_policy/model_release_manifest declare capability_mode priority, action intents and decision matrix for runtime permission resolution.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052-A"
+          ]
+        },
+        {
+          "itemId": "REL-091",
+          "text": "Stage 8 and Stage 9 risky paths resolve capability permissions before policy execution and emit permission_trace + additive governance payload.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052-A"
+          ]
+        },
+        {
+          "itemId": "REL-092",
+          "text": "EMERGENCY_OFF and PERMANENTLY_BLOCKED short-circuit Stage 8/9 runtime paths with BLOCK semantics.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052-A"
+          ]
+        },
+        {
+          "itemId": "REL-093",
+          "text": "REAL_RUN_READY remains subordinate to EXTERNAL_BLOCKED and never replaces release_level semantics.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052-A"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-11",
+      "title": "Architecture Anti-Drift",
+      "items": [
+        {
+          "itemId": "REL-100",
+          "text": "service hardcode anti-regression is active: stage6-9 services still route through shared runtime and do not regrow private governance loops.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052-B"
+          ]
+        },
+        {
+          "itemId": "REL-101",
+          "text": "governance assets remain behaviorally consumed in Stage 8/9 runtime, not merely present in catalogs or scripts.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052-B"
+          ]
+        },
+        {
+          "itemId": "REL-102",
+          "text": "schema/model/api drift anti-regression is active for critical Stage7-9 and shared-runtime dependent objects.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052-B"
+          ]
+        },
+        {
+          "itemId": "REL-103",
+          "text": "Stage 9 second loop anti-regression is active: no private _run_policy_chain, no direct runtime.executor.execute, and permission/governance/semantic traces remain present.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052-B"
+          ]
+        },
+        {
+          "itemId": "REL-104",
+          "text": "unused catalog / partial consumption guard is active: critical runtime catalogs are explicitly classified as FULL_RUNTIME / INTENTIONAL_PARTIAL / UNDECLARED_PARTIAL / UNUSED, and only declared INTENTIONAL_PARTIAL with a reason may pass.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-P"
+          ]
+        },
+        {
+          "itemId": "REL-105",
+          "text": "governance asset runtime consumption closure is active: Stage 1/2 authoritative baseline plus Stage 8/9 permission_trace, governance_trace and Stage 9 writeback contracts prove runtime consumption rather than catalog-only presence.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-P"
+          ]
+        },
+        {
+          "itemId": "REL-106",
+          "text": "service hardcode / resolver bypass / second loop guard is active: stage7-9 services do not instantiate private runtime chains or bypass the unified spine.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-P"
+          ]
+        },
+        {
+          "itemId": "REL-107",
+          "text": "schema/catalog/runtime-validator/model drift guard is active for Stage 1/2 baseline objects, critical Stage7-9 objects, and shared-runtime dependent enums.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-P"
+          ]
+        },
+        {
+          "itemId": "REL-108",
+          "text": "H-01/H-06/H-07/H-08 producer/consumer drift guard is active: producer set, required payload projection, criticalObjects and optional runtime consumer access must match real runtime behavior.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-P"
+          ]
+        },
+        {
+          "itemId": "REL-109",
+          "text": "unified runtime spine guard is active: Stage 7 keeps handoff -> policy executor -> semantic order, and Stage 8/9 risky paths keep permission resolver -> policy executor -> governance guard -> semantic validator order with behavior-level permission/policy/governance/semantic traces present.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-P"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-12",
+      "title": "Change Gate / Review Gate",
+      "items": [
+        {
+          "itemId": "REL-110",
+          "text": "control/current_task.yaml carries a machine-readable task_packet with objective/non_goals/changed paths/allowed paths/forbidden paths/required scripts/stop conditions/definition of done/deliverables/change_class/review fields.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-A"
+          ]
+        },
+        {
+          "itemId": "REL-111",
+          "text": "Declared change_class is not lower than the review_gate_matrix classification derived from touched asset domains.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-A"
+          ]
+        },
+        {
+          "itemId": "REL-112",
+          "text": "MANDATORY_HUMAN_REVIEW batches declare human_review_required=true and include all required owner reviews/signoff metadata.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-A"
+          ]
+        },
+        {
+          "itemId": "REL-113",
+          "text": "STOP_AND_ESCALATE domains fail readiness/release checks immediately and cannot continue as direct or draft batches.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-A"
+          ]
+        },
+        {
+          "itemId": "REL-114",
+          "text": "automation stop conditions explicitly link missing task packet, missing review, wrong change class and stop/escalate domains to release failure.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-A"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-13",
+      "title": "Future External Unlock Prerequisites",
+      "items": [
+        {
+          "itemId": "REL-120",
+          "text": "Machine-readable external unlock prerequisite matrix exists and covers external software release, leadpack external delivery, stage8/stage9 live execution, provider externalization and external export surface domains.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A",
+            "D13-R-073-A",
+            "D14-R-044-A"
+          ]
+        },
+        {
+          "itemId": "REL-121",
+          "text": "Each future unlock domain declares evidence_pack_required, required_test_suites, required_release_checks, required_owner_signoffs, required_control_assets, required_runtime_modes, required_shadow_or_canary_state and unlock_denial_conditions.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A",
+            "D14-R-044-A"
+          ]
+        },
+        {
+          "itemId": "REL-122",
+          "text": "Release/control/model manifests reference the prerequisite matrix and keep external release blocked until a separate future unlock decision batch passes all prerequisites.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A",
+            "D13-R-073-A"
+          ]
+        },
+        {
+          "itemId": "REL-123",
+          "text": "Future external unlock decision assets are separate from prerequisite assets; decision-layer assets are MANDATORY_HUMAN_REVIEW while activation/go-live assets remain STOP_AND_ESCALATE.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A"
+          ]
+        },
+        {
+          "itemId": "REL-124",
+          "text": "Leadpack external delivery remains approval-and-audit gated; prerequisite completion does not convert direct Stage8/9 objects into default external deliverables.",
+          "blocking": true,
+          "sourceRefs": [
+            "D13-R-073-A"
+          ]
+        },
+        {
+          "itemId": "REL-125",
+          "text": "External export surfaces remain projection-only; direct object export and restricted-field leakage remain denied by default.",
+          "blocking": true,
+          "sourceRefs": [
+            "D13-R-073-A"
+          ]
+        },
+        {
+          "itemId": "REL-126",
+          "text": "Stage 8 live execution remains blocked by default and may only be discussed after shadow/canary, rollback and kill-switch prerequisites are machine-readable and satisfied.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A"
+          ]
+        },
+        {
+          "itemId": "REL-127",
+          "text": "Stage 8 future unlock still requires high-restriction contact release, runtime guardrails and replayable audit evidence.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A"
+          ]
+        },
+        {
+          "itemId": "REL-128",
+          "text": "Stage 9 live payment execution remains blocked by default and requires shadow/canary, rollback, emergency off and explicit owner signoff prerequisites.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A"
+          ]
+        },
+        {
+          "itemId": "REL-129",
+          "text": "Stage 9 live payment unlock is denied when payer/amount/refund/audit controls are not replayable or reversible.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A"
+          ]
+        },
+        {
+          "itemId": "REL-130",
+          "text": "Stage 9 live delivery execution remains blocked by default and requires shadow/canary, rollback, emergency off and explicit owner signoff prerequisites.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A"
+          ]
+        },
+        {
+          "itemId": "REL-131",
+          "text": "Stage 9 live delivery unlock is denied when archive/retrieval/acknowledgement/exception writeback controls are not replayable or reversible.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A"
+          ]
+        },
+        {
+          "itemId": "REL-132",
+          "text": "Model provider externalized usage remains buildable-but-off and requires external shadow/boundary eval suites plus model governance signoff.",
+          "blocking": true,
+          "sourceRefs": [
+            "D14-R-044-A"
+          ]
+        },
+        {
+          "itemId": "REL-133",
+          "text": "Model outputs remain blocked from client/external surfaces when output_target_matrix still blocks the requested targets, regardless of runtime capability mode.",
+          "blocking": true,
+          "sourceRefs": [
+            "D14-R-044-A"
+          ]
+        },
+        {
+          "itemId": "REL-134",
+          "text": "Tool provider externalized usage remains SHADOW_ONLY and never default-open; direct external mutation paths are denied until a later explicit decision batch.",
+          "blocking": true,
+          "sourceRefs": [
+            "D14-R-044-A"
+          ]
+        },
+        {
+          "itemId": "REL-135",
+          "text": "Source/vendor externalized usage remains denied for personal, private or unauthorized channels even when future unlock prerequisites are otherwise discussed.",
+          "blocking": true,
+          "sourceRefs": [
+            "D13-R-073-A"
+          ]
+        },
+        {
+          "itemId": "REL-136",
+          "text": "Coverage or public boundary state alone never authorizes future unlock; prerequisite evidence pack and owner signoff remain mandatory.",
+          "blocking": true,
+          "sourceRefs": [
+            "D13-R-073-A"
+          ]
+        },
+        {
+          "itemId": "REL-137",
+          "text": "Future unlock prerequisite completion does not itself unlock external release; a later separate unlock decision batch is still required.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A",
+            "D13-R-073-A"
+          ]
+        },
+        {
+          "itemId": "REL-138",
+          "text": "Future unlock decision matrix exists and classifies every prerequisite domain into FUTURE_UNLOCK_CANDIDATE / DENY_BY_DEFAULT_CONTINUE / LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A",
+            "D13-R-073-A",
+            "D14-R-044-A"
+          ]
+        },
+        {
+          "itemId": "REL-139",
+          "text": "R6 decision sequence order is machine-readable, keeps leadpack/source-vendor/projection paths ahead of live execution/payment, and does not treat any candidate as implementation-approved.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A",
+            "D13-R-073-A"
+          ]
+        },
+        {
+          "itemId": "REL-140",
+          "text": "release/control/model manifests reference the R6 decision matrix/state and keep external software release plus Stage 8/9 live execution blocked after the decision batch.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A",
+            "D14-R-044-A"
+          ]
+        },
+        {
+          "itemId": "REL-141",
+          "text": "review_gate_matrix distinguishes decision-layer assets (MANDATORY_HUMAN_REVIEW) from unlock activation/go-live assets (STOP_AND_ESCALATE).",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A"
+          ]
+        },
+        {
+          "itemId": "REL-142",
+          "text": "Domains marked DENY_BY_DEFAULT_CONTINUE or LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN must fail any attempt to claim unlock implementation readiness.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-030-A",
+            "D13-R-073-A",
+            "D14-R-044-A"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-14",
+      "title": "Internal Persistence / Repository Boundary",
+      "items": [
+        {
+          "itemId": "REL-150",
+          "text": "Stage 7/8/9 formal objects have repository boundaries that persist formal payloads, ids, refs, decision states and trace/audit metadata without recomputing main judgment.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052",
+            "D11-R-053-D"
+          ]
+        },
+        {
+          "itemId": "REL-151",
+          "text": "Stage 7/8/9 preview surfaces can read repository-backed internal state after writeback/draft creation, instead of requiring transient StageBundle-only inputs.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-D"
+          ]
+        },
+        {
+          "itemId": "REL-152",
+          "text": "Stage 8/9 writeback fields (written_back_at_optional, writeback_targets, exception-specific additive targets, governed metadata, decision states) survive persistence and remain internal-only / governed-only.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053",
+            "D11-R-053-D"
+          ]
+        },
+        {
+          "itemId": "REL-153",
+          "text": "Repository/storage code does not become a second decision system: saleability, governance decision, capability mode and payment/delivery outcome remain produced upstream by formal runtime/state flows.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-052"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-15",
+      "title": "LeadPack Candidate Gap",
+      "items": [
+        {
+          "itemId": "REL-154",
+          "text": "Machine-readable leadpack_external_delivery candidate matrix exists and declares candidate_status/candidate_scope/projection_only/direct_object_export_allowed/required approvals/audit refs/boundary checks/masking rules/denial conditions/why-not-live/why-not-now/future activation prerequisites.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041",
+            "D13-R-074"
+          ]
+        },
+        {
+          "itemId": "REL-155",
+          "text": "Candidate projection boundary explicitly distinguishes allowed projection, masked projection, summary-only and forbidden for Stage 7/8/9 objects, and keeps direct Stage 8/9 object export blocked.",
+          "blocking": true,
+          "sourceRefs": [
+            "D7-R-064",
+            "D13-R-074"
+          ]
+        },
+        {
+          "itemId": "REL-156",
+          "text": "Leadpack candidate preview/export simulation surfaces are internal-only, candidate-only, repository-backed, require review, keep external_delivery_enabled=false and never trigger real external delivery.",
+          "blocking": true,
+          "sourceRefs": [
+            "D5-R-064",
+            "D12-R-041"
+          ]
+        },
+        {
+          "itemId": "REL-157",
+          "text": "API/UI catalogs expose candidate preview, governed review request, export simulation, hold and denial actions, and permission matrix keeps all candidate resources internal-only.",
+          "blocking": true,
+          "sourceRefs": [
+            "D5-R-064",
+            "D12-R-041"
+          ]
+        },
+        {
+          "itemId": "REL-158",
+          "text": "Historical candidate-gap assets keep READY_FOR_POST-R6_CANDIDATE_GAP_BATCH as the decision-time token only; it must not remain the current repo readiness or imply activation-prep/unlock implementation.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041"
+          ]
+        },
+        {
+          "itemId": "REL-159",
+          "text": "Leadpack candidate gap keeps capability/governance/semantic/review-gate guardrails active and does not create a second decision system.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041",
+            "D13-R-074"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-16",
+      "title": "Final Targeted Repair Batch",
+      "items": [
+        {
+          "itemId": "REL-160",
+          "text": "Stage 1-2 authoritative baseline is machine-readable and aligned across docs/contracts/handoff/schemas/services: source family/platform/carrier baseline is no longer sample-only, route baseline covers major route types, H-01 keeps source/route/carrier authority, and version/clock/deadline baseline is persisted on Stage 2 objects.",
+          "blocking": true,
+          "sourceRefs": [
+            "D2-R-094-G",
+            "D2-R-094-H",
+            "D11-R-053-E",
+            "D11-R-053-O"
+          ]
+        },
+        {
+          "itemId": "REL-161",
+          "text": "sale_gate_status uses the canonical OPEN/REVIEW/HOLD/BLOCK vocabulary across L0, enums, runtime and tests; ALLOW is retired.",
+          "blocking": true,
+          "sourceRefs": [
+            "D3-R-056-E",
+            "D11-R-053-E"
+          ]
+        },
+        {
+          "itemId": "REL-162",
+          "text": "shared runtime validator enforces schema type/shape/additionalProperties for Stage 1-5 critical objects instead of relying only on late-stage strict profiles.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-E"
+          ]
+        },
+        {
+          "itemId": "REL-163",
+          "text": "writeback impact executor is explicitly marked INTERNAL_V0_ACTIVE in docs/contracts/control/testing; writeback_target_contracts define target family/mutation/persistence semantics, typed writeback plus internal-only additive target mutation projection exist, and direct target persistence or any live execution remain blocked.",
+          "blocking": true,
+          "sourceRefs": [
+            "D10-R-067-C",
+            "D11-R-053-E"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-17",
+      "title": "Post-Repair State Sync + Authority Convergence",
+      "items": [
+        {
+          "itemId": "REL-164",
+          "text": "repo_status/current_task/milestone/status_board/opening_decision_page/release_manifest/model_release_manifest all carry the same canonical readiness token READY_FOR_POST-REPAIR_MAINLINE_SELECTION.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-E"
+          ]
+        },
+        {
+          "itemId": "REL-165",
+          "text": "candidate-gap/strategic-branch/closure-review/mainline-selection are expressed as layered state dimensions; none of the first three may remain the current repo readiness token.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-E"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-18",
+      "title": "Internal Product Operationalization",
+      "items": [
+        {
+          "itemId": "REL-166",
+          "text": "Stage 7/8/9 surfaces must distinguish transient_preview_context from persisted_operational_context, and only persisted loops may expose work_item, assignment lifecycle, pending actions, last action, and action history.",
+          "blocking": true,
+          "sourceRefs": [
+            "D4-R-073-C",
+            "D5-R-065"
+          ]
+        },
+        {
+          "itemId": "REL-167",
+          "text": "Stage 7/8/9 operator action routes only update repository-backed work item and action history; they must not re-judge saleability, governance, capability mode, taxonomy, or release gate conclusions, and must consume review_action_catalog/button_flow_catalog semantics.",
+          "blocking": true,
+          "sourceRefs": [
+            "D4-R-073-C",
+            "D11-R-053-F"
+          ]
+        },
+        {
+          "itemId": "REL-168",
+          "text": "Stage 8/9 writeback draft progression, review, denial, hold, return, and completion states are persisted and replayable through internal-only operator loops.",
+          "blocking": true,
+          "sourceRefs": [
+            "D5-R-065",
+            "D11-R-053-F"
+          ]
+        },
+        {
+          "itemId": "REL-169",
+          "text": "Repository-backed stage7/stage8/stage9 work item queues use durable local persistence, survive default-session reopen, and remain free of any second decision system.",
+          "blocking": true,
+          "sourceRefs": [
+            "D4-R-073-C",
+            "D11-R-053-F"
+          ]
+        },
+        {
+          "itemId": "REL-171",
+          "text": "Operator queue assignment must expose formal assignment lifecycle states (unassigned/assigned/in_review/returned/completed/denied) and a work-item key that does not collapse concurrent stage items by project alone.",
+          "blocking": true,
+          "sourceRefs": [
+            "D5-R-065",
+            "D11-R-053-F"
+          ]
+        },
+        {
+          "itemId": "REL-172",
+          "text": "Operator runtime must return structured WORKITEM-404-NOT_FOUND, ACTION-409-NOT_PENDING, ACTION-409-AUDIT_REQUIRED, and ACTION-409-APPROVAL_REQUIRED envelopes instead of ValueError, synthetic audit backfill, or synthetic approval backfill.",
+          "blocking": true,
+          "sourceRefs": [
+            "D4-R-073-C",
+            "D11-R-053-F"
+          ]
+        },
+        {
+          "itemId": "REL-170",
+          "text": "Internal product operationalization keeps external software release and Stage 8/9 live execution blocked-by-default with no activation-prep or external unlock side effects.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-B",
+            "D11-R-053-F"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-19",
+      "title": "LeadPack Candidate Activation Prep",
+      "items": [
+        {
+          "itemId": "REL-173",
+          "text": "Machine-readable leadpack activation prep evidence pack exists and declares evidence_pack_status, required_evidence_items, evidence_item_sources, evidence_item_freshness, replay/approval/audit/boundary requirements, denial conditions and remaining blockers.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-C",
+            "D13-R-074-A"
+          ]
+        },
+        {
+          "itemId": "REL-174",
+          "text": "Leadpack activation prep runbook formalizes deny, hold, return for revision, rollback/cancel prep, stale or missing evidence, missing approval or audit, and boundary violation paths.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-C",
+            "D13-R-074-A"
+          ]
+        },
+        {
+          "itemId": "REL-175",
+          "text": "Export simulation replay is attached as a formal activation-prep artifact with replay status, boundary verdicts, masking/projection checks, missing approval or audit refs and trace bundle references.",
+          "blocking": true,
+          "sourceRefs": [
+            "D5-R-064-A",
+            "D12-R-041-C"
+          ]
+        },
+        {
+          "itemId": "REL-176",
+          "text": "Leadpack activation prep signoff packet exists, lists all mandatory owner roles, allows draft packet only, and explicitly states draft signoff is not activation-ready.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-C",
+            "D13-R-074-A"
+          ]
+        },
+        {
+          "itemId": "REL-177",
+          "text": "Candidate-specific review gate and transition matrix distinguish candidate gap, activation prep in progress, activation prep ready for review, held and denied, without claiming activation-ready or external-ready.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-C",
+            "D13-R-074-A"
+          ]
+        },
+        {
+          "itemId": "REL-178",
+          "text": "Leadpack activation prep APIs and UI surfaces remain internal-only, candidate-only and projection-only; review requests must fail formally when prep evidence, replay, signoff packet or boundary checks are incomplete.",
+          "blocking": true,
+          "sourceRefs": [
+            "D5-R-064-A",
+            "D12-R-041-C"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-20",
+      "title": "LeadPack Activation Design / Implementation Prep",
+      "items": [
+        {
+          "itemId": "REL-179",
+          "text": "Leadpack activation design / implementation prep matrix exists and keeps scope design-prep only, with actual activation, external delivery, external software release, live execution and direct object export disabled.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-D",
+            "D13-R-074-B"
+          ]
+        },
+        {
+          "itemId": "REL-180",
+          "text": "Owner signoff execution states are actual state-backed, distinguish declared/requested/approved/denied/held/expired/withdrawn, require all mandatory owners, and map missing or denied owners to HOLD or NO-GO.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-D",
+            "D13-R-074-B"
+          ]
+        },
+        {
+          "itemId": "REL-181",
+          "text": "Approval chain, review gate, audit refs and owner signoff prerequisites are machine-readable separate sources; review gates must not appear as approval-chain items.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-D",
+            "D7-R-064-B"
+          ]
+        },
+        {
+          "itemId": "REL-182",
+          "text": "Activation prep, GO/NO-GO/HOLD decision, activation design prep and implementation decision states are formally separated without changing canonical repo readiness.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-D",
+            "D13-R-074-B"
+          ]
+        },
+        {
+          "itemId": "REL-183",
+          "text": "Activation-specific cancel, rollback and emergency-off design controls exist with trigger conditions, owner authority and negative states.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-D",
+            "D7-R-064-B"
+          ]
+        },
+        {
+          "itemId": "REL-184",
+          "text": "Implementation-prep readiness gate requires release checks, regression suites, actual owner signoff states, approval chains, review gates and audit refs; missing approval/audit/review/signoff sources must HOLD before any implementation decision.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-D",
+            "D13-R-074-B"
+          ]
+        },
+        {
+          "itemId": "REL-185",
+          "text": "Implementation decision readiness packet is machine-readable and review-only, summarizes owner signoff, approval chain, review gate, audit refs and merged HOLD sources, and explicitly keeps implementation_decision_ready=false while blockers remain.",
+          "blocking": true,
+          "sourceRefs": [
+            "D12-R-041-E",
+            "D13-R-074-C"
+          ]
+        },
+        {
+          "itemId": "REL-186",
+          "text": "Formal sink quantitative fields exist in D2, concrete schemas, schema_catalog, H-06/H-07 optional payload fields, semantic alignment checks, and runtime projection/consumption traces without changing release/capability/vendor/provider semantics.",
+          "blocking": true,
+          "sourceRefs": [
+            "D2-R-092-A",
+            "D8-R-090",
+            "D11-R-053-O"
+          ]
+        }
+      ]
+    }
+  ]
+}

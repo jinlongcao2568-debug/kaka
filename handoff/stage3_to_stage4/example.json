@@ -1,0 +1,28 @@
+{
+  "handoff_id": "H-03-STAGE3-TO-STAGE4",
+  "example_id": "EX-H-03-STAGE3-TO-STAGE4-MIN",
+  "payload": {
+    "project_id": "PRJ-001",
+    "project_root_id": "ROOT-001",
+    "notice_version_id": "NV-001",
+    "candidate_order_mode": "ORDERED",
+    "award_determination_mode": "LOWEST_PRICE",
+    "public_chain_status": "COMPLETE",
+    "lineage_status": "NORMALIZED",
+    "conflict_state": "CONSISTENT",
+    "fixation_bundle_id": "FIX-001",
+    "source_registry_id": "SRC-REG-PROC-NATIONAL-HTML",
+    "route_policy_id": "ROUTE-PROC-NOTICE-001",
+    "route_decision_state": "ALLOW",
+    "route_review_reasons": [],
+    "winning_version_resolution_rule_id": "VERSION-PROC-NOTICE-001",
+    "clock_resolution_rule_id": "CLOCK-DEFAULT",
+    "version_conflict_state": "CONSISTENT",
+    "clock_conflict_state": "CONSISTENT",
+    "stage3_truth_layer_ref_optional": "ST3TL-PRJ-001",
+    "field_lineage_collection_ref_optional": "LINEAGE-PRJ-001",
+    "bidder_candidate_collection_ref_optional": "CSET-PRJ-001",
+    "candidate_collection_ref_optional": "CSET-PRJ-001",
+    "stage3_review_path_ref_optional": "STAGE3_READY_FOR_STAGE4"
+  }
+}

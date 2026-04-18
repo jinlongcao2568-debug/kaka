@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "sales_lead",
+  "type": "object",
+  "description": "Schema skeleton for sales_lead.",
+  "source_refs": [
+    "D2-R-017"
+  ],
+  "enum_refs": [
+    "lead_status"
+  ],
+  "properties": {
+    "lead_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "lead_reason_summary": {
+      "type": "string"
+    },
+    "lead_score": {
+      "type": "number"
+    },
+    "lead_status": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "lead_id",
+    "project_id",
+    "lead_reason_summary",
+    "lead_score",
+    "lead_status",
+    "generated_at"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,199 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "contact_target",
+  "type": "object",
+  "description": "Schema skeleton for contact_target.",
+  "source_refs": [
+    "D2-R-017",
+    "D2-R-093",
+    "D9-R-065",
+    "D6-R",
+    "D7-R"
+  ],
+  "enum_refs": [
+    "actor_role_cluster",
+    "source_family",
+    "channel_family",
+    "contact_target_status",
+    "contact_validity_status",
+    "contact_legal_basis",
+    "reasonable_expectation_status",
+    "channel_policy_status",
+    "frequency_policy_state",
+    "opt_out_state",
+    "quiet_hours_policy_state",
+    "vendor_type",
+    "vendor_role"
+  ],
+  "properties": {
+    "contact_target_id": {
+      "type": "string"
+    },
+    "opportunity_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "saleability_status": {
+      "type": "string"
+    },
+    "org_name": {
+      "type": "string"
+    },
+    "org_type": {
+      "type": "string"
+    },
+    "person_name_optional": {
+      "type": "string"
+    },
+    "role_cluster": {
+      "type": "string"
+    },
+    "public_contact_source": {
+      "type": "string"
+    },
+    "source_family": {
+      "type": "string"
+    },
+    "source_auditability_state": {
+      "type": "string"
+    },
+    "source_vendor_id_optional": {
+      "type": "string"
+    },
+    "source_vendor_type_optional": {
+      "type": "string"
+    },
+    "source_vendor_role": {
+      "type": "string"
+    },
+    "contact_channel": {
+      "type": "string"
+    },
+    "channel_family": {
+      "type": "string"
+    },
+    "contact_target_status": {
+      "type": "string"
+    },
+    "contact_validity_status": {
+      "type": "string"
+    },
+    "contact_legal_basis": {
+      "type": "string"
+    },
+    "reasonable_expectation_status": {
+      "type": "string"
+    },
+    "channel_policy_status": {
+      "type": "string"
+    },
+    "frequency_policy_state": {
+      "type": "string"
+    },
+    "opt_out_state": {
+      "type": "string"
+    },
+    "quiet_hours_policy_state": {
+      "type": "string"
+    },
+    "auto_contact_allowed": {
+      "type": "boolean"
+    },
+    "source_audit_ref": {
+      "type": "string"
+    },
+    "query_trace_id": {
+      "type": "string"
+    },
+    "vendor_response_ref_optional": {
+      "type": "string"
+    },
+    "fallback_vendor_id_optional": {
+      "type": "string"
+    },
+    "requires_manual_review": {
+      "type": "boolean"
+    },
+    "primary_contact_flag": {
+      "type": "boolean"
+    },
+    "contact_priority_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "contact_priority_reason_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "contact_candidate_rank": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "contact_selection_reason": {
+      "type": "string"
+    },
+    "contact_conflict_flag": {
+      "type": "boolean"
+    },
+    "contact_conflict_reason": {
+      "type": "string"
+    },
+    "blocking_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "last_evaluated_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "contact_target_id",
+    "opportunity_id",
+    "project_id",
+    "saleability_status",
+    "org_name",
+    "org_type",
+    "person_name_optional",
+    "role_cluster",
+    "public_contact_source",
+    "source_family",
+    "source_auditability_state",
+    "source_vendor_id_optional",
+    "source_vendor_type_optional",
+    "source_vendor_role",
+    "contact_channel",
+    "channel_family",
+    "contact_target_status",
+    "contact_validity_status",
+    "contact_legal_basis",
+    "reasonable_expectation_status",
+    "channel_policy_status",
+    "frequency_policy_state",
+    "opt_out_state",
+    "quiet_hours_policy_state",
+    "auto_contact_allowed",
+    "source_audit_ref",
+    "query_trace_id",
+    "vendor_response_ref_optional",
+    "fallback_vendor_id_optional",
+    "requires_manual_review",
+    "primary_contact_flag",
+    "contact_priority_score",
+    "contact_priority_reason_tags",
+    "contact_candidate_rank",
+    "contact_selection_reason",
+    "contact_conflict_flag",
+    "contact_conflict_reason",
+    "blocking_reasons",
+    "last_evaluated_at"
+  ],
+  "additionalProperties": false
+}

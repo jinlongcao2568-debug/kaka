@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "evidence_gate_decision",
+  "type": "object",
+  "description": "Schema skeleton for evidence_gate_decision.",
+  "source_refs": [
+    "D2-R-017",
+    "D3-R-022"
+  ],
+  "enum_refs": [
+    "gate_status",
+    "external_use_grade"
+  ],
+  "properties": {
+    "gate_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "gate_scope": {
+      "type": "string"
+    },
+    "evidence_gate_status": {
+      "type": "string"
+    },
+    "minimum_external_use_grade": {
+      "type": "string"
+    },
+    "blocking_evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "manual_confirmation_required": {
+      "type": "boolean"
+    },
+    "visibility_reason_summary": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "gate_id",
+    "project_id",
+    "gate_scope",
+    "evidence_gate_status",
+    "minimum_external_use_grade",
+    "blocking_evidence_refs",
+    "manual_confirmation_required",
+    "visibility_reason_summary"
+  ],
+  "additionalProperties": false
+}

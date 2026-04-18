@@ -1,0 +1,128 @@
+{
+  "catalogVersion": "1.0.0",
+  "ownerDoc": "D5",
+  "templates": [
+    {
+      "templateId": "internal_review_brief",
+      "title": "内部研判简报",
+      "surfaceState": "ACTIVE_BATCH2",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "primaryObjects": [
+        "project_fact",
+        "rule_hit",
+        "evidence",
+        "review_queue_profile"
+      ],
+      "approvalChainRef": "internal_review_release"
+    },
+    {
+      "templateId": "leadpack_report",
+      "title": "线索包交付报告",
+      "surfaceState": "ACTIVE_BATCH2",
+      "minimumReleaseLevel": "LEADPACK_DELIVERABLE",
+      "primaryObjects": [
+        "project_fact",
+        "legal_action_recommendation",
+        "report_record"
+      ],
+      "approvalChainRef": "client_report_release"
+    },
+    {
+      "templateId": "leadpack_external_delivery_candidate_simulation",
+      "title": "LeadPack external delivery 候选包仿真",
+      "surfaceState": "INTERNAL_PREVIEW",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "primaryObjects": [
+        "saleable_opportunity",
+        "offer_recommendation",
+        "buyer_fit",
+        "contact_target",
+        "touch_record",
+        "payment_record",
+        "delivery_record",
+        "opportunity_outcome_event"
+      ],
+      "approvalChainRef": "internal_review_release",
+      "internalOnly": true,
+      "candidateOnly": true,
+      "draftOnly": false,
+      "directObjectExport": "BLOCK",
+      "repositoryBackedProjection": true,
+      "externalDeliveryEnabled": false
+    },
+    {
+      "templateId": "demo_preview_summary",
+      "title": "演示 / 预览摘要",
+      "surfaceState": "ACTIVE_BATCH2",
+      "minimumReleaseLevel": "DEV_ALLOWED",
+      "primaryObjects": [
+        "project_fact"
+      ],
+      "approvalChainRef": "internal_review_release"
+    },
+    {
+      "templateId": "stage7_internal_preview_summary",
+      "title": "Stage 7 内部预览摘要",
+      "surfaceState": "INTERNAL_PREVIEW",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "primaryObjects": [
+        "saleable_opportunity",
+        "offer_recommendation",
+        "buyer_fit",
+        "legal_action_actor_profile",
+        "procurement_decision_actor_profile"
+      ],
+      "approvalChainRef": "internal_review_release",
+      "internalOnly": true,
+      "draftOnly": false,
+      "directObjectExport": "INTERNAL_PREVIEW_ONLY",
+      "repositoryBackedProjection": true
+    },
+    {
+      "templateId": "stage8_governed_preview_summary",
+      "title": "Stage 8 governed 预览摘要",
+      "surfaceState": "INTERNAL_PREVIEW",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "primaryObjects": [
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
+      ],
+      "approvalChainRef": "internal_review_release",
+      "internalOnly": true,
+      "draftOnly": true,
+      "directObjectExport": "INTERNAL_PREVIEW_ONLY",
+      "repositoryBackedProjection": true
+    },
+    {
+      "templateId": "stage9_internal_governed_preview_summary",
+      "title": "Stage 9 governed 预览与草案摘要",
+      "surfaceState": "INTERNAL_PREVIEW",
+      "minimumReleaseLevel": "INTERNAL_OPERABLE",
+      "primaryObjects": [
+        "order_record",
+        "payment_record",
+        "delivery_record",
+        "opportunity_outcome_event",
+        "governance_feedback_event"
+      ],
+      "approvalChainRef": "internal_review_release",
+      "internalOnly": true,
+      "draftOnly": true,
+      "directObjectExport": "BLOCK",
+      "repositoryBackedProjection": true
+    },
+    {
+      "templateId": "external_action_assist_pack",
+      "title": "线索包动作辅助包",
+      "surfaceState": "ACTIVE_BATCH3",
+      "minimumReleaseLevel": "LEADPACK_DELIVERABLE",
+      "primaryObjects": [
+        "project_fact",
+        "legal_action_recommendation",
+        "report_record"
+      ],
+      "approvalChainRef": "external_action_release"
+    }
+  ]
+}
