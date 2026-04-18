@@ -351,6 +351,11 @@ class TestStage12Extractors(unittest.TestCase):
         conflicted["default_route"] = "DETAIL_DIRECT"
         conflicted["source_registry_id"] = "SRC-REG-PROC-CITY-PDF"
         conflicted["carrier_type"] = "IMAGE_ATTACHMENT"
+        conflicted["origin_carrier_type"] = "IMAGE_ATTACHMENT"
+        conflicted["winning_version_resolution_rule_id"] = "VERSION-REGISTER-ONLY-001"
+        conflicted["clock_resolution_rule_id"] = "CLOCK-REGISTER-ONLY-001"
+        conflicted["current_action_start_at_optional"] = "2099-01-01T00:00:00Z"
+        conflicted["current_action_deadline_at_optional"] = "2099-01-31T00:00:00Z"
         conflicted_bundle = type(stage1)(
             stage=stage1.stage,
             records=dict(stage1.records),
@@ -364,8 +369,16 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(stage2.record("public_chain").get("default_route"), "LIST_TO_DETAIL")
         self.assertEqual(stage2.handoff.get("source_registry_id"), "SRC-REG-PROC-NATIONAL-HTML")
         self.assertEqual(stage2.record("public_chain").get("carrier_type"), "HTML_PAGE")
+        self.assertEqual(stage2.record("public_chain").get("origin_carrier_type"), "HTML_PAGE")
+        self.assertEqual(stage2.handoff.get("origin_carrier_type"), "HTML_PAGE")
         self.assertEqual(stage2.record("public_chain").get("route_policy_id"), "ROUTE-PROC-NOTICE-001")
         self.assertEqual(stage2.record("public_chain").get("fallback_route"), "DETAIL_DIRECT")
+        self.assertEqual(
+            stage2.record("notice_version_chain").get("winning_version_resolution_rule_id"),
+            "VERSION-PROC-NOTICE-001",
+        )
+        self.assertEqual(stage2.handoff.get("winning_version_resolution_rule_id"), "VERSION-PROC-NOTICE-001")
+        self.assertEqual(stage2.handoff.get("clock_precedence_rule_id"), "CLOCK-PROC-NOTICE-001")
         self.assertEqual(stage2.record("clock_chain_profile").get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
         self.assertEqual(
             stage2.record("clock_chain_profile").get("current_action_start_at_optional"),
@@ -375,7 +388,66 @@ class TestStage12Extractors(unittest.TestCase):
             stage2.record("clock_chain_profile").get("current_action_deadline_at_optional"),
             "2026-04-12T23:59:59Z",
         )
+        self.assertEqual(stage2.handoff.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
+        self.assertEqual(
+            stage2.handoff.get("current_action_start_at_optional"),
+            "2026-04-01T00:00:00Z",
+        )
+        self.assertEqual(
+            stage2.handoff.get("current_action_deadline_at_optional"),
+            "2026-04-12T23:59:59Z",
+        )
         self.assertEqual(stage2.inputs["stage12_extractor_trace"]["stage2"]["default_route_source"], "h01_authority")
+        self.assertEqual(
+            stage2.inputs["stage12_extractor_trace"]["stage2"]["winning_version_resolution_rule_id_source"],
+            "source_registry",
+        )
+        self.assertEqual(
+            stage2.inputs["stage12_extractor_trace"]["stage2"]["clock_resolution_rule_id_source"],
+            "h01_authority",
+        )
+
+    def test_stage2_collection_state_runtime_mapping_prefers_h01_projection_over_conflicting_inputs(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "source_family": "OTHER_PUBLIC_SOURCE",
+                "platform_level": "ENTERPRISE_SITE",
+                "region_scope": "CITY",
+                "coverage_tier": "T2_LOCAL",
+                "carrier_type": "TEXT_SEGMENT",
+            }
+        )
+        stage1 = Stage1Service().run(payload)
+        conflicted = copy.deepcopy(stage1.inputs)
+        conflicted["baseline_collection_state"] = "ELIGIBLE"
+        conflicted["rollout_enabled"] = True
+        conflicted["backlog_reason_optional"] = None
+        conflicted["collection_state"] = "PARSED"
+        conflicted_bundle = type(stage1)(
+            stage=stage1.stage,
+            records=dict(stage1.records),
+            handoff=dict(stage1.handoff),
+            trace_rules=list(stage1.trace_rules),
+            inputs=conflicted,
+        )
+
+        extraction = extract_stage2(conflicted_bundle, Stage2Service().store, now=payload["now"])
+        stage2 = Stage2Service().run(conflicted_bundle)
+
+        self.assertEqual(extraction.baseline_collection_state, "DISCOVERED")
+        self.assertFalse(extraction.rollout_enabled)
+        self.assertEqual(
+            extraction.backlog_reason_optional,
+            "register_only_backlog_until_manual_review_lane",
+        )
+        self.assertEqual(extraction.collection_state, "REVIEW_REQUIRED")
+        self.assertEqual(stage2.record("public_chain").get("collection_state"), "REVIEW_REQUIRED")
+        self.assertEqual(stage2.handoff.get("collection_state"), "REVIEW_REQUIRED")
+        self.assertEqual(
+            stage2.inputs["stage12_extractor_trace"]["stage2"]["collection_state_source"],
+            "route_policy_runtime_map",
+        )
 
     def test_stage2_precedence_resolves_from_contracts_before_compatibility_default(self) -> None:
         payload = load_fixture("internal_chain_happy.json")

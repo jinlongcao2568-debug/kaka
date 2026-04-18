@@ -36,7 +36,10 @@
     "route_decision_state",
     "route_review_reasons",
     "winning_version_resolution_rule_id",
-    "clock_resolution_rule_id"
+    "clock_precedence_rule_id",
+    "clock_resolution_rule_id",
+    "current_action_start_at_optional",
+    "current_action_deadline_at_optional"
   ],
   "consumer_runtime_required_fields": [
     "project_id",

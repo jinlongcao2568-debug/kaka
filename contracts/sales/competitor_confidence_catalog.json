@@ -1,11 +1,49 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "catalogId": "competitor_confidence_catalog",
   "ownerDocs": [
+    "D2",
     "D3",
     "D8",
     "D11"
   ],
+  "stage6AuthoritativeOutputContract": {
+    "contractId": "STAGE6-COMPETITOR-GRADE-AUTHORITY-001",
+    "authoritativeProducerStage": "stage6_fact_review",
+    "authoritativeOwnerObject": "project_fact",
+    "authoritativeOutputPath": "project_fact.competitor_quality_grade",
+    "authoritativeHandoffPath": "H-06.competitor_quality_grade",
+    "policyRef": "COMP-CONFIDENCE-001",
+    "formalInputFields": [
+      "challenge_actionability_score",
+      "external_use_grade",
+      "focus_bidder_attackability_score",
+      "challenger_pain_score",
+      "execution_readiness_score",
+      "confidence_score_optional",
+      "confidence_band_optional"
+    ],
+    "supportingNonAuthoritativeFields": [
+      "project_fact.clue_summary",
+      "project_fact.risk_summary"
+    ],
+    "fallbackContract": {
+      "missingFormalInputsResult": "REVIEW_REQUIRED",
+      "cutoffResult": "CANDIDATE_ONLY",
+      "authoritativeFieldWritable": false,
+      "reviewCarrierOrder": [
+        "review_queue_profile",
+        "report_record",
+        "challenger_candidate_profile"
+      ]
+    },
+    "consumerConstraint": "stage7_must_not_recompute",
+    "forbiddenAuthoritativeSubstitutes": [
+      "DEFAULT_CLUE",
+      "DEFAULT_RISK",
+      "heuristic competitor_quality_grade"
+    ]
+  },
   "policies": [
     {
       "policy_id": "COMP-CONFIDENCE-001",
@@ -145,6 +183,8 @@
   "notes": [
     "Confidence scoring is deterministic and may only downgrade on insufficient evidence.",
     "Stage7 multi-competitor ranking must consume cutoff_policy and ranking_policy rather than service-local literals.",
-    "confidence_band uses existing enum confidence_band; quality grade aligns with competitor_quality_grade."
+    "confidence_band uses existing enum confidence_band; quality grade aligns with competitor_quality_grade.",
+    "competitor_quality_grade is authoritative only when the formal Stage6 inputs declared in stage6AuthoritativeOutputContract are present; missing inputs or cutoff must stay on review/candidate-only path.",
+    "DEFAULT_CLUE, DEFAULT_RISK, and heuristic competitor_quality_grade are forbidden as authoritative substitutes."
   ]
 }

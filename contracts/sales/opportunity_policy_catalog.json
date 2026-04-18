@@ -1,10 +1,101 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "catalogId": "opportunity_policy_catalog",
   "ownerDocs": [
+    "D2",
+    "D3",
     "D8",
-    "D10"
+    "D10",
+    "D11"
   ],
+  "stage6AuthoritativeInputContracts": {
+    "contractId": "STAGE6-D8-AUTHORITY-001",
+    "consumerObjects": [
+      "saleable_opportunity",
+      "sales_lead",
+      "offer_recommendation",
+      "buyer_fit",
+      "challenger_buyer_fit"
+    ],
+    "fieldContracts": [
+      {
+        "field": "sale_gate_status",
+        "authoritativeOwnerObject": "project_fact",
+        "authoritativePath": "project_fact.sale_gate_status",
+        "policyRef": "saleable_opportunity_generation_v1.requiredStates",
+        "missingInputDecision": "REVIEW_REQUIRED",
+        "reviewCarrierOrder": [
+          "review_queue_profile",
+          "report_record"
+        ]
+      },
+      {
+        "field": "competitor_quality_grade",
+        "authoritativeOwnerObject": "project_fact",
+        "authoritativePath": "project_fact.competitor_quality_grade",
+        "policyRef": "competitor_confidence_catalog#STAGE6-COMPETITOR-GRADE-AUTHORITY-001",
+        "missingInputDecision": "REVIEW_REQUIRED",
+        "reviewCarrierOrder": [
+          "review_queue_profile",
+          "report_record",
+          "challenger_candidate_profile"
+        ]
+      },
+      {
+        "field": "action_family",
+        "authoritativeOwnerObject": "legal_action_recommendation",
+        "authoritativePath": "legal_action_recommendation.action_family",
+        "policyRef": "stage6_legal_action_recommendation",
+        "missingInputDecision": "REVIEW_REQUIRED",
+        "reviewCarrierOrder": [
+          "review_queue_profile",
+          "report_record"
+        ]
+      },
+      {
+        "field": "window_status",
+        "authoritativeOwnerObject": "legal_action_recommendation",
+        "authoritativePath": "legal_action_recommendation.window_status",
+        "policyRef": "window_value_policy_catalog#WINDOW-STATUS-001",
+        "missingInputDecision": "REVIEW_REQUIRED",
+        "reviewCarrierOrder": [
+          "review_queue_profile",
+          "report_record"
+        ]
+      },
+      {
+        "field": "report_status",
+        "authoritativeOwnerObject": "report_record",
+        "authoritativePath": "report_record.report_status",
+        "policyRef": "STATE-601~604",
+        "missingInputDecision": "REVIEW_REQUIRED",
+        "reviewCarrierOrder": [
+          "report_record"
+        ]
+      },
+      {
+        "field": "review_task_status",
+        "authoritativeOwnerObject": "report_record",
+        "authoritativePath": "report_record.review_task_status",
+        "policyRef": "STATE-601~604",
+        "missingInputDecision": "REVIEW_REQUIRED",
+        "reviewCarrierOrder": [
+          "report_record"
+        ]
+      }
+    ],
+    "supportingNonAuthoritativeFields": [
+      "project_fact.clue_summary",
+      "project_fact.risk_summary"
+    ],
+    "consumerConstraint": "stage7_stage8_must_not_recompute",
+    "forbiddenAuthoritativeSubstitutes": [
+      "DEFAULT_CLUE",
+      "DEFAULT_RISK",
+      "heuristic competitor_quality_grade",
+      "heuristic action_family"
+    ]
+  },
   "policies": [
     {
       "policyId": "saleable_opportunity_generation_v1",
@@ -332,6 +423,8 @@
   "notes": [
     "Expected bands are internal sales orchestration fields and do not create an external delivery promise.",
     "why_recommended must be generated from formal rule outputs; free-text override is forbidden in this batch.",
-    "upstreamFeedbackLoopContracts only describes projected-only and advisory writeback semantics for Stage9 feedback loops; it does not authorize direct persistence into Stage6/7 objects."
+    "upstreamFeedbackLoopContracts only describes projected-only and advisory writeback semantics for Stage9 feedback loops; it does not authorize direct persistence into Stage6/7 objects.",
+    "Stage6 authoritative inputs consumed by D8 objects must come from the declared stage6AuthoritativeInputContracts; missing inputs force review-only handling rather than local default or heuristic reconstruction.",
+    "DEFAULT_CLUE, DEFAULT_RISK, heuristic competitor_quality_grade, and heuristic action_family are forbidden as authoritative substitutes."
   ]
 }

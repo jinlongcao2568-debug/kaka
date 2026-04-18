@@ -52,6 +52,7 @@ class Stage2Extraction:
     version_chain_strategy: str
     winning_version_resolution_rule_id: str
     clock_resolution_rule_id: str
+    clock_resolution_rule_source: str
     current_action_start_at_optional: str | None
     current_action_deadline_at_optional: str | None
     source_url: str
@@ -71,6 +72,18 @@ def _resolve_precedence_rule(
             continue
         return text, source_name
     return compatibility_default, "compatibility_default"
+
+
+def _resolve_authoritative_text(
+    *candidates: tuple[str, Any],
+    fallback: str,
+    default_source: str,
+) -> tuple[str, str]:
+    for source_name, candidate in candidates:
+        text = str(candidate or "").strip()
+        if text:
+            return text, source_name
+    return fallback, default_source
 
 
 def _collection_state(
@@ -181,7 +194,7 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
     fallback_route = ensure_enum_or_fallback(
         store,
         "route_type",
-        handoff.get("fallback_route"),
+        handoff.get("fallback_route") or execution_context.get("fallback_route"),
         fallback=default_route,
     )
     source_entry = store.resolve_source_entry(
@@ -200,23 +213,31 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
     baseline_collection_state = ensure_enum_or_fallback(
         store,
         "collection_state",
-        str(source_entry.get("collection_state", "")) or None,
+        handoff.get("baseline_collection_state") or str(source_entry.get("collection_state", "")) or None,
         fallback="DISCOVERED",
     )
-    rollout_enabled = bool(source_entry.get("rollout_enabled", True))
-    backlog_reason_raw = source_entry.get("backlog_reason_optional")
+    rollout_enabled_raw = handoff.get("rollout_enabled")
+    rollout_enabled = bool(rollout_enabled_raw) if rollout_enabled_raw is not None else bool(source_entry.get("rollout_enabled", True))
+    backlog_reason_raw = handoff.get("backlog_reason_optional")
+    if backlog_reason_raw is None and "backlog_reason_optional" not in handoff:
+        backlog_reason_raw = source_entry.get("backlog_reason_optional")
     backlog_reason_optional = str(backlog_reason_raw) if backlog_reason_raw is not None else None
     version_precedence_rule_id, version_precedence_source = _resolve_precedence_rule(
-        ("payload", inputs.get("winning_version_resolution_rule_id")),
         ("source_registry", source_entry.get("winning_version_resolution_rule_id")),
         ("route_policy", route_policy.get("version_chain_relation", {}).get("winning_version_resolution_rule_id")),
         compatibility_default="VERSION-DEFAULT",
     )
     clock_precedence_rule_id, clock_precedence_source = _resolve_precedence_rule(
-        ("clock_strategy_profile", clock_strategy_profile.get("clock_resolution_rule_id")),
         ("source_registry", source_entry.get("clock_precedence_rule_id")),
         ("route_policy", route_policy.get("clock_chain_relation", {}).get("clock_precedence_rule_id")),
         compatibility_default="CLOCK-PREC-DEFAULT",
+    )
+    clock_resolution_rule_id, clock_resolution_rule_source = _resolve_authoritative_text(
+        ("h01_authority", handoff.get("clock_resolution_rule_id")),
+        ("clock_strategy_profile", clock_strategy_profile.get("clock_resolution_rule_id")),
+        ("route_policy", route_policy.get("clock_chain_relation", {}).get("clock_resolution_rule_id")),
+        fallback="CLOCK-DEFAULT",
+        default_source="compatibility_default",
     )
 
     collection_state, clock_conflict_state = _collection_state(
@@ -249,8 +270,18 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
     origin_carrier_type = ensure_enum_or_fallback(
         store,
         "carrier_type",
-        inputs.get("origin_carrier_type"),
+        handoff.get("carrier_type") or execution_context.get("carrier_type") or inputs.get("origin_carrier_type"),
         fallback=str(carrier_authority or source_entry.get("carrier_type")),
+    )
+    current_action_start_at_optional = (
+        handoff.get("current_action_start_at_optional")
+        if "current_action_start_at_optional" in handoff
+        else inputs.get("current_action_start_at_optional")
+    )
+    current_action_deadline_at_optional = (
+        handoff.get("current_action_deadline_at_optional")
+        if "current_action_deadline_at_optional" in handoff
+        else inputs.get("current_action_deadline_at_optional")
     )
 
     return Stage2Extraction(
@@ -300,9 +331,10 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
         replacement_edges=list(inputs.get("replacement_edges", [])),
         version_chain_strategy=str(source_entry.get("version_chain_strategy", route_policy.get("version_chain_relation", {}).get("strategy", "LATEST_ONLY"))),
         winning_version_resolution_rule_id=version_precedence_rule_id,
-        clock_resolution_rule_id=str(inputs.get("clock_resolution_rule_id", route_policy.get("clock_chain_relation", {}).get("clock_resolution_rule_id", "CLOCK-DEFAULT"))),
-        current_action_start_at_optional=inputs.get("current_action_start_at_optional"),
-        current_action_deadline_at_optional=inputs.get("current_action_deadline_at_optional"),
+        clock_resolution_rule_id=clock_resolution_rule_id,
+        clock_resolution_rule_source=clock_resolution_rule_source,
+        current_action_start_at_optional=current_action_start_at_optional,
+        current_action_deadline_at_optional=current_action_deadline_at_optional,
         source_url=str(inputs.get("announcement_url", "https://example.invalid/notice")),
         content_hash=str(inputs.get("content_hash", f"HASH-{project_id}")),
         storage_path=str(inputs.get("storage_path", f"capture/{project_id}.json")),

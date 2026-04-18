@@ -158,12 +158,17 @@ class Stage2Service:
             "route_decision_state": extracted.route_decision_state,
             "route_review_reasons": extracted.route_review_reasons,
             "winning_version_resolution_rule_id": extracted.winning_version_resolution_rule_id,
+            "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
             "clock_resolution_rule_id": extracted.clock_resolution_rule_id,
             "project_rooting_policy": task_execution_context.get("project_rooting_policy"),
             "window_priority_policy": clock_strategy_profile.get("window_priority_policy"),
             "identity_resolution_rule_id": project_identity_strategy.get("identity_resolution_rule_id"),
             "collection_state": collection_state,
         }
+        if extracted.current_action_start_at_optional:
+            handoff["current_action_start_at_optional"] = extracted.current_action_start_at_optional
+        if extracted.current_action_deadline_at_optional:
+            handoff["current_action_deadline_at_optional"] = extracted.current_action_deadline_at_optional
 
         inputs_out = dict(inputs)
         inputs_out["fixation_bundle_id"] = fixation_bundle.get("fixation_bundle_id")
@@ -196,12 +201,8 @@ class Stage2Service:
                 "route_block_signals": extracted.route_block_signals,
                 "default_route_source": "h01_authority",
                 "collection_state_source": "route_policy_runtime_map",
-                "clock_resolution_rule_id_source": "h01_or_route_policy",
-                "winning_version_resolution_rule_id_source": (
-                    "payload"
-                    if inputs.get("winning_version_resolution_rule_id")
-                    else extracted.version_precedence_source
-                ),
+                "clock_resolution_rule_id_source": extracted.clock_resolution_rule_source,
+                "winning_version_resolution_rule_id_source": extracted.version_precedence_source,
                 "clock_precedence_rule_id_source": extracted.clock_precedence_source,
             },
         }
