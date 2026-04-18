@@ -122,7 +122,16 @@
       "consumerMustNotRecompute": [
         "sale_gate_status",
         "competitor_quality_grade",
-        "window_status"
+        "window_status",
+        "report_status",
+        "review_task_status",
+        "action_family",
+        "challenger_profile_id",
+        "focus_bidder_id",
+        "challenger_bidder_id",
+        "challenge_actionability_score",
+        "execution_readiness_score",
+        "buyer_type_hint"
       ],
       "readinessGate": "formal_fact_ready",
       "failureDisposition": "RESTRICT"
@@ -134,9 +143,20 @@
       "criticalObjects": [
         "saleable_opportunity"
       ],
+      "optionalCarrierObjects": [
+        "multi_competitor_collection"
+      ],
+      "formalCarrierRefs": [
+        "multi_competitor_collection_id_optional",
+        "winning_competitor_candidate_id_optional",
+        "winning_challenger_profile_id_optional"
+      ],
       "consumerMustNotRecompute": [
         "saleability_status",
-        "opportunity_id"
+        "opportunity_id",
+        "multi_competitor_collection_id_optional",
+        "winning_competitor_candidate_id_optional",
+        "winning_challenger_profile_id_optional"
       ],
       "readinessGate": "commercial_object_ready",
       "failureDisposition": "BLOCK"

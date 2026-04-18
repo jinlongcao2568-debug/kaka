@@ -8,16 +8,19 @@ from api.routes.stage7 import list_saleable_opportunities, refresh_saleable_oppo
 from api.routes.stage8 import create_touch_record, list_contact_targets
 from api.routes.stage9 import create_governance_feedback_event, list_orders
 from storage import reset_default_storage
+from storage.repository_boundary import hydrate_stage_bundle
 from storage.repositories import (
     BuyerFitRepository,
     ContactTargetRepository,
     DeliveryRecordRepository,
     GovernanceFeedbackEventRepository,
+    LegalActionActorProfileRepository,
     OfferRecommendationRepository,
     OpportunityOutcomeEventRepository,
     OrderRecordRepository,
     OutreachPlanRepository,
     PaymentRecordRepository,
+    ProcurementDecisionActorProfileRepository,
     SaleableOpportunityRepository,
     TouchRecordRepository,
 )
@@ -69,6 +72,35 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["decision_states"]["policy_decision_state"],
             stage7.inputs.get("policy_decision_state"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["object_refs"]["legal_action_actor_id"],
+            stage7.record("legal_action_actor_profile").get("actor_id"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["object_refs"]["procurement_decision_actor_id"],
+            stage7.record("procurement_decision_actor_profile").get("actor_id"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["object_refs"]["multi_competitor_collection_id_optional"],
+            stage7.record("multi_competitor_collection").get("multi_competitor_collection_id"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["object_refs"]["winning_competitor_candidate_id_optional"],
+            stage7.record("multi_competitor_collection").get("winning_candidate_id"),
+        )
+        hydrated = hydrate_stage_bundle(
+            "stage7",
+            {"opportunity_id": opportunity.get("opportunity_id")},
+        )
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.record("multi_competitor_collection").get("multi_competitor_collection_id"),
+            stage7.record("multi_competitor_collection").get("multi_competitor_collection_id"),
+        )
+        self.assertEqual(
+            hydrated.inputs["offer_recommendation_id"],
+            stage7.record("offer_recommendation").get("offer_recommendation_id"),
         )
 
     def test_stage8_repository_boundary_keeps_governed_writeback_state(self) -> None:
@@ -193,15 +225,29 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
     def test_stage7_repository_readback_prefers_persisted_formal_refs_over_project_lookup(self) -> None:
         stage7 = self.result["stage7"]
         original_offer = dict(stage7.record("offer_recommendation").data)
+        original_legal_actor = dict(stage7.record("legal_action_actor_profile").data)
+        original_procurement_actor = dict(stage7.record("procurement_decision_actor_profile").data)
         conflicting_offer = dict(original_offer)
         conflicting_offer["offer_recommendation_id"] = "OFFER-CONFLICT-PROJ-001"
         conflicting_offer["offer_recommendation_state"] = "REVIEW_REQUIRED"
+        conflicting_legal_actor = dict(original_legal_actor)
+        conflicting_legal_actor["actor_id"] = "ACTOR-CONFLICT-LEGAL-PROJ-001"
+        conflicting_legal_actor["actionability_state"] = "BLOCKED"
+        conflicting_procurement_actor = dict(original_procurement_actor)
+        conflicting_procurement_actor["actor_id"] = "ACTOR-CONFLICT-PROC-PROJ-001"
+        conflicting_procurement_actor["reachable_state"] = "UNREACHABLE"
 
-        OfferRecommendationRepository().save(conflicting_offer)
         refresh_saleable_opportunity(stage7)
+        OfferRecommendationRepository().save(conflicting_offer)
+        LegalActionActorProfileRepository().save(conflicting_legal_actor)
+        ProcurementDecisionActorProfileRepository().save(conflicting_procurement_actor)
 
         replay = list_saleable_opportunities(
             {"opportunity_id": stage7.record("saleable_opportunity").get("opportunity_id")}
+        )
+        hydrated = hydrate_stage_bundle(
+            "stage7",
+            {"opportunity_id": stage7.record("saleable_opportunity").get("opportunity_id")},
         )
         self.assertEqual(
             replay["formal_object_refs"]["offer_recommendation"]["object_id"],
@@ -210,6 +256,15 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["preview_projection"]["offer_summary"]["offer_recommendation_state"],
             original_offer["offer_recommendation_state"],
+        )
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.record("legal_action_actor_profile").get("actor_id"),
+            original_legal_actor["actor_id"],
+        )
+        self.assertEqual(
+            hydrated.record("procurement_decision_actor_profile").get("actor_id"),
+            original_procurement_actor["actor_id"],
         )
 
     def test_stage9_repository_readback_prefers_persisted_formal_refs_over_loose_lookup(self) -> None:

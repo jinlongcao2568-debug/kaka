@@ -1,10 +1,26 @@
 {
-  "catalogVersion": "1.0.0",
+  "catalogVersion": "1.0.1",
   "catalogId": "stage8_resolution_policy",
   "ownerDocs": [
+    "D2",
     "D9",
     "D11"
   ],
+  "authorityBoundary": {
+    "formalCarrierObjects": [
+      "contact_candidate_collection",
+      "contact_selection_trace"
+    ],
+    "authorizedConsumerObjects": [
+      "contact_target",
+      "outreach_plan",
+      "touch_record"
+    ],
+    "forbiddenDirectInputs": [
+      "contact_candidate_pool"
+    ],
+    "blockedByDefault": true
+  },
   "candidateCollection": {
     "policyId": "contact_candidate_pool_equivalent_v1",
     "collectionMode": "CONTACT_TARGET_EQUIVALENT_COLLECTION",
@@ -84,8 +100,16 @@
         "opt_out_state",
         "quiet_hours_policy_state"
       ],
+      "reviewRequiredSourceRoles": [
+        "THIRD_PARTY_SUPPORT_SOURCE",
+        "CONTACT_ENRICHMENT_SOURCE"
+      ],
       "formalMergeRequiredSourceRoles": [
         "THIRD_PARTY_SUPPORT_SOURCE"
+      ],
+      "authorizedCarrierObjects": [
+        "contact_candidate_collection",
+        "contact_selection_trace"
       ],
       "mergeStateVocabulary": [
         "NOT_REQUIRED_SINGLE_SOURCE",
@@ -109,6 +133,29 @@
   },
   "sourceVendorResolution": {
     "policyId": "source_vendor_resolution_v1",
+    "authorizedSourceRoles": [
+      "PUBLIC_OFFICIAL_SOURCE",
+      "THIRD_PARTY_SUPPORT_SOURCE",
+      "CONTACT_ENRICHMENT_SOURCE"
+    ],
+    "defaultFallbackRoleOrder": [
+      "PUBLIC_OFFICIAL_SOURCE",
+      "CONTACT_ENRICHMENT_SOURCE",
+      "THIRD_PARTY_SUPPORT_SOURCE"
+    ],
+    "reviewRequiredRoles": [
+      "THIRD_PARTY_SUPPORT_SOURCE",
+      "CONTACT_ENRICHMENT_SOURCE"
+    ],
+    "authorizedConsumers": [
+      "contact_candidate_collection",
+      "contact_selection_trace"
+    ],
+    "forbiddenDirectConsumers": [
+      "contact_target",
+      "outreach_plan",
+      "touch_record"
+    ],
     "resolutionOrder": [
       {
         "source_role": "PUBLIC_OFFICIAL_SOURCE",
@@ -133,6 +180,24 @@
   },
   "executionVendorResolution": {
     "policyId": "execution_vendor_resolution_v1",
+    "authorizedConsumers": [
+      "outreach_plan",
+      "touch_record"
+    ],
+    "forbiddenDirectConsumers": [
+      "contact_target",
+      "saleable_opportunity"
+    ],
+    "previewPolicyStates": [
+      "PREVIEW_ONLY",
+      "DRY_RUN",
+      "APPROVAL_REQUIRED",
+      "BLOCKED"
+    ],
+    "approvalReservationStates": [
+      "APPROVAL_REQUIRED"
+    ],
+    "blockedByDefault": true,
     "channelFamilyToVendorIds": {
       "ORG_EMAIL": [
         "EXEC-EMAIL-SERVICE"

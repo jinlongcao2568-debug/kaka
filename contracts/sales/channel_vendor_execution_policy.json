@@ -1,9 +1,10 @@
 {
-  "policyVersion": "1.0.1",
+  "policyVersion": "1.0.2",
   "policyId": "channel_vendor_execution_policy",
   "ownerDocs": [
+    "D2",
     "D9",
-    "docs/技术实现决策页.md"
+    "D11"
   ],
   "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
   "policyStates": [
@@ -40,6 +41,26 @@
     "fallback_vendor_id",
     "requires_manual_review"
   ],
+  "stage8ExecutionBoundary": {
+    "authorizedConsumerObjects": [
+      "outreach_plan",
+      "touch_record"
+    ],
+    "forbiddenConsumerObjects": [
+      "contact_target",
+      "saleable_opportunity"
+    ],
+    "previewPolicyStates": [
+      "PREVIEW_ONLY",
+      "DRY_RUN",
+      "APPROVAL_REQUIRED",
+      "BLOCKED"
+    ],
+    "approvalReservationStates": [
+      "APPROVAL_REQUIRED"
+    ],
+    "blockedByDefault": true
+  },
   "entries": [
     {
       "vendor_id": "EXEC-ALIYUN-SMS",
@@ -47,6 +68,13 @@
       "stage": 8,
       "execution_policy_state": "BLOCKED",
       "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "allowed_action_intents": ["PREVIEW_ONLY", "DRY_RUN"],
       "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
       "approval_required": true,
@@ -62,6 +90,13 @@
       "stage": 8,
       "execution_policy_state": "BLOCKED",
       "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "allowed_action_intents": ["PREVIEW_ONLY", "DRY_RUN"],
       "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
       "approval_required": true,
@@ -77,6 +112,12 @@
       "stage": 8,
       "execution_policy_state": "APPROVAL_REQUIRED",
       "current_capability_mode": "APPROVAL_REQUIRED",
+      "allowed_capability_modes": [
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "allowed_action_intents": ["PREVIEW_ONLY", "DRY_RUN", "APPROVAL_EXECUTION"],
       "blocked_action_intents": ["LIVE_EXECUTION"],
       "approval_required": true,
@@ -92,6 +133,13 @@
       "stage": 8,
       "execution_policy_state": "BLOCKED",
       "current_capability_mode": "BUILDABLE_BUT_OFF_BY_DEFAULT",
+      "allowed_capability_modes": [
+        "BUILDABLE_BUT_OFF_BY_DEFAULT",
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "allowed_action_intents": ["PREVIEW_ONLY", "DRY_RUN"],
       "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
       "approval_required": true,
@@ -107,6 +155,12 @@
       "stage": 9,
       "execution_policy_state": "PREVIEW_ONLY",
       "current_capability_mode": "DRY_RUN",
+      "allowed_capability_modes": [
+        "DRY_RUN",
+        "APPROVAL_REQUIRED",
+        "REAL_RUN_READY",
+        "EMERGENCY_OFF"
+      ],
       "allowed_action_intents": ["PREVIEW_ONLY", "INTERNAL_WRITEBACK", "DRY_RUN"],
       "blocked_action_intents": ["APPROVAL_EXECUTION", "LIVE_EXECUTION"],
       "approval_required": true,
@@ -119,6 +173,7 @@
   ],
   "notes": [
     "capability_mode refines execution runtime state and does not replace execution_policy_state.",
-    "REAL_RUN_READY is reserved and still requires approval plus release gates."
+    "REAL_RUN_READY is reserved and still requires approval plus release gates.",
+    "Stage 8 execution vendors remain blocked-by-default and only project into outreach_plan/touch_record."
   ]
 }

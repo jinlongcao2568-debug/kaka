@@ -1,6 +1,11 @@
 {
   "handoff_id": "H-06-STAGE6-TO-STAGE7",
   "example_id": "EX-H06-MIN",
+  "authority_closure_checks": [
+    "required_payload_fields_are_minimum_producer_fields",
+    "stage7_consumes_authoritative_fields_without_recomputing_stage6_decisions",
+    "private_supplement_content_is_not_in_required_payload"
+  ],
   "payload": {
     "project_id": "PRJ-001",
     "sale_gate_status": "REVIEW",

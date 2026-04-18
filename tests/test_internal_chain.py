@@ -608,6 +608,39 @@ class TestInternalChain(unittest.TestCase):
             result["stage7"].record("procurement_decision_actor_profile").get("actor_role_cluster"),
         )
 
+    def test_stage7_persistence_refs_align_with_formal_outputs(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        collection = stage7.record("multi_competitor_collection")
+
+        self.assertEqual(
+            stage7.inputs.get("offer_recommendation_id"),
+            stage7.record("offer_recommendation").get("offer_recommendation_id"),
+        )
+        self.assertEqual(
+            stage7.inputs.get("buyer_fit_id"),
+            stage7.record("buyer_fit").get("buyer_fit_id"),
+        )
+        self.assertEqual(
+            stage7.inputs.get("legal_action_actor_id"),
+            stage7.record("legal_action_actor_profile").get("actor_id"),
+        )
+        self.assertEqual(
+            stage7.inputs.get("procurement_decision_actor_id"),
+            stage7.record("procurement_decision_actor_profile").get("actor_id"),
+        )
+        self.assertEqual(
+            stage7.inputs.get("multi_competitor_collection_id_optional"),
+            collection.get("multi_competitor_collection_id"),
+        )
+        self.assertEqual(
+            stage7.inputs.get("winning_competitor_candidate_id_optional"),
+            stage7.handoff.get("winning_competitor_candidate_id_optional"),
+        )
+        self.assertEqual(
+            stage7.inputs.get("winning_challenger_profile_id_optional"),
+            stage7.record("saleable_opportunity").get("challenger_profile_id"),
+        )
+
     def test_stage8_blocks_when_stage7_required_fields_are_missing(self) -> None:
         result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
         broken_bundle = StageBundle(

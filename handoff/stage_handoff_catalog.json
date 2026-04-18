@@ -267,6 +267,7 @@
         "report_record"
       ],
       "consumer_objects": [
+        "multi_competitor_collection",
         "legal_action_actor_profile",
         "procurement_decision_actor_profile",
         "buyer_fit",
@@ -285,7 +286,90 @@
         "sale_gate_status",
         "real_competitor_count",
         "competitor_quality_grade",
-        "window_status"
+        "window_status",
+        "report_status",
+        "review_task_status",
+        "action_family",
+        "challenger_profile_id",
+        "focus_bidder_id",
+        "challenger_bidder_id",
+        "challenge_actionability_score",
+        "execution_readiness_score",
+        "legal_action_actor_org_name_seed",
+        "procurement_decision_actor_org_name_seed",
+        "buyer_type_hint"
+      ],
+      "minimum_producer_fields": [
+        "project_id",
+        "sale_gate_status",
+        "real_competitor_count",
+        "competitor_quality_grade",
+        "window_status",
+        "report_status",
+        "review_task_status",
+        "action_family",
+        "challenger_profile_id",
+        "focus_bidder_id",
+        "challenger_bidder_id",
+        "challenge_actionability_score",
+        "execution_readiness_score",
+        "legal_action_actor_org_name_seed",
+        "procurement_decision_actor_org_name_seed",
+        "buyer_type_hint"
+      ],
+      "optional_payload_fields": [
+        "review_queue_profile_id",
+        "review_lane",
+        "review_priority_score",
+        "review_queue_bucket",
+        "window_risk_level",
+        "commercial_urgency_level",
+        "report_id",
+        "minimum_release_level",
+        "linked_review_request_id_optional",
+        "missing_condition_family_optional",
+        "private_supplement_record_id_optional",
+        "private_supplement_release_state_optional",
+        "private_supplement_usable_scope_optional",
+        "private_supplement_written_back_policy_optional",
+        "project_value_score_optional",
+        "normalized_price_amount_optional",
+        "price_conflict_gate_status_optional",
+        "confidence_score_optional",
+        "current_action_start_at_optional",
+        "current_action_deadline_at_optional"
+      ],
+      "consumer_runtime_required_fields": [
+        "project_id",
+        "sale_gate_status",
+        "real_competitor_count",
+        "competitor_quality_grade",
+        "window_status",
+        "report_status",
+        "review_task_status",
+        "action_family",
+        "challenger_profile_id",
+        "focus_bidder_id",
+        "challenger_bidder_id",
+        "challenge_actionability_score",
+        "execution_readiness_score",
+        "legal_action_actor_org_name_seed",
+        "procurement_decision_actor_org_name_seed",
+        "buyer_type_hint"
+      ],
+      "consumer_must_not_recompute_fields": [
+        "sale_gate_status",
+        "competitor_quality_grade",
+        "window_status",
+        "report_status",
+        "review_task_status",
+        "action_family",
+        "challenger_profile_id",
+        "focus_bidder_id",
+        "challenger_bidder_id",
+        "challenge_actionability_score",
+        "execution_readiness_score",
+        "buyer_type_hint"
       ],
       "blocking_conditions": [
         "missing_project_fact",
@@ -293,9 +377,11 @@
         "sale_gate_blocked"
       ],
       "success_criteria": [
+        "multi_competitor_collection_created_or_projected",
         "dual_actor_profiles_created",
         "buyer_fit_created",
-        "saleable_opportunity_created_or_restricted"
+        "saleable_opportunity_created_or_restricted",
+        "formal_sink_optional_fields_projected_when_present"
       ],
       "priority": "P1"
     },
@@ -307,6 +393,7 @@
       "producer_objects": [
         "sales_lead",
         "saleable_opportunity",
+        "multi_competitor_collection",
         "legal_action_actor_profile",
         "procurement_decision_actor_profile",
         "buyer_fit",
@@ -314,6 +401,8 @@
         "offer_recommendation"
       ],
       "consumer_objects": [
+        "contact_candidate_collection",
+        "contact_selection_trace",
         "contact_target",
         "outreach_plan",
         "touch_record"
@@ -321,16 +410,72 @@
       "required_upstream_conditions": [
         "opportunity_ready",
         "contact_legal_basis_available",
-        "channel_policy_resolved"
+        "channel_policy_resolved",
+        "contact_validity_resolved",
+        "reasonable_expectation_resolved"
       ],
       "required_payload_fields": [
         "opportunity_id",
         "saleability_status",
+        "source_family",
         "channel_family",
+        "channel_policy_status",
+        "contact_validity_status",
         "contact_legal_basis",
+        "reasonable_expectation_status",
         "frequency_policy_state",
         "opt_out_state",
-        "quiet_hours_policy_state"
+        "quiet_hours_policy_state",
+        "commercial_urgency_level_optional",
+        "role_cluster"
+      ],
+      "optional_payload_fields": [
+        "multi_competitor_collection_id_optional",
+        "winning_competitor_candidate_id_optional",
+        "winning_challenger_profile_id_optional",
+        "project_value_score_optional",
+        "opportunity_value_score_optional",
+        "normalized_price_amount_optional",
+        "price_conflict_gate_status_optional",
+        "confidence_score_optional",
+        "current_action_start_at_optional",
+        "current_action_deadline_at_optional"
+      ],
+      "consumer_runtime_required_fields": [
+        "opportunity_id",
+        "saleability_status",
+        "source_family",
+        "channel_family",
+        "channel_policy_status",
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state",
+        "commercial_urgency_level_optional",
+        "role_cluster"
+      ],
+      "formal_carrier_refs": {
+        "carrier_object": "multi_competitor_collection",
+        "minimum_handoff_fields": [
+          "multi_competitor_collection_id_optional",
+          "winning_competitor_candidate_id_optional",
+          "winning_challenger_profile_id_optional"
+        ],
+        "stage8_consumption_rule": "Stage8 must consume the Stage7 formal carrier ref plus records.get(\"multi_competitor_collection\") before contact candidate materialization.",
+        "must_not_bypass": [
+          "raw_multi_competitor_input_without_collection_ref",
+          "contact_target_from_scattered_contact_candidates",
+          "winner_reselection_without_contact_selection_trace"
+        ]
+      },
+      "consumer_object_sequence": [
+        "contact_candidate_collection",
+        "contact_selection_trace",
+        "contact_target",
+        "outreach_plan",
+        "touch_record"
       ],
       "blocking_conditions": [
         "missing_saleable_opportunity",
@@ -338,9 +483,14 @@
         "high_restriction_contact_not_approved"
       ],
       "success_criteria": [
+        "contact_candidate_collection_created",
+        "contact_selection_trace_created",
+        "contact_merge_dedupe_materialized_before_contact_target",
+        "source_conflict_materialized_in_collection_and_trace",
         "contact_target_created",
         "outreach_plan_created_or_blocked_with_reason",
-        "touch_record_persistable"
+        "touch_record_persistable",
+        "formal_sink_optional_fields_consumable_when_present"
       ],
       "priority": "P1"
     },

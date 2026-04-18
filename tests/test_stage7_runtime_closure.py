@@ -428,6 +428,39 @@ class TestStage7RuntimeClosure(unittest.TestCase):
             collection.get("selection_trace")["winner_selection_basis"],
         )
 
+    def test_stage7_outputs_typed_persistence_refs_for_repository_readback(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        collection = stage7.record("multi_competitor_collection")
+
+        self.assertEqual(
+            stage7.inputs["buyer_fit_id"],
+            stage7.record("buyer_fit").get("buyer_fit_id"),
+        )
+        self.assertEqual(
+            stage7.inputs["offer_recommendation_id"],
+            stage7.record("offer_recommendation").get("offer_recommendation_id"),
+        )
+        self.assertEqual(
+            stage7.inputs["legal_action_actor_id"],
+            stage7.record("legal_action_actor_profile").get("actor_id"),
+        )
+        self.assertEqual(
+            stage7.inputs["procurement_decision_actor_id"],
+            stage7.record("procurement_decision_actor_profile").get("actor_id"),
+        )
+        self.assertEqual(
+            stage7.inputs["multi_competitor_collection_id_optional"],
+            collection.get("multi_competitor_collection_id"),
+        )
+        self.assertEqual(
+            stage7.inputs["winning_competitor_candidate_id_optional"],
+            collection.get("winning_candidate_id"),
+        )
+        self.assertEqual(
+            stage7.inputs["winning_challenger_profile_id_optional"],
+            collection.get("winning_challenger_profile_id"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

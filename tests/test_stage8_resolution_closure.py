@@ -4,6 +4,7 @@ import copy
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -414,6 +415,189 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertEqual(outreach_plan.get("execution_vendor_id_optional"), "EXEC-EMAIL-SERVICE")
         self.assertEqual(trace["source_vendor_resolution"]["resolved_from"], "POLICY_DEFAULT")
         self.assertEqual(trace["execution_vendor_resolution"]["resolved_from"], "POLICY_DEFAULT")
+
+    def test_stage8_unknown_source_vendor_blocks_without_project_fallback(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "source_vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+                "source_vendor_id_optional": "SOURCE-UNKNOWN-REGISTRY",
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        contact_target = stage8.record("contact_target")
+        trace = stage8.inputs["stage8_resolution_trace"]["source_vendor_resolution"]
+
+        self.assertEqual(trace["resolved_from"], "EXPLICIT_UNKNOWN_VENDOR")
+        self.assertEqual(trace["decision_state"], "BLOCK")
+        self.assertEqual(contact_target.get("source_vendor_id_optional"), "SOURCE-UNKNOWN-REGISTRY")
+        self.assertEqual(contact_target.get("fallback_vendor_id_optional"), "SOURCE-OFFICIAL-WEBSITE")
+        self.assertEqual(contact_target.get("contact_target_status"), "BLOCKED")
+        self.assertTrue(contact_target.get("requires_manual_review"))
+        self.assertFalse(contact_target.get("auto_contact_allowed"))
+        self.assertNotIn("PROJECT_FALLBACK", trace["resolved_from"])
+        self.assertFalse(contact_target.get("fallback_vendor_id_optional", "").startswith("NO-FALLBACK-"))
+
+    def test_stage8_unknown_execution_vendor_blocks_without_project_fallback(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "channel_family": "ORG_EMAIL",
+                "contact_channel": "EMAIL",
+                "execution_vendor_id_optional": "EXEC-UNKNOWN-SERVICE",
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        outreach_plan = stage8.record("outreach_plan")
+        touch_record = stage8.record("touch_record")
+        trace = stage8.inputs["stage8_resolution_trace"]["execution_vendor_resolution"]
+
+        self.assertEqual(trace["resolved_from"], "EXPLICIT_UNKNOWN_VENDOR")
+        self.assertEqual(trace["decision_state"], "BLOCK")
+        self.assertEqual(outreach_plan.get("execution_vendor_id_optional"), "EXEC-UNKNOWN-SERVICE")
+        self.assertEqual(outreach_plan.get("fallback_vendor_id_optional"), "EXEC-EMAIL-SERVICE")
+        self.assertEqual(outreach_plan.get("plan_status"), "BLOCKED")
+        self.assertTrue(outreach_plan.get("requires_manual_review"))
+        self.assertEqual(touch_record.get("touch_record_state"), "CANCELLED")
+        self.assertNotIn("PROJECT_FALLBACK", trace["resolved_from"])
+        self.assertFalse(outreach_plan.get("fallback_vendor_id_optional", "").startswith("NO-FALLBACK-"))
+
+    def test_stage8_service_consumes_formal_winner_snapshot_instead_of_selected_projection(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "source_vendor_role": "CONTACT_ENRICHMENT_SOURCE",
+                "source_vendor_id_optional": "SOURCE-AUTHORIZED-CRM",
+            }
+        )
+        selected_candidate = {
+            "candidate_id": "cand-formal",
+            "org_name": "Formal Winner Org",
+            "org_type": "ENTERPRISE",
+            "person_name_optional": "UNKNOWN",
+            "role_cluster": "PROCUREMENT_DECISION",
+            "public_contact_source": "AUTHORIZED_CRM",
+            "source_family": "PROCUREMENT_NOTICE",
+            "source_auditability_state": "AUDITABLE",
+            "source_vendor_role": "CONTACT_ENRICHMENT_SOURCE",
+            "source_vendor_id_optional": "SOURCE-AUTHORIZED-CRM",
+            "source_vendor_type_optional": "SOURCE_VENDOR",
+            "source_audit_ref": "AUDIT-CRM",
+            "query_trace_id": "TRACE-CRM",
+            "vendor_response_ref_optional": "RESP-CRM",
+            "fallback_vendor_id_optional": "SOURCE-AUTHORIZED-CRM",
+            "contact_channel": "EMAIL",
+            "channel_family": "ORG_EMAIL",
+            "contact_validity_status": "VALID",
+            "contact_legal_basis": "CUSTOMER_AUTHORIZED_CONTACT",
+            "reasonable_expectation_status": "REASONABLE",
+            "channel_policy_status": "ALLOW",
+            "frequency_policy_state": "ALLOW",
+            "opt_out_state": "ACTIVE",
+            "quiet_hours_policy_state": "ALLOW",
+            "last_evaluated_at": "2026-04-17T10:00:00Z",
+            "contact_priority_score": 95,
+            "contact_priority_reason_tags": ["selected_projection"],
+            "contact_candidate_rank": 1,
+            "primary_contact_flag": True,
+            "contact_selection_reason": "selected_projection_should_not_win",
+            "contact_conflict_flag": False,
+            "contact_conflict_reason": "no_conflict",
+            "merge_key": "candidate_identity::cand-formal",
+            "merged_candidate_ids": ["cand-formal"],
+            "merged_source_roles": ["CONTACT_ENRICHMENT_SOURCE"],
+            "merged_source_vendor_ids_optional": ["SOURCE-AUTHORIZED-CRM"],
+            "formal_merge_state": "NOT_REQUIRED_SINGLE_SOURCE",
+            "source_conflict_flag": False,
+            "source_conflict_reason": "no_source_conflict",
+            "source_conflict_fields": [],
+            "source_merge_review_required": False,
+        }
+        candidate_trace = {
+            "candidate_pool_mode": "CONTACT_TARGET_EQUIVALENT_COLLECTION",
+            "candidate_pool_count": 1,
+            "input_candidate_count": 1,
+            "merge_policy_id": "contact_candidate_formal_merge_v1",
+            "dedupe_applied": False,
+            "source_conflict_candidate_count": 0,
+            "source_merge_review_required_count": 0,
+            "eligible_candidate_count": 1,
+            "selected_candidate_id": "cand-formal",
+            "selected_candidate_source": "formal_merge",
+            "merged_candidates": [
+                {
+                    "candidate_id": "cand-formal",
+                    "org_name": "Formal Winner Org",
+                    "org_type": "ENTERPRISE",
+                    "person_name_optional": "UNKNOWN",
+                    "role_cluster": "PROCUREMENT_DECISION",
+                    "public_contact_source": "OFFICIAL_SITE",
+                    "source_family": "PROCUREMENT_NOTICE",
+                    "source_auditability_state": "AUDITABLE",
+                    "source_vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+                    "source_vendor_id_optional": "SOURCE-OFFICIAL-WEBSITE",
+                    "source_vendor_type_optional": "SOURCE_VENDOR",
+                    "source_audit_ref": "AUDIT-OFFICIAL",
+                    "query_trace_id": "TRACE-OFFICIAL",
+                    "vendor_response_ref_optional": "RESP-OFFICIAL",
+                    "fallback_vendor_id_optional": "SOURCE-OFFICIAL-WEBSITE",
+                    "contact_channel": "EMAIL",
+                    "channel_family": "ORG_EMAIL",
+                    "contact_validity_status": "VALID",
+                    "contact_legal_basis": "PUBLIC_ROLE_CONTACT",
+                    "reasonable_expectation_status": "REASONABLE",
+                    "channel_policy_status": "ALLOW",
+                    "frequency_policy_state": "ALLOW",
+                    "opt_out_state": "ACTIVE",
+                    "quiet_hours_policy_state": "ALLOW",
+                    "last_evaluated_at": "2026-04-17T10:00:00Z",
+                    "contact_selection_reason": "formal_winner_snapshot",
+                    "contact_priority_reason_tags": ["formal_trace"],
+                    "merge_key": "candidate_identity::cand-formal",
+                    "merged_candidate_ids": ["cand-formal"],
+                    "merged_source_roles": ["PUBLIC_OFFICIAL_SOURCE"],
+                    "merged_source_vendor_ids_optional": ["SOURCE-OFFICIAL-WEBSITE"],
+                    "formal_merge_state": "NOT_REQUIRED_SINGLE_SOURCE",
+                    "source_conflict_flag": False,
+                    "source_conflict_reason": "no_source_conflict",
+                    "source_conflict_fields": [],
+                    "source_merge_review_required": False,
+                }
+            ],
+            "ranked_candidates": [
+                {
+                    "candidate_id": "cand-formal",
+                    "score": 88,
+                    "role_cluster": "PROCUREMENT_DECISION",
+                    "channel_family": "ORG_EMAIL",
+                    "merge_key": "candidate_identity::cand-formal",
+                    "merged_candidate_ids": ["cand-formal"],
+                    "merged_source_roles": ["PUBLIC_OFFICIAL_SOURCE"],
+                    "source_conflict_flag": False,
+                    "source_conflict_reason_optional": None,
+                    "source_merge_review_required": False,
+                    "organization_channel": True,
+                    "blocked": False,
+                }
+            ],
+            "conflict_flag": False,
+            "conflict_reason": "single candidate",
+        }
+
+        with patch(
+            "stage8_outreach.service.select_contact_candidate",
+            return_value=(selected_candidate, candidate_trace),
+        ):
+            stage8 = run_internal_chain(payload)["stage8"]
+
+        contact_target = stage8.record("contact_target")
+
+        self.assertEqual(contact_target.get("source_vendor_role"), "PUBLIC_OFFICIAL_SOURCE")
+        self.assertEqual(contact_target.get("source_vendor_id_optional"), "SOURCE-OFFICIAL-WEBSITE")
+        self.assertEqual(contact_target.get("public_contact_source"), "OFFICIAL_SITE")
+        self.assertNotEqual(contact_target.get("source_vendor_id_optional"), "SOURCE-AUTHORIZED-CRM")
 
     def test_stage8_governed_metadata_carries_compliance_lattice(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

@@ -80,6 +80,29 @@ class Stage8Service:
             "REAL_RUN": "LIVE_EXECUTION",
         }.get(run_mode, "PREVIEW_ONLY")
 
+    def _resolution_guard(
+        self,
+        trace: Mapping[str, Any],
+        *,
+        default_policy_state: str,
+        blocked_reason: str,
+    ) -> tuple[dict[str, Any], list[str], bool, bool]:
+        resolution_state = str(trace.get("decision_state", "ALLOW")).upper()
+        unresolved_reason = str(trace.get("unresolved_reason_optional") or "")
+        metadata = {
+            "policy_state": str(trace.get("policy_state") or default_policy_state),
+        }
+        reasons = [unresolved_reason or blocked_reason] if resolution_state == "BLOCK" else []
+        if resolution_state == "BLOCK":
+            metadata.update(
+                {
+                    "current_status": "BLOCKED",
+                    "policy_state": "BLOCKED",
+                    "override_mode": "PERMANENTLY_BLOCKED",
+                }
+            )
+        return metadata, reasons, resolution_state == "BLOCK", resolution_state == "REVIEW"
+
     def _guard_context(
         self,
         *,
@@ -257,8 +280,11 @@ class Stage8Service:
         saleable_opportunity_id = str(saleable_opportunity.get("opportunity_id"))
         base = self._contact_candidate_base(inputs, now)
         resolved_candidates = candidate_trace.get("merged_candidates")
-        raw_pool = resolved_candidates if isinstance(resolved_candidates, list) and resolved_candidates else inputs.get("contact_candidate_pool")
-        raw_candidates = list(raw_pool) if isinstance(raw_pool, list) and raw_pool else [dict(selected_candidate)]
+        raw_candidates = (
+            list(resolved_candidates)
+            if isinstance(resolved_candidates, list) and resolved_candidates
+            else [dict(selected_candidate)]
+        )
         candidate_lookup: dict[str, dict[str, Any]] = {}
         for index, raw_candidate in enumerate(raw_candidates, start=1):
             if not isinstance(raw_candidate, Mapping):
@@ -269,7 +295,9 @@ class Stage8Service:
                 **dict(raw_candidate),
                 "candidate_id": candidate_id,
             }
-        selected_candidate_id = str(selected_candidate.get("candidate_id", base["candidate_id"]))
+        selected_candidate_id = str(
+            candidate_trace.get("selected_candidate_id", selected_candidate.get("candidate_id", base["candidate_id"]))
+        )
         ordered_trace_entries = list(candidate_trace.get("ranked_candidates", []))
         if not ordered_trace_entries:
             ordered_trace_entries = [
@@ -371,6 +399,30 @@ class Stage8Service:
             (item for item in candidate_list if item["candidate_id"] == selected_candidate_id),
             candidate_list[0],
         )
+        winning_candidate_raw = candidate_lookup.get(
+            winning_candidate["candidate_id"],
+            {**base, **dict(selected_candidate), "candidate_id": winning_candidate["candidate_id"]},
+        )
+        winning_candidate_snapshot = {
+            **winning_candidate_raw,
+            **winning_candidate["contactability_snapshot"],
+            "contact_priority_score": winning_candidate["contact_priority_score"],
+            "contact_priority_reason_tags": winning_candidate["contact_priority_reason_tags"],
+            "contact_candidate_rank": winning_candidate["contact_candidate_rank"],
+            "primary_contact_flag": winning_candidate["primary_contact_flag"],
+            "contact_conflict_flag": winning_candidate["contact_conflict_flag"],
+            "contact_conflict_reason": winning_candidate["contact_conflict_reason"],
+            "contact_selection_reason": winning_candidate["contact_selection_reason"],
+            "merge_key": winning_candidate["merge_key"],
+            "merged_candidate_ids": winning_candidate["merged_candidate_ids"],
+            "merged_source_roles": winning_candidate["merged_source_roles"],
+            "merged_source_vendor_ids_optional": winning_candidate["merged_source_vendor_ids_optional"],
+            "formal_merge_state": winning_candidate["formal_merge_state"],
+            "source_conflict_flag": winning_candidate["source_conflict_flag"],
+            "source_conflict_reason": winning_candidate["source_conflict_reason"],
+            "source_conflict_fields": winning_candidate["source_conflict_fields"],
+            "source_merge_review_required": winning_candidate["source_merge_review_required"],
+        }
         reselect_reason, reselect_history = self._build_reselect_history(
             inputs=inputs,
             winning_contact_candidate_id=winning_candidate["candidate_id"],
@@ -438,7 +490,7 @@ class Stage8Service:
                 "touch_record",
             ],
         }
-        return collection_payload, trace_payload, winning_candidate
+        return collection_payload, trace_payload, winning_candidate_snapshot
 
     def run(self, payload: Mapping[str, Any] | StageBundle) -> StageBundle:
         stage7_bundle = resolve_bundle(payload)
@@ -501,11 +553,32 @@ class Stage8Service:
             contact_selection_trace_payload,
         )
         selected_candidate = {
-            **dict(selected_candidate),
             **winning_contact_candidate,
-            **winning_contact_candidate.get("contactability_snapshot", {}),
         }
         source_merge_review_required = bool(selected_candidate.get("source_merge_review_required", False))
+        execution_vendor_candidate = {
+            **selected_candidate,
+            "execution_vendor_id_optional": inputs.get(
+                "execution_vendor_id_optional",
+                selected_candidate.get("execution_vendor_id_optional"),
+            ),
+            "execution_vendor_type_optional": inputs.get(
+                "execution_vendor_type_optional",
+                selected_candidate.get("execution_vendor_type_optional"),
+            ),
+            "execution_vendor_role_optional": inputs.get(
+                "execution_vendor_role_optional",
+                selected_candidate.get("execution_vendor_role_optional"),
+            ),
+            "execution_fallback_vendor_id_optional": inputs.get(
+                "execution_fallback_vendor_id_optional",
+                selected_candidate.get("execution_fallback_vendor_id_optional"),
+            ),
+            "execution_vendor_response_ref_optional": inputs.get(
+                "execution_vendor_response_ref_optional",
+                selected_candidate.get("execution_vendor_response_ref_optional"),
+            ),
+        }
 
         role_cluster = selected_candidate.get("role_cluster", "PROCUREMENT_DECISION")
         release_level = inputs.get("release_level", inputs.get("minimum_release_level", "INTERNAL_OPERABLE"))
@@ -517,7 +590,17 @@ class Stage8Service:
             self.store, "approval_state", inputs.get("approval_state", "NOT_REQUIRED")
         )
         source_vendor_payload, source_vendor_trace = self._source_vendor_payload(selected_candidate, project_id)
-        execution_vendor_payload, execution_vendor_trace = self._execution_vendor_payload(selected_candidate, project_id)
+        execution_vendor_payload, execution_vendor_trace = self._execution_vendor_payload(execution_vendor_candidate, project_id)
+        source_resolution_metadata, source_resolution_reasons, source_resolution_blocked, source_resolution_review = self._resolution_guard(
+            source_vendor_trace,
+            default_policy_state=str(inputs.get("source_policy_state", "SOURCE_POLICY_ACTIVE")),
+            blocked_reason="source_vendor_resolution_blocked",
+        )
+        execution_resolution_metadata, execution_resolution_reasons, execution_resolution_blocked, execution_resolution_review = self._resolution_guard(
+            execution_vendor_trace,
+            default_policy_state=str(execution_vendor_trace.get("policy_state", "PREVIEW_ONLY")),
+            blocked_reason="execution_vendor_resolution_blocked",
+        )
         context = ContextPacket.from_records(
             capability_mode="stage8_outreach",
             stage=8,
@@ -548,9 +631,7 @@ class Stage8Service:
                 "target_role": source_vendor_payload["source_vendor_role"],
                 "release_level": release_level,
                 "approval_state": approval_state,
-                "metadata": {
-                    "policy_state": inputs.get("source_policy_state", "SOURCE_POLICY_ACTIVE"),
-                },
+                "metadata": source_resolution_metadata,
             },
             {
                 "capability_family": "execution_vendor",
@@ -560,6 +641,7 @@ class Stage8Service:
                 "target_role": execution_vendor_payload["execution_vendor_role_optional"],
                 "release_level": release_level,
                 "approval_state": approval_state,
+                "metadata": execution_resolution_metadata,
             },
             {
                 "capability_family": "stage8_execution",
@@ -610,15 +692,17 @@ class Stage8Service:
         emergency_short_circuit = bool(runtime_state.permission_short_circuit)
 
         blocking_reasons = ensure_list(inputs.get("blocking_reasons", []))
+        blocking_reasons.extend(source_resolution_reasons)
+        blocking_reasons.extend(execution_resolution_reasons)
         blocking_reasons.extend(runtime_state.blocked_reasons)
         blocking_reasons.extend(runtime_state.review_reasons)
         blocking_reasons.extend(runtime_state.fallback_reasons)
         blocking_reasons.extend(runtime_state.permission_blocked_reasons)
         blocking_reasons.extend(runtime_state.permission_review_reasons)
         contact_target_status = runtime_state.resolve("contact_target_status", "REVIEW_REQUIRED")
-        if emergency_short_circuit or candidate_permission_blocked:
+        if source_resolution_blocked or emergency_short_circuit or candidate_permission_blocked:
             contact_target_status = "BLOCKED"
-        elif candidate_permission_review and contact_target_status == "ELIGIBLE":
+        elif (source_resolution_review or candidate_permission_review) and contact_target_status == "ELIGIBLE":
             contact_target_status = "REVIEW_REQUIRED"
         if source_merge_review_required and contact_target_status == "ELIGIBLE":
             contact_target_status = "REVIEW_REQUIRED"
@@ -716,9 +800,9 @@ class Stage8Service:
         )
 
         plan_status = runtime_state.resolve("plan_status", "DRAFT")
-        if runtime_state.permission_blocked_reasons:
+        if execution_resolution_blocked or runtime_state.permission_blocked_reasons:
             plan_status = "BLOCKED"
-        elif runtime_state.permission_review_reasons and plan_status == "APPROVED":
+        elif (execution_resolution_review or runtime_state.permission_review_reasons) and plan_status == "APPROVED":
             plan_status = "REVIEW_REQUIRED"
         if source_merge_review_required and plan_status == "APPROVED":
             plan_status = "REVIEW_REQUIRED"

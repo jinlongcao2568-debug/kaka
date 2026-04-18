@@ -1,10 +1,10 @@
 {
-  "catalogVersion": "1.0.1",
+  "catalogVersion": "1.0.2",
   "catalogId": "vendor_registry_catalog",
   "ownerDocs": [
-    "D9",
     "D2",
-    "docs/技术实现决策页.md"
+    "D9",
+    "D11"
   ],
   "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
   "registry_defaults": {
@@ -22,6 +22,22 @@
       "fallback_vendor_id",
       "requires_manual_review"
     ]
+  },
+  "stage8AuthorityBoundary": {
+    "sourceFormalCarriers": [
+      "contact_candidate_collection",
+      "contact_selection_trace"
+    ],
+    "sourceSideConsumerObjects": [
+      "contact_target",
+      "outreach_plan",
+      "touch_record"
+    ],
+    "executionSideConsumerObjects": [
+      "outreach_plan",
+      "touch_record"
+    ],
+    "blockedByDefault": true
   },
   "entries": [
     {
@@ -193,6 +209,7 @@
   ],
   "notes": [
     "capability_mode is runtime-only and does not weaken current_status or release redlines.",
-    "execution vendors may be buildable-but-off without being externally released."
+    "execution vendors may be buildable-but-off without being externally released.",
+    "Stage 8 source-side data must first materialize into formal carriers before final contact/outreach objects consume it."
   ]
 }

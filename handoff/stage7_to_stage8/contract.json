@@ -54,6 +54,20 @@
     "current_action_start_at_optional",
     "current_action_deadline_at_optional"
   ],
+  "formal_carrier_refs": {
+    "carrier_object": "multi_competitor_collection",
+    "minimum_handoff_fields": [
+      "multi_competitor_collection_id_optional",
+      "winning_competitor_candidate_id_optional",
+      "winning_challenger_profile_id_optional"
+    ],
+    "stage8_consumption_rule": "Stage8 must consume the Stage7 formal carrier ref plus records.get(\"multi_competitor_collection\") before contact candidate materialization.",
+    "must_not_bypass": [
+      "raw_multi_competitor_input_without_collection_ref",
+      "contact_target_from_scattered_contact_candidates",
+      "winner_reselection_without_contact_selection_trace"
+    ]
+  },
   "consumer_runtime_required_fields": [
     "opportunity_id",
     "saleability_status",
@@ -90,6 +104,23 @@
       "touch_record"
     ]
   },
+  "producer_obligations": [
+    "Stage7 must emit saleable_opportunity as the required hard dependency and multi_competitor_collection as the formal carrier for ranking/TopN/winner trace.",
+    "Stage7 must project multi_competitor_collection_id_optional, winning_competitor_candidate_id_optional, and winning_challenger_profile_id_optional when the carrier is present.",
+    "Stage7 must keep saleable_opportunity.challenger_profile_id aligned with multi_competitor_collection.winning_challenger_profile_id when both are present."
+  ],
+  "consumer_obligations": [
+    "Stage8 may use H-07 formal carrier refs only as refs/snapshots into the Stage7 carrier; it must not reconstruct competitor ranking or winner choice from scattered inputs.",
+    "Stage8 must materialize contact_candidate_collection and contact_selection_trace before contact_target, outreach_plan, or touch_record consume candidate/winner data.",
+    "Stage8 governed preview/dry-run remains blocked-by-default for real execution; H-07 formal carrier refs do not authorize live outreach."
+  ],
+  "consumer_must_not_recompute_fields": [
+    "opportunity_id",
+    "saleability_status",
+    "multi_competitor_collection_id_optional",
+    "winning_competitor_candidate_id_optional",
+    "winning_challenger_profile_id_optional"
+  ],
   "blocking_conditions": [
     "missing_saleable_opportunity",
     "missing_legal_basis",

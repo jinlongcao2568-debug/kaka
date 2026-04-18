@@ -3,11 +3,12 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from shared.contract_loader import load_contract
-from shared.contracts_runtime import ContractRecord, StageBundle
+from shared.contracts_runtime import ContractRecord, ContractStore, StageBundle
 
 from storage.db import (
     DatabaseSession,
     PersistedOperatorAction,
+    PersistedRecord,
     PersistedStageState,
     PersistedWorkItem,
     build_persisted_at,
@@ -59,6 +60,13 @@ STAGE_INPUT_FIELDS = {
         "semantic_trace",
         "semantic_decision_state",
         "semantic_additions",
+        "buyer_fit_id",
+        "offer_recommendation_id",
+        "legal_action_actor_id",
+        "procurement_decision_actor_id",
+        "multi_competitor_collection_id_optional",
+        "winning_competitor_candidate_id_optional",
+        "winning_challenger_profile_id_optional",
     ),
     8: (
         "policy_trace",
@@ -516,6 +524,12 @@ def _persist_stage7_bundle(bundle: StageBundle) -> StageBundle:
     BuyerFitRepository().save(bundle.record("buyer_fit").data)
     LegalActionActorProfileRepository().save(bundle.record("legal_action_actor_profile").data)
     ProcurementDecisionActorProfileRepository().save(bundle.record("procurement_decision_actor_profile").data)
+    _persist_auxiliary_record(
+        object_type="multi_competitor_collection",
+        id_field="multi_competitor_collection_id",
+        stage_scope=7,
+        payload=bundle.record("multi_competitor_collection").data,
+    )
     _save_stage_state(bundle)
     _sync_stage_operational_loop(bundle)
     return bundle
@@ -701,6 +715,20 @@ def _record_from_work_item_refs(
     return None
 
 
+def _resolve_typed_ref(
+    *sources: Mapping[str, Any] | None,
+    keys: tuple[str, ...],
+) -> str:
+    for source in sources:
+        if source is None:
+            continue
+        for key in keys:
+            value = str(source.get(key, "")).strip()
+            if value:
+                return value
+    return ""
+
+
 def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     opportunity_id = str(payload.get("opportunity_id", "")).strip()
     if not opportunity_id:
@@ -709,22 +737,53 @@ def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     if not opportunity:
         return None
 
-    work_item = _get_stage_work_item(7, "saleable_opportunity", opportunity.record_id)
-    buyer_fit_id = str(opportunity.object_refs.get("buyer_fit_id") or "").strip()
-    if not buyer_fit_id and work_item is not None:
-        buyer_fit_id = str(work_item.object_refs.get("buyer_fit_id", "")).strip()
-    buyer_fit = BuyerFitRepository().get_by_id(buyer_fit_id) if buyer_fit_id else None
-    offer = _record_from_work_item_refs(
-        OfferRecommendationRepository(),
-        work_item=work_item,
-        ref_key="offer_recommendation_id",
-        fallback_field="project_id",
-        fallback_value=opportunity.project_id or "",
-    )
-    legal_actor = LegalActionActorProfileRepository().find_one_by_field("project_id", opportunity.project_id or "")
-    procurement_actor = ProcurementDecisionActorProfileRepository().find_one_by_field("project_id", opportunity.project_id or "")
     stage_state = _get_stage_state(7, STAGE_SURFACE_IDS[7], opportunity.record_id)
-    if not all((buyer_fit, offer, legal_actor, procurement_actor, stage_state)):
+    work_item = _get_stage_work_item(7, "saleable_opportunity", opportunity.record_id)
+    stage_inputs = dict(stage_state.inputs) if stage_state is not None else {}
+    buyer_fit_id = _resolve_typed_ref(
+        stage_inputs,
+        opportunity.object_refs,
+        work_item.object_refs if work_item is not None else None,
+        keys=("buyer_fit_id",),
+    )
+    buyer_fit = BuyerFitRepository().get_by_id(buyer_fit_id) if buyer_fit_id else None
+    offer_id = _resolve_typed_ref(
+        stage_inputs,
+        work_item.object_refs if work_item is not None else None,
+        keys=("offer_recommendation_id",),
+    )
+    offer = OfferRecommendationRepository().get_by_id(offer_id) if offer_id else None
+    legal_actor_id = _resolve_typed_ref(
+        stage_inputs,
+        work_item.object_refs if work_item is not None else None,
+        keys=("legal_action_actor_id",),
+    )
+    legal_actor = (
+        LegalActionActorProfileRepository().get_by_id(legal_actor_id)
+        if legal_actor_id
+        else None
+    )
+    procurement_actor_id = _resolve_typed_ref(
+        stage_inputs,
+        work_item.object_refs if work_item is not None else None,
+        keys=("procurement_decision_actor_id",),
+    )
+    procurement_actor = (
+        ProcurementDecisionActorProfileRepository().get_by_id(procurement_actor_id)
+        if procurement_actor_id
+        else None
+    )
+    multi_competitor_collection_id = _resolve_typed_ref(
+        stage_inputs,
+        work_item.object_refs if work_item is not None else None,
+        keys=("multi_competitor_collection_id_optional",),
+    )
+    multi_competitor_collection = (
+        DatabaseSession.default().get_record("multi_competitor_collection", multi_competitor_collection_id)
+        if multi_competitor_collection_id
+        else None
+    )
+    if not all((buyer_fit, offer, legal_actor, procurement_actor, multi_competitor_collection, stage_state)):
         return None
 
     return StageBundle(
@@ -735,9 +794,13 @@ def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
             "buyer_fit": ContractRecord("buyer_fit", buyer_fit.as_payload()),
             "legal_action_actor_profile": ContractRecord("legal_action_actor_profile", legal_actor.as_payload()),
             "procurement_decision_actor_profile": ContractRecord("procurement_decision_actor_profile", procurement_actor.as_payload()),
+            "multi_competitor_collection": ContractRecord(
+                "multi_competitor_collection",
+                multi_competitor_collection.as_payload(),
+            ),
         },
         handoff={},
-        inputs=dict(stage_state.inputs),
+        inputs=stage_inputs,
     )
 
 
@@ -1110,7 +1173,71 @@ def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
         for key, value in record.items():
             if key.endswith("_id") and value not in (None, "", "UNKNOWN"):
                 refs[key] = str(value)
+    if bundle.stage == 7:
+        legal_actor = bundle.records.get("legal_action_actor_profile")
+        if legal_actor is not None and legal_actor.data.get("actor_id") not in (None, "", "UNKNOWN"):
+            refs["legal_action_actor_id"] = str(legal_actor.data["actor_id"])
+        procurement_actor = bundle.records.get("procurement_decision_actor_profile")
+        if procurement_actor is not None and procurement_actor.data.get("actor_id") not in (None, "", "UNKNOWN"):
+            refs["procurement_decision_actor_id"] = str(procurement_actor.data["actor_id"])
+        if bundle.inputs.get("multi_competitor_collection_id_optional") not in (None, "", "UNKNOWN"):
+            refs["multi_competitor_collection_id_optional"] = str(
+                bundle.inputs["multi_competitor_collection_id_optional"]
+            )
+        if bundle.inputs.get("winning_competitor_candidate_id_optional") not in (None, "", "UNKNOWN"):
+            refs["winning_competitor_candidate_id_optional"] = str(
+                bundle.inputs["winning_competitor_candidate_id_optional"]
+            )
+        if bundle.inputs.get("winning_challenger_profile_id_optional") not in (None, "", "UNKNOWN"):
+            refs["winning_challenger_profile_id_optional"] = str(
+                bundle.inputs["winning_challenger_profile_id_optional"]
+            )
     return refs
+
+
+def _persist_auxiliary_record(
+    *,
+    object_type: str,
+    id_field: str,
+    stage_scope: int,
+    payload: Mapping[str, Any],
+) -> PersistedRecord:
+    payload_dict = dict(payload)
+    ContractStore.default().validate_record(object_type, payload_dict)
+    object_refs = {
+        key: str(value)
+        for key, value in payload_dict.items()
+        if key != id_field
+        and (key.endswith("_id") or key.endswith("_id_optional"))
+        and value not in (None, "", "UNKNOWN")
+    }
+    trace_refs = {
+        key: str(value)
+        for key, value in payload_dict.items()
+        if "trace" in key.lower() and value not in (None, "", "UNKNOWN")
+    }
+    audit_refs = {
+        key: str(value)
+        for key, value in payload_dict.items()
+        if "audit" in key.lower() and value not in (None, "", "UNKNOWN")
+    }
+    project_id = payload_dict.get("project_id")
+    return DatabaseSession.default().upsert_record(
+        PersistedRecord(
+            object_type=object_type,
+            record_id=str(payload_dict[id_field]),
+            stage_scope=stage_scope,
+            project_id=str(project_id) if project_id not in (None, "", "UNKNOWN") else None,
+            object_refs=object_refs,
+            decision_states={},
+            trace_refs=trace_refs,
+            audit_refs=audit_refs,
+            governed_state={},
+            writeback_state={},
+            payload=payload_dict,
+            persisted_at=build_persisted_at(),
+        )
+    )
 
 
 def _bundle_trace_and_audit_refs(bundle: StageBundle) -> tuple[dict[str, str], dict[str, str]]:

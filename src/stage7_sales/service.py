@@ -653,6 +653,10 @@ class Stage7Service:
             "window_urgency_score",
             buyer_fit.get("window_urgency_score"),
         )
+        inputs_out["buyer_fit_id"] = buyer_fit.get("buyer_fit_id")
+        inputs_out["offer_recommendation_id"] = offer_recommendation.get("offer_recommendation_id")
+        inputs_out["legal_action_actor_id"] = legal_action_actor_profile.get("actor_id")
+        inputs_out["procurement_decision_actor_id"] = procurement_decision_actor_profile.get("actor_id")
         inputs_out["legal_action_actor_actionability_state_optional"] = legal_action_actor_profile.get("actionability_state")
         inputs_out["procurement_decision_reachable_state_optional"] = procurement_decision_actor_profile.get("reachable_state")
         inputs_out["role_cluster"] = procurement_decision_actor_profile.get("actor_role_cluster")

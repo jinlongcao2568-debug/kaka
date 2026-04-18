@@ -1,6 +1,11 @@
 {
   "handoff_id": "H-07-STAGE7-TO-STAGE8",
   "example_id": "EX-H07-MIN",
+  "authority_closure_checks": [
+    "formal_carrier_refs_present",
+    "multi_competitor_collection_ref_projects_stage7_winner_trace",
+    "stage8_contact_target_must_consume_formal_collection_and_selection_trace"
+  ],
   "payload": {
     "opportunity_id": "OPP-001",
     "saleability_status": "RESTRICTED",

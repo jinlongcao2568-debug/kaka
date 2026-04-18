@@ -1,9 +1,10 @@
 {
-  "policyVersion": "1.0.1",
+  "policyVersion": "1.0.2",
   "policyId": "source_vendor_usage_policy",
   "ownerDocs": [
+    "D2",
     "D9",
-    "D3"
+    "D11"
   ],
   "capability_mode_vocabulary_ref": "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary",
   "usageStates": [
@@ -36,6 +37,27 @@
     "fallback_vendor_id",
     "requires_manual_review"
   ],
+  "stage8SourceBoundary": {
+    "authorizedSourceRoles": [
+      "PUBLIC_OFFICIAL_SOURCE",
+      "THIRD_PARTY_SUPPORT_SOURCE",
+      "CONTACT_ENRICHMENT_SOURCE"
+    ],
+    "requiredFormalCarriers": [
+      "contact_candidate_collection",
+      "contact_selection_trace"
+    ],
+    "downstreamConsumerObjects": [
+      "contact_target",
+      "outreach_plan",
+      "touch_record"
+    ],
+    "reviewRequiredRoles": [
+      "THIRD_PARTY_SUPPORT_SOURCE",
+      "CONTACT_ENRICHMENT_SOURCE"
+    ],
+    "blockedByDefault": true
+  },
   "stagePolicies": [
     {
       "stage_range": "1-2",
@@ -88,6 +110,7 @@
       "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
       "usage_state": "support_only",
       "current_capability_mode": "INTERNAL_ONLY",
+      "default_main_source": false,
       "allowed_actions": [
         "support_verification",
         "support_review"
@@ -120,6 +143,7 @@
       "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
       "usage_state": "support_only",
       "current_capability_mode": "INTERNAL_GOVERNED",
+      "default_main_source": false,
       "allowed_actions": [
         "evidence_support_chain",
         "explanation_support",
@@ -156,6 +180,7 @@
       "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
       "usage_state": "internal_use",
       "current_capability_mode": "INTERNAL_GOVERNED",
+      "default_main_source": false,
       "allowed_actions": [
         "public_contact_support",
         "buyer_fit_support"
@@ -192,6 +217,7 @@
       "vendor_role": "CONTACT_ENRICHMENT_SOURCE",
       "usage_state": "internal_use",
       "current_capability_mode": "APPROVAL_REQUIRED",
+      "default_main_source": false,
       "formal_merge_required": true,
       "carrier_path_required": [
         "contact_candidate_collection",
@@ -211,9 +237,41 @@
     },
     {
       "stage_range": "8",
+      "vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+      "usage_state": "internal_use",
+      "current_capability_mode": "INTERNAL_GOVERNED",
+      "default_main_source": false,
+      "carrier_path_required": [
+        "contact_candidate_collection",
+        "contact_selection_trace"
+      ],
+      "allowed_action_intents": [
+        "PREVIEW_ONLY",
+        "INTERNAL_SOURCE_READ"
+      ],
+      "blocked_action_intents": [
+        "APPROVAL_EXECUTION",
+        "LIVE_EXECUTION"
+      ],
+      "allowed_actions": [
+        "contact_candidate_generation",
+        "public_contact_support"
+      ],
+      "forbidden_actions": [
+        "formal_contact_release",
+        "formal_main_source_override",
+        "channel_policy_override",
+        "direct_contact_target_projection",
+        "direct_outreach_plan_projection",
+        "compliance_bypass"
+      ]
+    },
+    {
+      "stage_range": "8",
       "vendor_role": "THIRD_PARTY_SUPPORT_SOURCE",
       "usage_state": "support_only",
       "current_capability_mode": "SHADOW_MODE",
+      "default_main_source": false,
       "carrier_path_required": [
         "contact_candidate_collection",
         "contact_selection_trace"
@@ -285,6 +343,6 @@
   "notes": [
     "capability_mode refines runtime behavior and does not replace usage_state.",
     "CONTACT_ENRICHMENT_SOURCE remains blocked in stage 1-2 even though the family is buildable later.",
-    "Stage 8 third-party contact supplementation must first materialize into formal merge carriers before any contact_target/outreach consumption."
+    "Stage 8 public/third-party/contact-enrichment source inputs must first materialize into formal merge carriers before any contact_target/outreach consumption."
   ]
 }
