@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from helpers import load_fixture, run_internal_chain_to_stage7
+from api.projections import get_surface_runtime_defaults
 from shared.pipeline import run_internal_chain
 from api.routes.stage7 import (
     list_saleable_opportunities,
@@ -302,6 +303,38 @@ class TestInternalSurfacePreview(unittest.TestCase):
             create_response["persisted_operational_context"]["object_refs"]["governance_feedback_event_id"],
             stage9.record("governance_feedback_event").get("governance_feedback_event_id"),
         )
+
+    def test_stage9_preview_surface_uses_canonical_pending_approval_mapping(self) -> None:
+        stage9 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage9"]
+        stage9.record("order_record").data["order_status"] = "PENDING_APPROVAL"
+
+        response = list_orders(stage9)
+
+        self.assertEqual(response["surface_state"], "governed-hold")
+        self.assertEqual(response["semantic_envelope"]["surface_state"], "governed-hold")
+        self.assertEqual(
+            response["semantic_envelope"]["surface_state_source"],
+            "storage.repository_boundary._surface_state_for_bundle",
+        )
+        self.assertIn("formal_status:order_record=PENDING_APPROVAL", response["semantic_envelope"]["state_reasons"])
+
+    def test_stage7_to_stage9_work_item_routes_use_canonical_surface_defaults(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage8 = result["stage8"]
+        stage9 = result["stage9"]
+
+        responses = (
+            (list_stage7_work_items(stage7), "opportunity_pool"),
+            (list_stage8_work_items(stage8), "outreach_workbench"),
+            (list_stage9_work_items(stage9), "order_delivery_workbench"),
+        )
+
+        for response, surface_id in responses:
+            defaults = get_surface_runtime_defaults(surface_id)
+            self.assertEqual(response["internal_only"], defaults["internal_only"])
+            self.assertEqual(response["live_execution_enabled"], defaults["live_execution_enabled"])
+            self.assertEqual(response["blocked_by_default"], defaults["blocked_by_default"])
 
     def test_leadpack_candidate_surface_is_internal_only_and_candidate_only(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

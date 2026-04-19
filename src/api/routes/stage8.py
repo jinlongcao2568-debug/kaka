@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from api.projections import build_stage8_preview_surface, register_route_table
+from api.projections import build_stage8_preview_surface, get_surface_runtime_defaults, register_route_table
 from api.schemas.stage8 import (
     ContactComplianceCheckResponse,
     ContactTargetsListResponse,
@@ -51,11 +51,12 @@ def create_touch_record(payload: Any) -> TouchRecordCreateResponse:
 def list_stage8_work_items(payload: Any) -> Stage8WorkItemListResponse:
     if not isinstance(payload, dict):
         persist_stage_bundle(payload)
+    surface_defaults = get_surface_runtime_defaults("outreach_workbench")
     return {
         "work_items": list_stage_work_items(8, payload if isinstance(payload, dict) else None),
-        "internal_only": True,
-        "live_execution_enabled": False,
-        "blocked_by_default": True,
+        "internal_only": bool(surface_defaults["internal_only"]),
+        "live_execution_enabled": bool(surface_defaults["live_execution_enabled"]),
+        "blocked_by_default": bool(surface_defaults["blocked_by_default"]),
     }
 
 

@@ -95,6 +95,10 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(payload["internal_only"])
         self.assertFalse(payload["live_execution_enabled"])
         self.assertEqual(payload["surface_state"], payload["semantic_envelope"]["surface_state"])
+        self.assertEqual(
+            payload["semantic_envelope"]["surface_state_source"],
+            "storage.repository_boundary._surface_state_for_bundle",
+        )
         self.assertEqual(payload["capability_envelope"]["surface_capability_mode"], "INTERNAL_ONLY")
         self.assertIn("refreshSaleableOpportunity", payload["governance_envelope"]["action_availability"])
         self.assertEqual(
@@ -121,6 +125,10 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(payload["blocked_by_default"])
         self.assertFalse(payload["live_execution_enabled"])
         self.assertEqual(payload["surface_state"], payload["semantic_envelope"]["surface_state"])
+        self.assertEqual(
+            payload["semantic_envelope"]["surface_state_source"],
+            "storage.repository_boundary._surface_state_for_bundle",
+        )
         self.assertEqual(payload["capability_envelope"]["surface_capability_mode"], "INTERNAL_GOVERNED")
         self.assertIn("createOutreachPlan", payload["governance_envelope"]["action_availability"])
         self.assertEqual(
@@ -151,6 +159,10 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(payload["blocked_by_default"])
         self.assertFalse(payload["live_execution_enabled"])
         self.assertEqual(payload["surface_state"], payload["semantic_envelope"]["surface_state"])
+        self.assertEqual(
+            payload["semantic_envelope"]["surface_state_source"],
+            "storage.repository_boundary._surface_state_for_bundle",
+        )
         self.assertEqual(payload["capability_envelope"]["surface_capability_mode"], "INTERNAL_GOVERNED")
         self.assertIn("createOrder", payload["governance_envelope"]["action_availability"])
         self.assertEqual(

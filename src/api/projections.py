@@ -14,6 +14,7 @@ from storage.operator_loop_contracts import (
     sanitize_transient_preview_context,
 )
 from storage.repository_boundary import (
+    _surface_state_for_bundle,
     get_operational_context,
     get_transient_preview_context,
     hydrate_stage_bundle,
@@ -108,6 +109,29 @@ SURFACE_CAPABILITY_FAMILIES = {
     "outreach_workbench": ("stage8_execution", "contact_enrichment", "risky_automation"),
     "order_delivery_workbench": ("stage9_execution", "delivery_export_variants", "risky_automation"),
 }
+SURFACE_RUNTIME_DEFAULTS = {
+    "opportunity_pool": {
+        "surface_mode": "preview-only",
+        "internal_only": True,
+        "live_execution_enabled": False,
+        "blocked_by_default": False,
+        "release_layer": "INTERNAL_OPERABLE",
+    },
+    "outreach_workbench": {
+        "surface_mode": "draft-only",
+        "internal_only": True,
+        "live_execution_enabled": False,
+        "blocked_by_default": True,
+        "release_layer": "INTERNAL_OPERABLE",
+    },
+    "order_delivery_workbench": {
+        "surface_mode": "draft-only",
+        "internal_only": True,
+        "live_execution_enabled": False,
+        "blocked_by_default": True,
+        "release_layer": "INTERNAL_OPERABLE",
+    },
+}
 GOVERNED_CONTEXT_FIELDS = (
     "approval_state",
     "projection_mode",
@@ -162,6 +186,10 @@ def _record_status(record: Mapping[str, Any], object_type: str) -> str:
         if value not in (None, ""):
             return str(value)
     return "UNKNOWN"
+
+
+def get_surface_runtime_defaults(surface_id: str) -> dict[str, Any]:
+    return dict(SURFACE_RUNTIME_DEFAULTS[surface_id])
 
 
 @lru_cache
@@ -251,41 +279,41 @@ def _collect_governed_context(
     return governed_context
 
 
-def _surface_state_signature(
+def _canonical_surface_state(bundle: StageBundle, *, default_mode: str) -> str:
+    return _surface_state_for_bundle(bundle, default_mode=default_mode)
+
+
+def _state_reasons_for_canonical_surface(
     *,
+    surface_state: str,
     decision_states: Mapping[str, str],
     primary_statuses: Mapping[str, str],
-    governed_context: Mapping[str, Any],
-) -> tuple[str, list[str]]:
-    blocked_reasons: list[str] = []
-    review_reasons: list[str] = []
-    hold_reasons: list[str] = []
+) -> list[str]:
+    reasons: list[str] = []
 
     for decision_name, decision_value in decision_states.items():
-        if decision_value == "BLOCK":
-            blocked_reasons.append(f"decision_state:{decision_name}=BLOCK")
-        elif decision_value == "REVIEW":
-            review_reasons.append(f"decision_state:{decision_name}=REVIEW")
+        if surface_state == "blocked" and decision_value == "BLOCK":
+            reasons.append(f"decision_state:{decision_name}=BLOCK")
+        elif surface_state == "review-required" and decision_value == "REVIEW":
+            reasons.append(f"decision_state:{decision_name}=REVIEW")
+
+    review_statuses = set(REVIEW_STATUSES)
+    hold_statuses = set(HOLD_STATUSES)
+    if surface_state == "governed-hold":
+        hold_statuses.add("PENDING_APPROVAL")
+        review_statuses.discard("PENDING_APPROVAL")
 
     for object_type, primary_status in primary_statuses.items():
-        if primary_status in BLOCKED_STATUSES:
-            blocked_reasons.append(f"formal_status:{object_type}={primary_status}")
-        elif primary_status in REVIEW_STATUSES:
-            review_reasons.append(f"formal_status:{object_type}={primary_status}")
-        elif primary_status in HOLD_STATUSES:
-            hold_reasons.append(f"formal_status:{object_type}={primary_status}")
+        if surface_state == "blocked" and primary_status in BLOCKED_STATUSES:
+            reasons.append(f"formal_status:{object_type}={primary_status}")
+        elif surface_state == "review-required" and primary_status in review_statuses:
+            reasons.append(f"formal_status:{object_type}={primary_status}")
+        elif surface_state == "governed-hold" and primary_status in hold_statuses:
+            reasons.append(f"formal_status:{object_type}={primary_status}")
 
-    if blocked_reasons:
-        return "blocked", blocked_reasons
-    if review_reasons:
-        return "review-required", review_reasons
-    if hold_reasons:
-        return "governed-hold", hold_reasons
-
-    surface_mode = str(governed_context.get("surface_mode", "preview-only"))
-    if surface_mode == "draft-only":
-        return "draft-only", [f"governed_context:surface_mode={surface_mode}"]
-    return "preview-ready", [f"governed_context:surface_mode={surface_mode}"]
+    if reasons:
+        return reasons
+    return [f"canonical_surface_state={surface_state}"]
 
 
 def _surface_access(surface_state: str) -> str:
@@ -462,7 +490,7 @@ def _semantic_envelope(
     return {
         "surface_state": surface_state,
         "surface_access": _surface_access(surface_state),
-        "surface_state_source": "formal_object_status + decision_states + governed_context",
+        "surface_state_source": "storage.repository_boundary._surface_state_for_bundle",
         "primary_statuses": dict(primary_statuses),
         "state_reasons": list(state_reasons),
     }
@@ -485,10 +513,11 @@ def _surface_envelope(
         for object_type, formal_object in formal_objects.items()
     }
     governed_context = _collect_governed_context(formal_records, default_mode=default_mode)
-    surface_state, state_reasons = _surface_state_signature(
+    surface_state = _canonical_surface_state(bundle, default_mode=default_mode)
+    state_reasons = _state_reasons_for_canonical_surface(
+        surface_state=surface_state,
         decision_states=decision_states,
         primary_statuses=primary_statuses,
-        governed_context=governed_context,
     )
     action_availability = _action_availability(
         surface_id=surface_id,
@@ -566,6 +595,7 @@ def _attach_operational_context(envelope: dict[str, Any], bundle: StageBundle) -
 
 def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
     bundle = _resolve_bundle(payload, "stage7")
+    surface_defaults = get_surface_runtime_defaults("opportunity_pool")
     opportunity = _record_data(bundle.record("saleable_opportunity"))
     offer = _record_data(bundle.record("offer_recommendation"))
     buyer_fit = _record_data(bundle.record("buyer_fit"))
@@ -623,10 +653,12 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
     envelope = _surface_envelope(
         bundle=bundle,
         surface_id="opportunity_pool",
-        default_mode="preview-only",
+        default_mode=str(surface_defaults["surface_mode"]),
         formal_records=formal_records,
         formal_objects=formal_objects,
         preview_projection=preview_projection,
+        release_layer=str(surface_defaults["release_layer"]),
+        blocked_by_default=bool(surface_defaults["blocked_by_default"]),
     )
     envelope["preview_projection"].pop("_raw_records", None)
     return _attach_operational_context(envelope, bundle)
@@ -634,6 +666,7 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
 
 def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
     bundle = _resolve_bundle(payload, "stage8")
+    surface_defaults = get_surface_runtime_defaults("outreach_workbench")
     contact = _record_data(bundle.record("contact_target"))
     outreach = _record_data(bundle.record("outreach_plan"))
     touch = _record_data(bundle.record("touch_record"))
@@ -684,11 +717,12 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
     envelope = _surface_envelope(
         bundle=bundle,
         surface_id="outreach_workbench",
-        default_mode="draft-only",
+        default_mode=str(surface_defaults["surface_mode"]),
         formal_records=formal_records,
         formal_objects=formal_objects,
         preview_projection=preview_projection,
-        blocked_by_default=True,
+        release_layer=str(surface_defaults["release_layer"]),
+        blocked_by_default=bool(surface_defaults["blocked_by_default"]),
     )
     envelope["preview_projection"].pop("_raw_records", None)
     return _attach_operational_context(envelope, bundle)
@@ -696,6 +730,7 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
 
 def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
     bundle = _resolve_bundle(payload, "stage9")
+    surface_defaults = get_surface_runtime_defaults("order_delivery_workbench")
     order = _record_data(bundle.record("order_record"))
     payment = _record_data(bundle.record("payment_record"))
     delivery = _record_data(bundle.record("delivery_record"))
@@ -761,11 +796,12 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
     envelope = _surface_envelope(
         bundle=bundle,
         surface_id="order_delivery_workbench",
-        default_mode="draft-only",
+        default_mode=str(surface_defaults["surface_mode"]),
         formal_records=formal_records,
         formal_objects=formal_objects,
         preview_projection=preview_projection,
-        blocked_by_default=True,
+        release_layer=str(surface_defaults["release_layer"]),
+        blocked_by_default=bool(surface_defaults["blocked_by_default"]),
     )
     envelope["preview_projection"].pop("_raw_records", None)
     return _attach_operational_context(envelope, bundle)
@@ -1666,5 +1702,6 @@ __all__ = [
     "build_stage7_preview_surface",
     "build_stage8_preview_surface",
     "build_stage9_preview_surface",
+    "get_surface_runtime_defaults",
     "register_route_table",
 ]

@@ -13,6 +13,7 @@ from api.projections import (
     build_leadpack_external_delivery_candidate_surface,
     build_leadpack_implementation_decision_readiness_packet_surface,
     build_stage7_preview_surface,
+    get_surface_runtime_defaults,
     register_route_table,
 )
 from api.schemas.stage7 import (
@@ -47,11 +48,12 @@ def refresh_saleable_opportunity(payload: Any) -> SaleableOpportunityRefreshResp
 def list_stage7_work_items(payload: Any) -> Stage7WorkItemListResponse:
     if not isinstance(payload, dict):
         persist_stage_bundle(payload)
+    surface_defaults = get_surface_runtime_defaults("opportunity_pool")
     return {
         "work_items": list_stage_work_items(7, payload if isinstance(payload, dict) else None),
-        "internal_only": True,
-        "live_execution_enabled": False,
-        "blocked_by_default": False,
+        "internal_only": bool(surface_defaults["internal_only"]),
+        "live_execution_enabled": bool(surface_defaults["live_execution_enabled"]),
+        "blocked_by_default": bool(surface_defaults["blocked_by_default"]),
     }
 
 
