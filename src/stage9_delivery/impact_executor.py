@@ -24,6 +24,12 @@ class ImpactExecutor:
         "persisted_stage9_record_target",
         "silent_override_forbidden",
     }
+    REQUIRED_TARGET_SEMANTIC_GROUPS = (
+        "projected_only_targets",
+        "persisted_targets",
+        "advisory_targets",
+        "trace_only_governance_targets",
+    )
     SOURCE_ORDER = (
         "outcome_taxonomy",
         "upstream_feedback_loop",
@@ -31,6 +37,13 @@ class ImpactExecutor:
         "payment_exception",
         "delivery_exception",
     )
+    SOURCE_EXPECTED_MERGE_SEMANTICS = {
+        "outcome_taxonomy": "AUTHORITATIVE_BASE",
+        "upstream_feedback_loop": "PROJECTED_FEEDBACK_ONLY",
+        "governance_taxonomy": "ADDITIVE_ONLY",
+        "payment_exception": "ADDITIVE_ONLY",
+        "delivery_exception": "ADDITIVE_ONLY",
+    }
 
     def __init__(self, settings: Any | None = None) -> None:
         self.settings = settings
@@ -42,6 +55,40 @@ class ImpactExecutor:
         if missing:
             raise ValueError(f"Stage9 writeback source resolution order missing source families: {missing}")
         return order
+
+    def _target_semantic_groups(self) -> dict[str, tuple[str, ...]]:
+        groups = dict(self.policy.get("target_semantic_groups", {}))
+        missing = [
+            group_name
+            for group_name in self.REQUIRED_TARGET_SEMANTIC_GROUPS
+            if group_name not in groups
+        ]
+        if missing:
+            raise ValueError(f"Stage9 target semantic groups missing groups: {missing}")
+
+        normalized: dict[str, tuple[str, ...]] = {}
+        seen_by_group: dict[str, set[str]] = {}
+        for group_name in self.REQUIRED_TARGET_SEMANTIC_GROUPS:
+            group_targets: list[str] = []
+            seen_targets: set[str] = set()
+            for target in groups.get(group_name, []):
+                target_name = str(target)
+                if target_name in seen_targets:
+                    continue
+                seen_targets.add(target_name)
+                group_targets.append(target_name)
+            normalized[group_name] = tuple(group_targets)
+            seen_by_group[group_name] = seen_targets
+
+        for index, group_name in enumerate(self.REQUIRED_TARGET_SEMANTIC_GROUPS):
+            for other_group_name in self.REQUIRED_TARGET_SEMANTIC_GROUPS[index + 1 :]:
+                overlap = sorted(seen_by_group[group_name] & seen_by_group[other_group_name])
+                if overlap:
+                    raise ValueError(
+                        "Stage9 target semantic groups must be disjoint: "
+                        f"{group_name} vs {other_group_name}; overlap={overlap}"
+                    )
+        return normalized
 
     def describe_source_contracts(self) -> dict[str, Any]:
         source_contracts = self.policy.get("writeback_source_contracts", {})
@@ -81,6 +128,7 @@ class ImpactExecutor:
         self,
         *,
         outcome_targets: list[str],
+        outcome_legacy_targets: list[str] | None = None,
         upstream_feedback_targets: list[str],
         governance_targets: list[str],
         payment_exception_targets: list[str],
@@ -89,9 +137,40 @@ class ImpactExecutor:
     ) -> dict[str, Any]:
         source_contracts = self.describe_source_contracts()
         effective_targets: list[str] = []
+        legacy_effective_targets: list[str] = []
         target_sources: dict[str, list[str]] = {}
+        additive_sources_allowed_targets = {
+            source_family: {
+                str(target)
+                for target in self.policy.get("additive_sources_allowed_targets", {}).get(
+                    source_family, []
+                )
+            }
+            for source_family in self._source_order()
+        }
+        outcome_legacy_targets = list(outcome_targets if outcome_legacy_targets is None else outcome_legacy_targets)
+        explicit_targets_by_source = {
+            "outcome_taxonomy": list(outcome_targets),
+            "upstream_feedback_loop": list(upstream_feedback_targets),
+            "governance_taxonomy": list(governance_targets),
+            "payment_exception": list(payment_exception_targets),
+            "delivery_exception": list(delivery_exception_targets),
+        }
+        legacy_targets_by_source = {
+            "outcome_taxonomy": list(outcome_legacy_targets),
+            "upstream_feedback_loop": [],
+            "governance_taxonomy": list(governance_targets),
+            "payment_exception": list(payment_exception_targets),
+            "delivery_exception": list(delivery_exception_targets),
+        }
 
-        def register_target(target: str, source_family: str, *, source_persisted_record: bool = False) -> None:
+        def register_target(
+            target: str,
+            source_family: str,
+            *,
+            source_persisted_record: bool = False,
+            include_in_legacy_effective: bool = False,
+        ) -> None:
             contract = self._require_target_contract(target)
             if source_family != "outcome_taxonomy" and not source_persisted_record:
                 additive_sources = set(contract.get("additive_source_families_allowed", []))
@@ -99,47 +178,54 @@ class ImpactExecutor:
                     raise ValueError(
                         f"Stage9 writeback target {target} does not allow additive source {source_family}"
                     )
+                allowed_targets = additive_sources_allowed_targets.get(source_family, set())
+                if target not in allowed_targets:
+                    raise ValueError(
+                        "Stage9 writeback target "
+                        f"{target} is not declared in additive_sources_allowed_targets for {source_family}"
+                    )
             if target not in effective_targets:
                 effective_targets.append(target)
             resolved_sources = target_sources.setdefault(target, [])
             if source_family not in resolved_sources:
                 resolved_sources.append(source_family)
+            if include_in_legacy_effective and target not in legacy_effective_targets:
+                legacy_effective_targets.append(target)
 
-        if source_contracts["outcome_taxonomy"]["merge_semantics"] != "AUTHORITATIVE_BASE":
-            raise ValueError(
-                "Stage9 outcome writeback source contract must use AUTHORITATIVE_BASE merge semantics"
-            )
-        for target in outcome_targets:
-            register_target(target, "outcome_taxonomy")
-        register_target(
-            str(source_contracts["outcome_taxonomy"]["persisted_stage9_record_target"]),
-            "outcome_taxonomy",
-            source_persisted_record=True,
-        )
-
-        if source_contracts["upstream_feedback_loop"]["merge_semantics"] != "PROJECTED_FEEDBACK_ONLY":
-            raise ValueError(
-                "Stage9 upstream feedback source contract must use PROJECTED_FEEDBACK_ONLY merge semantics"
-            )
-        for target in upstream_feedback_targets:
-            register_target(target, "upstream_feedback_loop")
-
-        additive_sources = {
-            "governance_taxonomy": governance_targets,
-            "payment_exception": payment_exception_targets,
-            "delivery_exception": delivery_exception_targets,
-        }
-        for source_family, targets in additive_sources.items():
-            if source_contracts[source_family]["merge_semantics"] != "ADDITIVE_ONLY":
+        for source_family in self._source_order():
+            expected_merge_semantics = self.SOURCE_EXPECTED_MERGE_SEMANTICS[source_family]
+            if source_contracts[source_family]["merge_semantics"] != expected_merge_semantics:
                 raise ValueError(
-                    f"Stage9 additive source contract must use ADDITIVE_ONLY merge semantics: {source_family}"
+                    "Stage9 writeback source contract must use "
+                    f"{expected_merge_semantics} merge semantics: {source_family}"
                 )
-            for target in targets:
-                register_target(target, source_family)
-            persisted_target = str(source_contracts[source_family]["persisted_stage9_record_target"])
-            if targets or (source_family == "governance_taxonomy" and governance_self_target):
+            for target in explicit_targets_by_source.get(source_family, []):
                 register_target(
-                    governance_self_target if source_family == "governance_taxonomy" and governance_self_target else persisted_target,
+                    target,
+                    source_family=source_family,
+                    include_in_legacy_effective=target in legacy_targets_by_source.get(source_family, []),
+                )
+            for target in legacy_targets_by_source.get(source_family, []):
+                if target in explicit_targets_by_source.get(source_family, []):
+                    continue
+                self._require_target_contract(target)
+                if target not in legacy_effective_targets:
+                    legacy_effective_targets.append(target)
+            if source_family == "upstream_feedback_loop":
+                continue
+
+            persisted_target = str(source_contracts[source_family]["persisted_stage9_record_target"])
+            if source_family == "governance_taxonomy":
+                if explicit_targets_by_source[source_family] or governance_self_target:
+                    register_target(
+                        governance_self_target if governance_self_target else persisted_target,
+                        source_family,
+                        source_persisted_record=True,
+                    )
+                continue
+            if source_family == "outcome_taxonomy" or explicit_targets_by_source[source_family]:
+                register_target(
+                    persisted_target,
                     source_family,
                     source_persisted_record=True,
                 )
@@ -147,6 +233,7 @@ class ImpactExecutor:
         return {
             "writeback_source_contracts": source_contracts,
             "effective_writeback_targets": effective_targets,
+            "legacy_effective_writeback_targets": legacy_effective_targets,
             "writeback_target_sources": target_sources,
         }
 
@@ -163,12 +250,28 @@ class ImpactExecutor:
         advisory_targets: list[str] = []
         resolved_target_sources: dict[str, list[str]] = {}
         source_contracts = self.describe_source_contracts()
-        target_semantic_groups = self.policy.get("target_semantic_groups", {})
-        advisory_target_set = set(target_semantic_groups.get("advisory_targets", []))
+        source_order_index = {
+            source_family: index
+            for index, source_family in enumerate(self._source_order())
+        }
+        target_semantic_groups = self._target_semantic_groups()
+        projected_target_set = set(target_semantic_groups["projected_only_targets"])
+        persisted_target_set = set(target_semantic_groups["persisted_targets"])
+        advisory_target_set = set(target_semantic_groups["advisory_targets"])
+        trace_only_governance_target_set = set(
+            target_semantic_groups["trace_only_governance_targets"]
+        )
+        trace_only_target_set = advisory_target_set | trace_only_governance_target_set
 
         for target in effective_writeback_targets:
             contract = self._require_target_contract(target)
             target_source_list = list(target_sources.get(target, [])) if target_sources else []
+            target_source_list.sort(
+                key=lambda source_family: source_order_index.get(
+                    source_family,
+                    len(source_order_index),
+                )
+            )
             resolved_target_sources[target] = target_source_list
             described[target] = {
                 "target": target,
@@ -177,14 +280,30 @@ class ImpactExecutor:
             }
             mutation_semantics = str(contract.get("mutation_semantics", "UNDECLARED"))
             persistence_semantics = str(contract.get("persistence_semantics", "UNDECLARED"))
-            if mutation_semantics == "PROJECTED_MUTATION_ONLY":
+            if target in projected_target_set:
+                if mutation_semantics != "PROJECTED_MUTATION_ONLY" or persistence_semantics != "NOT_PERSISTED_IN_STAGE9_RUNTIME":
+                    raise ValueError(
+                        f"Stage9 projected-only target contract drift for target={target}"
+                    )
                 projected_targets.append(target)
-            if persistence_semantics == "PERSISTED_IN_STAGE9_RUNTIME":
+            elif target in persisted_target_set:
+                if mutation_semantics != "PERSISTED_STAGE9_RECORD" or persistence_semantics != "PERSISTED_IN_STAGE9_RUNTIME":
+                    raise ValueError(
+                        f"Stage9 persisted target contract drift for target={target}"
+                    )
                 persistence_targets.append(target)
-            if mutation_semantics == "TRACE_ONLY_CONTRACT":
+            elif target in trace_only_target_set:
+                if mutation_semantics != "TRACE_ONLY_CONTRACT" or persistence_semantics != "NOT_PERSISTED_IN_STAGE9_RUNTIME":
+                    raise ValueError(
+                        f"Stage9 trace-only target contract drift for target={target}"
+                    )
                 trace_only_targets.append(target)
                 if target in advisory_target_set:
                     advisory_targets.append(target)
+            else:
+                raise ValueError(
+                    f"Stage9 writeback target missing target_semantic_groups membership: {target}"
+                )
 
         return {
             "writeback_contract_state": self.policy.get("contract_state", "UNKNOWN"),

@@ -15,6 +15,7 @@ if str(TESTS) not in sys.path:
     sys.path.insert(0, str(TESTS))
 
 from helpers import load_fixture
+from shared.contract_loader import load_contract
 from shared.pipeline import run_internal_chain
 from stage9_delivery.impact_executor import ImpactExecutor
 
@@ -739,6 +740,135 @@ class TestStage9ImpactExecutor(unittest.TestCase):
                 payment_exception_targets=[],
                 delivery_exception_targets=[],
             )
+
+    def test_runtime_facing_contract_fields_remain_authoritative(self) -> None:
+        impact_policy = load_contract("contracts/governance/writeback_impact_policy.json")
+        opportunity_catalog = load_contract("contracts/sales/opportunity_policy_catalog.json")
+        outcome_policy = next(
+            policy
+            for policy in opportunity_catalog["policies"]
+            if policy["policyId"] == "opportunity_outcome_writeback_v1"
+        )
+
+        self.assertEqual(impact_policy["current_state"], "INTERNAL_V0_ACTIVE")
+        self.assertEqual(
+            impact_policy["target_source_resolution_order"],
+            [
+                "outcome_taxonomy",
+                "upstream_feedback_loop",
+                "governance_taxonomy",
+                "payment_exception",
+                "delivery_exception",
+            ],
+        )
+        self.assertEqual(
+            set(impact_policy["target_semantic_groups"]["projected_only_targets"]),
+            {
+                "project_fact",
+                "saleable_opportunity",
+                "contact_target",
+                "review_queue_profile",
+                "sales_lead",
+                "report_record",
+            },
+        )
+        self.assertEqual(
+            set(impact_policy["target_semantic_groups"]["persisted_targets"]),
+            {
+                "order_record",
+                "payment_record",
+                "delivery_record",
+                "opportunity_outcome_event",
+                "governance_feedback_event",
+            },
+        )
+        self.assertEqual(
+            set(impact_policy["target_semantic_groups"]["advisory_targets"]),
+            {"buyer_fit", "challenger_candidate_profile", "outreach_plan"},
+        )
+        self.assertEqual(
+            impact_policy["source_ownership_layers"]["upstream_feedback_loop"][
+                "projected_target_field"
+            ],
+            "mustWriteBackTo",
+        )
+        self.assertEqual(
+            outcome_policy["runtimeVisibilityFields"],
+            [
+                "upstream_feedback_projected_targets",
+                "upstream_feedback_advisory_targets",
+                "writeback_target_contracts",
+            ],
+        )
+        self.assertEqual(
+            outcome_policy["writebackRoleFields"]["resolvedRuntimeFields"],
+            [
+                "upstream_feedback_projected_targets",
+                "upstream_feedback_advisory_targets",
+                "resolved_effective_writeback_targets",
+            ],
+        )
+        self.assertEqual(
+            outcome_policy["upstreamFeedbackLoopContracts"]["false_positive"][
+                "advisoryTargets"
+            ]["challenger_candidate_profile"]["fieldPatches"][
+                "profile_refresh_reason"
+            ],
+            "FALSE_POSITIVE",
+        )
+
+    def test_target_semantic_groups_drive_runtime_contract_buckets(self) -> None:
+        executor = ImpactExecutor()
+        summary = executor.describe_targets(
+            [
+                "project_fact",
+                "order_record",
+                "buyer_fit",
+                "controlled_exception_record",
+            ],
+            target_sources={
+                "project_fact": ["outcome_taxonomy"],
+                "order_record": ["payment_exception"],
+                "buyer_fit": ["upstream_feedback_loop"],
+                "controlled_exception_record": ["governance_taxonomy"],
+            },
+        )
+
+        self.assertEqual(summary["writeback_projected_targets"], ["project_fact"])
+        self.assertEqual(summary["writeback_persistence_targets"], ["order_record"])
+        self.assertEqual(summary["writeback_advisory_targets"], ["buyer_fit"])
+        self.assertEqual(
+            summary["writeback_trace_only_targets"],
+            ["buyer_fit", "controlled_exception_record"],
+        )
+
+    def test_target_source_resolution_order_follows_policy(self) -> None:
+        executor = ImpactExecutor()
+        executor.policy = copy.deepcopy(executor.policy)
+        executor.policy["target_source_resolution_order"] = [
+            "outcome_taxonomy",
+            "upstream_feedback_loop",
+            "governance_taxonomy",
+            "delivery_exception",
+            "payment_exception",
+        ]
+
+        resolution = executor.resolve_effective_targets(
+            outcome_targets=[],
+            upstream_feedback_targets=[],
+            governance_targets=[],
+            payment_exception_targets=["saleable_opportunity"],
+            delivery_exception_targets=["saleable_opportunity"],
+        )
+
+        self.assertEqual(
+            resolution["writeback_target_sources"]["saleable_opportunity"],
+            ["delivery_exception", "payment_exception"],
+        )
+        self.assertEqual(
+            resolution["legacy_effective_writeback_targets"],
+            ["saleable_opportunity"],
+        )
 
 
 if __name__ == "__main__":

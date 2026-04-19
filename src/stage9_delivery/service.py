@@ -622,16 +622,9 @@ class Stage9Service:
         delivery_exception_writeback_targets = ensure_list(
             runtime_state.resolve("delivery_exception_writeback_targets_optional", [])
         )
-        effective_writeback_targets = list(outcome_writeback_targets)
-        for target in (
-            governance_writeback_targets
-            + payment_exception_writeback_targets
-            + delivery_exception_writeback_targets
-        ):
-            if target not in effective_writeback_targets:
-                effective_writeback_targets.append(target)
         writeback_target_resolution = self.impact_executor.resolve_effective_targets(
             outcome_targets=outcome_authoritative_base_targets,
+            outcome_legacy_targets=outcome_writeback_targets,
             upstream_feedback_targets=(
                 upstream_feedback_projected_targets + upstream_feedback_advisory_targets
             ),
@@ -639,6 +632,9 @@ class Stage9Service:
             payment_exception_targets=payment_exception_writeback_targets,
             delivery_exception_targets=delivery_exception_writeback_targets,
             governance_self_target=governance_owned_self_target,
+        )
+        effective_writeback_targets = list(
+            writeback_target_resolution["legacy_effective_writeback_targets"]
         )
         resolved_effective_writeback_targets = list(
             writeback_target_resolution["effective_writeback_targets"]
