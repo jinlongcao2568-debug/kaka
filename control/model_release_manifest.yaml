@@ -3,6 +3,10 @@ updated_at: "2026-04-18"
 model_release_state: "INTERNAL_ONLY"
 external_release_status: "BLOCKED"
 capability_mode_vocabulary_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary"
+capability_family_current_mode_ref: "contracts/release/runtime_policy_catalog.json#capability_families"
+capability_mode_priority_order_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_priority_order"
+protected_short_circuit_modes_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.protected_short_circuit_modes"
+release_layer_redline_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.release_layer_redline"
 provider_vendor_release_projection:
   projection_only: true
   trace_only_projection: true
@@ -112,6 +116,7 @@ notes:
   - "Model outputs must remain internal assist or review assist."
   - "No model output may directly enter formal external delivery."
   - "control/model_release_manifest.yaml is a projection-only control surface for provider/runtime capability state."
+  - "provider/runtime current mode, priority order, protected short-circuit and release_layer redline all project from contracts/release/runtime_policy_catalog.json."
   - "capability_mode does not weaken external blocked or release_layer."
   - "Future provider externalization requires the dedicated prerequisite matrix and signoff pack."
   - "R6 decision keeps model provider externalization deny-by-default and tool provider externalization long-term blocked from default-open paths."

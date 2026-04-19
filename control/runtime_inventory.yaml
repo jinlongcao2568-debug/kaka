@@ -1,6 +1,16 @@
 version: 1
 updated_at: "2026-04-18"
 capability_mode_vocabulary_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary"
+capability_family_current_mode_ref: "contracts/release/runtime_policy_catalog.json#capability_families"
+capability_mode_priority_order_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_priority_order"
+protected_short_circuit_modes_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.protected_short_circuit_modes"
+release_layer_redline_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.release_layer_redline"
+capability_projection_boundary:
+  projection_only: true
+  current_mode_semantics_source: false
+  priority_order_semantics_source: false
+  protected_short_circuit_semantics_source: false
+  release_layer_redline_semantics_source: false
 provider_vendor_policy_projection:
   projection_only: true
   trace_only_projection: true
@@ -239,6 +249,7 @@ never_default_open_capabilities:
 notes:
   - "Future external tier is reserved only and not released."
   - "control/runtime_inventory.yaml is a projection-only control surface for capability and future-unlock state."
+  - "family current mode / priority order / protected short-circuit / release_layer redline all project from contracts/release/runtime_policy_catalog.json."
   - "capability_mode is a runtime dimension and does not replace release_layer."
   - "EXTERNAL_BLOCKED remains the external redline even when capability_mode becomes REAL_RUN_READY."
   - "future_unlock_tier is a prerequisite/deployment decision dimension and does not itself authorize unlock."

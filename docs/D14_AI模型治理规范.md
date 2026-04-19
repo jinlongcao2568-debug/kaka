@@ -637,11 +637,13 @@ AI / 模型治理一律不得：
 |---|---|---|
 | model/tool `capability_mode` 词表 | `contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary` | `control/model_release_manifest.yaml` |
 | `MODEL_PROVIDER` / `TOOL_PROVIDER` family current mode | `contracts/release/runtime_policy_catalog.json#capability_families` | `control/model_release_manifest.yaml` 只允许 projected state |
+| capability priority order / protected short-circuit / `EXTERNAL_BLOCKED` redline relation | `contracts/release/runtime_policy_catalog.json#capability_mode_priority_order`、`contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence` | `control/model_release_manifest.yaml`、`control/release_manifest.yaml` 只允许 projected refs/status |
 | provider externalization prerequisite / decision | `contracts/release/external_unlock_prerequisite_matrix.json`、`contracts/release/future_unlock_decision_matrix.json` | `control/model_release_manifest.yaml`、`control/future_unlock_decision_state.yaml` |
 
 补充约束：
 - `control/model_release_manifest.yaml` 只能投影 provider/runtime current state、repo readiness 与 signoff 状态，不得再成为 provider capability mode 的判定义源；
-- model/tool/provider runtime resolver 必须优先消费 contracts canonical source，再消费 target-specific registry/policy，再处理 runtime override。
+- model/tool/provider runtime resolver precedence 一律以 `contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence` 为准：`runtime_override -> target_policy_current_capability_mode -> target_registry_current_capability_mode -> family_current_capability_mode`。
+- `EMERGENCY_OFF`、`PERMANENTLY_BLOCKED` 的 protected short-circuit 与 `REAL_RUN_READY` 不得覆盖 `EXTERNAL_BLOCKED` redline，均以 `runtime_policy_catalog.json` 为准。
 
 ### [D14-R-044-A] future externalization prerequisite 补表（本轮新增）
 
