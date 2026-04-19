@@ -45,6 +45,20 @@ class Stage9Service:
         "WRONG_ROLE",
     }
     DECISION_ORDER = {"ALLOW": 0, "REVIEW": 1, "BLOCK": 2}
+    GOVERNED_FALLBACKS: dict[str, Any] = {
+        "plan_status": "DRAFT",
+        "touch_record_state": "CREATED",
+        "governance_decision_state": "ALLOW",
+        "permission_decision_state": "ALLOW",
+        "semantic_decision_state": "ALLOW",
+        "commercial_status": "DRAFT",
+        "order_status": "DRAFT",
+        "delivery_status": "NOT_READY",
+        "trigger_type": "OTHER",
+        "outcome_family": "WON",
+        "outcome_reason_tags": ["SIGNED"],
+        "contact_failure_state": "OTHER",
+    }
 
     def __init__(self, settings: Any | None = None) -> None:
         self.settings = settings
@@ -84,6 +98,24 @@ class Stage9Service:
             if self.DECISION_ORDER.get(token, 0) > self.DECISION_ORDER.get(effective, 0):
                 effective = token
         return effective
+
+    def _governed_fallback(self, field_name: str) -> Any:
+        value = self.GOVERNED_FALLBACKS[field_name]
+        return list(value) if isinstance(value, list) else value
+
+    def _h08_optional_or_fallback(
+        self,
+        h08_payload: Mapping[str, Any],
+        field_name: str,
+        *,
+        fallback: Any | None = None,
+    ) -> Any:
+        value = h08_payload.get(field_name)
+        if value not in (None, ""):
+            return value
+        if fallback is not None:
+            return fallback
+        return self._governed_fallback(field_name)
 
     def _stage9_governed_metadata(
         self,
@@ -139,6 +171,78 @@ class Stage9Service:
             if policy.get("policyId") == "opportunity_outcome_writeback_v1":
                 return dict(policy)
         raise ValueError("Stage9 requires contracts/sales/opportunity_policy_catalog.json#opportunity_outcome_writeback_v1")
+
+    def _outcome_taxonomy_entry(self, outcome_family: str) -> dict[str, Any]:
+        catalog = load_contract("contracts/sales/outcome_taxonomy_catalog.json", self.settings)
+        for entry in catalog.get("entries", []):
+            if entry.get("outcome_family") == outcome_family:
+                return dict(entry)
+        raise ValueError(f"Stage9 requires outcome taxonomy entry: {outcome_family}")
+
+    def _governance_taxonomy_entry(self, trigger_type: str) -> dict[str, Any]:
+        catalog = load_contract("contracts/sales/governance_feedback_policy_catalog.json", self.settings)
+        for entry in catalog.get("entries", []):
+            if entry.get("trigger_type") == trigger_type:
+                return dict(entry)
+        raise ValueError(f"Stage9 requires governance taxonomy entry: {trigger_type}")
+
+    def _h08_contract_workflow_fallbacks(
+        self,
+        *,
+        response_status: str,
+        saleability_status: str,
+        crm_owner_state: str,
+        plan_status: str,
+        feedback_reason: str,
+        upstream_governance_decision_state: str,
+    ) -> dict[str, Any]:
+        fallbacks: dict[str, Any] = {}
+        contact_failed_entry = self._outcome_taxonomy_entry("CONTACT_FAILED")
+        allowed_contact_reasons = set(contact_failed_entry.get("allowed_reason_tags", []))
+        if feedback_reason in allowed_contact_reasons:
+            fallbacks["outcome_family"] = "CONTACT_FAILED"
+            fallbacks["outcome_reason_tags"] = [feedback_reason]
+            fallbacks["contact_failure_state"] = response_status
+
+        trigger_type = ""
+        if saleability_status == "BLOCKED":
+            trigger_type = "EVIDENCE_INSUFFICIENT"
+        elif upstream_governance_decision_state == "BLOCK":
+            trigger_type = "DELIVERY_BLOCK"
+        elif plan_status in ("DRAFT", "REVIEW_REQUIRED", "APPROVAL_PENDING", "SCHEDULED"):
+            trigger_type = "APPROVAL_MISSING"
+        elif crm_owner_state in ("UNASSIGNED", "ON_HOLD", "CLOSED"):
+            trigger_type = "APPROVAL_MISSING"
+        if trigger_type:
+            self._governance_taxonomy_entry(trigger_type)
+            fallbacks["trigger_type"] = trigger_type
+        if (
+            saleability_status == "BLOCKED"
+            or upstream_governance_decision_state == "BLOCK"
+            or plan_status in ("BLOCKED", "CANCELLED", "REJECTED")
+        ):
+            fallbacks["commercial_status"] = "ON_HOLD"
+            fallbacks["order_status"] = "ON_HOLD"
+            fallbacks["delivery_status"] = "RELEASE_BLOCKED"
+        elif crm_owner_state == "UNASSIGNED":
+            fallbacks["commercial_status"] = "PENDING_APPROVAL"
+            fallbacks["order_status"] = "PENDING_APPROVAL"
+        elif fallbacks.get("outcome_family") == "CONTACT_FAILED":
+            fallbacks["commercial_status"] = "ON_HOLD"
+            fallbacks["order_status"] = "ON_HOLD"
+            fallbacks["delivery_status"] = "RELEASE_BLOCKED"
+        elif crm_owner_state in ("ON_HOLD", "CLOSED"):
+            fallbacks["commercial_status"] = "ON_HOLD"
+            fallbacks["order_status"] = "ON_HOLD"
+        elif upstream_governance_decision_state == "REVIEW" or plan_status in (
+            "DRAFT",
+            "REVIEW_REQUIRED",
+            "APPROVAL_PENDING",
+            "SCHEDULED",
+        ):
+            fallbacks["commercial_status"] = "PENDING_APPROVAL"
+            fallbacks["order_status"] = "PENDING_APPROVAL"
+        return fallbacks
 
     def _resolve_upstream_feedback_contract(
         self,
@@ -299,86 +403,36 @@ class Stage9Service:
         response_status = h08_payload["response_status"]
         saleability_status = h08_payload["saleability_status"]
         crm_owner_state = h08_payload["crm_owner_state"]
-        plan_status = h08_payload.get("plan_status", inputs.get("plan_status", "DRAFT"))
-        touch_record_state = h08_payload.get("touch_record_state", inputs.get("touch_record_state", "CREATED"))
-        feedback_reason = h08_payload.get("feedback_reason", inputs.get("feedback_reason", response_status))
-        written_back_at_optional = h08_payload.get(
-            "written_back_at_optional",
-            inputs.get("written_back_at_optional"),
+        plan_status = self._h08_optional_or_fallback(h08_payload, "plan_status")
+        touch_record_state = self._h08_optional_or_fallback(h08_payload, "touch_record_state")
+        feedback_reason = self._h08_optional_or_fallback(
+            h08_payload,
+            "feedback_reason",
+            fallback=response_status,
         )
-        upstream_governance_decision_state = h08_payload.get(
+        written_back_at_optional = h08_payload.get("written_back_at_optional")
+        upstream_governance_decision_state = self._h08_optional_or_fallback(
+            h08_payload,
             "governance_decision_state",
-            inputs.get("governance_decision_state", "ALLOW"),
         )
-        upstream_permission_decision_state = h08_payload.get(
+        upstream_permission_decision_state = self._h08_optional_or_fallback(
+            h08_payload,
             "permission_decision_state",
-            inputs.get("permission_decision_state", "ALLOW"),
         )
-        upstream_semantic_decision_state = h08_payload.get(
+        upstream_semantic_decision_state = self._h08_optional_or_fallback(
+            h08_payload,
             "semantic_decision_state",
-            inputs.get("semantic_decision_state", "ALLOW"),
         )
-        contact_failure = response_status in self.CONTACT_FAILURE_RESPONSES
         release_level = inputs.get("release_level", inputs.get("minimum_release_level", "INTERNAL_OPERABLE"))
         approval_state = inputs.get("approval_state", "NOT_REQUIRED")
         governed_execution_mode = str(inputs.get("governed_execution_mode", "INTERNAL_GOVERNED"))
-
-        commercial_status_default = "DRAFT"
-        order_status_default = "DRAFT"
-        if (
-            saleability_status == "BLOCKED"
-            or upstream_governance_decision_state == "BLOCK"
-            or plan_status in ("BLOCKED", "CANCELLED", "REJECTED")
-            or touch_record_state == "CANCELLED"
-        ):
-            commercial_status_default = "ON_HOLD"
-            order_status_default = "ON_HOLD"
-        elif crm_owner_state == "UNASSIGNED":
-            commercial_status_default = "PENDING_APPROVAL"
-            order_status_default = "PENDING_APPROVAL"
-        elif crm_owner_state in ("ON_HOLD", "CLOSED") or contact_failure:
-            commercial_status_default = "ON_HOLD"
-            order_status_default = "ON_HOLD"
-        elif (
-            upstream_governance_decision_state == "REVIEW"
-            or plan_status in ("DRAFT", "REVIEW_REQUIRED", "APPROVAL_PENDING", "SCHEDULED")
-        ):
-            commercial_status_default = "PENDING_APPROVAL"
-            order_status_default = "PENDING_APPROVAL"
-
-        delivery_status_default = (
-            "RELEASE_BLOCKED"
-            if saleability_status == "BLOCKED"
-            or contact_failure
-            or upstream_governance_decision_state == "BLOCK"
-            or plan_status in ("BLOCKED", "CANCELLED", "REJECTED")
-            or touch_record_state == "CANCELLED"
-            else "NOT_READY"
-        )
-        trigger_type_default = (
-            "EVIDENCE_INSUFFICIENT"
-            if saleability_status == "BLOCKED"
-            else "DELIVERY_BLOCK"
-            if upstream_governance_decision_state == "BLOCK"
-            else "APPROVAL_MISSING"
-            if plan_status in ("DRAFT", "REVIEW_REQUIRED", "APPROVAL_PENDING")
-            else "APPROVAL_MISSING"
-            if crm_owner_state in ("UNASSIGNED", "ON_HOLD", "CLOSED")
-            else "OTHER"
-        )
-        outcome_family_default = (
-            "CONTACT_FAILED"
-            if contact_failure
-            else "LOST"
-            if saleability_status == "BLOCKED"
-            else "WON"
-        )
-        outcome_reason_tags_default = (
-            [feedback_reason]
-            if contact_failure
-            else ["COMPETITOR_WON"]
-            if saleability_status == "BLOCKED"
-            else ["SIGNED"]
+        h08_contract_fallbacks = self._h08_contract_workflow_fallbacks(
+            response_status=response_status,
+            saleability_status=saleability_status,
+            crm_owner_state=crm_owner_state,
+            plan_status=plan_status,
+            feedback_reason=feedback_reason,
+            upstream_governance_decision_state=upstream_governance_decision_state,
         )
         runtime_inputs = {
             **dict(inputs),
@@ -394,7 +448,13 @@ class Stage9Service:
             "governance_decision_state": upstream_governance_decision_state,
             "permission_decision_state": upstream_permission_decision_state,
             "semantic_decision_state": upstream_semantic_decision_state,
-            "trigger_type": inputs.get("trigger_type", trigger_type_default),
+            "trigger_type": inputs.get(
+                "trigger_type",
+                h08_contract_fallbacks.get(
+                    "trigger_type",
+                    self._governed_fallback("trigger_type"),
+                ),
+            ),
             "trigger_summary": inputs.get(
                 "trigger_summary",
                 (
@@ -409,17 +469,50 @@ class Stage9Service:
                     f"governance_decision_state={upstream_governance_decision_state}"
                 ),
             ),
-            "outcome_family": inputs.get("outcome_family", outcome_family_default),
-            "outcome_reason_tags": inputs.get("outcome_reason_tags", outcome_reason_tags_default),
+            "outcome_family": inputs.get(
+                "outcome_family",
+                h08_contract_fallbacks.get(
+                    "outcome_family",
+                    self._governed_fallback("outcome_family"),
+                ),
+            ),
+            "outcome_reason_tags": inputs.get(
+                "outcome_reason_tags",
+                h08_contract_fallbacks.get(
+                    "outcome_reason_tags",
+                    self._governed_fallback("outcome_reason_tags"),
+                ),
+            ),
             "contact_failure_state": inputs.get(
                 "contact_failure_state",
-                response_status if contact_failure else "OTHER",
+                h08_contract_fallbacks.get(
+                    "contact_failure_state",
+                    self._governed_fallback("contact_failure_state"),
+                ),
             ),
             "window_missed_state": inputs.get("window_missed_state", "NOT_MISSED"),
             "payer_mismatch_state": inputs.get("payer_mismatch_state", "NO_MISMATCH"),
-            "commercial_status": inputs.get("commercial_status", commercial_status_default),
-            "order_status": inputs.get("order_status", order_status_default),
-            "delivery_status": inputs.get("delivery_status", delivery_status_default),
+            "commercial_status": inputs.get(
+                "commercial_status",
+                h08_contract_fallbacks.get(
+                    "commercial_status",
+                    self._governed_fallback("commercial_status"),
+                ),
+            ),
+            "order_status": inputs.get(
+                "order_status",
+                h08_contract_fallbacks.get(
+                    "order_status",
+                    self._governed_fallback("order_status"),
+                ),
+            ),
+            "delivery_status": inputs.get(
+                "delivery_status",
+                h08_contract_fallbacks.get(
+                    "delivery_status",
+                    self._governed_fallback("delivery_status"),
+                ),
+            ),
             "amount_band": inputs.get(
                 "amount_band",
                 saleable_opportunity.get("expected_contract_value_band", "UNKNOWN"),
@@ -579,7 +672,7 @@ class Stage9Service:
         order_approval_state = approval_state
         if (
             order_approval_state == "NOT_REQUIRED"
-            and order_status_default == "PENDING_APPROVAL"
+            and runtime_inputs["order_status"] == "PENDING_APPROVAL"
         ):
             order_approval_state = "PENDING"
         resolved_refund_state = runtime_state.resolve(

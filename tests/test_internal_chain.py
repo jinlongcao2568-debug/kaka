@@ -12,6 +12,7 @@ from helpers import (
 from shared.contracts_runtime import ContractRecord, ContractStore, StageBundle
 from shared.pipeline import run_internal_chain
 from stage9_delivery.service import Stage9Service
+from storage import hydrate_stage_bundle, persist_stage_bundle, reset_default_storage
 
 
 class TestInternalChain(unittest.TestCase):
@@ -752,6 +753,7 @@ class TestInternalChain(unittest.TestCase):
         outcome = stage9.record("opportunity_outcome_event")
 
         self.assertEqual(order_record.get("opportunity_id"), opportunity.get("opportunity_id"))
+        self.assertEqual(order_record.get("commercial_status"), "PENDING_APPROVAL")
         self.assertEqual(order_record.get("order_status"), "PENDING_APPROVAL")
         self.assertEqual(order_record.get("touch_record_id"), touch_record.get("touch_record_id"))
         self.assertEqual(order_record.get("plan_status"), stage8.handoff.get("plan_status"))
@@ -771,6 +773,7 @@ class TestInternalChain(unittest.TestCase):
             touch_record.get("written_back_at_optional"),
         )
         self.assertEqual(outcome.get("outcome_family"), "CONTACT_FAILED")
+        self.assertEqual(outcome.get("outcome_reason_tags"), ["NO_RESPONSE"])
         self.assertEqual(outcome.get("contact_failure_state"), touch_record.get("response_status"))
         self.assertEqual(outcome.get("feedback_reason"), touch_record.get("feedback_reason"))
         self.assertEqual(outcome.get("trigger_type"), governance_feedback.get("trigger_type"))
@@ -801,7 +804,7 @@ class TestInternalChain(unittest.TestCase):
         )
         self.assertEqual(outcome.get("writeback_targets"), ["contact_target", "saleable_opportunity"])
 
-    def test_stage9_response_and_saleability_change_runtime_decision(self) -> None:
+    def test_stage9_response_and_saleability_do_not_create_service_lifecycle_defaults(self) -> None:
         connected_payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         connected_payload.update(
             {
@@ -817,6 +820,14 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(
             connected_result["stage9"].record("delivery_record").get("delivery_status"),
             "NOT_READY",
+        )
+        self.assertEqual(
+            connected_result["stage9"].record("opportunity_outcome_event").get("outcome_family"),
+            "WON",
+        )
+        self.assertEqual(
+            connected_result["stage9"].record("governance_feedback_event").get("trigger_type"),
+            "OTHER",
         )
 
         wrong_role_payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -843,6 +854,10 @@ class TestInternalChain(unittest.TestCase):
             wrong_role_result["stage9"].record("opportunity_outcome_event").get("contact_failure_state"),
             "WRONG_ROLE",
         )
+        self.assertEqual(
+            wrong_role_result["stage9"].record("governance_feedback_event").get("trigger_type"),
+            "APPROVAL_MISSING",
+        )
 
         blocked_result = run_internal_chain(load_fixture("internal_chain_block.json"))
         self.assertEqual(
@@ -857,6 +872,8 @@ class TestInternalChain(unittest.TestCase):
             blocked_result["stage9"].record("governance_feedback_event").get("trigger_type"),
             "EVIDENCE_INSUFFICIENT",
         )
+        self.assertEqual(blocked_result["stage9"].inputs.get("order_status"), "ON_HOLD")
+        self.assertEqual(blocked_result["stage9"].inputs.get("delivery_status"), "RELEASE_BLOCKED")
 
     def test_stage9_partial_payment_keeps_legacy_targets_clean_and_precise_exception_family(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -937,6 +954,79 @@ class TestInternalChain(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "complete H-08 payload fields"):
             service.run(missing_handoff_field_bundle)
+
+    def test_stage9_h08_optional_fields_do_not_fallback_to_scattered_inputs(self) -> None:
+        stage8 = self._build_stage8_bundle()
+        service = Stage9Service()
+        handoff_without_optional = {
+            key: value
+            for key, value in stage8.handoff.items()
+            if key not in Stage9Service.H08_OPTIONAL_FIELDS
+        }
+        scattered_inputs = dict(stage8.inputs)
+        scattered_inputs.update(
+            {
+                "plan_status": "BLOCKED",
+                "touch_record_state": "CANCELLED",
+                "written_back_at_optional": "1999-01-01T00:00:00Z",
+                "governance_decision_state": "BLOCK",
+                "permission_decision_state": "BLOCK",
+                "semantic_decision_state": "BLOCK",
+            }
+        )
+        stripped_bundle = StageBundle(
+            stage=8,
+            records=dict(stage8.records),
+            handoff=handoff_without_optional,
+            trace_rules=list(stage8.trace_rules),
+            inputs=scattered_inputs,
+        )
+
+        stage9 = service.run(stripped_bundle)
+        order_record = stage9.record("order_record")
+
+        self.assertEqual(order_record.get("plan_status"), "DRAFT")
+        self.assertEqual(order_record.get("touch_record_state"), "CREATED")
+        self.assertEqual(order_record.get("governance_decision_state"), "ALLOW")
+        self.assertIsNone(stage9.inputs.get("written_back_at_optional"))
+        self.assertNotEqual(
+            stage9.record("payment_record").get("written_back_at_optional"),
+            "1999-01-01T00:00:00Z",
+        )
+        self.assertEqual(stage9.inputs.get("commercial_status"), "PENDING_APPROVAL")
+        self.assertEqual(stage9.inputs.get("order_status"), "PENDING_APPROVAL")
+        self.assertEqual(stage9.inputs.get("delivery_status"), "NOT_READY")
+        self.assertEqual(stage9.inputs.get("trigger_type"), "APPROVAL_MISSING")
+        self.assertEqual(stage9.inputs.get("outcome_family"), "CONTACT_FAILED")
+        self.assertEqual(stage9.inputs.get("outcome_reason_tags"), ["NO_RESPONSE"])
+
+    def test_stage9_repository_readback_preserves_writeback_carrier_only(self) -> None:
+        reset_default_storage()
+        stage9 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage9"]
+
+        persist_stage_bundle(stage9)
+        hydrated = hydrate_stage_bundle(
+            "stage9",
+            {"opportunity_id": stage9.record("order_record").get("opportunity_id")},
+        )
+
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.inputs.get("resolved_effective_writeback_targets"),
+            stage9.inputs.get("resolved_effective_writeback_targets"),
+        )
+        self.assertEqual(
+            hydrated.inputs.get("writeback_target_contracts"),
+            stage9.inputs.get("writeback_target_contracts"),
+        )
+        self.assertEqual(
+            hydrated.inputs.get("writeback_target_sources"),
+            stage9.inputs.get("writeback_target_sources"),
+        )
+        self.assertEqual(
+            hydrated.record("order_record").get("order_status"),
+            stage9.record("order_record").get("order_status"),
+        )
 
     def test_superseded_paths_stage4_to_stage7(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

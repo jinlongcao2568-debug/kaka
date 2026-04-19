@@ -9,7 +9,7 @@ navigation_state: "AX9S_FULL_REPAIR_CLOSED"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "FF-PRE-ROOT 到 FF-11-S1 已完成并通过脚本；本窗只执行 FF-11-S2，让 Stage9 runtime 真消费 outcome/governance/upstream feedback source contract，脚本校验后停机。"
+activation_condition: "FF-PRE-ROOT 到 FF-11-S2 已完成并通过脚本；本窗只执行 FF-12-S1，去掉 Stage9 service heuristic default lifecycle，改为 authoritative payload / contract fallback，脚本校验后停机。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "AX9S-FF-11-S2-stage9-runtime-source-contract-closure"
-  title: "FF-11-S2 Stage9 outcome/governance/upstream feedback runtime source-contract closure"
+  task_id: "AX9S-FF-12-S1-stage9-typed-workflow-default-removal"
+  title: "FF-12-S1 Stage9 typed workflow default removal"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -27,12 +27,13 @@ currentTask:
     - "docs/D2_正式对象契约与字段字典.md"
     - "docs/D10_订单支付交付与治理反馈规范.md"
     - "docs/D11_测试验收与金标回归清单.md"
-    - "contracts/sales/outcome_taxonomy_catalog.json"
-    - "contracts/sales/governance_feedback_policy_catalog.json"
-    - "contracts/sales/opportunity_policy_catalog.json"
-    - "contracts/governance/writeback_impact_policy.json"
-  capability_adjudication_source: "FF-11-S1 closure + Stage9 outcome/governance/upstream feedback source-contract runtime line"
-  objective: "让 Stage9 runtime 真消费 outcome_taxonomy / governance_taxonomy / upstream feedback loop / additive source contract。"
+    - "handoff/stage8_to_stage9/contract.json"
+    - "src/stage9_delivery/service.py"
+    - "src/storage/repository_boundary.py"
+    - "tests/test_pre_route_behavior.py"
+    - "tests/test_internal_chain.py"
+  capability_adjudication_source: "FF-11-S2 closure + Stage9 H-08 authoritative payload / typed workflow default removal line"
+  objective: "去掉 Stage9 service heuristic default lifecycle，改为 authoritative payload / contract fallback。"
   operator_assignment_roster:
     stage4:
       assigned_owner_role: "single_operator"
@@ -78,36 +79,38 @@ currentTask:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "B10"
-    packet_id: "FF-11-S2"
-    subpacket_id: "FF-11-S2"
-    title: "FF-11-S2 Stage9 outcome/governance/upstream feedback runtime source-contract closure"
+    packet_id: "FF-12-S1"
+    subpacket_id: "FF-12-S1"
+    title: "FF-12-S1 Stage9 typed workflow default removal"
     status: "CLOSED"
-    objective: "让 Stage9 runtime 真消费 outcome/governance/upstream feedback source contract。"
+    objective: "去掉 Stage9 service heuristic default lifecycle，改为 authoritative payload / contract fallback。"
     depends_on:
-      - "FF-11-S1"
+      - "FF-11-S2"
     non_goals:
       - "not an external unlock implementation"
+      - "不升级 API surface"
+      - "不动 future unlock"
+      - "不扩大到 FF-13-S1"
+      - "不回头改 FF-10/FF-11 已通过的 precise family / source-contract 语义"
       - "不改 Stage8"
-      - "不扩大到 FF-12-S1"
-      - "不回头改 FF-10-S1 precise payment/delivery family runtime"
-      - "不修改 FF-11-S1 已通过的 docs/contracts authority"
-      - "不放开 target persistence 或 live execution"
     affected_stages:
       - "stage9_delivery"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
-      - "shared_runtime_core"
-      - "governance_release_core"
       - "stage8_stage9_high_risk_execution"
+      - "governance_release_core"
       - "automation_control_core"
     declared_changed_paths:
       - "control/current_task.yaml"
-      - "src/shared/policy_executor.py"
+      - "docs/D2_正式对象契约与字段字典.md"
+      - "docs/D10_订单支付交付与治理反馈规范.md"
+      - "docs/D11_测试验收与金标回归清单.md"
+      - "handoff/stage8_to_stage9/contract.json"
       - "src/stage9_delivery/service.py"
-      - "src/stage9_delivery/impact_executor.py"
-      - "tests/test_stage9_impact_executor.py"
+      - "src/storage/repository_boundary.py"
       - "tests/test_pre_route_behavior.py"
+      - "tests/test_internal_chain.py"
     baseline_dirty_paths:
       - "docs/专题_来源覆盖与采集路由规范.md"
       - "docs/D2_正式对象契约与字段字典.md"
@@ -267,28 +270,29 @@ currentTask:
       - ".pytest_cache/**"
     forbidden_modification_paths:
       - "docs/L0.md"
-      - "contracts/**"
-      - "handoff/**"
-      - "src/stage1_tasking/**"
-      - "src/stage2_ingestion/**"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
-      - "src/stage5_rules_evidence/**"
-      - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
+      - "contracts/release/**"
+      - "contracts/sales/outcome_taxonomy_catalog.json"
+      - "contracts/sales/governance_feedback_policy_catalog.json"
+      - "contracts/governance/writeback_impact_policy.json"
       - "src/stage8_outreach/**"
-      - "tests/**（仅允许 tests/test_stage9_impact_executor.py、tests/test_pre_route_behavior.py 与生成物白名单）"
+      - "src/stage9_delivery/impact_executor.py"
+      - "tests/**（仅允许 tests/test_pre_route_behavior.py、tests/test_internal_chain.py 与生成物白名单）"
       - "scripts/**（仅允许白名单 root hotfix 文件保持不动，不应修改）"
     impacted_assets:
       control:
         - "control/current_task.yaml"
+      docs:
+        - "docs/D2_正式对象契约与字段字典.md"
+        - "docs/D10_订单支付交付与治理反馈规范.md"
+        - "docs/D11_测试验收与金标回归清单.md"
+      handoff:
+        - "handoff/stage8_to_stage9/contract.json"
       runtime:
-        - "src/shared/policy_executor.py"
         - "src/stage9_delivery/service.py"
-        - "src/stage9_delivery/impact_executor.py"
+        - "src/storage/repository_boundary.py"
       tests:
-        - "tests/test_stage9_impact_executor.py"
         - "tests/test_pre_route_behavior.py"
+        - "tests/test_internal_chain.py"
     required_scripts:
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1"
@@ -305,17 +309,18 @@ currentTask:
       - "引入未声明的新对象/新枚举/新 gate/新 exception 语义"
       - "external release / live execution / direct Stage8-9 object export / tool provider externalized usage 被放开"
       - "同一脚本连续失败 >= 2 次"
-      - "扩大到 FF-12-S1 范围"
+      - "扩大到 FF-13-S1 范围"
     definition_of_done:
-      - "src/shared/policy_executor.py 真消费 outcome/governance taxonomy 输出，不再保留 competing target/reason/source ownership logic"
-      - "src/stage9_delivery/service.py 使用 outcome_taxonomy / governance_taxonomy / upstream feedback loop / additive source contract 的单一 source ownership，不再局部重组 conflicting target sets"
-      - "src/stage9_delivery/impact_executor.py 对 source contracts、target contracts、projected/advisory/persisted targets 的消费与 writeback_impact_policy.json 一致"
-      - "tests/test_stage9_impact_executor.py 与 tests/test_pre_route_behavior.py 覆盖 outcome base targets、governance additive targets、upstream projected/advisory targets、target source resolution、invalid additive source hard fail"
+      - "src/stage9_delivery/service.py 不再先用 heuristic 生成 commercial_status/order_status/delivery_status/trigger_type/outcome_family/outcome_reason_tags 后再交给 runtime"
+      - "Stage9 typed workflow defaults 只能来自 H-08 authoritative payload、正式 contracts 或 explicit governed fallback"
+      - "handoff/stage8_to_stage9/contract.json 的 optional preview/writeback fields 被 Stage9 consumer 明确消费"
+      - "src/storage/repository_boundary.py 对 Stage9 writeback carrier/readback 不形成第二套 lifecycle 判断"
+      - "tests/test_pre_route_behavior.py 与 tests/test_internal_chain.py 覆盖 H-08 optional fields、typed workflow defaults、missing upstream data、refund/payment/delivery default path"
       - "本包 required scripts 全部 PASS"
-      - "本包完成后明确建议进入 FF-12-S1"
+      - "本包完成后明确建议进入 FF-13-S1"
     deliverables:
-      - "Stage9 outcome/governance/upstream feedback runtime source-contract closure"
-      - "Stage9 writeback source-contract runtime regression hardened"
+      - "Stage9 typed workflow default removal"
+      - "Stage9 H-08 consumer and typed-workflow regression hardened"
     human_review_required: true
     owner_reviews_required:
       - "architecture_owner"
@@ -330,21 +335,21 @@ currentTask:
     notes:
       - "当前仓库无 scripts/search.ps1；本窗全文检索统一使用 rg。"
       - "baseline dirty / allowlist 中的前序 dirty files 仅作承接；本窗除非绝对必要不改。"
-      - "本窗真正工作范围只有 Stage9 source-contract runtime consumption 与对应 tests。"
-      - "不改 docs/contracts authority、handoff、Stage8 代码。"
+      - "本窗真正工作范围只有 Stage9 typed workflow defaults、H-08 consumption、repository writeback carrier 与对应 tests。"
+      - "不改 outcome/governance source-contract authority，不改 ImpactExecutor，不改 Stage8。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
     - "external software release remains blocked"
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "仅允许 FF-11-S2 声明范围内的 Stage9 outcome/governance/upstream feedback runtime source-contract 收口、对应测试、正式脚本校验与停机汇报"
+    - "仅允许 FF-12-S1 声明范围内的 Stage9 typed workflow defaults、H-08 consumption、repository writeback carrier、对应测试、正式脚本校验与停机汇报"
   forbidden_actions:
     - "修改 docs/L0.md"
-    - "修改 docs/contracts authority、handoff、Stage8 代码或白名单外 scripts"
+    - "修改 outcome/governance source-contract authority、ImpactExecutor、Stage8 代码或白名单外 scripts/tests"
     - "开放 external release、Stage 8 real execution、Stage 9 real payment/delivery 或 direct Stage8-9 object export"
     - "把 internal/governed/preview/dry-run 写成 live-ready"
     - "新造第二套对象、枚举、gate、capability、state source、writeback semantics"
   nextActions:
-    - "FF-11-S2 完成后按 stop rule 停机；建议人工进入 FF-12-S1"
-  status_note: "FF-11-S2 已完成 Stage9 outcome/governance/upstream feedback runtime source-contract 收口；repo readiness 仍保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION，external release 与 Stage 8/9 real execution 继续阻断，建议下一步进入 FF-12-S1。"
+    - "FF-12-S1 完成后按 stop rule 停机；建议人工进入 FF-13-S1"
+  status_note: "FF-12-S1 已完成 Stage9 typed workflow default removal；repo readiness 仍保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION，external release 与 Stage 8/9 real execution 继续阻断，建议下一步进入 FF-13-S1。"

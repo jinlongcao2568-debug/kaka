@@ -644,6 +644,9 @@ class TestPreRouteBehavior(unittest.TestCase):
             {
                 "response_status": "NO_RESPONSE",
                 "crm_owner_state": "UNASSIGNED",
+                "outcome_family": "CONTACT_FAILED",
+                "outcome_reason_tags": ["NO_RESPONSE"],
+                "trigger_type": "APPROVAL_MISSING",
             }
         )
 
@@ -691,6 +694,43 @@ class TestPreRouteBehavior(unittest.TestCase):
         self.assertEqual(
             set(stage9.inputs.get("impact_targets_projected_contract_only", [])),
             {"sales_lead", "report_record"},
+        )
+
+    def test_stage9_refund_defaults_are_contract_driven_not_service_heuristic(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "refund_state": "COMPLETED",
+            }
+        )
+
+        stage9 = run_internal_chain(payload)["stage9"]
+
+        self.assertEqual(stage9.inputs.get("outcome_family"), "CONTACT_FAILED")
+        self.assertEqual(stage9.inputs.get("trigger_type"), "APPROVAL_MISSING")
+        self.assertEqual(
+            stage9.record("payment_record").get("payment_status"),
+            "REFUNDED",
+        )
+        self.assertEqual(
+            stage9.record("payment_record").get("payment_exception_family_optional"),
+            "REFUND_COMPLETED",
+        )
+        self.assertEqual(
+            stage9.record("delivery_record").get("delivery_status"),
+            "RELEASE_BLOCKED",
+        )
+        self.assertEqual(
+            stage9.record("opportunity_outcome_event").get("outcome_family"),
+            "DELIVERY_ABANDONED",
+        )
+        self.assertEqual(
+            stage9.record("opportunity_outcome_event").get("outcome_reason_tags"),
+            ["REFUND_COMPLETED"],
+        )
+        self.assertEqual(
+            stage9.record("governance_feedback_event").get("trigger_type"),
+            "EXCEPTION_TRIGGERED",
         )
 
     def test_stage9_payment_and_delivery_exception_enter_executor_chain(self) -> None:

@@ -113,7 +113,37 @@ STAGE_INPUT_FIELDS = {
         "semantic_trace",
         "semantic_decision_state",
         "semantic_additions",
+        "outcome_writeback_targets",
+        "outcome_authoritative_base_targets",
+        "upstream_feedback_projected_targets",
+        "upstream_feedback_advisory_targets",
+        "governance_writeback_targets_optional",
+        "governance_legacy_writeback_targets",
+        "governance_owned_self_target",
+        "payment_exception_writeback_targets_optional",
+        "delivery_exception_writeback_targets_optional",
         "effective_writeback_targets",
+        "resolved_effective_writeback_targets",
+        "writeback_contract_state",
+        "writeback_contract_semantics",
+        "writeback_source_contracts",
+        "writeback_target_sources",
+        "writeback_target_contracts",
+        "writeback_persistence_targets",
+        "writeback_projected_targets",
+        "writeback_advisory_targets",
+        "writeback_trace_only_targets",
+        "impact_executor_state",
+        "impact_runtime_executor_enabled",
+        "impact_mutation_mode",
+        "impact_formal_targets",
+        "impact_targets_projected",
+        "impact_targets_projected_contract_only",
+        "impact_targets_advisory",
+        "impact_mutations",
+        "impact_projected_contracts",
+        "impact_advisories",
+        "impact_trace",
     ),
 }
 
@@ -994,11 +1024,16 @@ def _surface_state_for_bundle(bundle: StageBundle, *, default_mode: str) -> str:
         for object_type in STAGE_FORMAL_OBJECTS[bundle.stage]
         if object_type in bundle.records
     ]
+    review_statuses = set(REVIEW_STATUSES)
+    hold_statuses = set(HOLD_STATUSES)
+    if bundle.stage == 9:
+        review_statuses.discard("PENDING_APPROVAL")
+        hold_statuses.add("PENDING_APPROVAL")
     if "BLOCK" in decisions or any(status in BLOCKED_STATUSES for status in statuses):
         return "blocked"
-    if "REVIEW" in decisions or any(status in REVIEW_STATUSES for status in statuses):
+    if "REVIEW" in decisions or any(status in review_statuses for status in statuses):
         return "review-required"
-    if any(status in HOLD_STATUSES for status in statuses):
+    if any(status in hold_statuses for status in statuses):
         return "governed-hold"
     if default_mode == "draft-only":
         return "draft-only"
