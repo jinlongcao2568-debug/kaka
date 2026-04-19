@@ -1,6 +1,6 @@
-# AX9S 开发执行路由图（受控路线图导航资产；FF-18-S1 closeout 后）
+# AX9S 开发执行路由图（candidate navigation asset；FF-18-S1 closeout 后）
 
-> 说明：本文件是**受控路线图导航资产**，服务于“正式阶段 1-9 主线当前按什么顺序推进、进入条件是什么、哪些边界仍 blocked”。  
+> 说明：本文件是**candidate navigation asset**，也是受控路线图导航资产，服务于“正式阶段 1-9 主线当前按什么顺序推进、进入条件是什么、哪些边界仍 blocked”。  
 > 它不是上位裁决源，不替代 `L0.md`、`裁决总表.md`、`D1-D14`、`control/repo_status.md`、`control/current_task.yaml`、`control/milestone_status.yaml` 与 `docs/正式业务代码开发开工裁决页.md`。  
 > 为保持 machine-readable 状态分层清晰，`control/reference_index.json` 中仍把本文件标记为**候选导航资产**；该标记只表示“不是正式状态源”，不表示本文件可以继续混用历史修复批、future unlock 历史导航或 activation prep 历史段。
 

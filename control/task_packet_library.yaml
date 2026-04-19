@@ -153,6 +153,10 @@ blueprint_registry:
       family: post_ff_git
       compatibility: active-compatible
       description: Post-FF git consolidation blueprint
+    - blueprint_id: PKT-P0-08-formal-route-map-split
+      family: route_map_mainline
+      compatibility: active-compatible
+      description: Formal route-map split and navigation-only governance blueprint
 activation_rules:
   - only_one_packet_may_be_active_at_a_time
   - activate_by_copying_one_blueprint_into_currentTask.task_packet
