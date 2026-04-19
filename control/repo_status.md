@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: AUTHORITY_CONVERGENCE + ROUTE_MAP_READINESS_REMEDIATION (gate/state-source/root-cause alignment only; no repo readiness change)
+Current Workstream: PKT-P0-08-S6-control-foundation-full-fix (control/script/index/release-umbrella alignment only; no repo readiness change, no formal business implementation)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,18 +21,18 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
-- Route-map readiness remediation under existing guardrails, without changing canonical readiness
-- Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this closeout stops and reports
+- Control foundation root-cause repair within the declared task packet scope, without changing canonical readiness
+- Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this governance packet stops and reports
 - Status-source review and audit of the closed full-repair program without changing canonical readiness
 
 Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
 - Any new AX9S batch activation, including B11
-- Any automatic next-task activation from FF-18-S1 closeout
-- Any business semantics change in this closeout state
-- Any transport/bootstrap/api/service change in this closeout state
-- Any new formal object or enum family in this closeout state
-- Any schema/handoff mainline rewrite in this closeout state
+- Any automatic next-task activation from the current governance packet or historical FF-18-S1 closeout
+- Any business semantics change in this governance repair state
+- Any transport/bootstrap/api/service change in this governance repair state
+- Any new formal object or enum family in this governance repair state
+- Any schema/handoff mainline rewrite in this governance repair state
 - Rewriting D10正文
 - External software release or unaudited leadpack delivery
 - Production release logic or deployment
@@ -45,6 +45,7 @@ State Semantics:
 - `FULL_REPAIR_COMPLETE_REVIEW_READY` is the AX9S full-repair program control closeout token only; it does not replace the repo readiness conclusion, which remains `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`.
 - `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` remains the scoped conditional-go for internal LeadOps development.
 - `FF-18-S1` is the final state-source closeout window for the full-fix mainline; it records canonical alignment only and does not create a new readiness token.
+- `PKT-P0-08-S6-control-foundation-full-fix` is the current active governance repair packet; it only closes control/script/test root causes and does not auto-enter any formal business implementation packet.
 - `FF-01~FF-18` mainline is complete; this does not unlock external release, Stage 8 live execution, or Stage 9 live payment/delivery.
 - `READY_FOR_POST-R6_CANDIDATE_GAP_BATCH` and `READY_FOR_POST-R6_STRATEGIC_BRANCH_BATCH` are historical R6-path tokens and are not the current repo readiness.
 - R6 candidate / deny / blocked decisions remain valid as decision outputs; they do not redefine the current repo readiness.
@@ -59,8 +60,9 @@ Script Check Summary (2026-04-19 route-map readiness remediation rerun):
 - run-golden.ps1: PASS
 - run-governance-contracts.ps1: PASS
 - lint-drift.ps1: PASS
+- check-handoff-dependencies.ps1: PASS
 - python tests/run_tests.py: PASS
-- check-release.ps1: PASS
+- check-release.ps1: PASS (umbrella baseline)
 
 Automation Guardrails:
 - Action matrix: control/automation_action_matrix.yaml

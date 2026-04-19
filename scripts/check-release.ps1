@@ -156,6 +156,7 @@ function Get-FieldValue {
 $root = Resolve-RepoRoot -Provided $RepoRoot
 $scriptDir = Split-Path -Parent $PSCommandPath
 $steps = @(
+    'doctor.ps1',
     'validate-contracts.ps1',
     'check-automation-readiness.ps1',
     'check-semantic-alignment.ps1',
@@ -164,9 +165,19 @@ $steps = @(
     'lint-drift.ps1'
 )
 
-$stepResults = foreach ($step in $steps) {
-    Invoke-Step -Path (Join-Path $scriptDir $step) -Root $root
-}
+$stepResults = @(
+    foreach ($step in $steps) {
+        Invoke-Step -Path (Join-Path $scriptDir $step) -Root $root
+    }
+)
+
+$stepResults += Invoke-CommandStep -Name 'check-handoff-dependencies.ps1' -Executable 'pwsh' -Arguments @(
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    (Join-Path $scriptDir 'check-handoff-dependencies.ps1')
+) -Root $root
 
 $pythonCommand = Resolve-PythonTestCommand
 if (-not $pythonCommand) {
@@ -190,8 +201,16 @@ else {
 
 $issues = [System.Collections.Generic.List[object]]::new()
 foreach ($sr in $stepResults) {
-    if ($sr.result -and $sr.result.issues) {
-        foreach ($issue in $sr.result.issues) { $issues.Add($issue) | Out-Null }
+    $resultObject = Get-FieldValue -Object $sr -Name 'result'
+    if (-not $resultObject) { continue }
+
+    $resultIssues = Get-FieldValue -Object $resultObject -Name 'issues'
+    if ($null -eq $resultIssues) { continue }
+
+    foreach ($issue in @($resultIssues)) {
+        if ($null -ne $issue) {
+            $issues.Add($issue) | Out-Null
+        }
     }
 }
 
@@ -220,7 +239,7 @@ else {
                 $releaseItemIds.Add([string]$item.itemId) | Out-Null
             }
         }
-        foreach ($requiredId in @('REL-100','REL-101','REL-102','REL-103','REL-104','REL-105','REL-106','REL-107','REL-108','REL-109','REL-110','REL-111','REL-112','REL-113','REL-114','REL-160','REL-161','REL-162','REL-163','REL-164','REL-165','REL-187','REL-188','REL-189','REL-190','REL-191','REL-192')) {
+        foreach ($requiredId in @('REL-100','REL-101','REL-102','REL-103','REL-104','REL-105','REL-106','REL-107','REL-108','REL-109','REL-110','REL-111','REL-112','REL-113','REL-114','REL-160','REL-161','REL-162','REL-163','REL-164','REL-165','REL-187','REL-188','REL-189','REL-190','REL-191','REL-192','REL-193','REL-194')) {
             if (-not $releaseItemIds.Contains($requiredId)) {
                 $issues.Add([pscustomobject]@{
                     severity = 'ERROR'
@@ -252,7 +271,7 @@ else {
         foreach ($suite in @($regressionManifest.suites)) {
             $suiteIds.Add([string]$suite.suite_id) | Out-Null
         }
-        foreach ($requiredSuite in @('REG-ARCH-SERVICE-HARDCODE-ANTI-REGRESSION','REG-ARCH-UNUSED-CATALOG-PARTIAL-CONSUMPTION','REG-ARCH-GOVERNANCE-RUNTIME-CONSUMPTION-CLOSURE','REG-ARCH-SCHEMA-VALIDATOR-MODEL-DRIFT','REG-ARCH-HANDOFF-PRODUCER-CONSUMER-DRIFT','REG-ARCH-UNIFIED-RUNTIME-SPINE','REG-CHANGE-CLASS-REVIEW-GATE','REG-TASK-PACKET-HARD-GATE','REG-REVIEW-GATE-STOP-LINKAGE','REG-RELEASE-READINESS-REVIEW-GATE','REG-POST-REPAIR-STATE-SYNC','REG-FF17-S2-RUNTIME-SURFACE-WRITEBACK-HARDENING','REG-FF17-S2-CAPABILITY-CANONICAL-SOURCE','REG-BLUEPRINT-REGISTRY-COMPATIBILITY')) {
+        foreach ($requiredSuite in @('REG-ARCH-SERVICE-HARDCODE-ANTI-REGRESSION','REG-ARCH-UNUSED-CATALOG-PARTIAL-CONSUMPTION','REG-ARCH-GOVERNANCE-RUNTIME-CONSUMPTION-CLOSURE','REG-ARCH-SCHEMA-VALIDATOR-MODEL-DRIFT','REG-ARCH-HANDOFF-PRODUCER-CONSUMER-DRIFT','REG-ARCH-UNIFIED-RUNTIME-SPINE','REG-CHANGE-CLASS-REVIEW-GATE','REG-TASK-PACKET-HARD-GATE','REG-REVIEW-GATE-STOP-LINKAGE','REG-RELEASE-READINESS-REVIEW-GATE','REG-RELEASE-UMBRELLA-COVERAGE','REG-POST-REPAIR-STATE-SYNC','REG-FF17-S2-RUNTIME-SURFACE-WRITEBACK-HARDENING','REG-FF17-S2-CAPABILITY-CANONICAL-SOURCE','REG-BLUEPRINT-REGISTRY-COMPATIBILITY')) {
             if (-not $suiteIds.Contains($requiredSuite)) {
                 $issues.Add([pscustomobject]@{
                     severity = 'ERROR'

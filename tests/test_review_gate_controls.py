@@ -64,7 +64,7 @@ class TestReviewGateControls(unittest.TestCase):
             for section in release["sections"]
             for item in section["items"]
         }
-        for item_id in ("REL-110", "REL-111", "REL-112", "REL-113", "REL-114"):
+        for item_id in ("REL-110", "REL-111", "REL-112", "REL-113", "REL-114", "REL-193", "REL-194"):
             self.assertIn(item_id, release_item_ids)
 
         regression = json.loads(read("contracts/testing/regression_manifest.json"))
@@ -74,6 +74,7 @@ class TestReviewGateControls(unittest.TestCase):
             "REG-TASK-PACKET-HARD-GATE",
             "REG-REVIEW-GATE-STOP-LINKAGE",
             "REG-RELEASE-READINESS-REVIEW-GATE",
+            "REG-RELEASE-UMBRELLA-COVERAGE",
         ):
             self.assertIn(suite_id, suite_ids)
 
@@ -88,14 +89,26 @@ class TestReviewGateControls(unittest.TestCase):
         ):
             self.assertIn(token, readiness)
         self.assertIn("check-automation-readiness.ps1", release)
+        self.assertIn("doctor.ps1", release)
+        self.assertIn("check-handoff-dependencies.ps1", release)
         self.assertIn("REL-110", release)
+        self.assertIn("REL-193", release)
+        self.assertIn("REL-194", release)
         self.assertIn("REG-CHANGE-CLASS-REVIEW-GATE", release)
+        self.assertIn("REG-RELEASE-UMBRELLA-COVERAGE", release)
         self.assertIn("REG-BLUEPRINT-REGISTRY-COMPATIBILITY", release)
         self.assertIn("UNREGISTERED_SOURCE_BLUEPRINT_BATCH", release)
         self.assertIn("control/task_packet_library.yaml", release)
         self.assertNotIn("CURRENT_TASK_PACKET_ID_MISMATCH", release)
         self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", readiness)
         self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", release)
+
+    def test_check_release_reads_step_issues_defensively(self) -> None:
+        release = read("scripts/check-release.ps1")
+
+        self.assertIn("Get-FieldValue -Object $sr -Name 'result'", release)
+        self.assertIn("Get-FieldValue -Object $resultObject -Name 'issues'", release)
+        self.assertNotIn("$sr.result.issues", release)
 
     def test_baseline_dirty_paths_remains_optional_and_script_handles_missing_field(self) -> None:
         task_rules = read("control/automation_task_packet_rules.yaml")

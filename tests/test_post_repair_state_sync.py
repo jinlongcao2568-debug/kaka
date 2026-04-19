@@ -88,6 +88,46 @@ class TestPostRepairStateSync(unittest.TestCase):
         decision_state = read_yaml("control/future_unlock_decision_state.yaml")
 
         self.assertEqual(
+            reference_index["formalDocs"],
+            {
+                "L0": "docs/L0.md",
+                "judgmentIndex": "docs/裁决总表.md",
+                "D1": "docs/D1_研发_Codex执行手册.md",
+                "D2": "docs/D2_正式对象契约与字段字典.md",
+                "D3": "docs/D3_正式规则码总表与判定说明书.md",
+                "D4": "docs/D4_OpenAPI接口契约.md",
+                "D5": "docs/D5_页面导出与人工复核规范.md",
+                "D6": "docs/D6_字段策略字典与客户交付字段规范.md",
+                "D7": "docs/D7_对象级交付矩阵与外发治理规范.md",
+                "D8": "docs/D8_真实竞争者识别可售对象与销售推进规范.md",
+                "D9": "docs/D9_联系对象与销售触达规范.md",
+                "D10": "docs/D10_订单支付交付与治理反馈规范.md",
+                "D11": "docs/D11_测试验收与金标回归清单.md",
+                "D12": "docs/D12_部署发布与运行治理规范.md",
+                "D13": "docs/D13_公开可查边界能力清单.md",
+                "D14": "docs/D14_AI模型治理规范.md",
+            },
+        )
+        self.assertEqual(
+            reference_index["formalSupportDocs"],
+            {
+                "statusBoard": "docs/文档与资产状态板.md",
+                "techDecision": "docs/技术实现决策页.md",
+                "launchAdjudication": "docs/正式业务代码开发开工裁决页.md",
+            },
+        )
+        self.assertEqual(
+            reference_index["navigationAssets"]["executionRouteMap"],
+            {
+                "path": "docs/AX9S_开发执行路由图.md",
+                "assetRole": "candidate navigation asset",
+                "formalStatusSource": False,
+                "navigationRole": "controlled route-map navigation asset",
+                "formalRouteScope": "current formal stage1-9 route only",
+                "historicalNavigationSeparated": True,
+            },
+        )
+        self.assertEqual(
             reference_index["formalStatusSources"],
             {
                 "repoStatus": "control/repo_status.md",

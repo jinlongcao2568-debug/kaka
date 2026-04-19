@@ -1553,6 +1553,28 @@
       ]
     },
     {
+      "suite_id": "REG-RELEASE-UMBRELLA-COVERAGE",
+      "title": "release umbrella 总入口回归",
+      "checks": [
+        "check-release invokes doctor preflight before downstream checks",
+        "check-release invokes check-handoff-dependencies before final pass",
+        "release_checklist carries umbrella doctor/handoff assertions"
+      ],
+      "triggers": [
+        "scripts/check-release.ps1 change",
+        "scripts/doctor.ps1 change",
+        "scripts/check-handoff-dependencies.ps1 change",
+        "contracts/testing/release_checklist.json change",
+        "contracts/testing/regression_manifest.json change",
+        "D11 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-A",
+        "D11-R-053-AK"
+      ]
+    },
+    {
       "suite_id": "REG-P0-CAPABILITY-RUNTIME-PERMISSION",
       "title": "capability_mode 运行时权限层回归",
       "checks": [

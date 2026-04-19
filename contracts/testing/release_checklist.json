@@ -1466,6 +1466,24 @@
             "D11-R-053-AG",
             "D11-R-053-AK"
           ]
+        },
+        {
+          "itemId": "REL-193",
+          "text": "check-release.ps1 must include doctor.ps1 as the umbrella preflight, so runtime/tooling/repo-root prerequisites are checked before the release entrypoint can pass.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-A",
+            "D11-R-053-AK"
+          ]
+        },
+        {
+          "itemId": "REL-194",
+          "text": "check-release.ps1 must include check-handoff-dependencies.ps1 in the same umbrella flow, so handoff dependency order, root assets and required files remain release-blocking under the total entrypoint.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-A",
+            "D11-R-053-AK"
+          ]
         }
       ]
     }
