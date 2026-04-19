@@ -264,7 +264,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
     def test_review_gate_keeps_r6_assets_classified_after_post_r6_batches(self) -> None:
         review_gate = read_yaml("control/review_gate_matrix.yaml")
         current_task = read_yaml("control/current_task.yaml")
-        repair_status = read_yaml("control/ax9s_full_repair_status.yaml")
+        task_packet_library = read_yaml("control/task_packet_library.yaml")
 
         domain_ids = {entry["domain_id"] for entry in review_gate["domains"]}
         self.assertIn("future_external_unlock_prereq_core", domain_ids)
@@ -282,20 +282,18 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
 
         task_packet = current_task["currentTask"]["task_packet"]
         self.assertEqual(task_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
-        allowed_batches = {
-            batch_id
-            for batch_id, state in repair_status["batch_states"].items()
-            if state in {"IN_PROGRESS", "REVIEW_REQUIRED"}
-        }
-        if task_packet.get("status") == "CLOSED":
-            allowed_batches.update(repair_status.get("completed_batches", []))
-            if repair_status.get("last_completed_batch"):
-                allowed_batches.add(repair_status["last_completed_batch"])
-        if repair_status.get("active_batch_id"):
-            allowed_batches.add(repair_status["active_batch_id"])
-        if repair_status.get("next_batch_recommended"):
-            allowed_batches.add(repair_status["next_batch_recommended"])
-        self.assertIn(task_packet["source_blueprint_batch_id"], allowed_batches)
+        registry = task_packet_library["blueprint_registry"]["registered_blueprints"]
+        registered_blueprints = {entry["blueprint_id"] for entry in registry}
+        self.assertIn(task_packet["source_blueprint_batch_id"], registered_blueprints)
+        self.assertTrue({f"B{i}" for i in range(0, 11)}.issubset(registered_blueprints))
+        self.assertTrue({f"FF-{i:02d}" for i in range(1, 19)}.issubset(registered_blueprints))
+        self.assertTrue(
+            {
+                "POST-FF-CONTROL-01",
+                "POST-FF-REPORT-01",
+                "POST-FF-GIT-01",
+            }.issubset(registered_blueprints)
+        )
 
         class_rank = {entry["id"]: entry["rank"] for entry in review_gate["change_classes"]}
         domain_by_id = {entry["domain_id"]: entry for entry in review_gate["domains"]}

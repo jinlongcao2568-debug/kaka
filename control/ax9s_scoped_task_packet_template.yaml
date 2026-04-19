@@ -1,7 +1,9 @@
 version: 1
 packet_kind: EXECUTABLE_SCOPED_SUBPACKET
-source_blueprint_batch_id: "{{BATCH_ID}}"
-subpacket_id: "{{BATCH_ID}}-S1"
+source_blueprint_batch_id: "{{REGISTERED_BLUEPRINT_ID}}"
+blueprint_registry_ref: control/task_packet_library.yaml#blueprint_registry
+packet_id: "{{PACKET_ID}}"
+subpacket_id: "{{PACKET_ID}}"
 title: "{{TITLE}}"
 status: DRAFT
 objective: "{{OBJECTIVE}}"
@@ -46,3 +48,4 @@ review_evidence:
 notes:
   - "This template is the executable packet shape to be copied into control/current_task.yaml#currentTask.task_packet."
   - "The scoped subpacket must satisfy control/automation_task_packet_rules.yaml max scope constraints."
+  - "source_blueprint_batch_id must be registered in control/task_packet_library.yaml#blueprint_registry; future packets do not have to use B10."

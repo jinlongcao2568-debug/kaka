@@ -103,6 +103,56 @@ function Invoke-CommandStep {
     }
 }
 
+function Load-YamlDocument {
+    param([string]$Path)
+
+    $convertYaml = Get-Command ConvertFrom-Yaml -ErrorAction SilentlyContinue
+    if ($convertYaml) {
+        return (Get-Content -LiteralPath $Path -Raw -Encoding UTF8) | ConvertFrom-Yaml
+    }
+
+    $yq = Get-Command yq -ErrorAction SilentlyContinue
+    if ($yq) {
+        $json = & $yq.Source -o=json '.' $Path
+        if ($LASTEXITCODE -ne 0) {
+            throw "yq failed to parse $Path"
+        }
+        return $json | ConvertFrom-Json -Depth 100
+    }
+
+    $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $pythonCommand) {
+        throw 'Neither ConvertFrom-Yaml nor yq nor python is available for YAML parsing.'
+    }
+
+    $json = @'
+import json
+import sys
+import yaml
+
+path = sys.argv[1]
+with open(path, 'r', encoding='utf-8') as handle:
+    data = yaml.safe_load(handle)
+print(json.dumps(data, ensure_ascii=False))
+'@ | & $pythonCommand.Source - $Path
+    if ($LASTEXITCODE -ne 0) {
+        throw "python yaml parser failed for $Path"
+    }
+    return $json | ConvertFrom-Json -Depth 100
+}
+
+function Get-FieldValue {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    if ($null -eq $Object) { return $null }
+    if ($Object -is [System.Collections.IDictionary] -and $Object.Contains($Name)) { return $Object[$Name] }
+    if ($Object.PSObject.Properties.Name -contains $Name) { return $Object.$Name }
+    return $null
+}
+
 $root = Resolve-RepoRoot -Provided $RepoRoot
 $scriptDir = Split-Path -Parent $PSCommandPath
 $steps = @(
@@ -202,7 +252,7 @@ else {
         foreach ($suite in @($regressionManifest.suites)) {
             $suiteIds.Add([string]$suite.suite_id) | Out-Null
         }
-        foreach ($requiredSuite in @('REG-ARCH-SERVICE-HARDCODE-ANTI-REGRESSION','REG-ARCH-UNUSED-CATALOG-PARTIAL-CONSUMPTION','REG-ARCH-GOVERNANCE-RUNTIME-CONSUMPTION-CLOSURE','REG-ARCH-SCHEMA-VALIDATOR-MODEL-DRIFT','REG-ARCH-HANDOFF-PRODUCER-CONSUMER-DRIFT','REG-ARCH-UNIFIED-RUNTIME-SPINE','REG-CHANGE-CLASS-REVIEW-GATE','REG-TASK-PACKET-HARD-GATE','REG-REVIEW-GATE-STOP-LINKAGE','REG-RELEASE-READINESS-REVIEW-GATE','REG-POST-REPAIR-STATE-SYNC','REG-FF17-S2-RUNTIME-SURFACE-WRITEBACK-HARDENING','REG-FF17-S2-CAPABILITY-CANONICAL-SOURCE','REG-FF17-S2-B10-COMPATIBILITY')) {
+        foreach ($requiredSuite in @('REG-ARCH-SERVICE-HARDCODE-ANTI-REGRESSION','REG-ARCH-UNUSED-CATALOG-PARTIAL-CONSUMPTION','REG-ARCH-GOVERNANCE-RUNTIME-CONSUMPTION-CLOSURE','REG-ARCH-SCHEMA-VALIDATOR-MODEL-DRIFT','REG-ARCH-HANDOFF-PRODUCER-CONSUMER-DRIFT','REG-ARCH-UNIFIED-RUNTIME-SPINE','REG-CHANGE-CLASS-REVIEW-GATE','REG-TASK-PACKET-HARD-GATE','REG-REVIEW-GATE-STOP-LINKAGE','REG-RELEASE-READINESS-REVIEW-GATE','REG-POST-REPAIR-STATE-SYNC','REG-FF17-S2-RUNTIME-SURFACE-WRITEBACK-HARDENING','REG-FF17-S2-CAPABILITY-CANONICAL-SOURCE','REG-BLUEPRINT-REGISTRY-COMPATIBILITY')) {
             if (-not $suiteIds.Contains($requiredSuite)) {
                 $issues.Add([pscustomobject]@{
                     severity = 'ERROR'
@@ -244,19 +294,71 @@ if (-not (Test-Path -LiteralPath $currentTaskPath)) {
 }
 else {
     try {
-        $currentTaskText = Get-Content -LiteralPath $currentTaskPath -Raw -Encoding UTF8
-        foreach ($expected in @(
-            @{ pattern = 'source_blueprint_batch_id:\s*"B10"'; code = 'CURRENT_TASK_SOURCE_BLUEPRINT_BATCH_MISMATCH'; message = 'current_task.yaml must keep source_blueprint_batch_id=B10 during FF-17-S3 closeout.' },
-            @{ pattern = 'packet_id:\s*"FF-17-S3"'; code = 'CURRENT_TASK_PACKET_ID_MISMATCH'; message = 'current_task.yaml must declare packet_id=FF-17-S3 for the active scoped packet.' },
-            @{ pattern = 'subpacket_id:\s*"FF-17-S3"'; code = 'CURRENT_TASK_SUBPACKET_ID_MISMATCH'; message = 'current_task.yaml must declare subpacket_id=FF-17-S3 for the active scoped packet.' }
-        )) {
-            if ($currentTaskText -notmatch $expected.pattern) {
+        $currentTask = Load-YamlDocument -Path $currentTaskPath
+        $taskPacket = Get-FieldValue -Object (Get-FieldValue -Object $currentTask -Name 'currentTask') -Name 'task_packet'
+        if (-not $taskPacket) {
+            $issues.Add([pscustomobject]@{
+                severity = 'ERROR'
+                code     = 'CURRENT_TASK_PACKET_MISSING'
+                path     = $currentTaskPath
+                message  = 'current_task.yaml must include currentTask.task_packet before release checks can pass.'
+            }) | Out-Null
+        }
+        else {
+            $sourceBlueprintBatchId = [string](Get-FieldValue -Object $taskPacket -Name 'source_blueprint_batch_id')
+            if ([string]::IsNullOrWhiteSpace($sourceBlueprintBatchId)) {
                 $issues.Add([pscustomobject]@{
                     severity = 'ERROR'
-                    code     = $expected.code
+                    code     = 'CURRENT_TASK_SOURCE_BLUEPRINT_BATCH_MISSING'
                     path     = $currentTaskPath
-                    message  = $expected.message
+                    message  = 'currentTask.task_packet.source_blueprint_batch_id is required and must be registered in blueprint_registry.'
                 }) | Out-Null
+            }
+            else {
+                $taskPacketLibraryPath = Join-Path $root 'control/task_packet_library.yaml'
+                if (-not (Test-Path -LiteralPath $taskPacketLibraryPath)) {
+                    $issues.Add([pscustomobject]@{
+                        severity = 'ERROR'
+                        code     = 'BLUEPRINT_REGISTRY_FILE_MISSING'
+                        path     = $taskPacketLibraryPath
+                        message  = 'control/task_packet_library.yaml is required for source blueprint validation.'
+                    }) | Out-Null
+                }
+                else {
+                    $taskPacketLibrary = Load-YamlDocument -Path $taskPacketLibraryPath
+                    $blueprintRegistry = Get-FieldValue -Object $taskPacketLibrary -Name 'blueprint_registry'
+                    $registeredBlueprints = @()
+                    if ($blueprintRegistry) {
+                        $registeredBlueprints = @((Get-FieldValue -Object $blueprintRegistry -Name 'registered_blueprints'))
+                    }
+
+                    if (@($registeredBlueprints).Count -eq 0) {
+                        $issues.Add([pscustomobject]@{
+                            severity = 'ERROR'
+                            code     = 'BLUEPRINT_REGISTRY_MISSING'
+                            path     = $taskPacketLibraryPath
+                            message  = 'task_packet_library.yaml must define blueprint_registry.registered_blueprints.'
+                        }) | Out-Null
+                    }
+                    else {
+                        $registeredIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                        foreach ($blueprint in $registeredBlueprints) {
+                            $blueprintId = [string](Get-FieldValue -Object $blueprint -Name 'blueprint_id')
+                            if (-not [string]::IsNullOrWhiteSpace($blueprintId)) {
+                                $registeredIds.Add($blueprintId) | Out-Null
+                            }
+                        }
+
+                        if (-not $registeredIds.Contains($sourceBlueprintBatchId)) {
+                            $issues.Add([pscustomobject]@{
+                                severity = 'ERROR'
+                                code     = 'UNREGISTERED_SOURCE_BLUEPRINT_BATCH'
+                                path     = $currentTaskPath
+                                message  = "currentTask.task_packet.source_blueprint_batch_id=$sourceBlueprintBatchId is not registered in control/task_packet_library.yaml#blueprint_registry."
+                            }) | Out-Null
+                        }
+                    }
+                }
             }
         }
     }

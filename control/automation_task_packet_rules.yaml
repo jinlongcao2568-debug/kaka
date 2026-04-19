@@ -6,6 +6,11 @@ owner_docs:
 task_packet_source:
   file: control/current_task.yaml
   path: currentTask.task_packet
+blueprint_registry_source:
+  file: control/task_packet_library.yaml
+  path: blueprint_registry.registered_blueprints
+  validation_field: source_blueprint_batch_id
+  rule: source_blueprint_batch_id must match a registered blueprint_id; B0-B10 are legacy historical-compatible entries, not the only valid future source.
 max_scope:
   max_files: 10
   max_docs: 5
@@ -25,6 +30,7 @@ stop_rules_alignment:
   - batch_stop_rules_from_agents: true
 classification_source: control/review_gate_matrix.yaml
 required_fields:
+  - source_blueprint_batch_id
   - objective
   - non_goals
   - affected_stages
@@ -42,6 +48,7 @@ required_fields:
   - human_review_required
   - owner_reviews_required
 field_rules:
+  source_blueprint_batch_id: blueprint_registry.registered_blueprints.blueprint_id
   objective: non_empty_string
   non_goals: non_empty_array
   affected_stages: non_empty_array
@@ -72,6 +79,7 @@ requires_task_packet_for:
   - "contracts/sales/source_vendor_usage_policy.json"
   - "contracts/sales/channel_vendor_execution_policy.json"
 fail_conditions:
+  - source_blueprint_batch_id_not_registered
   - missing_required_fields
   - missing_declared_changed_paths
   - change_class_below_required
@@ -83,6 +91,7 @@ notes:
   - high-risk domains must be isolated in their own batch
   - task packet cannot be replaced by conversational summary; control/current_task.yaml is the formal machine-readable packet source
   - baseline_dirty_paths is optional but recommended whenever the workspace already contains accepted tracked dirty paths from prior packets
+  - source_blueprint_batch_id is validated against control/task_packet_library.yaml#blueprint_registry; future packets are not required to use B10
   - generated Python cache artifacts under __pycache__ and .pytest_cache are not treated as business-scope actual changed paths by readiness validation
   - script_timeouts is optional but recommended for long-running checks; scripts/check-release.ps1 should use at least 300000 ms before declaring a tool-layer timeout
   - a tool-layer timeout without script FAIL/nonzero output is not a script failure until the command has been retried with the declared script_timeouts value

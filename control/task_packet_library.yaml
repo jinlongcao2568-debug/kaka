@@ -1,10 +1,158 @@
 version: 1
 library_id: AX9S_PRIORITY_TASK_PACKET_LIBRARY
-updated_at: "2026-04-17"
+updated_at: "2026-04-19"
 status: DRAFT
 library_role: backlog_blueprint_only
 not_formal_status_source: true
 formal_task_packet_source: control/current_task.yaml#currentTask.task_packet
+blueprint_registry:
+  version: 1
+  registry_id: AX9S_BLUEPRINT_REGISTRY
+  registry_role: formal_source_blueprint_allowlist
+  validation_consumer: scripts/check-release.ps1
+  validation_field: control/current_task.yaml#currentTask.task_packet.source_blueprint_batch_id
+  compatibility_rule: "Registered legacy, full-fix mainline, and post-FF blueprint ids are valid source blueprints; unregistered ids must fail release checks."
+  legacy_preservation_rule: "B0-B10 remain historical full-repair blueprint assets under control/task_packets and must not be deleted, moved, or renamed."
+  registered_blueprints:
+    - blueprint_id: B0
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B0.yaml
+      description: Semantic Source And Gate Baseline
+    - blueprint_id: B1
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B1.yaml
+      description: Stage1-2 Authoritative Baseline Closure
+    - blueprint_id: B2
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B2.yaml
+      description: Stage3 Truth Layer Closure
+    - blueprint_id: B3
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B3.yaml
+      description: Stage4-6 Verification Review Report Supplement Closure
+    - blueprint_id: B4
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B4.yaml
+      description: Stage7 Commercial Object Closure
+    - blueprint_id: B5
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B5.yaml
+      description: Stage8 Contact Orchestration Closure
+    - blueprint_id: B6
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B6.yaml
+      description: Stage9 Durable Workflow And Feedback Closure
+    - blueprint_id: B7
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B7.yaml
+      description: Capability Opening Strategy Convergence
+    - blueprint_id: B8
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B8.yaml
+      description: Persistence Surface And Workbench Convergence
+    - blueprint_id: B9
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B9.yaml
+      description: Provider Vendor Adapter Reservation And Shadow Expansion
+    - blueprint_id: B10
+      family: legacy_full_repair
+      compatibility: historical-compatible
+      asset_ref: control/task_packets/B10.yaml
+      description: Full Chain Hardening And Release Readiness
+    - blueprint_id: FF-01
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 01
+    - blueprint_id: FF-02
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 02
+    - blueprint_id: FF-03
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 03
+    - blueprint_id: FF-04
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 04
+    - blueprint_id: FF-05
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 05
+    - blueprint_id: FF-06
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 06
+    - blueprint_id: FF-07
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 07
+    - blueprint_id: FF-08
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 08
+    - blueprint_id: FF-09
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 09
+    - blueprint_id: FF-10
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 10
+    - blueprint_id: FF-11
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 11
+    - blueprint_id: FF-12
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 12
+    - blueprint_id: FF-13
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 13
+    - blueprint_id: FF-14
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 14
+    - blueprint_id: FF-15
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 15
+    - blueprint_id: FF-16
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 16
+    - blueprint_id: FF-17
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 17
+    - blueprint_id: FF-18
+      family: full_fix_mainline
+      compatibility: active-compatible
+      description: Full-fix mainline packet 18
+    - blueprint_id: POST-FF-CONTROL-01
+      family: post_ff_control
+      compatibility: active-compatible
+      description: Post-FF control modernization blueprint
+    - blueprint_id: POST-FF-REPORT-01
+      family: post_ff_report
+      compatibility: active-compatible
+      description: Post-FF reporting blueprint
+    - blueprint_id: POST-FF-GIT-01
+      family: post_ff_git
+      compatibility: active-compatible
+      description: Post-FF git consolidation blueprint
 activation_rules:
   - only_one_packet_may_be_active_at_a_time
   - activate_by_copying_one_blueprint_into_currentTask.task_packet

@@ -2372,25 +2372,27 @@
       ]
     },
     {
-      "suite_id": "REG-FF17-S2-B10-COMPATIBILITY",
-      "title": "FF-17-S2 B10 compatibility regression",
+      "suite_id": "REG-BLUEPRINT-REGISTRY-COMPATIBILITY",
+      "title": "Blueprint registry compatibility regression",
       "checks": [
-        "current_task.task_packet keeps source_blueprint_batch_id=B10 while packet_id and subpacket_id advance to FF-17-S2",
-        "release-facing compatibility checks reject B11 or FF-* as the parent batch for the current full-repair closeout window",
-        "FF-17-S2 can only recommend FF-17-S3 after all required scripts pass"
+        "control/task_packet_library.yaml#blueprint_registry registers legacy B0-B10 as historical-compatible source blueprints",
+        "blueprint_registry registers FF-01 through FF-18 as valid full-fix mainline source blueprints",
+        "blueprint_registry registers POST-FF-CONTROL-01, POST-FF-REPORT-01, and POST-FF-GIT-01 as valid post-FF source blueprints",
+        "scripts/check-release.ps1 validates current_task.task_packet.source_blueprint_batch_id through blueprint_registry and rejects unregistered ids such as UNKNOWN-BATCH"
       ],
       "triggers": [
         "control/current_task.yaml change",
+        "control/task_packet_library.yaml change",
         "docs/D11_测试验收与金标回归清单.md change",
         "contracts/testing/regression_manifest.json change",
         "contracts/testing/release_checklist.json change",
         "scripts/check-release.ps1 change",
-        "tests/test_external_unlock_prerequisites.py change"
+        "tests/test_external_unlock_prerequisites.py change",
+        "tests/test_check_release_blueprint_registry.py change"
       ],
       "blocking": true,
       "source_refs": [
-        "D11-R-053-AH",
-        "D11-R-053-AI"
+        "D11-R-053-AK"
       ]
     },
     {

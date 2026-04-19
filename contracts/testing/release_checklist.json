@@ -1410,14 +1410,14 @@
     },
     {
       "sectionId": "REL-SEC-21",
-      "title": "FF-17-S2 Regression / Release Hardening",
+      "title": "Blueprint Registry / FF-17 Regression Release Hardening",
       "items": [
         {
           "itemId": "REL-187",
-          "text": "current_task.task_packet keeps source_blueprint_batch_id=B10 for current full-repair compatibility; scoped packet FF-17-S2 does not rewrite the parent batch to B11 or FF-*.",
+          "text": "current_task.task_packet.source_blueprint_batch_id is accepted only when the value is registered in control/task_packet_library.yaml#blueprint_registry; B0-B10 remain legacy historical-compatible entries, FF-01~FF-18 and POST-FF-* registered entries are valid, and unregistered values such as UNKNOWN-BATCH are release-blocking.",
           "blocking": true,
           "sourceRefs": [
-            "D11-R-053-AI"
+            "D11-R-053-AK"
           ]
         },
         {
@@ -1460,11 +1460,11 @@
         },
         {
           "itemId": "REL-192",
-          "text": "future unlock / candidate / design-prep / implementation-decision assets do not redefine current repo readiness or external release; FF-17-S2 closeout can only recommend FF-17-S3 after all required scripts pass.",
+          "text": "future unlock / candidate / design-prep / implementation-decision assets do not redefine current repo readiness or external release; post-FF control modernization does not auto-activate the next packet and may proceed only after all required scripts pass.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-AG",
-            "D11-R-053-AI"
+            "D11-R-053-AK"
           ]
         }
       ]

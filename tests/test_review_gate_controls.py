@@ -89,6 +89,10 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertIn("check-automation-readiness.ps1", release)
         self.assertIn("REL-110", release)
         self.assertIn("REG-CHANGE-CLASS-REVIEW-GATE", release)
+        self.assertIn("REG-BLUEPRINT-REGISTRY-COMPATIBILITY", release)
+        self.assertIn("UNREGISTERED_SOURCE_BLUEPRINT_BATCH", release)
+        self.assertIn("control/task_packet_library.yaml", release)
+        self.assertNotIn("CURRENT_TASK_PACKET_ID_MISMATCH", release)
 
     def test_validate_contracts_stage9_writeback_check_is_semantic_not_legacy_token_bound(self) -> None:
         validator = read("scripts/validate-contracts.ps1")
