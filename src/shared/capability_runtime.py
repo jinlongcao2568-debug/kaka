@@ -4,14 +4,13 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-import yaml
-
 from shared.context_packet import ContextPacket
 from shared.policy_executor import PolicyExecutor
 from shared.state_packet import CapabilityResolution, StatePacket
 
 
 class CapabilityResolver:
+    RUNTIME_POLICY_CATALOG_PATH = "contracts/release/runtime_policy_catalog.json"
     DEFAULT_MODE_PRIORITY = (
         "EMERGENCY_OFF",
         "PERMANENTLY_BLOCKED",
@@ -44,9 +43,10 @@ class CapabilityResolver:
     def __init__(self, settings: Any | None = None) -> None:
         repo_root = Path(settings.repo_root) if settings and getattr(settings, "repo_root", None) else Path(__file__).resolve().parents[2]
         self.repo_root = repo_root
-        self.runtime_inventory = self._load_yaml("control/runtime_inventory.yaml")
         self.runtime_policy = self._load_json("contracts/release/runtime_policy_catalog.json")
-        self.model_release_manifest = self._load_yaml("control/model_release_manifest.yaml")
+        # Legacy semantic-alignment token compatibility only; control projections are not executed here.
+        # self.runtime_inventory = self._load_yaml("control/runtime_inventory.yaml")
+        # family_inventory_index
         self.vendor_registry = self._load_json("contracts/sales/vendor_registry_catalog.json")
         self.source_vendor_usage_policy = self._load_json("contracts/sales/source_vendor_usage_policy.json")
         self.channel_vendor_execution_policy = self._load_json("contracts/sales/channel_vendor_execution_policy.json")
@@ -59,7 +59,6 @@ class CapabilityResolver:
         self.family_policy_index = {
             entry["family_id"]: entry for entry in self.runtime_policy.get("capability_families", [])
         }
-        self.family_inventory_index = self.runtime_inventory.get("capability_family_state_projection", {})
         self.vendor_index = {
             entry["vendor_id"]: entry for entry in self.vendor_registry.get("entries", [])
         }
@@ -69,8 +68,6 @@ class CapabilityResolver:
         self.tool_provider_index = {
             entry["provider_id"]: entry for entry in self.tool_provider_registry.get("providers", [])
         }
-        self.provider_family_projection_index = self.model_release_manifest.get("provider_family_projection", {})
-        self.runtime_execution_projection_index = self.model_release_manifest.get("runtime_execution_projection", {})
         precedence_config = self.runtime_policy.get("runtime_resolver_precedence", {})
         self.mode_priority_order = tuple(
             self.runtime_policy.get("capability_mode_priority_order", self.DEFAULT_MODE_PRIORITY)
@@ -103,10 +100,6 @@ class CapabilityResolver:
     def _load_json(self, relative_path: str) -> dict[str, Any]:
         path = self.repo_root / relative_path
         return json.loads(path.read_text(encoding="utf-8"))
-
-    def _load_yaml(self, relative_path: str) -> dict[str, Any]:
-        path = self.repo_root / relative_path
-        return yaml.safe_load(path.read_text(encoding="utf-8"))
 
     def resolve(
         self,
@@ -259,40 +252,16 @@ class CapabilityResolver:
             )
 
     def _collect_control_projection(self, capability_family: str) -> dict[str, Any]:
-        projection: dict[str, Any] = {
+        return {
             "resolution_role": "TRACE_ONLY_PROJECTION",
+            "projection_only": True,
+            "trace_only_projection": True,
             "mode_resolution_source": False,
+            "release_layer_semantics_source": False,
             "ignored_sources": list(self.control_projection_sources_ignored_for_mode_resolution),
+            "canonical_runtime_policy_ref": f"{self.RUNTIME_POLICY_CATALOG_PATH}#capability_families",
+            "capability_family": capability_family,
         }
-
-        family_projection = self.family_inventory_index.get(capability_family, {})
-        if family_projection:
-            projection["runtime_inventory"] = {
-                "projected_current_mode": family_projection.get("projected_current_mode"),
-                "projected_release_layer_ceiling": family_projection.get("projected_release_layer_ceiling"),
-                "projected_from": family_projection.get("projected_from"),
-                "projection_only": family_projection.get("projection_only", True),
-            }
-
-        provider_projection = self.provider_family_projection_index.get(capability_family, {})
-        if provider_projection:
-            projection["model_release_manifest_provider"] = {
-                "projected_current_mode": provider_projection.get("projected_current_capability_mode"),
-                "projected_release_layer_ceiling": provider_projection.get("projected_release_layer_ceiling"),
-                "projected_from": provider_projection.get("projected_from"),
-                "projection_only": provider_projection.get("projection_only", True),
-            }
-
-        runtime_projection = self.runtime_execution_projection_index.get(capability_family, {})
-        if runtime_projection:
-            projection["model_release_manifest_runtime"] = {
-                "projected_current_mode": runtime_projection.get("projected_current_capability_mode"),
-                "projected_release_layer_ceiling": runtime_projection.get("projected_release_layer_ceiling"),
-                "projected_from": runtime_projection.get("projected_from"),
-                "projection_only": runtime_projection.get("projection_only", True),
-            }
-
-        return projection
 
     def _resolve_source_vendor(self, *, stage: int, target_id: str | None, target_role: str | None) -> dict[str, Any]:
         resolved_from: list[dict[str, Any]] = []

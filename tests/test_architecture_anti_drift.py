@@ -102,14 +102,23 @@ CATALOG_CONSUMPTION_SPECS = [
     },
     {
         "path": "control/runtime_inventory.yaml",
-        "mode": "FULL_RUNTIME",
+        "mode": "INTENTIONAL_PARTIAL",
+        "reason": "Capability runtime must not consume control projections for mode resolution; this file remains projection-only evidence.",
         "required_signals": {
-            "src/shared/capability_runtime.py": [
-                'self.runtime_inventory = self._load_yaml("control/runtime_inventory.yaml")',
-                "family_inventory_index",
+            "control/runtime_inventory.yaml": [
+                "control_projection_consumption_boundary:",
+                "projection_only: true",
+                "capability_family_state_projection:",
             ],
-            "src/stage8_outreach/service.py": ['"capability_family": "stage8_execution"', "resolve_permissions("],
-            "src/stage9_delivery/service.py": ['"capability_family": "stage9_execution"', "resolve_permissions("],
+            "src/shared/capability_runtime.py": [
+                "_collect_control_projection(",
+                "control_projection_sources_ignored_for_mode_resolution",
+                "canonical_runtime_policy_ref",
+            ],
+            "tests/test_architecture_anti_drift.py": [
+                "test_capability_runtime_projections_follow_runtime_policy_catalog",
+                "test_capability_runtime_resolver_does_not_load_control_projection_sources",
+            ],
         },
     },
     {
@@ -1053,6 +1062,43 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             release_projection["runtime_resolver_precedence_ref"],
             "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence",
         )
+
+    def test_capability_runtime_resolver_does_not_load_control_projection_sources(self) -> None:
+        runtime_text = read("src/shared/capability_runtime.py")
+        runtime_tree = ast.parse(runtime_text)
+
+        self.assertIn(
+            'self.runtime_policy = self._load_json("contracts/release/runtime_policy_catalog.json")',
+            runtime_text,
+        )
+        self.assertIn("canonical_runtime_policy_ref", runtime_text)
+
+        assigned_self_attrs = set()
+        yaml_loader_calls = 0
+        for node in ast.walk(runtime_tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and isinstance(target.value, ast.Name)
+                        and target.value.id == "self"
+                    ):
+                        assigned_self_attrs.add(target.attr)
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "self"
+                and node.func.attr == "_load_yaml"
+            ):
+                yaml_loader_calls += 1
+
+        self.assertEqual(yaml_loader_calls, 0)
+        self.assertNotIn("runtime_inventory", assigned_self_attrs)
+        self.assertNotIn("model_release_manifest", assigned_self_attrs)
+        self.assertNotIn("family_inventory_index", assigned_self_attrs)
+        self.assertNotIn("provider_family_projection_index", assigned_self_attrs)
+        self.assertNotIn("runtime_execution_projection_index", assigned_self_attrs)
 
     def test_b9_provider_vendor_projection_does_not_become_capability_source(self) -> None:
         runtime_inventory = read_yaml("control/runtime_inventory.yaml")

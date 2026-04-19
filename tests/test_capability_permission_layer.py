@@ -117,6 +117,14 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
             resolver.external_blocked_release_level,
             runtime_policy["runtime_resolver_precedence"]["release_layer_redline"],
         )
+        self.assertEqual(
+            resolver.control_projection_sources_ignored_for_mode_resolution,
+            tuple(
+                runtime_policy["runtime_resolver_precedence"][
+                    "control_projection_sources_ignored_for_mode_resolution"
+                ]
+            ),
+        )
 
     def test_target_policy_mode_overrides_family_mode(self) -> None:
         resolver = CapabilityResolver()
@@ -147,18 +155,11 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
         self.assertIn("source_vendor_usage_policy", resolved_sources)
         self.assertIn("runtime_policy_family", resolved_sources)
 
-    def test_runtime_policy_family_mode_is_canonical_over_control_projection(self) -> None:
+    def test_runtime_policy_family_mode_is_canonical_and_control_surfaces_are_trace_only(self) -> None:
         resolver = CapabilityResolver()
-        resolver.family_inventory_index["stage8_execution"] = {
-            "projected_current_mode": "REAL_RUN_READY",
-            "projected_from": "control/runtime_inventory.yaml#capability_family_state_projection.stage8_execution",
-            "projection_only": True,
-        }
-        resolver.runtime_execution_projection_index["stage8_execution"] = {
-            "projected_current_capability_mode": "REAL_RUN_READY",
-            "projected_from": "control/model_release_manifest.yaml#runtime_execution_projection.stage8_execution",
-            "projection_only": True,
-        }
+        runtime_policy = json.loads(
+            (ROOT / "contracts/release/runtime_policy_catalog.json").read_text(encoding="utf-8")
+        )
 
         context = ContextPacket.from_records(
             capability_mode="stage8_outreach",
@@ -181,19 +182,29 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
 
         self.assertEqual(resolution.capability_mode, "DRY_RUN")
         self.assertEqual(resolution.decision, "BLOCK")
+        control_projection = resolution.trace_fields["control_projection"]
         self.assertEqual(
-            resolution.trace_fields["control_projection"]["runtime_inventory"]["projected_current_mode"],
-            "REAL_RUN_READY",
-        )
-        self.assertEqual(
-            resolution.trace_fields["control_projection"]["model_release_manifest_runtime"]["projected_current_mode"],
-            "REAL_RUN_READY",
-        )
-        self.assertEqual(
-            resolution.trace_fields["control_projection"]["resolution_role"],
+            control_projection["resolution_role"],
             "TRACE_ONLY_PROJECTION",
         )
-        self.assertFalse(resolution.trace_fields["control_projection"]["mode_resolution_source"])
+        self.assertTrue(control_projection["projection_only"])
+        self.assertTrue(control_projection["trace_only_projection"])
+        self.assertFalse(control_projection["mode_resolution_source"])
+        self.assertFalse(control_projection["release_layer_semantics_source"])
+        self.assertEqual(control_projection["capability_family"], "stage8_execution")
+        self.assertEqual(
+            control_projection["ignored_sources"],
+            runtime_policy["runtime_resolver_precedence"]["control_projection_sources_ignored_for_mode_resolution"],
+        )
+        self.assertEqual(
+            control_projection["canonical_runtime_policy_ref"],
+            "contracts/release/runtime_policy_catalog.json#capability_families",
+        )
+        self.assertNotIn("runtime_inventory", control_projection)
+        self.assertNotIn("model_release_manifest_provider", control_projection)
+        self.assertNotIn("model_release_manifest_runtime", control_projection)
+        self.assertFalse(hasattr(resolver, "runtime_inventory"))
+        self.assertFalse(hasattr(resolver, "model_release_manifest"))
         resolved_sources = {entry["source"] for entry in resolution.trace_fields["resolved_from"]}
         self.assertIn("runtime_policy_family", resolved_sources)
         self.assertNotIn("runtime_inventory_family", resolved_sources)
