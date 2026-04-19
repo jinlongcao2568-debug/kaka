@@ -8,6 +8,11 @@ import yaml
 
 from shared.contract_loader import load_contract
 from shared.contracts_runtime import ContractRecord, StageBundle
+from storage.operator_loop_contracts import (
+    build_operator_context_projection,
+    build_workbench_replay_projection,
+    sanitize_transient_preview_context,
+)
 from storage.repository_boundary import (
     get_operational_context,
     get_transient_preview_context,
@@ -535,12 +540,27 @@ def _attach_operational_context(envelope: dict[str, Any], bundle: StageBundle) -
         envelope["operational_loop_persisted"] = True
         envelope["operational_context_status"] = "persisted"
         envelope["persisted_operational_context"] = persisted
+        envelope["operator_loop_projection"] = build_operator_context_projection(
+            operational_context_status="persisted",
+            persisted_context=persisted,
+        )
+        envelope["workbench_replay"] = build_workbench_replay_projection(
+            persisted_context=persisted,
+        )
         return envelope
     transient = get_transient_preview_context(bundle)
     envelope["operational_loop_persisted"] = False
-    envelope["operational_context_status"] = "transient_preview" if transient is not None else "unavailable"
+    operational_context_status = "transient_preview" if transient is not None else "unavailable"
+    envelope["operational_context_status"] = operational_context_status
     if transient is not None:
-        envelope["transient_preview_context"] = transient
+        envelope["transient_preview_context"] = sanitize_transient_preview_context(transient)
+    envelope["operator_loop_projection"] = build_operator_context_projection(
+        operational_context_status=operational_context_status,
+        transient_context=transient,
+    )
+    envelope["workbench_replay"] = build_workbench_replay_projection(
+        transient_context=transient,
+    )
     return envelope
 
 

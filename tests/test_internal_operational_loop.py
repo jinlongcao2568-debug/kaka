@@ -26,6 +26,10 @@ class TestInternalOperationalLoop(unittest.TestCase):
         work_item = queue["work_items"][0]
         self.assertIn(work_item["surface_operational_state"], {"preview_ready", "review_required"})
         self.assertIn(work_item["current_operational_state"], {"ready_for_internal_operator_action", "review_required"})
+        self.assertEqual(
+            work_item["work_item_key"],
+            f"7:opportunity_pool:saleable_opportunity:{stage7.record('saleable_opportunity').get('opportunity_id')}",
+        )
         self.assertIn("stage7_mark_reviewed", work_item["pending_actions"])
         repo = WorkItemRepository()
         persisted = repo.list(stage_scope=7)[0]
@@ -44,6 +48,12 @@ class TestInternalOperationalLoop(unittest.TestCase):
         self.assertEqual(reviewed["action_result"]["action_state"], "action_completed")
         self.assertEqual(reviewed["persisted_operational_context"]["current_operational_state"], "action_completed")
         self.assertEqual(reviewed["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "completed")
+        self.assertEqual(reviewed["persisted_operational_context"]["work_item_key"], work_item["work_item_key"])
+        self.assertEqual(len(reviewed["persisted_operational_context"]["action_history"]), 1)
+        self.assertEqual(
+            reviewed["persisted_operational_context"]["action_history"][-1]["action_id"],
+            "stage7_mark_reviewed",
+        )
         self.assertEqual(reviewed["persisted_operational_context"]["pending_actions"], [])
 
     def test_stage8_operator_loop_progression_and_return(self) -> None:
@@ -66,6 +76,11 @@ class TestInternalOperationalLoop(unittest.TestCase):
         self.assertEqual(requested["action_result"]["action_state"], "action_submitted")
         self.assertEqual(requested["persisted_operational_context"]["current_operational_state"], "action_submitted")
         self.assertEqual(requested["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "in_review")
+        self.assertEqual(
+            requested["persisted_operational_context"]["work_item_key"],
+            f"8:outreach_workbench:touch_record:{stage8.record('touch_record').get('touch_record_id')}",
+        )
+        self.assertEqual(len(requested["persisted_operational_context"]["action_history"]), 1)
         self.assertIn("stage8_approve_draft_progression", requested["persisted_operational_context"]["pending_actions"])
 
         returned = submit_stage8_operator_action(
@@ -81,10 +96,20 @@ class TestInternalOperationalLoop(unittest.TestCase):
         self.assertEqual(returned["action_result"]["action_state"], "action_returned_for_revision")
         self.assertEqual(returned["persisted_operational_context"]["current_operational_state"], "action_returned_for_revision")
         self.assertEqual(returned["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "returned")
+        self.assertEqual(len(returned["persisted_operational_context"]["action_history"]), 2)
+        self.assertEqual(
+            returned["persisted_operational_context"]["action_history"][-1]["action_id"],
+            "stage8_return_for_revision",
+        )
 
         queue = list_stage8_work_items({"opportunity_id": stage8.record("contact_target").get("opportunity_id")})
         self.assertEqual(len(queue["work_items"]), 1)
+        self.assertEqual(
+            queue["work_items"][0]["work_item_key"],
+            returned["persisted_operational_context"]["work_item_key"],
+        )
         self.assertEqual(queue["work_items"][0]["last_action"]["action_id"], "stage8_return_for_revision")
+        self.assertEqual(len(queue["work_items"][0]["action_history"]), 2)
 
     def test_stage8_approve_progression_completes_when_approval_chain_is_available(self) -> None:
         stage8 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage8"]
@@ -153,11 +178,13 @@ class TestInternalOperationalLoop(unittest.TestCase):
         self.assertEqual(held["action_result"]["action_state"], "governed_hold")
         self.assertEqual(held["persisted_operational_context"]["current_operational_state"], "governed_hold")
         self.assertEqual(held["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "in_review")
+        self.assertEqual(len(held["persisted_operational_context"]["action_history"]), 2)
         self.assertEqual(held["persisted_operational_context"]["pending_actions"], ["stage8_request_governed_review"])
 
         queue = list_stage8_work_items({"opportunity_id": stage8.record("contact_target").get("opportunity_id")})
         self.assertEqual(len(queue["work_items"]), 1)
         self.assertEqual(queue["work_items"][0]["current_operational_state"], "governed_hold")
+        self.assertEqual(queue["work_items"][0]["work_item_key"], held["persisted_operational_context"]["work_item_key"])
         self.assertEqual(queue["work_items"][0]["last_action"]["action_id"], "stage8_put_governed_hold")
         self.assertEqual(queue["work_items"][0]["pending_actions"], ["stage8_request_governed_review"])
 
@@ -194,11 +221,13 @@ class TestInternalOperationalLoop(unittest.TestCase):
         self.assertEqual(denied["action_result"]["action_state"], "action_denied")
         self.assertEqual(denied["persisted_operational_context"]["current_operational_state"], "action_denied")
         self.assertEqual(denied["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "denied")
+        self.assertEqual(len(denied["persisted_operational_context"]["action_history"]), 2)
         self.assertEqual(denied["persisted_operational_context"]["pending_actions"], [])
 
         queue = list_stage8_work_items({"opportunity_id": stage8.record("contact_target").get("opportunity_id")})
         self.assertEqual(len(queue["work_items"]), 1)
         self.assertEqual(queue["work_items"][0]["current_operational_state"], "action_denied")
+        self.assertEqual(queue["work_items"][0]["work_item_key"], denied["persisted_operational_context"]["work_item_key"])
         self.assertEqual(queue["work_items"][0]["assignment"]["assignment_lifecycle_state"], "denied")
         self.assertEqual(queue["work_items"][0]["last_action"]["action_id"], "stage8_deny_draft_progression")
         self.assertEqual(queue["work_items"][0]["pending_actions"], [])
@@ -264,6 +293,11 @@ class TestInternalOperationalLoop(unittest.TestCase):
         self.assertEqual(submitted["action_result"]["action_state"], "action_submitted")
         self.assertEqual(submitted["persisted_operational_context"]["current_operational_state"], "action_submitted")
         self.assertEqual(submitted["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "in_review")
+        self.assertEqual(
+            submitted["persisted_operational_context"]["work_item_key"],
+            f"9:order_delivery_workbench:order_record:{stage9.record('order_record').get('order_id')}",
+        )
+        self.assertEqual(len(submitted["persisted_operational_context"]["action_history"]), 1)
         self.assertIn("stage9_mark_reviewed", submitted["persisted_operational_context"]["pending_actions"])
 
         held = submit_stage9_operator_action(
@@ -279,13 +313,16 @@ class TestInternalOperationalLoop(unittest.TestCase):
         )
         self.assertEqual(held["action_result"]["action_state"], "governed_hold")
         self.assertEqual(held["persisted_operational_context"]["current_operational_state"], "governed_hold")
+        self.assertEqual(len(held["persisted_operational_context"]["action_history"]), 2)
 
         queue = list_stage9_work_items({"opportunity_id": stage9.record("order_record").get("opportunity_id")})
         self.assertEqual(len(queue["work_items"]), 1)
         item = queue["work_items"][0]
+        self.assertEqual(item["work_item_key"], held["persisted_operational_context"]["work_item_key"])
         self.assertTrue(item["audit_refs"])
         self.assertTrue(item["trace_refs"])
         self.assertEqual(item["last_action"]["action_id"], "stage9_put_governed_hold")
+        self.assertEqual(len(item["action_history"]), 2)
 
     def test_stage9_mark_reviewed_completes_when_approval_chain_is_available(self) -> None:
         stage9 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage9"]

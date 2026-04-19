@@ -76,6 +76,22 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertFalse(response["operational_loop_persisted"])
         self.assertEqual(response["operational_context_status"], "transient_preview")
         self.assertIn("transient_preview_context", response)
+        self.assertNotIn("pending_actions", response["transient_preview_context"])
+        self.assertNotIn("pending_button_flows", response["transient_preview_context"])
+        self.assertEqual(response["operator_loop_projection"]["context_key"], "transient_preview_context")
+        self.assertEqual(response["operator_loop_projection"]["workbench_replay_source"], "projection_only")
+        self.assertFalse(response["operator_loop_projection"]["queue_materialized"])
+        self.assertEqual(
+            response["operator_loop_projection"]["action_controls_source"],
+            "governance_envelope.action_availability",
+        )
+        self.assertFalse(response["operator_loop_projection"]["display_contract"]["pending_button_flows_visible"])
+        self.assertEqual(response["workbench_replay"]["context_key"], "transient_preview_context")
+        self.assertEqual(response["workbench_replay"]["replay_source"], "projection_only")
+        self.assertEqual(
+            response["workbench_replay"]["work_item_key"],
+            response["transient_preview_context"]["work_item_key"],
+        )
         self.assertIn(
             response["transient_preview_context"]["current_operational_state"],
             {"ready_for_internal_operator_action", "review_required", "governed_hold"},
@@ -118,6 +134,10 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertFalse(list_response["operational_loop_persisted"])
         self.assertEqual(list_response["operational_context_status"], "transient_preview")
         self.assertIn("transient_preview_context", list_response)
+        self.assertNotIn("pending_actions", list_response["transient_preview_context"])
+        self.assertNotIn("pending_button_flows", list_response["transient_preview_context"])
+        self.assertEqual(list_response["operator_loop_projection"]["context_key"], "transient_preview_context")
+        self.assertEqual(list_response["workbench_replay"]["replay_source"], "projection_only")
         self.assertIn(
             list_response["transient_preview_context"]["surface_operational_state"],
             {"draft_only", "review_required", "governed_hold"},
@@ -125,6 +145,15 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertTrue(draft_response["operational_loop_persisted"])
         self.assertEqual(draft_response["operational_context_status"], "persisted")
         self.assertIn("persisted_operational_context", draft_response)
+        self.assertEqual(draft_response["operator_loop_projection"]["context_key"], "persisted_operational_context")
+        self.assertEqual(draft_response["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
+        self.assertTrue(draft_response["operator_loop_projection"]["queue_materialized"])
+        self.assertTrue(draft_response["operator_loop_projection"]["display_contract"]["pending_button_flows_visible"])
+        self.assertEqual(draft_response["workbench_replay"]["replay_source"], "repository_readback")
+        self.assertEqual(
+            draft_response["workbench_replay"]["work_item_id"],
+            draft_response["persisted_operational_context"]["work_item_id"],
+        )
         self.assertEqual(
             draft_response["persisted_operational_context"]["object_refs"]["contact_target_id"],
             stage8.record("contact_target").get("contact_target_id"),
@@ -169,6 +198,14 @@ class TestInternalSurfacePreview(unittest.TestCase):
             self.assertTrue(response["operational_loop_persisted"])
             self.assertEqual(response["operational_context_status"], "persisted")
             self.assertIn("persisted_operational_context", response)
+            self.assertEqual(response["operator_loop_projection"]["context_key"], "persisted_operational_context")
+            self.assertEqual(response["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
+            self.assertTrue(response["operator_loop_projection"]["queue_materialized"])
+            self.assertEqual(
+                response["operator_loop_projection"]["action_controls_source"],
+                "persisted_operational_context.pending_actions",
+            )
+            self.assertEqual(response["workbench_replay"]["replay_source"], "repository_readback")
 
         self.assertEqual(governed["writeback_targets"], stage8.record("touch_record").get("writeback_targets"))
         self.assertEqual(
@@ -188,6 +225,19 @@ class TestInternalSurfacePreview(unittest.TestCase):
             stage8.handoff.get("human_handoff_reason_optional"),
         )
         self.assertEqual(created["persisted_operational_context"]["governed_context"], governed)
+        self.assertEqual(
+            created["persisted_operational_context"]["work_item_key"],
+            replay["persisted_operational_context"]["work_item_key"],
+        )
+        self.assertEqual(
+            created["workbench_replay"]["work_item_id"],
+            replay["workbench_replay"]["work_item_id"],
+        )
+        self.assertEqual(created["surface_state"], replay["surface_state"])
+        self.assertEqual(
+            created["governance_envelope"]["action_availability"],
+            replay["governance_envelope"]["action_availability"],
+        )
 
     def test_stage9_preview_surface_is_draft_only_and_not_live(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
@@ -223,12 +273,19 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertFalse(list_response["operational_loop_persisted"])
         self.assertEqual(list_response["operational_context_status"], "transient_preview")
         self.assertIn("transient_preview_context", list_response)
+        self.assertNotIn("pending_actions", list_response["transient_preview_context"])
+        self.assertNotIn("pending_button_flows", list_response["transient_preview_context"])
+        self.assertEqual(list_response["operator_loop_projection"]["context_key"], "transient_preview_context")
+        self.assertEqual(list_response["workbench_replay"]["replay_source"], "projection_only")
         self.assertIn(
             list_response["transient_preview_context"]["surface_operational_state"],
             {"draft_only", "preview_ready", "review_required", "governed_hold"},
         )
         self.assertTrue(create_response["operational_loop_persisted"])
         self.assertEqual(create_response["operational_context_status"], "persisted")
+        self.assertEqual(create_response["operator_loop_projection"]["context_key"], "persisted_operational_context")
+        self.assertEqual(create_response["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
+        self.assertEqual(create_response["workbench_replay"]["replay_source"], "repository_readback")
         self.assertEqual(
             create_response["persisted_operational_context"]["object_refs"]["payment_id"],
             stage9.record("payment_record").get("payment_id"),
