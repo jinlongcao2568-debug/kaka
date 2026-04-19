@@ -17,6 +17,7 @@
       "touch_record.next_step_optional",
       "touch_record.stop_reason_optional",
       "touch_record.failure_reason_tag_optional",
+      "touch_record.writeback_required",
       "touch_record.writeback_targets",
       "touch_record.written_back_at_optional"
     ],
@@ -48,6 +49,7 @@
         "response_status",
         "feedback_reason",
         "next_step_optional",
+        "writeback_required",
         "writeback_targets"
       ],
       "sourceL0Refs": [
@@ -177,6 +179,6 @@
   ,
   "notes": [
     "反馈原因用于治理回写，不对外放行。",
-    "OUT-010 只拥有 feedback_reason / persisted next_step / writeback_targets authority；runtime retry planner next_action 仍归 retry_policy_catalog 所有。"
+    "OUT-010 只拥有 feedback_reason / persisted next_step / writeback_required / writeback_targets authority；runtime retry planner next_action 仍归 retry_policy_catalog 所有。"
   ]
 }

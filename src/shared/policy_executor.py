@@ -507,6 +507,7 @@ class PolicyExecutor:
         "buyer_fit_scorecard": "contracts/sales/buyer_fit_scorecard.json",
         "sku_recommendation": "contracts/sales/sku_recommendation_policy_catalog.json",
         "opportunity_policy": "contracts/sales/opportunity_policy_catalog.json",
+        "stage6_legal_action": "contracts/sales/stage6_legal_action_resolution_catalog.json",
         "price_normalization": "contracts/sales/price_normalization_catalog.json",
         "competitor_confidence": "contracts/sales/competitor_confidence_catalog.json",
         "contact_priority": "contracts/sales/contact_priority_policy_catalog.json",
@@ -785,6 +786,181 @@ class PolicyExecutor:
             outputs=outputs,
             reasons=reasons,
             fallback_used=fallback_used,
+        )
+
+    def _evaluate_stage6_legal_action(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
+        catalog = self.load_policy("stage6_legal_action")
+        policy = catalog["policies"][0]
+        project_fact = context.record("project_fact")
+        report_record = context.record("report_record")
+        legal_action_recommendation = context.record("legal_action_recommendation")
+
+        sale_gate_status = context.input(
+            "sale_gate_status",
+            project_fact.get("sale_gate_status"),
+        )
+        report_status = context.input(
+            "report_status",
+            report_record.get("report_status"),
+        )
+        rule_gate_status = context.input(
+            "rule_gate_status",
+            project_fact.get("rule_gate_status"),
+        )
+        evidence_gate_status = context.input(
+            "evidence_gate_status",
+            project_fact.get("evidence_gate_status"),
+        )
+        window_status = context.input(
+            "window_status",
+            legal_action_recommendation.get("window_status"),
+        )
+        requested_action_family = _optional_str(
+            context.input("requested_action_family_optional", context.input("action_family"))
+        )
+        requested_recommended_next_step = _optional_str(
+            context.input(
+                "requested_recommended_next_step_optional",
+                context.input("recommended_next_step"),
+            )
+        )
+        semantic_decision_state = _optional_str(context.input("semantic_decision_state_optional"))
+        action_chain_closed = (
+            sale_gate_status == "OPEN"
+            and report_status == "ISSUED"
+            and rule_gate_status == "PASS"
+            and evidence_gate_status == "PASS"
+            and window_status == "ACTIONABLE"
+        )
+        facts = {
+            "sale_gate_status": sale_gate_status,
+            "report_status": report_status,
+            "rule_gate_status": rule_gate_status,
+            "evidence_gate_status": evidence_gate_status,
+            "window_status": window_status,
+            "action_chain_closed": action_chain_closed,
+            "semantic_decision_state": semantic_decision_state,
+        }
+
+        def matches_rule(rule: Mapping[str, Any]) -> bool:
+            if bool(rule.get("default", False)):
+                return True
+            for field_name, expected in dict(rule.get("when", {})).items():
+                actual = facts.get(field_name)
+                if isinstance(expected, list):
+                    if actual not in expected:
+                        return False
+                elif actual != expected:
+                    return False
+            return True
+
+        resolution_rule = next(
+            rule for rule in policy.get("resolution_rules", []) if matches_rule(rule)
+        )
+        action_family = str(resolution_rule["outputs"]["action_family"])
+        recommended_next_step = str(
+            resolution_rule["outputs"]["recommended_next_step"]
+        )
+        resolution_sources = {
+            "action_family": str(resolution_rule.get("rule_id", "ACTION-UNRESOLVED")),
+            "recommended_next_step": str(
+                resolution_rule.get("rule_id", "ACTION-UNRESOLVED")
+            ),
+        }
+
+        override_policy = dict(policy.get("override_policy", {}))
+        if (
+            action_chain_closed
+            and override_policy.get(
+                "allow_requested_action_family_when_action_chain_closed", False
+            )
+            and requested_action_family
+        ):
+            action_family = requested_action_family
+            resolution_sources["action_family"] = "REQUESTED_ACTION_FAMILY_OVERRIDE"
+        if (
+            action_chain_closed
+            and override_policy.get(
+                "allow_requested_recommended_next_step_when_action_chain_closed", False
+            )
+            and requested_recommended_next_step
+        ):
+            recommended_next_step = requested_recommended_next_step
+            resolution_sources[
+                "recommended_next_step"
+            ] = "REQUESTED_RECOMMENDED_NEXT_STEP_OVERRIDE"
+
+        semantic_rule_id: str | None = None
+        semantic_override = dict(policy.get("semantic_override", {}))
+        semantic_override_states = {
+            str(item) for item in semantic_override.get("applies_to_decision_states", [])
+        }
+        if semantic_decision_state in semantic_override_states:
+            action_family = str(semantic_override.get("action_family", action_family))
+            resolution_sources["action_family"] = (
+                f"SEMANTIC_OVERRIDE::{semantic_decision_state}"
+            )
+            preserve_next_step = bool(
+                semantic_override.get(
+                    "preserve_recommended_next_step_when_action_chain_closed", False
+                )
+            )
+            if not (action_chain_closed and preserve_next_step):
+                semantic_rule = next(
+                    rule
+                    for rule in semantic_override.get("review_next_step_rules", [])
+                    if matches_rule(rule)
+                )
+                semantic_rule_id = str(
+                    semantic_rule.get("rule_id", "SEMANTIC-REVIEW-UNRESOLVED")
+                )
+                recommended_next_step = str(
+                    semantic_rule.get(
+                        "recommended_next_step", recommended_next_step
+                    )
+                )
+                resolution_sources["recommended_next_step"] = (
+                    f"SEMANTIC_OVERRIDE::{semantic_rule_id}"
+                )
+            else:
+                semantic_rule_id = "SEMANTIC_OVERRIDE_PRESERVE_ACTION_CHAIN_NEXT_STEP"
+                resolution_sources["recommended_next_step"] = (
+                    f"SEMANTIC_OVERRIDE::{semantic_rule_id}"
+                )
+
+        reasons = [
+            f"resolution_rule={resolution_rule.get('rule_id', 'ACTION-UNRESOLVED')}",
+            f"action_chain_closed={action_chain_closed}",
+        ]
+        if semantic_rule_id:
+            reasons.append(f"semantic_override={semantic_rule_id}")
+
+        return self._decision(
+            policy_key="stage6_legal_action",
+            catalog_id=catalog["catalogId"],
+            policy_id=policy["policy_id"],
+            decision_state=(
+                "ALLOW"
+                if action_chain_closed and semantic_decision_state not in semantic_override_states
+                else "REVIEW"
+            ),
+            outputs={
+                "action_family": action_family,
+                "recommended_next_step": recommended_next_step,
+                "legal_action_resolution_trace": {
+                    "policy_id": policy["policy_id"],
+                    "resolution_rule_id": str(
+                        resolution_rule.get("rule_id", "ACTION-UNRESOLVED")
+                    ),
+                    "semantic_rule_id_optional": semantic_rule_id,
+                    "action_chain_closed": action_chain_closed,
+                    "component_inputs": facts,
+                    "requested_action_family_optional": requested_action_family,
+                    "requested_recommended_next_step_optional": requested_recommended_next_step,
+                    "resolved_sources": resolution_sources,
+                },
+            },
+            reasons=reasons,
         )
 
     def _evaluate_price_normalization(self, context: ContextPacket, state: StatePacket) -> PolicyDecision:
@@ -2424,6 +2600,11 @@ class PolicyExecutor:
         catalog = self.load_policy("contact_priority")
         policy = catalog["policies"][0]
         organization_policy = _contact_priority_organization_policy(policy)
+        saleable_opportunity = context.record("saleable_opportunity")
+        legal_action_actor_profile = context.record("legal_action_actor_profile")
+        procurement_decision_actor_profile = context.record(
+            "procurement_decision_actor_profile"
+        )
         role_cluster = context.input("role_cluster", "ORG_GATEKEEPER")
         role_key = _contact_priority_role_key(role_cluster)
         legal_basis = context.input("contact_legal_basis", "REVIEW_REQUIRED")
@@ -2431,6 +2612,32 @@ class PolicyExecutor:
         reasonableness = context.input("reasonable_expectation_status", "UNKNOWN")
         validity = context.input("contact_validity_status", "UNKNOWN")
         auditability = context.input("source_auditability_state", "AUDITABLE")
+        opportunity_grade = str(
+            context.input(
+                "opportunity_grade",
+                saleable_opportunity.get("opportunity_grade", "D"),
+            )
+        )
+        commercial_urgency_level = str(
+            context.input(
+                "commercial_urgency_level_optional",
+                saleable_opportunity.get("commercial_urgency_level_optional", "NORMAL"),
+            )
+        )
+        actionability_state = str(
+            context.input(
+                "actionability_state_optional",
+                legal_action_actor_profile.get("actionability_state_optional")
+                or legal_action_actor_profile.get("actionability_state", "REVIEW_REQUIRED"),
+            )
+        )
+        reachable_state = str(
+            context.input(
+                "reachable_state_optional",
+                procurement_decision_actor_profile.get("reachable_state_optional")
+                or procurement_decision_actor_profile.get("reachable_state", "REVIEW_REQUIRED"),
+            )
+        )
         prior_decision_state = state.decision_state
         source_merge_review_required = bool(context.input("source_merge_review_required", False))
         restricted_channel_conflict = channel_family in {
@@ -2447,6 +2654,10 @@ class PolicyExecutor:
             "reasonable_expectation_status": reasonableness,
             "contact_validity_status": validity,
             "source_auditability_state": auditability,
+            "opportunity_grade": opportunity_grade,
+            "commercial_urgency_level_optional": commercial_urgency_level,
+            "actionability_state_optional": actionability_state,
+            "reachable_state_optional": reachable_state,
         }
 
         score = policy["scoring_model"]["base_score"]
@@ -2461,11 +2672,35 @@ class PolicyExecutor:
             policy["scoring_model"]["reasonableness_weights"].get(reasonableness, 0)
         )
         validity_weight = int(policy["scoring_model"]["validity_weights"].get(validity, 0))
+        opportunity_grade_weight = int(
+            policy["scoring_model"]
+            .get("opportunity_grade_weights", {})
+            .get(opportunity_grade, 0)
+        )
+        commercial_urgency_weight = int(
+            policy["scoring_model"]
+            .get("commercial_urgency_level_weights", {})
+            .get(commercial_urgency_level, 0)
+        )
+        actionability_weight = int(
+            policy["scoring_model"]
+            .get("actionability_state_weights", {})
+            .get(actionability_state, 0)
+        )
+        reachable_weight = int(
+            policy["scoring_model"]
+            .get("reachable_state_weights", {})
+            .get(reachable_state, 0)
+        )
         score += role_weight
         score += legal_basis_weight
         score += channel_weight
         score += reasonableness_weight
         score += validity_weight
+        score += opportunity_grade_weight
+        score += commercial_urgency_weight
+        score += actionability_weight
+        score += reachable_weight
         if auditability != "AUDITABLE":
             score += int(policy["scoring_model"]["auditability_penalty"]["penalty"])
         penalty_triggers: list[str] = []
@@ -2492,14 +2727,22 @@ class PolicyExecutor:
         )
         source_auditability_rank = 1 if auditability == "AUDITABLE" else 0
         decision_state = "BLOCK" if prior_decision_state == "BLOCK" else "REVIEW" if requires_manual_review else "ALLOW"
-        reason_tags = [
-            f"ROLE_{role_key}",
-            f"LEGAL_{legal_basis}",
-            f"CHANNEL_{channel_family}",
-            f"EXPECT_{reasonableness}",
-            f"VALIDITY_{validity}",
-            "AUDITABILITY_AUDITABLE" if auditability == "AUDITABLE" else "AUDITABILITY_REVIEW",
-        ]
+        auditability_reason = "AUDITABLE" if auditability == "AUDITABLE" else "REVIEW"
+        reason_tags = _render_reason_tags(
+            list(policy.get("reason_tag_templates", [])),
+            {
+                "role_key": role_key,
+                "legal_basis": legal_basis,
+                "channel_family": channel_family,
+                "reasonableness": reasonableness,
+                "validity": validity,
+                "auditability": auditability_reason,
+                "opportunity_grade": opportunity_grade,
+                "commercial_urgency_level": commercial_urgency_level,
+                "actionability_state": actionability_state,
+                "reachable_state": reachable_state,
+            },
+        )
         if source_merge_review_required:
             reason_tags.append("SOURCE_MERGE_REVIEW_REQUIRED")
         if restricted_channel_conflict:
@@ -2536,6 +2779,10 @@ class PolicyExecutor:
                 "legal_basis_weight": legal_basis_weight,
                 "source_auditability_rank": source_auditability_rank,
                 "source_merge_review_required": source_merge_review_required,
+                "opportunity_grade_weight": opportunity_grade_weight,
+                "commercial_urgency_weight": commercial_urgency_weight,
+                "actionability_weight": actionability_weight,
+                "reachable_weight": reachable_weight,
             },
             reasons=[f"priority_score={score}", f"prior_state={prior_decision_state}"],
         )
@@ -2618,6 +2865,9 @@ class PolicyExecutor:
                     "failure_reason_tag_optional": response_status,
                     "next_step_optional": context.input("next_step_optional", "WAIT"),
                     "stop_reason_optional": state.resolve("stop_reason_optional", context.input("stop_reason_optional")),
+                    "writeback_required": bool(
+                        _ensure_list(context.input("writeback_targets", []))
+                    ),
                     "writeback_targets": _ensure_list(context.input("writeback_targets", [])),
                     "writeback_target_optional": context.input("writeback_target_optional"),
                     "written_back_at_optional": written_back_at_optional,
@@ -2640,6 +2890,7 @@ class PolicyExecutor:
                     "stop_reason_optional",
                     state.resolve("stop_reason_optional", context.input("stop_reason_optional")),
                 ),
+                "writeback_required": bool(writeback_targets),
                 "writeback_targets": writeback_targets,
                 "writeback_target_optional": next(iter(writeback_targets), None),
                 "written_back_at_optional": written_back_at_optional,
@@ -2876,6 +3127,20 @@ class PolicyExecutor:
             ),
             "payer_match_state": "MATCHED",
             "amount_match_state": "MATCHED",
+            "payment_exception_match_trace_optional": {
+                "mapping_rule_condition": str(matched_rule.get("condition", "")),
+                "mapping_rule_ref": f"{policy['policy_id']}::condition::{matched_rule.get('condition', '')}",
+                "family_semantics_ref": f"{policy['policy_id']}::family_semantics::{exception_family}",
+                "exception_family": exception_family,
+                "semantic_role": str(family_semantics.get("semantic_role", "")),
+                "coarse_outcome_family": str(
+                    family_semantics.get(
+                        "coarse_outcome_family",
+                        matched_rule["outcome_family"],
+                    )
+                ),
+                "governance_trigger": str(matched_rule["governance_trigger"]),
+            },
         }
         outputs.update(state_sinks)
         if exception_family in {"REFUND_REQUESTED", "REFUND_APPROVED", "REFUND_COMPLETED"}:
@@ -2942,6 +3207,20 @@ class PolicyExecutor:
                 or family_semantics.get("additive_writeback_targets")
                 or policy.get("writeback_targets", [])
             ),
+            "delivery_exception_match_trace_optional": {
+                "mapping_rule_condition": str(matched_rule.get("condition", "")),
+                "mapping_rule_ref": f"{policy['policy_id']}::condition::{matched_rule.get('condition', '')}",
+                "family_semantics_ref": f"{policy['policy_id']}::family_semantics::{exception_family}",
+                "exception_family": exception_family,
+                "semantic_role": str(family_semantics.get("semantic_role", "")),
+                "coarse_outcome_family": str(
+                    family_semantics.get(
+                        "coarse_outcome_family",
+                        matched_rule["outcome_family"],
+                    )
+                ),
+                "governance_trigger": str(matched_rule["governance_trigger"]),
+            },
         }
         outputs.update(state_sinks)
         if not (has_payment_exception and exception_family in ("ARCHIVE_FAILURE", "RETRIEVAL_FAILED")):

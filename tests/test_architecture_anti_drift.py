@@ -899,8 +899,12 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "H-07-STAGE7-TO-STAGE8": (
                 "handoff/stage7_to_stage8/contract.json",
                 "src/stage8_outreach/service.py",
-                ["multi_competitor_collection"],
-                ['records.get("multi_competitor_collection")', "must be present before Stage8 contact resolution"],
+                ["legal_action_actor_profile", "multi_competitor_collection"],
+                [
+                    'records.get("legal_action_actor_profile")',
+                    'records.get("multi_competitor_collection")',
+                    "must be present before Stage8 contact resolution",
+                ],
             ),
             "H-08-STAGE8-TO-STAGE9": (
                 "handoff/stage8_to_stage9/contract.json",

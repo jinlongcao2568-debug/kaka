@@ -904,6 +904,14 @@ class TestInternalChain(unittest.TestCase):
             stage9.inputs.get("writeback_target_sources", {}).get("project_fact"),
             ["outcome_taxonomy", "payment_exception"],
         )
+        self.assertEqual(
+            stage9.inputs.get("payment_exception_match_trace_optional", {}).get("exception_family"),
+            "PARTIAL_PAYMENT",
+        )
+        self.assertEqual(
+            stage9.inputs.get("payment_exception_match_trace_optional", {}).get("coarse_outcome_family"),
+            "LOST",
+        )
 
     def test_stage9_false_positive_feedback_loop_keeps_advisory_targets_out_of_base_outcome_targets(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -962,6 +970,25 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(
             stage9.inputs.get("writeback_target_sources", {}).get("order_record"),
             ["governance_taxonomy"],
+        )
+
+    def test_stage9_delivery_exception_trace_exposes_matched_rule_and_family_semantics(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"archival_status": "ARCHIVE_EXCEPTION"})
+
+        stage9 = run_internal_chain(payload)["stage9"]
+
+        self.assertEqual(
+            stage9.record("delivery_record").get("delivery_exception_family_optional"),
+            "ARCHIVE_FAILURE",
+        )
+        self.assertEqual(
+            stage9.inputs.get("delivery_exception_match_trace_optional", {}).get("exception_family"),
+            "ARCHIVE_FAILURE",
+        )
+        self.assertEqual(
+            stage9.inputs.get("delivery_exception_match_trace_optional", {}).get("governance_trigger"),
+            "ARCHIVE_FAILURE",
         )
 
     def test_stage9_missing_upstream_contract_data_fails(self) -> None:
@@ -1032,6 +1059,14 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage9.inputs.get("trigger_type"), "APPROVAL_MISSING")
         self.assertEqual(stage9.inputs.get("outcome_family"), "CONTACT_FAILED")
         self.assertEqual(stage9.inputs.get("outcome_reason_tags"), ["NO_RESPONSE"])
+        self.assertEqual(
+            stage9.inputs.get("h08_workflow_fallback_trace", {}).get("trigger_rule_id_optional"),
+            "TRIGGER-APPROVAL-MISSING-PLAN",
+        )
+        self.assertEqual(
+            stage9.inputs.get("h08_workflow_fallback_trace", {}).get("lifecycle_rule_id_optional"),
+            "STATUS-OWNER-UNASSIGNED",
+        )
 
     def test_stage9_repository_readback_preserves_writeback_carrier_only(self) -> None:
         reset_default_storage()

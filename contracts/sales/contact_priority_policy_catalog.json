@@ -90,6 +90,28 @@
           "UNKNOWN": 0,
           "INVALID": -50
         },
+        "opportunity_grade_weights": {
+          "A": 6,
+          "B": 3,
+          "C": 0,
+          "D": -8
+        },
+        "commercial_urgency_level_weights": {
+          "CRITICAL": 4,
+          "HIGH": 2,
+          "NORMAL": 0,
+          "LOW": -2
+        },
+        "actionability_state_weights": {
+          "ACTIONABLE": 4,
+          "REVIEW_REQUIRED": 0,
+          "BLOCKED": -10
+        },
+        "reachable_state_weights": {
+          "REACHABLE": 3,
+          "REVIEW_REQUIRED": 0,
+          "UNREACHABLE": -6
+        },
         "auditability_penalty": {
           "condition": "source_auditability_state!=AUDITABLE",
           "penalty": -15
@@ -98,6 +120,16 @@
           {
             "condition": "channel_policy_status=REVIEW",
             "penalty": -10,
+            "requires_manual_review": true
+          },
+          {
+            "condition": "actionability_state_optional=BLOCKED",
+            "penalty": -15,
+            "requires_manual_review": true
+          },
+          {
+            "condition": "reachable_state_optional=UNREACHABLE",
+            "penalty": -15,
             "requires_manual_review": true
           }
         ]
@@ -115,6 +147,18 @@
         "higher source auditability",
         "more recent last_evaluated_at",
         "organization channel over personal channel"
+      ],
+      "reason_tag_templates": [
+        "ROLE_{role_key}",
+        "LEGAL_{legal_basis}",
+        "CHANNEL_{channel_family}",
+        "EXPECT_{reasonableness}",
+        "VALIDITY_{validity}",
+        "AUDITABILITY_{auditability}",
+        "OPPORTUNITY_{opportunity_grade}",
+        "URGENCY_{commercial_urgency_level}",
+        "ACTIONABILITY_{actionability_state}",
+        "REACHABILITY_{reachable_state}"
       ],
       "failure_actions": [
         "conflict_flag=true => outreach_plan.plan_status=REVIEW_REQUIRED",

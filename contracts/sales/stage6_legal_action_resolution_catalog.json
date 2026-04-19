@@ -1,0 +1,124 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "stage6_legal_action_resolution_catalog",
+  "ownerDocs": [
+    "D3",
+    "D8",
+    "D11"
+  ],
+  "authorityContract": {
+    "rule_code": "STAGE6-LAR-001",
+    "authoritative_policy_id": "STAGE6-LEGAL-ACTION-001",
+    "sole_machine_readable_authority": true,
+    "authoritative_owner_stage": "stage6_fact_review",
+    "authoritative_outputs": [
+      "legal_action_recommendation.action_family",
+      "legal_action_recommendation.recommended_next_step"
+    ],
+    "authority_scope": {
+      "resolution_rules_ref": "#policies/0/resolution_rules",
+      "override_policy_ref": "#policies/0/override_policy",
+      "semantic_override_ref": "#policies/0/semantic_override"
+    },
+    "fallback_review_path": {
+      "review_only_action_family": "REVIEW_ONLY",
+      "forbidden_authoritative_substitutes": [
+        "fact_aggregator service-local action family defaults",
+        "fact_aggregator service-local recommended next step defaults",
+        "heuristic action chain fallback"
+      ]
+    }
+  },
+  "policies": [
+    {
+      "policy_id": "STAGE6-LEGAL-ACTION-001",
+      "title": "Stage6 legal action family and next-step resolution",
+      "applies_to_objects": [
+        "legal_action_recommendation"
+      ],
+      "input_fields": [
+        "project_fact.sale_gate_status",
+        "report_record.report_status",
+        "project_fact.rule_gate_status",
+        "project_fact.evidence_gate_status",
+        "legal_action_recommendation.window_status",
+        "inputs.requested_action_family_optional",
+        "inputs.requested_recommended_next_step_optional",
+        "inputs.semantic_decision_state_optional"
+      ],
+      "output_fields": [
+        "legal_action_recommendation.action_family",
+        "legal_action_recommendation.recommended_next_step"
+      ],
+      "resolution_rules": [
+        {
+          "rule_id": "ACTION-CHAIN-CLOSED",
+          "when": {
+            "action_chain_closed": true
+          },
+          "outputs": {
+            "action_family": "OBJECTION_PREP",
+            "recommended_next_step": "prepare_stage7_commercial_objects"
+          }
+        },
+        {
+          "rule_id": "HOLD-UNTIL-REPORT-ISSUED",
+          "when": {
+            "sale_gate_status": "HOLD",
+            "report_status": [
+              "DRAFT",
+              "READY"
+            ]
+          },
+          "outputs": {
+            "action_family": "REVIEW_ONLY",
+            "recommended_next_step": "hold_until_report_issued"
+          }
+        },
+        {
+          "rule_id": "REVIEW-QUEUE-DEFAULT",
+          "default": true,
+          "outputs": {
+            "action_family": "REVIEW_ONLY",
+            "recommended_next_step": "route_to_review_queue"
+          }
+        }
+      ],
+      "override_policy": {
+        "allow_requested_action_family_when_action_chain_closed": true,
+        "allow_requested_recommended_next_step_when_action_chain_closed": true
+      },
+      "semantic_override": {
+        "applies_to_decision_states": [
+          "REVIEW",
+          "BLOCK"
+        ],
+        "action_family": "REVIEW_ONLY",
+        "preserve_recommended_next_step_when_action_chain_closed": true,
+        "review_next_step_rules": [
+          {
+            "rule_id": "SEMANTIC-HOLD-UNTIL-REPORT-ISSUED",
+            "when": {
+              "sale_gate_status": "HOLD",
+              "report_status": [
+                "DRAFT",
+                "READY"
+              ]
+            },
+            "recommended_next_step": "hold_until_report_issued"
+          },
+          {
+            "rule_id": "SEMANTIC-REVIEW-QUEUE-DEFAULT",
+            "default": true,
+            "recommended_next_step": "route_to_review_queue"
+          }
+        ]
+      }
+    }
+  ],
+  "notes": [
+    "Stage6 legal action family and recommended next step are resolved from formal Stage6 facts only.",
+    "Semantic review/block may force REVIEW_ONLY, but the next step remains the action-chain output when the contract says to preserve it.",
+    "Requested action family and requested next step are only honored on the action-chain-closed path."
+  ]
+}

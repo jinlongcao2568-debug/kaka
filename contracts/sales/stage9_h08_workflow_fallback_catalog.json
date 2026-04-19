@@ -1,0 +1,256 @@
+{
+  "catalogVersion": "1.0.0",
+  "catalogId": "stage9_h08_workflow_fallback_catalog",
+  "ownerDocs": [
+    "D3",
+    "D10",
+    "D11"
+  ],
+  "authorityContract": {
+    "rule_code": "STAGE9-H08-001",
+    "authoritative_policy_id": "STAGE9-H08-WORKFLOW-001",
+    "sole_machine_readable_authority": true,
+    "authoritative_owner_stage": "stage9_delivery",
+    "authoritative_outputs": [
+      "runtime.trigger_type",
+      "runtime.outcome_family",
+      "runtime.outcome_reason_tags",
+      "runtime.contact_failure_state",
+      "runtime.commercial_status",
+      "runtime.order_status",
+      "runtime.delivery_status"
+    ],
+    "authority_scope": {
+      "contact_failure_rules_ref": "#policies/0/contact_failure_rules",
+      "trigger_rules_ref": "#policies/0/trigger_rules",
+      "lifecycle_rules_ref": "#policies/0/lifecycle_rules"
+    }
+  },
+  "policies": [
+    {
+      "policy_id": "STAGE9-H08-WORKFLOW-001",
+      "title": "Stage9 H-08 workflow fallback resolution",
+      "input_fields": [
+        "H08.response_status",
+        "H08.saleability_status",
+        "H08.crm_owner_state",
+        "H08.plan_status",
+        "H08.feedback_reason",
+        "H08.upstream_governance_decision_state"
+      ],
+      "output_fields": [
+        "trigger_type",
+        "outcome_family",
+        "outcome_reason_tags",
+        "contact_failure_state",
+        "commercial_status",
+        "order_status",
+        "delivery_status"
+      ],
+      "contact_failure_reason_family": {
+        "outcome_family_ref": "contracts/sales/outcome_taxonomy_catalog.json#CONTACT_FAILED"
+      },
+      "contact_failure_rules": [
+        {
+          "rule_id": "CONTACT-FAILED-FEEDBACK-ALLOWED",
+          "when": {
+            "feedback_reason_allowed_for_contact_failed": true
+          },
+          "outputs": {
+            "outcome_family": "CONTACT_FAILED",
+            "outcome_reason_tags_from": "feedback_reason",
+            "contact_failure_state_from": "response_status"
+          }
+        }
+      ],
+      "trigger_rules": [
+        {
+          "rule_id": "TRIGGER-EVIDENCE-INSUFFICIENT",
+          "when": {
+            "saleability_status": [
+              "BLOCKED"
+            ]
+          },
+          "outputs": {
+            "trigger_type": "EVIDENCE_INSUFFICIENT"
+          }
+        },
+        {
+          "rule_id": "TRIGGER-DELIVERY-BLOCK",
+          "when": {
+            "upstream_governance_decision_state": [
+              "BLOCK"
+            ]
+          },
+          "outputs": {
+            "trigger_type": "DELIVERY_BLOCK"
+          }
+        },
+        {
+          "rule_id": "TRIGGER-APPROVAL-MISSING-PLAN",
+          "when": {
+            "plan_status": [
+              "DRAFT",
+              "REVIEW_REQUIRED",
+              "APPROVAL_PENDING",
+              "SCHEDULED"
+            ]
+          },
+          "outputs": {
+            "trigger_type": "APPROVAL_MISSING"
+          }
+        },
+        {
+          "rule_id": "TRIGGER-APPROVAL-MISSING-OWNER",
+          "when": {
+            "crm_owner_state": [
+              "UNASSIGNED",
+              "ON_HOLD",
+              "CLOSED"
+            ]
+          },
+          "outputs": {
+            "trigger_type": "APPROVAL_MISSING"
+          }
+        }
+      ],
+      "lifecycle_rules": [
+        {
+          "rule_id": "STATUS-BLOCKED-OR-CANCELLED",
+          "when": {
+            "saleability_status": [
+              "BLOCKED"
+            ],
+            "upstream_governance_decision_state": [
+              "ALLOW",
+              "REVIEW",
+              "BLOCK"
+            ],
+            "plan_status": [
+              "DRAFT",
+              "REVIEW_REQUIRED",
+              "APPROVAL_PENDING",
+              "SCHEDULED",
+              "BLOCKED",
+              "CANCELLED",
+              "REJECTED",
+              "APPROVED",
+              "COMPLETED"
+            ]
+          },
+          "outputs": {
+            "commercial_status": "ON_HOLD",
+            "order_status": "ON_HOLD",
+            "delivery_status": "RELEASE_BLOCKED"
+          }
+        },
+        {
+          "rule_id": "STATUS-UPSTREAM-BLOCKED",
+          "when": {
+            "upstream_governance_decision_state": [
+              "BLOCK"
+            ]
+          },
+          "outputs": {
+            "commercial_status": "ON_HOLD",
+            "order_status": "ON_HOLD",
+            "delivery_status": "RELEASE_BLOCKED"
+          }
+        },
+        {
+          "rule_id": "STATUS-PLAN-BLOCKED-OR-CANCELLED",
+          "when": {
+            "plan_status": [
+              "BLOCKED",
+              "CANCELLED",
+              "REJECTED"
+            ]
+          },
+          "outputs": {
+            "commercial_status": "ON_HOLD",
+            "order_status": "ON_HOLD",
+            "delivery_status": "RELEASE_BLOCKED"
+          }
+        },
+        {
+          "rule_id": "STATUS-OWNER-UNASSIGNED",
+          "when": {
+            "crm_owner_state": [
+              "UNASSIGNED"
+            ]
+          },
+          "outputs": {
+            "commercial_status": "PENDING_APPROVAL",
+            "order_status": "PENDING_APPROVAL"
+          }
+        },
+        {
+          "rule_id": "STATUS-CONTACT-FAILED",
+          "when": {
+            "outcome_family": [
+              "CONTACT_FAILED"
+            ]
+          },
+          "outputs": {
+            "commercial_status": "ON_HOLD",
+            "order_status": "ON_HOLD",
+            "delivery_status": "RELEASE_BLOCKED"
+          }
+        },
+        {
+          "rule_id": "STATUS-OWNER-HOLD-OR-CLOSED",
+          "when": {
+            "crm_owner_state": [
+              "ON_HOLD",
+              "CLOSED"
+            ]
+          },
+          "outputs": {
+            "commercial_status": "ON_HOLD",
+            "order_status": "ON_HOLD"
+          }
+        },
+        {
+          "rule_id": "STATUS-REVIEW-OR-PENDING-PLAN",
+          "when": {
+            "upstream_governance_decision_state": [
+              "REVIEW"
+            ],
+            "plan_status": [
+              "DRAFT",
+              "REVIEW_REQUIRED",
+              "APPROVAL_PENDING",
+              "SCHEDULED",
+              "APPROVED",
+              "COMPLETED"
+            ]
+          },
+          "outputs": {
+            "commercial_status": "PENDING_APPROVAL",
+            "order_status": "PENDING_APPROVAL"
+          }
+        },
+        {
+          "rule_id": "STATUS-PLAN-PENDING",
+          "when": {
+            "plan_status": [
+              "DRAFT",
+              "REVIEW_REQUIRED",
+              "APPROVAL_PENDING",
+              "SCHEDULED"
+            ]
+          },
+          "outputs": {
+            "commercial_status": "PENDING_APPROVAL",
+            "order_status": "PENDING_APPROVAL"
+          }
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "H-08 workflow fallback is internal-only and remains governed by Stage9 delivery rules.",
+    "The fallback contract only provides pre-exception workflow defaults; precise payment/delivery exception families stay authoritative in their own catalogs.",
+    "Rule order is authoritative and preserves current service precedence."
+  ]
+}

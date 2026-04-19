@@ -466,30 +466,42 @@ class ProjectFactAggregator:
                     blocking_reasons.append("competitor_confidence_review_required")
         blocking_reasons = _dedupe_strings(blocking_reasons)
 
-        action_chain_closed = (
-            sale_gate_status == "OPEN"
-            and report_status == "ISSUED"
-            and rule_gate_status == "PASS"
-            and evidence_gate_status == "PASS"
-            and window_status == "ACTIONABLE"
+        legal_action_resolution_context = ContextPacket.from_records(
+            capability_mode="stage6_fact_review",
+            stage=6,
+            project_id=project_id,
+            records={
+                "project_fact": project_fact,
+                "report_record": report_record,
+                "legal_action_recommendation": {},
+            },
+            inputs={
+                **dict(inputs),
+                "sale_gate_status": sale_gate_status,
+                "report_status": report_status,
+                "rule_gate_status": rule_gate_status,
+                "evidence_gate_status": evidence_gate_status,
+                "window_status": window_status,
+                "requested_action_family_optional": inputs.get("action_family"),
+                "requested_recommended_next_step_optional": inputs.get("recommended_next_step"),
+            },
         )
-        requested_action_family = inputs.get("action_family")
-        if action_chain_closed:
-            action_family = ensure_enum(
-                self.store,
-                "action_family",
-                requested_action_family or "OBJECTION_PREP",
-            )
-            recommended_next_step = inputs.get("recommended_next_step") or "prepare_stage7_commercial_objects"
-        else:
-            action_family = "REVIEW_ONLY"
-            recommended_next_step = inputs.get("recommended_next_step")
-            if not recommended_next_step:
-                recommended_next_step = (
-                    "hold_until_report_issued"
-                    if sale_gate_status == "HOLD" and report_status != "ISSUED"
-                    else "route_to_review_queue"
-                )
+        legal_action_resolution_state = StatePacket(capability_mode="stage6_fact_review")
+        legal_action_resolution_decision = policy_executor.execute(
+            "stage6_legal_action",
+            legal_action_resolution_context,
+            legal_action_resolution_state,
+        )
+        legal_action_resolution_state.add_decision(legal_action_resolution_decision)
+        legal_action_outputs = legal_action_resolution_state.merged_outputs()
+        action_family = ensure_enum(
+            self.store,
+            "action_family",
+            str(legal_action_outputs.get("action_family", "REVIEW_ONLY")),
+        )
+        recommended_next_step = str(
+            legal_action_outputs.get("recommended_next_step", "route_to_review_queue")
+        )
 
         legal_action_payload = {
             "action_id": build_id("LAR", project_id),
@@ -520,13 +532,48 @@ class ProjectFactAggregator:
         if legal_action_semantic:
             semantic_state.add_semantic_validation(legal_action_semantic)
             if legal_action_semantic.decision_state in ("REVIEW", "BLOCK"):
-                legal_action_payload["action_family"] = "REVIEW_ONLY"
-                if not action_chain_closed:
-                    legal_action_payload["recommended_next_step"] = (
-                        "hold_until_report_issued"
-                        if sale_gate_status == "HOLD" and report_status != "ISSUED"
-                        else "route_to_review_queue"
+                semantic_override_context = ContextPacket.from_records(
+                    capability_mode="stage6_fact_review",
+                    stage=6,
+                    project_id=project_id,
+                    records={
+                        "project_fact": project_fact,
+                        "report_record": report_record,
+                        "legal_action_recommendation": legal_action_payload,
+                    },
+                    inputs={
+                        **dict(inputs),
+                        "sale_gate_status": sale_gate_status,
+                        "report_status": report_status,
+                        "rule_gate_status": rule_gate_status,
+                        "evidence_gate_status": evidence_gate_status,
+                        "window_status": window_status,
+                        "requested_action_family_optional": inputs.get("action_family"),
+                        "requested_recommended_next_step_optional": inputs.get(
+                            "recommended_next_step"
+                        ),
+                        "semantic_decision_state_optional": legal_action_semantic.decision_state,
+                    },
+                )
+                semantic_override_state = StatePacket(capability_mode="stage6_fact_review")
+                semantic_override_decision = policy_executor.execute(
+                    "stage6_legal_action",
+                    semantic_override_context,
+                    semantic_override_state,
+                )
+                semantic_override_state.add_decision(semantic_override_decision)
+                semantic_outputs = semantic_override_state.merged_outputs()
+                legal_action_payload["action_family"] = ensure_enum(
+                    self.store,
+                    "action_family",
+                    str(semantic_outputs.get("action_family", "REVIEW_ONLY")),
+                )
+                legal_action_payload["recommended_next_step"] = str(
+                    semantic_outputs.get(
+                        "recommended_next_step",
+                        legal_action_payload["recommended_next_step"],
                     )
+                )
         legal_action_recommendation = self.store.build_record("legal_action_recommendation", legal_action_payload)
 
         handoff = {
@@ -624,6 +671,7 @@ class ProjectFactAggregator:
         inputs_out["private_supplement_record_optional"] = private_supplement_record_optional
         inputs_out["stage6_review_queue_policy_trace"] = queue_policy_state.trace
         inputs_out["stage6_competitor_confidence_trace"] = competitor_policy_state.trace
+        inputs_out["stage6_legal_action_resolution_trace"] = legal_action_resolution_state.trace
         inputs_out["semantic_trace"] = semantic_state.semantic_trace
         inputs_out["semantic_decision_state"] = semantic_state.semantic_decision_state
         inputs_out["semantic_additions"] = semantic_state.semantic_additions

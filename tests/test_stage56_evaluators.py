@@ -193,6 +193,72 @@ class TestStage56Evaluators(unittest.TestCase):
             stage6.record("legal_action_recommendation").get("blocking_reasons"),
         )
 
+    def test_stage6_legal_action_outputs_are_resolved_from_policy_contract(self) -> None:
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage5 = Stage5Service().run(result["stage4"])
+        aggregated = ProjectFactAggregator(Stage6Service().store).aggregate(
+            stage5,
+            now=stage5.inputs.get("now", "2026-04-14T00:00:00Z"),
+        )
+
+        resolution_trace = aggregated.inputs.get("stage6_legal_action_resolution_trace", [])
+        decision = next(
+            (
+                entry
+                for entry in resolution_trace
+                if isinstance(entry, dict)
+                and entry.get("policy_key") == "stage6_legal_action"
+            ),
+            None,
+        )
+
+        self.assertIsNotNone(decision)
+        self.assertEqual(
+            aggregated.record("legal_action_recommendation").get("action_family"),
+            "OBJECTION_PREP",
+        )
+        self.assertEqual(
+            aggregated.record("legal_action_recommendation").get("recommended_next_step"),
+            "prepare_stage7_commercial_objects",
+        )
+
+    def test_stage6_semantic_review_preserves_action_chain_next_step_via_policy_override(self) -> None:
+        context = ContextPacket.from_records(
+            capability_mode="stage6_fact_review",
+            stage=6,
+            project_id="PRJ-SEMANTIC",
+            records={
+                "project_fact": {
+                    "sale_gate_status": "OPEN",
+                    "rule_gate_status": "PASS",
+                    "evidence_gate_status": "PASS",
+                },
+                "report_record": {
+                    "report_status": "ISSUED",
+                },
+                "legal_action_recommendation": {
+                    "window_status": "ACTIONABLE",
+                },
+            },
+            inputs={
+                "sale_gate_status": "OPEN",
+                "report_status": "ISSUED",
+                "rule_gate_status": "PASS",
+                "evidence_gate_status": "PASS",
+                "window_status": "ACTIONABLE",
+                "semantic_decision_state_optional": "BLOCK",
+            },
+        )
+        state = StatePacket(capability_mode="stage6_fact_review")
+        decision = PolicyExecutor().execute("stage6_legal_action", context, state)
+        state.add_decision(decision)
+
+        self.assertEqual(state.resolve("action_family"), "REVIEW_ONLY")
+        self.assertEqual(
+            state.resolve("recommended_next_step"),
+            "prepare_stage7_commercial_objects",
+        )
+
     def test_stage6_prefers_h05_authoritative_review_fields(self) -> None:
         payload = load_fixture("internal_chain_block.json")
         result = run_internal_chain(payload)

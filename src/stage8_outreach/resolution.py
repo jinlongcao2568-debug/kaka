@@ -480,6 +480,8 @@ def select_contact_candidate(
     *,
     settings: Any | None,
     saleable_opportunity: Any,
+    legal_action_actor_profile: Mapping[str, Any] | None,
+    procurement_decision_actor_profile: Mapping[str, Any] | None,
     inputs: Mapping[str, Any],
     now: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -522,7 +524,11 @@ def select_contact_candidate(
             capability_mode="stage8_outreach",
             stage=8,
             project_id=str(saleable_opportunity.get("project_id")),
-            records={"saleable_opportunity": saleable_opportunity},
+            records={
+                "saleable_opportunity": saleable_opportunity,
+                "legal_action_actor_profile": legal_action_actor_profile or {},
+                "procurement_decision_actor_profile": procurement_decision_actor_profile or {},
+            },
             inputs=merged,
         )
         candidate_state, decisions = _candidate_policy_state(executor, context)

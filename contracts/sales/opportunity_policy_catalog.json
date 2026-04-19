@@ -45,7 +45,7 @@
         "field": "action_family",
         "authoritativeOwnerObject": "legal_action_recommendation",
         "authoritativePath": "legal_action_recommendation.action_family",
-        "policyRef": "stage6_legal_action_recommendation",
+        "policyRef": "contracts/sales/stage6_legal_action_resolution_catalog.json#STAGE6-LAR-001",
         "missingInputDecision": "REVIEW_REQUIRED",
         "reviewCarrierOrder": [
           "review_queue_profile",

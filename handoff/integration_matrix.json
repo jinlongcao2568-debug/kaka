@@ -144,6 +144,8 @@
         "saleable_opportunity"
       ],
       "optionalCarrierObjects": [
+        "legal_action_actor_profile",
+        "procurement_decision_actor_profile",
         "multi_competitor_collection"
       ],
       "formalCarrierRefs": [

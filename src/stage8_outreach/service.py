@@ -517,6 +517,10 @@ class Stage8Service:
         }
 
         saleable_opportunity = stage7_bundle.record("saleable_opportunity")
+        legal_action_actor_profile = stage7_bundle.records.get("legal_action_actor_profile")
+        procurement_decision_actor_profile = stage7_bundle.records.get(
+            "procurement_decision_actor_profile"
+        )
         project_id = saleable_opportunity.get("project_id")
         upstream_multi_competitor_collection = stage7_bundle.records.get("multi_competitor_collection")
         if upstream_multi_competitor_collection is None:
@@ -524,6 +528,8 @@ class Stage8Service:
         selected_candidate, candidate_trace = select_contact_candidate(
             settings=self.settings,
             saleable_opportunity=saleable_opportunity,
+            legal_action_actor_profile=legal_action_actor_profile,
+            procurement_decision_actor_profile=procurement_decision_actor_profile,
             inputs=inputs,
             now=now,
         )
@@ -675,7 +681,14 @@ class Stage8Service:
                 }
             )
         permission_state = self.runtime.resolve_permissions(context, permission_checks)
-        runtime_state = permission_state if permission_state.permission_short_circuit else self.runtime.run(context, state=permission_state)
+        runtime_state = self.runtime.run(context, state=permission_state)
+
+        def required_runtime_value(field_name: str) -> Any:
+            value = runtime_state.resolve(field_name)
+            if value is None:
+                raise ValueError(f"Stage8 formal policy derivation missing {field_name}")
+            return value
+
         candidate_permission_families = {"external_source", "contact_enrichment"}
         candidate_permission_blocked = any(
             entry.get("event") == "capability_resolution"
@@ -825,15 +838,17 @@ class Stage8Service:
             requested_gate_ids=outreach_gate_ids,
             audit_trail_present=bool(execution_vendor_payload["execution_trace_id_optional"]),
         )
-        runtime_writeback_targets = ensure_list(
-            runtime_state.resolve("writeback_targets", inputs.get("writeback_targets"))
+        cadence_profile_id = str(required_runtime_value("cadence_profile_id"))
+        retry_policy_id = str(required_runtime_value("retry_policy_id"))
+        stop_policy_id = str(required_runtime_value("stop_policy_id"))
+        next_touch_due_at_optional = str(
+            required_runtime_value("next_touch_due_at_optional")
         )
-        runtime_writeback_target = runtime_state.resolve(
-            "writeback_target_optional",
-            inputs.get("writeback_target_optional"),
-        )
-        if not runtime_writeback_targets and runtime_writeback_target not in (None, ""):
-            runtime_writeback_targets = [runtime_writeback_target]
+        retry_count = int(required_runtime_value("retry_count"))
+        max_retry_count = int(required_runtime_value("max_retry_count"))
+        runtime_writeback_required = bool(required_runtime_value("writeback_required"))
+        runtime_writeback_targets = ensure_list(required_runtime_value("writeback_targets"))
+        runtime_writeback_target = runtime_state.resolve("writeback_target_optional")
         if runtime_writeback_target in (None, "") and runtime_writeback_targets:
             runtime_writeback_target = runtime_writeback_targets[0]
 
@@ -851,15 +866,9 @@ class Stage8Service:
                 )
             ),
             "projection_mode": str(runtime_state.resolve("projection_mode", "INTERNAL_GOVERNED_PREVIEW")),
-            "cadence_profile_id": str(
-                runtime_state.resolve("cadence_profile_id", inputs.get("cadence_profile_id"))
-            ),
-            "retry_policy_id": str(
-                runtime_state.resolve("retry_policy_id", inputs.get("retry_policy_id"))
-            ),
-            "stop_policy_id": str(
-                runtime_state.resolve("stop_policy_id", inputs.get("stop_policy_id"))
-            ),
+            "cadence_profile_id": cadence_profile_id,
+            "retry_policy_id": retry_policy_id,
+            "stop_policy_id": stop_policy_id,
             "primary_message": inputs.get("primary_message", "internal preview"),
             "planned_touch_at": inputs.get("planned_touch_at", now),
             "attempt_index": int(runtime_state.resolve("attempt_index", inputs.get("attempt_index", 1))),
@@ -869,22 +878,15 @@ class Stage8Service:
             "automation_level": ensure_enum(
                 self.store, "automation_level", inputs.get("automation_level", "MANUAL")
             ),
-            "next_touch_due_at_optional": str(
-                runtime_state.resolve(
-                    "next_touch_due_at_optional",
-                    inputs.get("next_touch_due_at_optional", now),
-                )
-            ),
-            "retry_count": int(runtime_state.resolve("retry_count", inputs.get("retry_count", 0))),
-            "max_retry_count": int(
-                runtime_state.resolve("max_retry_count", inputs.get("max_retry_count", 0))
-            ),
+            "next_touch_due_at_optional": next_touch_due_at_optional,
+            "retry_count": retry_count,
+            "max_retry_count": max_retry_count,
             "stop_reason_optional": str(
                 runtime_state.resolve("stop_reason_optional", inputs.get("stop_reason_optional"))
             ),
             "approval_run_required": bool(runtime_state.resolve("approval_run_required", run_mode in ("APPROVAL_RUN", "REAL_RUN"))),
-            "writeback_required": bool(runtime_state.resolve("writeback_required", True)),
-            "writeback_target_optional": str(runtime_writeback_target),
+            "writeback_required": runtime_writeback_required,
+            "writeback_target_optional": str(runtime_writeback_target or ""),
             "permission_decision_state": runtime_state.permission_decision_state,
             "governance_decision_state": runtime_state.governance_decision_state,
             "semantic_decision_state": runtime_state.semantic_decision_state,
@@ -985,13 +987,8 @@ class Stage8Service:
             requested_gate_ids=["internal_review_release"],
             audit_trail_present=bool(execution_vendor_payload["execution_trace_id_optional"] and written_back_at_optional),
         )
-        touch_writeback_targets = ensure_list(
-            runtime_state.resolve("writeback_targets", inputs.get("writeback_targets"))
-        )
-        touch_writeback_target = runtime_state.resolve(
-            "writeback_target_optional",
-            inputs.get("writeback_target_optional"),
-        )
+        touch_writeback_targets = ensure_list(required_runtime_value("writeback_targets"))
+        touch_writeback_target = runtime_state.resolve("writeback_target_optional")
         if not touch_writeback_targets and touch_writeback_target not in (None, ""):
             touch_writeback_targets = [touch_writeback_target]
         if touch_writeback_target in (None, "") and touch_writeback_targets:

@@ -758,6 +758,32 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertEqual(governed.get("execution_compliance_decision"), "REVIEW_REQUIRED")
         self.assertEqual(governed.get("stop_semantics"), "EXECUTION_REVIEW_REQUIRED")
 
+    def test_stage8_contact_priority_reason_tags_include_formal_stage7_dimensions(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+
+        result = run_internal_chain(payload)
+        stage8 = result["stage8"]
+        stage7 = result["stage7"]
+        contact_target = stage8.record("contact_target")
+        reason_tags = set(contact_target.get("contact_priority_reason_tags", []))
+
+        self.assertIn(
+            f"OPPORTUNITY_{stage7.record('saleable_opportunity').get('opportunity_grade')}",
+            reason_tags,
+        )
+        self.assertIn(
+            f"URGENCY_{stage8.inputs.get('commercial_urgency_level_optional')}",
+            reason_tags,
+        )
+        self.assertIn(
+            f"ACTIONABILITY_{stage7.record('legal_action_actor_profile').get('actionability_state')}",
+            reason_tags,
+        )
+        self.assertIn(
+            f"REACHABILITY_{stage7.record('procurement_decision_actor_profile').get('reachable_state')}",
+            reason_tags,
+        )
+
     def test_stage8_quiet_hours_only_schedules_execution_and_keeps_candidate_eligible(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update({"quiet_hours_policy_state": "BLOCK"})
@@ -810,6 +836,26 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         )
         self.assertEqual(cadence_outputs.get("ladder_sequence_mode"), expected_ladder["sequence_mode"])
         self.assertFalse(cadence_outputs.get("live_execution_enabled"))
+        self.assertEqual(
+            stage8.record("outreach_plan").get("cadence_profile_id"),
+            cadence_outputs.get("cadence_profile_id"),
+        )
+        self.assertEqual(
+            stage8.record("outreach_plan").get("retry_policy_id"),
+            cadence_outputs.get("retry_policy_id"),
+        )
+        self.assertEqual(
+            stage8.record("outreach_plan").get("stop_policy_id"),
+            cadence_outputs.get("stop_policy_id"),
+        )
+        self.assertEqual(
+            stage8.record("outreach_plan").get("next_touch_due_at_optional"),
+            trace["retry_policy"]["outputs"].get("next_touch_due_at_optional"),
+        )
+        self.assertNotEqual(
+            stage8.record("outreach_plan").get("next_touch_due_at_optional"),
+            stage8.inputs.get("now"),
+        )
 
     def test_stage8_retry_trace_projects_feedback_writeback_from_single_contract(self) -> None:
         feedback = _feedback_mapping("WRONG_ROLE")
@@ -841,9 +887,11 @@ class TestStage8ResolutionClosure(unittest.TestCase):
             retry_outputs.get("written_back_at_optional"),
             touch_record.get("written_back_at_optional"),
         )
+        self.assertTrue(retry_outputs.get("writeback_required"))
         self.assertEqual(touch_record.get("feedback_reason"), feedback["feedback_reason"])
         self.assertEqual(touch_record.get("next_step_optional"), feedback["next_step_optional"])
         self.assertEqual(touch_record.get("writeback_targets"), feedback["writeback_targets"])
+        self.assertTrue(stage8.record("outreach_plan").get("writeback_required"))
 
 
 if __name__ == "__main__":

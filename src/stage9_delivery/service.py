@@ -103,6 +103,13 @@ class Stage9Service:
         value = self.GOVERNED_FALLBACKS[field_name]
         return list(value) if isinstance(value, list) else value
 
+    def _stage9_h08_workflow_policy(self) -> dict[str, Any]:
+        catalog = load_contract(
+            "contracts/sales/stage9_h08_workflow_fallback_catalog.json",
+            self.settings,
+        )
+        return dict(catalog["policies"][0])
+
     def _h08_optional_or_fallback(
         self,
         h08_payload: Mapping[str, Any],
@@ -186,6 +193,38 @@ class Stage9Service:
                 return dict(entry)
         raise ValueError(f"Stage9 requires governance taxonomy entry: {trigger_type}")
 
+    def _matches_h08_workflow_rule(
+        self,
+        rule: Mapping[str, Any],
+        facts: Mapping[str, Any],
+    ) -> bool:
+        for field_name, expected in dict(rule.get("when", {})).items():
+            actual = facts.get(field_name)
+            if isinstance(expected, list):
+                if actual not in expected:
+                    return False
+            elif actual != expected:
+                return False
+        return True
+
+    def _render_h08_workflow_outputs(
+        self,
+        outputs: Mapping[str, Any],
+        facts: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        rendered: dict[str, Any] = {}
+        for field_name, value in outputs.items():
+            if field_name.endswith("_from"):
+                target_field = field_name[: -len("_from")]
+                source_value = facts.get(str(value))
+                if target_field == "outcome_reason_tags":
+                    rendered[target_field] = [source_value] if source_value not in (None, "") else []
+                else:
+                    rendered[target_field] = source_value
+            else:
+                rendered[field_name] = value
+        return rendered
+
     def _h08_contract_workflow_fallbacks(
         self,
         *,
@@ -195,54 +234,87 @@ class Stage9Service:
         plan_status: str,
         feedback_reason: str,
         upstream_governance_decision_state: str,
-    ) -> dict[str, Any]:
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        policy = self._stage9_h08_workflow_policy()
         fallbacks: dict[str, Any] = {}
         contact_failed_entry = self._outcome_taxonomy_entry("CONTACT_FAILED")
         allowed_contact_reasons = set(contact_failed_entry.get("allowed_reason_tags", []))
-        if feedback_reason in allowed_contact_reasons:
-            fallbacks["outcome_family"] = "CONTACT_FAILED"
-            fallbacks["outcome_reason_tags"] = [feedback_reason]
-            fallbacks["contact_failure_state"] = response_status
+        facts = {
+            "response_status": response_status,
+            "saleability_status": saleability_status,
+            "crm_owner_state": crm_owner_state,
+            "plan_status": plan_status,
+            "feedback_reason": feedback_reason,
+            "upstream_governance_decision_state": upstream_governance_decision_state,
+            "feedback_reason_allowed_for_contact_failed": feedback_reason in allowed_contact_reasons,
+        }
+        trace: dict[str, Any] = {
+            "policy_id": policy["policy_id"],
+            "contact_failure_rule_id_optional": None,
+            "trigger_rule_id_optional": None,
+            "lifecycle_rule_id_optional": None,
+            "facts": dict(facts),
+            "resolved_outputs": {},
+        }
 
-        trigger_type = ""
-        if saleability_status == "BLOCKED":
-            trigger_type = "EVIDENCE_INSUFFICIENT"
-        elif upstream_governance_decision_state == "BLOCK":
-            trigger_type = "DELIVERY_BLOCK"
-        elif plan_status in ("DRAFT", "REVIEW_REQUIRED", "APPROVAL_PENDING", "SCHEDULED"):
-            trigger_type = "APPROVAL_MISSING"
-        elif crm_owner_state in ("UNASSIGNED", "ON_HOLD", "CLOSED"):
-            trigger_type = "APPROVAL_MISSING"
-        if trigger_type:
-            self._governance_taxonomy_entry(trigger_type)
-            fallbacks["trigger_type"] = trigger_type
-        if (
-            saleability_status == "BLOCKED"
-            or upstream_governance_decision_state == "BLOCK"
-            or plan_status in ("BLOCKED", "CANCELLED", "REJECTED")
-        ):
-            fallbacks["commercial_status"] = "ON_HOLD"
-            fallbacks["order_status"] = "ON_HOLD"
-            fallbacks["delivery_status"] = "RELEASE_BLOCKED"
-        elif crm_owner_state == "UNASSIGNED":
-            fallbacks["commercial_status"] = "PENDING_APPROVAL"
-            fallbacks["order_status"] = "PENDING_APPROVAL"
-        elif fallbacks.get("outcome_family") == "CONTACT_FAILED":
-            fallbacks["commercial_status"] = "ON_HOLD"
-            fallbacks["order_status"] = "ON_HOLD"
-            fallbacks["delivery_status"] = "RELEASE_BLOCKED"
-        elif crm_owner_state in ("ON_HOLD", "CLOSED"):
-            fallbacks["commercial_status"] = "ON_HOLD"
-            fallbacks["order_status"] = "ON_HOLD"
-        elif upstream_governance_decision_state == "REVIEW" or plan_status in (
-            "DRAFT",
-            "REVIEW_REQUIRED",
-            "APPROVAL_PENDING",
-            "SCHEDULED",
-        ):
-            fallbacks["commercial_status"] = "PENDING_APPROVAL"
-            fallbacks["order_status"] = "PENDING_APPROVAL"
-        return fallbacks
+        contact_failure_rule = next(
+            (
+                rule
+                for rule in policy.get("contact_failure_rules", [])
+                if self._matches_h08_workflow_rule(rule, facts)
+            ),
+            None,
+        )
+        if contact_failure_rule is not None:
+            fallbacks.update(
+                self._render_h08_workflow_outputs(
+                    contact_failure_rule.get("outputs", {}),
+                    facts,
+                )
+            )
+            trace["contact_failure_rule_id_optional"] = contact_failure_rule.get("rule_id")
+
+        facts_with_outcome = {
+            **facts,
+            "outcome_family": fallbacks.get("outcome_family"),
+        }
+        trigger_rule = next(
+            (
+                rule
+                for rule in policy.get("trigger_rules", [])
+                if self._matches_h08_workflow_rule(rule, facts_with_outcome)
+            ),
+            None,
+        )
+        if trigger_rule is not None:
+            trigger_outputs = self._render_h08_workflow_outputs(
+                trigger_rule.get("outputs", {}),
+                facts_with_outcome,
+            )
+            if trigger_outputs.get("trigger_type"):
+                self._governance_taxonomy_entry(str(trigger_outputs["trigger_type"]))
+            fallbacks.update(trigger_outputs)
+            facts_with_outcome.update(trigger_outputs)
+            trace["trigger_rule_id_optional"] = trigger_rule.get("rule_id")
+
+        lifecycle_rule = next(
+            (
+                rule
+                for rule in policy.get("lifecycle_rules", [])
+                if self._matches_h08_workflow_rule(rule, facts_with_outcome)
+            ),
+            None,
+        )
+        if lifecycle_rule is not None:
+            lifecycle_outputs = self._render_h08_workflow_outputs(
+                lifecycle_rule.get("outputs", {}),
+                facts_with_outcome,
+            )
+            fallbacks.update(lifecycle_outputs)
+            trace["lifecycle_rule_id_optional"] = lifecycle_rule.get("rule_id")
+
+        trace["resolved_outputs"] = dict(fallbacks)
+        return fallbacks, trace
 
     def _resolve_upstream_feedback_contract(
         self,
@@ -426,7 +498,7 @@ class Stage9Service:
         release_level = inputs.get("release_level", inputs.get("minimum_release_level", "INTERNAL_OPERABLE"))
         approval_state = inputs.get("approval_state", "NOT_REQUIRED")
         governed_execution_mode = str(inputs.get("governed_execution_mode", "INTERNAL_GOVERNED"))
-        h08_contract_fallbacks = self._h08_contract_workflow_fallbacks(
+        h08_contract_fallbacks, h08_workflow_fallback_trace = self._h08_contract_workflow_fallbacks(
             response_status=response_status,
             saleability_status=saleability_status,
             crm_owner_state=crm_owner_state,
@@ -445,6 +517,7 @@ class Stage9Service:
             "touch_record_state": touch_record_state,
             "feedback_reason": feedback_reason,
             "written_back_at_optional": written_back_at_optional,
+            "h08_workflow_fallback_trace": h08_workflow_fallback_trace,
             "governance_decision_state": upstream_governance_decision_state,
             "permission_decision_state": upstream_permission_decision_state,
             "semantic_decision_state": upstream_semantic_decision_state,
@@ -1153,6 +1226,12 @@ class Stage9Service:
             "governance_owned_self_target": governance_owned_self_target,
             "payment_exception_writeback_targets_optional": payment_exception_writeback_targets,
             "delivery_exception_writeback_targets_optional": delivery_exception_writeback_targets,
+            "payment_exception_match_trace_optional": runtime_state.resolve(
+                "payment_exception_match_trace_optional", {}
+            ),
+            "delivery_exception_match_trace_optional": runtime_state.resolve(
+                "delivery_exception_match_trace_optional", {}
+            ),
             "effective_writeback_targets": effective_writeback_targets,
             "resolved_effective_writeback_targets": resolved_effective_writeback_targets,
             "writeback_contract_state": impact_result["writeback_contract_state"],
@@ -1183,6 +1262,7 @@ class Stage9Service:
             "impact_projected_contracts": impact_result["impact_projected_contracts"],
             "impact_advisories": impact_result["impact_advisories"],
             "impact_trace": impact_result["impact_trace"],
+            "h08_workflow_fallback_trace": h08_workflow_fallback_trace,
         }
 
         return StageBundle(
@@ -1212,6 +1292,12 @@ class Stage9Service:
                 "governance_owned_self_target": governance_owned_self_target,
                 "payment_exception_writeback_targets_optional": payment_exception_writeback_targets,
                 "delivery_exception_writeback_targets_optional": delivery_exception_writeback_targets,
+                "payment_exception_match_trace_optional": runtime_state.resolve(
+                    "payment_exception_match_trace_optional", {}
+                ),
+                "delivery_exception_match_trace_optional": runtime_state.resolve(
+                    "delivery_exception_match_trace_optional", {}
+                ),
                 "effective_writeback_targets": effective_writeback_targets,
                 "resolved_effective_writeback_targets": resolved_effective_writeback_targets,
                 "writeback_contract_state": impact_result["writeback_contract_state"],
@@ -1245,6 +1331,7 @@ class Stage9Service:
                 "impact_projected_contracts": impact_result["impact_projected_contracts"],
                 "impact_advisories": impact_result["impact_advisories"],
                 "impact_trace": impact_result["impact_trace"],
+                "h08_workflow_fallback_trace": h08_workflow_fallback_trace,
             },
         )
 
