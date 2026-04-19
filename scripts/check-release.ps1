@@ -133,7 +133,7 @@ import yaml
 path = sys.argv[1]
 with open(path, 'r', encoding='utf-8') as handle:
     data = yaml.safe_load(handle)
-print(json.dumps(data, ensure_ascii=False))
+sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
 '@ | & $pythonCommand.Source - $Path
     if ($LASTEXITCODE -ne 0) {
         throw "python yaml parser failed for $Path"

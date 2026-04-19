@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: AUTHORITY_CONVERGENCE + FF-18-S1_STATE_SOURCE_CLOSEOUT (B10-compatible closeout only; FF-01~FF-18 mainline complete; no repo readiness change)
+Current Workstream: AUTHORITY_CONVERGENCE + ROUTE_MAP_READINESS_REMEDIATION (gate/state-source/root-cause alignment only; no repo readiness change)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,6 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
+- Route-map readiness remediation under existing guardrails, without changing canonical readiness
 - Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this closeout stops and reports
 - Status-source review and audit of the closed full-repair program without changing canonical readiness
 
@@ -50,7 +51,7 @@ State Semantics:
 - docs_layer=EFFECTIVE means the current formal document package is the active reference set; it does not imply every individual D document has been promoted from DRAFT to EFFECTIVE.
 - docs/AX9S_开发执行路由图.md is a controlled route-map navigation asset; it remains a candidate navigation asset in the machine-readable index and now carries only the current formal stage1-9 route, while historical repair/future-unlock navigation stays separated.
 
-Script Check Summary (2026-04-19 closeout run; doctor.ps1 last PASS 2026-04-18):
+Script Check Summary (2026-04-19 route-map readiness remediation rerun):
 - doctor.ps1: PASS
 - check-automation-readiness.ps1: PASS (`MANDATORY_HUMAN_REVIEW`)
 - check-semantic-alignment.ps1: PASS

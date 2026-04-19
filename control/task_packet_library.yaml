@@ -1197,7 +1197,6 @@ packets:
         - tests/test_review_gate_controls.py
     allowed_modification_paths:
       - control/task_packet_library.yaml
-      - docs/AX9S_高+中任务包蓝图.md
       - docs/自动开发任务包模板.md
       - docs/D11_测试验收与金标回归清单.md
       - contracts/testing/regression_manifest.json

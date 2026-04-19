@@ -55,6 +55,7 @@ class TestReviewGateControls(unittest.TestCase):
             "review_evidence:",
         ):
             self.assertIn(token, text)
+        self.assertNotIn("启动前 readiness review 已通过", text)
 
     def test_release_and_regression_assets_cover_review_gate(self) -> None:
         release = json.loads(read("contracts/testing/release_checklist.json"))
@@ -93,6 +94,8 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertIn("UNREGISTERED_SOURCE_BLUEPRINT_BATCH", release)
         self.assertIn("control/task_packet_library.yaml", release)
         self.assertNotIn("CURRENT_TASK_PACKET_ID_MISMATCH", release)
+        self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", readiness)
+        self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", release)
 
     def test_validate_contracts_stage9_writeback_check_is_semantic_not_legacy_token_bound(self) -> None:
         validator = read("scripts/validate-contracts.ps1")
@@ -122,6 +125,12 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertIn("contracts/sales/vendor_registry_catalog.json", readiness)
         self.assertIn("REVIEW_GATE_PATH_CLASS_MISMATCH", readiness)
         self.assertIn("REVIEW_GATE_PATH_OWNER_MISSING", readiness)
+
+    def test_deleted_blueprint_doc_is_not_referenced_by_task_packet_library(self) -> None:
+        self.assertNotIn(
+            "docs/AX9S_高+中任务包蓝图.md",
+            read("control/task_packet_library.yaml"),
+        )
 
 
 if __name__ == "__main__":

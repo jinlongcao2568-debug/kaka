@@ -262,6 +262,48 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
         self.assertIn("[check-automation-readiness] PASS", result.stdout)
         self.assertNotIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
 
+    def test_script_python_yaml_fallback_keeps_unicode_baseline_paths(self) -> None:
+        dirty_relative_path = "docs/中文路径验证.md"
+        repo, _ = self._build_temp_repo(
+            baseline_dirty_paths=[dirty_relative_path],
+            allow_dirty_doc_path=False,
+        )
+
+        command = textwrap.dedent(
+            f"""\
+            function Get-Command {{
+                param([string]$Name, [object]$ErrorAction)
+                if ($Name -in @('ConvertFrom-Yaml', 'yq')) {{
+                    return $null
+                }}
+                Microsoft.PowerShell.Core\\Get-Command -Name $Name -ErrorAction SilentlyContinue
+            }}
+            & '{SCRIPT}' -RepoRoot '{repo}'
+            """
+        )
+        result = subprocess.run(
+            ["pwsh", "-NoProfile", "-Command", command],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=textwrap.dedent(
+                f"""\
+                stdout:
+                {result.stdout}
+                stderr:
+                {result.stderr}
+                """
+            ),
+        )
+        self.assertIn("[check-automation-readiness] PASS", result.stdout)
+        self.assertNotIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
