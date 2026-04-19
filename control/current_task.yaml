@@ -9,7 +9,7 @@ navigation_state: "CONTROLLED_ROUTE_MAP_RESTORED"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口只允许在不改变 canonical readiness 与状态真源的前提下，激活独立 scoped subpacket，并把路线图历史断言从主线正文强绑定改为历史/决策资产对齐校验；不修改路线图正文，external release 与 Stage 8/9 real execution 继续阻断。"
+activation_condition: "当前窗口只允许在不改变 canonical readiness 与状态真源的前提下，激活独立 scoped subpacket，并把当前已验证稳定的执行约定补入根目录 AGENTS.md；external release 与 Stage 8/9 real execution 继续阻断。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PKT-P0-08-S4-route-map-historical-assertion-alignment"
-  title: "路线图历史断言对齐"
+  task_id: "PKT-P0-08-S5-agents-execution-conventions"
+  title: "补齐 AGENTS 当前执行约定"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -27,23 +27,15 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
-    - "docs/正式业务代码开发开工裁决页.md"
-    - "docs/文档与资产状态板.md"
-    - "docs/技术实现决策页.md"
+    - "docs/自动化开发动作门禁表.md"
     - "docs/AX9S_开发执行路由图.md"
     - "control/repo_status.md"
     - "control/current_task.yaml"
     - "control/task_packet_library.yaml"
-    - "control/reference_index.json"
-    - "contracts/release/future_unlock_decision_matrix.json"
-    - "control/future_unlock_decision_state.yaml"
-    - "control/external_unlock_prerequisite_state.yaml"
-    - "tests/test_external_unlock_prerequisites.py"
-    - "tests/test_review_gate_controls.py"
     - "scripts/check-semantic-alignment.ps1"
     - "scripts/check-release.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "在不改动正式业务语义、对象、枚举、gate、approval/exception 语义和状态真源的前提下，激活独立 scoped subpacket，并把测试层对路线图正文的历史断言改为：历史语义必须保留在历史/决策/状态资产中，但不再要求出现在当前 docs/AX9S_开发执行路由图.md 主线正文。"
+  objective: "在不改动正式业务语义、对象、枚举、gate、approval/exception 语义和状态真源的前提下，激活独立 scoped subpacket，并把当前已验证稳定的执行约定补入根目录 AGENTS.md。"
   operator_assignment_roster:
     stage4:
       assigned_owner_role: "single_operator"
@@ -100,11 +92,11 @@ currentTask:
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "PKT-P0-08-formal-route-map-split"
     backlog_packet_ref: "PKT-P0-08-formal-route-map-split"
-    packet_id: "PKT-P0-08-S4-route-map-historical-assertion-alignment"
-    subpacket_id: "PKT-P0-08-S4-route-map-historical-assertion-alignment"
-    title: "Route map historical assertion alignment"
+    packet_id: "PKT-P0-08-S5-agents-execution-conventions"
+    subpacket_id: "PKT-P0-08-S5-agents-execution-conventions"
+    title: "AGENTS current execution conventions"
     status: "ACTIVE"
-    objective: "只调整 control/current_task.yaml 与 tests/test_external_unlock_prerequisites.py：把旧测试中对路线图正文的 R5/R6/Post-R6 历史语义强绑定，改为历史/决策资产存在性校验，并明确当前 docs/AX9S_开发执行路由图.md 不应继续承载这些历史语义作为主线正文。"
+    objective: "只调整 control/current_task.yaml 与 AGENTS.md：把当前已验证稳定的任务选择优先级、路线图角色、历史语汇处理和默认本地提交行为写入仓库执行规则。"
     depends_on:
       - "PKT-P0-08-formal-route-map-split"
     non_goals:
@@ -114,101 +106,80 @@ currentTask:
       - "不改变 canonical readiness"
       - "不修改 docs/AX9S_开发执行路由图.md"
       - "不修改 docs/L0.md、docs/裁决总表.md、docs/D1_研发_Codex执行手册.md、docs/正式业务代码开发开工裁决页.md、docs/文档与资产状态板.md、docs/技术实现决策页.md"
-      - "不修改 control/repo_status.md、control/milestone_status.yaml、control/reference_index.json、control/task_packet_library.yaml"
-      - "不修改 contracts/**、handoff/**、src/**、tests/test_review_gate_controls.py、scripts/**"
+      - "不修改 control/repo_status.md、control/milestone_status.yaml、control/reference_index.json、control/task_packet_library.yaml、control/review_gate_matrix.yaml、control/automation_task_packet_rules.yaml、control/automation_stop_conditions.yaml"
+      - "不修改 contracts/**、handoff/**、src/**、tests/**、scripts/**"
       - "不改变任何业务语义、对象、枚举、gate、approval/exception"
       - "不放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
     affected_stages:
-      - "testing"
       - "automation_control"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
-      - "future_external_unlock_prereq_core"
-      - "future_external_unlock_decision"
       - "automation_control_core"
+      - "low_risk_docs_control_sync"
     reviews:
       - "automation_owner"
-      - "architecture_owner"
       - "governance_owner"
       - "testing_owner"
-      - "release_approver"
-      - "model_governance_owner"
     declared_changed_paths:
       - "control/current_task.yaml"
-      - "tests/test_external_unlock_prerequisites.py"
-    baseline_dirty_paths:
-      - "docs/AX9S_开发执行路由图.md"
+      - "AGENTS.md"
+    baseline_dirty_paths: []
     allowed_modification_paths:
       - "control/current_task.yaml"
-      - "tests/test_external_unlock_prerequisites.py"
+      - "AGENTS.md"
     forbidden_modification_paths:
       - "docs/AX9S_开发执行路由图.md"
       - "docs/L0.md"
       - "docs/裁决总表.md"
       - "docs/D1_研发_Codex执行手册.md"
       - "docs/正式业务代码开发开工裁决页.md"
-      - "docs/文档与资产状态板.md"
-      - "docs/技术实现决策页.md"
       - "control/repo_status.md"
       - "control/milestone_status.yaml"
       - "control/reference_index.json"
       - "control/task_packet_library.yaml"
+      - "control/review_gate_matrix.yaml"
+      - "control/automation_task_packet_rules.yaml"
+      - "control/automation_stop_conditions.yaml"
       - "contracts/**"
       - "handoff/**"
       - "src/**"
-      - "tests/test_review_gate_controls.py"
+      - "tests/**"
       - "scripts/**"
     impacted_assets:
       docs:
-        - "docs/AX9S_开发执行路由图.md"
-        - "docs/正式业务代码开发开工裁决页.md"
-        - "docs/文档与资产状态板.md"
+        - "AGENTS.md"
       control:
         - "control/current_task.yaml"
-        - "control/repo_status.md"
-        - "control/future_unlock_decision_state.yaml"
-        - "control/external_unlock_prerequisite_state.yaml"
-      contracts:
-        - "contracts/release/future_unlock_decision_matrix.json"
       handoff: []
       scripts: []
-      tests:
-        - "tests/test_external_unlock_prerequisites.py"
-        - "tests/test_review_gate_controls.py"
+      tests: []
+      contracts: []
       runtime: []
     required_scripts:
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1"
-      - "python tests/run_tests.py"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1"
     stop_conditions:
       - "任一 required script 失败"
       - "触碰 forbidden paths"
-      - "修改 docs/AX9S_开发执行路由图.md"
-      - "把历史语义重新写回当前路线图主线正文"
-      - "把历史 R5/R6/Post-R6 语义误删出历史/决策/状态资产"
+      - "把路线图重新当成状态源或当前任务源"
+      - "把历史语汇重新绑定为当前主线路线图正文必备内容"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
     definition_of_done:
-      - "control/current_task.yaml 已激活 PKT-P0-08-S4-route-map-historical-assertion-alignment"
-      - "tests/test_external_unlock_prerequisites.py 不再要求当前路线图正文出现 R5/R6/Post-R6 历史词面"
-      - "tests/test_external_unlock_prerequisites.py 改为校验历史语义保留在历史/决策/状态资产中，且当前路线图正文不再承载这些历史语义作为主线正文"
+      - "control/current_task.yaml 已激活 PKT-P0-08-S5-agents-execution-conventions"
+      - "AGENTS.md 已补入当前任务选择优先级、路线图角色、历史语汇处理原则与默认本地提交行为"
       - "check-automation-readiness.ps1 PASS"
-      - "check-semantic-alignment.ps1 PASS"
       - "check-release.ps1 PASS"
-      - "python tests/run_tests.py PASS"
-      - "canonical readiness 仍保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
+      - "check-semantic-alignment.ps1 PASS"
     deliverables:
-      - "historical assertion alignment patch set"
+      - "AGENTS execution conventions patch set"
       - "scoped subpacket activation patch set"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
-      - "architecture_owner"
       - "governance_owner"
       - "testing_owner"
-      - "release_approver"
-      - "model_governance_owner"
     review_evidence:
       declared: true
       signoff_required: true
@@ -216,7 +187,10 @@ currentTask:
     notes:
       - "backlog_packet_ref=PKT-P0-08-formal-route-map-split"
       - "source_blueprint_batch_id=PKT-P0-08-formal-route-map-split"
-      - "历史 R5/R6/Post-R6 语义必须保留在历史/决策/状态资产，不得强绑当前路线图正文。"
+      - "当前任务选择优先级固定为 current_task -> task_packet_library -> repo_status。"
+      - "docs/AX9S_开发执行路由图.md 只负责导航，不是状态源、裁决源、执行日志或完整 backlog。"
+      - "历史蓝图与历史语汇不得作为当前任务来源。"
+      - "当前 scoped subpacket required scripts 全绿且范围合规时，默认允许本地 git commit；默认不自动 push、不自动进入下一包。"
       - "本窗完成后停机汇报，不自动进入下一包。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
@@ -224,16 +198,15 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "仅允许最小修改 control/current_task.yaml 激活 scoped subpacket，随后修改 tests/test_external_unlock_prerequisites.py 完成历史断言对齐，并按要求跑脚本后停机汇报"
+    - "仅允许最小修改 control/current_task.yaml 激活 scoped subpacket，随后修改 AGENTS.md 补齐当前执行约定，并按要求跑脚本后停机汇报"
   forbidden_actions:
     - "修改 docs/L0.md、docs/裁决总表.md、docs/D1_研发_Codex执行手册.md、docs/正式业务代码开发开工裁决页.md"
-    - "修改 docs/AX9S_开发执行路由图.md、docs/文档与资产状态板.md、docs/技术实现决策页.md"
-    - "修改 control/repo_status.md、control/milestone_status.yaml、control/reference_index.json、control/task_packet_library.yaml"
-    - "修改 contracts/**、handoff/**、src/**、tests/test_review_gate_controls.py、scripts/**"
-    - "把历史 R5/R6/Post-R6 语义回写成当前主线正文"
+    - "修改 docs/AX9S_开发执行路由图.md、control/repo_status.md、control/milestone_status.yaml、control/reference_index.json、control/task_packet_library.yaml"
+    - "修改 control/review_gate_matrix.yaml、control/automation_task_packet_rules.yaml、control/automation_stop_conditions.yaml"
+    - "修改 contracts/**、handoff/**、src/**、tests/**、scripts/**"
     - "开放 external release、Stage 8 real execution、Stage 9 real payment/delivery 或 direct Stage8-9 object export"
     - "新造第二套对象、枚举、gate、exception、state source 或 packet_id"
     - "自动创建下一任务或下一包"
   nextActions:
     - "本窗完成后按 stop rule 停机汇报；不自动进入下一包。"
-  status_note: "当前窗仅用于激活独立 scoped subpacket，并完成路线图历史断言对齐：历史语义保留在历史/决策/状态资产中，当前路线图正文不再被测试层强绑；repo readiness 继续保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION，external release 与 Stage 8/9 real execution 继续阻断。"
+  status_note: "当前窗仅用于激活独立 scoped subpacket，并把已验证稳定的执行约定补入 AGENTS.md；repo readiness 继续保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION，external release 与 Stage 8/9 real execution 继续阻断。"

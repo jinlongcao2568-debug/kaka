@@ -84,6 +84,19 @@
 - 文件存在不等于通过；以真实执行结果为准。
 - 脚本失败必须报告根因，不得绕过。
 
+**Current Execution Conventions**
+- 当前任务选择优先级固定为：
+  1. `control/current_task.yaml`（唯一 active task source）
+  2. `control/task_packet_library.yaml`（候选任务包库）
+  3. `control/repo_status.md`（当前状态与阻断边界来源）
+- `docs/AX9S_开发执行路由图.md` 只负责导航，不是状态源、裁决源、执行日志或完整 backlog，不得替代 `current_task`。
+- 历史蓝图、历史修复包与历史语汇（如 `R5 / R6 / Post-R6`）不得作为当前任务来源；它们只允许保留在历史 / 决策 / 状态资产中。
+- 若测试断言与当前主线路线图正文定位冲突，优先调整测试到正确的历史 / 决策资产，不得为迁就旧断言而把历史语义重新写回当前主线正文。
+- 默认提交行为：
+  - 当前 scoped subpacket 的 required scripts 全绿，且仅修改允许范围内文件时，默认允许执行本地 git commit。
+  - 默认不自动 push、不自动进入下一包。
+  - 若工作区存在不属于当前包的脏改，必须先停下汇报，不得混入提交。
+
 **Archive and Non-Current Paths**
 - `archive/*` 全部为归档路径，不得作为现行正式引用面。
 
