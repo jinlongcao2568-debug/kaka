@@ -50,7 +50,7 @@ State Semantics:
 - docs_layer=EFFECTIVE means the current formal document package is the active reference set; it does not imply every individual D document has been promoted from DRAFT to EFFECTIVE.
 - docs/AX9S_开发执行路由图.md is a controlled route-map navigation asset; it remains a candidate navigation asset in the machine-readable index and now carries only the current formal stage1-9 route, while historical repair/future-unlock navigation stays separated.
 
-Script Check Summary (2026-04-18):
+Script Check Summary (2026-04-19 closeout run; doctor.ps1 last PASS 2026-04-18):
 - doctor.ps1: PASS
 - check-automation-readiness.ps1: PASS (`MANDATORY_HUMAN_REVIEW`)
 - check-semantic-alignment.ps1: PASS
