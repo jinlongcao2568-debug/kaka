@@ -1,11 +1,11 @@
 version: 1
-updated_at: "2026-04-18"
+updated_at: "2026-04-19"
 release_status: "INTERNAL_OPERABLE"
 internal_leadops_status: "READY"
 external_release_status: "BLOCKED"
 full_repair_program:
   status: "FULL_REPAIR_COMPLETE_REVIEW_READY"
-  status_semantics: "Program control closeout only; not a repo readiness source."
+  status_semantics: "Program control closeout only; FF-18-S1 records final state-source alignment and is not a repo readiness source."
   last_completed_batch: "B10"
   next_batch_recommended: null
   halted: true
@@ -64,6 +64,7 @@ future_external_unlock_decision:
   long_term_blocked_domains:
     - "tool_provider_externalized_usage"
 notes:
+  - "FF-18-S1 is the final state-source closeout window of the full-fix mainline; FF-01~FF-18 mainline is complete and no next FF batch auto-starts."
   - "External software release remains blocked."
   - "AX9S full-repair program is closed as FULL_REPAIR_COMPLETE_REVIEW_READY; repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION."
   - "Release bundles must reference contracts/testing/governance snapshots."

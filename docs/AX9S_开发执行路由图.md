@@ -1,4 +1,4 @@
-# AX9S 开发执行路由图（受控路线图导航资产）
+# AX9S 开发执行路由图（受控路线图导航资产；FF-18-S1 closeout 后）
 
 > 说明：本文件是**受控路线图导航资产**，服务于“正式阶段 1-9 主线当前按什么顺序推进、进入条件是什么、哪些边界仍 blocked”。  
 > 它不是上位裁决源，不替代 `L0.md`、`裁决总表.md`、`D1-D14`、`control/repo_status.md`、`control/current_task.yaml`、`control/milestone_status.yaml` 与 `docs/正式业务代码开发开工裁决页.md`。  
@@ -36,6 +36,7 @@
 - 当前仓库总体 readiness：`READY_FOR_POST-REPAIR_MAINLINE_SELECTION`
 - 当前 conditional-go：`READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT`
 - 当前导航状态：`CONTROLLED_ROUTE_MAP_RESTORED`
+- 当前 FF 主链结论：`FF-01~FF-18 主链完成`
 - 当前是否 candidate-gap：`否`
 - 当前是否 strategic-branch：`否`
 - 当前 closure review：`已关闭`
@@ -165,6 +166,8 @@
 
 - 当前仓库已经恢复到**受控路线图可导航、可推进**状态；
 - 这不等于业务全链 ready，更不等于 external-ready；
+- `FF-18-S1` 只完成状态源与导航源 closeout；本窗结束后停机，不自动进入任何新任务；
+- `FF-01~FF-18` 主链完成，但当前 formal implementation mainline 仍由人工另行选择；
 - 当前 formal implementation mainline 仍未选定；route map 只保留 formal stage 1-9 单一主线表达；
 - 历史 `M* / R5 / R6 / activation prep / implementation decision readiness` 已拆到历史导航附录，不再污染当前 formal route；
 - route map 继续只是 navigation asset，不是 readiness source。

@@ -3,8 +3,8 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: AUTHORITY_CONVERGENCE + FULL_REPAIR_PROGRAM_CLOSED (B10 complete; program control closeout only; no repo readiness change)
-Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; not a repo readiness source)
+Current Workstream: AUTHORITY_CONVERGENCE + FF-18-S1_STATE_SOURCE_CLOSEOUT (B10-compatible closeout only; FF-01~FF-18 mainline complete; no repo readiness change)
+Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
 Closure Review Active: false
@@ -21,12 +21,13 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
-- Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence
+- Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this closeout stops and reports
 - Status-source review and audit of the closed full-repair program without changing canonical readiness
 
 Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
 - Any new AX9S batch activation, including B11
+- Any automatic next-task activation from FF-18-S1 closeout
 - Any business semantics change in this closeout state
 - Any transport/bootstrap/api/service change in this closeout state
 - Any new formal object or enum family in this closeout state
@@ -42,15 +43,12 @@ State Semantics:
 - `READY_FOR_POST-REPAIR_MAINLINE_SELECTION` means the last post-repair state/source drift is closed and the repo can enter formal mainline selection; it does not select a mainline by itself.
 - `FULL_REPAIR_COMPLETE_REVIEW_READY` is the AX9S full-repair program control closeout token only; it does not replace the repo readiness conclusion, which remains `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`.
 - `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` remains the scoped conditional-go for internal LeadOps development.
-- Current workstream is the formal route-map split batch; it only separates the current formal stage1-9 route from historical repair/future-unlock navigation and does not imply any business semantic change, implementation-approved, activation-ready, external-ready, or any live execution capability.
+- `FF-18-S1` is the final state-source closeout window for the full-fix mainline; it records canonical alignment only and does not create a new readiness token.
+- `FF-01~FF-18` mainline is complete; this does not unlock external release, Stage 8 live execution, or Stage 9 live payment/delivery.
 - `READY_FOR_POST-R6_CANDIDATE_GAP_BATCH` and `READY_FOR_POST-R6_STRATEGIC_BRANCH_BATCH` are historical R6-path tokens and are not the current repo readiness.
 - R6 candidate / deny / blocked decisions remain valid as decision outputs; they do not redefine the current repo readiness.
 - docs_layer=EFFECTIVE means the current formal document package is the active reference set; it does not imply every individual D document has been promoted from DRAFT to EFFECTIVE.
-- docs/AX9S_开发执行路由图.md is a controlled route-map navigation asset; it now carries only the current formal stage1-9 route, while M-batch/R5-R6/activation-prep content is explicitly historical navigation only.
-- D10 formal downstream refs already point to existing machine assets; M2 does not change D10正文 or Stage9 governance semantics.
-- Stage7 currently consumes the shared policy runtime chain; Stage8/9 additionally consume the runtime permission layer.
-- Stage7-9 already have repository-backed internal preview/draft surfaces at route/projection level; those technical baselines remain unchanged by the current split batch.
-- Historical repair batches M1/M7/M2/M3/M4/M5/M6/M8 remain valid as archived navigation context; they are no longer the current formal implementation route.
+- docs/AX9S_开发执行路由图.md is a controlled route-map navigation asset; it remains a candidate navigation asset in the machine-readable index and now carries only the current formal stage1-9 route, while historical repair/future-unlock navigation stays separated.
 
 Script Check Summary (2026-04-18):
 - doctor.ps1: PASS

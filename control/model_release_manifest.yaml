@@ -1,5 +1,5 @@
 version: 1
-updated_at: "2026-04-18"
+updated_at: "2026-04-19"
 model_release_state: "INTERNAL_ONLY"
 external_release_status: "BLOCKED"
 capability_mode_vocabulary_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary"
@@ -113,6 +113,7 @@ future_externalization_decision:
   model_provider_externalized_usage: "DENY_BY_DEFAULT_CONTINUE"
   tool_provider_externalized_usage: "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN"
 notes:
+  - "FF-18-S1 only closes final state-source alignment; it does not change provider/runtime policy, externalization policy, or blocked redlines."
   - "Model outputs must remain internal assist or review assist."
   - "No model output may directly enter formal external delivery."
   - "control/model_release_manifest.yaml is a projection-only control surface for provider/runtime capability state."

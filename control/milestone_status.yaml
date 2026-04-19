@@ -1,5 +1,5 @@
 version: 1
-updated_at: "2026-04-18"
+updated_at: "2026-04-19"
 phase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 summary:
   docs_layer: "EFFECTIVE"
@@ -12,7 +12,7 @@ summary:
   controlled_auto_drive_ready: "READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT"
   current_readiness_conclusion: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
   full_repair_program_status: "FULL_REPAIR_COMPLETE_REVIEW_READY"
-  full_repair_program_status_semantics: "Program control closeout state only; repo readiness source remains current_readiness_conclusion."
+  full_repair_program_status_semantics: "Program control closeout state only; FF-18-S1 final state-source closeout does not change repo readiness, which remains current_readiness_conclusion."
   candidate_gap_active: false
   strategic_branch_active: false
   closure_review_active: false
@@ -49,3 +49,4 @@ notes:
   - "READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo has finished post-repair authority convergence and can enter formal mainline selection; it does not auto-select any mainline batch."
   - "READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go; candidate-gap/strategic-branch/closure-review are not the current active repo readiness states."
   - "FULL_REPAIR_COMPLETE_REVIEW_READY marks the AX9S full-repair program control closeout only; it does not replace repo readiness and does not authorize any new batch."
+  - "FF-18-S1 is the final state-source closeout packet of the full-fix mainline; FF-01~FF-18 mainline is complete and no further FF packet auto-activates."
