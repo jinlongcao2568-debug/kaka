@@ -8,6 +8,7 @@ from shared.pipeline import run_internal_chain
 from api.routes.stage7 import list_saleable_opportunities, refresh_saleable_opportunity
 from api.routes.stage8 import create_touch_record, list_contact_targets
 from api.routes.stage9 import create_governance_feedback_event, list_orders
+from storage.db import PersistedWorkItem
 from storage import reset_default_storage
 from storage.repository_boundary import hydrate_stage_bundle
 from storage.repositories import (
@@ -24,6 +25,7 @@ from storage.repositories import (
     ProcurementDecisionActorProfileRepository,
     SaleableOpportunityRepository,
     TouchRecordRepository,
+    WorkItemRepository,
 )
 
 
@@ -395,6 +397,30 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         ContactTargetRepository().save(conflicting_contact)
         OutreachPlanRepository().save(conflicting_plan)
         TouchRecordRepository().save(conflicting_touch)
+        original_work_item = WorkItemRepository().get(
+            stage_scope=8,
+            surface_id="outreach_workbench",
+            primary_object_type="touch_record",
+            primary_record_id=original_touch["touch_record_id"],
+        )
+        self.assertIsNotNone(original_work_item)
+        conflicting_work_item_payload = original_work_item.as_payload()
+        conflicting_work_item_payload.update(
+            {
+                "work_item_id": "WI-S8-CONFLICT-PROJ-001",
+                "work_item_key": "stage8:outreach_workbench:touch_record:TOUCH-CONFLICT-PROJ-001",
+                "primary_record_id": conflicting_touch["touch_record_id"],
+                "object_refs": {
+                    **conflicting_work_item_payload["object_refs"],
+                    "contact_target_id": conflicting_contact["contact_target_id"],
+                    "outreach_plan_id": conflicting_plan["outreach_plan_id"],
+                    "touch_record_id": conflicting_touch["touch_record_id"],
+                },
+                "created_at": "2099-01-01T00:00:00Z",
+                "updated_at": "2099-01-01T00:00:00Z",
+            }
+        )
+        WorkItemRepository().save(PersistedWorkItem(**conflicting_work_item_payload))
 
         replay = list_contact_targets({"opportunity_id": original_touch["opportunity_id"]})
         hydrated = hydrate_stage_bundle("stage8", {"opportunity_id": original_touch["opportunity_id"]})
@@ -454,8 +480,26 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         OpportunityOutcomeEventRepository().save(conflicting_outcome)
         GovernanceFeedbackEventRepository().save(conflicting_governance)
         create_governance_feedback_event(stage9)
+        original_work_item = WorkItemRepository().get(
+            stage_scope=9,
+            surface_id="order_delivery_workbench",
+            primary_object_type="order_record",
+            primary_record_id=stage9.record("order_record").get("order_id"),
+        )
+        self.assertIsNotNone(original_work_item)
+        conflicting_work_item_payload = original_work_item.as_payload()
+        conflicting_work_item_payload["object_refs"] = {
+            **conflicting_work_item_payload["object_refs"],
+            "payment_id": conflicting_payment["payment_id"],
+            "delivery_id": conflicting_delivery["delivery_id"],
+            "outcome_event_id": conflicting_outcome["outcome_event_id"],
+            "governance_feedback_event_id": conflicting_governance["governance_feedback_event_id"],
+        }
+        conflicting_work_item_payload["updated_at"] = "2099-01-01T00:00:00Z"
+        WorkItemRepository().save(PersistedWorkItem(**conflicting_work_item_payload))
 
         replay = list_orders({"opportunity_id": stage9.record("order_record").get("opportunity_id")})
+        hydrated = hydrate_stage_bundle("stage9", {"opportunity_id": stage9.record("order_record").get("opportunity_id")})
         self.assertEqual(
             replay["formal_object_refs"]["payment_record"]["object_id"],
             payment["payment_id"],
@@ -487,6 +531,23 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["preview_projection"]["governance_feedback_preview"]["trigger_type"],
             governance["trigger_type"],
+        )
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.record("payment_record").get("payment_id"),
+            payment["payment_id"],
+        )
+        self.assertEqual(
+            hydrated.record("delivery_record").get("delivery_id"),
+            delivery["delivery_id"],
+        )
+        self.assertEqual(
+            hydrated.record("opportunity_outcome_event").get("outcome_event_id"),
+            outcome["outcome_event_id"],
+        )
+        self.assertEqual(
+            hydrated.record("governance_feedback_event").get("governance_feedback_event_id"),
+            governance["governance_feedback_event_id"],
         )
 
 

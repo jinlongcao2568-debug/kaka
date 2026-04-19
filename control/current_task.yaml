@@ -9,7 +9,7 @@ navigation_state: "AX9S_FULL_REPAIR_CLOSED"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "FF-PRE-ROOT 到 FF-14-S1 已完成并通过脚本；本窗只执行 FF-14-S2，让 capability runtime 真正只消费 canonical source，脚本校验后停机。"
+activation_condition: "FF-PRE-ROOT 到 FF-14-S2 已完成并通过脚本；本窗只执行 FF-15-S1，收口 repository boundary / typed persistence / readback precedence，脚本校验后停机。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,22 +17,21 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "AX9S-FF-14-S2-capability-runtime-canonical-consumption-closure"
-  title: "FF-14-S2 capability runtime canonical consumption closure"
+  task_id: "AX9S-FF-15-S1-repository-boundary-typed-persistence-readback-closure"
+  title: "FF-15-S1 repository boundary typed persistence readback closure"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
   linked_docs:
     - "control/current_task.yaml"
-    - "contracts/release/runtime_policy_catalog.json"
-    - "control/runtime_inventory.yaml"
-    - "control/model_release_manifest.yaml"
-    - "control/release_manifest.yaml"
-    - "src/shared/capability_runtime.py"
-    - "tests/test_capability_permission_layer.py"
-    - "tests/test_architecture_anti_drift.py"
-  capability_adjudication_source: "FF-14-S1 closure + capability runtime canonical-consumption closure line"
-  objective: "让 capability runtime 真正只消费 canonical source。"
+    - "docs/D2_正式对象契约与字段字典.md"
+    - "docs/D4_OpenAPI接口契约.md"
+    - "docs/D11_测试验收与金标回归清单.md"
+    - "src/storage/repository_boundary.py"
+    - "src/storage/db.py"
+    - "tests/test_internal_repository_boundary.py"
+  capability_adjudication_source: "D13 能力总表与放行边界总表"
+  objective: "收口 repository boundary / typed persistence / readback precedence。"
   operator_assignment_roster:
     stage4:
       assigned_owner_role: "single_operator"
@@ -78,36 +77,42 @@ currentTask:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "B10"
-    packet_id: "FF-14-S2"
-    subpacket_id: "FF-14-S2"
-    title: "FF-14-S2 capability runtime canonical consumption closure"
+    packet_id: "FF-15-S1"
+    subpacket_id: "FF-15-S1"
+    title: "FF-15-S1 repository boundary typed persistence readback closure"
     status: "CLOSED"
-    objective: "让 capability runtime 真正只消费 canonical source。"
+    objective: "收口 repository boundary / typed persistence / readback precedence。"
     depends_on:
-      - "FF-14-S1"
+      - "FF-14-S2"
     non_goals:
       - "not an external unlock implementation"
-      - "不放宽 REAL_RUN_READY 解释"
+      - "不提升 Stage1-6 transport"
       - "不改业务语义"
-      - "不扩大到 FF-15-S1"
-      - "不回头改 FF-14-S1 已通过的 docs/contracts/control authority"
-      - "不修改 future unlock 结论"
-      - "不修改 Stage7-9 业务对象语义"
+      - "不扩大到 FF-15-S2"
+      - "不修改 docs/contracts authority"
+      - "不修改 capability runtime canonical source"
     affected_stages:
-      - "shared_runtime"
+      - "storage"
+      - "stage7_sales"
       - "stage8_outreach"
       - "stage9_delivery"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
-      - "shared_runtime_core"
-      - "provider_vendor_source_policy_core"
       - "automation_control_core"
+      - "governance_release_core"
+    reviews:
+      - "architecture_owner"
+      - "testing_owner"
+      - "automation_owner"
     declared_changed_paths:
       - "control/current_task.yaml"
-      - "src/shared/capability_runtime.py"
-      - "tests/test_capability_permission_layer.py"
-      - "tests/test_architecture_anti_drift.py"
+      - "docs/D2_正式对象契约与字段字典.md"
+      - "docs/D4_OpenAPI接口契约.md"
+      - "docs/D11_测试验收与金标回归清单.md"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/db.py"
+      - "tests/test_internal_repository_boundary.py"
     baseline_dirty_paths:
       - "docs/专题_来源覆盖与采集路由规范.md"
       - "docs/D2_正式对象契约与字段字典.md"
@@ -188,15 +193,17 @@ currentTask:
       - "tests/test_check_automation_readiness_unicode_paths.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
-      - "src/shared/capability_runtime.py"
-      - "tests/test_capability_permission_layer.py"
-      - "tests/test_architecture_anti_drift.py"
+      - "docs/D2_正式对象契约与字段字典.md"
+      - "docs/D4_OpenAPI接口契约.md"
+      - "docs/D11_测试验收与金标回归清单.md"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/db.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/__pycache__/**"
       - "src/**/__pycache__/**"
       - ".pytest_cache/**"
     forbidden_modification_paths:
       - "docs/L0.md"
-      - "docs/**"
       - "contracts/**"
       - "control/runtime_inventory.yaml"
       - "control/model_release_manifest.yaml"
@@ -208,22 +215,25 @@ currentTask:
       - "src/stage4_verification/**"
       - "src/stage5_rules_evidence/**"
       - "src/stage6_fact_review/**"
-      - "src/shared/policy_executor.py"
+      - "src/shared/**"
       - "src/stage7_sales/**"
-      - "src/storage/**"
       - "src/api/**"
       - "src/stage8_outreach/**"
       - "src/stage9_delivery/**"
-      - "tests/**（仅允许 tests/test_capability_permission_layer.py、tests/test_architecture_anti_drift.py 与生成物白名单）"
+      - "tests/**（仅允许 tests/test_internal_repository_boundary.py 与生成物白名单）"
       - "scripts/**（仅允许白名单 root hotfix 文件保持不动，不应修改）"
     impacted_assets:
       control:
         - "control/current_task.yaml"
+      docs:
+        - "docs/D2_正式对象契约与字段字典.md"
+        - "docs/D4_OpenAPI接口契约.md"
+        - "docs/D11_测试验收与金标回归清单.md"
       runtime:
-        - "src/shared/capability_runtime.py"
+        - "src/storage/repository_boundary.py"
+        - "src/storage/db.py"
       tests:
-        - "tests/test_capability_permission_layer.py"
-        - "tests/test_architecture_anti_drift.py"
+        - "tests/test_internal_repository_boundary.py"
     required_scripts:
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1"
@@ -242,24 +252,24 @@ currentTask:
       - "引入未声明的新对象/新枚举/新 gate/新 exception 语义"
       - "external release / live execution / direct Stage8-9 object export / tool provider externalized usage 被放开"
       - "同一脚本连续失败 >= 2 次"
-      - "扩大到 FF-15-S1 范围"
+      - "扩大到 FF-15-S2 范围"
     definition_of_done:
-      - "src/shared/capability_runtime.py 只从 contracts/release/runtime_policy_catalog.json 解析 vocabulary / family current mode / allowed modes / priority order / resolver precedence"
-      - "control/runtime_inventory.yaml、control/model_release_manifest.yaml、control/release_manifest.yaml 只作 projection，不再影响 capability_mode 决策"
-      - "EMERGENCY_OFF / PERMANENTLY_BLOCKED / REAL_RUN_READY / EXTERNAL_BLOCKED 的优先关系由 runtime 真执行且 tests 覆盖"
-      - "tests/test_capability_permission_layer.py 与 tests/test_architecture_anti_drift.py 覆盖 canonical source、projection-only control surfaces、protected short-circuit、release redline"
+      - "src/storage/repository_boundary.py 对 Stage7-9 formal objects 的 persisted refs / typed ids / decision states / trace refs / writeback metadata 读写边界清楚"
+      - "repository readback 优先使用 persisted formal refs / typed ids，而不是按 project/opportunity 粗粒度重选对象"
+      - "Stage7/8/9 persisted/readback 不重算 saleability_status、governance decision、capability mode、taxonomy 或 writeback ownership"
+      - "src/storage/db.py 若有必要，只允许为 typed persistence/readback 稳定性做最小修正，不改业务语义"
+      - "tests/test_internal_repository_boundary.py 覆盖 Stage7/8/9 persisted/readback precedence 与 typed workflow / governed metadata"
       - "本包 required scripts 全部 PASS"
-      - "本包完成后明确建议进入 FF-15-S1"
+      - "本包完成后明确建议进入 FF-15-S2"
     deliverables:
-      - "capability runtime canonical-consumption closure"
-      - "capability runtime regression hardened"
+      - "repository boundary typed persistence/readback closure"
+      - "repository boundary regression hardened"
     human_review_required: true
     owner_reviews_required:
       - "architecture_owner"
       - "governance_owner"
       - "testing_owner"
       - "automation_owner"
-      - "model_governance_owner"
     review_evidence:
       declared: true
       signoff_required: true
@@ -267,21 +277,21 @@ currentTask:
     notes:
       - "当前仓库无 scripts/search.ps1；本窗全文检索统一使用 rg。"
       - "baseline dirty / allowlist 中的前序 dirty files 仅作承接；本窗除非绝对必要不改。"
-      - "本窗真正工作范围只有 capability runtime canonical-consumption 与对应 tests。"
-      - "本窗不改 docs/contracts/control authority，不改 future unlock 结论，不改业务语义。"
+      - "本窗真正工作范围只有 repository boundary / typed persistence / readback precedence 与对应 tests。"
+      - "本窗不改 docs/contracts authority，不改 capability runtime canonical source，不改 Stage8/9 业务语义。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
     - "external software release remains blocked"
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "仅允许 FF-14-S2 声明范围内的 capability runtime canonical-consumption 修复、对应 tests 收口、正式脚本校验与停机汇报"
+    - "仅允许 FF-15-S1 声明范围内的 repository boundary / typed persistence / readback precedence 修复、对应 tests 收口、正式脚本校验与停机汇报"
   forbidden_actions:
     - "修改 docs/L0.md"
-    - "修改 docs/contracts/control authority、handoff、业务代码或白名单外 scripts"
+    - "修改 docs/contracts authority、handoff、shared runtime、业务代码或白名单外 scripts"
     - "开放 external release、Stage 8 real execution、Stage 9 real payment/delivery 或 direct Stage8-9 object export"
     - "把 internal/governed/preview/dry-run 写成 live-ready"
     - "新造第二套对象、枚举、gate、capability、state source、writeback semantics"
   nextActions:
-    - "FF-14-S2 完成后按 stop rule 停机；建议人工进入 FF-15-S1"
-  status_note: "FF-14-S2 已完成 capability runtime canonical-consumption 收口；repo readiness 仍保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION，external release 与 Stage 8/9 real execution 继续阻断，建议下一步进入 FF-15-S1。"
+    - "FF-15-S1 完成后按 stop rule 停机；建议人工进入 FF-15-S2"
+  status_note: "FF-15-S1 已完成 repository boundary / typed persistence / readback precedence 收口；repo readiness 仍保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION，external release 与 Stage 8/9 real execution 继续阻断，建议下一步进入 FF-15-S2。"

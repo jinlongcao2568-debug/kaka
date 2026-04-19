@@ -866,7 +866,7 @@ GET /v1/contact-targets
 | Stage 7 `/saleable-opportunities` | internal preview | 读取 `saleable_opportunity / offer_recommendation / buyer_fit` 及 supporting actor refs 的正式 repository state | 不得只返回空壳 preview envelope |
 | Stage 8 `/contact-targets`、`/outreach-plans`、`/touch-records` | governed preview / draft | 读取 `contact_target / outreach_plan / touch_record` 的正式 repository state 与 decision states / traces，并投影 `capability/governance/semantic envelope` | 不得在 route 层重算 contact compliance 或 writeback judgment |
 | Stage 9 `/orders`、`/payments`、`/deliveries`、`/opportunity-outcomes`、`/governance-feedback-events` | internal governed preview / writeback | 读取 `order / payment / delivery / outcome / governance feedback` typed repository state，并投影 `capability/governance/semantic envelope` | 不得把 repository retrieval 写成 live payment / live delivery API |
-| repository hydration precedence | Stage 7/9 persisted readback | 优先使用 persisted formal object refs / typed object ids 读回关联正式对象；只有 formal ref 缺失时才允许兼容性 fallback | 不得按 `project_id / opportunity_id` 宽泛回捞覆盖已持久化 formal relation |
+| repository hydration precedence | Stage 7/8/9 persisted readback | 优先使用 persisted `stage_state.typed_object_refs` 及 formal object refs 读回关联正式对象；`work_item.object_refs` 只允许作为 operator loop projection fallback；只有 typed ref 缺失时才允许兼容性 fallback | 不得按 `project_id / opportunity_id` 宽泛回捞覆盖已持久化 formal relation |
 
 补充说明：
 - `create*` / `refresh*` 内部接口只允许写入 internal repository boundary，不代表外部执行；
@@ -919,7 +919,7 @@ GET /v1/contact-targets
 | Stage 7 internal preview transport | 已接通 | FastAPI wrapper + repository hydration | 允许通过 `opportunity_id` 等最小 payload 从已持久化正式对象读回 internal preview surface | 不得重算主判断，不得绕过 formal object |
 | Stage 8 internal governed preview / draft transport | 已接通 | FastAPI wrapper + repository hydration | 允许通过最小 payload 读回 governed preview / draft surface，仍保持 `blocked_by_default=true` | 不得触发真实触达，不得放宽审批/quiet-hours/frequency 边界 |
 | Stage 9 internal governed preview / draft transport | 已接通 | FastAPI wrapper + repository hydration | 允许通过最小 payload 读回 internal governed preview / draft surface，仍保持 `blocked_by_default=true` | 不得触发真实 payment / delivery / refund |
-| Stage 7/9 formal ref replay | 已接通 | persisted `work_item.object_refs` + repository hydration | internal transport readback 必须优先遵循已持久化的 typed formal refs，而不是退化成粗粒度 project/opportunity 查找 | 不得因冲突记录或历史残留导致 replay 取错正式对象 |
+| Stage 7/8/9 formal ref replay | 已接通 | persisted `stage_state.typed_object_refs` + repository hydration（`work_item.object_refs` 仅 operator loop fallback） | internal transport readback 必须优先遵循已持久化的 typed formal refs，而不是退化成粗粒度 project/opportunity 查找 | 不得因冲突记录、work item 漂移或历史残留导致 replay 取错正式对象 |
 | Stage 1-6 route registrar | controlled unavailable | `src/api/routes/stage1.py` ~ `src/api/routes/stage6.py` | 继续保持 contract-ready / transport-not-wired，但不再抛 raw `NotImplementedError` | 不得宣称这些路由已 runtime-ready |
 
 补充说明：

@@ -623,6 +623,7 @@ def _save_stage_state(bundle: StageBundle) -> None:
             root_record_id=str(root_record[root_id_field]),
             inputs=inputs_snapshot,
             persisted_at=build_persisted_at(),
+            typed_object_refs=_bundle_object_refs(bundle),
         )
     )
 
@@ -745,17 +746,15 @@ def _get_stage_work_item(stage_scope: int, primary_object_type: str, primary_rec
     )
 
 
-def _record_from_work_item_refs(
+def _record_from_persisted_refs(
     repository: Any,
     *,
-    work_item: PersistedWorkItem | None,
-    ref_key: str,
+    ref_sources: tuple[Mapping[str, Any] | None, ...],
+    ref_keys: tuple[str, ...],
     fallback_field: str,
     fallback_value: str,
 ) -> Any:
-    record_id = ""
-    if work_item is not None:
-        record_id = str(work_item.object_refs.get(ref_key, "")).strip()
+    record_id = _resolve_typed_ref(*ref_sources, keys=ref_keys)
     if record_id:
         record = repository.get_by_id(record_id)
         if record is not None:
@@ -779,6 +778,31 @@ def _resolve_typed_ref(
     return ""
 
 
+def _latest_stage_state(
+    *,
+    stage_scope: int,
+    surface_id: str,
+    criteria: Mapping[str, str],
+) -> PersistedStageState | None:
+    if not criteria:
+        return None
+    rows = DatabaseSession.default().find_stage_states(
+        stage_scope=stage_scope,
+        surface_id=surface_id,
+        **dict(criteria),
+    )
+    if not rows:
+        return None
+    rows.sort(
+        key=lambda row: (
+            str(row.persisted_at or ""),
+            str(row.root_record_id or ""),
+        ),
+        reverse=True,
+    )
+    return rows[0]
+
+
 def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     opportunity_id = str(payload.get("opportunity_id", "")).strip()
     if not opportunity_id:
@@ -790,7 +814,9 @@ def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     stage_state = _get_stage_state(7, STAGE_SURFACE_IDS[7], opportunity.record_id)
     work_item = _get_stage_work_item(7, "saleable_opportunity", opportunity.record_id)
     stage_inputs = dict(stage_state.inputs) if stage_state is not None else {}
+    persisted_refs = stage_state.typed_object_refs if stage_state is not None else None
     buyer_fit_id = _resolve_typed_ref(
+        persisted_refs,
         stage_inputs,
         opportunity.object_refs,
         work_item.object_refs if work_item is not None else None,
@@ -798,13 +824,17 @@ def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     )
     buyer_fit = BuyerFitRepository().get_by_id(buyer_fit_id) if buyer_fit_id else None
     offer_id = _resolve_typed_ref(
+        persisted_refs,
         stage_inputs,
+        opportunity.object_refs,
         work_item.object_refs if work_item is not None else None,
         keys=("offer_recommendation_id",),
     )
     offer = OfferRecommendationRepository().get_by_id(offer_id) if offer_id else None
     legal_actor_id = _resolve_typed_ref(
+        persisted_refs,
         stage_inputs,
+        opportunity.object_refs,
         work_item.object_refs if work_item is not None else None,
         keys=("legal_action_actor_id",),
     )
@@ -814,7 +844,9 @@ def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
         else None
     )
     procurement_actor_id = _resolve_typed_ref(
+        persisted_refs,
         stage_inputs,
+        opportunity.object_refs,
         work_item.object_refs if work_item is not None else None,
         keys=("procurement_decision_actor_id",),
     )
@@ -824,7 +856,9 @@ def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
         else None
     )
     multi_competitor_collection_id = _resolve_typed_ref(
+        persisted_refs,
         stage_inputs,
+        opportunity.object_refs,
         work_item.object_refs if work_item is not None else None,
         keys=("multi_competitor_collection_id_optional",),
     )
@@ -855,10 +889,11 @@ def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
 
 
 def _hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
-    contact_target, outreach_plan, touch_record = _find_stage8_records(payload)
-    if not all((contact_target, outreach_plan, touch_record)):
+    contact_target, outreach_plan, touch_record, stage_state = _find_stage8_records(payload)
+    if not all((contact_target, outreach_plan, touch_record, stage_state)):
         return None
-    stage_state = _get_stage_state(8, STAGE_SURFACE_IDS[8], touch_record.record_id)
+    if stage_state.root_record_id != touch_record.record_id:
+        stage_state = _get_stage_state(8, STAGE_SURFACE_IDS[8], touch_record.record_id)
     if not stage_state:
         return None
 
@@ -876,43 +911,49 @@ def _hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
 
 def _hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     opportunity_id = str(payload.get("opportunity_id", "")).strip()
-    order_id = str(payload.get("order_id", "")).strip()
+    stage_state = _resolve_stage9_stage_state(payload)
+    order_id = str(payload.get("order_id", "")).strip() or (
+        stage_state.root_record_id if stage_state is not None else ""
+    )
     order = OrderRecordRepository().get_by_id(order_id) if order_id else None
-    if not order:
-        order = OrderRecordRepository().find_one_by_field("opportunity_id", opportunity_id) if opportunity_id else None
+    if not order and opportunity_id:
+        order = OrderRecordRepository().find_one_by_field("opportunity_id", opportunity_id)
     if not order:
         return None
 
+    if stage_state is None or stage_state.root_record_id != order.record_id:
+        stage_state = _get_stage_state(9, STAGE_SURFACE_IDS[9], order.record_id)
     work_item = _get_stage_work_item(9, "order_record", order.record_id)
-    payment = _record_from_work_item_refs(
+    persisted_refs = stage_state.typed_object_refs if stage_state is not None else None
+    work_item_refs = work_item.object_refs if work_item is not None else None
+    payment = _record_from_persisted_refs(
         PaymentRecordRepository(),
-        work_item=work_item,
-        ref_key="payment_id",
+        ref_sources=(persisted_refs, order.object_refs, work_item_refs),
+        ref_keys=("payment_id",),
         fallback_field="order_id",
         fallback_value=order.record_id,
     )
-    delivery = _record_from_work_item_refs(
+    delivery = _record_from_persisted_refs(
         DeliveryRecordRepository(),
-        work_item=work_item,
-        ref_key="delivery_id",
+        ref_sources=(persisted_refs, order.object_refs, work_item_refs),
+        ref_keys=("delivery_id",),
         fallback_field="order_id",
         fallback_value=order.record_id,
     )
-    outcome = _record_from_work_item_refs(
+    outcome = _record_from_persisted_refs(
         OpportunityOutcomeEventRepository(),
-        work_item=work_item,
-        ref_key="outcome_event_id",
+        ref_sources=(persisted_refs, order.object_refs, work_item_refs),
+        ref_keys=("outcome_event_id",),
         fallback_field="opportunity_id",
-        fallback_value=opportunity_id,
+        fallback_value=opportunity_id or str(order.object_refs.get("opportunity_id", "")).strip(),
     )
-    governance = _record_from_work_item_refs(
+    governance = _record_from_persisted_refs(
         GovernanceFeedbackEventRepository(),
-        work_item=work_item,
-        ref_key="governance_feedback_event_id",
+        ref_sources=(persisted_refs, order.object_refs, work_item_refs),
+        ref_keys=("governance_feedback_event_id",),
         fallback_field="project_id",
         fallback_value=order.project_id or "",
     )
-    stage_state = _get_stage_state(9, STAGE_SURFACE_IDS[9], order.record_id)
     if not all((payment, delivery, outcome, governance, stage_state)):
         return None
 
@@ -930,10 +971,35 @@ def _hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     )
 
 
-def _find_stage8_work_item(payload: Mapping[str, Any]) -> PersistedWorkItem | None:
+def _resolve_stage8_stage_state(payload: Mapping[str, Any]) -> PersistedStageState | None:
+    touch_record_id = str(payload.get("touch_record_id", "")).strip()
+    if touch_record_id:
+        stage_state = _get_stage_state(8, STAGE_SURFACE_IDS[8], touch_record_id)
+        if stage_state is not None:
+            return stage_state
+
+    opportunity_id = str(payload.get("opportunity_id", "")).strip()
+    if not opportunity_id:
+        return None
+    return _latest_stage_state(
+        stage_scope=8,
+        surface_id=STAGE_SURFACE_IDS[8],
+        criteria={"opportunity_id": opportunity_id},
+    )
+
+
+def _find_stage8_work_item(
+    payload: Mapping[str, Any],
+    *,
+    stage_state: PersistedStageState | None = None,
+) -> PersistedWorkItem | None:
     touch_record_id = str(payload.get("touch_record_id", "")).strip()
     if touch_record_id:
         return _get_stage_work_item(8, "touch_record", touch_record_id)
+    if stage_state is not None:
+        work_item = _get_stage_work_item(8, "touch_record", stage_state.root_record_id)
+        if work_item is not None:
+            return work_item
 
     opportunity_id = str(payload.get("opportunity_id", "")).strip()
     if not opportunity_id:
@@ -960,39 +1026,65 @@ def _find_stage8_work_item(payload: Mapping[str, Any]) -> PersistedWorkItem | No
     return candidates[0]
 
 
-def _find_stage8_records(payload: Mapping[str, Any]) -> tuple[Any, Any, Any]:
-    work_item = _find_stage8_work_item(payload)
-    touch_record_id = str(payload.get("touch_record_id", "")).strip()
+def _find_stage8_records(payload: Mapping[str, Any]) -> tuple[Any, Any, Any, PersistedStageState | None]:
+    stage_state = _resolve_stage8_stage_state(payload)
+    work_item = _find_stage8_work_item(payload, stage_state=stage_state)
+    touch_record_id = str(payload.get("touch_record_id", "")).strip() or (
+        stage_state.root_record_id if stage_state is not None else ""
+    )
     if work_item is not None:
-        touch_record_id = str(work_item.primary_record_id or touch_record_id)
+        touch_record_id = touch_record_id or str(work_item.primary_record_id or "")
     touch_record = TouchRecordRepository().get_by_id(touch_record_id) if touch_record_id else None
     if not touch_record:
         opportunity_id = str(payload.get("opportunity_id", "")).strip()
         touch_record = TouchRecordRepository().find_one_by_field("opportunity_id", opportunity_id) if opportunity_id else None
     if not touch_record:
-        return None, None, None
+        return None, None, None, stage_state
 
-    contact_target = None
-    outreach_plan = None
-    if work_item is not None:
-        contact_target_id = str(work_item.object_refs.get("contact_target_id", "")).strip()
-        outreach_plan_id = str(work_item.object_refs.get("outreach_plan_id", "")).strip()
-        if contact_target_id:
-            contact_target = ContactTargetRepository().get_by_id(contact_target_id)
-        if outreach_plan_id:
-            outreach_plan = OutreachPlanRepository().get_by_id(outreach_plan_id)
+    if stage_state is None or stage_state.root_record_id != touch_record.record_id:
+        stage_state = _get_stage_state(8, STAGE_SURFACE_IDS[8], touch_record.record_id)
+    persisted_refs = stage_state.typed_object_refs if stage_state is not None else None
+    work_item_refs = work_item.object_refs if work_item is not None else None
 
-    if contact_target is None:
-        contact_target = ContactTargetRepository().get_by_id(touch_record.object_refs.get("contact_target_id", ""))
-    if outreach_plan is None:
-        outreach_plan = OutreachPlanRepository().get_by_id(touch_record.object_refs.get("outreach_plan_id", ""))
-    return contact_target, outreach_plan, touch_record
+    contact_target = _record_from_persisted_refs(
+        ContactTargetRepository(),
+        ref_sources=(persisted_refs, touch_record.object_refs, work_item_refs),
+        ref_keys=("contact_target_id",),
+        fallback_field="contact_target_id",
+        fallback_value="",
+    )
+    outreach_plan = _record_from_persisted_refs(
+        OutreachPlanRepository(),
+        ref_sources=(persisted_refs, touch_record.object_refs, work_item_refs),
+        ref_keys=("outreach_plan_id",),
+        fallback_field="outreach_plan_id",
+        fallback_value="",
+    )
+    return contact_target, outreach_plan, touch_record, stage_state
 
 
 def _get_stage_state(stage_scope: int, surface_id: str, root_record_id: str | None) -> PersistedStageState | None:
     if not root_record_id:
         return None
     return DatabaseSession.default().get_stage_state(stage_scope, surface_id, root_record_id)
+
+
+def _resolve_stage9_stage_state(payload: Mapping[str, Any]) -> PersistedStageState | None:
+    order_id = str(payload.get("order_id", "")).strip()
+    if order_id:
+        stage_state = _get_stage_state(9, STAGE_SURFACE_IDS[9], order_id)
+        if stage_state is not None:
+            return stage_state
+
+    opportunity_id = str(payload.get("opportunity_id", "")).strip()
+    if not opportunity_id:
+        return None
+    return _latest_stage_state(
+        stage_scope=9,
+        surface_id=STAGE_SURFACE_IDS[9],
+        criteria={"opportunity_id": opportunity_id},
+    )
+
 
 def _resolve_bundle_for_stage(payload: Any, stage_scope: int | None) -> StageBundle | None:
     if isinstance(payload, StageBundle):
@@ -1254,10 +1346,13 @@ def _resolve_primary_record(stage_scope: int, payload: Mapping[str, Any]) -> tup
         opportunity = SaleableOpportunityRepository().get_by_id(opportunity_id) if opportunity_id else None
         return ("saleable_opportunity", opportunity) if opportunity else None
     if stage_scope == 8:
-        _, _, touch_record = _find_stage8_records(payload)
+        _, _, touch_record, _ = _find_stage8_records(payload)
         return ("touch_record", touch_record) if touch_record else None
     if stage_scope == 9:
-        order_id = str(payload.get("order_id", "")).strip()
+        stage_state = _resolve_stage9_stage_state(payload)
+        order_id = str(payload.get("order_id", "")).strip() or (
+            stage_state.root_record_id if stage_state is not None else ""
+        )
         order = OrderRecordRepository().get_by_id(order_id) if order_id else None
         if not order:
             opportunity_id = str(payload.get("opportunity_id", "")).strip()

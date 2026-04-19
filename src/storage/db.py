@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from tempfile import gettempdir, mkstemp
 from threading import RLock
@@ -40,6 +40,7 @@ class PersistedStageState:
     root_record_id: str
     inputs: Dict[str, Any]
     persisted_at: str
+    typed_object_refs: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -227,6 +228,34 @@ class DatabaseSession:
         with self._lock:
             return self._stage_states.get(self._stage_key(stage_scope, surface_id, root_record_id))
 
+    def list_stage_states(
+        self,
+        *,
+        stage_scope: int | None = None,
+        surface_id: str | None = None,
+    ) -> list[PersistedStageState]:
+        with self._lock:
+            rows = list(self._stage_states.values())
+        if stage_scope is not None:
+            rows = [row for row in rows if row.stage_scope == stage_scope]
+        if surface_id is not None:
+            rows = [row for row in rows if row.surface_id == surface_id]
+        return rows
+
+    def find_stage_states(
+        self,
+        *,
+        stage_scope: int | None = None,
+        surface_id: str | None = None,
+        **criteria: str,
+    ) -> list[PersistedStageState]:
+        rows = self.list_stage_states(stage_scope=stage_scope, surface_id=surface_id)
+        matched: list[PersistedStageState] = []
+        for row in rows:
+            if all(self._match_stage_state_value(row, key, value) for key, value in criteria.items()):
+                matched.append(row)
+        return matched
+
     def upsert_work_item(self, entry: PersistedWorkItem) -> PersistedWorkItem:
         with self._lock:
             self._work_items[entry.work_item_id] = entry
@@ -365,6 +394,17 @@ class DatabaseSession:
         if row.trace_refs.get(key) == expected:
             return True
         if row.audit_refs.get(key) == expected:
+            return True
+        return False
+
+    def _match_stage_state_value(self, row: PersistedStageState, key: str, expected: str) -> bool:
+        if key == "project_id":
+            return row.project_id == expected
+        if key == "root_record_id":
+            return row.root_record_id == expected
+        if row.inputs.get(key) == expected:
+            return True
+        if row.typed_object_refs.get(key) == expected:
             return True
         return False
 
