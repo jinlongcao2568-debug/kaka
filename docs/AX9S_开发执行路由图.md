@@ -1,173 +1,139 @@
-# AX9S 开发执行路由图（candidate navigation asset；FF-18-S1 closeout 后）
+# 《AX9S 开发执行路由图（阶段 1-9 版本）》
 
-> 说明：本文件是**candidate navigation asset**，也是受控路线图导航资产，服务于“正式阶段 1-9 主线当前按什么顺序推进、进入条件是什么、哪些边界仍 blocked”。  
-> 它不是上位裁决源，不替代 `L0.md`、`裁决总表.md`、`D1-D14`、`control/repo_status.md`、`control/current_task.yaml`、`control/milestone_status.yaml` 与 `docs/正式业务代码开发开工裁决页.md`。  
-> 为保持 machine-readable 状态分层清晰，`control/reference_index.json` 中仍把本文件标记为**候选导航资产**；该标记只表示“不是正式状态源”，不表示本文件可以继续混用历史修复批、future unlock 历史导航或 activation prep 历史段。
+> 本文件是 **candidate navigation asset**，也是**候选导航资产**。  
+> 本文件是主导航图，不是状态真源。  
+> 本文件**非状态源**、**非裁决源**、**非执行日志**、**非完整 backlog**。  
+> 主导航图负责指路；`control/task_packet_library.yaml` 负责候选任务；`control/current_task.yaml` 负责当前 active 执行任务；状态真源是 `control/repo_status.md` 与 `control/milestone_status.yaml`。  
+> 本文件不以 `docs/AX9S_高+中任务包蓝图.md` 作为当前任务来源。
 
-## 1. 路线图角色
+## 1. 使用规则
 
-### 1.1 本文件负责什么
+- 本图只表达正式阶段 1-9 主链该如何看、该往哪里走，不表达当前 phase/readiness 数值快照。
+- 本图不改写 `L0.md`、`裁决总表.md`、`D1-D14`、`contracts/*`、`handoff/*` 的正式语义。
+- 本图不放开 `external release`，不放开 `Stage 8 real execution`，不放开 `Stage 9 real payment / delivery / refund`。
+- 本图中的近端候选 `packet_id` 只引用 `control/task_packet_library.yaml` 现有条目，不新造任务 ID。
+- 本图中的“当前允许做什么 / 当前禁止做什么”只表达受控开发边界，不替代状态真源或审批结论。
 
-- 用当前正式状态源给出**正式阶段 1-9 主线**的导航顺序；
-- 明确每一段 formal route 的进入条件、主要产出与仍 blocked 的边界；
-- 把“当前 formal mainline”与“历史修复 / future unlock 历史导航”拆层表达；
-- 把后续推进与 `task packet / review gate / automation gate` 接起来。
+## 2. 阶段主链
 
-### 1.2 本文件不负责什么
+## 2.1 Stage 1 任务编排与来源/路由治理
 
-- 不定义新的 phase/readiness；
-- 不改写 L0、D2-D14 的正式业务语义；
-- 不放宽 external release、Stage 8/9 高风险执行或高限制字段红线；
-- 不替代 `control/current_task.yaml`、`control/repo_status.md` 与 `control/milestone_status.yaml` 的正式状态表达；
-- 不把历史 `M* / R5 / R6 / activation prep / implementation decision readiness` 写成当前 implementation approval。
+- 阶段目标：确定任务入口、来源族、路由策略、默认路由与 fallback 路由，为公开链采集建立唯一上游 authority。
+- 正式输入：`task_record`、`task_execution_context`、来源族与路由策略输入。
+- 正式输出：`task_execution_context`、`review_lane`、`source_registry_id`、`route_policy_id`、`default_route`、`fallback_route`。
+- 上游 handoff：无，主链起点。
+- 下游 handoff：`handoff/stage1_to_stage2/contract.json`
+- 当前允许做什么：只允许做来源 registry、route precedence、default/fallback route、validator 与 handoff 的受控收口。
+- 当前禁止做什么：不得把外部 source live enable 写成默认开放；不得把 coverage 写成全国默认稳定；不得把本阶段写成状态源。
+- 相关 contracts / tests：`contracts/governance/source_registry.json`；`contracts/governance/route_policy_catalog.json`；`contracts/governance/stage12_extractor_contract.json`；`tests/test_stage12_extractors.py`
+- 近端候选 `packet_id`：`PKT-P1-01-stage12-rollout-precedence`
 
-## 2. 当前受控状态快照
+## 2.2 Stage 2 公开链采集、窗口期、版本/时钟裁决
 
-### 2.1 当前正式状态来源
+- 阶段目标：把采集结果固化为可回链的公开链、版本链、时钟链与固定件，为后续解析和核验提供唯一事实入口。
+- 正式输入：Stage 1 handoff 输出、采集载体、窗口期与版本链规则。
+- 正式输出：`public_chain`、`notice_version_chain`、`clock_chain_profile`、`fixation_bundle`。
+- 上游 handoff：`handoff/stage1_to_stage2/contract.json`
+- 下游 handoff：`handoff/stage2_to_stage3/contract.json`
+- 当前允许做什么：只允许做采集 authority、version/clock precedence、fixation 与 handoff 校验收口。
+- 当前禁止做什么：不得让 raw payload 覆盖 Stage 1 authority；不得把采集结果包装为客户可见结论；不得默认放开真实外部源。
+- 相关 contracts / tests：`contracts/schemas/public_chain.schema.json`；`contracts/schemas/notice_version_chain.schema.json`；`contracts/schemas/clock_chain_profile.schema.json`；`tests/test_stage12_extractors.py`
+- 近端候选 `packet_id`：`PKT-P1-01-stage12-rollout-precedence`
 
-- 正式权威 / 裁决源：`L0.md`、`裁决总表.md`、`D1-D14`
-- 正式状态源：`control/repo_status.md`、`control/current_task.yaml`、`control/milestone_status.yaml`、`docs/文档与资产状态板.md`
-- 条件开工裁决页：`docs/正式业务代码开发开工裁决页.md`
-- 技术实现边界支撑：`docs/技术实现决策页.md`
+## 2.3 Stage 3 结构化解析与关键对象抽取
 
-### 2.2 当前阶段与作用域
+- 阶段目标：把公开链内容转成可消费的结构化对象，并保留字段来源链与对象归一基础。
+- 正式输入：`public_chain`、`notice_version_chain`、`clock_chain_profile`、`fixation_bundle`。
+- 正式输出：`project_base`、`field_lineage_record` 以及后续核验所需的结构化抽取对象。
+- 上游 handoff：`handoff/stage2_to_stage3/contract.json`
+- 下游 handoff：`handoff/stage3_to_stage4/contract.json`
+- 当前允许做什么：只允许做解析一致性、字段 lineage、schema 对齐与 handoff 完整性校验。
+- 当前禁止做什么：不得新造第二套对象体系；不得跳过 lineage 直接供页面/销售消费；不得把解析层写成统一事实层。
+- 相关 contracts / tests：`contracts/schemas/project_base.schema.json`；`contracts/schemas/field_lineage_record.schema.json`；`handoff/stage3_to_stage4/validator.json`；`tests/test_internal_chain.py`
+- 近端候选 `packet_id`：`PKT-P1-01-stage12-rollout-precedence`、`PKT-P0-01-review-queue-window-scoring`
 
-- 当前 phase：`PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT`
-- 当前仓库总体 readiness：`READY_FOR_POST-REPAIR_MAINLINE_SELECTION`
-- 当前 conditional-go：`READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT`
-- 当前导航状态：`CONTROLLED_ROUTE_MAP_RESTORED`
-- 当前 FF 主链结论：`FF-01~FF-18 主链完成`
-- 当前是否 candidate-gap：`否`
-- 当前是否 strategic-branch：`否`
-- 当前 closure review：`已关闭`
-- 当前 mainline selection：`就绪`
-- 当前 formal implementation mainline：`未选定`
+## 2.4 Stage 4 关键对象定向公开核验与冲突预判
 
-作用域拆分：
-- `READY_FOR_POST-REPAIR_MAINLINE_SELECTION` 只表示 post-repair authority convergence 已完成，可以进入 formal mainline selection；不表示任何 implementation batch 已自动获批。
-- `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` 只表示内部 LeadOps 正式开发可继续，不等于 external-ready。
-- `READY_FOR_POST-R6_CANDIDATE_GAP_BATCH` 与 `READY_FOR_POST-R6_STRATEGIC_BRANCH_BATCH` 只保留为历史 R6-path 语义，不再是当前 repo readiness。
-- 本文件只负责导航，不是新的 phase/readiness 生成器。
-- 本文件的 formal route 只看第 3-5 节；历史 `M* / R5 / R6 / activation prep` 只保留在第 6 节历史导航附录。
+- 阶段目标：围绕关键对象完成公开核验、冲突识别、攻击面整理与核验画像形成。
+- 正式输入：`project_base`、`field_lineage_record` 与 Stage 3 抽取对象。
+- 正式输出：`public_attack_surface`、`focus_bidder_verification_profile`、`evidence_grade_profile`。
+- 上游 handoff：`handoff/stage3_to_stage4/contract.json`
+- 下游 handoff：`handoff/stage4_to_stage5/contract.json`
+- 当前允许做什么：只允许做公开核验、冲突预判、verification profile 与 handoff 的受控补齐。
+- 当前禁止做什么：不得直接生成商业对象；不得越级形成正式外发结论；不得绕开 Stage 5 双闸门。
+- 相关 contracts / tests：`contracts/schemas/public_attack_surface.schema.json`；`contracts/schemas/focus_bidder_verification_profile.schema.json`；`contracts/schemas/evidence_grade_profile.schema.json`；`tests/test_internal_chain.py`
+- 近端候选 `packet_id`：`PKT-P0-01-review-queue-window-scoring`
 
-### 2.3 当前仍然有效的 blocked / governed 边界
+## 2.5 Stage 5 规则与证据双闸门
 
-- `external software release` 继续 `BLOCKED`
-- 线索包外发继续要求审批链 + 审计链
-- Stage 8 real execution 不是默认开放，仍为 governed / approval-gated / blocked by default
-- Stage 9 real payment / delivery / refund 不是默认开放，仍为 governed / approval-gated / blocked by default
-- model / provider / tool / source 的真实外部接入仍受 capability + review gate + governance 约束
-- 高限制字段仍受更严格规则，不得因路线图拆层而放宽
+- 阶段目标：把规则命中与证据可见性收口为统一双闸门，决定结果是升级、降级还是转复核。
+- 正式输入：Stage 4 核验结果、规则目录、证据对象与治理约束。
+- 正式输出：`rule_hit`、`evidence`、`rule_gate_decision`、`evidence_gate_decision`、`review_request`。
+- 上游 handoff：`handoff/stage4_to_stage5/contract.json`
+- 下游 handoff：`handoff/stage5_to_stage6/contract.json`
+- 当前允许做什么：只允许做规则、证据、gate object、golden 与 regression 的受控收口。
+- 当前禁止做什么：不得单闸门升级正式结论；不得把截图、OCR 或模型摘要写成唯一主证；不得跳过复核请求。
+- 相关 contracts / tests：`contracts/schemas/rule_gate_decision.schema.json`；`contracts/schemas/evidence_gate_decision.schema.json`；`contracts/testing/golden_cases.json`；`tests/test_stage56_evaluators.py`
+- 近端候选 `packet_id`：`PKT-P0-01-review-queue-window-scoring`
 
-## 3. 正式阶段 1-9 单一主线表达
+## 2.6 Stage 6 人工复核、统一事实、真实竞争者识别与正式报告
 
-正式阶段主链固定为：
+- 阶段目标：把前五阶段结果汇聚为唯一统一事实中枢，并形成复核队列、真实竞争者画像与正式报告对象。
+- 正式输入：`rule_gate_decision`、`evidence_gate_decision`、`review_request`、人工复核结果与治理状态。
+- 正式输出：`project_fact`、`legal_action_recommendation`、`review_queue_profile`、`challenger_candidate_profile`、`report_record`。
+- 上游 handoff：`handoff/stage5_to_stage6/contract.json`
+- 下游 handoff：`handoff/stage6_to_stage7/contract.json`
+- 当前允许做什么：只允许做 `project_fact` 聚合、review queue、report、challenger profile 与 Stage 6/7 handoff 的受控闭合。
+- 当前禁止做什么：不得绕开 `project_fact` 形成主判断；不得把 Stage 6 输出写成状态源；不得把 Stage 7 反向变成统一事实来源。
+- 相关 contracts / tests：`contracts/schemas/project_fact.schema.json`；`contracts/schemas/review_queue_profile.schema.json`；`contracts/schemas/report_record.schema.json`；`tests/test_stage56_evaluators.py`
+- 近端候选 `packet_id`：`PKT-P0-01-review-queue-window-scoring`
 
-1. Stage 1：任务编排与来源/路由治理
-2. Stage 2：公开链采集、窗口期、版本/时钟裁决
-3. Stage 3：结构化解析与关键对象抽取
-4. Stage 4：关键对象定向公开核验与冲突预判
-5. Stage 5：规则与证据双闸门
-6. Stage 6：`project_fact / report_record / review_queue_profile / challenger_candidate_profile`
-7. Stage 7：`saleable_opportunity / buyer_fit / legal_action_recommendation / recommendation`
-8. Stage 8：`contact_target / outreach_plan / touch_record`
-9. Stage 9：`order_record / payment_record / delivery_record / outcome / governance feedback`
+## 2.7 Stage 7 商业承接与可售对象
 
-补充说明：
-- Stage 1-9 的正式顺序、对象边界与消费方向仍以 L0、D2、D3、D11、D13 为准。
-- Stage 3-5 当前继续依赖现行 formal object / handoff / gate baseline；本文件不再把历史修复批当成 Stage 3-5 的替代路线表达。
-- route map 只表达“当前 formal mainline 导航”，不表达历史 closeout 批次。
+- 阶段目标：在不突破统一事实边界的前提下，形成可售机会、买方匹配、行动主体与推荐方案。
+- 正式输入：`project_fact`、`challenger_candidate_profile`、`legal_action_recommendation` 以及 Stage 6 handoff。
+- 正式输出：`saleable_opportunity`、`buyer_fit`、`challenger_buyer_fit`、`legal_action_actor_profile`、`procurement_decision_actor_profile`、`offer_recommendation`、`account_context`。
+- 上游 handoff：`handoff/stage6_to_stage7/contract.json`
+- 下游 handoff：`handoff/stage7_to_stage8/contract.json`
+- 当前允许做什么：只允许做 Stage 7 商业对象、buyer fit、价值评分、价格归一、竞争者排序与 internal recommendation surface 的受控闭合。
+- 当前禁止做什么：不得越过 `project_fact` 直接生成机会；不得把 recommendation 写成对外软件 release；不得放开 Stage 8/9 live path。
+- 相关 contracts / tests：`contracts/sales/buyer_fit_scorecard.json`；`contracts/sales/lead_value_scoring_catalog.json`；`contracts/sales/price_normalization_catalog.json`；`tests/test_stage7_runtime_closure.py`
+- 近端候选 `packet_id`：`PKT-P0-02-stage7-buyer-fit-value-derivation`、`PKT-P0-03-stage7-price-competitor-resolution`
 
-## 4. 当前 formal implementation route（navigation only）
+## 2.8 Stage 8 联系对象与销售触达编排
 
-### 4.1 当前 formal route 片段
+- 阶段目标：在 governed internal 边界内形成联系人、触达计划与触达记录，并保持 candidate 与 execution 语义分层。
+- 正式输入：`saleable_opportunity`、Stage 7 actor/fit 输出、联系来源策略、合规矩阵与 cadence 规则。
+- 正式输出：`contact_target`、`outreach_plan`、`touch_record`。
+- 上游 handoff：`handoff/stage7_to_stage8/contract.json`
+- 下游 handoff：`handoff/stage8_to_stage9/contract.json`
+- 当前允许做什么：只允许做 `contact_target`、candidate merge、compliance lattice、draft-only / preview / governed internal path 的受控闭合。
+- 当前禁止做什么：不得放开 real execution；不得把高限制字段直接外发；不得把第三方 enrichment 或 execution vendor 写成默认 live。
+- 相关 contracts / tests：`contracts/sales/contact_compliance_matrix.json`；`contracts/sales/contact_source_policy_catalog.json`；`contracts/sales/outreach_cadence_catalog.json`；`tests/test_stage8_resolution_closure.py`
+- 近端候选 `packet_id`：`PKT-P0-04-stage8-compliance-lattice`、`PKT-P0-05-stage8-contact-enrichment-merge`
 
-| 路线图片段 | 覆盖阶段 | 主要目标 | 允许推进的实现形态 | 进入条件 | 仍 blocked / governed 边界 |
-|---|---|---|---|---|---|
-| R0 Stage 1-2 rollout / precedence | Stage 1-2 | 收紧 source rollout、default/fallback route、version/clock precedence 与 handoff authority | docs/contracts/control 驱动的 rollout / precedence 收口；不得越权改写 L0 | 当前 readiness 维持 `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`；必须先走 task packet；不得引入真实外部源默认开放 | external source live enable 不开；不得把 rollout 写成全国默认覆盖 |
-| R1 Stage 6 / 7 商业对象与输入闭合 | Stage 6-7 | 收紧 `project_fact -> legal_action_recommendation -> challenger_candidate_profile -> saleable_opportunity` 的 producer/consumer 闭合 | 受控实现、typed object 厚化、internal recommendation surfaces | 前序 guardrails 持续通过；对应 task packet 已声明 change class / review；不得改写 D2-D10 正式语义 | external release 不开；商业对象仍不得越过 `project_fact` |
-| R2 Stage 8 schema / plan / writeback 厚化 | Stage 8 | 厚化 `contact_target / outreach_plan / touch_record`，完善 governed internal preview / draft-only 承接 | internal preview、draft generation、governed writeback、schema/plan/type 厚化 | R1 不得回退；Stage 8 高风险路径必须继续受 permission/governance/semantic 三层约束；必须走 task packet | real execution 默认不开；高限制字段与外部触达仍受审批链 |
-| R3 Stage 9 typed workflow / internal governed execution skeleton | Stage 9 | 厚化 `order/payment/delivery/outcome/governance` typed workflow，形成 internal governed execution skeleton | typed workflow、internal preview、governed writeback、draft-only execution skeleton | R2 稳定；Stage 9 仍只允许 internal governed，不得把 preview/draft 写成 live | real payment/delivery/refund 默认不开；external release 不开 |
-| R4 Internal surfaces / preview / draft-only 承接 | Stage 6-9 消费面 | 让 internal surfaces 清晰消费 Stage 6-9 正式对象，不新增第二套主判断 | internal workbench / preview / draft-only surface 收口 | R0-R3 对象闭合与 guardrail 持续通过；页面/接口只允许消费正式对象 | client/external surfaces 仍受 release/delivery/approval 门禁 |
+## 2.9 Stage 9 订单、支付、交付与治理反馈
 
-### 4.2 当前 formal route 解释
+- 阶段目标：在 internal governed 边界内形成订单、支付、交付、结果事件与治理反馈回写闭环。
+- 正式输入：`contact_target`、`outreach_plan`、`touch_record` 与 Stage 8/9 handoff。
+- 正式输出：`order_record`、`payment_record`、`delivery_record`、`opportunity_outcome_event`、`governance_feedback_event`。
+- 上游 handoff：`handoff/stage8_to_stage9/contract.json`
+- 下游 handoff：无，主链终点。
+- 当前允许做什么：只允许做 typed workflow、writeback contract、governance feedback、internal preview / governed writeback 的受控闭合。
+- 当前禁止做什么：不得放开 real payment / delivery / refund；不得把 projected mutation 写成默认持久化执行；不得把 Stage 9 写成 external release 放行口。
+- 相关 contracts / tests：`contracts/governance/writeback_impact_policy.json`；`contracts/sales/outcome_taxonomy_catalog.json`；`contracts/schemas/delivery_record.schema.json`；`tests/test_stage9_impact_executor.py`
+- 近端候选 `packet_id`：`PKT-P0-06-stage9-writeback-contract-core`、`PKT-P0-07-stage9-upstream-feedback-loop`
 
-- R0 是正式阶段 1-2 当前唯一新增导航入口；它不替代 Stage 3-9，只补齐 Stage 1-2 的 rollout / precedence 正式化。
-- R1-R4 继续承接当前 Stage 6-9 formal object / handoff / preview consumption 的单一主线。
-- future unlock、activation prep、implementation decision readiness 不属于当前 formal implementation route。
+## 3. 跨阶段近端候选
 
-## 5. Formal Route Entry Rules
+- `PKT-P1-02-capability-canonicalization`：用于 capability canonical source、future unlock decision-only 边界与 runtime precedence 收口，不改变当前主导航图的阶段顺序。
+- `PKT-P1-03-api-ui-capability-envelope`：用于 Stage 7-9 preview surface 只消费正式对象与 canonical envelope，不新增第二套主判断。
+- `PKT-P1-04-generated-assertions-cadence-ladder`：用于 Stage 8 cadence ladder 与 regression 断言补强，不放开真实触达。
+- `PKT-P1-05-validator-anti-drift-semanticization`：用于 validator 语义化收口，不改变任何业务对象语义。
 
-### 5.1 共通进入条件
+## 4. 非主线排除项
 
-进入任一 formal route 片段前，必须同时满足：
-- `check-automation-readiness / check-semantic-alignment / check-release / lint-drift` 等当前 required scripts 全部通过；
-- 不新增第二套对象、第二套状态源、第二套主判断；
-- route segment 对应 `task packet` 已声明允许范围、禁止范围、change class、owner reviews；
-- 若触及 shared runtime / governance / release / Stage 8/9 高风险域，必须按 `MANDATORY_HUMAN_REVIEW` 进入。
-
-### 5.2 R0 Stage 1-2 rollout / precedence
-
-进入前必须同时满足：
-- Stage 1-2 authority drift 已保持关闭；
-- source / route / default_route / precedence 仍受现行 formal object + handoff 约束；
-- 不把 rollout / precedence 收口误写成 external source capability 放开。
-
-### 5.3 R1-R4 Stage 6-9 当前 formal route
-
-进入前必须同时满足：
-- Stage 6-9 继续保持 formal object single-source consumption；
-- internal preview / draft-only / governed writeback 边界未被放宽；
-- Stage 8 / Stage 9 live execution 与 external release 继续 blocked/governed。
-
-## 6. 历史导航附录（非当前 formal stage 1-9 route）
-
-### 6.1 历史修复批
-
-- `M1 / M7 / M2 / M3 / M4 / M5 / M6 / M8` 已完成；它们只保留为历史修复导航，不再充当当前 selected packet、formal implementation mainline 或 readiness source。
-- 这些历史修复批的作用是说明 guardrail / repair / baseline 曾如何收口，不再表达“下一步正式阶段 1-9 按什么顺序开发”。
-
-### 6.2 future unlock 历史导航
-
-- `R5 external unlock prerequisites`、`R6 future unlock decision`、`Post-R6 candidate gap`、`LeadPack candidate activation prep`、`LeadPack activation design / implementation prep`、`LeadPack implementation decision readiness signoff` 只保留为 future unlock history。
-- 这些条目可作为 history / decision lookup，但不构成当前 approval、implementation approval、activation approval，也不构成当前 repo readiness。
-- `candidate / deny / blocked` 仍有效，但只属于 future unlock decision vocabulary；不得被回写成当前 formal route 或当前 readiness。
-
-## 7. 路线图推进方式
-
-### 7.1 一律先走 task packet
-
-后续路线图推进不得再靠聊天临时判断，必须先形成 machine-readable task packet：
-- 正式位置：`control/current_task.yaml -> currentTask.task_packet`
-- 模板：`docs/自动开发任务包模板.md`
-
-### 7.2 高风险段必须走 review gate
-
-以下路线图片段默认按高风险处理：
-- 触及 `shared_runtime_core`
-- 触及 `governance_release_core`
-- 触及 `provider_vendor_source_policy_core`
-- 触及 `stage8_stage9_high_risk_execution`
-- 触及 `automation_control_core`
-
-要求：
-- 至少 `MANDATORY_HUMAN_REVIEW`
-- 命中 `STOP_AND_ESCALATE` 时立即停机
-- 不得把 governed / preview / approval-required 降级成 default live
-
-### 7.3 统一引用链
-
-- 动作门禁：`docs/自动化开发动作门禁表.md`
-- task packet 模板：`docs/自动开发任务包模板.md`
-- 执行纪律：`docs/D1_研发_Codex执行手册.md`
-- 验收 / 发布前检查：`docs/D11_测试验收与金标回归清单.md`
-
-## 8. 当前最小结论
-
-- 当前仓库已经恢复到**受控路线图可导航、可推进**状态；
-- 这不等于业务全链 ready，更不等于 external-ready；
-- `FF-18-S1` 只完成状态源与导航源 closeout；本窗结束后停机，不自动进入任何新任务；
-- `FF-01~FF-18` 主链完成，但当前 formal implementation mainline 仍由人工另行选择；
-- 当前 formal implementation mainline 仍未选定；route map 只保留 formal stage 1-9 单一主线表达；
-- 历史 `M* / R5 / R6 / activation prep / implementation decision readiness` 已拆到历史导航附录，不再污染当前 formal route；
-- route map 继续只是 navigation asset，不是 readiness source。
+- `R5 external unlock prerequisites` 不是当前阶段 1-9 主导航图的一部分。
+- `R6 future unlock decision` 不是当前阶段 1-9 主导航图的一部分。
+- `Post-R6 candidate gap` 不是当前阶段 1-9 主导航图的一部分。
+- future unlock、activation prep、implementation decision readiness 只允许作为历史决策语汇或他处 machine-readable 资产的查询项，不得回写成当前主线正文。
