@@ -456,12 +456,27 @@ class TestPreRouteBehavior(unittest.TestCase):
         self.assertEqual(stage8.inputs.get("next_step_optional"), touch_record.get("next_step_optional"))
         self.assertEqual(stage8.inputs.get("writeback_targets"), touch_record.get("writeback_targets"))
         self.assertEqual(
+            stage8.inputs.get("writeback_target_optional"),
+            touch_record.get("writeback_target_optional"),
+        )
+        self.assertEqual(
+            stage8.inputs.get("failure_reason_tag_optional"),
+            touch_record.get("failure_reason_tag_optional"),
+        )
+        self.assertEqual(
+            stage8.inputs.get("stop_reason_optional"),
+            touch_record.get("stop_reason_optional"),
+        )
+        self.assertEqual(
             stage8.inputs.get("written_back_at_optional"),
             touch_record.get("written_back_at_optional"),
         )
         self.assertEqual(contact_target.get("source_vendor_role"), "PUBLIC_OFFICIAL_SOURCE")
         self.assertEqual(contact_target.get("source_vendor_id_optional"), "SOURCE-OFFICIAL-WEBSITE")
         self.assertIsNone(human_handoff)
+        self.assertIsNone(stage8.inputs.get("human_handoff_next_owner_role_optional"))
+        self.assertIsNone(stage8.inputs.get("human_handoff_sla_hours_optional"))
+        self.assertIsNone(stage8.inputs.get("human_handoff_reason_optional"))
         self.assertIsNone(stage8.handoff.get("human_handoff_next_owner_role_optional"))
         self.assertIsNone(stage8.handoff.get("human_handoff_sla_hours_optional"))
         self.assertIsNone(stage8.handoff.get("human_handoff_reason_optional"))
@@ -531,6 +546,73 @@ class TestPreRouteBehavior(unittest.TestCase):
             human_handoff.get("reason_optional"),
             "human_followup_required_after_connected",
         )
+
+    def test_stage8_h08_payload_and_writeback_projection_stay_authoritative_on_org_routed_handoff(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "run_mode": "APPROVAL_RUN",
+                "approval_state": "APPROVED",
+                "response_status": "ORG_ROUTED",
+                "commercial_urgency_level": "HIGH",
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        touch_record = stage8.record("touch_record")
+        human_handoff = touch_record.get("governed_metadata", {}).get("human_handoff", {})
+        expected_h08_projection = {
+            "opportunity_id": stage8.record("saleable_opportunity").get("opportunity_id"),
+            "touch_record_id": touch_record.get("touch_record_id"),
+            "response_status": touch_record.get("response_status"),
+            "saleability_status": stage8.record("saleable_opportunity").get("saleability_status"),
+            "crm_owner_state": stage8.record("saleable_opportunity").get("crm_owner_state"),
+        }
+
+        for field_name, expected_value in expected_h08_projection.items():
+            self.assertEqual(stage8.handoff.get(field_name), expected_value)
+            self.assertEqual(stage8.inputs.get(field_name), expected_value)
+
+        self.assertEqual(stage8.handoff.get("feedback_reason"), touch_record.get("feedback_reason"))
+        self.assertEqual(
+            stage8.handoff.get("written_back_at_optional"),
+            touch_record.get("written_back_at_optional"),
+        )
+        self.assertEqual(stage8.inputs.get("writeback_targets"), touch_record.get("writeback_targets"))
+        self.assertEqual(
+            stage8.inputs.get("writeback_target_optional"),
+            touch_record.get("writeback_target_optional"),
+        )
+        self.assertEqual(stage8.inputs.get("next_step_optional"), touch_record.get("next_step_optional"))
+        self.assertEqual(
+            stage8.inputs.get("written_back_at_optional"),
+            touch_record.get("written_back_at_optional"),
+        )
+        self.assertEqual(stage8.handoff.get("human_handoff_next_owner_role_optional"), "sales_user")
+        self.assertEqual(stage8.handoff.get("human_handoff_sla_hours_optional"), 24)
+        self.assertEqual(
+            stage8.handoff.get("human_handoff_reason_optional"),
+            "organization_route_followup_required",
+        )
+        self.assertEqual(
+            stage8.inputs.get("human_handoff_next_owner_role_optional"),
+            stage8.handoff.get("human_handoff_next_owner_role_optional"),
+        )
+        self.assertEqual(
+            stage8.inputs.get("human_handoff_sla_hours_optional"),
+            stage8.handoff.get("human_handoff_sla_hours_optional"),
+        )
+        self.assertEqual(
+            stage8.inputs.get("human_handoff_reason_optional"),
+            stage8.handoff.get("human_handoff_reason_optional"),
+        )
+        self.assertEqual(human_handoff.get("next_owner_role_optional"), "sales_user")
+        self.assertEqual(human_handoff.get("sla_hours_optional"), 24)
+        self.assertEqual(
+            human_handoff.get("reason_optional"),
+            "organization_route_followup_required",
+        )
+        self.assertEqual(human_handoff.get("next_step_optional"), "WAIT_ORG_RESPONSE")
 
     def test_stage9_outcome_governance_taxonomy_trace_behavior(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

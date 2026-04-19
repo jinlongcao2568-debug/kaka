@@ -532,6 +532,42 @@ catch {
 
 if (-not ($cases.PSObject.Properties.Name -contains 'cases')) { Fail 'golden_cases.json must contain top-level key: cases' }
 
+$requiredRuntimeCases = [ordered]@{
+    'GC-RT-STAGE8-FAILURE-001'         = 'STAGE8_FAILURE_WRITEBACK'
+    'GC-RT-STAGE8-FAILURE-002'         = 'STAGE8_FAILURE_WRITEBACK'
+    'GC-RT-H08-PAYLOAD-001'            = 'H08_PAYLOAD_CLOSURE'
+    'GC-RT-H08-PAYLOAD-CONNECTED-001'  = 'H08_PAYLOAD_CLOSURE'
+    'GC-RT-H08-PAYLOAD-ORG-ROUTED-001' = 'H08_PAYLOAD_CLOSURE'
+    'GC-RT-STAGE9-CONSUMER-001'        = 'STAGE9_CONSUMER_H08'
+    'GC-RT-STAGE9-EXECUTOR-001'        = 'STAGE9_EXECUTOR_COVERAGE'
+    'GC-RT-STAGE9-EXECUTOR-002'        = 'STAGE9_EXECUTOR_COVERAGE'
+    'GC-RT-STAGE9-WRITEBACK-001'       = 'STAGE9_WRITEBACK_ADDITIVE'
+    'GC-RT-STAGE9-WRITEBACK-002'       = 'STAGE9_WRITEBACK_ADDITIVE'
+}
+$caseIndex = @{}
+foreach ($case in @($cases.cases)) {
+    if ($case.case_id) {
+        $caseIndex[[string]$case.case_id] = $case
+    }
+}
+foreach ($requiredCaseId in $requiredRuntimeCases.Keys) {
+    if (-not $caseIndex.ContainsKey($requiredCaseId)) {
+        Add-CaseIssue -Bag ([ref]$issues) -CaseId $requiredCaseId -Message "Missing required runtime golden case: $requiredCaseId"
+        continue
+    }
+
+    $requiredRuntimeCheckId = [string]$requiredRuntimeCases[$requiredCaseId]
+    $case = $caseIndex[$requiredCaseId]
+    $runtimeCheckId = $null
+    if ($case.expected -and ($case.expected.PSObject.Properties.Name -contains 'runtime_check_id')) {
+        $runtimeCheckId = [string]$case.expected.runtime_check_id
+    }
+
+    if ($runtimeCheckId -ne $requiredRuntimeCheckId) {
+        Add-CaseIssue -Bag ([ref]$issues) -CaseId $requiredCaseId -Message "Runtime golden case $requiredCaseId must keep runtime_check_id=$requiredRuntimeCheckId; actual=$runtimeCheckId"
+    }
+}
+
 $selected = @($cases.cases)
 if ($CaseId) {
     $selected = @($cases.cases | Where-Object case_id -eq $CaseId)

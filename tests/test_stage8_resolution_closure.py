@@ -512,9 +512,18 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         trace = stage8.inputs["stage8_resolution_trace"]
 
         self.assertEqual(contact_target.get("source_vendor_id_optional"), "SOURCE-AUTHORIZED-CRM")
+        self.assertEqual(contact_target.get("source_vendor_role"), "CONTACT_ENRICHMENT_SOURCE")
+        self.assertEqual(contact_target.get("fallback_vendor_id_optional"), "SOURCE-AUTHORIZED-CRM")
         self.assertEqual(outreach_plan.get("execution_vendor_id_optional"), "EXEC-EMAIL-SERVICE")
+        self.assertEqual(outreach_plan.get("fallback_vendor_id_optional"), "EXEC-EMAIL-SERVICE")
+        self.assertNotEqual(
+            contact_target.get("source_vendor_id_optional"),
+            outreach_plan.get("execution_vendor_id_optional"),
+        )
         self.assertEqual(trace["source_vendor_resolution"]["resolved_from"], "POLICY_DEFAULT")
+        self.assertEqual(trace["source_vendor_resolution"]["decision_state"], "ALLOW")
         self.assertEqual(trace["execution_vendor_resolution"]["resolved_from"], "POLICY_DEFAULT")
+        self.assertEqual(trace["execution_vendor_resolution"]["decision_state"], "ALLOW")
 
     def test_stage8_unknown_source_vendor_blocks_without_project_fallback(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

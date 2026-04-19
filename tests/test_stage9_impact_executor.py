@@ -338,6 +338,10 @@ class TestStage9ImpactExecutor(unittest.TestCase):
             ["saleable_opportunity", "project_fact"],
         )
         self.assertEqual(
+            stage9.inputs["outcome_writeback_targets"],
+            ["project_fact", "saleable_opportunity"],
+        )
+        self.assertEqual(
             stage9.inputs["governance_writeback_targets_optional"],
             ["delivery_record", "release_gates"],
         )
@@ -352,9 +356,35 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         )
         self.assertNotIn("buyer_fit", stage9.inputs["effective_writeback_targets"])
         self.assertEqual(
+            stage9.inputs["resolved_effective_writeback_targets"],
+            [
+                "project_fact",
+                "saleable_opportunity",
+                "opportunity_outcome_event",
+                "delivery_record",
+                "release_gates",
+                "governance_feedback_event",
+                "payment_record",
+            ],
+        )
+        self.assertEqual(
             stage9.inputs["writeback_target_sources"]["project_fact"],
             ["outcome_taxonomy", "payment_exception"],
         )
+        self.assertEqual(
+            stage9.inputs["writeback_target_sources"]["saleable_opportunity"],
+            ["outcome_taxonomy", "payment_exception"],
+        )
+        self.assertEqual(
+            stage9.inputs["writeback_target_sources"]["delivery_record"],
+            ["governance_taxonomy"],
+        )
+        self.assertEqual(
+            stage9.inputs["writeback_target_sources"]["payment_record"],
+            ["payment_exception"],
+        )
+        self.assertEqual(stage9.inputs["impact_targets_projected_contract_only"], [])
+        self.assertEqual(stage9.inputs["writeback_advisory_targets"], [])
 
     def test_refund_requested_keeps_precise_family_and_coarse_signed_reason(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -410,9 +440,39 @@ class TestStage9ImpactExecutor(unittest.TestCase):
             ["outcome_taxonomy", "payment_exception"],
         )
         self.assertEqual(
+            stage9.inputs["writeback_target_sources"]["order_record"],
+            ["outcome_taxonomy", "payment_exception"],
+        )
+        self.assertEqual(
+            stage9.inputs["writeback_target_sources"]["delivery_record"],
+            ["governance_taxonomy", "payment_exception"],
+        )
+        self.assertEqual(
+            stage9.inputs["writeback_target_sources"]["release_gates"],
+            ["governance_taxonomy"],
+        )
+        self.assertEqual(
+            stage9.inputs["writeback_target_sources"]["governance_feedback_event"],
+            ["governance_taxonomy"],
+        )
+        self.assertEqual(
+            stage9.inputs["resolved_effective_writeback_targets"],
+            [
+                "order_record",
+                "payment_record",
+                "opportunity_outcome_event",
+                "sales_lead",
+                "report_record",
+                "delivery_record",
+                "release_gates",
+                "governance_feedback_event",
+            ],
+        )
+        self.assertEqual(
             set(stage9.inputs["impact_targets_projected_contract_only"]),
             {"sales_lead", "report_record"},
         )
+        self.assertEqual(stage9.inputs["writeback_advisory_targets"], [])
 
     def test_policy_executor_exposes_canonical_source_contract_outputs(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

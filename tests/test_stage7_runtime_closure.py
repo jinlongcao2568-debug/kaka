@@ -255,6 +255,18 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must-not-recompute conflicts"):
             run_internal_chain_to_stage7(payload)
 
+    def test_stage7_blocks_when_any_single_h06_authoritative_field_is_overridden(self) -> None:
+        for field_name, override_value in {
+            "sale_gate_status": "OPEN",
+            "competitor_quality_grade": "A",
+        }.items():
+            payload = copy.deepcopy(load_fixture("internal_chain_block.json"))
+            payload.update({field_name: override_value})
+
+            with self.subTest(field_name=field_name):
+                with self.assertRaisesRegex(ValueError, "must-not-recompute conflicts"):
+                    run_internal_chain_to_stage7(payload)
+
     def test_stage7_price_candidate_resolution_prefers_highest_priority_source(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload["price_source_set_optional"] = [

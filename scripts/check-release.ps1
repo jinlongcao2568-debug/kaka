@@ -170,7 +170,7 @@ else {
                 $releaseItemIds.Add([string]$item.itemId) | Out-Null
             }
         }
-        foreach ($requiredId in @('REL-100','REL-101','REL-102','REL-103','REL-104','REL-105','REL-106','REL-107','REL-108','REL-109','REL-110','REL-111','REL-112','REL-113','REL-114','REL-160','REL-161','REL-162','REL-163','REL-164','REL-165')) {
+        foreach ($requiredId in @('REL-100','REL-101','REL-102','REL-103','REL-104','REL-105','REL-106','REL-107','REL-108','REL-109','REL-110','REL-111','REL-112','REL-113','REL-114','REL-160','REL-161','REL-162','REL-163','REL-164','REL-165','REL-187','REL-188','REL-189','REL-190','REL-191','REL-192')) {
             if (-not $releaseItemIds.Contains($requiredId)) {
                 $issues.Add([pscustomobject]@{
                     severity = 'ERROR'
@@ -202,7 +202,7 @@ else {
         foreach ($suite in @($regressionManifest.suites)) {
             $suiteIds.Add([string]$suite.suite_id) | Out-Null
         }
-        foreach ($requiredSuite in @('REG-ARCH-SERVICE-HARDCODE-ANTI-REGRESSION','REG-ARCH-UNUSED-CATALOG-PARTIAL-CONSUMPTION','REG-ARCH-GOVERNANCE-RUNTIME-CONSUMPTION-CLOSURE','REG-ARCH-SCHEMA-VALIDATOR-MODEL-DRIFT','REG-ARCH-HANDOFF-PRODUCER-CONSUMER-DRIFT','REG-ARCH-UNIFIED-RUNTIME-SPINE','REG-CHANGE-CLASS-REVIEW-GATE','REG-TASK-PACKET-HARD-GATE','REG-REVIEW-GATE-STOP-LINKAGE','REG-RELEASE-READINESS-REVIEW-GATE','REG-POST-REPAIR-STATE-SYNC')) {
+        foreach ($requiredSuite in @('REG-ARCH-SERVICE-HARDCODE-ANTI-REGRESSION','REG-ARCH-UNUSED-CATALOG-PARTIAL-CONSUMPTION','REG-ARCH-GOVERNANCE-RUNTIME-CONSUMPTION-CLOSURE','REG-ARCH-SCHEMA-VALIDATOR-MODEL-DRIFT','REG-ARCH-HANDOFF-PRODUCER-CONSUMER-DRIFT','REG-ARCH-UNIFIED-RUNTIME-SPINE','REG-CHANGE-CLASS-REVIEW-GATE','REG-TASK-PACKET-HARD-GATE','REG-REVIEW-GATE-STOP-LINKAGE','REG-RELEASE-READINESS-REVIEW-GATE','REG-POST-REPAIR-STATE-SYNC','REG-FF17-S2-RUNTIME-SURFACE-WRITEBACK-HARDENING','REG-FF17-S2-CAPABILITY-CANONICAL-SOURCE','REG-FF17-S2-B10-COMPATIBILITY')) {
             if (-not $suiteIds.Contains($requiredSuite)) {
                 $issues.Add([pscustomobject]@{
                     severity = 'ERROR'
@@ -231,6 +231,43 @@ if (-not (Test-Path -LiteralPath $reviewGateMatrixPath)) {
         path     = $reviewGateMatrixPath
         message  = 'review_gate_matrix.yaml is required before release checks can pass.'
     }) | Out-Null
+}
+
+$currentTaskPath = Join-Path $root 'control/current_task.yaml'
+if (-not (Test-Path -LiteralPath $currentTaskPath)) {
+    $issues.Add([pscustomobject]@{
+        severity = 'ERROR'
+        code     = 'MISSING_CURRENT_TASK'
+        path     = $currentTaskPath
+        message  = 'control/current_task.yaml is required before release checks can pass.'
+    }) | Out-Null
+}
+else {
+    try {
+        $currentTaskText = Get-Content -LiteralPath $currentTaskPath -Raw -Encoding UTF8
+        foreach ($expected in @(
+            @{ pattern = 'source_blueprint_batch_id:\s*"B10"'; code = 'CURRENT_TASK_SOURCE_BLUEPRINT_BATCH_MISMATCH'; message = 'current_task.yaml must keep source_blueprint_batch_id=B10 during FF-17-S3 closeout.' },
+            @{ pattern = 'packet_id:\s*"FF-17-S3"'; code = 'CURRENT_TASK_PACKET_ID_MISMATCH'; message = 'current_task.yaml must declare packet_id=FF-17-S3 for the active scoped packet.' },
+            @{ pattern = 'subpacket_id:\s*"FF-17-S3"'; code = 'CURRENT_TASK_SUBPACKET_ID_MISMATCH'; message = 'current_task.yaml must declare subpacket_id=FF-17-S3 for the active scoped packet.' }
+        )) {
+            if ($currentTaskText -notmatch $expected.pattern) {
+                $issues.Add([pscustomobject]@{
+                    severity = 'ERROR'
+                    code     = $expected.code
+                    path     = $currentTaskPath
+                    message  = $expected.message
+                }) | Out-Null
+            }
+        }
+    }
+    catch {
+        $issues.Add([pscustomobject]@{
+            severity = 'ERROR'
+            code     = 'CURRENT_TASK_PARSE_FAILED'
+            path     = $currentTaskPath
+            message  = $_.Exception.Message
+        }) | Out-Null
+    }
 }
 
 $result = [pscustomobject]@{
