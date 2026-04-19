@@ -395,18 +395,36 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         ):
             self.assertIn(suite_id, suite_ids)
 
-    def test_docs_and_status_sources_mark_r6_as_decision_not_implementation(self) -> None:
+    def test_historical_r5_r6_assertions_live_in_history_assets_not_route_map_body(self) -> None:
+        decision_matrix = read_json("contracts/release/future_unlock_decision_matrix.json")
+        prerequisite_state = read_yaml("control/external_unlock_prerequisite_state.yaml")
+        decision_state = read_yaml("control/future_unlock_decision_state.yaml")
         route_map = read_text("docs/AX9S_开发执行路由图.md")
         launch_page = read_text("docs/正式业务代码开发开工裁决页.md")
         status_board = read_text("docs/文档与资产状态板.md")
         repo_status = read_text("control/repo_status.md")
 
-        self.assertIn("R5 external unlock prerequisites", route_map)
-        self.assertIn("R6 future unlock decision", route_map)
-        self.assertIn("Post-R6 candidate gap", route_map)
+        self.assertNotIn("R5 external unlock prerequisites", route_map)
+        self.assertNotIn("R6 future unlock decision", route_map)
+        self.assertNotIn("Post-R6 candidate gap", route_map)
+
+        self.assertIn("Formal R6 future unlock decision matrix", decision_matrix["metadata"]["purpose"])
+        self.assertEqual(decision_state["state_type"], "FUTURE_UNLOCK_DECISION")
+        self.assertEqual(decision_state["decision_scope"], "DECISION_ONLY_NOT_IMPLEMENTATION")
+        self.assertFalse(decision_state["approved_for_unlock_implementation"])
+        self.assertEqual(prerequisite_state["state_type"], "EXTERNAL_UNLOCK_PREREQUISITE_BASELINE")
+        self.assertEqual(prerequisite_state["decision_state_ref"], "control/future_unlock_decision_state.yaml")
+        self.assertTrue(prerequisite_state["decision_batch_executed"])
+
+        self.assertIn("R6 结论补充", launch_page)
         self.assertIn("candidate / deny / blocked", launch_page)
+        self.assertIn("不构成任何 unlock implementation 批准，也不是当前 repo readiness", launch_page)
+        self.assertIn("`control/external_unlock_prerequisite_state.yaml`", status_board)
+        self.assertIn("`control/future_unlock_decision_state.yaml`", status_board)
+        self.assertIn("R6 决策时点快照，不是当前 repo readiness 状态源", status_board)
         self.assertIn("READY_FOR_POST-REPAIR_MAINLINE_SELECTION", status_board)
         self.assertIn("READY_FOR_POST-REPAIR_MAINLINE_SELECTION", repo_status)
+        self.assertIn("R6 candidate / deny / blocked decisions remain valid as decision outputs", repo_status)
         self.assertIn("Mainline Selection Ready: true", repo_status)
 
 
