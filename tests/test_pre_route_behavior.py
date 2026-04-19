@@ -430,6 +430,42 @@ class TestPreRouteBehavior(unittest.TestCase):
         self.assertEqual(human_handoff.get("next_step_optional"), "WAIT_ORG_RESPONSE")
         self.assertEqual(human_handoff.get("reason_optional"), "organization_route_followup_required")
 
+    def test_stage8_invalid_contact_path_keeps_catalog_reason_and_no_human_handoff(self) -> None:
+        feedback_mapping = _feedback_mapping("INVALID_CONTACT")
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"response_status": "INVALID_CONTACT"})
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        touch_record = stage8.record("touch_record")
+        contact_target = stage8.record("contact_target")
+        human_handoff = touch_record.get("governed_metadata", {}).get("human_handoff")
+
+        self.assertEqual(touch_record.get("feedback_reason"), feedback_mapping["feedback_reason"])
+        self.assertEqual(touch_record.get("next_step_optional"), feedback_mapping["next_step_optional"])
+        self.assertEqual(
+            touch_record.get("failure_reason_tag_optional"),
+            feedback_mapping["failure_reason_tag_optional"],
+        )
+        self.assertEqual(touch_record.get("stop_reason_optional"), feedback_mapping["stop_reason_optional"])
+        self.assertEqual(touch_record.get("writeback_targets"), feedback_mapping["writeback_targets"])
+        self.assertEqual(
+            touch_record.get("writeback_target_optional"),
+            feedback_mapping["writeback_targets"][0],
+        )
+        self.assertEqual(stage8.inputs.get("feedback_reason"), touch_record.get("feedback_reason"))
+        self.assertEqual(stage8.inputs.get("next_step_optional"), touch_record.get("next_step_optional"))
+        self.assertEqual(stage8.inputs.get("writeback_targets"), touch_record.get("writeback_targets"))
+        self.assertEqual(
+            stage8.inputs.get("written_back_at_optional"),
+            touch_record.get("written_back_at_optional"),
+        )
+        self.assertEqual(contact_target.get("source_vendor_role"), "PUBLIC_OFFICIAL_SOURCE")
+        self.assertEqual(contact_target.get("source_vendor_id_optional"), "SOURCE-OFFICIAL-WEBSITE")
+        self.assertIsNone(human_handoff)
+        self.assertIsNone(stage8.handoff.get("human_handoff_next_owner_role_optional"))
+        self.assertIsNone(stage8.handoff.get("human_handoff_sla_hours_optional"))
+        self.assertIsNone(stage8.handoff.get("human_handoff_reason_optional"))
+
     def test_stage8_h08_payload_and_writeback_projection_stay_authoritative_on_connected_handoff(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(

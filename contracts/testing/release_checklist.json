@@ -1,6 +1,6 @@
 {
   "registry_id": "release-checklist",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "metadata": {
     "package_name": "testing package round 1",
     "status": "DRAFT",
@@ -1404,6 +1404,67 @@
             "D2-R-092-A",
             "D8-R-090",
             "D11-R-053-O"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "REL-SEC-21",
+      "title": "FF-17-S2 Regression / Release Hardening",
+      "items": [
+        {
+          "itemId": "REL-187",
+          "text": "current_task.task_packet keeps source_blueprint_batch_id=B10 for current full-repair compatibility; scoped packet FF-17-S2 does not rewrite the parent batch to B11 or FF-*.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-AI"
+          ]
+        },
+        {
+          "itemId": "REL-188",
+          "text": "FF-17-S1 complex negative runtime goldens (INVALID_CONTACT, ORG_ROUTED H-08 payload, PARTIAL_PAYMENT, PAYER_MISMATCH) are treated as release-blocking checks through existing runtime_check_id-backed run-golden coverage.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-AH",
+            "D11-R-053-AI"
+          ]
+        },
+        {
+          "itemId": "REL-189",
+          "text": "Stage 7/8/9 internal surfaces and operator flows remain internal_only + draft-only/preview-only + blocked_by_default=true + live_execution_enabled=false; operator progression or persisted replay does not imply live execution or external delivery.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-AE",
+            "D11-R-053-F",
+            "D11-R-053-AI"
+          ]
+        },
+        {
+          "itemId": "REL-190",
+          "text": "Stage 9 typed workflow/writeback layering remains formal and governed: outcome base is authoritative, governance/payment/delivery targets stay additive, projected-only/advisory-only targets remain separated, and persisted writeback metadata stays internal-governed only.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-W",
+            "D11-R-053-AH",
+            "D11-R-053-AI"
+          ]
+        },
+        {
+          "itemId": "REL-191",
+          "text": "contracts/release/runtime_policy_catalog.json remains the sole canonical source for capability mode, priority order, protected short-circuit and EXTERNAL_BLOCKED redline; runtime_inventory, model_release_manifest and release_manifest remain projection/mirror surfaces only.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-AG",
+            "D11-R-053-AI"
+          ]
+        },
+        {
+          "itemId": "REL-192",
+          "text": "future unlock / candidate / design-prep / implementation-decision assets do not redefine current repo readiness or external release; FF-17-S2 closeout can only recommend FF-17-S3 after all required scripts pass.",
+          "blocking": true,
+          "sourceRefs": [
+            "D11-R-053-AG",
+            "D11-R-053-AI"
           ]
         }
       ]

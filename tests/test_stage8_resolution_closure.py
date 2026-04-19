@@ -539,6 +539,34 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertNotIn("PROJECT_FALLBACK", trace["resolved_from"])
         self.assertFalse(contact_target.get("fallback_vendor_id_optional", "").startswith("NO-FALLBACK-"))
 
+    def test_stage8_unknown_source_vendor_keeps_execution_owner_separate(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "source_vendor_role": "PUBLIC_OFFICIAL_SOURCE",
+                "source_vendor_id_optional": "SOURCE-UNKNOWN-REGISTRY",
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        contact_target = stage8.record("contact_target")
+        outreach_plan = stage8.record("outreach_plan")
+        source_trace = stage8.inputs["stage8_resolution_trace"]["source_vendor_resolution"]
+        execution_trace = stage8.inputs["stage8_resolution_trace"]["execution_vendor_resolution"]
+
+        self.assertEqual(contact_target.get("source_vendor_id_optional"), "SOURCE-UNKNOWN-REGISTRY")
+        self.assertEqual(contact_target.get("fallback_vendor_id_optional"), "SOURCE-OFFICIAL-WEBSITE")
+        self.assertEqual(outreach_plan.get("execution_vendor_id_optional"), "EXEC-EMAIL-SERVICE")
+        self.assertEqual(outreach_plan.get("fallback_vendor_id_optional"), "EXEC-EMAIL-SERVICE")
+        self.assertNotEqual(
+            contact_target.get("source_vendor_id_optional"),
+            outreach_plan.get("execution_vendor_id_optional"),
+        )
+        self.assertEqual(source_trace["resolved_from"], "EXPLICIT_UNKNOWN_VENDOR")
+        self.assertEqual(source_trace["decision_state"], "BLOCK")
+        self.assertEqual(execution_trace["resolved_from"], "POLICY_DEFAULT")
+        self.assertEqual(execution_trace["decision_state"], "ALLOW")
+
     def test_stage8_unknown_execution_vendor_blocks_without_project_fallback(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(

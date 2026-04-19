@@ -1,6 +1,6 @@
 {
   "registry_id": "golden-cases",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "metadata": {
     "status": "DRAFT",
     "generated_at": "2026-04-19",
@@ -2193,6 +2193,134 @@
       "source_refs": [
         "D10-R-067",
         "D11-R-053"
+      ]
+    },
+    {
+      "case_id": "GC-RT-STAGE8-FAILURE-002",
+      "title": "Stage 8 invalid contact failure path 保持 catalog-owned writeback",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 8,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {
+          "response_status": "INVALID_CONTACT"
+        }
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "STAGE8_FAILURE_WRITEBACK",
+        "next_step_optional": "RESELECT_CONTACT",
+        "require_written_back_at_optional": true
+      },
+      "source_refs": [
+        "D11-R-053",
+        "D11-R-053-AH"
+      ]
+    },
+    {
+      "case_id": "GC-RT-H08-PAYLOAD-ORG-ROUTED-001",
+      "title": "H-08 handoff payload 在 org routed human handoff path 仍闭合",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 8,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {
+          "run_mode": "APPROVAL_RUN",
+          "approval_state": "APPROVED",
+          "response_status": "ORG_ROUTED",
+          "commercial_urgency_level": "HIGH"
+        }
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "H08_PAYLOAD_CLOSURE",
+        "required_payload_fields": [
+          "opportunity_id",
+          "touch_record_id",
+          "response_status",
+          "saleability_status",
+          "crm_owner_state"
+        ],
+        "producer_objects": [
+          "contact_target",
+          "outreach_plan",
+          "touch_record",
+          "saleable_opportunity"
+        ]
+      },
+      "source_refs": [
+        "D11-R-053",
+        "D11-R-053-AH"
+      ]
+    },
+    {
+      "case_id": "GC-RT-STAGE9-EXECUTOR-002",
+      "title": "Stage 9 partial payment exception path 仍命中四段 executor coverage",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 9,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {
+          "payment_status": "PARTIALLY_PAID"
+        }
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "STAGE9_EXECUTOR_COVERAGE",
+        "policy_keys": [
+          "payment_exception",
+          "delivery_exception",
+          "outcome_taxonomy",
+          "governance_taxonomy"
+        ],
+        "payment_exception_family_optional": "PARTIAL_PAYMENT",
+        "archival_status": "NOT_ARCHIVED"
+      },
+      "source_refs": [
+        "D11-R-051",
+        "D11-R-053-AH"
+      ]
+    },
+    {
+      "case_id": "GC-RT-STAGE9-WRITEBACK-002",
+      "title": "Stage 9 payer mismatch path 保持 outcome base 与 additive separation",
+      "capability_id": "AX9S-STAGE8-9",
+      "capability_tier": "INTERNAL_RUNTIME_CHAIN",
+      "target_stage": 9,
+      "input_profile": {
+        "scenario": "runtime_behavior",
+        "fixture": "internal_chain_happy.json",
+        "overrides": {
+          "payer_mismatch_state": "CONFIRMED"
+        }
+      },
+      "expected": {
+        "result_type": "RUNTIME_BEHAVIOR",
+        "runtime_check_id": "STAGE9_WRITEBACK_ADDITIVE",
+        "outcome_writeback_targets": [
+          "order_record",
+          "payment_record"
+        ],
+        "governance_writeback_targets_optional": [
+          "delivery_record",
+          "release_gates"
+        ],
+        "effective_writeback_targets": [
+          "order_record",
+          "payment_record",
+          "delivery_record",
+          "release_gates"
+        ]
+      },
+      "source_refs": [
+        "D11-R-053",
+        "D11-R-053-AH"
       ]
     }
   ]

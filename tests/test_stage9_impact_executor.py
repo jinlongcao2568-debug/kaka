@@ -295,6 +295,29 @@ class TestStage9ImpactExecutor(unittest.TestCase):
             ["project_fact"],
         )
 
+    def test_false_positive_advisory_targets_stay_out_of_effective_sets(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "outcome_family": "FALSE_POSITIVE",
+                "outcome_reason_tags": ["FACT_CONFLICT"],
+                "is_false_positive": True,
+            }
+        )
+
+        stage9 = run_internal_chain(payload)["stage9"]
+
+        self.assertEqual(stage9.inputs["writeback_trace_only_targets"], ["buyer_fit", "challenger_candidate_profile"])
+        self.assertNotIn("buyer_fit", stage9.inputs["effective_writeback_targets"])
+        self.assertNotIn("challenger_candidate_profile", stage9.inputs["effective_writeback_targets"])
+        self.assertIn("buyer_fit", stage9.inputs["resolved_effective_writeback_targets"])
+        self.assertIn("challenger_candidate_profile", stage9.inputs["resolved_effective_writeback_targets"])
+        self.assertEqual(stage9.inputs["writeback_target_sources"]["buyer_fit"], ["upstream_feedback_loop"])
+        self.assertEqual(
+            stage9.inputs["writeback_target_sources"]["challenger_candidate_profile"],
+            ["upstream_feedback_loop"],
+        )
+
     def test_partial_payment_keeps_precise_exception_family_and_additive_targets(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update({"payment_status": "PARTIALLY_PAID"})

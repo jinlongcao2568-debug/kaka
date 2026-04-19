@@ -931,6 +931,39 @@ class TestInternalChain(unittest.TestCase):
             ["upstream_feedback_loop"],
         )
 
+    def test_stage9_opportunity_changed_review_path_keeps_targets_scoped(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"response_status": "OPPORTUNITY_CHANGED"})
+
+        result = run_internal_chain(payload)
+        stage8 = result["stage8"]
+        stage9 = result["stage9"]
+        touch_record = stage8.record("touch_record")
+        outcome = stage9.record("opportunity_outcome_event")
+        governance = stage9.record("governance_feedback_event")
+
+        self.assertEqual(touch_record.get("feedback_reason"), "OPPORTUNITY_CHANGED")
+        self.assertEqual(touch_record.get("next_step_optional"), "REVIEW_STAGE6_7")
+        self.assertEqual(touch_record.get("writeback_targets"), ["project_fact", "saleable_opportunity"])
+        self.assertEqual(outcome.get("feedback_reason"), touch_record.get("feedback_reason"))
+        self.assertEqual(governance.get("feedback_reason"), touch_record.get("feedback_reason"))
+        self.assertEqual(stage9.inputs.get("outcome_writeback_targets"), ["project_fact", "saleable_opportunity"])
+        self.assertEqual(stage9.inputs.get("governance_writeback_targets_optional"), ["order_record", "payment_record"])
+        self.assertEqual(
+            stage9.inputs.get("effective_writeback_targets"),
+            ["project_fact", "saleable_opportunity", "order_record", "payment_record"],
+        )
+        self.assertEqual(stage9.inputs.get("upstream_feedback_projected_targets"), [])
+        self.assertEqual(stage9.inputs.get("upstream_feedback_advisory_targets"), [])
+        self.assertEqual(
+            stage9.inputs.get("writeback_target_sources", {}).get("project_fact"),
+            ["outcome_taxonomy"],
+        )
+        self.assertEqual(
+            stage9.inputs.get("writeback_target_sources", {}).get("order_record"),
+            ["governance_taxonomy"],
+        )
+
     def test_stage9_missing_upstream_contract_data_fails(self) -> None:
         stage8 = self._build_stage8_bundle()
         service = Stage9Service()

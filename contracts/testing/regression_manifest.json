@@ -1,6 +1,6 @@
 {
   "registry_id": "regression-manifest",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "metadata": {
     "package_name": "testing package round 1",
     "status": "DRAFT",
@@ -34,7 +34,8 @@
       "stage9 executor payment/delivery coverage added",
       "stage9 writeback target additive governance assertions added",
       "stage8 compliance lattice candidate/execution split added",
-      "stage8 pre-route/internal surface/operator regression closure tightened"
+      "stage8 pre-route/internal surface/operator regression closure tightened",
+      "ff-17-s2 regression/release hardening suites added"
     ]
   },
   "suites": [
@@ -2309,6 +2310,87 @@
         "D11-R-053-E",
         "D11-R-053-V",
         "D11-R-053-W"
+      ]
+    },
+    {
+      "suite_id": "REG-FF17-S2-RUNTIME-SURFACE-WRITEBACK-HARDENING",
+      "title": "FF-17-S2 runtime / surface / writeback release hardening regression",
+      "checks": [
+        "run-golden directly executes INVALID_CONTACT, ORG_ROUTED H-08 payload, PARTIAL_PAYMENT and PAYER_MISMATCH through existing runtime_check_id coverage",
+        "Stage7/8/9 internal surfaces and operator loops remain internal_only, draft-only or preview-only with blocked_by_default=true and live_execution_enabled=false",
+        "Stage9 typed workflow/writeback layering keeps outcome base authoritative, governance/payment/delivery additive, projected-only/advisory-only targets separated, and persisted writeback metadata internal-governed only",
+        "release-facing assertions keep surface/operator/writeback behavior grouped rather than scattered across unrelated suites"
+      ],
+      "triggers": [
+        "control/current_task.yaml change",
+        "docs/D11_测试验收与金标回归清单.md change",
+        "contracts/testing/golden_cases.json change",
+        "contracts/testing/regression_manifest.json change",
+        "contracts/testing/release_checklist.json change",
+        "tests/test_pre_route_behavior.py change",
+        "tests/test_internal_surface_preview.py change",
+        "tests/test_internal_operational_loop.py change",
+        "tests/test_internal_repository_boundary.py change",
+        "tests/test_stage9_impact_executor.py change",
+        "scripts/run-golden.ps1 change",
+        "scripts/validate-contracts.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-AE",
+        "D11-R-053-F",
+        "D11-R-053-W",
+        "D11-R-053-AH",
+        "D11-R-053-AI"
+      ]
+    },
+    {
+      "suite_id": "REG-FF17-S2-CAPABILITY-CANONICAL-SOURCE",
+      "title": "FF-17-S2 capability canonical source regression",
+      "checks": [
+        "runtime_policy_catalog remains the sole canonical source for capability_mode family state, priority order, protected short-circuit and EXTERNAL_BLOCKED redline",
+        "runtime_inventory, model_release_manifest and release_manifest remain projection or mirror surfaces and do not become semantics sources",
+        "future unlock prerequisite or decision assets do not redefine current readiness, current capability unlock or external software release",
+        "REAL_RUN_READY remains subordinate to EXTERNAL_BLOCKED and cannot override blocked-by-default internal surfaces"
+      ],
+      "triggers": [
+        "contracts/release/runtime_policy_catalog.json change",
+        "control/runtime_inventory.yaml change",
+        "control/model_release_manifest.yaml change",
+        "control/release_manifest.yaml change",
+        "control/current_task.yaml change",
+        "control/repo_status.md change",
+        "docs/D11_测试验收与金标回归清单.md change",
+        "contracts/testing/regression_manifest.json change",
+        "contracts/testing/release_checklist.json change",
+        "scripts/check-release.ps1 change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-AG",
+        "D11-R-053-AI"
+      ]
+    },
+    {
+      "suite_id": "REG-FF17-S2-B10-COMPATIBILITY",
+      "title": "FF-17-S2 B10 compatibility regression",
+      "checks": [
+        "current_task.task_packet keeps source_blueprint_batch_id=B10 while packet_id and subpacket_id advance to FF-17-S2",
+        "release-facing compatibility checks reject B11 or FF-* as the parent batch for the current full-repair closeout window",
+        "FF-17-S2 can only recommend FF-17-S3 after all required scripts pass"
+      ],
+      "triggers": [
+        "control/current_task.yaml change",
+        "docs/D11_测试验收与金标回归清单.md change",
+        "contracts/testing/regression_manifest.json change",
+        "contracts/testing/release_checklist.json change",
+        "scripts/check-release.ps1 change",
+        "tests/test_external_unlock_prerequisites.py change"
+      ],
+      "blocking": true,
+      "source_refs": [
+        "D11-R-053-AH",
+        "D11-R-053-AI"
       ]
     },
     {

@@ -243,6 +243,18 @@ class TestStage7RuntimeClosure(unittest.TestCase):
             actor_trace["procurement_decision_actor_org_name"]["value"],
         )
 
+    def test_stage7_blocks_when_h06_authoritative_fields_are_overridden(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_block.json"))
+        payload.update(
+            {
+                "sale_gate_status": "OPEN",
+                "competitor_quality_grade": "A",
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "must-not-recompute conflicts"):
+            run_internal_chain_to_stage7(payload)
+
     def test_stage7_price_candidate_resolution_prefers_highest_priority_source(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload["price_source_set_optional"] = [
