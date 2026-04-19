@@ -97,6 +97,14 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", readiness)
         self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", release)
 
+    def test_baseline_dirty_paths_remains_optional_and_script_handles_missing_field(self) -> None:
+        task_rules = read("control/automation_task_packet_rules.yaml")
+        readiness = read("scripts/check-automation-readiness.ps1")
+
+        self.assertIn("baseline_dirty_paths is optional but recommended", task_rules)
+        self.assertIn("Get-FieldValue -Object $taskPacket -Name 'baseline_dirty_paths'", readiness)
+        self.assertNotIn("$taskPacket.baseline_dirty_paths", readiness)
+
     def test_validate_contracts_stage9_writeback_check_is_semantic_not_legacy_token_bound(self) -> None:
         validator = read("scripts/validate-contracts.ps1")
 

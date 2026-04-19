@@ -107,7 +107,6 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                         "scripts/check-automation-readiness.ps1",
                         "tests/test_check_automation_readiness_unicode_paths.py",
                     ],
-                    "baseline_dirty_paths": baseline_dirty_paths or [],
                     "forbidden_modification_paths": [
                         "docs/L0.md",
                         "contracts/**",
@@ -151,6 +150,8 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                 },
             },
         }
+        if baseline_dirty_paths is not None:
+            current_task["currentTask"]["task_packet"]["baseline_dirty_paths"] = baseline_dirty_paths
         if allow_dirty_doc_path:
             current_task["currentTask"]["task_packet"]["allowed_modification_paths"].append(
                 dirty_relative_path
@@ -170,7 +171,7 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
         return repo, dirty_relative_path
 
     def test_script_accepts_unicode_dirty_paths_when_git_porcelain_is_escaped(self) -> None:
-        repo, dirty_relative_path = self._build_temp_repo()
+        repo, dirty_relative_path = self._build_temp_repo(baseline_dirty_paths=[])
 
         porcelain = subprocess.run(
             ["git", "status", "--porcelain=v1", "--untracked-files=no"],
@@ -180,6 +181,43 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
         )
         self.assertIn(b"\\346", porcelain.stdout)
         self.assertNotIn(dirty_relative_path.encode("utf-8"), porcelain.stdout)
+
+        result = subprocess.run(
+            [
+                "pwsh",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(SCRIPT),
+                "-RepoRoot",
+                str(repo),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(
+            result.returncode,
+            0,
+            msg=textwrap.dedent(
+                f"""\
+                stdout:
+                {result.stdout}
+                stderr:
+                {result.stderr}
+                """
+            ),
+        )
+        self.assertIn("[check-automation-readiness] PASS", result.stdout)
+        self.assertNotIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
+
+    def test_script_treats_missing_baseline_dirty_paths_as_empty_array(self) -> None:
+        repo, _ = self._build_temp_repo()
+        current_task = yaml.safe_load((repo / "control/current_task.yaml").read_text(encoding="utf-8"))
+        self.assertNotIn("baseline_dirty_paths", current_task["currentTask"]["task_packet"])
 
         result = subprocess.run(
             [

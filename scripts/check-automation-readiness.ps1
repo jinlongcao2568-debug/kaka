@@ -387,7 +387,13 @@ if ($taskPacket -and $reviewGateMatrix -and @($classRanks.Keys).Count -gt 0) {
     }
 
     $detectedClassification = Classify-Paths -Paths $declaredPaths -ReviewMatrix $reviewGateMatrix
-    $baselineDirtyPaths = @($taskPacket.baseline_dirty_paths | ForEach-Object { Normalize-Path ([string]$_) })
+    $baselineDirtyPathValues = Get-FieldValue -Object $taskPacket -Name 'baseline_dirty_paths'
+    if ($null -eq $baselineDirtyPathValues) {
+        $baselineDirtyPaths = @()
+    }
+    else {
+        $baselineDirtyPaths = @($baselineDirtyPathValues | ForEach-Object { Normalize-Path ([string]$_) })
+    }
     $declaredClass = [string]$taskPacket.change_class
     if (-not $classRanks.ContainsKey($declaredClass)) {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'DECLARED_CHANGE_CLASS_INVALID' -Message "Declared change_class $declaredClass is not defined in review_gate_matrix.yaml." -Path 'control/current_task.yaml'
