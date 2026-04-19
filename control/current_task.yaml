@@ -85,7 +85,7 @@ currentTask:
   task_packet:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
-    source_blueprint_batch_id: "PKT-P0-08-formal-route-map-split"
+    source_blueprint_batch_id: "POST-FF-CONTROL-01"
     packet_id: "PKT-P0-08-S1-route-map-readiness-remediation"
     subpacket_id: "PKT-P0-08-S1-route-map-readiness-remediation"
     title: "route-map readiness remediation"
@@ -125,7 +125,6 @@ currentTask:
       - "tests/test_review_gate_controls.py"
     baseline_dirty_paths:
       - "docs/AX9S_开发执行路由图.md"
-      - "docs/AX9S_高+中任务包蓝图.md"
       - "src/shared/__pycache__/policy_executor.cpython-311.pyc"
       - "src/stage6_fact_review/__pycache__/fact_aggregator.cpython-311.pyc"
       - "src/stage8_outreach/__pycache__/resolution.cpython-311.pyc"
@@ -218,8 +217,9 @@ currentTask:
     notes:
       - "本窗只做 readiness root-cause remediation，不推进 route-map 正文或 implementation packet。"
       - "当前 tracked __pycache__ 作为 baseline dirty 记录，不计入本窗业务变更。"
-      - "docs/AX9S_高+中任务包蓝图.md 为用户确认必须删除的历史文档；本窗只清理陈旧引用，不恢复文件。"
-      - "source_blueprint_batch_id 继续使用已登记的 PKT-P0-08-formal-route-map-split。"
+      - "docs/AX9S_高+中任务包蓝图.md 已在 HEAD 删除；本窗不恢复文件，也不再把该路径记为 baseline dirty。"
+      - "backlog_packet_ref=PKT-P0-08-formal-route-map-split"
+      - "source_blueprint_batch_id=POST-FF-CONTROL-01 仅作为 registry allowlist anchor，不表示与 backlog packet 一对一映射。"
       - "本窗完成后停机汇报；如需按路线图片段推进，另起 implementation packet。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
