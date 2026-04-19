@@ -1,6 +1,78 @@
 {
-  "catalogVersion": "1.0.0",
+  "catalogVersion": "1.0.1",
   "ownerDoc": "D5",
+  "actionAvailabilityAuthority": {
+    "scope": "Stage7-9 governance_envelope.action_availability authority",
+    "ownerDocs": ["D4", "D5", "D7"],
+    "field": "governance_envelope.action_availability[operationId]",
+    "pageSurfaceStatesRef": "contracts/ui/page_surface_states.json#surfaceAuthorityContract",
+    "apiCatalogRef": "contracts/api/api_catalog.json#stage7To9EnvelopeAuthority",
+    "sourceOfTruthFields": [
+      "requiresApprovalChain",
+      "requiresAuditTrace",
+      "reviewRequirement",
+      "auditRequirement",
+      "allowedCurrentOperationalStates",
+      "allowedSurfaceOperationalStates",
+      "allowedAssignmentLifecycleStates",
+      "resultingOperationalState",
+      "resultingAssignmentLifecycleState"
+    ],
+    "fallbackReviewPathRule": "missing formal refs => review-required; unresolved reviewer chain => ACTION-409-APPROVAL_REQUIRED + governed-hold/review-required; missing audit trace => ACTION-409-AUDIT_REQUIRED + governed-hold/review-required; not pending => ACTION-409-NOT_PENDING",
+    "mustNotInferFrom": [
+      "button_local_enabled_flags",
+      "surface_state_only",
+      "route_local_success_booleans"
+    ],
+    "stageBindings": [
+      {
+        "stageScope": 7,
+        "actionIds": [
+          "stage7_open_internal_preview",
+          "stage7_mark_reviewed",
+          "stage7_return_for_revision"
+        ],
+        "surfaceModes": [
+          "preview-only"
+        ],
+        "reviewPath": "missing formal refs => review-required; audit gap => ACTION-409-AUDIT_REQUIRED + review-required"
+      },
+      {
+        "stageScope": 8,
+        "actionIds": [
+          "stage8_request_governed_review",
+          "stage8_approve_draft_progression",
+          "stage8_deny_draft_progression",
+          "stage8_put_governed_hold",
+          "stage8_return_for_revision"
+        ],
+        "surfaceModes": [
+          "draft-only"
+        ],
+        "reviewPath": "unresolved reviewer chain or audit gap => governed-hold; explicit release/policy block => blocked"
+      },
+      {
+        "stageScope": 9,
+        "actionIds": [
+          "stage9_submit_draft_writeback",
+          "stage9_mark_reviewed",
+          "stage9_deny_draft_writeback",
+          "stage9_put_governed_hold",
+          "stage9_return_for_revision"
+        ],
+        "surfaceModes": [
+          "draft-only",
+          "internal-writeback"
+        ],
+        "reviewPath": "unresolved reviewer chain or audit gap => governed-hold; explicit release/policy block => blocked"
+      }
+    ],
+    "redlines": [
+      "Stage7-9 review actions remain internal_only=true",
+      "Stage8-9 actions must not imply live execution",
+      "button flow must not bypass approval or audit requirements declared here"
+    ]
+  },
   "actions": [
     {
       "actionId": "review_confirm_signal",

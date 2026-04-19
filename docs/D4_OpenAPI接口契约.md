@@ -942,6 +942,23 @@ GET /v1/contact-targets
 - H-08 仍保持 `saleable_opportunity + touch_record` 为 critical object set；`outreach_plan` 只作为 optional preview/writeback carrier，不提升为 hard dependency；
 - 本补表只收口 API contract authority，不放开 external software release、Stage 8 real execution 或 Stage 9 real payment/delivery/refund。
 
+### 14.10 FF-16-S1 Stage7-9 API/UI/workbench envelope authority closure 补表（本轮新增）
+
+本补表用于把 Stage7-9 API envelope 与 UI/workbench envelope 的 sole authority、fallback path 与 review path 固定到单一 docs/contracts 引用面；不改写既有 formal object、release gate 或 runtime 行为。
+
+| surface / stage | sole docs authority | sole contract authority | fallback / review path | 明确禁止 |
+|---|---|---|---|---|
+| Stage 7 API preview envelope | `D4-R-073-B` + `D5` 的 FF-16-S1 workbench envelope 补表 + `D7` 的 FF-16-S1 envelope 交付 authority 补表 | `contracts/api/api_catalog.json#stage7To9EnvelopeAuthority` + `#groups[sales_surfaces]`、`contracts/ui/page_surface_states.json#surfaceAuthorityContract` | typed formal refs 缺失时只允许 `review-required`；不得以 route local bool 直接补成 `preview-ready` | 不得从 `release_layer`、`blocked_by_default`、`live_execution_enabled` 拼 capability 语义 |
+| Stage 8 API governed preview / draft envelope | `D4-R-073-B` + `D5` 的 FF-16-S1 workbench envelope 补表 + `D7` 的 FF-16-S1 envelope 交付 authority 补表 | `contracts/api/api_catalog.json#stage7To9EnvelopeAuthority` + `#groups[outreach_surfaces]`、`contracts/ui/page_surface_states.json#surfaceAuthorityContract`、`contracts/ui/review_action_catalog.json#actionAvailabilityAuthority` | formal refs 缺失只允许 `review-required`；approval/audit 未闭合只允许 `governed-hold`；明确 policy/release 阻断时只允许 `blocked` | 不得把 `draft-only` 或 `blocked_by_default` 表面写成 live send ready |
+| Stage 9 API governed preview / draft / writeback envelope | `D4-R-073-A/B` + 本补表 + `D5` 的 FF-16-S1 workbench envelope 补表 + `D7` 的 FF-16-S1 envelope 交付 authority 补表 | `contracts/api/api_catalog.json#stage7To9EnvelopeAuthority` + `#groups[orders_and_delivery]`、`contracts/ui/page_surface_states.json#surfaceAuthorityContract`、`contracts/ui/review_action_catalog.json#actionAvailabilityAuthority` | formal refs 缺失只允许 `review-required`；approval/audit 未闭合只允许 `governed-hold`；release/policy 阻断只允许 `blocked` | 不得把 draft/writeback endpoint 写成真实 payment / delivery / refund endpoint |
+| Stage 7-9 API action availability | `D4-R-073-C/F` | `contracts/ui/review_action_catalog.json#actionAvailabilityAuthority` | `requiresApprovalChain=true` 但 reviewer chain 未 resolved 时必须落 `ACTION-409-APPROVAL_REQUIRED` + `governed-hold/review-required`；audit 缺失必须落 `ACTION-409-AUDIT_REQUIRED` | 不得由按钮是否显示或局部成功响应反推“可继续” |
+| Stage 7-9 API/UI shared state semantics | `D4-R-073-B` + 本补表 + `D5` 的 FF-16-S1 workbench envelope 补表 | `contracts/ui/page_surface_states.json#surfaceAuthorityContract` | 顶层 `surface_state / surface_mode / surface_access` 只允许 mirror `semantic_envelope.*`；typed ref 缺失时只允许 review/block，不得本地重算 | 不得再造第二套 `blocked/review/governed/live-ready` 词表 |
+
+补充说明：
+- `contracts/api/api_catalog.json` 只负责 Stage7-9 资源、`operationId`、禁止事项与 envelope binding；`surface_state / surface_mode / surface_access / capability_envelope / governance_envelope / semantic_envelope` 的字段语义统一回指 `contracts/ui/page_surface_states.json`；
+- `governance_envelope.action_availability[operationId]` 的 sole owner 固定为 `contracts/ui/review_action_catalog.json#actionAvailabilityAuthority`；API 只做引用，不再定义第二套 action availability 口径；
+- Stage 8 / Stage 9 的 redline 固定为：`internal_only=true`、`live_execution_enabled=false`、`blocked_by_default=true`，且继续 `external blocked`。
+
 
 
 

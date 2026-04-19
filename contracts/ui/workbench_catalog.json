@@ -1,6 +1,24 @@
 {
-  "catalogVersion": "1.0.2",
+  "catalogVersion": "1.0.3",
   "ownerDoc": "D5",
+  "stage7To9WorkbenchEnvelopeAuthority": {
+    "scope": "Stage7-9 workbench envelope bindings",
+    "ownerDocs": ["D4", "D5", "D7"],
+    "pageSurfaceStatesRef": "contracts/ui/page_surface_states.json#surfaceAuthorityContract",
+    "reviewActionCatalogRef": "contracts/ui/review_action_catalog.json#actionAvailabilityAuthority",
+    "apiCatalogRef": "contracts/api/api_catalog.json#stage7To9EnvelopeAuthority",
+    "surfaceStateField": "semantic_envelope.surface_state",
+    "surfaceModeField": "semantic_envelope.surface_mode",
+    "surfaceAccessField": "semantic_envelope.surface_access",
+    "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+    "fallbackReadModelRule": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+    "fallbackReviewPathRule": "missing formal refs => review-required; unresolved approval/audit => governed-hold; explicit policy/release block => blocked",
+    "redlines": [
+      "workbench UI must not infer capability state from release_layer or page-local booleans",
+      "Stage8-9 workbenches must continue to show blocked_by_default and live_execution_enabled=false",
+      "internal/governed/preview/draft surfaces must not be described as external-ready"
+    ]
+  },
   "workbenches": [
     {
       "workbenchId": "task_entry",
@@ -249,14 +267,31 @@
       "workbenchId": "opportunity_pool",
       "title": "内部机会池",
       "surfaceState": "INTERNAL_PREVIEW",
+      "envelopeAuthorityRef": "stage7To9WorkbenchEnvelopeAuthority",
       "stateProfileRef": "stage7_internal_preview_surface",
       "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceModeField": "semantic_envelope.surface_mode",
+      "surfaceAccessField": "semantic_envelope.surface_access",
+      "capabilityEnvelopeField": "capability_envelope",
+      "governanceEnvelopeField": "governance_envelope",
+      "semanticEnvelopeField": "semantic_envelope",
       "canonicalEnvelopeFields": [
         "capability_envelope",
         "governance_envelope",
         "semantic_envelope"
       ],
       "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "expectedSurfaceCapabilityMode": "INTERNAL_ONLY",
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "preview-only",
+        "internal-only",
+        "live_execution_enabled=false"
+      ],
       "primaryObjects": [
         "saleable_opportunity",
         "challenger_candidate_profile",
@@ -328,14 +363,32 @@
       "workbenchId": "outreach_workbench",
       "title": "内部触达台",
       "surfaceState": "INTERNAL_PREVIEW",
+      "envelopeAuthorityRef": "stage7To9WorkbenchEnvelopeAuthority",
       "stateProfileRef": "stage8_governed_preview_surface",
       "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceModeField": "semantic_envelope.surface_mode",
+      "surfaceAccessField": "semantic_envelope.surface_access",
+      "capabilityEnvelopeField": "capability_envelope",
+      "governanceEnvelopeField": "governance_envelope",
+      "semanticEnvelopeField": "semantic_envelope",
       "canonicalEnvelopeFields": [
         "capability_envelope",
         "governance_envelope",
         "semantic_envelope"
       ],
       "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "expectedSurfaceCapabilityMode": "INTERNAL_GOVERNED",
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onApprovalOrAuditGap": "governed-hold",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "draft-only",
+        "blocked_by_default",
+        "live_execution_enabled=false"
+      ],
       "primaryObjects": [
         "contact_target",
         "outreach_plan",
@@ -419,14 +472,33 @@
       "title": "内部交付与回写台",
       "surfaceState": "INTERNAL_PREVIEW",
       "formalizationScope": "INTERNAL_GOVERNED",
+      "envelopeAuthorityRef": "stage7To9WorkbenchEnvelopeAuthority",
       "stateProfileRef": "stage9_internal_governed_surface",
       "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceModeField": "semantic_envelope.surface_mode",
+      "surfaceAccessField": "semantic_envelope.surface_access",
+      "capabilityEnvelopeField": "capability_envelope",
+      "governanceEnvelopeField": "governance_envelope",
+      "semanticEnvelopeField": "semantic_envelope",
       "canonicalEnvelopeFields": [
         "capability_envelope",
         "governance_envelope",
         "semantic_envelope"
       ],
       "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "expectedSurfaceCapabilityMode": "INTERNAL_GOVERNED",
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onApprovalOrAuditGap": "governed-hold",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "draft-only",
+        "internal-writeback-only",
+        "blocked_by_default",
+        "live_execution_enabled=false"
+      ],
       "primaryObjects": [
         "order_record",
         "payment_record",

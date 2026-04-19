@@ -1,6 +1,70 @@
 {
-  "catalogVersion": "1.0.0",
+  "catalogVersion": "1.0.1",
   "ownerDoc": "D5",
+  "surfaceAuthorityContract": {
+    "scope": "Stage7-9 API/UI/workbench envelope authority",
+    "ownerDocs": ["D4", "D5", "D7"],
+    "stateProfileBindingField": "stateProfileRef",
+    "surfaceStateField": "semantic_envelope.surface_state",
+    "surfaceModeField": "semantic_envelope.surface_mode",
+    "surfaceAccessField": "semantic_envelope.surface_access",
+    "topLevelMirrorFields": ["surface_state", "surface_mode", "surface_access"],
+    "topLevelMirrorRule": "top-level mirrors must equal semantic_envelope mirrors; API/UI must not derive local state from scattered booleans",
+    "capabilityEnvelope": {
+      "field": "capability_envelope",
+      "requiredFields": [
+        "surface_capability_mode",
+        "formalization_scope",
+        "capability_family_refs",
+        "internal_only",
+        "live_execution_enabled"
+      ],
+      "stage8Stage9RequiredFields": [
+        "blocked_by_default"
+      ],
+      "mustRemainFalse": [
+        "live_execution_enabled"
+      ],
+      "mustNotInferFrom": [
+        "release_layer",
+        "blocked_by_default",
+        "live_execution_enabled",
+        "page_or_route_local_flags"
+      ]
+    },
+    "governanceEnvelope": {
+      "field": "governance_envelope",
+      "requiredFields": [
+        "decision_states",
+        "action_availability"
+      ],
+      "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "fallbackReviewPathRule": "missing formal refs => review-required; unresolved approval/audit => governed-hold; explicit policy or release block => blocked",
+      "mustNotInferFrom": [
+        "surface_state",
+        "button_local_enabled_flags",
+        "route_local_success_booleans"
+      ]
+    },
+    "semanticEnvelope": {
+      "field": "semantic_envelope",
+      "requiredFields": [
+        "surface_id",
+        "surface_state",
+        "surface_mode",
+        "surface_access",
+        "state_reasons"
+      ],
+      "stateCatalogRef": "surfaceStates",
+      "modeCatalogRef": "surfaceModes",
+      "accessCatalogRef": "surfaceAccessLevels"
+    },
+    "redlines": [
+      "internal preview and draft surfaces must not be described as external-ready",
+      "Stage 8 and Stage 9 live_execution_enabled must remain false",
+      "Stage 8 and Stage 9 blocked_by_default must remain true unless a later approved batch changes the authority"
+    ]
+  },
   "surfaceStates": [
     {
       "stateId": "preview-ready",
@@ -207,6 +271,27 @@
       "profileId": "stage7_internal_preview_surface",
       "defaultState": "preview-ready",
       "repositoryBackedReadModel": true,
+      "semanticEnvelopeFieldRefs": {
+        "surfaceStateField": "semantic_envelope.surface_state",
+        "surfaceModeField": "semantic_envelope.surface_mode",
+        "surfaceAccessField": "semantic_envelope.surface_access"
+      },
+      "capabilityDefaults": {
+        "surfaceCapabilityMode": "INTERNAL_ONLY",
+        "formalizationScope": "INTERNAL_ONLY",
+        "internalOnly": true,
+        "liveExecutionEnabled": false
+      },
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "preview-only",
+        "internal-only",
+        "live_execution_enabled=false"
+      ],
       "allowedStates": [
         "preview-ready",
         "review-required",
@@ -254,6 +339,29 @@
       "profileId": "stage8_governed_preview_surface",
       "defaultState": "draft-only",
       "repositoryBackedReadModel": true,
+      "semanticEnvelopeFieldRefs": {
+        "surfaceStateField": "semantic_envelope.surface_state",
+        "surfaceModeField": "semantic_envelope.surface_mode",
+        "surfaceAccessField": "semantic_envelope.surface_access"
+      },
+      "capabilityDefaults": {
+        "surfaceCapabilityMode": "INTERNAL_GOVERNED",
+        "formalizationScope": "INTERNAL_GOVERNED",
+        "internalOnly": true,
+        "blockedByDefault": true,
+        "liveExecutionEnabled": false
+      },
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onApprovalOrAuditGap": "governed-hold",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "draft-only",
+        "blocked_by_default",
+        "live_execution_enabled=false"
+      ],
       "allowedStates": [
         "draft-only",
         "review-required",
@@ -266,6 +374,30 @@
       "profileId": "stage9_internal_governed_surface",
       "defaultState": "draft-only",
       "repositoryBackedReadModel": true,
+      "semanticEnvelopeFieldRefs": {
+        "surfaceStateField": "semantic_envelope.surface_state",
+        "surfaceModeField": "semantic_envelope.surface_mode",
+        "surfaceAccessField": "semantic_envelope.surface_access"
+      },
+      "capabilityDefaults": {
+        "surfaceCapabilityMode": "INTERNAL_GOVERNED",
+        "formalizationScope": "INTERNAL_GOVERNED",
+        "internalOnly": true,
+        "blockedByDefault": true,
+        "liveExecutionEnabled": false
+      },
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onApprovalOrAuditGap": "governed-hold",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "draft-only",
+        "internal-writeback-only",
+        "blocked_by_default",
+        "live_execution_enabled=false"
+      ],
       "allowedStates": [
         "draft-only",
         "review-required",

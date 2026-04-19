@@ -1,6 +1,53 @@
 {
-  "catalogVersion": "1.0.2",
+  "catalogVersion": "1.0.3",
   "ownerDoc": "D4",
+  "stage7To9EnvelopeAuthority": {
+    "scope": "Stage7-9 API preview/draft/writeback envelope authority",
+    "ownerDocs": ["D4", "D5", "D7"],
+    "surfaceStateOwner": {
+      "field": "semantic_envelope.surface_state",
+      "profileCatalogRef": "contracts/ui/page_surface_states.json#profiles",
+      "bindingField": "stateProfileRef"
+    },
+    "surfaceModeOwner": {
+      "field": "semantic_envelope.surface_mode",
+      "modeCatalogRef": "contracts/ui/page_surface_states.json#surfaceModes"
+    },
+    "surfaceAccessOwner": {
+      "field": "semantic_envelope.surface_access",
+      "accessCatalogRef": "contracts/ui/page_surface_states.json#surfaceAccessLevels"
+    },
+    "capabilityEnvelopeOwner": {
+      "field": "capability_envelope",
+      "contractRef": "contracts/ui/page_surface_states.json#surfaceAuthorityContract.capabilityEnvelope",
+      "mustNotInferFrom": [
+        "release_layer",
+        "blocked_by_default",
+        "live_execution_enabled",
+        "route_local_booleans"
+      ]
+    },
+    "governanceEnvelopeOwner": {
+      "field": "governance_envelope",
+      "actionAvailabilityRef": "contracts/ui/review_action_catalog.json#actionAvailabilityAuthority",
+      "mustNotInferFrom": [
+        "surface_state",
+        "button_local_enabled_flags"
+      ]
+    },
+    "semanticEnvelopeOwner": {
+      "field": "semantic_envelope",
+      "contractRef": "contracts/ui/page_surface_states.json#surfaceAuthorityContract.semanticEnvelope",
+      "topLevelMirrorRule": "surface_state / surface_mode / surface_access top-level mirrors must equal semantic_envelope mirrors"
+    },
+    "fallbackReadModelRule": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+    "fallbackReviewPathRule": "missing formal refs => review-required; unresolved approval/audit => governed-hold; explicit policy/release block => blocked",
+    "redlines": [
+      "internal preview and draft surfaces must not be described as external-ready",
+      "Stage 8 and Stage 9 live_execution_enabled must remain false",
+      "Stage 8 and Stage 9 blocked_by_default must remain true unless a later approved batch changes the authority"
+    ]
+  },
   "sourceL0Refs": [
     "L0-R-005",
     "L0-R-007",
@@ -326,8 +373,11 @@
       "groupId": "sales_surfaces",
       "title": "内部销售与商业封装",
       "surfaceState": "external_delivery_blocked",
+      "envelopeAuthorityRef": "stage7To9EnvelopeAuthority",
       "stateProfileRef": "stage7_internal_preview_surface",
       "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceModeField": "semantic_envelope.surface_mode",
+      "surfaceAccessField": "semantic_envelope.surface_access",
       "surfaceStateSource": "formal_object_status + decision_states + governed_context",
       "canonicalEnvelopeFields": [
         "capability_envelope",
@@ -335,6 +385,17 @@
         "semantic_envelope"
       ],
       "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "expectedSurfaceCapabilityMode": "INTERNAL_ONLY",
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "preview-only",
+        "internal-only",
+        "live_execution_enabled=false"
+      ],
       "operations": [
         {
           "operationId": "listSaleableOpportunities",
@@ -447,8 +508,11 @@
       "groupId": "outreach_surfaces",
       "title": "内部触达与编排",
       "surfaceState": "external_delivery_blocked",
+      "envelopeAuthorityRef": "stage7To9EnvelopeAuthority",
       "stateProfileRef": "stage8_governed_preview_surface",
       "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceModeField": "semantic_envelope.surface_mode",
+      "surfaceAccessField": "semantic_envelope.surface_access",
       "surfaceStateSource": "formal_object_status + decision_states + governed_context",
       "canonicalEnvelopeFields": [
         "capability_envelope",
@@ -456,6 +520,18 @@
         "semantic_envelope"
       ],
       "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "expectedSurfaceCapabilityMode": "INTERNAL_GOVERNED",
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onApprovalOrAuditGap": "governed-hold",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "draft-only",
+        "blocked_by_default",
+        "live_execution_enabled=false"
+      ],
       "operations": [
         {
           "operationId": "listContactTargets",
@@ -621,8 +697,11 @@
       "title": "内部交付与回写",
       "surfaceState": "external_delivery_blocked",
       "formalizationScope": "INTERNAL_GOVERNED",
+      "envelopeAuthorityRef": "stage7To9EnvelopeAuthority",
       "stateProfileRef": "stage9_internal_governed_surface",
       "surfaceStateField": "semantic_envelope.surface_state",
+      "surfaceModeField": "semantic_envelope.surface_mode",
+      "surfaceAccessField": "semantic_envelope.surface_access",
       "surfaceStateSource": "formal_object_status + decision_states + governed_context",
       "canonicalEnvelopeFields": [
         "capability_envelope",
@@ -630,6 +709,19 @@
         "semantic_envelope"
       ],
       "actionAvailabilityField": "governance_envelope.action_availability[operationId]",
+      "expectedSurfaceCapabilityMode": "INTERNAL_GOVERNED",
+      "fallbackReadModel": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
+      "fallbackReviewPath": {
+        "onMissingFormalRefs": "review-required",
+        "onApprovalOrAuditGap": "governed-hold",
+        "onExplicitPolicyBlock": "blocked"
+      },
+      "redlines": [
+        "draft-only",
+        "internal-writeback-only",
+        "blocked_by_default",
+        "live_execution_enabled=false"
+      ],
       "directLeadpackPolicy": "BLOCK_DIRECT_OBJECT",
       "externalReady": false,
       "operations": [
