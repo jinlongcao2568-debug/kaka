@@ -215,6 +215,9 @@ packet_order:
   - PKT-P0-03-stage7-price-competitor-resolution
   - PKT-GOV-01-product-dev-mode-docs-alignment
   - PKT-GOV-03-template-route-map-role-alignment
+  - PKT-GOV-04-python-cache-hygiene
+  - PKT-GOV-05-python-cache-untracking
+  - PKT-GOV-06-change-scope-precheck
   - PKT-P0-04-stage8-compliance-lattice
   - PKT-P0-05-stage8-contact-enrichment-merge
   - PKT-P0-06-stage9-writeback-contract-core
@@ -1404,6 +1407,301 @@ packets:
       - template-route-map packet registry patch
       - current task activation patch
       - repo status workstream sync patch
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PKT-GOV-04-python-cache-hygiene
+    title: Python 缓存去跟踪与清理机制
+    priority: P0
+    route_map_segment: POST_FF_PYTHON_CACHE_HYGIENE
+    objective: 为后续停止 Git 跟踪 `__pycache__/`、`*.pyc`、`.pytest_cache/` 以及自动缓存清理脚本建立合法 control/governance + repo hygiene task packet；本轮只做登记+激活，不做实现，不进入下一包。
+    non_goals:
+      - 不改 .gitignore
+      - 不改 scripts/**
+      - 不改 src/**
+      - 不改 tests/**
+      - 不改 docs/**
+      - 不改 contracts/**
+      - 不改 handoff/**
+      - 不执行 Python 缓存去跟踪实现
+      - 不编写缓存自动清理脚本
+      - 不进入下一包
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - not an external unlock implementation
+    affected_stages: [automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, governance_release_core, future_external_unlock_prereq_core]
+    depends_on: [PKT-GOV-03-template-route-map-role-alignment]
+    authority_refs:
+      docs:
+        - AGENTS.md
+        - docs/L0.md
+        - docs/裁决总表.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/正式业务代码开发开工裁决页.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+    allowed_modification_paths:
+      - control/task_packet_library.yaml
+      - control/current_task.yaml
+      - control/repo_status.md
+    forbidden_modification_paths:
+      - .gitignore
+      - docs/**
+      - contracts/**
+      - handoff/**
+      - src/**
+      - tests/**
+      - scripts/**
+      - control/automation_action_matrix.yaml
+      - control/automation_stop_conditions.yaml
+      - control/automation_task_packet_rules.yaml
+      - control/review_gate_matrix.yaml
+      - control/milestone_status.yaml
+    acceptance_assertions:
+      - task_packet_library registers PKT-GOV-04-python-cache-hygiene and places it after PKT-GOV-03-template-route-map-role-alignment and before PKT-P0-04-stage8-compliance-lattice in packet_order
+      - current_task declares only the three control files as declared_changed_paths and allowed_modification_paths
+      - declared_changed_paths count stays at 3 and less than or equal to 10
+      - repo_status Current Workstream is synchronized to the active packet
+      - canonical readiness and blocked lines remain unchanged
+      - this round performs registration and activation only, without cache untracking implementation
+    required_scripts:
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed declared/allowed paths
+      - touch forbidden paths
+      - declared_changed_paths exceed 10
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+      - cache untracking implementation or cleanup-script implementation is attempted in this round
+    definition_of_done:
+      - PKT-GOV-04-python-cache-hygiene is registered in task_packet_library and activated in current_task
+      - packet_order places PKT-GOV-04-python-cache-hygiene after PKT-GOV-03-template-route-map-role-alignment and before PKT-P0-04-stage8-compliance-lattice
+      - declared_changed_paths count is 3 and less than or equal to 10
+      - repo_status Current Workstream matches the active packet id
+      - required scripts pass and the window stops to report
+      - repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION
+    deliverables:
+      - python cache hygiene packet registry patch
+      - current task activation patch
+      - repo status workstream sync patch
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PKT-GOV-05-python-cache-untracking
+    title: Python 缓存去跟踪与忽略
+    priority: P0
+    route_map_segment: POST_FF_PYTHON_CACHE_UNTRACKING
+    objective: 在已登记的缓存治理基础上实施 Python 缓存去跟踪与忽略：补 `.gitignore`，并把已跟踪的 `__pycache__`、`*.pyc`、`.pytest_cache` 从 Git 索引中移除；本轮不进入下一包。
+    non_goals:
+      - 不改 scripts/**
+      - 不改 src/**/*.py 业务代码
+      - 不改 tests/**/*.py 测试逻辑
+      - 不改 contracts/**
+      - 不改 docs/**
+      - 不改 handoff/**
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - 不进入下一包
+      - not an external unlock implementation
+    affected_stages: [automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, governance_release_core, future_external_unlock_prereq_core]
+    depends_on: [PKT-GOV-04-python-cache-hygiene]
+    authority_refs:
+      docs:
+        - AGENTS.md
+        - docs/L0.md
+        - docs/裁决总表.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/正式业务代码开发开工裁决页.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+      repo_hygiene:
+        - .gitignore
+    allowed_modification_paths:
+      - "control/task_packet_library.yaml"
+      - "control/current_task.yaml"
+      - "control/repo_status.md"
+      - ".gitignore"
+      - "**/__pycache__/**"
+      - "**/*.pyc"
+      - "**/.pytest_cache/**"
+    forbidden_modification_paths:
+      - "scripts/**"
+      - "src/**/*.py"
+      - "tests/**/*.py"
+      - "contracts/**"
+      - "docs/**"
+      - "handoff/**"
+      - "control/automation_action_matrix.yaml"
+      - "control/automation_stop_conditions.yaml"
+      - "control/automation_task_packet_rules.yaml"
+      - "control/review_gate_matrix.yaml"
+      - "control/milestone_status.yaml"
+    acceptance_assertions:
+      - task_packet_library registers PKT-GOV-05-python-cache-untracking and places it after PKT-GOV-04-python-cache-hygiene and before PKT-P0-04-stage8-compliance-lattice in packet_order
+      - current_task declares only the three control files, .gitignore, and cache-untracking patterns as declared_changed_paths and allowed_modification_paths
+      - declared_changed_paths count stays at 7 and less than or equal to 10
+      - .gitignore ignores __pycache__/, *.pyc, and .pytest_cache/
+      - tracked Python cache paths are removed from Git index without changing business semantics
+      - repo_status Current Workstream is synchronized to the active packet
+      - canonical readiness and blocked lines remain unchanged
+    required_scripts:
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed declared/allowed paths
+      - touch forbidden paths
+      - declared_changed_paths exceed 10
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+      - any src/**/*.py or tests/**/*.py logic file is modified
+    definition_of_done:
+      - PKT-GOV-05-python-cache-untracking is registered in task_packet_library and activated in current_task
+      - packet_order places PKT-GOV-05-python-cache-untracking after PKT-GOV-04-python-cache-hygiene and before PKT-P0-04-stage8-compliance-lattice
+      - declared_changed_paths count is 7 and less than or equal to 10
+      - .gitignore ignores __pycache__/, *.pyc, and .pytest_cache/
+      - tracked Python cache paths are removed from Git index
+      - repo_status Current Workstream matches the active packet id
+      - required scripts pass and the window stops to report
+      - repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION
+    deliverables:
+      - python cache untracking packet registry patch
+      - current task activation patch
+      - repo status workstream sync patch
+      - gitignore cache ignore patch
+      - cache index cleanup
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PKT-GOV-06-change-scope-precheck
+    title: 提交范围前置检查
+    priority: P0
+    route_map_segment: POST_FF_CHANGE_SCOPE_PRECHECK
+    objective: 实现“计划改哪些文件 / 实际改了哪些文件”与当前 active packet declared/allowed paths 的前置匹配检查机制，把范围越界失败前移到改文件前/提交前；本轮不切换任务，不进入下一包。
+    non_goals:
+      - 不改 src/**
+      - 不改 contracts/**
+      - 不改 handoff/**
+      - 不改 docs/L0.md
+      - 不改 AGENTS.md
+      - 不改 docs/AX9S_开发执行路由图.md
+      - 不改 control/review_gate_matrix.yaml
+      - 不改 scripts/check-release.ps1
+      - 不改 tests/test_check_automation_readiness_unicode_paths.py
+      - 不进入下一包
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - not an external unlock implementation
+    affected_stages: [automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, governance_release_core, future_external_unlock_prereq_core]
+    depends_on: [PKT-GOV-05-python-cache-untracking]
+    authority_refs:
+      docs:
+        - AGENTS.md
+        - docs/L0.md
+        - docs/裁决总表.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/正式业务代码开发开工裁决页.md
+        - docs/自动化开发动作门禁表.md
+        - docs/自动开发任务包模板.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+        - control/automation_task_packet_rules.yaml
+      scripts_tests:
+        - scripts/check-automation-readiness.ps1
+        - tests/test_review_gate_controls.py
+    allowed_modification_paths:
+      - "control/task_packet_library.yaml"
+      - "control/current_task.yaml"
+      - "control/repo_status.md"
+      - "control/automation_task_packet_rules.yaml"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/自动开发任务包模板.md"
+      - "scripts/check-automation-readiness.ps1"
+      - "tests/test_review_gate_controls.py"
+    forbidden_modification_paths:
+      - "contracts/**"
+      - "handoff/**"
+      - "src/**"
+      - "docs/L0.md"
+      - "AGENTS.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "control/review_gate_matrix.yaml"
+      - "scripts/check-release.ps1"
+      - "control/automation_action_matrix.yaml"
+      - "control/automation_stop_conditions.yaml"
+      - "control/milestone_status.yaml"
+    acceptance_assertions:
+      - task_packet_library registers PKT-GOV-06-change-scope-precheck and places it after PKT-GOV-05-python-cache-untracking and before PKT-P0-04-stage8-compliance-lattice in packet_order
+      - current_task declares exactly the current execution scope as declared_changed_paths and allowed_modification_paths before edits land
+      - declared_changed_paths count stays at 8 and less than or equal to 10
+      - planned target paths / intended changed files can be preflight-checked against declared/allowed paths before editing
+      - actual changed paths outside allowed scope fail early with explicit readiness errors
+      - repo_status Current Workstream is synchronized to the active packet
+      - canonical readiness and blocked lines remain unchanged
+      - this round implements the precheck mechanism without relaxing source_blueprint, review gate, or stop condition semantics
+    required_scripts:
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed allowed paths or preflight scope
+      - touch forbidden paths
+      - declared_changed_paths exceed 10
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+      - need to extend implementation into tests/test_check_automation_readiness_unicode_paths.py
+    definition_of_done:
+      - PKT-GOV-06-change-scope-precheck remains the active packet and enters implementation execution
+      - packet_order places PKT-GOV-06-change-scope-precheck after PKT-GOV-05-python-cache-untracking and before PKT-P0-04-stage8-compliance-lattice
+      - declared_changed_paths count is 8 and less than or equal to 10
+      - preflight check can reject planned target paths outside declared/allowed scope before edits/commit
+      - readiness check can reject actual changed paths outside allowed scope with explicit failure codes
+      - repo_status Current Workstream matches the active packet id
+      - required scripts pass and the window stops to report
+      - repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION
+    deliverables:
+      - change-scope precheck implementation patch
+      - current task execution-scope sync patch
+      - repo status implementation-window sync patch
+      - readiness preflight regression patch
     human_review_required: true
     owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
     review_evidence:

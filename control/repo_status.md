@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PKT-GOV-03-template-route-map-role-alignment (G03-B body-role alignment execution in progress; current window only rewrites docs/自动开发任务包模板.md into a pure task packet template, rewrites docs/AX9S_开发执行路由图.md into a pure navigation map, synchronizes current_task / repo_status execution semantics, and runs the required scripts before stopping to report; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
+Current Workstream: PKT-GOV-06-change-scope-precheck (implementation in progress; current window updates control/task_packet_library.yaml, control/current_task.yaml, control/repo_status.md, control/automation_task_packet_rules.yaml, docs/自动化开发动作门禁表.md, docs/自动开发任务包模板.md, scripts/check-automation-readiness.ps1, and tests/test_review_gate_controls.py to front-load change-scope failures before edits/commit; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,7 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
-- PKT-GOV-03-template-route-map-role-alignment is the active control/governance scoped subpacket; current window is G03-B body-role alignment execution, limited to the task-packet template, the route map, and necessary current_task / repo_status execution-semantics sync, without changing canonical readiness or entering implementation / the next packet
+- PKT-GOV-06-change-scope-precheck is the active control/governance scoped subpacket; current window is limited to the declared 8-file implementation scope that front-loads change-scope failures before edits/commit, without changing canonical readiness and without entering the next packet
 - Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this scoped packet stops and reports
 - Status-source review and audit of the closed full-repair program without changing canonical readiness
 
@@ -29,7 +29,7 @@ Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
 - Any new AX9S batch activation, including B11
 - Any automatic next-task activation from the current scoped packet or historical FF-18-S1 closeout
-- Any topic expansion outside the current G03-B body-alignment scoped packet
+- Any topic expansion outside the current PKT-GOV-06-change-scope-precheck scoped packet
 - Any transport/bootstrap/api/service/runtime/test change outside the declared scoped packet paths
 - Any new formal object or enum family in this governance repair state
 - Any schema/handoff mainline rewrite in this governance repair state
@@ -45,7 +45,7 @@ State Semantics:
 - `FULL_REPAIR_COMPLETE_REVIEW_READY` is the AX9S full-repair program control closeout token only; it does not replace the repo readiness conclusion, which remains `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`.
 - `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` remains the scoped conditional-go for internal LeadOps development.
 - `FF-18-S1` is the final state-source closeout window for the full-fix mainline; it records canonical alignment only and does not create a new readiness token.
-- `PKT-GOV-03-template-route-map-role-alignment` is the current active control/governance scoped subpacket; in the current window it is executing G03-B body-role alignment and only rewrites docs/自动开发任务包模板.md and docs/AX9S_开发执行路由图.md within the declared scope, plus necessary current_task / repo_status execution-semantics sync, before required scripts and stop-report.
+- `PKT-GOV-06-change-scope-precheck` is the current active control/governance scoped subpacket; in the current window it updates the declared 8-file implementation scope to front-load planned-target and actual-change scope failures before required scripts and stop-report.
 - `FF-01~FF-18` mainline is complete; this does not unlock external release, Stage 8 live execution, or Stage 9 live payment/delivery.
 - `READY_FOR_POST-R6_CANDIDATE_GAP_BATCH` and `READY_FOR_POST-R6_STRATEGIC_BRANCH_BATCH` are historical R6-path tokens and are not the current repo readiness.
 - R6 candidate / deny / blocked decisions remain valid as decision outputs; they do not redefine the current repo readiness.

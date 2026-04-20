@@ -82,15 +82,28 @@ fail_conditions:
   - source_blueprint_batch_id_not_registered
   - missing_required_fields
   - missing_declared_changed_paths
+  - planned_target_path_not_declared
+  - planned_target_path_not_allowed
+  - planned_target_path_forbidden
+  - actual_changed_path_not_allowed
   - change_class_below_required
   - missing_human_review_for_non_low_risk
   - missing_required_owner_review
   - forbidden_path_touched
+preflight_checks:
+  entrypoint: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1 -PlannedTargetPaths <paths>
+  required_rule: planned target paths / intended changed files must match declared_changed_paths and allowed_modification_paths before editing or commit
+  hard_fail_when:
+    - planned target path falls outside declared_changed_paths
+    - planned target path falls outside allowed_modification_paths
+    - planned target path matches forbidden_modification_paths
+    - actual changed path falls outside allowed_modification_paths
 notes:
   - any task exceeding limits must be split before execution
   - high-risk domains must be isolated in their own batch
   - task packet cannot be replaced by conversational summary; control/current_task.yaml is the formal machine-readable packet source
   - baseline_dirty_paths is optional but recommended whenever the workspace already contains accepted tracked dirty paths from prior packets
+  - planned target paths are a preflight input to scripts/check-automation-readiness.ps1; docs only explain the workflow and must not replace the machine rule
   - source_blueprint_batch_id is validated against control/task_packet_library.yaml#blueprint_registry; future packets are not required to use B10
   - generated Python cache artifacts under __pycache__ and .pytest_cache are not treated as business-scope actual changed paths by readiness validation
   - script_timeouts is optional but recommended for long-running checks; scripts/check-release.ps1 should use at least 300000 ms before declaring a tool-layer timeout

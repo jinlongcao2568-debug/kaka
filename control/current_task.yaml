@@ -9,7 +9,7 @@ navigation_state: "CONTROLLED_ROUTE_MAP_RESTORED"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口进入 PKT-GOV-03-template-route-map-role-alignment 的 G03-B 正文职责收平执行；本轮只收平 docs/自动开发任务包模板.md 与 docs/AX9S_开发执行路由图.md 的正文职责，并对 current_task / repo_status 做必要 execution semantics 同步；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成指定脚本后停机汇报。"
+activation_condition: "当前窗口进入 PKT-GOV-06-change-scope-precheck 的实现执行；本轮只允许修改 control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md、control/automation_task_packet_rules.yaml、docs/自动化开发动作门禁表.md、docs/自动开发任务包模板.md、scripts/check-automation-readiness.ps1、tests/test_review_gate_controls.py，不切换任务、不进入下一包；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成聚焦测试与指定脚本后停机汇报。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PKT-GOV-03-template-route-map-role-alignment"
-  title: "模板与路线图职责收平"
+  task_id: "PKT-GOV-06-change-scope-precheck"
+  title: "提交范围前置检查"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -30,15 +30,17 @@ currentTask:
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
     - "docs/正式业务代码开发开工裁决页.md"
+    - "docs/自动化开发动作门禁表.md"
     - "docs/自动开发任务包模板.md"
-    - "docs/AX9S_开发执行路由图.md"
     - "control/repo_status.md"
     - "control/current_task.yaml"
     - "control/task_packet_library.yaml"
+    - "control/automation_task_packet_rules.yaml"
     - "scripts/check-automation-readiness.ps1"
     - "scripts/check-release.ps1"
+    - "tests/test_review_gate_controls.py"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "执行 G03-B 正文职责收平：把任务包模板收成纯 task packet 模板，把路线图收成纯导航图，并同步当前窗口 execution semantics；本轮不进入实现，不进入下一包。"
+  objective: "实现提交范围前置检查：把 planned target paths / intended changed files 与当前 active packet declared/allowed paths 的匹配前移到改文件前/提交前；本轮不切换任务、不进入下一包。"
   operator_assignment_roster:
     stage7:
       assigned_owner_role: "sales_user"
@@ -79,24 +81,24 @@ currentTask:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    backlog_packet_ref: "PKT-GOV-03-template-route-map-role-alignment"
-    packet_id: "PKT-GOV-03-template-route-map-role-alignment"
-    subpacket_id: "PKT-GOV-03-template-route-map-role-alignment"
-    title: "模板与路线图职责收平"
+    backlog_packet_ref: "PKT-GOV-06-change-scope-precheck"
+    packet_id: "PKT-GOV-06-change-scope-precheck"
+    subpacket_id: "PKT-GOV-06-change-scope-precheck"
+    title: "提交范围前置检查"
     status: "ACTIVE"
-    objective: "执行 G03-B 正文职责收平：把 docs/自动开发任务包模板.md 收成纯 task packet 模板，把 docs/AX9S_开发执行路由图.md 收成纯导航图；本轮只做 docs 正文收平与必要 control 同步。"
+    objective: "实现提交范围前置检查：把 planned target paths / intended changed files 与当前 active packet declared/allowed paths 的匹配前移到改文件前/提交前。"
     depends_on:
-      - "PKT-GOV-01-product-dev-mode-docs-alignment"
+      - "PKT-GOV-05-python-cache-untracking"
     non_goals:
-      - "不进入实现"
-      - "不自动进入下一包"
       - "不改 src/**"
       - "不改 contracts/**"
       - "不改 handoff/**"
       - "不改 docs/L0.md"
       - "不改 AGENTS.md"
-      - "不改 docs/自动化开发动作门禁表.md"
-      - "不改 docs/开工前总清单.md"
+      - "不改 docs/AX9S_开发执行路由图.md"
+      - "不改 control/review_gate_matrix.yaml"
+      - "不改 scripts/check-release.ps1"
+      - "不自动进入下一包"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
@@ -104,7 +106,6 @@ currentTask:
       - "不新增正式业务对象、枚举、gate、exception 语义"
       - "not an external unlock implementation"
     affected_stages:
-      - "route_map_governance"
       - "automation_control"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
@@ -120,46 +121,51 @@ currentTask:
       - "model_governance_owner"
       - "testing_owner"
     declared_changed_paths:
-      - "docs/自动开发任务包模板.md"
-      - "docs/AX9S_开发执行路由图.md"
       - "control/task_packet_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/automation_task_packet_rules.yaml"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/自动开发任务包模板.md"
+      - "scripts/check-automation-readiness.ps1"
+      - "tests/test_review_gate_controls.py"
     baseline_dirty_paths: []
     allowed_modification_paths:
-      - "docs/自动开发任务包模板.md"
-      - "docs/AX9S_开发执行路由图.md"
       - "control/task_packet_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
-    forbidden_modification_paths:
-      - "docs/L0.md"
-      - "docs/D*.md"
-      - "AGENTS.md"
+      - "control/automation_task_packet_rules.yaml"
       - "docs/自动化开发动作门禁表.md"
-      - "docs/开工前总清单.md"
+      - "docs/自动开发任务包模板.md"
+      - "scripts/check-automation-readiness.ps1"
+      - "tests/test_review_gate_controls.py"
+    forbidden_modification_paths:
+      - "src/**"
       - "contracts/**"
       - "handoff/**"
-      - "src/**"
-      - "scripts/**"
+      - "docs/L0.md"
+      - "AGENTS.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "control/review_gate_matrix.yaml"
+      - "scripts/check-release.ps1"
       - "control/automation_action_matrix.yaml"
       - "control/automation_stop_conditions.yaml"
-      - "control/automation_task_packet_rules.yaml"
-      - "control/review_gate_matrix.yaml"
       - "control/milestone_status.yaml"
     impacted_assets:
       docs:
+        - "docs/自动化开发动作门禁表.md"
         - "docs/自动开发任务包模板.md"
-        - "docs/AX9S_开发执行路由图.md"
       control:
         - "control/task_packet_library.yaml"
         - "control/current_task.yaml"
         - "control/repo_status.md"
+        - "control/automation_task_packet_rules.yaml"
       handoff: []
       scripts:
         - "scripts/check-automation-readiness.ps1"
         - "scripts/check-release.ps1"
-      tests: []
+      tests:
+        - "tests/test_review_gate_controls.py"
       contracts: []
       runtime: []
     required_scripts:
@@ -170,25 +176,29 @@ currentTask:
       scripts/check-release.ps1: 300000
     stop_conditions:
       - "任一 required script 失败"
-      - "实际改动超出 declared/allowed paths"
+      - "实际改动超出 allowed paths 或 preflight 已声明范围"
       - "触碰 forbidden paths"
       - "declared_changed_paths 超过 10"
       - "改变 canonical readiness"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
-      - "若需扩展到 docs/自动开发任务包模板.md、docs/AX9S_开发执行路由图.md、control/current_task.yaml、control/repo_status.md 之外的主题或路径，则先停机回总控"
+      - "若需扩展到本轮 8 个已声明文件之外的主题或路径，则先停机回总控"
+      - "若需要补改 tests/test_check_automation_readiness_unicode_paths.py，则先停机回总控"
     definition_of_done:
-      - "docs/自动开发任务包模板.md 已收平为纯 task packet 模板，不再兼任当前开发模式说明书"
-      - "docs/AX9S_开发执行路由图.md 已收平为纯导航图，不再承担当前任务源、状态源、执行日志或完整 backlog 口径"
+      - "PKT-GOV-06-change-scope-precheck 已切到实现执行窗口"
       - "source_blueprint_batch_id 使用已注册 blueprint POST-FF-CONTROL-01"
-      - "declared_changed_paths / allowed_modification_paths 数量 = 5 且 <= 10"
-      - "current_task / repo_status 已同步为 G03-B 正文职责收平执行语义"
+      - "declared_changed_paths / allowed_modification_paths 数量 = 8 且 <= 10"
+      - "planned target paths / intended changed files 必须先与当前 active packet declared/allowed paths 匹配"
+      - "check-automation-readiness.ps1 在前置检查阶段能更明确失败，而不是仅在 release gate 事后暴露"
+      - "工作区实际改动继续由 allowed_modification_paths / forbidden_modification_paths 做机器阻断"
+      - "repo_status Current Workstream 已同步为 PKT-GOV-06-change-scope-precheck"
+      - "聚焦测试通过"
       - "required scripts 通过并停机汇报"
       - "repo readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
     deliverables:
-      - "task packet template role-alignment patch"
-      - "route-map navigation-only alignment patch"
-      - "current task execution-semantics sync patch"
-      - "repo status execution-semantics sync patch"
+      - "change-scope precheck implementation patch"
+      - "preflight rules sync patch"
+      - "readiness script precheck patch"
+      - "review-gate regression patch"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -203,8 +213,8 @@ currentTask:
       signoff_status: "REQUESTED_NOT_APPROVED"
     notes:
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 blueprint_registry 注册。"
-      - "declared_changed_paths / allowed_modification_paths 先只覆盖模板、路线图与 3 个 control 文件。"
-      - "当前窗口为 G03-B 正文职责收平执行，不进入实现，不进入下一包。"
+      - "declared_changed_paths / allowed_modification_paths 覆盖本轮 8 个允许文件。"
+      - "当前窗口执行 PKT-GOV-06-change-scope-precheck 的实现；不切换任务，不进入下一包。"
       - "当前 active task source 优先级固定为 current_task -> task_packet_library -> repo_status。"
       - "本轮不改变 readiness，不放开 external release，不进入 Stage8/Stage9 高风险执行。"
   hardBlockers:
@@ -213,13 +223,12 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮允许修改 docs/自动开发任务包模板.md、docs/AX9S_开发执行路由图.md，并对 control/current_task.yaml、control/repo_status.md 做必要 execution semantics 同步；完成 G03-B 正文职责收平后按 required scripts 验证并停机汇报"
+    - "本轮允许修改 control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md、control/automation_task_packet_rules.yaml、docs/自动化开发动作门禁表.md、docs/自动开发任务包模板.md、scripts/check-automation-readiness.ps1、tests/test_review_gate_controls.py；完成 PKT-GOV-06-change-scope-precheck 实现后按聚焦测试与 required scripts 验证并停机汇报"
   forbidden_actions:
-    - "本轮不得修改 docs/自动开发任务包模板.md、docs/AX9S_开发执行路由图.md、control/current_task.yaml、control/repo_status.md 之外的任务主题"
-    - "不得改 AGENTS.md、docs/自动化开发动作门禁表.md、docs/开工前总清单.md"
-    - "不得改 scripts/**、src/**、contracts/**、handoff/**"
+    - "本轮不得修改 8 个已声明文件之外的任务主题"
+    - "不得改 src/**、contracts/**、handoff/**、docs/L0.md、AGENTS.md、docs/AX9S_开发执行路由图.md、control/review_gate_matrix.yaml、scripts/check-release.ps1"
     - "不得自动进入下一包"
     - "不得改变 canonical readiness 或放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery"
   nextActions:
-    - "完成 G03-B 正文职责收平后停机回总控；未确认前不进入下一包。"
-  status_note: "PKT-GOV-03-template-route-map-role-alignment 当前处于 G03-B 正文职责收平执行中；本窗口只收平任务包模板与路线图正文职责，并同步 current_task / repo_status 执行语义；external release 与 Stage 8/9 real execution 继续阻断。"
+    - "完成 PKT-GOV-06-change-scope-precheck 的最小实现、聚焦测试与 required scripts 后停机回总控；未确认前不进入下一包。"
+  status_note: "PKT-GOV-06-change-scope-precheck 当前处于实现执行中；本窗口只在已声明 8 个文件内落笔，目标是把范围匹配检查前移到改文件前/提交前；external release 与 Stage 8/9 real execution 继续阻断。"

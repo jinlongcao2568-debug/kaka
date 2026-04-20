@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$RepoRoot,
+    [string[]]$PlannedTargetPaths,
     [switch]$EmitJson,
     [switch]$Quiet
 )
@@ -129,6 +130,39 @@ function Get-FieldValue {
     if ($null -eq $Object) { return $null }
     if ($Object.PSObject.Properties.Name -contains $Name) { return $Object.$Name }
     return $null
+}
+
+function Test-PathScopeCompliance {
+    param(
+        [string[]]$Paths,
+        [string[]]$DeclaredPatterns,
+        [string[]]$AllowedPatterns,
+        [string[]]$ForbiddenPatterns,
+        [string]$IssuePrefix,
+        [switch]$RequireDeclaredMatch,
+        [ref]$Issues
+    )
+
+    # Possible issue codes emitted here:
+    # PLANNED_PATH_NOT_DECLARED / PLANNED_PATH_NOT_ALLOWED / PLANNED_PATH_FORBIDDEN
+    # ACTUAL_PATH_NOT_ALLOWED / ACTUAL_PATH_FORBIDDEN
+    foreach ($path in @($Paths | ForEach-Object { Normalize-Path ([string]$_) })) {
+        if ([string]::IsNullOrWhiteSpace($path)) {
+            continue
+        }
+
+        if ($RequireDeclaredMatch -and -not (Test-PatternMatch -Path $path -Patterns $DeclaredPatterns)) {
+            Add-Issue -Bag $Issues -Severity 'ERROR' -Code ($IssuePrefix + '_PATH_NOT_DECLARED') -Message "$IssuePrefix path $path is outside declared_changed_paths." -Path $path
+        }
+
+        if (-not (Test-PatternMatch -Path $path -Patterns $AllowedPatterns)) {
+            Add-Issue -Bag $Issues -Severity 'ERROR' -Code ($IssuePrefix + '_PATH_NOT_ALLOWED') -Message "$IssuePrefix path $path is outside allowed_modification_paths." -Path $path
+        }
+
+        if (Test-PatternMatch -Path $path -Patterns $ForbiddenPatterns) {
+            Add-Issue -Bag $Issues -Severity 'ERROR' -Code ($IssuePrefix + '_PATH_FORBIDDEN') -Message "$IssuePrefix path $path matches forbidden_modification_paths." -Path $path
+        }
+    }
 }
 
 function Get-ActualChangedPaths {
@@ -373,17 +407,23 @@ if ($taskPacket -and $taskRules) {
 $detectedClassification = $null
 if ($taskPacket -and $reviewGateMatrix -and @($classRanks.Keys).Count -gt 0) {
     $declaredPaths = @($taskPacket.declared_changed_paths | ForEach-Object { Normalize-Path ([string]$_) })
+    $allowedPaths = @($taskPacket.allowed_modification_paths | ForEach-Object { Normalize-Path ([string]$_) })
+    $forbiddenPaths = @($taskPacket.forbidden_modification_paths | ForEach-Object { Normalize-Path ([string]$_) })
     if (@($declaredPaths).Count -eq 0) {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'DECLARED_PATHS_MISSING' -Message 'declared_changed_paths must list the touched files for classification.' -Path 'control/current_task.yaml#currentTask.task_packet.declared_changed_paths'
     }
 
     foreach ($path in $declaredPaths) {
-        if (-not (Test-PatternMatch -Path $path -Patterns @($taskPacket.allowed_modification_paths))) {
+        if (-not (Test-PatternMatch -Path $path -Patterns $allowedPaths)) {
             Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'DECLARED_PATH_NOT_ALLOWED' -Message "Declared path $path is outside allowed_modification_paths." -Path 'control/current_task.yaml'
         }
-        if (Test-PatternMatch -Path $path -Patterns @($taskPacket.forbidden_modification_paths)) {
+        if (Test-PatternMatch -Path $path -Patterns $forbiddenPaths) {
             Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'DECLARED_PATH_FORBIDDEN' -Message "Declared path $path matches forbidden_modification_paths." -Path 'control/current_task.yaml'
         }
+    }
+
+    if (@($PlannedTargetPaths).Count -gt 0) {
+        Test-PathScopeCompliance -Paths $PlannedTargetPaths -DeclaredPatterns $declaredPaths -AllowedPatterns $allowedPaths -ForbiddenPatterns $forbiddenPaths -IssuePrefix 'PLANNED' -RequireDeclaredMatch -Issues ([ref]$issues)
     }
 
     $detectedClassification = Classify-Paths -Paths $declaredPaths -ReviewMatrix $reviewGateMatrix
@@ -436,6 +476,7 @@ if ($taskPacket -and $reviewGateMatrix -and @($classRanks.Keys).Count -gt 0) {
 
     $actualChangedPaths = Get-ActualChangedPaths -Root $root
     if (@($actualChangedPaths).Count -gt 0) {
+        $pathsToCheck = [System.Collections.Generic.List[string]]::new()
         foreach ($actualPath in $actualChangedPaths) {
             $normalizedActualPath = Normalize-Path $actualPath
             if ($baselineDirtyPaths -contains $normalizedActualPath) {
@@ -444,9 +485,11 @@ if ($taskPacket -and $reviewGateMatrix -and @($classRanks.Keys).Count -gt 0) {
             if (Test-IgnoredGeneratedPath -Path $normalizedActualPath) {
                 continue
             }
-            if (-not (Test-PatternMatch -Path $actualPath -Patterns @($taskPacket.allowed_modification_paths))) {
-                Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'ACTUAL_PATH_NOT_ALLOWED' -Message "Actual changed path $actualPath is outside allowed_modification_paths." -Path $actualPath
-            }
+            $pathsToCheck.Add($normalizedActualPath) | Out-Null
+        }
+
+        if ($pathsToCheck.Count -gt 0) {
+            Test-PathScopeCompliance -Paths @($pathsToCheck) -DeclaredPatterns $declaredPaths -AllowedPatterns $allowedPaths -ForbiddenPatterns $forbiddenPaths -IssuePrefix 'ACTUAL' -Issues ([ref]$issues)
         }
     }
 }
