@@ -26,6 +26,44 @@ from stage6_fact_review.service import Stage6Service
 
 
 class TestStage56Evaluators(unittest.TestCase):
+    def _execute_window_value_policy(
+        self,
+        *,
+        deadline: str | None = None,
+        now: str = "2026-04-14T00:00:00Z",
+        window_status: str | None = None,
+        sale_gate_status: str = "OPEN",
+        commercial_urgency_level: str | None = None,
+    ) -> tuple[object, dict[str, object]]:
+        inputs: dict[str, object] = {
+            "now": now,
+            "sale_gate_status": sale_gate_status,
+        }
+        if deadline is not None:
+            inputs["current_action_deadline_at_optional"] = deadline
+        if window_status is not None:
+            inputs["window_status"] = window_status
+        if commercial_urgency_level is not None:
+            inputs["commercial_urgency_level"] = commercial_urgency_level
+
+        context = ContextPacket.from_records(
+            capability_mode="stage6_fact_review",
+            stage=6,
+            project_id="PRJ-WINDOW",
+            records={
+                "project_fact": {"sale_gate_status": sale_gate_status},
+                "clock_chain_profile": {},
+                "legal_action_recommendation": (
+                    {"window_status": window_status} if window_status is not None else {}
+                ),
+            },
+            inputs=inputs,
+        )
+        state = StatePacket(capability_mode="stage6_fact_review")
+        decision = PolicyExecutor().execute("window_value", context, state)
+        state.add_decision(decision)
+        return decision, state.merged_outputs()
+
     def test_stage5_engine_matches_service_outputs(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
         service_result = Stage5Service().run(stage4)
@@ -103,6 +141,118 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertEqual(queue_profile.get("review_priority_score"), 46)
         self.assertEqual(queue_profile.get("review_queue_bucket"), "NORMAL")
         self.assertEqual(aggregated.record("legal_action_recommendation").get("window_status"), "ACTIONABLE")
+
+    def test_stage6_window_policy_scores_bucket_boundaries_from_catalog(self) -> None:
+        cases = [
+            (
+                "critical_window",
+                "2026-04-16T00:00:00Z",
+                "CRITICAL",
+                "ACTIONABLE",
+                "CRITICAL",
+                95,
+                "FAST_WINDOW",
+                97,
+                "CRITICAL_WINDOW",
+                "ALLOW",
+            ),
+            (
+                "high_window",
+                "2026-04-19T00:00:00Z",
+                "HIGH",
+                "ACTIONABLE",
+                "HIGH",
+                80,
+                "HIGH_PRIORITY",
+                73,
+                "HIGH",
+                "ALLOW",
+            ),
+            (
+                "normal_window",
+                "2026-04-24T00:00:00Z",
+                "NORMAL",
+                "ACTIONABLE",
+                "MEDIUM",
+                60,
+                "STANDARD",
+                46,
+                "NORMAL",
+                "ALLOW",
+            ),
+            (
+                "low_window",
+                "2026-05-05T00:00:00Z",
+                "LOW",
+                "ACTIONABLE",
+                "LOW",
+                40,
+                "STANDARD",
+                24,
+                "LOW",
+                "ALLOW",
+            ),
+            (
+                "missed_window",
+                "2026-04-13T00:00:00Z",
+                "HIGH",
+                "MISSED",
+                "CRITICAL",
+                0,
+                "FAST_WINDOW",
+                100,
+                "CRITICAL_WINDOW",
+                "BLOCK",
+            ),
+        ]
+
+        for (
+            case_name,
+            deadline,
+            commercial_urgency,
+            expected_window_status,
+            expected_risk_level,
+            expected_urgency_score,
+            expected_lane,
+            expected_priority,
+            expected_bucket,
+            expected_decision_state,
+        ) in cases:
+            with self.subTest(case_name=case_name):
+                decision, outputs = self._execute_window_value_policy(
+                    deadline=deadline,
+                    commercial_urgency_level=commercial_urgency,
+                )
+
+                self.assertEqual(outputs.get("window_status"), expected_window_status)
+                self.assertEqual(outputs.get("window_risk_level"), expected_risk_level)
+                self.assertEqual(outputs.get("window_urgency_score"), expected_urgency_score)
+                self.assertEqual(outputs.get("review_lane"), expected_lane)
+                self.assertEqual(outputs.get("review_priority_score"), expected_priority)
+                self.assertEqual(outputs.get("review_queue_bucket"), expected_bucket)
+                self.assertEqual(outputs.get("commercial_urgency_level"), commercial_urgency)
+                self.assertEqual(decision.decision_state, expected_decision_state)
+
+    def test_stage6_review_required_queue_floors_and_default_urgency(self) -> None:
+        decision, outputs = self._execute_window_value_policy(window_status="REVIEW_REQUIRED")
+
+        self.assertEqual(decision.decision_state, "REVIEW")
+        self.assertTrue(decision.fallback_used)
+        self.assertEqual(outputs.get("window_status"), "REVIEW_REQUIRED")
+        self.assertEqual(outputs.get("commercial_urgency_level"), "NORMAL")
+        self.assertEqual(outputs.get("review_priority_score"), 40)
+        self.assertEqual(outputs.get("review_queue_bucket"), "NORMAL")
+
+        high_decision, high_outputs = self._execute_window_value_policy(
+            window_status="REVIEW_REQUIRED",
+            commercial_urgency_level="HIGH",
+        )
+
+        self.assertEqual(high_decision.decision_state, "REVIEW")
+        self.assertTrue(high_decision.fallback_used)
+        self.assertEqual(high_outputs.get("commercial_urgency_level"), "HIGH")
+        self.assertEqual(high_outputs.get("review_priority_score"), 65)
+        self.assertEqual(high_outputs.get("review_queue_bucket"), "HIGH")
 
     def test_stage6_competitor_grade_uses_formal_policy_not_heuristic_mapping(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
