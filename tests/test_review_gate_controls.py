@@ -237,6 +237,39 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", readiness)
         self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", release)
 
+    def test_g08_scope_expands_to_six_file_execution_window(self) -> None:
+        current_task = read("control/current_task.yaml")
+        library = read("control/task_packet_library.yaml")
+
+        for token in (
+            "docs/AX9S_开发执行路由图.md",
+            "scripts/check-semantic-alignment.ps1",
+            "tests/test_review_gate_controls.py",
+            "轻机制 + 提示型同步",
+        ):
+            self.assertIn(token, current_task)
+            self.assertIn(token, library)
+
+        self.assertIn("declared_changed_paths / allowed_modification_paths 数量 = 6 且 <= 10", current_task)
+        self.assertIn("declared_changed_paths count is 6 and less than or equal to 10", library)
+
+    def test_semantic_alignment_route_map_sync_hint_is_warning_only(self) -> None:
+        semantic = read("scripts/check-semantic-alignment.ps1")
+        ax9s = read("docs/AX9S_开发执行路由图.md")
+
+        for token in (
+            "function Get-RouteMapNearEndPacketIds",
+            "function Get-PacketOrderIds",
+            "ROUTE_MAP_NEAR_END_HINT_LAGGING",
+            "-Severity 'WARNING'",
+            "该检查只作提示，不阻断",
+        ):
+            self.assertIn(token, semantic)
+
+        self.assertIn("本文件中的近端候选只作导航提示，不决定执行顺序", ax9s)
+        self.assertIn("只给 `WARNING` 提示，不阻断", ax9s)
+        self.assertIn("task_packet_library.packet_order", ax9s)
+
     def test_check_release_reads_step_issues_defensively(self) -> None:
         release = read("scripts/check-release.ps1")
 

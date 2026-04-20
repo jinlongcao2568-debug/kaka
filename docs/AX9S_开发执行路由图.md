@@ -5,6 +5,7 @@
 > `control/current_task.yaml` 负责唯一**当前 active 执行任务**，是唯一 active task source。  
 > `control/task_packet_library.yaml` 只负责下一候选来源。  
 > 本文件中的近端候选只作导航提示，不决定执行顺序。实际 active 包以 `control/current_task.yaml` 为准；候选池参考 `control/task_packet_library.yaml`。  
+> `scripts/check-semantic-alignment.ps1` 只会对本文件第 3 节与 `task_packet_library.packet_order` 的近端偏移做轻机制提示；若明显落后，只给 `WARNING`，不阻断。  
 > 本文件不改写 `L0.md`、`裁决总表.md`、`D1-D14`、`contracts/*`、`handoff/*` 的正式语义。
 
 ## 1. 导航口径
@@ -118,9 +119,11 @@
 ## 3. 近端导航提示
 
 > 下列候选仅作“下一步可能去哪里看”的导航提示。  
-> 它们不是当前任务源，不决定执行顺序，也不代表完整 backlog。实际选包以 `control/current_task.yaml`、`control/task_packet_library.yaml` 为准。
+> 它们不是当前任务源，不决定执行顺序，也不代表完整 backlog。实际选包以 `control/current_task.yaml`、`control/task_packet_library.yaml` 为准。  
+> `scripts/check-semantic-alignment.ps1` 会把本节首个近端候选与 `task_packet_library.packet_order` 当前顺位做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 
-- `PKT-P1-01-stage12-rollout-precedence`：最贴近 Stage 1-2 的来源 authority、route precedence、default/fallback route 与时钟 precedence 收口。
-- `PKT-P0-01-review-queue-window-scoring`：最贴近 Stage 4-6 的核验后收口、双闸门后分流与 review queue / report 闭合。
-- `PKT-P0-02-stage7-buyer-fit-value-derivation`：最贴近 Stage 7 的 buyer fit、价值评分、`sales_lead` 与 `saleable_opportunity` 派生收口。
+- `PKT-P0-04-stage8-compliance-lattice`：最贴近当前近端顺位的 Stage 8 合规 lattice、candidate/execution 边界与提示面收口。
 - `PKT-P0-05-stage8-contact-enrichment-merge`：最贴近 Stage 8 的 `contact_candidate_collection`、`contact_selection_trace` 与候选合并收口。
+- `PKT-P0-06-stage9-writeback-contract-core`：最贴近 Stage 9 writeback contract、影响源与 internal governed writeback 收口。
+- `PKT-P0-07-stage9-upstream-feedback-loop`：最贴近 Stage 9 upstream feedback、治理反馈回写与结果闭环收口。
+- `PKT-P0-08-formal-route-map-split`：最贴近路线图自身的 formal route / candidate hint 导航资产收口。

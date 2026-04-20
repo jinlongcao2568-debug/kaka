@@ -219,6 +219,7 @@ packet_order:
   - PKT-GOV-05-python-cache-untracking
   - PKT-GOV-06-change-scope-precheck
   - PKT-GOV-07-python-cache-cleaner
+  - PKT-GOV-08-route-map-sync-hint
   - PKT-P0-04-stage8-compliance-lattice
   - PKT-P0-05-stage8-contact-enrichment-merge
   - PKT-P0-06-stage9-writeback-contract-core
@@ -1808,6 +1809,124 @@ packets:
       - repo status workstream sync patch
       - clean-python-cache script patch
       - pre-commit cache cleanup reminder patch
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PKT-GOV-08-route-map-sync-hint
+    packet_kind: EXECUTABLE_SCOPED_SUBPACKET
+    source_blueprint_batch_id: POST-FF-CONTROL-01
+    title: 路线图近端候选同步提示机制
+    priority: P0
+    route_map_segment: POST_FF_ROUTE_MAP_SYNC_HINT
+    objective: 实现“路线图近端候选与 task_packet_library 当前顺位的轻机制 + 提示型同步”；保持路线图纯导航定位，只做提示，不做强阻断，不改变执行顺序来源。
+    non_goals:
+      - 不做强阻断
+      - 不让路线图变成当前任务源或状态源
+      - 不让近端候选决定执行顺序
+      - 不改 AGENTS.md
+      - 不改 docs/自动开发任务包模板.md
+      - 不改 docs/自动化开发动作门禁表.md
+      - 不改 docs/L0.md
+      - 不改 scripts/check-release.ps1
+      - 不改 src/**
+      - 不改 contracts/**
+      - 不改 handoff/**
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - 不自动进入下一包
+      - not an external unlock implementation
+    affected_stages: [route_map_governance, automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, future_external_unlock_prereq_core, scripts_and_tests_general]
+    depends_on: [PKT-GOV-07-python-cache-cleaner]
+    authority_refs:
+      docs:
+        - AGENTS.md
+        - docs/L0.md
+        - docs/裁决总表.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/正式业务代码开发开工裁决页.md
+        - docs/AX9S_开发执行路由图.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+      scripts:
+        - scripts/check-automation-readiness.ps1
+        - scripts/check-semantic-alignment.ps1
+        - scripts/check-release.ps1
+      tests:
+        - tests/test_review_gate_controls.py
+    allowed_modification_paths:
+      - "control/task_packet_library.yaml"
+      - "control/current_task.yaml"
+      - "control/repo_status.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "scripts/check-semantic-alignment.ps1"
+      - "tests/test_review_gate_controls.py"
+    forbidden_modification_paths:
+      - "AGENTS.md"
+      - "docs/自动开发任务包模板.md"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/L0.md"
+      - "scripts/check-release.ps1"
+      - "src/**"
+      - "contracts/**"
+      - "handoff/**"
+      - "control/automation_action_matrix.yaml"
+      - "control/automation_stop_conditions.yaml"
+      - "control/automation_task_packet_rules.yaml"
+      - "control/review_gate_matrix.yaml"
+      - "control/milestone_status.yaml"
+    acceptance_assertions:
+      - task_packet_library registers PKT-GOV-08-route-map-sync-hint and places it after PKT-GOV-07-python-cache-cleaner and before PKT-P0-04-stage8-compliance-lattice in packet_order
+      - current_task declares exactly the six allowed files as declared_changed_paths and allowed_modification_paths
+      - declared_changed_paths count stays at 6 and less than or equal to 10
+      - AX9S route map keeps pure-navigation / hint-only semantics and does not become an execution-order source
+      - task_packet_library remains the next-packet candidate source and current_task remains the unique active source
+      - check-semantic-alignment emits a prompt-only warning when AX9S near-end hints obviously lag behind task_packet_library.packet_order current rank
+      - the route-map sync hint warning does not hard-fail semantic alignment or release checks
+      - tests/test_review_gate_controls.py covers the warning-only mechanism and preserves the current pass path
+      - repo_status Current Workstream is synchronized to the active packet
+      - canonical readiness and blocked lines remain unchanged
+      - this round implements the light mechanism without turning it into a blocking gate
+    required_scripts:
+      - python -m pytest tests/test_review_gate_controls.py -q
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed allowed paths
+      - touch forbidden paths
+      - declared_changed_paths exceed 10
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+      - warning-only route-map sync logic is upgraded into a blocking gate in this round
+    definition_of_done:
+      - PKT-GOV-08-route-map-sync-hint enters scoped implementation execution in current_task
+      - packet_order places PKT-GOV-08-route-map-sync-hint after PKT-GOV-07-python-cache-cleaner and before PKT-P0-04-stage8-compliance-lattice
+      - declared_changed_paths count is 6 and less than or equal to 10
+      - AX9S route map remains navigation-only and near-end hints remain prompt-only
+      - check-semantic-alignment can emit ROUTE_MAP_NEAR_END_HINT_LAGGING as WARNING without forcing failure
+      - tests/test_review_gate_controls.py focused regression passes
+      - repo_status Current Workstream matches the active packet id
+      - required scripts pass and the window stops to report
+      - repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION
+    deliverables:
+      - route-map sync hint packet registry patch
+      - current task activation patch
+      - repo status workstream sync patch
+      - route-map hint wording patch
+      - semantic warning-only sync patch
+      - review-gate regression patch
     human_review_required: true
     owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
     review_evidence:

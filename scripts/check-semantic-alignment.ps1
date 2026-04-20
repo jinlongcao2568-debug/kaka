@@ -134,6 +134,38 @@ function Get-RulingIndexSummaryRow {
     }
 }
 
+function Get-RouteMapNearEndPacketIds {
+    param([string]$Text)
+
+    $sectionMatch = [regex]::Match($Text, '(?ms)^## 3\. 近端导航提示\s*\r?\n(?<body>.*?)(?=^##\s|\z)')
+    if (-not $sectionMatch.Success) { return @() }
+
+    $ids = [System.Collections.Generic.List[string]]::new()
+    foreach ($match in [regex]::Matches($sectionMatch.Groups['body'].Value, '(?m)^\-\s*`(PKT-[^`]+)`')) {
+        $id = $match.Groups[1].Value
+        if (-not $ids.Contains($id)) {
+            $ids.Add($id) | Out-Null
+        }
+    }
+    return @($ids)
+}
+
+function Get-PacketOrderIds {
+    param([string]$Text)
+
+    $sectionMatch = [regex]::Match($Text, '(?ms)^\s*packet_order:\s*\r?\n(?<body>.*?)(?=^\s*packets:\s*$)')
+    if (-not $sectionMatch.Success) { return @() }
+
+    $ids = [System.Collections.Generic.List[string]]::new()
+    foreach ($match in [regex]::Matches($sectionMatch.Groups['body'].Value, '(?m)^\s*-\s*([A-Za-z0-9][A-Za-z0-9\-_]+)\s*$')) {
+        $id = $match.Groups[1].Value
+        if (-not $ids.Contains($id)) {
+            $ids.Add($id) | Out-Null
+        }
+    }
+    return @($ids)
+}
+
 $root = Resolve-RepoRoot -Provided $RepoRoot
 $issues = [System.Collections.Generic.List[object]]::new()
 
@@ -773,6 +805,8 @@ $launchStrategicBranch = Get-RegexValue -Text $launchAdjudicationText -Pattern '
 $launchClosureReview = Get-RegexValue -Text $launchAdjudicationText -Pattern '^- 当前 closure review：`([^`]+)`'
 $launchMainlineSelection = Get-RegexValue -Text $launchAdjudicationText -Pattern '^- 当前 mainline selection：`([^`]+)`'
 $taskPacketLibrarySource = Get-RegexValue -Text $taskPacketLibraryText -Pattern '^\s*formal_task_packet_source:\s*(.+)$'
+$routeMapNearEndPacketIds = Get-RouteMapNearEndPacketIds -Text $ax9sText
+$packetOrderIds = Get-PacketOrderIds -Text $taskPacketLibraryText
 $canonicalReadiness = 'READY_FOR_POST-REPAIR_MAINLINE_SELECTION'
 $legacyBatchTokens = @('FINAL_BLOCKERS_P01_P06', 'P-01~P-06', 'FR-01~FR-05')
 
@@ -816,6 +850,12 @@ if (-not $ax9sText.Contains('候选导航资产')) {
 if (-not $ax9sText.Contains('control/current_task.yaml') -or -not $ax9sText.Contains('当前 active 执行任务')) {
     Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'UNIQUE_ACTIVE_TASK_SOURCE_DRIFT' -Message 'AX9S route map must keep control/current_task.yaml as the unique active task source.' -Path 'docs/AX9S_开发执行路由图.md'
 }
+if (-not $ax9sText.Contains('只作导航提示') -or -not $ax9sText.Contains('不决定执行顺序')) {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'ROUTE_MAP_HINT_ONLY_DRIFT' -Message 'AX9S route map must keep near-end candidates as navigation hints only and must not let them decide execution order.' -Path 'docs/AX9S_开发执行路由图.md'
+}
+if (-not $ax9sText.Contains('control/task_packet_library.yaml') -or -not $ax9sText.Contains('下一候选来源')) {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'CANDIDATE_PACKET_SOURCE_DRIFT' -Message 'AX9S route map must keep control/task_packet_library.yaml as the next-packet candidate source.' -Path 'docs/AX9S_开发执行路由图.md'
+}
 if ($taskPacketLibrarySource -ne 'control/current_task.yaml#currentTask.task_packet') {
     Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'UNIQUE_ACTIVE_TASK_SOURCE_DRIFT' -Message 'task_packet_library formal_task_packet_source must point to control/current_task.yaml#currentTask.task_packet.' -Path 'control/task_packet_library.yaml'
 }
@@ -841,6 +881,20 @@ else {
     }
     if ($repoWorkstream -match 'AUTHORITY[-_ ]CONVERGENCE|CLOSEOUT|ADMIN') {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_STATUS_WORKSTREAM_STALE' -Message 'repo_status.md Current Workstream must not remain on legacy closeout/admin wording.' -Path 'control/repo_status.md'
+    }
+}
+
+if ($packetOrderIds.Count -gt 0 -and $routeMapNearEndPacketIds.Count -gt 0 -and $currentTaskTaskId) {
+    $activePacketIndex = [Array]::IndexOf($packetOrderIds, $currentTaskTaskId)
+    if ($activePacketIndex -ge 0 -and ($activePacketIndex + 1) -lt $packetOrderIds.Count) {
+        $nextPacketOrderIds = @($packetOrderIds[($activePacketIndex + 1)..($packetOrderIds.Count - 1)])
+        $comparisonWindow = @($nextPacketOrderIds | Select-Object -First 3)
+        $firstRouteMapHint = [string]$routeMapNearEndPacketIds[0]
+        $firstHintOffset = [Array]::IndexOf($nextPacketOrderIds, $firstRouteMapHint)
+
+        if ($comparisonWindow.Count -gt 0 -and ($firstHintOffset -lt 0 -or $firstHintOffset -ge $comparisonWindow.Count)) {
+            Add-Issue -Bag ([ref]$issues) -Severity 'WARNING' -Code 'ROUTE_MAP_NEAR_END_HINT_LAGGING' -Message "AX9S 近端候选首项 $firstRouteMapHint 明显落后于 task_packet_library.packet_order 当前顺位（$($comparisonWindow -join ', ')）。该检查只作提示，不阻断；实际执行顺序继续以 control/current_task.yaml 与 control/task_packet_library.yaml 为准。" -Path 'docs/AX9S_开发执行路由图.md'
+        }
     }
 }
 

@@ -9,7 +9,7 @@ navigation_state: "CONTROLLED_ROUTE_MAP_RESTORED"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口进入 PKT-GOV-07-python-cache-cleaner 的实现执行；本轮只允许修改 control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md、scripts/clean-python-cache.ps1、docs/自动化开发动作门禁表.md、docs/自动开发任务包模板.md，不切换任务、不进入下一包；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成缓存清理脚本验证、状态检查与指定脚本后停机汇报。"
+activation_condition: "当前窗口进入 PKT-GOV-08-route-map-sync-hint 的实现执行；本轮只允许修改 control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md、docs/AX9S_开发执行路由图.md、scripts/check-semantic-alignment.ps1、tests/test_review_gate_controls.py，做路线图近端候选同步的轻机制 + 提示型实现；不做强阻断，不进入下一包；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成聚焦测试与指定脚本后停机汇报。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PKT-GOV-07-python-cache-cleaner"
-  title: "Python 缓存清理脚本"
+  task_id: "PKT-GOV-08-route-map-sync-hint"
+  title: "路线图近端候选同步提示机制"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -30,16 +30,16 @@ currentTask:
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
     - "docs/正式业务代码开发开工裁决页.md"
-    - "docs/自动化开发动作门禁表.md"
-    - "docs/自动开发任务包模板.md"
+    - "docs/AX9S_开发执行路由图.md"
     - "control/repo_status.md"
     - "control/current_task.yaml"
     - "control/task_packet_library.yaml"
-    - "scripts/clean-python-cache.ps1"
     - "scripts/check-automation-readiness.ps1"
+    - "scripts/check-semantic-alignment.ps1"
     - "scripts/check-release.ps1"
+    - "tests/test_review_gate_controls.py"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "实现一个在任务完成后、提交前使用的 PowerShell 缓存清理脚本，清理仓库内 `__pycache__/`、`*.pyc`、`.pytest_cache/` 本地缓存，并完成最小验证；本轮不切换任务、不进入下一包。"
+  objective: "实现“路线图近端候选与 task_packet_library 当前顺位的轻机制 + 提示型同步”；保持路线图纯导航定位不变，只做提示，不做强阻断，不改变执行顺序来源。"
   operator_assignment_roster:
     stage7:
       assigned_owner_role: "sales_user"
@@ -80,23 +80,26 @@ currentTask:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    backlog_packet_ref: "PKT-GOV-07-python-cache-cleaner"
-    packet_id: "PKT-GOV-07-python-cache-cleaner"
-    subpacket_id: "PKT-GOV-07-python-cache-cleaner"
-    title: "Python 缓存清理脚本"
+    backlog_packet_ref: "PKT-GOV-08-route-map-sync-hint"
+    packet_id: "PKT-GOV-08-route-map-sync-hint"
+    subpacket_id: "PKT-GOV-08-route-map-sync-hint"
+    title: "路线图近端候选同步提示机制"
     status: "ACTIVE"
-    objective: "实现一个在任务完成后、提交前使用的 PowerShell 缓存清理脚本，清理仓库内 `__pycache__/`、`*.pyc`、`.pytest_cache/` 本地缓存，并完成最小验证。"
+    objective: "实现“路线图近端候选与 task_packet_library 当前顺位的轻机制 + 提示型同步”；保持路线图纯导航定位不变，只做提示，不做强阻断，不改变执行顺序来源。"
     depends_on:
-      - "PKT-GOV-06-change-scope-precheck"
+      - "PKT-GOV-07-python-cache-cleaner"
     non_goals:
+      - "不做强阻断"
+      - "不让路线图变成当前任务源或状态源"
+      - "不让近端候选决定执行顺序"
+      - "不改 AGENTS.md"
+      - "不改 docs/自动开发任务包模板.md"
+      - "不改 docs/自动化开发动作门禁表.md"
+      - "不改 docs/L0.md"
+      - "不改 scripts/check-release.ps1"
       - "不改 src/**"
-      - "不改 tests/** 业务/回归逻辑"
       - "不改 contracts/**"
       - "不改 handoff/**"
-      - "不改 docs/L0.md"
-      - "不改 AGENTS.md"
-      - "不改 docs/AX9S_开发执行路由图.md"
-      - "不改 scripts/check-release.ps1"
       - "不自动进入下一包"
       - "不改变 canonical readiness"
       - "不放开 external release"
@@ -105,13 +108,14 @@ currentTask:
       - "不新增正式业务对象、枚举、gate、exception 语义"
       - "not an external unlock implementation"
     affected_stages:
+      - "route_map_governance"
       - "automation_control"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "governance_release_core"
       - "future_external_unlock_prereq_core"
+      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "release_approver"
@@ -123,26 +127,26 @@ currentTask:
       - "control/task_packet_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "scripts/clean-python-cache.ps1"
-      - "docs/自动化开发动作门禁表.md"
-      - "docs/自动开发任务包模板.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "scripts/check-semantic-alignment.ps1"
+      - "tests/test_review_gate_controls.py"
     baseline_dirty_paths: []
     allowed_modification_paths:
       - "control/task_packet_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "scripts/clean-python-cache.ps1"
-      - "docs/自动化开发动作门禁表.md"
-      - "docs/自动开发任务包模板.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "scripts/check-semantic-alignment.ps1"
+      - "tests/test_review_gate_controls.py"
     forbidden_modification_paths:
+      - "AGENTS.md"
+      - "docs/自动开发任务包模板.md"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/L0.md"
+      - "scripts/check-release.ps1"
       - "src/**"
-      - "tests/**"
       - "contracts/**"
       - "handoff/**"
-      - "docs/L0.md"
-      - "AGENTS.md"
-      - "docs/AX9S_开发执行路由图.md"
-      - "scripts/check-release.ps1"
       - "control/automation_action_matrix.yaml"
       - "control/automation_stop_conditions.yaml"
       - "control/automation_task_packet_rules.yaml"
@@ -150,26 +154,25 @@ currentTask:
       - "control/milestone_status.yaml"
     impacted_assets:
       docs:
-        - "docs/自动化开发动作门禁表.md"
-        - "docs/自动开发任务包模板.md"
+        - "docs/AX9S_开发执行路由图.md"
       control:
         - "control/task_packet_library.yaml"
         - "control/current_task.yaml"
         - "control/repo_status.md"
       handoff: []
       scripts:
-        - "scripts/clean-python-cache.ps1"
         - "scripts/check-automation-readiness.ps1"
+        - "scripts/check-semantic-alignment.ps1"
         - "scripts/check-release.ps1"
-      tests: []
+      tests:
+        - "tests/test_review_gate_controls.py"
       contracts: []
       runtime: []
     required_scripts:
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1"
+      - "python -m pytest tests/test_review_gate_controls.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1"
     script_timeouts:
-      scripts/clean-python-cache.ps1: 300000
       scripts/check-automation-readiness.ps1: 300000
       scripts/check-release.ps1: 300000
     stop_conditions:
@@ -180,24 +183,24 @@ currentTask:
       - "改变 canonical readiness"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
       - "若需扩展到本轮 6 个已声明文件之外的主题或路径，则先停机回总控"
-      - "若缓存清理脚本误删非缓存文件，则先停机回总控"
+      - "若提示型机制被升级为强阻断，则先停机回总控"
     definition_of_done:
-      - "PKT-GOV-07-python-cache-cleaner 已切到实现执行窗口"
+      - "PKT-GOV-08-route-map-sync-hint 已切到实现执行窗口"
       - "source_blueprint_batch_id 使用已注册 blueprint POST-FF-CONTROL-01"
       - "declared_changed_paths / allowed_modification_paths 数量 = 6 且 <= 10"
-      - "clean-python-cache.ps1 可在仓库根目录直接运行"
-      - "clean-python-cache.ps1 明确报告删除了哪些缓存目录/文件以及是否成功"
-      - "clean-python-cache.ps1 只清理 __pycache__/、*.pyc、.pytest_cache/"
-      - "repo_status Current Workstream 已同步为 PKT-GOV-07-python-cache-cleaner"
-      - "git status --short --untracked-files=all 已复核"
+      - "路线图保持纯导航图定位，近端候选仍只作导航提示"
+      - "check-semantic-alignment.ps1 可对近端候选明显落后输出 WARNING，但不阻断"
+      - "tests/test_review_gate_controls.py 聚焦回归通过"
+      - "repo_status Current Workstream 已同步为 PKT-GOV-08-route-map-sync-hint"
       - "required scripts 通过并停机汇报"
       - "repo readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
     deliverables:
-      - "python cache cleaner packet registry patch"
+      - "route-map sync hint packet registry patch"
       - "current task activation patch"
       - "repo status workstream sync patch"
-      - "clean-python-cache script patch"
-      - "pre-commit cache cleanup reminder patch"
+      - "route-map hint wording patch"
+      - "semantic warning-only sync patch"
+      - "review-gate regression patch"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -213,7 +216,7 @@ currentTask:
     notes:
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 blueprint_registry 注册。"
       - "declared_changed_paths / allowed_modification_paths 覆盖本轮 6 个允许文件。"
-      - "当前窗口执行 PKT-GOV-07-python-cache-cleaner 的实现；不切换任务，不进入下一包。"
+      - "当前窗口执行 PKT-GOV-08-route-map-sync-hint 的实现；只做轻机制 + 提示型同步，不进入下一包。"
       - "当前 active task source 优先级固定为 current_task -> task_packet_library -> repo_status。"
       - "本轮不改变 readiness，不放开 external release，不进入 Stage8/Stage9 高风险执行。"
   hardBlockers:
@@ -222,12 +225,12 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮允许修改 control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md、scripts/clean-python-cache.ps1、docs/自动化开发动作门禁表.md、docs/自动开发任务包模板.md；完成 PKT-GOV-07-python-cache-cleaner 实现后按缓存清理脚本、git status 与 required scripts 验证并停机汇报"
+    - "本轮允许修改 control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md、docs/AX9S_开发执行路由图.md、scripts/check-semantic-alignment.ps1、tests/test_review_gate_controls.py；完成轻机制 + 提示型同步实现、聚焦测试与 required scripts 后停机汇报"
   forbidden_actions:
     - "本轮不得修改 6 个已声明文件之外的任务主题"
-    - "不得改 src/**、tests/**、contracts/**、handoff/**、docs/L0.md、AGENTS.md、docs/AX9S_开发执行路由图.md、control/review_gate_matrix.yaml、scripts/check-release.ps1"
+    - "不得改 AGENTS.md、docs/自动开发任务包模板.md、docs/自动化开发动作门禁表.md、docs/L0.md、scripts/check-release.ps1、src/**、contracts/**、handoff/**、control/review_gate_matrix.yaml"
     - "不得自动进入下一包"
     - "不得改变 canonical readiness 或放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery"
   nextActions:
-    - "完成 PKT-GOV-07-python-cache-cleaner 的最小实现、缓存清理脚本验证、git status 与 required scripts 后停机回总控；未确认前不进入下一包。"
-  status_note: "PKT-GOV-07-python-cache-cleaner 当前处于实现执行中；本窗口只在已声明 6 个文件内落笔，目标是补齐任务收尾阶段的 Python 缓存清理脚本；external release 与 Stage 8/9 real execution 继续阻断。"
+    - "完成 PKT-GOV-08-route-map-sync-hint 的轻机制 + 提示型同步实现、聚焦测试与 required scripts 后停机回总控；本轮不进入下一包。"
+  status_note: "PKT-GOV-08-route-map-sync-hint 当前处于实现执行中；本窗口只在已声明 6 个文件内落笔，目标是补齐路线图近端候选同步的轻机制 + 提示型实现；external release 与 Stage 8/9 real execution 继续阻断。"

@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PKT-GOV-07-python-cache-cleaner (implementation in progress; current window updates control/task_packet_library.yaml, control/current_task.yaml, control/repo_status.md, scripts/clean-python-cache.ps1, docs/自动化开发动作门禁表.md, and docs/自动开发任务包模板.md to add a pre-commit Python cache cleanup script; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
+Current Workstream: PKT-GOV-08-route-map-sync-hint (implementation in progress; current window updates control/task_packet_library.yaml, control/current_task.yaml, control/repo_status.md, docs/AX9S_开发执行路由图.md, scripts/check-semantic-alignment.ps1, and tests/test_review_gate_controls.py to add a light prompt-only near-end route-map sync hint; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,7 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
-- PKT-GOV-07-python-cache-cleaner is the active control/governance scoped subpacket; current window is limited to the declared 6-file implementation scope that adds the pre-commit Python cache cleanup script without changing canonical readiness and without entering the next packet
+- PKT-GOV-08-route-map-sync-hint is the active control/governance scoped subpacket; current window is limited to the declared 6-file implementation scope that adds a light prompt-only near-end candidate sync hint without changing canonical readiness and without entering the next packet
 - Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this scoped packet stops and reports
 - Status-source review and audit of the closed full-repair program without changing canonical readiness
 
@@ -29,7 +29,7 @@ Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
 - Any new AX9S batch activation, including B11
 - Any automatic next-task activation from the current scoped packet or historical FF-18-S1 closeout
-- Any topic expansion outside the current PKT-GOV-07-python-cache-cleaner scoped packet
+- Any topic expansion or strong-blocking sync mechanism outside the current PKT-GOV-08-route-map-sync-hint scoped packet
 - Any transport/bootstrap/api/service/runtime/test change outside the declared scoped packet paths
 - Any new formal object or enum family in this governance repair state
 - Any schema/handoff mainline rewrite in this governance repair state
@@ -45,12 +45,13 @@ State Semantics:
 - `FULL_REPAIR_COMPLETE_REVIEW_READY` is the AX9S full-repair program control closeout token only; it does not replace the repo readiness conclusion, which remains `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`.
 - `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` remains the scoped conditional-go for internal LeadOps development.
 - `FF-18-S1` is the final state-source closeout window for the full-fix mainline; it records canonical alignment only and does not create a new readiness token.
-- `PKT-GOV-07-python-cache-cleaner` is the current active control/governance scoped subpacket; in the current window it updates the declared 6-file implementation scope to add and validate a pre-commit Python cache cleanup script before stop-report.
+- `PKT-GOV-08-route-map-sync-hint` is the current active control/governance scoped subpacket; in the current window it implements a light prompt-only near-end route-map sync hint inside the declared 6-file scope, while keeping `current_task` as the unique active source and `task_packet_library` as the next-packet candidate source.
 - `FF-01~FF-18` mainline is complete; this does not unlock external release, Stage 8 live execution, or Stage 9 live payment/delivery.
 - `READY_FOR_POST-R6_CANDIDATE_GAP_BATCH` and `READY_FOR_POST-R6_STRATEGIC_BRANCH_BATCH` are historical R6-path tokens and are not the current repo readiness.
 - R6 candidate / deny / blocked decisions remain valid as decision outputs; they do not redefine the current repo readiness.
 - docs_layer=EFFECTIVE means the current formal document package is the active reference set; it does not imply every individual D document has been promoted from DRAFT to EFFECTIVE.
 - docs/AX9S_开发执行路由图.md is a pure route-map navigation asset; it carries only stage 1-9 navigation, handoff, boundary, and near-end candidate hints, and does not act as a current task source, state source, execution log, or complete backlog.
+- route-map near-end sync is warning-only: semantic alignment may emit a prompt when AX9S hints visibly lag behind task_packet_library.packet_order, but that prompt is not a release/readiness blocker.
 
 Script Check Summary (2026-04-20 PKT-P0-03-S1-stage7-price-competitor-resolution scoped execution verification):
 - doctor.ps1: PASS
