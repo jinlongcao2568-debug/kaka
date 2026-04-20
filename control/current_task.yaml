@@ -9,7 +9,7 @@ navigation_state: "CONTROLLED_ROUTE_MAP_RESTORED"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口恢复 docs-only scoped subpacket PKT-GOV-01-product-dev-mode-docs-alignment；只收平 3 个规则文件正文口径，并同步 current_task / repo_status 执行收口语义；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成指定脚本后若全绿则直接提交。"
+activation_condition: "当前窗口进入 PKT-GOV-03-template-route-map-role-alignment 的 G03-B 正文职责收平执行；本轮只收平 docs/自动开发任务包模板.md 与 docs/AX9S_开发执行路由图.md 的正文职责，并对 current_task / repo_status 做必要 execution semantics 同步；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成指定脚本后停机汇报。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PKT-GOV-01-product-dev-mode-docs-alignment"
-  title: "产品开发模式规则文件收平（第一轮）"
+  task_id: "PKT-GOV-03-template-route-map-role-alignment"
+  title: "模板与路线图职责收平"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -30,19 +30,15 @@ currentTask:
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
     - "docs/正式业务代码开发开工裁决页.md"
+    - "docs/自动开发任务包模板.md"
+    - "docs/AX9S_开发执行路由图.md"
     - "control/repo_status.md"
     - "control/current_task.yaml"
     - "control/task_packet_library.yaml"
-    - "control/review_gate_matrix.yaml"
-    - "docs/自动化开发动作门禁表.md"
-    - "docs/开工前总清单.md"
-    - "control/milestone_status.yaml"
-    - "control/automation_task_packet_rules.yaml"
-    - "control/automation_stop_conditions.yaml"
-    - "scripts/check-semantic-alignment.ps1"
+    - "scripts/check-automation-readiness.ps1"
     - "scripts/check-release.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "恢复并完成 docs-only scoped subpacket，把当前已改的 3 个规则文件与 current_task / repo_status 一起收平；本轮只做 docs/control 同步、脚本验证与提交，不进入下一包。"
+  objective: "执行 G03-B 正文职责收平：把任务包模板收成纯 task packet 模板，把路线图收成纯导航图，并同步当前窗口 execution semantics；本轮不进入实现，不进入下一包。"
   operator_assignment_roster:
     stage7:
       assigned_owner_role: "sales_user"
@@ -83,27 +79,30 @@ currentTask:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    backlog_packet_ref: "PKT-GOV-01-product-dev-mode-docs-alignment"
-    packet_id: "PKT-GOV-01-product-dev-mode-docs-alignment"
-    subpacket_id: "PKT-GOV-01-product-dev-mode-docs-alignment"
-    title: "产品开发模式规则文件收平（第一轮）"
+    backlog_packet_ref: "PKT-GOV-03-template-route-map-role-alignment"
+    packet_id: "PKT-GOV-03-template-route-map-role-alignment"
+    subpacket_id: "PKT-GOV-03-template-route-map-role-alignment"
+    title: "模板与路线图职责收平"
     status: "ACTIVE"
-    objective: "恢复并完成 docs-only scoped subpacket，把当前已修改的 3 个规则文件纳入当前产品开发小包模式口径，并同步 current_task / repo_status；本轮不改 readiness，不进入实现。"
+    objective: "执行 G03-B 正文职责收平：把 docs/自动开发任务包模板.md 收成纯 task packet 模板，把 docs/AX9S_开发执行路由图.md 收成纯导航图；本轮只做 docs 正文收平与必要 control 同步。"
     depends_on:
-      - "PKT-P0-03-stage7-price-competitor-resolution"
+      - "PKT-GOV-01-product-dev-mode-docs-alignment"
     non_goals:
-      - "不重写已改 3 个规则文件正文"
       - "不进入实现"
-      - "不改 docs/L0.md"
-      - "不改 D 文档正文"
-      - "不改 scripts"
-      - "不改 src"
-      - "不改 contracts"
-      - "不改 handoff"
-      - "not an external unlock implementation"
       - "不自动进入下一包"
+      - "不改 src/**"
+      - "不改 contracts/**"
+      - "不改 handoff/**"
+      - "不改 docs/L0.md"
+      - "不改 AGENTS.md"
+      - "不改 docs/自动化开发动作门禁表.md"
+      - "不改 docs/开工前总清单.md"
       - "不改变 canonical readiness"
-      - "不放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
+      - "不放开 external release"
+      - "不放开 Stage8 real execution"
+      - "不放开 Stage9 real payment/delivery/refund"
+      - "不新增正式业务对象、枚举、gate、exception 语义"
+      - "not an external unlock implementation"
     affected_stages:
       - "route_map_governance"
       - "automation_control"
@@ -121,21 +120,24 @@ currentTask:
       - "model_governance_owner"
       - "testing_owner"
     declared_changed_paths:
-      - "AGENTS.md"
-      - "docs/自动化开发动作门禁表.md"
-      - "docs/开工前总清单.md"
+      - "docs/自动开发任务包模板.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "control/task_packet_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
     baseline_dirty_paths: []
     allowed_modification_paths:
-      - "AGENTS.md"
-      - "docs/自动化开发动作门禁表.md"
-      - "docs/开工前总清单.md"
+      - "docs/自动开发任务包模板.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "control/task_packet_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
     forbidden_modification_paths:
       - "docs/L0.md"
       - "docs/D*.md"
+      - "AGENTS.md"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/开工前总清单.md"
       - "contracts/**"
       - "handoff/**"
       - "src/**"
@@ -147,44 +149,46 @@ currentTask:
       - "control/milestone_status.yaml"
     impacted_assets:
       docs:
-        - "AGENTS.md"
-        - "docs/自动化开发动作门禁表.md"
-        - "docs/开工前总清单.md"
+        - "docs/自动开发任务包模板.md"
+        - "docs/AX9S_开发执行路由图.md"
       control:
+        - "control/task_packet_library.yaml"
         - "control/current_task.yaml"
         - "control/repo_status.md"
       handoff: []
       scripts:
-        - "scripts/check-semantic-alignment.ps1"
+        - "scripts/check-automation-readiness.ps1"
         - "scripts/check-release.ps1"
       tests: []
       contracts: []
       runtime: []
     required_scripts:
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1"
     script_timeouts:
-      scripts/check-semantic-alignment.ps1: 300000
+      scripts/check-automation-readiness.ps1: 300000
       scripts/check-release.ps1: 300000
     stop_conditions:
       - "任一 required script 失败"
-      - "实际改动超出 current_task declared/allowed paths"
+      - "实际改动超出 declared/allowed paths"
       - "触碰 forbidden paths"
       - "declared_changed_paths 超过 10"
       - "改变 canonical readiness"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
+      - "若需扩展到 docs/自动开发任务包模板.md、docs/AX9S_开发执行路由图.md、control/current_task.yaml、control/repo_status.md 之外的主题或路径，则先停机回总控"
     definition_of_done:
-      - "AGENTS.md、docs/自动化开发动作门禁表.md、docs/开工前总清单.md 的正文口径与当前产品开发小包模式一致"
+      - "docs/自动开发任务包模板.md 已收平为纯 task packet 模板，不再兼任当前开发模式说明书"
+      - "docs/AX9S_开发执行路由图.md 已收平为纯导航图，不再承担当前任务源、状态源、执行日志或完整 backlog 口径"
       - "source_blueprint_batch_id 使用已注册 blueprint POST-FF-CONTROL-01"
-      - "declared_changed_paths 数量 = 5 且 <= 10"
-      - "repo_status.md Current Workstream 与当前 active task id 同步"
-      - "required scripts 通过"
+      - "declared_changed_paths / allowed_modification_paths 数量 = 5 且 <= 10"
+      - "current_task / repo_status 已同步为 G03-B 正文职责收平执行语义"
+      - "required scripts 通过并停机汇报"
       - "repo readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-      - "当前窗口完成验证后若全绿则直接提交，不进入下一包"
     deliverables:
-      - "rules docs wording alignment patch"
-      - "current task activation patch"
-      - "repo status current workstream sync patch"
+      - "task packet template role-alignment patch"
+      - "route-map navigation-only alignment patch"
+      - "current task execution-semantics sync patch"
+      - "repo status execution-semantics sync patch"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -199,23 +203,23 @@ currentTask:
       signoff_status: "REQUESTED_NOT_APPROVED"
     notes:
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 blueprint_registry 注册。"
-      - "本轮仅恢复 AGENTS.md、docs/自动化开发动作门禁表.md、docs/开工前总清单.md 三个 docs 文件，不恢复 control 文件的 stash 版本。"
-      - "当前任务选择优先级固定为 current_task -> task_packet_library -> repo_status / milestone_status。"
+      - "declared_changed_paths / allowed_modification_paths 先只覆盖模板、路线图与 3 个 control 文件。"
+      - "当前窗口为 G03-B 正文职责收平执行，不进入实现，不进入下一包。"
+      - "当前 active task source 优先级固定为 current_task -> task_packet_library -> repo_status。"
       - "本轮不改变 readiness，不放开 external release，不进入 Stage8/Stage9 高风险执行。"
-      - "当前任务选择优先级固定为 current_task -> task_packet_library -> repo_status / milestone_status。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
     - "external software release remains blocked"
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮仅允许修改 AGENTS.md、docs/自动化开发动作门禁表.md、docs/开工前总清单.md、control/current_task.yaml、control/repo_status.md，并按 required scripts 验证后如全绿则直接提交"
+    - "本轮允许修改 docs/自动开发任务包模板.md、docs/AX9S_开发执行路由图.md，并对 control/current_task.yaml、control/repo_status.md 做必要 execution semantics 同步；完成 G03-B 正文职责收平后按 required scripts 验证并停机汇报"
   forbidden_actions:
-    - "本轮不得修改上述 5 个文件之外的任何路径"
-    - "不得修改 control/task_packet_library.yaml、docs/自动开发任务包模板.md、docs/AX9S_开发执行路由图.md"
+    - "本轮不得修改 docs/自动开发任务包模板.md、docs/AX9S_开发执行路由图.md、control/current_task.yaml、control/repo_status.md 之外的任务主题"
+    - "不得改 AGENTS.md、docs/自动化开发动作门禁表.md、docs/开工前总清单.md"
     - "不得改 scripts/**、src/**、contracts/**、handoff/**"
     - "不得自动进入下一包"
     - "不得改变 canonical readiness 或放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery"
   nextActions:
-    - "回总控确认 PKT-GOV-01-product-dev-mode-docs-alignment 的 docs-only 收尾结果；未确认前不推进下一包。"
-  status_note: "PKT-GOV-01-product-dev-mode-docs-alignment 已恢复为当前 active docs-only scoped subpacket；本窗口只恢复 3 个 docs 文件、同步 current_task / repo_status，并在脚本全绿后直接提交；external release 与 Stage 8/9 real execution 继续阻断。"
+    - "完成 G03-B 正文职责收平后停机回总控；未确认前不进入下一包。"
+  status_note: "PKT-GOV-03-template-route-map-role-alignment 当前处于 G03-B 正文职责收平执行中；本窗口只收平任务包模板与路线图正文职责，并同步 current_task / repo_status 执行语义；external release 与 Stage 8/9 real execution 继续阻断。"

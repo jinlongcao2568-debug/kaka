@@ -213,6 +213,8 @@ packet_order:
   - PKT-P0-01-review-queue-window-scoring
   - PKT-P0-02-stage7-buyer-fit-value-derivation
   - PKT-P0-03-stage7-price-competitor-resolution
+  - PKT-GOV-01-product-dev-mode-docs-alignment
+  - PKT-GOV-03-template-route-map-role-alignment
   - PKT-P0-04-stage8-compliance-lattice
   - PKT-P0-05-stage8-contact-enrichment-merge
   - PKT-P0-06-stage9-writeback-contract-core
@@ -223,7 +225,6 @@ packet_order:
   - PKT-P1-03-api-ui-capability-envelope
   - PKT-P1-04-generated-assertions-cadence-ladder
   - PKT-P1-05-validator-anti-drift-semanticization
-  - PKT-GOV-01-product-dev-mode-docs-alignment
   - PKT-GOV-02-internal-operator-loop-gates
 packets:
   - packet_id: PKT-P0-01-review-queue-window-scoring
@@ -1308,6 +1309,99 @@ packets:
       - required scripts pass and the window stops to report
     deliverables:
       - docs-only packet registry patch
+      - current task activation patch
+      - repo status workstream sync patch
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PKT-GOV-03-template-route-map-role-alignment
+    title: 模板与路线图职责收平
+    priority: P0
+    route_map_segment: POST_FF_TEMPLATE_ROUTE_MAP_ROLE_ALIGNMENT
+    objective: 为后续 docs/自动开发任务包模板.md 与 docs/AX9S_开发执行路由图.md 的职责收平建立合法 active packet 范围；本轮只做登记+激活，不改正文，不进入实现。
+    non_goals:
+      - 不改 docs/自动开发任务包模板.md 正文
+      - 不改 docs/AX9S_开发执行路由图.md 正文
+      - 不进入实现
+      - 不进入下一包
+      - 不改 src/**
+      - 不改 contracts/**
+      - 不改 handoff/**
+      - 不改 docs/L0.md
+      - 不改 AGENTS.md
+      - 不改 docs/自动化开发动作门禁表.md
+      - 不改 docs/开工前总清单.md
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - not an external unlock implementation
+    affected_stages: [route_map_governance, automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, governance_release_core, future_external_unlock_prereq_core]
+    depends_on: [PKT-GOV-01-product-dev-mode-docs-alignment]
+    authority_refs:
+      docs:
+        - AGENTS.md
+        - docs/自动化开发动作门禁表.md
+        - docs/正式业务代码开发开工裁决页.md
+        - docs/自动开发任务包模板.md
+        - docs/AX9S_开发执行路由图.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+        - control/milestone_status.yaml
+    allowed_modification_paths:
+      - docs/自动开发任务包模板.md
+      - docs/AX9S_开发执行路由图.md
+      - control/task_packet_library.yaml
+      - control/current_task.yaml
+      - control/repo_status.md
+    forbidden_modification_paths:
+      - docs/L0.md
+      - docs/D*.md
+      - AGENTS.md
+      - docs/自动化开发动作门禁表.md
+      - docs/开工前总清单.md
+      - contracts/**
+      - handoff/**
+      - src/**
+      - scripts/**
+      - control/automation_action_matrix.yaml
+      - control/automation_stop_conditions.yaml
+      - control/automation_task_packet_rules.yaml
+      - control/review_gate_matrix.yaml
+      - control/milestone_status.yaml
+    acceptance_assertions:
+      - current_task declares the template, route-map, and three control files as the only scoped paths
+      - declared_changed_paths and allowed_modification_paths counts stay at 5 and less than or equal to 10
+      - repo_status current workstream is synchronized to the active packet
+      - canonical readiness and blocked lines remain unchanged
+      - docs/自动开发任务包模板.md and docs/AX9S_开发执行路由图.md bodies remain unchanged in this round
+    required_scripts:
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed declared/allowed paths
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+      - body edits to docs/自动开发任务包模板.md or docs/AX9S_开发执行路由图.md are attempted in this round
+    definition_of_done:
+      - template/route-map scoped packet is registered in task_packet_library and activated in current_task
+      - declared_changed_paths count is 5 and less than or equal to 10
+      - repo_status Current Workstream matches the active packet id
+      - docs/自动开发任务包模板.md and docs/AX9S_开发执行路由图.md bodies remain unchanged in this round
+      - required scripts pass and the window stops to report
+    deliverables:
+      - template-route-map packet registry patch
       - current task activation patch
       - repo status workstream sync patch
     human_review_required: true
