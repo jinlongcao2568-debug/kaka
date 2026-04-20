@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PKT-GOV-08-route-map-sync-hint (implementation in progress; current window updates control/task_packet_library.yaml, control/current_task.yaml, control/repo_status.md, docs/AX9S_开发执行路由图.md, scripts/check-semantic-alignment.ps1, and tests/test_review_gate_controls.py to add a light prompt-only near-end route-map sync hint; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
+Current Workstream: PTL-GOV-01-product-task-library-bootstrap (activation + scoped execution; current window adds control/product_task_library.yaml and syncs control/current_task.yaml plus control/repo_status.md to establish the product mainline task pool; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,18 +21,22 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
-- PKT-GOV-08-route-map-sync-hint is the active control/governance scoped subpacket; current window is limited to the declared 6-file implementation scope that adds a light prompt-only near-end candidate sync hint without changing canonical readiness and without entering the next packet
-- Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this scoped packet stops and reports
+- PTL-GOV-01-product-task-library-bootstrap is the active product-task-governance scoped subpacket; current window is limited to control/product_task_library.yaml, control/current_task.yaml, and control/repo_status.md
+- Establish the first product mainline task pool with exactly 10 product mainline tasks
+- Keep control/current_task.yaml as the unique active execution source
+- Keep control/task_packet_library.yaml as the legacy / compatibility / executed packet registry and source-blueprint allowlist
+- Keep docs/AX9S_开发执行路由图.md as a candidate navigation asset and product phase navigation map, not a status source, execution source, or complete backlog
 - Status-source review and audit of the closed full-repair program without changing canonical readiness
 
 Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
-- Any new AX9S batch activation, including B11
+- Any change to control/task_packet_library.yaml in this window
+- Any change to docs/AX9S_开发执行路由图.md in this window
+- Any scripts/**, src/**, tests/**, contracts/**, or handoff/** change in this window
 - Any automatic next-task activation from the current scoped packet or historical FF-18-S1 closeout
-- Any topic expansion or strong-blocking sync mechanism outside the current PKT-GOV-08-route-map-sync-hint scoped packet
 - Any transport/bootstrap/api/service/runtime/test change outside the declared scoped packet paths
-- Any new formal object or enum family in this governance repair state
-- Any schema/handoff mainline rewrite in this governance repair state
+- Any new formal object or enum family in this governance task-pool bootstrap state
+- Any schema/handoff mainline rewrite in this governance task-pool bootstrap state
 - Rewriting D10正文
 - External software release or unaudited leadpack delivery
 - Production release logic or deployment
@@ -44,26 +48,20 @@ State Semantics:
 - `READY_FOR_POST-REPAIR_MAINLINE_SELECTION` means the last post-repair state/source drift is closed and the repo can enter formal mainline selection; it does not select a mainline by itself.
 - `FULL_REPAIR_COMPLETE_REVIEW_READY` is the AX9S full-repair program control closeout token only; it does not replace the repo readiness conclusion, which remains `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`.
 - `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` remains the scoped conditional-go for internal LeadOps development.
-- `FF-18-S1` is the final state-source closeout window for the full-fix mainline; it records canonical alignment only and does not create a new readiness token.
-- `PKT-GOV-08-route-map-sync-hint` is the current active control/governance scoped subpacket; in the current window it implements a light prompt-only near-end route-map sync hint inside the declared 6-file scope, while keeping `current_task` as the unique active source and `task_packet_library` as the next-packet candidate source.
+- `PTL-GOV-01-product-task-library-bootstrap` is the current active scoped subpacket; it creates the product mainline task pool and does not change readiness, release gates, Stage8 execution, or Stage9 payment/delivery/refund boundaries.
+- `control/product_task_library.yaml` is the product mainline task pool. It only carries product mainline tasks for future selection and scoped packet derivation.
+- `control/product_task_library.yaml` does not replace `control/current_task.yaml`, does not replace `control/task_packet_library.yaml`, and does not replace `docs/AX9S_开发执行路由图.md`.
+- `control/current_task.yaml` remains the unique active execution source.
+- `control/task_packet_library.yaml` remains the legacy / compatibility / executed packet registry and source-blueprint allowlist.
+- docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it carries only stage 1-9 navigation, handoff, boundary, and near-end candidate hints, and does not act as a current task source, state source, execution log, or complete backlog.
+- route-map near-end sync is warning-only: semantic alignment may emit a prompt when AX9S hints visibly lag behind task_packet_library.packet_order, but that prompt is not a release/readiness blocker.
 - `FF-01~FF-18` mainline is complete; this does not unlock external release, Stage 8 live execution, or Stage 9 live payment/delivery.
 - `READY_FOR_POST-R6_CANDIDATE_GAP_BATCH` and `READY_FOR_POST-R6_STRATEGIC_BRANCH_BATCH` are historical R6-path tokens and are not the current repo readiness.
 - R6 candidate / deny / blocked decisions remain valid as decision outputs; they do not redefine the current repo readiness.
 - docs_layer=EFFECTIVE means the current formal document package is the active reference set; it does not imply every individual D document has been promoted from DRAFT to EFFECTIVE.
-- docs/AX9S_开发执行路由图.md is a pure route-map navigation asset; it carries only stage 1-9 navigation, handoff, boundary, and near-end candidate hints, and does not act as a current task source, state source, execution log, or complete backlog.
-- route-map near-end sync is warning-only: semantic alignment may emit a prompt when AX9S hints visibly lag behind task_packet_library.packet_order, but that prompt is not a release/readiness blocker.
 
-Script Check Summary (2026-04-20 PKT-P0-03-S1-stage7-price-competitor-resolution scoped execution verification):
-- doctor.ps1: PASS
-- check-automation-readiness.ps1: PASS (`MANDATORY_HUMAN_REVIEW`)
-- check-semantic-alignment.ps1: PASS
-- validate-contracts.ps1: PASS
-- run-golden.ps1: PASS
-- run-governance-contracts.ps1: PASS
-- lint-drift.ps1: PASS
-- check-handoff-dependencies.ps1: PASS
-- python tests/run_tests.py: PASS
-- check-release.ps1: PASS (umbrella baseline)
+Script Check Summary (2026-04-20 PTL-GOV-01-product-task-library-bootstrap scoped execution verification):
+- Pending in current window
 
 Automation Guardrails:
 - Action matrix: control/automation_action_matrix.yaml
@@ -73,6 +71,8 @@ Automation Guardrails:
 
 Navigation Assets:
 - Execution routing map (candidate navigation asset in machine index, not status source): docs/AX9S_开发执行路由图.md
+- Product mainline task pool: control/product_task_library.yaml
+- Legacy / compatibility / executed packet registry: control/task_packet_library.yaml
 - Auto dev task packet template: docs/自动开发任务包模板.md
 - Future unlock prerequisite matrix: contracts/release/external_unlock_prerequisite_matrix.json
 - Future unlock prerequisite state (historical decision-time snapshot, not current status source): control/external_unlock_prerequisite_state.yaml

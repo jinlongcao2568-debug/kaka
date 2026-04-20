@@ -5,11 +5,11 @@ updated_at: "2026-04-20"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "CONTROLLED_ROUTE_MAP_RESTORED"
+navigation_state: "PRODUCT_MAINLINE_TASK_POOL_BOOTSTRAP_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口进入 PKT-GOV-08-route-map-sync-hint 的实现执行；本轮只允许修改 control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md、docs/AX9S_开发执行路由图.md、scripts/check-semantic-alignment.ps1、tests/test_review_gate_controls.py，做路线图近端候选同步的轻机制 + 提示型实现；不做强阻断，不进入下一包；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成聚焦测试与指定脚本后停机汇报。"
+activation_condition: "当前窗口进入 PTL-GOV-01-product-task-library-bootstrap 的 activation + scoped execution；本轮只允许修改 control/product_task_library.yaml、control/current_task.yaml、control/repo_status.md，新增产品主线任务池并同步当前 active task；不替代 current_task、旧 task_packet_library 或 AX9S 路线图；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成指定脚本后停机汇报。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PKT-GOV-08-route-map-sync-hint"
-  title: "路线图近端候选同步提示机制"
+  task_id: "PTL-GOV-01-product-task-library-bootstrap"
+  title: "建立产品主线任务池"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -31,15 +31,16 @@ currentTask:
     - "docs/D1_研发_Codex执行手册.md"
     - "docs/正式业务代码开发开工裁决页.md"
     - "docs/AX9S_开发执行路由图.md"
-    - "control/repo_status.md"
-    - "control/current_task.yaml"
+    - "control/product_task_library.yaml"
     - "control/task_packet_library.yaml"
+    - "control/current_task.yaml"
+    - "control/repo_status.md"
+    - "control/milestone_status.yaml"
     - "scripts/check-automation-readiness.ps1"
     - "scripts/check-semantic-alignment.ps1"
     - "scripts/check-release.ps1"
-    - "tests/test_review_gate_controls.py"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "实现“路线图近端候选与 task_packet_library 当前顺位的轻机制 + 提示型同步”；保持路线图纯导航定位不变，只做提示，不做强阻断，不改变执行顺序来源。"
+  objective: "新增 control/product_task_library.yaml 作为未来产品主线任务池的第一版，只承接产品主线任务，不承接历史整顿包；同步 current_task 与 repo_status，保持 current_task 为唯一 active 执行源、旧 task_packet_library 为 legacy / compatibility / executed packet registry、AX9S 为产品阶段导航图。"
   operator_assignment_roster:
     stage7:
       assigned_owner_role: "sales_user"
@@ -56,7 +57,7 @@ currentTask:
       assigned_owner: "卡卡罗特"
       reviewer_role: "delivery_governance_user"
       reviewer: "卡卡罗特"
-    route_map_governance:
+    product_task_governance:
       assigned_owner_role: "single_operator"
       assigned_owner: "卡卡罗特"
       reviewer_role: "architecture_owner"
@@ -80,42 +81,38 @@ currentTask:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    backlog_packet_ref: "PKT-GOV-08-route-map-sync-hint"
-    packet_id: "PKT-GOV-08-route-map-sync-hint"
-    subpacket_id: "PKT-GOV-08-route-map-sync-hint"
-    title: "路线图近端候选同步提示机制"
+    backlog_packet_ref: "PTL-GOV-01-product-task-library-bootstrap"
+    packet_id: "PTL-GOV-01-product-task-library-bootstrap"
+    subpacket_id: "PTL-GOV-01-product-task-library-bootstrap"
+    title: "建立产品主线任务池"
     status: "ACTIVE"
-    objective: "实现“路线图近端候选与 task_packet_library 当前顺位的轻机制 + 提示型同步”；保持路线图纯导航定位不变，只做提示，不做强阻断，不改变执行顺序来源。"
+    objective: "新增 control/product_task_library.yaml 作为未来产品主线任务池的第一版，只承接产品主线任务，不承接历史整顿包；同步 current_task 与 repo_status，保持 current_task 为唯一 active 执行源、旧 task_packet_library 为 legacy / compatibility / executed packet registry、AX9S 为产品阶段导航图。"
     depends_on:
-      - "PKT-GOV-07-python-cache-cleaner"
+      - "PKT-GOV-08-route-map-sync-hint"
     non_goals:
-      - "不做强阻断"
-      - "不让路线图变成当前任务源或状态源"
-      - "不让近端候选决定执行顺序"
-      - "不改 AGENTS.md"
-      - "不改 docs/自动开发任务包模板.md"
-      - "不改 docs/自动化开发动作门禁表.md"
-      - "不改 docs/L0.md"
-      - "不改 scripts/check-release.ps1"
+      - "不改 control/task_packet_library.yaml"
+      - "不改 docs/AX9S_开发执行路由图.md"
+      - "不改 scripts/**"
       - "不改 src/**"
+      - "不改 tests/**"
       - "不改 contracts/**"
       - "不改 handoff/**"
-      - "不自动进入下一包"
-      - "不改变 canonical readiness"
+      - "不改变 readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
-      - "不新增正式业务对象、枚举、gate、exception 语义"
+      - "不新增业务对象、枚举、gate、exception 语义"
+      - "不让 product_task_library 替代 current_task、task_packet_library 或 AX9S"
+      - "不铺满未来所有细任务"
       - "not an external unlock implementation"
     affected_stages:
-      - "route_map_governance"
+      - "product_task_governance"
       - "automation_control"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
       - "future_external_unlock_prereq_core"
-      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "release_approver"
@@ -124,83 +121,90 @@ currentTask:
       - "model_governance_owner"
       - "testing_owner"
     declared_changed_paths:
-      - "control/task_packet_library.yaml"
+      - "control/product_task_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "docs/AX9S_开发执行路由图.md"
-      - "scripts/check-semantic-alignment.ps1"
-      - "tests/test_review_gate_controls.py"
     baseline_dirty_paths: []
     allowed_modification_paths:
-      - "control/task_packet_library.yaml"
+      - "control/product_task_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "docs/AX9S_开发执行路由图.md"
-      - "scripts/check-semantic-alignment.ps1"
-      - "tests/test_review_gate_controls.py"
     forbidden_modification_paths:
-      - "AGENTS.md"
-      - "docs/自动开发任务包模板.md"
-      - "docs/自动化开发动作门禁表.md"
-      - "docs/L0.md"
-      - "scripts/check-release.ps1"
+      - "control/task_packet_library.yaml"
+      - "docs/AX9S_开发执行路由图.md"
+      - "scripts/**"
       - "src/**"
+      - "tests/**"
       - "contracts/**"
       - "handoff/**"
+      - "AGENTS.md"
+      - "README.md"
+      - "ARCHITECTURE_NOTE.md"
+      - "docs/L0.md"
+      - "docs/裁决总表.md"
+      - "docs/D1_研发_Codex执行手册.md"
+      - "docs/D2_正式对象契约与字段字典.md"
+      - "docs/D3_正式规则码总表与判定说明书.md"
+      - "docs/D6_字段策略字典与客户交付字段规范.md"
+      - "docs/D7_对象级交付矩阵与外发治理规范.md"
+      - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
+      - "docs/D9_联系对象与销售触达规范.md"
+      - "docs/D10_订单支付交付与治理反馈规范.md"
+      - "docs/D11_测试验收与金标回归清单.md"
+      - "docs/D12_部署发布与运行治理规范.md"
+      - "docs/D13_公开可查边界能力清单.md"
+      - "docs/D14_AI模型治理规范.md"
       - "control/automation_action_matrix.yaml"
       - "control/automation_stop_conditions.yaml"
       - "control/automation_task_packet_rules.yaml"
       - "control/review_gate_matrix.yaml"
       - "control/milestone_status.yaml"
     impacted_assets:
-      docs:
-        - "docs/AX9S_开发执行路由图.md"
+      docs: []
       control:
-        - "control/task_packet_library.yaml"
+        - "control/product_task_library.yaml"
         - "control/current_task.yaml"
         - "control/repo_status.md"
-      handoff: []
       scripts:
         - "scripts/check-automation-readiness.ps1"
         - "scripts/check-semantic-alignment.ps1"
         - "scripts/check-release.ps1"
-      tests:
-        - "tests/test_review_gate_controls.py"
       contracts: []
+      handoff: []
       runtime: []
+      tests: []
     required_scripts:
-      - "python -m pytest tests/test_review_gate_controls.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1"
     script_timeouts:
       scripts/check-automation-readiness.ps1: 300000
+      scripts/check-semantic-alignment.ps1: 300000
       scripts/check-release.ps1: 300000
     stop_conditions:
       - "任一 required script 失败"
       - "实际改动超出 allowed paths"
       - "触碰 forbidden paths"
-      - "declared_changed_paths 超过 10"
+      - "declared_changed_paths 超过 3 个本轮允许文件"
+      - "product_task_library 第一版任务数不是 10"
+      - "把历史整顿包写入 product_task_library"
       - "改变 canonical readiness"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
-      - "若需扩展到本轮 6 个已声明文件之外的主题或路径，则先停机回总控"
-      - "若提示型机制被升级为强阻断，则先停机回总控"
+      - "若需扩展到本轮 3 个已声明文件之外的主题或路径，则先停机回总控"
     definition_of_done:
-      - "PKT-GOV-08-route-map-sync-hint 已切到实现执行窗口"
-      - "source_blueprint_batch_id 使用已注册 blueprint POST-FF-CONTROL-01"
-      - "declared_changed_paths / allowed_modification_paths 数量 = 6 且 <= 10"
-      - "路线图保持纯导航图定位，近端候选仍只作导航提示"
-      - "check-semantic-alignment.ps1 可对近端候选明显落后输出 WARNING，但不阻断"
-      - "tests/test_review_gate_controls.py 聚焦回归通过"
-      - "repo_status Current Workstream 已同步为 PKT-GOV-08-route-map-sync-hint"
+      - "PTL-GOV-01-product-task-library-bootstrap 已切到 activation + scoped execution"
+      - "control/product_task_library.yaml 已新增，role=product_mainline_task_source"
+      - "product_task_library 明确只管产品主线任务，不放历史整顿包"
+      - "product_task_library 明确 current active 仍以 control/current_task.yaml 为准"
+      - "product_task_library 明确旧 control/task_packet_library.yaml 仍保留为 legacy / compatibility / executed packet registry"
+      - "product_task_library 第一版只包含 10 个产品主线任务"
+      - "repo_status Current Workstream 已同步为 PTL-GOV-01-product-task-library-bootstrap"
       - "required scripts 通过并停机汇报"
       - "repo readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
     deliverables:
-      - "route-map sync hint packet registry patch"
+      - "product mainline task library bootstrap patch"
       - "current task activation patch"
       - "repo status workstream sync patch"
-      - "route-map hint wording patch"
-      - "semantic warning-only sync patch"
-      - "review-gate regression patch"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -214,23 +218,24 @@ currentTask:
       signoff_required: true
       signoff_status: "REQUESTED_NOT_APPROVED"
     notes:
-      - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 blueprint_registry 注册。"
-      - "declared_changed_paths / allowed_modification_paths 覆盖本轮 6 个允许文件。"
-      - "当前窗口执行 PKT-GOV-08-route-map-sync-hint 的实现；只做轻机制 + 提示型同步，不进入下一包。"
-      - "当前 active task source 优先级固定为 current_task -> task_packet_library -> repo_status。"
+      - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在旧 control/task_packet_library.yaml 的 blueprint_registry 注册；本轮禁止修改旧 registry。"
+      - "当前 active task source 优先级固定为 current_task -> task_packet_library -> repo_status；product_task_library 只是产品主线任务池，不替代 active source。"
+      - "docs/AX9S_开发执行路由图.md 继续只作为产品阶段导航图，不决定当前执行顺序，也不是状态源。"
       - "本轮不改变 readiness，不放开 external release，不进入 Stage8/Stage9 高风险执行。"
+      - "历史兼容提示：上一包 PKT-GOV-08-route-map-sync-hint 涉及 docs/AX9S_开发执行路由图.md、scripts/check-semantic-alignment.ps1、tests/test_review_gate_controls.py、轻机制 + 提示型同步、declared_changed_paths / allowed_modification_paths 数量 = 6 且 <= 10；这些仅为旧包回归上下文，不是本轮 active scope。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
     - "external software release remains blocked"
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮允许修改 control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md、docs/AX9S_开发执行路由图.md、scripts/check-semantic-alignment.ps1、tests/test_review_gate_controls.py；完成轻机制 + 提示型同步实现、聚焦测试与 required scripts 后停机汇报"
+    - "本轮允许修改 control/product_task_library.yaml、control/current_task.yaml、control/repo_status.md；完成产品主线任务池第一版、新 active task 同步、指定脚本验证后停机汇报"
   forbidden_actions:
-    - "本轮不得修改 6 个已声明文件之外的任务主题"
-    - "不得改 AGENTS.md、docs/自动开发任务包模板.md、docs/自动化开发动作门禁表.md、docs/L0.md、scripts/check-release.ps1、src/**、contracts/**、handoff/**、control/review_gate_matrix.yaml"
-    - "不得自动进入下一包"
+    - "不得修改 control/task_packet_library.yaml"
+    - "不得修改 docs/AX9S_开发执行路由图.md"
+    - "不得修改 scripts/**、src/**、tests/**、contracts/**、handoff/**"
     - "不得改变 canonical readiness 或放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery"
+    - "不得新增业务对象、枚举、gate、exception 语义"
   nextActions:
-    - "完成 PKT-GOV-08-route-map-sync-hint 的轻机制 + 提示型同步实现、聚焦测试与 required scripts 后停机回总控；本轮不进入下一包。"
-  status_note: "PKT-GOV-08-route-map-sync-hint 当前处于实现执行中；本窗口只在已声明 6 个文件内落笔，目标是补齐路线图近端候选同步的轻机制 + 提示型实现；external release 与 Stage 8/9 real execution 继续阻断。"
+    - "完成 PTL-GOV-01-product-task-library-bootstrap 的产品主线任务池 bootstrap、指定脚本验证和停机汇报；本轮不自动进入下一包。"
+  status_note: "PTL-GOV-01-product-task-library-bootstrap 当前处于 activation + scoped execution；本窗口只在已声明 3 个 control 文件内落笔，目标是建立产品主线任务池第一版；external release 与 Stage 8/9 real execution 继续阻断。"
