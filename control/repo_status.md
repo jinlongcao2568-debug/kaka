@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PKT-P0-01-S1-review-queue-window-scoring (active scoped execution for review queue / window scoring only; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
+Current Workstream: PKT-P0-02-S1-stage7-buyer-fit-value-derivation (active scoped execution for Stage7 buyer fit / value derivation only; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,7 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
-- PKT-P0-01-S1-review-queue-window-scoring scoped execution within current task declared paths, without changing canonical readiness
+- PKT-P0-02-S1-stage7-buyer-fit-value-derivation scoped execution within current task declared paths, without changing canonical readiness
 - Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this scoped packet stops and reports
 - Status-source review and audit of the closed full-repair program without changing canonical readiness
 
@@ -29,7 +29,7 @@ Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
 - Any new AX9S batch activation, including B11
 - Any automatic next-task activation from the current scoped packet or historical FF-18-S1 closeout
-- Any review queue / window scoring topic expansion outside the current scoped packet
+- Any Stage7 buyer fit / value derivation topic expansion outside the current scoped packet
 - Any transport/bootstrap/api/service change outside the declared scoped packet paths
 - Any new formal object or enum family in this governance repair state
 - Any schema/handoff mainline rewrite in this governance repair state
@@ -45,7 +45,7 @@ State Semantics:
 - `FULL_REPAIR_COMPLETE_REVIEW_READY` is the AX9S full-repair program control closeout token only; it does not replace the repo readiness conclusion, which remains `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`.
 - `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` remains the scoped conditional-go for internal LeadOps development.
 - `FF-18-S1` is the final state-source closeout window for the full-fix mainline; it records canonical alignment only and does not create a new readiness token.
-- `PKT-P0-01-S1-review-queue-window-scoring` is the current active scoped subpacket; it only closes review queue / window scoring scope and does not auto-enter the next packet.
+- `PKT-P0-02-S1-stage7-buyer-fit-value-derivation` is the current active scoped subpacket; it only closes Stage7 buyer fit / value derivation scope and does not auto-enter the next packet.
 - `FF-01~FF-18` mainline is complete; this does not unlock external release, Stage 8 live execution, or Stage 9 live payment/delivery.
 - `READY_FOR_POST-R6_CANDIDATE_GAP_BATCH` and `READY_FOR_POST-R6_STRATEGIC_BRANCH_BATCH` are historical R6-path tokens and are not the current repo readiness.
 - R6 candidate / deny / blocked decisions remain valid as decision outputs; they do not redefine the current repo readiness.

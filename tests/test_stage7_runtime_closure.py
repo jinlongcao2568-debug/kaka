@@ -194,6 +194,49 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertEqual(policy_trace["why_recommended_template_id"], "WHY-RECOMMENDED-001")
         self.assertEqual(policy_trace["why_recommended_rule_outputs"]["policy"], "OPPORTUNITY-BAND-001")
 
+    def test_stage7_value_contracts_declare_formal_source_contracts(self) -> None:
+        buyer_fit_catalog = load_contract("contracts/sales/buyer_fit_scorecard.json")
+        value_catalog = load_contract("contracts/sales/lead_value_scoring_catalog.json")
+        opportunity_policy = load_contract("contracts/sales/opportunity_policy_catalog.json")
+
+        buyer_source = buyer_fit_catalog["formalSourceContract"]
+        self.assertEqual(buyer_source["contractId"], "STAGE7-BUYER-FIT-SOURCE-CONTRACT-001")
+        self.assertEqual(buyer_source["missingFormalSourceDecisionState"], "REVIEW")
+        self.assertIn("inputs.buyer_fit_score", buyer_source["forbiddenSubstitutes"])
+        self.assertIn(
+            "base_fit_score",
+            buyer_source["scorecards"]["general_buyer_fit_v1"]["requiredDerivationRefs"],
+        )
+        self.assertIn(
+            "general_buyer_fit_v1.score",
+            buyer_source["scorecards"]["challenger_buyer_fit_v1"]["requiredDerivationRefs"],
+        )
+
+        value_source = value_catalog["derivationPolicy"]["sourceContracts"]
+        self.assertEqual(value_source["contractId"], "STAGE7-VALUE-SOURCE-CONTRACT-001")
+        self.assertTrue(value_source["opportunityValueScore"]["buyerFitReplayRequired"])
+        self.assertEqual(
+            value_source["opportunityValueScore"]["buyerFitSource"],
+            "buyer_fit_scorecard.general_buyer_fit_v1.score",
+        )
+        self.assertIn(
+            "PROJECT-VALUE-001.project_value_score",
+            value_source["leadValueScore"]["authoritativeInputs"]["project_value_score"],
+        )
+        self.assertIn(
+            "service_local_buyer_fit_seed",
+            value_source["opportunityValueScore"]["forbiddenSubstitutes"],
+        )
+
+        band_source = opportunity_policy["expectedBandPolicies"][0]["sourceContract"]
+        self.assertEqual(band_source["contractId"], "STAGE7-EXPECTED-BAND-SOURCE-CONTRACT-001")
+        self.assertIn("window_status", band_source["requiredRuntimeInputs"])
+        self.assertEqual(
+            band_source["outputProjection"]["saleable_opportunity.expected_close_days_band"],
+            "close_days_rules.expected_close_days_band",
+        )
+        self.assertIn("inputs.why_recommended", band_source["forbiddenSubstitutes"])
+
     def test_stage7_reason_tags_and_reason_summary_ignore_direct_input_override(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(

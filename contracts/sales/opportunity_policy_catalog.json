@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.3.0",
+  "catalogVersion": "1.3.1",
   "catalogId": "opportunity_policy_catalog",
   "ownerDocs": [
     "D2",
@@ -428,6 +428,29 @@
         "expected_close_days_band": "OPPORTUNITY-BAND-001.close_days_rules",
         "expected_delivery_cost_band": "OPPORTUNITY-BAND-001.delivery_cost_rules",
         "why_recommended": "OPPORTUNITY-BAND-001.whyRecommendedTemplate"
+      },
+      "sourceContract": {
+        "contractId": "STAGE7-EXPECTED-BAND-SOURCE-CONTRACT-001",
+        "scope": "expected_close_days_band, expected_delivery_cost_band, why_recommended",
+        "bandPolicyRef": "expectedBandPolicies.OPPORTUNITY-BAND-001",
+        "requiredRuntimeInputs": [
+          "window_status",
+          "window_urgency_score",
+          "opportunity_grade",
+          "recommended_delivery_form",
+          "price_band"
+        ],
+        "outputProjection": {
+          "saleable_opportunity.expected_close_days_band": "close_days_rules.expected_close_days_band",
+          "saleable_opportunity.expected_delivery_cost_band": "delivery_cost_rules.expected_delivery_cost_band",
+          "offer_recommendation.why_recommended": "whyRecommendedTemplate(policy, sku, grade, window, close_band, cost_band, quote_band)"
+        },
+        "forbiddenSubstitutes": [
+          "inputs.expected_close_days_band",
+          "inputs.expected_delivery_cost_band",
+          "inputs.why_recommended",
+          "service_local_unknown_band_default"
+        ]
       },
       "outputFields": [
         "saleable_opportunity.expected_close_days_band",

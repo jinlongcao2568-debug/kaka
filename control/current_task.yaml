@@ -9,7 +9,7 @@ navigation_state: "CONTROLLED_ROUTE_MAP_RESTORED"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口执行 PKT-P0-01-S1-review-queue-window-scoring scoped subpacket；仅限 declared/allowed paths 内的 review queue / window scoring 最小闭环；external release 与 Stage8 / Stage9 红线保持阻断，完成 required scripts 后停机汇报。"
+activation_condition: "当前窗口执行 PKT-P0-02-S1-stage7-buyer-fit-value-derivation scoped subpacket；仅限 declared/allowed paths 内的 Stage7 buyer fit / value derivation 最小闭环；external release 与 Stage8 / Stage9 红线保持阻断，完成 required scripts 后停机汇报。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PKT-P0-01-S1-review-queue-window-scoring"
-  title: "Stage6 review queue window scoring scoped activation"
+  task_id: "PKT-P0-02-S1-stage7-buyer-fit-value-derivation"
+  title: "Stage7 buyer fit value derivation scoped activation"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -41,19 +41,17 @@ currentTask:
     - "control/review_gate_matrix.yaml"
     - "control/automation_task_packet_rules.yaml"
     - "control/automation_stop_conditions.yaml"
-    - "contracts/sales/window_value_policy_catalog.json"
-    - "contracts/rules/rule_catalog.json"
-    - "contracts/schemas/review_queue_profile.schema.json"
-    - "handoff/stage5_to_stage6/contract.json"
-    - "handoff/stage6_to_stage7/contract.json"
-    - "tests/test_stage56_evaluators.py"
+    - "contracts/sales/lead_value_scoring_catalog.json"
+    - "contracts/sales/buyer_fit_scorecard.json"
+    - "contracts/sales/opportunity_policy_catalog.json"
+    - "tests/test_stage7_runtime_closure.py"
     - "scripts/check-automation-readiness.ps1"
     - "scripts/check-semantic-alignment.ps1"
     - "scripts/validate-contracts.ps1"
     - "scripts/run-golden.ps1"
     - "scripts/check-release.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "执行 Stage5->6 / Stage6 review queue priority、window scoring、bucket 迁移与 handoff 口径 scoped subpacket；本轮不扩包、不进入下一包。"
+  objective: "执行 PKT-P0-02-stage7-buyer-fit-value-derivation scoped subpacket；最小闭合 Stage7 buyer fit、lead value scoring、opportunity value derivation 与 expected bands 的来源口径，不扩包、不进入下一包。"
   operator_assignment_roster:
     stage1:
       assigned_owner_role: "single_operator"
@@ -118,15 +116,15 @@ currentTask:
   task_packet:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
-    source_blueprint_batch_id: "PKT-P0-08-formal-route-map-split"
-    backlog_packet_ref: "PKT-P0-01-review-queue-window-scoring"
-    packet_id: "PKT-P0-01-S1-review-queue-window-scoring"
-    subpacket_id: "PKT-P0-01-S1-review-queue-window-scoring"
-    title: "Stage6 review queue window scoring"
+    source_blueprint_batch_id: "B4"
+    backlog_packet_ref: "PKT-P0-02-stage7-buyer-fit-value-derivation"
+    packet_id: "PKT-P0-02-S1-stage7-buyer-fit-value-derivation"
+    subpacket_id: "PKT-P0-02-S1-stage7-buyer-fit-value-derivation"
+    title: "Stage7 buyer fit / value derivation activation"
     status: "ACTIVE"
-    objective: "最小闭合 Stage5->6 / Stage6 review queue priority、window scoring、bucket 迁移与 handoff 相关口径；本轮只做当前包 declared/allowed paths 内的最小实现闭环。"
+    objective: "最小闭合 Stage7 buyer fit、lead value scoring、opportunity value derivation 与 expected bands 的来源口径；本轮只做当前包 declared/allowed paths 内的最小实现闭环。"
     depends_on:
-      - "PKT-P0-08-formal-route-map-split"
+      - "PKT-P0-01-S1-review-queue-window-scoring"
     non_goals:
       - "not an external unlock implementation"
       - "不自动进入下一包"
@@ -139,12 +137,10 @@ currentTask:
       - "不改 docs/D9_联系对象与销售触达规范.md"
       - "不改 docs/D10_订单支付交付与治理反馈规范.md"
       - "不创建业务 API 或外部客户工作台"
-      - "不修改 src/stage8_outreach、src/stage9_delivery 或 src/api"
+      - "不修改 src/stage8_outreach 或 src/stage9_delivery"
       - "不放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
     affected_stages:
-      - "stage5_to_stage6_handoff"
-      - "stage6_fact_review"
-      - "stage6_to_stage7_handoff"
+      - "stage7_sales"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
@@ -167,10 +163,10 @@ currentTask:
       - "docs/D3_正式规则码总表与判定说明书.md"
       - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
       - "docs/D11_测试验收与金标回归清单.md"
-      - "contracts/sales/window_value_policy_catalog.json"
-      - "contracts/rules/rule_catalog.json"
-      - "contracts/schemas/review_queue_profile.schema.json"
-      - "tests/test_stage56_evaluators.py"
+      - "contracts/sales/lead_value_scoring_catalog.json"
+      - "contracts/sales/buyer_fit_scorecard.json"
+      - "contracts/sales/opportunity_policy_catalog.json"
+      - "tests/test_stage7_runtime_closure.py"
     baseline_dirty_paths: []
     allowed_modification_paths:
       - "control/current_task.yaml"
@@ -179,10 +175,10 @@ currentTask:
       - "docs/D3_正式规则码总表与判定说明书.md"
       - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
       - "docs/D11_测试验收与金标回归清单.md"
-      - "contracts/sales/window_value_policy_catalog.json"
-      - "contracts/rules/rule_catalog.json"
-      - "contracts/schemas/review_queue_profile.schema.json"
-      - "tests/test_stage56_evaluators.py"
+      - "contracts/sales/lead_value_scoring_catalog.json"
+      - "contracts/sales/buyer_fit_scorecard.json"
+      - "contracts/sales/opportunity_policy_catalog.json"
+      - "tests/test_stage7_runtime_closure.py"
     forbidden_modification_paths:
       - "docs/L0.md"
       - "docs/D9_联系对象与销售触达规范.md"
@@ -190,7 +186,6 @@ currentTask:
       - "contracts/release/**"
       - "src/stage8_outreach/**"
       - "src/stage9_delivery/**"
-      - "src/api/**"
       - "control/review_gate_matrix.yaml"
       - "control/approval_chain_state.yaml"
       - "control/exception_chain_state.yaml"
@@ -203,9 +198,7 @@ currentTask:
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
-      handoff:
-        - "handoff/stage5_to_stage6/contract.json"
-        - "handoff/stage6_to_stage7/contract.json"
+      handoff: []
       scripts:
         - "scripts/check-automation-readiness.ps1"
         - "scripts/check-semantic-alignment.ps1"
@@ -213,11 +206,11 @@ currentTask:
         - "scripts/run-golden.ps1"
         - "scripts/check-release.ps1"
       tests:
-        - "tests/test_stage56_evaluators.py"
+        - "tests/test_stage7_runtime_closure.py"
       contracts:
-        - "contracts/sales/window_value_policy_catalog.json"
-        - "contracts/rules/rule_catalog.json"
-        - "contracts/schemas/review_queue_profile.schema.json"
+        - "contracts/sales/lead_value_scoring_catalog.json"
+        - "contracts/sales/buyer_fit_scorecard.json"
+        - "contracts/sales/opportunity_policy_catalog.json"
       runtime: []
     required_scripts:
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
@@ -232,21 +225,23 @@ currentTask:
       - "任一 required script 失败"
       - "触碰 forbidden paths"
       - "declared_changed_paths 超过 10"
-      - "review queue / window scoring 之外的主题进入本包"
+      - "Stage7 buyer fit / value derivation 之外的主题进入本包"
       - "实现改动超出 current_task declared/allowed paths"
       - "新增对象、枚举、gate、exception 语义"
       - "触碰 Stage8 real execution 或 Stage9 payment/delivery/refund"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
     definition_of_done:
-      - "currentTask.task_packet 激活为 PKT-P0-01-S1-review-queue-window-scoring"
-      - "source_blueprint_batch_id 使用已注册 blueprint"
-      - "backlog_packet_ref 指向 PKT-P0-01-review-queue-window-scoring"
+      - "currentTask.task_packet 激活为 PKT-P0-02-S1-stage7-buyer-fit-value-derivation"
+      - "source_blueprint_batch_id 使用已注册 blueprint B4"
+      - "backlog_packet_ref 指向 PKT-P0-02-stage7-buyer-fit-value-derivation"
       - "declared_changed_paths 数量 <= 10"
       - "repo_status.md Current Workstream 与当前 active task id 同步"
-      - "指定脚本运行后停机汇报"
+      - "Stage7 buyer fit / value derivation source contracts、docs 与回归断言完成最小闭环"
+      - "required scripts 全量运行后停机汇报，不进入下一包"
     deliverables:
       - "control/current_task.yaml scoped subpacket activation"
       - "control/repo_status.md Current Workstream sync"
+      - "Stage7 buyer fit / value derivation source contract closure"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -260,27 +255,25 @@ currentTask:
       signoff_required: true
       signoff_status: "REQUESTED_NOT_APPROVED"
     notes:
-      - "backlog_packet_ref=PKT-P0-01-review-queue-window-scoring"
-      - "source_blueprint_batch_id=PKT-P0-08-formal-route-map-split"
-      - "source_blueprint_batch_id 使用已注册 blueprint；PKT-P0-01-review-queue-window-scoring 是 task_packet_library 中的候选 backlog packet，本轮不改 blueprint registry。"
-      - "depends_on=PKT-P0-08-formal-route-map-split；该前置已在 blueprint registry 注册。"
+      - "backlog_packet_ref=PKT-P0-02-stage7-buyer-fit-value-derivation"
+      - "source_blueprint_batch_id=B4；B4 是 blueprint_registry 中已注册的 Stage7 Commercial Object Closure blueprint。"
+      - "PKT-P0-02-stage7-buyer-fit-value-derivation 是 task_packet_library 中的候选 backlog packet，本轮不改 blueprint registry。"
       - "当前任务选择优先级固定为 current_task -> task_packet_library -> repo_status。"
       - "docs/AX9S_开发执行路由图.md 只负责导航，不是状态源、裁决源、执行日志或完整 backlog。"
       - "历史蓝图与历史语汇不得作为当前任务来源。"
-      - "本轮执行当前 scoped subpacket；只做 review queue / window scoring 最小闭环，不放开红线、不自动进入下一包。"
+      - "本轮执行当前 scoped subpacket；只做 Stage7 buyer fit / value derivation 最小闭环，不放开红线、不自动进入下一包。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
     - "external software release remains blocked"
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮仅允许在 current_task.yaml 声明的 10 个 declared/allowed 路径内执行 PKT-P0-01-S1-review-queue-window-scoring，并按 required_scripts 全量验证后停机汇报"
+    - "本轮仅允许在 current_task.yaml 声明的 10 个 declared/allowed 路径内执行 PKT-P0-02-S1-stage7-buyer-fit-value-derivation，并按 required_scripts 全量验证后停机汇报"
   forbidden_actions:
     - "本轮不得修改 declared/allowed paths 之外的文件"
     - "不得自动进入下一包"
     - "开放 external release、Stage 8 real execution、Stage 9 real payment/delivery 或 direct Stage8-9 object export"
     - "新造第二套对象、枚举、gate、exception、state source 或 packet_id"
-    - "自动进入下一包或自动创建下一任务"
   nextActions:
-    - "回总控确认是否进入 PKT-P0-01-S1-review-queue-window-scoring 的实现执行；未确认前不推进。"
-  status_note: "当前窗执行 PKT-P0-01-S1-review-queue-window-scoring：repo readiness 继续保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION；external release 与 Stage 8/9 real execution 继续阻断。"
+    - "回总控确认是否进入 PKT-P0-02-S1-stage7-buyer-fit-value-derivation 的实现执行；未确认前不推进。"
+  status_note: "当前窗执行 PKT-P0-02-S1-stage7-buyer-fit-value-derivation：repo readiness 继续保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION；external release 与 Stage 8/9 real execution 继续阻断。"

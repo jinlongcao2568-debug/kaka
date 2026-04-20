@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.1.1",
   "catalogId": "buyer_fit_scorecard",
   "ownerDocs": [
     "D8",
@@ -46,6 +46,54 @@
         "contractSource": "fallbackPolicy.sourceFallbacks.window_status"
       }
     }
+  },
+  "formalSourceContract": {
+    "contractId": "STAGE7-BUYER-FIT-SOURCE-CONTRACT-001",
+    "scope": "buyer_fit and challenger_buyer_fit scorecard derivation",
+    "scorecards": {
+      "general_buyer_fit_v1": {
+        "targetObject": "buyer_fit",
+        "requiredDerivationRefs": [
+          "base_fit_score",
+          "purchase_intent_score",
+          "payment_capacity_score",
+          "window_urgency_score",
+          "attack_motivation_score"
+        ],
+        "runtimeTraceRequiredFields": [
+          "buyer_fit_scorecard_id",
+          "buyer_fit_scorecard_score",
+          "buyer_fit_derivation_trace",
+          "buyer_fit_reason_tag_policy_id",
+          "buyer_fit_reason_tags"
+        ]
+      },
+      "challenger_buyer_fit_v1": {
+        "targetObject": "challenger_buyer_fit",
+        "requiredDerivationRefs": [
+          "general_buyer_fit_v1.score",
+          "purchase_intent_score",
+          "payment_capacity_score",
+          "window_urgency_score",
+          "attack_motivation_score"
+        ],
+        "runtimeTraceRequiredFields": [
+          "challenger_buyer_fit_scorecard_id",
+          "challenger_buyer_fit_scorecard_score",
+          "challenger_buyer_fit_reason_tag_policy_id",
+          "challenger_buyer_fit_reason_tags"
+        ]
+      }
+    },
+    "fallbackPolicyRef": "fallbackPolicy.sourceFallbacks",
+    "missingFormalSourceDecisionState": "REVIEW",
+    "forbiddenSubstitutes": [
+      "inputs.buyer_fit_score",
+      "inputs.challenger_buyer_fit_score",
+      "inputs.buyer_fit_reason_tags",
+      "inputs.challenger_buyer_fit_reason_tags",
+      "service_local_fit_score_seed"
+    ]
   },
   "scoreBuckets": [
     {

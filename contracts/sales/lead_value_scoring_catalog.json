@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.1.1",
   "catalogId": "lead_value_scoring_catalog",
   "ownerDocs": [
     "D3",
@@ -14,6 +14,58 @@
     "buyerFitInput": "buyer_fit_scorecard.general_buyer_fit_v1.score",
     "buyerFitReplayPolicy": "buyer_fit_scorecard",
     "buyerFitReplayTraceLabel": "buyer_fit_scorecard_policy_replay",
+    "sourceContracts": {
+      "contractId": "STAGE7-VALUE-SOURCE-CONTRACT-001",
+      "scope": "project_value_score, lead_score, opportunity_value_score",
+      "projectValueScore": {
+        "modelId": "PROJECT-VALUE-001",
+        "authoritativeInputs": {
+          "window_urgency_score": "window_value_policy.window_urgency_score",
+          "external_use_grade": "project_fact.external_use_grade or inputs.external_use_grade",
+          "coverage_sellable_state": "project_fact.coverage_sellable_state",
+          "delivery_risk_state": "project_fact.delivery_risk_state",
+          "competitor_quality_grade": "competitor_confidence.policy_output or project_fact.competitor_quality_grade",
+          "price_signal_score": "price_normalization.policy_output"
+        },
+        "fallbackPolicyRef": "derivationPolicy.sourceFallbacks",
+        "forbiddenSubstitutes": [
+          "service_local_project_value_seed",
+          "free_text_project_value_override"
+        ]
+      },
+      "leadValueScore": {
+        "modelId": "LEAD-VALUE-001",
+        "authoritativeInputs": {
+          "project_value_score": "PROJECT-VALUE-001.project_value_score",
+          "challenger_confidence_score": "competitor_confidence.policy_output.competitor_confidence_score",
+          "window_urgency_score": "window_value_policy.window_urgency_score",
+          "external_use_grade": "project_fact.external_use_grade or inputs.external_use_grade"
+        },
+        "fallbackPolicyRef": "derivationPolicy.sourceFallbacks",
+        "forbiddenSubstitutes": [
+          "inputs.lead_score",
+          "free_text_lead_reason_summary"
+        ]
+      },
+      "opportunityValueScore": {
+        "modelId": "OPPORTUNITY-VALUE-001",
+        "buyerFitSource": "buyer_fit_scorecard.general_buyer_fit_v1.score",
+        "buyerFitReplayRequired": true,
+        "authoritativeInputs": {
+          "project_value_score": "PROJECT-VALUE-001.project_value_score",
+          "buyer_fit.fit_score": "buyer_fit_scorecard.general_buyer_fit_v1.score",
+          "challenge_actionability_score": "challenger_candidate_profile.challenge_actionability_score",
+          "price_signal_score": "price_normalization.policy_output",
+          "window_urgency_score": "window_value_policy.window_urgency_score"
+        },
+        "fallbackPolicyRef": "derivationPolicy.sourceFallbacks",
+        "forbiddenSubstitutes": [
+          "inputs.opportunity_value_score_optional",
+          "service_local_buyer_fit_seed",
+          "free_text_major_value_points"
+        ]
+      }
+    },
     "sourceFallbacks": {
       "window_urgency_score": {
         "fallbackValue": 50,
