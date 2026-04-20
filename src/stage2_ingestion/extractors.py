@@ -62,15 +62,19 @@ class Stage2Extraction:
     route_policy: dict[str, Any]
 
 
-def _resolve_precedence_rule(
-    *candidates: tuple[str, Any],
+def _resolve_precedence_rule_from_order(
+    precedence_order: list[Any],
+    candidate_values: Mapping[str, Any],
+    *,
     compatibility_default: str,
 ) -> tuple[str, str]:
-    for source_name, candidate in candidates:
+    for source_name_raw in precedence_order:
+        source_name = str(source_name_raw)
+        candidate = candidate_values.get(source_name)
         text = str(candidate or "").strip()
         if not text or text.endswith("DEFAULT"):
             continue
-        return text, source_name
+        return text, source_name.split(".", 1)[0]
     return compatibility_default, "compatibility_default"
 
 
@@ -222,14 +226,50 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
     if backlog_reason_raw is None and "backlog_reason_optional" not in handoff:
         backlog_reason_raw = source_entry.get("backlog_reason_optional")
     backlog_reason_optional = str(backlog_reason_raw) if backlog_reason_raw is not None else None
-    version_precedence_rule_id, version_precedence_source = _resolve_precedence_rule(
-        ("source_registry", source_entry.get("winning_version_resolution_rule_id")),
-        ("route_policy", route_policy.get("version_chain_relation", {}).get("winning_version_resolution_rule_id")),
+    version_relation = route_policy.get("version_chain_relation", {})
+    version_precedence_rule_id, version_precedence_source = _resolve_precedence_rule_from_order(
+        list(
+            version_relation.get(
+                "precedence_order",
+                [
+                    "payload.winning_version_resolution_rule_id",
+                    "source_registry.winning_version_resolution_rule_id",
+                    "route_policy.version_chain_relation.winning_version_resolution_rule_id",
+                ],
+            )
+        ),
+        {
+            "payload.winning_version_resolution_rule_id": inputs.get("winning_version_resolution_rule_id"),
+            "source_registry.winning_version_resolution_rule_id": source_entry.get(
+                "winning_version_resolution_rule_id"
+            ),
+            "route_policy.version_chain_relation.winning_version_resolution_rule_id": version_relation.get(
+                "winning_version_resolution_rule_id"
+            ),
+        },
         compatibility_default="VERSION-DEFAULT",
     )
-    clock_precedence_rule_id, clock_precedence_source = _resolve_precedence_rule(
-        ("source_registry", source_entry.get("clock_precedence_rule_id")),
-        ("route_policy", route_policy.get("clock_chain_relation", {}).get("clock_precedence_rule_id")),
+    clock_relation = route_policy.get("clock_chain_relation", {})
+    clock_precedence_rule_id, clock_precedence_source = _resolve_precedence_rule_from_order(
+        list(
+            clock_relation.get(
+                "precedence_order",
+                [
+                    "clock_strategy_profile.clock_resolution_rule_id",
+                    "source_registry.clock_precedence_rule_id",
+                    "route_policy.clock_chain_relation.clock_precedence_rule_id",
+                ],
+            )
+        ),
+        {
+            "clock_strategy_profile.clock_resolution_rule_id": clock_strategy_profile.get(
+                "clock_resolution_rule_id"
+            ),
+            "source_registry.clock_precedence_rule_id": source_entry.get("clock_precedence_rule_id"),
+            "route_policy.clock_chain_relation.clock_precedence_rule_id": clock_relation.get(
+                "clock_precedence_rule_id"
+            ),
+        },
         compatibility_default="CLOCK-PREC-DEFAULT",
     )
     clock_resolution_rule_id, clock_resolution_rule_source = _resolve_authoritative_text(

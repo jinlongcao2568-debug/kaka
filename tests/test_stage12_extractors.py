@@ -352,7 +352,6 @@ class TestStage12Extractors(unittest.TestCase):
         conflicted["source_registry_id"] = "SRC-REG-PROC-CITY-PDF"
         conflicted["carrier_type"] = "IMAGE_ATTACHMENT"
         conflicted["origin_carrier_type"] = "IMAGE_ATTACHMENT"
-        conflicted["winning_version_resolution_rule_id"] = "VERSION-REGISTER-ONLY-001"
         conflicted["clock_resolution_rule_id"] = "CLOCK-REGISTER-ONLY-001"
         conflicted["current_action_start_at_optional"] = "2099-01-01T00:00:00Z"
         conflicted["current_action_deadline_at_optional"] = "2099-01-31T00:00:00Z"
@@ -468,6 +467,40 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(extraction.clock_precedence_rule_id, "CLOCK-PROC-NOTICE-001")
         self.assertEqual(extraction.clock_precedence_source, "source_registry")
         self.assertEqual(extraction.winning_version_resolution_rule_id, "VERSION-PROC-NOTICE-001")
+
+    def test_stage2_precedence_prefers_explicit_payload_then_contract_fallback(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "winning_version_resolution_rule_id": "VERSION-PROC-NOTICE-001",
+                "clock_resolution_rule_id": "CLOCK-PROC-NOTICE-001",
+                "current_action_start_at_optional": "2026-04-01T00:00:00Z",
+                "current_action_deadline_at_optional": "2026-04-12T23:59:59Z",
+            }
+        )
+        stage1 = Stage1Service().run(payload)
+
+        extraction = extract_stage2(stage1, Stage2Service().store, now=payload["now"])
+        stage2 = Stage2Service().run(stage1)
+
+        self.assertEqual(extraction.version_precedence_rule_id, "VERSION-PROC-NOTICE-001")
+        self.assertEqual(
+            extraction.version_precedence_source,
+            "payload",
+        )
+        self.assertEqual(extraction.clock_precedence_rule_id, "CLOCK-PROC-NOTICE-001")
+        self.assertEqual(
+            extraction.clock_precedence_source,
+            "clock_strategy_profile",
+        )
+        self.assertEqual(
+            stage2.inputs["stage12_extractor_trace"]["stage2"]["winning_version_resolution_rule_id_source"],
+            "payload",
+        )
+        self.assertEqual(
+            stage2.inputs["stage12_extractor_trace"]["stage2"]["clock_precedence_rule_id_source"],
+            "clock_strategy_profile",
+        )
 
     def test_stage2_collection_state_runtime_mapping_projects_backlog_to_review(self) -> None:
         payload = load_fixture("internal_chain_happy.json")

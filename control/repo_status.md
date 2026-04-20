@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PKT-P0-08-S6-control-foundation-full-fix (active control root-cause execution only: active-task semantics, semantic-alignment invariants, reference_index path sync, release umbrella coverage; no repo readiness change, no formal business implementation)
+Current Workstream: PKT-P1-01-S1-stage12-source-route-precedence (active Stage1-2 source/route/precedence scoped execution; no repo readiness change, no external source live connection, no Stage8/Stage9 execution unlock)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,16 +21,16 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
-- Control foundation root-cause repair within the declared task packet scope, without changing canonical readiness
-- Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this governance packet stops and reports
+- Stage1-2 source / route / precedence scoped execution within current task declared paths, without changing canonical readiness
+- Human-selected next implementation mainline planning outside the AX9S full-repair batch sequence, after this scoped packet stops and reports
 - Status-source review and audit of the closed full-repair program without changing canonical readiness
 
 Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
 - Any new AX9S batch activation, including B11
-- Any automatic next-task activation from the current governance packet or historical FF-18-S1 closeout
-- Any business semantics change in this governance repair state
-- Any transport/bootstrap/api/service change in this governance repair state
+- Any automatic next-task activation from the current scoped packet or historical FF-18-S1 closeout
+- Any source / route / precedence topic expansion outside the current scoped packet
+- Any transport/bootstrap/api/service change outside the declared scoped packet paths
 - Any new formal object or enum family in this governance repair state
 - Any schema/handoff mainline rewrite in this governance repair state
 - Rewriting D10正文
@@ -45,7 +45,7 @@ State Semantics:
 - `FULL_REPAIR_COMPLETE_REVIEW_READY` is the AX9S full-repair program control closeout token only; it does not replace the repo readiness conclusion, which remains `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`.
 - `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` remains the scoped conditional-go for internal LeadOps development.
 - `FF-18-S1` is the final state-source closeout window for the full-fix mainline; it records canonical alignment only and does not create a new readiness token.
-- `PKT-P0-08-S6-control-foundation-full-fix` is the current active governance repair packet; it only closes control/script/test root causes and does not auto-enter any formal business implementation packet.
+- `PKT-P1-01-S1-stage12-source-route-precedence` is the current active scoped packet; it only closes Stage1-2 source / route / precedence scope and does not auto-enter the next packet.
 - `FF-01~FF-18` mainline is complete; this does not unlock external release, Stage 8 live execution, or Stage 9 live payment/delivery.
 - `READY_FOR_POST-R6_CANDIDATE_GAP_BATCH` and `READY_FOR_POST-R6_STRATEGIC_BRANCH_BATCH` are historical R6-path tokens and are not the current repo readiness.
 - R6 candidate / deny / blocked decisions remain valid as decision outputs; they do not redefine the current repo readiness.
