@@ -9,7 +9,7 @@ navigation_state: "NEW_CONTROL_SYSTEM_CUTOVER_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口只登记并激活 PTL-GOV-101-product-planning-sync-implementation；目标是建立 product_task_library 与 AX9S 路线图正式同步机制的 active packet；不做实现、不进入下一包、不提交。"
+activation_condition: "当前窗口移除统一文件数硬上限；只保留 declared/allowed/forbidden paths、review gate 和 stop conditions 作为任务包约束；不进入下一包、不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-GOV-101-product-planning-sync-implementation"
-  title: "product_task_library 与 AX9S 路线图正式同步机制（登记激活）"
+  task_id: "PTL-GOV-102-remove-file-count-cap"
+  title: "移除统一文件数硬上限"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -37,7 +37,7 @@ currentTask:
     - "scripts/check-state-alignment.ps1"
     - "scripts/check-final-gate.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "登记并激活 product_task_library 与 AX9S 路线图正式同步机制实现包，替代旧 PTL-GOV-03 placeholder；本轮不实现同步逻辑。"
+  objective: "删除统一 max_files / max_docs / max_control 约束，只保留路径范围和 review gate 门禁。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -74,21 +74,20 @@ currentTask:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    backlog_packet_ref: "PTL-GOV-101-product-planning-sync-implementation"
-    packet_id: "PTL-GOV-101-product-planning-sync-implementation"
-    subpacket_id: "PTL-GOV-101-product-planning-sync-implementation"
-    title: "product_task_library 与 AX9S 路线图正式同步机制（登记激活）"
+    backlog_packet_ref: "PTL-GOV-102-remove-file-count-cap"
+    packet_id: "PTL-GOV-102-remove-file-count-cap"
+    subpacket_id: "PTL-GOV-102-remove-file-count-cap"
+    title: "移除统一文件数硬上限"
     status: "ACTIVE"
-    objective: "建立 product_task_library 与 AX9S 路线图正式同步机制的 active packet，完成正式登记、当前激活与状态同步；当前窗口不实现同步逻辑。"
+    objective: "移除统一文件数硬上限，保留单主题、路径范围、review gate 与 stop conditions 约束。"
     depends_on: []
     non_goals:
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
-      - "不修改 docs/AX9S_开发执行路由图.md"
       - "不修改 scripts/**、src/**、tests/**、contracts/**、handoff/**"
-      - "不实现 product_task_library 与 AX9S 路线图同步逻辑"
+      - "不改变 current_task -> product_task_library -> repo_status 优先级"
       - "不自动进入下一包"
       - "不提交"
       - "not an external unlock implementation"
@@ -98,7 +97,6 @@ currentTask:
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "product_planning_sync_control"
       - "state_source_sync"
     reviews:
       - "automation_owner"
@@ -108,32 +106,33 @@ currentTask:
       - "model_governance_owner"
       - "testing_owner"
     declared_changed_paths:
-      - "control/product_task_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/automation_task_packet_rules.yaml"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/D1_研发_Codex执行手册.md"
     baseline_dirty_paths: []
     allowed_modification_paths:
-      - "control/product_task_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/automation_task_packet_rules.yaml"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/D1_研发_Codex执行手册.md"
     forbidden_modification_paths:
-      - "docs/**"
-      - "scripts/**"
       - "src/**"
       - "tests/**"
       - "contracts/**"
       - "handoff/**"
-      - "control/source_blueprint_registry.yaml"
-      - "control/operator_assignment_roster_defaults.yaml"
       - "control/automation_action_matrix.yaml"
       - "control/milestone_status.yaml"
     impacted_assets:
       docs:
-        - "docs/AX9S_开发执行路由图.md"
+        - "docs/自动化开发动作门禁表.md"
+        - "docs/D1_研发_Codex执行手册.md"
       control:
-        - "control/product_task_library.yaml"
         - "control/current_task.yaml"
         - "control/repo_status.md"
+        - "control/automation_task_packet_rules.yaml"
       scripts:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
@@ -156,14 +155,14 @@ currentTask:
       - "触碰 forbidden paths"
       - "改变 canonical readiness"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
-      - "试图实现 product_task_library 与 AX9S 路线图同步逻辑"
+      - "重新引入统一文件数硬上限"
     definition_of_done:
-      - "control/product_task_library.yaml 已把 PTL-GOV-101 登记为正式后续实现包"
-      - "control/current_task.yaml 已激活 PTL-GOV-101 且 declared_changed_paths / allowed_modification_paths 仅为 3 个允许文件"
-      - "control/repo_status.md Current Workstream 已同步为 PTL-GOV-101"
+      - "control/automation_task_packet_rules.yaml 不再声明统一 max_files / max_docs / max_control 硬上限"
+      - "docs/自动化开发动作门禁表.md 与 D1 不再把统一文件数上限写成正式规则"
+      - "control/current_task.yaml 与 control/repo_status.md 已同步 PTL-GOV-102"
       - "required scripts 通过并停机汇报"
     deliverables:
-      - "product planning sync implementation packet registration and activation"
+      - "file-count-cap removal patch"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -178,7 +177,7 @@ currentTask:
       signoff_status: "REQUESTED_NOT_APPROVED"
     notes:
       - "当前 active task source 优先级固定为 current_task -> product_task_library -> repo_status。"
-      - "本轮只做 PTL-GOV-101 的登记与激活，不实现同步逻辑。"
+      - "本轮移除统一文件数硬上限；任务包仍受 declared/allowed/forbidden paths、review gate、stop conditions 约束。"
       - "本轮不改变 readiness，不放开 external release，不进入 Stage8/Stage9 高风险执行。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
@@ -186,11 +185,11 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮允许登记并激活 PTL-GOV-101-product-planning-sync-implementation，并运行三段门禁脚本后停机汇报"
+    - "本轮允许移除统一文件数硬上限，并运行三段门禁脚本后停机汇报"
   forbidden_actions:
-    - "不得修改 docs/**、scripts/**、src/**、tests/**、contracts/**、handoff/**"
+    - "不得修改 scripts/**、src/**、tests/**、contracts/**、handoff/**"
     - "不得改变 canonical readiness 或放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery"
-    - "不得实现同步逻辑、不得自动进入下一包、不得提交"
+    - "不得自动进入下一包、不得提交"
   nextActions:
-    - "完成 PTL-GOV-101 登记与激活，运行三段门禁脚本，并停机汇报。"
-  status_note: "PTL-GOV-101-product-planning-sync-implementation 当前处于 activation-only；本窗口只登记并激活 product_task_library 与 AX9S 路线图正式同步机制实现包，不做实现；external release 与 Stage 8/9 real execution 继续阻断。"
+    - "完成 PTL-GOV-102，运行三段门禁脚本，并停机汇报。"
+  status_note: "PTL-GOV-102-remove-file-count-cap 当前处于 scoped-execution；本窗口移除统一文件数硬上限，只保留路径范围、review gate 与 stop conditions 门禁；external release 与 Stage 8/9 real execution 继续阻断。"

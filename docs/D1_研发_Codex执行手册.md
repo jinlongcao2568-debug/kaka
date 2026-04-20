@@ -804,15 +804,16 @@ AI / Codex 一律不得：
 | external-facing changes | P0 | 立即停机转人工 |
 | 同一脚本连续失败 >= 2 次 | P0 | 立即停机转人工 |
 
-### D1-R-070-C 任务包粒度规则
+### D1-R-070-C 任务包范围规则
 
 | 规则 | 要求 |
 |---|---|
 | 单批次主题 | 仅允许单一阶段或单一主题 |
-| 最大文件数 | <= 10 |
-| docs 变更 | <= 5 |
-| control 变更 | <= 3 |
+| 路径范围 | 必须显式声明 `declared_changed_paths` / `allowed_modification_paths` / `forbidden_modification_paths` |
 | contracts 变更 | 必须先同步 D 文档，并以草案/补丁形式输出 |
+
+- 不再设置统一 `<=10` 文件这类仓库级硬上限；
+- 是否拆包，主要由单主题要求、路径范围、review gate 与 stop conditions 共同决定。
 
 ### D1-R-070-D 机器承接位置
 

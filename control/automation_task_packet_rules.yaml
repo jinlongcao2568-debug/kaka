@@ -14,11 +14,6 @@ source_blueprint_registry_source:
 operator_assignment_roster_source:
   file: control/operator_assignment_roster_defaults.yaml
   path: defaults
-max_scope:
-  max_files: 10
-  max_docs: 5
-  max_control: 3
-  max_machine_assets: 4
 single_focus:
   required: true
   rule: one stage or one theme per batch
@@ -100,7 +95,8 @@ preflight_checks:
   entrypoint: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths <paths>
   required_rule: planned target paths / intended changed files must match declared_changed_paths and allowed_modification_paths before editing or commit
 notes:
-  - any task exceeding limits must be split before execution
+  - there is no single repository-wide max_files, max_docs, max_control, or max_machine_assets hard cap
+  - whether a task should split is decided by single_focus, declared/allowed/forbidden paths, review gate, and stop conditions
   - high-risk domains must be isolated in their own batch
   - task packet cannot be replaced by conversational summary; control/current_task.yaml is the formal machine-readable packet source
   - source_blueprint_batch_id is validated against control/source_blueprint_registry.yaml
