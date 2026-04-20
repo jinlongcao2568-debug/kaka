@@ -100,10 +100,10 @@ deliverables:
   - "Durable Stage9 typed workflow and feedback closure"
   - "Stage9 focused regression updates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "Any live payment/delivery/refund execution path becomes enabled."
@@ -136,3 +136,4 @@ suggested_execution_slices:
       - src/stage9_delivery/**
       - handoff/stage8_to_stage9/**
       - tests/test_stage9_impact_executor.py
+

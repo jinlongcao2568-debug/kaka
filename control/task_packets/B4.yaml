@@ -97,10 +97,10 @@ deliverables:
   - "Deterministic Stage7 commercial engine closure"
   - "Stage7 focused regression updates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "Any Stage7 decision still depends on opaque code-only seeds."
@@ -133,3 +133,4 @@ suggested_execution_slices:
       - contracts/sales/sku_recommendation_policy_catalog.json
       - contracts/sales/opportunity_policy_catalog.json
       - tests/test_formal_sink_fields.py
+

@@ -103,10 +103,10 @@ deliverables:
   - "Unified verification/review/report/supplement closure"
   - "Stage4-6 focused regression updates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "Report or supplement semantics attempt to bypass project_fact."
@@ -138,3 +138,4 @@ suggested_execution_slices:
       - contracts/schemas/review_queue_profile.schema.json
       - contracts/schemas/report_record.schema.json
       - tests/test_stage56_evaluators.py
+

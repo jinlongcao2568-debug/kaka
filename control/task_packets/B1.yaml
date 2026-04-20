@@ -95,10 +95,10 @@ deliverables:
   - "Adapter and provenance reservation for real ingestion"
   - "Stage1-2 focused regression updates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "A new source family or precedence semantic is required."
@@ -137,3 +137,4 @@ suggested_execution_slices:
       - src/stage2_ingestion/**
       - handoff/stage2_to_stage3/**
       - tests/test_internal_chain.py
+

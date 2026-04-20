@@ -99,10 +99,10 @@ deliverables:
   - "Bounded adapter reservation and shadow-ready contracts"
   - "Provider/vendor focused regression updates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "Any provider/vendor path attempts live execution."
@@ -136,3 +136,4 @@ suggested_execution_slices:
       - src/shared/capability_runtime.py
       - src/stage8_outreach/resolution.py
       - tests/test_capability_permission_layer.py
+

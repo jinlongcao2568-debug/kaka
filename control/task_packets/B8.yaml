@@ -83,9 +83,9 @@ deliverables:
   - "Stable repository, transport, preview, and workbench convergence"
   - "API/storage/surface focused regression updates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "Stage1-6 transport is incorrectly upgraded from controlled unavailable without explicit approval."
@@ -121,3 +121,4 @@ suggested_execution_slices:
       - contracts/ui/**
       - tests/test_api_transport_bootstrap.py
       - tests/test_internal_surface_preview.py
+

@@ -85,10 +85,10 @@ deliverables:
   - "Stage3 candidate and lineage truth-layer closure"
   - "Stage3 parser and handoff focused regression updates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "Stage4 or later starts owning Stage3 truth semantics."
@@ -120,3 +120,4 @@ suggested_execution_slices:
       - handoff/stage2_to_stage3/**
       - handoff/stage3_to_stage4/**
       - tests/test_internal_chain.py
+

@@ -83,12 +83,12 @@ deliverables:
   - "Program-level hardening, final anti-drift, and closeout readiness"
   - "Final full-chain validation and status closeout"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-governance-contracts.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "Any required script fails."
@@ -124,3 +124,4 @@ suggested_execution_slices:
       - control/milestone_status.yaml
       - control/release_manifest.yaml
       - docs/文档与资产状态板.md
+

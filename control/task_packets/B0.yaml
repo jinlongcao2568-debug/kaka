@@ -91,8 +91,8 @@ deliverables:
   - "Scoped subpacket template"
   - "Window bootstrap and closeout templates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 stop_conditions:
   - "A second formal status source is introduced."
   - "Any full-repair asset weakens blocked/governed redlines."
@@ -116,3 +116,4 @@ scope_limit_ref: control/automation_task_packet_rules.yaml#max_scope
 suggested_execution_slices:
   - slice_id: B0-S0
     objective: "Bootstrap assets were already prepared in the repository; do not re-run as a new execution window."
+

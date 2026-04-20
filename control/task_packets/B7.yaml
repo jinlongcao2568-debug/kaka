@@ -114,10 +114,10 @@ deliverables:
   - "Single capability/opening vocabulary and runtime precedence"
   - "Capability and future-unlock focused regression updates"
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
   - "Any external redline is weakened."
@@ -151,3 +151,4 @@ suggested_execution_slices:
       - docs/D14_AI模型治理规范.md
       - docs/技术实现决策页.md
       - contracts/release/future_unlock_decision_matrix.json
+

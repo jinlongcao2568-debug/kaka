@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-99-new-control-system-cutover (scoped-execution; current window replaces the old control system with current_task + product_task_library + source_blueprint_registry + operator_assignment_roster_defaults + repo_status/milestone_status + AX9S navigation)
+Current Workstream: PTL-GOV-100-legacy-blueprint-script-cleanup (scoped-execution; current window only cleans historical blueprint packet refs under control/task_packets/B*.yaml and does not change the new controlled development system sources)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
