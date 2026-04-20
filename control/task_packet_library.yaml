@@ -1,6 +1,6 @@
 version: 1
 library_id: AX9S_PRIORITY_TASK_PACKET_LIBRARY
-updated_at: "2026-04-19"
+updated_at: "2026-04-20"
 status: DRAFT
 library_role: backlog_blueprint_only
 not_formal_status_source: true
@@ -224,6 +224,7 @@ packet_order:
   - PKT-P1-04-generated-assertions-cadence-ladder
   - PKT-P1-05-validator-anti-drift-semanticization
   - PKT-GOV-01-product-dev-mode-docs-alignment
+  - PKT-GOV-02-internal-operator-loop-gates
 packets:
   - packet_id: PKT-P0-01-review-queue-window-scoring
     title: Stage6 复核优先级与窗口评分闭合
@@ -1309,6 +1310,102 @@ packets:
       - docs-only packet registry patch
       - current task activation patch
       - repo status workstream sync patch
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PKT-GOV-02-internal-operator-loop-gates
+    title: Stage8/9 internal operator loop gate fix
+    priority: P0
+    route_map_segment: POST_FF_INTERNAL_OPERATOR_LOOP_GATES
+    objective: 修复当前 python tests/run_tests.py / check-release.ps1 暴露的 action_result KeyError、ACTION-409 错码顺序漂移，以及 Stage8/9 初始 work item reviewer chain / assignment runtime 问题。
+    non_goals:
+      - 不改 docs/**
+      - 不改 contracts/**
+      - 不改 handoff/**
+      - 不改 src/api/**
+      - 不改 src/stage8_outreach/**
+      - 不改 src/stage9_delivery/**
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - 不自动进入下一包
+      - 如实施定位确认必须补第 8 个文件 tests/test_internal_surface_preview.py，则先停机回总控补登记
+      - not an external unlock implementation
+    affected_stages: [stage8_outreach, stage9_delivery, automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, future_external_unlock_prereq_core, stage8_stage9_high_risk_execution, scripts_and_tests_general]
+    depends_on: [PKT-GOV-01-product-dev-mode-docs-alignment]
+    authority_refs:
+      docs:
+        - docs/L0.md
+        - docs/裁决总表.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/正式业务代码开发开工裁决页.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+        - control/review_gate_matrix.yaml
+      code:
+        - src/storage/repository_boundary.py
+        - src/storage/operator_loop_contracts.py
+      scripts_tests:
+        - scripts/check-automation-readiness.ps1
+        - scripts/check-release.ps1
+        - tests/test_internal_operational_loop.py
+        - tests/test_internal_operational_hardening.py
+    allowed_modification_paths:
+      - control/task_packet_library.yaml
+      - control/current_task.yaml
+      - control/repo_status.md
+      - src/storage/repository_boundary.py
+      - src/storage/operator_loop_contracts.py
+      - tests/test_internal_operational_loop.py
+      - tests/test_internal_operational_hardening.py
+    forbidden_modification_paths:
+      - docs/**
+      - contracts/**
+      - handoff/**
+      - scripts/**
+      - src/api/**
+      - src/stage8_outreach/**
+      - src/stage9_delivery/**
+      - control/automation_action_matrix.yaml
+      - control/automation_stop_conditions.yaml
+      - control/automation_task_packet_rules.yaml
+      - control/review_gate_matrix.yaml
+      - control/milestone_status.yaml
+    acceptance_assertions:
+      - action_result KeyError must be removed without relaxing release/readiness redlines
+      - ACTION-409-AUDIT_REQUIRED and ACTION-409-APPROVAL_REQUIRED ordering must stay canonical across runtime and tests
+      - Stage8/9 initial work item reviewer chain and assignment runtime behavior must close inside the declared storage/runtime files only
+      - repo_status current workstream must stay aligned to the active packet during the repair window
+    required_scripts:
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed declared/allowed paths
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+      - implementation requires tests/test_internal_surface_preview.py before packet scope is updated
+    definition_of_done:
+      - action_result KeyError is fixed in the declared runtime/test scope
+      - ACTION-409 error-code order is aligned and locked by tests
+      - Stage8/9 initial work item reviewer chain / assignment runtime issue is fixed inside the declared paths
+      - declared_changed_paths count is 7 and less than or equal to 10
+      - required scripts pass and the window stops to report
+    deliverables:
+      - internal operator loop gate packet registration patch
+      - runtime/test fix patch set
+      - release gate verification evidence
     human_review_required: true
     owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
     review_evidence:

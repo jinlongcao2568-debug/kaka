@@ -9,7 +9,7 @@ navigation_state: "CONTROLLED_ROUTE_MAP_RESTORED"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口激活 docs-only scoped subpacket PKT-GOV-01-product-dev-mode-docs-alignment；把已修改的 3 个规则文件纳入合法 task packet 范围，并同步 control 状态源；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断，完成指定脚本后停机汇报。"
+activation_condition: "当前窗口已暂存 docs-only 包 PKT-GOV-01-product-dev-mode-docs-alignment；PKT-GOV-02-internal-operator-loop-gates 已通过 control 驱动修复清掉当前 release gate 阻断；repo readiness 不变，external release 与 Stage8 / Stage9 红线继续阻断；本轮只做收尾、验证与准备提交，不进入下一包。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PKT-GOV-01-product-dev-mode-docs-alignment"
-  title: "产品开发模式规则文件收平（第一轮）"
+  task_id: "PKT-GOV-02-internal-operator-loop-gates"
+  title: "Stage8/9 internal operator loop gate fix"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,21 +29,35 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
-    - "docs/自动化开发动作门禁表.md"
-    - "docs/开工前总清单.md"
     - "docs/正式业务代码开发开工裁决页.md"
     - "control/repo_status.md"
     - "control/current_task.yaml"
     - "control/task_packet_library.yaml"
-    - "control/milestone_status.yaml"
     - "control/review_gate_matrix.yaml"
-    - "control/automation_task_packet_rules.yaml"
-    - "control/automation_stop_conditions.yaml"
     - "scripts/check-automation-readiness.ps1"
     - "scripts/check-release.ps1"
+    - "src/storage/repository_boundary.py"
+    - "src/storage/operator_loop_contracts.py"
+    - "tests/test_internal_operational_loop.py"
+    - "tests/test_internal_operational_hardening.py"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "补登记并激活 docs-only scoped subpacket，把当前已修改的 3 个规则文件纳入合法 task packet 范围；本轮只做 control 同步与脚本验证，不改变 readiness，不进入实现。"
+  objective: "收平 PKT-GOV-02 的 control 语义，确认当前包已通过 control 驱动修复清掉 Stage8/9 internal operator loop release gate 阻断；本轮只做收尾、验证与准备提交。"
   operator_assignment_roster:
+    stage7:
+      assigned_owner_role: "sales_user"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "sales_user"
+      reviewer: "卡卡罗特"
+    stage8:
+      assigned_owner_role: "sales_user"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "delivery_governance_user"
+      reviewer: "卡卡罗特"
+    stage9:
+      assigned_owner_role: "delivery_governance_user"
+      assigned_owner: "卡卡罗特"
+      reviewer_role: "delivery_governance_user"
+      reviewer: "卡卡罗特"
     route_map_governance:
       assigned_owner_role: "single_operator"
       assigned_owner: "卡卡罗特"
@@ -68,36 +82,39 @@ currentTask:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    backlog_packet_ref: "PKT-GOV-01-product-dev-mode-docs-alignment"
-    packet_id: "PKT-GOV-01-product-dev-mode-docs-alignment"
-    subpacket_id: "PKT-GOV-01-product-dev-mode-docs-alignment"
-    title: "产品开发模式规则文件收平（第一轮）"
+    backlog_packet_ref: "PKT-GOV-02-internal-operator-loop-gates"
+    packet_id: "PKT-GOV-02-internal-operator-loop-gates"
+    subpacket_id: "PKT-GOV-02-internal-operator-loop-gates"
+    title: "Stage8/9 internal operator loop gate fix"
     status: "ACTIVE"
-    objective: "补登记并激活 docs-only scoped subpacket，把当前已修改的 3 个规则文件纳入合法 task packet 范围；本轮只做 control 同步与脚本验证，不改变 readiness、不进入实现。"
+    objective: "修复当前 python tests/run_tests.py / check-release.ps1 暴露的 action_result KeyError、ACTION-409 错码顺序漂移，以及 Stage8/9 初始 work item reviewer chain / assignment runtime 问题。"
     depends_on:
-      - "PKT-P0-03-stage7-price-competitor-resolution"
+      - "PKT-GOV-01-product-dev-mode-docs-alignment"
     non_goals:
-      - "不重写已改 3 个规则文件正文"
-      - "不进入实现"
-      - "不改 docs/L0.md"
-      - "不改 D 文档正文"
+      - "不改 docs/**"
+      - "不改 contracts/**"
+      - "不改 handoff/**"
+      - "不改 src/api/**"
+      - "不改 src/stage8_outreach/**"
+      - "不改 src/stage9_delivery/**"
+      - "不新增正式业务对象、枚举、gate、exception 语义"
+      - "如实施定位确认必须补第 8 个文件 tests/test_internal_surface_preview.py，则先停机回总控补登记"
       - "不改 scripts"
-      - "不改 src"
-      - "不改 contracts"
-      - "不改 handoff"
       - "not an external unlock implementation"
       - "不自动进入下一包"
       - "不改变 canonical readiness"
       - "不放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
     affected_stages:
-      - "route_map_governance"
+      - "stage8_outreach"
+      - "stage9_delivery"
       - "automation_control"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "governance_release_core"
       - "future_external_unlock_prereq_core"
+      - "stage8_stage9_high_risk_execution"
+      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "release_approver"
@@ -106,37 +123,37 @@ currentTask:
       - "model_governance_owner"
       - "testing_owner"
     declared_changed_paths:
-      - "AGENTS.md"
-      - "docs/自动化开发动作门禁表.md"
-      - "docs/开工前总清单.md"
       - "control/task_packet_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/operator_loop_contracts.py"
+      - "tests/test_internal_operational_loop.py"
+      - "tests/test_internal_operational_hardening.py"
     baseline_dirty_paths: []
     allowed_modification_paths:
-      - "AGENTS.md"
-      - "docs/自动化开发动作门禁表.md"
-      - "docs/开工前总清单.md"
       - "control/task_packet_library.yaml"
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/operator_loop_contracts.py"
+      - "tests/test_internal_operational_loop.py"
+      - "tests/test_internal_operational_hardening.py"
     forbidden_modification_paths:
-      - "docs/L0.md"
-      - "docs/D*.md"
+      - "docs/**"
       - "contracts/**"
       - "handoff/**"
-      - "src/**"
       - "scripts/**"
+      - "src/api/**"
+      - "src/stage8_outreach/**"
+      - "src/stage9_delivery/**"
       - "control/automation_action_matrix.yaml"
       - "control/automation_stop_conditions.yaml"
       - "control/automation_task_packet_rules.yaml"
       - "control/review_gate_matrix.yaml"
       - "control/milestone_status.yaml"
     impacted_assets:
-      docs:
-        - "AGENTS.md"
-        - "docs/自动化开发动作门禁表.md"
-        - "docs/开工前总清单.md"
+      docs: []
       control:
         - "control/task_packet_library.yaml"
         - "control/current_task.yaml"
@@ -145,13 +162,18 @@ currentTask:
       scripts:
         - "scripts/check-automation-readiness.ps1"
         - "scripts/check-release.ps1"
-      tests: []
+      tests:
+        - "tests/test_internal_operational_loop.py"
+        - "tests/test_internal_operational_hardening.py"
       contracts: []
-      runtime: []
+      runtime:
+        - "src/storage/repository_boundary.py"
+        - "src/storage/operator_loop_contracts.py"
     required_scripts:
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1"
     script_timeouts:
+      scripts/check-automation-readiness.ps1: 300000
       scripts/check-release.ps1: 300000
     stop_conditions:
       - "任一 required script 失败"
@@ -160,17 +182,22 @@ currentTask:
       - "declared_changed_paths 超过 10"
       - "改变 canonical readiness"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
+      - "实施定位确认必须补第 8 个文件 tests/test_internal_surface_preview.py"
     definition_of_done:
-      - "PKT-GOV-01-product-dev-mode-docs-alignment 已在 task_packet_library 登记并激活为 current active scoped subpacket"
+      - "action_result KeyError 在声明范围内修复完成"
+      - "ACTION-409-AUDIT_REQUIRED 与 ACTION-409-APPROVAL_REQUIRED 顺序与测试断言重新对齐"
+      - "Stage8/9 初始 work item reviewer chain / assignment runtime 问题在声明范围内修复完成"
       - "source_blueprint_batch_id 使用已注册 blueprint POST-FF-CONTROL-01"
-      - "declared_changed_paths 数量 = 6 且 <= 10"
+      - "declared_changed_paths 数量 = 7 且 <= 10"
       - "repo_status.md Current Workstream 与当前 active task id 同步"
+      - "required scripts 通过"
       - "repo readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-      - "只运行 required scripts 后停机汇报，不提交、不进入下一包"
+      - "当前收尾窗口只做验证与准备提交，不进入下一包"
     deliverables:
-      - "task packet library docs-only registration patch"
+      - "internal operator loop gate packet registration patch"
       - "current task activation patch"
       - "repo status current workstream sync patch"
+      - "runtime/test fix patch set（后续实现窗口）"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -185,7 +212,9 @@ currentTask:
       signoff_status: "REQUESTED_NOT_APPROVED"
     notes:
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 blueprint_registry 注册。"
-      - "本轮仅把 AGENTS.md、docs/自动化开发动作门禁表.md、docs/开工前总清单.md 纳入合法 task packet 范围，不重写其正文。"
+      - "当前包的 control 驱动修复已清掉 release gate 暴露的 reviewer chain / assignment 缺口。"
+      - "本轮只做收尾、验证与准备提交，不再扩展实现范围。"
+      - "当前最小实现范围锁定为 2 个 src/storage 文件 + 2 个 tests 文件；如需第 8 个文件 tests/test_internal_surface_preview.py，先停机回总控补登记。"
       - "当前任务选择优先级固定为 current_task -> task_packet_library -> repo_status / milestone_status。"
       - "本轮不改变 readiness，不放开 external release，不进入 Stage8/Stage9 高风险执行。"
   hardBlockers:
@@ -194,12 +223,12 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮仅允许修改 AGENTS.md、docs/自动化开发动作门禁表.md、docs/开工前总清单.md、control/task_packet_library.yaml、control/current_task.yaml、control/repo_status.md，并按 required scripts 验证后停机汇报"
+    - "本轮仅允许收平 control 语义、确认验证结果并准备提交当前包；不进入下一包"
   forbidden_actions:
-    - "本轮不得修改上述 6 个文件之外的任何路径"
-    - "不得改 scripts/**、src/**、contracts/**、handoff/**"
+    - "本轮不得修改 src/**、tests/**、docs/**、contracts/**、handoff/**"
+    - "不得补第 8 个文件 tests/test_internal_surface_preview.py"
     - "不得自动进入下一包"
     - "不得改变 canonical readiness 或放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery"
   nextActions:
-    - "回总控确认 PKT-GOV-01-product-dev-mode-docs-alignment 的验证结果；未确认前不推进。"
-  status_note: "PKT-GOV-01-product-dev-mode-docs-alignment 已激活为 docs-only scoped subpacket；当前窗口只补登记并激活规则文件收平包，不改变 repo readiness；external release 与 Stage 8/9 real execution 继续阻断。"
+    - "回总控确认 PKT-GOV-02-internal-operator-loop-gates 已完成收尾与提交；未确认前不进入下一包。"
+  status_note: "PKT-GOV-02-internal-operator-loop-gates 当前已通过 control 驱动修复清掉 release gate 阻断；本窗口只做收尾、验证与准备提交；external release 与 Stage 8/9 real execution 继续阻断。"
