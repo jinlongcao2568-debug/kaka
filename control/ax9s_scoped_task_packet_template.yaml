@@ -49,3 +49,4 @@ notes:
   - "This template is the executable packet shape to be copied into control/current_task.yaml#currentTask.task_packet."
   - "The scoped subpacket must satisfy control/automation_task_packet_rules.yaml max scope constraints."
   - "source_blueprint_batch_id must be registered in control/task_packet_library.yaml#blueprint_registry; future packets do not have to use B10."
+  - "If current_task.yaml carries stage7 / stage8 / stage9 operator_assignment_roster, it must also carry operator_assignment_roster_source_ref=control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults and keep the copied roster aligned with that stable source."

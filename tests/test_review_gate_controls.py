@@ -17,6 +17,7 @@ READINESS_FIXTURES = (
     "control/automation_action_matrix.yaml",
     "control/automation_stop_conditions.yaml",
     "control/automation_task_packet_rules.yaml",
+    "control/task_packet_library.yaml",
     "control/review_gate_matrix.yaml",
     "control/owners.yaml",
 )
@@ -60,6 +61,11 @@ class TestReviewGateControls(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
 
+        stable_roster_source_ref = "control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults"
+        stable_roster_defaults = yaml.safe_load(
+            (repo / "control/task_packet_library.yaml").read_text(encoding="utf-8")
+        )["activation_defaults"]["operator_assignment_roster_defaults"]
+
         current_task = {
             "version": 1,
             "templateState": "NAMED_ASSIGNED",
@@ -74,6 +80,8 @@ class TestReviewGateControls(unittest.TestCase):
                 "owner_role": "single_operator",
                 "responsible_role": "single_operator",
                 "responsible_person": "卡卡罗特",
+                "operator_assignment_roster_source_ref": stable_roster_source_ref,
+                "operator_assignment_roster": stable_roster_defaults,
                 "task_packet": {
                     "version": 1,
                     "packet_kind": "EXECUTABLE_SCOPED_SUBPACKET",
@@ -218,6 +226,8 @@ class TestReviewGateControls(unittest.TestCase):
             "STOP_AND_ESCALATE_TRIGGERED",
             "PLANNED_PATH_NOT_DECLARED",
             "ACTUAL_PATH_NOT_ALLOWED",
+            "OPERATOR_ROSTER_SOURCE_REF_MISSING",
+            "OPERATOR_ROSTER_STAGE_DRIFT",
             "PlannedTargetPaths",
             "control/review_gate_matrix.yaml",
         ):
@@ -252,6 +262,20 @@ class TestReviewGateControls(unittest.TestCase):
 
         self.assertIn("declared_changed_paths / allowed_modification_paths 数量 = 6 且 <= 10", current_task)
         self.assertIn("declared_changed_paths count is 6 and less than or equal to 10", library)
+
+    def test_ptl_gov_02_uses_stable_operator_roster_source(self) -> None:
+        current_task = read("control/current_task.yaml")
+        library = read("control/task_packet_library.yaml")
+        task_packet_doc = read("docs/自动开发任务包模板.md")
+        scoped_template = read("control/ax9s_scoped_task_packet_template.yaml")
+
+        stable_ref = "control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults"
+        self.assertIn(f'operator_assignment_roster_source_ref: "{stable_ref}"', current_task)
+        self.assertIn("operator_assignment_roster_defaults:", library)
+        self.assertIn("declared_changed_paths / allowed_modification_paths 数量 = 7 且 <= 10", current_task)
+        self.assertIn("declared_changed_paths count is 7 and less than or equal to 10", library)
+        self.assertIn(stable_ref, task_packet_doc)
+        self.assertIn(stable_ref, scoped_template)
 
     def test_semantic_alignment_route_map_sync_hint_is_warning_only(self) -> None:
         semantic = read("scripts/check-semantic-alignment.ps1")
@@ -315,6 +339,37 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
         self.assertIn("PLANNED_PATH_NOT_DECLARED", result.stdout)
 
+    def test_readiness_rejects_missing_operator_roster_source_ref(self) -> None:
+        repo = self._build_temp_repo_for_readiness(
+            declared_paths=["control/current_task.yaml"],
+            allowed_paths=["control/current_task.yaml"],
+        )
+
+        current_task_path = repo / "control/current_task.yaml"
+        current_task = yaml.safe_load(current_task_path.read_text(encoding="utf-8"))
+        del current_task["currentTask"]["operator_assignment_roster_source_ref"]
+        write_yaml(current_task_path, current_task)
+
+        result = subprocess.run(
+            [
+                "pwsh",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(READINESS_SCRIPT),
+                "-RepoRoot",
+                str(repo),
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertIn("OPERATOR_ROSTER_SOURCE_REF_MISSING", result.stdout)
+
     def test_readiness_rejects_actual_changed_path_outside_allowed_scope(self) -> None:
         repo = self._build_temp_repo_for_readiness(
             declared_paths=["control/current_task.yaml"],
@@ -346,6 +401,37 @@ class TestReviewGateControls(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
         self.assertIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
+
+    def test_readiness_rejects_operator_roster_stage_drift(self) -> None:
+        repo = self._build_temp_repo_for_readiness(
+            declared_paths=["control/current_task.yaml"],
+            allowed_paths=["control/current_task.yaml"],
+        )
+
+        current_task_path = repo / "control/current_task.yaml"
+        current_task = yaml.safe_load(current_task_path.read_text(encoding="utf-8"))
+        current_task["currentTask"]["operator_assignment_roster"]["stage8"]["reviewer"] = "漂移"
+        write_yaml(current_task_path, current_task)
+
+        result = subprocess.run(
+            [
+                "pwsh",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(READINESS_SCRIPT),
+                "-RepoRoot",
+                str(repo),
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertIn("OPERATOR_ROSTER_STAGE_DRIFT", result.stdout)
 
     def test_validate_contracts_stage9_writeback_check_is_semantic_not_legacy_token_bound(self) -> None:
         validator = read("scripts/validate-contracts.ps1")

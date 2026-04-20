@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-01-product-task-library-bootstrap (activation + scoped execution; current window adds control/product_task_library.yaml and syncs control/current_task.yaml plus control/repo_status.md to establish the product mainline task pool; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
+Current Workstream: PTL-GOV-02-operator-roster-source-hardening (scoped-execution; current window hardens operator roster stable-source handling across control/task_packet_library.yaml, control/current_task.yaml, control/repo_status.md, docs/自动开发任务包模板.md, control/ax9s_scoped_task_packet_template.yaml, scripts/check-automation-readiness.ps1, and tests/test_review_gate_controls.py; no repo readiness change, no external release unlock, no Stage8/Stage9 execution unlock)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,8 +21,9 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under existing guardrails
-- PTL-GOV-01-product-task-library-bootstrap is the active product-task-governance scoped subpacket; current window is limited to control/product_task_library.yaml, control/current_task.yaml, and control/repo_status.md
-- Establish the first product mainline task pool with exactly 10 product mainline tasks
+- PTL-GOV-02-operator-roster-source-hardening is the active scoped-execution subpacket; current window is limited to control/task_packet_library.yaml, control/current_task.yaml, control/repo_status.md, docs/自动开发任务包模板.md, control/ax9s_scoped_task_packet_template.yaml, scripts/check-automation-readiness.ps1, and tests/test_review_gate_controls.py
+- Harden stage7 / stage8 / stage9 operator_assignment_roster into a stable source rooted in task_packet_library while keeping current_task as the unique active execution source
+- Keep stage7 / stage8 / stage9 operator_assignment_roster and operator_assignment_roster_source_ref present in control/current_task.yaml while the packet is active
 - Keep control/current_task.yaml as the unique active execution source
 - Keep control/task_packet_library.yaml as the legacy / compatibility / executed packet registry and source-blueprint allowlist
 - Keep docs/AX9S_开发执行路由图.md as a candidate navigation asset and product phase navigation map, not a status source, execution source, or complete backlog
@@ -30,9 +31,10 @@ Allowed Actions (current):
 
 Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
-- Any change to control/task_packet_library.yaml in this window
-- Any change to docs/AX9S_开发执行路由图.md in this window
-- Any scripts/**, src/**, tests/**, contracts/**, or handoff/** change in this window
+- Any change to control/product_task_library.yaml in this window
+- Any change to docs/L0.md, AGENTS.md, docs/AX9S_开发执行路由图.md, or docs/自动化开发动作门禁表.md in this window
+- Any change to scripts/check-release.ps1, src/**, contracts/**, or handoff/** in this window
+- Any implementation beyond operator roster stable-source hardening inside the declared scoped packet paths
 - Any automatic next-task activation from the current scoped packet or historical FF-18-S1 closeout
 - Any transport/bootstrap/api/service/runtime/test change outside the declared scoped packet paths
 - Any new formal object or enum family in this governance task-pool bootstrap state
@@ -48,7 +50,7 @@ State Semantics:
 - `READY_FOR_POST-REPAIR_MAINLINE_SELECTION` means the last post-repair state/source drift is closed and the repo can enter formal mainline selection; it does not select a mainline by itself.
 - `FULL_REPAIR_COMPLETE_REVIEW_READY` is the AX9S full-repair program control closeout token only; it does not replace the repo readiness conclusion, which remains `READY_FOR_POST-REPAIR_MAINLINE_SELECTION`.
 - `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` remains the scoped conditional-go for internal LeadOps development.
-- `PTL-GOV-01-product-task-library-bootstrap` is the current active scoped subpacket; it creates the product mainline task pool and does not change readiness, release gates, Stage8 execution, or Stage9 payment/delivery/refund boundaries.
+- `PTL-GOV-02-operator-roster-source-hardening` is the current active scoped subpacket; it hardens stage7 / stage8 / stage9 operator_assignment_roster into a stable source under `control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults`, keeps `currentTask.operator_assignment_roster_source_ref` plus the resolved roster copy in `control/current_task.yaml`, and does not change readiness, release gates, Stage8 execution, or Stage9 payment/delivery/refund boundaries.
 - `control/product_task_library.yaml` is the product mainline task pool. It only carries product mainline tasks for future selection and scoped packet derivation.
 - `control/product_task_library.yaml` does not replace `control/current_task.yaml`, does not replace `control/task_packet_library.yaml`, and does not replace `docs/AX9S_开发执行路由图.md`.
 - `control/current_task.yaml` remains the unique active execution source.
@@ -60,7 +62,7 @@ State Semantics:
 - R6 candidate / deny / blocked decisions remain valid as decision outputs; they do not redefine the current repo readiness.
 - docs_layer=EFFECTIVE means the current formal document package is the active reference set; it does not imply every individual D document has been promoted from DRAFT to EFFECTIVE.
 
-Script Check Summary (2026-04-20 PTL-GOV-01-product-task-library-bootstrap scoped execution verification):
+Script Check Summary (2026-04-20 PTL-GOV-02-operator-roster-source-hardening scoped-execution verification):
 - Pending in current window
 
 Automation Guardrails:

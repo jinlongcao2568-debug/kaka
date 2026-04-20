@@ -208,6 +208,23 @@ activation_defaults:
     - control/milestone_status.yaml
     - control/release_manifest.yaml
     - control/model_release_manifest.yaml
+  operator_assignment_roster_source_ref: control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults
+  operator_assignment_roster_defaults:
+    stage7:
+      assigned_owner_role: sales_user
+      assigned_owner: 卡卡罗特
+      reviewer_role: sales_user
+      reviewer: 卡卡罗特
+    stage8:
+      assigned_owner_role: sales_user
+      assigned_owner: 卡卡罗特
+      reviewer_role: delivery_governance_user
+      reviewer: 卡卡罗特
+    stage9:
+      assigned_owner_role: delivery_governance_user
+      assigned_owner: 卡卡罗特
+      reviewer_role: delivery_governance_user
+      reviewer: 卡卡罗特
   current_task_control_plane_rule: current_task_yaml_may_be_minimally_modified_for_activation_closeout_and_gate_compatibility
 packet_order:
   - PKT-P0-01-review-queue-window-scoring
@@ -220,6 +237,8 @@ packet_order:
   - PKT-GOV-06-change-scope-precheck
   - PKT-GOV-07-python-cache-cleaner
   - PKT-GOV-08-route-map-sync-hint
+  - PTL-GOV-01-product-task-library-bootstrap
+  - PTL-GOV-02-operator-roster-source-hardening
   - PKT-P0-04-stage8-compliance-lattice
   - PKT-P0-05-stage8-contact-enrichment-merge
   - PKT-P0-06-stage9-writeback-contract-core
@@ -1927,6 +1946,136 @@ packets:
       - route-map hint wording patch
       - semantic warning-only sync patch
       - review-gate regression patch
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PTL-GOV-02-operator-roster-source-hardening
+    packet_kind: EXECUTABLE_SCOPED_SUBPACKET
+    source_blueprint_batch_id: POST-FF-CONTROL-01
+    title: operator assignment roster 稳定来源收口
+    priority: P0
+    route_map_segment: POST_FF_OPERATOR_ROSTER_SOURCE_HARDENING
+    objective: 把 stage7 / stage8 / stage9 operator_assignment_roster 收口成来自 task_packet_library 的稳定来源；补 current_task source ref、模板提醒、readiness guard 和聚焦测试，避免未来切包再次遗漏 reviewer chain。
+    non_goals:
+      - 不改 control/product_task_library.yaml
+      - 不改 src/**
+      - 不改 contracts/**
+      - 不改 handoff/**
+      - 不改 docs/L0.md
+      - 不改 AGENTS.md
+      - 不改 docs/AX9S_开发执行路由图.md
+      - 不改 scripts/check-release.ps1
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - 不自动进入下一包
+      - not an external unlock implementation
+    affected_stages: [stage7_sales, stage8_outreach, stage9_delivery, automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, future_external_unlock_prereq_core, scripts_and_tests_general]
+    depends_on: [PTL-GOV-01-product-task-library-bootstrap]
+    authority_refs:
+      docs:
+        - AGENTS.md
+        - README.md
+        - ARCHITECTURE_NOTE.md
+        - docs/L0.md
+        - docs/裁决总表.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/正式业务代码开发开工裁决页.md
+        - docs/自动开发任务包模板.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+        - control/ax9s_scoped_task_packet_template.yaml
+      scripts:
+        - scripts/check-automation-readiness.ps1
+        - scripts/check-release.ps1
+      tests:
+        - tests/test_review_gate_controls.py
+    declared_changed_paths:
+      - "docs/自动开发任务包模板.md"
+      - "control/ax9s_scoped_task_packet_template.yaml"
+      - "scripts/check-automation-readiness.ps1"
+      - "tests/test_review_gate_controls.py"
+      - "control/task_packet_library.yaml"
+      - "control/current_task.yaml"
+      - "control/repo_status.md"
+    allowed_modification_paths:
+      - "docs/自动开发任务包模板.md"
+      - "control/ax9s_scoped_task_packet_template.yaml"
+      - "scripts/check-automation-readiness.ps1"
+      - "tests/test_review_gate_controls.py"
+      - "control/task_packet_library.yaml"
+      - "control/current_task.yaml"
+      - "control/repo_status.md"
+    forbidden_modification_paths:
+      - "control/product_task_library.yaml"
+      - "src/**"
+      - "contracts/**"
+      - "handoff/**"
+      - "AGENTS.md"
+      - "docs/L0.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "docs/自动化开发动作门禁表.md"
+      - "scripts/check-release.ps1"
+      - "control/automation_action_matrix.yaml"
+      - "control/automation_stop_conditions.yaml"
+      - "control/automation_task_packet_rules.yaml"
+      - "control/review_gate_matrix.yaml"
+      - "control/milestone_status.yaml"
+    acceptance_assertions:
+      - task_packet_library registers PTL-GOV-02-operator-roster-source-hardening and places it after PTL-GOV-01-product-task-library-bootstrap and before PKT-P0-04-stage8-compliance-lattice in packet_order
+      - activation_defaults.operator_assignment_roster_defaults provides the stable source for stage7 / stage8 / stage9 roster
+      - current_task declares exactly the seven allowed files as declared_changed_paths and allowed_modification_paths
+      - declared_changed_paths count stays at 7 and less than or equal to 10
+      - current_task keeps operator_assignment_roster_source_ref and preserves stage7 / stage8 / stage9 operator_assignment_roster entries while this packet is active
+      - check-automation-readiness fails early when current_task missing operator_assignment_roster_source_ref, stage7 / stage8 / stage9 roster, or when those stages drift from the stable source
+      - docs/自动开发任务包模板.md and control/ax9s_scoped_task_packet_template.yaml both remind operators to inherit stage7 / stage8 / stage9 roster from the stable source
+      - tests/test_review_gate_controls.py covers the new readiness guard
+      - repo_status Current Workstream is synchronized to the active packet
+      - canonical readiness and blocked lines remain unchanged
+      - this scoped-execution round does not change release/redline semantics or business/runtime behavior
+    required_scripts:
+      - python -m pytest tests/test_review_gate_controls.py -q
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed allowed paths
+      - touch forbidden paths
+      - declared_changed_paths exceed 10
+      - operator_assignment_roster_source_ref missing from current_task
+      - stage7 / stage8 / stage9 operator_assignment_roster missing from current_task
+      - current_task roster drifts from activation_defaults.operator_assignment_roster_defaults
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+      - docs/自动化开发动作门禁表.md is required before continue
+    definition_of_done:
+      - task_packet_library activation_defaults exposes operator_assignment_roster_source_ref and operator_assignment_roster_defaults for stage7 / stage8 / stage9
+      - PTL-GOV-02 runs as a seven-file scoped-execution packet and remains active in current_task
+      - declared_changed_paths count is 7 and less than or equal to 10
+      - current_task retains operator_assignment_roster_source_ref and stage7 / stage8 / stage9 operator_assignment_roster
+      - current_task roster stays aligned with the stable source in task_packet_library
+      - scoped packet template and task-packet doc template both carry the stable-source reminder
+      - focused pytest passes
+      - repo_status Current Workstream matches the active packet id
+      - required scripts pass and the window stops to report
+      - repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION
+    deliverables:
+      - operator roster stable-source registry patch
+      - current task scoped-execution patch
+      - template reminder patch
+      - readiness guard patch
+      - focused regression patch
     human_review_required: true
     owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
     review_evidence:

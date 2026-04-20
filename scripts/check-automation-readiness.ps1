@@ -132,6 +132,12 @@ function Get-FieldValue {
     return $null
 }
 
+function Convert-ToComparableJson {
+    param([object]$Value)
+    if ($null -eq $Value) { return '' }
+    return ($Value | ConvertTo-Json -Depth 100 -Compress)
+}
+
 function Test-PathScopeCompliance {
     param(
         [string[]]$Paths,
@@ -287,6 +293,11 @@ $actionMatrix = Load-Yaml -Path (Join-Path $root 'control/automation_action_matr
 $stopConditions = Load-Yaml -Path (Join-Path $root 'control/automation_stop_conditions.yaml') -Issues ([ref]$issues)
 $taskRules = Load-Yaml -Path (Join-Path $root 'control/automation_task_packet_rules.yaml') -Issues ([ref]$issues)
 $reviewGateMatrix = Load-Yaml -Path (Join-Path $root 'control/review_gate_matrix.yaml') -Issues ([ref]$issues)
+$taskPacketLibraryPath = Join-Path $root 'control/task_packet_library.yaml'
+$taskPacketLibrary = $null
+if (Test-Path -LiteralPath $taskPacketLibraryPath) {
+    $taskPacketLibrary = Load-Yaml -Path $taskPacketLibraryPath -Issues ([ref]$issues)
+}
 $currentTask = Load-Yaml -Path (Join-Path $root 'control/current_task.yaml') -Issues ([ref]$issues)
 $owners = Load-Yaml -Path (Join-Path $root 'control/owners.yaml') -Issues ([ref]$issues)
 
@@ -366,11 +377,71 @@ if ($reviewGateMatrix) {
 }
 
 $taskPacket = $null
+$currentTaskNode = $null
+$operatorRosterSourceRef = ''
+$operatorAssignmentRoster = $null
 if ($currentTask) {
     $currentTaskNode = Get-FieldValue -Object $currentTask -Name 'currentTask'
+    $operatorRosterSourceRef = [string](Get-FieldValue -Object $currentTaskNode -Name 'operator_assignment_roster_source_ref')
+    $operatorAssignmentRoster = Get-FieldValue -Object $currentTaskNode -Name 'operator_assignment_roster'
     $taskPacket = Get-FieldValue -Object $currentTaskNode -Name 'task_packet'
     if (-not $taskPacket) {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'TASK_PACKET_MISSING' -Message 'control/current_task.yaml must include currentTask.task_packet.' -Path 'control/current_task.yaml'
+    }
+}
+
+$stableOperatorRosterSourceRef = ''
+$stableOperatorRosters = $null
+$rosterValidationRequired = $false
+if ($taskPacketLibrary) {
+    $rosterValidationRequired = $true
+    $activationDefaults = Get-FieldValue -Object $taskPacketLibrary -Name 'activation_defaults'
+    $stableOperatorRosterSourceRef = [string](Get-FieldValue -Object $activationDefaults -Name 'operator_assignment_roster_source_ref')
+    $stableOperatorRosters = Get-FieldValue -Object $activationDefaults -Name 'operator_assignment_roster_defaults'
+
+    if ([string]::IsNullOrWhiteSpace($stableOperatorRosterSourceRef)) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_STABLE_SOURCE_REF_MISSING' -Message 'control/task_packet_library.yaml must define activation_defaults.operator_assignment_roster_source_ref.' -Path 'control/task_packet_library.yaml'
+    }
+
+    if (-not $stableOperatorRosters) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_STABLE_SOURCE_MISSING' -Message 'control/task_packet_library.yaml must define activation_defaults.operator_assignment_roster_defaults.' -Path 'control/task_packet_library.yaml'
+    }
+}
+
+if (-not $rosterValidationRequired -and ((-not [string]::IsNullOrWhiteSpace($operatorRosterSourceRef)) -or $operatorAssignmentRoster)) {
+    $rosterValidationRequired = $true
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_STABLE_SOURCE_MISSING' -Message 'control/task_packet_library.yaml is required when current_task declares operator_assignment_roster or operator_assignment_roster_source_ref.' -Path 'control/task_packet_library.yaml'
+}
+
+if ($currentTaskNode -and $rosterValidationRequired) {
+    if ([string]::IsNullOrWhiteSpace($operatorRosterSourceRef)) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_SOURCE_REF_MISSING' -Message 'control/current_task.yaml must define currentTask.operator_assignment_roster_source_ref.' -Path 'control/current_task.yaml#currentTask.operator_assignment_roster_source_ref'
+    }
+    elseif (-not [string]::IsNullOrWhiteSpace($stableOperatorRosterSourceRef) -and $operatorRosterSourceRef -ne $stableOperatorRosterSourceRef) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_SOURCE_REF_DRIFT' -Message "currentTask.operator_assignment_roster_source_ref must stay aligned with $stableOperatorRosterSourceRef." -Path 'control/current_task.yaml#currentTask.operator_assignment_roster_source_ref'
+    }
+
+    if (-not $operatorAssignmentRoster) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_MISSING' -Message 'control/current_task.yaml must define currentTask.operator_assignment_roster.' -Path 'control/current_task.yaml#currentTask.operator_assignment_roster'
+    }
+
+    foreach ($stage in @('stage7','stage8','stage9')) {
+        $currentStageRoster = Get-FieldValue -Object $operatorAssignmentRoster -Name $stage
+        $stableStageRoster = Get-FieldValue -Object $stableOperatorRosters -Name $stage
+
+        if (-not $currentStageRoster) {
+            Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_STAGE_MISSING' -Message "currentTask.operator_assignment_roster.$stage must be present." -Path "control/current_task.yaml#currentTask.operator_assignment_roster.$stage"
+            continue
+        }
+
+        if (-not $stableStageRoster) {
+            Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_STABLE_STAGE_MISSING' -Message "control/task_packet_library.yaml must define activation_defaults.operator_assignment_roster_defaults.$stage." -Path "control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults.$stage"
+            continue
+        }
+
+        if ((Convert-ToComparableJson $currentStageRoster) -ne (Convert-ToComparableJson $stableStageRoster)) {
+            Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'OPERATOR_ROSTER_STAGE_DRIFT' -Message "currentTask.operator_assignment_roster.$stage must stay aligned with the stable source in control/task_packet_library.yaml." -Path "control/current_task.yaml#currentTask.operator_assignment_roster.$stage"
+        }
     }
 }
 
