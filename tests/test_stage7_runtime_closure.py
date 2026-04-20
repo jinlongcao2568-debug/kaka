@@ -370,8 +370,37 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertEqual(price_trace["normalized_tax_basis"], "EX_TAX")
         self.assertEqual(price_trace["normalized_unit_basis"], "TOTAL_AMOUNT")
         self.assertEqual(price_trace["selected_scope_key"], "LOT-01|PKG-01")
+        self.assertEqual(price_trace["price_band"], "HIGH")
+        self.assertEqual(price_trace["recommended_quote_band"], "HIGH")
+        self.assertEqual(
+            price_trace["quote_band_authority_ref"],
+            "contracts/sales/price_normalization_catalog.json#authorityContract",
+        )
         self.assertIn("SCOPE_MISMATCH", price_trace["review_flags"])
         self.assertEqual(price_trace["selected_candidate_trace"]["freshness_score"], 100)
+
+    def test_stage7_quote_band_uses_price_normalization_authority(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["price_source_set_optional"] = [
+            {
+                "source_type": "BID_PRICE",
+                "amount": 500000,
+                "currency": "CNY",
+                "tax_basis_optional": "EX_TAX",
+                "unit_basis_optional": "TOTAL_AMOUNT",
+                "lot_id_optional": "LOT-LOW",
+                "package_id_optional": "PKG-LOW",
+                "recency_days_optional": 5,
+            }
+        ]
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+        price_trace = stage7.inputs["stage7_resolution_trace"]["price_resolution"]
+
+        self.assertEqual(price_trace["price_band"], "LOW")
+        self.assertEqual(price_trace["recommended_quote_band"], "LOW")
+        self.assertEqual(stage7.record("offer_recommendation").get("recommended_quote_band"), "LOW")
+        self.assertEqual(stage7.record("saleable_opportunity").get("expected_contract_value_band"), "LOW")
 
     def test_stage7_price_resolution_marks_stale_reference_only(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

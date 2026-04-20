@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.2.0",
+  "catalogVersion": "1.2.1",
   "catalogId": "stage7_resolution_policy",
   "ownerDocs": [
     "D2",
@@ -171,6 +171,9 @@
       "normalized_tax_basis",
       "normalized_unit_basis",
       "selected_scope_key",
+      "price_band",
+      "recommended_quote_band",
+      "quote_band_authority_ref",
       "review_flags",
       "selected_candidate_trace"
     ]

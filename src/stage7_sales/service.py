@@ -235,6 +235,19 @@ class Stage7Service:
         price_conflict_gate_status_optional = _optional_str(
             runtime_state.resolve("price_conflict_gate_status", price_conflict_gate_status_seed)
         )
+        price_policy_outputs = runtime_state.outputs.get("price_normalization", {})
+        price_band_optional = _optional_str(
+            price_policy_outputs.get(
+                "price_band",
+                runtime_state.resolve("price_band", inputs.get("price_band_optional")),
+            )
+        )
+        price_recommended_quote_band = _optional_str(
+            price_policy_outputs.get(
+                "recommended_quote_band",
+                runtime_state.resolve("recommended_quote_band", inputs.get("recommended_quote_band")),
+            )
+        )
         confidence_score_optional = _optional_int(
             runtime_state.resolve("competitor_confidence_score", confidence_score_seed)
         )
@@ -410,7 +423,7 @@ class Stage7Service:
             "recommended_quote_band": ensure_enum(
                 self.store,
                 "recommended_quote_band",
-                runtime_state.resolve("recommended_quote_band", inputs.get("recommended_quote_band")),
+                price_recommended_quote_band,
             ),
             "why_recommended": required_runtime_value("why_recommended"),
             "prerequisites": ensure_list(
@@ -463,7 +476,7 @@ class Stage7Service:
             "expected_close_days_band": required_runtime_value("expected_close_days_band"),
             "expected_contract_value_band": inputs.get(
                 "expected_contract_value_band",
-                runtime_state.resolve("price_band", "UNKNOWN"),
+                price_band_optional or "UNKNOWN",
             ),
             "expected_delivery_cost_band": required_runtime_value("expected_delivery_cost_band"),
             "crm_owner_state": ensure_enum(
@@ -614,6 +627,9 @@ class Stage7Service:
                 "normalized_tax_basis": runtime_state.resolve("normalized_tax_basis", "EX_TAX"),
                 "normalized_unit_basis": runtime_state.resolve("normalized_unit_basis", "TOTAL_AMOUNT"),
                 "selected_scope_key": runtime_state.resolve("selected_scope_key", "GLOBAL"),
+                "price_band": price_band_optional,
+                "recommended_quote_band": price_recommended_quote_band,
+                "quote_band_authority_ref": "contracts/sales/price_normalization_catalog.json#authorityContract",
                 "review_flags": runtime_state.resolve("price_review_flags", []),
                 "selected_candidate_trace": runtime_state.resolve("selected_candidate_trace", {}),
             },
