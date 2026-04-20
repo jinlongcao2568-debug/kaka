@@ -264,7 +264,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
     def test_review_gate_keeps_r6_assets_classified_after_post_r6_batches(self) -> None:
         review_gate = read_yaml("control/review_gate_matrix.yaml")
         current_task = read_yaml("control/current_task.yaml")
-        task_packet_library = read_yaml("control/task_packet_library.yaml")
+        source_registry = read_yaml("control/source_blueprint_registry.yaml")
 
         domain_ids = {entry["domain_id"] for entry in review_gate["domains"]}
         self.assertIn("future_external_unlock_prereq_core", domain_ids)
@@ -282,7 +282,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
 
         task_packet = current_task["currentTask"]["task_packet"]
         self.assertEqual(task_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
-        registry = task_packet_library["blueprint_registry"]["registered_blueprints"]
+        registry = source_registry["registered_blueprints"]
         registered_blueprints = {entry["blueprint_id"] for entry in registry}
         self.assertIn(task_packet["source_blueprint_batch_id"], registered_blueprints)
         self.assertTrue({f"B{i}" for i in range(0, 11)}.issubset(registered_blueprints))
@@ -424,9 +424,10 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         self.assertIn("R6 决策时点快照，不是当前 repo readiness 状态源", status_board)
         self.assertIn("READY_FOR_POST-REPAIR_MAINLINE_SELECTION", status_board)
         self.assertIn("READY_FOR_POST-REPAIR_MAINLINE_SELECTION", repo_status)
-        self.assertIn("R6 candidate / deny / blocked decisions remain valid as decision outputs", repo_status)
+        self.assertIn("READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT", repo_status)
         self.assertIn("Mainline Selection Ready: true", repo_status)
 
 
 if __name__ == "__main__":
     unittest.main()
+

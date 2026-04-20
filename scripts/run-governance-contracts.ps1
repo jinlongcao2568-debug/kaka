@@ -27,14 +27,14 @@ function Invoke-SemanticAlignment {
         [ref]$Issues
     )
 
-    $scriptPath = Join-Path (Split-Path -Parent $PSCommandPath) 'check-semantic-alignment.ps1'
+    $scriptPath = Join-Path (Split-Path -Parent $PSCommandPath) 'check-state-alignment.ps1'
     $tmp = [System.IO.Path]::GetTempFileName()
     try {
         & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath -RepoRoot $RepoRoot -EmitJson *> $tmp
         $raw = Get-Content -LiteralPath $tmp -Raw -Encoding UTF8
         $jsonStart = $raw.IndexOf('{')
         if ($jsonStart -lt 0) {
-            $Issues.Value.Add([pscustomobject]@{ severity='ERROR'; code='SEMANTIC_ALIGNMENT_NO_JSON'; path=$scriptPath; message='check-semantic-alignment.ps1 did not emit JSON.' }) | Out-Null
+            $Issues.Value.Add([pscustomobject]@{ severity='ERROR'; code='STATE_ALIGNMENT_NO_JSON'; path=$scriptPath; message='check-state-alignment.ps1 did not emit JSON.' }) | Out-Null
             return
         }
 
@@ -44,7 +44,7 @@ function Invoke-SemanticAlignment {
         }
     }
     catch {
-        $Issues.Value.Add([pscustomobject]@{ severity='ERROR'; code='SEMANTIC_ALIGNMENT_FAILED'; path=$scriptPath; message=$_.Exception.Message }) | Out-Null
+        $Issues.Value.Add([pscustomobject]@{ severity='ERROR'; code='STATE_ALIGNMENT_FAILED'; path=$scriptPath; message=$_.Exception.Message }) | Out-Null
     }
     finally {
         Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue

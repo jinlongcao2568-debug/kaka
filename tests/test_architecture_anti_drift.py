@@ -964,7 +964,7 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         ):
             self.assertIn(suite_id, suite_ids)
 
-        release_script = read("scripts/check-release.ps1")
+        release_script = read("scripts/check-final-gate.ps1")
         for token in (
             "REL-104",
             "REL-109",

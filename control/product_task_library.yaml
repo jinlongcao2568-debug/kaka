@@ -1,13 +1,13 @@
 version: 1
 library_id: PRODUCT_MAINLINE_TASK_LIBRARY
 updated_at: "2026-04-20"
-status: DRAFT
+status: EFFECTIVE
 role: product_mainline_task_source
 library_role: product_mainline_task_source
 scope_rule: "Only product mainline tasks are listed here; historical repair, cleanup, compatibility, or already-executed packets must stay out of this pool."
-not_formal_active_task_source: true
 formal_active_task_source: control/current_task.yaml
-legacy_compatibility_registry: control/task_packet_library.yaml
+source_blueprint_registry: control/source_blueprint_registry.yaml
+operator_assignment_roster_defaults: control/operator_assignment_roster_defaults.yaml
 navigation_asset: docs/AX9S_开发执行路由图.md
 state_sources:
   - control/repo_status.md
@@ -15,7 +15,8 @@ state_sources:
 source_priority:
   active_execution_source: control/current_task.yaml
   product_mainline_task_pool: control/product_task_library.yaml
-  legacy_packet_registry: control/task_packet_library.yaml
+  source_blueprint_allowlist: control/source_blueprint_registry.yaml
+  stable_operator_roster_defaults: control/operator_assignment_roster_defaults.yaml
   product_stage_navigation: docs/AX9S_开发执行路由图.md
   repo_state_truth_sources:
     - control/repo_status.md
@@ -23,264 +24,155 @@ source_priority:
 rules:
   - "control/current_task.yaml remains the only active execution source."
   - "control/product_task_library.yaml only lists product mainline tasks for future selection and scoped packet derivation."
-  - "control/task_packet_library.yaml remains the legacy / compatibility / executed packet registry and source-blueprint allowlist."
+  - "control/source_blueprint_registry.yaml is the only source-blueprint allowlist."
+  - "control/operator_assignment_roster_defaults.yaml is the stable roster source for stage7 / stage8 / stage9."
   - "docs/AX9S_开发执行路由图.md remains a product stage navigation map, not an active execution source, status source, or full backlog."
   - "repo readiness is not decided here; control/repo_status.md and control/milestone_status.yaml remain status truth sources."
-  - "This first edition intentionally contains exactly 10 product mainline tasks and does not expand into all future implementation details."
 redlines:
   external_software_release: BLOCKED
   stage8_real_execution: "governed / approval-gated / blocked by default"
   stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
+planning_sync_trigger_registration:
+  packet_id: PTL-GOV-03-product-planning-sync-trigger
+  title: "产品任务池与路线图同步提示机制"
+  source_blueprint_batch_id: POST-FF-CONTROL-01
+  registration_status: REGISTERED_PLACEHOLDER
+  source_task_pool: control/product_task_library.yaml
+  target_navigation_asset: docs/AX9S_开发执行路由图.md
+  trigger_policy: warning_only
+  implementation_state: NOT_IMPLEMENTED
+  notes:
+    - "本结构只声明产品任务池和路线图未来会有同步提示机制，不在当前文件中实现自动更新。"
+    - "路线图近端候选只作提示，不决定执行顺序。"
 task_count: 10
 tasks:
   - task_id: PTL-S12-source-route-clock-authority
     title: "Stage1-2 来源、路由与时钟权威闭合"
-    stage_scope:
-      - stage1_tasking
-      - stage2_ingestion
+    stage_scope: [stage1_tasking, stage2_ingestion]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
     hard_depends_on: []
     soft_depends_on: []
-    objective: "闭合 Stage1-2 的来源权威、采集路由、版本链与时钟口径，确保后续阶段只消费正式来源与路由决策。"
-    non_goals:
-      - "不新增来源对象族或枚举"
-      - "不接入外部系统"
-      - "不放开 external release"
-      - "不进入 Stage8/Stage9 real execution"
-    expected_outputs:
-      - "Stage1-2 来源与路由权威消费边界说明"
-      - "时钟字段与版本链移交检查清单"
-      - "可派生成 scoped packet 的最小实现范围"
-    suggested_packet_refs:
-      - PTL-PKT-S12-source-route-clock-authority
+    objective: "闭合 Stage1-2 的来源权威、采集路由、版本链与时钟口径。"
+    non_goals: ["不接入外部系统", "不放开 external release", "不进入 Stage8/Stage9 real execution"]
+    expected_outputs: ["Stage1-2 权威消费边界", "时钟字段与版本链移交检查清单"]
+    suggested_packet_refs: [PTL-PKT-S12-source-route-clock-authority]
     risk_level: HIGH
-
   - task_id: PTL-S23-public-chain-to-parser-contract
     title: "Stage2-3 公开链到结构化解析输入闭合"
-    stage_scope:
-      - stage2_ingestion
-      - stage3_parsing
+    stage_scope: [stage2_ingestion, stage3_parsing]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
-    hard_depends_on:
-      - PTL-S12-source-route-clock-authority
+    hard_depends_on: [PTL-S12-source-route-clock-authority]
     soft_depends_on: []
-    objective: "闭合公开链、版本链、固定化输入与结构化解析入口之间的契约，减少解析阶段对隐式输入的依赖。"
-    non_goals:
-      - "不重写 parser 全链路"
-      - "不新增业务对象或 enum 语义"
-      - "不引入外部采集服务"
-      - "不改变 release readiness"
-    expected_outputs:
-      - "Stage2-3 输入契约核对清单"
-      - "公开链到解析输入的字段来源映射"
-      - "最小回归验证范围"
-    suggested_packet_refs:
-      - PTL-PKT-S23-public-chain-to-parser-contract
+    objective: "闭合公开链、版本链、固定化输入与结构化解析入口之间的契约。"
+    non_goals: ["不重写 parser 全链路", "不引入外部采集服务"]
+    expected_outputs: ["Stage2-3 输入契约核对清单", "公开链到解析输入的字段来源映射"]
+    suggested_packet_refs: [PTL-PKT-S23-public-chain-to-parser-contract]
     risk_level: HIGH
-
   - task_id: PTL-S34-object-lineage-verification-handoff
     title: "Stage3-4 对象、字段来源与公开核验移交闭合"
-    stage_scope:
-      - stage3_parsing
-      - stage4_verification
+    stage_scope: [stage3_parsing, stage4_verification]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
-    hard_depends_on:
-      - PTL-S23-public-chain-to-parser-contract
+    hard_depends_on: [PTL-S23-public-chain-to-parser-contract]
     soft_depends_on: []
     objective: "闭合 Stage3 结构化对象、字段来源、lineage 与 Stage4 公开核验入口之间的移交关系。"
-    non_goals:
-      - "不新增正式对象"
-      - "不改 L0 或 D 文档正文语义"
-      - "不做外部数据调用"
-      - "不放开 Stage8/Stage9"
-    expected_outputs:
-      - "对象与字段 lineage 核验清单"
-      - "Stage3-4 handoff 消费边界"
-      - "公开核验失败/复核路径的 scoped packet 建议"
-    suggested_packet_refs:
-      - PTL-PKT-S34-object-lineage-verification-handoff
+    non_goals: ["不新增正式对象", "不做外部数据调用"]
+    expected_outputs: ["对象与字段 lineage 核验清单", "Stage3-4 handoff 消费边界"]
+    suggested_packet_refs: [PTL-PKT-S34-object-lineage-verification-handoff]
     risk_level: HIGH
-
   - task_id: PTL-S45-rule-evidence-dual-gate
     title: "Stage4-5 规则与证据双闸门闭合"
-    stage_scope:
-      - stage4_verification
-      - stage5_rules_evidence
+    stage_scope: [stage4_verification, stage5_rules_evidence]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
-    hard_depends_on:
-      - PTL-S34-object-lineage-verification-handoff
+    hard_depends_on: [PTL-S34-object-lineage-verification-handoff]
     soft_depends_on: []
-    objective: "闭合 Stage4 公开核验输出与 Stage5 规则、证据双闸门之间的正式消费口径。"
-    non_goals:
-      - "不新增 gate 语义"
-      - "不改变既有 rule code 语义"
-      - "不绕过人工复核"
-      - "不扩大外发能力"
-    expected_outputs:
-      - "规则闸门与证据闸门消费清单"
-      - "双闸门状态与复核路径映射"
-      - "最小回归断言候选"
-    suggested_packet_refs:
-      - PTL-PKT-S45-rule-evidence-dual-gate
+    objective: "闭合 Stage4 输出与 Stage5 规则/证据双闸门之间的正式消费口径。"
+    non_goals: ["不新增 gate 语义", "不绕过人工复核"]
+    expected_outputs: ["规则闸门与证据闸门消费清单", "双闸门状态与复核路径映射"]
+    suggested_packet_refs: [PTL-PKT-S45-rule-evidence-dual-gate]
     risk_level: HIGH
-
   - task_id: PTL-S56-project-fact-review-report
     title: "Stage5-6 统一事实、复核队列与报告闭合"
-    stage_scope:
-      - stage5_rules_evidence
-      - stage6_fact_review
+    stage_scope: [stage5_rules_evidence, stage6_fact_review]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
-    hard_depends_on:
-      - PTL-S45-rule-evidence-dual-gate
+    hard_depends_on: [PTL-S45-rule-evidence-dual-gate]
     soft_depends_on: []
-    objective: "闭合统一 project fact、复核队列、窗口状态、报告状态与后续销售阶段输入之间的关系。"
-    non_goals:
-      - "不改变报告对外可用口径"
-      - "不自动批准报告"
-      - "不新增客户可见交付面"
-      - "不放开 external release"
-    expected_outputs:
-      - "统一事实与复核队列字段来源清单"
-      - "报告状态到 sale gate 的消费边界"
-      - "Stage5-6 最小验证包建议"
-    suggested_packet_refs:
-      - PTL-PKT-S56-project-fact-review-report
+    objective: "闭合 project fact、review queue、report 与后续销售阶段输入之间的关系。"
+    non_goals: ["不自动批准报告", "不新增客户可见交付面"]
+    expected_outputs: ["统一事实与复核队列字段来源清单", "报告状态到 sale gate 的消费边界"]
+    suggested_packet_refs: [PTL-PKT-S56-project-fact-review-report]
     risk_level: HIGH
-
   - task_id: PTL-S67-saleable-opportunity-derivation
     title: "Stage6-7 可售机会对象推导闭合"
-    stage_scope:
-      - stage6_fact_review
-      - stage7_sales
+    stage_scope: [stage6_fact_review, stage7_sales]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
-    hard_depends_on:
-      - PTL-S56-project-fact-review-report
+    hard_depends_on: [PTL-S56-project-fact-review-report]
     soft_depends_on: []
     objective: "闭合从 project fact / report / sale gate 到 saleable opportunity 的推导、评分与可售性边界。"
-    non_goals:
-      - "不新增可售机会对象族"
-      - "不把推荐结果写成对外承诺"
-      - "不进入触达执行"
-      - "不改变 Stage8/Stage9 blocked lines"
-    expected_outputs:
-      - "可售机会推导字段映射"
-      - "评分和推荐理由消费边界"
-      - "Stage6-7 scoped packet 候选"
-    suggested_packet_refs:
-      - PTL-PKT-S67-saleable-opportunity-derivation
+    non_goals: ["不进入触达执行", "不改变 Stage8/Stage9 blocked lines"]
+    expected_outputs: ["可售机会推导字段映射", "评分和推荐理由消费边界"]
+    suggested_packet_refs: [PTL-PKT-S67-saleable-opportunity-derivation]
     risk_level: HIGH
-
   - task_id: PTL-S7-price-competitor-offer-resolution
     title: "Stage7 价格、竞争者与推荐方案闭合"
-    stage_scope:
-      - stage7_sales
+    stage_scope: [stage7_sales]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
-    hard_depends_on:
-      - PTL-S67-saleable-opportunity-derivation
+    hard_depends_on: [PTL-S67-saleable-opportunity-derivation]
     soft_depends_on: []
     objective: "闭合 Stage7 价格归一、竞争者识别、推荐方案与销售推进字段之间的正式消费边界。"
-    non_goals:
-      - "不新建第二套 competitor object"
-      - "不生成对外报价承诺"
-      - "不改 Stage8 联系候选执行边界"
-      - "不改 release gate"
-    expected_outputs:
-      - "价格和竞争者解析闭合清单"
-      - "推荐方案字段消费边界"
-      - "Stage7 重点回归候选"
-    suggested_packet_refs:
-      - PTL-PKT-S7-price-competitor-offer-resolution
+    non_goals: ["不新建第二套 competitor object", "不生成对外报价承诺"]
+    expected_outputs: ["价格和竞争者解析闭合清单", "推荐方案字段消费边界"]
+    suggested_packet_refs: [PTL-PKT-S7-price-competitor-offer-resolution]
     risk_level: HIGH
-
   - task_id: PTL-S78-contact-candidate-compliance-preview
     title: "Stage7-8 联系候选、合规判定与预览闭合"
-    stage_scope:
-      - stage7_sales
-      - stage8_outreach
+    stage_scope: [stage7_sales, stage8_outreach]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P1
-    hard_depends_on:
-      - PTL-S7-price-competitor-offer-resolution
-    soft_depends_on:
-      - PTL-INT-internal-preview-surface-envelope
+    hard_depends_on: [PTL-S7-price-competitor-offer-resolution]
+    soft_depends_on: [PTL-INT-internal-preview-surface-envelope]
     objective: "闭合联系候选、合规判定、触达预览与内部操作员可见面的消费边界。"
-    non_goals:
-      - "不执行真实触达"
-      - "不绕过审批链或审计链"
-      - "不放开 Stage8 real execution"
-      - "不新增 contact gate 或 exception 语义"
-    expected_outputs:
-      - "联系候选与合规字段消费清单"
-      - "内部预览可见字段边界"
-      - "Stage7-8 scoped packet 候选"
-    suggested_packet_refs:
-      - PTL-PKT-S78-contact-candidate-compliance-preview
+    non_goals: ["不执行真实触达", "不放开 Stage8 real execution"]
+    expected_outputs: ["联系候选与合规字段消费清单", "内部预览可见字段边界"]
+    suggested_packet_refs: [PTL-PKT-S78-contact-candidate-compliance-preview]
     risk_level: HIGH
-
   - task_id: PTL-S89-outreach-writeback-delivery-governance
     title: "Stage8-9 触达记录、回写、交付与治理反馈闭合"
-    stage_scope:
-      - stage8_outreach
-      - stage9_delivery
+    stage_scope: [stage8_outreach, stage9_delivery]
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P1
-    hard_depends_on:
-      - PTL-S78-contact-candidate-compliance-preview
-    soft_depends_on:
-      - PTL-INT-internal-preview-surface-envelope
+    hard_depends_on: [PTL-S78-contact-candidate-compliance-preview]
+    soft_depends_on: [PTL-INT-internal-preview-surface-envelope]
     objective: "闭合触达记录、回写影响、订单/支付/交付占位与治理反馈的内部受控链路。"
-    non_goals:
-      - "不执行真实触达"
-      - "不执行真实支付、交付或退款"
-      - "不放开 Stage9 real payment/delivery/refund"
-      - "不发布客户可用软件"
-    expected_outputs:
-      - "Stage8-9 内部记录与治理反馈边界清单"
-      - "writeback impact 与 delivery governance 消费说明"
-      - "高风险动作停机条件清单"
-    suggested_packet_refs:
-      - PTL-PKT-S89-outreach-writeback-delivery-governance
+    non_goals: ["不执行真实触达", "不执行真实支付、交付或退款"]
+    expected_outputs: ["Stage8-9 内部记录与治理反馈边界清单", "writeback impact 与 delivery governance 消费说明"]
+    suggested_packet_refs: [PTL-PKT-S89-outreach-writeback-delivery-governance]
     risk_level: HIGH
-
   - task_id: PTL-INT-internal-preview-surface-envelope
     title: "内部预览工作台与正式对象消费封装"
-    stage_scope:
-      - internal_preview
-      - stage1_to_stage9
+    stage_scope: [internal_preview, stage1_to_stage9]
     task_type: internal_surface_envelope
     status: CANDIDATE
     priority: P0
-    hard_depends_on:
-      - PTL-S56-project-fact-review-report
-    soft_depends_on:
-      - PTL-S67-saleable-opportunity-derivation
-      - PTL-S7-price-competitor-offer-resolution
+    hard_depends_on: [PTL-S56-project-fact-review-report]
+    soft_depends_on: [PTL-S67-saleable-opportunity-derivation, PTL-S7-price-competitor-offer-resolution]
     objective: "为内部预览工作台定义正式对象消费封装，确保 UI/API 只消费正式对象、字段策略、门禁和状态源。"
-    non_goals:
-      - "不新增外部客户平台"
-      - "不新增正式业务对象或枚举"
-      - "不绕过 release/readiness gate"
-      - "不改变 Stage8/Stage9 高风险动作红线"
-    expected_outputs:
-      - "内部预览工作台消费封装边界"
-      - "正式对象到预览面的字段策略清单"
-      - "后续 UI/API scoped packet 候选"
-    suggested_packet_refs:
-      - PTL-PKT-INT-internal-preview-surface-envelope
+    non_goals: ["不新增外部客户平台", "不绕过 release/readiness gate"]
+    expected_outputs: ["内部预览工作台消费封装边界", "正式对象到预览面的字段策略清单"]
+    suggested_packet_refs: [PTL-PKT-INT-internal-preview-surface-envelope]
     risk_level: HIGH

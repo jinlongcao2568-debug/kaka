@@ -1,0 +1,24 @@
+version: 1
+registry_id: PRODUCT_OPERATOR_ASSIGNMENT_ROSTER_DEFAULTS
+role: stable_operator_assignment_source
+status: EFFECTIVE
+owner: governance_owner
+source_ref: control/operator_assignment_roster_defaults.yaml#defaults
+notes:
+  - Stage7/8/9 roster defaults are defined here and consumed by current_task plus task-packet validation.
+defaults:
+  stage7:
+    assigned_owner_role: sales_user
+    assigned_owner: 卡卡罗特
+    reviewer_role: sales_user
+    reviewer: 卡卡罗特
+  stage8:
+    assigned_owner_role: sales_user
+    assigned_owner: 卡卡罗特
+    reviewer_role: delivery_governance_user
+    reviewer: 卡卡罗特
+  stage9:
+    assigned_owner_role: delivery_governance_user
+    assigned_owner: 卡卡罗特
+    reviewer_role: delivery_governance_user
+    reviewer: 卡卡罗特

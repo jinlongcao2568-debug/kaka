@@ -5,7 +5,7 @@ default_required_scripts:
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-governance-contracts.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 batches:
   B0:
@@ -14,51 +14,51 @@ batches:
       - tests/test_architecture_anti_drift.py
       - tests/test_arch_optimization_a.py
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B1:
     focused_tests: [tests/test_stage12_extractors.py, tests/test_internal_chain.py, tests/test_formal_sink_fields.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B2:
     focused_tests: [tests/test_internal_chain.py, tests/test_architecture_anti_drift.py, tests/test_semantic_runtime_validator.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B3:
     focused_tests: [tests/test_stage56_evaluators.py, tests/test_internal_chain.py, tests/test_pre_route_behavior.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B4:
     focused_tests: [tests/test_stage7_runtime_closure.py, tests/test_formal_sink_fields.py, tests/test_internal_chain.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B5:
     focused_tests: [tests/test_pre_route_behavior.py, tests/test_stage8_resolution_closure.py, tests/test_runtime_governance_guards.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B6:
     focused_tests: [tests/test_stage9_impact_executor.py, tests/test_internal_chain.py, tests/test_runtime_governance_guards.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B7:
     focused_tests: [tests/test_capability_permission_layer.py, tests/test_architecture_anti_drift.py, tests/test_external_unlock_prerequisites.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B8:
     focused_tests: [tests/test_internal_repository_boundary.py, tests/test_api_transport_bootstrap.py, tests/test_internal_surface_preview.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B9:
     focused_tests: [tests/test_capability_permission_layer.py, tests/test_stage8_resolution_closure.py, tests/test_architecture_anti_drift.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
   B10:
     focused_tests: [tests/run_tests.py, tests/test_review_gate_controls.py, tests/test_architecture_anti_drift.py]
     extra_scripts:
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 notes:
   - "Every batch must stop and report after running the required scripts."
   - "Focused tests are additive; they do not replace python tests/run_tests.py."

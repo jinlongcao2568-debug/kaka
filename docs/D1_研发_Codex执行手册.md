@@ -822,7 +822,7 @@ AI / Codex 一律不得：
 - 任务包规则：`control/automation_task_packet_rules.yaml`
 - review gate matrix：`control/review_gate_matrix.yaml`
 - handoff 依赖顺序：`handoff/dependency_order_matrix.json`
-- 自动化检查脚本：`scripts/check-automation-readiness.ps1`、`scripts/check-handoff-dependencies.ps1`
+- 自动化检查脚本：`scripts/check-task-packet.ps1`、`scripts/check-handoff-dependencies.ps1`
 
 ### D1-R-070-E change class / review gate 冻结补表
 
@@ -867,6 +867,7 @@ AI / Codex 一律不得：
 | 推进方式 | 任何路线图片段推进都必须先形成 `task packet`，再按 `change_class / review_gate / stop conditions` 执行 |
 | 高风险段 | 触及 shared runtime / governance / release / Stage 8-9 高风险执行 / automation control 的路线图片段，最低 `MANDATORY_HUMAN_REVIEW` |
 | blocked 红线 | external release、Stage 8 real execution、Stage 9 real payment-delivery、高限制字段放行，不得因路线图恢复而放宽 |
+
 
 
 

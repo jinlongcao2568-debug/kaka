@@ -6,11 +6,14 @@ owner_docs:
 task_packet_source:
   file: control/current_task.yaml
   path: currentTask.task_packet
-blueprint_registry_source:
-  file: control/task_packet_library.yaml
-  path: blueprint_registry.registered_blueprints
+source_blueprint_registry_source:
+  file: control/source_blueprint_registry.yaml
+  path: registered_blueprints
   validation_field: source_blueprint_batch_id
-  rule: source_blueprint_batch_id must match a registered blueprint_id; B0-B10 are legacy historical-compatible entries, not the only valid future source.
+  rule: source_blueprint_batch_id must match a registered blueprint_id in control/source_blueprint_registry.yaml.
+operator_assignment_roster_source:
+  file: control/operator_assignment_roster_defaults.yaml
+  path: defaults
 max_scope:
   max_files: 10
   max_docs: 5
@@ -48,7 +51,7 @@ required_fields:
   - human_review_required
   - owner_reviews_required
 field_rules:
-  source_blueprint_batch_id: blueprint_registry.registered_blueprints.blueprint_id
+  source_blueprint_batch_id: source_blueprint_registry.registered_blueprints.blueprint_id
   objective: non_empty_string
   non_goals: non_empty_array
   affected_stages: non_empty_array
@@ -90,21 +93,16 @@ fail_conditions:
   - missing_human_review_for_non_low_risk
   - missing_required_owner_review
   - forbidden_path_touched
+  - operator_roster_source_ref_missing
+  - operator_roster_stage_missing
+  - operator_roster_stage_drift
 preflight_checks:
-  entrypoint: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1 -PlannedTargetPaths <paths>
+  entrypoint: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths <paths>
   required_rule: planned target paths / intended changed files must match declared_changed_paths and allowed_modification_paths before editing or commit
-  hard_fail_when:
-    - planned target path falls outside declared_changed_paths
-    - planned target path falls outside allowed_modification_paths
-    - planned target path matches forbidden_modification_paths
-    - actual changed path falls outside allowed_modification_paths
 notes:
   - any task exceeding limits must be split before execution
   - high-risk domains must be isolated in their own batch
   - task packet cannot be replaced by conversational summary; control/current_task.yaml is the formal machine-readable packet source
-  - baseline_dirty_paths is optional but recommended whenever the workspace already contains accepted tracked dirty paths from prior packets
-  - planned target paths are a preflight input to scripts/check-automation-readiness.ps1; docs only explain the workflow and must not replace the machine rule
-  - source_blueprint_batch_id is validated against control/task_packet_library.yaml#blueprint_registry; future packets are not required to use B10
-  - generated Python cache artifacts under __pycache__ and .pytest_cache are not treated as business-scope actual changed paths by readiness validation
-  - script_timeouts is optional but recommended for long-running checks; scripts/check-release.ps1 should use at least 300000 ms before declaring a tool-layer timeout
-  - a tool-layer timeout without script FAIL/nonzero output is not a script failure until the command has been retried with the declared script_timeouts value
+  - source_blueprint_batch_id is validated against control/source_blueprint_registry.yaml
+  - stage7/stage8/stage9 roster defaults come from control/operator_assignment_roster_defaults.yaml
+  - generated Python cache artifacts under __pycache__ and .pytest_cache are not treated as business-scope actual changed paths by task-packet validation

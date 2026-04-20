@@ -175,8 +175,9 @@ domains:
       - "docs/自动化开发动作门禁表.md"
       - "docs/自动开发任务包模板.md"
       - "docs/D1_研发_Codex执行手册.md"
-      - "scripts/check-automation-readiness.ps1"
-      - "scripts/check-release.ps1"
+      - "scripts/check-task-packet.ps1"
+      - "scripts/check-state-alignment.ps1"
+      - "scripts/check-final-gate.ps1"
       - "tests/test_review_gate_controls.py"
     required_owner_reviews:
       - "automation_owner"

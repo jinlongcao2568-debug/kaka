@@ -1,7 +1,7 @@
 version: 1
 packet_kind: EXECUTABLE_SCOPED_SUBPACKET
 source_blueprint_batch_id: "{{REGISTERED_BLUEPRINT_ID}}"
-blueprint_registry_ref: control/task_packet_library.yaml#blueprint_registry
+source_blueprint_registry_ref: control/source_blueprint_registry.yaml#registered_blueprints
 packet_id: "{{PACKET_ID}}"
 subpacket_id: "{{PACKET_ID}}"
 title: "{{TITLE}}"
@@ -27,9 +27,9 @@ impacted_assets:
   tests: []
   code: []
 required_scripts:
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 script_timeouts:
-  scripts/check-release.ps1: 300000
+  scripts/check-final-gate.ps1: 300000
 stop_conditions:
   - "required script fails"
 definition_of_done:
@@ -48,5 +48,5 @@ review_evidence:
 notes:
   - "This template is the executable packet shape to be copied into control/current_task.yaml#currentTask.task_packet."
   - "The scoped subpacket must satisfy control/automation_task_packet_rules.yaml max scope constraints."
-  - "source_blueprint_batch_id must be registered in control/task_packet_library.yaml#blueprint_registry; future packets do not have to use B10."
-  - "If current_task.yaml carries stage7 / stage8 / stage9 operator_assignment_roster, it must also carry operator_assignment_roster_source_ref=control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults and keep the copied roster aligned with that stable source."
+  - "source_blueprint_batch_id must be registered in control/source_blueprint_registry.yaml."
+  - "If current_task.yaml carries stage7 / stage8 / stage9 operator_assignment_roster, it must also carry operator_assignment_roster_source_ref=control/operator_assignment_roster_defaults.yaml#defaults and keep the copied roster aligned with that stable source."

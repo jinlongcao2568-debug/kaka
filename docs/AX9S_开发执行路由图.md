@@ -3,9 +3,9 @@
 > 本文件是**纯导航图**，也是**候选导航资产**（candidate navigation asset），只负责阶段 1-9 的导航摘要。  
 > 本文件**非当前任务源**、**非状态源**、**非执行日志**、**非完整 backlog**。  
 > `control/current_task.yaml` 负责唯一**当前 active 执行任务**，是唯一 active task source。  
-> `control/task_packet_library.yaml` 只负责下一候选来源。  
-> 本文件中的近端候选只作导航提示，不决定执行顺序。实际 active 包以 `control/current_task.yaml` 为准；候选池参考 `control/task_packet_library.yaml`。  
-> `scripts/check-semantic-alignment.ps1` 只会对本文件第 3 节与 `task_packet_library.packet_order` 的近端偏移做轻机制提示；若明显落后，只给 `WARNING`，不阻断。  
+> `control/product_task_library.yaml` 只负责下一候选来源。  
+> 本文件中的近端候选只作导航提示，不决定执行顺序。实际 active 包以 `control/current_task.yaml` 为准；候选池参考 `control/product_task_library.yaml`。  
+> `scripts/check-state-alignment.ps1` 只会对本文件第 3 节与 `product_task_library` 的近端偏移做轻机制提示；若明显落后，只给 `WARNING`，不阻断。  
 > 本文件不改写 `L0.md`、`裁决总表.md`、`D1-D14`、`contracts/*`、`handoff/*` 的正式语义。
 
 ## 1. 导航口径
@@ -26,7 +26,7 @@
 - 下游 handoff：`handoff/stage1_to_stage2/contract.json`
 - 正式边界：只负责来源 authority 与路由 authority；不直接生成客户可见结论，不把自身写成状态源。
 - 相关 contracts / tests：`contracts/governance/source_registry.json`；`contracts/governance/route_policy_catalog.json`；`contracts/governance/stage12_extractor_contract.json`；`tests/test_stage12_extractors.py`
-- 导航候选 `packet_id`：`PKT-P1-01-stage12-rollout-precedence`
+- 导航候选 `task_id`：`PTL-S12-source-route-clock-authority`
 
 ## 2.2 Stage 2 公开链采集、窗口期、版本/时钟裁决
 
@@ -37,7 +37,7 @@
 - 下游 handoff：`handoff/stage2_to_stage3/contract.json`
 - 正式边界：只形成可回链公开链、版本链与时钟链；不覆盖 Stage 1 authority，不直接产出客户可见结论。
 - 相关 contracts / tests：`contracts/schemas/public_chain.schema.json`；`contracts/schemas/notice_version_chain.schema.json`；`contracts/schemas/clock_chain_profile.schema.json`；`tests/test_stage12_extractors.py`
-- 导航候选 `packet_id`：`PKT-P1-01-stage12-rollout-precedence`
+- 导航候选 `task_id`：`PTL-S23-public-chain-to-parser-contract`
 
 ## 2.3 Stage 3 结构化解析与关键对象抽取
 
@@ -48,7 +48,7 @@
 - 下游 handoff：`handoff/stage3_to_stage4/contract.json`
 - 正式边界：只负责结构化解析与 lineage 固化；不新造第二套对象体系，不绕过 lineage 直接供页面或销售消费。
 - 相关 contracts / tests：`contracts/schemas/project_base.schema.json`；`contracts/schemas/field_lineage_record.schema.json`；`contracts/schemas/bidder_candidate.schema.json`；`contracts/schemas/project_manager.schema.json`；`tests/test_internal_chain.py`
-- 导航候选 `packet_id`：暂无
+- 导航候选 `task_id`：`PTL-S34-object-lineage-verification-handoff`
 
 ## 2.4 Stage 4 关键对象定向公开核验与冲突预判
 
@@ -59,7 +59,7 @@
 - 下游 handoff：`handoff/stage4_to_stage5/contract.json`
 - 正式边界：只负责公开核验、冲突预判与核验画像；不直接生成商业对象，不绕开 Stage 5 双闸门。
 - 相关 contracts / tests：`contracts/schemas/public_attack_surface.schema.json`；`contracts/schemas/focus_bidder_verification_profile.schema.json`；`contracts/schemas/pseudo_competitor_signal_set.schema.json`；`contracts/schemas/evidence_grade_profile.schema.json`；`tests/test_internal_chain.py`
-- 导航候选 `packet_id`：`PKT-P0-01-review-queue-window-scoring`
+- 导航候选 `task_id`：`PTL-S45-rule-evidence-dual-gate`
 
 ## 2.5 Stage 5 规则与证据双闸门
 
@@ -70,7 +70,7 @@
 - 下游 handoff：`handoff/stage5_to_stage6/contract.json`
 - 正式边界：必须保持双闸门共同成立；不得把截图、OCR 或模型摘要写成唯一主证，不得跳过复核请求。
 - 相关 contracts / tests：`contracts/schemas/rule_gate_decision.schema.json`；`contracts/schemas/evidence_gate_decision.schema.json`；`contracts/testing/golden_cases.json`；`tests/test_stage56_evaluators.py`
-- 导航候选 `packet_id`：`PKT-P0-01-review-queue-window-scoring`
+- 导航候选 `task_id`：`PTL-S45-rule-evidence-dual-gate`
 
 ## 2.6 Stage 6 人工复核、统一事实、真实竞争者识别与正式报告
 
@@ -81,7 +81,7 @@
 - 下游 handoff：`handoff/stage6_to_stage7/contract.json`
 - 正式边界：`project_fact` 是唯一统一事实中枢；Stage 6 不写成状态源，Stage 7 也不得反向成为统一事实来源。
 - 相关 contracts / tests：`contracts/schemas/project_fact.schema.json`；`contracts/schemas/review_queue_profile.schema.json`；`contracts/schemas/report_record.schema.json`；`tests/test_stage56_evaluators.py`
-- 导航候选 `packet_id`：`PKT-P0-01-review-queue-window-scoring`
+- 导航候选 `task_id`：`PTL-S56-project-fact-review-report`
 
 ## 2.7 Stage 7 商业承接与可售对象
 
@@ -92,7 +92,7 @@
 - 下游 handoff：`handoff/stage7_to_stage8/contract.json`
 - 正式边界：只允许消费 Stage 6 正式对象形成商业对象；不得越过 `project_fact` 直接生成机会，不得把推荐面写成对外 release。
 - 相关 contracts / tests：`contracts/sales/buyer_fit_scorecard.json`；`contracts/sales/lead_value_scoring_catalog.json`；`contracts/sales/price_normalization_catalog.json`；`contracts/schemas/saleable_opportunity.schema.json`；`contracts/schemas/sales_lead.schema.json`；`contracts/schemas/schema_catalog.json`；`tests/test_stage7_runtime_closure.py`
-- 导航候选 `packet_id`：`PKT-P0-02-stage7-buyer-fit-value-derivation`
+- 导航候选 `task_id`：`PTL-S7-price-competitor-offer-resolution`
 
 ## 2.8 Stage 8 联系对象与销售触达编排
 
@@ -103,7 +103,7 @@
 - 下游 handoff：`handoff/stage8_to_stage9/contract.json`
 - 正式边界：只允许在 governed internal 边界内形成 candidate、selection、plan 与 touch 记录；不放开 real execution，不直接外发高限制字段。
 - 相关 contracts / tests：`contracts/sales/contact_compliance_matrix.json`；`contracts/sales/contact_source_policy_catalog.json`；`contracts/sales/outreach_cadence_catalog.json`；`contracts/schemas/contact_candidate_collection.schema.json`；`contracts/schemas/contact_selection_trace.schema.json`；`tests/test_stage8_resolution_closure.py`
-- 导航候选 `packet_id`：`PKT-P0-05-stage8-contact-enrichment-merge`
+- 导航候选 `task_id`：`PTL-S78-contact-candidate-compliance-preview`
 
 ## 2.9 Stage 9 订单、支付、交付与治理反馈
 
@@ -114,16 +114,17 @@
 - 下游 handoff：无，主链终点。
 - 正式边界：只允许 internal preview / governed writeback；不放开 real payment / delivery / refund，不把 projected mutation 写成默认持久化执行。
 - 相关 contracts / tests：`contracts/governance/writeback_impact_policy.json`；`contracts/sales/outcome_taxonomy_catalog.json`；`contracts/schemas/delivery_record.schema.json`；`tests/test_stage9_impact_executor.py`
-- 导航候选 `packet_id`：暂无
+- 导航候选 `task_id`：`PTL-S89-outreach-writeback-delivery-governance`
 
 ## 3. 近端导航提示
 
 > 下列候选仅作“下一步可能去哪里看”的导航提示。  
-> 它们不是当前任务源，不决定执行顺序，也不代表完整 backlog。实际选包以 `control/current_task.yaml`、`control/task_packet_library.yaml` 为准。  
-> `scripts/check-semantic-alignment.ps1` 会把本节首个近端候选与 `task_packet_library.packet_order` 当前顺位做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
+> 它们不是当前任务源，不决定执行顺序，也不代表完整 backlog。实际选包以 `control/current_task.yaml`、`control/product_task_library.yaml` 为准。  
+> `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 
-- `PKT-P0-04-stage8-compliance-lattice`：最贴近当前近端顺位的 Stage 8 合规 lattice、candidate/execution 边界与提示面收口。
-- `PKT-P0-05-stage8-contact-enrichment-merge`：最贴近 Stage 8 的 `contact_candidate_collection`、`contact_selection_trace` 与候选合并收口。
-- `PKT-P0-06-stage9-writeback-contract-core`：最贴近 Stage 9 writeback contract、影响源与 internal governed writeback 收口。
-- `PKT-P0-07-stage9-upstream-feedback-loop`：最贴近 Stage 9 upstream feedback、治理反馈回写与结果闭环收口。
-- `PKT-P0-08-formal-route-map-split`：最贴近路线图自身的 formal route / candidate hint 导航资产收口。
+- `PTL-S56-project-fact-review-report`：最贴近统一事实、复核队列与报告闭合。
+- `PTL-S67-saleable-opportunity-derivation`：最贴近可售机会对象推导与 Stage6-7 主线收口。
+- `PTL-S7-price-competitor-offer-resolution`：最贴近 Stage7 价格、竞争者与推荐方案闭合。
+- `PTL-S78-contact-candidate-compliance-preview`：最贴近 Stage7-8 联系候选、合规判定与预览闭合。
+- `PTL-S89-outreach-writeback-delivery-governance`：最贴近 Stage8-9 触达记录、回写、交付与治理反馈闭合。
+

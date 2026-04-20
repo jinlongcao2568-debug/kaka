@@ -13,7 +13,7 @@ script_failures:
   - script: scripts/run-golden.ps1
     severity: P0
     stop_on_fail: true
-  - script: scripts/check-release.ps1
+  - script: scripts/check-final-gate.ps1
     severity: P0
     stop_on_fail: true
   - script: scripts/lint-drift.ps1

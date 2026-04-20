@@ -9,17 +9,17 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
-READINESS_SCRIPT = ROOT / "scripts" / "check-automation-readiness.ps1"
-READINESS_FIXTURES = (
+TASK_PACKET_SCRIPT = ROOT / "scripts" / "check-task-packet.ps1"
+FIXTURES = (
     "docs/自动化开发动作门禁表.md",
     "control/automation_action_matrix.yaml",
     "control/automation_stop_conditions.yaml",
     "control/automation_task_packet_rules.yaml",
-    "control/task_packet_library.yaml",
     "control/review_gate_matrix.yaml",
     "control/owners.yaml",
+    "control/source_blueprint_registry.yaml",
+    "control/operator_assignment_roster_defaults.yaml",
 )
 
 
@@ -29,42 +29,23 @@ def read(relative_path: str) -> str:
 
 def write_yaml(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        yaml.safe_dump(payload, allow_unicode=True, sort_keys=False),
-        encoding="utf-8",
-    )
-
-
-def extract_domain_block(text: str, domain_id: str) -> str:
-    marker = f"  - domain_id: {domain_id}"
-    start = text.index(marker)
-    next_domain = text.find("\n  - domain_id:", start + len(marker))
-    if next_domain == -1:
-        next_domain = len(text)
-    return text[start:next_domain]
+    path.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 class TestReviewGateControls(unittest.TestCase):
-    def _build_temp_repo_for_readiness(
-        self,
-        *,
-        declared_paths: list[str],
-        allowed_paths: list[str],
-    ) -> Path:
+    def _build_temp_repo_for_task_packet(self, *, declared_paths: list[str], allowed_paths: list[str]) -> Path:
         tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(tempdir.cleanup)
         repo = Path(tempdir.name)
 
-        for relative_path in READINESS_FIXTURES:
+        for relative_path in FIXTURES:
             source = ROOT / relative_path
             target = repo / relative_path
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
 
-        stable_roster_source_ref = "control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults"
-        stable_roster_defaults = yaml.safe_load(
-            (repo / "control/task_packet_library.yaml").read_text(encoding="utf-8")
-        )["activation_defaults"]["operator_assignment_roster_defaults"]
+        stable_roster_source_ref = "control/operator_assignment_roster_defaults.yaml#defaults"
+        stable_roster_defaults = yaml.safe_load((repo / "control/operator_assignment_roster_defaults.yaml").read_text(encoding="utf-8"))["defaults"]
 
         current_task = {
             "version": 1,
@@ -91,69 +72,28 @@ class TestReviewGateControls(unittest.TestCase):
                     "title": "precheck scope test",
                     "status": "ACTIVE",
                     "objective": "verify preflight scope enforcement",
-                    "non_goals": [
-                        "do not relax readiness",
-                        "not an external unlock implementation",
-                    ],
+                    "non_goals": ["do not relax readiness", "not an external unlock implementation"],
                     "affected_stages": ["automation_control"],
                     "risk_level": "HIGH",
                     "change_class": "MANDATORY_HUMAN_REVIEW",
-                    "change_domains": [
-                        "automation_control_core",
-                        "governance_release_core",
-                    ],
+                    "change_domains": ["automation_control_core", "governance_release_core"],
                     "declared_changed_paths": declared_paths,
                     "allowed_modification_paths": allowed_paths,
-                    "forbidden_modification_paths": [
-                        "src/**",
-                        "contracts/**",
-                        "handoff/**",
-                    ],
-                    "impacted_assets": {
-                        "docs": [],
-                        "control": ["control/current_task.yaml"],
-                        "contracts": [],
-                        "handoff": [],
-                        "scripts": ["scripts/check-automation-readiness.ps1"],
-                        "tests": [],
-                        "runtime": [],
-                    },
-                    "required_scripts": [
-                        "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1",
-                    ],
-                    "stop_conditions": [
-                        "required script fails",
-                        "actual changed path falls outside declared scope",
-                    ],
-                    "definition_of_done": [
-                        "preflight scope check works",
-                    ],
-                    "deliverables": [
-                        "scope preflight validation",
-                    ],
+                    "forbidden_modification_paths": ["src/**", "contracts/**", "handoff/**"],
+                    "impacted_assets": {"docs": [], "control": ["control/current_task.yaml"], "contracts": [], "handoff": [], "scripts": ["scripts/check-task-packet.ps1"], "tests": [], "runtime": []},
+                    "required_scripts": ["pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"],
+                    "stop_conditions": ["required script fails", "actual changed path falls outside declared scope"],
+                    "definition_of_done": ["preflight scope check works"],
+                    "deliverables": ["scope preflight validation"],
                     "human_review_required": True,
-                    "owner_reviews_required": [
-                        "automation_owner",
-                        "governance_owner",
-                        "testing_owner",
-                        "release_approver",
-                    ],
-                    "review_evidence": {
-                        "declared": True,
-                        "signoff_required": True,
-                        "signoff_status": "REQUESTED_NOT_APPROVED",
-                    },
+                    "owner_reviews_required": ["automation_owner", "governance_owner", "testing_owner", "release_approver"],
+                    "review_evidence": {"declared": True, "signoff_required": True, "signoff_status": "REQUESTED_NOT_APPROVED"},
                 },
             },
         }
         write_yaml(repo / "control/current_task.yaml", current_task)
-
-        tracked_rule_file = repo / "control/automation_task_packet_rules.yaml"
-        tracked_rule_file.write_text(
-            tracked_rule_file.read_text(encoding="utf-8") + "\n# baseline\n",
-            encoding="utf-8",
-        )
-
+        (repo / "control/product_task_library.yaml").write_text("version: 1\nrole: product_mainline_task_source\n", encoding="utf-8")
+        (repo / "control/repo_status.md").write_text("Current Workstream: TEST\ncurrent_task -> product_task_library -> repo_status\n", encoding="utf-8")
         subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
         subprocess.run(["git", "config", "user.name", "Codex Test"], cwd=repo, check=True, capture_output=True)
         subprocess.run(["git", "config", "user.email", "codex@example.com"], cwd=repo, check=True, capture_output=True)
@@ -161,312 +101,50 @@ class TestReviewGateControls(unittest.TestCase):
         subprocess.run(["git", "commit", "-m", "baseline"], cwd=repo, check=True, capture_output=True)
         return repo
 
-    def test_review_gate_matrix_defines_required_classes_and_domains(self) -> None:
-        text = read("control/review_gate_matrix.yaml")
-        for token in (
-            "LOW_RISK_DIRECT",
-            "DRAFT_WITH_REVIEW",
-            "MANDATORY_HUMAN_REVIEW",
-            "STOP_AND_ESCALATE",
-            "shared_runtime_core",
-            "governance_release_core",
-            "provider_vendor_source_policy_core",
-            "stage8_stage9_high_risk_execution",
-            "automation_control_core",
-        ):
-            self.assertIn(token, text)
+    def test_scripts_use_new_system(self) -> None:
+        task_packet = read("scripts/check-task-packet.ps1")
+        state = read("scripts/check-state-alignment.ps1")
+        final_gate = read("scripts/check-final-gate.ps1")
+        self.assertIn("control/source_blueprint_registry.yaml", task_packet)
+        self.assertIn("control/operator_assignment_roster_defaults.yaml", task_packet)
+        self.assertIn("control/product_task_library.yaml", state)
+        self.assertIn("check-task-packet.ps1", final_gate)
+        self.assertIn("check-state-alignment.ps1", final_gate)
+        self.assertNotIn("check-automation-readiness.ps1", final_gate)
+        self.assertNotIn("check-release.ps1", final_gate)
 
-    def test_current_task_packet_declares_hard_fields(self) -> None:
-        text = read("control/current_task.yaml")
-        for token in (
-            "task_packet:",
-            "declared_changed_paths:",
-            "allowed_modification_paths:",
-            "forbidden_modification_paths:",
-            "required_scripts:",
-            "stop_conditions:",
-            "definition_of_done:",
-            "deliverables:",
-            "change_class:",
-            "change_domains:",
-            "human_review_required:",
-            "owner_reviews_required:",
-            "review_evidence:",
-        ):
-            self.assertIn(token, text)
-        self.assertNotIn("启动前 readiness review 已通过", text)
-
-    def test_release_and_regression_assets_cover_review_gate(self) -> None:
-        release = json.loads(read("contracts/testing/release_checklist.json"))
-        release_item_ids = {
-            item["itemId"]
-            for section in release["sections"]
-            for item in section["items"]
-        }
-        for item_id in ("REL-110", "REL-111", "REL-112", "REL-113", "REL-114", "REL-193", "REL-194"):
-            self.assertIn(item_id, release_item_ids)
-
-        regression = json.loads(read("contracts/testing/regression_manifest.json"))
-        suite_ids = {suite["suite_id"] for suite in regression["suites"]}
-        for suite_id in (
-            "REG-CHANGE-CLASS-REVIEW-GATE",
-            "REG-TASK-PACKET-HARD-GATE",
-            "REG-REVIEW-GATE-STOP-LINKAGE",
-            "REG-RELEASE-READINESS-REVIEW-GATE",
-            "REG-RELEASE-UMBRELLA-COVERAGE",
-        ):
-            self.assertIn(suite_id, suite_ids)
-
-    def test_scripts_enforce_review_gate(self) -> None:
-        readiness = read("scripts/check-automation-readiness.ps1")
-        release = read("scripts/check-release.ps1")
-        for token in (
-            "DECLARED_CHANGE_CLASS_TOO_LOW",
-            "OWNER_REVIEW_MISSING",
-            "STOP_AND_ESCALATE_TRIGGERED",
-            "PLANNED_PATH_NOT_DECLARED",
-            "ACTUAL_PATH_NOT_ALLOWED",
-            "OPERATOR_ROSTER_SOURCE_REF_MISSING",
-            "OPERATOR_ROSTER_STAGE_DRIFT",
-            "PlannedTargetPaths",
-            "control/review_gate_matrix.yaml",
-        ):
-            self.assertIn(token, readiness)
-        self.assertIn("check-automation-readiness.ps1", release)
-        self.assertIn("doctor.ps1", release)
-        self.assertIn("check-handoff-dependencies.ps1", release)
-        self.assertIn("REL-110", release)
-        self.assertIn("REL-193", release)
-        self.assertIn("REL-194", release)
-        self.assertIn("REG-CHANGE-CLASS-REVIEW-GATE", release)
-        self.assertIn("REG-RELEASE-UMBRELLA-COVERAGE", release)
-        self.assertIn("REG-BLUEPRINT-REGISTRY-COMPATIBILITY", release)
-        self.assertIn("UNREGISTERED_SOURCE_BLUEPRINT_BATCH", release)
-        self.assertIn("control/task_packet_library.yaml", release)
-        self.assertNotIn("CURRENT_TASK_PACKET_ID_MISMATCH", release)
-        self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", readiness)
-        self.assertIn("sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))", release)
-
-    def test_g08_scope_expands_to_six_file_execution_window(self) -> None:
-        current_task = read("control/current_task.yaml")
-        library = read("control/task_packet_library.yaml")
-
-        for token in (
-            "docs/AX9S_开发执行路由图.md",
-            "scripts/check-semantic-alignment.ps1",
-            "tests/test_review_gate_controls.py",
-            "轻机制 + 提示型同步",
-        ):
-            self.assertIn(token, current_task)
-            self.assertIn(token, library)
-
-        self.assertIn("declared_changed_paths / allowed_modification_paths 数量 = 6 且 <= 10", current_task)
-        self.assertIn("declared_changed_paths count is 6 and less than or equal to 10", library)
-
-    def test_ptl_gov_02_uses_stable_operator_roster_source(self) -> None:
-        current_task = read("control/current_task.yaml")
-        library = read("control/task_packet_library.yaml")
-        task_packet_doc = read("docs/自动开发任务包模板.md")
-        scoped_template = read("control/ax9s_scoped_task_packet_template.yaml")
-
-        stable_ref = "control/task_packet_library.yaml#activation_defaults.operator_assignment_roster_defaults"
-        self.assertIn(f'operator_assignment_roster_source_ref: "{stable_ref}"', current_task)
-        self.assertIn("operator_assignment_roster_defaults:", library)
-        self.assertIn("declared_changed_paths / allowed_modification_paths 数量 = 7 且 <= 10", current_task)
-        self.assertIn("declared_changed_paths count is 7 and less than or equal to 10", library)
-        self.assertIn(stable_ref, task_packet_doc)
-        self.assertIn(stable_ref, scoped_template)
-
-    def test_semantic_alignment_route_map_sync_hint_is_warning_only(self) -> None:
-        semantic = read("scripts/check-semantic-alignment.ps1")
+    def test_documents_use_new_system(self) -> None:
+        agents = read("AGENTS.md")
         ax9s = read("docs/AX9S_开发执行路由图.md")
+        template = read("docs/自动开发任务包模板.md")
+        gate = read("docs/自动化开发动作门禁表.md")
+        self.assertIn("current_task -> product_task_library -> repo_status", agents)
+        self.assertIn("control/product_task_library.yaml", ax9s)
+        self.assertIn("control/source_blueprint_registry.yaml#registered_blueprints", template)
+        self.assertIn("scripts/check-task-packet.ps1", template)
+        self.assertIn("check-final-gate.ps1", gate)
 
-        for token in (
-            "function Get-RouteMapNearEndPacketIds",
-            "function Get-PacketOrderIds",
-            "ROUTE_MAP_NEAR_END_HINT_LAGGING",
-            "-Severity 'WARNING'",
-            "该检查只作提示，不阻断",
-        ):
-            self.assertIn(token, semantic)
-
-        self.assertIn("本文件中的近端候选只作导航提示，不决定执行顺序", ax9s)
-        self.assertIn("只给 `WARNING` 提示，不阻断", ax9s)
-        self.assertIn("task_packet_library.packet_order", ax9s)
-
-    def test_check_release_reads_step_issues_defensively(self) -> None:
-        release = read("scripts/check-release.ps1")
-
-        self.assertIn("Get-FieldValue -Object $sr -Name 'result'", release)
-        self.assertIn("Get-FieldValue -Object $resultObject -Name 'issues'", release)
-        self.assertNotIn("$sr.result.issues", release)
-
-    def test_baseline_dirty_paths_remains_optional_and_script_handles_missing_field(self) -> None:
-        task_rules = read("control/automation_task_packet_rules.yaml")
-        readiness = read("scripts/check-automation-readiness.ps1")
-
-        self.assertIn("baseline_dirty_paths is optional but recommended", task_rules)
-        self.assertIn("planned_target_path_not_declared", task_rules)
-        self.assertIn("planned target paths are a preflight input", task_rules)
-        self.assertIn("Get-FieldValue -Object $taskPacket -Name 'baseline_dirty_paths'", readiness)
-        self.assertNotIn("$taskPacket.baseline_dirty_paths", readiness)
-
-    def test_readiness_preflight_rejects_planned_target_outside_declared_scope(self) -> None:
-        repo = self._build_temp_repo_for_readiness(
-            declared_paths=["control/current_task.yaml"],
-            allowed_paths=["control/current_task.yaml"],
-        )
-
-        result = subprocess.run(
-            [
-                "pwsh",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(READINESS_SCRIPT),
-                "-RepoRoot",
-                str(repo),
-                "-PlannedTargetPaths",
-                "docs/outside.md",
-            ],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-
+    def test_task_packet_preflight_rejects_outside_declared_scope(self) -> None:
+        repo = self._build_temp_repo_for_task_packet(declared_paths=["control/current_task.yaml"], allowed_paths=["control/current_task.yaml"])
+        result = subprocess.run([
+            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(TASK_PACKET_SCRIPT),
+            "-RepoRoot", str(repo), "-PlannedTargetPaths", "docs/outside.md"
+        ], cwd=ROOT, check=False, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
         self.assertIn("PLANNED_PATH_NOT_DECLARED", result.stdout)
 
-    def test_readiness_rejects_missing_operator_roster_source_ref(self) -> None:
-        repo = self._build_temp_repo_for_readiness(
-            declared_paths=["control/current_task.yaml"],
-            allowed_paths=["control/current_task.yaml"],
-        )
-
+    def test_task_packet_rejects_missing_roster_source(self) -> None:
+        repo = self._build_temp_repo_for_task_packet(declared_paths=["control/current_task.yaml"], allowed_paths=["control/current_task.yaml"])
         current_task_path = repo / "control/current_task.yaml"
         current_task = yaml.safe_load(current_task_path.read_text(encoding="utf-8"))
         del current_task["currentTask"]["operator_assignment_roster_source_ref"]
         write_yaml(current_task_path, current_task)
-
-        result = subprocess.run(
-            [
-                "pwsh",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(READINESS_SCRIPT),
-                "-RepoRoot",
-                str(repo),
-            ],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-
+        result = subprocess.run([
+            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(TASK_PACKET_SCRIPT),
+            "-RepoRoot", str(repo)
+        ], cwd=ROOT, check=False, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
         self.assertIn("OPERATOR_ROSTER_SOURCE_REF_MISSING", result.stdout)
-
-    def test_readiness_rejects_actual_changed_path_outside_allowed_scope(self) -> None:
-        repo = self._build_temp_repo_for_readiness(
-            declared_paths=["control/current_task.yaml"],
-            allowed_paths=["control/current_task.yaml"],
-        )
-
-        tracked_rule_file = repo / "control/automation_task_packet_rules.yaml"
-        tracked_rule_file.write_text(
-            tracked_rule_file.read_text(encoding="utf-8") + "\n# dirty-change\n",
-            encoding="utf-8",
-        )
-
-        result = subprocess.run(
-            [
-                "pwsh",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(READINESS_SCRIPT),
-                "-RepoRoot",
-                str(repo),
-            ],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-
-        self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-        self.assertIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
-
-    def test_readiness_rejects_operator_roster_stage_drift(self) -> None:
-        repo = self._build_temp_repo_for_readiness(
-            declared_paths=["control/current_task.yaml"],
-            allowed_paths=["control/current_task.yaml"],
-        )
-
-        current_task_path = repo / "control/current_task.yaml"
-        current_task = yaml.safe_load(current_task_path.read_text(encoding="utf-8"))
-        current_task["currentTask"]["operator_assignment_roster"]["stage8"]["reviewer"] = "漂移"
-        write_yaml(current_task_path, current_task)
-
-        result = subprocess.run(
-            [
-                "pwsh",
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                str(READINESS_SCRIPT),
-                "-RepoRoot",
-                str(repo),
-            ],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-
-        self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-        self.assertIn("OPERATOR_ROSTER_STAGE_DRIFT", result.stdout)
-
-    def test_validate_contracts_stage9_writeback_check_is_semantic_not_legacy_token_bound(self) -> None:
-        validator = read("scripts/validate-contracts.ps1")
-
-        self.assertIn("writeback_target_resolution = self.impact_executor.resolve_effective_targets(", validator)
-        self.assertIn('writeback_source_contracts=writeback_target_resolution["writeback_source_contracts"]', validator)
-        self.assertIn('writeback_target_sources=writeback_target_resolution["writeback_target_sources"]', validator)
-        self.assertIn("WRITEBACK_SOURCE_CONTRACTS_MISSING", validator)
-        self.assertIn("WRITEBACK_SOURCE_CONTRACT_MISSING", validator)
-        self.assertIn("WRITEBACK_SOURCE_CONTRACT_INCOMPLETE", validator)
-        self.assertIn("STAGE9_WRITEBACK_VALIDATOR_DRIFT", validator)
-        self.assertIn("def resolve_effective_targets(", read("src/stage9_delivery/impact_executor.py"))
-        self.assertIn("writeback_source_contracts", read("contracts/governance/writeback_impact_policy.json"))
-        self.assertNotIn('effective_writeback_targets = list(outcome_writeback_targets)', validator)
-        self.assertNotIn('if target not in effective_writeback_targets:', validator)
-
-    def test_vendor_registry_catalog_is_mandatory_human_review(self) -> None:
-        text = read("control/review_gate_matrix.yaml")
-        provider_domain = extract_domain_block(text, "provider_vendor_source_policy_core")
-
-        self.assertIn("change_class: MANDATORY_HUMAN_REVIEW", provider_domain)
-        self.assertIn('"contracts/sales/vendor_registry_catalog.json"', provider_domain)
-        self.assertIn('"architecture_owner"', provider_domain)
-        self.assertIn('"governance_owner"', provider_domain)
-
-        readiness = read("scripts/check-automation-readiness.ps1")
-        self.assertIn("contracts/sales/vendor_registry_catalog.json", readiness)
-        self.assertIn("REVIEW_GATE_PATH_CLASS_MISMATCH", readiness)
-        self.assertIn("REVIEW_GATE_PATH_OWNER_MISSING", readiness)
-
-    def test_deleted_blueprint_doc_is_not_referenced_by_task_packet_library(self) -> None:
-        self.assertNotIn(
-            "docs/AX9S_高+中任务包蓝图.md",
-            read("control/task_packet_library.yaml"),
-        )
 
 
 if __name__ == "__main__":

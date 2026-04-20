@@ -97,8 +97,9 @@ global_required_scripts:
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-governance-contracts.ps1
-  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+  - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
 notes:
   - "This plan is a control asset for stable execution ordering; it does not change current repo readiness by itself."
   - "B0-B10 under control/task_packets are batch blueprints, not direct current_task activation payloads."
   - "New windows must read this plan together with the selected batch blueprint, the scoped subpacket template, and the status ledger."
+

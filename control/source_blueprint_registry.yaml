@@ -1,0 +1,138 @@
+version: 1
+registry_id: PRODUCT_SOURCE_BLUEPRINT_REGISTRY
+role: formal_source_blueprint_allowlist
+status: EFFECTIVE
+owner: automation_owner
+validation_consumer: scripts/check-task-packet.ps1
+validation_field: control/current_task.yaml#currentTask.task_packet.source_blueprint_batch_id
+notes:
+  - Product development no longer depends on control/task_packet_library.yaml for source blueprint validation.
+registered_blueprints:
+  - blueprint_id: B0
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Semantic Source And Gate Baseline
+  - blueprint_id: B1
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Stage1-2 Authoritative Baseline Closure
+  - blueprint_id: B2
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Stage3 Truth Layer Closure
+  - blueprint_id: B3
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Stage4-6 Verification Review Report Supplement Closure
+  - blueprint_id: B4
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Stage7 Commercial Object Closure
+  - blueprint_id: B5
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Stage8 Contact Orchestration Closure
+  - blueprint_id: B6
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Stage9 Durable Workflow And Feedback Closure
+  - blueprint_id: B7
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Capability Opening Strategy Convergence
+  - blueprint_id: B8
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Persistence Surface And Workbench Convergence
+  - blueprint_id: B9
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Provider Vendor Adapter Reservation And Shadow Expansion
+  - blueprint_id: B10
+    family: legacy_full_repair
+    compatibility: historical-compatible
+    description: Full Chain Hardening And Release Readiness
+  - blueprint_id: FF-01
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 01
+  - blueprint_id: FF-02
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 02
+  - blueprint_id: FF-03
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 03
+  - blueprint_id: FF-04
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 04
+  - blueprint_id: FF-05
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 05
+  - blueprint_id: FF-06
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 06
+  - blueprint_id: FF-07
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 07
+  - blueprint_id: FF-08
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 08
+  - blueprint_id: FF-09
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 09
+  - blueprint_id: FF-10
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 10
+  - blueprint_id: FF-11
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 11
+  - blueprint_id: FF-12
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 12
+  - blueprint_id: FF-13
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 13
+  - blueprint_id: FF-14
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 14
+  - blueprint_id: FF-15
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 15
+  - blueprint_id: FF-16
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 16
+  - blueprint_id: FF-17
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 17
+  - blueprint_id: FF-18
+    family: full_fix_mainline
+    compatibility: active-compatible
+    description: Full-fix mainline packet 18
+  - blueprint_id: POST-FF-CONTROL-01
+    family: post_ff_control
+    compatibility: active-compatible
+    description: Post-FF control modernization blueprint
+  - blueprint_id: POST-FF-REPORT-01
+    family: post_ff_report
+    compatibility: active-compatible
+    description: Post-FF reporting blueprint
+  - blueprint_id: POST-FF-GIT-01
+    family: post_ff_git
+    compatibility: active-compatible
+    description: Post-FF git consolidation blueprint

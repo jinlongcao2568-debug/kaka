@@ -11,7 +11,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / "scripts" / "check-automation-readiness.ps1"
+SCRIPT = ROOT / "scripts" / "check-task-packet.ps1"
 COPIED_FIXTURES = (
     "docs/自动化开发动作门禁表.md",
     "control/automation_action_matrix.yaml",
@@ -19,6 +19,8 @@ COPIED_FIXTURES = (
     "control/automation_task_packet_rules.yaml",
     "control/review_gate_matrix.yaml",
     "control/owners.yaml",
+    "control/source_blueprint_registry.yaml",
+    "control/operator_assignment_roster_defaults.yaml",
 )
 
 
@@ -99,12 +101,12 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                     ],
                     "declared_changed_paths": [
                         "control/current_task.yaml",
-                        "scripts/check-automation-readiness.ps1",
+                        "scripts/check-task-packet.ps1",
                         "tests/test_check_automation_readiness_unicode_paths.py",
                     ],
                     "allowed_modification_paths": [
                         "control/current_task.yaml",
-                        "scripts/check-automation-readiness.ps1",
+                        "scripts/check-task-packet.ps1",
                         "tests/test_check_automation_readiness_unicode_paths.py",
                     ],
                     "forbidden_modification_paths": [
@@ -118,12 +120,12 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                         "control": ["control/current_task.yaml"],
                         "contracts": [],
                         "handoff": [],
-                        "scripts": ["scripts/check-automation-readiness.ps1"],
+                    "scripts": ["scripts/check-task-packet.ps1"],
                         "tests": ["tests/test_check_automation_readiness_unicode_paths.py"],
                         "code": [],
                     },
                     "required_scripts": [
-                        "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1",
+                        "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1",
                         "python tests/run_tests.py",
                     ],
                     "stop_conditions": [
@@ -147,7 +149,14 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                         "signoff_required": True,
                         "signoff_status": "REQUESTED_NOT_APPROVED",
                     },
+                    "notes": [
+                        "current_task -> product_task_library -> repo_status",
+                    ],
                 },
+                "operator_assignment_roster_source_ref": "control/operator_assignment_roster_defaults.yaml#defaults",
+                "operator_assignment_roster": yaml.safe_load(
+                    (repo / "control/operator_assignment_roster_defaults.yaml").read_text(encoding="utf-8")
+                )["defaults"],
             },
         }
         if baseline_dirty_paths is not None:
@@ -157,6 +166,21 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                 dirty_relative_path
             )
         write_yaml(repo / "control/current_task.yaml", current_task)
+        write_yaml(
+            repo / "control/product_task_library.yaml",
+            {
+                "version": 1,
+                "role": "product_mainline_task_source",
+                "source_priority": {
+                    "active_execution_source": "control/current_task.yaml",
+                    "product_mainline_task_pool": "control/product_task_library.yaml",
+                },
+            },
+        )
+        (repo / "control/repo_status.md").write_text(
+            "Current Workstream: TEST\ncurrent_task -> product_task_library -> repo_status\n",
+            encoding="utf-8",
+        )
 
         run(["git", "init"], cwd=repo)
         run(["git", "config", "user.name", "Codex Test"], cwd=repo)
@@ -211,7 +235,7 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                 """
             ),
         )
-        self.assertIn("[check-automation-readiness] PASS", result.stdout)
+        self.assertIn("[check-task-packet] PASS", result.stdout)
         self.assertNotIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
 
     def test_script_treats_missing_baseline_dirty_paths_as_empty_array(self) -> None:
@@ -248,7 +272,7 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                 """
             ),
         )
-        self.assertIn("[check-automation-readiness] PASS", result.stdout)
+        self.assertIn("[check-task-packet] PASS", result.stdout)
         self.assertNotIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
 
     def test_script_ignores_tracked_python_cache_and_respects_baseline_dirty_paths(self) -> None:
@@ -297,7 +321,7 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                 """
             ),
         )
-        self.assertIn("[check-automation-readiness] PASS", result.stdout)
+        self.assertIn("[check-task-packet] PASS", result.stdout)
         self.assertNotIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
 
     def test_script_python_yaml_fallback_keeps_unicode_baseline_paths(self) -> None:
@@ -339,7 +363,7 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                 """
             ),
         )
-        self.assertIn("[check-automation-readiness] PASS", result.stdout)
+        self.assertIn("[check-task-packet] PASS", result.stdout)
         self.assertNotIn("ACTUAL_PATH_NOT_ALLOWED", result.stdout)
 
 

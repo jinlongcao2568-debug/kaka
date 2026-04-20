@@ -72,7 +72,7 @@
 - 完成一轮骨架生成后必须停下汇报。
 - 完成一轮 enum 冻结补表后必须停下汇报。
 - 完成一轮 handoff/schema 批量生成后必须停下汇报。
-- 运行 `validate-contracts` / `run-golden` / `run-governance-contracts` / `check-release` 后必须停下汇报。
+- 运行 `validate-contracts` / `run-golden` / `run-governance-contracts` / `check-final-gate` 后必须停下汇报。
 
 **Human Confirmation Gates**
 - 新枚举集合、新对象、新 release gate、新 exception 语义。
@@ -82,7 +82,7 @@
 - 任何对外承诺、上线或外发动作。
 
 **Validation and Script Rules**
-- 正式校验入口：`scripts/validate-contracts.ps1`、`scripts/run-golden.ps1`、`scripts/run-governance-contracts.ps1`、`scripts/check-release.ps1`。
+- 正式校验入口：`scripts/validate-contracts.ps1`、`scripts/run-golden.ps1`、`scripts/run-governance-contracts.ps1`、`scripts/check-task-packet.ps1`、`scripts/check-state-alignment.ps1`、`scripts/check-final-gate.ps1`。
 - 执行方式（统一）：`pwsh -NoProfile -ExecutionPolicy Bypass -File <script.ps1>`。
 - 文件存在不等于通过；以真实执行结果为准。
 - 脚本失败必须报告根因，不得绕过。
@@ -90,11 +90,13 @@
 **Current Execution Conventions**
 - 当前产品开发小包模式固定按以下口径执行：
   1. `control/current_task.yaml`：锁定当前 active task / scoped subpacket，是唯一当前执行源。
-  2. `control/task_packet_library.yaml`：只用于选择下一包或候选包，不替代当前执行源，也不决定当前执行顺序。
-  3. `control/repo_status.md`、`control/milestone_status.yaml`：当前 phase / readiness / 状态维度真源。
-  4. `docs/AX9S_开发执行路由图.md`：只负责导航，不决定当前执行顺序，也不是状态源、裁决源、执行日志或完整 backlog。
-- 历史蓝图、历史修复包与历史语汇（如 `R5 / R6 / Post-R6`）不得作为当前任务来源；它们只允许保留在历史 / 决策 / 状态资产中。
-- 若测试断言与当前主线路线图正文定位冲突，优先调整测试到正确的历史 / 决策资产，不得为迁就旧断言而把历史语义重新写回当前主线正文。
+  2. `control/product_task_library.yaml`：只用于选择下一包或候选包，不替代当前执行源，也不决定当前执行顺序。
+  3. `control/source_blueprint_registry.yaml`：唯一 source blueprint allowlist。
+  4. `control/operator_assignment_roster_defaults.yaml`：stage7 / stage8 / stage9 operator roster 稳定来源。
+  5. `control/repo_status.md`、`control/milestone_status.yaml`：当前 phase / readiness / 状态维度真源。
+  6. `docs/AX9S_开发执行路由图.md`：只负责导航，不决定当前执行顺序，也不是状态源、裁决源、执行日志或完整 backlog。
+- 历史蓝图、历史修复包与历史语汇（如 `R5 / R6 / Post-R6`）不得作为当前任务来源；它们只允许保留在历史 / 决策 / 状态资产中。旧 `control/task_packet_library.yaml` 已退场，不再作为当前系统依赖源。
+- 若测试断言与当前主线路线图正文定位冲突，优先调整测试到正确的历史 / 决策资产，不得为迁就旧断言而把历史语义重新写回当前主线正文。当前 active source 优先级固定为 `current_task -> product_task_library -> repo_status`。
 - 默认提交行为：
   - 当前 scoped subpacket 的 required scripts 全绿，且仅修改允许范围内文件时，默认允许执行本地 git commit。
   - 提交前必须排除：`报告*.md`、`__pycache__/`、`*.pyc`、`.pytest_cache/`。
@@ -113,3 +115,4 @@
   4. 当前阻断项
   5. 是否建议进入下一步
   6. 若不建议，最小补齐路径
+
