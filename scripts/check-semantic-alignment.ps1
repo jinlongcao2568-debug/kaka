@@ -78,6 +78,13 @@ function Set-Equals {
     return (@(Compare-Object -ReferenceObject $Expected -DifferenceObject $Actual).Count -eq 0)
 }
 
+function Test-RelativeAssetPath {
+    param([string]$RelativePath)
+
+    if ([string]::IsNullOrWhiteSpace($RelativePath)) { return $false }
+    return (Test-Path -LiteralPath (Join-Path $root $RelativePath))
+}
+
 function Get-FormalDecisionIds {
     param(
         [string]$Text,
@@ -757,6 +764,14 @@ $currentTaskPacketId = Get-RegexValue -Text $currentTaskText -Pattern '^\s+packe
 $currentTaskSubpacketId = Get-RegexValue -Text $currentTaskText -Pattern '^\s+subpacket_id:\s*"([^"]+)"'
 $repoWorkstream = Get-RegexValue -Text $repoStatusText -Pattern '^Current Workstream:\s*(.+)$'
 $statusBoardReason = Get-RegexValue -Text $statusBoardText -Pattern '^- 主要原因：(.+)$'
+$boardCandidateGap = Get-RegexValue -Text $statusBoardText -Pattern '^- 当前是否 candidate-gap：`([^`]+)`'
+$boardStrategicBranch = Get-RegexValue -Text $statusBoardText -Pattern '^- 当前是否 strategic-branch：`([^`]+)`'
+$boardClosureReview = Get-RegexValue -Text $statusBoardText -Pattern '^- 当前 closure review：`([^`]+)`'
+$boardMainlineSelection = Get-RegexValue -Text $statusBoardText -Pattern '^- 当前 mainline selection：`([^`]+)`'
+$launchCandidateGap = Get-RegexValue -Text $launchAdjudicationText -Pattern '^- 当前是否 candidate-gap：`([^`]+)`'
+$launchStrategicBranch = Get-RegexValue -Text $launchAdjudicationText -Pattern '^- 当前是否 strategic-branch：`([^`]+)`'
+$launchClosureReview = Get-RegexValue -Text $launchAdjudicationText -Pattern '^- 当前 closure review：`([^`]+)`'
+$launchMainlineSelection = Get-RegexValue -Text $launchAdjudicationText -Pattern '^- 当前 mainline selection：`([^`]+)`'
 $taskPacketLibrarySource = Get-RegexValue -Text $taskPacketLibraryText -Pattern '^\s*formal_task_packet_source:\s*(.+)$'
 $canonicalReadiness = 'READY_FOR_POST-REPAIR_MAINLINE_SELECTION'
 $legacyBatchTokens = @('FINAL_BLOCKERS_P01_P06', 'P-01~P-06', 'FR-01~FR-05')
@@ -829,6 +844,31 @@ else {
     }
 }
 
+if (-not $statusBoardReason) {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STATUS_BOARD_REASON_MISSING' -Message '状态板 must declare the main reason for the current active packet.' -Path 'docs/文档与资产状态板.md'
+}
+elseif ($statusBoardReason -match 'AUTHORITY[-_ ]CONVERGENCE|CLOSEOUT|ADMIN') {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'STATUS_BOARD_REASON_STALE' -Message '状态板主要原因 must not remain on legacy closeout/admin wording.' -Path 'docs/文档与资产状态板.md'
+}
+
+foreach ($layeredDocState in @(
+    @{ path = 'docs/文档与资产状态板.md'; field = 'candidate-gap'; actual = $boardCandidateGap; expected = '否' },
+    @{ path = 'docs/文档与资产状态板.md'; field = 'strategic-branch'; actual = $boardStrategicBranch; expected = '否' },
+    @{ path = 'docs/文档与资产状态板.md'; field = 'closure review'; actual = $boardClosureReview; expected = '已关闭' },
+    @{ path = 'docs/文档与资产状态板.md'; field = 'mainline selection'; actual = $boardMainlineSelection; expected = '就绪' },
+    @{ path = 'docs/正式业务代码开发开工裁决页.md'; field = 'candidate-gap'; actual = $launchCandidateGap; expected = '否' },
+    @{ path = 'docs/正式业务代码开发开工裁决页.md'; field = 'strategic-branch'; actual = $launchStrategicBranch; expected = '否' },
+    @{ path = 'docs/正式业务代码开发开工裁决页.md'; field = 'closure review'; actual = $launchClosureReview; expected = '已关闭' },
+    @{ path = 'docs/正式业务代码开发开工裁决页.md'; field = 'mainline selection'; actual = $launchMainlineSelection; expected = '就绪' }
+)) {
+    if (-not $layeredDocState.actual) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'LAYERED_STATE_DOC_VALUE_MISSING' -Message "$($layeredDocState.field) value is missing." -Path $layeredDocState.path
+    }
+    elseif ($layeredDocState.actual -ne $layeredDocState.expected) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'LAYERED_STATE_DOC_VALUE_DRIFT' -Message "$($layeredDocState.field) must be $($layeredDocState.expected). Actual: $($layeredDocState.actual)" -Path $layeredDocState.path
+    }
+}
+
 $layeredStateSpecs = @(
     @{ name = 'candidate_gap_active'; expected = 'false' },
     @{ name = 'strategic_branch_active'; expected = 'false' },
@@ -857,15 +897,7 @@ foreach ($docExpectation in @(
     @{ path = 'control/repo_status.md'; text = $repoStatusText; token = 'Strategic Branch Active: false' },
     @{ path = 'control/repo_status.md'; text = $repoStatusText; token = 'Closure Review Active: false' },
     @{ path = 'control/repo_status.md'; text = $repoStatusText; token = 'Closure Review Completed: true' },
-    @{ path = 'control/repo_status.md'; text = $repoStatusText; token = 'Mainline Selection Ready: true' },
-    @{ path = 'docs/文档与资产状态板.md'; text = $statusBoardText; token = '当前是否 candidate-gap：`否`' },
-    @{ path = 'docs/文档与资产状态板.md'; text = $statusBoardText; token = '当前是否 strategic-branch：`否`' },
-    @{ path = 'docs/文档与资产状态板.md'; text = $statusBoardText; token = '当前 closure review：`已关闭`' },
-    @{ path = 'docs/文档与资产状态板.md'; text = $statusBoardText; token = '当前 mainline selection：`就绪`' },
-    @{ path = 'docs/正式业务代码开发开工裁决页.md'; text = $launchAdjudicationText; token = '当前是否 candidate-gap：`否`' },
-    @{ path = 'docs/正式业务代码开发开工裁决页.md'; text = $launchAdjudicationText; token = '当前是否 strategic-branch：`否`' },
-    @{ path = 'docs/正式业务代码开发开工裁决页.md'; text = $launchAdjudicationText; token = '当前 closure review：`已关闭`' },
-    @{ path = 'docs/正式业务代码开发开工裁决页.md'; text = $launchAdjudicationText; token = '当前 mainline selection：`就绪`' }
+    @{ path = 'control/repo_status.md'; text = $repoStatusText; token = 'Mainline Selection Ready: true' }
 )) {
     if (-not $docExpectation.text.Contains($docExpectation.token)) {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'LAYERED_STATE_DOC_TEXT_MISSING' -Message "Missing layered-state token: $($docExpectation.token)" -Path $docExpectation.path
@@ -976,6 +1008,9 @@ else {
             if ($actualValue -ne $entry.Value) {
                 Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_FORMAL_DOC_DRIFT' -Message "reference_index formalDocs.$($entry.Key) must equal $($entry.Value)." -Path 'control/reference_index.json'
             }
+            elseif (-not (Test-RelativeAssetPath -RelativePath $actualValue)) {
+                Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_FORMAL_DOC_PATH_MISSING' -Message "reference_index formalDocs.$($entry.Key) path does not exist: $actualValue" -Path 'control/reference_index.json'
+            }
         }
     }
 
@@ -997,6 +1032,9 @@ else {
             if ($actualValue -ne $entry.Value) {
                 Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_SUPPORT_DOC_DRIFT' -Message "reference_index formalSupportDocs.$($entry.Key) must equal $($entry.Value)." -Path 'control/reference_index.json'
             }
+            elseif (-not (Test-RelativeAssetPath -RelativePath $actualValue)) {
+                Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_SUPPORT_DOC_PATH_MISSING' -Message "reference_index formalSupportDocs.$($entry.Key) path does not exist: $actualValue" -Path 'control/reference_index.json'
+            }
         }
     }
 
@@ -1011,6 +1049,9 @@ else {
         else {
             if ([string]$executionRouteMap.path -ne 'docs/AX9S_开发执行路由图.md') {
                 Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_NAV_ASSET_DRIFT' -Message 'executionRouteMap.path must equal docs/AX9S_开发执行路由图.md.' -Path 'control/reference_index.json'
+            }
+            elseif (-not (Test-RelativeAssetPath -RelativePath ([string]$executionRouteMap.path))) {
+                Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_NAV_ASSET_PATH_MISSING' -Message "executionRouteMap.path does not exist: $([string]$executionRouteMap.path)" -Path 'control/reference_index.json'
             }
             if ([string]$executionRouteMap.assetRole -ne 'candidate navigation asset') {
                 Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_NAV_ASSET_DRIFT' -Message 'executionRouteMap.assetRole must be candidate navigation asset.' -Path 'control/reference_index.json'
@@ -1043,9 +1084,35 @@ else {
             if ($actualValue -ne $entry.Value) {
                 Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_STATUS_SOURCE_DRIFT' -Message "reference_index formalStatusSources.$($entry.Key) must equal $($entry.Value)." -Path 'control/reference_index.json'
             }
+            elseif (-not (Test-RelativeAssetPath -RelativePath $actualValue)) {
+                Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_STATUS_SOURCE_PATH_MISSING' -Message "reference_index formalStatusSources.$($entry.Key) path does not exist: $actualValue" -Path 'control/reference_index.json'
+            }
         }
         if ($formalStatusSources.PSObject.Properties.Name -contains 'futureUnlockDecisionState') {
             Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_STATUS_SOURCE_DRIFT' -Message 'futureUnlockDecisionState must not remain in formalStatusSources after post-repair authority convergence.' -Path 'control/reference_index.json'
+        }
+    }
+
+    if (-not ($referenceIndex.PSObject.Properties.Name -contains 'stateSyncSemantics')) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_SECTION_MISSING' -Message 'reference_index.json must define stateSyncSemantics.' -Path 'control/reference_index.json'
+    }
+    else {
+        $stateSyncSemantics = $referenceIndex.stateSyncSemantics
+        $expectedStateSyncSemantics = @{
+            canonicalReadiness = 'READY_FOR_POST-REPAIR_MAINLINE_SELECTION'
+            conditionalGoScope = 'READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT'
+            launchAdjudicationRole = 'conditional-go scope only'
+            futureUnlockStateRole = 'historical decision snapshot only'
+            routeMapRole = 'navigation only'
+        }
+        foreach ($entry in $expectedStateSyncSemantics.GetEnumerator()) {
+            $actualValue = $null
+            if ($stateSyncSemantics.PSObject.Properties.Name -contains $entry.Key) {
+                $actualValue = [string]$stateSyncSemantics.($entry.Key)
+            }
+            if ($actualValue -ne $entry.Value) {
+                Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REFERENCE_INDEX_STATE_SYNC_SEMANTICS_DRIFT' -Message "reference_index stateSyncSemantics.$($entry.Key) must equal $($entry.Value)." -Path 'control/reference_index.json'
+            }
         }
     }
 }
@@ -1059,8 +1126,12 @@ if (-not $launchAdjudicationText.Contains('READY_FOR_INTERNAL_LEADOPS_DEVELOPMEN
 if (-not $launchAdjudicationText.Contains($canonicalReadiness)) {
     Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'LAUNCH_ADJUDICATION_SCOPE_NOTE_MISSING' -Message "开工裁决页 must acknowledge $canonicalReadiness scope." -Path 'docs/正式业务代码开发开工裁决页.md'
 }
-if (-not ($launchAdjudicationText -match '作用域说明[\s\S]*READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT[\s\S]*READY_FOR_POST-REPAIR_MAINLINE_SELECTION[\s\S]*不冲突')) {
-    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'LAUNCH_ADJUDICATION_SCOPE_NOTE_DRIFT' -Message '开工裁决页 scope note must explain that internal development go/no-go and post-repair mainline-selection readiness have different, non-conflicting scopes.' -Path 'docs/正式业务代码开发开工裁决页.md'
+if (
+    (-not ($launchAdjudicationText -match '作用域说明[\s\S]*READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT')) -or
+    (-not ($launchAdjudicationText -match '作用域说明[\s\S]*READY_FOR_POST-REPAIR_MAINLINE_SELECTION')) -or
+    (-not ($launchAdjudicationText -match '作用域说明[\s\S]*(作用域不同|不同作用域|不冲突)'))
+) {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'LAUNCH_ADJUDICATION_SCOPE_NOTE_DRIFT' -Message '开工裁决页 scope note must explain that internal development conditional-go and post-repair mainline-selection readiness are different scopes.' -Path 'docs/正式业务代码开发开工裁决页.md'
 }
 
 # FR-04B: capability_mode matrix alignment

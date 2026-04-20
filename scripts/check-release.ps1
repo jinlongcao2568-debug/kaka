@@ -157,8 +157,8 @@ $root = Resolve-RepoRoot -Provided $RepoRoot
 $scriptDir = Split-Path -Parent $PSCommandPath
 $steps = @(
     'doctor.ps1',
-    'validate-contracts.ps1',
     'check-automation-readiness.ps1',
+    'validate-contracts.ps1',
     'check-semantic-alignment.ps1',
     'run-golden.ps1',
     'run-governance-contracts.ps1',

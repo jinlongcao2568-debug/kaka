@@ -156,11 +156,8 @@ currentTask:
       - "scripts/check-semantic-alignment.ps1"
       - "scripts/check-release.ps1"
       - "docs/文档与资产状态板.md"
-      - "docs/正式业务代码开发开工裁决页.md"
       - "contracts/testing/regression_manifest.json"
       - "contracts/testing/release_checklist.json"
-      - "tests/test_review_gate_controls.py"
-      - "tests/test_post_repair_state_sync.py"
     baseline_dirty_paths:
       - "\"1-2-3  总结论+全部修复方案.md\""
     allowed_modification_paths:
@@ -170,11 +167,8 @@ currentTask:
       - "scripts/check-semantic-alignment.ps1"
       - "scripts/check-release.ps1"
       - "docs/文档与资产状态板.md"
-      - "docs/正式业务代码开发开工裁决页.md"
       - "contracts/testing/regression_manifest.json"
       - "contracts/testing/release_checklist.json"
-      - "tests/test_review_gate_controls.py"
-      - "tests/test_post_repair_state_sync.py"
     forbidden_modification_paths:
       - "docs/AX9S_开发执行路由图.md"
       - "docs/L0.md"
@@ -191,7 +185,6 @@ currentTask:
     impacted_assets:
       docs:
         - "docs/文档与资产状态板.md"
-        - "docs/正式业务代码开发开工裁决页.md"
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
@@ -200,9 +193,7 @@ currentTask:
       scripts:
         - "scripts/check-semantic-alignment.ps1"
         - "scripts/check-release.ps1"
-      tests:
-        - "tests/test_review_gate_controls.py"
-        - "tests/test_post_repair_state_sync.py"
+      tests: []
       contracts:
         - "contracts/testing/regression_manifest.json"
         - "contracts/testing/release_checklist.json"
@@ -210,7 +201,6 @@ currentTask:
     required_scripts:
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/doctor.ps1"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-semantic-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1"
@@ -252,6 +242,7 @@ currentTask:
     notes:
       - "backlog_packet_ref=PKT-P0-08-formal-route-map-split"
       - "source_blueprint_batch_id=PKT-P0-08-formal-route-map-split"
+      - "depends_on=PKT-P0-08-formal-route-map-split 视为已满足：该蓝图已在 task_packet_library 注册，且 repo_status/current_task/milestone_status 已同步到 READY_FOR_POST-REPAIR_MAINLINE_SELECTION + CONTROLLED_ROUTE_MAP_RESTORED，本包只承接其 control closeout。"
       - "当前任务选择优先级固定为 current_task -> task_packet_library -> repo_status。"
       - "docs/AX9S_开发执行路由图.md 只负责导航，不是状态源、裁决源、执行日志或完整 backlog。"
       - "治理包收口后才允许进入正式业务包；本轮不自动切换业务包。"

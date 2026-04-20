@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PKT-P0-08-S6-control-foundation-full-fix (control/script/index/release-umbrella alignment only; no repo readiness change, no formal business implementation)
+Current Workstream: PKT-P0-08-S6-control-foundation-full-fix (active control root-cause execution only: active-task semantics, semantic-alignment invariants, reference_index path sync, release umbrella coverage; no repo readiness change, no formal business implementation)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -52,7 +52,7 @@ State Semantics:
 - docs_layer=EFFECTIVE means the current formal document package is the active reference set; it does not imply every individual D document has been promoted from DRAFT to EFFECTIVE.
 - docs/AX9S_开发执行路由图.md is a controlled route-map navigation asset; it remains a candidate navigation asset in the machine-readable index and now carries only the current formal stage1-9 route, while historical repair/future-unlock navigation stays separated.
 
-Script Check Summary (2026-04-19 route-map readiness remediation rerun):
+Script Check Summary (2026-04-20 control foundation full-fix execution):
 - doctor.ps1: PASS
 - check-automation-readiness.ps1: PASS (`MANDATORY_HUMAN_REVIEW`)
 - check-semantic-alignment.ps1: PASS

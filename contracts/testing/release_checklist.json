@@ -1,10 +1,10 @@
 {
   "registry_id": "release-checklist",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "metadata": {
     "package_name": "testing package round 1",
     "status": "DRAFT",
-    "generated_at": "2026-04-19",
+    "generated_at": "2026-04-20",
     "machine_path": "contracts/testing/release_checklist.json",
     "scope": "release readiness checklist for internal operations and leadpack delivery",
     "source_documents": [
@@ -1184,7 +1184,7 @@
       "items": [
         {
           "itemId": "REL-164",
-          "text": "repo_status/current_task/milestone/status_board/opening_decision_page/release_manifest/model_release_manifest all carry the same canonical readiness token READY_FOR_POST-REPAIR_MAINLINE_SELECTION.",
+          "text": "repo_status/current_task/milestone/status_board/opening_decision_page/release_manifest/model_release_manifest all carry the same canonical readiness token READY_FOR_POST-REPAIR_MAINLINE_SELECTION, while the opening decision page remains conditional-go scope only.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-E"
@@ -1192,7 +1192,7 @@
         },
         {
           "itemId": "REL-165",
-          "text": "candidate-gap/strategic-branch/closure-review/mainline-selection are expressed as layered state dimensions; none of the first three may remain the current repo readiness token.",
+          "text": "candidate-gap/strategic-branch/closure-review/mainline-selection are expressed as layered state dimensions; none of the first three may remain the current repo readiness token, and reference_index formal/support/status/nav paths must stay on current real assets.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-E"
@@ -1469,7 +1469,7 @@
         },
         {
           "itemId": "REL-193",
-          "text": "check-release.ps1 must include doctor.ps1 as the umbrella preflight, so runtime/tooling/repo-root prerequisites are checked before the release entrypoint can pass.",
+          "text": "check-release.ps1 must include doctor.ps1 as the first umbrella preflight, so runtime/tooling/repo-root prerequisites are checked before the release entrypoint can pass.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-A",
@@ -1478,7 +1478,7 @@
         },
         {
           "itemId": "REL-194",
-          "text": "check-release.ps1 must include check-handoff-dependencies.ps1 in the same umbrella flow, so handoff dependency order, root assets and required files remain release-blocking under the total entrypoint.",
+          "text": "check-release.ps1 must include check-handoff-dependencies.ps1 in the same umbrella flow before final pass, so handoff dependency order, root assets and required files remain release-blocking under the total entrypoint.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-A",

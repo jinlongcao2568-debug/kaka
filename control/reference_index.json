@@ -1,6 +1,6 @@
 {
   "catalogVersion": "1.0.0",
-  "purpose": "single reference index for current formal assets",
+  "purpose": "single reference index for current formal assets, status sources, and navigation split",
   "formalDocs": {
     "L0": "docs/L0.md",
     "judgmentIndex": "docs/裁决总表.md",
@@ -32,6 +32,13 @@
     "launchAdjudicationScope": "docs/正式业务代码开发开工裁决页.md",
     "releaseManifest": "control/release_manifest.yaml",
     "modelReleaseManifest": "control/model_release_manifest.yaml"
+  },
+  "stateSyncSemantics": {
+    "canonicalReadiness": "READY_FOR_POST-REPAIR_MAINLINE_SELECTION",
+    "conditionalGoScope": "READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT",
+    "launchAdjudicationRole": "conditional-go scope only",
+    "futureUnlockStateRole": "historical decision snapshot only",
+    "routeMapRole": "navigation only"
   },
   "historicalDecisionState": {
     "externalUnlockPrerequisiteState": "control/external_unlock_prerequisite_state.yaml",

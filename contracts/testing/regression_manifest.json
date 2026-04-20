@@ -1,10 +1,10 @@
 {
   "registry_id": "regression-manifest",
-  "version": "0.1.24",
+  "version": "0.1.25",
   "metadata": {
     "package_name": "testing package round 1",
     "status": "DRAFT",
-    "generated_at": "2026-04-19",
+    "generated_at": "2026-04-20",
     "machine_path": "contracts/testing/regression_manifest.json",
     "scope": "minimum regression suites and triggers for pre-code readiness",
     "source_documents": [
@@ -1556,8 +1556,8 @@
       "suite_id": "REG-RELEASE-UMBRELLA-COVERAGE",
       "title": "release umbrella 总入口回归",
       "checks": [
-        "check-release invokes doctor preflight before downstream checks",
-        "check-release invokes check-handoff-dependencies before final pass",
+        "check-release invokes doctor preflight as the first umbrella gate before downstream checks",
+        "check-release invokes check-handoff-dependencies inside the same umbrella flow before final pass",
         "release_checklist carries umbrella doctor/handoff assertions"
       ],
       "triggers": [
@@ -2233,7 +2233,10 @@
       "checks": [
         "repo_status/current_task/milestone/status_board/opening_decision_page/release_manifest/model_release_manifest share the same canonical readiness token",
         "candidate-gap/strategic-branch/closure-review/mainline-selection are tracked as layered state dimensions rather than mixed current readiness tokens",
-        "reference_index formalStatusSources point to the active repo status sources and treat future unlock states as historical decision snapshots"
+        "reference_index formalDocs/formalSupportDocs/formalStatusSources/navigationAssets paths point to current real assets",
+        "reference_index stateSyncSemantics keeps canonicalReadiness, conditionalGoScope, launchAdjudicationRole, futureUnlockStateRole and routeMapRole machine-readable",
+        "reference_index formalStatusSources point to the active repo status sources and treat future unlock states as historical decision snapshots",
+        "semantic alignment derives current packet and launch-scope semantics from parsed state values rather than legacy closeout/admin wording"
       ],
       "triggers": [
         "control/current_task.yaml change",
