@@ -19,8 +19,10 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertEqual(registry["contract_scope"], "stage1_to_stage2_authoritative_source_route_clock_formal_skeleton")
         self.assertEqual(registry["execution_scope"], "scoped_execution")
-        self.assertEqual(registry["implementation_boundary"]["mode"], "FORMAL_SKELETON_ONLY")
-        self.assertEqual(registry["implementation_boundary"]["runtime_state"], "NOT_IMPLEMENTED_IN_PACKET")
+        self.assertEqual(registry["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(registry["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
+        self.assertEqual(registry["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(registry, ensure_ascii=False))
         self.assertEqual(authority["producer_stage"], "stage1_tasking")
         self.assertEqual(authority["consumer_stages"], ["stage2_ingestion"])
         self.assertEqual(authority["producer_interface"], "stage1_source_route_extractor")
@@ -53,8 +55,10 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertEqual(catalog["contract_scope"], "stage1_to_stage2_authoritative_source_route_clock_formal_skeleton")
         self.assertEqual(catalog["execution_scope"], "scoped_execution")
-        self.assertEqual(catalog["implementation_boundary"]["mode"], "FORMAL_SKELETON_ONLY")
-        self.assertEqual(catalog["implementation_boundary"]["runtime_state"], "NOT_IMPLEMENTED_IN_PACKET")
+        self.assertEqual(catalog["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(catalog["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
+        self.assertEqual(catalog["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(catalog, ensure_ascii=False))
         self.assertEqual(authority["producer_stage"], "stage1_tasking")
         self.assertEqual(authority["consumer_stages"], ["stage2_ingestion"])
         self.assertEqual(authority["producer_interface"], "stage1_source_route_extractor")
@@ -86,8 +90,10 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertEqual(contract["packet_id"], "PTL-PKT-S12-source-route-clock-authority")
         self.assertEqual(contract["execution_scope"], "scoped_execution")
-        self.assertEqual(contract["implementation_boundary"]["mode"], "FORMAL_SKELETON_ONLY")
-        self.assertEqual(contract["implementation_boundary"]["runtime_state"], "NOT_IMPLEMENTED_IN_PACKET")
+        self.assertEqual(contract["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(contract["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
+        self.assertEqual(contract["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(contract, ensure_ascii=False))
         self.assertEqual(authority["handoff_id"], "H-01-STAGE1-TO-STAGE2")
         self.assertEqual(authority["producer_stage"], "stage1_tasking")
         self.assertEqual(authority["consumer_stage"], "stage2_ingestion")
@@ -111,16 +117,28 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("clock_precedence_rule_id", interfaces["stage1_time_window_extractor"]["owned_fields"])
         self.assertIn("current_action_deadline_at_optional", interfaces["stage1_time_window_extractor"]["owned_fields"])
 
-        self.assertEqual(interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["mode"], "FORMAL_SKELETON_ONLY")
-        self.assertEqual(interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["runtime_state"], "NOT_IMPLEMENTED_IN_PACKET")
+        self.assertEqual(
+            interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["mode"],
+            "FORMAL_SKELETON_SYNC_ONLY",
+        )
+        self.assertEqual(
+            interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["existing_runtime_state"],
+            "PARTIAL_RUNTIME",
+        )
+        self.assertEqual(
+            interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["runtime_change_in_packet"],
+            "OUT_OF_SCOPE",
+        )
 
     def test_h01_contract_freezes_authoritative_fields_without_runtime_fallback(self) -> None:
         handoff = load_json("handoff/stage1_to_stage2/contract.json")
 
         self.assertEqual(handoff["packet_id"], "PTL-PKT-S12-source-route-clock-authority")
         self.assertEqual(handoff["execution_scope"], "scoped_execution")
-        self.assertEqual(handoff["implementation_boundary"]["mode"], "FORMAL_SKELETON_ONLY")
-        self.assertEqual(handoff["implementation_boundary"]["runtime_state"], "NOT_IMPLEMENTED_IN_PACKET")
+        self.assertEqual(handoff["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(handoff["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
+        self.assertEqual(handoff["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(handoff, ensure_ascii=False))
         self.assertEqual(handoff["handoff_id"], "H-01-STAGE1-TO-STAGE2")
         self.assertEqual(handoff["from_stage"], 1)
         self.assertEqual(handoff["to_stage"], 2)
@@ -148,6 +166,9 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertEqual(example["packet_id"], "PTL-PKT-S12-source-route-clock-authority")
         self.assertEqual(example["execution_scope"], "scoped_execution")
+        self.assertEqual(example["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(example["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
+        self.assertEqual(example["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
         for field_name in handoff["required_payload_fields"]:
             self.assertIn(field_name, payload)
         for field_name in (

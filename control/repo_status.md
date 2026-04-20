@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-PKT-S12-source-route-clock-authority (scoped-execution; current window completes the Stage1-2 authoritative source / route / clock formal skeleton, H-01 handoff skeleton, and minimal skeleton assertions only; no real runtime implementation, no next packet, no readiness change, no external release / Stage8 / Stage9 opening)
+Current Workstream: PTL-GOV-103-mainline-reality-alignment (scoped-execution; current window aligns product mainline planning surfaces, AX9S guidance, and Stage1-2 contracts-handoff-tests wording with the existing internal governed runtime; no business runtime changes, no next packet, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,7 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the new controlled development system
-- scoped-execution formal skeleton completion for PTL-PKT-S12-source-route-clock-authority within the declared control / contracts / handoff / tests files
+- scoped-execution reality alignment for PTL-GOV-103-mainline-reality-alignment within the declared control / docs / contracts / handoff / tests files
 - current_task is the unique active execution source
 - product_task_library is the product mainline candidate pool
 - source_blueprint_registry is the source-blueprint allowlist
@@ -40,6 +40,7 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - product_task_library only carries product mainline tasks for future selection and scoped packet derivation.
+- product_task_library existing_code_state / planning_state / runtime_notes describe current code reality only; they do not authorize runtime changes in this packet.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, or complete backlog.

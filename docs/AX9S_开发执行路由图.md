@@ -16,6 +16,14 @@
 - 本图不放开 `external release`，不放开 `Stage 8 real execution`，不放开 `Stage 9 real payment / delivery / refund`。
 - 各阶段保留 1 个最贴近的导航候选 `packet_id`；更集中的近端候选提示统一放在第 3 节。
 
+## 1.1 现实对齐说明
+
+- 本仓库当前不是“从零补 skeleton”的起点，而是已经存在 Stage1-9 的 internal governed runtime。
+- Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
+- Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked / governed / approval-gated。
+- 路线图中的近端提示只说明“当前最值得查看和对齐的主线位置”，不等于“这些阶段还没有任何 runtime”。
+- 近端提示应同时参考 `control/product_task_library.yaml` 的主线顺序、`control/current_task.yaml` 的当前窗口，以及各任务的 `existing_code_state`；不得脱离现状把近端导航误读成 zero-to-one 开发路线。
+
 ## 2. 阶段主链
 
 ## 2.1 Stage 1 任务编排与来源/路由治理
@@ -121,12 +129,13 @@
 
 > 下列候选仅作“下一步可能去哪里看”的导航提示。  
 > 它们不是当前任务源，不决定执行顺序，也不代表完整 backlog。实际选包以 `control/current_task.yaml`、`control/product_task_library.yaml` 为准。  
+> 近端提示应同时结合 `product_task_library` 的任务顺序、`current_task` 当前窗口与对应任务的 `existing_code_state`。  
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
+- `PTL-S12-source-route-clock-authority`：当前 active / current_mainline_next_candidate，对齐 Stage1-2 来源、路由与时钟权威闭合。
+- `PTL-S23-public-chain-to-parser-contract`：最贴近 Stage2-3 公开链到结构化解析输入闭合。
+- `PTL-S34-object-lineage-verification-handoff`：最贴近 Stage3-4 对象 lineage 与公开核验移交闭合。
+- `PTL-S45-rule-evidence-dual-gate`：最贴近 Stage4-5 规则与证据双闸门闭合。
 - `PTL-S56-project-fact-review-report`：最贴近统一事实、复核队列与报告闭合。
-- `PTL-S67-saleable-opportunity-derivation`：最贴近可售机会对象推导与 Stage6-7 主线收口。
-- `PTL-S7-price-competitor-offer-resolution`：最贴近 Stage7 价格、竞争者与推荐方案闭合。
-- `PTL-S78-contact-candidate-compliance-preview`：最贴近 Stage7-8 联系候选、合规判定与预览闭合。
-- `PTL-S89-outreach-writeback-delivery-governance`：最贴近 Stage8-9 触达记录、回写、交付与治理反馈闭合。
 

@@ -12,8 +12,9 @@
   "contract_scope": "stage1_to_stage2_authoritative_source_route_clock_formal_skeleton",
   "execution_scope": "scoped_execution",
   "implementation_boundary": {
-    "mode": "FORMAL_SKELETON_ONLY",
-    "runtime_state": "NOT_IMPLEMENTED_IN_PACKET",
+    "mode": "FORMAL_SKELETON_SYNC_ONLY",
+    "existing_runtime_state": "PARTIAL_RUNTIME",
+    "runtime_change_in_packet": "OUT_OF_SCOPE",
     "external_live_enablement_gate": "BLOCKED_BY_DEFAULT",
     "stage8_stage9_unlock_state": "UNCHANGED_BLOCKED"
   },

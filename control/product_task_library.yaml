@@ -1,6 +1,6 @@
 version: 1
 library_id: PRODUCT_MAINLINE_TASK_LIBRARY
-updated_at: "2026-04-20"
+updated_at: "2026-04-21"
 status: EFFECTIVE
 role: product_mainline_task_source
 library_role: product_mainline_task_source
@@ -68,7 +68,12 @@ current_mainline_next_candidate:
   source_blueprint_batch_id: POST-FF-CONTROL-01
   packet_kind: EXECUTABLE_SCOPED_SUBPACKET
   activation_mode: scoped_execution
-  execution_scope: formal_skeleton_only
+  execution_scope: reality_alignment_only
+  existing_code_state: PARTIAL_RUNTIME
+  existing_runtime_state: PARTIAL_RUNTIME
+  planning_state: REALITY_ALIGNMENT_ACTIVE
+  runtime_change_in_packet: OUT_OF_SCOPE
+  runtime_notes: "Stage1-2 已存在 internal governed partial runtime；当前窗口只对齐 planning / control / contracts / tests wording，不把该主线回写成从零 skeleton。"
 task_count: 11
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -91,6 +96,11 @@ tasks:
     status: ACTIVE
     is_current_mainline_next_candidate: true
     priority: P0
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: PARTIAL_RUNTIME
+    planning_state: REALITY_ALIGNMENT_ACTIVE
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage1-2 authority / route / clock 已存在 internal governed partial runtime；当前对齐包只修 product_task_library、AX9S 与 Stage1-2 contracts-handoff-tests wording，不改业务 runtime。"
     hard_depends_on: []
     soft_depends_on: []
     objective: "闭合 Stage1-2 的来源权威、采集路由、版本链与时钟口径。"
@@ -104,6 +114,11 @@ tasks:
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: PARTIAL_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage2-3 已存在公开链采集到解析入口的 partial runtime；后续主线应先对齐 contract/handoff 与字段来源，再决定是否需要 runtime 收口。"
     hard_depends_on: [PTL-S12-source-route-clock-authority]
     soft_depends_on: []
     objective: "闭合公开链、版本链、固定化输入与结构化解析入口之间的契约。"
@@ -117,6 +132,11 @@ tasks:
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: PARTIAL_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage3-4 已存在对象抽取与公开核验的 partial runtime；规划任务应围绕 lineage / handoff / authority 对齐，而不是回退成零起点开发。"
     hard_depends_on: [PTL-S23-public-chain-to-parser-contract]
     soft_depends_on: []
     objective: "闭合 Stage3 结构化对象、字段来源、lineage 与 Stage4 公开核验入口之间的移交关系。"
@@ -130,6 +150,11 @@ tasks:
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: PARTIAL_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage4-5 双闸门已有 partial runtime；后续任务重点是消费边界与契约收口，不应误写成 formal skeleton only。"
     hard_depends_on: [PTL-S34-object-lineage-verification-handoff]
     soft_depends_on: []
     objective: "闭合 Stage4 输出与 Stage5 规则/证据双闸门之间的正式消费口径。"
@@ -143,6 +168,11 @@ tasks:
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: HEAVY_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage5-6 已有 heavy internal governed runtime；后续主线任务是把 formal contracts / consumption boundary 与现状收平，不是补 skeleton。"
     hard_depends_on: [PTL-S45-rule-evidence-dual-gate]
     soft_depends_on: []
     objective: "闭合 project fact、review queue、report 与后续销售阶段输入之间的关系。"
@@ -156,6 +186,11 @@ tasks:
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: HEAVY_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage6-7 已有 heavy runtime 消费链；后续应按既有 governed runtime 校正文档和契约，不把 Stage7 重新叙述成纯设计态。"
     hard_depends_on: [PTL-S56-project-fact-review-report]
     soft_depends_on: []
     objective: "闭合从 project fact / report / sale gate 到 saleable opportunity 的推导、评分与可售性边界。"
@@ -169,6 +204,11 @@ tasks:
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P0
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: HEAVY_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage7 销售对象、价格归一和推荐方案已有 heavy runtime；规划面需要强调 formal boundary，对外 release 仍未放开。"
     hard_depends_on: [PTL-S67-saleable-opportunity-derivation]
     soft_depends_on: []
     objective: "闭合 Stage7 价格归一、竞争者识别、推荐方案与销售推进字段之间的正式消费边界。"
@@ -182,6 +222,11 @@ tasks:
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P1
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: HEAVY_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage7-8 已有 heavy internal governed runtime，但只限 internal preview / governed path；不应误读成 live outreach execution。"
     hard_depends_on: [PTL-S7-price-competitor-offer-resolution]
     soft_depends_on: [PTL-INT-internal-preview-surface-envelope]
     objective: "闭合联系候选、合规判定、触达预览与内部操作员可见面的消费边界。"
@@ -195,6 +240,11 @@ tasks:
     task_type: product_mainline_closure
     status: CANDIDATE
     priority: P1
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: HEAVY_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "Stage8-9 已有 heavy internal governed runtime，用于 internal record / writeback / governance path；不是 live payment / delivery / refund execution。"
     hard_depends_on: [PTL-S78-contact-candidate-compliance-preview]
     soft_depends_on: [PTL-INT-internal-preview-surface-envelope]
     objective: "闭合触达记录、回写影响、订单/支付/交付占位与治理反馈的内部受控链路。"
@@ -208,6 +258,11 @@ tasks:
     task_type: internal_surface_envelope
     status: CANDIDATE
     priority: P0
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: PARTIAL_RUNTIME
+    planning_state: REALITY_ALIGNMENT_QUEUED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    runtime_notes: "内部预览工作台已有 partial runtime 封装；后续任务应继续约束其只消费正式对象和门禁，而不是扩写成外部客户平台。"
     hard_depends_on: [PTL-S56-project-fact-review-report]
     soft_depends_on: [PTL-S67-saleable-opportunity-derivation, PTL-S7-price-competitor-offer-resolution]
     objective: "为内部预览工作台定义正式对象消费封装，确保 UI/API 只消费正式对象、字段策略、门禁和状态源。"

@@ -3,6 +3,11 @@
   "example_id": "EX-H01-MIN",
   "packet_id": "PTL-PKT-S12-source-route-clock-authority",
   "execution_scope": "scoped_execution",
+  "implementation_boundary": {
+    "mode": "FORMAL_SKELETON_SYNC_ONLY",
+    "existing_runtime_state": "PARTIAL_RUNTIME",
+    "runtime_change_in_packet": "OUT_OF_SCOPE"
+  },
   "payload": {
     "task_id": "TASK-001",
     "region_code": "320500",
