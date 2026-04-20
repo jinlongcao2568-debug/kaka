@@ -6,6 +6,7 @@
 > `control/product_task_library.yaml` 只负责下一候选来源。  
 > 本文件中的近端候选只作导航提示，不决定执行顺序。实际 active 包以 `control/current_task.yaml` 为准；候选池参考 `control/product_task_library.yaml`。  
 > `scripts/check-state-alignment.ps1` 只会对本文件第 3 节与 `product_task_library` 的近端偏移做轻机制提示；若明显落后，只给 `WARNING`，不阻断。  
+> 当 `product_task_completed`、`product_task_blocked`、`product_task_inserted_or_reordered`、`route_map_changed`、`L0_or_D_doc_semantic_change`、`release_or_regression_gap_confirmed`、`every_3_product_tasks_completed`、`manual_planning_review` 这些事件发生时，应主动运行 `scripts/check-state-alignment.ps1` 复核是否需要更新本文件第 3 节的近端导航提示。  
 > 本文件不改写 `L0.md`、`裁决总表.md`、`D1-D14`、`contracts/*`、`handoff/*` 的正式语义。
 
 ## 1. 导航口径
@@ -121,6 +122,7 @@
 > 下列候选仅作“下一步可能去哪里看”的导航提示。  
 > 它们不是当前任务源，不决定执行顺序，也不代表完整 backlog。实际选包以 `control/current_task.yaml`、`control/product_task_library.yaml` 为准。  
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
+> 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
 - `PTL-S56-project-fact-review-report`：最贴近统一事实、复核队列与报告闭合。
 - `PTL-S67-saleable-opportunity-derivation`：最贴近可售机会对象推导与 Stage6-7 主线收口。

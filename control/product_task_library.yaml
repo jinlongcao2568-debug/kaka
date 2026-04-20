@@ -39,13 +39,27 @@ planning_sync_implementation_registration:
   source_task_pool: control/product_task_library.yaml
   target_navigation_asset: docs/AX9S_开发执行路由图.md
   trigger_policy: warning_only
-  implementation_state: NOT_IMPLEMENTED
+  implementation_state: IMPLEMENTED
   is_placeholder: false
   is_formal_implementation_packet: true
   is_active_packet: true
+  update_triggers:
+    - product_task_completed
+    - product_task_blocked
+    - product_task_inserted_or_reordered
+    - route_map_changed
+    - L0_or_D_doc_semantic_change
+    - release_or_regression_gap_confirmed
+    - every_3_product_tasks_completed
+    - manual_planning_review
+  update_policy:
+    mode: suggestion_only
+    requires_human_confirmation: true
+    route_map_sync_scope: near_end_hints_only
+    product_task_pool_scope: candidate_and_ready_tasks_only
   notes:
-    - "本登记替代旧 PTL-GOV-03 placeholder，作为新受控开发系统下的正式后续实现包。"
-    - "当前窗口只做登记与激活，不实现同步逻辑，不修改 AX9S 路线图正文。"
+    - "本登记替代旧 PTL-GOV-03 placeholder，作为新受控开发系统下的正式实现包。"
+    - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 task_count: 11
 tasks:
@@ -53,7 +67,7 @@ tasks:
     title: "product_task_library 与 AX9S 路线图正式同步机制"
     stage_scope: [automation_control, product_navigation_sync]
     task_type: control_governance_implementation
-    status: ACTIVE
+    status: COMPLETED
     priority: P0
     hard_depends_on: []
     soft_depends_on: []

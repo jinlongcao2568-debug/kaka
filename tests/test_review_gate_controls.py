@@ -123,6 +123,16 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertIn("control/source_blueprint_registry.yaml#registered_blueprints", template)
         self.assertIn("scripts/check-task-packet.ps1", template)
         self.assertIn("check-final-gate.ps1", gate)
+        self.assertIn("suggestion-only", ax9s)
+        self.assertIn("manual_planning_review", ax9s)
+
+    def test_product_planning_sync_registration_is_formalized(self) -> None:
+        library = yaml.safe_load(read("control/product_task_library.yaml"))
+        sync = library["planning_sync_implementation_registration"]
+        self.assertEqual(sync["trigger_policy"], "warning_only")
+        self.assertEqual(sync["implementation_state"], "IMPLEMENTED")
+        self.assertTrue(sync["requires_human_confirmation"] if "requires_human_confirmation" in sync else sync["update_policy"]["requires_human_confirmation"])
+        self.assertIn("manual_planning_review", sync["update_triggers"])
 
     def test_task_packet_preflight_rejects_outside_declared_scope(self) -> None:
         repo = self._build_temp_repo_for_task_packet(declared_paths=["control/current_task.yaml"], allowed_paths=["control/current_task.yaml"])

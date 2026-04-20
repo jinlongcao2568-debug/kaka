@@ -134,6 +134,27 @@ $tasks = @((Get-FieldValue -Object $productTaskLibrary -Name 'tasks'))
 if (@($tasks).Count -eq 0) {
     Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'PRODUCT_TASK_LIBRARY_EMPTY' -Message 'control/product_task_library.yaml must define product tasks.' -Path 'control/product_task_library.yaml'
 }
+$syncRegistration = Get-FieldValue -Object $productTaskLibrary -Name 'planning_sync_implementation_registration'
+if (-not $syncRegistration) {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'PLANNING_SYNC_REGISTRATION_MISSING' -Message 'control/product_task_library.yaml must define planning_sync_implementation_registration.' -Path 'control/product_task_library.yaml'
+} else {
+    $triggerPolicy = [string](Get-FieldValue -Object $syncRegistration -Name 'trigger_policy')
+    $implementationState = [string](Get-FieldValue -Object $syncRegistration -Name 'implementation_state')
+    $updateTriggers = @((Get-FieldValue -Object $syncRegistration -Name 'update_triggers'))
+    $updatePolicy = Get-FieldValue -Object $syncRegistration -Name 'update_policy'
+    if ($triggerPolicy -ne 'warning_only') {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'PLANNING_SYNC_POLICY_DRIFT' -Message 'planning sync trigger_policy must stay warning_only.' -Path 'control/product_task_library.yaml'
+    }
+    if ($implementationState -ne 'IMPLEMENTED') {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'PLANNING_SYNC_NOT_IMPLEMENTED' -Message 'planning sync implementation_state must be IMPLEMENTED.' -Path 'control/product_task_library.yaml'
+    }
+    if (@($updateTriggers).Count -eq 0) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'PLANNING_SYNC_TRIGGERS_MISSING' -Message 'planning sync must declare update_triggers.' -Path 'control/product_task_library.yaml'
+    }
+    if (-not $updatePolicy) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'PLANNING_SYNC_UPDATE_POLICY_MISSING' -Message 'planning sync must declare update_policy.' -Path 'control/product_task_library.yaml'
+    }
+}
 $routeMapNearEndMatch = [regex]::Match($ax9sText, '(?ms)^## 3\. 近端导航提示\s*\r?\n(?<body>.*?)(?=^##\s|\z)')
 if ($routeMapNearEndMatch.Success) {
     $routeIds = [System.Collections.Generic.List[string]]::new()

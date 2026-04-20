@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-102-remove-file-count-cap (scoped-execution; current window removes the unified file-count hard cap and keeps path-scope, review-gate, and stop-condition constraints as the controlling guards)
+Current Workstream: PTL-GOV-101-product-planning-sync-implementation (scoped-execution; current window implements the warning-only planning sync between product_task_library and the AX9S route map, without changing readiness or opening external release / Stage8 / Stage9 execution)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
