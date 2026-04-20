@@ -218,6 +218,7 @@ packet_order:
   - PKT-GOV-04-python-cache-hygiene
   - PKT-GOV-05-python-cache-untracking
   - PKT-GOV-06-change-scope-precheck
+  - PKT-GOV-07-python-cache-cleaner
   - PKT-P0-04-stage8-compliance-lattice
   - PKT-P0-05-stage8-contact-enrichment-merge
   - PKT-P0-06-stage9-writeback-contract-core
@@ -1702,6 +1703,111 @@ packets:
       - current task execution-scope sync patch
       - repo status implementation-window sync patch
       - readiness preflight regression patch
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PKT-GOV-07-python-cache-cleaner
+    title: Python 缓存清理脚本
+    priority: P0
+    route_map_segment: POST_FF_PYTHON_CACHE_CLEANER
+    objective: 新增一个在任务完成后、提交前使用的 PowerShell 清理脚本，清理仓库内 `__pycache__/`、`*.pyc`、`.pytest_cache/` 本地缓存；本轮完成登记、激活、实现与最小验证，不进入下一包。
+    non_goals:
+      - 不改 src/**
+      - 不改 tests/** 业务/回归逻辑
+      - 不改 contracts/**
+      - 不改 handoff/**
+      - 不改 docs/L0.md
+      - 不改 AGENTS.md
+      - 不改 docs/AX9S_开发执行路由图.md
+      - 不改 scripts/check-release.ps1
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - 不自动进入下一包
+      - not an external unlock implementation
+    affected_stages: [automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, governance_release_core, future_external_unlock_prereq_core]
+    depends_on: [PKT-GOV-06-change-scope-precheck]
+    authority_refs:
+      docs:
+        - AGENTS.md
+        - docs/L0.md
+        - docs/裁决总表.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/正式业务代码开发开工裁决页.md
+        - docs/自动化开发动作门禁表.md
+        - docs/自动开发任务包模板.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+      scripts:
+        - scripts/clean-python-cache.ps1
+        - scripts/check-automation-readiness.ps1
+        - scripts/check-release.ps1
+    allowed_modification_paths:
+      - "control/task_packet_library.yaml"
+      - "control/current_task.yaml"
+      - "control/repo_status.md"
+      - "scripts/clean-python-cache.ps1"
+      - "docs/自动化开发动作门禁表.md"
+      - "docs/自动开发任务包模板.md"
+    forbidden_modification_paths:
+      - "src/**"
+      - "tests/**"
+      - "contracts/**"
+      - "handoff/**"
+      - "docs/L0.md"
+      - "AGENTS.md"
+      - "docs/AX9S_开发执行路由图.md"
+      - "scripts/check-release.ps1"
+      - "control/automation_action_matrix.yaml"
+      - "control/automation_stop_conditions.yaml"
+      - "control/automation_task_packet_rules.yaml"
+      - "control/review_gate_matrix.yaml"
+      - "control/milestone_status.yaml"
+    acceptance_assertions:
+      - task_packet_library registers PKT-GOV-07-python-cache-cleaner and places it after PKT-GOV-06-change-scope-precheck and before PKT-P0-04-stage8-compliance-lattice in packet_order
+      - current_task declares exactly the six allowed files as declared_changed_paths and allowed_modification_paths
+      - declared_changed_paths count stays at 6 and less than or equal to 10
+      - clean-python-cache.ps1 removes __pycache__ directories, *.pyc files, and .pytest_cache directories from repo root without deleting non-cache files
+      - docs/自动化开发动作门禁表.md and docs/自动开发任务包模板.md remind operators to run the cleanup script after implementation and before commit
+      - repo_status Current Workstream is synchronized to the active packet
+      - canonical readiness and blocked lines remain unchanged
+    required_scripts:
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed allowed paths
+      - touch forbidden paths
+      - declared_changed_paths exceed 10
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+      - cleanup script deletes non-cache files
+    definition_of_done:
+      - PKT-GOV-07-python-cache-cleaner is registered in task_packet_library and activated in current_task
+      - packet_order places PKT-GOV-07-python-cache-cleaner after PKT-GOV-06-change-scope-precheck and before PKT-P0-04-stage8-compliance-lattice
+      - declared_changed_paths count is 6 and less than or equal to 10
+      - clean-python-cache.ps1 can be run from repo root and reports deleted cache directories/files clearly
+      - docs/自动化开发动作门禁表.md and docs/自动开发任务包模板.md include submit-closeout cache cleanup reminders
+      - required scripts pass and the window stops to report
+      - repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION
+    deliverables:
+      - python cache cleaner packet registry patch
+      - current task activation patch
+      - repo status workstream sync patch
+      - clean-python-cache script patch
+      - pre-commit cache cleanup reminder patch
     human_review_required: true
     owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
     review_evidence:
