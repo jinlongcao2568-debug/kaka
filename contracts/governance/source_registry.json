@@ -1,6 +1,6 @@
 {
   "catalog_id": "source-registry",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "status": "DRAFT",
   "source_documents": [
     "docs/L0.md",
@@ -9,6 +9,14 @@
     "docs/D11_测试验收与金标回归清单.md"
   ],
   "baseline_scope": "representative_rollout_backlog_with_precedence",
+  "contract_scope": "stage1_to_stage2_authoritative_source_route_clock_formal_skeleton",
+  "execution_scope": "scoped_execution",
+  "implementation_boundary": {
+    "mode": "FORMAL_SKELETON_ONLY",
+    "runtime_state": "NOT_IMPLEMENTED_IN_PACKET",
+    "external_live_enablement_gate": "BLOCKED_BY_DEFAULT",
+    "stage8_stage9_unlock_state": "UNCHANGED_BLOCKED"
+  },
   "rollout_scope": {
     "mode": "representative_rollout_with_backlog",
     "rollout_registry_refs": [
@@ -331,8 +339,29 @@
       "fallback_route",
       "collection_state",
       "rollout_enabled",
+      "clock_resolution_rule_id",
       "winning_version_resolution_rule_id",
       "clock_precedence_rule_id"
+    ],
+    "contract_refs": [
+      "contracts/governance/source_registry.json",
+      "contracts/governance/route_policy_catalog.json",
+      "contracts/governance/stage12_extractor_contract.json",
+      "handoff/stage1_to_stage2/contract.json"
+    ],
+    "consumer_must_not_recompute_fields": [
+      "source_registry_id",
+      "route_policy_id",
+      "default_route",
+      "fallback_route",
+      "clock_resolution_rule_id",
+      "clock_precedence_rule_id",
+      "winning_version_resolution_rule_id"
+    ],
+    "clock_authority_fields": [
+      "clock_resolution_rule_id",
+      "clock_precedence_rule_id",
+      "clock_conflict_policy"
     ],
     "adapter_ready": true,
     "adapter_contract_state": "RESERVED_NOT_LIVE",

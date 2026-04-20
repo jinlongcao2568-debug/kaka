@@ -1,11 +1,47 @@
 {
   "catalog_id": "stage12-extractor-contract",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "DRAFT",
+  "packet_id": "PTL-PKT-S12-source-route-clock-authority",
+  "execution_scope": "scoped_execution",
+  "implementation_boundary": {
+    "mode": "FORMAL_SKELETON_ONLY",
+    "runtime_state": "NOT_IMPLEMENTED_IN_PACKET",
+    "consumer_runtime_change": "OUT_OF_SCOPE",
+    "external_release_state": "BLOCKED"
+  },
   "source_documents": [
     "docs/专题_来源覆盖与采集路由规范.md",
     "docs/D11_测试验收与金标回归清单.md"
   ],
+  "authoritative_contract": {
+    "handoff_id": "H-01-STAGE1-TO-STAGE2",
+    "producer_stage": "stage1_tasking",
+    "consumer_stage": "stage2_ingestion",
+    "contract_refs": [
+      "contracts/governance/source_registry.json",
+      "contracts/governance/route_policy_catalog.json",
+      "handoff/stage1_to_stage2/contract.json",
+      "handoff/stage1_to_stage2/example.json"
+    ],
+    "authoritative_dimensions": [
+      "source",
+      "route",
+      "clock"
+    ],
+    "consumer_must_not_recompute_fields": [
+      "source_registry_id",
+      "route_policy_id",
+      "default_route",
+      "fallback_route",
+      "clock_resolution_rule_id",
+      "clock_precedence_rule_id"
+    ],
+    "optional_clock_window_fields": [
+      "current_action_start_at_optional",
+      "current_action_deadline_at_optional"
+    ]
+  },
   "interfaces": [
     {
       "interface_id": "stage1_source_route_extractor",
@@ -22,12 +58,18 @@
         "contracts/governance/source_registry.json",
         "contracts/governance/route_policy_catalog.json"
       ],
+      "contract_refs": [
+        "contracts/governance/source_registry.json",
+        "contracts/governance/route_policy_catalog.json",
+        "handoff/stage1_to_stage2/contract.json"
+      ],
       "fallback_taxonomy": [
         "fallback_route_from_registry_or_policy",
         "fallback_route_fell_back_to_default_route"
       ],
-      "mismatch_taxonomy": [
-        "default_route_mismatch_requires_review"
+      "review_taxonomy": [
+        "default_route_mismatch_requires_review",
+        "collection_state_requires_review"
       ],
       "consumer_must_not_recompute": true
     },
@@ -39,16 +81,30 @@
         "time_range_from",
         "time_range_until",
         "window_priority_policy",
-        "clock_resolution_rule_id"
+        "clock_resolution_rule_id",
+        "clock_precedence_rule_id",
+        "current_action_start_at_optional",
+        "current_action_deadline_at_optional"
       ],
       "input_priority": [
         "payload.time_range_from/time_range_until",
-        "payload.now year bounds",
-        "payload.window_priority_policy/clock_resolution_rule_id"
+        "payload.window_priority_policy/clock_resolution_rule_id",
+        "contracts/governance/source_registry.json#entries[*].clock_resolution_rule_id",
+        "contracts/governance/route_policy_catalog.json#policies[*].clock_chain_relation"
+      ],
+      "contract_refs": [
+        "contracts/governance/source_registry.json",
+        "contracts/governance/route_policy_catalog.json",
+        "handoff/stage1_to_stage2/contract.json"
       ],
       "fallback_taxonomy": [
         "time_range_from_from_now_year",
-        "time_range_until_from_now_year"
+        "time_range_until_from_now_year",
+        "clock_precedence_rule_id_from_authoritative_source"
+      ],
+      "review_taxonomy": [
+        "clock_conflict_requires_review",
+        "deadline_provenance_requires_review"
       ],
       "consumer_must_not_recompute": true
     },
@@ -67,10 +123,14 @@
         "last_retrieved_at"
       ],
       "input_priority": [
-        "H-01 authority fields",
+        "H-01 authoritative source/route/clock fields",
         "stage1.execution_context",
         "payload first_seen/last_retrieved/version fields",
         "payload flags"
+      ],
+      "contract_refs": [
+        "handoff/stage1_to_stage2/contract.json",
+        "handoff/stage1_to_stage2/example.json"
       ],
       "fallback_taxonomy": [
         "default_route_source=h01_authority",
@@ -80,7 +140,11 @@
         "collection_state_requires_review",
         "clock_conflict_requires_review"
       ],
-      "consumer_must_not_recompute": true
+      "consumer_must_not_recompute": true,
+      "implementation_boundary": {
+        "mode": "FORMAL_SKELETON_ONLY",
+        "runtime_state": "NOT_IMPLEMENTED_IN_PACKET"
+      }
     }
   ]
 }

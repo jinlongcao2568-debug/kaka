@@ -9,7 +9,7 @@ navigation_state: "NEW_CONTROL_SYSTEM_CUTOVER_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口执行 PTL-GOV-101-product-planning-sync-implementation；把 product_task_library 与 AX9S 路线图同步机制从占位登记推进到正式实现；不进入下一包、不提交。"
+activation_condition: "当前窗口执行 PTL-PKT-S12-source-route-clock-authority 的 scoped-execution；补齐 Stage1-2 authoritative source / route / clock formal skeleton、H-01 handoff skeleton 与最小 skeleton 测试；不做真实 runtime 实现、不进入下一包、不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,27 +17,28 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-GOV-101-product-planning-sync-implementation"
-  title: "product_task_library 与 AX9S 路线图正式同步机制"
+  task_id: "PTL-S12-source-route-clock-authority"
+  title: "Stage1-2 来源、路由与时钟权威闭合"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
   linked_docs:
     - "AGENTS.md"
-    - "docs/自动化开发动作门禁表.md"
-    - "docs/自动开发任务包模板.md"
-    - "docs/AX9S_开发执行路由图.md"
+    - "docs/正式业务代码开发开工裁决页.md"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
-    - "control/source_blueprint_registry.yaml"
-    - "control/operator_assignment_roster_defaults.yaml"
     - "control/repo_status.md"
-    - "control/milestone_status.yaml"
+    - "contracts/governance/source_registry.json"
+    - "contracts/governance/route_policy_catalog.json"
+    - "contracts/governance/stage12_extractor_contract.json"
+    - "handoff/stage1_to_stage2/contract.json"
+    - "handoff/stage1_to_stage2/example.json"
+    - "tests/test_stage12_extractors.py"
     - "scripts/check-task-packet.ps1"
     - "scripts/check-state-alignment.ps1"
     - "scripts/check-final-gate.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "把 product_task_library 与 AX9S 路线图同步从占位登记推进到正式实现，形成 warning-only 的规划同步机制。"
+  objective: "完成 Stage1-2 authoritative source / route / clock 与 H-01 的 formal skeleton 补齐，并将当前包从 activation-only 切换为 scoped-execution；本轮不做真实 runtime 实现。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -73,33 +74,41 @@ currentTask:
   task_packet:
     version: 1
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
+    execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    backlog_packet_ref: "PTL-GOV-101-product-planning-sync-implementation"
-    packet_id: "PTL-GOV-101-product-planning-sync-implementation"
-    subpacket_id: "PTL-GOV-101-product-planning-sync-implementation"
-    title: "product_task_library 与 AX9S 路线图正式同步机制"
+    backlog_packet_ref: "PTL-S12-source-route-clock-authority"
+    packet_id: "PTL-PKT-S12-source-route-clock-authority"
+    subpacket_id: "PTL-PKT-S12-source-route-clock-authority"
+    title: "Stage1-2 来源、路由与时钟权威闭合"
     status: "ACTIVE"
-    objective: "实现 product_task_library 与 AX9S 路线图的 warning-only 规划同步机制，明确触发事件、手动复核入口和脚本检查行为。"
+    objective: "在不改 src/** 与 scripts/** 的前提下，补齐 Stage1-2 authoritative source / route / clock formal contract、H-01 handoff contract/example 与最小 skeleton 测试。"
     depends_on: []
     non_goals:
+      - "不做真实 runtime 实现"
+      - "不修改 src/**"
+      - "不修改 scripts/**"
+      - "不修改 docs/L0.md"
+      - "不修改 AGENTS.md"
+      - "不修改 docs/AX9S_开发执行路由图.md"
+      - "不修改 Stage8 / Stage9 相关资产"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
-      - "不修改 scripts/**、src/**、tests/**、contracts/**、handoff/**"
-      - "不改变 current_task -> product_task_library -> repo_status 优先级"
-      - "不改 src/**、contracts/**、handoff/**"
+      - "不新增第二套对象体系"
       - "不自动进入下一包"
       - "不提交"
       - "not an external unlock implementation"
     affected_stages:
-      - "automation_control"
+      - "stage1_tasking"
+      - "stage2_ingestion"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "product_planning_sync_control"
-      - "state_source_sync"
+      - "future_external_unlock_prereq_core"
+      - "machine_assets_general"
+      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "release_approver"
@@ -109,66 +118,83 @@ currentTask:
       - "testing_owner"
     declared_changed_paths:
       - "control/current_task.yaml"
-      - "control/product_task_library.yaml"
       - "control/repo_status.md"
-      - "docs/AX9S_开发执行路由图.md"
-      - "scripts/check-state-alignment.ps1"
-      - "tests/test_review_gate_controls.py"
+      - "control/product_task_library.yaml"
+      - "contracts/governance/source_registry.json"
+      - "contracts/governance/route_policy_catalog.json"
+      - "contracts/governance/stage12_extractor_contract.json"
+      - "handoff/stage1_to_stage2/contract.json"
+      - "handoff/stage1_to_stage2/example.json"
+      - "tests/test_stage12_extractors.py"
     baseline_dirty_paths: []
     allowed_modification_paths:
       - "control/current_task.yaml"
-      - "control/product_task_library.yaml"
       - "control/repo_status.md"
-      - "docs/AX9S_开发执行路由图.md"
-      - "scripts/check-state-alignment.ps1"
-      - "tests/test_review_gate_controls.py"
+      - "control/product_task_library.yaml"
+      - "contracts/governance/source_registry.json"
+      - "contracts/governance/route_policy_catalog.json"
+      - "contracts/governance/stage12_extractor_contract.json"
+      - "handoff/stage1_to_stage2/contract.json"
+      - "handoff/stage1_to_stage2/example.json"
+      - "tests/test_stage12_extractors.py"
     forbidden_modification_paths:
-      - "docs/L0.md"
-      - "scripts/check-task-packet.ps1"
-      - "scripts/check-final-gate.ps1"
+      - "docs/**"
+      - "scripts/**"
       - "src/**"
-      - "contracts/**"
-      - "handoff/**"
+      - "contracts/**/stage8*"
+      - "contracts/**/stage9*"
+      - "handoff/stage7_to_stage8/**"
+      - "handoff/stage8_to_stage9/**"
       - "control/milestone_status.yaml"
+      - "control/source_blueprint_registry.yaml"
+      - "control/operator_assignment_roster_defaults.yaml"
     impacted_assets:
-      docs:
-        - "docs/AX9S_开发执行路由图.md"
+      docs: []
       control:
         - "control/current_task.yaml"
-        - "control/product_task_library.yaml"
         - "control/repo_status.md"
-      scripts:
-        - "scripts/check-state-alignment.ps1"
-        - "scripts/check-final-gate.ps1"
+        - "control/product_task_library.yaml"
+      contracts:
+        - "contracts/governance/source_registry.json"
+        - "contracts/governance/route_policy_catalog.json"
+        - "contracts/governance/stage12_extractor_contract.json"
+      handoff:
+        - "handoff/stage1_to_stage2/contract.json"
+        - "handoff/stage1_to_stage2/example.json"
       tests:
-        - "tests/test_review_gate_controls.py"
-      contracts: []
-      handoff: []
+        - "tests/test_stage12_extractors.py"
+      scripts: []
       runtime: []
     required_scripts:
+      - "python -m pytest tests/test_stage12_extractors.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1"
     script_timeouts:
+      python -m pytest tests/test_stage12_extractors.py -q: 300000
       scripts/check-task-packet.ps1: 300000
       scripts/check-state-alignment.ps1: 300000
       scripts/check-final-gate.ps1: 300000
+      scripts/clean-python-cache.ps1: 300000
     stop_conditions:
       - "任一 required script 失败"
       - "实际改动超出 allowed paths"
       - "触碰 forbidden paths"
       - "改变 canonical readiness"
       - "放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery/refund"
-      - "把 warning-only 同步机制改成强阻断"
+      - "新增第二套对象体系"
+      - "自动进入下一包"
+      - "自动提交"
     definition_of_done:
-      - "control/product_task_library.yaml 已定义正式 planning sync update_triggers 与 update_policy"
-      - "docs/AX9S_开发执行路由图.md 已说明同步触发与 warning-only 行为"
-      - "scripts/check-state-alignment.ps1 已校验 planning sync 结构并继续保持 warning-only"
-      - "tests/test_review_gate_controls.py 已覆盖 planning sync 机制存在且不升级为硬阻断"
-      - "control/current_task.yaml 与 control/repo_status.md 已同步 PTL-GOV-101"
+      - "Stage1-2 authoritative source / route / clock 的 formal skeleton contract 已成形"
+      - "handoff/stage1_to_stage2/contract.json 与 example.json 已成形"
+      - "tests/test_stage12_extractors.py 已收敛为最小 skeleton/assertion，不新增 runtime 逻辑"
+      - "product_task_library 中 PTL-S12 状态已同步为 active/scoped-execution 语义"
+      - "current_task / repo_status 已同步为 scoped-execution 语义"
       - "required scripts 通过并停机汇报"
     deliverables:
-      - "product planning sync implementation patch"
+      - "stage1-2 source-route-clock formal skeleton patch"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -183,19 +209,21 @@ currentTask:
       signoff_status: "REQUESTED_NOT_APPROVED"
     notes:
       - "当前 active task source 优先级固定为 current_task -> product_task_library -> repo_status。"
-      - "本轮实现 product_task_library 与 AX9S 路线图的 warning-only 规划同步机制。"
-      - "本轮不改变 readiness，不放开 external release，不进入 Stage8/Stage9 高风险执行。"
+      - "本轮为 scoped-execution；只补 formal skeleton，不做真实 runtime 实现。"
+      - "Stage8 / Stage9 边界与 external release 继续保持阻断。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
     - "external software release remains blocked"
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮允许实现 product_task_library 与 AX9S 路线图的 warning-only 规划同步机制，并运行三段门禁脚本后停机汇报"
+    - "本轮允许在 control/contracts/handoff/tests 的已声明路径内补齐 Stage1-2 formal skeleton，并运行聚焦测试、门禁脚本、清缓存后停机汇报"
   forbidden_actions:
-    - "不得修改 scripts/**、src/**、tests/**、contracts/**、handoff/**"
+    - "不得修改 src/**、scripts/**、docs/L0.md、AGENTS.md、docs/AX9S_开发执行路由图.md"
+    - "不得修改 Stage8 / Stage9 相关资产"
     - "不得改变 canonical readiness 或放宽 external release、Stage 8 real execution、Stage 9 real payment/delivery"
+    - "不得新增第二套对象体系"
     - "不得自动进入下一包、不得提交"
   nextActions:
-    - "完成 PTL-GOV-101 实现，运行三段门禁脚本，并停机汇报。"
-  status_note: "PTL-GOV-101-product-planning-sync-implementation 当前处于 scoped-execution；本窗口实现 product_task_library 与 AX9S 路线图的 warning-only 规划同步机制；external release 与 Stage 8/9 real execution 继续阻断。"
+    - "运行聚焦测试、门禁脚本、clean-python-cache.ps1 与 git status 后停机汇报。"
+  status_note: "PTL-PKT-S12-source-route-clock-authority 当前处于 scoped-execution；本窗口只补 Stage1-2 authoritative source / route / clock formal skeleton、H-01 handoff skeleton 与最小 skeleton 测试，不做真实 runtime 实现；external release 与 Stage 8/9 real execution 继续阻断。"

@@ -42,7 +42,7 @@ planning_sync_implementation_registration:
   implementation_state: IMPLEMENTED
   is_placeholder: false
   is_formal_implementation_packet: true
-  is_active_packet: true
+  is_active_packet: false
   update_triggers:
     - product_task_completed
     - product_task_blocked
@@ -61,6 +61,14 @@ planning_sync_implementation_registration:
     - "本登记替代旧 PTL-GOV-03 placeholder，作为新受控开发系统下的正式实现包。"
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
+current_mainline_next_candidate:
+  task_id: PTL-S12-source-route-clock-authority
+  packet_id: PTL-PKT-S12-source-route-clock-authority
+  title: "Stage1-2 来源、路由与时钟权威闭合"
+  source_blueprint_batch_id: POST-FF-CONTROL-01
+  packet_kind: EXECUTABLE_SCOPED_SUBPACKET
+  activation_mode: scoped_execution
+  execution_scope: formal_skeleton_only
 task_count: 11
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -80,7 +88,8 @@ tasks:
     title: "Stage1-2 来源、路由与时钟权威闭合"
     stage_scope: [stage1_tasking, stage2_ingestion]
     task_type: product_mainline_closure
-    status: CANDIDATE
+    status: ACTIVE
+    is_current_mainline_next_candidate: true
     priority: P0
     hard_depends_on: []
     soft_depends_on: []

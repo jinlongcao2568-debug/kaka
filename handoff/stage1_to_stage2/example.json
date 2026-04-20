@@ -1,6 +1,8 @@
 {
   "handoff_id": "H-01-STAGE1-TO-STAGE2",
   "example_id": "EX-H01-MIN",
+  "packet_id": "PTL-PKT-S12-source-route-clock-authority",
+  "execution_scope": "scoped_execution",
   "payload": {
     "task_id": "TASK-001",
     "region_code": "320500",

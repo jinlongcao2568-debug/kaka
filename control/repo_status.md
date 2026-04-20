@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-101-product-planning-sync-implementation (scoped-execution; current window implements the warning-only planning sync between product_task_library and the AX9S route map, without changing readiness or opening external release / Stage8 / Stage9 execution)
+Current Workstream: PTL-PKT-S12-source-route-clock-authority (scoped-execution; current window completes the Stage1-2 authoritative source / route / clock formal skeleton, H-01 handoff skeleton, and minimal skeleton assertions only; no real runtime implementation, no next packet, no readiness change, no external release / Stage8 / Stage9 opening)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,6 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the new controlled development system
+- scoped-execution formal skeleton completion for PTL-PKT-S12-source-route-clock-authority within the declared control / contracts / handoff / tests files
 - current_task is the unique active execution source
 - product_task_library is the product mainline candidate pool
 - source_blueprint_registry is the source-blueprint allowlist
