@@ -32,20 +32,36 @@ redlines:
   external_software_release: BLOCKED
   stage8_real_execution: "governed / approval-gated / blocked by default"
   stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
-planning_sync_trigger_registration:
-  packet_id: PTL-GOV-03-product-planning-sync-trigger
-  title: "产品任务池与路线图同步提示机制"
+planning_sync_implementation_registration:
+  packet_id: PTL-GOV-101-product-planning-sync-implementation
+  title: "product_task_library 与 AX9S 路线图正式同步机制实现包"
   source_blueprint_batch_id: POST-FF-CONTROL-01
-  registration_status: REGISTERED_PLACEHOLDER
   source_task_pool: control/product_task_library.yaml
   target_navigation_asset: docs/AX9S_开发执行路由图.md
   trigger_policy: warning_only
   implementation_state: NOT_IMPLEMENTED
+  is_placeholder: false
+  is_formal_implementation_packet: true
+  is_active_packet: true
   notes:
-    - "本结构只声明产品任务池和路线图未来会有同步提示机制，不在当前文件中实现自动更新。"
-    - "路线图近端候选只作提示，不决定执行顺序。"
-task_count: 10
+    - "本登记替代旧 PTL-GOV-03 placeholder，作为新受控开发系统下的正式后续实现包。"
+    - "当前窗口只做登记与激活，不实现同步逻辑，不修改 AX9S 路线图正文。"
+    - "路线图近端候选仍只作提示，不决定执行顺序。"
+task_count: 11
 tasks:
+  - task_id: PTL-GOV-101-product-planning-sync-implementation
+    title: "product_task_library 与 AX9S 路线图正式同步机制"
+    stage_scope: [automation_control, product_navigation_sync]
+    task_type: control_governance_implementation
+    status: ACTIVE
+    priority: P0
+    hard_depends_on: []
+    soft_depends_on: []
+    objective: "建立 product_task_library 与 AX9S 路线图之间的正式同步机制实现包，后续实现与规则收口由该包承接。"
+    non_goals: ["本轮不实现同步逻辑", "不修改 docs/AX9S_开发执行路由图.md", "不改变 readiness", "不放开 external release 或 Stage8/Stage9"]
+    expected_outputs: ["正式同步机制实现包登记", "路线图同步规则后续实现落点说明"]
+    suggested_packet_refs: [PTL-GOV-101-product-planning-sync-implementation]
+    risk_level: HIGH
   - task_id: PTL-S12-source-route-clock-authority
     title: "Stage1-2 来源、路由与时钟权威闭合"
     stage_scope: [stage1_tasking, stage2_ingestion]
