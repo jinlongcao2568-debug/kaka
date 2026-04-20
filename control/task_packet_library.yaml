@@ -223,6 +223,7 @@ packet_order:
   - PKT-P1-03-api-ui-capability-envelope
   - PKT-P1-04-generated-assertions-cadence-ladder
   - PKT-P1-05-validator-anti-drift-semanticization
+  - PKT-GOV-01-product-dev-mode-docs-alignment
 packets:
   - packet_id: PKT-P0-01-review-queue-window-scoring
     title: Stage6 复核优先级与窗口评分闭合
@@ -1230,6 +1231,86 @@ packets:
       - semantic validator regression patch set
     human_review_required: true
     owner_reviews_required: [automation_owner, governance_owner, testing_owner]
+    review_evidence:
+      declared: true
+      signoff_required: true
+      signoff_status: REQUESTED_NOT_APPROVED
+
+  - packet_id: PKT-GOV-01-product-dev-mode-docs-alignment
+    title: 产品开发模式规则文件收平（第一轮）
+    priority: P0
+    route_map_segment: POST_FF_CONTROL_DOCS_ALIGNMENT
+    objective: 补登记并激活 docs-only scoped subpacket，把当前已修改的 3 个规则文件纳入合法 task packet 范围，并通过 control 同步当前产品开发小包模式口径，不改变 readiness、不进入实现。
+    non_goals:
+      - 不改 scripts
+      - 不改 src
+      - 不改 contracts
+      - 不改 handoff
+      - 不改 docs/L0.md
+      - 不改 D 文档正文
+      - 不改变 canonical readiness
+      - 不放开 external release
+      - 不放开 Stage8 real execution
+      - 不放开 Stage9 real payment/delivery/refund
+      - not an external unlock implementation
+    affected_stages: [route_map_governance, automation_control]
+    risk_level: HIGH
+    change_class: MANDATORY_HUMAN_REVIEW
+    change_domains: [automation_control_core, future_external_unlock_prereq_core]
+    depends_on: [PKT-P0-03-stage7-price-competitor-resolution]
+    authority_refs:
+      docs:
+        - AGENTS.md
+        - docs/自动化开发动作门禁表.md
+        - docs/开工前总清单.md
+        - docs/正式业务代码开发开工裁决页.md
+      control:
+        - control/task_packet_library.yaml
+        - control/current_task.yaml
+        - control/repo_status.md
+        - control/milestone_status.yaml
+    allowed_modification_paths:
+      - AGENTS.md
+      - docs/自动化开发动作门禁表.md
+      - docs/开工前总清单.md
+      - control/task_packet_library.yaml
+      - control/current_task.yaml
+      - control/repo_status.md
+    forbidden_modification_paths:
+      - docs/L0.md
+      - docs/D*.md
+      - contracts/**
+      - handoff/**
+      - src/**
+      - scripts/**
+      - control/automation_action_matrix.yaml
+      - control/automation_stop_conditions.yaml
+      - control/automation_task_packet_rules.yaml
+      - control/review_gate_matrix.yaml
+      - control/milestone_status.yaml
+    acceptance_assertions:
+      - current_task declares the three docs files and three control files as the only allowed modification paths
+      - repo_status current workstream is synchronized to the docs-only active subpacket
+      - canonical readiness and blocked lines remain unchanged
+    required_scripts:
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-automation-readiness.ps1
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-release.ps1
+    stop_conditions:
+      - required scripts fail
+      - actual changed paths exceed declared/allowed paths
+      - canonical readiness changes
+      - external release or Stage8/Stage9 blocked lines are relaxed
+    definition_of_done:
+      - docs-only scoped subpacket is registered in task_packet_library and activated in current_task
+      - declared_changed_paths count is 6 and less than or equal to 10
+      - repo_status Current Workstream matches the active packet id
+      - required scripts pass and the window stops to report
+    deliverables:
+      - docs-only packet registry patch
+      - current task activation patch
+      - repo status workstream sync patch
+    human_review_required: true
+    owner_reviews_required: [automation_owner, release_approver, architecture_owner, governance_owner, model_governance_owner, testing_owner]
     review_evidence:
       declared: true
       signoff_required: true
