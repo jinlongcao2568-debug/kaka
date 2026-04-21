@@ -215,12 +215,12 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertTrue(active_packet["packet_id"])
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["task_id"], "PTL-S45-rule-evidence-dual-gate")
+        self.assertEqual(candidate["task_id"], "PTL-S56-project-fact-review-report")
         self.assertEqual(candidate["planning_state"], "REALITY_ALIGNMENT_QUEUED")
         self.assertEqual(candidate["runtime_change_in_packet"], "OUT_OF_SCOPE")
 
         candidate_match = re.search(
-            r"current_mainline_next_candidate:\s+task_id: PTL-S45-rule-evidence-dual-gate(?P<body>.*?)(?:\n\S|\Z)",
+            r"current_mainline_next_candidate:\s+task_id: PTL-S56-project-fact-review-report(?P<body>.*?)(?:\n\S|\Z)",
             task_library_text,
             re.DOTALL,
         )
@@ -253,9 +253,16 @@ class TestStage12Extractors(unittest.TestCase):
         stage45_task_entry = next(
             task for task in task_library["tasks"] if task["task_id"] == "PTL-S45-rule-evidence-dual-gate"
         )
-        self.assertEqual(stage45_task_entry["status"], "CANDIDATE")
-        self.assertEqual(stage45_task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
-        self.assertTrue(stage45_task_entry["is_current_mainline_next_candidate"])
+        self.assertEqual(stage45_task_entry["status"], "COMPLETED")
+        self.assertEqual(stage45_task_entry["planning_state"], "COMPLETED")
+        self.assertFalse(stage45_task_entry["is_current_mainline_next_candidate"])
+
+        stage56_task_entry = next(
+            task for task in task_library["tasks"] if task["task_id"] == "PTL-S56-project-fact-review-report"
+        )
+        self.assertEqual(stage56_task_entry["status"], "CANDIDATE")
+        self.assertEqual(stage56_task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
+        self.assertTrue(stage56_task_entry["is_current_mainline_next_candidate"])
         self.assertNotIn(
             active_packet["packet_id"],
             [task["task_id"] for task in task_library["tasks"]],

@@ -5,11 +5,11 @@ updated_at: "2026-04-21"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_S45_RULE_EVIDENCE_DUAL_GATE_SCOPED_EXECUTION_ACTIVE"
+navigation_state: "PTL_GOV_109_MAINLINE_CANDIDATE_SHIFT_TO_S56_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口执行 PTL-S45-rule-evidence-dual-gate scoped-execution：在保持 canonical readiness 不变、外部 release / Stage8 / Stage9 红线不放宽、且不改 scripts 的前提下，把 Stage4 formal outputs 到 Stage5 dual-gate inputs 的 contract / handoff / runtime consumption 收平；本轮是 existing partial runtime closure target，不是 zero-to-one skeleton，不提交。"
+activation_condition: "当前窗口执行 PTL-GOV-109-mainline-candidate-shift-to-S56 scoped-execution：关闭 PTL-S45 当前 scoped-execution active 状态，把主线候选推进到 PTL-S56-project-fact-review-report；本轮只同步 control/docs/tests 候选治理面，不激活 PTL-S56，不改 runtime/contracts/handoff/scripts，不改变 canonical readiness，不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-S45-rule-evidence-dual-gate"
-  title: "Stage4-5 规则与证据双闸门闭合"
+  task_id: "PTL-GOV-109-mainline-candidate-shift-to-S56"
+  title: "主线候选推进到 S56"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -33,16 +33,14 @@ currentTask:
     - "control/current_task.yaml"
     - "control/repo_status.md"
     - "control/product_task_library.yaml"
-    - "control/source_blueprint_registry.yaml"
-    - "handoff/stage4_to_stage5/contract.json"
-    - "handoff/stage4_to_stage5/example.json"
-    - "handoff/stage4_to_stage5/validator.json"
+    - "docs/AX9S_开发执行路由图.md"
+    - "tests/test_stage12_extractors.py"
     - "scripts/check-task-packet.ps1"
     - "scripts/check-state-alignment.ps1"
     - "scripts/check-final-gate.ps1"
     - "scripts/clean-python-cache.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "scoped-execution：闭合 Stage4 formal outputs 到 Stage5 规则与证据双闸门输入之间的正式消费口径；本轮只在允许路径内收平 control / handoff / Stage5 runtime / tests，不改 scripts，不改 Stage6+，不改 Stage8/Stage9，不改变 canonical readiness。"
+  objective: "scoped-execution：完成 PTL-S45 closeout 后的候选治理收口，把 product_task_library 的 current_mainline_next_candidate 推进到 PTL-S56-project-fact-review-report，并同步 AX9S 近端导航提示与 stage12 stale candidate 断言；不激活 PTL-S56，不进入 PTL-S56 scoped-execution。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -62,67 +60,60 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-PKT-S45-rule-evidence-dual-gate"
-    subpacket_id: "PTL-PKT-S45-rule-evidence-dual-gate"
-    backlog_packet_ref: "PTL-S45-rule-evidence-dual-gate"
+    packet_id: "PTL-GOV-109-mainline-candidate-shift-to-S56"
+    subpacket_id: "PTL-GOV-109-mainline-candidate-shift-to-S56"
+    backlog_packet_ref: "PTL-GOV-109-mainline-candidate-shift-to-S56"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    runtime_change_in_packet: "CONTROLLED_STAGE4_5_RUNTIME_CLOSURE"
-    title: "Stage4-5 规则与证据双闸门闭合"
+    runtime_change_in_packet: "OUT_OF_SCOPE"
+    title: "主线候选推进到 S56"
     status: "ACTIVE"
-    objective: "scoped-execution：把 H-04 的 Stage4 formal producer objects / handoff 与 Stage5 dual-gate runtime consumption 对齐，优先补 tests / handoff 断言，再做最小 runtime 闭合；不改 Stage6+、Stage8/Stage9、scripts、canonical readiness，不提交。"
+    objective: "关闭 PTL-S45 scoped-execution active 状态；把 current active packet 切到本治理收口包；把当前主线候选推进到 PTL-S56-project-fact-review-report；同步 AX9S 近端提示与 stale candidate 测试断言。"
     depends_on:
-      - "PTL-S34-object-lineage-verification-handoff scoped-execution 已完成并已提交"
-      - "PTL-S45 activation-only 已完成并已提交"
-      - "control/product_task_library.yaml 的 current_mainline_next_candidate 已是 PTL-S45-rule-evidence-dual-gate"
-      - "当前 active packet 已是 PTL-S45-rule-evidence-dual-gate"
+      - "PTL-S45-rule-evidence-dual-gate scoped-execution 已完成并已提交"
+      - "当前 active packet 仍停在 PTL-S45-rule-evidence-dual-gate"
+      - "control/product_task_library.yaml 的 current_mainline_next_candidate 仍是 PTL-S45-rule-evidence-dual-gate"
+      - "下一主线候选应推进到 PTL-S56-project-fact-review-report"
       - "当前工作区为干净状态"
     scoped_execution_scope:
-      current_active_packet_switch: false
+      current_active_packet_switch: true
       previous_active_packet: "PTL-S45-rule-evidence-dual-gate"
-      target_active_packet: "PTL-S45-rule-evidence-dual-gate"
+      target_active_packet: "PTL-GOV-109-mainline-candidate-shift-to-S56"
       activation_only: false
       enter_scoped_execution: true
-      active_packet_kind: "product_mainline_closure"
-      product_mainline_task: true
+      active_packet_kind: "governance_closeout"
+      product_mainline_task: false
+      add_to_product_task_library: false
+      target_mainline_next_candidate: "PTL-S56-project-fact-review-report"
+      activate_target_mainline_candidate: false
+      enter_target_mainline_scoped_execution: false
       source_blueprint_batch_id: "POST-FF-CONTROL-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change_in_packet: "CONTROLLED_STAGE4_5_RUNTIME_CLOSURE"
-      current_task_switch_only: false
-      repo_status_sync_only: false
-      product_task_library_change: false
-      ax9s_change: false
-      runtime_change: true
+      runtime_change: false
       contracts_change: false
-      handoff_change: true
-      tests_change: true
+      handoff_change: false
       scripts_change: false
-      stage5_plus_change: false
+      docs_change: true
+      tests_change: true
+      control_change: true
       canonical_readiness_change: false
       external_release_change: false
       stage8_real_execution_change: false
       stage9_real_payment_delivery_refund_change: false
       new_formal_object_enum_gate_exception_semantics: false
       commit_allowed: false
-    implementation_boundary:
-      existing_code_state: "PARTIAL_RUNTIME"
-      existing_runtime_state: "PARTIAL_RUNTIME"
-      closure_target: "existing partial runtime closure from Stage4 formal outputs / H-04 handoff to Stage5 dual-gate inputs"
-      zero_to_one_skeleton: false
-      runtime_change_in_packet: "CONTROLLED_STAGE4_5_RUNTIME_CLOSURE"
-      scoped_execution_in_this_round: true
     non_goals:
       - "not an external unlock implementation"
-      - "不改 Stage6+"
-      - "不改 Stage8/Stage9"
-      - "不改 scripts/**"
-      - "不改 contracts/**"
-      - "不改 handoff/stage1_to_stage4/**"
-      - "不改 handoff/stage5_to_stage9/**"
-      - "不改非目标 tests"
-      - "不改 product_task_library"
-      - "不改 AX9S"
+      - "不是 product mainline task"
+      - "不加入 control/product_task_library.yaml 的 tasks 池"
+      - "不激活 PTL-S56"
+      - "不进入 PTL-S56 scoped-execution"
+      - "不改 runtime"
+      - "不改 contracts"
+      - "不改 handoff"
+      - "不改 scripts"
+      - "不改其他 tests"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
@@ -131,117 +122,78 @@ currentTask:
       - "不提交"
     affected_stages:
       - "automation_control"
-      - "stage4_verification"
+      - "product_navigation_sync"
       - "stage5_rules_evidence"
+      - "stage6_fact_review"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "machine_assets_general"
+      - "future_external_unlock_prereq_core"
       - "scripts_and_tests_general"
-      - "shared_runtime_core"
     reviews:
       - "automation_owner"
+      - "release_approver"
       - "architecture_owner"
       - "governance_owner"
+      - "model_governance_owner"
       - "testing_owner"
-      - "release_approver"
     baseline_dirty_paths: []
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "handoff/stage4_to_stage5/contract.json"
-      - "handoff/stage4_to_stage5/example.json"
-      - "handoff/stage4_to_stage5/validator.json"
-      - "src/stage5_rules_evidence/service.py"
-      - "src/stage5_rules_evidence/engine.py"
-      - "src/stage5_rules_evidence/rule_runner.py"
-      - "src/stage5_rules_evidence/evidence_builder.py"
-      - "src/stage5_rules_evidence/gate_evaluator.py"
-      - "tests/test_internal_chain.py"
-      - "tests/test_architecture_anti_drift.py"
-      - "tests/test_stage56_evaluators.py"
+      - "control/product_task_library.yaml"
+      - "docs/AX9S_开发执行路由图.md"
+      - "tests/test_stage12_extractors.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "handoff/stage4_to_stage5/contract.json"
-      - "handoff/stage4_to_stage5/example.json"
-      - "handoff/stage4_to_stage5/validator.json"
-      - "src/stage5_rules_evidence/service.py"
-      - "src/stage5_rules_evidence/engine.py"
-      - "src/stage5_rules_evidence/rule_runner.py"
-      - "src/stage5_rules_evidence/evidence_builder.py"
-      - "src/stage5_rules_evidence/gate_evaluator.py"
-      - "tests/test_internal_chain.py"
-      - "tests/test_architecture_anti_drift.py"
-      - "tests/test_stage56_evaluators.py"
+      - "control/product_task_library.yaml"
+      - "docs/AX9S_开发执行路由图.md"
+      - "tests/test_stage12_extractors.py"
     forbidden_modification_paths:
       - "AGENTS.md"
       - "docs/L0.md"
       - "README.md"
       - "ARCHITECTURE_NOTE.md"
+      - "scripts/**"
+      - "src/**"
       - "contracts/**"
-      - "handoff/stage1_to_stage2/**"
-      - "handoff/stage2_to_stage3/**"
-      - "handoff/stage3_to_stage4/**"
-      - "handoff/stage5_to_stage6/**"
-      - "handoff/stage6_to_stage7/**"
-      - "handoff/stage7_to_stage8/**"
-      - "handoff/stage8_to_stage9/**"
-      - "src/stage1_tasking/**"
-      - "src/stage2_ingestion/**"
-      - "src/stage3_parsing/**"
-      - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
-      - "src/stage8_outreach/**"
-      - "src/stage9_delivery/**"
-      - "tests/test_stage12_extractors.py"
+      - "handoff/**"
       - "tests/test_external_unlock_prerequisites.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_architecture_anti_drift.py"
       - "tests/test_semantic_runtime_validator.py"
+      - "tests/test_stage56_evaluators.py"
       - "control/milestone_status.yaml"
-      - "control/product_task_library.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/operator_assignment_roster_defaults.yaml"
       - "control/review_gate_matrix.yaml"
       - "control/automation_task_packet_rules.yaml"
       - "docs/自动开发任务包模板.md"
       - "control/ax9s_scoped_task_packet_template.yaml"
-      - "docs/AX9S_开发执行路由图.md"
-      - "scripts/**"
     impacted_assets:
-      docs: []
+      docs:
+        - "docs/AX9S_开发执行路由图.md"
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
+        - "control/product_task_library.yaml"
       contracts: []
-      handoff:
-        - "handoff/stage4_to_stage5/contract.json"
-        - "handoff/stage4_to_stage5/example.json"
-        - "handoff/stage4_to_stage5/validator.json"
+      handoff: []
       scripts: []
       tests:
-        - "tests/test_internal_chain.py"
-        - "tests/test_architecture_anti_drift.py"
-        - "tests/test_stage56_evaluators.py"
-      runtime:
-        - "src/stage5_rules_evidence/service.py"
-        - "src/stage5_rules_evidence/engine.py"
-        - "src/stage5_rules_evidence/rule_runner.py"
-        - "src/stage5_rules_evidence/evidence_builder.py"
-        - "src/stage5_rules_evidence/gate_evaluator.py"
+        - "tests/test_stage12_extractors.py"
+      runtime: []
     required_scripts:
-      - "python -m pytest tests/test_internal_chain.py -q"
-      - "python -m pytest tests/test_architecture_anti_drift.py -q"
-      - "python -m pytest tests/test_stage56_evaluators.py -q"
+      - "python -m pytest tests/test_stage12_extractors.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1"
       - "git status --short --untracked-files=all"
     script_timeouts:
-      "python -m pytest tests/test_internal_chain.py -q": 300000
-      "python -m pytest tests/test_architecture_anti_drift.py -q": 300000
-      "python -m pytest tests/test_stage56_evaluators.py -q": 300000
+      "python -m pytest tests/test_stage12_extractors.py -q": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1": 300000
@@ -251,49 +203,48 @@ currentTask:
       - "任一脚本失败"
       - "实际改动超出 allowed_modification_paths"
       - "触碰 forbidden paths"
-      - "新增业务对象、枚举、gate、exception 语义"
-      - "改到 Stage6+"
-      - "改到 Stage8/Stage9"
-      - "改 scripts"
-      - "改 canonical readiness"
+      - "激活 PTL-S56"
+      - "改到 runtime / contracts / handoff / scripts"
+      - "改到其他 tests"
+      - "改变 canonical readiness"
       - "放宽 external release / Stage8 / Stage9 红线"
+      - "新增业务对象、枚举、gate、exception 语义"
       - "自动提交"
     definition_of_done:
-      - "currentTask.task_id 为 PTL-S45-rule-evidence-dual-gate"
-      - "currentTask.title 为 Stage4-5 规则与证据双闸门闭合"
-      - "task_packet.packet_id 为 PTL-PKT-S45-rule-evidence-dual-gate"
-      - "task_packet.subpacket_id 为 PTL-PKT-S45-rule-evidence-dual-gate"
-      - "task_packet.backlog_packet_ref 为 PTL-S45-rule-evidence-dual-gate"
+      - "currentTask.task_id 为 PTL-GOV-109-mainline-candidate-shift-to-S56"
+      - "currentTask.title 为 主线候选推进到 S56"
+      - "task_packet.packet_id 为 PTL-GOV-109-mainline-candidate-shift-to-S56"
+      - "task_packet.subpacket_id 为 PTL-GOV-109-mainline-candidate-shift-to-S56"
+      - "task_packet.backlog_packet_ref 为 PTL-GOV-109-mainline-candidate-shift-to-S56"
       - "task_packet.packet_kind 为 EXECUTABLE_SCOPED_SUBPACKET"
       - "task_packet.execution_mode 为 SCOPED_EXECUTION"
       - "task_packet.source_blueprint_batch_id 为 POST-FF-CONTROL-01"
-      - "task_packet.runtime_change_in_packet 为 CONTROLLED_STAGE4_5_RUNTIME_CLOSURE"
       - "task_packet.status 为 ACTIVE"
-      - "implementation_boundary.existing_runtime_state 保持 PARTIAL_RUNTIME"
       - "baseline_dirty_paths 为空"
-      - "declared_changed_paths / allowed_modification_paths 覆盖本轮允许路径"
-      - "当前 active packet 仍为 PTL-S45-rule-evidence-dual-gate"
-      - "本轮进入 scoped-execution"
-      - "Stage4-5 被明确表述为 existing partial runtime closure target，不是 zero-to-one skeleton"
-      - "Stage5 只消费 Stage4 formal producer objects / H-04 handoff"
-      - "Stage5 不从 raw pre-Stage4 inputs 或 flags 重算 verification_state / cross_check_state / fixation_status / provenance_chain_status / retrieval_readiness_status / lineage_status / conflict_state"
-      - "缺失 H-04 required fields 或 evidence precondition state 时进入 review / block path，不静默成功"
-      - "不改 scripts / product_task_library / AX9S / Stage6+ / Stage8 / Stage9"
-      - "不改变 canonical readiness"
-      - "不放开 external release / Stage8 / Stage9"
-      - "required scripts 执行并停机汇报"
+      - "declared_changed_paths / allowed_modification_paths 仅覆盖本轮 5 个允许文件"
+      - "PTL-S45 task entry 标记为 COMPLETED / COMPLETED / false"
+      - "PTL-S56 task entry 标记为 CANDIDATE / REALITY_ALIGNMENT_QUEUED / true"
+      - "control/product_task_library.yaml 不新增 PTL-GOV-109 到 tasks 池"
+      - "docs/AX9S_开发执行路由图.md 近端导航第一位切到 PTL-S56"
+      - "tests/test_stage12_extractors.py candidate 断言切到 PTL-S56"
+      - "不激活 PTL-S56，不进入 PTL-S56 scoped-execution"
+      - "不改 runtime / contracts / handoff / scripts / 其他 tests"
+      - "不改变 canonical readiness，不放开 external release / Stage8 / Stage9"
+      - "required scripts 执行后停机汇报"
     deliverables:
-      - "PTL-S45-rule-evidence-dual-gate scoped-execution active packet"
-      - "control/current_task.yaml 与 control/repo_status.md scoped-execution 控制面同步"
-      - "Stage4-5 H-04 handoff / runtime / tests 闭合"
-      - "指定 pytest、control checks、clean-python-cache 与 git status 执行结果"
+      - "PTL-GOV-109-mainline-candidate-shift-to-S56 active governance closeout packet"
+      - "product_task_library current_mainline_next_candidate 推进到 PTL-S56-project-fact-review-report"
+      - "AX9S 近端导航提示同步到 S56"
+      - "stage12 stale candidate 断言同步到 S56"
+      - "指定 pytest、control checks、final gate、clean-python-cache 与 git status 执行结果"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
+      - "release_approver"
       - "architecture_owner"
       - "governance_owner"
+      - "model_governance_owner"
       - "testing_owner"
-      - "release_approver"
     review_evidence:
       declared: true
       signoff_required: true
@@ -301,9 +252,9 @@ currentTask:
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "control/product_task_library.yaml 已把 PTL-S45-rule-evidence-dual-gate 作为 current_mainline_next_candidate；本轮仍不修改该文件。"
-      - "PTL-S45-rule-evidence-dual-gate 当前 active packet 保持不变，但 execution_mode 从 ACTIVATION_ONLY 切到 SCOPED_EXECUTION。"
-      - "Stage4-5 双闸门是 existing partial runtime closure target，不是 zero-to-one skeleton。"
+      - "control/product_task_library.yaml 只提供主线候选池；current_mainline_next_candidate 不自动激活为当前执行包。"
+      - "PTL-GOV-109 是治理收口包，不是 product mainline task，不加入 product task pool。"
+      - "PTL-S56-project-fact-review-report 仅成为 current_mainline_next_candidate，不是当前 active packet。"
       - "External release 继续保持阻断；Stage8 / Stage9 real execution/payment/delivery/refund 继续默认阻断。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
@@ -311,19 +262,18 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮允许修改 control/current_task.yaml、control/repo_status.md、handoff/stage4_to_stage5/*、src/stage5_rules_evidence/* 与指定 tests。"
-    - "允许在 PTL-S45-rule-evidence-dual-gate 当前 active packet 下进入 scoped-execution。"
-    - "允许收平 Stage4 formal outputs 到 Stage5 dual-gate inputs 的 H-04 / H-05 消费边界。"
-    - "允许运行 preflight、指定 pytest、control checks、clean-python-cache 与 git status，并在执行后停机汇报。"
+    - "本轮只允许修改 control/current_task.yaml、control/repo_status.md、control/product_task_library.yaml、docs/AX9S_开发执行路由图.md、tests/test_stage12_extractors.py。"
+    - "允许关闭 PTL-S45 scoped-execution active 状态，并把当前 active packet 切到 PTL-GOV-109-mainline-candidate-shift-to-S56。"
+    - "允许把 current_mainline_next_candidate 推进到 PTL-S56-project-fact-review-report。"
+    - "允许运行指定 pytest、control checks、final gate、clean-python-cache 与 git status，并在执行后停机汇报。"
   forbidden_actions:
-    - "不得修改 AGENTS.md、docs/L0.md、README.md、ARCHITECTURE_NOTE.md、contracts/**、非目标 handoff/src/tests 路径。"
-    - "不得修改 control/product_task_library.yaml、control/milestone_status.yaml、control/source_blueprint_registry.yaml、control/operator_assignment_roster_defaults.yaml、control/review_gate_matrix.yaml、control/automation_task_packet_rules.yaml。"
-    - "不得修改 docs/AX9S_开发执行路由图.md、docs/自动开发任务包模板.md、control/ax9s_scoped_task_packet_template.yaml。"
-    - "不得修改 scripts/**。"
+    - "不得修改 AGENTS.md、docs/L0.md、scripts/**、src/**、contracts/**、handoff/**。"
+    - "不得修改本轮未授权 tests 或 control 文件。"
+    - "不得激活 PTL-S56，不得进入 PTL-S56 scoped-execution。"
     - "不得改变 canonical readiness。"
     - "不得放宽 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
     - "不得新增正式对象、枚举、gate、exception 语义。"
     - "不得提交。"
   nextActions:
-    - "先完成 scoped-execution 控制面切换与 preflight，再收平 H-04/H-05 handoff/runtime/tests，最后运行 required_scripts 并停机汇报。"
-  status_note: "PTL-S45-rule-evidence-dual-gate 当前进入 scoped-execution；本轮按 existing partial runtime closure target 收平 Stage4 formal outputs 到 Stage5 dual-gate inputs 的 handoff / runtime / tests，不改 scripts、不改 Stage6+、不改 Stage8/Stage9、不改变 canonical readiness、不提交。"
+    - "完成本轮 5 文件候选治理同步后，运行 required_scripts 并停机汇报；不自动进入 PTL-S56。"
+  status_note: "PTL-GOV-109-mainline-candidate-shift-to-S56 当前为 active governance closeout packet；PTL-S56-project-fact-review-report 仅是 current_mainline_next_candidate，不是当前 active packet；本轮不改 runtime/contracts/handoff/scripts，不改变 canonical readiness，不提交。"
