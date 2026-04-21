@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-104-mainline-activation-gate-alignment (scoped-execution; governance transition package for mainline activation gate alignment; current_task is the unique active execution source; product_task_library.current_mainline_next_candidate remains PTL-S12-source-route-clock-authority only and is not auto-activated; AX9S remains navigation-only; no business runtime changes, no product mainline task activation, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
+Current Workstream: PTL-S12-source-route-clock-authority (activation-only; PTL-S12 is now the current active packet via control/current_task.yaml; this round only switches the active packet and does not enter scoped-execution; Stage1-2 is existing internal governed PARTIAL_RUNTIME, not zero-to-one skeleton; no business runtime changes, no contracts/handoff/tests/scripts/product_task_library/AX9S changes, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,35 +21,43 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the new controlled development system
-- scoped-execution governance transition alignment for PTL-GOV-104-mainline-activation-gate-alignment within the declared control / docs / tests files
+- activation-only packet switch for PTL-S12-source-route-clock-authority within control/current_task.yaml and control/repo_status.md only
 - current_task is the unique active execution source
-- product_task_library is the product mainline candidate pool; current_mainline_next_candidate is candidate semantics only and does not auto-activate
-- source_blueprint_registry is the source-blueprint allowlist
-- operator_assignment_roster_defaults is the stable stage7/8/9 roster source
-- AX9S route map is a candidate navigation asset and navigation-only product phase map
+- product_task_library remains the product mainline task pool and is not modified in this activation-only round
+- source_blueprint_registry remains the source-blueprint allowlist and is not modified in this activation-only round
+- operator_assignment_roster_defaults remains the stable stage7/8/9 roster source and is not modified in this activation-only round
+- AX9S route map remains a candidate navigation asset and navigation-only product phase map; it is not modified in this activation-only round
 
 Forbidden Actions (current):
+- Any claim that activation-only equals scoped-execution
+- Any entry into scoped-execution for PTL-S12 without a separate confirmed execution round
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
 - Any attempt to use historical task_packet_library as the current task source
-- Any automatic activation of PTL-S12-source-route-clock-authority from current_mainline_next_candidate
+- Any runtime / contracts / handoff / tests / scripts / product_task_library / AX9S change in this activation-only round
+- Any rewrite of Stage1-2 as zero-to-one skeleton instead of existing internal governed PARTIAL_RUNTIME
 - External software release or unaudited leadpack delivery
 - Production release logic or deployment
 - Real outreach/payment/delivery execution without manual approval and governance gates
 
 State Semantics:
-- READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not select a mainline by itself.
+- READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself authorize scoped-execution or runtime changes.
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- product_task_library only carries product mainline tasks for future selection and scoped packet derivation.
-- PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate in product_task_library; it is not the current execution packet and is not auto-activated.
+- PTL-S12-source-route-clock-authority is now the current active packet through control/current_task.yaml.
+- This round is activation-only: it switches the active packet and does not enter scoped-execution.
+- Stage1-2 is existing internal governed PARTIAL_RUNTIME, not zero-to-one skeleton.
+- product_task_library only carries product mainline tasks for future selection and scoped packet derivation; it remains unchanged in this round.
+- product_task_library current_mainline_next_candidate metadata was the source candidate for this activation, but it does not decide execution order by itself.
 - product_task_library existing_code_state / planning_state / runtime_notes describe current code reality only; they do not authorize runtime changes in this packet.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - route-map near-end sync is warning-only: state alignment may emit a prompt when AX9S hints lag behind product_task_library, but that prompt is not a release blocker.
+- Canonical readiness is unchanged by this activation-only round.
+- External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
 
-Script Check Summary (new controlled development system cutover):
+Script Check Summary (last completed controlled development system cutover):
 - doctor.ps1: PASS
 - check-task-packet.ps1: PASS
 - check-state-alignment.ps1: PASS
@@ -60,6 +68,13 @@ Script Check Summary (new controlled development system cutover):
 - check-handoff-dependencies.ps1: PASS
 - python tests/run_tests.py: PASS
 - check-final-gate.ps1: PASS
+
+Current Activation-Only Required Checks:
+- scripts/check-task-packet.ps1
+- scripts/check-state-alignment.ps1
+- scripts/check-final-gate.ps1
+- scripts/clean-python-cache.ps1
+- git status --short --untracked-files=all
 
 Automation Guardrails:
 - Action matrix: control/automation_action_matrix.yaml
