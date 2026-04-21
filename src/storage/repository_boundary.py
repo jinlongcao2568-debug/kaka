@@ -759,6 +759,9 @@ def _record_from_persisted_refs(
         record = repository.get_by_id(record_id)
         if record is not None:
             return record
+        # Once a typed repository-backed ref is present, do not silently
+        # broaden replay authority to coarse fallback fields.
+        return None
     if fallback_value:
         return repository.find_one_by_field(fallback_field, fallback_value)
     return None

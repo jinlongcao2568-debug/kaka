@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 import copy
+import sys
 import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+TESTS = ROOT / "tests"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+if str(TESTS) not in sys.path:
+    sys.path.insert(0, str(TESTS))
 
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
 from api.routes.stage7 import list_saleable_opportunities, refresh_saleable_opportunity
 from api.routes.stage8 import create_touch_record, list_contact_targets
 from api.routes.stage9 import create_governance_feedback_event, list_orders
-from storage.db import PersistedWorkItem
+from storage.db import DatabaseSession, PersistedStageState, PersistedWorkItem
 from storage import reset_default_storage
 from storage.repository_boundary import hydrate_stage_bundle
 from storage.repositories import (
@@ -549,6 +559,44 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             hydrated.record("governance_feedback_event").get("governance_feedback_event_id"),
             governance["governance_feedback_event_id"],
         )
+
+    def test_stage9_repository_readback_does_not_broad_fallback_when_persisted_refs_exist(self) -> None:
+        stage9 = self.result["stage9"]
+        create_governance_feedback_event(stage9)
+
+        order_id = stage9.record("order_record").get("order_id")
+        opportunity_id = stage9.record("order_record").get("opportunity_id")
+        stage_state = DatabaseSession.default().get_stage_state(9, "order_delivery_workbench", order_id)
+
+        self.assertIsNotNone(stage_state)
+
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs.update(
+            {
+                "payment_id": "PAY-STALE-TYPED-REF-001",
+                "delivery_id": "DELIVERY-STALE-TYPED-REF-001",
+                "outcome_event_id": "OUTCOME-STALE-TYPED-REF-001",
+                "governance_feedback_event_id": "GOV-STALE-TYPED-REF-001",
+            }
+        )
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        hydrated = hydrate_stage_bundle("stage9", {"opportunity_id": opportunity_id})
+
+        self.assertIsNone(hydrated)
+        with self.assertRaises(TypeError):
+            list_orders({"opportunity_id": opportunity_id})
 
 
 if __name__ == "__main__":

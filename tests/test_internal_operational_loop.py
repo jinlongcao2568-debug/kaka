@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import sys
 import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+TESTS = ROOT / "tests"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+if str(TESTS) not in sys.path:
+    sys.path.insert(0, str(TESTS))
 
 from api.routes.stage7 import list_stage7_work_items, refresh_saleable_opportunity, submit_stage7_operator_action
 from api.routes.stage8 import create_touch_record, list_stage8_work_items, submit_stage8_operator_action

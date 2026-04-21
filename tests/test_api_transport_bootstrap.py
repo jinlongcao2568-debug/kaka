@@ -94,6 +94,15 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(payload["surface_id"], "opportunity_pool")
         self.assertTrue(payload["internal_only"])
         self.assertFalse(payload["live_execution_enabled"])
+        self.assertEqual(payload["operational_context_status"], "persisted")
+        self.assertEqual(payload["operator_loop_projection"]["context_key"], "persisted_operational_context")
+        self.assertEqual(payload["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
+        self.assertTrue(payload["operator_loop_projection"]["queue_materialized"])
+        self.assertEqual(
+            payload["operator_loop_projection"]["action_controls_source"],
+            "persisted_operational_context.pending_actions",
+        )
+        self.assertEqual(payload["workbench_replay"]["replay_source"], "repository_readback")
         self.assertEqual(payload["surface_state"], payload["semantic_envelope"]["surface_state"])
         self.assertEqual(
             payload["semantic_envelope"]["surface_state_source"],
@@ -124,6 +133,15 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(payload["surface_id"], "outreach_workbench")
         self.assertTrue(payload["blocked_by_default"])
         self.assertFalse(payload["live_execution_enabled"])
+        self.assertEqual(payload["operational_context_status"], "persisted")
+        self.assertEqual(payload["operator_loop_projection"]["context_key"], "persisted_operational_context")
+        self.assertEqual(payload["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
+        self.assertTrue(payload["operator_loop_projection"]["queue_materialized"])
+        self.assertEqual(
+            payload["operator_loop_projection"]["action_controls_source"],
+            "persisted_operational_context.pending_actions",
+        )
+        self.assertEqual(payload["workbench_replay"]["replay_source"], "repository_readback")
         self.assertEqual(payload["surface_state"], payload["semantic_envelope"]["surface_state"])
         self.assertEqual(
             payload["semantic_envelope"]["surface_state_source"],
@@ -158,6 +176,15 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(payload["surface_id"], "order_delivery_workbench")
         self.assertTrue(payload["blocked_by_default"])
         self.assertFalse(payload["live_execution_enabled"])
+        self.assertEqual(payload["operational_context_status"], "persisted")
+        self.assertEqual(payload["operator_loop_projection"]["context_key"], "persisted_operational_context")
+        self.assertEqual(payload["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
+        self.assertTrue(payload["operator_loop_projection"]["queue_materialized"])
+        self.assertEqual(
+            payload["operator_loop_projection"]["action_controls_source"],
+            "persisted_operational_context.pending_actions",
+        )
+        self.assertEqual(payload["workbench_replay"]["replay_source"], "repository_readback")
         self.assertEqual(payload["surface_state"], payload["semantic_envelope"]["surface_state"])
         self.assertEqual(
             payload["semantic_envelope"]["surface_state_source"],

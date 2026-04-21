@@ -2,8 +2,17 @@ from __future__ import annotations
 
 import copy
 import json
+import sys
 import unittest
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+TESTS = ROOT / "tests"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+if str(TESTS) not in sys.path:
+    sys.path.insert(0, str(TESTS))
 
 from helpers import load_fixture, run_internal_chain_to_stage7
 from api.projections import get_surface_runtime_defaults
@@ -41,9 +50,6 @@ from api.routes.stage9 import (
 from storage import reset_default_storage
 
 
-ROOT = Path(__file__).resolve().parents[1]
-
-
 def read_json(relative_path: str) -> dict:
     return json.loads((ROOT / relative_path).read_text(encoding="utf-8"))
 
@@ -79,13 +85,19 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertIn("transient_preview_context", response)
         self.assertNotIn("pending_actions", response["transient_preview_context"])
         self.assertNotIn("pending_button_flows", response["transient_preview_context"])
+        self.assertNotIn("action_history", response["transient_preview_context"])
+        self.assertNotIn("last_action", response["transient_preview_context"])
         self.assertEqual(response["operator_loop_projection"]["context_key"], "transient_preview_context")
         self.assertEqual(response["operator_loop_projection"]["workbench_replay_source"], "projection_only")
         self.assertFalse(response["operator_loop_projection"]["queue_materialized"])
+        self.assertEqual(response["operator_loop_projection"]["action_history_count"], 0)
+        self.assertEqual(response["operator_loop_projection"]["pending_action_count"], 0)
+        self.assertEqual(response["operator_loop_projection"]["pending_button_flow_count"], 0)
         self.assertEqual(
             response["operator_loop_projection"]["action_controls_source"],
             "governance_envelope.action_availability",
         )
+        self.assertFalse(response["operator_loop_projection"]["display_contract"]["action_history_visible"])
         self.assertFalse(response["operator_loop_projection"]["display_contract"]["pending_button_flows_visible"])
         self.assertEqual(response["workbench_replay"]["context_key"], "transient_preview_context")
         self.assertEqual(response["workbench_replay"]["replay_source"], "projection_only")
@@ -137,6 +149,7 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertIn("transient_preview_context", list_response)
         self.assertNotIn("pending_actions", list_response["transient_preview_context"])
         self.assertNotIn("pending_button_flows", list_response["transient_preview_context"])
+        self.assertNotIn("action_history", list_response["transient_preview_context"])
         self.assertEqual(list_response["operator_loop_projection"]["context_key"], "transient_preview_context")
         self.assertEqual(list_response["workbench_replay"]["replay_source"], "projection_only")
         self.assertIn(
@@ -146,10 +159,26 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertTrue(draft_response["operational_loop_persisted"])
         self.assertEqual(draft_response["operational_context_status"], "persisted")
         self.assertIn("persisted_operational_context", draft_response)
+        self.assertIn("pending_actions", draft_response["persisted_operational_context"])
+        self.assertIn("pending_button_flows", draft_response["persisted_operational_context"])
+        self.assertIn("action_history", draft_response["persisted_operational_context"])
         self.assertEqual(draft_response["operator_loop_projection"]["context_key"], "persisted_operational_context")
         self.assertEqual(draft_response["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
         self.assertTrue(draft_response["operator_loop_projection"]["queue_materialized"])
+        self.assertTrue(draft_response["operator_loop_projection"]["display_contract"]["action_history_visible"])
         self.assertTrue(draft_response["operator_loop_projection"]["display_contract"]["pending_button_flows_visible"])
+        self.assertEqual(
+            draft_response["operator_loop_projection"]["pending_action_count"],
+            len(draft_response["persisted_operational_context"]["pending_actions"]),
+        )
+        self.assertEqual(
+            draft_response["operator_loop_projection"]["pending_button_flow_count"],
+            len(draft_response["persisted_operational_context"]["pending_button_flows"]),
+        )
+        self.assertEqual(
+            draft_response["operator_loop_projection"]["action_history_count"],
+            len(draft_response["persisted_operational_context"]["action_history"]),
+        )
         self.assertEqual(draft_response["workbench_replay"]["replay_source"], "repository_readback")
         self.assertEqual(
             draft_response["workbench_replay"]["work_item_id"],
@@ -276,6 +305,7 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertIn("transient_preview_context", list_response)
         self.assertNotIn("pending_actions", list_response["transient_preview_context"])
         self.assertNotIn("pending_button_flows", list_response["transient_preview_context"])
+        self.assertNotIn("action_history", list_response["transient_preview_context"])
         self.assertEqual(list_response["operator_loop_projection"]["context_key"], "transient_preview_context")
         self.assertEqual(list_response["workbench_replay"]["replay_source"], "projection_only")
         self.assertIn(
@@ -284,8 +314,26 @@ class TestInternalSurfacePreview(unittest.TestCase):
         )
         self.assertTrue(create_response["operational_loop_persisted"])
         self.assertEqual(create_response["operational_context_status"], "persisted")
+        self.assertIn("persisted_operational_context", create_response)
+        self.assertIn("pending_actions", create_response["persisted_operational_context"])
+        self.assertIn("pending_button_flows", create_response["persisted_operational_context"])
+        self.assertIn("action_history", create_response["persisted_operational_context"])
         self.assertEqual(create_response["operator_loop_projection"]["context_key"], "persisted_operational_context")
         self.assertEqual(create_response["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
+        self.assertTrue(create_response["operator_loop_projection"]["queue_materialized"])
+        self.assertTrue(create_response["operator_loop_projection"]["display_contract"]["action_history_visible"])
+        self.assertEqual(
+            create_response["operator_loop_projection"]["pending_action_count"],
+            len(create_response["persisted_operational_context"]["pending_actions"]),
+        )
+        self.assertEqual(
+            create_response["operator_loop_projection"]["pending_button_flow_count"],
+            len(create_response["persisted_operational_context"]["pending_button_flows"]),
+        )
+        self.assertEqual(
+            create_response["operator_loop_projection"]["action_history_count"],
+            len(create_response["persisted_operational_context"]["action_history"]),
+        )
         self.assertEqual(create_response["workbench_replay"]["replay_source"], "repository_readback")
         self.assertEqual(
             create_response["persisted_operational_context"]["object_refs"]["payment_id"],
