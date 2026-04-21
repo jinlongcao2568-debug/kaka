@@ -695,6 +695,22 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             self.assertNotIn("_load_json(", text, relative_path)
             self.assertNotIn("Path(__file__)", text, relative_path)
 
+    def test_stage7_service_does_not_use_direct_input_fallback_for_price_authority_outputs(self) -> None:
+        stage7 = read("src/stage7_sales/service.py")
+
+        self.assertIn(
+            'price_policy_outputs = runtime_state.outputs.get("price_normalization", {})',
+            stage7,
+        )
+        self.assertNotIn(
+            'runtime_state.resolve("price_band", inputs.get("price_band_optional"))',
+            stage7,
+        )
+        self.assertNotIn(
+            'runtime_state.resolve("recommended_quote_band", inputs.get("recommended_quote_band"))',
+            stage7,
+        )
+
     def test_schema_catalog_runtime_validator_and_enum_refs_align_for_critical_objects(self) -> None:
         critical_objects = [
             "execution_context",

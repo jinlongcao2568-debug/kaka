@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-S7-price-competitor-offer-resolution (ACTIVATION_ONLY; active packet switch only; PTL-S7 is activated as the current active packet but has not entered scoped-execution; no Stage7 runtime closure, no product_task_library / product_module_registry / AX9S / src / contracts / handoff / tests / scripts change; canonical readiness unchanged; external software release remains blocked; external leadpack delivery remains approval + audit gated; Stage8 and Stage9 real execution remain governed / approval-gated / blocked by default)
+Current Workstream: PTL-S7-price-competitor-offer-resolution (SCOPED_EXECUTION; Stage7 mainline authority / reality closure over existing HEAVY_RUNTIME only; close price normalization authority, multi-competitor TopN/winner carrier, actor seed precedence, offer / opportunity formal outputs, and H-07 formal carrier consistency; no Stage7 module split, no new runtime.py / scorecard.py / pricing.py / recommendation.py, no Stage7 stub boundary edits, no Stage8/Stage9 runtime edits, no shared runtime edits, no product_task_library / product_module_registry / AX9S / scripts change; canonical readiness unchanged; external software release remains blocked; external leadpack delivery remains approval + audit gated; Stage8 and Stage9 real execution remain governed / approval-gated / blocked by default)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,16 +21,20 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the controlled development system
-- activation-only switch for PTL-S7-price-competitor-offer-resolution within declared_changed_paths / allowed_modification_paths only
-- switch control/current_task.yaml active packet from PTL-GOV-113-mainline-candidate-shift-to-S7 to PTL-S7-price-competitor-offer-resolution
-- sync control/repo_status.md Current Workstream to PTL-S7-price-competitor-offer-resolution (ACTIVATION_ONLY)
+- scoped-execution for PTL-S7-price-competitor-offer-resolution within declared_changed_paths / allowed_modification_paths only
+- switch control/current_task.yaml execution_mode from ACTIVATION_ONLY to SCOPED_EXECUTION
+- update control/repo_status.md Current Workstream to PTL-S7-price-competitor-offer-resolution (SCOPED_EXECUTION)
+- update Stage7 runtime authority closure only in src/stage7_sales/service.py and src/stage7_sales/resolution.py when tests or authority mismatch require it
+- update only the declared Stage7 contracts / handoff / tests files
 - run the required checks and stop for report
 
 Forbidden Actions (current):
-- Any work outside PTL-S7-price-competitor-offer-resolution activation-only in this round
+- Any work outside PTL-S7-price-competitor-offer-resolution scoped-execution in this round
 - Any change outside declared_changed_paths / allowed_modification_paths
 - Any change to forbidden_modification_paths targets
-- Any change to AGENTS.md, docs/**, scripts/**, src/**, contracts/**, handoff/**, tests/**, or paths outside current task allowed_modification_paths
+- Any change to AGENTS.md, docs/**, scripts/**, or paths outside current task allowed_modification_paths
+- Any change to src/stage7_sales/buyer_fit.py, src/stage7_sales/offer.py, src/stage7_sales/opportunity.py, src/stage7_sales/models.py, or src/stage7_sales/__init__.py
+- Any change to src/stage8_outreach/**, src/stage9_delivery/**, or src/shared/**
 - Any change to control/product_task_library.yaml
 - Any change to docs/AX9S_开发执行路由图.md
 - Any change to control/product_module_registry.yaml
@@ -39,10 +43,9 @@ Forbidden Actions (current):
 - Any change to control/operator_assignment_roster_defaults.yaml
 - Any change to control/review_gate_matrix.yaml
 - Any change to control/automation_task_packet_rules.yaml
-- Any claim that this activation-only round changes canonical readiness
+- Any claim that this scoped-execution round changes canonical readiness
 - Any scripts change in this round
-- Any runtime / contracts / handoff / Stage7 business implementation change in this round
-- Any PTL-S7 scoped-execution entry in this round
+- Any Stage8 / Stage9 live execution semantics in this round
 - Any new formal object, enum, gate, or exception semantics
 - External software release or unaudited leadpack delivery
 - Production release logic or deployment
@@ -55,20 +58,28 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-GOV-113-mainline-candidate-shift-to-S7 has already completed and committed as 3cec5b0.
-- PTL-S7-price-competitor-offer-resolution is now the current active packet in ACTIVATION_ONLY mode through control/current_task.yaml.
-- PTL-S7-price-competitor-offer-resolution is only activated as an active packet control state in this round; it has not entered scoped-execution.
-- This round does not perform PTL-S7 runtime closure, does not modify Stage7 business implementation, and does not change runtime.
+- PTL-GOV-112-product-module-registry-expand-stage1-9 has completed and committed as dd8d278.
+- PTL-GOV-113-mainline-candidate-shift-to-S7 has completed and committed as 3cec5b0.
+- PTL-S7 activation-only has completed and committed as 32d3f5c.
+- PTL-S7-price-competitor-offer-resolution is now the current active packet in SCOPED_EXECUTION mode through control/current_task.yaml.
+- This round is not zero-to-one Stage7 implementation; it is authority / reality closure over existing HEAVY_RUNTIME.
+- This round closes price authority, competitor carrier consistency, actor seed provenance, and offer / opportunity formal outputs only.
+- This round does not split Stage7 modules and does not create new Stage7 runtime files.
+- This round does not enter Stage8 / Stage9 runtime and does not introduce live execution semantics.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - control/product_module_registry.yaml is an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
-- Canonical readiness is unchanged by this activation-only round.
+- Canonical readiness is unchanged by this scoped-execution round.
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
 
-Current Activation-Only Required Checks:
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md'
+Current Scoped-Execution Required Checks:
+- python -m pytest tests/test_stage7_runtime_closure.py -q
+- python -m pytest tests/test_internal_chain.py -q
+- python -m pytest tests/test_architecture_anti_drift.py -q
+- python -m pytest tests/test_stage8_resolution_closure.py -q
+- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','src/stage7_sales/service.py','src/stage7_sales/resolution.py','contracts/sales/stage7_resolution_policy.json','contracts/sales/price_normalization_catalog.json','contracts/sales/competitor_confidence_catalog.json','contracts/sales/opportunity_policy_catalog.json','handoff/stage7_to_stage8/contract.json','handoff/stage7_to_stage8/example.json','handoff/stage7_to_stage8/validator.json','tests/test_stage7_runtime_closure.py','tests/test_internal_chain.py','tests/test_architecture_anti_drift.py','tests/test_stage8_resolution_closure.py'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1

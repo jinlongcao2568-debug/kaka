@@ -221,6 +221,20 @@ class Stage7Service:
                 raise ValueError(f"Stage7 formal policy derivation missing {field_name}")
             return value
 
+        def resolved_policy_output(
+            policy_key: str,
+            field_name: str,
+            *,
+            allow_none: bool = False,
+        ) -> Any:
+            policy_outputs = runtime_state.outputs.get(policy_key, {})
+            if field_name in policy_outputs:
+                return policy_outputs.get(field_name)
+            value = runtime_state.resolve(field_name)
+            if value is None and not allow_none:
+                raise ValueError(f"Stage7 formal policy derivation missing {field_name}")
+            return value
+
         multi_competitor_candidates = ensure_list(required_runtime_value("multi_competitor_candidates"))
         top_n_competitor_ids = ensure_list(required_runtime_value("top_n_candidate_ids"))
         winning_competitor_candidate = dict(required_runtime_value("winning_competitor_candidate"))
@@ -240,23 +254,17 @@ class Stage7Service:
         project_value_score_optional = _optional_int(required_runtime_value("project_value_score"))
         opportunity_value_score_optional = _optional_int(required_runtime_value("opportunity_value_score"))
         normalized_price_amount_optional = _optional_number(
-            runtime_state.resolve("normalized_price_amount", normalized_price_amount_seed)
+            resolved_policy_output("price_normalization", "normalized_price_amount", allow_none=True)
         )
         price_conflict_gate_status_optional = _optional_str(
-            runtime_state.resolve("price_conflict_gate_status", price_conflict_gate_status_seed)
+            resolved_policy_output("price_normalization", "price_conflict_gate_status")
         )
         price_policy_outputs = runtime_state.outputs.get("price_normalization", {})
         price_band_optional = _optional_str(
-            price_policy_outputs.get(
-                "price_band",
-                runtime_state.resolve("price_band", inputs.get("price_band_optional")),
-            )
+            resolved_policy_output("price_normalization", "price_band")
         )
         price_recommended_quote_band = _optional_str(
-            price_policy_outputs.get(
-                "recommended_quote_band",
-                runtime_state.resolve("recommended_quote_band", inputs.get("recommended_quote_band")),
-            )
+            resolved_policy_output("price_normalization", "recommended_quote_band")
         )
         confidence_score_optional = _optional_int(
             runtime_state.resolve("competitor_confidence_score", confidence_score_seed)

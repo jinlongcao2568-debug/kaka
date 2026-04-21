@@ -430,6 +430,39 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertEqual(stage7.record("offer_recommendation").get("recommended_quote_band"), "LOW")
         self.assertEqual(stage7.record("saleable_opportunity").get("expected_contract_value_band"), "LOW")
 
+    def test_stage7_direct_price_overrides_do_not_bypass_price_authority(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "normalized_price_amount_optional": 99_000_000,
+                "price_conflict_gate_status_optional": "BLOCK",
+                "price_band_optional": "VERY_HIGH",
+                "recommended_quote_band": "CUSTOM",
+                "price_source_set_optional": [
+                    {
+                        "source_type": "BID_PRICE",
+                        "amount": 500000,
+                        "currency": "CNY",
+                        "tax_basis_optional": "EX_TAX",
+                        "unit_basis_optional": "TOTAL_AMOUNT",
+                        "lot_id_optional": "LOT-LOW",
+                        "package_id_optional": "PKG-LOW",
+                        "recency_days_optional": 5,
+                    }
+                ],
+            }
+        )
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+        price_trace = stage7.inputs["stage7_resolution_trace"]["price_resolution"]
+
+        self.assertEqual(stage7.handoff.get("normalized_price_amount_optional"), 500000)
+        self.assertEqual(stage7.handoff.get("price_conflict_gate_status_optional"), "PASS")
+        self.assertEqual(price_trace["price_band"], "LOW")
+        self.assertEqual(price_trace["recommended_quote_band"], "LOW")
+        self.assertEqual(stage7.record("offer_recommendation").get("recommended_quote_band"), "LOW")
+        self.assertEqual(stage7.record("saleable_opportunity").get("expected_contract_value_band"), "LOW")
+
     def test_stage7_price_resolution_marks_stale_reference_only(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload["price_source_set_optional"] = [
