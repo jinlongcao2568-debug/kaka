@@ -144,9 +144,17 @@ class TestInternalChain(unittest.TestCase):
         )
         self.assertEqual(stage4.record("pseudo_competitor_signal_set").get("confidence_band"), "MEDIUM")
         for field_name in (
+            "project_id",
+            "focus_bidder_id",
+            "public_attack_surface_id",
+            "verification_profile_id",
+            "evidence_grade_profile_id",
+            "public_capability_tier",
             "verification_state",
+            "external_use_grade",
             "cross_check_state",
             "fixation_status",
+            "provenance_chain_status",
             "retrieval_readiness_status",
             "lineage_status",
             "conflict_state",
@@ -163,6 +171,18 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(
             stage4.handoff.get("cross_check_state"),
             stage4.record("evidence_grade_profile").get("cross_check_state"),
+        )
+        self.assertEqual(
+            stage4.handoff.get("public_attack_surface_id"),
+            stage4.record("public_attack_surface").get("public_attack_surface_id"),
+        )
+        self.assertEqual(
+            stage4.handoff.get("verification_profile_id"),
+            stage4.record("focus_bidder_verification_profile").get("verification_profile_id"),
+        )
+        self.assertEqual(
+            stage4.handoff.get("evidence_grade_profile_id"),
+            stage4.record("evidence_grade_profile").get("evidence_grade_profile_id"),
         )
         self.assertEqual(stage4.handoff.get("lineage_status"), "NORMALIZED")
         self.assertEqual(stage4.handoff.get("conflict_state"), "CONSISTENT")
@@ -192,6 +212,27 @@ class TestInternalChain(unittest.TestCase):
         )
         self.assertEqual(stage5.record("evidence").get("retrieval_readiness_status"), "READY")
         self.assertEqual(stage5.record("rule_hit").get("rule_hit_state"), "CONFIRMED")
+        for field_name in (
+            "project_id",
+            "focus_bidder_id",
+            "public_attack_surface_id",
+            "verification_profile_id",
+            "evidence_grade_profile_id",
+            "public_capability_tier",
+            "verification_state",
+            "external_use_grade",
+            "cross_check_state",
+            "fixation_status",
+            "provenance_chain_status",
+            "retrieval_readiness_status",
+            "lineage_status",
+            "conflict_state",
+            "pseudo_competitor_signal_set_id",
+            "confidence_band",
+        ):
+            self.assertIn(field_name, self.contracts[4]["required_payload_fields"])
+            self.assertIn(field_name, stage5.inputs)
+            self.assertEqual(stage5.inputs.get(field_name), stage4.handoff.get(field_name))
         for field_name in (
             "rule_hit_id",
             "rule_hit_state",

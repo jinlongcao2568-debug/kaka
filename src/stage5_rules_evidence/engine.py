@@ -20,32 +20,51 @@ class RuleEvidenceEngine:
         self.rule_runner = RuleRunner(store)
         self.gate_evaluator = GateEvaluator(store)
 
-    def execute(self, stage4_bundle: StageBundle) -> StageBundle:
+    def _build_stage4_authority_inputs(self, stage4_bundle: StageBundle) -> dict[str, Any]:
+        contract = self.store.runtime_validator.handoff_contract_index.get("H-04-STAGE4-TO-STAGE5", {})
+        stage4_handoff_authority_required_fields = [
+            str(value)
+            for value in contract.get(
+                "consumer_runtime_required_fields",
+                contract.get("required_payload_fields", []),
+            )
+        ]
+        stage4_handoff_authority_optional_fields = [
+            str(value) for value in contract.get("optional_payload_fields", [])
+        ]
         inputs = dict(stage4_bundle.inputs or {})
         for field_name in (
-            "project_id",
-            "focus_bidder_id",
-            "public_capability_tier",
-            "verification_state",
-            "external_use_grade",
-            "cross_check_state",
-            "fixation_status",
-            "provenance_chain_status",
-            "retrieval_readiness_status",
-            "lineage_status",
-            "conflict_state",
-            "pseudo_competitor_signal_set_id",
-            "confidence_band",
+            *stage4_handoff_authority_required_fields,
+            *stage4_handoff_authority_optional_fields,
+            "lineage",
         ):
+            inputs.pop(field_name, None)
+
+        missing_h04_fields = [
+            field_name
+            for field_name in stage4_handoff_authority_required_fields
+            if stage4_bundle.handoff.get(field_name) in (None, "")
+        ]
+        if missing_h04_fields:
+            missing_tokens = [f"missing_h04_handoff_field:{field_name}" for field_name in missing_h04_fields]
+            raise ValueError("; ".join(missing_tokens))
+
+        for field_name in stage4_handoff_authority_required_fields:
+            inputs[field_name] = stage4_bundle.handoff.get(field_name)
+        for field_name in stage4_handoff_authority_optional_fields:
             if field_name in stage4_bundle.handoff:
-                inputs[field_name] = stage4_bundle.handoff[field_name]
+                inputs[field_name] = stage4_bundle.handoff.get(field_name)
+        return inputs
+
+    def execute(self, stage4_bundle: StageBundle) -> StageBundle:
+        inputs = self._build_stage4_authority_inputs(stage4_bundle)
         flags = inputs.get("flags", {})
 
         evidence_grade_profile = stage4_bundle.record("evidence_grade_profile")
         public_attack_surface = stage4_bundle.record("public_attack_surface")
         focus_bidder_verification_profile = stage4_bundle.record("focus_bidder_verification_profile")
         pseudo_competitor_signal_set = stage4_bundle.record("pseudo_competitor_signal_set")
-        project_id = evidence_grade_profile.get("project_id")
+        project_id = str(inputs.get("project_id", evidence_grade_profile.get("project_id")))
 
         trace_rules: list[str] = []
         evidence_artifacts = self.evidence_builder.build(
@@ -90,7 +109,7 @@ class RuleEvidenceEngine:
             "evidence_id": evidence_artifacts.evidence.get("evidence_id"),
             "rule_gate_decision_id": rule_artifacts.rule_gate_decision.get("gate_id"),
             "evidence_gate_decision_id": evidence_artifacts.evidence_gate_decision.get("gate_id"),
-            "verification_state": focus_bidder_verification_profile.get("verification_state"),
+            "verification_state": inputs.get("verification_state"),
             "cross_check_state": evidence_artifacts.cross_check_state,
             "fixation_status": evidence_artifacts.fixation_status,
             "provenance_chain_status": evidence_artifacts.provenance_chain_status,
@@ -111,7 +130,7 @@ class RuleEvidenceEngine:
         inputs_out["evidence_id"] = evidence_artifacts.evidence.get("evidence_id")
         inputs_out["rule_gate_decision_id"] = rule_artifacts.rule_gate_decision.get("gate_id")
         inputs_out["evidence_gate_decision_id"] = evidence_artifacts.evidence_gate_decision.get("gate_id")
-        inputs_out["verification_state"] = focus_bidder_verification_profile.get("verification_state")
+        inputs_out["verification_state"] = inputs.get("verification_state")
         inputs_out["cross_check_state"] = evidence_artifacts.cross_check_state
         inputs_out["fixation_status"] = evidence_artifacts.fixation_status
         inputs_out["provenance_chain_status"] = evidence_artifacts.provenance_chain_status

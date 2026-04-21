@@ -484,8 +484,20 @@ class TestStage56Evaluators(unittest.TestCase):
                     "evidence_blocked": True,
                     "verification_blocked": True,
                 },
+                "public_attack_surface_id": "RAW-PAS-OVERRIDE",
+                "verification_profile_id": "RAW-VFP-OVERRIDE",
+                "evidence_grade_profile_id": "RAW-EGP-OVERRIDE",
+                "verification_state": "BLOCK",
+                "cross_check_state": "BLOCK",
+                "fixation_status": "NOT_FIXED",
+                "provenance_chain_status": "BROKEN",
+                "retrieval_readiness_status": "BLOCKED",
                 "lineage_status": "UNVERIFIED",
                 "conflict_state": "UNRESOLVED",
+                "lineage": {
+                    "lineage_status": "UNVERIFIED",
+                    "conflict_state": "UNRESOLVED",
+                },
             },
         )
 
@@ -496,6 +508,34 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertEqual(stage5.record("evidence_gate_decision").get("evidence_gate_status"), "PASS")
         self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "PASS")
         self.assertNotIn("review_request", stage5.records)
+        self.assertEqual(
+            stage5.inputs.get("verification_profile_id"),
+            stage4.handoff.get("verification_profile_id"),
+        )
+        self.assertEqual(stage5.inputs.get("verification_state"), "PASS")
+        self.assertEqual(stage5.inputs.get("cross_check_state"), "PASS")
+        self.assertEqual(stage5.inputs.get("lineage_status"), "NORMALIZED")
+        self.assertEqual(stage5.inputs.get("conflict_state"), "CONSISTENT")
+
+    def test_stage5_blocks_when_required_h04_handoff_fields_are_missing(self) -> None:
+        stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+        broken_stage4 = StageBundle(
+            stage=4,
+            records=dict(stage4.records),
+            handoff={
+                key: value
+                for key, value in stage4.handoff.items()
+                if key != "verification_profile_id"
+            },
+            trace_rules=list(stage4.trace_rules),
+            inputs=dict(stage4.inputs),
+        )
+
+        with self.assertRaisesRegex(ValueError, "missing_h04_handoff_field:verification_profile_id"):
+            Stage5Service().run(broken_stage4)
+
+        with self.assertRaisesRegex(ValueError, "missing_h04_handoff_field:verification_profile_id"):
+            RuleEvidenceEngine(Stage5Service().store).execute(broken_stage4)
 
     def test_stage5_handoff_exports_authoritative_gate_fields(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_block.json"))["stage4"]

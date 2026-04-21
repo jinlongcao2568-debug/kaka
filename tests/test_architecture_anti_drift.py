@@ -802,6 +802,30 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         self.assertIn("consumer_obligations", h03)
         self.assertIn("optional_payload_fields", h03)
 
+        h04 = read_json("handoff/stage4_to_stage5/contract.json")
+        for field_name in (
+            "project_id",
+            "focus_bidder_id",
+            "public_attack_surface_id",
+            "verification_profile_id",
+            "evidence_grade_profile_id",
+            "public_capability_tier",
+            "verification_state",
+            "external_use_grade",
+            "cross_check_state",
+            "fixation_status",
+            "provenance_chain_status",
+            "retrieval_readiness_status",
+            "lineage_status",
+            "conflict_state",
+            "pseudo_competitor_signal_set_id",
+            "confidence_band",
+        ):
+            self.assertIn(field_name, h04["required_payload_fields"])
+            self.assertIn(field_name, h04["consumer_runtime_required_fields"])
+            self.assertIn(field_name, h04["consumer_must_not_recompute_fields"])
+        self.assertIn("consumer_obligations", h04)
+
     def test_stage3_runtime_materializes_truth_layer_and_handoff_trace(self) -> None:
         result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
         stage2 = result["stage2"]
@@ -875,6 +899,18 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             'inputs.get("candidate_ids")',
         ):
             self.assertNotIn(token, text)
+
+    def test_stage5_runtime_consumes_h04_authority_from_formal_handoff_only(self) -> None:
+        engine_text = read("src/stage5_rules_evidence/engine.py")
+        rule_runner_text = read("src/stage5_rules_evidence/rule_runner.py")
+        for token in (
+            "def _build_stage4_authority_inputs(",
+            "stage4_handoff_authority_required_fields",
+            '"lineage",',
+            "missing_h04_handoff_field:",
+        ):
+            self.assertIn(token, engine_text)
+        self.assertNotIn('inputs.get("lineage")', rule_runner_text)
 
     def test_placeholder_models_remain_minimal_and_do_not_silently_drift(self) -> None:
         placeholder_files = [

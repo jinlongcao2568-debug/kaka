@@ -24,6 +24,9 @@
   "required_payload_fields": [
     "project_id",
     "focus_bidder_id",
+    "public_attack_surface_id",
+    "verification_profile_id",
+    "evidence_grade_profile_id",
     "public_capability_tier",
     "verification_state",
     "external_use_grade",
@@ -39,6 +42,9 @@
   "consumer_runtime_required_fields": [
     "project_id",
     "focus_bidder_id",
+    "public_attack_surface_id",
+    "verification_profile_id",
+    "evidence_grade_profile_id",
     "public_capability_tier",
     "verification_state",
     "external_use_grade",
@@ -51,17 +57,18 @@
     "pseudo_competitor_signal_set_id",
     "confidence_band"
   ],
-  "optional_payload_fields": [
-    "public_attack_surface_id",
-    "verification_profile_id",
-    "evidence_grade_profile_id"
-  ],
+  "optional_payload_fields": [],
   "consumer_obligations": [
     "Stage5 must consume Stage4 producer objects as the single formal verification and evidence-precondition source.",
     "Stage5 must not re-derive verification_state, cross_check_state, fixation_status, provenance_chain_status, retrieval_readiness_status, lineage_status, or conflict_state from raw pre-Stage4 inputs or flags.",
     "Stage5 may only derive rule/evidence gate artifacts from Stage4 formal outputs plus scoped governance inputs."
   ],
   "consumer_must_not_recompute_fields": [
+    "project_id",
+    "focus_bidder_id",
+    "public_attack_surface_id",
+    "verification_profile_id",
+    "evidence_grade_profile_id",
     "public_capability_tier",
     "verification_state",
     "external_use_grade",

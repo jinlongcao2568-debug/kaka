@@ -40,19 +40,9 @@ class RuleRunner:
         flags: Mapping[str, Any],
         trace_rules: list[str],
     ) -> RuleArtifacts:
-        lineage = inputs.get("lineage")
-        lineage_status = inputs.get("lineage_status", "NORMALIZED")
-        conflict_state = inputs.get("conflict_state", "CONSISTENT")
-        if isinstance(lineage, dict):
-            lineage_status = lineage.get("lineage_status", lineage_status)
-            conflict_state = lineage.get("conflict_state", conflict_state)
-
-        verification_state = str(
-            focus_bidder_verification_profile.get(
-                "verification_state",
-                public_attack_surface.get("verification_state", "NOT_RUN"),
-            )
-        )
+        lineage_status = str(inputs["lineage_status"])
+        conflict_state = str(inputs["conflict_state"])
+        verification_state = str(inputs["verification_state"])
         rule_hit_state = "DETECTED"
         rule_gate_status = "REVIEW"
         blocking_reasons: list[str] = []
