@@ -63,9 +63,9 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-S56-project-fact-review-report
-  packet_id: PTL-PKT-S56-project-fact-review-report
-  title: "Stage5-6 统一事实、复核队列与报告闭合"
+  task_id: PTL-S67-saleable-opportunity-derivation
+  packet_id: PTL-PKT-S67-saleable-opportunity-derivation
+  title: "Stage6-7 可售机会对象推导闭合"
   source_blueprint_batch_id: POST-FF-CONTROL-01
   packet_kind: EXECUTABLE_SCOPED_SUBPACKET
   activation_mode: scoped_execution
@@ -74,7 +74,7 @@ current_mainline_next_candidate:
   existing_runtime_state: HEAVY_RUNTIME
   planning_state: REALITY_ALIGNMENT_QUEUED
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "Stage5-6 已有 HEAVY_RUNTIME 的 internal governed runtime；本轮治理收口只把 PTL-S56 推进为 current_mainline_next_candidate，不因候选池指针自动成为当前执行包；当前 active execution source 以 control/current_task.yaml 为准，本轮不激活 PTL-S56，也不进入 PTL-S56 scoped-execution，不改 runtime。"
+  runtime_notes: "Stage6-7 已有 HEAVY_RUNTIME 的 internal governed runtime；本轮治理收口只把 PTL-S67 推进为 current_mainline_next_candidate，不因候选池指针自动成为当前执行包；当前 active execution source 以 control/current_task.yaml 为准，本轮不激活 PTL-S67，也不进入 PTL-S67 scoped-execution，不改 runtime。"
 task_count: 11
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -170,14 +170,14 @@ tasks:
     title: "Stage5-6 统一事实、复核队列与报告闭合"
     stage_scope: [stage5_rules_evidence, stage6_fact_review]
     task_type: product_mainline_closure
-    status: CANDIDATE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P0
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: REALITY_ALIGNMENT_QUEUED
+    planning_state: COMPLETED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "Stage5-6 已有 HEAVY_RUNTIME 的 internal governed runtime；PTL-S56 当前仅为 current_mainline_next_candidate，后续主线任务是把 formal contracts / consumption boundary 与现状收平，不是 zero-to-one skeleton 补齐；本轮不激活 PTL-S56。"
+    runtime_notes: "PTL-S56-project-fact-review-report scoped-execution 已完成并已提交；Stage5-6 保持既有 HEAVY_RUNTIME internal governed runtime；PTL-S56 不再是 current active packet，也不再是 current_mainline_next_candidate。"
     hard_depends_on: [PTL-S45-rule-evidence-dual-gate]
     soft_depends_on: []
     objective: "闭合 project fact、review queue、report 与后续销售阶段输入之间的关系。"
@@ -190,6 +190,7 @@ tasks:
     stage_scope: [stage6_fact_review, stage7_sales]
     task_type: product_mainline_closure
     status: CANDIDATE
+    is_current_mainline_next_candidate: true
     priority: P0
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME

@@ -21,7 +21,8 @@
 - 本仓库当前不是“从零补 skeleton”的起点，而是已经存在 Stage1-9 的 internal governed runtime。
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
 - Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked / governed / approval-gated。
-- 当前 active packet 以 `control/current_task.yaml` 为准；当前 active packet 为 `PTL-GOV-109-mainline-candidate-shift-to-S56`；`PTL-S56-project-fact-review-report` 是 `current_mainline_next_candidate`，不是当前 active packet，也不是自动激活的当前执行包。
+- 当前 active packet 以 `control/current_task.yaml` 为准；当前 active packet 为 `PTL-GOV-110-mainline-candidate-shift-to-S67`；`PTL-S67-saleable-opportunity-derivation` 是 `current_mainline_next_candidate`，不是当前 active packet，也不是自动激活的当前执行包。
+- `PTL-S56-project-fact-review-report` scoped-execution 已完成并已提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S45-rule-evidence-dual-gate` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S34-object-lineage-verification-handoff` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S23-public-chain-to-parser-contract` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -139,8 +140,7 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- `PTL-S56-project-fact-review-report`：current_mainline_next_candidate；这里只提示 Stage5-6 统一事实、复核队列与报告闭合的近端导航位置，不自动激活为当前执行包。
-- `PTL-S67-saleable-opportunity-derivation`：最贴近 Stage6-7 可售机会对象推导闭合。
+- `PTL-S67-saleable-opportunity-derivation`：current_mainline_next_candidate；这里只提示 Stage6-7 可售机会对象推导闭合的近端导航位置，不是自动激活的当前执行包，也不表示已进入 PTL-S67 scoped-execution。
 - `PTL-S7-price-competitor-offer-resolution`：最贴近 Stage7 价格、竞争者与推荐方案闭合。
 - `PTL-S78-contact-candidate-compliance-preview`：最贴近 Stage7-8 联系候选、合规判定与预览闭合。
 
