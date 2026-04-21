@@ -1410,6 +1410,27 @@ class TestInternalChain(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "complete H-08 payload fields"):
             service.run(missing_handoff_field_bundle)
 
+    def test_stage9_rejects_scattered_input_overrides_for_h08_authority(self) -> None:
+        stage8 = self._build_stage8_bundle()
+        scattered_inputs = dict(stage8.inputs)
+        scattered_inputs.update(
+            {
+                "response_status": "CONNECTED",
+                "saleability_status": "BLOCKED",
+                "crm_owner_state": "ASSIGNED",
+            }
+        )
+        conflicting_bundle = StageBundle(
+            stage=8,
+            records=dict(stage8.records),
+            handoff=dict(stage8.handoff),
+            trace_rules=list(stage8.trace_rules),
+            inputs=scattered_inputs,
+        )
+
+        with self.assertRaisesRegex(ValueError, "must-not-recompute conflicts"):
+            Stage9Service().run(conflicting_bundle)
+
     def test_stage9_h08_optional_fields_do_not_fallback_to_scattered_inputs(self) -> None:
         stage8 = self._build_stage8_bundle()
         service = Stage9Service()

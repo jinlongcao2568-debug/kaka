@@ -953,6 +953,35 @@ class TestStage9ImpactExecutor(unittest.TestCase):
             ["saleable_opportunity"],
         )
 
+    def test_stage9_typed_records_remain_internal_governed_not_live_execution(self) -> None:
+        stage9 = self._run_stage9({"refund_state": "REQUESTED"})
+
+        for record_name in (
+            "order_record",
+            "payment_record",
+            "delivery_record",
+            "opportunity_outcome_event",
+            "governance_feedback_event",
+        ):
+            with self.subTest(record=record_name):
+                record = stage9.record(record_name)
+                metadata = record.get("governed_metadata", {})
+                self.assertEqual(record.get("governed_execution_mode"), "INTERNAL_GOVERNED")
+                self.assertFalse(metadata.get("live_execution_enabled"))
+                self.assertTrue(metadata.get("projection_only"))
+                self.assertTrue(metadata.get("skeleton_only"))
+
+        self.assertTrue(stage9.inputs["impact_runtime_executor_enabled"])
+        self.assertEqual(stage9.inputs["impact_mutation_mode"], "ADDITIVE_INTERNAL_ONLY")
+        self.assertEqual(stage9.record("payment_record").get("payment_status"), "REFUND_PENDING")
+        self.assertNotEqual(stage9.record("delivery_record").get("delivery_status"), "DELIVERED")
+        self.assertEqual(stage9.record("delivery_record").get("delivered_at_optional"), "NOT_DELIVERED")
+        self.assertNotEqual(stage9.record("payment_record").get("refund_state"), "COMPLETED")
+        self.assertIn("payment_record", stage9.inputs["writeback_persistence_targets"])
+        self.assertIn("delivery_record", stage9.inputs["writeback_persistence_targets"])
+        self.assertIn("project_fact", stage9.inputs["writeback_projected_targets"])
+        self.assertNotIn("project_fact", stage9.inputs["writeback_persistence_targets"])
+
 
 if __name__ == "__main__":
     unittest.main()

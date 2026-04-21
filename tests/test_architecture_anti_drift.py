@@ -682,6 +682,42 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         self.assertNotIn("def _run_policy_chain", stage9)
         self.assertNotIn("runtime.executor.execute(", stage9)
 
+    def test_stage9_consumes_h08_authority_and_keeps_writeback_policy_bound(self) -> None:
+        stage9 = read("src/stage9_delivery/service.py")
+        impact_executor = read("src/stage9_delivery/impact_executor.py")
+
+        for token in (
+            "REQUIRED_H08_FIELDS",
+            "payload = dict(stage8_bundle.handoff or {})",
+            "response_status = h08_payload[\"response_status\"]",
+            "saleability_status = h08_payload[\"saleability_status\"]",
+            "crm_owner_state = h08_payload[\"crm_owner_state\"]",
+            "writeback_target_resolution = self.impact_executor.resolve_effective_targets(",
+            "impact_result = self.impact_executor.execute(",
+            "\"live_execution_enabled\": False",
+            "\"governed_execution_mode\": \"INTERNAL_GOVERNED\"",
+        ):
+            self.assertIn(token, stage9)
+
+        for token in (
+            'inputs.get("opportunity_id"',
+            'inputs.get("touch_record_id"',
+            'inputs.get("response_status"',
+            'inputs.get("saleability_status"',
+            'inputs.get("crm_owner_state"',
+        ):
+            self.assertNotIn(token, stage9)
+
+        for token in (
+            'load_contract("contracts/governance/writeback_impact_policy.json"',
+            "REQUIRED_TARGET_SEMANTIC_GROUPS",
+            "PROJECTED_MUTATION_ONLY",
+            "PERSISTED_STAGE9_RECORD",
+            "TRACE_ONLY_CONTRACT",
+            "runtime_executor_enabled",
+        ):
+            self.assertIn(token, impact_executor)
+
     def test_services_must_not_load_governance_assets_directly(self) -> None:
         for relative_path in (
             "src/stage6_fact_review/service.py",
