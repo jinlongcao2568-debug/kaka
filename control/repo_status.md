@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-S34-object-lineage-verification-handoff (SCOPED_EXECUTION; Stage3-4 object lineage / field-source / public verification handoff closure target; existing partial runtime closure target, not zero-to-one skeleton; controlled Stage3-4 runtime / handoff / tests closure only; no Stage5+ change; no Stage8 / Stage9 change; no scripts or contracts change; no product_task_library / AX9S change; does not change canonical readiness; does not open external release / Stage8 live execution / Stage9 live payment-delivery)
+Current Workstream: PTL-GOV-108-mainline-candidate-shift-to-S45 (SCOPED_EXECUTION; control/docs/tests governance closeout only; close PTL-S34 scoped-execution active status and advance current_mainline_next_candidate to PTL-S45-rule-evidence-dual-gate; sync current_task/product_task_library/AX9S/test_stage12 only; does not activate PTL-S45; does not enter PTL-S45 scoped-execution; no runtime/contracts/handoff/scripts change; does not change canonical readiness; does not open external release / Stage8 live execution / Stage9 live payment-delivery)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,27 +21,25 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the new controlled development system
-- scoped-execution for PTL-S34-object-lineage-verification-handoff within declared_changed_paths / allowed_modification_paths only
-- controlled Stage3 parsed truth layer to Stage4 verification inputs closure through H-03 handoff / runtime / tests
-- Stage4 must consume Stage3 formal producer objects / handoff for project_base, field_lineage_record, bidder_candidate, project_manager, project_root_id, notice_version_id, candidate_order_mode, award_determination_mode, public_chain_status, lineage_status, conflict_state, fixation_bundle_id, source_registry_id, route_policy_id, version_conflict_state, clock_conflict_state, and stage3_review_path_ref_optional
-- Stage4 review / block path must be used when lineage_status, conflict_state, collection truth, or review path is missing or conflicting
+- scoped-execution for PTL-GOV-108-mainline-candidate-shift-to-S45 within declared_changed_paths / allowed_modification_paths only
+- governance closeout to close PTL-S34 scoped-execution active status and advance current_mainline_next_candidate to PTL-S45-rule-evidence-dual-gate
+- sync only control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, docs/AX9S_开发执行路由图.md, and tests/test_stage12_extractors.py
+- PTL-S45 remains candidate-only in this round; it is not activated and does not enter scoped-execution
 - current_task is the unique active execution source
-- product_task_library remains the product mainline task pool and is not modified in this round
+- product_task_library remains the product mainline task pool; this round updates only the candidate pointer and task statuses, and does not add PTL-GOV-108 into the tasks pool
 - source_blueprint_registry remains the source-blueprint allowlist and is not modified in this round
 - operator_assignment_roster_defaults remains the stable stage7/8/9 roster source and is not modified in this round
-- AX9S route map remains a candidate navigation asset and navigation-only product phase map; it is not modified in this round
+- AX9S route map remains a candidate navigation asset and navigation-only product phase map; this round only syncs near-end hints to S45 and does not make AX9S a status source or execution source
 
 Forbidden Actions (current):
-- Any claim that PTL-S34 scoped-execution changes canonical readiness
+- Any claim that PTL-GOV-108 or the S45 candidate shift changes canonical readiness
 - Any attempt to use historical task_packet_library as the current task source
 - Any change outside declared_changed_paths / allowed_modification_paths
-- Any Stage5+ runtime, contract, handoff, tests, or scripts change in this round
-- Any scripts or contracts change in this round
-- Any product_task_library or AX9S change in this round
+- Any activation of PTL-S45 or any attempt to enter PTL-S45 scoped-execution in this round
+- Any runtime, contract, handoff, or scripts change in this round
+- Any change to tests other than tests/test_stage12_extractors.py
 - Any Stage8 / Stage9 runtime, contract, handoff, or execution change
 - Any new formal object, enum, gate, or exception semantics
-- Any Stage4 fallback that recomputes Stage3 truth-layer fields from scattered payload overrides
-- Any silent PASS when lineage_status / conflict_state / collection or review path is missing or conflicting
 - External software release or unaudited leadpack delivery
 - Production release logic or deployment
 - Real outreach/payment/delivery execution without manual approval and governance gates
@@ -52,13 +50,14 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-S34-object-lineage-verification-handoff is the current active packet through control/current_task.yaml.
-- This round is scoped-execution for PTL-S34-object-lineage-verification-handoff.
-- This round closes Stage3 parsed truth layer to Stage4 verification inputs through H-03 contract / handoff / runtime consumption, within allowed paths only.
-- Stage3-4 is an existing partial runtime closure target, not a zero-to-one skeleton.
+- PTL-GOV-108-mainline-candidate-shift-to-S45 is the current active packet through control/current_task.yaml.
+- This round is scoped-execution for PTL-GOV-108-mainline-candidate-shift-to-S45.
+- This round closes the stale-candidate governance gap by switching the active packet to PTL-GOV-108 and advancing the product mainline next candidate from PTL-S34 to PTL-S45, within allowed paths only.
+- PTL-S45-rule-evidence-dual-gate becomes current_mainline_next_candidate only; it is not the current active packet and is not auto-activated.
 - PTL-S23-public-chain-to-parser-contract scoped-execution has completed and is no longer the current active packet.
+- PTL-S34-object-lineage-verification-handoff scoped-execution has completed and is no longer the current active packet.
 - PTL-GOV-107-mainline-candidate-shift-to-S34 has completed and is no longer the current active packet.
-- product_task_library current_mainline_next_candidate metadata already points to PTL-S34-object-lineage-verification-handoff, but product_task_library is not modified in this scoped-execution round.
+- product_task_library current_mainline_next_candidate metadata now points to PTL-S45-rule-evidence-dual-gate, but the candidate pointer does not auto-activate the current execution packet.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
@@ -66,9 +65,7 @@ State Semantics:
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
 
 Current Scoped-Execution Required Checks:
-- python -m pytest tests/test_internal_chain.py -q
-- python -m pytest tests/test_architecture_anti_drift.py -q
-- python -m pytest tests/test_semantic_runtime_validator.py -q
+- python -m pytest tests/test_stage12_extractors.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
