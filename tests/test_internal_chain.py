@@ -24,6 +24,7 @@ from shared.pipeline import run_internal_chain
 from stage1_tasking.service import Stage1Service
 from stage2_ingestion.service import Stage2Service
 from stage3_parsing.service import Stage3Service
+from stage8_outreach.service import Stage8Service
 from stage9_delivery.service import Stage9Service
 from storage import hydrate_stage_bundle, persist_stage_bundle, reset_default_storage
 
@@ -967,6 +968,97 @@ class TestInternalChain(unittest.TestCase):
             consumer_stage=8,
         )
         self.assertEqual(validation.decision_state, "BLOCK")
+
+    def test_stage8_prefers_h07_authoritative_fields_over_shadow_inputs(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        shadow_inputs = dict(stage7.inputs)
+        shadow_inputs.update(
+            {
+                "source_family": "ENTERPRISE_REGISTRY",
+                "channel_family": "PERSONAL_PHONE",
+                "channel_policy_status": "BLOCK",
+                "contact_validity_status": "INVALID",
+                "contact_legal_basis": "CUSTOMER_AUTHORIZED_CONTACT",
+                "reasonable_expectation_status": "UNREASONABLE",
+                "frequency_policy_state": "BLOCK",
+                "opt_out_state": "OPTED_OUT",
+                "quiet_hours_policy_state": "BLOCK",
+                "commercial_urgency_level_optional": "LOW",
+                "role_cluster": "LEGAL_ACTION",
+            }
+        )
+        bundle = StageBundle(
+            stage=7,
+            records=dict(stage7.records),
+            handoff=dict(stage7.handoff),
+            trace_rules=list(stage7.trace_rules),
+            inputs=shadow_inputs,
+        )
+
+        stage8 = Stage8Service().run(bundle)
+        contact_target = stage8.record("contact_target")
+        contact_collection = stage8.inputs["contact_candidate_collection_snapshot"]
+        winning_candidate = contact_collection["candidate_list"][0]
+        authoritative_fields = (
+            "source_family",
+            "channel_family",
+            "channel_policy_status",
+            "contact_validity_status",
+            "contact_legal_basis",
+            "reasonable_expectation_status",
+            "frequency_policy_state",
+            "opt_out_state",
+            "quiet_hours_policy_state",
+            "role_cluster",
+        )
+
+        for field_name in authoritative_fields:
+            with self.subTest(field_name=field_name):
+                self.assertEqual(stage8.inputs.get(field_name), stage7.handoff.get(field_name))
+                self.assertEqual(contact_target.get(field_name), stage7.handoff.get(field_name))
+                if field_name in {"source_family", "channel_family", "role_cluster"}:
+                    observed_value = winning_candidate.get(field_name)
+                else:
+                    observed_value = winning_candidate.get("contactability_snapshot", {}).get(field_name)
+                self.assertEqual(observed_value, stage7.handoff.get(field_name))
+
+        self.assertEqual(
+            stage8.inputs.get("commercial_urgency_level_optional"),
+            stage7.handoff.get("commercial_urgency_level_optional"),
+        )
+        self.assertEqual(
+            contact_collection.get("multi_competitor_collection_id"),
+            stage7.handoff.get("multi_competitor_collection_id_optional"),
+        )
+        self.assertEqual(
+            stage8.inputs.get("winning_competitor_candidate_id_optional"),
+            stage7.handoff.get("winning_competitor_candidate_id_optional"),
+        )
+        self.assertEqual(
+            stage8.inputs.get("winning_challenger_profile_id_optional"),
+            stage7.handoff.get("winning_challenger_profile_id_optional"),
+        )
+
+    def test_stage8_rejects_shadow_winner_refs_outside_h07_formal_carrier(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        shadow_inputs = dict(stage7.inputs)
+        shadow_inputs.update(
+            {
+                "multi_competitor_collection_id_optional": "MCC-DIRECT-OVERRIDE",
+                "winning_competitor_candidate_id_optional": "COMP-DIRECT-OVERRIDE",
+                "winning_challenger_profile_id_optional": "CHAL-DIRECT-OVERRIDE",
+            }
+        )
+        bundle = StageBundle(
+            stage=7,
+            records=dict(stage7.records),
+            handoff=dict(stage7.handoff),
+            trace_rules=list(stage7.trace_rules),
+            inputs=shadow_inputs,
+        )
+
+        with self.assertRaisesRegex(ValueError, "must-not-recompute conflicts"):
+            Stage8Service().run(bundle)
 
     def test_stage8_to_stage9_payload_and_producer_set_closure(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

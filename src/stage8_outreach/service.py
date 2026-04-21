@@ -27,10 +27,37 @@ from shared.utils import (
 
 
 class Stage8Service:
+    H07_AUTHORITATIVE_FIELDS = (
+        "source_family",
+        "channel_family",
+        "channel_policy_status",
+        "contact_validity_status",
+        "contact_legal_basis",
+        "reasonable_expectation_status",
+        "frequency_policy_state",
+        "opt_out_state",
+        "quiet_hours_policy_state",
+        "commercial_urgency_level_optional",
+        "role_cluster",
+    )
+
     def __init__(self, settings: Any | None = None) -> None:
         self.settings = settings
         self.store = ContractStore.default(settings)
         self.runtime = CapabilityRuntime(settings)
+
+    def _stage7_authoritative_inputs(
+        self,
+        *,
+        inputs: Mapping[str, Any],
+        stage7_handoff: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        authoritative_inputs = dict(inputs)
+        for field_name in self.H07_AUTHORITATIVE_FIELDS:
+            handoff_value = stage7_handoff.get(field_name, inputs.get(field_name))
+            if handoff_value is not None:
+                authoritative_inputs[field_name] = handoff_value
+        return authoritative_inputs
 
     def _source_vendor_payload(self, candidate: Mapping[str, Any], project_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         resolved = resolve_source_vendor(
@@ -502,9 +529,13 @@ class Stage8Service:
             raise ValueError(f"{handoff_validation.semantic_scope} blocked: {handoff_validation.reasons}")
         inputs = stage7_bundle.inputs or {}
         stage7_handoff = stage7_bundle.handoff or {}
-        now = inputs.get("now") or utc_now_iso()
+        authoritative_inputs = self._stage7_authoritative_inputs(
+            inputs=inputs,
+            stage7_handoff=stage7_handoff,
+        )
+        now = authoritative_inputs.get("now") or inputs.get("now") or utc_now_iso()
         formal_sink_trace = {
-            field_name: stage7_handoff.get(field_name, inputs.get(field_name))
+            field_name: stage7_handoff.get(field_name, authoritative_inputs.get(field_name, inputs.get(field_name)))
             for field_name in (
                 "project_value_score_optional",
                 "opportunity_value_score_optional",
@@ -530,12 +561,16 @@ class Stage8Service:
             saleable_opportunity=saleable_opportunity,
             legal_action_actor_profile=legal_action_actor_profile,
             procurement_decision_actor_profile=procurement_decision_actor_profile,
-            inputs=inputs,
+            inputs=authoritative_inputs,
             now=now,
         )
         multi_competitor_collection_id = stage7_handoff.get(
             "multi_competitor_collection_id_optional",
             upstream_multi_competitor_collection.get("multi_competitor_collection_id"),
+        )
+        winning_competitor_candidate_id = stage7_handoff.get(
+            "winning_competitor_candidate_id_optional",
+            upstream_multi_competitor_collection.get("winning_candidate_id"),
         )
         winning_challenger_profile_id = stage7_handoff.get(
             "winning_challenger_profile_id_optional",
@@ -543,7 +578,7 @@ class Stage8Service:
         )
         contact_candidate_collection_payload, contact_selection_trace_payload, winning_contact_candidate = self._build_contact_candidate_carriers(
             saleable_opportunity=saleable_opportunity,
-            inputs=inputs,
+            inputs=authoritative_inputs,
             now=now,
             selected_candidate=selected_candidate,
             candidate_trace=candidate_trace,
@@ -586,20 +621,36 @@ class Stage8Service:
             ),
         }
 
-        role_cluster = selected_candidate.get("role_cluster", "PROCUREMENT_DECISION")
-        release_level = inputs.get("release_level", inputs.get("minimum_release_level", "INTERNAL_OPERABLE"))
-        source_family = selected_candidate.get("source_family", inputs.get("source_family", "PROCUREMENT_NOTICE"))
-        source_auditability_state = selected_candidate.get("source_auditability_state", inputs.get("source_auditability_state", "AUDITABLE"))
-        response_status = ensure_enum(self.store, "response_status", inputs.get("response_status", "NO_RESPONSE"))
-        run_mode = ensure_enum(self.store, "run_mode", inputs.get("run_mode", "DRY_RUN"))
+        role_cluster = selected_candidate.get(
+            "role_cluster",
+            authoritative_inputs.get("role_cluster", "PROCUREMENT_DECISION"),
+        )
+        release_level = authoritative_inputs.get(
+            "release_level",
+            authoritative_inputs.get("minimum_release_level", "INTERNAL_OPERABLE"),
+        )
+        source_family = selected_candidate.get(
+            "source_family",
+            authoritative_inputs.get("source_family", "PROCUREMENT_NOTICE"),
+        )
+        source_auditability_state = selected_candidate.get(
+            "source_auditability_state",
+            authoritative_inputs.get("source_auditability_state", "AUDITABLE"),
+        )
+        response_status = ensure_enum(
+            self.store, "response_status", authoritative_inputs.get("response_status", "NO_RESPONSE")
+        )
+        run_mode = ensure_enum(
+            self.store, "run_mode", authoritative_inputs.get("run_mode", "DRY_RUN")
+        )
         approval_state = ensure_enum(
-            self.store, "approval_state", inputs.get("approval_state", "NOT_REQUIRED")
+            self.store, "approval_state", authoritative_inputs.get("approval_state", "NOT_REQUIRED")
         )
         source_vendor_payload, source_vendor_trace = self._source_vendor_payload(selected_candidate, project_id)
         execution_vendor_payload, execution_vendor_trace = self._execution_vendor_payload(execution_vendor_candidate, project_id)
         source_resolution_metadata, source_resolution_reasons, source_resolution_blocked, source_resolution_review = self._resolution_guard(
             source_vendor_trace,
-            default_policy_state=str(inputs.get("source_policy_state", "SOURCE_POLICY_ACTIVE")),
+            default_policy_state=str(authoritative_inputs.get("source_policy_state", "SOURCE_POLICY_ACTIVE")),
             blocked_reason="source_vendor_resolution_blocked",
         )
         execution_resolution_metadata, execution_resolution_reasons, execution_resolution_blocked, execution_resolution_review = self._resolution_guard(
@@ -613,9 +664,9 @@ class Stage8Service:
             project_id=project_id,
             records={"saleable_opportunity": saleable_opportunity},
             inputs={
-                **dict(inputs),
-                **formal_sink_trace,
+                **dict(authoritative_inputs),
                 **dict(selected_candidate),
+                **formal_sink_trace,
                 "now": now,
                 "role_cluster": role_cluster,
                 "source_family": source_family,
@@ -656,26 +707,26 @@ class Stage8Service:
                 "approval_state": approval_state,
             },
         ]
-        if inputs.get("model_provider_id_optional"):
+        if authoritative_inputs.get("model_provider_id_optional"):
             permission_checks.append(
                 {
                     "capability_family": "model_provider",
                     "requested_action": "PREVIEW_ONLY",
-                    "target_id": inputs.get("model_provider_id_optional"),
+                    "target_id": authoritative_inputs.get("model_provider_id_optional"),
                     "target_type": "model_provider",
-                    "target_role": inputs.get("model_provider_role_optional", "GENERAL_ASSIST_MODEL"),
+                    "target_role": authoritative_inputs.get("model_provider_role_optional", "GENERAL_ASSIST_MODEL"),
                     "release_level": release_level,
                     "approval_state": approval_state,
                 }
             )
-        if inputs.get("tool_provider_id_optional"):
+        if authoritative_inputs.get("tool_provider_id_optional"):
             permission_checks.append(
                 {
                     "capability_family": "tool_provider",
                     "requested_action": "PREVIEW_ONLY",
-                    "target_id": inputs.get("tool_provider_id_optional"),
+                    "target_id": authoritative_inputs.get("tool_provider_id_optional"),
                     "target_type": "tool_provider",
-                    "target_role": inputs.get("tool_provider_role_optional", "INTERNAL_OBJECT_QUERY_TOOL"),
+                    "target_role": authoritative_inputs.get("tool_provider_role_optional", "INTERNAL_OBJECT_QUERY_TOOL"),
                     "release_level": release_level,
                     "approval_state": approval_state,
                 }
@@ -704,7 +755,7 @@ class Stage8Service:
         )
         emergency_short_circuit = bool(runtime_state.permission_short_circuit)
 
-        blocking_reasons = ensure_list(inputs.get("blocking_reasons", []))
+        blocking_reasons = ensure_list(authoritative_inputs.get("blocking_reasons", []))
         blocking_reasons.extend(source_resolution_reasons)
         blocking_reasons.extend(execution_resolution_reasons)
         blocking_reasons.extend(runtime_state.blocked_reasons)
@@ -712,21 +763,26 @@ class Stage8Service:
         blocking_reasons.extend(runtime_state.fallback_reasons)
         blocking_reasons.extend(runtime_state.permission_blocked_reasons)
         blocking_reasons.extend(runtime_state.permission_review_reasons)
+        source_conflict_present = bool(selected_candidate.get("source_conflict_flag", False))
         contact_target_status = runtime_state.resolve("contact_target_status", "REVIEW_REQUIRED")
         if source_resolution_blocked or emergency_short_circuit or candidate_permission_blocked:
             contact_target_status = "BLOCKED"
-        elif (source_resolution_review or candidate_permission_review) and contact_target_status == "ELIGIBLE":
+        elif (source_resolution_review or candidate_permission_review or source_conflict_present) and contact_target_status == "ELIGIBLE":
             contact_target_status = "REVIEW_REQUIRED"
         if source_merge_review_required and contact_target_status == "ELIGIBLE":
             contact_target_status = "REVIEW_REQUIRED"
             blocking_reasons.append("source_merge_requires_manual_review")
+        if source_conflict_present:
+            if contact_target_status == "ELIGIBLE":
+                contact_target_status = "REVIEW_REQUIRED"
+            blocking_reasons.append("source_conflict_requires_manual_review")
         action_intent = self._execution_action_intent(run_mode)
         audit_trail_present = bool(source_vendor_payload["source_audit_ref"] and source_vendor_payload["query_trace_id"])
         contact_gate_ids = ["internal_review_release"]
-        if inputs.get("person_name_optional") not in (None, "", "UNKNOWN"):
+        if authoritative_inputs.get("person_name_optional") not in (None, "", "UNKNOWN"):
             contact_gate_ids.append("high_restriction_contact_release")
         contact_guard_context = self._guard_context(
-            inputs=inputs,
+            inputs=authoritative_inputs,
             release_level=release_level,
             approval_state=approval_state,
             action_intent=action_intent,
@@ -747,24 +803,86 @@ class Stage8Service:
             "source_family": source_family,
             "source_auditability_state": source_auditability_state,
             "contact_channel": selected_candidate.get("contact_channel", "EMAIL"),
-            "channel_family": ensure_enum(self.store, "channel_family", selected_candidate.get("channel_family", inputs.get("channel_family"))),
+            "channel_family": ensure_enum(
+                self.store,
+                "channel_family",
+                selected_candidate.get(
+                    "channel_family",
+                    authoritative_inputs.get("channel_family", inputs.get("channel_family")),
+                ),
+            ),
             "contact_target_status": contact_target_status,
-            "contact_validity_status": ensure_enum(self.store, "contact_validity_status", selected_candidate.get("contact_validity_status", "UNKNOWN")),
-            "contact_legal_basis": ensure_enum(self.store, "contact_legal_basis", selected_candidate.get("contact_legal_basis", "REVIEW_REQUIRED")),
-            "reasonable_expectation_status": ensure_enum(self.store, "reasonable_expectation_status", selected_candidate.get("reasonable_expectation_status", "UNKNOWN")),
-            "channel_policy_status": ensure_enum(self.store, "channel_policy_status", selected_candidate.get("channel_policy_status", "REVIEW")),
-            "frequency_policy_state": ensure_enum(self.store, "frequency_policy_state", selected_candidate.get("frequency_policy_state", "REVIEW")),
-            "opt_out_state": ensure_enum(self.store, "opt_out_state", runtime_state.resolve("opt_out_state", selected_candidate.get("opt_out_state", "PENDING_CONFIRMATION"))),
-            "quiet_hours_policy_state": ensure_enum(self.store, "quiet_hours_policy_state", selected_candidate.get("quiet_hours_policy_state", "REVIEW")),
+            "contact_validity_status": ensure_enum(
+                self.store,
+                "contact_validity_status",
+                selected_candidate.get(
+                    "contact_validity_status",
+                    authoritative_inputs.get("contact_validity_status", "UNKNOWN"),
+                ),
+            ),
+            "contact_legal_basis": ensure_enum(
+                self.store,
+                "contact_legal_basis",
+                selected_candidate.get(
+                    "contact_legal_basis",
+                    authoritative_inputs.get("contact_legal_basis", "REVIEW_REQUIRED"),
+                ),
+            ),
+            "reasonable_expectation_status": ensure_enum(
+                self.store,
+                "reasonable_expectation_status",
+                selected_candidate.get(
+                    "reasonable_expectation_status",
+                    authoritative_inputs.get("reasonable_expectation_status", "UNKNOWN"),
+                ),
+            ),
+            "channel_policy_status": ensure_enum(
+                self.store,
+                "channel_policy_status",
+                selected_candidate.get(
+                    "channel_policy_status",
+                    authoritative_inputs.get("channel_policy_status", "REVIEW"),
+                ),
+            ),
+            "frequency_policy_state": ensure_enum(
+                self.store,
+                "frequency_policy_state",
+                selected_candidate.get(
+                    "frequency_policy_state",
+                    authoritative_inputs.get("frequency_policy_state", "REVIEW"),
+                ),
+            ),
+            "opt_out_state": ensure_enum(
+                self.store,
+                "opt_out_state",
+                runtime_state.resolve(
+                    "opt_out_state",
+                    selected_candidate.get(
+                        "opt_out_state",
+                        authoritative_inputs.get("opt_out_state", "PENDING_CONFIRMATION"),
+                    ),
+                ),
+            ),
+            "quiet_hours_policy_state": ensure_enum(
+                self.store,
+                "quiet_hours_policy_state",
+                selected_candidate.get(
+                    "quiet_hours_policy_state",
+                    authoritative_inputs.get("quiet_hours_policy_state", "REVIEW"),
+                ),
+            ),
             "auto_contact_allowed": bool(runtime_state.resolve("auto_contact_allowed", False))
             and not runtime_state.permission_blocked_reasons
-            and not source_merge_review_required,
+            and contact_target_status == "ELIGIBLE"
+            and not source_merge_review_required
+            and not source_conflict_present,
             "requires_manual_review": bool(
                 emergency_short_circuit
                 or contact_target_status in ("REVIEW_REQUIRED", "BLOCKED")
                 or candidate_permission_review
                 or candidate_permission_blocked
                 or source_merge_review_required
+                or source_conflict_present
             ),
             "blocking_reasons": blocking_reasons,
             "last_evaluated_at": selected_candidate.get("last_evaluated_at", now),
@@ -817,7 +935,9 @@ class Stage8Service:
             plan_status = "BLOCKED"
         elif (execution_resolution_review or runtime_state.permission_review_reasons) and plan_status == "APPROVED":
             plan_status = "REVIEW_REQUIRED"
-        if source_merge_review_required and plan_status == "APPROVED":
+        if source_merge_review_required and plan_status not in ("BLOCKED", "SCHEDULED"):
+            plan_status = "REVIEW_REQUIRED"
+        if source_conflict_present and plan_status not in ("BLOCKED", "SCHEDULED"):
             plan_status = "REVIEW_REQUIRED"
         if run_mode in ("APPROVAL_RUN", "REAL_RUN") and approval_state != "APPROVED":
             plan_status = "REVIEW_REQUIRED"
@@ -831,7 +951,7 @@ class Stage8Service:
         if action_intent in ("APPROVAL_EXECUTION", "LIVE_EXECUTION"):
             outreach_gate_ids.append("high_restriction_contact_release")
         outreach_guard_context = self._guard_context(
-            inputs=inputs,
+            inputs=authoritative_inputs,
             release_level=release_level,
             approval_state=approval_state,
             action_intent=action_intent,
@@ -858,31 +978,36 @@ class Stage8Service:
             "project_id": project_id,
             "saleability_status": saleable_opportunity.get("saleability_status"),
             "contact_target_id": contact_target.get("contact_target_id"),
-            "channel_strategy": inputs.get("channel_strategy", "DEFAULT"),
+            "channel_strategy": authoritative_inputs.get("channel_strategy", "DEFAULT"),
             "requested_delivery_surface": str(
                 runtime_state.resolve(
                     "requested_delivery_surface",
-                    inputs.get("requested_delivery_surface", "INTERNAL_OPERATIONS"),
+                    authoritative_inputs.get("requested_delivery_surface", "INTERNAL_OPERATIONS"),
                 )
             ),
             "projection_mode": str(runtime_state.resolve("projection_mode", "INTERNAL_GOVERNED_PREVIEW")),
             "cadence_profile_id": cadence_profile_id,
             "retry_policy_id": retry_policy_id,
             "stop_policy_id": stop_policy_id,
-            "primary_message": inputs.get("primary_message", "internal preview"),
-            "planned_touch_at": inputs.get("planned_touch_at", now),
-            "attempt_index": int(runtime_state.resolve("attempt_index", inputs.get("attempt_index", 1))),
+            "primary_message": authoritative_inputs.get("primary_message", "internal preview"),
+            "planned_touch_at": authoritative_inputs.get("planned_touch_at", now),
+            "attempt_index": int(
+                runtime_state.resolve("attempt_index", authoritative_inputs.get("attempt_index", 1))
+            ),
             "approval_state": approval_state,
             "plan_status": plan_status,
             "run_mode": run_mode,
             "automation_level": ensure_enum(
-                self.store, "automation_level", inputs.get("automation_level", "MANUAL")
+                self.store, "automation_level", authoritative_inputs.get("automation_level", "MANUAL")
             ),
             "next_touch_due_at_optional": next_touch_due_at_optional,
             "retry_count": retry_count,
             "max_retry_count": max_retry_count,
             "stop_reason_optional": str(
-                runtime_state.resolve("stop_reason_optional", inputs.get("stop_reason_optional"))
+                runtime_state.resolve(
+                    "stop_reason_optional",
+                    authoritative_inputs.get("stop_reason_optional"),
+                )
             ),
             "approval_run_required": bool(runtime_state.resolve("approval_run_required", run_mode in ("APPROVAL_RUN", "REAL_RUN"))),
             "writeback_required": runtime_writeback_required,
@@ -942,11 +1067,11 @@ class Stage8Service:
         ]
         next_step_optional = runtime_state.resolve(
             "next_step_optional",
-            inputs.get("next_step_optional"),
+            authoritative_inputs.get("next_step_optional"),
         )
         stop_reason_optional = runtime_state.resolve(
             "stop_reason_optional",
-            inputs.get("stop_reason_optional"),
+            authoritative_inputs.get("stop_reason_optional"),
         )
         retry_scheduled_optional = bool(
             runtime_state.resolve("retry_scheduled_optional", False)
@@ -954,8 +1079,8 @@ class Stage8Service:
         human_handoff = self._build_human_handoff(
             response_status=response_status,
             commercial_urgency_level=str(
-                inputs.get("commercial_urgency_level")
-                or inputs.get("commercial_urgency_level_optional")
+                authoritative_inputs.get("commercial_urgency_level")
+                or authoritative_inputs.get("commercial_urgency_level_optional")
                 or "NORMAL"
             ),
             now=now,
@@ -964,10 +1089,12 @@ class Stage8Service:
             next_step_optional = human_handoff["next_step_optional"]
         if human_handoff and next_step_optional not in (None, ""):
             human_handoff["next_step_optional"] = next_step_optional
-        next_step_optional = str(next_step_optional or inputs.get("next_step_optional") or "WAIT")
+        next_step_optional = str(
+            next_step_optional or authoritative_inputs.get("next_step_optional") or "WAIT"
+        )
         written_back_at_optional = runtime_state.resolve(
             "written_back_at_optional",
-            inputs.get("written_back_at_optional", now),
+            authoritative_inputs.get("written_back_at_optional", now),
         )
         touch_state = "CREATED"
         if runtime_state.permission_blocked_reasons or plan_status in ("CANCELLED", "BLOCKED"):
@@ -980,7 +1107,7 @@ class Stage8Service:
             touch_state = "SENT"
 
         touch_guard_context = self._guard_context(
-            inputs=inputs,
+            inputs=authoritative_inputs,
             release_level=release_level,
             approval_state=approval_state,
             action_intent=action_intent,
@@ -1000,22 +1127,27 @@ class Stage8Service:
             "saleability_status": saleable_opportunity.get("saleability_status"),
             "contact_target_id": contact_target.get("contact_target_id"),
             "outreach_plan_id": outreach_plan.get("outreach_plan_id"),
-            "touch_at": inputs.get("touch_at", now),
-            "attempt_index": int(runtime_state.resolve("attempt_index", inputs.get("attempt_index", 1))),
+            "touch_at": authoritative_inputs.get("touch_at", now),
+            "attempt_index": int(
+                runtime_state.resolve("attempt_index", authoritative_inputs.get("attempt_index", 1))
+            ),
             "touch_record_state": touch_state,
             "response_status": response_status,
             "feedback_reason": str(
-                runtime_state.resolve("feedback_reason", inputs.get("feedback_reason", response_status))
+                runtime_state.resolve(
+                    "feedback_reason",
+                    authoritative_inputs.get("feedback_reason", response_status),
+                )
             ),
             "next_step_optional": next_step_optional,
             "stop_reason_optional": str(stop_reason_optional),
-            "touch_channel": ensure_enum(self.store, "channel_family", inputs.get("channel_family")),
+            "touch_channel": ensure_enum(self.store, "channel_family", contact_target.get("channel_family")),
             "written_back_at_optional": written_back_at_optional,
             "retry_scheduled_optional": retry_scheduled_optional,
             "failure_reason_tag_optional": str(
                 runtime_state.resolve(
                     "failure_reason_tag_optional",
-                    inputs.get("failure_reason_tag_optional", response_status),
+                    authoritative_inputs.get("failure_reason_tag_optional", response_status),
                 )
             ),
             "writeback_targets": touch_writeback_targets,
@@ -1099,7 +1231,7 @@ class Stage8Service:
             "semantic_additions": runtime_state.semantic_additions,
         }
 
-        inputs_out = dict(inputs)
+        inputs_out = dict(authoritative_inputs)
         inputs_out["policy_trace"] = runtime_state.trace
         inputs_out["policy_decision_state"] = runtime_state.decision_state
         inputs_out["permission_trace"] = runtime_state.capability_trace
@@ -1131,6 +1263,11 @@ class Stage8Service:
         inputs_out["human_handoff_sla_hours_optional"] = human_handoff.get("sla_hours_optional") if human_handoff else None
         inputs_out["human_handoff_sla_due_at_optional"] = human_handoff.get("sla_due_at_optional") if human_handoff else None
         inputs_out["human_handoff_reason_optional"] = human_handoff.get("reason_optional") if human_handoff else None
+        for field_name in self.H07_AUTHORITATIVE_FIELDS:
+            inputs_out[field_name] = authoritative_inputs.get(field_name, inputs.get(field_name))
+        inputs_out["multi_competitor_collection_id_optional"] = str(multi_competitor_collection_id)
+        inputs_out["winning_competitor_candidate_id_optional"] = winning_competitor_candidate_id
+        inputs_out["winning_challenger_profile_id_optional"] = str(winning_challenger_profile_id)
         inputs_out["next_touch_due_at_optional"] = runtime_state.resolve("next_touch_due_at_optional")
         inputs_out["retry_count"] = runtime_state.resolve("retry_count", outreach_plan.get("retry_count"))
         inputs_out["max_retry_count"] = runtime_state.resolve(

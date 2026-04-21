@@ -711,6 +711,21 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             stage7,
         )
 
+    def test_stage8_service_uses_h07_authority_for_contact_fields_and_conflict_preview(self) -> None:
+        stage8 = read("src/stage8_outreach/service.py")
+
+        for token in (
+            "H07_AUTHORITATIVE_FIELDS",
+            "_stage7_authoritative_inputs(",
+            "inputs=authoritative_inputs,",
+            'inputs_out["winning_competitor_candidate_id_optional"] = winning_competitor_candidate_id',
+            'inputs_out["winning_challenger_profile_id_optional"] = str(winning_challenger_profile_id)',
+            'inputs_out["multi_competitor_collection_id_optional"] = str(multi_competitor_collection_id)',
+            'source_conflict_present = bool(selected_candidate.get("source_conflict_flag", False))',
+            '"source_conflict_requires_manual_review"',
+        ):
+            self.assertIn(token, stage8)
+
     def test_schema_catalog_runtime_validator_and_enum_refs_align_for_critical_objects(self) -> None:
         critical_objects = [
             "execution_context",
