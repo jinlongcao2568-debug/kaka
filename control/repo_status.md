@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-108-mainline-candidate-shift-to-S45 (SCOPED_EXECUTION; control/docs/tests governance closeout only; close PTL-S34 scoped-execution active status and advance current_mainline_next_candidate to PTL-S45-rule-evidence-dual-gate; sync current_task/product_task_library/AX9S/test_stage12 only; does not activate PTL-S45; does not enter PTL-S45 scoped-execution; no runtime/contracts/handoff/scripts change; does not change canonical readiness; does not open external release / Stage8 live execution / Stage9 live payment-delivery)
+Current Workstream: PTL-S45-rule-evidence-dual-gate (ACTIVATION_ONLY; switch current active packet from PTL-GOV-108-mainline-candidate-shift-to-S45 to PTL-S45-rule-evidence-dual-gate; activation-only control sync only; does not enter scoped-execution; Stage4-5 remains an existing partial runtime closure target rather than a zero-to-one skeleton; no runtime/contracts/handoff/tests/scripts/product_task_library/AX9S change; does not change canonical readiness; does not open external release / Stage8 live execution / Stage9 live payment-delivery)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,23 +21,24 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the new controlled development system
-- scoped-execution for PTL-GOV-108-mainline-candidate-shift-to-S45 within declared_changed_paths / allowed_modification_paths only
-- governance closeout to close PTL-S34 scoped-execution active status and advance current_mainline_next_candidate to PTL-S45-rule-evidence-dual-gate
-- sync only control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, docs/AX9S_开发执行路由图.md, and tests/test_stage12_extractors.py
-- PTL-S45 remains candidate-only in this round; it is not activated and does not enter scoped-execution
+- activation-only for PTL-S45-rule-evidence-dual-gate within declared_changed_paths / allowed_modification_paths only
+- sync only control/current_task.yaml and control/repo_status.md
+- switch only the current active packet; do not enter scoped-execution in this round
+- PTL-S45 is now the current active packet through control/current_task.yaml
+- Stage4-5 remains an existing partial runtime closure target and is not a zero-to-one skeleton in this round
 - current_task is the unique active execution source
-- product_task_library remains the product mainline task pool; this round updates only the candidate pointer and task statuses, and does not add PTL-GOV-108 into the tasks pool
+- product_task_library remains the product mainline task pool and current_mainline_next_candidate source; it is not modified in this round
 - source_blueprint_registry remains the source-blueprint allowlist and is not modified in this round
 - operator_assignment_roster_defaults remains the stable stage7/8/9 roster source and is not modified in this round
-- AX9S route map remains a candidate navigation asset and navigation-only product phase map; this round only syncs near-end hints to S45 and does not make AX9S a status source or execution source
+- AX9S route map remains a candidate navigation asset and navigation-only product phase map; it is not modified in this round
 
 Forbidden Actions (current):
-- Any claim that PTL-GOV-108 or the S45 candidate shift changes canonical readiness
+- Any claim that PTL-S45 activation-only changes canonical readiness
 - Any attempt to use historical task_packet_library as the current task source
 - Any change outside declared_changed_paths / allowed_modification_paths
-- Any activation of PTL-S45 or any attempt to enter PTL-S45 scoped-execution in this round
-- Any runtime, contract, handoff, or scripts change in this round
-- Any change to tests other than tests/test_stage12_extractors.py
+- Any entry into scoped-execution during this round
+- Any runtime, contract, handoff, tests, or scripts change in this round
+- Any change to control/product_task_library.yaml or docs/AX9S_开发执行路由图.md in this round
 - Any Stage8 / Stage9 runtime, contract, handoff, or execution change
 - Any new formal object, enum, gate, or exception semantics
 - External software release or unaudited leadpack delivery
@@ -50,22 +51,21 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-GOV-108-mainline-candidate-shift-to-S45 is the current active packet through control/current_task.yaml.
-- This round is scoped-execution for PTL-GOV-108-mainline-candidate-shift-to-S45.
-- This round closes the stale-candidate governance gap by switching the active packet to PTL-GOV-108 and advancing the product mainline next candidate from PTL-S34 to PTL-S45, within allowed paths only.
-- PTL-S45-rule-evidence-dual-gate becomes current_mainline_next_candidate only; it is not the current active packet and is not auto-activated.
-- PTL-S23-public-chain-to-parser-contract scoped-execution has completed and is no longer the current active packet.
+- PTL-S45-rule-evidence-dual-gate is the current active packet through control/current_task.yaml.
+- This round is activation-only for PTL-S45-rule-evidence-dual-gate.
+- This round does not enter scoped-execution.
+- This round only switches the active packet from PTL-GOV-108-mainline-candidate-shift-to-S45 to PTL-S45-rule-evidence-dual-gate and syncs the minimal control-state wording in control/current_task.yaml and control/repo_status.md.
+- Stage4-5 is an existing partial runtime closure target; it is not a zero-to-one skeleton in this round.
+- product_task_library current_mainline_next_candidate metadata already points to PTL-S45-rule-evidence-dual-gate; this round does not modify the candidate pointer.
+- PTL-GOV-108-mainline-candidate-shift-to-S45 has completed and is no longer the current active packet.
 - PTL-S34-object-lineage-verification-handoff scoped-execution has completed and is no longer the current active packet.
-- PTL-GOV-107-mainline-candidate-shift-to-S34 has completed and is no longer the current active packet.
-- product_task_library current_mainline_next_candidate metadata now points to PTL-S45-rule-evidence-dual-gate, but the candidate pointer does not auto-activate the current execution packet.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
-- Canonical readiness is unchanged by this scoped-execution round.
+- Canonical readiness is unchanged by this activation-only round.
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
 
-Current Scoped-Execution Required Checks:
-- python -m pytest tests/test_stage12_extractors.py -q
+Current Activation-Only Required Checks:
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
