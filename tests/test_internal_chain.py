@@ -370,6 +370,23 @@ class TestInternalChain(unittest.TestCase):
         stage7 = result["stage7"]
         self.assertEqual(stage7.record("sales_lead").get("lead_status"), "REVIEW")
         self.assertEqual(stage7.record("saleable_opportunity").get("saleability_status"), "BLOCKED")
+        self.assertEqual(stage7.handoff.get("sale_gate_status"), stage6.handoff.get("sale_gate_status"))
+        self.assertEqual(stage7.handoff.get("report_status"), stage6.handoff.get("report_status"))
+        self.assertEqual(stage7.handoff.get("review_lane_optional"), stage6.handoff.get("review_lane"))
+        self.assertEqual(
+            stage7.handoff.get("linked_review_request_id_optional"),
+            stage6.handoff.get("linked_review_request_id_optional"),
+        )
+        self.assertEqual(
+            stage7.handoff.get("missing_condition_family_optional"),
+            stage6.handoff.get("missing_condition_family_optional"),
+        )
+        self.assertEqual(
+            stage7.inputs.get("stage7_resolution_trace", {})
+            .get("review_gate_report_constraints", {})
+            .get("linked_review_request_id_optional"),
+            stage6.handoff.get("linked_review_request_id_optional"),
+        )
         self.assertEqual(
             stage7.record("legal_action_actor_profile").get("actionability_state"), "REVIEW_REQUIRED"
         )
@@ -731,6 +748,18 @@ class TestInternalChain(unittest.TestCase):
         handoff = result["stage6"].handoff
         for field_name in self.contracts[6]["required_payload_fields"]:
             self.assertIn(field_name, handoff)
+        for field_name in (
+            "project_fact_id",
+            "review_queue_profile_id",
+            "review_lane",
+            "report_record_id",
+            "challenger_candidate_profile_id",
+            "saleability_status",
+        ):
+            self.assertIn(field_name, self.contracts[6]["required_payload_fields"])
+            self.assertIn(field_name, self.contracts[6]["minimum_producer_fields"])
+            self.assertIn(field_name, self.contracts[6]["consumer_runtime_required_fields"])
+            self.assertIn(field_name, self.contracts[6]["consumer_must_not_recompute_fields"])
         self.assertIn("consumer_obligations", self.contracts[6])
         self.assertIn("consumer_must_not_recompute_fields", self.contracts[6])
         for field_name in (
@@ -744,8 +773,6 @@ class TestInternalChain(unittest.TestCase):
         ):
             self.assertIn(field_name, self.contracts[6]["consumer_must_not_recompute_fields"])
         for field_name in (
-            "review_queue_profile_id",
-            "review_lane",
             "review_priority_score",
             "review_queue_bucket",
             "window_risk_level",
@@ -757,6 +784,17 @@ class TestInternalChain(unittest.TestCase):
             self.assertIn(field_name, self.contracts[6]["optional_payload_fields"])
             self.assertIn(field_name, handoff)
             self.assertIn(field_name, result["stage6"].inputs)
+        self.assertEqual(handoff["project_fact_id"], result["stage6"].record("project_fact").get("project_fact_id"))
+        self.assertEqual(
+            handoff["review_queue_profile_id"],
+            result["stage6"].record("review_queue_profile").get("queue_profile_id"),
+        )
+        self.assertEqual(handoff["report_record_id"], result["stage6"].record("report_record").get("report_id"))
+        self.assertEqual(
+            handoff["challenger_candidate_profile_id"],
+            result["stage6"].record("challenger_candidate_profile").get("challenger_profile_id"),
+        )
+        self.assertEqual(handoff["saleability_status"], "CANDIDATE")
 
         stage7_outputs = set(result["stage7"].records.keys())
         self.assertEqual(stage7_outputs, set(self.contracts[6]["consumer_objects"]))

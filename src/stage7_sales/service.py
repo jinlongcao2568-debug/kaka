@@ -12,7 +12,7 @@ from shared.capability_runtime import CapabilityRuntime
 from shared.context_packet import ContextPacket
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.state_packet import StatePacket
-from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag, resolve_bundle, utc_now_iso
+from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, resolve_bundle, utc_now_iso
 
 
 def _optional_int(value: Any) -> int | None:
@@ -35,6 +35,19 @@ def _optional_str(value: Any) -> str | None:
     return str(value)
 
 
+def _dedupe_strings(values: list[Any]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in (None, ""):
+            continue
+        text = str(value)
+        if text not in seen:
+            seen.add(text)
+            result.append(text)
+    return result
+
+
 class Stage7Service:
     def __init__(self, settings: Any | None = None) -> None:
         self.settings = settings
@@ -50,58 +63,58 @@ class Stage7Service:
         if handoff_validation and handoff_validation.decision_state == "BLOCK":
             raise ValueError(f"{handoff_validation.semantic_scope} blocked: {handoff_validation.reasons}")
         inputs = stage6_bundle.inputs or {}
-        flags = inputs.get("flags", {})
         now = inputs.get("now") or utc_now_iso()
 
         project_fact = stage6_bundle.record("project_fact")
         legal_action_recommendation = stage6_bundle.record("legal_action_recommendation")
+        review_queue_profile = stage6_bundle.records.get("review_queue_profile")
         challenger_candidate_profile = stage6_bundle.record("challenger_candidate_profile")
         report_record = stage6_bundle.record("report_record")
+        if review_queue_profile is None:
+            raise ValueError("missing H-06 formal producer object: review_queue_profile")
         project_id = project_fact.get("project_id")
         stage6_handoff = stage6_bundle.handoff or {}
 
-        sale_gate_status = stage6_handoff.get("sale_gate_status", project_fact.get("sale_gate_status"))
-        competitor_quality_grade = stage6_handoff.get(
-            "competitor_quality_grade",
-            project_fact.get("competitor_quality_grade"),
-        )
-        window_status = stage6_handoff.get(
-            "window_status",
-            legal_action_recommendation.get("window_status"),
-        )
-        report_status = stage6_handoff.get("report_status", report_record.get("report_status"))
-        review_task_status = stage6_handoff.get(
-            "review_task_status",
-            report_record.get("review_task_status"),
-        )
-        action_family = stage6_handoff.get(
-            "action_family",
-            legal_action_recommendation.get("action_family"),
-        )
-        challenger_profile_id = stage6_handoff.get(
-            "challenger_profile_id",
-            challenger_candidate_profile.get("challenger_profile_id"),
-        )
-        focus_bidder_id = stage6_handoff.get(
-            "focus_bidder_id",
-            challenger_candidate_profile.get("focus_bidder_id"),
-        )
-        challenger_bidder_id = stage6_handoff.get(
-            "challenger_bidder_id",
-            challenger_candidate_profile.get("challenger_bidder_id"),
-        )
-        challenge_actionability_score = int(
-            stage6_handoff.get(
-                "challenge_actionability_score",
-                challenger_candidate_profile.get("challenge_actionability_score"),
-            )
-        )
-        execution_readiness_score = int(
-            stage6_handoff.get(
-                "execution_readiness_score",
-                challenger_candidate_profile.get("execution_readiness_score"),
-            )
-        )
+        def h06_required(field_name: str) -> Any:
+            value = stage6_handoff.get(field_name)
+            if value in (None, ""):
+                raise ValueError(f"missing H-06 formal carrier field: {field_name}")
+            return value
+
+        project_fact_id = h06_required("project_fact_id")
+        review_queue_profile_id = h06_required("review_queue_profile_id")
+        review_lane = h06_required("review_lane")
+        report_record_id = h06_required("report_record_id")
+        challenger_candidate_profile_id = h06_required("challenger_candidate_profile_id")
+        sale_gate_status = h06_required("sale_gate_status")
+        saleability_status_seed = h06_required("saleability_status")
+        competitor_quality_grade = h06_required("competitor_quality_grade")
+        window_status = h06_required("window_status")
+        report_status = h06_required("report_status")
+        review_task_status = h06_required("review_task_status")
+        action_family = h06_required("action_family")
+        challenger_profile_id = h06_required("challenger_profile_id")
+        focus_bidder_id = h06_required("focus_bidder_id")
+        challenger_bidder_id = h06_required("challenger_bidder_id")
+        challenge_actionability_score = int(h06_required("challenge_actionability_score"))
+        execution_readiness_score = int(h06_required("execution_readiness_score"))
+        linked_review_request_id_optional = _optional_str(stage6_handoff.get("linked_review_request_id_optional"))
+        missing_condition_family_optional = _optional_str(stage6_handoff.get("missing_condition_family_optional"))
+        has_review_constraint = bool(linked_review_request_id_optional or missing_condition_family_optional)
+        if challenger_candidate_profile_id != challenger_profile_id:
+            raise ValueError("H-06 challenger_candidate_profile_id must match challenger_profile_id")
+        stage6_formal_carriers = {
+            "project_fact_id": project_fact_id,
+            "review_queue_profile_id": review_queue_profile_id,
+            "review_lane": review_lane,
+            "report_record_id": report_record_id,
+            "challenger_candidate_profile_id": challenger_candidate_profile_id,
+            "sale_gate_status": sale_gate_status,
+            "saleability_status": saleability_status_seed,
+            "report_status": report_status,
+            "linked_review_request_id_optional": linked_review_request_id_optional,
+            "missing_condition_family_optional": missing_condition_family_optional,
+        }
         legal_actor_seed = resolve_actor_seed(
             settings=self.settings,
             policy_id="legal_action_actor_seed_resolution_v1",
@@ -120,7 +133,7 @@ class Stage7Service:
         )
         legal_action_actor_org_name_seed = legal_actor_seed["value"]
         procurement_decision_actor_org_name_seed = procurement_actor_seed["value"]
-        buyer_type_hint = stage6_handoff.get("buyer_type_hint", inputs.get("buyer_type"))
+        buyer_type_hint = h06_required("buyer_type_hint")
         project_value_score_seed = stage6_handoff.get(
             "project_value_score_optional",
             project_fact.get("project_value_score_optional", inputs.get("project_value_score_optional")),
@@ -158,12 +171,9 @@ class Stage7Service:
         semantic_state = StatePacket(capability_mode="stage7_sales")
 
         offer_state = "DRAFT"
-        if get_flag(flags, "offer_review"):
-            apply_rule(self.store, trace_rules, "SALE-003")
-            offer_state = "REVIEW_REQUIRED"
-        elif sale_gate_status == "BLOCK":
+        if sale_gate_status == "BLOCK":
             offer_state = "BLOCKED"
-        elif sale_gate_status in ("REVIEW", "HOLD"):
+        elif sale_gate_status in ("REVIEW", "HOLD") or has_review_constraint:
             offer_state = "REVIEW_REQUIRED"
         else:
             offer_state = "APPROVED"
@@ -267,9 +277,9 @@ class Stage7Service:
             apply_rule(self.store, trace_rules, "SALE-001")
             lead_status = "DISQUALIFIED"
         elif (
-            get_flag(flags, "sale_review")
-            or sale_gate_status in ("REVIEW", "HOLD")
+            sale_gate_status in ("REVIEW", "HOLD")
             or report_status != "ISSUED"
+            or has_review_constraint
         ):
             apply_rule(self.store, trace_rules, "SALE-001")
             lead_status = "REVIEW"
@@ -299,10 +309,20 @@ class Stage7Service:
         sales_lead = self.store.build_record("sales_lead", sales_lead_payload)
 
         saleability_status = "QUALIFIED"
-        if get_flag(flags, "sale_blocked") or sale_gate_status == "BLOCK" or runtime_state.decision_state == "BLOCK":
+        if (
+            saleability_status_seed == "BLOCKED"
+            or sale_gate_status == "BLOCK"
+            or runtime_state.decision_state == "BLOCK"
+        ):
             apply_rule(self.store, trace_rules, "SALE-002")
             saleability_status = "BLOCKED"
-        elif sale_gate_status in ("REVIEW", "HOLD") or report_status != "ISSUED" or runtime_state.resolve("offer_recommendation_state", offer_state) == "REVIEW_REQUIRED":
+        elif (
+            saleability_status_seed == "RESTRICTED"
+            or sale_gate_status in ("REVIEW", "HOLD")
+            or report_status != "ISSUED"
+            or has_review_constraint
+            or runtime_state.resolve("offer_recommendation_state", offer_state) == "REVIEW_REQUIRED"
+        ):
             apply_rule(self.store, trace_rules, "SALE-002")
             saleability_status = "RESTRICTED"
 
@@ -454,6 +474,29 @@ class Stage7Service:
                 offer_recommendation_payload["offer_recommendation_state"] = "REVIEW_REQUIRED"
         offer_recommendation = self.store.build_record("offer_recommendation", offer_recommendation_payload)
 
+        stage7_restriction_reasons = []
+        if saleability_status_seed == "RESTRICTED":
+            stage7_restriction_reasons.append("h06_saleability_status=RESTRICTED")
+        if sale_gate_status in ("REVIEW", "HOLD", "BLOCK"):
+            stage7_restriction_reasons.append(f"sale_gate_status={sale_gate_status}")
+        if report_status not in ("READY", "ISSUED"):
+            stage7_restriction_reasons.append(f"report_status={report_status}")
+        if report_status == "READY":
+            stage7_restriction_reasons.append("report_status=READY")
+        if linked_review_request_id_optional:
+            stage7_restriction_reasons.append(f"linked_review_request_id={linked_review_request_id_optional}")
+        if missing_condition_family_optional:
+            stage7_restriction_reasons.append(f"missing_condition_family={missing_condition_family_optional}")
+        if runtime_state.resolve("offer_recommendation_state", offer_state) == "REVIEW_REQUIRED":
+            stage7_restriction_reasons.append("offer_recommendation_state=REVIEW_REQUIRED")
+        opportunity_blocking_reasons = ensure_list(inputs.get("blocking_reasons"))
+        if saleability_status != "QUALIFIED":
+            opportunity_blocking_reasons.extend(
+                ensure_list(runtime_state.resolve("offer_blocking_reasons_optional", ["stage7_review_required"]))
+            )
+            opportunity_blocking_reasons.extend(stage7_restriction_reasons)
+        opportunity_blocking_reasons = _dedupe_strings(opportunity_blocking_reasons)
+
         opportunity_payload = {
             "opportunity_id": build_id("OPP", project_id),
             "project_id": project_id,
@@ -467,12 +510,7 @@ class Stage7Service:
             ),
             "saleability_status": saleability_status,
             "major_value_points": opportunity_value_reason_tags,
-            "blocking_reasons": ensure_list(
-                inputs.get(
-                    "blocking_reasons",
-                    [] if saleability_status == "QUALIFIED" else runtime_state.resolve("offer_blocking_reasons_optional", ["stage7_review_required"]),
-                )
-            ),
+            "blocking_reasons": opportunity_blocking_reasons,
             "expected_close_days_band": required_runtime_value("expected_close_days_band"),
             "expected_contract_value_band": inputs.get(
                 "expected_contract_value_band",
@@ -533,6 +571,16 @@ class Stage7Service:
             "project_id": project_id,
             "opportunity_id": saleable_opportunity.get("opportunity_id"),
             "saleability_status": saleable_opportunity.get("saleability_status"),
+            "sale_gate_status": sale_gate_status,
+            "report_status": report_status,
+            "project_fact_id_optional": project_fact_id,
+            "review_queue_profile_id_optional": review_queue_profile_id,
+            "review_lane_optional": review_lane,
+            "report_record_id_optional": report_record_id,
+            "challenger_candidate_profile_id_optional": challenger_candidate_profile_id,
+            "linked_review_request_id_optional": linked_review_request_id_optional,
+            "missing_condition_family_optional": missing_condition_family_optional,
+            "stage6_formal_carriers_trace_optional": stage6_formal_carriers,
             "source_family": inputs.get("source_family", "PROCUREMENT_NOTICE"),
             "channel_family": ensure_enum(self.store, "channel_family", inputs.get("channel_family")),
             "channel_policy_status": ensure_enum(
@@ -578,7 +626,31 @@ class Stage7Service:
         inputs_out = dict(inputs)
         inputs_out["policy_trace"] = runtime_state.trace
         inputs_out["policy_decision_state"] = runtime_state.decision_state
+        inputs_out.update(
+            {
+                "project_fact_id": project_fact_id,
+                "review_queue_profile_id": review_queue_profile_id,
+                "review_lane": review_lane,
+                "report_record_id": report_record_id,
+                "challenger_candidate_profile_id": challenger_candidate_profile_id,
+                "sale_gate_status": sale_gate_status,
+                "report_status": report_status,
+                "linked_review_request_id_optional": linked_review_request_id_optional,
+                "missing_condition_family_optional": missing_condition_family_optional,
+            }
+        )
         inputs_out["stage7_resolution_trace"] = {
+            "stage6_formal_carriers": stage6_formal_carriers,
+            "review_gate_report_constraints": {
+                "sale_gate_status": sale_gate_status,
+                "saleability_status_seed": saleability_status_seed,
+                "report_status": report_status,
+                "review_task_status": review_task_status,
+                "review_lane": review_lane,
+                "linked_review_request_id_optional": linked_review_request_id_optional,
+                "missing_condition_family_optional": missing_condition_family_optional,
+                "stage7_restriction_reasons": stage7_restriction_reasons,
+            },
             "actor_seed_provenance": {
                 "legal_action_actor_org_name": legal_actor_seed,
                 "procurement_decision_actor_org_name": procurement_actor_seed,
@@ -665,6 +737,7 @@ class Stage7Service:
         inputs_out["multi_competitor_collection_id_optional"] = multi_competitor_collection.get("multi_competitor_collection_id")
         inputs_out["winning_competitor_candidate_id_optional"] = multi_competitor_collection.get("winning_candidate_id")
         inputs_out["winning_challenger_profile_id_optional"] = multi_competitor_collection.get("winning_challenger_profile_id")
+        inputs_out["saleability_status"] = saleable_opportunity.get("saleability_status")
         inputs_out["window_urgency_score"] = runtime_state.resolve(
             "window_urgency_score",
             buyer_fit.get("window_urgency_score"),

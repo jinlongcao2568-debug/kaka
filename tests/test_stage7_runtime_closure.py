@@ -310,6 +310,34 @@ class TestStage7RuntimeClosure(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "must-not-recompute conflicts"):
                     run_internal_chain_to_stage7(payload)
 
+    def test_stage7_ignores_raw_sale_flags_and_uses_h06_constraints(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload["flags"] = {
+            **payload["flags"],
+            "sale_blocked": True,
+            "sale_review": True,
+            "offer_review": True,
+        }
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+
+        self.assertEqual(stage7.record("sales_lead").get("lead_status"), "QUALIFIED")
+        self.assertEqual(stage7.record("saleable_opportunity").get("saleability_status"), "QUALIFIED")
+        self.assertEqual(stage7.record("offer_recommendation").get("offer_recommendation_state"), "APPROVED")
+
+    def test_stage7_review_request_h06_carrier_constrains_sales_objects(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_block.json"))["stage7"]
+        constraints = stage7.inputs["stage7_resolution_trace"]["review_gate_report_constraints"]
+
+        self.assertEqual(constraints["linked_review_request_id_optional"], "RR-PROJ-002")
+        self.assertEqual(constraints["missing_condition_family_optional"], "MISSING_EVIDENCE")
+        self.assertEqual(stage7.record("sales_lead").get("lead_status"), "REVIEW")
+        self.assertNotEqual(stage7.record("saleable_opportunity").get("saleability_status"), "QUALIFIED")
+        self.assertIn(
+            "missing_condition_family=MISSING_EVIDENCE",
+            stage7.record("saleable_opportunity").get("blocking_reasons"),
+        )
+
     def test_stage7_price_candidate_resolution_prefers_highest_priority_source(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload["price_source_set_optional"] = [

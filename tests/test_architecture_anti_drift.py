@@ -622,6 +622,10 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         self.assertIn("runtime.run(", stage7)
         self.assertIn("evaluate_handoff_consumer(", stage7)
         self.assertIn("evaluate_object_semantics(", stage7)
+        self.assertIn("stage6_formal_carriers", stage7)
+        self.assertNotIn('get_flag(flags, "sale_blocked")', stage7)
+        self.assertNotIn('get_flag(flags, "sale_review")', stage7)
+        self.assertNotIn('get_flag(flags, "offer_review")', stage7)
 
         self.assertIn("resolve_permissions(", stage8)
         self.assertIn("evaluate_runtime_guards(", stage8)
@@ -854,6 +858,29 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         self.assertIn("review_request_id", h05["optional_payload_fields"])
         self.assertIn("missing_condition_family", h05["optional_payload_fields"])
         self.assertIn("review_lane", h05["optional_payload_fields"])
+
+        h06 = read_json("handoff/stage6_to_stage7/contract.json")
+        for object_name in (
+            "project_fact",
+            "legal_action_recommendation",
+            "review_queue_profile",
+            "challenger_candidate_profile",
+            "report_record",
+        ):
+            self.assertIn(object_name, h06["producer_objects"])
+        for field_name in (
+            "project_fact_id",
+            "review_queue_profile_id",
+            "report_record_id",
+            "challenger_candidate_profile_id",
+            "report_status",
+            "sale_gate_status",
+            "saleability_status",
+            "review_lane",
+            "linked_review_request_id_optional",
+            "missing_condition_family_optional",
+        ):
+            self.assertIn(field_name, h06["consumer_must_not_recompute_fields"])
 
     def test_stage3_runtime_materializes_truth_layer_and_handoff_trace(self) -> None:
         result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))

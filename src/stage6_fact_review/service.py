@@ -12,6 +12,75 @@ from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import resolve_bundle, utc_now_iso
 
 
+def _close_h06_formal_carriers(result: StageBundle) -> StageBundle:
+    project_fact = result.records["project_fact"]
+    review_queue_profile = result.records["review_queue_profile"]
+    report_record = result.records["report_record"]
+    challenger_candidate_profile = result.records["challenger_candidate_profile"]
+
+    handoff = dict(result.handoff)
+    linked_review_request_id = handoff.get("linked_review_request_id_optional")
+    missing_condition_family = handoff.get("missing_condition_family_optional")
+    sale_gate_status = handoff.get("sale_gate_status")
+    report_status = handoff.get("report_status")
+
+    saleability_status = "CANDIDATE"
+    if sale_gate_status == "BLOCK" or report_status == "REVOKED":
+        saleability_status = "BLOCKED"
+    elif (
+        sale_gate_status in ("REVIEW", "HOLD")
+        or report_status not in ("READY", "ISSUED")
+        or linked_review_request_id
+        or missing_condition_family
+    ):
+        saleability_status = "RESTRICTED"
+
+    formal_carriers = {
+        "project_fact_id": project_fact.get("project_fact_id"),
+        "review_queue_profile_id": review_queue_profile.get("queue_profile_id"),
+        "review_lane": review_queue_profile.get("review_lane"),
+        "report_record_id": report_record.get("report_id"),
+        "challenger_candidate_profile_id": challenger_candidate_profile.get("challenger_profile_id"),
+        "saleability_status": saleability_status,
+    }
+    handoff.update(formal_carriers)
+
+    inputs = dict(result.inputs)
+    inputs.update(formal_carriers)
+    inputs["stage6_h06_formal_carrier_trace"] = {
+        "project_fact_id": formal_carriers["project_fact_id"],
+        "review_queue_profile_id": formal_carriers["review_queue_profile_id"],
+        "report_record_id": formal_carriers["report_record_id"],
+        "challenger_candidate_profile_id": formal_carriers["challenger_candidate_profile_id"],
+        "saleability_status_seed": saleability_status,
+        "linked_review_request_id_optional": linked_review_request_id,
+        "missing_condition_family_optional": missing_condition_family,
+        "source": "stage6_formal_producer_objects_then_h06_handoff",
+    }
+
+    return StageBundle(
+        stage=result.stage,
+        records=dict(result.records),
+        handoff=handoff,
+        trace_rules=list(result.trace_rules),
+        inputs=inputs,
+    )
+
+
+_ORIGINAL_PROJECT_FACT_AGGREGATE = ProjectFactAggregator.aggregate
+
+
+def _aggregate_with_h06_formal_carriers(self: ProjectFactAggregator, stage5_bundle: StageBundle, *, now: str) -> StageBundle:
+    return _close_h06_formal_carriers(_ORIGINAL_PROJECT_FACT_AGGREGATE(self, stage5_bundle, now=now))
+
+
+def _install_h06_formal_carrier_projection() -> None:
+    if getattr(ProjectFactAggregator.aggregate, "_h06_formal_carrier_projection", False):
+        return
+    setattr(_aggregate_with_h06_formal_carriers, "_h06_formal_carrier_projection", True)
+    ProjectFactAggregator.aggregate = _aggregate_with_h06_formal_carriers
+
+
 class Stage6Service:
     H05_REVIEW_REQUEST_FIELDS = (
         "review_request_id",
@@ -22,6 +91,7 @@ class Stage6Service:
     def __init__(self, settings: Any | None = None) -> None:
         self.settings = settings
         self.store = ContractStore.default(settings)
+        _install_h06_formal_carrier_projection()
         self.aggregator = ProjectFactAggregator(self.store)
 
     def run(self, payload: Mapping[str, Any] | StageBundle) -> StageBundle:

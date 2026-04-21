@@ -5,11 +5,11 @@ updated_at: "2026-04-21"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_S67_SALEABLE_OPPORTUNITY_DERIVATION_ACTIVATION_ONLY"
+navigation_state: "PTL_S67_SALEABLE_OPPORTUNITY_DERIVATION_SCOPED_EXECUTION"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口只执行 PTL-S67-saleable-opportunity-derivation activation-only：只把当前 active packet 切到 PTL-S67；不进入 scoped-execution，不改 runtime / contracts / handoff / tests / scripts，不改 product_task_library / AX9S，不改变 canonical readiness，不提交。"
+activation_condition: "当前窗口执行 PTL-S67-saleable-opportunity-derivation scoped-execution：闭合 Stage6 formal outputs 到 Stage7 sales objects 的正式消费链；不改 Stage8/Stage9，不进入真实触达，不改 scripts，不改变 canonical readiness，不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -40,7 +40,7 @@ currentTask:
     - "scripts/check-final-gate.ps1"
     - "scripts/clean-python-cache.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "activation-only：把当前 active packet 切到 PTL-S67-saleable-opportunity-derivation；本轮仅同步 control/current_task.yaml 与 control/repo_status.md 的当前执行源，不进入 scoped-execution。"
+  objective: "scoped-execution：闭合 H-06 Stage6 formal outputs / handoff 到 Stage7 saleable_opportunity、sales_lead、buyer_fit、offer_recommendation 的受控消费链；Stage7 不从 raw pre-Stage6 inputs 或 flags 重算 project_fact / report / review / sale gate 语义。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -64,13 +64,13 @@ currentTask:
     subpacket_id: "PTL-PKT-S67-saleable-opportunity-derivation"
     backlog_packet_ref: "PTL-S67-saleable-opportunity-derivation"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
-    execution_mode: "ACTIVATION_ONLY"
+    execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    runtime_change_in_packet: "OUT_OF_SCOPE"
+    runtime_change_in_packet: "CONTROLLED_STAGE6_7_RUNTIME_CLOSURE"
     existing_runtime_state: "HEAVY_RUNTIME"
     title: "Stage6-7 可售机会对象推导闭合"
     status: "ACTIVE"
-    objective: "只切当前 active packet 到 PTL-S67-saleable-opportunity-derivation；不进入 PTL-S67 scoped-execution，不改 runtime / contracts / handoff / tests / scripts，不改 product_task_library / AX9S，不改变 canonical readiness。"
+    objective: "闭合 Stage6 formal outputs / H-06 handoff 到 Stage7 sales objects 的正式消费链；gate/review/report 未 ready 时不得生成无条件 qualified saleable opportunity；不进入 Stage8/Stage9，不生成真实 contact_target，不执行触达。"
     depends_on:
       - "PTL-S56 scoped-execution 已完成并提交"
       - "PTL-GOV-110 已完成并提交"
@@ -82,22 +82,22 @@ currentTask:
       previous_active_packet: "PTL-GOV-110-mainline-candidate-shift-to-S67"
       target_active_packet: "PTL-S67-saleable-opportunity-derivation"
       close_previous_active_packet: true
-      activation_only: true
-      enter_scoped_execution: false
-      active_packet_kind: "product_mainline_activation_only"
+      activation_only: false
+      enter_scoped_execution: true
+      active_packet_kind: "product_mainline_scoped_execution"
       product_mainline_task: true
       add_to_product_task_library: false
       target_mainline_next_candidate: "PTL-S67-saleable-opportunity-derivation"
       activate_target_mainline_next_candidate: true
-      enter_ptl_s67_scoped_execution: false
-      enter_stage7_scoped_execution: false
+      enter_ptl_s67_scoped_execution: true
+      enter_stage7_scoped_execution: true
       source_blueprint_batch_id: "POST-FF-CONTROL-01"
-      execution_mode: "ACTIVATION_ONLY"
-      runtime_change: false
+      execution_mode: "SCOPED_EXECUTION"
+      runtime_change: true
       contracts_change: false
-      handoff_change: false
+      handoff_change: true
       scripts_change: false
-      tests_change: false
+      tests_change: true
       docs_change: false
       control_change: true
       product_task_library_change: false
@@ -110,13 +110,7 @@ currentTask:
       commit_allowed: false
     non_goals:
       - "not an external unlock implementation"
-      - "不进入 scoped-execution"
-      - "不进入 PTL-S67 scoped-execution"
-      - "不进入 Stage7 scoped-execution"
-      - "不改 runtime"
       - "不改 contracts"
-      - "不改 handoff"
-      - "不改 tests"
       - "不改 scripts"
       - "不改 control/product_task_library.yaml"
       - "不改 docs/AX9S_开发执行路由图.md"
@@ -124,39 +118,83 @@ currentTask:
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
+      - "不改 Stage8/Stage9 runtime、handoff 或 tests"
+      - "不生成真实 contact_target"
+      - "不执行真实 outreach / payment / delivery"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不提交"
     affected_stages:
       - "automation_control"
-      - "stage6_to_stage7_activation_pointer"
-      - "product_mainline_current_active_packet"
+      - "stage6_to_stage7_handoff"
+      - "stage6_fact_review_formal_outputs"
+      - "stage7_sales_runtime"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "future_external_unlock_prereq_core"
+      - "machine_assets_general"
+      - "scripts_and_tests_general"
+      - "shared_runtime_core"
     reviews:
       - "automation_owner"
-      - "release_approver"
       - "architecture_owner"
       - "governance_owner"
-      - "model_governance_owner"
       - "testing_owner"
+      - "release_approver"
     baseline_dirty_paths: []
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "handoff/stage6_to_stage7/contract.json"
+      - "handoff/stage6_to_stage7/example.json"
+      - "handoff/stage6_to_stage7/validator.json"
+      - "src/stage6_fact_review/service.py"
+      - "src/stage7_sales/service.py"
+      - "src/stage7_sales/runtime.py"
+      - "src/stage7_sales/scorecard.py"
+      - "src/stage7_sales/pricing.py"
+      - "src/stage7_sales/recommendation.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_architecture_anti_drift.py"
+      - "tests/test_stage7_runtime_closure.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "handoff/stage6_to_stage7/contract.json"
+      - "handoff/stage6_to_stage7/example.json"
+      - "handoff/stage6_to_stage7/validator.json"
+      - "src/stage6_fact_review/service.py"
+      - "src/stage7_sales/service.py"
+      - "src/stage7_sales/runtime.py"
+      - "src/stage7_sales/scorecard.py"
+      - "src/stage7_sales/pricing.py"
+      - "src/stage7_sales/recommendation.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_architecture_anti_drift.py"
+      - "tests/test_stage7_runtime_closure.py"
     forbidden_modification_paths:
       - "AGENTS.md"
       - "docs/L0.md"
       - "scripts/**"
-      - "src/**"
       - "contracts/**"
-      - "handoff/**"
-      - "tests/**"
+      - "src/stage1_tasking/**"
+      - "src/stage2_ingestion/**"
+      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
+      - "src/stage5_rules_evidence/**"
+      - "src/stage8_outreach/**"
+      - "src/stage9_delivery/**"
+      - "handoff/stage1_to_stage2/**"
+      - "handoff/stage2_to_stage3/**"
+      - "handoff/stage3_to_stage4/**"
+      - "handoff/stage4_to_stage5/**"
+      - "handoff/stage5_to_stage6/**"
+      - "handoff/stage7_to_stage8/**"
+      - "handoff/stage8_to_stage9/**"
+      - "tests/test_stage12_extractors.py"
+      - "tests/test_external_unlock_prerequisites.py"
+      - "tests/test_semantic_runtime_validator.py"
+      - "tests/test_stage56_evaluators.py"
       - "control/product_task_library.yaml"
       - "docs/AX9S_开发执行路由图.md"
       - "control/milestone_status.yaml"
@@ -172,17 +210,35 @@ currentTask:
         - "control/current_task.yaml"
         - "control/repo_status.md"
       contracts: []
-      handoff: []
+      handoff:
+        - "handoff/stage6_to_stage7/contract.json"
+        - "handoff/stage6_to_stage7/example.json"
+        - "handoff/stage6_to_stage7/validator.json"
       scripts: []
-      tests: []
-      runtime: []
+      tests:
+        - "tests/test_internal_chain.py"
+        - "tests/test_architecture_anti_drift.py"
+        - "tests/test_stage7_runtime_closure.py"
+      runtime:
+        - "src/stage6_fact_review/service.py"
+        - "src/stage7_sales/service.py"
+        - "src/stage7_sales/runtime.py"
+        - "src/stage7_sales/scorecard.py"
+        - "src/stage7_sales/pricing.py"
+        - "src/stage7_sales/recommendation.py"
     required_scripts:
+      - "python -m pytest tests/test_internal_chain.py -q"
+      - "python -m pytest tests/test_architecture_anti_drift.py -q"
+      - "python -m pytest tests/test_stage7_runtime_closure.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1"
       - "git status --short --untracked-files=all"
     script_timeouts:
+      "python -m pytest tests/test_internal_chain.py -q": 300000
+      "python -m pytest tests/test_architecture_anti_drift.py -q": 300000
+      "python -m pytest tests/test_stage7_runtime_closure.py -q": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1": 300000
@@ -191,8 +247,11 @@ currentTask:
     stop_conditions:
       - "任一脚本失败"
       - "触碰 forbidden paths"
-      - "进入 scoped-execution"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
+      - "新增正式对象、枚举、gate、exception 语义"
+      - "改到 Stage8/Stage9"
+      - "生成或执行真实 contact_target / outreach / payment / delivery"
+      - "改 scripts"
       - "改变 canonical readiness"
       - "放宽 external release / Stage8 / Stage9 红线"
       - "自动提交"
@@ -203,28 +262,31 @@ currentTask:
       - "task_packet.subpacket_id 为 PTL-PKT-S67-saleable-opportunity-derivation"
       - "task_packet.backlog_packet_ref 为 PTL-S67-saleable-opportunity-derivation"
       - "task_packet.packet_kind 为 EXECUTABLE_SCOPED_SUBPACKET"
-      - "task_packet.execution_mode 为 ACTIVATION_ONLY"
+      - "task_packet.execution_mode 为 SCOPED_EXECUTION"
       - "task_packet.source_blueprint_batch_id 为 POST-FF-CONTROL-01"
       - "task_packet.status 为 ACTIVE"
+      - "task_packet.runtime_change_in_packet 为 CONTROLLED_STAGE6_7_RUNTIME_CLOSURE"
+      - "task_packet.existing_runtime_state 为 HEAVY_RUNTIME"
       - "baseline_dirty_paths 为空"
-      - "declared_changed_paths / allowed_modification_paths 仅包含 control/current_task.yaml 与 control/repo_status.md"
-      - "不进入 PTL-S67 scoped-execution 或 Stage7 scoped-execution"
-      - "不改 runtime / contracts / handoff / tests / scripts，不改变 canonical readiness"
+      - "declared_changed_paths / allowed_modification_paths 与本轮 Stage6-7 scoped-execution 允许范围一致"
+      - "Stage7 只消费 Stage6 formal outputs / H-06 handoff，不从 raw pre-Stage6 inputs 或 flags 重算 project_fact / report / review / sale gate 语义"
+      - "gate/review/report 未 ready 时不得生成无条件 QUALIFIED saleable opportunity"
+      - "不改 Stage8/Stage9，不生成真实 contact_target，不执行触达"
+      - "不改 scripts，不改变 canonical readiness"
       - "不改 control/product_task_library.yaml 或 docs/AX9S_开发执行路由图.md"
       - "required scripts 执行后停机汇报，不提交"
     deliverables:
-      - "PTL-S67-saleable-opportunity-derivation activation-only active packet"
-      - "control/current_task.yaml 当前执行源切换"
-      - "control/repo_status.md 当前工作流同步"
-      - "指定 control checks、final gate、clean-python-cache 与 git status 执行结果"
+      - "PTL-S67-saleable-opportunity-derivation scoped-execution active packet"
+      - "H-06 Stage6->Stage7 handoff formal carrier closure"
+      - "Stage7 sales runtime closure constrained by review/report/sale gate"
+      - "指定 pytest、control checks、final gate、clean-python-cache 与 git status 执行结果"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
-      - "release_approver"
       - "architecture_owner"
       - "governance_owner"
-      - "model_governance_owner"
       - "testing_owner"
+      - "release_approver"
     review_evidence:
       declared: true
       signoff_required: true
@@ -233,7 +295,7 @@ currentTask:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
       - "control/product_task_library.yaml 已将 PTL-S67-saleable-opportunity-derivation 标为 current_mainline_next_candidate；本轮不修改该文件。"
-      - "本轮只做 ACTIVATION_ONLY；不进入 scoped-execution。"
+      - "本轮执行 SCOPED_EXECUTION；只闭合 Stage6-7 可售机会推导，不进入 Stage8/Stage9。"
       - "External release 继续保持阻断；Stage8 / Stage9 real execution/payment/delivery/refund 继续默认阻断。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
@@ -241,17 +303,17 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮只允许修改 control/current_task.yaml 与 control/repo_status.md。"
-    - "允许把当前 active packet 切到 PTL-S67-saleable-opportunity-derivation。"
-    - "允许运行指定 control checks、final gate、clean-python-cache 与 git status，并在执行后停机汇报。"
+    - "本轮只允许修改 current_task 声明的 Stage6-7 scoped-execution allowed_modification_paths。"
+    - "允许闭合 H-06 Stage6 formal outputs / handoff 到 Stage7 sales objects 的正式消费链。"
+    - "允许运行指定 pytest、control checks、final gate、clean-python-cache 与 git status，并在执行后停机汇报。"
   forbidden_actions:
-    - "不得修改 AGENTS.md、docs/L0.md、scripts/**、src/**、contracts/**、handoff/**、tests/**。"
+    - "不得修改 AGENTS.md、docs/L0.md、scripts/**、contracts/** 或本轮 forbidden_modification_paths。"
     - "不得修改 control/product_task_library.yaml 或 docs/AX9S_开发执行路由图.md。"
-    - "不得进入 PTL-S67 scoped-execution 或 Stage7 scoped-execution。"
     - "不得改变 canonical readiness。"
     - "不得放宽 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
+    - "不得改 Stage8/Stage9，不得生成真实 contact_target，不得执行真实触达。"
     - "不得新增正式对象、枚举、gate、exception 语义。"
     - "不得提交。"
   nextActions:
-    - "完成本轮 required_scripts 后停机汇报；不自动提交，不自动进入 scoped-execution。"
-  status_note: "PTL-S67-saleable-opportunity-derivation 当前为 activation-only active packet；本轮只切当前执行源，不进入 PTL-S67 scoped-execution，不进入 Stage7 scoped-execution；不改 runtime / contracts / handoff / tests / scripts，不改变 canonical readiness，不提交。"
+    - "完成本轮 required_scripts 后停机汇报；不自动提交，不自动进入下一包。"
+  status_note: "PTL-S67-saleable-opportunity-derivation 当前为 scoped-execution active packet；本轮只闭合 Stage6 formal outputs / H-06 handoff 到 Stage7 sales objects，不进入 Stage8/Stage9，不改变 canonical readiness，不提交。"
