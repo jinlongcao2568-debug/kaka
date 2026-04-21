@@ -6,5 +6,10 @@
   ],
   "global_rule_refs": [
     "HV-009"
+  ],
+  "notes": [
+    "Stage3 must consume H-02 formal authority from Stage2 producer objects / handoff for fixation_bundle_id, source_registry_id, route_policy_id, route_decision_state, route_review_reasons, winning_version_resolution_rule_id, version_conflict_state, clock_conflict_state, collection_state, and clock_resolution_rule_id.",
+    "Stage3 must not silently recover these formal inputs from scattered payload override when H-02 authority is missing or conflicting.",
+    "Missing or conflicting fixation / version / clock / route authority must enter review / block path before Stage4 consumption."
   ]
 }

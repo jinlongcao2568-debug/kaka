@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-S23-public-chain-to-parser-contract (activation-only; current active packet via control/current_task.yaml; this round only switches the current active packet and syncs control/repo_status.md; PTL-S23 is now the current active packet; this round does not enter scoped-execution; Stage2-3 is an existing partial runtime closure target rather than a zero-to-one skeleton; no runtime/contracts/handoff/tests/scripts changes, no readiness change, no product_task_library or AX9S semantic change, and no external release / Stage8 live execution / Stage9 live payment-delivery opening)
+Current Workstream: PTL-S23-public-chain-to-parser-contract (scoped-execution; current active packet via control/current_task.yaml; Stage2-3 is an existing partial runtime closure target rather than a zero-to-one skeleton; this round closes Stage2 formal outputs to Stage3 formal inputs across control/handoff/runtime/tests, enforces Stage3 consumption from Stage2 formal outputs / handoff for public_chain, clock_chain_profile, notice_version_chain, fixation_bundle, source_registry_id, route_policy_id, winning_version_resolution_rule_id, and clock_resolution_rule_id, routes missing/conflicting fixation/version/clock/route authority into review/block, does not change canonical readiness, does not modify scripts, and does not open external release / Stage8 live execution / Stage9 live payment-delivery)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,23 +21,21 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the new controlled development system
-- activation-only for PTL-S23-public-chain-to-parser-contract within declared_changed_paths / allowed_modification_paths only
-- switch the current active packet to PTL-S23-public-chain-to-parser-contract and update only control/current_task.yaml and control/repo_status.md
+- scoped-execution for PTL-S23-public-chain-to-parser-contract within declared_changed_paths / allowed_modification_paths only
+- close Stage2 formal outputs to Stage3 formal inputs across control/handoff/runtime/tests within the declared scope
 - current_task is the unique active execution source
 - product_task_library remains the product mainline task pool and is not modified in this round; current_mainline_next_candidate remains candidate-pool metadata only
-- source_blueprint_registry remains the source-blueprint allowlist and is not modified in this activation-only round
-- operator_assignment_roster_defaults remains the stable stage7/8/9 roster source and is not modified in this activation-only round
+- source_blueprint_registry remains the source-blueprint allowlist and is not modified in this round
+- operator_assignment_roster_defaults remains the stable stage7/8/9 roster source and is not modified in this round
 - AX9S route map remains a candidate navigation asset and navigation-only product phase map; it is not modified in this round
 
 Forbidden Actions (current):
-- Any claim that activation-only changes canonical readiness
+- Any claim that scoped-execution changes canonical readiness
 - Any attempt to use historical task_packet_library as the current task source
 - Any change outside declared_changed_paths / allowed_modification_paths
-- Any entry into scoped-execution in this round
 - Any product_task_library or AX9S edit in this round
-- Any runtime, contracts, handoff, tests, or scripts change
-- Any Stage2-3 runtime / parser implementation change in this round
-- Any Stage3+ runtime change
+- Any scripts change in this round
+- Any Stage4+ runtime / contract / handoff / tests change in this round
 - Any Stage8 / Stage9 runtime, contract, handoff, or execution change
 - Any new formal object, enum, gate, or exception semantics
 - External software release or unaudited leadpack delivery
@@ -51,10 +49,12 @@ State Semantics:
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
 - PTL-S23-public-chain-to-parser-contract is the current active packet through control/current_task.yaml.
-- This round is activation-only; it does not enter scoped-execution.
-- PTL-S23 was already the current_mainline_next_candidate in control/product_task_library.yaml; this round only activates that existing candidate into the current active packet and does not modify product_task_library.
+- This round is scoped-execution for PTL-S23 and stays within the declared Stage2->Stage3 closure scope.
+- PTL-S23 activation-only was completed earlier; this round continues on the same current active packet without changing product_task_library.
 - Stage2-3 is an existing partial runtime closure target, not a zero-to-one skeleton.
-- This activation-only round does not change runtime, contracts, handoff, tests, scripts, or product_task_library / AX9S semantics.
+- This scoped-execution round may change only the declared control/handoff/runtime/tests assets needed to close Stage2 formal outputs to Stage3 formal inputs.
+- Stage3 must consume Stage2 formal outputs / handoff for public_chain, clock_chain_profile, notice_version_chain, fixation_bundle, source_registry_id, route_policy_id, winning_version_resolution_rule_id, and clock_resolution_rule_id rather than recomputing them from scattered payload overrides.
+- Missing or conflicting fixation / version / clock / route authority must enter review/block and cannot silently succeed.
 - PTL-S12-source-route-clock-authority scoped-execution remains completed and closeout remains recorded, but that completion does not change canonical readiness.
 - product_task_library only carries product mainline tasks for future selection and scoped packet derivation.
 - product_task_library current_mainline_next_candidate metadata continues to point to PTL-S23-public-chain-to-parser-contract, but it does not decide execution order by itself.
@@ -62,10 +62,13 @@ State Semantics:
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - route-map near-end sync is warning-only: state alignment may emit a prompt when AX9S hints lag behind product_task_library, but that prompt is not a release blocker.
-- Canonical readiness is unchanged by this activation-only round.
+- Canonical readiness is unchanged by this scoped-execution round.
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
 
-Current Activation-Only Required Checks:
+Current Scoped-Execution Required Checks:
+- python -m pytest tests/test_internal_chain.py -q
+- python -m pytest tests/test_architecture_anti_drift.py -q
+- python -m pytest tests/test_semantic_runtime_validator.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1

@@ -7,8 +7,16 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from shared.contracts_runtime import ContractStore, StageBundle
+from shared.contracts_runtime import ContractStore, ContractRecord, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag, resolve_bundle
+
+
+def _carrier_mapping(carrier: Any) -> Mapping[str, Any]:
+    if isinstance(carrier, Mapping):
+        return carrier
+    if isinstance(carrier, ContractRecord):
+        return carrier.data
+    return {}
 
 
 class Stage3Service:
@@ -26,40 +34,177 @@ class Stage3Service:
         notice_version_chain = stage2_bundle.record("notice_version_chain")
         fixation_bundle = stage2_bundle.record("fixation_bundle")
 
+        handoff_map = stage2_bundle.handoff
+        public_chain_map = _carrier_mapping(public_chain)
+        clock_chain_map = _carrier_mapping(clock_chain_profile)
+        notice_version_map = _carrier_mapping(notice_version_chain)
+
         project_id = public_chain.get("project_id")
-        source_registry_id = stage2_bundle.handoff.get("source_registry_id") or public_chain.get("source_registry_id") or inputs.get("source_registry_id")
-        route_policy_id = stage2_bundle.handoff.get("route_policy_id") or public_chain.get("route_policy_id") or inputs.get("route_policy_id")
-        route_decision_state = stage2_bundle.handoff.get("route_decision_state") or public_chain.get("route_decision_state") or inputs.get("route_decision_state", "ALLOW")
-        route_review_reasons = ensure_list(
-            stage2_bundle.handoff.get("route_review_reasons")
-            or public_chain.get("route_review_reasons")
-            or inputs.get("route_review_reasons")
+
+        authority_review_reasons: list[str] = []
+        authority_block_reasons: list[str] = []
+
+        def resolve_h02_authority(
+            field_name: str,
+            carriers: list[tuple[str, Mapping[str, Any]]],
+            *,
+            missing_is_block: bool = False,
+            normalize_list: bool = False,
+        ) -> Any:
+            values: list[tuple[str, Any, Any]] = []
+            handoff_present = False
+            for source_name, carrier in carriers:
+                if field_name not in carrier:
+                    continue
+                raw_value = carrier[field_name]
+                if raw_value is None or raw_value == "":
+                    continue
+                if source_name == "handoff":
+                    handoff_present = True
+                if normalize_list:
+                    value = ensure_list(raw_value)
+                    normalized = tuple(value)
+                else:
+                    value = raw_value
+                    normalized = raw_value
+                values.append((source_name, value, normalized))
+
+            if not handoff_present:
+                reason = f"missing_h02_handoff_field:{field_name}"
+                if missing_is_block:
+                    authority_block_reasons.append(reason)
+                else:
+                    authority_review_reasons.append(reason)
+
+            if not values:
+                reason = f"missing_h02_authority_field:{field_name}"
+                if missing_is_block:
+                    authority_block_reasons.append(reason)
+                else:
+                    authority_review_reasons.append(reason)
+                return [] if normalize_list else None
+
+            unique_values: list[Any] = []
+            for _, _, normalized in values:
+                if normalized not in unique_values:
+                    unique_values.append(normalized)
+            if len(unique_values) > 1:
+                reason = f"h02_authority_conflict:{field_name}"
+                if missing_is_block:
+                    authority_block_reasons.append(reason)
+                else:
+                    authority_review_reasons.append(reason)
+
+            handoff_value = next((value for source_name, value, _ in values if source_name == "handoff"), None)
+            if handoff_value is not None:
+                return handoff_value
+            return values[0][1]
+
+        fixation_bundle_id = fixation_bundle.get("fixation_bundle_id")
+        handoff_fixation_bundle_id = handoff_map.get("fixation_bundle_id")
+        if handoff_fixation_bundle_id in (None, ""):
+            authority_block_reasons.append("missing_h02_handoff_field:fixation_bundle_id")
+        if fixation_bundle_id in (None, ""):
+            authority_block_reasons.append("missing_h02_authority_field:fixation_bundle_id")
+        elif handoff_fixation_bundle_id not in (None, "") and handoff_fixation_bundle_id != fixation_bundle_id:
+            authority_block_reasons.append("h02_authority_conflict:fixation_bundle_id")
+
+        source_registry_id = resolve_h02_authority(
+            "source_registry_id",
+            [
+                ("handoff", handoff_map),
+                ("public_chain", public_chain_map),
+                ("notice_version_chain", notice_version_map),
+            ],
         )
-        winning_version_resolution_rule_id = (
-            stage2_bundle.handoff.get("winning_version_resolution_rule_id")
-            or notice_version_chain.get("winning_version_resolution_rule_id")
-            or inputs.get("winning_version_resolution_rule_id")
+        route_policy_id = resolve_h02_authority(
+            "route_policy_id",
+            [
+                ("handoff", handoff_map),
+                ("public_chain", public_chain_map),
+                ("notice_version_chain", notice_version_map),
+            ],
         )
-        clock_resolution_rule_id = (
-            stage2_bundle.handoff.get("clock_resolution_rule_id")
-            or clock_chain_profile.get("clock_resolution_rule_id")
-            or inputs.get("clock_resolution_rule_id")
+        route_decision_state = resolve_h02_authority(
+            "route_decision_state",
+            [
+                ("handoff", handoff_map),
+                ("public_chain", public_chain_map),
+            ],
         )
-        version_conflict_state = notice_version_chain.get("version_conflict_state")
-        clock_conflict_state = clock_chain_profile.get(
+        route_review_reasons = resolve_h02_authority(
+            "route_review_reasons",
+            [
+                ("handoff", handoff_map),
+                ("public_chain", public_chain_map),
+            ],
+            normalize_list=True,
+        )
+        winning_version_resolution_rule_id = resolve_h02_authority(
+            "winning_version_resolution_rule_id",
+            [
+                ("handoff", handoff_map),
+                ("notice_version_chain", notice_version_map),
+            ],
+        )
+        version_conflict_state = resolve_h02_authority(
+            "version_conflict_state",
+            [
+                ("handoff", handoff_map),
+                ("notice_version_chain", notice_version_map),
+            ],
+        )
+        clock_resolution_rule_id = resolve_h02_authority(
+            "clock_resolution_rule_id",
+            [
+                ("handoff", handoff_map),
+                ("clock_chain_profile", clock_chain_map),
+            ],
+        )
+        clock_conflict_state = resolve_h02_authority(
             "clock_conflict_state",
-            stage2_bundle.handoff.get(
-                "clock_conflict_state",
-                stage2_bundle.inputs.get("clock_conflict_state", "CONSISTENT"),
-            ),
+            [
+                ("handoff", handoff_map),
+                ("clock_chain_profile", clock_chain_map),
+            ],
         )
+        collection_state = resolve_h02_authority(
+            "collection_state",
+            [
+                ("handoff", handoff_map),
+                ("public_chain", public_chain_map),
+                ("clock_chain_profile", clock_chain_map),
+                ("notice_version_chain", notice_version_map),
+            ],
+        )
+
+        if version_conflict_state in (None, ""):
+            version_conflict_state = "UNRESOLVED"
+        if clock_conflict_state in (None, ""):
+            clock_conflict_state = "UNRESOLVED"
+        if collection_state in (None, ""):
+            collection_state = "BLOCKED" if authority_block_reasons else "REVIEW_REQUIRED"
+
+        route_review_reasons = list(
+            dict.fromkeys(ensure_list(route_review_reasons) + authority_review_reasons + authority_block_reasons)
+        )
+        if authority_block_reasons:
+            route_decision_state = "BLOCK"
+            collection_state = "BLOCKED"
+        elif route_review_reasons:
+            if route_decision_state in (None, "", "ALLOW"):
+                route_decision_state = "REVIEW"
+            if collection_state != "BLOCKED":
+                collection_state = "REVIEW_REQUIRED"
+        elif route_decision_state in (None, ""):
+            route_decision_state = "ALLOW"
+
         conflict_state = "CONFLICTING" if get_flag(flags, "field_conflict") else "CONSISTENT"
         if get_flag(flags, "missing_source"):
             conflict_state = "UNRESOLVED"
         lineage_status = "EXTRACTED" if conflict_state == "CONSISTENT" else "CONFLICTING"
         if conflict_state == "UNRESOLVED":
             lineage_status = "UNVERIFIED"
-        collection_state = public_chain.get("collection_state")
         stage3_truth_layer_ref = build_id("ST3TL", project_id)
         lineage_collection_ref = build_id("LINEAGE", project_id)
         candidate_collection_ref = build_id("CSET", project_id)
@@ -98,24 +243,37 @@ class Stage3Service:
             conflict_state = "CONSISTENT"
             if collection_state not in ("BLOCKED", "REVIEW_REQUIRED"):
                 collection_state = "NORMALIZED"
+
+        if authority_block_reasons and conflict_state == "CONSISTENT":
+            lineage_status = "UNVERIFIED"
+            conflict_state = "UNRESOLVED"
+            unresolved_reason_optional = unresolved_reason_optional or "field_conflict_requires_review"
+        elif authority_review_reasons and conflict_state == "CONSISTENT":
+            lineage_status = "CONFLICTING"
+            conflict_state = "CONFLICTING"
+            unresolved_reason_optional = unresolved_reason_optional or "field_conflict_requires_review"
+
         stage3_review_path_ref = (
             "STAGE3_READY_FOR_STAGE4"
-            if lineage_status == "NORMALIZED" and conflict_state == "CONSISTENT"
+            if lineage_status == "NORMALIZED"
+            and conflict_state == "CONSISTENT"
+            and route_decision_state == "ALLOW"
+            and collection_state == "NORMALIZED"
             else "STAGE3_REVIEW_REQUIRED"
         )
-        derived_public_chain_status = inputs.get("public_chain_status")
-        if not derived_public_chain_status:
-            if route_decision_state == "BLOCK" or collection_state == "BLOCKED":
-                derived_public_chain_status = "BROKEN"
-            elif (
-                route_decision_state == "REVIEW"
-                or collection_state == "REVIEW_REQUIRED"
-                or version_conflict_state != "CONSISTENT"
-                or clock_conflict_state != "CONSISTENT"
-            ):
-                derived_public_chain_status = "PARTIAL"
-            else:
-                derived_public_chain_status = "COMPLETE"
+
+        if route_decision_state == "BLOCK" or collection_state == "BLOCKED":
+            derived_public_chain_status = "BROKEN"
+        elif (
+            route_decision_state == "REVIEW"
+            or collection_state == "REVIEW_REQUIRED"
+            or version_conflict_state != "CONSISTENT"
+            or clock_conflict_state != "CONSISTENT"
+        ):
+            derived_public_chain_status = "PARTIAL"
+        else:
+            derived_public_chain_status = "COMPLETE"
+
         candidate_order_mode = ensure_enum(self.store, "candidate_order_mode", inputs.get("candidate_order_mode"))
         candidate_collection_role = (
             "ORDERED_PRIMARY_CANDIDATE"
@@ -240,7 +398,8 @@ class Stage3Service:
         inputs_out["conflict_state"] = conflict_state
         inputs_out["version_conflict_state"] = version_conflict_state
         inputs_out["clock_conflict_state"] = clock_conflict_state
-        inputs_out["fixation_bundle_id"] = fixation_bundle.get("fixation_bundle_id")
+        inputs_out["collection_state"] = collection_state
+        inputs_out["fixation_bundle_id"] = fixation_bundle_id
         inputs_out["source_registry_id"] = source_registry_id
         inputs_out["route_policy_id"] = route_policy_id
         inputs_out["route_decision_state"] = route_decision_state

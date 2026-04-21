@@ -759,6 +759,21 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         h02 = read_json("handoff/stage2_to_stage3/contract.json")
         self.assertIn("stage3_truth_layer_output_obligations", h02)
         self.assertIn("unresolved_or_conflicting_lineage_paths", h02)
+        self.assertIn("consumer_obligations", h02)
+        self.assertIn("consumer_must_not_recompute_fields", h02)
+        for field_name in (
+            "source_registry_id",
+            "route_policy_id",
+            "route_decision_state",
+            "route_review_reasons",
+            "winning_version_resolution_rule_id",
+            "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_conflict_state",
+            "collection_state",
+        ):
+            self.assertIn(field_name, h02["required_payload_fields"])
+            self.assertIn(field_name, h02["consumer_runtime_required_fields"])
 
         h03 = read_json("handoff/stage3_to_stage4/contract.json")
         for field_name in ("lineage_status", "conflict_state", "fixation_bundle_id"):
@@ -786,13 +801,38 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             stage3.handoff.get("winning_version_resolution_rule_id"),
             stage2.handoff.get("winning_version_resolution_rule_id"),
         )
+        self.assertEqual(stage3.handoff.get("version_conflict_state"), stage2.handoff.get("version_conflict_state"))
         self.assertEqual(
             stage3.handoff.get("clock_resolution_rule_id"),
             stage2.handoff.get("clock_resolution_rule_id"),
         )
+        self.assertEqual(stage3.handoff.get("fixation_bundle_id"), stage2.handoff.get("fixation_bundle_id"))
         self.assertIn("source_registry_id", stage3.inputs)
+        self.assertIn("collection_state", stage3.inputs)
         self.assertIn("stage3_truth_layer_ref_optional", stage3.inputs)
         self.assertEqual(stage3.handoff.get("stage3_review_path_ref_optional"), "STAGE3_READY_FOR_STAGE4")
+
+    def test_stage3_service_consumes_h02_authority_from_formal_carriers_only(self) -> None:
+        text = read("src/stage3_parsing/service.py")
+        for token in (
+            "resolve_h02_authority(",
+            '("handoff", handoff_map)',
+            '("public_chain", public_chain_map)',
+            '("notice_version_chain", notice_version_map)',
+            '("clock_chain_profile", clock_chain_map)',
+            "missing_h02_handoff_field:",
+            "h02_authority_conflict:",
+        ):
+            self.assertIn(token, text)
+        for token in (
+            'inputs.get("source_registry_id")',
+            'inputs.get("route_policy_id")',
+            'inputs.get("route_decision_state")',
+            'inputs.get("route_review_reasons")',
+            'inputs.get("winning_version_resolution_rule_id")',
+            'inputs.get("clock_resolution_rule_id")',
+        ):
+            self.assertNotIn(token, text)
 
     def test_placeholder_models_remain_minimal_and_do_not_silently_drift(self) -> None:
         placeholder_files = [

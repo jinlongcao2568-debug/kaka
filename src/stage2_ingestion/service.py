@@ -158,6 +158,7 @@ class Stage2Service:
             "route_decision_state": extracted.route_decision_state,
             "route_review_reasons": extracted.route_review_reasons,
             "winning_version_resolution_rule_id": extracted.winning_version_resolution_rule_id,
+            "version_conflict_state": version_conflict_state,
             "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
             "clock_resolution_rule_id": extracted.clock_resolution_rule_id,
             "project_rooting_policy": task_execution_context.get("project_rooting_policy"),
@@ -186,6 +187,7 @@ class Stage2Service:
         inputs_out["route_block_signals"] = extracted.route_block_signals
         inputs_out["collection_state"] = collection_state
         inputs_out["winning_version_resolution_rule_id"] = extracted.winning_version_resolution_rule_id
+        inputs_out["version_conflict_state"] = version_conflict_state
         inputs_out["version_precedence_source"] = extracted.version_precedence_source
         inputs_out["clock_resolution_rule_id"] = extracted.clock_resolution_rule_id
         inputs_out["clock_precedence_rule_id"] = extracted.clock_precedence_rule_id

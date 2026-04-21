@@ -17,6 +17,7 @@
     "route_decision_state": "ALLOW",
     "route_review_reasons": [],
     "winning_version_resolution_rule_id": "VERSION-PROC-NOTICE-001",
+    "version_conflict_state": "CONSISTENT",
     "clock_precedence_rule_id": "CLOCK-PROC-NOTICE-001",
     "clock_resolution_rule_id": "CLOCK-DEFAULT",
     "current_action_start_at_optional": "2026-04-01T00:00:00Z",

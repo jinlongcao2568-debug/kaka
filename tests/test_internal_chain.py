@@ -23,6 +23,7 @@ from shared.contracts_runtime import ContractRecord, ContractStore, StageBundle
 from shared.pipeline import run_internal_chain
 from stage1_tasking.service import Stage1Service
 from stage2_ingestion.service import Stage2Service
+from stage3_parsing.service import Stage3Service
 from stage9_delivery.service import Stage9Service
 from storage import hydrate_stage_bundle, persist_stage_bundle, reset_default_storage
 
@@ -92,6 +93,7 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage2.handoff.get("route_decision_state"), "ALLOW")
         self.assertEqual(stage2.handoff.get("route_review_reasons"), [])
         self.assertEqual(stage2.handoff.get("winning_version_resolution_rule_id"), "VERSION-PROC-NOTICE-001")
+        self.assertEqual(stage2.handoff.get("version_conflict_state"), "CONSISTENT")
         self.assertEqual(stage2.handoff.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
 
         stage3 = result["stage3"]
@@ -398,15 +400,21 @@ class TestInternalChain(unittest.TestCase):
         for field_name in (
             "source_registry_id",
             "route_policy_id",
-            "fallback_route",
             "route_decision_state",
             "route_review_reasons",
             "winning_version_resolution_rule_id",
+            "version_conflict_state",
             "clock_resolution_rule_id",
+            "clock_conflict_state",
+            "collection_state",
         ):
-            self.assertIn(field_name, h02["optional_payload_fields"])
+            self.assertIn(field_name, h02["required_payload_fields"])
             self.assertIn(field_name, stage2.handoff)
             self.assertIn(field_name, stage2.inputs)
+
+        for field_name in ("fallback_route", "clock_precedence_rule_id"):
+            self.assertIn(field_name, h02["optional_payload_fields"])
+            self.assertIn(field_name, stage2.handoff)
 
         self.assertEqual(stage2.handoff.get("source_registry_id"), "SRC-REG-PROC-NATIONAL-HTML")
         self.assertEqual(stage2.handoff.get("route_policy_id"), "ROUTE-PROC-NOTICE-001")
@@ -414,8 +422,14 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage2.handoff.get("route_decision_state"), "ALLOW")
         self.assertEqual(stage2.handoff.get("route_review_reasons"), [])
         self.assertEqual(stage2.handoff.get("winning_version_resolution_rule_id"), "VERSION-PROC-NOTICE-001")
+        self.assertEqual(stage2.handoff.get("version_conflict_state"), "CONSISTENT")
         self.assertEqual(stage2.handoff.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
+        self.assertEqual(stage2.handoff.get("clock_conflict_state"), "CONSISTENT")
+        self.assertEqual(stage2.handoff.get("collection_state"), "PARSED")
+        self.assertIn("consumer_obligations", h02)
+        self.assertIn("consumer_must_not_recompute_fields", h02)
         self.assertEqual(stage2.inputs.get("version_precedence_source"), "source_registry")
+        self.assertEqual(stage2.inputs.get("version_conflict_state"), "CONSISTENT")
         self.assertEqual(stage2.inputs.get("clock_precedence_source"), "h01_authority")
         stage2_trace = stage2.inputs.get("stage12_extractor_trace", {}).get("stage2", {})
         self.assertEqual(stage2_trace.get("source_registry_id_source"), "h01_authority")
@@ -467,6 +481,59 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage2_trace.get("default_route_source"), "h01_authority")
         self.assertEqual(stage2_trace.get("fallback_route_source"), "h01_authority")
         self.assertEqual(stage2_trace.get("clock_precedence_rule_id_source"), "h01_authority")
+
+    def test_stage3_routes_h02_authority_gaps_or_conflicts_to_review_or_block(self) -> None:
+        stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
+        stage2 = Stage2Service().run(stage1)
+        conflicted_stage2 = StageBundle(
+            stage=2,
+            records={
+                **stage2.records,
+                "notice_version_chain": ContractRecord(
+                    object_type="notice_version_chain",
+                    data={
+                        **stage2.record("notice_version_chain").data,
+                        "winning_version_resolution_rule_id": "VERSION-CONFLICT",
+                    },
+                ),
+                "clock_chain_profile": ContractRecord(
+                    object_type="clock_chain_profile",
+                    data={
+                        **stage2.record("clock_chain_profile").data,
+                        "clock_resolution_rule_id": "CLOCK-CONFLICT",
+                    },
+                ),
+            },
+            handoff={
+                key: value
+                for key, value in stage2.handoff.items()
+                if key not in {"fixation_bundle_id", "route_decision_state", "route_review_reasons"}
+            },
+            trace_rules=list(stage2.trace_rules),
+            inputs={
+                **stage2.inputs,
+                "source_registry_id": "SRC-REG-PROC-CITY-PDF",
+                "route_policy_id": "ROUTE-PROC-CITY-OVERRIDE",
+                "winning_version_resolution_rule_id": "VERSION-OVERRIDE",
+                "clock_resolution_rule_id": "CLOCK-OVERRIDE",
+            },
+        )
+
+        stage3 = Stage3Service().run(conflicted_stage2)
+
+        self.assertEqual(stage3.handoff.get("route_decision_state"), "BLOCK")
+        self.assertEqual(stage3.record("project_base").get("public_chain_status"), "BROKEN")
+        self.assertEqual(stage3.record("project_base").get("stage3_review_path_ref_optional"), "STAGE3_REVIEW_REQUIRED")
+        self.assertEqual(stage3.record("field_lineage_record").get("lineage_status"), "UNVERIFIED")
+        self.assertEqual(stage3.record("field_lineage_record").get("conflict_state"), "UNRESOLVED")
+        for reason in (
+            "missing_h02_handoff_field:fixation_bundle_id",
+            "missing_h02_handoff_field:route_decision_state",
+            "missing_h02_handoff_field:route_review_reasons",
+            "h02_authority_conflict:winning_version_resolution_rule_id",
+            "h02_authority_conflict:clock_resolution_rule_id",
+        ):
+            self.assertIn(reason, stage3.handoff.get("route_review_reasons"))
 
     def test_stage2_routes_h01_route_mismatch_to_review_path(self) -> None:
         stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
