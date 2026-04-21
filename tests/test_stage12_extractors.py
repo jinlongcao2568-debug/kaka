@@ -215,12 +215,12 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertTrue(active_packet["packet_id"])
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["task_id"], "PTL-S12-source-route-clock-authority")
+        self.assertEqual(candidate["task_id"], "PTL-S23-public-chain-to-parser-contract")
         self.assertEqual(candidate["planning_state"], "REALITY_ALIGNMENT_QUEUED")
         self.assertEqual(candidate["runtime_change_in_packet"], "OUT_OF_SCOPE")
 
         candidate_match = re.search(
-            r"current_mainline_next_candidate:\s+task_id: PTL-S12-source-route-clock-authority(?P<body>.*?)(?:\n\S|\Z)",
+            r"current_mainline_next_candidate:\s+task_id: PTL-S23-public-chain-to-parser-contract(?P<body>.*?)(?:\n\S|\Z)",
             task_library_text,
             re.DOTALL,
         )
@@ -229,12 +229,19 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("planning_state: REALITY_ALIGNMENT_QUEUED", candidate_body)
         self.assertIn("不因候选池指针自动成为当前执行包", candidate_body)
 
-        task_entry = next(
+        stage12_task_entry = next(
             task for task in task_library["tasks"] if task["task_id"] == "PTL-S12-source-route-clock-authority"
         )
-        self.assertEqual(task_entry["status"], "CANDIDATE")
-        self.assertEqual(task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
-        self.assertTrue(task_entry["is_current_mainline_next_candidate"])
+        self.assertEqual(stage12_task_entry["status"], "COMPLETED")
+        self.assertEqual(stage12_task_entry["planning_state"], "COMPLETED")
+        self.assertFalse(stage12_task_entry["is_current_mainline_next_candidate"])
+
+        stage23_task_entry = next(
+            task for task in task_library["tasks"] if task["task_id"] == "PTL-S23-public-chain-to-parser-contract"
+        )
+        self.assertEqual(stage23_task_entry["status"], "CANDIDATE")
+        self.assertEqual(stage23_task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
+        self.assertTrue(stage23_task_entry["is_current_mainline_next_candidate"])
         self.assertNotIn(
             active_packet["packet_id"],
             [task["task_id"] for task in task_library["tasks"]],
