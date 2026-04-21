@@ -69,7 +69,11 @@ class TestStage56Evaluators(unittest.TestCase):
         service_result = Stage5Service().run(stage4)
         engine_result = RuleEvidenceEngine(Stage5Service().store).execute(stage4)
 
-        self.assertEqual(service_result.handoff, engine_result.handoff)
+        for field_name, value in engine_result.handoff.items():
+            self.assertEqual(service_result.handoff.get(field_name), value, field_name)
+        for field_name in ("lineage_status", "conflict_state"):
+            self.assertIn(field_name, service_result.handoff)
+            self.assertEqual(service_result.handoff.get(field_name), service_result.inputs.get(field_name))
         self.assertEqual(service_result.trace_rules, engine_result.trace_rules)
         self.assertEqual(set(service_result.records.keys()), set(engine_result.records.keys()))
         self.assertEqual(
@@ -440,6 +444,41 @@ class TestStage56Evaluators(unittest.TestCase):
             stage5.handoff.get("missing_condition_family"),
         )
 
+    def test_stage6_requires_h05_handoff_authority_not_scattered_inputs(self) -> None:
+        stage5 = Stage5Service().run(run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"])
+        broken_handoff = dict(stage5.handoff)
+        broken_handoff.pop("lineage_status")
+        broken_stage5 = StageBundle(
+            stage=5,
+            records=dict(stage5.records),
+            handoff=broken_handoff,
+            trace_rules=list(stage5.trace_rules),
+            inputs={**stage5.inputs, "lineage_status": "NORMALIZED"},
+        )
+
+        with self.assertRaisesRegex(ValueError, "missing_h05_handoff_field:lineage_status"):
+            Stage6Service().run(broken_stage5)
+
+    def test_stage6_blocks_conflicting_gate_inputs_against_h05_authority(self) -> None:
+        stage5 = Stage5Service().run(run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"])
+        conflicted_stage5 = StageBundle(
+            stage=5,
+            records=dict(stage5.records),
+            handoff=dict(stage5.handoff),
+            trace_rules=list(stage5.trace_rules),
+            inputs={
+                **stage5.inputs,
+                "rule_gate_status": "BLOCK",
+                "evidence_gate_status": "BLOCK",
+                "review_request_id": "RR-RAW-INPUT",
+                "missing_condition_family": "MISSING_CLOCK",
+                "review_lane": "FAST_WINDOW",
+            },
+        )
+
+        with self.assertRaisesRegex(ValueError, "must-not-recompute conflicts"):
+            Stage6Service().run(conflicted_stage5)
+
     def test_stage6_supplement_trace_is_machine_readable_and_isolated(self) -> None:
         payload = load_fixture("internal_chain_block.json")
         payload.update(
@@ -516,6 +555,8 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertEqual(stage5.inputs.get("cross_check_state"), "PASS")
         self.assertEqual(stage5.inputs.get("lineage_status"), "NORMALIZED")
         self.assertEqual(stage5.inputs.get("conflict_state"), "CONSISTENT")
+        self.assertEqual(stage5.handoff.get("lineage_status"), "NORMALIZED")
+        self.assertEqual(stage5.handoff.get("conflict_state"), "CONSISTENT")
 
     def test_stage5_blocks_when_required_h04_handoff_fields_are_missing(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
@@ -551,6 +592,8 @@ class TestStage56Evaluators(unittest.TestCase):
         )
         self.assertEqual(stage5.handoff.get("rule_hit_id"), stage5.record("rule_hit").get("rule_hit_id"))
         self.assertEqual(stage5.handoff.get("evidence_id"), stage5.record("evidence").get("evidence_id"))
+        self.assertEqual(stage5.handoff.get("lineage_status"), stage5.inputs.get("lineage_status"))
+        self.assertEqual(stage5.handoff.get("conflict_state"), stage5.inputs.get("conflict_state"))
         self.assertEqual(
             stage5.handoff.get("review_request_id"),
             stage5.record("review_request").get("review_request_id"),

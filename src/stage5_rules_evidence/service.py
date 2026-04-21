@@ -13,6 +13,11 @@ from shared.utils import resolve_bundle
 
 
 class Stage5Service:
+    H05_FORMAL_CARRIER_FIELDS = (
+        "lineage_status",
+        "conflict_state",
+    )
+
     def __init__(self, settings: Any | None = None) -> None:
         self.settings = settings
         self.store = ContractStore.default(settings)
@@ -31,10 +36,24 @@ class Stage5Service:
         )
         if handoff_validation and handoff_validation.decision_state == "BLOCK":
             raise ValueError(f"{handoff_validation.semantic_scope} blocked: {handoff_validation.reasons}")
-        return self.engine.execute(stage4_bundle)
+        return self._close_h05_formal_handoff(self.engine.execute(stage4_bundle))
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff
+
+    def _close_h05_formal_handoff(self, result: StageBundle) -> StageBundle:
+        handoff = dict(result.handoff)
+        inputs = dict(result.inputs)
+        for field_name in self.H05_FORMAL_CARRIER_FIELDS:
+            if field_name in inputs:
+                handoff[field_name] = inputs[field_name]
+        return StageBundle(
+            stage=result.stage,
+            records=dict(result.records),
+            handoff=handoff,
+            trace_rules=list(result.trace_rules),
+            inputs=inputs,
+        )
 
 
 __all__ = ["Stage5Service"]

@@ -616,6 +616,8 @@ class TestArchitectureAntiDrift(unittest.TestCase):
 
         self.assertIn("evaluate_handoff_consumer(", stage6)
         self.assertIn("evaluate_object_semantics(", stage6)
+        self.assertIn("missing_h05_handoff_field:", stage6)
+        self.assertIn("stage6_h05_authority_source", stage6)
 
         self.assertIn("runtime.run(", stage7)
         self.assertIn("evaluate_handoff_consumer(", stage7)
@@ -825,6 +827,33 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             self.assertIn(field_name, h04["consumer_runtime_required_fields"])
             self.assertIn(field_name, h04["consumer_must_not_recompute_fields"])
         self.assertIn("consumer_obligations", h04)
+
+        h05 = read_json("handoff/stage5_to_stage6/contract.json")
+        for field_name in (
+            "rule_hit_id",
+            "evidence_id",
+            "rule_gate_decision_id",
+            "evidence_gate_decision_id",
+            "rule_gate_status",
+            "evidence_gate_status",
+            "lineage_status",
+            "conflict_state",
+        ):
+            self.assertIn(field_name, h05["required_payload_fields"])
+            self.assertIn(field_name, h05["consumer_runtime_required_fields"])
+        for field_name in (
+            "rule_hit_state",
+            "rule_gate_status",
+            "evidence_gate_status",
+            "lineage_status",
+            "conflict_state",
+            "coverage_sellable_state",
+            "delivery_risk_state",
+        ):
+            self.assertIn(field_name, h05["consumer_must_not_recompute_fields"])
+        self.assertIn("review_request_id", h05["optional_payload_fields"])
+        self.assertIn("missing_condition_family", h05["optional_payload_fields"])
+        self.assertIn("review_lane", h05["optional_payload_fields"])
 
     def test_stage3_runtime_materializes_truth_layer_and_handoff_trace(self) -> None:
         result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))

@@ -10,6 +10,8 @@
     "evidence_gate_decision_id": "EGATE-PRJ-001",
     "rule_gate_status": "REVIEW",
     "evidence_gate_status": "REVIEW",
+    "lineage_status": "NORMALIZED",
+    "conflict_state": "CONSISTENT",
     "coverage_sellable_state": "RESTRICTED",
     "delivery_risk_state": "REVIEW",
     "review_request_id": "RR-PRJ-001",

@@ -256,6 +256,8 @@ class TestInternalChain(unittest.TestCase):
             stage5.record("evidence_gate_decision").get("gate_id"),
         )
         self.assertEqual(stage5.handoff.get("rule_hit_state"), stage5.record("rule_hit").get("rule_hit_state"))
+        self.assertEqual(stage5.handoff.get("lineage_status"), stage4.handoff.get("lineage_status"))
+        self.assertEqual(stage5.handoff.get("conflict_state"), stage4.handoff.get("conflict_state"))
 
         stage6 = result["stage6"]
         self.assertEqual(
@@ -345,6 +347,24 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage6.record("report_record").get("report_status"), "REVOKED")
         self.assertEqual(
             stage6.record("legal_action_recommendation").get("action_family"), "REVIEW_ONLY"
+        )
+        self.assertEqual(
+            stage6.inputs.get("linked_review_request_id_optional"),
+            stage5.handoff.get("review_request_id"),
+        )
+        self.assertEqual(
+            stage6.handoff.get("linked_review_request_id_optional"),
+            stage5.handoff.get("review_request_id"),
+        )
+        self.assertEqual(
+            stage6.record("review_queue_profile").get("review_lane"),
+            stage5.handoff.get("review_lane"),
+        )
+        self.assertEqual(
+            stage6.inputs.get("stage6_review_report_trace", {})
+            .get("h05_authority_snapshot", {})
+            .get("linked_review_request_id_optional"),
+            stage5.handoff.get("review_request_id"),
         )
 
         stage7 = result["stage7"]

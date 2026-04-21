@@ -31,6 +31,8 @@
     "evidence_gate_decision_id",
     "rule_gate_status",
     "evidence_gate_status",
+    "lineage_status",
+    "conflict_state",
     "coverage_sellable_state",
     "delivery_risk_state"
   ],
@@ -43,6 +45,8 @@
     "evidence_gate_decision_id",
     "rule_gate_status",
     "evidence_gate_status",
+    "lineage_status",
+    "conflict_state",
     "coverage_sellable_state",
     "delivery_risk_state"
   ],
@@ -71,6 +75,8 @@
     "rule_hit_state",
     "rule_gate_status",
     "evidence_gate_status",
+    "lineage_status",
+    "conflict_state",
     "coverage_sellable_state",
     "delivery_risk_state"
   ],
