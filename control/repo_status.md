@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-103-mainline-reality-alignment (scoped-execution; current window aligns product mainline planning surfaces, AX9S guidance, and Stage1-2 contracts-handoff-tests wording with the existing internal governed runtime; PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate only and is not the current execution packet; no business runtime changes, no next packet, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
+Current Workstream: PTL-GOV-103-mainline-reality-alignment (scoped-execution; current window aligns product mainline planning surfaces, AX9S guidance, Stage1-2 contracts-handoff-tests wording, and task packet template semantics with the existing internal governed runtime; PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate only and is not the current execution packet; no business runtime changes, no next packet, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,7 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the new controlled development system
-- scoped-execution reality alignment for PTL-GOV-103-mainline-reality-alignment within the declared control / docs / contracts / handoff / tests files
+- scoped-execution reality alignment for PTL-GOV-103-mainline-reality-alignment within the declared control / docs / contracts / handoff / tests files, including task packet template wording alignment
 - current_task is the unique active execution source
 - product_task_library is the product mainline candidate pool
 - source_blueprint_registry is the source-blueprint allowlist

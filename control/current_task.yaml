@@ -26,7 +26,9 @@ currentTask:
     - "AGENTS.md"
     - "docs/正式业务代码开发开工裁决页.md"
     - "docs/AX9S_开发执行路由图.md"
+    - "docs/自动开发任务包模板.md"
     - "control/current_task.yaml"
+    - "control/ax9s_scoped_task_packet_template.yaml"
     - "control/product_task_library.yaml"
     - "control/repo_status.md"
     - "contracts/governance/source_registry.json"
@@ -39,7 +41,7 @@ currentTask:
     - "scripts/check-state-alignment.ps1"
     - "scripts/check-final-gate.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "对齐产品主线规划面与现有内部 governed runtime 事实；修正 control / AX9S / Stage1-2 contracts-handoff-tests wording；本轮不改业务 runtime。"
+  objective: "对齐产品主线规划面与现有内部 governed runtime 事实；修正 control / AX9S / Stage1-2 contracts-handoff-tests wording，并把 task packet 模板收平到当前 machine-readable 口径；本轮不改业务 runtime。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -82,7 +84,7 @@ currentTask:
     subpacket_id: "PTL-GOV-103-mainline-reality-alignment"
     title: "产品主线规划与真实代码现状对齐"
     status: "ACTIVE"
-    objective: "在不改业务 runtime 的前提下，对齐 product_task_library / AX9S / Stage1-2 contracts-handoff-tests wording 与现有内部 governed runtime 事实。"
+    objective: "在不改业务 runtime 的前提下，对齐 product_task_library / AX9S / Stage1-2 contracts-handoff-tests wording 与现有内部 governed runtime 事实，并补齐 task packet 模板与当前 machine-readable 字段的一致性。"
     depends_on: []
     non_goals:
       - "不改业务 runtime"
@@ -131,6 +133,8 @@ currentTask:
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "docs/AX9S_开发执行路由图.md"
+      - "docs/自动开发任务包模板.md"
+      - "control/ax9s_scoped_task_packet_template.yaml"
       - "contracts/governance/source_registry.json"
       - "contracts/governance/route_policy_catalog.json"
       - "contracts/governance/stage12_extractor_contract.json"
@@ -143,6 +147,8 @@ currentTask:
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "docs/AX9S_开发执行路由图.md"
+      - "docs/自动开发任务包模板.md"
+      - "control/ax9s_scoped_task_packet_template.yaml"
       - "contracts/governance/source_registry.json"
       - "contracts/governance/route_policy_catalog.json"
       - "contracts/governance/stage12_extractor_contract.json"
@@ -164,8 +170,10 @@ currentTask:
     impacted_assets:
       docs:
         - "docs/AX9S_开发执行路由图.md"
+        - "docs/自动开发任务包模板.md"
       control:
         - "control/current_task.yaml"
+        - "control/ax9s_scoped_task_packet_template.yaml"
         - "control/repo_status.md"
         - "control/product_task_library.yaml"
       contracts:
@@ -205,6 +213,7 @@ currentTask:
     definition_of_done:
       - "product_task_library 已补齐 PTL 主线任务的 existing_code_state / planning_state / runtime_notes，并把 PTL-S12 收敛为 reality alignment 口径"
       - "docs/AX9S_开发执行路由图.md 已补现实对齐说明，不再误导为从零开发"
+      - "docs/自动开发任务包模板.md 与 control/ax9s_scoped_task_packet_template.yaml 已收平到当前 machine-readable packet 字段与执行模式口径"
       - "Stage1-2 contracts / handoff / example / tests wording 已改为既有 PARTIAL_RUNTIME、当前包 OUT_OF_SCOPE 的表达"
       - "current_task / repo_status 已同步为 PTL-GOV-103 scoped-execution 语义"
       - "required scripts 通过并停机汇报"
@@ -226,6 +235,7 @@ currentTask:
       - "当前 active task source 优先级固定为 current_task -> product_task_library -> repo_status。"
       - "本轮为 scoped-execution；只做 reality alignment，不改业务 runtime。"
       - "product_task_library 的 existing_code_state / planning_state / runtime_notes 只表达现状，不自动授权 runtime 变更。"
+      - "task packet 模板只允许收平到当前 machine-readable 字段与执行模式口径，不得发明第二套结构。"
       - "PTL-S12-source-route-clock-authority 仍是 current_mainline_next_candidate，不是当前执行包；当前执行包保持 PTL-GOV-103-mainline-reality-alignment。"
       - "Stage8 / Stage9 边界与 external release 继续保持阻断。"
   hardBlockers:
@@ -234,7 +244,7 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮允许在 control/docs/contracts/handoff/tests 的已声明路径内执行 reality alignment，并运行聚焦测试、门禁脚本、清缓存、git status 后停机汇报"
+    - "本轮允许在 control/docs/contracts/handoff/tests 的已声明路径内执行 reality alignment 与 task packet 模板口径收平，并运行聚焦测试、门禁脚本、清缓存、git status 后停机汇报"
   forbidden_actions:
     - "不得修改 src/**、scripts/**、docs/L0.md、AGENTS.md"
     - "不得修改 Stage8 / Stage9 相关资产"
@@ -243,4 +253,4 @@ currentTask:
     - "不得自动进入下一包、不得提交"
   nextActions:
     - "运行聚焦测试、门禁脚本、clean-python-cache.ps1 与 git status 后停机汇报。"
-  status_note: "PTL-GOV-103-mainline-reality-alignment 当前处于 scoped-execution；本窗口只对齐产品主线规划面、AX9S 提示和 Stage1-2 contracts-handoff-tests wording 与既有内部 governed runtime 事实，不改业务 runtime；PTL-S12-source-route-clock-authority 仅作为 current_mainline_next_candidate 保留，不是当前执行包；external release 与 Stage 8/9 real execution 继续阻断。"
+  status_note: "PTL-GOV-103-mainline-reality-alignment 当前处于 scoped-execution；本窗口对齐产品主线规划面、AX9S 提示、Stage1-2 contracts-handoff-tests wording，并最小收平 task packet 模板与当前 machine-readable 口径；不改业务 runtime；PTL-S12-source-route-clock-authority 仅作为 current_mainline_next_candidate 保留，不是当前执行包；external release 与 Stage 8/9 real execution 继续阻断。"
