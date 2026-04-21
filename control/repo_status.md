@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-S67-saleable-opportunity-derivation (SCOPED_EXECUTION; Stage6-7 saleable opportunity derivation closure; consumes Stage6 formal outputs / H-06 handoff into Stage7 sales objects; does not modify scripts, control/product_task_library.yaml, docs/AX9S_开发执行路由图.md, or canonical readiness; does not open external release / Stage8 live execution / Stage9 live payment-delivery)
+Current Workstream: PTL-GOV-111-product-module-registry-bootstrap (SCOPED_EXECUTION; governance bootstrap only; creates control/product_module_registry.yaml and its test as an execution map for product modules, deferred splits, and target packets; does not modify product_task_library, AX9S, runtime, contracts, handoff, or canonical readiness; does not open external release / Stage8 live execution / Stage9 live payment-delivery)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,23 +21,22 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the controlled development system
-- scoped-execution for PTL-S67-saleable-opportunity-derivation within declared_changed_paths / allowed_modification_paths only
-- modify only the paths declared in control/current_task.yaml for this Stage6-7 scoped-execution packet
-- close H-06 so Stage7 consumes Stage6 formal outputs / handoff instead of raw pre-Stage6 inputs or flags
-- constrain saleable_opportunity, sales_lead, buyer_fit, and offer_recommendation by review/report/sale gate state
-- keep control/product_task_library.yaml current_mainline_next_candidate as PTL-S67-saleable-opportunity-derivation without modifying that file
+- scoped-execution for PTL-GOV-111-product-module-registry-bootstrap within declared_changed_paths / allowed_modification_paths only
+- create control/product_module_registry.yaml as the first machine-readable execution map for product modules and deferred module splits
+- add tests/test_product_module_registry.py to keep the registry aligned with existing files and stage coverage
 - current_task is the unique active execution source
-- product_task_library remains the product mainline task pool and candidate source; it does not decide active execution order
+- product_task_library remains the product mainline task pool and candidate source; it is not modified in this round
 - source_blueprint_registry remains the source-blueprint allowlist and is not modified in this round
 - operator_assignment_roster_defaults remains the stable stage7/8/9 roster source and is not modified in this round
-- AX9S route map remains a candidate navigation asset and navigation-only product phase map; it does not decide execution order and is not modified in this round
+- AX9S route map remains a candidate navigation asset and navigation-only product phase map; it is not modified in this round
 - run the required checks and stop for report
 
 Forbidden Actions (current):
-- Any work outside PTL-S67-saleable-opportunity-derivation scoped-execution in this round
+- Any work outside PTL-GOV-111-product-module-registry-bootstrap scoped-execution in this round
 - Any change outside declared_changed_paths / allowed_modification_paths
 - Any change to forbidden_modification_paths targets
-- Any change to AGENTS.md, docs/L0.md, scripts/**, contracts/**, Stage8/Stage9 paths, or paths outside current task allowed_modification_paths
+- Any change to AGENTS.md, docs/L0.md, scripts/**, src/**, contracts/**, handoff/**, or paths outside current task allowed_modification_paths
+- Any change to product_task_library or AX9S in this round
 - Any change to control/product_task_library.yaml
 - Any change to docs/AX9S_开发执行路由图.md
 - Any change to control/milestone_status.yaml
@@ -49,7 +48,7 @@ Forbidden Actions (current):
 - Any change to control/ax9s_scoped_task_packet_template.yaml
 - Any claim that this scoped-execution round changes canonical readiness
 - Any scripts change in this round
-- Any Stage8 / Stage9 runtime, contract, handoff, or execution change
+- Any runtime / contracts / handoff / product candidate semantics change in this round
 - Any new formal object, enum, gate, or exception semantics
 - External software release or unaudited leadpack delivery
 - Production release logic or deployment
@@ -62,10 +61,10 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-S67-saleable-opportunity-derivation is the current scoped-execution active packet through control/current_task.yaml.
-- This round executes only the Stage6-7 saleable opportunity derivation closure; it does not enter Stage8/Stage9.
-- PTL-GOV-110-mainline-candidate-shift-to-S67 is completed and no longer the current active packet.
-- control/product_task_library.yaml current_mainline_next_candidate remains PTL-S67-saleable-opportunity-derivation and is not modified in this round.
+- PTL-GOV-111-product-module-registry-bootstrap is the current scoped-execution active packet through control/current_task.yaml.
+- This round only bootstraps a module registry and does not change runtime, contracts, handoff, or product candidate order.
+- PTL-S67-saleable-opportunity-derivation remains the current product mainline next candidate in control/product_task_library.yaml and is not modified in this round.
+- control/product_module_registry.yaml is an execution map, not a status source, not a release gate, and not a second product direction source.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
@@ -73,9 +72,7 @@ State Semantics:
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
 
 Current Scoped-Execution Required Checks:
-- python -m pytest tests/test_internal_chain.py -q
-- python -m pytest tests/test_architecture_anti_drift.py -q
-- python -m pytest tests/test_stage7_runtime_closure.py -q
+- python -m pytest tests/test_product_module_registry.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
@@ -91,6 +88,7 @@ Automation Guardrails:
 Navigation Assets:
 - Execution routing map (candidate navigation asset, not status source): docs/AX9S_开发执行路由图.md
 - Product mainline task pool: control/product_task_library.yaml
+- Product module registry (execution map, not status source): control/product_module_registry.yaml
 - Source blueprint registry: control/source_blueprint_registry.yaml
 - Operator roster defaults: control/operator_assignment_roster_defaults.yaml
 - Auto dev task packet template: docs/自动开发任务包模板.md

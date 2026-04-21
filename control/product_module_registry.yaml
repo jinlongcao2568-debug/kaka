@@ -1,0 +1,437 @@
+version: 1
+registry_id: PRODUCT_MODULE_REGISTRY
+status: ACTIVE
+purpose: >
+  Track product modules, current implementation files, stage ownership,
+  document sources, deferred module splits, and target packets so future
+  packets do not rely on conversational memory.
+source_priority:
+  product_direction: control/product_task_library.yaml
+  active_execution_source: control/current_task.yaml
+  product_stage_navigation: docs/AX9S_开发执行路由图.md
+  authority_docs:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D4_OpenAPI接口契约.md
+    - docs/D5_页面导出与人工复核规范.md
+    - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+    - docs/D9_联系对象与销售触达规范.md
+    - docs/D10_订单支付交付与治理反馈规范.md
+    - docs/D13_公开可查边界能力清单.md
+registry_rules:
+  not_a_status_source: true
+  not_a_release_gate: true
+  update_when:
+    - product_mainline_packet_completed
+    - deferred_module_split_identified
+    - new_module_surface_added
+    - packet_scope_depends_on_future_module
+modules:
+  - module_id: STAGE1-TASKING-AUTHORITY
+    stage_scope:
+      - stage1_tasking
+    product_area: "来源/路由/时钟 authority"
+    source_docs:
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - task_execution_context
+      - project_identity_strategy
+      - clock_strategy_profile
+      - execution_context
+    current_files:
+      - src/stage1_tasking/service.py
+      - src/stage1_tasking/extractors.py
+      - src/stage1_tasking/models.py
+      - src/stage1_tasking/scheduler.py
+      - handoff/stage1_to_stage2/contract.json
+    current_runtime_state: PARTIAL_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets:
+      - PTL-S12-source-route-clock-authority
+    pending_packets: []
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: STAGE2-PUBLIC-CHAIN-INGESTION
+    stage_scope:
+      - stage2_ingestion
+    product_area: "公开链采集 / fixation / version / clock"
+    source_docs:
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - public_chain
+      - notice_version_chain
+      - clock_chain_profile
+      - fixation_bundle
+    current_files:
+      - src/stage2_ingestion/service.py
+      - src/stage2_ingestion/extractors.py
+      - src/stage2_ingestion/fixation.py
+      - src/stage2_ingestion/models.py
+      - handoff/stage2_to_stage3/contract.json
+    current_runtime_state: PARTIAL_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets:
+      - PTL-S23-public-chain-to-parser-contract
+    pending_packets: []
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: STAGE3-PARSED-TRUTH-LAYER
+    stage_scope:
+      - stage3_parsing
+    product_area: "结构化解析 / truth layer / lineage"
+    source_docs:
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - project_base
+      - field_lineage_record
+      - bidder_candidate
+      - project_manager
+    current_files:
+      - src/stage3_parsing/service.py
+      - src/stage3_parsing/project.py
+      - src/stage3_parsing/lineage.py
+      - src/stage3_parsing/candidate.py
+      - src/stage3_parsing/manager.py
+      - handoff/stage3_to_stage4/contract.json
+    current_runtime_state: PARTIAL_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets:
+      - PTL-S34-object-lineage-verification-handoff
+    pending_packets: []
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: STAGE4-VERIFICATION-ATTACK-SURFACE
+    stage_scope:
+      - stage4_verification
+    product_area: "公开核验 / attack surface / evidence precondition"
+    source_docs:
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - public_attack_surface
+      - focus_bidder_verification_profile
+      - pseudo_competitor_signal_set
+      - evidence_grade_profile
+    current_files:
+      - src/stage4_verification/service.py
+      - src/stage4_verification/attack_surface.py
+      - src/stage4_verification/verification.py
+      - src/stage4_verification/evidence_grade.py
+      - handoff/stage4_to_stage5/contract.json
+    current_runtime_state: PARTIAL_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets:
+      - PTL-S45-rule-evidence-dual-gate
+    pending_packets: []
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: STAGE5-RULES-EVIDENCE-DUAL-GATE
+    stage_scope:
+      - stage5_rules_evidence
+    product_area: "规则命中 / 证据建模 / dual gate"
+    source_docs:
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D3_正式规则码总表与判定说明书.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - rule_hit
+      - evidence
+      - rule_gate_decision
+      - evidence_gate_decision
+      - review_request
+    current_files:
+      - src/stage5_rules_evidence/service.py
+      - src/stage5_rules_evidence/engine.py
+      - src/stage5_rules_evidence/rule_runner.py
+      - src/stage5_rules_evidence/evidence_builder.py
+      - src/stage5_rules_evidence/gate_evaluator.py
+      - handoff/stage5_to_stage6/contract.json
+    current_runtime_state: PARTIAL_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets:
+      - PTL-S45-rule-evidence-dual-gate
+    pending_packets: []
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: STAGE6-FACT-REVIEW-REPORT
+    stage_scope:
+      - stage6_fact_review
+    product_area: "统一事实 / review queue / report / challenger profile"
+    source_docs:
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - project_fact
+      - legal_action_recommendation
+      - review_queue_profile
+      - challenger_candidate_profile
+      - report_record
+    current_files:
+      - src/stage6_fact_review/service.py
+      - src/stage6_fact_review/fact_aggregator.py
+      - src/stage6_fact_review/legal_action.py
+      - src/stage6_fact_review/review_queue.py
+      - src/stage6_fact_review/report.py
+      - handoff/stage6_to_stage7/contract.json
+    current_runtime_state: HEAVY_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets:
+      - PTL-S56-project-fact-review-report
+    pending_packets: []
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+    notes:
+      - "Canonical Stage6 aggregator file is src/stage6_fact_review/fact_aggregator.py; aggregator.py is not the current canonical path."
+  - module_id: STAGE7-SALES-DERIVATION
+    stage_scope:
+      - stage7_sales
+    product_area: "可售机会 / 推荐方案 / buyer fit / sales lead"
+    source_docs:
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - saleable_opportunity
+      - sales_lead
+      - buyer_fit
+      - challenger_buyer_fit
+      - offer_recommendation
+      - multi_competitor_collection
+    current_files:
+      - src/stage7_sales/service.py
+      - src/stage7_sales/resolution.py
+      - src/stage7_sales/buyer_fit.py
+      - src/stage7_sales/offer.py
+      - src/stage7_sales/opportunity.py
+      - src/stage7_sales/models.py
+    proposed_future_files:
+      - src/stage7_sales/runtime.py
+      - src/stage7_sales/scorecard.py
+      - src/stage7_sales/pricing.py
+      - src/stage7_sales/recommendation.py
+    current_runtime_state: HEAVY_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets:
+      - PTL-S67-saleable-opportunity-derivation
+    pending_packets:
+      - PTL-S7-price-competitor-offer-resolution
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: true
+    notes:
+      - "Current S67 closure is complete through service.py plus shared runtime/policy chain."
+      - "Future file split should be handled in a Stage7-focused packet, not inside unrelated closure/governance packets."
+  - module_id: STAGE8-OUTREACH-GOVERNED
+    stage_scope:
+      - stage8_outreach
+    product_area: "contact candidate / compliance preview / governed outreach"
+    source_docs:
+      - docs/D9_联系对象与销售触达规范.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - contact_candidate_collection
+      - contact_selection_trace
+      - contact_target
+      - outreach_plan
+      - touch_record
+    current_files:
+      - src/stage8_outreach/service.py
+      - src/stage8_outreach/contact_target.py
+      - src/stage8_outreach/outreach_plan.py
+      - src/stage8_outreach/touch_record.py
+      - src/stage8_outreach/resolution.py
+      - src/stage8_outreach/models.py
+    current_runtime_state: HEAVY_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets: []
+    pending_packets:
+      - PTL-S78-contact-candidate-compliance-preview
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: STAGE9-DELIVERY-GOVERNANCE
+    stage_scope:
+      - stage9_delivery
+    product_area: "order/payment/delivery/writeback/governance feedback"
+    source_docs:
+      - docs/D10_订单支付交付与治理反馈规范.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - order_record
+      - payment_record
+      - delivery_record
+      - opportunity_outcome_event
+      - governance_feedback_event
+    current_files:
+      - src/stage9_delivery/service.py
+      - src/stage9_delivery/impact_executor.py
+      - src/stage9_delivery/order.py
+      - src/stage9_delivery/payment.py
+      - src/stage9_delivery/delivery.py
+      - src/stage9_delivery/feedback.py
+      - src/stage9_delivery/models.py
+    current_runtime_state: HEAVY_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets: []
+    pending_packets:
+      - PTL-S89-outreach-writeback-delivery-governance
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: SURFACE-API-TRANSPORT
+    stage_scope:
+      - stage1_to_stage9
+      - internal_preview
+    product_area: "API transport / route projection / schema surface"
+    source_docs:
+      - docs/D4_OpenAPI接口契约.md
+      - docs/D5_页面导出与人工复核规范.md
+    formal_objects:
+      - api_routes
+      - api_schemas
+    current_files:
+      - src/api/main.py
+      - src/api/projections.py
+      - src/api/routes/stage1.py
+      - src/api/routes/stage2.py
+      - src/api/routes/stage3.py
+      - src/api/routes/stage4.py
+      - src/api/routes/stage5.py
+      - src/api/routes/stage6.py
+      - src/api/routes/stage7.py
+      - src/api/routes/stage8.py
+      - src/api/routes/stage9.py
+      - src/api/schemas/stage1.py
+      - src/api/schemas/stage2.py
+      - src/api/schemas/stage3.py
+      - src/api/schemas/stage4.py
+      - src/api/schemas/stage5.py
+      - src/api/schemas/stage6.py
+      - src/api/schemas/stage7.py
+      - src/api/schemas/stage8.py
+      - src/api/schemas/stage9.py
+    current_runtime_state: PARTIAL_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets: []
+    pending_packets:
+      - PTL-INT-internal-preview-surface-envelope
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: SHARED-RUNTIME-POLICY-CHAIN
+    stage_scope:
+      - stage1_to_stage9
+    product_area: "shared runtime / policy / semantic / pipeline chain"
+    source_docs:
+      - docs/D1_研发_Codex执行手册.md
+      - docs/D11_测试验收与金标回归清单.md
+    formal_objects:
+      - capability_runtime
+      - policy_executor
+      - contracts_runtime
+      - runtime_validator
+      - pipeline
+    current_files:
+      - src/shared/capability_runtime.py
+      - src/shared/policy_executor.py
+      - src/shared/contracts_runtime.py
+      - src/shared/runtime_validator.py
+      - src/shared/pipeline.py
+      - src/shared/state_packet.py
+      - src/shared/context_packet.py
+    current_runtime_state: HEAVY_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets: []
+    pending_packets: []
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: STORAGE-REPOSITORY-BOUNDARY
+    stage_scope:
+      - stage6_fact_review
+      - stage7_sales
+      - stage8_outreach
+      - stage9_delivery
+    product_area: "repository boundary / persistent object storage"
+    source_docs:
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D4_OpenAPI接口契约.md
+    formal_objects:
+      - repository_boundary
+      - repositories
+    current_files:
+      - src/storage/repository_boundary.py
+      - src/storage/operator_loop_contracts.py
+      - src/storage/repositories/project_fact_repo.py
+      - src/storage/repositories/saleable_opportunity_repo.py
+      - src/storage/repositories/contact_target_repo.py
+      - src/storage/repositories/order_record_repo.py
+      - src/storage/repositories/payment_record_repo.py
+      - src/storage/repositories/delivery_record_repo.py
+    current_runtime_state: HEAVY_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets: []
+    pending_packets:
+      - PTL-INT-internal-preview-surface-envelope
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+  - module_id: INTERNAL-PREVIEW-SURFACE
+    stage_scope:
+      - internal_preview
+      - stage7_sales
+      - stage8_outreach
+      - stage9_delivery
+    product_area: "internal preview / workbench envelope"
+    source_docs:
+      - docs/D5_页面导出与人工复核规范.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/AX9S_开发执行路由图.md
+    formal_objects:
+      - internal_preview_surface
+    current_files:
+      - src/api/projections.py
+      - src/api/routes/stage7.py
+      - src/api/routes/stage8.py
+      - src/api/routes/stage9.py
+    current_runtime_state: PARTIAL_RUNTIME
+    internal_governed_runtime_present: true
+    completed_packets: []
+    pending_packets:
+      - PTL-INT-internal-preview-surface-envelope
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+deferred_module_splits:
+  - gap_id: STAGE7-SALES-RUNTIME-SPLIT
+    current_owner_module_id: STAGE7-SALES-DERIVATION
+    current_scope_files:
+      - src/stage7_sales/service.py
+      - src/stage7_sales/buyer_fit.py
+      - src/stage7_sales/offer.py
+      - src/stage7_sales/opportunity.py
+      - src/stage7_sales/resolution.py
+    proposed_future_files:
+      - src/stage7_sales/runtime.py
+      - src/stage7_sales/scorecard.py
+      - src/stage7_sales/pricing.py
+      - src/stage7_sales/recommendation.py
+    target_packet_candidates:
+      - PTL-S7-price-competitor-offer-resolution
+    not_current_blocker: true
+    notes:
+      - "Current S67 closure is complete through service.py and shared runtime/policy chain."
+      - "Do not create these files inside unrelated closure/governance packets."
+      - "Re-evaluate this split when Stage7 pricing / competitor / recommendation work becomes the active packet."
