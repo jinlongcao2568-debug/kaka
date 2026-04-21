@@ -10,21 +10,717 @@ source_priority:
   active_execution_source: control/current_task.yaml
   product_stage_navigation: docs/AX9S_开发执行路由图.md
   authority_docs:
+    - docs/L0.md
+    - docs/D1_研发_Codex执行手册.md
     - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
     - docs/D4_OpenAPI接口契约.md
     - docs/D5_页面导出与人工复核规范.md
+    - docs/D6_字段策略字典与客户交付字段规范.md
+    - docs/D7_对象级交付矩阵与外发治理规范.md
     - docs/D8_真实竞争者识别可售对象与销售推进规范.md
     - docs/D9_联系对象与销售触达规范.md
     - docs/D10_订单支付交付与治理反馈规范.md
+    - docs/D11_测试验收与金标回归清单.md
     - docs/D13_公开可查边界能力清单.md
 registry_rules:
   not_a_status_source: true
   not_a_release_gate: true
+  not_a_second_product_direction_source: true
   update_when:
     - product_mainline_packet_completed
     - deferred_module_split_identified
     - new_module_surface_added
     - packet_scope_depends_on_future_module
+    - module_dependency_or_exit_criteria_changed
+    - api_storage_or_test_surface_changed
+ledger_schema:
+  intent: >
+    Give non-technical product ownership and future AI windows a machine-readable
+    product module ledger. It records what exists, what is partial, what is
+    deferred, what depends on what, and which future packet should close the gap.
+  required_stage_fields:
+    - stage_id
+    - stage_name
+    - business_summary
+    - implementation_state
+    - current_runtime_state
+    - customer_visibility
+    - depends_on_modules
+    - target_packet_candidates
+    - current_blockers
+    - exit_criteria
+    - module_slices
+  required_slice_fields:
+    - slice_id
+    - business_summary
+    - implementation_state
+    - current_files
+    - handoff_files
+    - api_surface_files
+    - repository_files
+    - test_files
+    - depends_on_slices
+    - target_packet_candidates
+    - exit_criteria
+    - deferred_gaps
+  implementation_state_vocab:
+    - IMPLEMENTED
+    - PARTIAL_RUNTIME
+    - HEAVY_RUNTIME_INTERNAL_GOVERNED
+    - CONTRACT_OR_HANDOFF_ONLY
+    - DOC_ALIGNED_NOT_IMPLEMENTED
+    - DEFERRED_MODULE_SPLIT
+    - GOVERNANCE_BLOCKED_LIVE_EXECUTION
+  customer_visibility_vocab:
+    - INTERNAL_ONLY
+    - INTERNAL_GOVERNED
+    - LEADPACK_CANDIDATE_GATED
+    - EXTERNAL_BLOCKED
+stage_module_inventory:
+  - stage_id: stage1_tasking
+    stage_name: "Stage1 任务编排与时钟管理"
+    business_summary: "把产品任务、来源策略、路由、时钟和执行上下文固定下来，防止后续阶段从临时输入启动。"
+    implementation_state: PARTIAL_RUNTIME
+    current_runtime_state: PARTIAL_RUNTIME
+    customer_visibility: INTERNAL_ONLY
+    depends_on_modules: []
+    target_packet_candidates:
+      - PTL-S12-source-route-clock-authority
+    current_blockers:
+      - "已完成主链闭合；后续只在来源策略或调度策略变更时更新本总账。"
+    exit_criteria:
+      - "任务、来源、路由、时钟和 execution context 都能被 Stage2 handoff 消费。"
+      - "后续窗口不得绕开 current_task / source route authority 直接启动采集。"
+    module_slices:
+      - slice_id: stage1.execution_context
+        business_summary: "生成受控执行上下文，承接任务身份、来源策略、默认路由和时钟口径。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage1_tasking/service.py
+          - src/stage1_tasking/models.py
+        handoff_files:
+          - handoff/stage1_to_stage2/contract.json
+        api_surface_files:
+          - src/api/routes/stage1.py
+          - src/api/schemas/stage1.py
+        repository_files:
+          - src/storage/repositories/work_item_repo.py
+        test_files:
+          - tests/test_stage12_extractors.py
+          - tests/test_pre_route_behavior.py
+        depends_on_slices: []
+        target_packet_candidates:
+          - PTL-S12-source-route-clock-authority
+        exit_criteria:
+          - "execution context 字段稳定输出到 H-01。"
+          - "API projection 不得重造任务路由语义。"
+        deferred_gaps: []
+      - slice_id: stage1.source_route_clock
+        business_summary: "管理来源抽取、调度和时钟窗口，确保 Stage2 公开链采集只消费正式 route/clock。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage1_tasking/extractors.py
+          - src/stage1_tasking/scheduler.py
+        handoff_files:
+          - handoff/stage1_to_stage2/contract.json
+        api_surface_files:
+          - src/api/routes/stage1.py
+          - src/api/schemas/stage1.py
+        repository_files:
+          - src/storage/repositories/work_item_repo.py
+        test_files:
+          - tests/test_stage12_extractors.py
+          - tests/test_pre_route_behavior.py
+        depends_on_slices:
+          - stage1.execution_context
+        target_packet_candidates:
+          - PTL-S12-source-route-clock-authority
+        exit_criteria:
+          - "source / route / clock 字段能够进入 Stage2，不由 Stage2 临时补造。"
+        deferred_gaps: []
+  - stage_id: stage2_ingestion
+    stage_name: "Stage2 公开链抓取与固定化"
+    business_summary: "把公开来源、版本链、时钟链和固定化输入转成 Stage3 可解析的正式公开链。"
+    implementation_state: PARTIAL_RUNTIME
+    current_runtime_state: PARTIAL_RUNTIME
+    customer_visibility: INTERNAL_ONLY
+    depends_on_modules:
+      - stage1_tasking
+    target_packet_candidates:
+      - PTL-S23-public-chain-to-parser-contract
+    current_blockers:
+      - "已完成主链闭合；外部采集系统接入仍不在当前范围。"
+    exit_criteria:
+      - "public_chain / notice_version_chain / clock_chain_profile 能通过 H-02 固定输出。"
+      - "Stage3 不直接读取原始来源重新决定版本链。"
+    module_slices:
+      - slice_id: stage2.public_chain_ingestion
+        business_summary: "从 Stage1 路由消费公开来源，形成 public_chain 和公开载体集合。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage2_ingestion/service.py
+          - src/stage2_ingestion/extractors.py
+          - src/stage2_ingestion/models.py
+        handoff_files:
+          - handoff/stage2_to_stage3/contract.json
+        api_surface_files:
+          - src/api/routes/stage2.py
+          - src/api/schemas/stage2.py
+        repository_files:
+          - src/storage/repositories/work_item_repo.py
+        test_files:
+          - tests/test_stage12_extractors.py
+          - tests/test_pre_route_behavior.py
+        depends_on_slices:
+          - stage1.source_route_clock
+        target_packet_candidates:
+          - PTL-S23-public-chain-to-parser-contract
+        exit_criteria:
+          - "公开链字段有来源、版本和固定化 trace。"
+        deferred_gaps: []
+      - slice_id: stage2.fixation_version_clock
+        business_summary: "固定公告版本链和制度时钟，给 Stage3/Stage6 后续判断提供可追溯输入。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage2_ingestion/fixation.py
+          - src/stage2_ingestion/models.py
+        handoff_files:
+          - handoff/stage2_to_stage3/contract.json
+        api_surface_files:
+          - src/api/routes/stage2.py
+          - src/api/schemas/stage2.py
+        repository_files: []
+        test_files:
+          - tests/test_stage12_extractors.py
+          - tests/test_formal_sink_fields.py
+        depends_on_slices:
+          - stage2.public_chain_ingestion
+        target_packet_candidates:
+          - PTL-S23-public-chain-to-parser-contract
+        exit_criteria:
+          - "fixation bundle 与 clock chain profile 可被 Stage3 和后续 formal sink 消费。"
+        deferred_gaps: []
+  - stage_id: stage3_parsing
+    stage_name: "Stage3 结构化解析与关键对象抽取"
+    business_summary: "把公开链解析成项目、字段 lineage、候选对象和项目经理等正式真相层输入。"
+    implementation_state: PARTIAL_RUNTIME
+    current_runtime_state: PARTIAL_RUNTIME
+    customer_visibility: INTERNAL_ONLY
+    depends_on_modules:
+      - stage2_ingestion
+    target_packet_candidates:
+      - PTL-S34-object-lineage-verification-handoff
+    current_blockers:
+      - "已完成主链闭合；后续细化 parser 不得绕开 lineage。"
+    exit_criteria:
+      - "project_base / field_lineage_record / bidder_candidate / project_manager 均有来源 trace。"
+      - "Stage4 只消费 Stage3 正式对象和 lineage。"
+    module_slices:
+      - slice_id: stage3.project_parsing
+        business_summary: "抽取项目基础对象和项目关键字段。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage3_parsing/service.py
+          - src/stage3_parsing/project.py
+        handoff_files:
+          - handoff/stage3_to_stage4/contract.json
+        api_surface_files:
+          - src/api/routes/stage3.py
+          - src/api/schemas/stage3.py
+        repository_files: []
+        test_files:
+          - tests/test_internal_chain.py
+          - tests/test_architecture_anti_drift.py
+        depends_on_slices:
+          - stage2.public_chain_ingestion
+        target_packet_candidates:
+          - PTL-S34-object-lineage-verification-handoff
+        exit_criteria:
+          - "project_base 不缺关键 lineage 字段。"
+        deferred_gaps: []
+      - slice_id: stage3.lineage_candidates_manager
+        business_summary: "维护字段 lineage、候选人/候选单位、项目经理等关键对象。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage3_parsing/lineage.py
+          - src/stage3_parsing/candidate.py
+          - src/stage3_parsing/manager.py
+        handoff_files:
+          - handoff/stage3_to_stage4/contract.json
+        api_surface_files:
+          - src/api/routes/stage3.py
+          - src/api/schemas/stage3.py
+        repository_files: []
+        test_files:
+          - tests/test_internal_chain.py
+          - tests/test_formal_sink_fields.py
+        depends_on_slices:
+          - stage3.project_parsing
+        target_packet_candidates:
+          - PTL-S34-object-lineage-verification-handoff
+        exit_criteria:
+          - "候选对象和项目经理对象进入 Stage4 前保持 lineage 可追溯。"
+        deferred_gaps: []
+  - stage_id: stage4_verification
+    stage_name: "Stage4 公开核验与冲突预判"
+    business_summary: "围绕 Stage3 对象做公开核验、攻击面识别、证据等级判断和竞争信号预判。"
+    implementation_state: PARTIAL_RUNTIME
+    current_runtime_state: PARTIAL_RUNTIME
+    customer_visibility: INTERNAL_ONLY
+    depends_on_modules:
+      - stage3_parsing
+    target_packet_candidates:
+      - PTL-S45-rule-evidence-dual-gate
+    current_blockers:
+      - "已完成主链闭合；B/C 高风险能力仍按 D13 边界治理。"
+    exit_criteria:
+      - "public_attack_surface / verification profile / evidence grade 输出给 Stage5。"
+      - "核验结果不得被写成终局违法结论。"
+    module_slices:
+      - slice_id: stage4.public_verification
+        business_summary: "核验项目、候选对象、人员等公开可查事实。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage4_verification/service.py
+          - src/stage4_verification/verification.py
+        handoff_files:
+          - handoff/stage4_to_stage5/contract.json
+        api_surface_files:
+          - src/api/routes/stage4.py
+          - src/api/schemas/stage4.py
+        repository_files: []
+        test_files:
+          - tests/test_internal_chain.py
+          - tests/test_architecture_anti_drift.py
+        depends_on_slices:
+          - stage3.lineage_candidates_manager
+        target_packet_candidates:
+          - PTL-S45-rule-evidence-dual-gate
+        exit_criteria:
+          - "核验输出保持公开来源和证据等级 trace。"
+        deferred_gaps: []
+      - slice_id: stage4.attack_surface_evidence_grade
+        business_summary: "建立攻击面、伪竞争者信号和证据等级，作为 Stage5 规则/证据双闸门输入。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage4_verification/attack_surface.py
+          - src/stage4_verification/evidence_grade.py
+        handoff_files:
+          - handoff/stage4_to_stage5/contract.json
+        api_surface_files:
+          - src/api/routes/stage4.py
+          - src/api/schemas/stage4.py
+        repository_files: []
+        test_files:
+          - tests/test_internal_chain.py
+          - tests/test_runtime_governance_guards.py
+        depends_on_slices:
+          - stage4.public_verification
+        target_packet_candidates:
+          - PTL-S45-rule-evidence-dual-gate
+        exit_criteria:
+          - "证据等级只作为升级前提，不替代 Stage5 gate。"
+        deferred_gaps: []
+  - stage_id: stage5_rules_evidence
+    stage_name: "Stage5 规则与证据"
+    business_summary: "把 Stage4 核验对象转成规则命中、证据对象、双闸门决策和人工复核请求。"
+    implementation_state: PARTIAL_RUNTIME
+    current_runtime_state: PARTIAL_RUNTIME
+    customer_visibility: INTERNAL_ONLY
+    depends_on_modules:
+      - stage4_verification
+    target_packet_candidates:
+      - PTL-S45-rule-evidence-dual-gate
+    current_blockers:
+      - "已完成主链闭合；新增规则码必须另走 D3/测试同步，不在本包新增。"
+    exit_criteria:
+      - "rule_gate_decision 与 evidence_gate_decision 缺一不可。"
+      - "review_request 在需要人工复核时必须进入 Stage6。"
+    module_slices:
+      - slice_id: stage5.rule_engine
+        business_summary: "运行正式规则，生成 rule_hit 与规则 gate 输入。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage5_rules_evidence/service.py
+          - src/stage5_rules_evidence/engine.py
+          - src/stage5_rules_evidence/rule_runner.py
+        handoff_files:
+          - handoff/stage5_to_stage6/contract.json
+        api_surface_files:
+          - src/api/routes/stage5.py
+          - src/api/schemas/stage5.py
+        repository_files: []
+        test_files:
+          - tests/test_stage56_evaluators.py
+          - tests/test_internal_chain.py
+        depends_on_slices:
+          - stage4.attack_surface_evidence_grade
+        target_packet_candidates:
+          - PTL-S45-rule-evidence-dual-gate
+        exit_criteria:
+          - "规则命中不得绕开 evidence gate 直接升级。"
+        deferred_gaps: []
+      - slice_id: stage5.evidence_dual_gate_review
+        business_summary: "构建证据对象、规则闸门、证据闸门和复核请求。"
+        implementation_state: PARTIAL_RUNTIME
+        current_files:
+          - src/stage5_rules_evidence/evidence_builder.py
+          - src/stage5_rules_evidence/gate_evaluator.py
+        handoff_files:
+          - handoff/stage5_to_stage6/contract.json
+        api_surface_files:
+          - src/api/routes/stage5.py
+          - src/api/schemas/stage5.py
+        repository_files: []
+        test_files:
+          - tests/test_stage56_evaluators.py
+          - tests/test_semantic_runtime_validator.py
+        depends_on_slices:
+          - stage5.rule_engine
+        target_packet_candidates:
+          - PTL-S45-rule-evidence-dual-gate
+        exit_criteria:
+          - "双闸门状态和 review request 进入 H-05。"
+        deferred_gaps: []
+  - stage_id: stage6_fact_review
+    stage_name: "Stage6 人工复核、统一事实与报告"
+    business_summary: "把 Stage5 的规则/证据/复核结果收敛成 project_fact、法律动作建议、复核队列、报告和挑战者画像。"
+    implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
+    current_runtime_state: HEAVY_RUNTIME
+    customer_visibility: INTERNAL_GOVERNED
+    depends_on_modules:
+      - stage5_rules_evidence
+    target_packet_candidates:
+      - PTL-S56-project-fact-review-report
+      - PTL-S67-saleable-opportunity-derivation
+    current_blockers:
+      - "主链已闭合；后续变更必须保持 Stage7 只消费 Stage6 formal outputs。"
+    exit_criteria:
+      - "project_fact / legal_action_recommendation / review_queue_profile / report_record / challenger_candidate_profile 可通过 H-06 输出。"
+      - "报告或复核未 ready 时不得支持 Stage7 无条件可售。"
+    module_slices:
+      - slice_id: stage6.project_fact_aggregation
+        business_summary: "形成唯一统一事实中枢 project_fact。"
+        implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
+        current_files:
+          - src/stage6_fact_review/service.py
+          - src/stage6_fact_review/fact_aggregator.py
+        handoff_files:
+          - handoff/stage6_to_stage7/contract.json
+        api_surface_files:
+          - src/api/routes/stage6.py
+          - src/api/schemas/stage6.py
+        repository_files:
+          - src/storage/repositories/project_fact_repo.py
+        test_files:
+          - tests/test_stage56_evaluators.py
+          - tests/test_internal_chain.py
+        depends_on_slices:
+          - stage5.evidence_dual_gate_review
+        target_packet_candidates:
+          - PTL-S56-project-fact-review-report
+        exit_criteria:
+          - "顶层主判断不得绕开 project_fact 重算。"
+        deferred_gaps: []
+      - slice_id: stage6.review_report_challenger
+        business_summary: "生成法律动作建议、复核队列、报告记录和挑战者画像，供 Stage7 消费。"
+        implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
+        current_files:
+          - src/stage6_fact_review/legal_action.py
+          - src/stage6_fact_review/review_queue.py
+          - src/stage6_fact_review/report.py
+        handoff_files:
+          - handoff/stage6_to_stage7/contract.json
+        api_surface_files:
+          - src/api/routes/stage6.py
+          - src/api/schemas/stage6.py
+        repository_files:
+          - src/storage/repositories/legal_action_recommendation_repo.py
+        test_files:
+          - tests/test_stage56_evaluators.py
+          - tests/test_stage7_runtime_closure.py
+        depends_on_slices:
+          - stage6.project_fact_aggregation
+        target_packet_candidates:
+          - PTL-S56-project-fact-review-report
+          - PTL-S67-saleable-opportunity-derivation
+        exit_criteria:
+          - "H-06 不丢 report/review/sale gate trace。"
+        deferred_gaps: []
+  - stage_id: stage7_sales
+    stage_name: "Stage7 商业承接与可售对象"
+    business_summary: "把 Stage6 formal outputs 转成 sales lead、buyer fit、offer recommendation 和 saleable opportunity。"
+    implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
+    current_runtime_state: HEAVY_RUNTIME
+    customer_visibility: LEADPACK_CANDIDATE_GATED
+    depends_on_modules:
+      - stage6_fact_review
+    target_packet_candidates:
+      - PTL-S67-saleable-opportunity-derivation
+      - PTL-S7-price-competitor-offer-resolution
+    current_blockers:
+      - "Stage7 可售对象必须受 report/review/sale gate 约束。"
+      - "runtime.py / scorecard.py / pricing.py / recommendation.py 属于后续模块拆分，不是当前阻断。"
+    exit_criteria:
+      - "saleable_opportunity 只消费 H-06 / Stage6 formal carriers。"
+      - "sales_lead / buyer_fit / offer_recommendation 不能绕开 review/report/sale gate。"
+      - "Stage7 不生成真实 contact_target，不进入 Stage8 live execution。"
+    module_slices:
+      - slice_id: stage7.sales_derivation
+        business_summary: "生成 sales lead、buyer fit、offer recommendation 和可售机会对象。"
+        implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
+        current_files:
+          - src/stage7_sales/service.py
+          - src/stage7_sales/buyer_fit.py
+          - src/stage7_sales/offer.py
+          - src/stage7_sales/opportunity.py
+          - src/stage7_sales/models.py
+        handoff_files:
+          - handoff/stage7_to_stage8/contract.json
+        api_surface_files:
+          - src/api/routes/stage7.py
+          - src/api/schemas/stage7.py
+        repository_files:
+          - src/storage/repositories/buyer_fit_repo.py
+          - src/storage/repositories/offer_recommendation_repo.py
+          - src/storage/repositories/saleable_opportunity_repo.py
+        test_files:
+          - tests/test_stage7_runtime_closure.py
+          - tests/test_internal_chain.py
+        depends_on_slices:
+          - stage6.review_report_challenger
+        target_packet_candidates:
+          - PTL-S67-saleable-opportunity-derivation
+          - PTL-S7-price-competitor-offer-resolution
+        exit_criteria:
+          - "report_status 非 ready/issued 时不得无条件 qualified。"
+          - "review request 或 missing condition 存在时 opportunity 必须受限。"
+        deferred_gaps:
+          - gap_id: STAGE7-SALES-RUNTIME-SPLIT
+            future_files:
+              - src/stage7_sales/runtime.py
+              - src/stage7_sales/scorecard.py
+              - src/stage7_sales/pricing.py
+              - src/stage7_sales/recommendation.py
+            target_packet_candidates:
+              - PTL-S7-price-competitor-offer-resolution
+            not_current_blocker: true
+      - slice_id: stage7.actor_offer_resolution
+        business_summary: "维护挑战者、法律动作 actor、采购决策 actor、价格/竞争者/推荐方案 resolution。"
+        implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
+        current_files:
+          - src/stage7_sales/resolution.py
+          - src/stage7_sales/offer.py
+          - src/stage7_sales/models.py
+        handoff_files:
+          - handoff/stage7_to_stage8/contract.json
+        api_surface_files:
+          - src/api/routes/stage7.py
+          - src/api/schemas/stage7.py
+        repository_files:
+          - src/storage/repositories/legal_action_actor_profile_repo.py
+          - src/storage/repositories/procurement_decision_actor_profile_repo.py
+        test_files:
+          - tests/test_stage7_runtime_closure.py
+          - tests/test_architecture_anti_drift.py
+        depends_on_slices:
+          - stage7.sales_derivation
+        target_packet_candidates:
+          - PTL-S7-price-competitor-offer-resolution
+        exit_criteria:
+          - "价格、竞争者和推荐方案只影响 Stage7 formal objects，不直接生成触达执行。"
+        deferred_gaps: []
+  - stage_id: stage8_outreach
+    stage_name: "Stage8 联系对象与销售触达"
+    business_summary: "在 governed/internal 边界内形成 contact target、outreach plan 和 touch record；默认不执行真实触达。"
+    implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
+    current_runtime_state: HEAVY_RUNTIME
+    customer_visibility: INTERNAL_GOVERNED
+    depends_on_modules:
+      - stage7_sales
+    target_packet_candidates:
+      - PTL-S78-contact-candidate-compliance-preview
+    current_blockers:
+      - "Stage8 real execution 默认阻断；contact enrichment / live outreach 需要审批和审计。"
+    exit_criteria:
+      - "contact_target 只能来自 saleable_opportunity、account context 和合法来源。"
+      - "outreach_plan / touch_record 默认只允许 preview/dry-run/governed internal path。"
+    module_slices:
+      - slice_id: stage8.contact_candidate_compliance
+        business_summary: "生成联系候选、合规判定和 contact target。"
+        implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
+        current_files:
+          - src/stage8_outreach/service.py
+          - src/stage8_outreach/contact_target.py
+          - src/stage8_outreach/resolution.py
+          - src/stage8_outreach/models.py
+        handoff_files:
+          - handoff/stage8_to_stage9/contract.json
+        api_surface_files:
+          - src/api/routes/stage8.py
+          - src/api/schemas/stage8.py
+        repository_files:
+          - src/storage/repositories/contact_target_repo.py
+        test_files:
+          - tests/test_stage8_resolution_closure.py
+          - tests/test_runtime_governance_guards.py
+        depends_on_slices:
+          - stage7.sales_derivation
+        target_packet_candidates:
+          - PTL-S78-contact-candidate-compliance-preview
+        exit_criteria:
+          - "不得从灰色来源或未经授权自然人联系方式直接生成正式 contact_target。"
+        deferred_gaps: []
+      - slice_id: stage8.outreach_plan_touch_record
+        business_summary: "生成受控触达计划和触达留痕，但不默认 live execute。"
+        implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
+        current_files:
+          - src/stage8_outreach/outreach_plan.py
+          - src/stage8_outreach/touch_record.py
+          - src/stage8_outreach/models.py
+        handoff_files:
+          - handoff/stage8_to_stage9/contract.json
+        api_surface_files:
+          - src/api/routes/stage8.py
+          - src/api/schemas/stage8.py
+        repository_files:
+          - src/storage/repositories/outreach_plan_repo.py
+          - src/storage/repositories/touch_record_repo.py
+        test_files:
+          - tests/test_stage8_resolution_closure.py
+          - tests/test_internal_surface_preview.py
+        depends_on_slices:
+          - stage8.contact_candidate_compliance
+        target_packet_candidates:
+          - PTL-S78-contact-candidate-compliance-preview
+        exit_criteria:
+          - "touch_record 只能表达 governed internal / dry-run / audit trace，不能暗示真实外发已放开。"
+        deferred_gaps: []
+  - stage_id: stage9_delivery
+    stage_name: "Stage9 订单支付交付与治理反馈"
+    business_summary: "在 governed/internal 边界内记录订单、支付、交付、结果回写和治理反馈；默认不执行真实支付/交付/退款。"
+    implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
+    current_runtime_state: HEAVY_RUNTIME
+    customer_visibility: INTERNAL_GOVERNED
+    depends_on_modules:
+      - stage8_outreach
+    target_packet_candidates:
+      - PTL-S89-outreach-writeback-delivery-governance
+    current_blockers:
+      - "Stage9 real payment/delivery/refund 默认阻断，需要审批链和治理链。"
+    exit_criteria:
+      - "order/payment/delivery/outcome/feedback 均保持 typed governed record。"
+      - "任何 writeback 不得反向改写 Stage6 真相层。"
+    module_slices:
+      - slice_id: stage9.order_payment_delivery
+        business_summary: "维护订单、支付和交付记录。"
+        implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
+        current_files:
+          - src/stage9_delivery/service.py
+          - src/stage9_delivery/order.py
+          - src/stage9_delivery/payment.py
+          - src/stage9_delivery/delivery.py
+          - src/stage9_delivery/models.py
+        handoff_files:
+          - handoff/stage8_to_stage9/contract.json
+        api_surface_files:
+          - src/api/routes/stage9.py
+          - src/api/schemas/stage9.py
+        repository_files:
+          - src/storage/repositories/order_record_repo.py
+          - src/storage/repositories/payment_record_repo.py
+          - src/storage/repositories/delivery_record_repo.py
+        test_files:
+          - tests/test_stage9_impact_executor.py
+          - tests/test_runtime_governance_guards.py
+        depends_on_slices:
+          - stage8.outreach_plan_touch_record
+        target_packet_candidates:
+          - PTL-S89-outreach-writeback-delivery-governance
+        exit_criteria:
+          - "记录状态可内部回放，但不得表示 live payment/delivery ready。"
+        deferred_gaps: []
+      - slice_id: stage9.writeback_governance_feedback
+        business_summary: "处理结果回写、impact executor 和治理反馈事件。"
+        implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
+        current_files:
+          - src/stage9_delivery/impact_executor.py
+          - src/stage9_delivery/feedback.py
+          - src/stage9_delivery/models.py
+        handoff_files:
+          - handoff/stage8_to_stage9/contract.json
+        api_surface_files:
+          - src/api/routes/stage9.py
+          - src/api/schemas/stage9.py
+        repository_files:
+          - src/storage/repositories/opportunity_outcome_event_repo.py
+          - src/storage/repositories/governance_feedback_event_repo.py
+        test_files:
+          - tests/test_stage9_impact_executor.py
+          - tests/test_internal_repository_boundary.py
+        depends_on_slices:
+          - stage9.order_payment_delivery
+        target_packet_candidates:
+          - PTL-S89-outreach-writeback-delivery-governance
+        exit_criteria:
+          - "governance feedback 只触发受控复核或治理回写，不篡改上游事实。"
+        deferred_gaps: []
+cross_cutting_surfaces:
+  - surface_id: api_transport_and_schema
+    business_summary: "Stage1-9 内部 API route/schema 投影面，只消费正式对象和治理 envelope。"
+    implementation_state: PARTIAL_RUNTIME
+    current_files:
+      - src/api/main.py
+      - src/api/projections.py
+      - src/api/schemas/common.py
+      - src/api/routes/stage1.py
+      - src/api/routes/stage2.py
+      - src/api/routes/stage3.py
+      - src/api/routes/stage4.py
+      - src/api/routes/stage5.py
+      - src/api/routes/stage6.py
+      - src/api/routes/stage7.py
+      - src/api/routes/stage8.py
+      - src/api/routes/stage9.py
+      - src/api/schemas/stage1.py
+      - src/api/schemas/stage2.py
+      - src/api/schemas/stage3.py
+      - src/api/schemas/stage4.py
+      - src/api/schemas/stage5.py
+      - src/api/schemas/stage6.py
+      - src/api/schemas/stage7.py
+      - src/api/schemas/stage8.py
+      - src/api/schemas/stage9.py
+    test_files:
+      - tests/test_api_transport_bootstrap.py
+      - tests/test_internal_surface_preview.py
+  - surface_id: repository_boundary
+    business_summary: "Stage6-9 和 operator loop 的持久化边界，不能替代正式对象语义。"
+    implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
+    current_files:
+      - src/storage/repository_boundary.py
+      - src/storage/operator_loop_contracts.py
+      - src/storage/repositories/work_item_repo.py
+      - src/storage/repositories/project_fact_repo.py
+      - src/storage/repositories/legal_action_recommendation_repo.py
+      - src/storage/repositories/legal_action_actor_profile_repo.py
+      - src/storage/repositories/procurement_decision_actor_profile_repo.py
+      - src/storage/repositories/buyer_fit_repo.py
+      - src/storage/repositories/offer_recommendation_repo.py
+      - src/storage/repositories/saleable_opportunity_repo.py
+      - src/storage/repositories/contact_target_repo.py
+      - src/storage/repositories/outreach_plan_repo.py
+      - src/storage/repositories/touch_record_repo.py
+      - src/storage/repositories/order_record_repo.py
+      - src/storage/repositories/payment_record_repo.py
+      - src/storage/repositories/delivery_record_repo.py
+      - src/storage/repositories/opportunity_outcome_event_repo.py
+      - src/storage/repositories/governance_feedback_event_repo.py
+      - src/storage/repositories/operator_action_repo.py
+    test_files:
+      - tests/test_internal_repository_boundary.py
+      - tests/test_storage_concurrency.py
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
     stage_scope:
@@ -374,12 +1070,23 @@ modules:
     current_files:
       - src/storage/repository_boundary.py
       - src/storage/operator_loop_contracts.py
+      - src/storage/repositories/work_item_repo.py
       - src/storage/repositories/project_fact_repo.py
+      - src/storage/repositories/legal_action_recommendation_repo.py
+      - src/storage/repositories/legal_action_actor_profile_repo.py
+      - src/storage/repositories/procurement_decision_actor_profile_repo.py
+      - src/storage/repositories/buyer_fit_repo.py
+      - src/storage/repositories/offer_recommendation_repo.py
       - src/storage/repositories/saleable_opportunity_repo.py
       - src/storage/repositories/contact_target_repo.py
+      - src/storage/repositories/outreach_plan_repo.py
+      - src/storage/repositories/touch_record_repo.py
       - src/storage/repositories/order_record_repo.py
       - src/storage/repositories/payment_record_repo.py
       - src/storage/repositories/delivery_record_repo.py
+      - src/storage/repositories/opportunity_outcome_event_repo.py
+      - src/storage/repositories/governance_feedback_event_repo.py
+      - src/storage/repositories/operator_action_repo.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
     completed_packets: []

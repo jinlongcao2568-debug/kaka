@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-111-product-module-registry-bootstrap (SCOPED_EXECUTION; governance bootstrap only; creates control/product_module_registry.yaml and its test as an execution map for product modules, deferred splits, and target packets; does not modify product_task_library, AX9S, runtime, contracts, handoff, or canonical readiness; does not open external release / Stage8 live execution / Stage9 live payment-delivery)
+Current Workstream: PTL-GOV-112-product-module-registry-expand-stage1-9 (SCOPED_EXECUTION; governance expansion only; expands control/product_module_registry.yaml from bootstrap trunk map into a Stage1-9 product module ledger covering module slices, dependencies, API/storage/test surfaces, deferred gaps, target packets, and exit criteria; does not modify product_task_library, AX9S, runtime, contracts, handoff, or canonical readiness; does not open external release / Stage8 live execution / Stage9 live payment-delivery)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,9 +21,9 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the controlled development system
-- scoped-execution for PTL-GOV-111-product-module-registry-bootstrap within declared_changed_paths / allowed_modification_paths only
-- create control/product_module_registry.yaml as the first machine-readable execution map for product modules and deferred module splits
-- add tests/test_product_module_registry.py to keep the registry aligned with existing files and stage coverage
+- scoped-execution for PTL-GOV-112-product-module-registry-expand-stage1-9 within declared_changed_paths / allowed_modification_paths only
+- expand control/product_module_registry.yaml into a Stage1-9 product module ledger for module slices, implementation states, dependencies, API/storage/test surfaces, deferred gaps, target packets, and exit criteria
+- update tests/test_product_module_registry.py to keep the registry aligned with existing files, stage coverage, dependency fields, and Stage8/Stage9 redlines
 - current_task is the unique active execution source
 - product_task_library remains the product mainline task pool and candidate source; it is not modified in this round
 - source_blueprint_registry remains the source-blueprint allowlist and is not modified in this round
@@ -32,7 +32,7 @@ Allowed Actions (current):
 - run the required checks and stop for report
 
 Forbidden Actions (current):
-- Any work outside PTL-GOV-111-product-module-registry-bootstrap scoped-execution in this round
+- Any work outside PTL-GOV-112-product-module-registry-expand-stage1-9 scoped-execution in this round
 - Any change outside declared_changed_paths / allowed_modification_paths
 - Any change to forbidden_modification_paths targets
 - Any change to AGENTS.md, docs/L0.md, scripts/**, src/**, contracts/**, handoff/**, or paths outside current task allowed_modification_paths
@@ -61,10 +61,10 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-GOV-111-product-module-registry-bootstrap is the current scoped-execution active packet through control/current_task.yaml.
-- This round only bootstraps a module registry and does not change runtime, contracts, handoff, or product candidate order.
+- PTL-GOV-112-product-module-registry-expand-stage1-9 is the current scoped-execution active packet through control/current_task.yaml.
+- This round only expands the module registry and does not change runtime, contracts, handoff, or product candidate order.
 - PTL-S67-saleable-opportunity-derivation remains the current product mainline next candidate in control/product_task_library.yaml and is not modified in this round.
-- control/product_module_registry.yaml is an execution map, not a status source, not a release gate, and not a second product direction source.
+- control/product_module_registry.yaml is an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.

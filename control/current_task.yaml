@@ -5,11 +5,11 @@ updated_at: "2026-04-21"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_GOV_111_PRODUCT_MODULE_REGISTRY_BOOTSTRAP_ACTIVE"
+navigation_state: "PTL_GOV_112_PRODUCT_MODULE_REGISTRY_EXPAND_STAGE1_9_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口执行 PTL-GOV-111-product-module-registry-bootstrap scoped-execution：建立 product module registry 第一版，把文档定义、主线任务池和现有 src 模块映射成可执行登记表；不改业务 runtime，不改 contracts/handoff，不改 product_task_library 或 AX9S，不改变 canonical readiness，不放开 external release / Stage8 / Stage9，不提交。"
+activation_condition: "当前窗口执行 PTL-GOV-112-product-module-registry-expand-stage1-9 scoped-execution：把 product module registry 从 bootstrap 主干版扩成 Stage1-9 产品模块总账版，补齐做完/待做/依赖/目标包/退出标准；不改业务 runtime，不改 contracts/handoff，不改 product_task_library 或 AX9S，不改变 canonical readiness，不放开 external release / Stage8 / Stage9，不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-GOV-111-product-module-registry-bootstrap"
-  title: "产品模块登记表初始化"
+  task_id: "PTL-GOV-112-product-module-registry-expand-stage1-9"
+  title: "产品模块总账 Stage1-9 展开"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -50,7 +50,7 @@ currentTask:
     - "scripts/clean-python-cache.ps1"
     - "tests/test_product_module_registry.py"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "建立 product module registry 第一版，把文档定义、主线任务池、现有 src 模块和未来 deferred module split 汇总成机器可读执行地图，避免后续模块遗漏和包外记忆依赖。"
+  objective: "把 product module registry 从 bootstrap 主干版扩成 Stage1-9 产品模块总账版，补齐模块职责、实现状态、依赖关系、测试面、API/仓储/工作台映射、后续目标包与退出标准，避免后续产品开发依赖聊天记忆。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -70,25 +70,25 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-GOV-111-product-module-registry-bootstrap"
-    subpacket_id: "PTL-GOV-111-product-module-registry-bootstrap"
-    backlog_packet_ref: "PTL-GOV-111-product-module-registry-bootstrap"
+    packet_id: "PTL-GOV-112-product-module-registry-expand-stage1-9"
+    subpacket_id: "PTL-GOV-112-product-module-registry-expand-stage1-9"
+    backlog_packet_ref: "PTL-GOV-112-product-module-registry-expand-stage1-9"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
     runtime_change_in_packet: "OUT_OF_SCOPE"
     existing_runtime_state: "HEAVY_RUNTIME"
-    title: "产品模块登记表初始化"
+    title: "产品模块总账 Stage1-9 展开"
     status: "ACTIVE"
-    objective: "在不改业务 runtime / contracts / handoff 的前提下，创建 product module registry 第一版，覆盖 Stage1-9 核心模块、API surface、storage boundary、shared runtime 与已知 deferred module split。"
+    objective: "在不改业务 runtime / contracts / handoff 的前提下，扩展 product module registry，覆盖 Stage1-9 模块切片、API surface、storage boundary、shared runtime、internal preview、依赖关系、完成定义与已知 deferred gaps。"
     depends_on:
-      - "PTL-S67 scoped-execution 已完成并提交"
+      - "PTL-GOV-111-product-module-registry-bootstrap 已完成并提交"
       - "当前工作区为干净状态"
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 control/source_blueprint_registry.yaml 注册"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-S67-saleable-opportunity-derivation"
-      target_active_packet: "PTL-GOV-111-product-module-registry-bootstrap"
+      previous_active_packet: "PTL-GOV-111-product-module-registry-bootstrap"
+      target_active_packet: "PTL-GOV-112-product-module-registry-expand-stage1-9"
       activation_only: false
       enter_scoped_execution: true
       active_packet_kind: "control_governance_scoped_execution"
@@ -221,14 +221,14 @@ currentTask:
       - "放宽 external release / Stage8 / Stage9 红线"
       - "自动提交"
     definition_of_done:
-      - "control/product_module_registry.yaml 已创建"
-      - "模块登记覆盖 Stage1-9 核心模块"
-      - "模块登记覆盖 API transport、shared runtime、storage boundary、internal preview"
-      - "Stage7 deferred module split 已登记 proposed future files 与 target packets"
+      - "control/product_module_registry.yaml 从 bootstrap 主干版扩成 Stage1-9 产品模块总账版"
+      - "模块登记覆盖 Stage1-9 模块切片、当前文件、API surface、storage boundary、handoff、测试面、依赖关系与退出标准"
+      - "Stage7 deferred module split 已保留 proposed future files 与 target packets"
+      - "Stage8 / Stage9 live execution 与 external release 红线在 registry 和测试中继续锁定"
       - "registry 明确不是 status source，不改变 canonical readiness"
       - "required scripts 执行后停机汇报，不提交"
     deliverables:
-      - "control/product_module_registry.yaml 第一版"
+      - "control/product_module_registry.yaml Stage1-9 产品模块总账扩展版"
       - "tests/test_product_module_registry.py"
       - "control/current_task.yaml 与 control/repo_status.md 治理引导同步"
       - "指定 pytest、control checks、final gate、clean-python-cache 与 git status 执行结果"
@@ -258,7 +258,7 @@ currentTask:
     - "stage9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
     - "本轮只允许修改 control/current_task.yaml、control/repo_status.md、control/product_module_registry.yaml、tests/test_product_module_registry.py。"
-    - "允许创建产品模块登记表第一版，并运行指定 pytest、control checks、final gate、clean-python-cache 与 git status。"
+    - "允许扩展产品模块登记表为 Stage1-9 产品模块总账版，并运行指定 pytest、control checks、final gate、clean-python-cache 与 git status。"
   forbidden_actions:
     - "不得修改 AGENTS.md、docs/L0.md、scripts/**、src/**、contracts/**、handoff/**、非允许 tests。"
     - "不得修改 control/product_task_library.yaml 或 docs/AX9S_开发执行路由图.md。"
@@ -267,5 +267,5 @@ currentTask:
     - "不得新增正式对象、枚举、gate、exception 语义。"
     - "不得提交。"
   nextActions:
-    - "完成 registry bootstrap 后运行 required scripts 并停机汇报；不自动提交，不自动切下一主线包。"
-  status_note: "PTL-GOV-111-product-module-registry-bootstrap 当前为治理 bootstrap scoped-execution；本轮只建立产品模块登记表第一版，不改业务 runtime / contracts / handoff，不改变 canonical readiness，不提交。"
+    - "完成 registry Stage1-9 扩展后运行 required scripts 并停机汇报；不自动提交，不自动切下一主线包。"
+  status_note: "PTL-GOV-112-product-module-registry-expand-stage1-9 当前为治理扩表 scoped-execution；本轮只扩展产品模块总账，不改业务 runtime / contracts / handoff，不改变 canonical readiness，不提交。"
