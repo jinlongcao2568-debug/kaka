@@ -5,11 +5,11 @@ updated_at: "2026-04-21"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_GOV_113_MAINLINE_CANDIDATE_SHIFT_TO_S7_ACTIVE"
+navigation_state: "PTL_S7_PRICE_COMPETITOR_OFFER_RESOLUTION_ACTIVATION_ONLY_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口执行 PTL-GOV-113-mainline-candidate-shift-to-S7 scoped-execution：只处理 product_task_library 的 current_mainline_next_candidate 指针滞后，把 next candidate 从 PTL-S67 推进到 PTL-S7；不进入产品 runtime，不改 Stage7 业务实现，不改 contracts/handoff/scripts/src/AX9S，不改变 canonical readiness，不放开 external release / Stage8 / Stage9，不提交。"
+activation_condition: "当前窗口仅执行 PTL-S7-price-competitor-offer-resolution activation-only：只把 control/current_task.yaml 的 active packet 切到 PTL-S7，并同步 control/repo_status.md 当前 workstream；不进入 PTL-S7 scoped-execution，不改 Stage7 runtime，不改 product_task_library / AX9S / src / contracts / handoff / tests / scripts，不改变 canonical readiness，不放开 external release / Stage8 / Stage9，不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-GOV-113-mainline-candidate-shift-to-S7"
-  title: "推进下一主线候选到 PTL-S7"
+  task_id: "PTL-S7-price-competitor-offer-resolution"
+  title: "Stage7 价格、竞争者与推荐方案闭合"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -39,9 +39,8 @@ currentTask:
     - "scripts/check-state-alignment.ps1"
     - "scripts/check-final-gate.ps1"
     - "scripts/clean-python-cache.ps1"
-    - "tests/test_stage12_extractors.py"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "同步当前治理任务包与产品主线候选池，把已完成的 PTL-S67 从 current_mainline_next_candidate 退出，并把 PTL-S7 标记为下一主线候选；仅做候选指针治理，不激活 PTL-S7，不改 runtime。"
+  objective: "只把 PTL-S7-price-competitor-offer-resolution 激活为当前 active packet 的 ACTIVATION_ONLY 控制面状态；本轮不进入 PTL-S7 scoped-execution，不做 runtime 闭合。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -61,41 +60,41 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-GOV-113-mainline-candidate-shift-to-S7"
-    subpacket_id: "PTL-GOV-113-mainline-candidate-shift-to-S7"
-    backlog_packet_ref: "PTL-GOV-113-mainline-candidate-shift-to-S7"
+    packet_id: "PTL-PKT-S7-price-competitor-offer-resolution"
+    subpacket_id: "PTL-PKT-S7-price-competitor-offer-resolution"
+    backlog_packet_ref: "PTL-S7-price-competitor-offer-resolution"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
-    execution_mode: "SCOPED_EXECUTION"
+    execution_mode: "ACTIVATION_ONLY"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
     runtime_change_in_packet: "OUT_OF_SCOPE"
     existing_runtime_state: "HEAVY_RUNTIME"
-    title: "推进下一主线候选到 PTL-S7"
+    title: "Stage7 价格、竞争者与推荐方案闭合"
     status: "ACTIVE"
-    objective: "在不改 runtime / contracts / handoff / scripts / src / AX9S 的前提下，修正 product_task_library 的候选池指针滞后：PTL-S67 标记为已完成且不再是 next candidate，PTL-S7 标记为 current_mainline_next_candidate。"
+    objective: "只做 activation-only 切包：把当前 active packet 从 PTL-GOV-113-mainline-candidate-shift-to-S7 切到 PTL-S7-price-competitor-offer-resolution，并同步 repo_status 当前 workstream；不进入 PTL-S7 scoped-execution，不改 runtime。"
     depends_on:
-      - "PTL-S67-saleable-opportunity-derivation scoped-execution 已完成并提交：61d4991"
-      - "PTL-GOV-112-product-module-registry-expand-stage1-9 已完成并提交：dd8d278"
-      - "当前工作区为干净状态"
+      - "PTL-GOV-113-mainline-candidate-shift-to-S7 已完成并提交：3cec5b0"
+      - "control/product_task_library.yaml current_mainline_next_candidate 已是 PTL-S7-price-competitor-offer-resolution"
+      - "当前工作区初始为干净状态"
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 control/source_blueprint_registry.yaml 注册"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-GOV-112-product-module-registry-expand-stage1-9"
-      target_active_packet: "PTL-GOV-113-mainline-candidate-shift-to-S7"
-      activation_only: false
-      enter_scoped_execution: true
-      active_packet_kind: "control_governance_scoped_execution"
-      product_mainline_task: false
+      previous_active_packet: "PTL-GOV-113-mainline-candidate-shift-to-S7"
+      target_active_packet: "PTL-S7-price-competitor-offer-resolution"
+      activation_only: true
+      enter_scoped_execution: false
+      active_packet_kind: "product_mainline_activation_only"
+      product_mainline_task: true
       add_to_product_task_library: false
+      product_task_library_change: false
       source_blueprint_batch_id: "POST-FF-CONTROL-01"
-      execution_mode: "SCOPED_EXECUTION"
+      execution_mode: "ACTIVATION_ONLY"
       runtime_change: false
       contracts_change: false
       handoff_change: false
       scripts_change: false
-      tests_change: true
+      tests_change: false
       docs_change: false
       control_change: true
-      product_task_library_change: true
       ax9s_change: false
       canonical_readiness_change: false
       external_release_change: false
@@ -105,10 +104,15 @@ currentTask:
       commit_allowed: false
     non_goals:
       - "not an external unlock implementation"
+      - "不进入 PTL-S7 scoped-execution"
       - "不改业务 runtime"
+      - "不改 Stage7 业务实现"
       - "不改 contracts"
       - "不改 handoff"
       - "不改 scripts"
+      - "不改 tests"
+      - "不改 control/product_task_library.yaml"
+      - "不改 control/product_module_registry.yaml"
       - "不改 docs/AX9S_开发执行路由图.md"
       - "不改变 canonical readiness"
       - "不放开 external release"
@@ -126,7 +130,6 @@ currentTask:
     change_domains:
       - "automation_control_core"
       - "future_external_unlock_prereq_core"
-      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
@@ -138,13 +141,9 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_task_library.yaml"
-      - "tests/test_stage12_extractors.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_task_library.yaml"
-      - "tests/test_stage12_extractors.py"
     forbidden_modification_paths:
       - "AGENTS.md"
       - "docs/**"
@@ -152,6 +151,8 @@ currentTask:
       - "src/**"
       - "contracts/**"
       - "handoff/**"
+      - "tests/**"
+      - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/milestone_status.yaml"
       - "control/source_blueprint_registry.yaml"
@@ -159,34 +160,25 @@ currentTask:
       - "control/review_gate_matrix.yaml"
       - "control/automation_task_packet_rules.yaml"
       - "control/ax9s_scoped_task_packet_template.yaml"
-      - "tests/test_product_module_registry.py"
-      - "tests/test_external_unlock_prerequisites.py"
-      - "tests/test_internal_chain.py"
-      - "tests/test_architecture_anti_drift.py"
-      - "tests/test_semantic_runtime_validator.py"
-      - "tests/test_stage56_evaluators.py"
-      - "tests/test_stage7_runtime_closure.py"
     impacted_assets:
       docs: []
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
-        - "control/product_task_library.yaml"
       contracts: []
       handoff: []
       scripts: []
-      tests:
-        - "tests/test_stage12_extractors.py"
+      tests: []
       runtime: []
     required_scripts:
-      - "python -m pytest tests/test_stage12_extractors.py -q"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1"
       - "git status --short --untracked-files=all"
     script_timeouts:
-      "python -m pytest tests/test_stage12_extractors.py -q": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1": 300000
@@ -196,25 +188,25 @@ currentTask:
       - "任一脚本失败"
       - "实际改动超出 allowed_modification_paths"
       - "触碰 forbidden paths"
-      - "修改 docs/AX9S_开发执行路由图.md"
-      - "修改 src / scripts / contracts / handoff"
+      - "修改 product_task_library / product_module_registry / AX9S"
+      - "修改 src / scripts / contracts / handoff / tests"
+      - "进入 PTL-S7 scoped-execution"
       - "新增正式对象、枚举、gate、exception 语义"
       - "改变 canonical readiness"
       - "放宽 external release / Stage8 / Stage9 红线"
       - "自动提交"
     definition_of_done:
-      - "control/current_task.yaml 当前 active packet 已切到 PTL-GOV-113-mainline-candidate-shift-to-S7"
-      - "control/product_task_library.yaml current_mainline_next_candidate 已从 PTL-S67 推进到 PTL-S7"
-      - "PTL-S67 任务状态同步为 COMPLETED，且不再是 current_mainline_next_candidate"
-      - "PTL-S7 任务状态保持候选池语义，只作为 current_mainline_next_candidate，不激活 scoped-execution"
-      - "tests/test_stage12_extractors.py 中 next candidate 断言已同步"
-      - "required scripts 执行后停机汇报，不提交"
+      - "control/current_task.yaml 当前 active packet 已切到 PTL-S7-price-competitor-offer-resolution"
+      - "control/repo_status.md 当前 workstream 已同步为 PTL-S7-price-competitor-offer-resolution (ACTIVATION_ONLY)"
+      - "PTL-S7 当前只是 active packet activation-only，尚未进入 scoped-execution"
+      - "canonical readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
+      - "conditional-go 保持 READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT"
+      - "external release / Stage8 / Stage9 红线保持不变"
+      - "required scripts 按停机规则执行后汇报；不提交"
     deliverables:
-      - "control/current_task.yaml PTL-GOV-113 active packet"
+      - "control/current_task.yaml PTL-S7 activation-only active packet"
       - "control/repo_status.md 当前 workstream 与边界同步"
-      - "control/product_task_library.yaml next candidate 指针与 PTL-S67/PTL-S7 状态同步"
-      - "tests/test_stage12_extractors.py 候选指针断言同步"
-      - "指定 pytest、control checks、final gate、clean-python-cache 与 git status 执行结果"
+      - "指定 preflight、task packet、state alignment、final gate 执行结果"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -230,9 +222,9 @@ currentTask:
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "control/product_task_library.yaml 只提供产品主线候选池，不自动决定当前执行顺序。"
-      - "PTL-S7-price-competitor-offer-resolution 只是 current_mainline_next_candidate，不因候选池指针自动成为当前执行包。"
-      - "本轮不激活 PTL-S7，不进入 PTL-S7 scoped-execution，不改 runtime。"
+      - "control/product_task_library.yaml 只提供产品主线候选池，不替代当前执行源，也不决定当前执行顺序。"
+      - "PTL-S7-price-competitor-offer-resolution 本轮只被激活为 active packet 的 ACTIVATION_ONLY 控制面状态。"
+      - "本轮不进入 PTL-S7 scoped-execution，不改 Stage7 runtime，不做 runtime 闭合。"
       - "External release 继续保持阻断；Stage8 / Stage9 real execution/payment/delivery/refund 继续默认阻断。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
@@ -240,16 +232,19 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮只允许修改 control/current_task.yaml、control/repo_status.md、control/product_task_library.yaml、tests/test_stage12_extractors.py。"
-    - "允许把 current_mainline_next_candidate 从 PTL-S67 推进到 PTL-S7，并同步 tests/test_stage12_extractors.py 的相关断言。"
+    - "本轮只允许修改 control/current_task.yaml、control/repo_status.md。"
+    - "允许把当前 active packet 从 PTL-GOV-113-mainline-candidate-shift-to-S7 切到 PTL-S7-price-competitor-offer-resolution 的 ACTIVATION_ONLY 状态。"
+    - "允许运行指定校验脚本，并按 check-final-gate 后停机规则汇报。"
   forbidden_actions:
-    - "不得修改 AGENTS.md、docs/**、scripts/**、src/**、contracts/**、handoff/**、非允许 tests。"
+    - "不得修改 AGENTS.md、docs/**、scripts/**、src/**、contracts/**、handoff/**、tests/**。"
+    - "不得修改 control/product_task_library.yaml。"
     - "不得修改 docs/AX9S_开发执行路由图.md。"
     - "不得修改 control/product_module_registry.yaml、control/milestone_status.yaml、control/source_blueprint_registry.yaml、control/operator_assignment_roster_defaults.yaml、control/review_gate_matrix.yaml、control/automation_task_packet_rules.yaml。"
+    - "不得进入 PTL-S7 scoped-execution。"
     - "不得改变 canonical readiness。"
     - "不得放宽 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
     - "不得新增正式对象、枚举、gate、exception 语义。"
     - "不得提交。"
   nextActions:
-    - "完成候选指针同步后运行 required scripts 并停机汇报；不自动提交，不自动进入 PTL-S7 scoped-execution。"
-  status_note: "PTL-GOV-113-mainline-candidate-shift-to-S7 当前为治理指针 scoped-execution；本轮只修正 product_task_library 下一主线候选滞后，不改业务 runtime / contracts / handoff，不改变 canonical readiness，不提交。"
+    - "完成 activation-only 切包和指定校验后停机汇报；不自动进入 PTL-S7 scoped-execution，不自动提交。"
+  status_note: "PTL-S7-price-competitor-offer-resolution 当前为 ACTIVATION_ONLY active packet；尚未进入 scoped-execution；不改 Stage7 runtime / contracts / handoff / scripts / src / tests / AX9S，不改变 canonical readiness，不提交。"
