@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-103-mainline-reality-alignment (scoped-execution; current window aligns product mainline planning surfaces, AX9S guidance, and Stage1-2 contracts-handoff-tests wording with the existing internal governed runtime; no business runtime changes, no next packet, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
+Current Workstream: PTL-GOV-103-mainline-reality-alignment (scoped-execution; current window aligns product mainline planning surfaces, AX9S guidance, and Stage1-2 contracts-handoff-tests wording with the existing internal governed runtime; PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate only and is not the current execution packet; no business runtime changes, no next packet, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -40,6 +40,7 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - product_task_library only carries product mainline tasks for future selection and scoped packet derivation.
+- PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate in product_task_library; PTL-GOV-103-mainline-reality-alignment is the current execution packet.
 - product_task_library existing_code_state / planning_state / runtime_notes describe current code reality only; they do not authorize runtime changes in this packet.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.

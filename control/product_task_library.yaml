@@ -71,9 +71,9 @@ current_mainline_next_candidate:
   execution_scope: reality_alignment_only
   existing_code_state: PARTIAL_RUNTIME
   existing_runtime_state: PARTIAL_RUNTIME
-  planning_state: REALITY_ALIGNMENT_ACTIVE
+  planning_state: REALITY_ALIGNMENT_QUEUED
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "Stage1-2 已存在 internal governed partial runtime；当前窗口只对齐 planning / control / contracts / tests wording，不把该主线回写成从零 skeleton。"
+  runtime_notes: "Stage1-2 已存在 internal governed PARTIAL_RUNTIME；PTL-S12 仅作为 current_mainline_next_candidate 保留，当前执行包保持 PTL-GOV-103-mainline-reality-alignment；当前窗口只对齐 planning / control / contracts / tests wording，不把该主线回写成 zero-to-one skeleton。"
 task_count: 11
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -93,14 +93,14 @@ tasks:
     title: "Stage1-2 来源、路由与时钟权威闭合"
     stage_scope: [stage1_tasking, stage2_ingestion]
     task_type: product_mainline_closure
-    status: ACTIVE
+    status: CANDIDATE
     is_current_mainline_next_candidate: true
     priority: P0
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: PARTIAL_RUNTIME
-    planning_state: REALITY_ALIGNMENT_ACTIVE
+    planning_state: REALITY_ALIGNMENT_QUEUED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "Stage1-2 authority / route / clock 已存在 internal governed partial runtime；当前对齐包只修 product_task_library、AX9S 与 Stage1-2 contracts-handoff-tests wording，不改业务 runtime。"
+    runtime_notes: "Stage1-2 authority / route / clock 已存在 internal governed PARTIAL_RUNTIME；PTL-S12 仅作为 current_mainline_next_candidate 保留，当前执行包保持 PTL-GOV-103-mainline-reality-alignment；当前对齐包只修 product_task_library、AX9S 与 Stage1-2 contracts-handoff-tests wording，不改业务 runtime。"
     hard_depends_on: []
     soft_depends_on: []
     objective: "闭合 Stage1-2 的来源权威、采集路由、版本链与时钟口径。"
@@ -154,7 +154,7 @@ tasks:
     existing_runtime_state: PARTIAL_RUNTIME
     planning_state: REALITY_ALIGNMENT_QUEUED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "Stage4-5 双闸门已有 partial runtime；后续任务重点是消费边界与契约收口，不应误写成 formal skeleton only。"
+    runtime_notes: "Stage4-5 双闸门已有 PARTIAL_RUNTIME；后续任务重点是消费边界与契约收口，不应误写成 zero-to-one skeleton。"
     hard_depends_on: [PTL-S34-object-lineage-verification-handoff]
     soft_depends_on: []
     objective: "闭合 Stage4 输出与 Stage5 规则/证据双闸门之间的正式消费口径。"
@@ -172,7 +172,7 @@ tasks:
     existing_runtime_state: HEAVY_RUNTIME
     planning_state: REALITY_ALIGNMENT_QUEUED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "Stage5-6 已有 heavy internal governed runtime；后续主线任务是把 formal contracts / consumption boundary 与现状收平，不是补 skeleton。"
+    runtime_notes: "Stage5-6 已有 HEAVY_RUNTIME 的 internal governed runtime；后续主线任务是把 formal contracts / consumption boundary 与现状收平，不是 zero-to-one skeleton 补齐。"
     hard_depends_on: [PTL-S45-rule-evidence-dual-gate]
     soft_depends_on: []
     objective: "闭合 project fact、review queue、report 与后续销售阶段输入之间的关系。"

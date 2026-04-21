@@ -226,6 +226,7 @@ currentTask:
       - "当前 active task source 优先级固定为 current_task -> product_task_library -> repo_status。"
       - "本轮为 scoped-execution；只做 reality alignment，不改业务 runtime。"
       - "product_task_library 的 existing_code_state / planning_state / runtime_notes 只表达现状，不自动授权 runtime 变更。"
+      - "PTL-S12-source-route-clock-authority 仍是 current_mainline_next_candidate，不是当前执行包；当前执行包保持 PTL-GOV-103-mainline-reality-alignment。"
       - "Stage8 / Stage9 边界与 external release 继续保持阻断。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
@@ -242,4 +243,4 @@ currentTask:
     - "不得自动进入下一包、不得提交"
   nextActions:
     - "运行聚焦测试、门禁脚本、clean-python-cache.ps1 与 git status 后停机汇报。"
-  status_note: "PTL-GOV-103-mainline-reality-alignment 当前处于 scoped-execution；本窗口只对齐产品主线规划面、AX9S 提示和 Stage1-2 contracts-handoff-tests wording 与既有内部 governed runtime 事实，不改业务 runtime；external release 与 Stage 8/9 real execution 继续阻断。"
+  status_note: "PTL-GOV-103-mainline-reality-alignment 当前处于 scoped-execution；本窗口只对齐产品主线规划面、AX9S 提示和 Stage1-2 contracts-handoff-tests wording 与既有内部 governed runtime 事实，不改业务 runtime；PTL-S12-source-route-clock-authority 仅作为 current_mainline_next_candidate 保留，不是当前执行包；external release 与 Stage 8/9 real execution 继续阻断。"

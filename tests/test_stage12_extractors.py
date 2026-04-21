@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -12,14 +13,18 @@ def load_json(relative_path: str) -> dict:
     return json.loads((ROOT / relative_path).read_text(encoding="utf-8"))
 
 
+def load_text(relative_path: str) -> str:
+    return (ROOT / relative_path).read_text(encoding="utf-8")
+
+
 class TestStage12Extractors(unittest.TestCase):
-    def test_source_registry_declares_scoped_execution_skeleton_boundary(self) -> None:
+    def test_source_registry_declares_scoped_execution_partial_runtime_boundary(self) -> None:
         registry = load_json("contracts/governance/source_registry.json")
         authority = registry["canonical_authority"]
 
-        self.assertEqual(registry["contract_scope"], "stage1_to_stage2_authoritative_source_route_clock_formal_skeleton")
+        self.assertEqual(registry["contract_scope"], "stage1_to_stage2_authoritative_source_route_clock_partial_runtime_alignment")
         self.assertEqual(registry["execution_scope"], "scoped_execution")
-        self.assertEqual(registry["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(registry["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(registry["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
         self.assertEqual(registry["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
         self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(registry, ensure_ascii=False))
@@ -53,9 +58,9 @@ class TestStage12Extractors(unittest.TestCase):
         policy_index = {entry["route_policy_id"]: entry for entry in catalog["policies"]}
         authority = catalog["canonical_authority"]
 
-        self.assertEqual(catalog["contract_scope"], "stage1_to_stage2_authoritative_source_route_clock_formal_skeleton")
+        self.assertEqual(catalog["contract_scope"], "stage1_to_stage2_authoritative_source_route_clock_partial_runtime_alignment")
         self.assertEqual(catalog["execution_scope"], "scoped_execution")
-        self.assertEqual(catalog["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(catalog["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(catalog["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
         self.assertEqual(catalog["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
         self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(catalog, ensure_ascii=False))
@@ -90,7 +95,7 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertEqual(contract["packet_id"], "PTL-PKT-S12-source-route-clock-authority")
         self.assertEqual(contract["execution_scope"], "scoped_execution")
-        self.assertEqual(contract["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(contract["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(contract["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
         self.assertEqual(contract["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
         self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(contract, ensure_ascii=False))
@@ -119,7 +124,7 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertEqual(
             interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["mode"],
-            "FORMAL_SKELETON_SYNC_ONLY",
+            "PARTIAL_RUNTIME_ALIGNMENT_ONLY",
         )
         self.assertEqual(
             interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["existing_runtime_state"],
@@ -130,12 +135,12 @@ class TestStage12Extractors(unittest.TestCase):
             "OUT_OF_SCOPE",
         )
 
-    def test_h01_contract_freezes_authoritative_fields_without_runtime_fallback(self) -> None:
+    def test_h01_contract_freezes_authoritative_fields_without_runtime_rewrite(self) -> None:
         handoff = load_json("handoff/stage1_to_stage2/contract.json")
 
         self.assertEqual(handoff["packet_id"], "PTL-PKT-S12-source-route-clock-authority")
         self.assertEqual(handoff["execution_scope"], "scoped_execution")
-        self.assertEqual(handoff["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(handoff["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(handoff["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
         self.assertEqual(handoff["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
         self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(handoff, ensure_ascii=False))
@@ -166,7 +171,7 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertEqual(example["packet_id"], "PTL-PKT-S12-source-route-clock-authority")
         self.assertEqual(example["execution_scope"], "scoped_execution")
-        self.assertEqual(example["implementation_boundary"]["mode"], "FORMAL_SKELETON_SYNC_ONLY")
+        self.assertEqual(example["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(example["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
         self.assertEqual(example["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
         for field_name in handoff["required_payload_fields"]:
@@ -176,6 +181,37 @@ class TestStage12Extractors(unittest.TestCase):
             "current_action_deadline_at_optional",
         ):
             self.assertIn(field_name, payload)
+
+    def test_planning_surfaces_mark_ptls12_as_next_candidate_only(self) -> None:
+        task_library_text = load_text("control/product_task_library.yaml")
+        current_task_text = load_text("control/current_task.yaml")
+        repo_status_text = load_text("control/repo_status.md")
+        route_map_text = load_text("docs/AX9S_开发执行路由图.md")
+
+        self.assertIn("PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate only", repo_status_text)
+        self.assertIn("PTL-S12-source-route-clock-authority 仍是 current_mainline_next_candidate，不是当前执行包", current_task_text)
+        self.assertIn("当前 active 包是 `PTL-GOV-103-mainline-reality-alignment`；`PTL-S12-source-route-clock-authority` 只是 `current_mainline_next_candidate`", route_map_text)
+
+        candidate_match = re.search(
+            r"current_mainline_next_candidate:\s+task_id: PTL-S12-source-route-clock-authority(?P<body>.*?)(?:\n\S|\Z)",
+            task_library_text,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(candidate_match)
+        candidate_body = candidate_match.group("body")
+        self.assertIn("planning_state: REALITY_ALIGNMENT_QUEUED", candidate_body)
+        self.assertIn("当前执行包保持 PTL-GOV-103-mainline-reality-alignment", candidate_body)
+
+        task_match = re.search(
+            r"- task_id: PTL-S12-source-route-clock-authority(?P<body>.*?)(?:\n  - task_id: |\Z)",
+            task_library_text,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(task_match)
+        task_body = task_match.group("body")
+        self.assertIn("status: CANDIDATE", task_body)
+        self.assertIn("planning_state: REALITY_ALIGNMENT_QUEUED", task_body)
+        self.assertIn("当前执行包保持 PTL-GOV-103-mainline-reality-alignment", task_body)
 
 
 if __name__ == "__main__":
