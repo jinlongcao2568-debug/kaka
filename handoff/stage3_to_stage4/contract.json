@@ -29,7 +29,12 @@
     "public_chain_status",
     "lineage_status",
     "conflict_state",
-    "fixation_bundle_id"
+    "fixation_bundle_id",
+    "source_registry_id",
+    "route_policy_id",
+    "version_conflict_state",
+    "clock_conflict_state",
+    "stage3_review_path_ref_optional"
   ],
   "consumer_runtime_required_fields": [
     "project_id",
@@ -40,27 +45,28 @@
     "public_chain_status",
     "lineage_status",
     "conflict_state",
-    "fixation_bundle_id"
-  ],
-  "optional_payload_fields": [
+    "fixation_bundle_id",
     "source_registry_id",
     "route_policy_id",
+    "version_conflict_state",
+    "clock_conflict_state",
+    "stage3_review_path_ref_optional"
+  ],
+  "optional_payload_fields": [
     "route_decision_state",
     "route_review_reasons",
     "winning_version_resolution_rule_id",
     "clock_resolution_rule_id",
-    "version_conflict_state",
-    "clock_conflict_state",
     "stage3_truth_layer_ref_optional",
     "field_lineage_collection_ref_optional",
     "bidder_candidate_collection_ref_optional",
     "candidate_collection_ref_optional",
-    "stage3_review_path_ref_optional",
     "unresolved_reason_optional"
   ],
   "consumer_obligations": [
     "Stage4 must consume Stage3 producer objects project_base, field_lineage_record, bidder_candidate, and project_manager as read-only parsed truth input.",
     "Stage4 must not recompute project identity, notice version, candidate order, lineage status, conflict state, or candidate set truth from raw Stage2 payload or ad hoc parser output.",
+    "Stage4 must consume source_registry_id, route_policy_id, version_conflict_state, clock_conflict_state, and stage3_review_path_ref_optional from H-03 / Stage3 formal producer carriers.",
     "Stage4 may only derive verification objects from Stage3 truth-layer carriers and must route unresolved/conflicting lineage to REVIEW or BLOCK."
   ],
   "consumer_must_not_recompute_fields": [
@@ -68,9 +74,15 @@
     "notice_version_id",
     "candidate_order_mode",
     "award_determination_mode",
+    "public_chain_status",
     "lineage_status",
     "conflict_state",
-    "candidate_collection_ref_optional"
+    "source_registry_id",
+    "route_policy_id",
+    "version_conflict_state",
+    "clock_conflict_state",
+    "candidate_collection_ref_optional",
+    "stage3_review_path_ref_optional"
   ],
   "unresolved_or_conflicting_lineage_paths": [
     {

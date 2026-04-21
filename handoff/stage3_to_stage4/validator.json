@@ -6,5 +6,10 @@
   ],
   "global_rule_refs": [
     "HV-009"
+  ],
+  "notes": [
+    "Stage4 must consume H-03 formal authority from Stage3 producer objects / handoff for project identity, notice version, candidate order, award mode, public chain status, source/route refs, version/clock conflict states, lineage_status, conflict_state, fixation_bundle_id, and stage3_review_path_ref_optional.",
+    "Stage4 must not silently recover these Stage3 truth-layer inputs from scattered payload override when H-03 authority is missing or conflicting.",
+    "Missing or conflicting lineage, conflict, candidate collection, or review path context must enter REVIEW or BLOCK before Stage5 consumption."
   ]
 }

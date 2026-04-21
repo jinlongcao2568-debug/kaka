@@ -776,10 +776,28 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             self.assertIn(field_name, h02["consumer_runtime_required_fields"])
 
         h03 = read_json("handoff/stage3_to_stage4/contract.json")
-        for field_name in ("lineage_status", "conflict_state", "fixation_bundle_id"):
+        for field_name in (
+            "lineage_status",
+            "conflict_state",
+            "fixation_bundle_id",
+            "source_registry_id",
+            "route_policy_id",
+            "version_conflict_state",
+            "clock_conflict_state",
+            "stage3_review_path_ref_optional",
+        ):
             self.assertIn(field_name, h03["required_payload_fields"])
             self.assertIn(field_name, h03["consumer_runtime_required_fields"])
-        for field_name in ("lineage_status", "conflict_state", "candidate_collection_ref_optional"):
+        for field_name in (
+            "lineage_status",
+            "conflict_state",
+            "candidate_collection_ref_optional",
+            "stage3_review_path_ref_optional",
+            "source_registry_id",
+            "route_policy_id",
+            "version_conflict_state",
+            "clock_conflict_state",
+        ):
             self.assertIn(field_name, h03["consumer_must_not_recompute_fields"])
         self.assertIn("consumer_obligations", h03)
         self.assertIn("optional_payload_fields", h03)
@@ -831,6 +849,30 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             'inputs.get("route_review_reasons")',
             'inputs.get("winning_version_resolution_rule_id")',
             'inputs.get("clock_resolution_rule_id")',
+        ):
+            self.assertNotIn(token, text)
+
+    def test_stage4_service_consumes_h03_formal_carriers_only(self) -> None:
+        text = read("src/stage4_verification/service.py")
+        for token in (
+            "resolve_h03_field(",
+            "handoff_map = stage3_bundle.handoff",
+            'stage3_bundle.records.get("project_manager")',
+            "stage3_handoff_then_formal_producer_objects",
+            "candidate_collection_ref_missing",
+            "stage3_review_path_requires_review",
+        ):
+            self.assertIn(token, text)
+        for token in (
+            'inputs.get("project_root_id")',
+            'inputs.get("notice_version_id")',
+            'inputs.get("candidate_order_mode")',
+            'inputs.get("award_determination_mode")',
+            'inputs.get("lineage_status")',
+            'inputs.get("conflict_state")',
+            'inputs.get("candidate_set_ids")',
+            'inputs.get("ranked_candidate_ids_optional")',
+            'inputs.get("candidate_ids")',
         ):
             self.assertNotIn(token, text)
 

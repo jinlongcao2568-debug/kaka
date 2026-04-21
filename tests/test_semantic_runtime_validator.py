@@ -255,6 +255,111 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
         self.assertEqual(stage4.record("public_attack_surface").get("verification_state"), "REVIEW")
         self.assertNotEqual(stage4.record("public_attack_surface").get("verification_state"), "PASS")
 
+    def test_stage4_consumes_h03_handoff_over_scattered_input_overrides(self) -> None:
+        bundles = self._stage_bundles_to_stage7()
+        stage3 = bundles["stage3"]
+        focus_bidder_id = stage3.record("bidder_candidate").get("bidder_candidate_id")
+        overridden_inputs = {
+            **stage3.inputs,
+            "project_root_id": "ROOT-RECOMPUTED",
+            "notice_version_id": "NV-RECOMPUTED",
+            "candidate_order_mode": "UNORDERED",
+            "award_determination_mode": "LOWEST_PRICE",
+            "lineage_status": "UNVERIFIED",
+            "conflict_state": "UNRESOLVED",
+            "candidate_set_ids": ["BID-OVERRIDE"],
+            "ranked_candidate_ids_optional": ["BID-OVERRIDE"],
+            "candidate_ids": ["BID-OVERRIDE"],
+        }
+        stage4 = Stage4Service().run(
+            StageBundle(
+                stage=3,
+                records=dict(stage3.records),
+                handoff=dict(stage3.handoff),
+                trace_rules=list(stage3.trace_rules),
+                inputs=overridden_inputs,
+            )
+        )
+
+        self.assertEqual(stage4.handoff.get("lineage_status"), stage3.handoff.get("lineage_status"))
+        self.assertEqual(stage4.handoff.get("conflict_state"), stage3.handoff.get("conflict_state"))
+        self.assertEqual(stage4.inputs.get("project_root_id"), stage3.handoff.get("project_root_id"))
+        self.assertEqual(stage4.inputs.get("notice_version_id"), stage3.handoff.get("notice_version_id"))
+        self.assertEqual(stage4.inputs.get("candidate_order_mode"), stage3.handoff.get("candidate_order_mode"))
+        self.assertEqual(stage4.inputs.get("award_determination_mode"), stage3.handoff.get("award_determination_mode"))
+        self.assertEqual(stage4.record("public_attack_surface").get("candidate_set_ids"), [focus_bidder_id])
+        self.assertEqual(stage4.record("public_attack_surface").get("ranked_candidate_ids_optional"), [focus_bidder_id])
+        self.assertEqual(stage4.record("pseudo_competitor_signal_set").get("candidate_ids"), [focus_bidder_id])
+        self.assertEqual(stage4.record("public_attack_surface").get("verification_state"), "PASS")
+        self.assertEqual(
+            stage4.inputs.get("h03_formal_consumption_trace", {}).get("source_precedence"),
+            "stage3_handoff_then_formal_producer_objects",
+        )
+
+    def test_stage4_missing_h03_review_or_collection_context_does_not_pass(self) -> None:
+        bundles = self._stage_bundles_to_stage7()
+        stage3 = bundles["stage3"]
+        project_base_data = {
+            key: value
+            for key, value in stage3.record("project_base").data.items()
+            if key not in {"stage3_review_path_ref_optional", "bidder_candidate_collection_ref_optional"}
+        }
+        lineage_data = {
+            key: value
+            for key, value in stage3.record("field_lineage_record").data.items()
+            if key not in {"review_path_optional", "candidate_collection_ref_optional"}
+        }
+        bidder_data = {
+            key: value
+            for key, value in stage3.record("bidder_candidate").data.items()
+            if key != "candidate_collection_ref_optional"
+        }
+        stripped_handoff = {
+            key: value
+            for key, value in stage3.handoff.items()
+            if key
+            not in {
+                "stage3_review_path_ref_optional",
+                "candidate_collection_ref_optional",
+                "bidder_candidate_collection_ref_optional",
+            }
+        }
+        stripped_inputs = {
+            key: value
+            for key, value in stage3.inputs.items()
+            if key
+            not in {
+                "stage3_review_path_ref_optional",
+                "candidate_collection_ref_optional",
+                "bidder_candidate_collection_ref_optional",
+            }
+        }
+        stage4 = Stage4Service().run(
+            StageBundle(
+                stage=3,
+                records={
+                    **stage3.records,
+                    "project_base": ContractRecord("project_base", project_base_data),
+                    "field_lineage_record": ContractRecord("field_lineage_record", lineage_data),
+                    "bidder_candidate": ContractRecord("bidder_candidate", bidder_data),
+                },
+                handoff=stripped_handoff,
+                trace_rules=list(stage3.trace_rules),
+                inputs=stripped_inputs,
+            )
+        )
+
+        self.assertEqual(stage4.record("public_attack_surface").get("verification_state"), "BLOCK")
+        self.assertNotEqual(stage4.record("public_attack_surface").get("verification_state"), "PASS")
+        self.assertIn(
+            "stage3_review_path_ref_optional",
+            stage4.inputs.get("h03_formal_consumption_trace", {}).get("missing_required_fields"),
+        )
+        self.assertIn(
+            "candidate_collection_ref_missing",
+            stage4.inputs.get("h03_formal_consumption_trace", {}).get("review_reasons"),
+        )
+
     def test_stage3_prefers_stage2_handoff_authority_over_input_override(self) -> None:
         stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
         stage2 = Stage2Service().run(stage1)

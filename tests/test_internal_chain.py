@@ -166,6 +166,24 @@ class TestInternalChain(unittest.TestCase):
         )
         self.assertEqual(stage4.handoff.get("lineage_status"), "NORMALIZED")
         self.assertEqual(stage4.handoff.get("conflict_state"), "CONSISTENT")
+        public_refs = stage4.record("public_attack_surface").get("public_supporting_refs")
+        self.assertIn("STAGE3_LINEAGE_STATUS:NORMALIZED", public_refs)
+        self.assertIn("STAGE3_CONFLICT_STATE:CONSISTENT", public_refs)
+        self.assertIn("STAGE3_REVIEW_PATH:STAGE3_READY_FOR_STAGE4", public_refs)
+        self.assertIn(f"STAGE3_CANDIDATE_COLLECTION:CSET-{project_id}", public_refs)
+        self.assertEqual(
+            stage4.record("focus_bidder_verification_profile").get("relation_conflict_state"),
+            "CONSISTENT",
+        )
+        self.assertIn(
+            "STAGE3_LINEAGE_NORMALIZED",
+            stage4.record("pseudo_competitor_signal_set").get("signal_tags"),
+        )
+        self.assertIn(
+            "stage3_conflict=CONSISTENT",
+            stage4.record("pseudo_competitor_signal_set").get("explanation"),
+        )
+        self.assertEqual(stage4.record("evidence_grade_profile").get("cross_check_state"), "PASS")
 
         stage5 = result["stage5"]
         self.assertEqual(
@@ -322,7 +340,16 @@ class TestInternalChain(unittest.TestCase):
         stage3 = result["stage3"]
         h03 = self.contracts[3]
 
-        for field_name in ("lineage_status", "conflict_state", "fixation_bundle_id"):
+        for field_name in (
+            "lineage_status",
+            "conflict_state",
+            "fixation_bundle_id",
+            "source_registry_id",
+            "route_policy_id",
+            "version_conflict_state",
+            "clock_conflict_state",
+            "stage3_review_path_ref_optional",
+        ):
             self.assertIn(field_name, h03["required_payload_fields"])
             self.assertIn(field_name, h03["consumer_runtime_required_fields"])
 
