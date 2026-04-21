@@ -63,9 +63,9 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-S23-public-chain-to-parser-contract
-  packet_id: PTL-PKT-S23-public-chain-to-parser-contract
-  title: "Stage2-3 公开链到结构化解析输入闭合"
+  task_id: PTL-S34-object-lineage-verification-handoff
+  packet_id: PTL-PKT-S34-object-lineage-verification-handoff
+  title: "Stage3-4 对象、字段来源与公开核验移交闭合"
   source_blueprint_batch_id: POST-FF-CONTROL-01
   packet_kind: EXECUTABLE_SCOPED_SUBPACKET
   activation_mode: scoped_execution
@@ -74,7 +74,7 @@ current_mainline_next_candidate:
   existing_runtime_state: PARTIAL_RUNTIME
   planning_state: REALITY_ALIGNMENT_QUEUED
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "Stage2-3 已存在公开链采集到解析入口的 partial runtime；本轮治理收口只把 PTL-S23 推进为 current_mainline_next_candidate，不因候选池指针自动成为当前执行包；当前 active execution source 以 control/current_task.yaml 为准，本轮不激活 PTL-S23，也不改 runtime。"
+  runtime_notes: "Stage3-4 已存在对象抽取与公开核验的 partial runtime；本轮治理收口只把 PTL-S34 推进为 current_mainline_next_candidate，不因候选池指针自动成为当前执行包；当前 active execution source 以 control/current_task.yaml 为准，本轮不激活 PTL-S34，也不改 runtime。"
 task_count: 11
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -113,14 +113,14 @@ tasks:
     title: "Stage2-3 公开链到结构化解析输入闭合"
     stage_scope: [stage2_ingestion, stage3_parsing]
     task_type: product_mainline_closure
-    status: CANDIDATE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P0
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: PARTIAL_RUNTIME
-    planning_state: REALITY_ALIGNMENT_QUEUED
+    planning_state: COMPLETED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "Stage2-3 已存在公开链采集到解析入口的 partial runtime；当前已推进为 current_mainline_next_candidate，但本轮仅为治理收口位移，不激活 PTL-S23；后续主线仍应先对齐 contract/handoff 与字段来源，再决定是否需要 runtime 收口。"
+    runtime_notes: "PTL-S23 scoped-execution 已完成并提交；Stage2-3 仍是既有 internal governed PARTIAL_RUNTIME，PTL-S23 不再是 current active packet，也不再是 current_mainline_next_candidate。"
     hard_depends_on: [PTL-S12-source-route-clock-authority]
     soft_depends_on: []
     objective: "闭合公开链、版本链、固定化输入与结构化解析入口之间的契约。"
@@ -133,6 +133,7 @@ tasks:
     stage_scope: [stage3_parsing, stage4_verification]
     task_type: product_mainline_closure
     status: CANDIDATE
+    is_current_mainline_next_candidate: true
     priority: P0
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: PARTIAL_RUNTIME

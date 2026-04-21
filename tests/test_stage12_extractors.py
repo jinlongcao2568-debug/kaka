@@ -215,12 +215,12 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertTrue(active_packet["packet_id"])
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["task_id"], "PTL-S23-public-chain-to-parser-contract")
+        self.assertEqual(candidate["task_id"], "PTL-S34-object-lineage-verification-handoff")
         self.assertEqual(candidate["planning_state"], "REALITY_ALIGNMENT_QUEUED")
         self.assertEqual(candidate["runtime_change_in_packet"], "OUT_OF_SCOPE")
 
         candidate_match = re.search(
-            r"current_mainline_next_candidate:\s+task_id: PTL-S23-public-chain-to-parser-contract(?P<body>.*?)(?:\n\S|\Z)",
+            r"current_mainline_next_candidate:\s+task_id: PTL-S34-object-lineage-verification-handoff(?P<body>.*?)(?:\n\S|\Z)",
             task_library_text,
             re.DOTALL,
         )
@@ -239,9 +239,16 @@ class TestStage12Extractors(unittest.TestCase):
         stage23_task_entry = next(
             task for task in task_library["tasks"] if task["task_id"] == "PTL-S23-public-chain-to-parser-contract"
         )
-        self.assertEqual(stage23_task_entry["status"], "CANDIDATE")
-        self.assertEqual(stage23_task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
-        self.assertTrue(stage23_task_entry["is_current_mainline_next_candidate"])
+        self.assertEqual(stage23_task_entry["status"], "COMPLETED")
+        self.assertEqual(stage23_task_entry["planning_state"], "COMPLETED")
+        self.assertFalse(stage23_task_entry["is_current_mainline_next_candidate"])
+
+        stage34_task_entry = next(
+            task for task in task_library["tasks"] if task["task_id"] == "PTL-S34-object-lineage-verification-handoff"
+        )
+        self.assertEqual(stage34_task_entry["status"], "CANDIDATE")
+        self.assertEqual(stage34_task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
+        self.assertTrue(stage34_task_entry["is_current_mainline_next_candidate"])
         self.assertNotIn(
             active_packet["packet_id"],
             [task["task_id"] for task in task_library["tasks"]],
