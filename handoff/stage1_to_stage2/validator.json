@@ -9,6 +9,7 @@
   ],
   "notes": [
     "authoritative baseline fields may appear as optional payload on H-01: source_family/platform_level/region_scope/coverage_tier/carrier_type/clock_resolution_rule_id/current_action_start_at_optional/current_action_deadline_at_optional",
-    "Stage2 must consume carrier_type and route authority from H-01 / execution_context rather than raw payload override"
+    "Stage2 must consume carrier_type and route authority from H-01 / execution_context rather than raw payload override",
+    "Stage2 must consume source_registry_id/route_policy_id/default_route/fallback_route/clock_resolution_rule_id/clock_precedence_rule_id from H-01 authority; missing or mismatched authority fields must enter review/block/downgrade path."
   ]
 }

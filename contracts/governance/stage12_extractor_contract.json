@@ -7,7 +7,7 @@
   "implementation_boundary": {
     "mode": "PARTIAL_RUNTIME_ALIGNMENT_ONLY",
     "existing_runtime_state": "PARTIAL_RUNTIME",
-    "runtime_change_in_packet": "OUT_OF_SCOPE",
+    "runtime_change_in_packet": "CONTROLLED_STAGE1_2_RUNTIME_CLOSURE",
     "external_release_state": "BLOCKED"
   },
   "source_documents": [
@@ -88,7 +88,7 @@
       ],
       "input_priority": [
         "payload.time_range_from/time_range_until",
-        "payload.window_priority_policy/clock_resolution_rule_id",
+        "payload.window_priority_policy",
         "contracts/governance/source_registry.json#entries[*].clock_resolution_rule_id",
         "contracts/governance/route_policy_catalog.json#policies[*].clock_chain_relation"
       ],
@@ -134,7 +134,9 @@
       ],
       "fallback_taxonomy": [
         "default_route_source=h01_authority",
-        "winning_version_resolution_rule_id_source=fallback_default"
+        "fallback_route_source=h01_authority",
+        "winning_version_resolution_rule_id_source=fallback_default",
+        "clock_precedence_rule_id_source=h01_authority"
       ],
       "review_taxonomy": [
         "collection_state_requires_review",
@@ -144,7 +146,7 @@
       "implementation_boundary": {
         "mode": "PARTIAL_RUNTIME_ALIGNMENT_ONLY",
         "existing_runtime_state": "PARTIAL_RUNTIME",
-        "runtime_change_in_packet": "OUT_OF_SCOPE"
+        "runtime_change_in_packet": "CONTROLLED_STAGE1_2_RUNTIME_CLOSURE"
       }
     }
   ]

@@ -14,7 +14,7 @@
   "implementation_boundary": {
     "mode": "PARTIAL_RUNTIME_ALIGNMENT_ONLY",
     "existing_runtime_state": "PARTIAL_RUNTIME",
-    "runtime_change_in_packet": "OUT_OF_SCOPE",
+    "runtime_change_in_packet": "CONTROLLED_STAGE1_2_RUNTIME_CLOSURE",
     "external_live_enablement_gate": "BLOCKED_BY_DEFAULT",
     "stage8_stage9_unlock_state": "UNCHANGED_BLOCKED"
   },
@@ -1080,6 +1080,8 @@
       "default_route",
       "fallback_route",
       "route_fallback_order",
+      "clock_resolution_rule_id",
+      "clock_precedence_rule_id",
       "clock_chain_relation.clock_resolution_rule_id",
       "clock_chain_relation.clock_precedence_rule_id"
     ],

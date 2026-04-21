@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 import copy
+import sys
 import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+TESTS = ROOT / "tests"
+for search_path in (SRC, TESTS):
+    if str(search_path) not in sys.path:
+        sys.path.insert(0, str(search_path))
 
 from helpers import load_fixture
 from shared.contracts_runtime import ContractStore, StageBundle
@@ -132,6 +142,33 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
         self.assertEqual(
             self.store.evaluate_handoff_consumer(producer_bundle=h01_conflict, consumer_stage=2).decision_state,
             "BLOCK",
+        )
+
+    def test_stage2_h01_authority_missing_or_conflicting_does_not_succeed_silently(self) -> None:
+        stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
+        missing_clock_authority = StageBundle(
+            stage=1,
+            records=dict(stage1.records),
+            handoff={
+                key: value
+                for key, value in stage1.handoff.items()
+                if key not in {"clock_resolution_rule_id", "clock_precedence_rule_id"}
+            },
+            trace_rules=list(stage1.trace_rules),
+            inputs=dict(stage1.inputs),
+        )
+
+        stage2 = Stage2Service().run(missing_clock_authority)
+
+        self.assertEqual(stage2.handoff.get("route_decision_state"), "REVIEW")
+        self.assertEqual(stage2.handoff.get("collection_state"), "REVIEW_REQUIRED")
+        self.assertIn(
+            "missing_h01_authority_field:clock_resolution_rule_id",
+            stage2.handoff.get("route_review_reasons"),
+        )
+        self.assertIn(
+            "missing_h01_authority_field:clock_precedence_rule_id",
+            stage2.handoff.get("route_review_reasons"),
         )
 
     def test_h03_stage4_must_not_recompute_stage3_truth_fields(self) -> None:

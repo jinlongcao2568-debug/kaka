@@ -401,6 +401,8 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         self.assertEqual(public_chain.get("default_route"), stage1.handoff.get("default_route"))
         self.assertEqual(public_chain.get("fallback_route"), stage1.handoff.get("fallback_route"))
         self.assertEqual(stage2_trace.get("default_route_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("fallback_route_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("clock_precedence_rule_id_source"), "h01_authority")
         self.assertEqual(version_chain.get("version_chain_strategy"), "NOTICE_REPLACEMENT_CHAIN")
         self.assertEqual(clock_chain.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
 

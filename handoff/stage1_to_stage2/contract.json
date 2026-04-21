@@ -6,7 +6,7 @@
   "implementation_boundary": {
     "mode": "PARTIAL_RUNTIME_ALIGNMENT_ONLY",
     "existing_runtime_state": "PARTIAL_RUNTIME",
-    "runtime_change_in_packet": "OUT_OF_SCOPE",
+    "runtime_change_in_packet": "CONTROLLED_STAGE1_2_RUNTIME_CLOSURE",
     "external_release_state": "BLOCKED"
   },
   "from_stage": 1,

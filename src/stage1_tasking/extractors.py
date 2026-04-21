@@ -109,6 +109,7 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
 
     mismatch_reasons: list[str] = []
     declared_default_route = payload.get("default_route")
+    declared_fallback_route = payload.get("fallback_route")
     registry_default_route = ensure_enum_or_fallback(
         store,
         "route_type",
@@ -131,6 +132,8 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
         default_route=default_route,
         store=store,
     )
+    if declared_fallback_route and declared_fallback_route != fallback_route:
+        mismatch_reasons.append("fallback_route_mismatch_requires_review")
 
     time_range_from = payload.get("time_range_from")
     time_range_until = payload.get("time_range_until")
@@ -147,18 +150,23 @@ def extract_stage1(payload: Mapping[str, Any], store: ContractStore, *, now: str
     if baseline_collection_state in {"DISCOVERED", "REVIEW_REQUIRED", "BLOCKED"}:
         fallback_reasons.append("baseline_collection_state_requires_review")
 
-    declared_clock_rule = payload.get("clock_resolution_rule_id")
-    declared_clock_rule_text = str(declared_clock_rule) if declared_clock_rule is not None else ""
-    clock_resolution_rule_id = (
-        declared_clock_rule_text
-        if declared_clock_rule_text and declared_clock_rule_text != "CLOCK-DEFAULT"
-        else str(source_entry.get("clock_resolution_rule_id") or route_policy.get("clock_chain_relation", {}).get("clock_resolution_rule_id", "CLOCK-DEFAULT"))
+    clock_relation = route_policy.get("clock_chain_relation", {})
+    clock_resolution_rule_id = str(
+        source_entry.get("clock_resolution_rule_id")
+        or clock_relation.get("clock_resolution_rule_id")
+        or "CLOCK-DEFAULT"
     )
     clock_precedence_rule_id = str(
         source_entry.get("clock_precedence_rule_id")
-        or route_policy.get("clock_chain_relation", {}).get("clock_precedence_rule_id")
+        or clock_relation.get("clock_precedence_rule_id")
         or "CLOCK-PREC-DEFAULT"
     )
+    declared_clock_rule = payload.get("clock_resolution_rule_id")
+    if declared_clock_rule and str(declared_clock_rule) != clock_resolution_rule_id:
+        mismatch_reasons.append("clock_resolution_rule_mismatch_requires_review")
+    declared_clock_precedence_rule = payload.get("clock_precedence_rule_id")
+    if declared_clock_precedence_rule and str(declared_clock_precedence_rule) != clock_precedence_rule_id:
+        mismatch_reasons.append("clock_precedence_rule_mismatch_requires_review")
     current_action_start_raw = payload.get("current_action_start_at_optional")
     current_action_deadline_raw = payload.get("current_action_deadline_at_optional")
     current_action_start_at_optional = str(current_action_start_raw) if current_action_start_raw is not None else None

@@ -16,7 +16,9 @@ from shared.utils import ensure_enum, ensure_enum_or_fallback, get_flag
 class Stage2Extraction:
     project_id: str
     source_registry_id: str
+    source_registry_id_source: str
     route_policy_id: str
+    route_policy_id_source: str
     source_family: str
     platform_level: str
     region_scope: str
@@ -24,7 +26,9 @@ class Stage2Extraction:
     carrier_type: str
     origin_carrier_type: str
     default_route: str
+    default_route_source: str
     fallback_route: str
+    fallback_route_source: str
     route_decision_state: str
     route_review_reasons: list[str]
     route_downgrade_signals: list[str]
@@ -100,6 +104,7 @@ def _collection_state(
     rollout_enabled: bool,
     version_precedence_source: str,
     clock_precedence_source: str,
+    authority_review_required: bool,
 ) -> tuple[str, str]:
     runtime_map = route_policy.get("collection_state_runtime_map", {})
     baseline_to_runtime = runtime_map.get("baseline_to_runtime", {})
@@ -138,6 +143,7 @@ def _collection_state(
         or get_flag(flags, "clock_conflict")
         or version_precedence_source == "compatibility_default"
         or clock_precedence_source == "compatibility_default"
+        or authority_review_required
         or baseline_projected == review_state
     ):
         state = review_state
@@ -186,6 +192,23 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
     clock_strategy_profile = stage1_bundle.record("clock_strategy_profile")
     handoff = stage1_bundle.handoff or {}
 
+    authority_fields = (
+        "source_registry_id",
+        "route_policy_id",
+        "default_route",
+        "fallback_route",
+        "clock_resolution_rule_id",
+        "clock_precedence_rule_id",
+    )
+    authority_review_reasons = [
+        f"missing_h01_authority_field:{field_name}"
+        for field_name in authority_fields
+        if handoff.get(field_name) in (None, "")
+    ]
+    source_registry_id_source = "h01_authority" if handoff.get("source_registry_id") else "execution_context_authority_fallback"
+    route_policy_id_source = "h01_authority" if handoff.get("route_policy_id") else "execution_context_authority_fallback"
+    default_route_source = "h01_authority" if handoff.get("default_route") else "execution_context_authority_fallback"
+    fallback_route_source = "h01_authority" if handoff.get("fallback_route") else "execution_context_authority_fallback"
     source_registry_id = str(handoff.get("source_registry_id") or execution_context.get("source_registry_id"))
     route_policy_id = str(handoff.get("route_policy_id") or execution_context.get("route_policy_id"))
     carrier_authority = handoff.get("carrier_type") or execution_context.get("carrier_type") or inputs.get("carrier_type")
@@ -214,6 +237,22 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
         source_registry_id=source_registry_id,
         source_family=str(execution_context.get("source_family")),
     )
+    expected_default_route = ensure_enum_or_fallback(
+        store,
+        "route_type",
+        source_entry.get("default_route") or route_policy.get("default_route"),
+        fallback=str(route_policy.get("default_route", default_route)),
+    )
+    expected_fallback_route = ensure_enum_or_fallback(
+        store,
+        "route_type",
+        source_entry.get("fallback_route") or route_policy.get("fallback_route"),
+        fallback=default_route,
+    )
+    if default_route != expected_default_route:
+        authority_review_reasons.append("default_route_mismatch_requires_review")
+    if fallback_route != expected_fallback_route:
+        authority_review_reasons.append("fallback_route_mismatch_requires_review")
     baseline_collection_state = ensure_enum_or_fallback(
         store,
         "collection_state",
@@ -250,27 +289,12 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
         compatibility_default="VERSION-DEFAULT",
     )
     clock_relation = route_policy.get("clock_chain_relation", {})
-    clock_precedence_rule_id, clock_precedence_source = _resolve_precedence_rule_from_order(
-        list(
-            clock_relation.get(
-                "precedence_order",
-                [
-                    "clock_strategy_profile.clock_resolution_rule_id",
-                    "source_registry.clock_precedence_rule_id",
-                    "route_policy.clock_chain_relation.clock_precedence_rule_id",
-                ],
-            )
-        ),
-        {
-            "clock_strategy_profile.clock_resolution_rule_id": clock_strategy_profile.get(
-                "clock_resolution_rule_id"
-            ),
-            "source_registry.clock_precedence_rule_id": source_entry.get("clock_precedence_rule_id"),
-            "route_policy.clock_chain_relation.clock_precedence_rule_id": clock_relation.get(
-                "clock_precedence_rule_id"
-            ),
-        },
-        compatibility_default="CLOCK-PREC-DEFAULT",
+    clock_precedence_rule_id, clock_precedence_source = _resolve_authoritative_text(
+        ("h01_authority", handoff.get("clock_precedence_rule_id")),
+        ("source_registry", source_entry.get("clock_precedence_rule_id")),
+        ("route_policy", clock_relation.get("clock_precedence_rule_id")),
+        fallback="CLOCK-PREC-DEFAULT",
+        default_source="compatibility_default",
     )
     clock_resolution_rule_id, clock_resolution_rule_source = _resolve_authoritative_text(
         ("h01_authority", handoff.get("clock_resolution_rule_id")),
@@ -279,6 +303,20 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
         fallback="CLOCK-DEFAULT",
         default_source="compatibility_default",
     )
+    expected_clock_resolution_rule_id = str(
+        source_entry.get("clock_resolution_rule_id")
+        or clock_relation.get("clock_resolution_rule_id")
+        or "CLOCK-DEFAULT"
+    )
+    expected_clock_precedence_rule_id = str(
+        source_entry.get("clock_precedence_rule_id")
+        or clock_relation.get("clock_precedence_rule_id")
+        or "CLOCK-PREC-DEFAULT"
+    )
+    if clock_resolution_rule_id != expected_clock_resolution_rule_id:
+        authority_review_reasons.append("clock_resolution_rule_mismatch_requires_review")
+    if clock_precedence_rule_id != expected_clock_precedence_rule_id:
+        authority_review_reasons.append("clock_precedence_rule_mismatch_requires_review")
 
     collection_state, clock_conflict_state = _collection_state(
         flags,
@@ -289,8 +327,9 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
         rollout_enabled=rollout_enabled,
         version_precedence_source=version_precedence_source,
         clock_precedence_source=clock_precedence_source,
+        authority_review_required=bool(authority_review_reasons),
     )
-    route_review_reasons: list[str] = []
+    route_review_reasons: list[str] = list(dict.fromkeys(authority_review_reasons))
     if collection_state == "REVIEW_REQUIRED":
         route_review_reasons.append("collection_state_requires_review")
     if not rollout_enabled:
@@ -327,7 +366,9 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
     return Stage2Extraction(
         project_id=project_id,
         source_registry_id=source_registry_id,
+        source_registry_id_source=source_registry_id_source,
         route_policy_id=route_policy_id,
+        route_policy_id_source=route_policy_id_source,
         source_family=str(execution_context.get("source_family")),
         platform_level=str(execution_context.get("platform_level")),
         region_scope=str(execution_context.get("region_scope")),
@@ -335,7 +376,9 @@ def extract_stage2(stage1_bundle: StageBundle, store: ContractStore, *, now: str
         carrier_type=ensure_enum(store, "carrier_type", str(source_entry.get("carrier_type"))),
         origin_carrier_type=origin_carrier_type,
         default_route=default_route,
+        default_route_source=default_route_source,
         fallback_route=fallback_route,
+        fallback_route_source=fallback_route_source,
         route_decision_state=route_decision_state,
         route_review_reasons=route_review_reasons,
         route_downgrade_signals=route_downgrade_signals,

@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 import copy
+import sys
 import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+TESTS = ROOT / "tests"
+for search_path in (SRC, TESTS):
+    if str(search_path) not in sys.path:
+        sys.path.insert(0, str(search_path))
 
 from helpers import (
     extract_service_record_dependencies,
@@ -11,6 +21,8 @@ from helpers import (
 )
 from shared.contracts_runtime import ContractRecord, ContractStore, StageBundle
 from shared.pipeline import run_internal_chain
+from stage1_tasking.service import Stage1Service
+from stage2_ingestion.service import Stage2Service
 from stage9_delivery.service import Stage9Service
 from storage import hydrate_stage_bundle, persist_stage_bundle, reset_default_storage
 
@@ -404,7 +416,105 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage2.handoff.get("winning_version_resolution_rule_id"), "VERSION-PROC-NOTICE-001")
         self.assertEqual(stage2.handoff.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
         self.assertEqual(stage2.inputs.get("version_precedence_source"), "source_registry")
-        self.assertEqual(stage2.inputs.get("clock_precedence_source"), "source_registry")
+        self.assertEqual(stage2.inputs.get("clock_precedence_source"), "h01_authority")
+        stage2_trace = stage2.inputs.get("stage12_extractor_trace", {}).get("stage2", {})
+        self.assertEqual(stage2_trace.get("source_registry_id_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("route_policy_id_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("default_route_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("fallback_route_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("clock_resolution_rule_id_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("clock_precedence_rule_id_source"), "h01_authority")
+
+    def test_stage2_consumes_h01_authority_over_payload_overrides(self) -> None:
+        stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
+        conflicted = StageBundle(
+            stage=1,
+            records=dict(stage1.records),
+            handoff=dict(stage1.handoff),
+            trace_rules=list(stage1.trace_rules),
+            inputs={
+                **stage1.inputs,
+                "source_registry_id": "SRC-REG-PROC-CITY-PDF",
+                "route_policy_id": "ROUTE-PROC-ATTACHMENT-001",
+                "default_route": "ATTACHMENT_FIRST",
+                "fallback_route": "SEMI_MANUAL",
+                "clock_resolution_rule_id": "CLOCK-OVERRIDE",
+                "clock_precedence_rule_id": "CLOCK-PROC-ATTACHMENT-001",
+            },
+        )
+
+        stage2 = Stage2Service().run(conflicted)
+
+        for field_name in (
+            "source_registry_id",
+            "route_policy_id",
+            "default_route",
+            "fallback_route",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
+        ):
+            self.assertEqual(stage2.inputs.get(field_name), stage1.handoff.get(field_name), field_name)
+        public_chain = stage2.record("public_chain")
+        clock_chain = stage2.record("clock_chain_profile")
+        self.assertEqual(public_chain.get("source_registry_id"), stage1.handoff.get("source_registry_id"))
+        self.assertEqual(public_chain.get("route_policy_id"), stage1.handoff.get("route_policy_id"))
+        self.assertEqual(public_chain.get("default_route"), stage1.handoff.get("default_route"))
+        self.assertEqual(public_chain.get("fallback_route"), stage1.handoff.get("fallback_route"))
+        self.assertEqual(clock_chain.get("clock_resolution_rule_id"), stage1.handoff.get("clock_resolution_rule_id"))
+        self.assertEqual(stage2.handoff.get("clock_precedence_rule_id"), stage1.handoff.get("clock_precedence_rule_id"))
+
+        stage2_trace = stage2.inputs.get("stage12_extractor_trace", {}).get("stage2", {})
+        self.assertEqual(stage2_trace.get("default_route_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("fallback_route_source"), "h01_authority")
+        self.assertEqual(stage2_trace.get("clock_precedence_rule_id_source"), "h01_authority")
+
+    def test_stage2_routes_h01_route_mismatch_to_review_path(self) -> None:
+        stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
+        mismatched = StageBundle(
+            stage=1,
+            records=dict(stage1.records),
+            handoff={
+                **stage1.handoff,
+                "default_route": "ATTACHMENT_FIRST",
+                "fallback_route": "SEMI_MANUAL",
+            },
+            trace_rules=list(stage1.trace_rules),
+            inputs=dict(stage1.inputs),
+        )
+
+        stage2 = Stage2Service().run(mismatched)
+
+        self.assertEqual(stage2.handoff.get("route_decision_state"), "REVIEW")
+        self.assertEqual(stage2.handoff.get("collection_state"), "REVIEW_REQUIRED")
+        self.assertIn("default_route_mismatch_requires_review", stage2.handoff.get("route_review_reasons"))
+        self.assertIn("fallback_route_mismatch_requires_review", stage2.handoff.get("route_review_reasons"))
+
+    def test_stage2_routes_missing_h01_clock_authority_to_review_path(self) -> None:
+        stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
+        missing_clock_authority = StageBundle(
+            stage=1,
+            records=dict(stage1.records),
+            handoff={
+                key: value
+                for key, value in stage1.handoff.items()
+                if key not in {"clock_resolution_rule_id", "clock_precedence_rule_id"}
+            },
+            trace_rules=list(stage1.trace_rules),
+            inputs=dict(stage1.inputs),
+        )
+
+        stage2 = Stage2Service().run(missing_clock_authority)
+
+        self.assertEqual(stage2.handoff.get("route_decision_state"), "REVIEW")
+        self.assertEqual(stage2.handoff.get("collection_state"), "REVIEW_REQUIRED")
+        self.assertIn(
+            "missing_h01_authority_field:clock_resolution_rule_id",
+            stage2.handoff.get("route_review_reasons"),
+        )
+        self.assertIn(
+            "missing_h01_authority_field:clock_precedence_rule_id",
+            stage2.handoff.get("route_review_reasons"),
+        )
 
     def test_consumer_dependency_sets_align_with_integration_matrix(self) -> None:
         expected = {

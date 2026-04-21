@@ -9,6 +9,7 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_CHANGE_IN_PACKET = "CONTROLLED_STAGE1_2_RUNTIME_CLOSURE"
 
 
 def load_json(relative_path: str) -> dict:
@@ -32,7 +33,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(registry["execution_scope"], "scoped_execution")
         self.assertEqual(registry["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(registry["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
-        self.assertEqual(registry["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(registry["implementation_boundary"]["runtime_change_in_packet"], RUNTIME_CHANGE_IN_PACKET)
         self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(registry, ensure_ascii=False))
         self.assertEqual(authority["producer_stage"], "stage1_tasking")
         self.assertEqual(authority["consumer_stages"], ["stage2_ingestion"])
@@ -68,7 +69,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(catalog["execution_scope"], "scoped_execution")
         self.assertEqual(catalog["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(catalog["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
-        self.assertEqual(catalog["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(catalog["implementation_boundary"]["runtime_change_in_packet"], RUNTIME_CHANGE_IN_PACKET)
         self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(catalog, ensure_ascii=False))
         self.assertEqual(authority["producer_stage"], "stage1_tasking")
         self.assertEqual(authority["consumer_stages"], ["stage2_ingestion"])
@@ -103,7 +104,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(contract["execution_scope"], "scoped_execution")
         self.assertEqual(contract["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(contract["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
-        self.assertEqual(contract["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(contract["implementation_boundary"]["runtime_change_in_packet"], RUNTIME_CHANGE_IN_PACKET)
         self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(contract, ensure_ascii=False))
         self.assertEqual(authority["handoff_id"], "H-01-STAGE1-TO-STAGE2")
         self.assertEqual(authority["producer_stage"], "stage1_tasking")
@@ -127,6 +128,10 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertTrue(interfaces["stage1_time_window_extractor"]["consumer_must_not_recompute"])
         self.assertIn("clock_precedence_rule_id", interfaces["stage1_time_window_extractor"]["owned_fields"])
         self.assertIn("current_action_deadline_at_optional", interfaces["stage1_time_window_extractor"]["owned_fields"])
+        self.assertNotIn(
+            "payload.window_priority_policy/clock_resolution_rule_id",
+            interfaces["stage1_time_window_extractor"]["input_priority"],
+        )
 
         self.assertEqual(
             interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["mode"],
@@ -138,7 +143,12 @@ class TestStage12Extractors(unittest.TestCase):
         )
         self.assertEqual(
             interfaces["stage2_collection_clock_version_extractor"]["implementation_boundary"]["runtime_change_in_packet"],
-            "OUT_OF_SCOPE",
+            RUNTIME_CHANGE_IN_PACKET,
+        )
+        self.assertTrue(interfaces["stage2_collection_clock_version_extractor"]["consumer_must_not_recompute"])
+        self.assertIn(
+            "clock_precedence_rule_id_source=h01_authority",
+            interfaces["stage2_collection_clock_version_extractor"]["fallback_taxonomy"],
         )
 
     def test_h01_contract_freezes_authoritative_fields_without_runtime_rewrite(self) -> None:
@@ -148,7 +158,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(handoff["execution_scope"], "scoped_execution")
         self.assertEqual(handoff["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(handoff["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
-        self.assertEqual(handoff["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(handoff["implementation_boundary"]["runtime_change_in_packet"], RUNTIME_CHANGE_IN_PACKET)
         self.assertNotIn("NOT_IMPLEMENTED_IN_PACKET", json.dumps(handoff, ensure_ascii=False))
         self.assertEqual(handoff["handoff_id"], "H-01-STAGE1-TO-STAGE2")
         self.assertEqual(handoff["from_stage"], 1)
@@ -179,7 +189,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(example["execution_scope"], "scoped_execution")
         self.assertEqual(example["implementation_boundary"]["mode"], "PARTIAL_RUNTIME_ALIGNMENT_ONLY")
         self.assertEqual(example["implementation_boundary"]["existing_runtime_state"], "PARTIAL_RUNTIME")
-        self.assertEqual(example["implementation_boundary"]["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(example["implementation_boundary"]["runtime_change_in_packet"], RUNTIME_CHANGE_IN_PACKET)
         for field_name in handoff["required_payload_fields"]:
             self.assertIn(field_name, payload)
         for field_name in (

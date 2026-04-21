@@ -5,11 +5,11 @@ updated_at: "2026-04-21"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_S12_ACTIVATION_ONLY_ACTIVE"
+navigation_state: "PTL_S12_SCOPED_EXECUTION_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口只执行 PTL-S12-source-route-clock-authority activation-only；仅切换当前 active packet，不进入 scoped-execution，不改 runtime / contracts / handoff / tests / scripts / product_task_library / AX9S，不改变 canonical readiness，不放开 external release / Stage8 / Stage9，不提交。"
+activation_condition: "当前窗口执行 PTL-S12-source-route-clock-authority scoped-execution；只闭合 Stage1-2 source / route / clock authority 链，允许受控修改 Stage1/2 runtime、contracts、handoff、tests；不改变 canonical readiness，不放开 external release / Stage8 / Stage9，不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -39,7 +39,7 @@ currentTask:
     - "scripts/check-final-gate.ps1"
     - "scripts/clean-python-cache.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "将 PTL-S12-source-route-clock-authority 从 product_task_library.current_mainline_next_candidate 切换为当前 active packet；本轮仅做 activation-only 状态切换，不进入 scoped-execution，不改业务 runtime。"
+  objective: "进入 PTL-S12-source-route-clock-authority scoped-execution，闭合 Stage1 -> Stage2 source_registry_id / route_policy_id / default_route / fallback_route / clock_resolution_rule_id / clock_precedence_rule_id 权威链；Stage2 必须消费 H-01 authority，不得从 payload 或下游输入重算权威字段。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -78,101 +78,170 @@ currentTask:
     subpacket_id: "PTL-PKT-S12-source-route-clock-authority"
     backlog_packet_ref: "PTL-S12-source-route-clock-authority"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
-    execution_mode: "ACTIVATION_ONLY"
+    execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
+    runtime_change_in_packet: "CONTROLLED_STAGE1_2_RUNTIME_CLOSURE"
     title: "Stage1-2 来源、路由与时钟权威闭合"
     status: "ACTIVE"
-    objective: "activation-only：只把 PTL-S12-source-route-clock-authority 设为当前 active packet，明确 Stage1-2 是 existing internal governed PARTIAL_RUNTIME，并保留 runtime_change_in_packet=OUT_OF_SCOPE。"
+    objective: "scoped-execution：闭合 Stage1-2 source / route / clock authority 链；同步 contracts、handoff、runtime 与 tests 对同一组 authoritative fields 的消费口径；mismatch / missing / conflict 只能进入 review / block / downgrade path，不得静默 fallback 为正式成功。"
     depends_on:
-      - "PTL-GOV-103 closeout"
+      - "PTL-S12 activation-only closeout"
       - "task packet template closeout"
       - "PTL-GOV-104-mainline-activation-gate-alignment closeout"
-    activation_only_scope:
+    scoped_execution_scope:
       current_active_packet_switch: true
-      enter_scoped_execution: false
-      runtime_change_in_packet: "OUT_OF_SCOPE"
+      enter_scoped_execution: true
+      runtime_change_in_packet: "CONTROLLED_STAGE1_2_RUNTIME_CLOSURE"
+      existing_runtime_state: "PARTIAL_RUNTIME"
       canonical_readiness_change: false
       external_release_change: false
       stage8_real_execution_change: false
       stage9_real_payment_delivery_refund_change: false
+      stage3_plus_change: false
     existing_code_state: "PARTIAL_RUNTIME"
     existing_runtime_state: "PARTIAL_RUNTIME"
-    runtime_notes: "Stage1-2 已存在 internal governed PARTIAL_RUNTIME；本轮只切 active packet，不把 Stage1-2 回写成 zero-to-one skeleton，不进入 scoped-execution，不改业务 runtime。"
+    runtime_notes: "Stage1-2 已存在 internal governed PARTIAL_RUNTIME；本轮只做受控 authority closure，不把 Stage1-2 回写成 zero-to-one skeleton，不改 Stage3+，不放开 external release / Stage8 / Stage9。"
     non_goals:
       - "not an external unlock implementation"
-      - "不进入 scoped-execution"
-      - "不改业务 runtime"
-      - "不改 src/**"
+      - "不改 Stage3+"
+      - "不改 Stage8 / Stage9"
       - "不改 scripts/**"
-      - "不改 contracts/**"
-      - "不改 handoff/**"
-      - "不改 tests/**"
       - "不改 product_task_library"
       - "不改 AX9S"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
+      - "不新增正式对象、枚举、gate、exception 语义"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不提交"
     affected_stages:
       - "stage1_tasking"
       - "stage2_ingestion"
       - "automation_control"
-      - "future_external_unlock_prereq"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "future_external_unlock_prereq_core"
+      - "machine_assets_general"
+      - "scripts_and_tests_general"
+      - "shared_runtime_core"
     reviews:
       - "automation_owner"
-      - "release_approver"
       - "architecture_owner"
       - "governance_owner"
-      - "model_governance_owner"
       - "testing_owner"
+      - "release_approver"
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "contracts/governance/source_registry.json"
+      - "contracts/governance/route_policy_catalog.json"
+      - "contracts/governance/stage12_extractor_contract.json"
+      - "handoff/stage1_to_stage2/contract.json"
+      - "handoff/stage1_to_stage2/example.json"
+      - "handoff/stage1_to_stage2/validator.json"
+      - "src/stage1_tasking/extractors.py"
+      - "src/stage1_tasking/service.py"
+      - "src/stage1_tasking/models.py"
+      - "src/stage2_ingestion/extractors.py"
+      - "src/stage2_ingestion/service.py"
+      - "src/stage2_ingestion/models.py"
+      - "src/stage2_ingestion/fixation.py"
+      - "tests/test_stage12_extractors.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_architecture_anti_drift.py"
+      - "tests/test_semantic_runtime_validator.py"
     baseline_dirty_paths: []
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "contracts/governance/source_registry.json"
+      - "contracts/governance/route_policy_catalog.json"
+      - "contracts/governance/stage12_extractor_contract.json"
+      - "handoff/stage1_to_stage2/contract.json"
+      - "handoff/stage1_to_stage2/example.json"
+      - "handoff/stage1_to_stage2/validator.json"
+      - "src/stage1_tasking/extractors.py"
+      - "src/stage1_tasking/service.py"
+      - "src/stage1_tasking/models.py"
+      - "src/stage2_ingestion/extractors.py"
+      - "src/stage2_ingestion/service.py"
+      - "src/stage2_ingestion/models.py"
+      - "src/stage2_ingestion/fixation.py"
+      - "tests/test_stage12_extractors.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_architecture_anti_drift.py"
+      - "tests/test_semantic_runtime_validator.py"
     forbidden_modification_paths:
       - "AGENTS.md"
       - "docs/L0.md"
-      - "control/product_task_library.yaml"
-      - "docs/AX9S_开发执行路由图.md"
-      - "docs/自动开发任务包模板.md"
-      - "control/ax9s_scoped_task_packet_template.yaml"
       - "scripts/**"
-      - "src/**"
-      - "contracts/**"
-      - "handoff/**"
-      - "tests/**"
+      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
+      - "src/stage5_rules_evidence/**"
+      - "src/stage6_fact_review/**"
+      - "src/stage7_sales/**"
+      - "src/stage8_outreach/**"
+      - "src/stage9_delivery/**"
+      - "contracts/**/stage8*"
+      - "contracts/**/stage9*"
+      - "handoff/stage2_to_stage3/**"
+      - "handoff/stage3_to_stage4/**"
+      - "handoff/stage4_to_stage5/**"
+      - "handoff/stage5_to_stage6/**"
+      - "handoff/stage6_to_stage7/**"
+      - "handoff/stage7_to_stage8/**"
+      - "handoff/stage8_to_stage9/**"
       - "control/milestone_status.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/operator_assignment_roster_defaults.yaml"
       - "control/review_gate_matrix.yaml"
       - "control/automation_task_packet_rules.yaml"
+      - "docs/自动开发任务包模板.md"
+      - "control/ax9s_scoped_task_packet_template.yaml"
     impacted_assets:
       docs: []
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
-      contracts: []
-      handoff: []
+      contracts:
+        - "contracts/governance/source_registry.json"
+        - "contracts/governance/route_policy_catalog.json"
+        - "contracts/governance/stage12_extractor_contract.json"
+      handoff:
+        - "handoff/stage1_to_stage2/contract.json"
+        - "handoff/stage1_to_stage2/example.json"
+        - "handoff/stage1_to_stage2/validator.json"
       scripts: []
-      tests: []
-      runtime: []
+      tests:
+        - "tests/test_stage12_extractors.py"
+        - "tests/test_internal_chain.py"
+        - "tests/test_architecture_anti_drift.py"
+        - "tests/test_semantic_runtime_validator.py"
+      runtime:
+        - "src/stage1_tasking/extractors.py"
+        - "src/stage1_tasking/service.py"
+        - "src/stage1_tasking/models.py"
+        - "src/stage2_ingestion/extractors.py"
+        - "src/stage2_ingestion/service.py"
+        - "src/stage2_ingestion/models.py"
+        - "src/stage2_ingestion/fixation.py"
     required_scripts:
+      - "python -m pytest tests/test_stage12_extractors.py -q"
+      - "python -m pytest tests/test_internal_chain.py -q"
+      - "python -m pytest tests/test_architecture_anti_drift.py -q"
+      - "python -m pytest tests/test_semantic_runtime_validator.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1"
       - "git status --short --untracked-files=all"
     script_timeouts:
+      python -m pytest tests/test_stage12_extractors.py -q: 300000
+      python -m pytest tests/test_internal_chain.py -q: 300000
+      python -m pytest tests/test_architecture_anti_drift.py -q: 300000
+      python -m pytest tests/test_semantic_runtime_validator.py -q: 300000
       scripts/check-task-packet.ps1: 300000
       scripts/check-state-alignment.ps1: 300000
       scripts/check-final-gate.ps1: 300000
@@ -180,29 +249,32 @@ currentTask:
       git status --short --untracked-files=all: 120000
     stop_conditions:
       - "任一脚本失败"
-      - "实际改动超出 control/current_task.yaml 和 control/repo_status.md"
+      - "实际改动超出 allowed_modification_paths"
       - "触碰 forbidden paths"
-      - "进入 scoped-execution"
-      - "改变 canonical readiness"
+      - "新增正式对象、枚举、gate、exception 语义"
+      - "改到 Stage3+"
+      - "改到 Stage8/Stage9"
+      - "改 scripts"
+      - "改 canonical readiness"
       - "放宽 external release / Stage8 / Stage9 红线"
-      - "新增业务对象、枚举、gate、exception 语义"
       - "自动提交"
     definition_of_done:
-      - "currentTask.task_id 已切为 PTL-S12-source-route-clock-authority"
-      - "task_packet 已切为 PTL-PKT-S12-source-route-clock-authority activation-only"
-      - "repo_status 已同步 PTL-S12 current active packet 与 activation-only 口径"
-      - "Stage1-2 被明确为 existing internal governed PARTIAL_RUNTIME，而不是 zero-to-one skeleton"
-      - "未进入 scoped-execution，未改 runtime / contracts / handoff / tests / scripts / product_task_library / AX9S"
+      - "currentTask.task_id 仍为 PTL-S12-source-route-clock-authority"
+      - "task_packet.packet_id 仍为 PTL-PKT-S12-source-route-clock-authority"
+      - "task_packet.execution_mode 已切为 SCOPED_EXECUTION"
+      - "task_packet.status 保持 ACTIVE"
+      - "Stage1 输出 H-01 authoritative fields"
+      - "Stage2 消费 H-01 authority，且不得从 payload override 重算 authoritative fields"
+      - "source / route / clock authority mismatch / missing / conflict 进入 review / block / downgrade path"
+      - "contract / handoff / runtime / tests 对 consumer_must_not_recompute_fields 同口径"
       - "required scripts 通过并停机汇报"
     deliverables:
-      - "PTL-S12 activation-only current active packet switch"
+      - "PTL-S12 scoped source / route / clock authority closure"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
-      - "release_approver"
       - "architecture_owner"
       - "governance_owner"
-      - "model_governance_owner"
       - "testing_owner"
     review_evidence:
       declared: true
@@ -211,25 +283,26 @@ currentTask:
     notes:
       - "当前 active task source 优先级固定为 current_task -> product_task_library -> repo_status。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "control/product_task_library.yaml 保持不变；PTL-S12 从候选切为当前 active packet 的动作仅记录在 current_task 与 repo_status。"
+      - "control/product_task_library.yaml 保持不变；不替代当前执行源，也不决定当前执行顺序。"
+      - "control/source_blueprint_registry.yaml 是 source blueprint allowlist；本轮 source_blueprint_batch_id 为 POST-FF-CONTROL-01。"
       - "docs/AX9S_开发执行路由图.md 只作导航提示，不决定执行顺序。"
-      - "activation-only 不等于 scoped-execution；后续真实 scoped-execution 需另行任务包与确认。"
-      - "Stage8 / Stage9 边界与 external release 继续保持阻断。"
+      - "本轮为 Stage1-2 authority closure，不触碰 Stage3+，不放开 Stage8 / Stage9 边界。"
+      - "External release 继续保持阻断。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
     - "external software release remains blocked"
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮仅允许修改 control/current_task.yaml 与 control/repo_status.md，运行指定校验脚本、清缓存、git status 后停机汇报"
+    - "本轮仅允许在 declared_changed_paths / allowed_modification_paths 内执行 Stage1-2 source / route / clock authority closure，运行指定校验脚本、清缓存、git status 后停机汇报"
   forbidden_actions:
-    - "不得修改 AGENTS.md、docs/L0.md、control/product_task_library.yaml、docs/AX9S_开发执行路由图.md、模板文件"
-    - "不得修改 scripts/**、src/**、contracts/**、handoff/**、tests/**"
+    - "不得修改 AGENTS.md、docs/L0.md、scripts/**、Stage3+ runtime、Stage8/Stage9 runtime 或 Stage8/Stage9 contracts/handoff"
     - "不得修改 control/milestone_status.yaml、source_blueprint_registry、operator_assignment_roster_defaults、review_gate_matrix、automation_task_packet_rules"
-    - "不得进入 scoped-execution 或改变 canonical readiness"
+    - "不得修改 product_task_library、AX9S、模板文件"
+    - "不得改变 canonical readiness"
     - "不得放宽 external release、Stage8 real execution、Stage9 real payment/delivery/refund"
-    - "不得新增业务对象、枚举、gate、exception 语义"
+    - "不得新增正式对象、枚举、gate、exception 语义"
     - "不得提交"
   nextActions:
-    - "运行 required scripts 并停机汇报；不自动进入 scoped-execution。"
-  status_note: "PTL-S12-source-route-clock-authority 当前已 activation-only 成为 active packet；Stage1-2 是 existing internal governed PARTIAL_RUNTIME；本轮不进入 scoped-execution、不改 runtime、不改 readiness、不放开 external release / Stage8 / Stage9。"
+    - "先运行 preflight check-task-packet，再补 tests / contract / handoff / runtime 最小闭合；required scripts 跑完后停机汇报，不提交。"
+  status_note: "PTL-S12-source-route-clock-authority 当前进入 scoped-execution；Stage1-2 是 existing internal governed PARTIAL_RUNTIME；本轮不改 readiness，不放开 external release / Stage8 / Stage9，不提交。"
