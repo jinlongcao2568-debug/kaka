@@ -63,9 +63,9 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-S67-saleable-opportunity-derivation
-  packet_id: PTL-PKT-S67-saleable-opportunity-derivation
-  title: "Stage6-7 可售机会对象推导闭合"
+  task_id: PTL-S7-price-competitor-offer-resolution
+  packet_id: PTL-PKT-S7-price-competitor-offer-resolution
+  title: "Stage7 价格、竞争者与推荐方案闭合"
   source_blueprint_batch_id: POST-FF-CONTROL-01
   packet_kind: EXECUTABLE_SCOPED_SUBPACKET
   activation_mode: scoped_execution
@@ -74,7 +74,7 @@ current_mainline_next_candidate:
   existing_runtime_state: HEAVY_RUNTIME
   planning_state: REALITY_ALIGNMENT_QUEUED
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "Stage6-7 已有 HEAVY_RUNTIME 的 internal governed runtime；本轮治理收口只把 PTL-S67 推进为 current_mainline_next_candidate，不因候选池指针自动成为当前执行包；当前 active execution source 以 control/current_task.yaml 为准，本轮不激活 PTL-S67，也不进入 PTL-S67 scoped-execution，不改 runtime。"
+  runtime_notes: "PTL-S7 只是 current_mainline_next_candidate；不因候选池指针自动成为当前执行包；当前 active execution source 仍以 control/current_task.yaml 为准；本轮不激活 PTL-S7，不进入 PTL-S7 scoped-execution，不改 runtime。"
 task_count: 11
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -189,14 +189,14 @@ tasks:
     title: "Stage6-7 可售机会对象推导闭合"
     stage_scope: [stage6_fact_review, stage7_sales]
     task_type: product_mainline_closure
-    status: CANDIDATE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P0
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: REALITY_ALIGNMENT_QUEUED
+    planning_state: COMPLETED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "Stage6-7 已有 heavy runtime 消费链；后续应按既有 governed runtime 校正文档和契约，不把 Stage7 重新叙述成纯设计态。"
+    runtime_notes: "PTL-S67 scoped-execution 已完成并提交，不再是 current next candidate，也不是 current active packet；Stage6-7 保持既有 HEAVY_RUNTIME internal governed runtime，本条不改变 runtime。"
     hard_depends_on: [PTL-S56-project-fact-review-report]
     soft_depends_on: []
     objective: "闭合从 project fact / report / sale gate 到 saleable opportunity 的推导、评分与可售性边界。"
@@ -209,12 +209,13 @@ tasks:
     stage_scope: [stage7_sales]
     task_type: product_mainline_closure
     status: CANDIDATE
+    is_current_mainline_next_candidate: true
     priority: P0
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
     planning_state: REALITY_ALIGNMENT_QUEUED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "Stage7 销售对象、价格归一和推荐方案已有 heavy runtime；规划面需要强调 formal boundary，对外 release 仍未放开。"
+    runtime_notes: "PTL-S7 只是 current_mainline_next_candidate；不因候选池指针自动成为当前执行包；当前 active execution source 仍以 control/current_task.yaml 为准；本轮不激活 PTL-S7，不进入 PTL-S7 scoped-execution，不改 runtime。existing_code_state / existing_runtime_state 保持 HEAVY_RUNTIME；对外 release 仍未放开。"
     hard_depends_on: [PTL-S67-saleable-opportunity-derivation]
     soft_depends_on: []
     objective: "闭合 Stage7 价格归一、竞争者识别、推荐方案与销售推进字段之间的正式消费边界。"
