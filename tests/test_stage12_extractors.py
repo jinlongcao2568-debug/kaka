@@ -5,6 +5,8 @@ import re
 import unittest
 from pathlib import Path
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -15,6 +17,10 @@ def load_json(relative_path: str) -> dict:
 
 def load_text(relative_path: str) -> str:
     return (ROOT / relative_path).read_text(encoding="utf-8")
+
+
+def load_yaml(relative_path: str) -> dict:
+    return yaml.safe_load(load_text(relative_path))
 
 
 class TestStage12Extractors(unittest.TestCase):
@@ -182,15 +188,26 @@ class TestStage12Extractors(unittest.TestCase):
         ):
             self.assertIn(field_name, payload)
 
-    def test_planning_surfaces_mark_ptls12_as_next_candidate_only(self) -> None:
+    def test_planning_surfaces_keep_transition_safe_active_source_relationship(self) -> None:
+        task_library = load_yaml("control/product_task_library.yaml")
+        current_task = load_yaml("control/current_task.yaml")
         task_library_text = load_text("control/product_task_library.yaml")
         current_task_text = load_text("control/current_task.yaml")
         repo_status_text = load_text("control/repo_status.md")
         route_map_text = load_text("docs/AX9S_开发执行路由图.md")
 
-        self.assertIn("PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate only", repo_status_text)
-        self.assertIn("PTL-S12-source-route-clock-authority 仍是 current_mainline_next_candidate，不是当前执行包", current_task_text)
-        self.assertIn("当前 active 包是 `PTL-GOV-103-mainline-reality-alignment`；`PTL-S12-source-route-clock-authority` 只是 `current_mainline_next_candidate`", route_map_text)
+        self.assertIn("current_task -> product_task_library -> repo_status", current_task_text)
+        self.assertIn("current_task -> product_task_library -> repo_status", repo_status_text)
+        active_packet = current_task["currentTask"]["task_packet"]
+        self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
+        self.assertIn(active_packet["execution_mode"], {"ACTIVATION_ONLY", "SCOPED_EXECUTION"})
+        self.assertEqual(active_packet["status"], "ACTIVE")
+        self.assertTrue(active_packet["packet_id"])
+
+        candidate = task_library["current_mainline_next_candidate"]
+        self.assertEqual(candidate["task_id"], "PTL-S12-source-route-clock-authority")
+        self.assertEqual(candidate["planning_state"], "REALITY_ALIGNMENT_QUEUED")
+        self.assertEqual(candidate["runtime_change_in_packet"], "OUT_OF_SCOPE")
 
         candidate_match = re.search(
             r"current_mainline_next_candidate:\s+task_id: PTL-S12-source-route-clock-authority(?P<body>.*?)(?:\n\S|\Z)",
@@ -200,18 +217,27 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIsNotNone(candidate_match)
         candidate_body = candidate_match.group("body")
         self.assertIn("planning_state: REALITY_ALIGNMENT_QUEUED", candidate_body)
-        self.assertIn("当前执行包保持 PTL-GOV-103-mainline-reality-alignment", candidate_body)
+        self.assertIn("不因候选池指针自动成为当前执行包", candidate_body)
 
-        task_match = re.search(
-            r"- task_id: PTL-S12-source-route-clock-authority(?P<body>.*?)(?:\n  - task_id: |\Z)",
-            task_library_text,
-            re.DOTALL,
+        task_entry = next(
+            task for task in task_library["tasks"] if task["task_id"] == "PTL-S12-source-route-clock-authority"
         )
-        self.assertIsNotNone(task_match)
-        task_body = task_match.group("body")
-        self.assertIn("status: CANDIDATE", task_body)
-        self.assertIn("planning_state: REALITY_ALIGNMENT_QUEUED", task_body)
-        self.assertIn("当前执行包保持 PTL-GOV-103-mainline-reality-alignment", task_body)
+        self.assertEqual(task_entry["status"], "CANDIDATE")
+        self.assertEqual(task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
+        self.assertTrue(task_entry["is_current_mainline_next_candidate"])
+        self.assertNotIn(
+            active_packet["packet_id"],
+            [task["task_id"] for task in task_library["tasks"]],
+        )
+
+        self.assertIn("本文件是**纯导航图**", route_map_text)
+        self.assertIn("非当前任务源", route_map_text)
+        self.assertIn("只作导航提示，不决定执行顺序", route_map_text)
+        self.assertIn("current_mainline_next_candidate", route_map_text)
+        self.assertIn("不是自动激活的当前执行包", route_map_text)
+        self.assertIn("Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解", route_map_text)
+        self.assertIn("Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解", route_map_text)
+        self.assertIn("不是 live execution", route_map_text)
 
 
 if __name__ == "__main__":

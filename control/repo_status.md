@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-103-mainline-reality-alignment (scoped-execution; current window aligns product mainline planning surfaces, AX9S guidance, Stage1-2 contracts-handoff-tests wording, and task packet template semantics with the existing internal governed runtime; PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate only and is not the current execution packet; no business runtime changes, no next packet, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
+Current Workstream: PTL-GOV-104-mainline-activation-gate-alignment (scoped-execution; governance transition package for mainline activation gate alignment; current_task is the unique active execution source; product_task_library.current_mainline_next_candidate remains PTL-S12-source-route-clock-authority only and is not auto-activated; AX9S remains navigation-only; no business runtime changes, no product mainline task activation, no readiness change, no external release / Stage8 live execution / Stage9 live payment-delivery opening)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,9 +21,9 @@ Current Blockers:
 
 Allowed Actions (current):
 - Internal leadops development under the new controlled development system
-- scoped-execution reality alignment for PTL-GOV-103-mainline-reality-alignment within the declared control / docs / contracts / handoff / tests files, including task packet template wording alignment
+- scoped-execution governance transition alignment for PTL-GOV-104-mainline-activation-gate-alignment within the declared control / docs / tests files
 - current_task is the unique active execution source
-- product_task_library is the product mainline candidate pool
+- product_task_library is the product mainline candidate pool; current_mainline_next_candidate is candidate semantics only and does not auto-activate
 - source_blueprint_registry is the source-blueprint allowlist
 - operator_assignment_roster_defaults is the stable stage7/8/9 roster source
 - AX9S route map is a candidate navigation asset and navigation-only product phase map
@@ -31,6 +31,7 @@ Allowed Actions (current):
 Forbidden Actions (current):
 - Any claim that FULL_REPAIR_COMPLETE_REVIEW_READY changes repo readiness semantics
 - Any attempt to use historical task_packet_library as the current task source
+- Any automatic activation of PTL-S12-source-route-clock-authority from current_mainline_next_candidate
 - External software release or unaudited leadpack delivery
 - Production release logic or deployment
 - Real outreach/payment/delivery execution without manual approval and governance gates
@@ -39,12 +40,13 @@ State Semantics:
 - READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not select a mainline by itself.
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
+- control/current_task.yaml is the only active execution source.
 - product_task_library only carries product mainline tasks for future selection and scoped packet derivation.
-- PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate in product_task_library; PTL-GOV-103-mainline-reality-alignment is the current execution packet.
+- PTL-S12-source-route-clock-authority remains the current_mainline_next_candidate in product_task_library; it is not the current execution packet and is not auto-activated.
 - product_task_library existing_code_state / planning_state / runtime_notes describe current code reality only; they do not authorize runtime changes in this packet.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
-- docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, or complete backlog.
+- docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - route-map near-end sync is warning-only: state alignment may emit a prompt when AX9S hints lag behind product_task_library, but that prompt is not a release blocker.
 
 Script Check Summary (new controlled development system cutover):

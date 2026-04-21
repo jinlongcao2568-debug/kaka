@@ -21,7 +21,8 @@
 - 本仓库当前不是“从零补 skeleton”的起点，而是已经存在 Stage1-9 的 internal governed runtime。
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
 - Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked / governed / approval-gated。
-- 当前 active 包是 `PTL-GOV-103-mainline-reality-alignment`；`PTL-S12-source-route-clock-authority` 只是 `current_mainline_next_candidate`，不是当前执行包。
+- 当前 active packet 以 `control/current_task.yaml` 为准；`PTL-S12-source-route-clock-authority` 是 `current_mainline_next_candidate`，不是自动激活的当前执行包。
+- `control/product_task_library.yaml` 只提供候选池；`current_mainline_next_candidate` 不决定当前执行顺序。
 - 路线图中的近端提示只说明“当前最值得查看和对齐的主线位置”，不等于“这些阶段还没有任何 runtime”。
 - 近端提示应同时参考 `control/product_task_library.yaml` 的主线顺序、`control/current_task.yaml` 的当前窗口，以及各任务的 `existing_code_state`；不得脱离现状把近端导航误读成 zero-to-one 开发路线。
 
@@ -134,7 +135,7 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- `PTL-S12-source-route-clock-authority`：current_mainline_next_candidate；当前执行包保持 `PTL-GOV-103-mainline-reality-alignment`，这里只提示 Stage1-2 来源、路由与时钟权威闭合的近端导航位置。
+- `PTL-S12-source-route-clock-authority`：current_mainline_next_candidate；这里只提示 Stage1-2 来源、路由与时钟权威闭合的近端导航位置，不自动激活为当前执行包。
 - `PTL-S23-public-chain-to-parser-contract`：最贴近 Stage2-3 公开链到结构化解析输入闭合。
 - `PTL-S34-object-lineage-verification-handoff`：最贴近 Stage3-4 对象 lineage 与公开核验移交闭合。
 - `PTL-S45-rule-evidence-dual-gate`：最贴近 Stage4-5 规则与证据双闸门闭合。

@@ -24,6 +24,7 @@ source_priority:
 rules:
   - "control/current_task.yaml remains the only active execution source."
   - "control/product_task_library.yaml only lists product mainline tasks for future selection and scoped packet derivation."
+  - "current_mainline_next_candidate is a candidate-pool pointer only; it does not auto-activate as the current execution packet."
   - "control/source_blueprint_registry.yaml is the only source-blueprint allowlist."
   - "control/operator_assignment_roster_defaults.yaml is the stable roster source for stage7 / stage8 / stage9."
   - "docs/AX9S_开发执行路由图.md remains a product stage navigation map, not an active execution source, status source, or full backlog."
@@ -73,7 +74,7 @@ current_mainline_next_candidate:
   existing_runtime_state: PARTIAL_RUNTIME
   planning_state: REALITY_ALIGNMENT_QUEUED
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "Stage1-2 已存在 internal governed PARTIAL_RUNTIME；PTL-S12 仅作为 current_mainline_next_candidate 保留，当前执行包保持 PTL-GOV-103-mainline-reality-alignment；当前窗口只对齐 planning / control / contracts / tests wording，不把该主线回写成 zero-to-one skeleton。"
+  runtime_notes: "Stage1-2 已存在 internal governed PARTIAL_RUNTIME；PTL-S12 仅作为 current_mainline_next_candidate 保留，不因候选池指针自动成为当前执行包；当前 active execution source 以 control/current_task.yaml 为准，本轮不把该主线回写成 zero-to-one skeleton，也不激活 PTL-S12。"
 task_count: 11
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -100,7 +101,7 @@ tasks:
     existing_runtime_state: PARTIAL_RUNTIME
     planning_state: REALITY_ALIGNMENT_QUEUED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "Stage1-2 authority / route / clock 已存在 internal governed PARTIAL_RUNTIME；PTL-S12 仅作为 current_mainline_next_candidate 保留，当前执行包保持 PTL-GOV-103-mainline-reality-alignment；当前对齐包只修 product_task_library、AX9S 与 Stage1-2 contracts-handoff-tests wording，不改业务 runtime。"
+    runtime_notes: "Stage1-2 authority / route / clock 已存在 internal governed PARTIAL_RUNTIME；PTL-S12 仅作为 current_mainline_next_candidate 保留，不因候选池指针自动成为当前执行包；当前 active execution source 以 control/current_task.yaml 为准，本轮不改业务 runtime，不激活 PTL-S12。"
     hard_depends_on: []
     soft_depends_on: []
     objective: "闭合 Stage1-2 的来源权威、采集路由、版本链与时钟口径。"

@@ -281,6 +281,9 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         self.assertEqual(activation_domain["change_class"], "STOP_AND_ESCALATE")
 
         task_packet = current_task["currentTask"]["task_packet"]
+        self.assertTrue(task_packet["packet_id"])
+        self.assertTrue(task_packet["subpacket_id"])
+        self.assertTrue(task_packet["backlog_packet_ref"])
         self.assertEqual(task_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
         registry = source_registry["registered_blueprints"]
         registered_blueprints = {entry["blueprint_id"] for entry in registry}
@@ -308,6 +311,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         self.assertTrue(task_packet["human_review_required"])
 
         owner_reviews = set(task_packet["owner_reviews_required"])
+        self.assertIn("automation_owner", owner_reviews)
         guarded_domains = {
             "future_external_unlock_prereq_core",
             "future_external_unlock_decision",
@@ -322,7 +326,14 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
             }
             self.assertTrue(required_owner_reviews.issubset(owner_reviews))
         self.assertTrue(
-            any("external unlock implementation" in item for item in task_packet["non_goals"])
+            {
+                "not an external unlock implementation",
+                "不改变 canonical readiness",
+                "不放开 external release",
+                "不放开 Stage8 real execution",
+                "不放开 Stage9 real payment/delivery/refund",
+                "不新增业务对象、枚举、gate、exception 语义",
+            }.issubset(set(task_packet["non_goals"]))
         )
         self.assertEqual(current_task["currentStatus"], "READY_FOR_POST-REPAIR_MAINLINE_SELECTION")
 
