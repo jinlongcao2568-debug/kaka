@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-S89-outreach-writeback-delivery-governance (SCOPED_EXECUTION; Stage8 H-08 authoritative payload to Stage9 internal governed record / writeback / delivery governance closure; no real outreach, payment, delivery, refund, or live execution unlock; canonical readiness unchanged; external software release remains blocked; external leadpack delivery remains approval + audit gated; Stage8 and Stage9 real execution remain governed / approval-gated / blocked by default)
+Current Workstream: PTL-GOV-116-mainline-candidate-shift-to-INT (SCOPED_EXECUTION; governance-only mainline candidate shift from PTL-S89 to PTL-INT; do not activate PTL-INT; no runtime, contracts, handoff, or scripts change; canonical readiness unchanged; external software release remains blocked; external leadpack delivery remains approval + audit gated; Stage8 real execution and Stage9 real payment/delivery/refund remain governed / approval-gated / blocked by default)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,51 +20,34 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- scoped-execution for PTL-S89-outreach-writeback-delivery-governance within declared_changed_paths / allowed_modification_paths only
-- switch control/current_task.yaml PTL-S89 execution_mode from ACTIVATION_ONLY to SCOPED_EXECUTION
-- sync control/repo_status.md Current Workstream to PTL-S89-outreach-writeback-delivery-governance (SCOPED_EXECUTION)
-- add focused assertions for Stage9 H-08 authority, internal governed typed records, writeback policy consumption, and live-execution redlines
-- minimally adjust src/stage9_delivery/service.py and src/stage9_delivery/impact_executor.py only when tests or authority mismatch require it
+- switch control/current_task.yaml active packet to PTL-GOV-116-mainline-candidate-shift-to-INT
+- advance control/product_task_library.yaml current_mainline_next_candidate from PTL-S89-outreach-writeback-delivery-governance to PTL-INT-internal-preview-surface-envelope
+- mark PTL-S89-outreach-writeback-delivery-governance as COMPLETED / planning_state COMPLETED / is_current_mainline_next_candidate false
+- mark PTL-INT-internal-preview-surface-envelope as CANDIDATE / REALITY_ALIGNMENT_QUEUED / is_current_mainline_next_candidate true
+- sync control/repo_status.md, docs/AX9S_开发执行路由图.md, and tests/test_stage12_extractors.py to the new candidate pointer and navigation wording
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
 - run the required checks and stop for report
 
 Forbidden Actions (current):
-- Any work outside PTL-S89-outreach-writeback-delivery-governance scoped-execution in this round
+- Any work outside PTL-GOV-116-mainline-candidate-shift-to-INT scoped-execution in this round
 - Any change outside declared_changed_paths / allowed_modification_paths
-- Any change to forbidden_modification_paths targets
 - Any change to AGENTS.md
-- Any change to docs/**
+- Any change to docs/L0.md, docs/裁决总表.md, docs/D1_研发_Codex执行手册.md, docs/D2_正式对象契约与字段字典.md, docs/D3_正式规则码总表与判定说明书.md, docs/D4_OpenAPI接口契约.md, docs/D5_页面导出与人工复核规范.md, docs/D6_字段策略字典与客户交付字段规范.md, docs/D7_对象级交付矩阵与外发治理规范.md, docs/D8_真实竞争者识别可售对象与销售推进规范.md, docs/D9_联系对象与销售触达规范.md, docs/D10_订单支付交付与治理反馈规范.md, docs/D11_测试验收与金标回归清单.md, docs/D12_部署发布与运行治理规范.md, docs/D13_公开可查边界能力清单.md, docs/D14_AI模型治理规范.md
 - Any change to scripts/**
+- Any change to src/**
 - Any change to contracts/**
 - Any change to handoff/**
-- Any change to src/shared/**
-- Any change to src/stage7_sales/**
-- Any change to src/stage8_outreach/**
-- Any change to src/stage9_delivery/order.py
-- Any change to src/stage9_delivery/payment.py
-- Any change to src/stage9_delivery/delivery.py
-- Any change to src/stage9_delivery/feedback.py
-- Any change to src/stage9_delivery/models.py
-- Any change to src/stage9_delivery/__init__.py
-- Any change to control/product_task_library.yaml
 - Any change to control/product_module_registry.yaml
 - Any change to control/milestone_status.yaml
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/operator_assignment_roster_defaults.yaml
 - Any change to control/review_gate_matrix.yaml
 - Any change to control/automation_task_packet_rules.yaml
-- Any change to docs/AX9S_开发执行路由图.md
-- Any change to docs/自动开发任务包模板.md
-- Any change to control/ax9s_scoped_task_packet_template.yaml
-- Any change to tests/** outside tests/test_stage9_impact_executor.py, tests/test_internal_chain.py, and tests/test_architecture_anti_drift.py
-- Any Stage7 / Stage8 / shared runtime change
-- Any real outreach / payment / delivery / refund execution
-- Any live payment / live delivery / refund-ready claim
-- Any reverse writeback that mutates Stage6 project facts / truth layer
-- Any new formal object, enum, gate, or exception semantics
-- External software release or unaudited leadpack delivery
-- Production release logic or deployment
+- Any change to tests/** outside tests/test_stage12_extractors.py
+- Any change that alters canonical readiness
+- Any change that loosens external release / Stage8 / Stage9 redlines
+- Any change that turns AX9S into a status source, execution-order source, or full backlog
 - Automatic commit
 
 State Semantics:
@@ -74,13 +57,11 @@ State Semantics:
 - control/current_task.yaml is the only active execution source.
 - PTL-S78-contact-candidate-compliance-preview scoped-execution has completed and committed as b4a704b.
 - PTL-GOV-115-mainline-candidate-shift-to-S89 completed and committed as ced9c96.
-- control/product_task_library.yaml current_mainline_next_candidate is already PTL-S89-outreach-writeback-delivery-governance.
-- PTL-S89-outreach-writeback-delivery-governance is now the current active packet in SCOPED_EXECUTION mode through control/current_task.yaml.
-- This round is a controlled Stage8-9 runtime closure in existing HEAVY_RUNTIME, not a live execution unlock.
-- Stage9 must consume H-08 / Stage8 formal producer payload fields: opportunity_id, touch_record_id, response_status, saleability_status, crm_owner_state, plus optional preview/writeback fields; it must not recompute Stage8 outcome semantics from scattered inputs.
-- Stage9 typed records remain internal governed records: order_record, payment_record, delivery_record, opportunity_outcome_event, and governance_feedback_event.
-- Writeback target semantics must follow contracts taxonomy / writeback impact policy and must not be service-local invented semantics.
-- Projected/advisory writeback must not reverse-write Stage6 truth-layer project facts.
+- PTL-S89-outreach-writeback-delivery-governance scoped-execution has completed and committed as c36dd9d.
+- control/product_task_library.yaml current_mainline_next_candidate is now PTL-INT-internal-preview-surface-envelope.
+- PTL-INT-internal-preview-surface-envelope is a candidate-pool pointer only; it does not auto-activate as the current execution packet.
+- PTL-GOV-116-mainline-candidate-shift-to-INT is the current active packet through control/current_task.yaml.
+- PTL-S89-outreach-writeback-delivery-governance is completed; it is no longer the current active packet and no longer the current_mainline_next_candidate.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - control/product_module_registry.yaml is an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -90,10 +71,9 @@ State Semantics:
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
 
 Current Scoped-Execution Required Checks:
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','src/stage9_delivery/service.py','src/stage9_delivery/impact_executor.py','tests/test_stage9_impact_executor.py','tests/test_internal_chain.py','tests/test_architecture_anti_drift.py'
-- python -m pytest tests/test_stage9_impact_executor.py -q
-- python -m pytest tests/test_internal_chain.py -q
-- python -m pytest tests/test_architecture_anti_drift.py -q
+- git status --short --untracked-files=all
+- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','docs/AX9S_开发执行路由图.md','tests/test_stage12_extractors.py'
+- python -m pytest tests/test_stage12_extractors.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1

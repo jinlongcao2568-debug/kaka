@@ -208,19 +208,22 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertIn("current_task -> product_task_library -> repo_status", current_task_text)
         self.assertIn("current_task -> product_task_library -> repo_status", repo_status_text)
-        active_packet = current_task["currentTask"]["task_packet"]
+        active_task = current_task["currentTask"]
+        self.assertEqual(active_task["task_id"], "PTL-GOV-116-mainline-candidate-shift-to-INT")
+        active_packet = active_task["task_packet"]
         self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
         self.assertIn(active_packet["execution_mode"], {"ACTIVATION_ONLY", "SCOPED_EXECUTION"})
         self.assertEqual(active_packet["status"], "ACTIVE")
         self.assertTrue(active_packet["packet_id"])
+        self.assertEqual(active_packet["backlog_packet_ref"], "PTL-GOV-116-mainline-candidate-shift-to-INT")
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["task_id"], "PTL-S89-outreach-writeback-delivery-governance")
+        self.assertEqual(candidate["task_id"], "PTL-INT-internal-preview-surface-envelope")
         self.assertEqual(candidate["planning_state"], "REALITY_ALIGNMENT_QUEUED")
         self.assertEqual(candidate["runtime_change_in_packet"], "OUT_OF_SCOPE")
 
         candidate_match = re.search(
-            r"current_mainline_next_candidate:\s+task_id: PTL-S89-outreach-writeback-delivery-governance(?P<body>.*?)(?:\n\S|\Z)",
+            r"current_mainline_next_candidate:\s+task_id: PTL-INT-internal-preview-surface-envelope(?P<body>.*?)(?:\n\S|\Z)",
             task_library_text,
             re.DOTALL,
         )
@@ -288,9 +291,16 @@ class TestStage12Extractors(unittest.TestCase):
         stage89_task_entry = next(
             task for task in task_library["tasks"] if task["task_id"] == "PTL-S89-outreach-writeback-delivery-governance"
         )
-        self.assertEqual(stage89_task_entry["status"], "CANDIDATE")
-        self.assertEqual(stage89_task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
-        self.assertTrue(stage89_task_entry["is_current_mainline_next_candidate"])
+        self.assertEqual(stage89_task_entry["status"], "COMPLETED")
+        self.assertEqual(stage89_task_entry["planning_state"], "COMPLETED")
+        self.assertFalse(stage89_task_entry["is_current_mainline_next_candidate"])
+
+        internal_preview_task_entry = next(
+            task for task in task_library["tasks"] if task["task_id"] == "PTL-INT-internal-preview-surface-envelope"
+        )
+        self.assertEqual(internal_preview_task_entry["status"], "CANDIDATE")
+        self.assertEqual(internal_preview_task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
+        self.assertTrue(internal_preview_task_entry["is_current_mainline_next_candidate"])
         self.assertNotIn(
             active_packet["packet_id"],
             [task["task_id"] for task in task_library["tasks"]],
@@ -304,8 +314,10 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解", route_map_text)
         self.assertIn("Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解", route_map_text)
         self.assertIn("不是 live execution", route_map_text)
-        self.assertIn("PTL-GOV-115-mainline-candidate-shift-to-S89", route_map_text)
+        self.assertIn("PTL-GOV-116-mainline-candidate-shift-to-INT", route_map_text)
+        self.assertIn("PTL-INT-internal-preview-surface-envelope", route_map_text)
         self.assertIn("PTL-S89-outreach-writeback-delivery-governance", route_map_text)
+        self.assertIn("c36dd9d", route_map_text)
         self.assertIn("PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交", route_map_text)
 
 

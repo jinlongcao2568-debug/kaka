@@ -1,6 +1,6 @@
 version: 1
 library_id: PRODUCT_MAINLINE_TASK_LIBRARY
-updated_at: "2026-04-21"
+updated_at: "2026-04-22"
 status: EFFECTIVE
 role: product_mainline_task_source
 library_role: product_mainline_task_source
@@ -63,18 +63,18 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-S89-outreach-writeback-delivery-governance
-  packet_id: PTL-PKT-S89-outreach-writeback-delivery-governance
-  title: "Stage8-9 触达记录、回写、交付与治理反馈闭合"
+  task_id: PTL-INT-internal-preview-surface-envelope
+  packet_id: PTL-PKT-INT-internal-preview-surface-envelope
+  title: "内部预览工作台与正式对象消费封装"
   source_blueprint_batch_id: POST-FF-CONTROL-01
   packet_kind: EXECUTABLE_SCOPED_SUBPACKET
   activation_mode: scoped_execution
   execution_scope: reality_alignment_only
-  existing_code_state: HEAVY_RUNTIME
-  existing_runtime_state: HEAVY_RUNTIME
+  existing_code_state: PARTIAL_RUNTIME
+  existing_runtime_state: PARTIAL_RUNTIME
   planning_state: REALITY_ALIGNMENT_QUEUED
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "PTL-S89 只是 current_mainline_next_candidate；不因候选池指针自动成为当前执行包；当前 active execution source 仍以 control/current_task.yaml 为准；本轮不激活 PTL-S89，不进入 PTL-S89 scoped-execution，不改 runtime；Stage9 real payment / delivery / refund 仍 blocked by default。"
+  runtime_notes: "PTL-INT 只是 current_mainline_next_candidate；不因候选池指针自动成为当前执行包；当前 active execution source 仍以 control/current_task.yaml 为准；本轮不激活 PTL-INT，不进入 PTL-INT scoped-execution，不改 runtime；内部预览工作台继续保持 internal preview / governed consumption envelope，不放开 external release 或客户平台放行。"
 task_count: 11
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -246,14 +246,14 @@ tasks:
     title: "Stage8-9 触达记录、回写、交付与治理反馈闭合"
     stage_scope: [stage8_outreach, stage9_delivery]
     task_type: product_mainline_closure
-    status: CANDIDATE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P1
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: REALITY_ALIGNMENT_QUEUED
+    planning_state: COMPLETED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "PTL-S89 只是 current_mainline_next_candidate；不因候选池指针自动成为当前执行包；当前 active execution source 仍以 control/current_task.yaml 为准；本轮不激活 PTL-S89，不进入 PTL-S89 scoped-execution，不改 runtime；Stage8-9 已有 heavy internal governed runtime，仅用于 internal record / writeback / governance path；Stage9 real payment / delivery / refund 仍 blocked by default。"
+    runtime_notes: "PTL-S89 scoped-execution 已完成并提交：c36dd9d；Stage8-9 保持既有 HEAVY_RUNTIME internal governed runtime，本条不改变 runtime；PTL-S89 不再是 current active packet，也不再是 current_mainline_next_candidate；Stage9 real payment / delivery / refund 仍 blocked by default。"
     hard_depends_on: [PTL-S78-contact-candidate-compliance-preview]
     soft_depends_on: [PTL-INT-internal-preview-surface-envelope]
     objective: "闭合触达记录、回写影响、订单/支付/交付占位与治理反馈的内部受控链路。"
@@ -266,12 +266,13 @@ tasks:
     stage_scope: [internal_preview, stage1_to_stage9]
     task_type: internal_surface_envelope
     status: CANDIDATE
+    is_current_mainline_next_candidate: true
     priority: P0
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: PARTIAL_RUNTIME
     planning_state: REALITY_ALIGNMENT_QUEUED
     runtime_change_in_packet: OUT_OF_SCOPE
-    runtime_notes: "内部预览工作台已有 partial runtime 封装；后续任务应继续约束其只消费正式对象和门禁，而不是扩写成外部客户平台。"
+    runtime_notes: "内部预览工作台已有 partial runtime 封装；当前为 current_mainline_next_candidate，但不因候选池指针自动成为当前执行包；后续任务应继续约束其只消费正式对象和门禁，而不是扩写成外部客户平台。"
     hard_depends_on: [PTL-S56-project-fact-review-report]
     soft_depends_on: [PTL-S67-saleable-opportunity-derivation, PTL-S7-price-competitor-offer-resolution]
     objective: "为内部预览工作台定义正式对象消费封装，确保 UI/API 只消费正式对象、字段策略、门禁和状态源。"
