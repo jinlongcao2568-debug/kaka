@@ -5,11 +5,11 @@ updated_at: "2026-04-21"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_GOV_107_MAINLINE_CANDIDATE_SHIFT_TO_S34_ACTIVE"
+navigation_state: "PTL_S34_OBJECT_LINEAGE_VERIFICATION_HANDOFF_ACTIVATION_ONLY_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口执行 PTL-GOV-107-mainline-candidate-shift-to-S34 scoped-execution：关闭 PTL-S23 scoped-execution active 状态，把候选池 current_mainline_next_candidate 推进到 PTL-S34-object-lineage-verification-handoff，同步 AX9S 近端提示与 stale candidate 测试断言；不激活 PTL-S34，不改 runtime / contracts / handoff / scripts，不改变 canonical readiness，不提交。"
+activation_condition: "当前窗口仅执行 PTL-S34-object-lineage-verification-handoff activation-only：只把 control/current_task.yaml 的当前 active packet 切到 PTL-S34 并同步 control/repo_status.md；不进入 scoped-execution，不改 runtime / contracts / handoff / tests / scripts / product_task_library / AX9S，不改变 canonical readiness，不放开 external release / Stage8 / Stage9，不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-GOV-107-mainline-candidate-shift-to-S34"
-  title: "主线候选推进到 S34"
+  task_id: "PTL-S34-object-lineage-verification-handoff"
+  title: "Stage3-4 对象、字段来源与公开核验移交闭合"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -33,14 +33,16 @@ currentTask:
     - "control/current_task.yaml"
     - "control/repo_status.md"
     - "control/product_task_library.yaml"
-    - "docs/AX9S_开发执行路由图.md"
-    - "tests/test_stage12_extractors.py"
+    - "control/source_blueprint_registry.yaml"
+    - "control/operator_assignment_roster_defaults.yaml"
+    - "control/review_gate_matrix.yaml"
+    - "control/automation_task_packet_rules.yaml"
     - "scripts/check-task-packet.ps1"
     - "scripts/check-state-alignment.ps1"
     - "scripts/check-final-gate.ps1"
     - "scripts/clean-python-cache.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "执行 PTL-GOV-107 治理收口包：关闭 PTL-S23 当前 scoped-execution active 状态，将 product_task_library.current_mainline_next_candidate 推进到 PTL-S34-object-lineage-verification-handoff；把 PTL-S23 entry 标记为 completed / 非 current candidate，把 PTL-S34 entry 标记为 current_mainline_next_candidate；同步 AX9S 近端导航提示和 tests/test_stage12_extractors.py stale candidate 断言；不激活 PTL-S34，不进入 PTL-S34 scoped-execution。"
+  objective: "activation-only：将当前 active packet 切换为 PTL-S34-object-lineage-verification-handoff，冻结本包目标、非目标、允许改动范围与 required scripts；本轮只同步 control/current_task.yaml 与 control/repo_status.md，不进入 scoped-execution。Stage3-4 是 existing partial runtime closure target，不是 zero-to-one skeleton。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -58,84 +60,82 @@ currentTask:
       assigned_owner: "卡卡罗特"
       reviewer_role: "delivery_governance_user"
       reviewer: "卡卡罗特"
-    automation_control:
-      assigned_owner_role: "automation_owner"
-      assigned_owner: "卡卡罗特"
-      reviewer_role: "automation_owner"
-      reviewer: "卡卡罗特"
-    governance:
-      assigned_owner_role: "governance_owner"
-      assigned_owner: "卡卡罗特"
-      reviewer_role: "governance_owner"
-      reviewer: "卡卡罗特"
-    testing:
-      assigned_owner_role: "testing_owner"
-      assigned_owner: "卡卡罗特"
-      reviewer_role: "testing_owner"
-      reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-GOV-107-mainline-candidate-shift-to-S34"
-    subpacket_id: "PTL-GOV-107-mainline-candidate-shift-to-S34"
-    backlog_packet_ref: "PTL-GOV-107-mainline-candidate-shift-to-S34"
+    packet_id: "PTL-PKT-S34-object-lineage-verification-handoff"
+    subpacket_id: "PTL-PKT-S34-object-lineage-verification-handoff"
+    backlog_packet_ref: "PTL-S34-object-lineage-verification-handoff"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
-    execution_mode: "SCOPED_EXECUTION"
+    execution_mode: "ACTIVATION_ONLY"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
     runtime_change_in_packet: "OUT_OF_SCOPE"
-    title: "主线候选推进到 S34"
+    title: "Stage3-4 对象、字段来源与公开核验移交闭合"
     status: "ACTIVE"
-    objective: "scoped-execution：只同步当前 active task 到治理收口包、候选池 current_mainline_next_candidate 到 S34、AX9S 近端提示和 stale candidate 测试断言；不激活 PTL-S34，不改 runtime / contracts / handoff / scripts，不改变 canonical readiness。"
+    objective: "activation-only：只切当前 active packet 到 PTL-S34-object-lineage-verification-handoff，并同步 repo_status 当前工作流；不进入 scoped-execution，不改 runtime、contracts、handoff、tests、scripts、product_task_library 或 AX9S。"
     depends_on:
-      - "PTL-S23-public-chain-to-parser-contract scoped-execution 已完成并提交"
+      - "PTL-S23-public-chain-to-parser-contract scoped-execution 已完成并已提交"
+      - "PTL-GOV-107-mainline-candidate-shift-to-S34 已完成并已提交"
+      - "control/product_task_library.yaml 的 current_mainline_next_candidate 已是 PTL-S34-object-lineage-verification-handoff"
       - "当前工作区为干净状态"
     activation_scope:
       current_active_packet_switch: true
-      close_previous_active_packet: "PTL-S23-public-chain-to-parser-contract"
-      activation_only: false
-      enter_scoped_execution: true
-      active_packet_kind: "governance_closeout"
-      product_mainline_task: false
-      add_to_product_task_library_tasks: false
-      target_mainline_next_candidate: "PTL-S34-object-lineage-verification-handoff"
-      activate_target_mainline_next_candidate: false
+      previous_active_packet: "PTL-GOV-107-mainline-candidate-shift-to-S34"
+      target_active_packet: "PTL-S34-object-lineage-verification-handoff"
+      activation_only: true
+      enter_scoped_execution: false
+      active_packet_kind: "product_mainline_activation_only"
+      product_mainline_task: true
+      source_blueprint_batch_id: "POST-FF-CONTROL-01"
+      execution_mode: "ACTIVATION_ONLY"
       runtime_change_in_packet: "OUT_OF_SCOPE"
-      repo_status_sync_only: false
-      baseline_dirty_paths_retained: false
+      current_task_switch_only: true
+      repo_status_sync_only: true
+      product_task_library_change: false
+      ax9s_change: false
+      runtime_change: false
+      contracts_change: false
+      handoff_change: false
+      tests_change: false
+      scripts_change: false
       canonical_readiness_change: false
       external_release_change: false
       stage8_real_execution_change: false
       stage9_real_payment_delivery_refund_change: false
-      product_task_library_candidate_pointer_change: true
-      ax9s_near_end_hint_change: true
-      stale_candidate_test_assertion_change: true
+      new_formal_object_enum_gate_exception_semantics: false
+      commit_allowed: false
+    implementation_boundary:
+      existing_code_state: "PARTIAL_RUNTIME"
+      existing_runtime_state: "PARTIAL_RUNTIME"
+      closure_target: "existing partial runtime closure target"
+      zero_to_one_skeleton: false
+      runtime_change_in_packet: "OUT_OF_SCOPE"
+      scoped_execution_in_this_round: false
     non_goals:
       - "not an external unlock implementation"
-      - "不是 product mainline task"
-      - "不加入 control/product_task_library.yaml 的 tasks 池"
-      - "不激活 PTL-S34"
-      - "不进入 PTL-S34 scoped-execution"
-      - "不改 runtime"
+      - "不进入 scoped-execution"
+      - "不改业务 runtime"
+      - "不改 src/**"
+      - "不改 scripts/**"
       - "不改 contracts/**"
       - "不改 handoff/**"
-      - "不改 scripts/**"
-      - "不改 src/**"
+      - "不改 tests/**"
+      - "不改 product_task_library"
+      - "不改 AX9S"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
       - "不新增业务对象、枚举、gate、exception 语义"
-      - "不新增正式对象、枚举、gate、exception 语义"
       - "不提交"
     affected_stages:
+      - "stage3_parsing"
+      - "stage4_verification"
       - "automation_control"
-      - "product_navigation_sync"
-      - "testing_regression"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
       - "future_external_unlock_prereq_core"
-      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "release_approver"
@@ -143,59 +143,47 @@ currentTask:
       - "governance_owner"
       - "model_governance_owner"
       - "testing_owner"
+    baseline_dirty_paths: []
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_task_library.yaml"
-      - "docs/AX9S_开发执行路由图.md"
-      - "tests/test_stage12_extractors.py"
-    baseline_dirty_paths: []
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_task_library.yaml"
-      - "docs/AX9S_开发执行路由图.md"
-      - "tests/test_stage12_extractors.py"
     forbidden_modification_paths:
       - "AGENTS.md"
       - "docs/L0.md"
+      - "control/product_task_library.yaml"
+      - "docs/AX9S_开发执行路由图.md"
+      - "docs/自动开发任务包模板.md"
+      - "control/ax9s_scoped_task_packet_template.yaml"
       - "scripts/**"
       - "src/**"
       - "contracts/**"
       - "handoff/**"
-      - "tests/test_external_unlock_prerequisites.py"
-      - "tests/test_internal_chain.py"
-      - "tests/test_architecture_anti_drift.py"
-      - "tests/test_semantic_runtime_validator.py"
+      - "tests/**"
       - "control/milestone_status.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/operator_assignment_roster_defaults.yaml"
       - "control/review_gate_matrix.yaml"
       - "control/automation_task_packet_rules.yaml"
-      - "docs/自动开发任务包模板.md"
-      - "control/ax9s_scoped_task_packet_template.yaml"
     impacted_assets:
-      docs:
-        - "docs/AX9S_开发执行路由图.md"
+      docs: []
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
-        - "control/product_task_library.yaml"
       contracts: []
       handoff: []
       scripts: []
-      tests:
-        - "tests/test_stage12_extractors.py"
+      tests: []
       runtime: []
     required_scripts:
-      - "python -m pytest tests/test_stage12_extractors.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1"
       - "git status --short --untracked-files=all"
     script_timeouts:
-      "python -m pytest tests/test_stage12_extractors.py -q": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1": 300000
@@ -203,34 +191,31 @@ currentTask:
       "git status --short --untracked-files=all": 120000
     stop_conditions:
       - "任一脚本失败"
-      - "实际改动超出 allowed_modification_paths"
+      - "实际改动超出 control/current_task.yaml 和 control/repo_status.md"
       - "触碰 forbidden paths"
-      - "激活 PTL-S34"
-      - "改到 runtime / contracts / handoff / scripts"
-      - "改到其他 tests"
+      - "进入 scoped-execution"
       - "改变 canonical readiness"
       - "放宽 external release / Stage8 / Stage9 红线"
       - "新增业务对象、枚举、gate、exception 语义"
       - "自动提交"
     definition_of_done:
-      - "currentTask.task_id 为 PTL-GOV-107-mainline-candidate-shift-to-S34"
-      - "task_packet.packet_id / subpacket_id / backlog_packet_ref 为 PTL-GOV-107-mainline-candidate-shift-to-S34"
+      - "currentTask.task_id 为 PTL-S34-object-lineage-verification-handoff"
+      - "currentTask.title 为 Stage3-4 对象、字段来源与公开核验移交闭合"
+      - "task_packet.packet_id / subpacket_id 为 PTL-PKT-S34-object-lineage-verification-handoff"
+      - "task_packet.backlog_packet_ref 为 PTL-S34-object-lineage-verification-handoff"
       - "task_packet.packet_kind 为 EXECUTABLE_SCOPED_SUBPACKET"
-      - "task_packet.execution_mode 为 SCOPED_EXECUTION"
+      - "task_packet.execution_mode 为 ACTIVATION_ONLY"
       - "task_packet.source_blueprint_batch_id 为 POST-FF-CONTROL-01"
       - "task_packet.status 为 ACTIVE"
       - "baseline_dirty_paths 为空"
-      - "declared_changed_paths / allowed_modification_paths 收敛到本轮 5 个允许文件"
-      - "product_task_library.current_mainline_next_candidate 推进到 PTL-S34-object-lineage-verification-handoff"
-      - "PTL-S23 task entry 为 COMPLETED / COMPLETED / false"
-      - "PTL-S34 task entry 为 CANDIDATE / REALITY_ALIGNMENT_QUEUED / true"
-      - "AX9S 近端导航第一位为 PTL-S34，且未把 PTL-S34 写成 current active packet"
-      - "tests/test_stage12_extractors.py stale candidate 断言同步到 S34"
+      - "declared_changed_paths / allowed_modification_paths 仅包含 control/current_task.yaml 与 control/repo_status.md"
+      - "repo_status.md 明确 PTL-S34 已是 current active packet 且本轮不进入 scoped-execution"
+      - "Stage3-4 明确为 existing partial runtime closure target，不是 zero-to-one skeleton"
+      - "不改 runtime、不改 readiness、不放开 external release / Stage8 / Stage9"
       - "required scripts 执行并停机汇报"
     deliverables:
-      - "PTL-GOV-107 active task packet"
-      - "S23 -> S34 mainline next candidate 指针位移"
-      - "AX9S 近端提示与 stage12 stale candidate 测试同步"
+      - "PTL-S34 activation-only active task packet"
+      - "repo_status current workstream activation-only sync"
       - "指定脚本、clean-python-cache 与 git status 执行结果"
     human_review_required: true
     owner_reviews_required:
@@ -245,30 +230,29 @@ currentTask:
       signoff_required: true
       signoff_status: "REQUESTED_NOT_APPROVED"
     notes:
-      - "当前 active task source 优先级固定为 current_task -> product_task_library -> repo_status。"
+      - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "control/product_task_library.yaml 只负责下一候选来源；current_mainline_next_candidate 不自动激活。"
-      - "control/source_blueprint_registry.yaml 是 source blueprint allowlist；本轮 source_blueprint_batch_id 为 POST-FF-CONTROL-01。"
-      - "docs/AX9S_开发执行路由图.md 只作导航提示，不决定执行顺序。"
-      - "PTL-S23 scoped-execution 已完成；本轮只做治理收口候选位移。"
-      - "External release 继续保持阻断。"
+      - "control/product_task_library.yaml 只负责产品主线候选池；本轮不修改该文件。"
+      - "PTL-S34-object-lineage-verification-handoff 已在本轮 activation-only 后成为 current active packet，但本轮不进入 scoped-execution。"
+      - "Stage3-4 是 existing partial runtime closure target，不是 zero-to-one skeleton。"
+      - "External release 继续保持阻断；Stage8 / Stage9 real execution/payment/delivery/refund 继续默认阻断。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit"
     - "external software release remains blocked"
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "本轮允许在 declared_changed_paths / allowed_modification_paths 内修改 control、AX9S 近端提示与 tests/test_stage12_extractors.py，完成主线候选从 S23 到 S34 的治理收口。"
-    - "允许保持 repo readiness 不变，运行指定脚本后停机汇报。"
+    - "本轮只允许修改 control/current_task.yaml 与 control/repo_status.md，完成 PTL-S34 activation-only active packet 切换。"
+    - "允许运行指定脚本并停机汇报。"
   forbidden_actions:
-    - "不得修改 AGENTS.md、docs/L0.md、scripts/**、src/**、contracts/**、handoff/**。"
-    - "不得修改 tests/test_external_unlock_prerequisites.py、tests/test_internal_chain.py、tests/test_architecture_anti_drift.py、tests/test_semantic_runtime_validator.py 或其他非允许 tests。"
-    - "不得修改 control/milestone_status.yaml、control/source_blueprint_registry.yaml、control/operator_assignment_roster_defaults.yaml、control/review_gate_matrix.yaml、control/automation_task_packet_rules.yaml、docs/自动开发任务包模板.md、control/ax9s_scoped_task_packet_template.yaml。"
-    - "不得激活 PTL-S34 或进入 PTL-S34 scoped-execution。"
+    - "不得修改 AGENTS.md、docs/L0.md、control/product_task_library.yaml、docs/AX9S_开发执行路由图.md、docs/自动开发任务包模板.md、control/ax9s_scoped_task_packet_template.yaml。"
+    - "不得修改 scripts/**、src/**、contracts/**、handoff/**、tests/**。"
+    - "不得修改 control/milestone_status.yaml、control/source_blueprint_registry.yaml、control/operator_assignment_roster_defaults.yaml、control/review_gate_matrix.yaml、control/automation_task_packet_rules.yaml。"
+    - "不得进入 scoped-execution。"
     - "不得改变 canonical readiness。"
     - "不得放宽 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
     - "不得新增业务对象、枚举、gate、exception 语义。"
     - "不得提交。"
   nextActions:
-    - "运行 tests/test_stage12_extractors.py、check-task-packet、check-state-alignment、check-final-gate、clean-python-cache 与 git status；任一失败即停机汇报。"
-  status_note: "PTL-GOV-107-mainline-candidate-shift-to-S34 当前进入 scoped-execution；本轮只关闭 S23 active 状态并把主线候选推进到 S34，不激活 S34，不改 runtime / contracts / handoff / scripts，不改变 canonical readiness，不提交。"
+    - "运行 check-task-packet、check-state-alignment、check-final-gate、clean-python-cache 与 git status；任一失败即停机汇报。"
+  status_note: "PTL-S34-object-lineage-verification-handoff 当前已通过 activation-only 成为 active packet；本轮不进入 scoped-execution，不改 runtime / contracts / handoff / tests / scripts / product_task_library / AX9S，不改变 canonical readiness，不提交。"
