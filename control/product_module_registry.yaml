@@ -695,6 +695,9 @@ cross_cutting_surfaces:
     test_files:
       - tests/test_api_transport_bootstrap.py
       - tests/test_internal_surface_preview.py
+    completed_packets:
+      - PTL-INT-internal-preview-surface-envelope
+    pending_packets: []
   - surface_id: repository_boundary
     business_summary: "Stage6-9 和 operator loop 的持久化边界，不能替代正式对象语义。"
     implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
@@ -721,6 +724,9 @@ cross_cutting_surfaces:
     test_files:
       - tests/test_internal_repository_boundary.py
       - tests/test_storage_concurrency.py
+    completed_packets:
+      - PTL-INT-internal-preview-surface-envelope
+    pending_packets: []
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
     stage_scope:
@@ -1020,9 +1026,9 @@ modules:
       - src/api/schemas/stage9.py
     current_runtime_state: PARTIAL_RUNTIME
     internal_governed_runtime_present: true
-    completed_packets: []
-    pending_packets:
+    completed_packets:
       - PTL-INT-internal-preview-surface-envelope
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
@@ -1089,9 +1095,9 @@ modules:
       - src/storage/repositories/operator_action_repo.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
-    completed_packets: []
-    pending_packets:
+    completed_packets:
       - PTL-INT-internal-preview-surface-envelope
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
@@ -1115,9 +1121,9 @@ modules:
       - src/api/routes/stage9.py
     current_runtime_state: PARTIAL_RUNTIME
     internal_governed_runtime_present: true
-    completed_packets: []
-    pending_packets:
+    completed_packets:
       - PTL-INT-internal-preview-surface-envelope
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false

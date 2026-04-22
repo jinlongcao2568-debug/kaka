@@ -172,6 +172,26 @@ def test_api_and_repository_surfaces_are_not_lost_from_module_ledger() -> None:
         assert f"src/storage/repositories/{path.name}" in registry_text
 
 
+def test_internal_preview_packet_is_not_left_pending_in_registry() -> None:
+    registry = read_yaml("control/product_module_registry.yaml")
+    modules = {module["module_id"]: module for module in registry["modules"]}
+    surfaces = {surface["surface_id"]: surface for surface in registry["cross_cutting_surfaces"]}
+    packet_id = "PTL-INT-internal-preview-surface-envelope"
+
+    for entry_id, entry in {
+        "SURFACE-API-TRANSPORT": modules["SURFACE-API-TRANSPORT"],
+        "STORAGE-REPOSITORY-BOUNDARY": modules["STORAGE-REPOSITORY-BOUNDARY"],
+        "INTERNAL-PREVIEW-SURFACE": modules["INTERNAL-PREVIEW-SURFACE"],
+        "api_transport_and_schema": surfaces["api_transport_and_schema"],
+        "repository_boundary": surfaces["repository_boundary"],
+    }.items():
+        assert packet_id in entry["completed_packets"], entry_id
+        assert packet_id not in entry["pending_packets"], entry_id
+
+    assert modules["INTERNAL-PREVIEW-SURFACE"]["external_release_allowed"] is False
+    assert modules["INTERNAL-PREVIEW-SURFACE"]["live_execution_allowed"] is False
+
+
 def test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked() -> None:
     registry = read_yaml("control/product_module_registry.yaml")
     stages = {stage["stage_id"]: stage for stage in registry["stage_module_inventory"]}

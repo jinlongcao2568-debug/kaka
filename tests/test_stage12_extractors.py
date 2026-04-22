@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import unittest
 from pathlib import Path
 
@@ -209,33 +208,31 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("current_task -> product_task_library -> repo_status", current_task_text)
         self.assertIn("current_task -> product_task_library -> repo_status", repo_status_text)
         active_task = current_task["currentTask"]
-        self.assertEqual(active_task["task_id"], "PTL-INT-internal-preview-surface-envelope")
+        self.assertEqual(active_task["task_id"], "PTL-GOV-117-product-mainline-completion-closeout")
         active_packet = active_task["task_packet"]
         self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
         self.assertEqual(active_packet["execution_mode"], "SCOPED_EXECUTION")
         self.assertEqual(active_packet["status"], "ACTIVE")
-        self.assertEqual(active_packet["packet_id"], "PTL-PKT-INT-internal-preview-surface-envelope")
-        self.assertEqual(active_packet["backlog_packet_ref"], "PTL-INT-internal-preview-surface-envelope")
-        self.assertEqual(active_packet["runtime_change_in_packet"], "CONTROLLED_INTERNAL_PREVIEW_ENVELOPE_CLOSURE")
+        self.assertEqual(active_packet["packet_id"], "PTL-GOV-117-product-mainline-completion-closeout")
+        self.assertEqual(active_packet["backlog_packet_ref"], "PTL-GOV-117-product-mainline-completion-closeout")
+        self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
         self.assertTrue(active_packet["scoped_execution_scope"]["enter_scoped_execution"])
-        self.assertTrue(active_packet["scoped_execution_scope"]["runtime_change"])
+        self.assertFalse(active_packet["scoped_execution_scope"]["runtime_change"])
+        self.assertTrue(active_packet["scoped_execution_scope"]["product_task_library_change"])
+        self.assertTrue(active_packet["scoped_execution_scope"]["product_module_registry_change"])
         self.assertTrue(active_packet["scoped_execution_scope"]["ax9s_change"])
         self.assertTrue(active_packet["scoped_execution_scope"]["docs_change"])
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["task_id"], "PTL-INT-internal-preview-surface-envelope")
-        self.assertEqual(candidate["planning_state"], "REALITY_ALIGNMENT_QUEUED")
+        self.assertIsNone(candidate["task_id"])
+        self.assertIsNone(candidate["packet_id"])
+        self.assertEqual(candidate["planning_state"], "MAINLINE_COMPLETE")
         self.assertEqual(candidate["runtime_change_in_packet"], "OUT_OF_SCOPE")
-
-        candidate_match = re.search(
-            r"current_mainline_next_candidate:\s+task_id: PTL-INT-internal-preview-surface-envelope(?P<body>.*?)(?:\n\S|\Z)",
-            task_library_text,
-            re.DOTALL,
-        )
-        self.assertIsNotNone(candidate_match)
-        candidate_body = candidate_match.group("body")
-        self.assertIn("planning_state: REALITY_ALIGNMENT_QUEUED", candidate_body)
-        self.assertIn("不因候选池指针自动成为当前执行包", candidate_body)
+        self.assertIn("planning_state: MAINLINE_COMPLETE", task_library_text)
+        self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 均已 completed", task_library_text)
+        self.assertIn("现在没有自动 next candidate", task_library_text)
+        self.assertIn("后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认", task_library_text)
+        self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
 
         stage12_task_entry = next(
             task for task in task_library["tasks"] if task["task_id"] == "PTL-S12-source-route-clock-authority"
@@ -303,9 +300,11 @@ class TestStage12Extractors(unittest.TestCase):
         internal_preview_task_entry = next(
             task for task in task_library["tasks"] if task["task_id"] == "PTL-INT-internal-preview-surface-envelope"
         )
-        self.assertEqual(internal_preview_task_entry["status"], "CANDIDATE")
-        self.assertEqual(internal_preview_task_entry["planning_state"], "REALITY_ALIGNMENT_QUEUED")
-        self.assertTrue(internal_preview_task_entry["is_current_mainline_next_candidate"])
+        self.assertEqual(internal_preview_task_entry["status"], "COMPLETED")
+        self.assertEqual(internal_preview_task_entry["planning_state"], "COMPLETED")
+        self.assertFalse(internal_preview_task_entry["is_current_mainline_next_candidate"])
+        self.assertIn("cfc5265", internal_preview_task_entry["runtime_notes"])
+        self.assertIn("Stage1-9 + INT 主线已闭合", internal_preview_task_entry["runtime_notes"])
         self.assertNotIn(
             active_packet["packet_id"],
             [task["task_id"] for task in task_library["tasks"]],
@@ -315,13 +314,18 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("非当前任务源", route_map_text)
         self.assertIn("只作导航提示，不决定执行顺序", route_map_text)
         self.assertIn("current_mainline_next_candidate", route_map_text)
-        self.assertIn("不是因候选池指针自动激活的当前执行包", route_map_text)
+        self.assertIn("Stage1-9 + INT 当前产品主线闭合完成", route_map_text)
+        self.assertIn("当前没有自动 next candidate", route_map_text)
+        self.assertIn("task_id` / `packet_id` 均为空", route_map_text)
         self.assertIn("Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解", route_map_text)
         self.assertIn("Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解", route_map_text)
         self.assertIn("不是 live execution", route_map_text)
+        self.assertIn("PTL-GOV-117-product-mainline-completion-closeout", route_map_text)
         self.assertIn("PTL-GOV-116-mainline-candidate-shift-to-INT", route_map_text)
         self.assertIn("PTL-INT-internal-preview-surface-envelope", route_map_text)
-        self.assertIn("internal preview surface envelope / repository-backed replay / operator-loop projection", route_map_text)
+        self.assertIn("已完成 scoped-execution 并提交 `cfc5265`", route_map_text)
+        self.assertIn("本文件仍只提供近端导航提示", route_map_text)
+        self.assertIn("不提供状态源、执行顺序源、完整 backlog 或 release 放行", route_map_text)
         self.assertIn("209c4cd", route_map_text)
         self.assertIn("PTL-S89-outreach-writeback-delivery-governance", route_map_text)
         self.assertIn("c36dd9d", route_map_text)
