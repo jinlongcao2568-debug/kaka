@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-130-post-mainline-product-only-pool-fix (SCOPED_EXECUTION; governance packet that applies option 1 to the post-mainline candidate pool by removing governance-only / future-unlock tasks from control/product_task_library.yaml, keeping only product/implementation tasks there, and synchronizing control/product_module_registry.yaml to the product-only execution ladder; this round only changes control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, control/product_module_registry.yaml, tests/test_stage12_extractors.py, and tests/test_product_module_registry.py; keeps docs/AX9S_开发执行路由图.md unchanged; does not change runtime, src, contracts, or handoff; does not change canonical readiness; does not set current_mainline_next_candidate automatically; does not loosen external software release, external leadpack delivery approval + audit requirement, or Stage 8 / Stage 9 redlines; does not commit)
+Current Workstream: PTL-S8-101-p1-candidate-compliance-boundary-refactor (SCOPED_EXECUTION; P1 code execution in declared paths; refactor Stage8 candidate/compliance boundaries by splitting candidate merge/source resolution/compliance lattice from src/stage8_outreach/service.py into declared Stage8 files while preserving StageBundle records, handoff, inputs, governed preview, and blocked-by-default semantics; allowed paths are control/current_task.yaml, control/repo_status.md, src/stage8_outreach/service.py, src/stage8_outreach/resolution.py, src/stage8_outreach/candidate_compliance.py, tests/test_stage8_resolution_closure.py, tests/test_pre_route_behavior.py, and tests/test_internal_chain.py; does not modify contracts, handoff, docs, docs/AX9S_开发执行路由图.md, product_task_library, product_module_registry, source_blueprint_registry, roster defaults, review gate matrix, release manifests, or future/external unlock state; does not change canonical readiness; does not set current_mainline_next_candidate; does not approve external release, Stage8 real execution, or Stage9 payment/delivery/refund; approved for local commit only; does not push)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,51 +20,56 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- switch control/current_task.yaml active packet to PTL-GOV-130-post-mainline-product-only-pool-fix in SCOPED_EXECUTION
-- sync control/repo_status.md current workstream wording to PTL-GOV-130-post-mainline-product-only-pool-fix (SCOPED_EXECUTION)
-- update control/product_task_library.yaml to remove governance-only / future-unlock tasks and keep only product/implementation manual-selection tasks
-- keep control/product_task_library.yaml current_mainline_next_candidate as the existing MAINLINE_COMPLETE closeout record with task_id=null and packet_id=null
-- update control/product_module_registry.yaml to reference the product-only execution ladder
-- update tests/test_stage12_extractors.py and tests/test_product_module_registry.py within the declared scope
-- keep docs/AX9S_开发执行路由图.md unchanged
+- switch control/current_task.yaml active packet to PTL-S8-101-p1-candidate-compliance-boundary-refactor in SCOPED_EXECUTION
+- sync control/repo_status.md current workstream wording to PTL-S8-101-p1-candidate-compliance-boundary-refactor (SCOPED_EXECUTION; code execution in declared paths)
+- refactor Stage8 candidate/compliance boundaries within src/stage8_outreach/service.py, src/stage8_outreach/resolution.py, and src/stage8_outreach/candidate_compliance.py
+- update only the declared P1 tests when needed: tests/test_stage8_resolution_closure.py, tests/test_pre_route_behavior.py, tests/test_internal_chain.py
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
+- keep current_mainline_next_candidate unset / non-auto-activated
 - keep external software release blocked
 - keep external leadpack delivery approval + audit required
 - keep Stage 8 real execution governed / approval-gated / blocked by default
 - keep Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
+- allow local commit after required checks pass
 - run the required checks and stop for report
 
 Forbidden Actions (current):
-- Any work outside PTL-GOV-130-post-mainline-product-only-pool-fix in this round
-- Any change to docs/AX9S_开发执行路由图.md
-- Any change to src/**, contracts/**, handoff/**
-- Any change outside the declared changed paths in control/current_task.yaml
-- Any change to AGENTS.md
-- Any change to control/milestone_status.yaml
+- Any actual code change outside declared src/stage8_outreach paths
+- Any actual test change outside declared P1 test paths
+- Any change to docs/** or docs/AX9S_开发执行路由图.md
+- Any change to contracts/**
+- Any change to handoff/**
+- Any change to control/product_task_library.yaml
+- Any change to control/product_module_registry.yaml
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/operator_assignment_roster_defaults.yaml
 - Any change to control/review_gate_matrix.yaml
-- Any change to control/ax9s_scoped_task_packet_template.yaml
+- Any change to control/release_manifest.yaml
+- Any change to control/model_release_manifest.yaml
+- Any change to control/external_unlock_prerequisite_state.yaml
+- Any change to control/future_unlock_decision_state.yaml
+- Any change to contracts/release/**
+- Any change to contracts/model/**
 - Any change that alters canonical readiness
+- Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
-- Any compatibility change that allows out-of-scope planned paths to pass validation
+- Any change that adds formal object, enum, gate, or exception semantics
 - Any automatic current_mainline_next_candidate restoration
 - Any automatic recommendation activation
-- Automatic commit
+- Any push
+- Any automatic transition to the next packet
 
 State Semantics:
 - READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself change external release, Stage8, or Stage9 boundaries.
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-GOV-130-post-mainline-product-only-pool-fix is a governance packet that applies product-only semantics to control/product_task_library.yaml and synchronizes control/product_module_registry.yaml to the resulting product execution ladder without changing runtime or activating a next candidate.
-- control/product_task_library.yaml current_mainline_next_candidate remains a MAINLINE_COMPLETE closeout record with no task_id and no packet_id.
-- There is still no automatic next candidate after this closeout; manual-selection tasks may exist in the candidate pool without becoming current_mainline_next_candidate.
-- control/product_task_library.yaml now carries the completed mainline record plus the product-only post-mainline execution ladder; governance closeout / AX9S sync / future unlock prep remain outside the product pool and still require dedicated control packets when needed.
-- control/product_module_registry.yaml continues to expose direction-level recommendations for navigation only and now references the product-only ladder for finer execution decomposition.
-- Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
+- PTL-S8-101-p1-candidate-compliance-boundary-refactor is now the active P1 scoped task packet.
+- This activation is not an external release approval, not a Stage8 real outreach approval, and not a Stage9 payment/delivery/refund approval.
+- P1 runtime_change_in_packet=IN_SCOPE authorizes only the declared internal Stage8 behavior-equivalent refactor scope; it does not authorize external release or live execution.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
+- Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source; this round does not modify it.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
@@ -79,9 +84,10 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''tests/test_stage12_extractors.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
-- python -m pytest tests/test_stage12_extractors.py -q
-- python -m pytest tests/test_product_module_registry.py -q
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''src/stage8_outreach/service.py'',''src/stage8_outreach/resolution.py'',''src/stage8_outreach/candidate_compliance.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_pre_route_behavior.py'',''tests/test_internal_chain.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- python -m pytest tests/test_stage8_resolution_closure.py -q
+- python -m pytest tests/test_pre_route_behavior.py -q
+- python -m pytest tests/test_internal_chain.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1

@@ -724,7 +724,7 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         }
 
         with patch(
-            "stage8_outreach.service.select_contact_candidate",
+            "stage8_outreach.service.select_stage8_contact_candidate",
             return_value=(selected_candidate, candidate_trace),
         ):
             stage8 = run_internal_chain(payload)["stage8"]
@@ -814,7 +814,7 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         }
 
         with patch(
-            "stage8_outreach.service.select_contact_candidate",
+            "stage8_outreach.service.select_stage8_contact_candidate",
             return_value=(selected_candidate, candidate_trace),
         ):
             stage8 = run_internal_chain(payload)["stage8"]

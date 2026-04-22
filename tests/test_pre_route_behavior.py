@@ -1,8 +1,16 @@
 from __future__ import annotations
 
 import copy
+import sys
 import unittest
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+TESTS = ROOT / "tests"
+for search_path in (SRC, TESTS):
+    if str(search_path) not in sys.path:
+        sys.path.insert(0, str(search_path))
 
 from helpers import load_fixture, load_repo_json
 from shared.pipeline import run_internal_chain
