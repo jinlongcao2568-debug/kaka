@@ -505,7 +505,7 @@ stage_module_inventory:
       - PTL-S7-price-competitor-offer-resolution
     current_blockers:
       - "Stage7 可售对象必须受 report/review/sale gate 约束。"
-      - "runtime.py / scorecard.py / pricing.py / recommendation.py 属于后续模块拆分，不是当前阻断。"
+      - "Stage7 模块边界已拆分完成；本次仅为模块边界重构，不新增正式对象、枚举、gate 或 exception 语义。"
     exit_criteria:
       - "saleable_opportunity 只消费 H-06 / Stage6 formal carriers。"
       - "sales_lead / buyer_fit / offer_recommendation 不能绕开 review/report/sale gate。"
@@ -516,6 +516,10 @@ stage_module_inventory:
         implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
         current_files:
           - src/stage7_sales/service.py
+          - src/stage7_sales/runtime.py
+          - src/stage7_sales/scorecard.py
+          - src/stage7_sales/pricing.py
+          - src/stage7_sales/recommendation.py
           - src/stage7_sales/buyer_fit.py
           - src/stage7_sales/offer.py
           - src/stage7_sales/opportunity.py
@@ -542,14 +546,17 @@ stage_module_inventory:
           - "review request 或 missing condition 存在时 opportunity 必须受限。"
         deferred_gaps:
           - gap_id: STAGE7-SALES-RUNTIME-SPLIT
-            future_files:
+            status: COMPLETED
+            completed_in_packet: PTL-S7-module-boundary-refactor
+            completed_files:
               - src/stage7_sales/runtime.py
               - src/stage7_sales/scorecard.py
               - src/stage7_sales/pricing.py
               - src/stage7_sales/recommendation.py
             target_packet_candidates:
-              - PTL-S7-price-competitor-offer-resolution
-            not_current_blocker: true
+              - PTL-S7-module-boundary-refactor
+            not_current_blocker: false
+            completion_note: "模块边界重构完成；未新增正式对象、枚举、gate、exception 语义。"
       - slice_id: stage7.actor_offer_resolution
         business_summary: "维护挑战者、法律动作 actor、采购决策 actor、价格/竞争者/推荐方案 resolution。"
         implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
@@ -955,12 +962,16 @@ modules:
       - multi_competitor_collection
     current_files:
       - src/stage7_sales/service.py
+      - src/stage7_sales/runtime.py
+      - src/stage7_sales/scorecard.py
+      - src/stage7_sales/pricing.py
+      - src/stage7_sales/recommendation.py
       - src/stage7_sales/resolution.py
       - src/stage7_sales/buyer_fit.py
       - src/stage7_sales/offer.py
       - src/stage7_sales/opportunity.py
       - src/stage7_sales/models.py
-    proposed_future_files:
+    completed_split_files:
       - src/stage7_sales/runtime.py
       - src/stage7_sales/scorecard.py
       - src/stage7_sales/pricing.py
@@ -970,13 +981,15 @@ modules:
     completed_packets:
       - PTL-S67-saleable-opportunity-derivation
       - PTL-S7-price-competitor-offer-resolution
+      - PTL-S7-module-boundary-refactor
     pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
-    deferred_module_split: true
+    deferred_module_split: false
     notes:
       - "Current S67 closure is complete through service.py plus shared runtime/policy chain."
-      - "Future file split should be handled in a Stage7-focused packet, not inside unrelated closure/governance packets."
+      - "STAGE7-SALES-RUNTIME-SPLIT completed by PTL-S7-module-boundary-refactor as a module boundary refactor only."
+      - "This split does not add formal object, enum, gate, or exception semantics."
   - module_id: STAGE8-OUTREACH-GOVERNED
     stage_scope:
       - stage8_outreach
@@ -1173,22 +1186,29 @@ modules:
     deferred_module_split: false
 deferred_module_splits:
   - gap_id: STAGE7-SALES-RUNTIME-SPLIT
+    status: COMPLETED
+    completed_in_packet: PTL-S7-module-boundary-refactor
     current_owner_module_id: STAGE7-SALES-DERIVATION
     current_scope_files:
       - src/stage7_sales/service.py
+      - src/stage7_sales/runtime.py
+      - src/stage7_sales/scorecard.py
+      - src/stage7_sales/pricing.py
+      - src/stage7_sales/recommendation.py
       - src/stage7_sales/buyer_fit.py
       - src/stage7_sales/offer.py
       - src/stage7_sales/opportunity.py
       - src/stage7_sales/resolution.py
-    proposed_future_files:
+    completed_files:
       - src/stage7_sales/runtime.py
       - src/stage7_sales/scorecard.py
       - src/stage7_sales/pricing.py
       - src/stage7_sales/recommendation.py
     target_packet_candidates:
-      - PTL-S7-price-competitor-offer-resolution
-    not_current_blocker: true
+      - PTL-S7-module-boundary-refactor
+    pending: false
+    not_current_blocker: false
     notes:
       - "Current S67 closure is complete through service.py and shared runtime/policy chain."
-      - "Do not create these files inside unrelated closure/governance packets."
-      - "Re-evaluate this split when Stage7 pricing / competitor / recommendation work becomes the active packet."
+      - "Completed by a Stage7 module boundary refactor only."
+      - "No formal object, enum, gate, exception, product_task_library, AX9S, contracts, handoff, scripts, Stage8, Stage9, or shared runtime change is implied."

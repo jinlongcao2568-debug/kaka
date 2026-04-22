@@ -216,7 +216,8 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
         self.assertIn(active_packet["execution_mode"], {"ACTIVATION_ONLY", "SCOPED_EXECUTION"})
         self.assertEqual(active_packet["status"], "ACTIVE")
-        self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertIsInstance(active_packet["runtime_change_in_packet"], str)
+        self.assertTrue(active_packet["runtime_change_in_packet"])
         for required_field in (
             "packet_id",
             "backlog_packet_ref",
@@ -228,14 +229,20 @@ class TestStage12Extractors(unittest.TestCase):
             self.assertTrue(active_packet[required_field])
 
         scoped_execution_scope = active_packet["scoped_execution_scope"]
-        self.assertFalse(scoped_execution_scope["runtime_change"])
         self.assertFalse(scoped_execution_scope["product_task_library_change"])
-        self.assertFalse(scoped_execution_scope["product_module_registry_change"])
         self.assertFalse(scoped_execution_scope["external_release_change"])
         self.assertFalse(scoped_execution_scope["stage8_real_execution_change"])
         self.assertFalse(scoped_execution_scope["stage9_real_payment_delivery_refund_change"])
         self.assertFalse(scoped_execution_scope["new_formal_object_enum_gate_exception_semantics"])
         self.assertFalse(scoped_execution_scope["commit_allowed"])
+        if scoped_execution_scope["runtime_change"]:
+            self.assertNotEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        else:
+            self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(
+            scoped_execution_scope["product_module_registry_change"],
+            "control/product_module_registry.yaml" in active_packet["allowed_modification_paths"],
+        )
         self.assertIn("control/current_task.yaml remains the only active execution source.", task_library_text)
         self.assertIn(
             "current_mainline_next_candidate is a candidate-pool pointer only; it does not auto-activate",

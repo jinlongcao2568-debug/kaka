@@ -731,11 +731,55 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             self.assertNotIn("_load_json(", text, relative_path)
             self.assertNotIn("Path(__file__)", text, relative_path)
 
+    def test_stage7_module_boundary_split_uses_helper_modules(self) -> None:
+        expected_modules = (
+            "src/stage7_sales/runtime.py",
+            "src/stage7_sales/scorecard.py",
+            "src/stage7_sales/pricing.py",
+            "src/stage7_sales/recommendation.py",
+        )
+        for relative_path in expected_modules:
+            self.assertTrue((ROOT / relative_path).exists(), relative_path)
+
+        stage7 = read("src/stage7_sales/service.py")
+        for token in (
+            "from stage7_sales.runtime import",
+            "from stage7_sales.pricing import",
+            "from stage7_sales.scorecard import",
+            "from stage7_sales.recommendation import",
+            "build_stage7_runtime_context(",
+            "resolve_price_projection(runtime_state)",
+            "resolve_scorecard_projection(runtime_state)",
+            "build_buyer_fit_scorecard_trace(",
+            "build_value_derivation_trace(",
+            "build_price_resolution_trace(",
+            "build_opportunity_policy_trace(",
+        ):
+            self.assertIn(token, stage7)
+        for token in (
+            "def required_runtime_value(",
+            "def resolved_policy_output(",
+            "price_policy_outputs =",
+            '"selected_candidate_trace": runtime_state.resolve("selected_candidate_trace"',
+            '"buyer_fit_derivation_trace": runtime_state.resolve("buyer_fit_derivation_trace")',
+        ):
+            self.assertNotIn(token, stage7)
+
     def test_stage7_service_does_not_use_direct_input_fallback_for_price_authority_outputs(self) -> None:
         stage7 = read("src/stage7_sales/service.py")
+        pricing = read("src/stage7_sales/pricing.py")
+        recommendation = read("src/stage7_sales/recommendation.py")
 
         self.assertIn(
-            'price_policy_outputs = runtime_state.outputs.get("price_normalization", {})',
+            'resolved_policy_output(',
+            pricing,
+        )
+        self.assertIn(
+            '"price_normalization"',
+            pricing,
+        )
+        self.assertIn(
+            "resolve_price_projection(runtime_state)",
             stage7,
         )
         self.assertNotIn(
@@ -746,6 +790,8 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             'runtime_state.resolve("recommended_quote_band", inputs.get("recommended_quote_band"))',
             stage7,
         )
+        self.assertNotIn('inputs.get("recommended_quote_band")', stage7 + pricing)
+        self.assertNotIn('inputs.get("why_recommended")', stage7 + recommendation)
 
     def test_stage8_service_uses_h07_authority_for_contact_fields_and_conflict_preview(self) -> None:
         stage8 = read("src/stage8_outreach/service.py")

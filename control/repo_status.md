@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-119-active-task-test-invariant-fix (SCOPED_EXECUTION; active task test invariant fix only; switch the active packet to PTL-GOV-119-active-task-test-invariant-fix; update tests/test_stage12_extractors.py so active task checks validate active execution source invariants instead of fixed current packet IDs; do not enter runtime; do not change control/product_task_library.yaml; do not change control/product_module_registry.yaml; do not change docs/AX9S_开发执行路由图.md; do not change src / contracts / handoff / scripts; canonical readiness unchanged; external software release remains blocked; external leadpack delivery remains approval + audit required; Stage8 real execution and Stage9 real payment/delivery/refund remain governed / approval-gated / blocked by default)
+Current Workstream: PTL-S7-module-boundary-refactor (SCOPED_EXECUTION; post-mainline strengthening packet; source is the post_mainline_selection recommended direction; close deferred split STAGE7-SALES-RUNTIME-SPLIT through a minimal Stage7 module boundary refactor; do not change Stage7 business semantics, public contracts, Stage7 object schema, shared runtime, Stage8 runtime, or Stage9 runtime; do not change control/product_task_library.yaml; do not change docs/AX9S_开发执行路由图.md; do not change contracts / handoff / scripts; do not restore an automatic next candidate; keep the MAINLINE_COMPLETE closeout record unchanged; canonical readiness unchanged; external software release remains blocked; external leadpack delivery remains approval + audit required; Stage 8 real execution and Stage 9 real payment/delivery/refund remain governed / approval-gated / blocked by default)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,67 +20,87 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- switch control/current_task.yaml active packet to PTL-GOV-119-active-task-test-invariant-fix
-- sync control/repo_status.md current workstream wording to PTL-GOV-119-active-task-test-invariant-fix (SCOPED_EXECUTION)
-- update tests/test_stage12_extractors.py active task assertions from fixed packet identity checks to active execution source invariants
+- switch control/current_task.yaml active packet to PTL-S7-module-boundary-refactor SCOPED_EXECUTION
+- sync control/repo_status.md current workstream wording to PTL-S7-module-boundary-refactor (SCOPED_EXECUTION)
+- record that this is a post-mainline strengthening packet sourced from the post_mainline_selection recommended direction
+- update control/product_module_registry.yaml only to mark STAGE7-SALES-RUNTIME-SPLIT complete / no longer pending and register the four new Stage7 module files
+- refactor src/stage7_sales/service.py by extracting pure helper / projection / policy-output read logic into runtime.py, pricing.py, scorecard.py, and recommendation.py
+- update only the declared Stage7 closure, architecture anti-drift, product module registry, and stage12 extractor tests
 - keep control/product_task_library.yaml unchanged, with current_mainline_next_candidate staying as the existing MAINLINE_COMPLETE closeout record with task_id=null and packet_id=null
-- keep control/product_module_registry.yaml unchanged
 - keep docs/AX9S_开发执行路由图.md unchanged
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
+- keep external software release blocked
+- keep external leadpack delivery approval + audit required
+- keep Stage8 / Stage 8 real execution governed / approval-gated / blocked by default
+- keep Stage9 / Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
 - run the required checks and stop for report
 
 Forbidden Actions (current):
-- Any work outside PTL-GOV-119-active-task-test-invariant-fix scoped-execution in this round
+- Any work outside PTL-S7-module-boundary-refactor scoped-execution in this round
+- Any Stage7 business semantic change or Stage7 object schema change
+- Any shared runtime, Stage8 runtime, or Stage9 runtime change
 - Any change outside declared_changed_paths / allowed_modification_paths
 - Any change to AGENTS.md
-- Any change to control/product_task_library.yaml
-- Any change to control/product_module_registry.yaml
-- Any change to docs/AX9S_开发执行路由图.md
-- Any change to docs/L0.md, docs/裁决总表.md, docs/D1_研发_Codex执行手册.md, docs/D2_正式对象契约与字段字典.md, docs/D3_正式规则码总表与判定说明书.md, docs/D4_OpenAPI接口契约.md, docs/D5_页面导出与人工复核规范.md, docs/D6_字段策略字典与客户交付字段规范.md, docs/D7_对象级交付矩阵与外发治理规范.md, docs/D8_真实竞争者识别可售对象与销售推进规范.md, docs/D9_联系对象与销售触达规范.md, docs/D10_订单支付交付与治理反馈规范.md, docs/D11_测试验收与金标回归清单.md, docs/D12_部署发布与运行治理规范.md, docs/D13_公开可查边界能力清单.md, docs/D14_AI模型治理规范.md, docs/自动开发任务包模板.md
+- Any change to docs/**
 - Any change to scripts/**
 - Any change to contracts/**
 - Any change to handoff/**
-- Any change to src/**
-- Any change to tests/** outside tests/test_stage12_extractors.py
+- Any change to src/shared/**
+- Any change to src/stage7_sales/buyer_fit.py
+- Any change to src/stage7_sales/offer.py
+- Any change to src/stage7_sales/opportunity.py
+- Any change to src/stage7_sales/models.py
+- Any change to src/stage7_sales/__init__.py
+- Any change to Stage1-6, Stage8, or Stage9 runtime paths
+- Any change to tests/** outside the four declared test files
+- Any change to control/product_task_library.yaml
+- Any change to docs/AX9S_开发执行路由图.md
 - Any change to control/milestone_status.yaml
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/operator_assignment_roster_defaults.yaml
 - Any change to control/review_gate_matrix.yaml
 - Any change to control/automation_task_packet_rules.yaml
 - Any change to control/ax9s_scoped_task_packet_template.yaml
-- Any test assertion that binds the active packet to a fixed current packet ID
 - Any change that alters canonical readiness
-- Any change that loosens external release / Stage8 / Stage9 redlines
+- Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that turns internal preview into external-ready / customer-platform release
 - Any automatic next-candidate restoration
 - Automatic commit
 
 State Semantics:
-- READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself change external release, Stage8, or Stage9 boundaries.
+- READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself change external release, Stage8, Stage 8, Stage9, or Stage 9 boundaries.
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-S12-source-route-clock-authority, PTL-S23-public-chain-to-parser-contract, PTL-S34-object-lineage-verification-handoff, PTL-S45-rule-evidence-dual-gate, PTL-S56-project-fact-review-report, PTL-S67-saleable-opportunity-derivation, PTL-S7-price-competitor-offer-resolution, PTL-S78-contact-candidate-compliance-preview, PTL-S89-outreach-writeback-delivery-governance, and PTL-INT-internal-preview-surface-envelope are completed in the product mainline pool.
 - PTL-GOV-118-post-mainline-direction-selection has completed and committed as 0e02e85.
+- PTL-GOV-119-active-task-test-invariant-fix has completed and committed as d94ea5b.
+- post_mainline_selection currently recommends Stage7 模块边界重构.
+- PTL-S7-module-boundary-refactor is now in scoped-execution for the registered Stage7 module boundary split only.
+- This scoped-execution round changes only the declared control files, Stage7 helper/module files, and declared tests; it does not change Stage7 business semantics, shared runtime, Stage8 runtime, Stage9 runtime, product_task_library, AX9S, contracts, handoff, or scripts.
 - control/product_task_library.yaml current_mainline_next_candidate remains a MAINLINE_COMPLETE closeout record with no task_id and no packet_id.
 - There is no automatic next candidate after this closeout.
-- Any follow-on new mainline, module split, strengthening packet, or external unlock must be opened as a separate task packet and manually confirmed.
-- PTL-GOV-119-active-task-test-invariant-fix is a small governance test packet; it fixes the active task test strategy before Stage7 module boundary refactor continues.
+- Any follow-on new Stage7 business implementation must be opened as a separate manually confirmed task packet.
+- Any follow-on new mainline, module split, strengthening packet scoped execution, or external unlock must be opened as a separate task packet and manually confirmed.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
-- control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source; this round does not modify it.
-- Stage7 模块边界重构 remains the follow-on direction after this testing strategy root-cause fix; this round does not enter Stage7 runtime.
+- control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source; this round only records the Stage7 split closure.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
-- AX9S remains unchanged in this test invariant fix round.
+- AX9S remains unchanged in this scoped-execution round.
 - Canonical readiness is unchanged by this scoped-execution round.
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
+- External software release remains blocked.
+- Stage 8 real execution remains governed / approval-gated / blocked by default.
+- Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default.
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','tests/test_stage12_extractors.py'
+- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','control/product_module_registry.yaml','src/stage7_sales/service.py','src/stage7_sales/runtime.py','src/stage7_sales/scorecard.py','src/stage7_sales/pricing.py','src/stage7_sales/recommendation.py','tests/test_stage7_runtime_closure.py','tests/test_architecture_anti_drift.py','tests/test_product_module_registry.py','tests/test_stage12_extractors.py'
 - python -m pytest tests/test_stage12_extractors.py -q
+- python -m pytest tests/test_stage7_runtime_closure.py -q
+- python -m pytest tests/test_architecture_anti_drift.py -q
+- python -m pytest tests/test_product_module_registry.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1

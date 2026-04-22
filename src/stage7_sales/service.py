@@ -7,45 +7,29 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from stage7_sales.pricing import build_price_resolution_trace, resolve_price_projection
+from stage7_sales.recommendation import (
+    build_opportunity_blocking_reasons,
+    build_opportunity_policy_trace,
+    build_stage7_restriction_reasons,
+)
 from stage7_sales.resolution import resolve_actor_seed
+from stage7_sales.runtime import (
+    build_stage7_runtime_context,
+    optional_int,
+    optional_str,
+    require_h06_field,
+    required_runtime_value,
+)
+from stage7_sales.scorecard import (
+    build_buyer_fit_scorecard_trace,
+    build_value_derivation_trace,
+    resolve_scorecard_projection,
+)
 from shared.capability_runtime import CapabilityRuntime
-from shared.context_packet import ContextPacket
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.state_packet import StatePacket
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, resolve_bundle, utc_now_iso
-
-
-def _optional_int(value: Any) -> int | None:
-    if value in (None, ""):
-        return None
-    return int(value)
-
-
-def _optional_number(value: Any) -> float | int | None:
-    if value in (None, ""):
-        return None
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return value
-    return float(value)
-
-
-def _optional_str(value: Any) -> str | None:
-    if value in (None, ""):
-        return None
-    return str(value)
-
-
-def _dedupe_strings(values: list[Any]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for value in values:
-        if value in (None, ""):
-            continue
-        text = str(value)
-        if text not in seen:
-            seen.add(text)
-            result.append(text)
-    return result
 
 
 class Stage7Service:
@@ -75,31 +59,25 @@ class Stage7Service:
         project_id = project_fact.get("project_id")
         stage6_handoff = stage6_bundle.handoff or {}
 
-        def h06_required(field_name: str) -> Any:
-            value = stage6_handoff.get(field_name)
-            if value in (None, ""):
-                raise ValueError(f"missing H-06 formal carrier field: {field_name}")
-            return value
-
-        project_fact_id = h06_required("project_fact_id")
-        review_queue_profile_id = h06_required("review_queue_profile_id")
-        review_lane = h06_required("review_lane")
-        report_record_id = h06_required("report_record_id")
-        challenger_candidate_profile_id = h06_required("challenger_candidate_profile_id")
-        sale_gate_status = h06_required("sale_gate_status")
-        saleability_status_seed = h06_required("saleability_status")
-        competitor_quality_grade = h06_required("competitor_quality_grade")
-        window_status = h06_required("window_status")
-        report_status = h06_required("report_status")
-        review_task_status = h06_required("review_task_status")
-        action_family = h06_required("action_family")
-        challenger_profile_id = h06_required("challenger_profile_id")
-        focus_bidder_id = h06_required("focus_bidder_id")
-        challenger_bidder_id = h06_required("challenger_bidder_id")
-        challenge_actionability_score = int(h06_required("challenge_actionability_score"))
-        execution_readiness_score = int(h06_required("execution_readiness_score"))
-        linked_review_request_id_optional = _optional_str(stage6_handoff.get("linked_review_request_id_optional"))
-        missing_condition_family_optional = _optional_str(stage6_handoff.get("missing_condition_family_optional"))
+        project_fact_id = require_h06_field(stage6_handoff, "project_fact_id")
+        review_queue_profile_id = require_h06_field(stage6_handoff, "review_queue_profile_id")
+        review_lane = require_h06_field(stage6_handoff, "review_lane")
+        report_record_id = require_h06_field(stage6_handoff, "report_record_id")
+        challenger_candidate_profile_id = require_h06_field(stage6_handoff, "challenger_candidate_profile_id")
+        sale_gate_status = require_h06_field(stage6_handoff, "sale_gate_status")
+        saleability_status_seed = require_h06_field(stage6_handoff, "saleability_status")
+        competitor_quality_grade = require_h06_field(stage6_handoff, "competitor_quality_grade")
+        window_status = require_h06_field(stage6_handoff, "window_status")
+        report_status = require_h06_field(stage6_handoff, "report_status")
+        review_task_status = require_h06_field(stage6_handoff, "review_task_status")
+        action_family = require_h06_field(stage6_handoff, "action_family")
+        challenger_profile_id = require_h06_field(stage6_handoff, "challenger_profile_id")
+        focus_bidder_id = require_h06_field(stage6_handoff, "focus_bidder_id")
+        challenger_bidder_id = require_h06_field(stage6_handoff, "challenger_bidder_id")
+        challenge_actionability_score = int(require_h06_field(stage6_handoff, "challenge_actionability_score"))
+        execution_readiness_score = int(require_h06_field(stage6_handoff, "execution_readiness_score"))
+        linked_review_request_id_optional = optional_str(stage6_handoff.get("linked_review_request_id_optional"))
+        missing_condition_family_optional = optional_str(stage6_handoff.get("missing_condition_family_optional"))
         has_review_constraint = bool(linked_review_request_id_optional or missing_condition_family_optional)
         if challenger_candidate_profile_id != challenger_profile_id:
             raise ValueError("H-06 challenger_candidate_profile_id must match challenger_profile_id")
@@ -133,7 +111,7 @@ class Stage7Service:
         )
         legal_action_actor_org_name_seed = legal_actor_seed["value"]
         procurement_decision_actor_org_name_seed = procurement_actor_seed["value"]
-        buyer_type_hint = h06_required("buyer_type_hint")
+        buyer_type_hint = require_h06_field(stage6_handoff, "buyer_type_hint")
         project_value_score_seed = stage6_handoff.get(
             "project_value_score_optional",
             project_fact.get("project_value_score_optional", inputs.get("project_value_score_optional")),
@@ -154,13 +132,13 @@ class Stage7Service:
             "candidate_position_label",
             challenger_candidate_profile.get("candidate_position_label"),
         )
-        current_action_start_at_optional = _optional_str(
+        current_action_start_at_optional = optional_str(
             stage6_handoff.get(
                 "current_action_start_at_optional",
                 inputs.get("current_action_start_at_optional"),
             )
         )
-        current_action_deadline_at_optional = _optional_str(
+        current_action_deadline_at_optional = optional_str(
             stage6_handoff.get(
                 "current_action_deadline_at_optional",
                 inputs.get("current_action_deadline_at_optional", inputs.get("current_action_deadline_optional")),
@@ -178,68 +156,43 @@ class Stage7Service:
         else:
             offer_state = "APPROVED"
 
-        runtime_context = ContextPacket.from_records(
-            capability_mode="stage7_sales",
-            stage=7,
+        runtime_context = build_stage7_runtime_context(
             project_id=project_id,
-            records={
-                "project_fact": project_fact,
-                "legal_action_recommendation": legal_action_recommendation,
-                "challenger_candidate_profile": challenger_candidate_profile,
-                "report_record": report_record,
-            },
-            inputs={
-                **dict(inputs),
-                "now": now,
-                "sale_gate_status": sale_gate_status,
-                "competitor_quality_grade": competitor_quality_grade,
-                "window_status": window_status,
-                "report_status": report_status,
-                "review_task_status": review_task_status,
-                "focus_bidder_id": focus_bidder_id,
-                "challenger_bidder_id": challenger_bidder_id,
-                "challenger_profile_id": challenger_profile_id,
-                "candidate_position_label": candidate_position_label,
-                "buyer_type_hint": buyer_type_hint,
-                "challenge_actionability_score": challenge_actionability_score,
-                "execution_readiness_score": execution_readiness_score,
-                "real_competitor_count": int(
-                    stage6_handoff.get("real_competitor_count", project_fact.get("real_competitor_count", 0))
-                ),
-                "project_value_score_optional": project_value_score_seed,
-                "normalized_price_amount_optional": normalized_price_amount_seed,
-                "price_conflict_gate_status_optional": price_conflict_gate_status_seed,
-                "confidence_score_optional": confidence_score_seed,
-                "current_action_start_at_optional": current_action_start_at_optional,
-                "current_action_deadline_at_optional": current_action_deadline_at_optional,
-            },
+            project_fact=project_fact,
+            legal_action_recommendation=legal_action_recommendation,
+            challenger_candidate_profile=challenger_candidate_profile,
+            report_record=report_record,
+            inputs=inputs,
+            now=now,
+            sale_gate_status=sale_gate_status,
+            competitor_quality_grade=competitor_quality_grade,
+            window_status=window_status,
+            report_status=report_status,
+            review_task_status=review_task_status,
+            focus_bidder_id=focus_bidder_id,
+            challenger_bidder_id=challenger_bidder_id,
+            challenger_profile_id=challenger_profile_id,
+            candidate_position_label=candidate_position_label,
+            buyer_type_hint=buyer_type_hint,
+            challenge_actionability_score=challenge_actionability_score,
+            execution_readiness_score=execution_readiness_score,
+            real_competitor_count=int(
+                stage6_handoff.get("real_competitor_count", project_fact.get("real_competitor_count", 0))
+            ),
+            project_value_score_seed=project_value_score_seed,
+            normalized_price_amount_seed=normalized_price_amount_seed,
+            price_conflict_gate_status_seed=price_conflict_gate_status_seed,
+            confidence_score_seed=confidence_score_seed,
+            current_action_start_at_optional=current_action_start_at_optional,
+            current_action_deadline_at_optional=current_action_deadline_at_optional,
         )
         runtime_state = self.runtime.run(runtime_context)
-        def required_runtime_value(field_name: str) -> Any:
-            value = runtime_state.resolve(field_name)
-            if value is None:
-                raise ValueError(f"Stage7 formal policy derivation missing {field_name}")
-            return value
 
-        def resolved_policy_output(
-            policy_key: str,
-            field_name: str,
-            *,
-            allow_none: bool = False,
-        ) -> Any:
-            policy_outputs = runtime_state.outputs.get(policy_key, {})
-            if field_name in policy_outputs:
-                return policy_outputs.get(field_name)
-            value = runtime_state.resolve(field_name)
-            if value is None and not allow_none:
-                raise ValueError(f"Stage7 formal policy derivation missing {field_name}")
-            return value
-
-        multi_competitor_candidates = ensure_list(required_runtime_value("multi_competitor_candidates"))
-        top_n_competitor_ids = ensure_list(required_runtime_value("top_n_candidate_ids"))
-        winning_competitor_candidate = dict(required_runtime_value("winning_competitor_candidate"))
-        competitor_selection_trace = dict(required_runtime_value("competitor_selection_trace"))
-        competitor_trace_summary = dict(required_runtime_value("competitor_trace_summary"))
+        multi_competitor_candidates = ensure_list(required_runtime_value(runtime_state, "multi_competitor_candidates"))
+        top_n_competitor_ids = ensure_list(required_runtime_value(runtime_state, "top_n_candidate_ids"))
+        winning_competitor_candidate = dict(required_runtime_value(runtime_state, "winning_competitor_candidate"))
+        competitor_selection_trace = dict(required_runtime_value(runtime_state, "competitor_selection_trace"))
+        competitor_trace_summary = dict(required_runtime_value(runtime_state, "competitor_trace_summary"))
         challenger_profile_id = winning_competitor_candidate.get("challenger_profile_id", challenger_profile_id)
         focus_bidder_id = winning_competitor_candidate.get("focus_bidder_id", focus_bidder_id)
         challenger_bidder_id = winning_competitor_candidate.get("challenger_bidder_id", challenger_bidder_id)
@@ -251,34 +204,28 @@ class Stage7Service:
             winning_competitor_candidate.get("execution_readiness_score", execution_readiness_score)
         )
         confidence_score_seed = winning_competitor_candidate.get("confidence_score_optional", confidence_score_seed)
-        project_value_score_optional = _optional_int(required_runtime_value("project_value_score"))
-        opportunity_value_score_optional = _optional_int(required_runtime_value("opportunity_value_score"))
-        normalized_price_amount_optional = _optional_number(
-            resolved_policy_output("price_normalization", "normalized_price_amount", allow_none=True)
-        )
-        price_conflict_gate_status_optional = _optional_str(
-            resolved_policy_output("price_normalization", "price_conflict_gate_status")
-        )
-        price_policy_outputs = runtime_state.outputs.get("price_normalization", {})
-        price_band_optional = _optional_str(
-            resolved_policy_output("price_normalization", "price_band")
-        )
-        price_recommended_quote_band = _optional_str(
-            resolved_policy_output("price_normalization", "recommended_quote_band")
-        )
-        confidence_score_optional = _optional_int(
+        price_projection = resolve_price_projection(runtime_state)
+        normalized_price_amount_optional = price_projection["normalized_price_amount_optional"]
+        price_conflict_gate_status_optional = price_projection["price_conflict_gate_status_optional"]
+        price_band_optional = price_projection["price_band_optional"]
+        price_recommended_quote_band = price_projection["price_recommended_quote_band"]
+
+        scorecard_projection = resolve_scorecard_projection(runtime_state)
+        project_value_score_optional = scorecard_projection["project_value_score_optional"]
+        opportunity_value_score_optional = scorecard_projection["opportunity_value_score_optional"]
+        buyer_fit_runtime_score = scorecard_projection["buyer_fit_runtime_score"]
+        buyer_fit_purchase_intent_score = scorecard_projection["buyer_fit_purchase_intent_score"]
+        buyer_fit_payment_capacity_score = scorecard_projection["buyer_fit_payment_capacity_score"]
+        buyer_fit_window_urgency_score = scorecard_projection["buyer_fit_window_urgency_score"]
+        buyer_fit_attack_motivation_score = scorecard_projection["buyer_fit_attack_motivation_score"]
+        challenger_buyer_fit_runtime_score = scorecard_projection["challenger_buyer_fit_runtime_score"]
+        buyer_fit_reason_tags = scorecard_projection["buyer_fit_reason_tags"]
+        challenger_buyer_fit_reason_tags = scorecard_projection["challenger_buyer_fit_reason_tags"]
+        lead_value_reason_tags = scorecard_projection["lead_value_reason_tags"]
+        opportunity_value_reason_tags = scorecard_projection["opportunity_value_reason_tags"]
+        confidence_score_optional = optional_int(
             runtime_state.resolve("competitor_confidence_score", confidence_score_seed)
         )
-        buyer_fit_runtime_score = int(required_runtime_value("buyer_fit_scorecard_score"))
-        buyer_fit_purchase_intent_score = int(required_runtime_value("buyer_fit_purchase_intent_score"))
-        buyer_fit_payment_capacity_score = int(required_runtime_value("buyer_fit_payment_capacity_score"))
-        buyer_fit_window_urgency_score = int(required_runtime_value("buyer_fit_window_urgency_score"))
-        buyer_fit_attack_motivation_score = int(required_runtime_value("buyer_fit_attack_motivation_score"))
-        challenger_buyer_fit_runtime_score = int(required_runtime_value("challenger_buyer_fit_scorecard_score"))
-        buyer_fit_reason_tags = ensure_list(required_runtime_value("buyer_fit_reason_tags"))
-        challenger_buyer_fit_reason_tags = ensure_list(required_runtime_value("challenger_buyer_fit_reason_tags"))
-        lead_value_reason_tags = ensure_list(required_runtime_value("lead_value_reason_tags"))
-        opportunity_value_reason_tags = ensure_list(required_runtime_value("opportunity_value_reason_tags"))
 
         lead_status = "QUALIFIED"
         if sale_gate_status == "BLOCK" or runtime_state.decision_state == "BLOCK":
@@ -292,7 +239,7 @@ class Stage7Service:
             apply_rule(self.store, trace_rules, "SALE-001")
             lead_status = "REVIEW"
 
-        lead_score = int(required_runtime_value("lead_score"))
+        lead_score = int(required_runtime_value(runtime_state, "lead_score"))
         sales_lead_payload = {
             "lead_id": build_id("LEAD", project_id),
             "project_id": project_id,
@@ -453,7 +400,7 @@ class Stage7Service:
                 "recommended_quote_band",
                 price_recommended_quote_band,
             ),
-            "why_recommended": required_runtime_value("why_recommended"),
+            "why_recommended": required_runtime_value(runtime_state, "why_recommended"),
             "prerequisites": ensure_list(
                 inputs.get(
                     "prerequisites",
@@ -482,28 +429,20 @@ class Stage7Service:
                 offer_recommendation_payload["offer_recommendation_state"] = "REVIEW_REQUIRED"
         offer_recommendation = self.store.build_record("offer_recommendation", offer_recommendation_payload)
 
-        stage7_restriction_reasons = []
-        if saleability_status_seed == "RESTRICTED":
-            stage7_restriction_reasons.append("h06_saleability_status=RESTRICTED")
-        if sale_gate_status in ("REVIEW", "HOLD", "BLOCK"):
-            stage7_restriction_reasons.append(f"sale_gate_status={sale_gate_status}")
-        if report_status not in ("READY", "ISSUED"):
-            stage7_restriction_reasons.append(f"report_status={report_status}")
-        if report_status == "READY":
-            stage7_restriction_reasons.append("report_status=READY")
-        if linked_review_request_id_optional:
-            stage7_restriction_reasons.append(f"linked_review_request_id={linked_review_request_id_optional}")
-        if missing_condition_family_optional:
-            stage7_restriction_reasons.append(f"missing_condition_family={missing_condition_family_optional}")
-        if runtime_state.resolve("offer_recommendation_state", offer_state) == "REVIEW_REQUIRED":
-            stage7_restriction_reasons.append("offer_recommendation_state=REVIEW_REQUIRED")
-        opportunity_blocking_reasons = ensure_list(inputs.get("blocking_reasons"))
-        if saleability_status != "QUALIFIED":
-            opportunity_blocking_reasons.extend(
-                ensure_list(runtime_state.resolve("offer_blocking_reasons_optional", ["stage7_review_required"]))
-            )
-            opportunity_blocking_reasons.extend(stage7_restriction_reasons)
-        opportunity_blocking_reasons = _dedupe_strings(opportunity_blocking_reasons)
+        stage7_restriction_reasons = build_stage7_restriction_reasons(
+            saleability_status_seed=saleability_status_seed,
+            sale_gate_status=sale_gate_status,
+            report_status=report_status,
+            linked_review_request_id_optional=linked_review_request_id_optional,
+            missing_condition_family_optional=missing_condition_family_optional,
+            offer_recommendation_state=runtime_state.resolve("offer_recommendation_state", offer_state),
+        )
+        opportunity_blocking_reasons = build_opportunity_blocking_reasons(
+            inputs=inputs,
+            runtime_state=runtime_state,
+            saleability_status=saleability_status,
+            stage7_restriction_reasons=stage7_restriction_reasons,
+        )
 
         opportunity_payload = {
             "opportunity_id": build_id("OPP", project_id),
@@ -519,12 +458,12 @@ class Stage7Service:
             "saleability_status": saleability_status,
             "major_value_points": opportunity_value_reason_tags,
             "blocking_reasons": opportunity_blocking_reasons,
-            "expected_close_days_band": required_runtime_value("expected_close_days_band"),
+            "expected_close_days_band": required_runtime_value(runtime_state, "expected_close_days_band"),
             "expected_contract_value_band": inputs.get(
                 "expected_contract_value_band",
                 price_band_optional or "UNKNOWN",
             ),
-            "expected_delivery_cost_band": required_runtime_value("expected_delivery_cost_band"),
+            "expected_delivery_cost_band": required_runtime_value(runtime_state, "expected_delivery_cost_band"),
             "crm_owner_state": ensure_enum(
                 self.store,
                 "crm_owner_state",
@@ -663,56 +602,26 @@ class Stage7Service:
                 "legal_action_actor_org_name": legal_actor_seed,
                 "procurement_decision_actor_org_name": procurement_actor_seed,
             },
-            "buyer_fit_scorecard": {
-                "buyer_fit_scorecard_id": runtime_state.resolve("buyer_fit_scorecard_id"),
-                "buyer_fit_scorecard_score": runtime_state.resolve("buyer_fit_scorecard_score"),
-                "buyer_fit_scorecard_grade": runtime_state.resolve("buyer_fit_scorecard_grade"),
-                "challenger_buyer_fit_scorecard_id": runtime_state.resolve("challenger_buyer_fit_scorecard_id"),
-                "challenger_buyer_fit_scorecard_score": runtime_state.resolve("challenger_buyer_fit_scorecard_score"),
-                "challenger_buyer_fit_scorecard_grade": runtime_state.resolve("challenger_buyer_fit_scorecard_grade"),
-                "buyer_fit_reason_tag_policy_id": runtime_state.resolve("buyer_fit_reason_tag_policy_id"),
-                "buyer_fit_reason_tags": buyer_fit_reason_tags,
-                "challenger_buyer_fit_reason_tag_policy_id": runtime_state.resolve("challenger_buyer_fit_reason_tag_policy_id"),
-                "challenger_buyer_fit_reason_tags": challenger_buyer_fit_reason_tags,
-                "buyer_fit_missing_formal_sources": runtime_state.resolve("buyer_fit_missing_formal_sources", []),
-                "buyer_fit_derivation_trace": runtime_state.resolve("buyer_fit_derivation_trace"),
-            },
-            "value_derivation": {
-                "value_derivation_trace": runtime_state.resolve("value_derivation_trace"),
-                "project_value_band": runtime_state.resolve("project_value_band"),
-                "lead_value_band": runtime_state.resolve("lead_value_band"),
-                "opportunity_value_band": runtime_state.resolve("opportunity_value_band"),
-                "project_value_reason_tag_policy_id": runtime_state.resolve("project_value_reason_tag_policy_id"),
-                "project_value_reason_tags": runtime_state.resolve("project_value_reason_tags"),
-                "lead_value_reason_tag_policy_id": runtime_state.resolve("lead_value_reason_tag_policy_id"),
-                "lead_value_reason_tags": lead_value_reason_tags,
-                "opportunity_value_reason_tag_policy_id": runtime_state.resolve("opportunity_value_reason_tag_policy_id"),
-                "opportunity_value_reason_tags": opportunity_value_reason_tags,
-            },
-            "opportunity_policy": {
-                "opportunity_policy_trace": runtime_state.resolve("opportunity_policy_trace"),
-                "why_recommended_template_id": runtime_state.resolve("why_recommended_template_id"),
-                "why_recommended_rule_outputs": runtime_state.resolve("why_recommended_rule_outputs"),
-                "expected_close_days_band": saleable_opportunity.get("expected_close_days_band"),
-                "expected_delivery_cost_band": saleable_opportunity.get("expected_delivery_cost_band"),
-                "why_recommended": offer_recommendation.get("why_recommended"),
-            },
-            "price_resolution": {
-                "policy_id": runtime_state.resolve("price_resolution_policy_id"),
-                "selected_source_type": runtime_state.resolve("selected_price_source_type"),
-                "price_candidate_count": runtime_state.resolve("price_candidate_count", 0),
-                "price_candidate_deduped_count": runtime_state.resolve("price_candidate_deduped_count", 0),
-                "price_source_priority_applied": runtime_state.resolve("price_source_priority_applied", []),
-                "normalized_currency": runtime_state.resolve("normalized_price_currency", "CNY"),
-                "normalized_tax_basis": runtime_state.resolve("normalized_tax_basis", "EX_TAX"),
-                "normalized_unit_basis": runtime_state.resolve("normalized_unit_basis", "TOTAL_AMOUNT"),
-                "selected_scope_key": runtime_state.resolve("selected_scope_key", "GLOBAL"),
-                "price_band": price_band_optional,
-                "recommended_quote_band": price_recommended_quote_band,
-                "quote_band_authority_ref": "contracts/sales/price_normalization_catalog.json#authorityContract",
-                "review_flags": runtime_state.resolve("price_review_flags", []),
-                "selected_candidate_trace": runtime_state.resolve("selected_candidate_trace", {}),
-            },
+            "buyer_fit_scorecard": build_buyer_fit_scorecard_trace(
+                runtime_state,
+                buyer_fit_reason_tags=buyer_fit_reason_tags,
+                challenger_buyer_fit_reason_tags=challenger_buyer_fit_reason_tags,
+            ),
+            "value_derivation": build_value_derivation_trace(
+                runtime_state,
+                lead_value_reason_tags=lead_value_reason_tags,
+                opportunity_value_reason_tags=opportunity_value_reason_tags,
+            ),
+            "opportunity_policy": build_opportunity_policy_trace(
+                runtime_state,
+                saleable_opportunity=saleable_opportunity,
+                offer_recommendation=offer_recommendation,
+            ),
+            "price_resolution": build_price_resolution_trace(
+                runtime_state,
+                price_band_optional=price_band_optional,
+                price_recommended_quote_band=price_recommended_quote_band,
+            ),
             "multi_competitor_collection": {
                 "policy_id": competitor_trace_summary["policy_id"],
                 "ranking_policy_id": competitor_trace_summary.get("ranking_policy_id"),

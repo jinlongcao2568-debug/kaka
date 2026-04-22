@@ -96,12 +96,20 @@ def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cl
         assert_paths_exist(module["current_files"])
 
     stage7 = modules["STAGE7-SALES-DERIVATION"]
-    assert stage7["deferred_module_split"] is True
+    assert stage7["deferred_module_split"] is False
     assert "PTL-S7-price-competitor-offer-resolution" in stage7["completed_packets"]
+    assert "PTL-S7-module-boundary-refactor" in stage7["completed_packets"]
     assert stage7["pending_packets"] == []
     assert stage7["current_runtime_state"] == "HEAVY_RUNTIME"
-    for relative_path in stage7["proposed_future_files"]:
-        assert not (ROOT / relative_path).exists(), relative_path
+    split_files = {
+        "src/stage7_sales/runtime.py",
+        "src/stage7_sales/scorecard.py",
+        "src/stage7_sales/pricing.py",
+        "src/stage7_sales/recommendation.py",
+    }
+    assert split_files.issubset(set(stage7["current_files"]))
+    assert set(stage7["completed_split_files"]) == split_files
+    assert_paths_exist(sorted(split_files))
 
     stage8 = modules["STAGE8-OUTREACH-GOVERNED"]
     stage9 = modules["STAGE9-DELIVERY-GOVERNANCE"]
@@ -241,9 +249,23 @@ def test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked() -> Non
     }
     gaps = stage7_slices["stage7.sales_derivation"]["deferred_gaps"]
     gap = next(item for item in gaps if item["gap_id"] == "STAGE7-SALES-RUNTIME-SPLIT")
-    assert gap["not_current_blocker"] is True
-    for relative_path in gap["future_files"]:
-        assert not (ROOT / relative_path).exists(), relative_path
+    split_files = {
+        "src/stage7_sales/runtime.py",
+        "src/stage7_sales/scorecard.py",
+        "src/stage7_sales/pricing.py",
+        "src/stage7_sales/recommendation.py",
+    }
+    assert gap["status"] == "COMPLETED"
+    assert gap["completed_in_packet"] == "PTL-S7-module-boundary-refactor"
+    assert gap["not_current_blocker"] is False
+    assert set(gap["completed_files"]) == split_files
+    assert split_files.issubset(set(stage7_slices["stage7.sales_derivation"]["current_files"]))
+
+    top_level_gap = next(item for item in registry["deferred_module_splits"] if item["gap_id"] == "STAGE7-SALES-RUNTIME-SPLIT")
+    assert top_level_gap["status"] == "COMPLETED"
+    assert top_level_gap["pending"] is False
+    assert top_level_gap["not_current_blocker"] is False
+    assert set(top_level_gap["completed_files"]) == split_files
 
     assert stages["stage8_outreach"]["implementation_state"] == "GOVERNANCE_BLOCKED_LIVE_EXECUTION"
     assert stages["stage9_delivery"]["implementation_state"] == "GOVERNANCE_BLOCKED_LIVE_EXECUTION"
