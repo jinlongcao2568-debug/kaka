@@ -5,11 +5,11 @@ updated_at: "2026-04-22"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_GOV_120_POST_MAINLINE_DIRECTION_ADVANCE_TO_INT_SCOPED_EXECUTION_ACTIVE"
+navigation_state: "PTL_INT_INTERNAL_PREVIEW_PRODUCTIZATION_STRENGTHENING_SCOPED_EXECUTION_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口执行 PTL-GOV-120-post-mainline-direction-advance-to-INT scoped-execution：把 post_mainline_selection 的推荐方向从已完成的 Stage7 模块边界重构推进到 Internal preview 产品化强化；仅同步 current_task / repo_status / product_module_registry / AX9S / tests，不进入 runtime，不改 product_task_library，不改变 canonical readiness，不放开 external release、Stage8 或 Stage9 红线，不自动选择下一主线，不自动激活推荐方向，不提交。"
+activation_condition: "当前窗口执行 PTL-INT-internal-preview-productization-strengthening scoped-execution：依据 post_mainline_selection 已给出的 Internal preview 产品化强化推荐方向，在既有 PARTIAL_RUNTIME 上只强化 preview surface envelope、repository-backed replay precedence、operator-loop projection / replay contract；不改 Stage7/8/9 业务实现，不改 contracts / handoff / scripts / product_task_library / product_module_registry / AX9S，不改变 canonical readiness，不放开 external release、Stage8 或 Stage9 红线，不自动恢复 next candidate，不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-GOV-120-post-mainline-direction-advance-to-INT"
-  title: "后主线方向推进到 Internal preview 产品化强化"
+  task_id: "PTL-INT-internal-preview-productization-strengthening"
+  title: "Internal preview 产品化强化"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -36,13 +36,12 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/operator_assignment_roster_defaults.yaml"
     - "control/product_module_registry.yaml"
-    - "docs/AX9S_开发执行路由图.md"
     - "scripts/check-task-packet.ps1"
     - "scripts/check-state-alignment.ps1"
     - "scripts/check-final-gate.ps1"
     - "scripts/clean-python-cache.ps1"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "执行 PTL-GOV-120-post-mainline-direction-advance-to-INT scoped-execution：把 post_mainline_selection 的推荐方向从已完成的 Stage7 模块边界重构推进到 Internal preview 产品化强化，并同步 control / AX9S / tests；保持 MAINLINE_COMPLETE closeout 记录、canonical readiness、conditional-go 与 external / Stage8 / Stage9 红线不变。"
+  objective: "执行 PTL-INT-internal-preview-productization-strengthening scoped-execution：在既有 PARTIAL_RUNTIME 上最小强化 internal preview 产品化边界，闭合 preview surface envelope、repository-backed replay precedence、operator-loop projection / replay contract；保持 MAINLINE_COMPLETE closeout 记录、canonical readiness、conditional-go 与 external / Stage8 / Stage9 红线不变。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -62,48 +61,46 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-GOV-120-post-mainline-direction-advance-to-INT"
-    subpacket_id: "PTL-GOV-120-post-mainline-direction-advance-to-INT"
-    backlog_packet_ref: "PTL-GOV-120-post-mainline-direction-advance-to-INT"
+    packet_id: "PTL-PKT-INT-internal-preview-productization-strengthening"
+    subpacket_id: "PTL-PKT-INT-internal-preview-productization-strengthening"
+    backlog_packet_ref: "PTL-INT-internal-preview-productization-strengthening"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
-    runtime_change_in_packet: "OUT_OF_SCOPE"
-    existing_code_state: "HEAVY_RUNTIME"
-    existing_runtime_state: "HEAVY_RUNTIME"
-    title: "后主线方向推进到 Internal preview 产品化强化"
+    runtime_change_in_packet: "CONTROLLED_INTERNAL_PREVIEW_PRODUCTIZATION"
+    existing_code_state: "PARTIAL_RUNTIME"
+    existing_runtime_state: "PARTIAL_RUNTIME"
+    title: "Internal preview 产品化强化"
     status: "ACTIVE"
-    objective: "Scoped governance execution to advance the post_mainline_selection recommended direction from the completed Stage7 module-boundary packet to Internal preview productization strengthening while keeping MAINLINE_COMPLETE closeout, canonical readiness, conditional-go, and all external / Stage8 / Stage9 redlines unchanged."
+    objective: "Scoped execution for the post-mainline strengthening packet recommended by post_mainline_selection; productize the existing internal preview PARTIAL_RUNTIME only across preview surface envelope, repository-backed replay precedence, and operator-loop projection / replay contract; keep MAINLINE_COMPLETE closeout unchanged and keep canonical readiness plus all external / Stage8 / Stage9 redlines unchanged."
     depends_on:
-      - "PTL-GOV-118-post-mainline-direction-selection 已完成并提交：0e02e85"
-      - "PTL-GOV-119-active-task-test-invariant-fix 已完成并提交：d94ea5b"
-      - "PTL-S7-module-boundary-refactor scoped-execution 已完成并提交：2601482"
-      - "post_mainline_selection 当前推荐方向仍是 Stage7 模块边界重构，但该方向已完成，需要推进到 Internal preview 产品化强化"
-      - "control/product_task_library.yaml current_mainline_next_candidate 保持 MAINLINE_COMPLETE closeout 记录"
+      - "PTL-GOV-120-post-mainline-direction-advance-to-INT 已完成并提交：be0b0b9"
+      - "post_mainline_selection 当前推荐方向已是 Internal preview 产品化强化"
+      - "control/product_task_library.yaml 仍保持 MAINLINE_COMPLETE closeout 记录"
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 control/source_blueprint_registry.yaml 注册"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-S7-module-boundary-refactor"
-      target_active_packet: "PTL-GOV-120-post-mainline-direction-advance-to-INT"
+      previous_active_packet: "PTL-GOV-120-post-mainline-direction-advance-to-INT"
+      target_active_packet: "PTL-INT-internal-preview-productization-strengthening"
       activation_only: false
       enter_scoped_execution: true
-      active_packet_kind: "post_mainline_direction_governance_packet"
+      active_packet_kind: "post_mainline_strengthening_packet"
       post_mainline_strengthening_packet: true
       recommended_by_post_mainline_selection: true
       product_mainline_task: false
       add_to_product_task_library: false
       product_task_library_change: false
-      product_module_registry_change: true
+      product_module_registry_change: false
       source_blueprint_batch_id: "POST-FF-CONTROL-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change: false
+      runtime_change: true
       contracts_change: false
       handoff_change: false
       scripts_change: false
       tests_change: true
-      docs_change: true
+      docs_change: false
       control_change: true
-      ax9s_change: true
+      ax9s_change: false
       canonical_readiness_change: false
       external_release_change: false
       stage8_real_execution_change: false
@@ -116,18 +113,24 @@ currentTask:
     non_goals:
       - "not an external unlock implementation"
       - "不改业务 runtime"
-      - "不改 src"
+      - "不改 internal preview / API / storage 之外的业务实现"
+      - "不改 Stage7 业务实现"
+      - "不改 Stage8 业务实现"
+      - "不改 Stage9 业务实现"
       - "不改 contracts"
       - "不改 handoff"
       - "不改 scripts"
       - "不改 control/product_task_library.yaml"
+      - "不改 control/product_module_registry.yaml"
+      - "不改 docs/AX9S_开发执行路由图.md"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不新增正式对象、枚举、gate、exception 语义"
-      - "不自动选择下一主线"
+      - "不把 internal preview 扩写成 external-ready 客户平台"
+      - "不自动恢复 next candidate"
       - "不自动激活推荐方向"
       - "不提交"
     affected_stages:
@@ -137,8 +140,8 @@ currentTask:
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "product_navigation_sync"
-      - "docs_and_tests_governance"
+      - "future_external_unlock_prereq_core"
+      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
@@ -150,66 +153,85 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_module_registry.yaml"
-      - "docs/AX9S_开发执行路由图.md"
+      - "src/api/projections.py"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/operator_loop_contracts.py"
+      - "tests/test_internal_surface_preview.py"
+      - "tests/test_internal_repository_boundary.py"
+      - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_internal_operational_loop.py"
+      - "tests/test_internal_operational_hardening.py"
       - "tests/test_stage12_extractors.py"
-      - "tests/test_product_module_registry.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_module_registry.yaml"
-      - "docs/AX9S_开发执行路由图.md"
+      - "src/api/projections.py"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/operator_loop_contracts.py"
+      - "tests/test_internal_surface_preview.py"
+      - "tests/test_internal_repository_boundary.py"
+      - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_internal_operational_loop.py"
+      - "tests/test_internal_operational_hardening.py"
       - "tests/test_stage12_extractors.py"
-      - "tests/test_product_module_registry.py"
     forbidden_modification_paths:
       - "AGENTS.md"
-      - "docs/L0.md"
-      - "docs/裁决总表.md"
-      - "docs/D1_研发_Codex执行手册.md"
-      - "docs/D2_正式对象契约与字段字典.md"
-      - "docs/D3_正式规则码总表与判定说明书.md"
-      - "docs/D4_OpenAPI接口契约.md"
-      - "docs/D5_页面导出与人工复核规范.md"
-      - "docs/D6_字段策略字典与客户交付字段规范.md"
-      - "docs/D7_对象级交付矩阵与外发治理规范.md"
-      - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
-      - "docs/D9_联系对象与销售触达规范.md"
-      - "docs/D10_订单支付交付与治理反馈规范.md"
-      - "docs/D11_测试验收与金标回归清单.md"
-      - "docs/D12_部署发布与运行治理规范.md"
-      - "docs/D13_公开可查边界能力清单.md"
-      - "docs/D14_AI模型治理规范.md"
-      - "docs/自动开发任务包模板.md"
+      - "docs/**"
       - "scripts/**"
-      - "src/**"
       - "contracts/**"
       - "handoff/**"
+      - "src/shared/**"
+      - "src/api/routes/**"
+      - "src/api/schemas/**"
+      - "src/stage1_tasking/**"
+      - "src/stage2_ingestion/**"
+      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
+      - "src/stage5_rules_evidence/**"
+      - "src/stage6_fact_review/**"
+      - "src/stage7_sales/**"
+      - "src/stage8_outreach/**"
+      - "src/stage9_delivery/**"
+      - "src/storage/repositories/**"
+      - "tests/** except declared allowed test files"
       - "control/product_task_library.yaml"
+      - "control/product_module_registry.yaml"
       - "control/milestone_status.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/operator_assignment_roster_defaults.yaml"
       - "control/review_gate_matrix.yaml"
       - "control/automation_task_packet_rules.yaml"
+      - "docs/AX9S_开发执行路由图.md"
+      - "docs/自动开发任务包模板.md"
       - "control/ax9s_scoped_task_packet_template.yaml"
     impacted_assets:
-      docs:
-        - "docs/AX9S_开发执行路由图.md"
+      docs: []
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
-        - "control/product_module_registry.yaml"
       contracts: []
       handoff: []
       scripts: []
+      runtime:
+        - "src/api/projections.py"
+        - "src/storage/repository_boundary.py"
+        - "src/storage/operator_loop_contracts.py"
       tests:
+        - "tests/test_internal_surface_preview.py"
+        - "tests/test_internal_repository_boundary.py"
+        - "tests/test_api_transport_bootstrap.py"
+        - "tests/test_internal_operational_loop.py"
+        - "tests/test_internal_operational_hardening.py"
         - "tests/test_stage12_extractors.py"
-        - "tests/test_product_module_registry.py"
-      runtime: []
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','control/product_module_registry.yaml','docs/AX9S_开发执行路由图.md','tests/test_stage12_extractors.py','tests/test_product_module_registry.py'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','src/api/projections.py','src/storage/repository_boundary.py','src/storage/operator_loop_contracts.py','tests/test_internal_surface_preview.py','tests/test_internal_repository_boundary.py','tests/test_api_transport_bootstrap.py','tests/test_internal_operational_loop.py','tests/test_internal_operational_hardening.py','tests/test_stage12_extractors.py'"
+      - "python -m pytest tests/test_internal_surface_preview.py -q"
+      - "python -m pytest tests/test_internal_repository_boundary.py -q"
+      - "python -m pytest tests/test_api_transport_bootstrap.py -q"
+      - "python -m pytest tests/test_internal_operational_loop.py -q"
+      - "python -m pytest tests/test_internal_operational_hardening.py -q"
       - "python -m pytest tests/test_stage12_extractors.py -q"
-      - "python -m pytest tests/test_product_module_registry.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
@@ -217,41 +239,46 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','control/product_module_registry.yaml','docs/AX9S_开发执行路由图.md','tests/test_stage12_extractors.py','tests/test_product_module_registry.py'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','src/api/projections.py','src/storage/repository_boundary.py','src/storage/operator_loop_contracts.py','tests/test_internal_surface_preview.py','tests/test_internal_repository_boundary.py','tests/test_api_transport_bootstrap.py','tests/test_internal_operational_loop.py','tests/test_internal_operational_hardening.py','tests/test_stage12_extractors.py'": 300000
+      "python -m pytest tests/test_internal_surface_preview.py -q": 300000
+      "python -m pytest tests/test_internal_repository_boundary.py -q": 300000
+      "python -m pytest tests/test_api_transport_bootstrap.py -q": 300000
+      "python -m pytest tests/test_internal_operational_loop.py -q": 300000
+      "python -m pytest tests/test_internal_operational_hardening.py -q": 300000
       "python -m pytest tests/test_stage12_extractors.py -q": 300000
-      "python -m pytest tests/test_product_module_registry.py -q": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1": 600000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1": 600000
     stop_conditions:
       - "任一脚本失败"
       - "实际改动超出 allowed_modification_paths"
-      - "修改 src / scripts / contracts / handoff"
-      - "修改 L0 / D1-D14 / 裁决总表"
+      - "触碰 forbidden paths"
+      - "触碰 product_task_library / product_module_registry / AX9S"
+      - "触碰 contracts / handoff / scripts"
+      - "触碰 routes / schemas / repositories / stage7-9 / shared runtime"
+      - "新增正式对象、枚举、gate、exception 语义"
       - "改变 canonical readiness"
       - "放宽 external release / Stage8 / Stage9 红线"
-      - "把 AX9S 写成状态源 / 执行顺序源 / 完整 backlog"
-      - "自动选择下一主线"
-      - "自动激活推荐方向"
+      - "把 internal preview 写成 external-ready / 客户平台放行"
+      - "自动恢复 next candidate"
       - "自动提交"
     definition_of_done:
-      - "control/current_task.yaml 当前 active packet 切到 PTL-GOV-120-post-mainline-direction-advance-to-INT。"
+      - "control/current_task.yaml 当前 active packet 保持 PTL-INT-internal-preview-productization-strengthening 并切到 SCOPED_EXECUTION。"
+      - "control/repo_status.md 当前 workstream 同步为 PTL-INT-internal-preview-productization-strengthening (SCOPED_EXECUTION)。"
+      - "preview surface envelope 对 opportunity_pool / outreach_workbench / order_delivery_workbench 的 internal-only / internal-governed 边界、typed formal_object_refs、transient/persisted 状态承载边界完成测试覆盖。"
+      - "repository-backed replay precedence 优先 persisted typed refs，不做粗粒度 fallback 重选对象。"
+      - "operator-loop projection / replay contract 与 persisted/transient 状态一致。"
       - "control/product_task_library.yaml MAINLINE_COMPLETE closeout 记录保持不变。"
-      - "control/product_module_registry.yaml 的 post_mainline_selection 推荐方向推进到 Internal preview 产品化强化。"
-      - "docs/AX9S_开发执行路由图.md 只同步现实对齐说明与近端导航提示。"
-      - "tests/test_stage12_extractors.py 与 tests/test_product_module_registry.py 同步当前口径并通过。"
+      - "control/product_module_registry.yaml 与 docs/AX9S_开发执行路由图.md 保持不变。"
       - "canonical readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION。"
       - "conditional-go 保持 READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT。"
       - "external release / Stage8 / Stage9 红线保持不变。"
       - "required scripts 执行后停机汇报；不提交。"
     deliverables:
-      - "control/current_task.yaml：PTL-GOV-120-post-mainline-direction-advance-to-INT scoped-execution task packet"
-      - "control/repo_status.md：当前 workstream 与小治理包边界同步"
-      - "control/product_module_registry.yaml：post_mainline_selection 推荐方向推进到 Internal preview 产品化强化"
-      - "docs/AX9S_开发执行路由图.md：现实对齐说明与近端导航提示同步"
-      - "tests/test_stage12_extractors.py：active packet / AX9S / MAINLINE_COMPLETE 断言同步"
-      - "tests/test_product_module_registry.py：post_mainline_selection 断言同步"
+      - "control/current_task.yaml：PTL-INT-internal-preview-productization-strengthening scoped-execution task packet"
+      - "control/repo_status.md：当前 workstream 与 scoped-execution 边界同步"
+      - "internal preview runtime / tests：preview envelope、repository replay、operator-loop projection 产品化强化"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -267,12 +294,10 @@ currentTask:
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "本轮是 post-mainline 小治理包 scoped-execution，不进入 runtime。"
-      - "PTL-S7-module-boundary-refactor 已完成并提交：2601482。"
-      - "control/product_task_library.yaml 只提供产品主线候选池；当前 MAINLINE_COMPLETE closeout 记录保持不变，本轮也不修改该文件。"
-      - "control/product_module_registry.yaml 只登记 post_mainline_selection 推荐方向推进结果，不作为状态源、release gate 或第二产品方向源。"
-      - "docs/AX9S_开发执行路由图.md 仍只是 candidate navigation asset，不是状态源、执行顺序源、执行日志或完整 backlog。"
-      - "当前推荐方向推进到 Internal preview 产品化强化，但推荐方向仍只是导航建议，不是已激活任务。"
+      - "本轮是 post-mainline strengthening packet scoped-execution，来源于 post_mainline_selection 推荐方向。"
+      - "本轮只强化 internal preview surface / API projection / storage boundary / operator-loop contract，不进入 Stage7/8/9 业务实现。"
+      - "control/product_task_library.yaml 保持 MAINLINE_COMPLETE closeout 记录，不自动恢复 next candidate。"
+      - "control/product_module_registry.yaml 与 docs/AX9S_开发执行路由图.md 本轮不变。"
       - "External release 继续保持阻断；Stage8 real execution 与 Stage9 real payment/delivery/refund 继续默认阻断。"
       - "Stage 8 real execution remains governed / approval-gated / blocked by default."
       - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default."
@@ -284,24 +309,30 @@ currentTask:
   allowed_actions:
     - "允许修改 control/current_task.yaml。"
     - "允许修改 control/repo_status.md。"
-    - "允许修改 control/product_module_registry.yaml。"
-    - "允许修改 docs/AX9S_开发执行路由图.md。"
-    - "允许修改 tests/test_stage12_extractors.py 与 tests/test_product_module_registry.py。"
-    - "允许把当前 active packet 切到 PTL-GOV-120-post-mainline-direction-advance-to-INT scoped-execution。"
+    - "允许修改 src/api/projections.py。"
+    - "允许修改 src/storage/repository_boundary.py。"
+    - "允许修改 src/storage/operator_loop_contracts.py。"
+    - "允许修改 tests/test_internal_surface_preview.py。"
+    - "允许修改 tests/test_internal_repository_boundary.py。"
+    - "允许修改 tests/test_api_transport_bootstrap.py。"
+    - "允许修改 tests/test_internal_operational_loop.py。"
+    - "允许修改 tests/test_internal_operational_hardening.py。"
+    - "允许把当前 active packet 切到 PTL-INT-internal-preview-productization-strengthening scoped-execution。"
     - "允许保持 control/product_task_library.yaml 的 MAINLINE_COMPLETE closeout 记录不变。"
-    - "允许运行指定 pytest、preflight、control checks、final gate、clean-python-cache、git status，并按停机规则汇报。"
+    - "允许运行 preflight、control checks、clean-python-cache、git status、final gate，并按停机规则汇报。"
   forbidden_actions:
     - "不得修改 AGENTS.md。"
+    - "不得修改 docs/**。"
+    - "不得修改 scripts/**、contracts/**、handoff/**。"
+    - "不得修改 src/shared/**、src/api/routes/**、src/api/schemas/**、src/stage1_tasking/**、src/stage2_ingestion/**、src/stage3_parsing/**、src/stage4_verification/**、src/stage5_rules_evidence/**、src/stage6_fact_review/**、src/stage7_sales/**、src/stage8_outreach/**、src/stage9_delivery/**、src/storage/repositories/**。"
+    - "不得修改本轮允许清单之外的 tests/**。"
     - "不得修改 control/product_task_library.yaml。"
-    - "不得修改 docs/L0.md、docs/裁决总表.md、docs/D1-D14、docs/自动开发任务包模板.md。"
-    - "不得修改 src/**、scripts/**、contracts/**、handoff/**。"
+    - "不得修改 control/product_module_registry.yaml。"
     - "不得修改 control/milestone_status.yaml、control/source_blueprint_registry.yaml、control/operator_assignment_roster_defaults.yaml、control/review_gate_matrix.yaml、control/automation_task_packet_rules.yaml、control/ax9s_scoped_task_packet_template.yaml。"
     - "不得改变 canonical readiness。"
     - "不得放宽 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
-    - "不得把 AX9S 写成状态源、执行顺序源、执行日志或完整 backlog。"
-    - "不得自动选择下一主线。"
-    - "不得自动激活推荐方向。"
-    - "不得提交。"
+    - "不得自动恢复 next candidate。"
+    - "不得自动提交。"
   nextActions:
     - "完成 scoped-execution 校验后停机汇报；不自动进入下一包，不提交。"
-  status_note: "PTL-GOV-120-post-mainline-direction-advance-to-INT 当前以 SCOPED_EXECUTION 执行；本轮仅把 post_mainline_selection 推荐方向推进到 Internal preview 产品化强化并同步 control / AX9S / tests，不进入 runtime，不改 product_task_library / src / contracts / handoff / scripts，不改变 canonical readiness，不提交。"
+  status_note: "PTL-INT-internal-preview-productization-strengthening 当前以 SCOPED_EXECUTION 执行；本轮是 post-mainline strengthening packet，只强化 internal preview surface / API projection / storage boundary / operator-loop contract，不改 Stage7/8/9 业务实现、不改 product_task_library / product_module_registry / AX9S / contracts / handoff / scripts，不改变 canonical readiness，不提交。"
