@@ -65,10 +65,10 @@ planning_sync_implementation_registration:
 current_mainline_next_candidate:
   task_id: null
   packet_id: null
-  title: "产品主线 S12-S89 + INT 与后主线 P1/P2/P3/P4 已闭合，等待人工选择后续方向"
+  title: "产品主线 S12-S89 + INT 与后主线 P1/P2/P3/P4/P5 已闭合，等待人工选择后续方向"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4 均已 completed；现在没有自动 next candidate；候选池保留 P5 -> P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P5-P8 仍 open/manual；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5 均已 completed；现在没有自动 next candidate；候选池保留 P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P6-P8 仍 open/manual；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -393,14 +393,15 @@ tasks:
     title: "P5 Stage9 typed lifecycle 深化"
     stage_scope: [stage9_delivery, internal_preview]
     task_type: post_mainline_product_deepening
-    status: OPEN_FOR_MANUAL_SELECTION
+    status: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P1
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: OPEN_FOR_MANUAL_SELECTION
+    planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
-    runtime_notes: "后主线执行链的第 7 步；目标是把 order/payment/delivery 三条 typed lifecycle 从 Stage9Service 巨石中拆出，保留 internal governed / preview-only 边界；本条只作为人工候选任务登记，不自动激活。"
+    completed_commit: 3d9fc74
+    runtime_notes: "P5 scoped implementation 已完成并在本地提交：3d9fc74；Stage9 order/payment/delivery typed lifecycle 第一刀行为等价拆分已完成，src/stage9_delivery/typed_lifecycle.py 已纳入正式登记；PTL-S9-101 不再是 current active packet，也不再是 current_mainline_next_candidate；P6 仍需 dedicated current_task packet 才能激活，external/live redline 不变。"
     hard_depends_on: [PTL-INT-102-p4-repository-boundary-hardening]
     soft_depends_on: [PTL-S89-outreach-writeback-delivery-governance, PTL-INT-internal-preview-surface-envelope]
     objective: "强化 Stage9 order/payment/delivery 的 typed governed lifecycle，使其更可回放、可审计、可解释。"

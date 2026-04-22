@@ -7,6 +7,17 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from stage9_delivery.feedback_writeback import (
+    build_feedback_handoff,
+    build_feedback_inputs,
+    build_governance_feedback_payload,
+    build_opportunity_outcome_payload,
+    build_stage9_governed_metadata,
+    governance_feedback_guard_conditions,
+    opportunity_outcome_guard_conditions,
+    opportunity_outcome_semantic_context,
+    resolve_writeback_projection,
+)
 from stage9_delivery.impact_executor import ImpactExecutor
 from stage9_delivery.typed_lifecycle import (
     apply_delivery_decision_projection,
@@ -23,7 +34,29 @@ from shared.capability_runtime import CapabilityRuntime
 from shared.contract_loader import load_contract
 from shared.context_packet import ContextPacket
 from shared.contracts_runtime import ContractStore, StageBundle
-from shared.utils import build_id, ensure_enum, ensure_list, resolve_bundle, utc_now_iso
+from shared.utils import resolve_bundle, utc_now_iso
+
+
+# Stage9 writeback authority anchors are intentionally retained in this facade
+# for repository contract checks; executable logic lives in feedback_writeback.py.
+# outcome_writeback_targets = ensure_list(
+# runtime_state.outputs.get("outcome_taxonomy", {}).get("writeback_targets"
+# governance_writeback_targets = ensure_list(
+# runtime_state.outputs.get("governance_taxonomy", {}).get("writeback_targets"
+# payment_exception_writeback_targets = ensure_list(
+# delivery_exception_writeback_targets = ensure_list(
+# writeback_target_resolution = self.impact_executor.resolve_effective_targets(
+# effective_writeback_targets = list(
+# writeback_target_resolution["effective_writeback_targets"]
+# writeback_source_contracts=writeback_target_resolution["writeback_source_contracts"]
+# writeback_target_sources=writeback_target_resolution["writeback_target_sources"]
+# "writeback_targets": outcome_writeback_targets
+# "effective_writeback_targets": effective_writeback_targets
+# "writeback_source_contracts": impact_result["writeback_source_contracts"]
+# "writeback_target_sources": impact_result["writeback_target_sources"]
+# writeback_target_contracts
+# "live_execution_enabled": False
+# "governed_execution_mode": "INTERNAL_GOVERNED"
 
 
 class Stage9Service:
@@ -134,54 +167,6 @@ class Stage9Service:
         if fallback is not None:
             return fallback
         return self._governed_fallback(field_name)
-
-    def _stage9_governed_metadata(
-        self,
-        *,
-        plan_status: str,
-        touch_record_state: str,
-        feedback_reason: str,
-        written_back_at_optional: str | None,
-        upstream_governance_decision_state: str,
-        outcome_writeback_targets: list[str],
-        outcome_authoritative_base_targets: list[str],
-        governance_writeback_targets: list[str],
-        governance_legacy_writeback_targets: list[str],
-        governance_owned_self_target: str,
-        payment_exception_writeback_targets: list[str],
-        delivery_exception_writeback_targets: list[str],
-        effective_writeback_targets: list[str],
-        writeback_contract: Mapping[str, Any],
-        writeback_source_contracts: Mapping[str, Any],
-        writeback_target_sources: Mapping[str, Any],
-    ) -> dict[str, Any]:
-        return {
-            "skeleton_only": True,
-            "live_execution_enabled": False,
-            "projection_only": True,
-            "governed_execution_mode": "INTERNAL_GOVERNED",
-            "source_handoff_id": "H-08-STAGE8-TO-STAGE9",
-            "upstream_plan_status": plan_status,
-            "upstream_touch_record_state": touch_record_state,
-            "upstream_feedback_reason": feedback_reason,
-            "upstream_written_back_at_optional": written_back_at_optional,
-            "upstream_governance_decision_state": upstream_governance_decision_state,
-            "outcome_writeback_targets": list(outcome_writeback_targets),
-            "outcome_authoritative_base_targets": list(outcome_authoritative_base_targets),
-            "governance_writeback_targets_optional": list(governance_writeback_targets),
-            "governance_legacy_writeback_targets": list(governance_legacy_writeback_targets),
-            "governance_owned_self_target": governance_owned_self_target,
-            "payment_exception_writeback_targets_optional": list(payment_exception_writeback_targets),
-            "delivery_exception_writeback_targets_optional": list(delivery_exception_writeback_targets),
-            "effective_writeback_targets": list(effective_writeback_targets),
-            "writeback_contract_state": writeback_contract.get("writeback_contract_state", "UNKNOWN"),
-            "writeback_projected_targets": list(writeback_contract.get("writeback_projected_targets", [])),
-            "writeback_persistence_targets": list(writeback_contract.get("writeback_persistence_targets", [])),
-            "writeback_advisory_targets": list(writeback_contract.get("writeback_advisory_targets", [])),
-            "writeback_trace_only_targets": list(writeback_contract.get("writeback_trace_only_targets", [])),
-            "writeback_source_contracts": dict(writeback_source_contracts),
-            "writeback_target_sources": dict(writeback_target_sources),
-        }
 
     def _outcome_feedback_policy(self) -> dict[str, Any]:
         catalog = load_contract("contracts/sales/opportunity_policy_catalog.json", self.settings)
@@ -326,72 +311,6 @@ class Stage9Service:
 
         trace["resolved_outputs"] = dict(fallbacks)
         return fallbacks, trace
-
-    def _resolve_upstream_feedback_contract(
-        self,
-        *,
-        outcome_family: str,
-        projected_feedback_only_targets: list[str],
-        advisory_targets: list[str],
-        feedback_loop_contract_ref: str | None,
-    ) -> dict[str, Any]:
-        policy = self._outcome_feedback_policy()
-        outcome_key = str(outcome_family or "").lower()
-        required_outcomes = {str(item).lower() for item in policy.get("requiredOutcomes", [])}
-        if not (projected_feedback_only_targets or advisory_targets):
-            return {
-                "upstream_feedback_projected_targets": [],
-                "upstream_feedback_advisory_targets": [],
-                "upstream_feedback_contracts": {},
-            }
-        if outcome_key not in required_outcomes:
-            raise ValueError(
-                f"Stage9 upstream feedback loop outcome not declared: outcome_family={outcome_family}"
-            )
-
-        contract = dict(policy.get("upstreamFeedbackLoopContracts", {}).get(outcome_key, {}))
-        if not contract:
-            raise ValueError(
-                f"Stage9 upstream feedback loop contract missing for outcome_family={outcome_family}"
-            )
-        projected_contracts = dict(contract.get("projectedOnlyTargets", {}))
-        advisory_contracts = dict(contract.get("advisoryTargets", {}))
-        missing_projected_targets = [
-            target for target in projected_feedback_only_targets if target not in projected_contracts
-        ]
-        missing_advisory_targets = [
-            target for target in advisory_targets if target not in advisory_contracts
-        ]
-        if missing_projected_targets or missing_advisory_targets:
-            raise ValueError(
-                "Stage9 upstream feedback loop target contract mismatch: "
-                f"missing_projected={missing_projected_targets}; "
-                f"missing_advisory={missing_advisory_targets}"
-            )
-        return {
-            "upstream_feedback_projected_targets": list(projected_feedback_only_targets),
-            "upstream_feedback_advisory_targets": list(advisory_targets),
-            "upstream_feedback_contracts": {
-                "outcome_family": outcome_key,
-                "feedback_loop_contract_ref": feedback_loop_contract_ref,
-                "projectedOnlyTargets": {
-                    target: projected_contracts[target] for target in projected_feedback_only_targets
-                },
-                "advisoryTargets": {
-                    target: advisory_contracts[target] for target in advisory_targets
-                },
-                "mustWriteBackTo": [
-                    target
-                    for target in policy.get("mustWriteBackTo", [])
-                    if target in projected_feedback_only_targets
-                ],
-                "mustAdvisoryWriteBackTo": [
-                    target
-                    for target in policy.get("mustAdvisoryWriteBackTo", [])
-                    if target in advisory_targets
-                ],
-            },
-        }
 
     def _require_h08_payload(
         self,
@@ -653,91 +572,19 @@ class Stage9Service:
                 f"opportunity_id={h08_payload['opportunity_id']}; touch_record_id={h08_payload['touch_record_id']}"
             )
 
-        outcome_taxonomy_output = runtime_state.outputs.get("outcome_taxonomy", {})
-        outcome_writeback_targets = ensure_list(
-            runtime_state.outputs.get("outcome_taxonomy", {}).get("writeback_targets", ["project_fact"])
+        writeback_projection = resolve_writeback_projection(
+            runtime_state=runtime_state,
+            runtime_inputs=runtime_inputs,
+            impact_executor=self.impact_executor,
+            outcome_feedback_policy=self._outcome_feedback_policy(),
         )
-        outcome_authoritative_base_targets = ensure_list(
-            outcome_taxonomy_output.get("authoritative_base_targets", outcome_writeback_targets)
-        )
-        resolved_outcome_family = str(
-            runtime_state.resolve("outcome_family", runtime_inputs["outcome_family"])
-        )
-        upstream_feedback_contract = self._resolve_upstream_feedback_contract(
-            outcome_family=resolved_outcome_family,
-            projected_feedback_only_targets=ensure_list(
-                outcome_taxonomy_output.get("projected_feedback_only_targets", [])
-            ),
-            advisory_targets=ensure_list(outcome_taxonomy_output.get("advisory_targets", [])),
-            feedback_loop_contract_ref=outcome_taxonomy_output.get("feedback_loop_contract_ref"),
-        )
-        upstream_feedback_projected_targets = ensure_list(
-            upstream_feedback_contract.get("upstream_feedback_projected_targets", [])
-        )
-        upstream_feedback_advisory_targets = ensure_list(
-            upstream_feedback_contract.get("upstream_feedback_advisory_targets", [])
-        )
-        governance_taxonomy_output = runtime_state.outputs.get("governance_taxonomy", {})
-        governance_writeback_targets = ensure_list(
-            runtime_state.outputs.get("governance_taxonomy", {}).get(
-                "additive_writeback_targets",
-                runtime_state.outputs.get("governance_taxonomy", {}).get("writeback_targets", []),
-            )
-        )
-        governance_legacy_writeback_targets = ensure_list(
-            governance_taxonomy_output.get("writeback_targets", governance_writeback_targets)
-        )
-        governance_owned_self_target = str(
-            governance_taxonomy_output.get(
-                "governance_owned_self_target",
-                "governance_feedback_event",
-            )
-        )
-        payment_exception_writeback_targets = ensure_list(
-            runtime_state.resolve("payment_exception_writeback_targets_optional", [])
-        )
-        delivery_exception_writeback_targets = ensure_list(
-            runtime_state.resolve("delivery_exception_writeback_targets_optional", [])
-        )
-        writeback_target_resolution = self.impact_executor.resolve_effective_targets(
-            outcome_targets=outcome_authoritative_base_targets,
-            outcome_legacy_targets=outcome_writeback_targets,
-            upstream_feedback_targets=(
-                upstream_feedback_projected_targets + upstream_feedback_advisory_targets
-            ),
-            governance_targets=governance_writeback_targets,
-            payment_exception_targets=payment_exception_writeback_targets,
-            delivery_exception_targets=delivery_exception_writeback_targets,
-            governance_self_target=governance_owned_self_target,
-        )
-        effective_writeback_targets = list(
-            writeback_target_resolution["legacy_effective_writeback_targets"]
-        )
-        resolved_effective_writeback_targets = list(
-            writeback_target_resolution["effective_writeback_targets"]
-        )
-        writeback_contract = self.impact_executor.describe_targets(
-            resolved_effective_writeback_targets,
-            target_sources=writeback_target_resolution["writeback_target_sources"],
-        )
-
-        governed_metadata = self._stage9_governed_metadata(
+        governed_metadata = build_stage9_governed_metadata(
             plan_status=plan_status,
             touch_record_state=touch_record_state,
             feedback_reason=feedback_reason,
             written_back_at_optional=written_back_at_optional,
             upstream_governance_decision_state=upstream_governance_decision_state,
-            outcome_writeback_targets=outcome_writeback_targets,
-            outcome_authoritative_base_targets=outcome_authoritative_base_targets,
-            governance_writeback_targets=governance_writeback_targets,
-            governance_legacy_writeback_targets=governance_legacy_writeback_targets,
-            governance_owned_self_target=governance_owned_self_target,
-            payment_exception_writeback_targets=payment_exception_writeback_targets,
-            delivery_exception_writeback_targets=delivery_exception_writeback_targets,
-            effective_writeback_targets=effective_writeback_targets,
-            writeback_contract=writeback_contract,
-            writeback_source_contracts=writeback_target_resolution["writeback_source_contracts"],
-            writeback_target_sources=writeback_target_resolution["writeback_target_sources"],
+            projection=writeback_projection,
         )
 
         approval_chain_present = approval_state in ("APPROVED", "NOT_REQUIRED")
@@ -906,40 +753,21 @@ class Stage9Service:
             apply_delivery_decision_projection(delivery_spec.payload, delivery_semantic.decision_state)
         delivery_record = self.store.build_record(delivery_spec.object_type, delivery_spec.payload)
 
-        governance_payload = {
-            "governance_feedback_event_id": build_id("GOV", project_id),
-            "project_id": project_id,
-            "trigger_type": ensure_enum(
-                self.store,
-                "trigger_type",
-                runtime_state.resolve("trigger_type", runtime_inputs["trigger_type"]),
-            ),
-            "trigger_summary": runtime_inputs["trigger_summary"],
-            "action_taken": "; ".join(
-                runtime_state.resolve(
-                    "required_actions",
-                    [runtime_inputs.get("action_taken", "NONE")],
-                )
-            ),
-            "written_back_at": now,
-            "written_back_at_optional": written_back_at_optional or now,
-            "archive_scope": runtime_inputs.get(
-                "archive_scope",
-                runtime_state.resolve("impact_scope", "INTERNAL"),
-            ),
-            "feedback_reason": feedback_reason,
-            "writeback_targets": governance_legacy_writeback_targets or [governance_owned_self_target],
-            "governance_feedback_policy_id_optional": runtime_state.resolve(
-                "governance_feedback_policy_id_optional",
-                runtime_state.resolve("trigger_type", runtime_inputs["trigger_type"]),
-            ),
-            "impact_scope_optional": runtime_state.resolve("impact_scope", "INTERNAL"),
-            "governed_execution_mode": governed_execution_mode,
-            "permission_decision_state": permission_effective_state,
-            "governance_decision_state": governance_effective_state,
-            "semantic_decision_state": semantic_effective_state,
-            "governed_metadata": governed_metadata,
-        }
+        governance_payload = build_governance_feedback_payload(
+            store=self.store,
+            project_id=project_id,
+            runtime_state=runtime_state,
+            runtime_inputs=runtime_inputs,
+            now=now,
+            written_back_at_optional=written_back_at_optional,
+            feedback_reason=feedback_reason,
+            projection=writeback_projection,
+            governed_execution_mode=governed_execution_mode,
+            permission_effective_state=permission_effective_state,
+            governance_effective_state=governance_effective_state,
+            semantic_effective_state=semantic_effective_state,
+            governed_metadata=governed_metadata,
+        )
         governance_guard = self.store.evaluate_runtime_guards(
             "governance_feedback_event",
             governance_payload,
@@ -949,11 +777,10 @@ class Stage9Service:
                 approval_state=approval_state,
                 action_intent="INTERNAL_WRITEBACK",
                 requested_gate_ids=["internal_review_release"],
-                gate_conditions={
-                    "trigger and action valid": bool(governance_payload["trigger_type"] and governance_payload["action_taken"]),
-                    "written_back_at present": bool(governance_payload["written_back_at"]),
-                    "governance audit present": audit_trail_present,
-                },
+                gate_conditions=governance_feedback_guard_conditions(
+                    governance_payload,
+                    audit_trail_present=audit_trail_present,
+                ),
             ),
         )
         runtime_state.add_governance_guard(governance_guard)
@@ -967,52 +794,23 @@ class Stage9Service:
             runtime_state.add_semantic_validation(governance_semantic)
         governance_feedback_event = self.store.build_record("governance_feedback_event", governance_payload)
 
-        outcome_payload = {
-            "outcome_event_id": build_id("OUTCOME", project_id),
-            "project_id": project_id,
-            "opportunity_id": order_record.get("opportunity_id"),
-            "outcome_family": ensure_enum(
-                self.store,
-                "outcome_family",
-                runtime_state.resolve("outcome_family", runtime_inputs["outcome_family"]),
-            ),
-            "outcome_reason_tags": ensure_list(
-                runtime_state.resolve(
-                    "outcome_reason_tags",
-                    runtime_inputs["outcome_reason_tags"],
-                )
-            ),
-            "is_false_positive": bool(runtime_inputs.get("is_false_positive", False)),
-            "window_missed_state": ensure_enum(
-                self.store,
-                "window_missed_state",
-                runtime_inputs["window_missed_state"],
-            ),
-            "contact_failure_state": ensure_enum(
-                self.store,
-                "contact_failure_state",
-                runtime_inputs["contact_failure_state"],
-            ),
-            "payer_mismatch_state": ensure_enum(
-                self.store,
-                "payer_mismatch_state",
-                runtime_inputs["payer_mismatch_state"],
-            ),
-            "feedback_reason": feedback_reason,
-            "trigger_type": governance_payload["trigger_type"],
-            "action_taken": governance_payload["action_taken"],
-            "writeback_targets": outcome_writeback_targets,
-            "governance_feedback_triggered_optional": bool(
-                runtime_state.resolve("governance_feedback_triggered_optional", False)
-            ),
-            "written_back_at": written_back_at_optional or now,
-            "written_back_at_optional": written_back_at_optional or now,
-            "governed_execution_mode": governed_execution_mode,
-            "permission_decision_state": permission_effective_state,
-            "governance_decision_state": governance_effective_state,
-            "semantic_decision_state": semantic_effective_state,
-            "governed_metadata": governed_metadata,
-        }
+        outcome_payload = build_opportunity_outcome_payload(
+            store=self.store,
+            project_id=project_id,
+            order_record=order_record,
+            governance_payload=governance_payload,
+            runtime_state=runtime_state,
+            runtime_inputs=runtime_inputs,
+            now=now,
+            written_back_at_optional=written_back_at_optional,
+            feedback_reason=feedback_reason,
+            projection=writeback_projection,
+            governed_execution_mode=governed_execution_mode,
+            permission_effective_state=permission_effective_state,
+            governance_effective_state=governance_effective_state,
+            semantic_effective_state=semantic_effective_state,
+            governed_metadata=governed_metadata,
+        )
         outcome_guard = self.store.evaluate_runtime_guards(
             "opportunity_outcome_event",
             outcome_payload,
@@ -1022,11 +820,10 @@ class Stage9Service:
                 approval_state=approval_state,
                 action_intent="INTERNAL_WRITEBACK",
                 requested_gate_ids=["internal_review_release", "sales_consumption_release"],
-                gate_conditions={
-                    "taxonomy valid": bool(outcome_payload["outcome_family"] and outcome_payload["outcome_reason_tags"]),
-                    "written_back_at present": bool(outcome_payload["written_back_at"]),
-                    "audit trail present": audit_trail_present,
-                },
+                gate_conditions=opportunity_outcome_guard_conditions(
+                    outcome_payload,
+                    audit_trail_present=audit_trail_present,
+                ),
             ),
         )
         runtime_state.add_governance_guard(outcome_guard)
@@ -1034,12 +831,12 @@ class Stage9Service:
             stage=9,
             object_type="opportunity_outcome_event",
             payload=outcome_payload,
-            semantic_context={
-                "delivery_status": delivery_spec.payload["delivery_status"],
-                "plan_status": plan_status,
-                "feedback_reason": feedback_reason,
-                "governance_decision_state": governance_effective_state,
-            },
+            semantic_context=opportunity_outcome_semantic_context(
+                delivery_payload=delivery_spec.payload,
+                plan_status=plan_status,
+                feedback_reason=feedback_reason,
+                governance_effective_state=governance_effective_state,
+            ),
         )
         if outcome_semantic:
             runtime_state.add_semantic_validation(outcome_semantic)
@@ -1050,68 +847,25 @@ class Stage9Service:
             touch_record=touch_record,
             opportunity_outcome_event=opportunity_outcome_event,
             governance_feedback_event=governance_feedback_event,
-            effective_writeback_targets=resolved_effective_writeback_targets,
-            target_sources=writeback_target_resolution["writeback_target_sources"],
+            effective_writeback_targets=writeback_projection.resolved_effective_writeback_targets,
+            target_sources=writeback_projection.writeback_target_resolution["writeback_target_sources"],
             now=now,
         )
 
-        handoff = {
-            "project_id": project_id,
-            "order_status": order_record.get("order_status"),
-            "delivery_status": delivery_record.get("delivery_status"),
-            "plan_status": plan_status,
-            "touch_record_state": touch_record_state,
-            "feedback_reason": feedback_reason,
-            "written_back_at_optional": written_back_at_optional or now,
-            "governed_execution_mode": governed_execution_mode,
-            "outcome_writeback_targets": outcome_writeback_targets,
-            "outcome_authoritative_base_targets": outcome_authoritative_base_targets,
-            "upstream_feedback_projected_targets": upstream_feedback_projected_targets,
-            "upstream_feedback_advisory_targets": upstream_feedback_advisory_targets,
-            "upstream_feedback_contracts": upstream_feedback_contract["upstream_feedback_contracts"],
-            "governance_writeback_targets_optional": governance_writeback_targets,
-            "governance_legacy_writeback_targets": governance_legacy_writeback_targets,
-            "governance_owned_self_target": governance_owned_self_target,
-            "payment_exception_writeback_targets_optional": payment_exception_writeback_targets,
-            "delivery_exception_writeback_targets_optional": delivery_exception_writeback_targets,
-            "payment_exception_match_trace_optional": runtime_state.resolve(
-                "payment_exception_match_trace_optional", {}
-            ),
-            "delivery_exception_match_trace_optional": runtime_state.resolve(
-                "delivery_exception_match_trace_optional", {}
-            ),
-            "effective_writeback_targets": effective_writeback_targets,
-            "resolved_effective_writeback_targets": resolved_effective_writeback_targets,
-            "writeback_contract_state": impact_result["writeback_contract_state"],
-            "writeback_contract_semantics": impact_result["writeback_contract_semantics"],
-            "writeback_source_contracts": impact_result["writeback_source_contracts"],
-            "writeback_target_sources": impact_result["writeback_target_sources"],
-            "writeback_target_contracts": impact_result["writeback_target_contracts"],
-            "writeback_persistence_targets": impact_result["writeback_persistence_targets"],
-            "writeback_projected_targets": impact_result["writeback_projected_targets"],
-            "writeback_advisory_targets": impact_result["writeback_advisory_targets"],
-            "writeback_trace_only_targets": impact_result["writeback_trace_only_targets"],
-            "policy_trace": runtime_state.trace,
-            "policy_decision_state": runtime_state.decision_state,
-            "permission_trace": runtime_state.capability_trace,
-            "permission_decision_state": runtime_state.permission_decision_state,
-            "permission_governance": runtime_state.capability_governance(),
-            "governance_trace": runtime_state.governance_trace,
-            "governance_decision_state": runtime_state.governance_decision_state,
-            "governance_additions": runtime_state.governance_additions,
-            "semantic_trace": runtime_state.semantic_trace,
-            "semantic_decision_state": runtime_state.semantic_decision_state,
-            "semantic_additions": runtime_state.semantic_additions,
-            "impact_executor_state": impact_result["impact_executor_state"],
-            "impact_targets_projected": impact_result["impact_targets_projected"],
-            "impact_targets_projected_contract_only": impact_result["impact_targets_projected_contract_only"],
-            "impact_targets_advisory": impact_result["impact_targets_advisory"],
-            "impact_mutations": impact_result["impact_mutations"],
-            "impact_projected_contracts": impact_result["impact_projected_contracts"],
-            "impact_advisories": impact_result["impact_advisories"],
-            "impact_trace": impact_result["impact_trace"],
-            "h08_workflow_fallback_trace": h08_workflow_fallback_trace,
-        }
+        handoff = build_feedback_handoff(
+            project_id=project_id,
+            order_record=order_record,
+            delivery_record=delivery_record,
+            plan_status=plan_status,
+            touch_record_state=touch_record_state,
+            feedback_reason=feedback_reason,
+            written_back_at=written_back_at_optional or now,
+            governed_execution_mode=governed_execution_mode,
+            projection=writeback_projection,
+            runtime_state=runtime_state,
+            impact_result=impact_result,
+            h08_workflow_fallback_trace=h08_workflow_fallback_trace,
+        )
 
         return StageBundle(
             stage=9,
@@ -1128,59 +882,13 @@ class Stage9Service:
                 for entry in runtime_state.trace
                 if entry.get("event") == "emit_decision"
             ],
-            inputs={
-                **runtime_inputs,
-                "outcome_writeback_targets": outcome_writeback_targets,
-                "outcome_authoritative_base_targets": outcome_authoritative_base_targets,
-                "upstream_feedback_projected_targets": upstream_feedback_projected_targets,
-                "upstream_feedback_advisory_targets": upstream_feedback_advisory_targets,
-                "upstream_feedback_contracts": upstream_feedback_contract["upstream_feedback_contracts"],
-                "governance_writeback_targets_optional": governance_writeback_targets,
-                "governance_legacy_writeback_targets": governance_legacy_writeback_targets,
-                "governance_owned_self_target": governance_owned_self_target,
-                "payment_exception_writeback_targets_optional": payment_exception_writeback_targets,
-                "delivery_exception_writeback_targets_optional": delivery_exception_writeback_targets,
-                "payment_exception_match_trace_optional": runtime_state.resolve(
-                    "payment_exception_match_trace_optional", {}
-                ),
-                "delivery_exception_match_trace_optional": runtime_state.resolve(
-                    "delivery_exception_match_trace_optional", {}
-                ),
-                "effective_writeback_targets": effective_writeback_targets,
-                "resolved_effective_writeback_targets": resolved_effective_writeback_targets,
-                "writeback_contract_state": impact_result["writeback_contract_state"],
-                "writeback_contract_semantics": impact_result["writeback_contract_semantics"],
-                "writeback_source_contracts": impact_result["writeback_source_contracts"],
-                "writeback_target_sources": impact_result["writeback_target_sources"],
-                "writeback_target_contracts": impact_result["writeback_target_contracts"],
-                "writeback_persistence_targets": impact_result["writeback_persistence_targets"],
-                "writeback_projected_targets": impact_result["writeback_projected_targets"],
-                "writeback_advisory_targets": impact_result["writeback_advisory_targets"],
-                "writeback_trace_only_targets": impact_result["writeback_trace_only_targets"],
-                "policy_trace": runtime_state.trace,
-                "policy_decision_state": runtime_state.decision_state,
-                "permission_trace": runtime_state.capability_trace,
-                "permission_decision_state": runtime_state.permission_decision_state,
-                "permission_governance": runtime_state.capability_governance(),
-                "governance_trace": runtime_state.governance_trace,
-                "governance_decision_state": runtime_state.governance_decision_state,
-                "governance_additions": runtime_state.governance_additions,
-                "semantic_trace": runtime_state.semantic_trace,
-                "semantic_decision_state": runtime_state.semantic_decision_state,
-                "semantic_additions": runtime_state.semantic_additions,
-                "impact_executor_state": impact_result["impact_executor_state"],
-                "impact_runtime_executor_enabled": impact_result["runtime_executor_enabled"],
-                "impact_mutation_mode": impact_result["mutation_mode"],
-                "impact_formal_targets": impact_result["formal_targets"],
-                "impact_targets_projected": impact_result["impact_targets_projected"],
-                "impact_targets_projected_contract_only": impact_result["impact_targets_projected_contract_only"],
-                "impact_targets_advisory": impact_result["impact_targets_advisory"],
-                "impact_mutations": impact_result["impact_mutations"],
-                "impact_projected_contracts": impact_result["impact_projected_contracts"],
-                "impact_advisories": impact_result["impact_advisories"],
-                "impact_trace": impact_result["impact_trace"],
-                "h08_workflow_fallback_trace": h08_workflow_fallback_trace,
-            },
+            inputs=build_feedback_inputs(
+                runtime_inputs=runtime_inputs,
+                projection=writeback_projection,
+                runtime_state=runtime_state,
+                impact_result=impact_result,
+                h08_workflow_fallback_trace=h08_workflow_fallback_trace,
+            ),
         )
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:

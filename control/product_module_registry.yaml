@@ -109,7 +109,12 @@ post_mainline_selection:
       recommended_now: true
       status: OPEN_FOR_MANUAL_SELECTION
       not_auto_activated: true
-      rationale: "只深化内部 governed delivery / feedback 闭环，不放开 real payment / delivery / refund；仅作内部产品方向导航建议。"
+      completed_task_ids:
+        - PTL-S9-101-p5-typed-lifecycle-deepening
+      remaining_task_ids:
+        - PTL-S9-102-p6-feedback-writeback-productization
+      last_completed_commit: 3d9fc74
+      rationale: "P5 typed lifecycle deepening 已完成并记录 3d9fc74；P6 feedback/writeback 产品化仍 open/manual selection。只深化内部 governed delivery / feedback 闭环，不放开 real payment / delivery / refund；仅作内部产品方向导航建议。"
 ledger_schema:
   intent: >
     Give non-technical product ownership and future AI windows a machine-readable
@@ -750,6 +755,7 @@ stage_module_inventory:
         current_files:
           - src/stage9_delivery/impact_executor.py
           - src/stage9_delivery/feedback.py
+          - src/stage9_delivery/feedback_writeback.py
           - src/stage9_delivery/models.py
         handoff_files:
           - handoff/stage8_to_stage9/contract.json
@@ -1103,6 +1109,7 @@ modules:
       - src/stage9_delivery/delivery.py
       - src/stage9_delivery/typed_lifecycle.py
       - src/stage9_delivery/feedback.py
+      - src/stage9_delivery/feedback_writeback.py
       - src/stage9_delivery/models.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
@@ -1111,15 +1118,16 @@ modules:
       - PTL-S9-102-p6-feedback-writeback-productization
     completed_packets:
       - PTL-S89-outreach-writeback-delivery-governance
-    pending_packets:
       - PTL-S9-101-p5-typed-lifecycle-deepening
+    pending_packets:
       - PTL-S9-102-p6-feedback-writeback-productization
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
     notes:
-      - "P5 typed lifecycle deepening remains a manual-selection follow-up in the module ledger; current activation still depends on control/current_task.yaml."
-      - "P6 feedback/writeback productization remains a subsequent manual-selection follow-up; ImpactExecutor and writeback semantics are not advanced by the P5 first cut."
+      - "P5 typed lifecycle deepening completed in local commit 3d9fc74 and src/stage9_delivery/typed_lifecycle.py is now part of the formal Stage9 current files ledger."
+      - "P6 feedback/writeback productization remains governed/manual-selection work; ImpactExecutor semantics are not advanced by the P5 closeout sync."
+      - "Stage9 remains internal governed only; external/live payment, delivery, refund, and writeback mutation remain blocked/governed."
   - module_id: SURFACE-API-TRANSPORT
     stage_scope:
       - stage1_to_stage9

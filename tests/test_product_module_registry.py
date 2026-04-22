@@ -120,8 +120,8 @@ def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cl
     assert stage8["pending_packets"] == []
     assert "src/stage8_outreach/candidate_compliance.py" in stage8["current_files"]
     assert "PTL-S89-outreach-writeback-delivery-governance" in stage9["completed_packets"]
+    assert "PTL-S9-101-p5-typed-lifecycle-deepening" in stage9["completed_packets"]
     assert stage9["pending_packets"] == [
-        "PTL-S9-101-p5-typed-lifecycle-deepening",
         "PTL-S9-102-p6-feedback-writeback-productization",
     ]
     shared_runtime = modules["SHARED-RUNTIME-POLICY-CHAIN"]
@@ -135,8 +135,8 @@ def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cl
     assert "PTL-INT-102-p4-repository-boundary-hardening" in storage_boundary["completed_packets"]
     assert storage_boundary["pending_packets"] == []
     assert "src/stage9_delivery/typed_lifecycle.py" in stage9["current_files"]
+    assert "src/stage9_delivery/feedback_writeback.py" in stage9["current_files"]
     assert stage9["pending_packets"] == [
-        "PTL-S9-101-p5-typed-lifecycle-deepening",
         "PTL-S9-102-p6-feedback-writeback-productization",
     ]
     assert stage8["external_release_allowed"] is False
@@ -227,6 +227,13 @@ def test_post_mainline_selection_block_is_navigation_only_and_references_existin
     assert stage8_direction["last_completed_commit"] == "9d4662a"
     assert candidate_by_label["Stage9 governed delivery 深化"]["status"] == "OPEN_FOR_MANUAL_SELECTION"
     assert candidate_by_label["Stage9 governed delivery 深化"]["recommended_now"] is True
+    assert candidate_by_label["Stage9 governed delivery 深化"]["completed_task_ids"] == [
+        "PTL-S9-101-p5-typed-lifecycle-deepening",
+    ]
+    assert candidate_by_label["Stage9 governed delivery 深化"]["remaining_task_ids"] == [
+        "PTL-S9-102-p6-feedback-writeback-productization",
+    ]
+    assert candidate_by_label["Stage9 governed delivery 深化"]["last_completed_commit"] == "3d9fc74"
 
 
 def test_stage_module_inventory_is_expanded_for_stage1_to_stage9() -> None:
@@ -352,8 +359,8 @@ def test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked() -> Non
     assert modules["STAGE8-OUTREACH-GOVERNED"]["pending_packets"] == []
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["external_release_allowed"] is False
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["live_execution_allowed"] is False
+    assert "PTL-S9-101-p5-typed-lifecycle-deepening" in modules["STAGE9-DELIVERY-GOVERNANCE"]["completed_packets"]
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["pending_packets"] == [
-        "PTL-S9-101-p5-typed-lifecycle-deepening",
         "PTL-S9-102-p6-feedback-writeback-productization",
     ]
 
