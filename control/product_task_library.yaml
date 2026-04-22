@@ -65,10 +65,10 @@ planning_sync_implementation_registration:
 current_mainline_next_candidate:
   task_id: null
   packet_id: null
-  title: "产品主线 S12-S89 + INT 与后主线 P1/P2/P3 已闭合，等待人工选择后续方向"
+  title: "产品主线 S12-S89 + INT 与后主线 P1/P2/P3/P4 已闭合，等待人工选择后续方向"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3 均已 completed；现在没有自动 next candidate；候选池保留 P4 -> P5 -> P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P4 只允许后续人工/决策窗口通过 dedicated current_task packet 激活；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4 均已 completed；现在没有自动 next candidate；候选池保留 P5 -> P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P5-P8 仍 open/manual；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -373,14 +373,15 @@ tasks:
     title: "P4 storage/repository boundary 加固"
     stage_scope: [stage8_outreach, stage9_delivery, internal_preview]
     task_type: platform_boundary_refactor
-    status: OPEN_FOR_MANUAL_SELECTION
+    status: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P1
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: OPEN_FOR_MANUAL_SELECTION
+    planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
-    runtime_notes: "后主线执行链的第 6 步；目标是拆 repository boundary 的 hydration / projection / persist / replay 责任，避免 Stage8/9 语义和持久化继续混写；本条只作为人工候选任务登记，不自动激活。"
+    completed_commit: b8288a7
+    runtime_notes: "P4 scoped implementation 已完成并在本地提交：b8288a7；repository boundary 的 hydration / projection / persist / replay 第一刀行为等价职责拆分已完成，src/storage/repository_bundle_io.py 与 src/storage/repository_context_projection.py 已纳入正式登记；PTL-INT-102 不再是 current active packet，也不再是 current_mainline_next_candidate；P5 仍需后续人工/决策窗口另开 dedicated current_task packet 才能激活。"
     hard_depends_on: [PTL-INT-101-p3-policy-validator-boundary-split]
     soft_depends_on: [PTL-S89-outreach-writeback-delivery-governance]
     objective: "把 storage boundary 收敛成更清晰的受控持久化边界，保证回放不重算上游事实、preview 不误导成 live mutation。"

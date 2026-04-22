@@ -707,7 +707,8 @@ stage_module_inventory:
     depends_on_modules:
       - stage8_outreach
     target_packet_candidates:
-      - PTL-S89-outreach-writeback-delivery-governance
+      - PTL-S9-101-p5-typed-lifecycle-deepening
+      - PTL-S9-102-p6-feedback-writeback-productization
     current_blockers:
       - "Stage9 real payment/delivery/refund 默认阻断，需要审批链和治理链。"
     exit_criteria:
@@ -722,6 +723,7 @@ stage_module_inventory:
           - src/stage9_delivery/order.py
           - src/stage9_delivery/payment.py
           - src/stage9_delivery/delivery.py
+          - src/stage9_delivery/typed_lifecycle.py
           - src/stage9_delivery/models.py
         handoff_files:
           - handoff/stage8_to_stage9/contract.json
@@ -738,7 +740,7 @@ stage_module_inventory:
         depends_on_slices:
           - stage8.outreach_plan_touch_record
         target_packet_candidates:
-          - PTL-S89-outreach-writeback-delivery-governance
+          - PTL-S9-101-p5-typed-lifecycle-deepening
         exit_criteria:
           - "记录状态可内部回放，但不得表示 live payment/delivery ready。"
         deferred_gaps: []
@@ -763,7 +765,7 @@ stage_module_inventory:
         depends_on_slices:
           - stage9.order_payment_delivery
         target_packet_candidates:
-          - PTL-S89-outreach-writeback-delivery-governance
+          - PTL-S9-102-p6-feedback-writeback-productization
         exit_criteria:
           - "governance feedback 只触发受控复核或治理回写，不篡改上游事实。"
         deferred_gaps: []
@@ -829,8 +831,8 @@ cross_cutting_surfaces:
       - tests/test_storage_concurrency.py
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
-    pending_packets:
       - PTL-INT-102-p4-repository-boundary-hardening
+    pending_packets: []
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
     stage_scope:
@@ -1099,16 +1101,25 @@ modules:
       - src/stage9_delivery/order.py
       - src/stage9_delivery/payment.py
       - src/stage9_delivery/delivery.py
+      - src/stage9_delivery/typed_lifecycle.py
       - src/stage9_delivery/feedback.py
       - src/stage9_delivery/models.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
+    target_packet_candidates:
+      - PTL-S9-101-p5-typed-lifecycle-deepening
+      - PTL-S9-102-p6-feedback-writeback-productization
     completed_packets:
       - PTL-S89-outreach-writeback-delivery-governance
-    pending_packets: []
+    pending_packets:
+      - PTL-S9-101-p5-typed-lifecycle-deepening
+      - PTL-S9-102-p6-feedback-writeback-productization
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
+    notes:
+      - "P5 typed lifecycle deepening remains a manual-selection follow-up in the module ledger; current activation still depends on control/current_task.yaml."
+      - "P6 feedback/writeback productization remains a subsequent manual-selection follow-up; ImpactExecutor and writeback semantics are not advanced by the P5 first cut."
   - module_id: SURFACE-API-TRANSPORT
     stage_scope:
       - stage1_to_stage9
@@ -1222,16 +1233,17 @@ modules:
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
     target_packet_candidates:
-      - PTL-INT-102-p4-repository-boundary-hardening
+      - PTL-S9-101-p5-typed-lifecycle-deepening
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
-    pending_packets:
       - PTL-INT-102-p4-repository-boundary-hardening
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
     notes:
-      - "P4 repository boundary hardening remains a manual-selection follow-up in the module ledger; active execution still depends on control/current_task.yaml."
+      - "P4 repository boundary hardening completed in local commit b8288a7 and is now part of the formal repository-boundary ledger."
+      - "Subsequent Stage9 packets such as P5 still depend on this boundary staying stable; this ledger must not be interpreted as 'all repository-boundary-dependent work finished'."
   - module_id: INTERNAL-PREVIEW-SURFACE
     stage_scope:
       - internal_preview

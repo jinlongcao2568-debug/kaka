@@ -120,7 +120,10 @@ def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cl
     assert stage8["pending_packets"] == []
     assert "src/stage8_outreach/candidate_compliance.py" in stage8["current_files"]
     assert "PTL-S89-outreach-writeback-delivery-governance" in stage9["completed_packets"]
-    assert stage9["pending_packets"] == []
+    assert stage9["pending_packets"] == [
+        "PTL-S9-101-p5-typed-lifecycle-deepening",
+        "PTL-S9-102-p6-feedback-writeback-productization",
+    ]
     shared_runtime = modules["SHARED-RUNTIME-POLICY-CHAIN"]
     assert "src/shared/policy_contract_helpers.py" in shared_runtime["current_files"]
     assert "src/shared/runtime_semantic_rules.py" in shared_runtime["current_files"]
@@ -129,7 +132,13 @@ def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cl
     storage_boundary = modules["STORAGE-REPOSITORY-BOUNDARY"]
     assert "src/storage/repository_bundle_io.py" in storage_boundary["current_files"]
     assert "src/storage/repository_context_projection.py" in storage_boundary["current_files"]
-    assert storage_boundary["pending_packets"] == ["PTL-INT-102-p4-repository-boundary-hardening"]
+    assert "PTL-INT-102-p4-repository-boundary-hardening" in storage_boundary["completed_packets"]
+    assert storage_boundary["pending_packets"] == []
+    assert "src/stage9_delivery/typed_lifecycle.py" in stage9["current_files"]
+    assert stage9["pending_packets"] == [
+        "PTL-S9-101-p5-typed-lifecycle-deepening",
+        "PTL-S9-102-p6-feedback-writeback-productization",
+    ]
     assert stage8["external_release_allowed"] is False
     assert stage8["live_execution_allowed"] is False
     assert stage9["external_release_allowed"] is False
@@ -343,6 +352,10 @@ def test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked() -> Non
     assert modules["STAGE8-OUTREACH-GOVERNED"]["pending_packets"] == []
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["external_release_allowed"] is False
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["live_execution_allowed"] is False
+    assert modules["STAGE9-DELIVERY-GOVERNANCE"]["pending_packets"] == [
+        "PTL-S9-101-p5-typed-lifecycle-deepening",
+        "PTL-S9-102-p6-feedback-writeback-productization",
+    ]
 
 
 def load_tests(

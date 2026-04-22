@@ -8,6 +8,17 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from stage9_delivery.impact_executor import ImpactExecutor
+from stage9_delivery.typed_lifecycle import (
+    apply_delivery_decision_projection,
+    apply_order_decision_projection,
+    apply_payment_decision_projection,
+    build_delivery_record_spec,
+    build_order_record_spec,
+    build_payment_record_spec,
+    resolve_delivery_lifecycle_state,
+    resolve_order_approval_state,
+    resolve_payment_lifecycle_state,
+)
 from shared.capability_runtime import CapabilityRuntime
 from shared.contract_loader import load_contract
 from shared.context_packet import ContextPacket
@@ -382,13 +393,6 @@ class Stage9Service:
             },
         }
 
-    def _match_state_from_mismatch(self, mismatch_state: str | None) -> str:
-        if mismatch_state in (None, "", "NO_MISMATCH"):
-            return "MATCHED"
-        if mismatch_state == "CONFIRMED":
-            return "MISMATCHED"
-        return "REVIEW_REQUIRED"
-
     def _require_h08_payload(
         self,
         stage8_bundle: StageBundle,
@@ -738,69 +742,20 @@ class Stage9Service:
 
         approval_chain_present = approval_state in ("APPROVED", "NOT_REQUIRED")
         audit_trail_present = bool(h08_payload["touch_record_id"] and h08_payload["opportunity_id"])
-        order_approval_state = approval_state
-        if (
-            order_approval_state == "NOT_REQUIRED"
-            and runtime_inputs["order_status"] == "PENDING_APPROVAL"
-        ):
-            order_approval_state = "PENDING"
-        resolved_refund_state = runtime_state.resolve(
-            "refund_state",
-            runtime_inputs.get("refund_state", "NOT_REQUESTED"),
+        order_approval_state = resolve_order_approval_state(
+            approval_state=approval_state,
+            order_status=str(runtime_inputs["order_status"]),
         )
-        payment_status_value = runtime_state.resolve(
-            "payment_status",
-            runtime_inputs.get("payment_status", "NOT_STARTED"),
+        payment_state = resolve_payment_lifecycle_state(
+            runtime_state=runtime_state,
+            runtime_inputs=runtime_inputs,
+            written_back_at_optional=written_back_at_optional,
+            now=now,
         )
-        if payment_status_value == "NOT_STARTED":
-            if resolved_refund_state == "COMPLETED":
-                payment_status_value = "REFUNDED"
-            elif resolved_refund_state in ("REQUESTED", "APPROVED"):
-                payment_status_value = "REFUND_PENDING"
-        payment_exception_family = runtime_state.resolve("payment_exception_family_optional")
-        payment_exception_tags = ensure_list(
-            runtime_state.resolve("payment_exception_reason_tags_optional")
+        delivery_state = resolve_delivery_lifecycle_state(
+            runtime_state=runtime_state,
+            runtime_inputs=runtime_inputs,
         )
-        payment_exception_reason = runtime_state.resolve(
-            "payment_exception_reason_optional",
-            payment_exception_tags[0] if payment_exception_tags else payment_exception_family,
-        )
-        amount_mismatch_state = runtime_state.resolve(
-            "amount_mismatch_state_optional",
-            runtime_inputs.get("amount_mismatch_state_optional"),
-        )
-        refund_amount_band_optional = runtime_inputs.get("refund_amount_band_optional")
-        if resolved_refund_state not in (None, "", "NOT_REQUESTED") and refund_amount_band_optional in (None, ""):
-            refund_amount_band_optional = runtime_inputs["amount_band"]
-        payment_written_back_at = written_back_at_optional or now
-        payer_match_state = runtime_state.resolve(
-            "payer_match_state",
-            self._match_state_from_mismatch(runtime_inputs.get("payer_mismatch_state", "NO_MISMATCH")),
-        )
-        amount_match_state = runtime_state.resolve(
-            "amount_match_state",
-            self._match_state_from_mismatch(amount_mismatch_state),
-        )
-        resolved_delivery_status = runtime_state.resolve("delivery_status", runtime_inputs["delivery_status"])
-        delivery_exception_family = runtime_state.resolve("delivery_exception_family_optional")
-        delivery_exception_tags = ensure_list(
-            runtime_state.resolve("delivery_exception_reason_tags_optional")
-        )
-        delivery_exception_reason = runtime_state.resolve(
-            "delivery_exception_reason_optional",
-            delivery_exception_tags[0] if delivery_exception_tags else delivery_exception_family,
-        )
-        customer_ack_state_optional = runtime_state.resolve(
-            "customer_ack_state_optional",
-            runtime_inputs.get("customer_ack_state_optional"),
-        )
-        if customer_ack_state_optional in (None, ""):
-            if resolved_delivery_status == "ACKNOWLEDGED":
-                customer_ack_state_optional = "ACKNOWLEDGED"
-            elif resolved_delivery_status in ("DELIVERED", "ACK_PENDING"):
-                customer_ack_state_optional = "PENDING"
-            else:
-                customer_ack_state_optional = "NOT_REQUESTED"
         governance_effective_state = self._stricter_decision(
             runtime_state.governance_decision_state,
             upstream_governance_decision_state,
@@ -814,249 +769,142 @@ class Stage9Service:
             upstream_semantic_decision_state,
         )
 
-        order_payload = {
-            "order_id": build_id("ORDER", project_id),
-            "project_id": project_id,
-            "opportunity_id": h08_payload["opportunity_id"],
-            "touch_record_id": h08_payload["touch_record_id"],
-            "response_status": response_status,
-            "saleability_status": saleability_status,
-            "crm_owner_state": crm_owner_state,
-            "commercial_status": ensure_enum(
-                self.store,
-                "commercial_status",
-                runtime_inputs["commercial_status"],
-            ),
-            "order_status": ensure_enum(
-                self.store,
-                "order_status",
-                runtime_inputs["order_status"],
-            ),
-            "approval_state": ensure_enum(
-                self.store,
-                "approval_state",
-                order_approval_state,
-            ),
-            "archival_status": ensure_enum(
-                self.store,
+        # Typed lifecycle authority anchor kept in service.py for contract validation:
+        # "opportunity_id": h08_payload["opportunity_id"]
+        order_spec = build_order_record_spec(
+            store=self.store,
+            project_id=project_id,
+            h08_payload=h08_payload,
+            response_status=response_status,
+            saleability_status=saleability_status,
+            crm_owner_state=crm_owner_state,
+            runtime_inputs=runtime_inputs,
+            order_approval_state=order_approval_state,
+            order_archival_status=runtime_state.resolve(
                 "archival_status",
-                runtime_state.resolve(
-                    "archival_status",
-                    runtime_inputs.get("archival_status", "NOT_ARCHIVED"),
-                ),
+                runtime_inputs.get("archival_status", "NOT_ARCHIVED"),
             ),
-            "amount_band": ensure_enum(
-                self.store,
-                "amount_band",
-                runtime_inputs["amount_band"],
-            ),
-            "plan_status": ensure_enum(
-                self.store,
-                "plan_status",
-                plan_status,
-            ),
-            "touch_record_state": ensure_enum(
-                self.store,
-                "touch_record_state",
-                touch_record_state,
-            ),
-            "governed_execution_mode": governed_execution_mode,
-            "permission_decision_state": permission_effective_state,
-            "governance_decision_state": governance_effective_state,
-            "semantic_decision_state": semantic_effective_state,
-            "governed_metadata": governed_metadata,
-            "created_at": now,
-        }
+            plan_status=plan_status,
+            touch_record_state=touch_record_state,
+            governed_execution_mode=governed_execution_mode,
+            permission_effective_state=permission_effective_state,
+            governance_effective_state=governance_effective_state,
+            semantic_effective_state=semantic_effective_state,
+            governed_metadata=governed_metadata,
+            now=now,
+            approval_chain_present=approval_chain_present,
+            audit_trail_present=audit_trail_present,
+            feedback_reason=feedback_reason,
+            upstream_governance_decision_state=upstream_governance_decision_state,
+        )
         order_guard = self.store.evaluate_runtime_guards(
-            "order_record",
-            order_payload,
+            order_spec.object_type,
+            order_spec.payload,
             self._guard_context(
                 inputs=inputs,
                 release_level=release_level,
                 approval_state=approval_state,
                 action_intent="INTERNAL_WRITEBACK",
-                requested_gate_ids=["internal_review_release", "sales_consumption_release"],
-                gate_conditions={
-                    "approval chain present": approval_chain_present,
-                    "audit trail present": audit_trail_present,
-                },
+                requested_gate_ids=list(order_spec.guard.requested_gate_ids),
+                gate_conditions=order_spec.guard.gate_conditions,
             ),
         )
         runtime_state.add_governance_guard(order_guard)
-        if order_guard.decision_state == "BLOCK":
-            order_payload["commercial_status"] = "ON_HOLD"
-            order_payload["order_status"] = "ON_HOLD"
-        elif order_guard.decision_state == "REVIEW" and order_payload["order_status"] == "DRAFT":
-            order_payload["order_status"] = "PENDING_APPROVAL"
-            if order_payload["approval_state"] == "NOT_REQUIRED":
-                order_payload["approval_state"] = "PENDING"
+        apply_order_decision_projection(order_spec.payload, order_guard.decision_state)
         order_semantic = self.store.evaluate_object_semantics(
             stage=9,
-            object_type="order_record",
-            payload=order_payload,
-            semantic_context={
-                "saleability_status": saleability_status,
-                "crm_owner_state": crm_owner_state,
-                "plan_status": plan_status,
-                "touch_record_state": touch_record_state,
-                "feedback_reason": feedback_reason,
-                "governance_decision_state": upstream_governance_decision_state,
-            },
+            object_type=order_spec.object_type,
+            payload=order_spec.payload,
+            semantic_context=order_spec.semantic.context,
         )
         if order_semantic:
             runtime_state.add_semantic_validation(order_semantic)
-            if order_semantic.decision_state == "BLOCK":
-                order_payload["commercial_status"] = "ON_HOLD"
-                order_payload["order_status"] = "ON_HOLD"
-            elif order_semantic.decision_state == "REVIEW" and order_payload["order_status"] == "DRAFT":
-                order_payload["order_status"] = "PENDING_APPROVAL"
-                if order_payload["approval_state"] == "NOT_REQUIRED":
-                    order_payload["approval_state"] = "PENDING"
-        order_record = self.store.build_record("order_record", order_payload)
+            apply_order_decision_projection(order_spec.payload, order_semantic.decision_state)
+        order_record = self.store.build_record(order_spec.object_type, order_spec.payload)
 
-        payment_payload = {
-            "payment_id": build_id("PAY", project_id),
-            "project_id": project_id,
-            "order_id": order_record.get("order_id"),
-            "payment_status": ensure_enum(
-                self.store,
-                "payment_status",
-                payment_status_value,
-            ),
-            "payment_proof_state": runtime_inputs.get("payment_proof_state", "NOT_PROVIDED"),
-            "amount_band": order_record.get("amount_band"),
-            "payer_match_state": payer_match_state,
-            "amount_match_state": amount_match_state,
-            "payment_exception_family_optional": payment_exception_family or "NO_EXCEPTION",
-            "payment_exception_reason_optional": payment_exception_reason or "NO_EXCEPTION",
-            "payment_exception_reason_tags_optional": payment_exception_tags,
-            "amount_mismatch_state_optional": amount_mismatch_state or "NO_MISMATCH",
-            "refund_state": resolved_refund_state,
-            "refund_amount_band_optional": refund_amount_band_optional or "NOT_APPLICABLE",
-            "paid_at_optional": runtime_inputs.get("paid_at_optional", "NOT_PAID"),
-            "written_back_at_optional": payment_written_back_at,
-            "governed_execution_mode": governed_execution_mode,
-            "permission_decision_state": permission_effective_state,
-            "governance_decision_state": governance_effective_state,
-            "semantic_decision_state": semantic_effective_state,
-            "governed_metadata": governed_metadata,
-        }
+        payment_spec = build_payment_record_spec(
+            store=self.store,
+            project_id=project_id,
+            order_record=order_record,
+            runtime_inputs=runtime_inputs,
+            payment_state=payment_state,
+            governed_execution_mode=governed_execution_mode,
+            permission_effective_state=permission_effective_state,
+            governance_effective_state=governance_effective_state,
+            semantic_effective_state=semantic_effective_state,
+            governed_metadata=governed_metadata,
+            audit_trail_present=audit_trail_present,
+            feedback_reason=feedback_reason,
+        )
         payment_guard = self.store.evaluate_runtime_guards(
-            "payment_record",
-            payment_payload,
+            payment_spec.object_type,
+            payment_spec.payload,
             self._guard_context(
                 inputs=inputs,
                 release_level=release_level,
                 approval_state=approval_state,
                 action_intent="INTERNAL_WRITEBACK",
-                requested_gate_ids=["internal_review_release", "sales_consumption_release"],
-                gate_conditions={
-                    "payment proof or audit present for received state": payment_payload["payment_status"] != "PAID" or payment_payload["payment_proof_state"] != "NOT_PROVIDED" or audit_trail_present,
-                    "no payer mismatch block": runtime_inputs.get("payer_mismatch_state", "NO_MISMATCH") == "NO_MISMATCH",
-                    "audit trail present": audit_trail_present,
-                },
+                requested_gate_ids=list(payment_spec.guard.requested_gate_ids),
+                gate_conditions=payment_spec.guard.gate_conditions,
             ),
         )
         runtime_state.add_governance_guard(payment_guard)
         payment_semantic = self.store.evaluate_object_semantics(
             stage=9,
-            object_type="payment_record",
-            payload=payment_payload,
-            semantic_context={
-                "payer_mismatch_state": runtime_inputs.get("payer_mismatch_state", "NO_MISMATCH"),
-                "feedback_reason": feedback_reason,
-            },
+            object_type=payment_spec.object_type,
+            payload=payment_spec.payload,
+            semantic_context=payment_spec.semantic.context,
         )
         if payment_semantic:
             runtime_state.add_semantic_validation(payment_semantic)
-            if payment_semantic.decision_state == "BLOCK" and payment_payload["payment_status"] == "PAID":
-                payment_payload["payment_status"] = "PAYMENT_EXCEPTION"
-            elif payment_semantic.decision_state == "REVIEW" and payment_payload["payment_status"] == "NOT_STARTED":
-                payment_payload["payment_status"] = "PENDING_PAYMENT"
-        payment_record = self.store.build_record("payment_record", payment_payload)
+            apply_payment_decision_projection(payment_spec.payload, payment_semantic.decision_state)
+        payment_record = self.store.build_record(payment_spec.object_type, payment_spec.payload)
 
-        delivery_payload = {
-            "delivery_id": build_id("DELIVERY", project_id),
-            "project_id": project_id,
-            "order_id": order_record.get("order_id"),
-            "payment_id_optional": payment_record.get("payment_id"),
-            "delivery_form": ensure_enum(
-                self.store,
-                "delivery_form",
-                runtime_inputs.get("delivery_form", "INTERNAL_REVIEW"),
-            ),
-            "delivery_status": ensure_enum(
-                self.store,
-                "delivery_status",
-                resolved_delivery_status,
-            ),
-            "delivered_at_optional": runtime_inputs.get("delivered_at_optional", "NOT_DELIVERED"),
-            "customer_ack_state_optional": customer_ack_state_optional,
-            "delivery_exception_family_optional": delivery_exception_family or "NO_EXCEPTION",
-            "delivery_exception_reason_optional": delivery_exception_reason or "NO_EXCEPTION",
-            "delivery_exception_reason_tags_optional": delivery_exception_tags,
-            "partial_delivery_state_optional": runtime_state.resolve("partial_delivery_state_optional", "NOT_PARTIAL"),
-            "resend_required_optional": bool(runtime_state.resolve("resend_required_optional", False)),
-            "redeliver_required_optional": bool(runtime_state.resolve("redeliver_required_optional", False)),
-            "archival_status": ensure_enum(
-                self.store,
-                "archival_status",
-                runtime_state.resolve(
-                    "archival_status",
-                    runtime_inputs.get("archival_status", "NOT_ARCHIVED"),
-                ),
-            ),
-            "retention_until": runtime_inputs.get("retention_until", now),
-            "retrieval_status": ensure_enum(
-                self.store,
-                "retrieval_status",
-                runtime_state.resolve(
-                    "retrieval_status",
-                    runtime_inputs.get("retrieval_status", "NOT_AVAILABLE"),
-                ),
-            ),
-            "written_back_at_optional": written_back_at_optional or now,
-            "governed_execution_mode": governed_execution_mode,
-            "permission_decision_state": permission_effective_state,
-            "governance_decision_state": governance_effective_state,
-            "semantic_decision_state": semantic_effective_state,
-            "governed_metadata": governed_metadata,
-        }
+        delivery_spec = build_delivery_record_spec(
+            store=self.store,
+            project_id=project_id,
+            order_record=order_record,
+            payment_record=payment_record,
+            runtime_inputs=runtime_inputs,
+            delivery_state=delivery_state,
+            written_back_at_optional=written_back_at_optional,
+            now=now,
+            governed_execution_mode=governed_execution_mode,
+            permission_effective_state=permission_effective_state,
+            governance_effective_state=governance_effective_state,
+            semantic_effective_state=semantic_effective_state,
+            governed_metadata=governed_metadata,
+            approval_chain_present=approval_chain_present,
+            audit_trail_present=audit_trail_present,
+            saleability_status=saleability_status,
+            plan_status=plan_status,
+            touch_record_state=touch_record_state,
+            runtime_state=runtime_state,
+        )
         delivery_guard = self.store.evaluate_runtime_guards(
-            "delivery_record",
-            delivery_payload,
+            delivery_spec.object_type,
+            delivery_spec.payload,
             self._guard_context(
                 inputs=inputs,
                 release_level=release_level,
                 approval_state=approval_state,
                 action_intent="INTERNAL_WRITEBACK",
-                requested_gate_ids=["internal_review_release", "sales_consumption_release"],
-                gate_conditions={
-                    "release gate present": True,
-                    "approval chain present": approval_chain_present,
-                    "audit trail present": audit_trail_present,
-                    "archival or retrieval not failed": delivery_payload["archival_status"] != "ARCHIVE_EXCEPTION" and delivery_payload["retrieval_status"] != "FAILED",
-                },
+                requested_gate_ids=list(delivery_spec.guard.requested_gate_ids),
+                gate_conditions=delivery_spec.guard.gate_conditions,
             ),
         )
         runtime_state.add_governance_guard(delivery_guard)
-        if delivery_guard.decision_state == "BLOCK":
-            delivery_payload["delivery_status"] = "RELEASE_BLOCKED"
+        apply_delivery_decision_projection(delivery_spec.payload, delivery_guard.decision_state)
         delivery_semantic = self.store.evaluate_object_semantics(
             stage=9,
-            object_type="delivery_record",
-            payload=delivery_payload,
-            semantic_context={
-                "saleability_status": saleability_status,
-                "plan_status": plan_status,
-                "touch_record_state": touch_record_state,
-            },
+            object_type=delivery_spec.object_type,
+            payload=delivery_spec.payload,
+            semantic_context=delivery_spec.semantic.context,
         )
         if delivery_semantic:
             runtime_state.add_semantic_validation(delivery_semantic)
-            if delivery_semantic.decision_state == "BLOCK":
-                delivery_payload["delivery_status"] = "RELEASE_BLOCKED"
-        delivery_record = self.store.build_record("delivery_record", delivery_payload)
+            apply_delivery_decision_projection(delivery_spec.payload, delivery_semantic.decision_state)
+        delivery_record = self.store.build_record(delivery_spec.object_type, delivery_spec.payload)
 
         governance_payload = {
             "governance_feedback_event_id": build_id("GOV", project_id),
@@ -1187,7 +1035,7 @@ class Stage9Service:
             object_type="opportunity_outcome_event",
             payload=outcome_payload,
             semantic_context={
-                "delivery_status": delivery_payload["delivery_status"],
+                "delivery_status": delivery_spec.payload["delivery_status"],
                 "plan_status": plan_status,
                 "feedback_reason": feedback_reason,
                 "governance_decision_state": governance_effective_state,
