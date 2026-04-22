@@ -65,10 +65,10 @@ planning_sync_implementation_registration:
 current_mainline_next_candidate:
   task_id: null
   packet_id: null
-  title: "产品主线 S12-S89 + INT 与后主线 P1 已闭合，等待人工选择后续方向"
+  title: "产品主线 S12-S89 + INT 与后主线 P1/P2 已闭合，等待人工选择后续方向"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1 均已 completed；现在没有自动 next candidate；候选池保留 P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P2 只允许后续人工/决策窗口通过 dedicated current_task packet 激活；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2 均已 completed；现在没有自动 next candidate；候选池保留 P3 -> P4 -> P5 -> P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P3 只允许后续人工/决策窗口通过 dedicated current_task packet 激活；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -333,14 +333,15 @@ tasks:
     title: "P2 Stage8 plan/touch 产品化"
     stage_scope: [stage8_outreach, internal_preview]
     task_type: post_mainline_product_deepening
-    status: OPEN_FOR_MANUAL_SELECTION
+    status: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P0
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: OPEN_FOR_MANUAL_SELECTION
+    planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
-    runtime_notes: "后主线执行链的第 4 步；目标是把 outreach_plan、touch_record、human handoff、retry/stop/writeback trace 做成稳定的内部运营产品面；本条只作为人工候选任务登记，不自动激活。"
+    completed_commit: 9d4662a
+    runtime_notes: "P2 scoped implementation 已完成并在本地提交：9d4662a；Stage8 outreach_plan、touch_record、human handoff、retry/stop/writeback trace 的内部产品化第一刀已完成，blocked_by_default / governed internal 语义保持不变；PTL-S8-102 不再是 current active packet，也不再是 current_mainline_next_candidate；P3 仍需后续人工/决策窗口另开 dedicated current_task packet 才能激活。"
     hard_depends_on: [PTL-S8-101-p1-candidate-compliance-boundary-refactor]
     soft_depends_on: [PTL-S89-outreach-writeback-delivery-governance, PTL-INT-internal-preview-surface-envelope]
     objective: "把 Stage8 plan/touch 从规则闭合态推进到内部可运营产品化，优先强化 preview surface、human handoff、retry/stop 与 governed trace。"

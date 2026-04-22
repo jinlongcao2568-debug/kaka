@@ -256,9 +256,9 @@ class TestStage12Extractors(unittest.TestCase):
             self.assertIsNone(candidate["packet_id"])
 
         self.assertIn("planning_state: MAINLINE_COMPLETE", task_library_text)
-        self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1 均已 completed", task_library_text)
+        self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2 均已 completed", task_library_text)
         self.assertIn("现在没有自动 next candidate", task_library_text)
-        self.assertIn("P2 只允许后续人工/决策窗口通过 dedicated current_task packet 激活", task_library_text)
+        self.assertIn("P3 只允许后续人工/决策窗口通过 dedicated current_task packet 激活", task_library_text)
         self.assertIn("后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认", task_library_text)
         self.assertIn("执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代", task_library_text)
         self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
@@ -275,6 +275,7 @@ class TestStage12Extractors(unittest.TestCase):
             "PTL-S89-outreach-writeback-delivery-governance",
             "PTL-INT-internal-preview-surface-envelope",
             "PTL-S8-101-p1-candidate-compliance-boundary-refactor",
+            "PTL-S8-102-p2-plan-touch-productization",
         )
         task_index = {task["task_id"]: task for task in task_library["tasks"]}
         for task_id in completed_task_ids:
@@ -286,9 +287,12 @@ class TestStage12Extractors(unittest.TestCase):
             task_index["PTL-S8-101-p1-candidate-compliance-boundary-refactor"]["completed_commit"],
             "632c6ae",
         )
+        self.assertEqual(
+            task_index["PTL-S8-102-p2-plan-touch-productization"]["completed_commit"],
+            "9d4662a",
+        )
 
         manual_selection_candidate_ids = (
-            "PTL-S8-102-p2-plan-touch-productization",
             "PTL-INT-101-p3-policy-validator-boundary-split",
             "PTL-INT-102-p4-repository-boundary-hardening",
             "PTL-S9-101-p5-typed-lifecycle-deepening",

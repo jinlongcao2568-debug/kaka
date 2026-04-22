@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-S8-102-p2-plan-touch-productization (SCOPED_EXECUTION; P2 plan/touch productization first cut; P1 implementation and closeout have already been locally committed as 632c6ae refactor(stage8): split candidate compliance helpers and 3bb8e9e chore(control): close out stage8 p1 task; this window only performs a behavior-equivalent Stage8 outreach_plan / touch_record / retry-stop-writeback trace helper split inside allowed Stage8 paths, keeps product_task_library and product_module_registry unchanged, keeps current_mainline_next_candidate unset, does not approve external release, Stage8 real execution, or Stage9 payment/delivery/refund, allows decision-window local commit only after required checks pass, and does not push)
+Current Workstream: PTL-INT-101-p3-policy-validator-boundary-split (SCOPED_EXECUTION; this window first synchronized PTL-S8-102-p2-plan-touch-productization as completed in control/product_task_library.yaml and control/product_module_registry.yaml with local commit 9d4662a, then activated P3 to perform a behavior-equivalent shared policy/validator boundary split inside allowed src/shared paths only; public entrypoints stay in place, current_mainline_next_candidate remains unset, and this does not approve external release, Stage8 real execution, or Stage9 payment/delivery/refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,13 +20,13 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- switch control/current_task.yaml active packet to PTL-S8-102-p2-plan-touch-productization in SCOPED_EXECUTION
-- sync control/repo_status.md current workstream wording to PTL-S8-102-p2-plan-touch-productization (P2 plan/touch productization first cut)
-- refactor only allowed Stage8 plan/touch/writeback helper boundaries under src/stage8_outreach
-- keep service.py as orchestration and preserve StageBundle records / H-08 handoff / inputs field semantics
-- update only the allowed tests if needed for behavior-equivalence assertions
-- keep control/product_task_library.yaml unchanged; P2 remains OPEN_FOR_MANUAL_SELECTION in the candidate pool and is active only because current_task carries this dedicated scoped packet
-- keep control/product_module_registry.yaml unchanged; P2 closeout/status sync is deferred to a later decision-window packet
+- switch control/current_task.yaml active packet to PTL-INT-101-p3-policy-validator-boundary-split in SCOPED_EXECUTION
+- sync control/repo_status.md current workstream wording to PTL-INT-101-p3-policy-validator-boundary-split
+- sync control/product_task_library.yaml so PTL-S8-102-p2-plan-touch-productization is COMPLETED with planning_state=COMPLETED and completed_commit=9d4662a
+- sync control/product_module_registry.yaml so Stage8 records P2 completed and SHARED-RUNTIME-POLICY-CHAIN records P3 as pending/manual-selection ledger work
+- refactor only allowed shared runtime helper boundaries under src/shared
+- keep PolicyExecutor.execute(...), RuntimeValidator.evaluate_runtime_guards(...), and RuntimeValidator.evaluate_object_semantics(...) in their original files
+- keep contracts/handoff/schema semantics unchanged
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
 - keep current_mainline_next_candidate unset / non-auto-activated
@@ -38,13 +38,10 @@ Allowed Actions (current):
 - run the required checks and stop for report
 
 Forbidden Actions (current):
+- Any docs/** or docs/AX9S_开发执行路由图.md change
 - Any contracts/** change
 - Any handoff/** change
-- Any docs/** or docs/AX9S_开发执行路由图.md change
-- Any src/shared/** change
 - Any src/stage9_delivery/** change
-- Any control/product_task_library.yaml change
-- Any control/product_module_registry.yaml change
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/operator_assignment_roster_defaults.yaml
 - Any change to control/review_gate_matrix.yaml
@@ -68,16 +65,16 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-S8-102-p2-plan-touch-productization is now the active scoped execution packet.
-- PTL-S8-101-p1-candidate-compliance-boundary-refactor is completed and recorded with local commit 632c6ae.
-- PTL-S8-102-p2-plan-touch-productization remains OPEN_FOR_MANUAL_SELECTION in control/product_task_library.yaml; this window does not rewrite the task-pool state or mark P2 completed.
-- P2-P8 remain manual-selection candidates in the product task pool; active execution still depends on dedicated current_task packets.
-- This P2 first cut is not an external release approval, not a Stage8 real outreach approval, and not a Stage9 payment/delivery/refund approval.
-- P2 runtime_change_in_packet=IN_SCOPE authorizes only internal governed behavior-equivalent Stage8 helper refactor work in the allowed runtime paths; it does not authorize live execution, external release, or contract/handoff/schema changes.
+- PTL-S8-102-p2-plan-touch-productization has been synchronized as COMPLETED in control/product_task_library.yaml with completed_commit=9d4662a.
+- control/product_module_registry.yaml records Stage8 P1/P2 completed while keeping external_release_allowed=false and live_execution_allowed=false.
+- control/product_module_registry.yaml also records SHARED-RUNTIME-POLICY-CHAIN pending_packets=[PTL-INT-101-p3-policy-validator-boundary-split]; this is a module ledger only and does not replace current_task as the active source.
+- PTL-INT-101-p3-policy-validator-boundary-split is now the active scoped execution packet.
+- P3-P8 remain manual-selection candidates in the product task pool; active execution still depends on dedicated current_task packets.
+- This P3 first cut is not an external release approval, not a Stage8 real outreach approval, and not a Stage9 payment/delivery/refund approval.
+- P3 runtime_change_in_packet=IN_SCOPE authorizes only internal governed behavior-equivalent shared helper split work in the allowed runtime paths; it does not authorize live execution, external release, or contract/handoff/schema changes.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source.
-- Stage8 module ledger records P1 completed, but Stage8 direction is not fully complete because P2 remains OPEN_FOR_MANUAL_SELECTION until a later closeout/status-sync packet updates the ledger.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
@@ -91,16 +88,21 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- rg -n "outreach_payload|touch_payload|retry_policy|touch_stop|feedback_reason|writeback_targets|written_back_at_optional|plan_status|touch_record_state|governed_metadata|Stage8Service|def run" src/stage8_outreach tests/test_stage8_resolution_closure.py tests/test_pre_route_behavior.py tests/test_internal_chain.py
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''src/stage8_outreach/service.py'',''src/stage8_outreach/outreach_plan.py'',''src/stage8_outreach/touch_record.py'',''src/stage8_outreach/plan_touch.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_pre_route_behavior.py'',''tests/test_internal_chain.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''src/shared/policy_executor.py'',''src/shared/runtime_validator.py'',''src/shared/policy_contract_helpers.py'',''src/shared/runtime_semantic_rules.py'',''tests/test_stage12_extractors.py'',''tests/test_product_module_registry.py'',''tests/test_architecture_anti_drift.py'',''tests/test_semantic_runtime_validator.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- rg -n "class PolicyExecutor|class RuntimeValidator|def _evaluate_|def evaluate_runtime_guards|def evaluate_object_semantics|def _semantic_|def _matches_stage8_policy_condition|def _match_contract_rule|def _ensure_list" src/shared/policy_executor.py src/shared/runtime_validator.py
+- rg -n "src/shared/policy_executor.py|src/shared/runtime_validator.py|PolicyExecutor\(|RuntimeValidator\(" tests
+- python -m pytest tests/test_stage12_extractors.py -q
+- python -m pytest tests/test_product_module_registry.py -q
+- python -m pytest tests/test_architecture_anti_drift.py -q
+- python -m pytest tests/test_semantic_runtime_validator.py -q
 - python -m pytest tests/test_stage8_resolution_closure.py -q
-- python -m pytest tests/test_pre_route_behavior.py -q
 - python -m pytest tests/test_internal_chain.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1
 - git status --short --untracked-files=all
+- git diff --check
 
 Automation Guardrails:
 - Action matrix: control/automation_action_matrix.yaml

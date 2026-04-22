@@ -5,11 +5,11 @@ updated_at: "2026-04-22"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_S8_102_P2_PLAN_TOUCH_PRODUCTIZATION_ACTIVE"
+navigation_state: "PTL_INT_101_P3_POLICY_VALIDATOR_BOUNDARY_SPLIT_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "决策窗口已完成并提交 P1：632c6ae refactor(stage8): split candidate compliance helpers 与 3bb8e9e chore(control): close out stage8 p1 task。本窗口作为执行窗口 E，只启动并执行 P2 第一刀 PTL-S8-102-p2-plan-touch-productization；不提交、不 push，不修改 product_task_library/product_module_registry，不设置 current_mainline_next_candidate。"
+activation_condition: "本窗口先吸收 P2 必要状态同步：PTL-S8-102-p2-plan-touch-productization 已完成并记录本地 commit 9d4662a；随后把 active packet 切到 PTL-INT-101-p3-policy-validator-boundary-split，并执行 shared policy/validator 第一刀行为等价拆分。执行窗口不提交、不 push、不设置 current_mainline_next_candidate。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-S8-102-p2-plan-touch-productization"
-  title: "P2 Stage8 plan/touch 产品化第一刀"
+  task_id: "PTL-INT-101-p3-policy-validator-boundary-split"
+  title: "P3 shared policy/validator 边界拆分第一刀"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,8 +29,7 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
-    - "docs/D9_联系对象与销售触达规范.md"
-    - "docs/D13_公开可查边界能力清单.md"
+    - "docs/D11_测试验收与金标回归清单.md"
     - "docs/正式业务代码开发开工裁决页.md"
     - "control/current_task.yaml"
     - "control/repo_status.md"
@@ -38,17 +37,14 @@ currentTask:
     - "control/product_module_registry.yaml"
     - "control/review_gate_matrix.yaml"
     - "control/automation_task_packet_rules.yaml"
-    - "control/source_blueprint_registry.yaml"
-    - "control/operator_assignment_roster_defaults.yaml"
-    - "src/stage8_outreach/service.py"
-    - "src/stage8_outreach/outreach_plan.py"
-    - "src/stage8_outreach/touch_record.py"
-    - "src/stage8_outreach/candidate_compliance.py"
+    - "src/shared/policy_executor.py"
+    - "src/shared/runtime_validator.py"
+    - "tests/test_architecture_anti_drift.py"
+    - "tests/test_semantic_runtime_validator.py"
     - "tests/test_stage8_resolution_closure.py"
-    - "tests/test_pre_route_behavior.py"
     - "tests/test_internal_chain.py"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "执行 P2 第一刀：把 Stage8 outreach_plan / touch_record / retry-stop-writeback trace 的内部产品化边界从 service 编排中拆出为内部 helper，保持 StageBundle records / H-08 handoff / inputs 字段语义行为等价。"
+  objective: "在同一窗口内先完成 P2 必要状态同步，再激活 P3，并对 shared policy_executor/runtime_validator 做第一刀行为等价边界拆分；保留正式 public entrypoint，不改 contracts/handoff/schema 语义，不放开 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -68,36 +64,36 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-S8-102-p2-plan-touch-productization"
-    subpacket_id: "PTL-S8-102-p2-plan-touch-productization"
-    backlog_packet_ref: "PTL-S8-102-p2-plan-touch-productization"
+    packet_id: "PTL-INT-101-p3-policy-validator-boundary-split"
+    subpacket_id: "PTL-INT-101-p3-policy-validator-boundary-split"
+    backlog_packet_ref: "PTL-INT-101-p3-policy-validator-boundary-split"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
     runtime_change_in_packet: "IN_SCOPE"
     existing_code_state: "HEAVY_RUNTIME"
     existing_runtime_state: "HEAVY_RUNTIME"
-    title: "P2 Stage8 plan/touch 产品化第一刀"
+    title: "P3 shared policy/validator 边界拆分第一刀"
     status: "ACTIVE"
-    objective: "Behavior-equivalent split of Stage8 plan/touch productization helpers: outreach_plan payload construction, touch_record payload construction, retry/stop/feedback/writeback carrier projection, governed plan/touch state projection, and H-08 writeback field closure. This is internal governed productization only."
+    objective: "Behavior-equivalent split of shared policy and semantic helpers: move Stage8/Stage9-iteration-heavy private helpers out of src/shared/policy_executor.py and src/shared/runtime_validator.py into dedicated helper modules, while keeping PolicyExecutor.execute(...), RuntimeValidator.evaluate_runtime_guards(...), and RuntimeValidator.evaluate_object_semantics(...) in place and preserving public behavior."
     depends_on:
-      - "P1 implementation was reviewed and locally committed: 632c6ae refactor(stage8): split candidate compliance helpers."
-      - "P1 closeout was reviewed and locally committed: 3bb8e9e chore(control): close out stage8 p1 task."
-      - "PTL-S8-102-p2-plan-touch-productization remains OPEN_FOR_MANUAL_SELECTION in control/product_task_library.yaml and is activated only by this dedicated current_task packet."
+      - "P1 implementation and closeout were locally committed: 632c6ae and 3bb8e9e."
+      - "P2 implementation has been completed and synchronized into control/product_task_library.yaml and control/product_module_registry.yaml with completed_commit=9d4662a."
+      - "PTL-INT-101-p3-policy-validator-boundary-split remains OPEN_FOR_MANUAL_SELECTION in control/product_task_library.yaml; current activation still comes only from this dedicated current_task packet."
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 control/source_blueprint_registry.yaml 注册。"
       - "stage7/stage8/stage9 roster 必须继续与 control/operator_assignment_roster_defaults.yaml#defaults 对齐。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-S8-101-p1-closeout-state-sync"
-      target_active_packet: "PTL-S8-102-p2-plan-touch-productization"
-      product_task_library_change: false
-      product_module_registry_change: false
+      previous_active_packet: "PTL-S8-102-p2-plan-touch-productization"
+      target_active_packet: "PTL-INT-101-p3-policy-validator-boundary-split"
+      product_task_library_change: true
+      product_module_registry_change: true
       activation_only: false
       preflight_only_current_window: false
       enter_scoped_execution: true
-      active_packet_kind: "p2_plan_touch_productization_first_cut"
+      active_packet_kind: "p3_policy_validator_boundary_split_first_cut"
       product_mainline_task: true
-      product_task_library_ref: "control/product_task_library.yaml#tasks.PTL-S8-102-p2-plan-touch-productization"
+      product_task_library_ref: "control/product_task_library.yaml#tasks.PTL-INT-101-p3-policy-validator-boundary-split"
       source_blueprint_batch_id: "POST-FF-CONTROL-01"
       execution_mode: "SCOPED_EXECUTION"
       runtime_change: true
@@ -132,18 +128,16 @@ currentTask:
       - "not an external unlock implementation"
       - "not a Stage8 real outreach approval"
       - "not a Stage9 payment/delivery/refund approval"
-      - "not a product_task_library closeout packet"
-      - "不修改 control/product_task_library.yaml"
-      - "不修改 control/product_module_registry.yaml"
+      - "not a shared spine rewrite"
+      - "不修改 docs/** 或 docs/AX9S_开发执行路由图.md"
       - "不修改 contracts/**"
       - "不修改 handoff/**"
-      - "不修改 docs/** 或 docs/AX9S_开发执行路由图.md"
-      - "不修改 src/shared/**"
       - "不修改 src/stage9_delivery/**"
       - "不修改 control/source_blueprint_registry.yaml"
       - "不修改 control/operator_assignment_roster_defaults.yaml"
       - "不修改 control/review_gate_matrix.yaml"
-      - "不修改 release/model/future unlock 相关资产"
+      - "不修改 control/release_manifest.yaml 或 control/model_release_manifest.yaml"
+      - "不修改 external unlock / future unlock 相关资产"
       - "不改变 canonical readiness"
       - "不改变 conditional-go"
       - "不放开 external release"
@@ -153,22 +147,24 @@ currentTask:
       - "不执行真实支付、交付或退款"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不新增正式对象、枚举、gate、exception 语义"
-      - "不改变 StageBundle records / handoff / inputs 字段语义"
+      - "不改 contracts/handoff/schema 语义"
+      - "不改变 public API"
       - "不设置 current_mainline_next_candidate"
       - "执行窗口不提交；决策窗口审核全绿后本地提交"
       - "不 push"
     affected_stages:
+      - "stage7_sales"
       - "stage8_outreach"
-      - "stage8_to_stage9_handoff"
+      - "stage9_delivery"
       - "internal_preview"
       - "automation_control"
       - "governance_testing"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
-      - "stage8_stage9_high_risk_execution"
-      - "scripts_and_tests_general"
+      - "shared_runtime_core"
       - "automation_control_core"
+      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
@@ -178,37 +174,50 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "src/stage8_outreach/service.py"
-      - "src/stage8_outreach/outreach_plan.py"
-      - "src/stage8_outreach/touch_record.py"
-      - "src/stage8_outreach/plan_touch.py"
+      - "control/product_task_library.yaml"
+      - "control/product_module_registry.yaml"
+      - "src/shared/policy_executor.py"
+      - "src/shared/runtime_validator.py"
+      - "src/shared/policy_contract_helpers.py"
+      - "src/shared/runtime_semantic_rules.py"
+      - "tests/test_stage12_extractors.py"
+      - "tests/test_product_module_registry.py"
+      - "tests/test_architecture_anti_drift.py"
+      - "tests/test_semantic_runtime_validator.py"
       - "tests/test_stage8_resolution_closure.py"
-      - "tests/test_pre_route_behavior.py"
       - "tests/test_internal_chain.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "src/stage8_outreach/service.py"
-      - "src/stage8_outreach/outreach_plan.py"
-      - "src/stage8_outreach/touch_record.py"
-      - "src/stage8_outreach/plan_touch.py"
+      - "control/product_task_library.yaml"
+      - "control/product_module_registry.yaml"
+      - "src/shared/policy_executor.py"
+      - "src/shared/runtime_validator.py"
+      - "src/shared/policy_contract_helpers.py"
+      - "src/shared/runtime_semantic_rules.py"
+      - "tests/test_stage12_extractors.py"
+      - "tests/test_product_module_registry.py"
+      - "tests/test_architecture_anti_drift.py"
+      - "tests/test_semantic_runtime_validator.py"
       - "tests/test_stage8_resolution_closure.py"
-      - "tests/test_pre_route_behavior.py"
       - "tests/test_internal_chain.py"
     current_window_actual_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "src/stage8_outreach/service.py"
-      - "src/stage8_outreach/plan_touch.py"
+      - "control/product_task_library.yaml"
+      - "control/product_module_registry.yaml"
+      - "src/shared/policy_executor.py"
+      - "src/shared/runtime_validator.py"
+      - "src/shared/policy_contract_helpers.py"
+      - "src/shared/runtime_semantic_rules.py"
+      - "tests/test_stage12_extractors.py"
+      - "tests/test_product_module_registry.py"
     forbidden_modification_paths:
       - "docs/**"
       - "docs/AX9S_开发执行路由图.md"
       - "contracts/**"
       - "handoff/**"
-      - "src/shared/**"
       - "src/stage9_delivery/**"
-      - "control/product_task_library.yaml"
-      - "control/product_module_registry.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/operator_assignment_roster_defaults.yaml"
       - "control/review_gate_matrix.yaml"
@@ -220,51 +229,72 @@ currentTask:
       - "contracts/model/**"
     impacted_assets:
       docs:
-        - "docs/D9_联系对象与销售触达规范.md"
-        - "docs/D13_公开可查边界能力清单.md"
+        - "docs/D1_研发_Codex执行手册.md"
+        - "docs/D11_测试验收与金标回归清单.md"
+        - "docs/正式业务代码开发开工裁决页.md"
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
+        - "control/product_task_library.yaml"
+        - "control/product_module_registry.yaml"
       contracts: []
       handoff: []
-      scripts: []
+      scripts:
+        - "scripts/check-task-packet.ps1"
+        - "scripts/check-state-alignment.ps1"
+        - "scripts/check-final-gate.ps1"
+        - "scripts/clean-python-cache.ps1"
       runtime:
-        - "src/stage8_outreach/service.py"
-        - "src/stage8_outreach/plan_touch.py"
+        - "src/shared/policy_executor.py"
+        - "src/shared/runtime_validator.py"
+        - "src/shared/policy_contract_helpers.py"
+        - "src/shared/runtime_semantic_rules.py"
       tests:
+        - "tests/test_stage12_extractors.py"
+        - "tests/test_product_module_registry.py"
+        - "tests/test_architecture_anti_drift.py"
+        - "tests/test_semantic_runtime_validator.py"
         - "tests/test_stage8_resolution_closure.py"
-        - "tests/test_pre_route_behavior.py"
         - "tests/test_internal_chain.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "rg -n \"outreach_payload|touch_payload|retry_policy|touch_stop|feedback_reason|writeback_targets|written_back_at_optional|plan_status|touch_record_state|governed_metadata|Stage8Service|def run\" src/stage8_outreach tests/test_stage8_resolution_closure.py tests/test_pre_route_behavior.py tests/test_internal_chain.py"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''src/stage8_outreach/service.py'',''src/stage8_outreach/outreach_plan.py'',''src/stage8_outreach/touch_record.py'',''src/stage8_outreach/plan_touch.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_pre_route_behavior.py'',''tests/test_internal_chain.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''src/shared/policy_executor.py'',''src/shared/runtime_validator.py'',''src/shared/policy_contract_helpers.py'',''src/shared/runtime_semantic_rules.py'',''tests/test_stage12_extractors.py'',''tests/test_product_module_registry.py'',''tests/test_architecture_anti_drift.py'',''tests/test_semantic_runtime_validator.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "rg -n \"class PolicyExecutor|class RuntimeValidator|def _evaluate_|def evaluate_runtime_guards|def evaluate_object_semantics|def _semantic_|def _matches_stage8_policy_condition|def _match_contract_rule|def _ensure_list\" src/shared/policy_executor.py src/shared/runtime_validator.py"
+      - "rg -n \"src/shared/policy_executor.py|src/shared/runtime_validator.py|PolicyExecutor\\(|RuntimeValidator\\(\" tests"
+      - "python -m pytest tests/test_stage12_extractors.py -q"
+      - "python -m pytest tests/test_product_module_registry.py -q"
+      - "python -m pytest tests/test_architecture_anti_drift.py -q"
+      - "python -m pytest tests/test_semantic_runtime_validator.py -q"
       - "python -m pytest tests/test_stage8_resolution_closure.py -q"
-      - "python -m pytest tests/test_pre_route_behavior.py -q"
       - "python -m pytest tests/test_internal_chain.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1"
       - "git status --short --untracked-files=all"
+      - "git diff --check"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "rg -n \"outreach_payload|touch_payload|retry_policy|touch_stop|feedback_reason|writeback_targets|written_back_at_optional|plan_status|touch_record_state|governed_metadata|Stage8Service|def run\" src/stage8_outreach tests/test_stage8_resolution_closure.py tests/test_pre_route_behavior.py tests/test_internal_chain.py": 120000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''src/stage8_outreach/service.py'',''src/stage8_outreach/outreach_plan.py'',''src/stage8_outreach/touch_record.py'',''src/stage8_outreach/plan_touch.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_pre_route_behavior.py'',''tests/test_internal_chain.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''src/shared/policy_executor.py'',''src/shared/runtime_validator.py'',''src/shared/policy_contract_helpers.py'',''src/shared/runtime_semantic_rules.py'',''tests/test_stage12_extractors.py'',''tests/test_product_module_registry.py'',''tests/test_architecture_anti_drift.py'',''tests/test_semantic_runtime_validator.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "rg -n \"class PolicyExecutor|class RuntimeValidator|def _evaluate_|def evaluate_runtime_guards|def evaluate_object_semantics|def _semantic_|def _matches_stage8_policy_condition|def _match_contract_rule|def _ensure_list\" src/shared/policy_executor.py src/shared/runtime_validator.py": 120000
+      "rg -n \"src/shared/policy_executor.py|src/shared/runtime_validator.py|PolicyExecutor\\(|RuntimeValidator\\(\" tests": 120000
+      "python -m pytest tests/test_stage12_extractors.py -q": 300000
+      "python -m pytest tests/test_product_module_registry.py -q": 300000
+      "python -m pytest tests/test_architecture_anti_drift.py -q": 300000
+      "python -m pytest tests/test_semantic_runtime_validator.py -q": 300000
       "python -m pytest tests/test_stage8_resolution_closure.py -q": 300000
-      "python -m pytest tests/test_pre_route_behavior.py -q": 300000
       "python -m pytest tests/test_internal_chain.py -q": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1": 600000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1": 300000
+      "git diff --check": 120000
     stop_conditions:
       - "任一脚本失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "计划路径未被 declared_changed_paths / allowed_modification_paths 覆盖"
-      - "需要改 contracts/**、handoff/**、docs/**、src/shared/**、src/stage9_delivery/** 时立即停止汇报"
-      - "需要改 product_task_library / product_module_registry / source blueprint / roster / review gate / release manifest 时立即停止汇报"
-      - "修改 external unlock / future unlock / model release 相关资产"
+      - "需要改 docs/**、contracts/**、handoff/**、src/stage9_delivery/** 时立即停止汇报"
+      - "需要改 source blueprint / roster / review gate / release manifest / future unlock 相关资产时立即停止汇报"
       - "改变 canonical readiness"
       - "改变 conditional-go"
       - "放宽 external release / Stage8 real execution / Stage9 real payment-delivery-refund 红线"
@@ -272,26 +302,24 @@ currentTask:
       - "设置 current_mainline_next_candidate"
       - "自动提交或 push"
     definition_of_done:
-      - "control/current_task.yaml 当前 active packet 切到 PTL-S8-102-p2-plan-touch-productization。"
-      - "control/repo_status.md 当前 workstream 同步为 PTL-S8-102-p2-plan-touch-productization (SCOPED_EXECUTION; P2 plan/touch productization first cut)。"
-      - "control/product_task_library.yaml 不修改；P2 保持 OPEN_FOR_MANUAL_SELECTION 且不是 current_mainline_next_candidate。"
-      - "control/product_module_registry.yaml 不修改；P2 closeout 后再由决策窗口安排状态同步。"
-      - "service.py 保留 Stage8 orchestration；plan/touch/writeback payload/projection helper 拆到 Stage8 内部 helper。"
-      - "StageBundle records / H-08 handoff / inputs 输出字段语义行为等价。"
-      - "runtime_change_in_packet=IN_SCOPE、risk_level=HIGH、change_class=MANDATORY_HUMAN_REVIEW、human_review_required=true。"
-      - "owner_reviews_required 至少包含 automation_owner、architecture_owner、governance_owner、testing_owner。"
-      - "operator_assignment_roster_source_ref 与 stage7/stage8/stage9 roster 继续对齐 control/operator_assignment_roster_defaults.yaml#defaults。"
-      - "canonical readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION。"
-      - "conditional-go 保持 READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT。"
-      - "external software release 继续 blocked。"
-      - "Stage 8 real execution 继续 governed / approval-gated / blocked by default。"
-      - "Stage 9 real payment / delivery / refund 继续 governed / approval-gated / blocked by default。"
-      - "定向 pytest、planned path check、check-task-packet、check-state-alignment、check-final-gate、clean-python-cache 执行并如实汇报；执行窗口不提交，决策窗口审核全绿后允许本地提交。"
+      - "control/product_task_library.yaml 记录 PTL-S8-102-p2-plan-touch-productization 为 COMPLETED，planning_state=COMPLETED，completed_commit=9d4662a，且 is_current_mainline_next_candidate=false。"
+      - "control/product_module_registry.yaml 记录 Stage8 P2 已完成，但 external release 与 live execution redline 不放开；SHARED-RUNTIME-POLICY-CHAIN 记录 P3 仍为 pending/manual-selection task。"
+      - "control/current_task.yaml 当前 active packet 切到 PTL-INT-101-p3-policy-validator-boundary-split。"
+      - "control/repo_status.md 当前 workstream 同步为 PTL-INT-101-p3-policy-validator-boundary-split。"
+      - "src/shared/policy_executor.py 与 src/shared/runtime_validator.py 保留正式 public entrypoint，并只保留薄委托 helper。"
+      - "src/shared/policy_contract_helpers.py 与 src/shared/runtime_semantic_rules.py 承接 Stage8/Stage9 持续迭代强相关的内部 helper。"
+      - "PolicyExecutor.execute(...)、RuntimeValidator.evaluate_runtime_guards(...)、RuntimeValidator.evaluate_object_semantics(...) 保持不变。"
+      - "Stage8/Stage9 行为保持等价；不改 contracts/handoff/schema 语义，不放开 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
+      - "定向 pytest、planned path check、check-task-packet、check-state-alignment、check-final-gate、clean-python-cache、git diff --check 执行并如实汇报；执行窗口不提交，决策窗口审核全绿后才允许本地提交。"
     deliverables:
-      - "control/current_task.yaml：P2 scoped execution active packet"
-      - "control/repo_status.md：P2 workstream 状态说明与门禁"
-      - "src/stage8_outreach/plan_touch.py：Stage8 plan/touch/writeback 内部 helper"
-      - "src/stage8_outreach/service.py：保留 orchestration 并消费内部 helper"
+      - "control/current_task.yaml：P3 scoped execution active packet"
+      - "control/repo_status.md：P3 workstream 状态说明与门禁"
+      - "control/product_task_library.yaml：P2 completed closeout sync"
+      - "control/product_module_registry.yaml：Stage8 P2 complete + shared runtime P3 pending ledger sync"
+      - "src/shared/policy_contract_helpers.py：shared contract/policy pure helpers"
+      - "src/shared/runtime_semantic_rules.py：shared semantic rule helpers"
+      - "src/shared/policy_executor.py：保留 public facade 并委托 helper"
+      - "src/shared/runtime_validator.py：保留 public facade 并委托 helper"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -302,12 +330,12 @@ currentTask:
       declared: true
       signoff_required: true
       signoff_status: "PENDING_DECISION_WINDOW_REVIEW"
-      signoff_meaning: "执行窗口 E 完成 P2 第一刀后停机汇报；决策窗口审核全绿后才允许本地提交。不是 external release、Stage8 real execution、Stage9 payment / delivery / refund、push 或 P2 closeout 批准。"
+      signoff_meaning: "执行窗口完成 P2 状态吸收、P3 第一刀拆分与所需校验后停机汇报；决策窗口审核全绿后才允许本地提交。不是 external release、Stage8 real execution、Stage9 payment / delivery / refund、push 或自动进入 P4 的批准。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "control/product_task_library.yaml 只用于候选池；本窗口不修改，不把 P2 closeout 写入任务池。"
-      - "control/product_module_registry.yaml 是 execution map 与 product module ledger；本窗口不修改。"
+      - "control/product_task_library.yaml 是产品任务池；本窗口会把 P2 同步为 completed，但 current_mainline_next_candidate 仍保持 null，不自动激活 P4。"
+      - "control/product_module_registry.yaml 是 execution map 与 product module ledger；本窗口只做 P2/P3 状态账本同步，不把 internal/governed 写成 live-ready。"
       - "control/source_blueprint_registry.yaml 是唯一 source blueprint allowlist；本窗口不修改。"
       - "control/operator_assignment_roster_defaults.yaml 是 stage7/stage8/stage9 roster 稳定来源；本窗口不修改。"
       - "docs/AX9S_开发执行路由图.md 只负责导航，不决定当前执行顺序；本窗口不修改。"
@@ -320,22 +348,15 @@ currentTask:
     - "stage8 real execution remains governed / approval-gated / blocked by default"
     - "stage9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "允许修改 control/current_task.yaml。"
-    - "允许修改 control/repo_status.md。"
-    - "允许修改 src/stage8_outreach/service.py。"
-    - "允许修改 src/stage8_outreach/outreach_plan.py。"
-    - "允许修改 src/stage8_outreach/touch_record.py。"
-    - "允许新增或修改 src/stage8_outreach/plan_touch.py。"
-    - "允许修改 tests/test_stage8_resolution_closure.py、tests/test_pre_route_behavior.py、tests/test_internal_chain.py。"
+    - "允许修改 control/current_task.yaml、control/repo_status.md、control/product_task_library.yaml、control/product_module_registry.yaml。"
+    - "允许修改 src/shared/policy_executor.py、src/shared/runtime_validator.py，并新增 src/shared/policy_contract_helpers.py、src/shared/runtime_semantic_rules.py。"
+    - "允许修改 tests/test_stage12_extractors.py、tests/test_product_module_registry.py；如定向回归需要，可修改 tests/test_architecture_anti_drift.py、tests/test_semantic_runtime_validator.py、tests/test_stage8_resolution_closure.py、tests/test_internal_chain.py。"
     - "允许运行本轮 required checks，并按停机规则汇报。"
   forbidden_actions:
+    - "不得修改 docs/** 或 docs/AX9S_开发执行路由图.md。"
     - "不得修改 contracts/**。"
     - "不得修改 handoff/**。"
-    - "不得修改 docs/** 或 docs/AX9S_开发执行路由图.md。"
-    - "不得修改 src/shared/**。"
     - "不得修改 src/stage9_delivery/**。"
-    - "不得修改 control/product_task_library.yaml。"
-    - "不得修改 control/product_module_registry.yaml。"
     - "不得修改 control/source_blueprint_registry.yaml。"
     - "不得修改 control/operator_assignment_roster_defaults.yaml。"
     - "不得修改 control/review_gate_matrix.yaml。"
@@ -350,5 +371,5 @@ currentTask:
     - "不得 push。"
   nextActions:
     - "完成校验后停下汇报；由决策窗口审核是否本地提交。"
-    - "P2 closeout 与 product_task_library/product_module_registry 状态同步必须另由决策窗口安排。"
-  status_note: "PTL-S8-102-p2-plan-touch-productization 当前以 SCOPED_EXECUTION 执行；本窗口只做 Stage8 plan/touch/writeback trace 的行为等价内部产品化拆分。canonical readiness 与 conditional-go 保持不变，external release、Stage8 real execution、Stage9 real payment/delivery/refund 继续阻断；执行窗口不提交、不 push。"
+    - "P4 不自动激活；如继续推进，必须由决策窗口另行选择并切换 current_task。"
+  status_note: "PTL-INT-101-p3-policy-validator-boundary-split 当前以 SCOPED_EXECUTION 执行；本窗口已先吸收 P2 completed 状态，再做 shared policy/validator helper 的行为等价拆分。canonical readiness 与 conditional-go 保持不变，external release、Stage8 real execution、Stage9 real payment/delivery/refund 继续阻断；执行窗口不提交、不 push。"

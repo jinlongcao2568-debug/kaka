@@ -39,7 +39,7 @@ post_mainline_selection:
   automatic_next_candidate_disabled: true
   mainline_closeout_ref: PTL-GOV-117-product-mainline-completion-closeout
   selection_state: OPEN_FOR_MANUAL_SELECTION
-  recommended_direction_label: "Stage8 governed touch 深化"
+  recommended_direction_label: "Stage9 governed delivery 深化"
   recommendation_is_navigation_only: true
   detailed_execution_ladder_ref: "control/product_task_library.yaml#post_mainline_execution_ladder"
   detailed_execution_scope: "PRODUCT_ONLY"
@@ -49,6 +49,7 @@ post_mainline_selection:
   detailed_execution_bridge:
     completed_stage8_task_ids:
       - PTL-S8-101-p1-candidate-compliance-boundary-refactor
+      - PTL-S8-102-p2-plan-touch-productization
     stage8_task_ids:
       - PTL-S8-101-p1-candidate-compliance-boundary-refactor
       - PTL-S8-102-p2-plan-touch-productization
@@ -91,21 +92,21 @@ post_mainline_selection:
       related_modules:
         - STAGE8-OUTREACH-GOVERNED
         - INTERNAL-PREVIEW-SURFACE
-      recommended_now: true
-      status: OPEN_FOR_MANUAL_SELECTION
+      recommended_now: false
+      status: COMPLETED
       not_auto_activated: true
       completed_task_ids:
         - PTL-S8-101-p1-candidate-compliance-boundary-refactor
-      remaining_task_ids:
         - PTL-S8-102-p2-plan-touch-productization
-      last_completed_commit: 632c6ae
-      rationale: "P1 candidate/compliance boundary refactor 已完成并提交 632c6ae；Stage8 方向仍未全部完成，因为 P2 plan/touch 产品化尚需人工/决策窗口另包激活；仅作内部产品方向导航建议，不触发 real execution。"
+      remaining_task_ids: []
+      last_completed_commit: 9d4662a
+      rationale: "P1/P2 已完成并分别记录 632c6ae / 9d4662a；Stage8 governed touch 方向的 candidate/compliance 与 plan/touch 产品化边界均已收口，但 external/live redline 不变，仍不触发 real execution。"
     - direction_label: "Stage9 governed delivery 深化"
       future_packet_id_suggestion: PTL-S9-governed-delivery-deepening
       related_modules:
         - STAGE9-DELIVERY-GOVERNANCE
         - STORAGE-REPOSITORY-BOUNDARY
-      recommended_now: false
+      recommended_now: true
       status: OPEN_FOR_MANUAL_SELECTION
       not_auto_activated: true
       rationale: "只深化内部 governed delivery / feedback 闭环，不放开 real payment / delivery / refund；仅作内部产品方向导航建议。"
@@ -628,11 +629,11 @@ stage_module_inventory:
     completed_packets:
       - PTL-S78-contact-candidate-compliance-preview
       - PTL-S8-101-p1-candidate-compliance-boundary-refactor
-    pending_packets:
       - PTL-S8-102-p2-plan-touch-productization
+    pending_packets: []
     current_blockers:
       - "Stage8 real execution 默认阻断；contact enrichment / live outreach 需要审批和审计。"
-      - "P1 candidate/compliance boundary refactor 已完成；P2 plan/touch 产品化仍为 OPEN_FOR_MANUAL_SELECTION，不得自动激活。"
+      - "Stage8 P1/P2 已完成，但 governed/internal-only redline 不变；后续 shared/runtime 与 Stage9 工作仍需人工选择，不得自动激活。"
     exit_criteria:
       - "contact_target 只能来自 saleable_opportunity、account context 和合法来源。"
       - "outreach_plan / touch_record 默认只允许 preview/dry-run/governed internal path。"
@@ -691,9 +692,9 @@ stage_module_inventory:
         target_packet_candidates:
           - PTL-S78-contact-candidate-compliance-preview
           - PTL-S8-102-p2-plan-touch-productization
-        completed_packets: []
-        pending_packets:
+        completed_packets:
           - PTL-S8-102-p2-plan-touch-productization
+        pending_packets: []
         exit_criteria:
           - "touch_record 只能表达 governed internal / dry-run / audit trace，不能暗示真实外发已放开。"
         deferred_gaps: []
@@ -1066,14 +1067,15 @@ modules:
     completed_packets:
       - PTL-S78-contact-candidate-compliance-preview
       - PTL-S8-101-p1-candidate-compliance-boundary-refactor
-    pending_packets:
       - PTL-S8-102-p2-plan-touch-productization
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
     notes:
       - "P1 candidate/compliance boundary refactor completed in commit 632c6ae."
-      - "Stage8 direction is not fully completed; P2 plan/touch productization remains OPEN_FOR_MANUAL_SELECTION and must not auto-activate."
+      - "P2 plan/touch productization completed in commit 9d4662a."
+      - "Stage8 direction is functionally complete for P1/P2, but remains internal governed only; external/live execution redline does not change."
   - module_id: STAGE9-DELIVERY-GOVERNANCE
     stage_scope:
       - stage9_delivery
@@ -1160,18 +1162,25 @@ modules:
     current_files:
       - src/shared/capability_runtime.py
       - src/shared/policy_executor.py
+      - src/shared/policy_contract_helpers.py
       - src/shared/contracts_runtime.py
       - src/shared/runtime_validator.py
+      - src/shared/runtime_semantic_rules.py
       - src/shared/pipeline.py
       - src/shared/state_packet.py
       - src/shared/context_packet.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
+    target_packet_candidates:
+      - PTL-INT-101-p3-policy-validator-boundary-split
     completed_packets: []
-    pending_packets: []
+    pending_packets:
+      - PTL-INT-101-p3-policy-validator-boundary-split
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
+    notes:
+      - "P3 policy/validator boundary split remains a manual-selection packet in the module ledger even when activated by control/current_task.yaml."
   - module_id: STORAGE-REPOSITORY-BOUNDARY
     stage_scope:
       - stage6_fact_review

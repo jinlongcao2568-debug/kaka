@@ -115,10 +115,15 @@ def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cl
     stage9 = modules["STAGE9-DELIVERY-GOVERNANCE"]
     assert "PTL-S78-contact-candidate-compliance-preview" in stage8["completed_packets"]
     assert "PTL-S8-101-p1-candidate-compliance-boundary-refactor" in stage8["completed_packets"]
-    assert stage8["pending_packets"] == ["PTL-S8-102-p2-plan-touch-productization"]
+    assert "PTL-S8-102-p2-plan-touch-productization" in stage8["completed_packets"]
+    assert stage8["pending_packets"] == []
     assert "src/stage8_outreach/candidate_compliance.py" in stage8["current_files"]
     assert "PTL-S89-outreach-writeback-delivery-governance" in stage9["completed_packets"]
     assert stage9["pending_packets"] == []
+    shared_runtime = modules["SHARED-RUNTIME-POLICY-CHAIN"]
+    assert "src/shared/policy_contract_helpers.py" in shared_runtime["current_files"]
+    assert "src/shared/runtime_semantic_rules.py" in shared_runtime["current_files"]
+    assert shared_runtime["pending_packets"] == ["PTL-INT-101-p3-policy-validator-boundary-split"]
     assert stage8["external_release_allowed"] is False
     assert stage8["live_execution_allowed"] is False
     assert stage9["external_release_allowed"] is False
@@ -134,7 +139,7 @@ def test_post_mainline_selection_block_is_navigation_only_and_references_existin
     assert selection["automatic_next_candidate_disabled"] is True
     assert selection["mainline_closeout_ref"] == "PTL-GOV-117-product-mainline-completion-closeout"
     assert selection["selection_state"] == "OPEN_FOR_MANUAL_SELECTION"
-    assert selection["recommended_direction_label"] == "Stage8 governed touch 深化"
+    assert selection["recommended_direction_label"] == "Stage9 governed delivery 深化"
     assert selection["recommendation_is_navigation_only"] is True
     assert selection["detailed_execution_ladder_ref"] == "control/product_task_library.yaml#post_mainline_execution_ladder"
     assert selection["detailed_execution_scope"] == "PRODUCT_ONLY"
@@ -146,6 +151,7 @@ def test_post_mainline_selection_block_is_navigation_only_and_references_existin
     bridge = selection["detailed_execution_bridge"]
     assert bridge["completed_stage8_task_ids"] == [
         "PTL-S8-101-p1-candidate-compliance-boundary-refactor",
+        "PTL-S8-102-p2-plan-touch-productization",
     ]
     assert bridge["stage8_task_ids"] == [
         "PTL-S8-101-p1-candidate-compliance-boundary-refactor",
@@ -196,17 +202,16 @@ def test_post_mainline_selection_block_is_navigation_only_and_references_existin
     assert internal_preview_direction["status"] == "COMPLETED"
     assert internal_preview_direction["recommended_now"] is False
     assert internal_preview_direction["completed_ref"] == "PTL-INT-internal-preview-productization-strengthening"
-    assert stage8_direction["status"] == "OPEN_FOR_MANUAL_SELECTION"
-    assert stage8_direction["recommended_now"] is True
+    assert stage8_direction["status"] == "COMPLETED"
+    assert stage8_direction["recommended_now"] is False
     assert stage8_direction["completed_task_ids"] == [
         "PTL-S8-101-p1-candidate-compliance-boundary-refactor",
-    ]
-    assert stage8_direction["remaining_task_ids"] == [
         "PTL-S8-102-p2-plan-touch-productization",
     ]
-    assert stage8_direction["last_completed_commit"] == "632c6ae"
+    assert stage8_direction["remaining_task_ids"] == []
+    assert stage8_direction["last_completed_commit"] == "9d4662a"
     assert candidate_by_label["Stage9 governed delivery 深化"]["status"] == "OPEN_FOR_MANUAL_SELECTION"
-    assert candidate_by_label["Stage9 governed delivery 深化"]["recommended_now"] is False
+    assert candidate_by_label["Stage9 governed delivery 深化"]["recommended_now"] is True
 
 
 def test_stage_module_inventory_is_expanded_for_stage1_to_stage9() -> None:
@@ -328,6 +333,7 @@ def test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked() -> Non
     assert modules["STAGE8-OUTREACH-GOVERNED"]["external_release_allowed"] is False
     assert modules["STAGE8-OUTREACH-GOVERNED"]["live_execution_allowed"] is False
     assert "PTL-S8-101-p1-candidate-compliance-boundary-refactor" in modules["STAGE8-OUTREACH-GOVERNED"]["completed_packets"]
-    assert modules["STAGE8-OUTREACH-GOVERNED"]["pending_packets"] == ["PTL-S8-102-p2-plan-touch-productization"]
+    assert "PTL-S8-102-p2-plan-touch-productization" in modules["STAGE8-OUTREACH-GOVERNED"]["completed_packets"]
+    assert modules["STAGE8-OUTREACH-GOVERNED"]["pending_packets"] == []
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["external_release_allowed"] is False
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["live_execution_allowed"] is False
