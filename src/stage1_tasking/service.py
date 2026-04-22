@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from stage1_tasking.contract_runtime import build_stage1_handoff, build_stage1_inputs
 from stage1_tasking.extractors import extract_stage1
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, get_flag, utc_now_iso
@@ -106,62 +107,16 @@ class Stage1Service:
             },
         )
 
-        handoff = {
-            "task_id": task_id,
-            "region_code": payload["region_code"],
-            "time_range_from": extracted.time_range_from,
-            "time_range_until": extracted.time_range_until,
-            "strategy_template_id": extracted.strategy_template_id,
-            "project_rooting_policy": extracted.project_rooting_policy,
-            "window_priority_policy": extracted.window_priority_policy,
-            "project_id": project_id,
-            "context_id": execution_context.data["context_id"],
-            "source_family": extracted.source_family,
-            "platform_level": extracted.platform_level,
-            "region_scope": extracted.region_scope,
-            "coverage_tier": extracted.coverage_tier,
-            "carrier_type": extracted.carrier_type,
-            "default_route": extracted.default_route,
-            "source_registry_id": extracted.source_registry_id,
-            "route_policy_id": extracted.route_policy_id,
-            "fallback_route": extracted.fallback_route,
-            "baseline_collection_state": extracted.baseline_collection_state,
-            "rollout_enabled": extracted.rollout_enabled,
-            "backlog_reason_optional": extracted.backlog_reason_optional,
-            "review_lane": extracted.review_lane,
-            "clock_resolution_rule_id": extracted.clock_resolution_rule_id,
-            "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
-            "requires_manual_review": requires_manual_review,
-        }
-        if extracted.current_action_start_at_optional:
-            handoff["current_action_start_at_optional"] = extracted.current_action_start_at_optional
-        if extracted.current_action_deadline_at_optional:
-            handoff["current_action_deadline_at_optional"] = extracted.current_action_deadline_at_optional
-
-        inputs_out = dict(payload)
-        inputs_out.update(
-            {
-                "time_range_from": extracted.time_range_from,
-                "time_range_until": extracted.time_range_until,
-                "default_route": extracted.default_route,
-                "fallback_route": extracted.fallback_route,
-                "source_registry_id": extracted.source_registry_id,
-                "route_policy_id": extracted.route_policy_id,
-                "carrier_type": extracted.carrier_type,
-                "baseline_collection_state": extracted.baseline_collection_state,
-                "rollout_enabled": extracted.rollout_enabled,
-                "backlog_reason_optional": extracted.backlog_reason_optional,
-                "clock_resolution_rule_id": extracted.clock_resolution_rule_id,
-                "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
-                "current_action_start_at_optional": extracted.current_action_start_at_optional,
-                "current_action_deadline_at_optional": extracted.current_action_deadline_at_optional,
-                "stage12_extractor_trace": {
-                    "stage1": {
-                        "fallback_reasons": extracted.fallback_reasons,
-                        "mismatch_reasons": extracted.mismatch_reasons,
-                    }
-                },
-            }
+        handoff = build_stage1_handoff(
+            payload,
+            project_id=project_id,
+            context_id=execution_context.data["context_id"],
+            extracted=extracted,
+            requires_manual_review=requires_manual_review,
+        )
+        inputs_out = build_stage1_inputs(
+            payload,
+            extracted=extracted,
         )
 
         return StageBundle(

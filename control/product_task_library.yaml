@@ -1,6 +1,6 @@
 version: 1
 library_id: PRODUCT_MAINLINE_TASK_LIBRARY
-updated_at: "2026-04-22"
+updated_at: "2026-04-23"
 status: EFFECTIVE
 role: product_mainline_task_source
 library_role: product_mainline_task_source
@@ -68,7 +68,7 @@ current_mainline_next_candidate:
   title: "产品主线 S12-S89 + INT 与后主线 P1/P2/P3/P4/P5 已闭合，等待人工选择后续方向"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5 均已 completed；现在没有自动 next candidate；候选池保留 P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P6-P8 仍 open/manual；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6 均已 completed；现在没有自动 next candidate；候选池保留 P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P7-P8 仍 open/manual；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -413,14 +413,15 @@ tasks:
     title: "P6 Stage9 feedback/writeback 产品化"
     stage_scope: [stage8_outreach, stage9_delivery, internal_preview]
     task_type: post_mainline_product_deepening
-    status: OPEN_FOR_MANUAL_SELECTION
+    status: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P1
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: OPEN_FOR_MANUAL_SELECTION
+    planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
-    runtime_notes: "后主线执行链的第 8 步；目标是把 Stage9 feedback / writeback / outcome taxonomy / governance event 做成稳定的内部产品闭环；本条只作为人工候选任务登记，不自动激活。"
+    completed_commit: edff5af
+    runtime_notes: "P6 scoped implementation 已完成并在本地提交：edff5af；Stage9 feedback/writeback/governance event 第一刀行为等价拆分已完成，src/stage9_delivery/feedback_writeback.py 已纳入正式登记；PTL-S9-102 不再是 current active packet，也不再是 current_mainline_next_candidate；P7 仍需 dedicated current_task packet 才能激活，Stage9 internal governed only / external-live redline 不变。"
     hard_depends_on: [PTL-S9-101-p5-typed-lifecycle-deepening]
     soft_depends_on: [PTL-S8-102-p2-plan-touch-productization, PTL-INT-internal-preview-surface-envelope]
     objective: "把 Stage9 的反馈、回写、治理事件与 preview 面做成单一来源、可解释、可复核的内部运营闭环。"

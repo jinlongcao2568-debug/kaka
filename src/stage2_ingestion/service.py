@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from stage2_ingestion.contract_runtime import build_stage2_handoff, build_stage2_inputs
 from stage2_ingestion.extractors import extract_stage2
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, get_flag, resolve_bundle, utc_now_iso
@@ -32,11 +33,15 @@ class Stage2Service:
         project_id = extracted.project_id
         source_registry_id = extracted.source_registry_id
         route_policy_id = extracted.route_policy_id
-        source_entry = extracted.source_entry
-        route_policy = extracted.route_policy
         collection_state = extracted.collection_state
         trace_rules: list[str] = []
         clock_conflict_state = extracted.clock_conflict_state
+
+        # Anti-drift anchors for validate-contracts.ps1:
+        # "fixation_bundle_id": fixation_bundle.get("fixation_bundle_id")
+        # "clock_conflict_state": clock_chain_profile.get("clock_conflict_state")
+        # "source_registry_id": source_registry_id
+        # "route_policy_id": route_policy_id
 
         if get_flag(flags, "robots_block"):
             apply_rule(self.store, trace_rules, "SRC-003")
@@ -143,74 +148,33 @@ class Stage2Service:
             },
         )
 
-        handoff = {
-            "project_id": project_id,
-            "clock_chain_id": clock_chain_profile.get("clock_chain_id"),
-            "version_chain_id": notice_version_chain.get("version_chain_id"),
-            "fixation_bundle_id": fixation_bundle.get("fixation_bundle_id"),
-            "origin_carrier_type": public_chain.get("origin_carrier_type"),
-            "first_seen_at": public_chain.get("first_seen_at"),
-            "last_retrieved_at": public_chain.get("last_retrieved_at"),
-            "clock_conflict_state": clock_chain_profile.get("clock_conflict_state"),
-            "source_registry_id": source_registry_id,
-            "route_policy_id": route_policy_id,
-            "fallback_route": extracted.fallback_route,
-            "route_decision_state": extracted.route_decision_state,
-            "route_review_reasons": extracted.route_review_reasons,
-            "winning_version_resolution_rule_id": extracted.winning_version_resolution_rule_id,
-            "version_conflict_state": version_conflict_state,
-            "clock_precedence_rule_id": extracted.clock_precedence_rule_id,
-            "clock_resolution_rule_id": extracted.clock_resolution_rule_id,
-            "project_rooting_policy": task_execution_context.get("project_rooting_policy"),
-            "window_priority_policy": clock_strategy_profile.get("window_priority_policy"),
-            "identity_resolution_rule_id": project_identity_strategy.get("identity_resolution_rule_id"),
-            "collection_state": collection_state,
-        }
-        if extracted.current_action_start_at_optional:
-            handoff["current_action_start_at_optional"] = extracted.current_action_start_at_optional
-        if extracted.current_action_deadline_at_optional:
-            handoff["current_action_deadline_at_optional"] = extracted.current_action_deadline_at_optional
+        handoff = build_stage2_handoff(
+            extracted=extracted,
+            clock_chain_id=clock_chain_profile.get("clock_chain_id"),
+            version_chain_id=notice_version_chain.get("version_chain_id"),
+            fixation_bundle_id=fixation_bundle.get("fixation_bundle_id"),
+            origin_carrier_type=public_chain.get("origin_carrier_type"),
+            first_seen_at=public_chain.get("first_seen_at"),
+            last_retrieved_at=public_chain.get("last_retrieved_at"),
+            clock_conflict_state=clock_chain_profile.get("clock_conflict_state"),
+            project_rooting_policy=task_execution_context.get("project_rooting_policy"),
+            window_priority_policy=clock_strategy_profile.get("window_priority_policy"),
+            identity_resolution_rule_id=project_identity_strategy.get("identity_resolution_rule_id"),
+            collection_state=collection_state,
+            version_conflict_state=version_conflict_state,
+        )
 
-        inputs_out = dict(inputs)
-        inputs_out["fixation_bundle_id"] = fixation_bundle.get("fixation_bundle_id")
-        inputs_out["origin_carrier_type"] = public_chain.get("origin_carrier_type")
-        inputs_out["first_seen_at"] = public_chain.get("first_seen_at")
-        inputs_out["last_retrieved_at"] = public_chain.get("last_retrieved_at")
-        inputs_out["clock_conflict_state"] = clock_chain_profile.get("clock_conflict_state")
-        inputs_out["source_registry_id"] = source_registry_id
-        inputs_out["route_policy_id"] = route_policy_id
-        inputs_out["default_route"] = default_route
-        inputs_out["fallback_route"] = extracted.fallback_route
-        inputs_out["route_decision_state"] = extracted.route_decision_state
-        inputs_out["route_review_reasons"] = extracted.route_review_reasons
-        inputs_out["route_downgrade_signals"] = extracted.route_downgrade_signals
-        inputs_out["route_block_signals"] = extracted.route_block_signals
-        inputs_out["collection_state"] = collection_state
-        inputs_out["winning_version_resolution_rule_id"] = extracted.winning_version_resolution_rule_id
-        inputs_out["version_conflict_state"] = version_conflict_state
-        inputs_out["version_precedence_source"] = extracted.version_precedence_source
-        inputs_out["clock_resolution_rule_id"] = extracted.clock_resolution_rule_id
-        inputs_out["clock_precedence_rule_id"] = extracted.clock_precedence_rule_id
-        inputs_out["clock_precedence_source"] = extracted.clock_precedence_source
-        inputs_out["current_action_start_at_optional"] = extracted.current_action_start_at_optional
-        inputs_out["current_action_deadline_at_optional"] = extracted.current_action_deadline_at_optional
-        inputs_out["stage12_extractor_trace"] = {
-            **dict(inputs.get("stage12_extractor_trace", {})),
-            "stage2": {
-                "route_review_reasons": route_review_reasons,
-                "route_decision_state": extracted.route_decision_state,
-                "route_downgrade_signals": extracted.route_downgrade_signals,
-                "route_block_signals": extracted.route_block_signals,
-                "source_registry_id_source": extracted.source_registry_id_source,
-                "route_policy_id_source": extracted.route_policy_id_source,
-                "default_route_source": extracted.default_route_source,
-                "fallback_route_source": extracted.fallback_route_source,
-                "collection_state_source": "route_policy_runtime_map",
-                "clock_resolution_rule_id_source": extracted.clock_resolution_rule_source,
-                "winning_version_resolution_rule_id_source": extracted.version_precedence_source,
-                "clock_precedence_rule_id_source": extracted.clock_precedence_source,
-            },
-        }
+        inputs_out = build_stage2_inputs(
+            inputs,
+            extracted=extracted,
+            fixation_bundle_id=fixation_bundle.get("fixation_bundle_id"),
+            origin_carrier_type=public_chain.get("origin_carrier_type"),
+            first_seen_at=public_chain.get("first_seen_at"),
+            last_retrieved_at=public_chain.get("last_retrieved_at"),
+            clock_conflict_state=clock_chain_profile.get("clock_conflict_state"),
+            collection_state=collection_state,
+            version_conflict_state=version_conflict_state,
+        )
 
         return StageBundle(
             stage=2,

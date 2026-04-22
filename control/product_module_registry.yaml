@@ -106,15 +106,15 @@ post_mainline_selection:
       related_modules:
         - STAGE9-DELIVERY-GOVERNANCE
         - STORAGE-REPOSITORY-BOUNDARY
-      recommended_now: true
-      status: OPEN_FOR_MANUAL_SELECTION
+      recommended_now: false
+      status: COMPLETED
       not_auto_activated: true
       completed_task_ids:
         - PTL-S9-101-p5-typed-lifecycle-deepening
-      remaining_task_ids:
         - PTL-S9-102-p6-feedback-writeback-productization
-      last_completed_commit: 3d9fc74
-      rationale: "P5 typed lifecycle deepening 已完成并记录 3d9fc74；P6 feedback/writeback 产品化仍 open/manual selection。只深化内部 governed delivery / feedback 闭环，不放开 real payment / delivery / refund；仅作内部产品方向导航建议。"
+      remaining_task_ids: []
+      last_completed_commit: edff5af
+      rationale: "P5 typed lifecycle deepening 与 P6 feedback/writeback 产品化均已完成并分别记录 3d9fc74 / edff5af；Stage9 governed delivery 方向当前已闭合，但仍只代表 internal governed runtime 收口，不放开 real payment / delivery / refund，也不等同 external/live 完成。"
 ledger_schema:
   intent: >
     Give non-technical product ownership and future AI windows a machine-readable
@@ -1119,14 +1119,14 @@ modules:
     completed_packets:
       - PTL-S89-outreach-writeback-delivery-governance
       - PTL-S9-101-p5-typed-lifecycle-deepening
-    pending_packets:
       - PTL-S9-102-p6-feedback-writeback-productization
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
     notes:
       - "P5 typed lifecycle deepening completed in local commit 3d9fc74 and src/stage9_delivery/typed_lifecycle.py is now part of the formal Stage9 current files ledger."
-      - "P6 feedback/writeback productization remains governed/manual-selection work; ImpactExecutor semantics are not advanced by the P5 closeout sync."
+      - "P6 feedback/writeback productization completed in local commit edff5af and src/stage9_delivery/feedback_writeback.py is now part of the formal Stage9 current files ledger."
       - "Stage9 remains internal governed only; external/live payment, delivery, refund, and writeback mutation remain blocked/governed."
   - module_id: SURFACE-API-TRANSPORT
     stage_scope:
