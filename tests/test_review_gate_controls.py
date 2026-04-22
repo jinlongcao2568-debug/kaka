@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -88,6 +89,7 @@ class TestReviewGateControls(unittest.TestCase):
                     "human_review_required": True,
                     "owner_reviews_required": ["automation_owner", "governance_owner", "testing_owner", "release_approver"],
                     "review_evidence": {"declared": True, "signoff_required": True, "signoff_status": "REQUESTED_NOT_APPROVED"},
+                    "notes": ["current_task -> product_task_library -> repo_status"],
                 },
             },
         }
@@ -100,6 +102,37 @@ class TestReviewGateControls(unittest.TestCase):
         subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "baseline"], cwd=repo, check=True, capture_output=True)
         return repo
+
+    def _run_task_packet_check(self, repo: Path, planned_target_paths: list[str], *, via_array: bool = False) -> subprocess.CompletedProcess[str]:
+        if via_array:
+            quoted_paths = ", ".join(f"'{path}'" for path in planned_target_paths)
+            command = textwrap.dedent(
+                f"""\
+                $paths = @({quoted_paths})
+                & '{TASK_PACKET_SCRIPT}' -RepoRoot '{repo}' -PlannedTargetPaths $paths
+                """
+            )
+            return subprocess.run(
+                ["pwsh", "-NoProfile", "-Command", command],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+        command = [
+            "pwsh",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(TASK_PACKET_SCRIPT),
+            "-RepoRoot",
+            str(repo),
+            "-PlannedTargetPaths",
+            *planned_target_paths,
+        ]
+        return subprocess.run(command, cwd=ROOT, check=False, capture_output=True, text=True)
 
     def test_scripts_use_new_system(self) -> None:
         task_packet = read("scripts/check-task-packet.ps1")
@@ -118,10 +151,15 @@ class TestReviewGateControls(unittest.TestCase):
         ax9s = read("docs/AX9S_开发执行路由图.md")
         template = read("docs/自动开发任务包模板.md")
         gate = read("docs/自动化开发动作门禁表.md")
+        task_rules = read("control/automation_task_packet_rules.yaml")
         self.assertIn("current_task -> product_task_library -> repo_status", agents)
         self.assertIn("control/product_task_library.yaml", ax9s)
         self.assertIn("control/source_blueprint_registry.yaml#registered_blueprints", template)
         self.assertIn("scripts/check-task-packet.ps1", template)
+        self.assertIn("-PlannedTargetPaths $paths", template)
+        self.assertIn("单字符串逗号拼接形式有兼容处理", template)
+        self.assertIn("-PlannedTargetPaths $paths", task_rules)
+        self.assertIn("单字符串逗号拼接形式", task_rules)
         self.assertIn("check-final-gate.ps1", gate)
         self.assertIn("suggestion-only", ax9s)
         self.assertIn("manual_planning_review", ax9s)
@@ -134,12 +172,47 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertTrue(sync["requires_human_confirmation"] if "requires_human_confirmation" in sync else sync["update_policy"]["requires_human_confirmation"])
         self.assertIn("manual_planning_review", sync["update_triggers"])
 
+    def test_task_packet_preflight_accepts_array_planned_targets(self) -> None:
+        repo = self._build_temp_repo_for_task_packet(
+            declared_paths=["control/current_task.yaml", "control/repo_status.md"],
+            allowed_paths=["control/current_task.yaml", "control/repo_status.md"],
+        )
+        result = self._run_task_packet_check(
+            repo,
+            ["control/current_task.yaml", "control/repo_status.md"],
+            via_array=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertIn("[check-task-packet] PASS", result.stdout)
+
+    def test_task_packet_preflight_accepts_single_string_planned_target_variants(self) -> None:
+        repo = self._build_temp_repo_for_task_packet(
+            declared_paths=["control/current_task.yaml", "control/repo_status.md"],
+            allowed_paths=["control/current_task.yaml", "control/repo_status.md"],
+        )
+
+        for raw_value in (
+            "'control/current_task.yaml','control/repo_status.md'",
+            '"control/current_task.yaml","control/repo_status.md"',
+            "control/current_task.yaml,control/repo_status.md",
+        ):
+            with self.subTest(raw_value=raw_value):
+                result = self._run_task_packet_check(repo, [raw_value])
+                self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+                self.assertIn("[check-task-packet] PASS", result.stdout)
+
+    def test_task_packet_preflight_accepts_single_path(self) -> None:
+        repo = self._build_temp_repo_for_task_packet(
+            declared_paths=["control/current_task.yaml"],
+            allowed_paths=["control/current_task.yaml"],
+        )
+        result = self._run_task_packet_check(repo, ["control/current_task.yaml"])
+        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertIn("[check-task-packet] PASS", result.stdout)
+
     def test_task_packet_preflight_rejects_outside_declared_scope(self) -> None:
         repo = self._build_temp_repo_for_task_packet(declared_paths=["control/current_task.yaml"], allowed_paths=["control/current_task.yaml"])
-        result = subprocess.run([
-            "pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(TASK_PACKET_SCRIPT),
-            "-RepoRoot", str(repo), "-PlannedTargetPaths", "docs/outside.md"
-        ], cwd=ROOT, check=False, capture_output=True, text=True)
+        result = self._run_task_packet_check(repo, ["docs/outside.md"])
         self.assertNotEqual(result.returncode, 0, msg=result.stdout + result.stderr)
         self.assertIn("PLANNED_PATH_NOT_DECLARED", result.stdout)
 

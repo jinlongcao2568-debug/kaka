@@ -5,11 +5,11 @@ updated_at: "2026-04-22"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_GOV_123_ACTIVE_TASK_TEST_STRATEGY_RELOCK_SCOPED_EXECUTION_ACTIVE"
+navigation_state: "PTL_GOV_124_PLANNED_TARGETPATHS_NORMALIZATION_SCOPED_EXECUTION_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "当前窗口执行 PTL-GOV-123-active-task-test-strategy-relock scoped-execution：只切当前 active packet，并把 active task 测试策略重新收口到 execution-source invariants；本轮仅同步 control/current_task.yaml、control/repo_status.md、tests/test_stage12_extractors.py；不进入 runtime，不改 product_task_library，不改 product_module_registry，不改 AX9S，不改 src / contracts / handoff / scripts / docs，不改变 canonical readiness，不放开 external release、external leadpack delivery 审批+审计要求、Stage8 real execution 或 Stage9 real payment/delivery/refund 红线，不自动恢复 next candidate，不自动激活推荐方向，不提交。"
+activation_condition: "当前窗口执行 PTL-GOV-124-planned-targetpaths-normalization scoped-execution：修复 scripts/check-task-packet.ps1 对 PlannedTargetPaths 的参数归一问题，并同步 tests 与模板说明；本轮只允许修改 control/current_task.yaml、control/repo_status.md、scripts/check-task-packet.ps1、docs/自动开发任务包模板.md、control/automation_task_packet_rules.yaml、tests/test_check_automation_readiness_unicode_paths.py、tests/test_review_gate_controls.py，不改业务 runtime、不改 product_task_library / product_module_registry / AX9S / src / contracts / handoff，不改变 canonical readiness，不放开 external release、external leadpack delivery 审批+审计要求、Stage8 real execution 或 Stage9 real payment/delivery/refund 红线，不自动恢复 next candidate，不自动激活推荐方向，不提交。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-GOV-123-active-task-test-strategy-relock"
-  title: "active task 测试策略重新加固"
+  task_id: "PTL-GOV-124-planned-targetpaths-normalization"
+  title: "PlannedTargetPaths 参数归一修复"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -32,18 +32,18 @@ currentTask:
     - "docs/正式业务代码开发开工裁决页.md"
     - "control/current_task.yaml"
     - "control/repo_status.md"
-    - "control/product_task_library.yaml"
-    - "control/product_module_registry.yaml"
     - "control/source_blueprint_registry.yaml"
     - "control/operator_assignment_roster_defaults.yaml"
-    - "docs/AX9S_开发执行路由图.md"
     - "scripts/check-task-packet.ps1"
+    - "control/automation_task_packet_rules.yaml"
+    - "docs/自动开发任务包模板.md"
     - "scripts/check-state-alignment.ps1"
     - "scripts/check-final-gate.ps1"
     - "scripts/clean-python-cache.ps1"
-    - "tests/test_stage12_extractors.py"
+    - "tests/test_check_automation_readiness_unicode_paths.py"
+    - "tests/test_review_gate_controls.py"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "执行 PTL-GOV-123-active-task-test-strategy-relock scoped-execution：把 current active packet 切到当前治理测试包，并把 tests/test_stage12_extractors.py 收口为 active execution source invariant 测试；本轮仅修改 control/current_task.yaml、control/repo_status.md、tests/test_stage12_extractors.py，不进入 runtime，不改 product_task_library / product_module_registry / AX9S / src / contracts / handoff / scripts / docs，并保持 canonical readiness、conditional-go 与 external / Stage8 / Stage9 红线不变。"
+  objective: "执行 PTL-GOV-124-planned-targetpaths-normalization scoped-execution：修复 scripts/check-task-packet.ps1 对 PlannedTargetPaths 的参数归一，让正常 string[] 与单字符串逗号拼接形式都能稳定解析，并同步 tests/test_check_automation_readiness_unicode_paths.py、tests/test_review_gate_controls.py、docs/自动开发任务包模板.md、control/automation_task_packet_rules.yaml；本轮不进入业务 runtime，不改 product_task_library / product_module_registry / AX9S / src / contracts / handoff，并保持 canonical readiness、conditional-go 与 external / Stage8 / Stage9 红线不变。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -63,29 +63,30 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-GOV-123-active-task-test-strategy-relock"
-    subpacket_id: "PTL-GOV-123-active-task-test-strategy-relock"
-    backlog_packet_ref: "PTL-GOV-123-active-task-test-strategy-relock"
+    packet_id: "PTL-GOV-124-planned-targetpaths-normalization"
+    subpacket_id: "PTL-GOV-124-planned-targetpaths-normalization"
+    backlog_packet_ref: "PTL-GOV-124-planned-targetpaths-normalization"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "POST-FF-CONTROL-01"
     runtime_change_in_packet: "OUT_OF_SCOPE"
     existing_code_state: "HEAVY_RUNTIME"
     existing_runtime_state: "HEAVY_RUNTIME"
-    title: "active task 测试策略重新加固"
+    title: "PlannedTargetPaths 参数归一修复"
     status: "ACTIVE"
-    objective: "Scoped governance test packet that relocks active-task test strategy around execution-source invariants only. This round changes control/current_task.yaml, control/repo_status.md, and tests/test_stage12_extractors.py without touching runtime, product_task_library, product_module_registry, AX9S, src, contracts, handoff, scripts, or docs, and keeps canonical readiness plus external / Stage8 / Stage9 redlines unchanged."
+    objective: "Scoped governance packet that normalizes PlannedTargetPaths parsing in scripts/check-task-packet.ps1, keeps path validation strict, adds regression coverage for normal array/single-string/single-path/fail cases, and updates task-packet template guidance without changing runtime, product task libraries, AX9S, contracts, handoff, or canonical readiness."
     depends_on:
-      - "PTL-S8-governed-touch-deepening activation-only 已在当前工作区同步 control/current_task.yaml 与 control/repo_status.md，但其阻断根因位于 tests/test_stage12_extractors.py。"
-      - "check-final-gate 当前被 tests/test_stage12_extractors.py 对具体 active packet 的硬编码断言再次阻断。"
+      - "多个 scoped task packet 已重复暴露 scripts/check-task-packet.ps1 在当前代理执行环境里的 PlannedTargetPaths 绑定问题。"
+      - "当前误报表现为多路径计划参数被压成单字符串后触发 PLANNED_PATH_NOT_DECLARED / PLANNED_PATH_NOT_ALLOWED。"
+      - "当前工作区活动执行源将从 PTL-S8-governed-touch-deepening activation-only 切到本治理包。"
       - "source_blueprint_batch_id=POST-FF-CONTROL-01 已在 control/source_blueprint_registry.yaml 注册。"
     scoped_execution_scope:
       current_active_packet_switch: true
       previous_active_packet: "PTL-S8-governed-touch-deepening"
-      target_active_packet: "PTL-GOV-123-active-task-test-strategy-relock"
+      target_active_packet: "PTL-GOV-124-planned-targetpaths-normalization"
       activation_only: false
       enter_scoped_execution: true
-      active_packet_kind: "governance_test_packet"
+      active_packet_kind: "toolchain_governance_packet"
       post_mainline_direction_navigation_packet: false
       recommended_by_post_mainline_selection: false
       product_mainline_task: false
@@ -97,16 +98,16 @@ currentTask:
       runtime_change: false
       contracts_change: false
       handoff_change: false
-      scripts_change: false
+      scripts_change: true
       tests_change: true
-      docs_change: false
+      docs_change: true
       control_change: true
       ax9s_change: false
       canonical_readiness_change: false
       external_release_change: false
       stage8_real_execution_change: false
+      stage9_real_paymentDeliveryRefundChange: false
       stage9_real_payment_delivery_refund_change: false
-      stage9_real_payment_deliveryRefundChange: false
       new_business_object_enum_gate_exception_semantics: false
       new_formal_object_enum_gate_exception_semantics: false
       auto_next_candidate_selection: false
@@ -117,28 +118,28 @@ currentTask:
       - "不改 src"
       - "不改 contracts"
       - "不改 handoff"
-      - "不改 scripts"
-      - "不改 docs"
       - "不改 control/product_task_library.yaml"
       - "不改 control/product_module_registry.yaml"
+      - "不改 docs/AX9S_开发执行路由图.md"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不新增正式对象、枚举、gate、exception 语义"
-      - "不恢复 next candidate"
+      - "不自动恢复 next candidate"
       - "不自动激活推荐方向"
       - "不提交"
     affected_stages:
       - "automation_control"
-      - "testing"
+      - "governance_testing"
       - "release_gate"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "governance_testing"
+      - "future_external_unlock_prereq_core"
+      - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
@@ -150,41 +151,68 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "tests/test_stage12_extractors.py"
+      - "scripts/check-task-packet.ps1"
+      - "docs/自动开发任务包模板.md"
+      - "control/automation_task_packet_rules.yaml"
+      - "tests/test_check_automation_readiness_unicode_paths.py"
+      - "tests/test_review_gate_controls.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "tests/test_stage12_extractors.py"
+      - "scripts/check-task-packet.ps1"
+      - "docs/自动开发任务包模板.md"
+      - "control/automation_task_packet_rules.yaml"
+      - "tests/test_check_automation_readiness_unicode_paths.py"
+      - "tests/test_review_gate_controls.py"
     forbidden_modification_paths:
       - "AGENTS.md"
+      - "docs/L0.md"
+      - "docs/裁决总表.md"
+      - "docs/D1_研发_Codex执行手册.md"
+      - "docs/D2_正式对象契约与字段字典.md"
+      - "docs/D3_正式规则码总表与判定说明书.md"
+      - "docs/D4_OpenAPI接口契约.md"
+      - "docs/D5_页面导出与人工复核规范.md"
+      - "docs/D6_字段策略字典与客户交付字段规范.md"
+      - "docs/D7_对象级交付矩阵与外发治理规范.md"
+      - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
+      - "docs/D9_联系对象与销售触达规范.md"
+      - "docs/D10_订单支付交付与治理反馈规范.md"
+      - "docs/D11_测试验收与金标回归清单.md"
+      - "docs/D12_部署发布与运行治理规范.md"
+      - "docs/D13_公开可查边界能力清单.md"
+      - "docs/D14_AI模型治理规范.md"
+      - "docs/AX9S_开发执行路由图.md"
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/milestone_status.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/operator_assignment_roster_defaults.yaml"
       - "control/review_gate_matrix.yaml"
-      - "control/automation_task_packet_rules.yaml"
       - "control/ax9s_scoped_task_packet_template.yaml"
-      - "docs/**"
-      - "scripts/**"
       - "src/**"
       - "contracts/**"
       - "handoff/**"
     impacted_assets:
-      docs: []
+      docs:
+        - "docs/自动开发任务包模板.md"
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
+        - "control/automation_task_packet_rules.yaml"
       contracts: []
       handoff: []
-      scripts: []
+      scripts:
+        - "scripts/check-task-packet.ps1"
       runtime: []
       tests:
-        - "tests/test_stage12_extractors.py"
+        - "tests/test_check_automation_readiness_unicode_paths.py"
+        - "tests/test_review_gate_controls.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','tests/test_stage12_extractors.py'"
-      - "python -m pytest tests/test_stage12_extractors.py -q"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths @('control/current_task.yaml','control/repo_status.md','scripts/check-task-packet.ps1','docs/自动开发任务包模板.md','control/automation_task_packet_rules.yaml','tests/test_check_automation_readiness_unicode_paths.py','tests/test_review_gate_controls.py')"
+      - "python -m pytest tests/test_check_automation_readiness_unicode_paths.py -q"
+      - "python -m pytest tests/test_review_gate_controls.py -q"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1"
@@ -192,8 +220,9 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths <PowerShell array>": 300000
-      "python -m pytest tests/test_stage12_extractors.py -q": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths @('control/current_task.yaml','control/repo_status.md','scripts/check-task-packet.ps1','docs/自动开发任务包模板.md','control/automation_task_packet_rules.yaml','tests/test_check_automation_readiness_unicode_paths.py','tests/test_review_gate_controls.py')": 300000
+      "python -m pytest tests/test_check_automation_readiness_unicode_paths.py -q": 300000
+      "python -m pytest tests/test_review_gate_controls.py -q": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1": 600000
@@ -201,25 +230,33 @@ currentTask:
     stop_conditions:
       - "任一脚本失败"
       - "实际改动超出 allowed_modification_paths"
-      - "修改 src / scripts / contracts / handoff / docs"
-      - "修改 product_task_library / product_module_registry"
+      - "修改 product_task_library / product_module_registry / AX9S"
+      - "修改 src / contracts / handoff"
       - "改变 canonical readiness"
       - "放宽 external release / Stage8 / Stage9 红线"
-      - "测试仍硬编码具体 active packet id"
+      - "脚本兼容处理导致越界路径误放行"
+      - "自动恢复 next candidate"
       - "自动提交"
     definition_of_done:
-      - "control/current_task.yaml 当前 active packet 切到 PTL-GOV-123-active-task-test-strategy-relock。"
-      - "control/repo_status.md 当前 workstream 同步为 PTL-GOV-123-active-task-test-strategy-relock (SCOPED_EXECUTION)。"
-      - "tests/test_stage12_extractors.py 只验证 active execution source invariants，不再断言任何具体 active packet / task id / exact path list / exact docs or module scope。"
-      - "control/product_task_library.yaml 保持 MAINLINE_COMPLETE closeout 记录不变，task_id / packet_id 继续为空。"
+      - "control/current_task.yaml 当前 active packet 切到 PTL-GOV-124-planned-targetpaths-normalization。"
+      - "control/repo_status.md 当前 workstream 同步为 PTL-GOV-124-planned-targetpaths-normalization (SCOPED_EXECUTION)。"
+      - "scripts/check-task-packet.ps1 同时支持正常 string[] 与单字符串逗号拼接形式的 PlannedTargetPaths 输入。"
+      - "declared / allowed / forbidden 路径校验逻辑保持严格，不因兼容解析而放宽。"
+      - "tests/test_review_gate_controls.py 覆盖正常数组、单字符串逗号拼接、单路径与越界失败。"
+      - "tests/test_check_automation_readiness_unicode_paths.py 现有 Unicode / baseline dirty 行为不回退。"
+      - "docs/自动开发任务包模板.md 与 control/automation_task_packet_rules.yaml 统一改为推荐 PowerShell 数组变量写法，并说明单字符串逗号拼接仅为兜底。"
       - "canonical readiness 保持 READY_FOR_POST-REPAIR_MAINLINE_SELECTION。"
       - "conditional-go 保持 READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT。"
       - "external release / Stage8 / Stage9 红线保持不变。"
       - "required scripts 执行后停机汇报；不提交。"
     deliverables:
-      - "control/current_task.yaml：PTL-GOV-123-active-task-test-strategy-relock scoped-execution task packet"
+      - "control/current_task.yaml：PTL-GOV-124-planned-targetpaths-normalization scoped-execution task packet"
       - "control/repo_status.md：当前 workstream 与 scoped-execution 边界同步"
-      - "tests/test_stage12_extractors.py：active execution source invariant 测试收口"
+      - "scripts/check-task-packet.ps1：PlannedTargetPaths 参数归一修复"
+      - "docs/自动开发任务包模板.md：推荐写法与兜底说明同步"
+      - "control/automation_task_packet_rules.yaml：preflight 推荐写法与兜底说明同步"
+      - "tests/test_review_gate_controls.py：PlannedTargetPaths 传参回归覆盖"
+      - "tests/test_check_automation_readiness_unicode_paths.py：Unicode / baseline dirty 回归面保留"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -235,9 +272,9 @@ currentTask:
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "control/product_task_library.yaml 保持 MAINLINE_COMPLETE closeout，不自动恢复 next candidate。"
-      - "本包是小治理测试包，只修 active task 测试策略根因。"
-      - "本轮不进入 runtime，不改 product_task_library / product_module_registry / AX9S。"
+      - "本包是工具链根因修复包，不进入业务 runtime。"
+      - "兼容处理只作用于 PlannedTargetPaths 输入归一，不放宽 declared / allowed / forbidden 的校验语义。"
+      - "当前不改 product_task_library / product_module_registry / AX9S，不自动恢复 next candidate。"
       - "External leadpack delivery 继续要求 approval + audit；external release 继续保持阻断；Stage8 real execution 与 Stage9 real payment/delivery/refund 继续默认阻断。"
       - "Stage 8 real execution remains governed / approval-gated / blocked by default."
       - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default."
@@ -249,21 +286,25 @@ currentTask:
   allowed_actions:
     - "允许修改 control/current_task.yaml。"
     - "允许修改 control/repo_status.md。"
-    - "允许修改 tests/test_stage12_extractors.py。"
+    - "允许修改 scripts/check-task-packet.ps1。"
+    - "允许修改 docs/自动开发任务包模板.md。"
+    - "允许修改 control/automation_task_packet_rules.yaml。"
+    - "允许修改 tests/test_check_automation_readiness_unicode_paths.py。"
+    - "允许修改 tests/test_review_gate_controls.py。"
     - "允许运行本轮 required scripts，并按停机规则汇报。"
   forbidden_actions:
     - "不得修改 AGENTS.md。"
     - "不得修改 control/product_task_library.yaml。"
     - "不得修改 control/product_module_registry.yaml。"
-    - "不得修改 docs/**。"
-    - "不得修改 scripts/**、src/**、contracts/**、handoff/**。"
-    - "不得修改其他 tests/**。"
-    - "不得修改 control/milestone_status.yaml、control/source_blueprint_registry.yaml、control/operator_assignment_roster_defaults.yaml、control/review_gate_matrix.yaml、control/automation_task_packet_rules.yaml、control/ax9s_scoped_task_packet_template.yaml。"
+    - "不得修改 docs/AX9S_开发执行路由图.md。"
+    - "不得修改 src/**、contracts/**、handoff/**。"
+    - "不得修改其他未声明 docs / scripts / tests 路径。"
+    - "不得修改 control/milestone_status.yaml、control/source_blueprint_registry.yaml、control/operator_assignment_roster_defaults.yaml、control/review_gate_matrix.yaml、control/ax9s_scoped_task_packet_template.yaml。"
     - "不得改变 canonical readiness。"
     - "不得放宽 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
     - "不得自动恢复 next candidate。"
     - "不得自动激活推荐方向。"
     - "不得自动提交。"
   nextActions:
-    - "完成本轮测试策略修复校验后停机汇报；不自动进入下一包，不提交。"
-  status_note: "PTL-GOV-123-active-task-test-strategy-relock 当前以 SCOPED_EXECUTION 执行；本轮只修 active task 测试策略根因并同步 control/current_task.yaml、control/repo_status.md、tests/test_stage12_extractors.py，不进入 runtime，不改 product_task_library / product_module_registry / AX9S，不改变 canonical readiness，不提交。"
+    - "完成本轮 required scripts 校验后停机汇报；不自动进入下一包，不提交。"
+  status_note: "PTL-GOV-124-planned-targetpaths-normalization 当前以 SCOPED_EXECUTION 执行；本轮只修 PlannedTargetPaths 参数归一、补测试与模板说明，并同步 control/current_task.yaml、control/repo_status.md，不进入业务 runtime，不改 product_task_library / product_module_registry / AX9S，不改变 canonical readiness，不提交。"

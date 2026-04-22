@@ -68,6 +68,87 @@ function Normalize-Path {
     return ($Path -replace '\\', '/').Trim()
 }
 
+function Trim-MatchingQuotes {
+    param([string]$Value)
+    if ($null -eq $Value) { return '' }
+    $trimmed = $Value.Trim()
+    if ($trimmed.Length -lt 2) { return $trimmed }
+
+    $first = $trimmed[0]
+    $last = $trimmed[$trimmed.Length - 1]
+    if (($first -eq "'" -and $last -eq "'") -or ($first -eq '"' -and $last -eq '"')) {
+        return $trimmed.Substring(1, $trimmed.Length - 2)
+    }
+    return $trimmed
+}
+
+function Split-CollapsedPathList {
+    param([string]$Value)
+
+    if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
+
+    $text = $Value.Trim()
+    if ($text.StartsWith('@(') -and $text.EndsWith(')')) {
+        $text = $text.Substring(2, $text.Length - 3)
+    }
+    if (-not $text.Contains(',')) {
+        return @(Trim-MatchingQuotes -Value $text)
+    }
+
+    $parts = [System.Collections.Generic.List[string]]::new()
+    $builder = [System.Text.StringBuilder]::new()
+    $activeQuote = [char]0
+
+    for ($i = 0; $i -lt $text.Length; $i++) {
+        $char = $text[$i]
+        if ($activeQuote -ne [char]0) {
+            if ($char -eq $activeQuote) {
+                $activeQuote = [char]0
+                continue
+            }
+            $builder.Append($char) | Out-Null
+            continue
+        }
+
+        if (($char -eq "'" -or $char -eq '"') -and [string]::IsNullOrWhiteSpace($builder.ToString())) {
+            $activeQuote = $char
+            continue
+        }
+        if ($char -eq ',') {
+            $parts.Add((Trim-MatchingQuotes -Value $builder.ToString())) | Out-Null
+            $builder.Clear() | Out-Null
+            continue
+        }
+        $builder.Append($char) | Out-Null
+    }
+
+    if ($activeQuote -ne [char]0) {
+        return @(Trim-MatchingQuotes -Value $Value)
+    }
+
+    $parts.Add((Trim-MatchingQuotes -Value $builder.ToString())) | Out-Null
+    return @($parts | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
+
+function Normalize-PlannedTargetPaths {
+    param([string[]]$Paths)
+
+    $values = @($Paths | Where-Object { $null -ne $_ })
+    if ($values.Count -eq 1) {
+        $values = @(Split-CollapsedPathList -Value ([string]$values[0]))
+    }
+    else {
+        $values = @($values | ForEach-Object { Trim-MatchingQuotes -Value ([string]$_) })
+    }
+
+    $normalized = [System.Collections.Generic.List[string]]::new()
+    foreach ($value in $values) {
+        if ([string]::IsNullOrWhiteSpace($value)) { continue }
+        $normalized.Add((Normalize-Path $value)) | Out-Null
+    }
+    return @($normalized)
+}
+
 function Test-PatternMatch {
     param([string]$Path,[string[]]$Patterns)
     $normalized = Normalize-Path $Path
@@ -206,6 +287,7 @@ $declaredPaths = @($taskPacket.declared_changed_paths | ForEach-Object { Normali
 $allowedPaths = @($taskPacket.allowed_modification_paths | ForEach-Object { Normalize-Path ([string]$_) })
 $forbiddenPaths = @($taskPacket.forbidden_modification_paths | ForEach-Object { Normalize-Path ([string]$_) })
 $baselineDirtyPaths = @((Get-FieldValue -Object $taskPacket -Name 'baseline_dirty_paths') | ForEach-Object { Normalize-Path ([string]$_) })
+$normalizedPlannedTargetPaths = Normalize-PlannedTargetPaths -Paths $PlannedTargetPaths
 foreach ($path in $declaredPaths) {
     if (-not (Test-PatternMatch -Path $path -Patterns $allowedPaths)) {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'DECLARED_PATH_NOT_ALLOWED' -Message "Declared path $path is outside allowed_modification_paths." -Path 'control/current_task.yaml'
@@ -214,8 +296,8 @@ foreach ($path in $declaredPaths) {
         Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'DECLARED_PATH_FORBIDDEN' -Message "Declared path $path matches forbidden_modification_paths." -Path 'control/current_task.yaml'
     }
 }
-if (@($PlannedTargetPaths).Count -gt 0) {
-    Test-PathScopeCompliance -Paths $PlannedTargetPaths -DeclaredPatterns $declaredPaths -AllowedPatterns $allowedPaths -ForbiddenPatterns $forbiddenPaths -IssuePrefix 'PLANNED' -RequireDeclaredMatch -Issues ([ref]$issues)
+if (@($normalizedPlannedTargetPaths).Count -gt 0) {
+    Test-PathScopeCompliance -Paths $normalizedPlannedTargetPaths -DeclaredPatterns $declaredPaths -AllowedPatterns $allowedPaths -ForbiddenPatterns $forbiddenPaths -IssuePrefix 'PLANNED' -RequireDeclaredMatch -Issues ([ref]$issues)
 }
 $actualChangedPaths = Get-ActualChangedPaths -Root $root
 if (@($actualChangedPaths).Count -gt 0) {

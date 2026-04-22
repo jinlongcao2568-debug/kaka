@@ -92,8 +92,14 @@ fail_conditions:
   - operator_roster_stage_missing
   - operator_roster_stage_drift
 preflight_checks:
-  entrypoint: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths <paths>
+  entrypoint: |
+    $paths = @(
+      'control/current_task.yaml',
+      'control/repo_status.md'
+    )
+    pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths $paths
   required_rule: planned target paths / intended changed files must match declared_changed_paths and allowed_modification_paths before editing or commit
+  compatibility_note: scripts/check-task-packet.ps1 对单字符串逗号拼接形式有兼容处理，仅作工具链兜底，不是首选写法
 notes:
   - there is no single repository-wide max_files, max_docs, max_control, or max_machine_assets hard cap
   - whether a task should split is decided by single_focus, declared/allowed/forbidden paths, review gate, and stop conditions
