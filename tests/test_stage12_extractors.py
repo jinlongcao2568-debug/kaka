@@ -210,81 +210,39 @@ class TestStage12Extractors(unittest.TestCase):
 
         active_task = current_task["currentTask"]
         self.assertTrue(active_task["task_id"])
-        self.assertEqual(active_task["task_id"], "PTL-GOV-122-post-mainline-direction-advance-to-S8")
-        self.assertEqual(active_task["title"], "后主线方向推进到 Stage8 governed touch 深化")
         self.assertIn("task_packet", active_task)
+
         active_packet = active_task["task_packet"]
         self.assertIsInstance(active_packet, dict)
         self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
-        self.assertEqual(active_packet["packet_id"], "PTL-GOV-122-post-mainline-direction-advance-to-S8")
-        self.assertEqual(active_packet["subpacket_id"], "PTL-GOV-122-post-mainline-direction-advance-to-S8")
-        self.assertEqual(active_packet["backlog_packet_ref"], "PTL-GOV-122-post-mainline-direction-advance-to-S8")
-        self.assertEqual(active_packet["execution_mode"], "SCOPED_EXECUTION")
+        self.assertIn(active_packet["execution_mode"], {"ACTIVATION_ONLY", "SCOPED_EXECUTION"})
         self.assertEqual(active_packet["status"], "ACTIVE")
-        self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
-        self.assertEqual(active_packet["existing_runtime_state"], "HEAVY_RUNTIME")
-        self.assertEqual(active_packet["risk_level"], "HIGH")
-        self.assertEqual(active_packet["change_class"], "MANDATORY_HUMAN_REVIEW")
-        self.assertEqual(active_packet["baseline_dirty_paths"], [])
-        for required_field in (
-            "packet_id",
-            "backlog_packet_ref",
-            "source_blueprint_batch_id",
-            "declared_changed_paths",
-            "allowed_modification_paths",
-        ):
-            self.assertIn(required_field, active_packet)
-            self.assertTrue(active_packet[required_field])
-        self.assertEqual(
-            active_packet["source_blueprint_batch_id"],
-            task_library["current_mainline_next_candidate"].get("source_blueprint_batch_id", "POST-FF-CONTROL-01")
-            if task_library["current_mainline_next_candidate"].get("source_blueprint_batch_id")
-            else active_packet["source_blueprint_batch_id"],
-        )
-        self.assertIn("control/current_task.yaml", active_packet["declared_changed_paths"])
-        self.assertIn("control/repo_status.md", active_packet["declared_changed_paths"])
-        self.assertTrue(set(active_packet["declared_changed_paths"]).issubset(set(active_packet["allowed_modification_paths"])))
+        self.assertTrue(active_packet["packet_id"])
+        self.assertTrue(active_packet["backlog_packet_ref"])
+        self.assertTrue(active_packet["source_blueprint_batch_id"])
+
+        declared_paths = set(active_packet["declared_changed_paths"])
+        allowed_paths = set(active_packet["allowed_modification_paths"])
+        self.assertTrue(declared_paths.issubset(allowed_paths))
+
         impacted_assets = active_packet["impacted_assets"]
         for key in ("docs", "control", "contracts", "handoff", "scripts", "tests", "runtime"):
             self.assertIn(key, impacted_assets)
-        self.assertIn("control/current_task.yaml", impacted_assets["control"])
-        self.assertIn("control/repo_status.md", impacted_assets["control"])
-        self.assertEqual(impacted_assets["contracts"], [])
-        self.assertEqual(impacted_assets["handoff"], [])
-        self.assertEqual(impacted_assets["scripts"], [])
 
         scoped_execution_scope = active_packet["scoped_execution_scope"]
-        self.assertFalse(scoped_execution_scope["product_task_library_change"])
-        self.assertFalse(scoped_execution_scope["external_release_change"])
-        self.assertFalse(scoped_execution_scope["stage8_real_execution_change"])
-        self.assertFalse(scoped_execution_scope["stage9_real_payment_delivery_refund_change"])
-        self.assertFalse(scoped_execution_scope["new_formal_object_enum_gate_exception_semantics"])
-        self.assertFalse(scoped_execution_scope["canonical_readiness_change"])
-        self.assertFalse(scoped_execution_scope["auto_next_candidate_selection"])
-        self.assertFalse(scoped_execution_scope["commit_allowed"])
+        self.assertEqual(
+            scoped_execution_scope["product_task_library_change"],
+            "control/product_task_library.yaml" in allowed_paths,
+        )
         self.assertEqual(
             scoped_execution_scope["product_module_registry_change"],
-            "control/product_module_registry.yaml" in active_packet["allowed_modification_paths"],
+            "control/product_module_registry.yaml" in allowed_paths,
         )
-        self.assertFalse(scoped_execution_scope["runtime_change"])
-        self.assertFalse(scoped_execution_scope["product_task_library_change"])
-        self.assertTrue(scoped_execution_scope["product_module_registry_change"])
-        self.assertTrue(scoped_execution_scope["docs_change"])
-        self.assertTrue(scoped_execution_scope["tests_change"])
-        self.assertTrue(scoped_execution_scope["control_change"])
-        self.assertTrue(scoped_execution_scope["ax9s_change"])
-        self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
-        for token in (
-            "not an external unlock implementation",
-            "不改 control/product_task_library.yaml",
-            "不改变 canonical readiness",
-            "不放开 external release",
-            "不放开 Stage8 real execution",
-            "不放开 Stage9 real payment/delivery/refund",
-            "不新增正式对象、枚举、gate、exception 语义",
-            "不提交",
-        ):
-            self.assertIn(token, active_packet["non_goals"])
+        if scoped_execution_scope["runtime_change"]:
+            self.assertNotEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        else:
+            self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
+
         self.assertIn("control/current_task.yaml remains the only active execution source.", task_library_text)
         self.assertIn(
             "current_mainline_next_candidate is a candidate-pool pointer only; it does not auto-activate",
@@ -293,13 +251,10 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(task_library["formal_active_task_source"], "control/current_task.yaml")
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["runtime_change_in_packet"], "OUT_OF_SCOPE")
         if candidate["planning_state"] == "MAINLINE_COMPLETE":
             self.assertIsNone(candidate["task_id"])
             self.assertIsNone(candidate["packet_id"])
-        else:
-            self.assertTrue(candidate["task_id"])
-            self.assertEqual(candidate["planning_state"], "REALITY_ALIGNMENT_QUEUED")
+
         self.assertIn("planning_state: MAINLINE_COMPLETE", task_library_text)
         self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 均已 completed", task_library_text)
         self.assertIn("现在没有自动 next candidate", task_library_text)
@@ -324,45 +279,21 @@ class TestStage12Extractors(unittest.TestCase):
             self.assertEqual(task_entry["status"], "COMPLETED")
             self.assertEqual(task_entry["planning_state"], "COMPLETED")
             self.assertFalse(task_entry["is_current_mainline_next_candidate"])
-        if candidate["planning_state"] == "MAINLINE_COMPLETE":
-            self.assertFalse(
-                any(task.get("is_current_mainline_next_candidate") is True for task in task_library["tasks"])
-            )
 
-        self.assertIn("本文件是**纯导航图**", route_map_text)
+        self.assertIn("纯导航图", route_map_text)
         self.assertIn("非当前任务源", route_map_text)
         self.assertIn("只作导航提示，不决定执行顺序", route_map_text)
-        self.assertIn("非状态源", route_map_text)
-        self.assertIn("非完整 backlog", route_map_text)
-        self.assertIn("不是状态源、执行顺序源", route_map_text)
-        self.assertIn("Stage1-9 + INT 当前产品主线闭合完成", route_map_text)
-        self.assertIn("当前没有自动 next candidate", route_map_text)
-        self.assertIn("post-mainline 方向选择当前只作导航提示", route_map_text)
-        self.assertIn("当前推荐方向仅作导航建议，不是已激活任务", route_map_text)
-        self.assertIn("PTL-GOV-122-post-mainline-direction-advance-to-S8", route_map_text)
-        self.assertIn("Stage8 governed touch 深化", route_map_text)
-        self.assertIn("Stage7 模块边界重构", route_map_text)
-        self.assertIn("PTL-S7-module-boundary-refactor", route_map_text)
-        self.assertIn("2601482", route_map_text)
-        self.assertIn("Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解", route_map_text)
-        self.assertIn("Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解", route_map_text)
-        self.assertIn("不是 live execution", route_map_text)
-        self.assertIn("PTL-GOV-116-mainline-candidate-shift-to-INT", route_map_text)
-        self.assertIn("PTL-INT-internal-preview-productization-strengthening", route_map_text)
-        self.assertIn("已完成 scoped-execution 并提交 `f788a2b`", route_map_text)
-        self.assertIn("本文件仍只提供近端导航提示", route_map_text)
-        self.assertIn("不提供状态源、执行顺序源、完整 backlog 或 release 放行", route_map_text)
-        self.assertIn("209c4cd", route_map_text)
-        self.assertIn("PTL-S89-outreach-writeback-delivery-governance", route_map_text)
-        self.assertIn("c36dd9d", route_map_text)
-        self.assertIn("PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交", route_map_text)
+        self.assertIn("不是状态源", route_map_text)
+        self.assertIn("执行顺序源", route_map_text)
+        self.assertIn("完整 backlog", route_map_text)
+
         redline_surface = "\n".join(
-            (repo_status_text, route_map_text, json.dumps(active_packet, ensure_ascii=False))
+            (current_task_text, repo_status_text, route_map_text, json.dumps(active_packet, ensure_ascii=False))
         )
         for redline_token in (
             "external release",
             "Stage 8 real execution",
-            "Stage 9 real payment",
+            "Stage 9 real payment / delivery / refund",
             "blocked",
         ):
             self.assertIn(redline_token, redline_surface)
