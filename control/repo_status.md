@@ -79,7 +79,7 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths @('control/current_task.yaml','control/repo_status.md','scripts/check-task-packet.ps1','docs/自动开发任务包模板.md','control/automation_task_packet_rules.yaml','tests/test_check_automation_readiness_unicode_paths.py','tests/test_review_gate_controls.py')
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''scripts/check-task-packet.ps1'',''docs/自动开发任务包模板.md'',''control/automation_task_packet_rules.yaml'',''tests/test_check_automation_readiness_unicode_paths.py'',''tests/test_review_gate_controls.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - python -m pytest tests/test_check_automation_readiness_unicode_paths.py -q
 - python -m pytest tests/test_review_gate_controls.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1

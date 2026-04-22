@@ -22,6 +22,17 @@ FIXTURES = (
     "control/source_blueprint_registry.yaml",
     "control/operator_assignment_roster_defaults.yaml",
 )
+TASK_PACKET_SCOPE_SNAPSHOT = (
+    "control/current_task.yaml",
+    "control/repo_status.md",
+    "control/product_task_library.yaml",
+    "control/source_blueprint_registry.yaml",
+    "control/operator_assignment_roster_defaults.yaml",
+    "control/review_gate_matrix.yaml",
+    "control/automation_task_packet_rules.yaml",
+    "control/owners.yaml",
+    "scripts/check-task-packet.ps1",
+)
 
 
 def read(relative_path: str) -> str:
@@ -103,6 +114,44 @@ class TestReviewGateControls(unittest.TestCase):
         subprocess.run(["git", "commit", "-m", "baseline"], cwd=repo, check=True, capture_output=True)
         return repo
 
+    def _build_temp_repo_from_real_scope_snapshot(self) -> Path:
+        tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(tempdir.cleanup)
+        repo = Path(tempdir.name)
+
+        for relative_path in TASK_PACKET_SCOPE_SNAPSHOT:
+            source = ROOT / relative_path
+            target = repo / relative_path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+
+        subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Codex Test"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "codex@example.com"], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "baseline"], cwd=repo, check=True, capture_output=True)
+        return repo
+
+    def _run_shell_command_string(self, repo: Path, command: str) -> subprocess.CompletedProcess[str]:
+        outer_shell = shutil.which("powershell") or shutil.which("pwsh")
+        if outer_shell is None:
+            self.fail("powershell or pwsh is required to execute task-packet command strings in tests")
+        return subprocess.run(
+            [outer_shell, "-NoProfile", "-Command", command],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    def _read_planned_target_required_script(self) -> str:
+        current_task = yaml.safe_load(read("control/current_task.yaml"))
+        required_scripts = current_task["currentTask"]["task_packet"]["required_scripts"]
+        for command in required_scripts:
+            if "-PlannedTargetPaths" in command:
+                return command
+        self.fail("control/current_task.yaml must define a required_scripts entry with -PlannedTargetPaths")
+
     def _run_task_packet_check(self, repo: Path, planned_target_paths: list[str], *, via_array: bool = False) -> subprocess.CompletedProcess[str]:
         if via_array:
             quoted_paths = ", ".join(f"'{path}'" for path in planned_target_paths)
@@ -163,6 +212,20 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertIn("check-final-gate.ps1", gate)
         self.assertIn("suggestion-only", ax9s)
         self.assertIn("manual_planning_review", ax9s)
+
+    def test_published_planned_target_command_runs_as_recorded(self) -> None:
+        command = self._read_planned_target_required_script()
+        repo_status = read("control/repo_status.md")
+        current_task = yaml.safe_load(read("control/current_task.yaml"))
+        script_timeouts = current_task["currentTask"]["task_packet"]["script_timeouts"]
+
+        self.assertIn(command, repo_status)
+        self.assertIn(command, script_timeouts)
+
+        repo = self._build_temp_repo_from_real_scope_snapshot()
+        result = self._run_shell_command_string(repo, command)
+        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertIn("[check-task-packet] PASS", result.stdout)
 
     def test_product_planning_sync_registration_is_formalized(self) -> None:
         library = yaml.safe_load(read("control/product_task_library.yaml"))
