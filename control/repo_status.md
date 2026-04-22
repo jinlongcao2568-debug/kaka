@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-INT-internal-preview-productization-strengthening (SCOPED_EXECUTION; post-mainline strengthening packet from the post_mainline_selection recommended direction; this round productizes the existing internal preview PARTIAL_RUNTIME only across preview surface envelope, repository-backed replay precedence, and operator-loop projection / replay contract; keep control/product_task_library.yaml unchanged with the existing MAINLINE_COMPLETE closeout record and no automatic next candidate; do not change control/product_module_registry.yaml or docs/AX9S_开发执行路由图.md; do not change contracts / handoff / scripts; do not change Stage7/8/9 business implementation; canonical readiness unchanged; external software release remains blocked; external leadpack delivery remains approval + audit required; Stage 8 real execution and Stage 9 real payment/delivery/refund remain governed / approval-gated / blocked by default)
+Current Workstream: PTL-GOV-122-post-mainline-direction-advance-to-S8 (SCOPED_EXECUTION; post-mainline direction navigation packet that advances the current post_mainline_selection recommendation from Internal preview 产品化强化 to Stage8 governed touch 深化; this round is control/docs/tests only, keeps control/product_task_library.yaml unchanged with the existing MAINLINE_COMPLETE closeout record and no automatic next candidate; does not change src / contracts / handoff / scripts; does not change canonical readiness; does not loosen external software release, Stage 8 real execution, or Stage 9 real payment/delivery/refund redlines; does not auto-activate the recommended direction; does not commit)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,15 +20,12 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- switch control/current_task.yaml active packet to PTL-INT-internal-preview-productization-strengthening SCOPED_EXECUTION
-- sync control/repo_status.md current workstream wording to PTL-INT-internal-preview-productization-strengthening (SCOPED_EXECUTION)
-- strengthen preview surface envelope in src/api/projections.py
-- strengthen repository-backed replay precedence in src/storage/repository_boundary.py
-- strengthen operator-loop projection / replay contract in src/storage/operator_loop_contracts.py
-- update only the allowed internal preview / repository / API transport / operational loop tests
+- switch control/current_task.yaml active packet to PTL-GOV-122-post-mainline-direction-advance-to-S8 SCOPED_EXECUTION
+- sync control/repo_status.md current workstream wording to PTL-GOV-122-post-mainline-direction-advance-to-S8 (SCOPED_EXECUTION)
+- update control/product_module_registry.yaml post_mainline_selection recommendation metadata only
+- update docs/AX9S_开发执行路由图.md only in 现实对齐说明 and 近端导航提示
+- update only tests/test_stage12_extractors.py and tests/test_product_module_registry.py
 - keep control/product_task_library.yaml unchanged, with current_mainline_next_candidate staying as the existing MAINLINE_COMPLETE closeout record with task_id=null and packet_id=null
-- keep control/product_module_registry.yaml unchanged
-- keep docs/AX9S_开发执行路由图.md unchanged
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
 - keep external software release blocked
@@ -38,59 +35,42 @@ Allowed Actions (current):
 - run the required checks and stop for report
 
 Forbidden Actions (current):
-- Any work outside PTL-INT-internal-preview-productization-strengthening scoped-execution in this round
-- Any contract / handoff / script / AX9S / product_task_library / product_module_registry change
-- Any src/shared, src/api/routes, src/api/schemas, src/storage/repositories, or stage1-9 runtime change outside the allowed preview/API/storage boundary files
-- Any tests/** change outside the explicitly allowed test files
-- Any change outside declared_changed_paths / allowed_modification_paths
-- Any change to AGENTS.md
-- Any change to docs/**
-- Any change to src/shared/**
-- Any change to src/api/routes/**
-- Any change to src/api/schemas/**
-- Any change to src/stage1_tasking/**
-- Any change to src/stage2_ingestion/**
-- Any change to src/stage3_parsing/**
-- Any change to src/stage4_verification/**
-- Any change to src/stage5_rules_evidence/**
-- Any change to src/stage6_fact_review/**
-- Any change to src/stage7_sales/**
-- Any change to src/stage8_outreach/**
-- Any change to src/stage9_delivery/**
-- Any change to src/storage/repositories/**
-- Any change to tests/** outside the explicit allowed list
+- Any work outside PTL-GOV-122-post-mainline-direction-advance-to-S8 scoped-execution in this round
 - Any change to control/product_task_library.yaml
-- Any change to control/product_module_registry.yaml
+- Any change to src/**, contracts/**, handoff/**, scripts/**
+- Any change to AGENTS.md
+- Any change to docs/L0.md, docs/裁决总表.md, docs/D1_研发_Codex执行手册.md, docs/D2_正式对象契约与字段字典.md, docs/D3_正式规则码总表与判定说明书.md, docs/D4_OpenAPI接口契约.md, docs/D5_页面导出与人工复核规范.md, docs/D6_字段策略字典与客户交付字段规范.md, docs/D7_对象级交付矩阵与外发治理规范.md, docs/D8_真实竞争者识别可售对象与销售推进规范.md, docs/D9_联系对象与销售触达规范.md, docs/D10_订单支付交付与治理反馈规范.md, docs/D11_测试验收与金标回归清单.md, docs/D12_部署发布与运行治理规范.md, docs/D13_公开可查边界能力清单.md, docs/D14_AI模型治理规范.md, docs/自动开发任务包模板.md
 - Any change to control/milestone_status.yaml
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/operator_assignment_roster_defaults.yaml
 - Any change to control/review_gate_matrix.yaml
 - Any change to control/automation_task_packet_rules.yaml
 - Any change to control/ax9s_scoped_task_packet_template.yaml
+- Any tests/** change outside tests/test_stage12_extractors.py and tests/test_product_module_registry.py
 - Any change that alters canonical readiness
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any automatic next-mainline selection or current_mainline_next_candidate restoration
+- Any automatic recommended-direction activation
 - Automatic commit
 
 State Semantics:
-- READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself change external release, Stage8, Stage 8, Stage9, or Stage 9 boundaries.
+- READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself change external release, Stage8, or Stage9 boundaries.
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-GOV-120-post-mainline-direction-advance-to-INT has completed and committed as be0b0b9.
-- PTL-GOV-121-active-task-test-strategy-hardening has completed and committed as 604b5be.
-- post_mainline_selection currently recommends Internal preview 产品化强化.
-- PTL-INT-internal-preview-productization-strengthening is now the active post-mainline strengthening packet in SCOPED_EXECUTION mode.
-- This scoped-execution round changes only the declared internal preview control/runtime/test files; it does not change product_task_library, product_module_registry, AX9S, contracts, handoff, scripts, routes, schemas, repositories, shared runtime, or Stage7/8/9 business implementation.
+- PTL-INT-internal-preview-productization-strengthening has completed and committed as f788a2b.
+- post_mainline_selection previously recommended Internal preview 产品化强化 and now recommends Stage8 governed touch 深化.
+- PTL-GOV-122-post-mainline-direction-advance-to-S8 is now the active post-mainline direction navigation packet in SCOPED_EXECUTION mode.
+- This scoped-execution round changes only the declared control/docs/tests files; it does not change product_task_library, runtime, src, contracts, handoff, scripts, or Stage7/8/9 business implementation.
 - control/product_task_library.yaml current_mainline_next_candidate remains a MAINLINE_COMPLETE closeout record with no task_id and no packet_id.
 - There is no automatic next candidate after this closeout.
 - Any follow-on new mainline or external unlock must be opened as a separate task packet and manually confirmed.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
-- control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source; this scoped-execution round does not modify it.
+- control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source; this scoped-execution round only updates post_mainline_selection recommendation metadata.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
-- AX9S is unchanged in this scoped-execution round; it does not become a status source, execution-order source, or full backlog.
+- AX9S in this round only syncs reality alignment and near-end navigation hints; it does not become a status source, execution-order source, or full backlog.
 - Canonical readiness is unchanged by this scoped-execution round.
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
 - External software release remains blocked.
@@ -99,13 +79,9 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths <PowerShell array: control/current_task.yaml, control/repo_status.md, src/api/projections.py, src/storage/repository_boundary.py, src/storage/operator_loop_contracts.py, tests/test_internal_surface_preview.py, tests/test_internal_repository_boundary.py, tests/test_api_transport_bootstrap.py, tests/test_internal_operational_loop.py, tests/test_internal_operational_hardening.py>
-- python -m pytest tests/test_internal_surface_preview.py -q
-- python -m pytest tests/test_internal_repository_boundary.py -q
-- python -m pytest tests/test_api_transport_bootstrap.py -q
-- python -m pytest tests/test_internal_operational_loop.py -q
-- python -m pytest tests/test_internal_operational_hardening.py -q
+- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','control/product_module_registry.yaml','docs/AX9S_开发执行路由图.md','tests/test_stage12_extractors.py','tests/test_product_module_registry.py'
 - python -m pytest tests/test_stage12_extractors.py -q
+- python -m pytest tests/test_product_module_registry.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1

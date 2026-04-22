@@ -210,14 +210,19 @@ class TestStage12Extractors(unittest.TestCase):
 
         active_task = current_task["currentTask"]
         self.assertTrue(active_task["task_id"])
+        self.assertEqual(active_task["task_id"], "PTL-GOV-122-post-mainline-direction-advance-to-S8")
+        self.assertEqual(active_task["title"], "后主线方向推进到 Stage8 governed touch 深化")
         self.assertIn("task_packet", active_task)
         active_packet = active_task["task_packet"]
         self.assertIsInstance(active_packet, dict)
         self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
-        self.assertIn(active_packet["execution_mode"], {"ACTIVATION_ONLY", "SCOPED_EXECUTION"})
+        self.assertEqual(active_packet["packet_id"], "PTL-GOV-122-post-mainline-direction-advance-to-S8")
+        self.assertEqual(active_packet["subpacket_id"], "PTL-GOV-122-post-mainline-direction-advance-to-S8")
+        self.assertEqual(active_packet["backlog_packet_ref"], "PTL-GOV-122-post-mainline-direction-advance-to-S8")
+        self.assertEqual(active_packet["execution_mode"], "SCOPED_EXECUTION")
         self.assertEqual(active_packet["status"], "ACTIVE")
-        self.assertIsInstance(active_packet["runtime_change_in_packet"], str)
-        self.assertTrue(active_packet["runtime_change_in_packet"])
+        self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(active_packet["existing_runtime_state"], "HEAVY_RUNTIME")
         self.assertEqual(active_packet["risk_level"], "HIGH")
         self.assertEqual(active_packet["change_class"], "MANDATORY_HUMAN_REVIEW")
         self.assertEqual(active_packet["baseline_dirty_paths"], [])
@@ -261,10 +266,14 @@ class TestStage12Extractors(unittest.TestCase):
             scoped_execution_scope["product_module_registry_change"],
             "control/product_module_registry.yaml" in active_packet["allowed_modification_paths"],
         )
-        if scoped_execution_scope["runtime_change"]:
-            self.assertNotEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
-        else:
-            self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertFalse(scoped_execution_scope["runtime_change"])
+        self.assertFalse(scoped_execution_scope["product_task_library_change"])
+        self.assertTrue(scoped_execution_scope["product_module_registry_change"])
+        self.assertTrue(scoped_execution_scope["docs_change"])
+        self.assertTrue(scoped_execution_scope["tests_change"])
+        self.assertTrue(scoped_execution_scope["control_change"])
+        self.assertTrue(scoped_execution_scope["ax9s_change"])
+        self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
         for token in (
             "not an external unlock implementation",
             "不改 control/product_task_library.yaml",
@@ -330,8 +339,8 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("当前没有自动 next candidate", route_map_text)
         self.assertIn("post-mainline 方向选择当前只作导航提示", route_map_text)
         self.assertIn("当前推荐方向仅作导航建议，不是已激活任务", route_map_text)
-        self.assertIn("PTL-GOV-120-post-mainline-direction-advance-to-INT", route_map_text)
-        self.assertIn("Internal preview 产品化强化", route_map_text)
+        self.assertIn("PTL-GOV-122-post-mainline-direction-advance-to-S8", route_map_text)
+        self.assertIn("Stage8 governed touch 深化", route_map_text)
         self.assertIn("Stage7 模块边界重构", route_map_text)
         self.assertIn("PTL-S7-module-boundary-refactor", route_map_text)
         self.assertIn("2601482", route_map_text)
@@ -339,8 +348,8 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解", route_map_text)
         self.assertIn("不是 live execution", route_map_text)
         self.assertIn("PTL-GOV-116-mainline-candidate-shift-to-INT", route_map_text)
-        self.assertIn("PTL-INT-internal-preview-surface-envelope", route_map_text)
-        self.assertIn("已完成 scoped-execution 并提交 `cfc5265`", route_map_text)
+        self.assertIn("PTL-INT-internal-preview-productization-strengthening", route_map_text)
+        self.assertIn("已完成 scoped-execution 并提交 `f788a2b`", route_map_text)
         self.assertIn("本文件仍只提供近端导航提示", route_map_text)
         self.assertIn("不提供状态源、执行顺序源、完整 backlog 或 release 放行", route_map_text)
         self.assertIn("209c4cd", route_map_text)
