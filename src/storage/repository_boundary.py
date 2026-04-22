@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from shared.contract_loader import load_contract
-from shared.contracts_runtime import ContractRecord, ContractStore, StageBundle
+from shared.contracts_runtime import ContractStore, StageBundle
 
 from storage.db import (
     DatabaseSession,
@@ -22,18 +22,10 @@ from storage.operator_loop_contracts import (
     review_action_spec,
 )
 from storage.repositories import (
-    BuyerFitRepository,
     ContactTargetRepository,
-    DeliveryRecordRepository,
-    GovernanceFeedbackEventRepository,
-    LegalActionActorProfileRepository,
-    OfferRecommendationRepository,
     OperatorActionRepository,
-    OpportunityOutcomeEventRepository,
     OrderRecordRepository,
     OutreachPlanRepository,
-    PaymentRecordRepository,
-    ProcurementDecisionActorProfileRepository,
     SaleableOpportunityRepository,
     TouchRecordRepository,
     WorkItemRepository,
@@ -568,41 +560,24 @@ def record_operator_action(payload: Any, *, stage_scope: int) -> dict[str, Any]:
     }
 
 
+def _repository_bundle_io_module() -> Any:
+    # Keep repository_boundary.py as the public facade while allowing
+    # persist/hydrate helpers to live in dedicated modules without eager cycles.
+    from storage import repository_bundle_io
+
+    return repository_bundle_io
+
+
 def _persist_stage7_bundle(bundle: StageBundle) -> StageBundle:
-    SaleableOpportunityRepository().save(bundle.record("saleable_opportunity").data)
-    OfferRecommendationRepository().save(bundle.record("offer_recommendation").data)
-    BuyerFitRepository().save(bundle.record("buyer_fit").data)
-    LegalActionActorProfileRepository().save(bundle.record("legal_action_actor_profile").data)
-    ProcurementDecisionActorProfileRepository().save(bundle.record("procurement_decision_actor_profile").data)
-    _persist_auxiliary_record(
-        object_type="multi_competitor_collection",
-        id_field="multi_competitor_collection_id",
-        stage_scope=7,
-        payload=bundle.record("multi_competitor_collection").data,
-    )
-    _save_stage_state(bundle)
-    _sync_stage_operational_loop(bundle)
-    return bundle
+    return _repository_bundle_io_module().persist_stage7_bundle(bundle)
 
 
 def _persist_stage8_bundle(bundle: StageBundle) -> StageBundle:
-    ContactTargetRepository().save(bundle.record("contact_target").data)
-    OutreachPlanRepository().save(bundle.record("outreach_plan").data)
-    TouchRecordRepository().save(bundle.record("touch_record").data)
-    _save_stage_state(bundle)
-    _sync_stage_operational_loop(bundle)
-    return bundle
+    return _repository_bundle_io_module().persist_stage8_bundle(bundle)
 
 
 def _persist_stage9_bundle(bundle: StageBundle) -> StageBundle:
-    OrderRecordRepository().save(bundle.record("order_record").data)
-    PaymentRecordRepository().save(bundle.record("payment_record").data)
-    DeliveryRecordRepository().save(bundle.record("delivery_record").data)
-    OpportunityOutcomeEventRepository().save(bundle.record("opportunity_outcome_event").data)
-    GovernanceFeedbackEventRepository().save(bundle.record("governance_feedback_event").data)
-    _save_stage_state(bundle)
-    _sync_stage_operational_loop(bundle)
-    return bundle
+    return _repository_bundle_io_module().persist_stage9_bundle(bundle)
 
 
 def _save_stage_state(bundle: StageBundle) -> None:
@@ -807,171 +782,15 @@ def _latest_stage_state(
 
 
 def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
-    opportunity_id = str(payload.get("opportunity_id", "")).strip()
-    if not opportunity_id:
-        return None
-    opportunity = SaleableOpportunityRepository().get_by_id(opportunity_id)
-    if not opportunity:
-        return None
-
-    stage_state = _get_stage_state(7, STAGE_SURFACE_IDS[7], opportunity.record_id)
-    work_item = _get_stage_work_item(7, "saleable_opportunity", opportunity.record_id)
-    stage_inputs = dict(stage_state.inputs) if stage_state is not None else {}
-    persisted_refs = stage_state.typed_object_refs if stage_state is not None else None
-    buyer_fit_id = _resolve_typed_ref(
-        persisted_refs,
-        stage_inputs,
-        opportunity.object_refs,
-        work_item.object_refs if work_item is not None else None,
-        keys=("buyer_fit_id",),
-    )
-    buyer_fit = BuyerFitRepository().get_by_id(buyer_fit_id) if buyer_fit_id else None
-    offer_id = _resolve_typed_ref(
-        persisted_refs,
-        stage_inputs,
-        opportunity.object_refs,
-        work_item.object_refs if work_item is not None else None,
-        keys=("offer_recommendation_id",),
-    )
-    offer = OfferRecommendationRepository().get_by_id(offer_id) if offer_id else None
-    legal_actor_id = _resolve_typed_ref(
-        persisted_refs,
-        stage_inputs,
-        opportunity.object_refs,
-        work_item.object_refs if work_item is not None else None,
-        keys=("legal_action_actor_id",),
-    )
-    legal_actor = (
-        LegalActionActorProfileRepository().get_by_id(legal_actor_id)
-        if legal_actor_id
-        else None
-    )
-    procurement_actor_id = _resolve_typed_ref(
-        persisted_refs,
-        stage_inputs,
-        opportunity.object_refs,
-        work_item.object_refs if work_item is not None else None,
-        keys=("procurement_decision_actor_id",),
-    )
-    procurement_actor = (
-        ProcurementDecisionActorProfileRepository().get_by_id(procurement_actor_id)
-        if procurement_actor_id
-        else None
-    )
-    multi_competitor_collection_id = _resolve_typed_ref(
-        persisted_refs,
-        stage_inputs,
-        opportunity.object_refs,
-        work_item.object_refs if work_item is not None else None,
-        keys=("multi_competitor_collection_id_optional",),
-    )
-    multi_competitor_collection = (
-        DatabaseSession.default().get_record("multi_competitor_collection", multi_competitor_collection_id)
-        if multi_competitor_collection_id
-        else None
-    )
-    if not all((buyer_fit, offer, legal_actor, procurement_actor, multi_competitor_collection, stage_state)):
-        return None
-
-    return StageBundle(
-        stage=7,
-        records={
-            "saleable_opportunity": ContractRecord("saleable_opportunity", opportunity.as_payload()),
-            "offer_recommendation": ContractRecord("offer_recommendation", offer.as_payload()),
-            "buyer_fit": ContractRecord("buyer_fit", buyer_fit.as_payload()),
-            "legal_action_actor_profile": ContractRecord("legal_action_actor_profile", legal_actor.as_payload()),
-            "procurement_decision_actor_profile": ContractRecord("procurement_decision_actor_profile", procurement_actor.as_payload()),
-            "multi_competitor_collection": ContractRecord(
-                "multi_competitor_collection",
-                multi_competitor_collection.as_payload(),
-            ),
-        },
-        handoff={},
-        inputs=stage_inputs,
-    )
+    return _repository_bundle_io_module().hydrate_stage7_bundle(payload)
 
 
 def _hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
-    contact_target, outreach_plan, touch_record, stage_state = _find_stage8_records(payload)
-    if not all((contact_target, outreach_plan, touch_record, stage_state)):
-        return None
-    if stage_state.root_record_id != touch_record.record_id:
-        stage_state = _get_stage_state(8, STAGE_SURFACE_IDS[8], touch_record.record_id)
-    if not stage_state:
-        return None
-
-    return StageBundle(
-        stage=8,
-        records={
-            "contact_target": ContractRecord("contact_target", contact_target.as_payload()),
-            "outreach_plan": ContractRecord("outreach_plan", outreach_plan.as_payload()),
-            "touch_record": ContractRecord("touch_record", touch_record.as_payload()),
-        },
-        handoff={},
-        inputs=dict(stage_state.inputs),
-    )
+    return _repository_bundle_io_module().hydrate_stage8_bundle(payload)
 
 
 def _hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
-    opportunity_id = str(payload.get("opportunity_id", "")).strip()
-    stage_state = _resolve_stage9_stage_state(payload)
-    order_id = str(payload.get("order_id", "")).strip() or (
-        stage_state.root_record_id if stage_state is not None else ""
-    )
-    order = OrderRecordRepository().get_by_id(order_id) if order_id else None
-    if not order and opportunity_id:
-        order = OrderRecordRepository().find_one_by_field("opportunity_id", opportunity_id)
-    if not order:
-        return None
-
-    if stage_state is None or stage_state.root_record_id != order.record_id:
-        stage_state = _get_stage_state(9, STAGE_SURFACE_IDS[9], order.record_id)
-    work_item = _get_stage_work_item(9, "order_record", order.record_id)
-    persisted_refs = stage_state.typed_object_refs if stage_state is not None else None
-    work_item_refs = work_item.object_refs if work_item is not None else None
-    payment = _record_from_persisted_refs(
-        PaymentRecordRepository(),
-        ref_sources=(persisted_refs, order.object_refs, work_item_refs),
-        ref_keys=("payment_id",),
-        fallback_field="order_id",
-        fallback_value=order.record_id,
-    )
-    delivery = _record_from_persisted_refs(
-        DeliveryRecordRepository(),
-        ref_sources=(persisted_refs, order.object_refs, work_item_refs),
-        ref_keys=("delivery_id",),
-        fallback_field="order_id",
-        fallback_value=order.record_id,
-    )
-    outcome = _record_from_persisted_refs(
-        OpportunityOutcomeEventRepository(),
-        ref_sources=(persisted_refs, order.object_refs, work_item_refs),
-        ref_keys=("outcome_event_id",),
-        fallback_field="opportunity_id",
-        fallback_value=opportunity_id or str(order.object_refs.get("opportunity_id", "")).strip(),
-    )
-    governance = _record_from_persisted_refs(
-        GovernanceFeedbackEventRepository(),
-        ref_sources=(persisted_refs, order.object_refs, work_item_refs),
-        ref_keys=("governance_feedback_event_id",),
-        fallback_field="project_id",
-        fallback_value=order.project_id or "",
-    )
-    if not all((payment, delivery, outcome, governance, stage_state)):
-        return None
-
-    return StageBundle(
-        stage=9,
-        records={
-            "order_record": ContractRecord("order_record", order.as_payload()),
-            "payment_record": ContractRecord("payment_record", payment.as_payload()),
-            "delivery_record": ContractRecord("delivery_record", delivery.as_payload()),
-            "opportunity_outcome_event": ContractRecord("opportunity_outcome_event", outcome.as_payload()),
-            "governance_feedback_event": ContractRecord("governance_feedback_event", governance.as_payload()),
-        },
-        handoff={},
-        inputs=dict(stage_state.inputs),
-    )
+    return _repository_bundle_io_module().hydrate_stage9_bundle(payload)
 
 
 def _resolve_stage8_stage_state(payload: Mapping[str, Any]) -> PersistedStageState | None:
@@ -1141,103 +960,20 @@ def _baseline_current_operational_state(surface_operational_state: str) -> str:
     return "ready_for_internal_operator_action"
 
 
+def _repository_context_projection_module() -> Any:
+    # Keep repository_boundary.py as the public facade while allowing
+    # projection helpers to live in dedicated modules without eager cycles.
+    from storage import repository_context_projection
+
+    return repository_context_projection
+
+
 def _build_operational_context(work_item: PersistedWorkItem, actions: list[PersistedOperatorAction]) -> dict[str, Any]:
-    action_history = [entry.as_payload() for entry in actions]
-    return {
-        "context_source": "persisted",
-        "persistence_backend": "local_file_backed_json_store",
-        "work_item_id": work_item.work_item_id,
-        "work_item_key": work_item.work_item_key,
-        "stage_scope": work_item.stage_scope,
-        "surface_id": work_item.surface_id,
-        "primary_object_type": work_item.primary_object_type,
-        "primary_record_id": work_item.primary_record_id,
-        "surface_operational_state": work_item.surface_operational_state,
-        "current_operational_state": work_item.current_operational_state,
-        "ready_for_internal_operator_action": work_item.current_operational_state == "ready_for_internal_operator_action",
-        "assignment": {
-            "assignment_profile_id": work_item.assignment_profile_id,
-            "assignment_lifecycle_state": work_item.assignment_lifecycle_state,
-            "assigned_owner_role": work_item.assigned_owner_role,
-            "assigned_owner": work_item.assigned_owner,
-            "reviewer_role": work_item.reviewer_role,
-            "reviewer": work_item.reviewer,
-            "resolved_from": work_item.assignment_resolved_from,
-            "simplified_boundary": list(work_item.assignment_simplified_boundary),
-        },
-        "object_refs": dict(work_item.object_refs),
-        "pending_actions": list(work_item.pending_actions),
-        "pending_button_flows": list(work_item.pending_button_flows),
-        "last_action": action_history[-1] if action_history else None,
-        "action_history": action_history,
-        "trace_refs": dict(work_item.trace_refs),
-        "audit_refs": dict(work_item.audit_refs),
-        "decision_states": dict(work_item.decision_states),
-        "governed_context": dict(work_item.governed_context),
-        "created_at": work_item.created_at,
-        "updated_at": work_item.updated_at,
-    }
+    return _repository_context_projection_module().build_operational_context(work_item, actions)
 
 
 def _build_transient_preview_context(bundle: StageBundle) -> dict[str, Any]:
-    surface_state = _surface_state_for_bundle(bundle, default_mode=STAGE_DEFAULT_MODES[bundle.stage])
-    surface_operational_state = SURFACE_OPERATIONAL_STATE_MAP[surface_state]
-    current_state = _baseline_current_operational_state(surface_operational_state)
-    assignment = _resolve_assignment_for_state(stage_scope=bundle.stage, current_operational_state=current_state)
-    approval_chain = _approval_chain_status(
-        reviewer_role=str(assignment["reviewer_role"]),
-        reviewer=str(assignment["reviewer"]),
-        assignment_resolved_from=str(assignment["resolved_from"]),
-    )
-    root_object_type, root_id_field = STAGE_ROOT_OBJECTS[bundle.stage]
-    root_record = bundle.record(root_object_type).data
-    work_item_key = build_work_item_key(
-        stage_scope=bundle.stage,
-        surface_id=STAGE_SURFACE_IDS[bundle.stage],
-        primary_object_type=root_object_type,
-        primary_record_id=str(root_record[root_id_field]),
-    )
-    pending_button_flows = list_pending_button_flows(
-        stage_scope=bundle.stage,
-        surface_id=STAGE_SURFACE_IDS[bundle.stage],
-        surface_operational_state=surface_operational_state,
-        current_operational_state=current_state,
-        assignment_lifecycle_state=str(assignment["assignment_lifecycle_state"]),
-        has_repository_state=False,
-        has_approval_chain=bool(approval_chain["available"]),
-        has_audit_trace=bool(_bundle_trace_and_audit_refs(bundle)[1]),
-        internal_only=True,
-    )
-    return {
-        "context_source": "transient_preview",
-        "persistence_backend": "local_file_backed_json_store",
-        "work_item_key": work_item_key,
-        "stage_scope": bundle.stage,
-        "surface_id": STAGE_SURFACE_IDS[bundle.stage],
-        "primary_object_type": root_object_type,
-        "primary_record_id": str(root_record[root_id_field]),
-        "surface_operational_state": surface_operational_state,
-        "current_operational_state": current_state,
-        "ready_for_internal_operator_action": current_state == "ready_for_internal_operator_action",
-        "assignment": {
-            "assignment_profile_id": assignment["assignment_profile_id"],
-            "assignment_lifecycle_state": assignment["assignment_lifecycle_state"],
-            "assigned_owner_role": assignment["assigned_owner_role"],
-            "assigned_owner": assignment["assigned_owner"],
-            "reviewer_role": assignment["reviewer_role"],
-            "reviewer": assignment["reviewer"],
-            "resolved_from": assignment["resolved_from"],
-            "simplified_boundary": assignment["simplified_boundary"],
-        },
-        "object_refs": _bundle_object_refs(bundle),
-        "pending_actions": [],
-        "pending_button_flows": [flow.as_payload() for flow in pending_button_flows],
-        "trace_refs": _bundle_trace_and_audit_refs(bundle)[0],
-        "audit_refs": _bundle_trace_and_audit_refs(bundle)[1],
-        "decision_states": _bundle_decision_states(bundle),
-        "governed_context": _bundle_governed_context(bundle),
-        "preview_generated_at": build_persisted_at(),
-    }
+    return _repository_context_projection_module().build_transient_preview_context(bundle)
 
 
 def _get_persisted_work_item(bundle: StageBundle) -> PersistedWorkItem | None:
@@ -1365,32 +1101,7 @@ def _resolve_primary_record(stage_scope: int, payload: Mapping[str, Any]) -> tup
 
 
 def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
-    refs: dict[str, str] = {}
-    for object_type in STAGE_FORMAL_OBJECTS[bundle.stage]:
-        record = bundle.record(object_type).data
-        for key, value in record.items():
-            if key.endswith("_id") and value not in (None, "", "UNKNOWN"):
-                refs[key] = str(value)
-    if bundle.stage == 7:
-        legal_actor = bundle.records.get("legal_action_actor_profile")
-        if legal_actor is not None and legal_actor.data.get("actor_id") not in (None, "", "UNKNOWN"):
-            refs["legal_action_actor_id"] = str(legal_actor.data["actor_id"])
-        procurement_actor = bundle.records.get("procurement_decision_actor_profile")
-        if procurement_actor is not None and procurement_actor.data.get("actor_id") not in (None, "", "UNKNOWN"):
-            refs["procurement_decision_actor_id"] = str(procurement_actor.data["actor_id"])
-        if bundle.inputs.get("multi_competitor_collection_id_optional") not in (None, "", "UNKNOWN"):
-            refs["multi_competitor_collection_id_optional"] = str(
-                bundle.inputs["multi_competitor_collection_id_optional"]
-            )
-        if bundle.inputs.get("winning_competitor_candidate_id_optional") not in (None, "", "UNKNOWN"):
-            refs["winning_competitor_candidate_id_optional"] = str(
-                bundle.inputs["winning_competitor_candidate_id_optional"]
-            )
-        if bundle.inputs.get("winning_challenger_profile_id_optional") not in (None, "", "UNKNOWN"):
-            refs["winning_challenger_profile_id_optional"] = str(
-                bundle.inputs["winning_challenger_profile_id_optional"]
-            )
-    return refs
+    return _repository_context_projection_module().bundle_object_refs(bundle)
 
 
 def _persist_auxiliary_record(
@@ -1439,18 +1150,7 @@ def _persist_auxiliary_record(
 
 
 def _bundle_trace_and_audit_refs(bundle: StageBundle) -> tuple[dict[str, str], dict[str, str]]:
-    trace_refs: dict[str, str] = {}
-    audit_refs: dict[str, str] = {}
-    for object_type in STAGE_FORMAL_OBJECTS[bundle.stage]:
-        record = bundle.record(object_type).data
-        for key, value in record.items():
-            if value in (None, "", "UNKNOWN", "NOT_PAID", "NOT_DELIVERED"):
-                continue
-            if "trace" in key.lower():
-                trace_refs[key] = str(value)
-            if "audit" in key.lower():
-                audit_refs[key] = str(value)
-    return trace_refs, audit_refs
+    return _repository_context_projection_module().bundle_trace_and_audit_refs(bundle)
 
 
 def _bundle_decision_states(bundle: StageBundle) -> dict[str, str]:
@@ -1463,52 +1163,7 @@ def _bundle_decision_states(bundle: StageBundle) -> dict[str, str]:
 
 
 def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
-    governed_context: dict[str, Any] = {
-        "surface_mode": STAGE_DEFAULT_MODES[bundle.stage],
-    }
-    for object_type in STAGE_FORMAL_OBJECTS[bundle.stage]:
-        record = bundle.record(object_type).data
-        for field_name in (
-            "projection_mode",
-            "run_mode",
-            "governed_execution_mode",
-            "approval_state",
-            "plan_status",
-            "touch_record_state",
-            "response_status",
-            "feedback_reason",
-            "next_step_optional",
-            "stop_reason_optional",
-            "retry_scheduled_optional",
-            "requested_delivery_surface",
-            "writeback_required",
-            "writeback_targets",
-            "writeback_target_optional",
-            "written_back_at_optional",
-            "failure_reason_tag_optional",
-            "retry_count",
-            "max_retry_count",
-            "attempt_index",
-            "cadence_profile_id",
-            "retry_policy_id",
-            "stop_policy_id",
-        ):
-            if record.get(field_name) not in (None, ""):
-                governed_context[field_name] = record.get(field_name)
-    if bundle.stage == 8:
-        human_handoff = bundle.record("touch_record").data.get("governed_metadata", {}).get("human_handoff", {})
-        if isinstance(human_handoff, Mapping):
-            optional_fields = {
-                "human_handoff_policy_id_optional": human_handoff.get("policy_id"),
-                "human_handoff_next_owner_role_optional": human_handoff.get("next_owner_role_optional"),
-                "human_handoff_sla_hours_optional": human_handoff.get("sla_hours_optional"),
-                "human_handoff_sla_due_at_optional": human_handoff.get("sla_due_at_optional"),
-                "human_handoff_reason_optional": human_handoff.get("reason_optional"),
-            }
-            for field_name, field_value in optional_fields.items():
-                if field_value not in (None, ""):
-                    governed_context[field_name] = field_value
-    return governed_context
+    return _repository_context_projection_module().bundle_governed_context(bundle)
 
 
 def _project_id_for_bundle(bundle: StageBundle) -> str:

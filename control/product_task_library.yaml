@@ -65,10 +65,10 @@ planning_sync_implementation_registration:
 current_mainline_next_candidate:
   task_id: null
   packet_id: null
-  title: "产品主线 S12-S89 + INT 与后主线 P1/P2 已闭合，等待人工选择后续方向"
+  title: "产品主线 S12-S89 + INT 与后主线 P1/P2/P3 已闭合，等待人工选择后续方向"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2 均已 completed；现在没有自动 next candidate；候选池保留 P3 -> P4 -> P5 -> P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P3 只允许后续人工/决策窗口通过 dedicated current_task packet 激活；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3 均已 completed；现在没有自动 next candidate；候选池保留 P4 -> P5 -> P6 -> P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P4 只允许后续人工/决策窗口通过 dedicated current_task packet 激活；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -341,7 +341,7 @@ tasks:
     planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
     completed_commit: 9d4662a
-    runtime_notes: "P2 scoped implementation 已完成并在本地提交：9d4662a；Stage8 outreach_plan、touch_record、human handoff、retry/stop/writeback trace 的内部产品化第一刀已完成，blocked_by_default / governed internal 语义保持不变；PTL-S8-102 不再是 current active packet，也不再是 current_mainline_next_candidate；P3 仍需后续人工/决策窗口另开 dedicated current_task packet 才能激活。"
+    runtime_notes: "P2 scoped implementation 已完成并在本地提交：9d4662a；Stage8 outreach_plan、touch_record、human handoff、retry/stop/writeback trace 的内部产品化第一刀已完成，blocked_by_default / governed internal 语义保持不变；PTL-S8-102 不再是 current active packet，也不再是 current_mainline_next_candidate；P3 已完成并同步入产品任务池，P4 仍需后续人工/决策窗口另开 dedicated current_task packet 才能激活。"
     hard_depends_on: [PTL-S8-101-p1-candidate-compliance-boundary-refactor]
     soft_depends_on: [PTL-S89-outreach-writeback-delivery-governance, PTL-INT-internal-preview-surface-envelope]
     objective: "把 Stage8 plan/touch 从规则闭合态推进到内部可运营产品化，优先强化 preview surface、human handoff、retry/stop 与 governed trace。"
@@ -353,14 +353,15 @@ tasks:
     title: "P3 shared policy/validator 边界拆分"
     stage_scope: [stage7_sales, stage8_outreach, stage9_delivery, internal_preview]
     task_type: platform_boundary_refactor
-    status: OPEN_FOR_MANUAL_SELECTION
+    status: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P1
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: OPEN_FOR_MANUAL_SELECTION
+    planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
-    runtime_notes: "后主线执行链的第 5 步；目标是拆 shared/policy_executor.py 与 shared/runtime_validator.py 的责任边界，减少 Stage8/9 持续迭代的改动半径；本条只作为人工候选任务登记，不自动激活。"
+    completed_commit: 8c7eea3
+    runtime_notes: "P3 scoped implementation 已完成并在本地提交：8c7eea3；shared policy_executor/runtime_validator 的第一刀行为等价边界拆分已完成，src/shared/policy_contract_helpers.py 与 src/shared/runtime_semantic_rules.py 已纳入正式登记；PTL-INT-101 不再是 current active packet，也不再是 current_mainline_next_candidate；P4 仍需后续人工/决策窗口另开 dedicated current_task packet 才能激活。"
     hard_depends_on: [PTL-S8-102-p2-plan-touch-productization]
     soft_depends_on: [PTL-S7-price-competitor-offer-resolution, PTL-S89-outreach-writeback-delivery-governance]
     objective: "把 shared policy / validator 拆成更清晰的契约、语义、delivery/release 和 stage-specific policy 责任块，维持行为不变。"

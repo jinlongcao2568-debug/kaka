@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-INT-101-p3-policy-validator-boundary-split (SCOPED_EXECUTION; this window first synchronized PTL-S8-102-p2-plan-touch-productization as completed in control/product_task_library.yaml and control/product_module_registry.yaml with local commit 9d4662a, then activated P3 to perform a behavior-equivalent shared policy/validator boundary split inside allowed src/shared paths only; public entrypoints stay in place, current_mainline_next_candidate remains unset, and this does not approve external release, Stage8 real execution, or Stage9 payment/delivery/refund)
+Current Workstream: PTL-INT-102-p4-repository-boundary-hardening (SCOPED_EXECUTION; this window first synchronized PTL-INT-101-p3-policy-validator-boundary-split as completed in control/product_task_library.yaml and control/product_module_registry.yaml with local commit 8c7eea3, then activated P4 to perform a behavior-equivalent repository boundary responsibility split inside allowed storage/control/test paths only; public entrypoints stay in place, current_mainline_next_candidate remains unset, and this does not approve external release, Stage8 real execution, or Stage9 payment/delivery/refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,12 +20,12 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- switch control/current_task.yaml active packet to PTL-INT-101-p3-policy-validator-boundary-split in SCOPED_EXECUTION
-- sync control/repo_status.md current workstream wording to PTL-INT-101-p3-policy-validator-boundary-split
-- sync control/product_task_library.yaml so PTL-S8-102-p2-plan-touch-productization is COMPLETED with planning_state=COMPLETED and completed_commit=9d4662a
-- sync control/product_module_registry.yaml so Stage8 records P2 completed and SHARED-RUNTIME-POLICY-CHAIN records P3 as pending/manual-selection ledger work
-- refactor only allowed shared runtime helper boundaries under src/shared
-- keep PolicyExecutor.execute(...), RuntimeValidator.evaluate_runtime_guards(...), and RuntimeValidator.evaluate_object_semantics(...) in their original files
+- switch control/current_task.yaml active packet to PTL-INT-102-p4-repository-boundary-hardening in SCOPED_EXECUTION
+- sync control/repo_status.md current workstream wording to PTL-INT-102-p4-repository-boundary-hardening
+- sync control/product_task_library.yaml so PTL-INT-101-p3-policy-validator-boundary-split is COMPLETED with planning_state=COMPLETED and completed_commit=8c7eea3
+- sync control/product_module_registry.yaml so SHARED-RUNTIME-POLICY-CHAIN records P3 completed and STORAGE-REPOSITORY-BOUNDARY records P4 as pending/manual-selection ledger work
+- refactor only allowed repository boundary helper responsibilities under src/storage/repository_boundary.py and new helper files
+- keep persist_stage_bundle(...), hydrate_stage_bundle(...), get_operational_context(...), and get_transient_preview_context(...) in src/storage/repository_boundary.py
 - keep contracts/handoff/schema semantics unchanged
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -41,7 +41,11 @@ Forbidden Actions (current):
 - Any docs/** or docs/AX9S_开发执行路由图.md change
 - Any contracts/** change
 - Any handoff/** change
+- Any src/shared/** change
+- Any src/stage8_outreach/** change
 - Any src/stage9_delivery/** change
+- Any src/storage/db.py change
+- Any src/storage/repositories/** change
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/operator_assignment_roster_defaults.yaml
 - Any change to control/review_gate_matrix.yaml
@@ -65,13 +69,13 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-S8-102-p2-plan-touch-productization has been synchronized as COMPLETED in control/product_task_library.yaml with completed_commit=9d4662a.
-- control/product_module_registry.yaml records Stage8 P1/P2 completed while keeping external_release_allowed=false and live_execution_allowed=false.
-- control/product_module_registry.yaml also records SHARED-RUNTIME-POLICY-CHAIN pending_packets=[PTL-INT-101-p3-policy-validator-boundary-split]; this is a module ledger only and does not replace current_task as the active source.
-- PTL-INT-101-p3-policy-validator-boundary-split is now the active scoped execution packet.
-- P3-P8 remain manual-selection candidates in the product task pool; active execution still depends on dedicated current_task packets.
-- This P3 first cut is not an external release approval, not a Stage8 real outreach approval, and not a Stage9 payment/delivery/refund approval.
-- P3 runtime_change_in_packet=IN_SCOPE authorizes only internal governed behavior-equivalent shared helper split work in the allowed runtime paths; it does not authorize live execution, external release, or contract/handoff/schema changes.
+- PTL-INT-101-p3-policy-validator-boundary-split has been synchronized as COMPLETED in control/product_task_library.yaml with completed_commit=8c7eea3.
+- control/product_module_registry.yaml records SHARED-RUNTIME-POLICY-CHAIN completed_packets=[PTL-INT-101-p3-policy-validator-boundary-split] while explicitly keeping future shared-runtime-dependent work possible.
+- control/product_module_registry.yaml records STORAGE-REPOSITORY-BOUNDARY pending_packets=[PTL-INT-102-p4-repository-boundary-hardening]; this is a module ledger only and does not replace current_task as the active source.
+- PTL-INT-102-p4-repository-boundary-hardening is now the active scoped execution packet.
+- P4-P8 remain manual-selection candidates in the product task pool; active execution still depends on dedicated current_task packets.
+- This P4 first cut is not an external release approval, not a Stage8 real outreach approval, and not a Stage9 payment/delivery/refund approval.
+- P4 runtime_change_in_packet=IN_SCOPE authorizes only internal governed behavior-equivalent repository boundary helper split work in the allowed runtime paths; it does not authorize live execution, external release, or contract/handoff/schema changes.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source.
@@ -82,27 +86,24 @@ State Semantics:
 - Canonical readiness is unchanged by this round.
 - External leadpack delivery remains gated by approval + audit chain.
 - External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
-- External software release remains blocked.
-- Stage 8 real execution remains governed / approval-gated / blocked by default.
-- Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default.
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''src/shared/policy_executor.py'',''src/shared/runtime_validator.py'',''src/shared/policy_contract_helpers.py'',''src/shared/runtime_semantic_rules.py'',''tests/test_stage12_extractors.py'',''tests/test_product_module_registry.py'',''tests/test_architecture_anti_drift.py'',''tests/test_semantic_runtime_validator.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
-- rg -n "class PolicyExecutor|class RuntimeValidator|def _evaluate_|def evaluate_runtime_guards|def evaluate_object_semantics|def _semantic_|def _matches_stage8_policy_condition|def _match_contract_rule|def _ensure_list" src/shared/policy_executor.py src/shared/runtime_validator.py
-- rg -n "src/shared/policy_executor.py|src/shared/runtime_validator.py|PolicyExecutor\(|RuntimeValidator\(" tests
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repository_context_projection.py'',''tests/test_stage12_extractors.py'',''tests/test_product_module_registry.py'',''tests/test_internal_repository_boundary.py'',''tests/test_storage_concurrency.py'',''tests/test_internal_operational_loop.py'',''tests/test_internal_operational_hardening.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- rg -n "def _persist_stage7_bundle|def _persist_stage8_bundle|def _persist_stage9_bundle|def _hydrate_stage7_bundle|def _hydrate_stage8_bundle|def _hydrate_stage9_bundle|def _build_operational_context|def _build_transient_preview_context|def _bundle_object_refs|def _bundle_trace_and_audit_refs|def _bundle_governed_context" src/storage/repository_boundary.py
+- rg -n "hydrate_stage_bundle|persist_stage_bundle|repository_boundary|writeback|typed_object_refs|transient_preview|operational_context|work_item" tests/test_internal_repository_boundary.py tests/test_storage_concurrency.py tests/test_internal_operational_loop.py tests/test_internal_operational_hardening.py
 - python -m pytest tests/test_stage12_extractors.py -q
 - python -m pytest tests/test_product_module_registry.py -q
-- python -m pytest tests/test_architecture_anti_drift.py -q
-- python -m pytest tests/test_semantic_runtime_validator.py -q
-- python -m pytest tests/test_stage8_resolution_closure.py -q
-- python -m pytest tests/test_internal_chain.py -q
+- python -m pytest tests/test_internal_repository_boundary.py -q
+- python -m pytest tests/test_storage_concurrency.py -q
+- python -m pytest tests/test_internal_operational_loop.py -q
+- python -m pytest tests/test_internal_operational_hardening.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1
-- git status --short --untracked-files=all
 - git diff --check
+- git status --short --untracked-files=all
 
 Automation Guardrails:
 - Action matrix: control/automation_action_matrix.yaml

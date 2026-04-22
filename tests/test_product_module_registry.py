@@ -124,7 +124,12 @@ def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cl
     shared_runtime = modules["SHARED-RUNTIME-POLICY-CHAIN"]
     assert "src/shared/policy_contract_helpers.py" in shared_runtime["current_files"]
     assert "src/shared/runtime_semantic_rules.py" in shared_runtime["current_files"]
-    assert shared_runtime["pending_packets"] == ["PTL-INT-101-p3-policy-validator-boundary-split"]
+    assert shared_runtime["completed_packets"] == ["PTL-INT-101-p3-policy-validator-boundary-split"]
+    assert shared_runtime["pending_packets"] == []
+    storage_boundary = modules["STORAGE-REPOSITORY-BOUNDARY"]
+    assert "src/storage/repository_bundle_io.py" in storage_boundary["current_files"]
+    assert "src/storage/repository_context_projection.py" in storage_boundary["current_files"]
+    assert storage_boundary["pending_packets"] == ["PTL-INT-102-p4-repository-boundary-hardening"]
     assert stage8["external_release_allowed"] is False
     assert stage8["live_execution_allowed"] is False
     assert stage9["external_release_allowed"] is False

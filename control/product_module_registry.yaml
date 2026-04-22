@@ -804,6 +804,8 @@ cross_cutting_surfaces:
     implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
     current_files:
       - src/storage/repository_boundary.py
+      - src/storage/repository_bundle_io.py
+      - src/storage/repository_context_projection.py
       - src/storage/operator_loop_contracts.py
       - src/storage/repositories/work_item_repo.py
       - src/storage/repositories/project_fact_repo.py
@@ -827,7 +829,8 @@ cross_cutting_surfaces:
       - tests/test_storage_concurrency.py
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
-    pending_packets: []
+    pending_packets:
+      - PTL-INT-102-p4-repository-boundary-hardening
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
     stage_scope:
@@ -1171,16 +1174,16 @@ modules:
       - src/shared/context_packet.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
-    target_packet_candidates:
+    target_packet_candidates: []
+    completed_packets:
       - PTL-INT-101-p3-policy-validator-boundary-split
-    completed_packets: []
-    pending_packets:
-      - PTL-INT-101-p3-policy-validator-boundary-split
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
     notes:
-      - "P3 policy/validator boundary split remains a manual-selection packet in the module ledger even when activated by control/current_task.yaml."
+      - "P3 policy/validator boundary split completed in local commit 8c7eea3 and is now part of the formal shared runtime ledger."
+      - "Shared runtime helper split completed, but future product packets may still depend on this chain; this ledger must not be interpreted as 'all follow-up work finished'."
   - module_id: STORAGE-REPOSITORY-BOUNDARY
     stage_scope:
       - stage6_fact_review
@@ -1196,6 +1199,8 @@ modules:
       - repositories
     current_files:
       - src/storage/repository_boundary.py
+      - src/storage/repository_bundle_io.py
+      - src/storage/repository_context_projection.py
       - src/storage/operator_loop_contracts.py
       - src/storage/repositories/work_item_repo.py
       - src/storage/repositories/project_fact_repo.py
@@ -1216,12 +1221,17 @@ modules:
       - src/storage/repositories/operator_action_repo.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
+    target_packet_candidates:
+      - PTL-INT-102-p4-repository-boundary-hardening
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
-    pending_packets: []
+    pending_packets:
+      - PTL-INT-102-p4-repository-boundary-hardening
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
+    notes:
+      - "P4 repository boundary hardening remains a manual-selection follow-up in the module ledger; active execution still depends on control/current_task.yaml."
   - module_id: INTERNAL-PREVIEW-SURFACE
     stage_scope:
       - internal_preview
