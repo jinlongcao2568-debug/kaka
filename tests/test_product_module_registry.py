@@ -88,7 +88,7 @@ def test_product_module_registry_covers_core_stage_modules() -> None:
     assert required.issubset(module_ids)
 
 
-def test_product_module_registry_current_files_exist_and_stage7_split_is_recorded() -> None:
+def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cleanup_is_recorded() -> None:
     registry = read_yaml("control/product_module_registry.yaml")
     modules = {module["module_id"]: module for module in registry["modules"]}
 
@@ -97,17 +97,56 @@ def test_product_module_registry_current_files_exist_and_stage7_split_is_recorde
 
     stage7 = modules["STAGE7-SALES-DERIVATION"]
     assert stage7["deferred_module_split"] is True
-    assert "PTL-S7-price-competitor-offer-resolution" in stage7["pending_packets"]
+    assert "PTL-S7-price-competitor-offer-resolution" in stage7["completed_packets"]
+    assert stage7["pending_packets"] == []
     assert stage7["current_runtime_state"] == "HEAVY_RUNTIME"
     for relative_path in stage7["proposed_future_files"]:
         assert not (ROOT / relative_path).exists(), relative_path
 
     stage8 = modules["STAGE8-OUTREACH-GOVERNED"]
     stage9 = modules["STAGE9-DELIVERY-GOVERNANCE"]
+    assert "PTL-S78-contact-candidate-compliance-preview" in stage8["completed_packets"]
+    assert stage8["pending_packets"] == []
+    assert "PTL-S89-outreach-writeback-delivery-governance" in stage9["completed_packets"]
+    assert stage9["pending_packets"] == []
     assert stage8["external_release_allowed"] is False
     assert stage8["live_execution_allowed"] is False
     assert stage9["external_release_allowed"] is False
     assert stage9["live_execution_allowed"] is False
+
+
+def test_post_mainline_selection_block_is_navigation_only_and_references_existing_modules() -> None:
+    registry = read_yaml("control/product_module_registry.yaml")
+    modules = {module["module_id"]: module for module in registry["modules"]}
+    selection = registry["post_mainline_selection"]
+
+    assert selection["mainline_state"] == "MAINLINE_CLOSED"
+    assert selection["automatic_next_candidate_disabled"] is True
+    assert selection["mainline_closeout_ref"] == "PTL-GOV-117-product-mainline-completion-closeout"
+    assert selection["selection_state"] == "OPEN_FOR_MANUAL_SELECTION"
+    assert selection["recommended_direction_label"] == "Stage7 模块边界重构"
+    assert selection["recommendation_is_navigation_only"] is True
+
+    candidates = selection["direction_candidates"]
+    assert [candidate["direction_label"] for candidate in candidates] == [
+        "Stage7 模块边界重构",
+        "Internal preview 产品化强化",
+        "Stage8 governed touch 深化",
+        "Stage9 governed delivery 深化",
+    ]
+
+    for candidate in candidates:
+        assert candidate["future_packet_id_suggestion"]
+        assert candidate["status"] == "OPEN_FOR_MANUAL_SELECTION"
+        assert candidate["not_auto_activated"] is True
+        assert candidate["rationale"]
+        assert candidate["related_modules"]
+        for module_id in candidate["related_modules"]:
+            assert module_id in modules, module_id
+
+    assert candidates[0]["recommended_now"] is True
+    for candidate in candidates[1:]:
+        assert candidate["recommended_now"] is False
 
 
 def test_stage_module_inventory_is_expanded_for_stage1_to_stage9() -> None:
