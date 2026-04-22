@@ -134,6 +134,31 @@ def test_post_mainline_selection_block_is_navigation_only_and_references_existin
     assert selection["selection_state"] == "OPEN_FOR_MANUAL_SELECTION"
     assert selection["recommended_direction_label"] == "Stage8 governed touch 深化"
     assert selection["recommendation_is_navigation_only"] is True
+    assert selection["detailed_execution_ladder_ref"] == "control/product_task_library.yaml#post_mainline_execution_ladder"
+    assert selection["detailed_execution_scope"] == "PRODUCT_ONLY"
+
+    bridge = selection["detailed_execution_bridge"]
+    assert bridge["stage8_task_ids"] == [
+        "PTL-S8-101-p1-candidate-compliance-boundary-refactor",
+        "PTL-S8-102-p2-plan-touch-productization",
+    ]
+    assert bridge["shared_platform_task_ids"] == [
+        "PTL-INT-101-p3-policy-validator-boundary-split",
+        "PTL-INT-102-p4-repository-boundary-hardening",
+    ]
+    assert bridge["stage9_task_ids"] == [
+        "PTL-S9-101-p5-typed-lifecycle-deepening",
+        "PTL-S9-102-p6-feedback-writeback-productization",
+    ]
+    assert bridge["foundational_followup_task_ids"] == [
+        "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion",
+        "PTL-INT-104-p8-observability-operator-workbench",
+    ]
+    assert bridge["non_product_followups_outside_pool"] == [
+        "PTL-GOV-126-p0-current-governance-closeout",
+        "PTL-GOV-127-p0b-ax9s-navigation-sync",
+        "PTL-GOV-128-p9-future-unlock-prep-only",
+    ]
 
     candidates = selection["direction_candidates"]
     assert [candidate["direction_label"] for candidate in candidates] == [

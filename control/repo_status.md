@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-124-planned-targetpaths-normalization (SCOPED_EXECUTION; toolchain governance packet that normalizes PlannedTargetPaths parameter handling in scripts/check-task-packet.ps1; this round only changes control/current_task.yaml, control/repo_status.md, scripts/check-task-packet.ps1, docs/自动开发任务包模板.md, control/automation_task_packet_rules.yaml, tests/test_check_automation_readiness_unicode_paths.py, and tests/test_review_gate_controls.py; keeps control/product_task_library.yaml unchanged with the existing MAINLINE_COMPLETE closeout record and no automatic next candidate; does not change control/product_module_registry.yaml or docs/AX9S_开发执行路由图.md; does not change runtime, src, contracts, or handoff; does not change canonical readiness; does not loosen external software release, external leadpack delivery approval + audit requirement, or Stage 8 / Stage 9 redlines; does not commit)
+Current Workstream: PTL-GOV-130-post-mainline-product-only-pool-fix (SCOPED_EXECUTION; governance packet that applies option 1 to the post-mainline candidate pool by removing governance-only / future-unlock tasks from control/product_task_library.yaml, keeping only product/implementation tasks there, and synchronizing control/product_module_registry.yaml to the product-only execution ladder; this round only changes control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, control/product_module_registry.yaml, tests/test_stage12_extractors.py, and tests/test_product_module_registry.py; keeps docs/AX9S_开发执行路由图.md unchanged; does not change runtime, src, contracts, or handoff; does not change canonical readiness; does not set current_mainline_next_candidate automatically; does not loosen external software release, external leadpack delivery approval + audit requirement, or Stage 8 / Stage 9 redlines; does not commit)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,13 +20,12 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- switch control/current_task.yaml active packet to PTL-GOV-124-planned-targetpaths-normalization in SCOPED_EXECUTION
-- sync control/repo_status.md current workstream wording to PTL-GOV-124-planned-targetpaths-normalization (SCOPED_EXECUTION)
-- normalize PlannedTargetPaths handling in scripts/check-task-packet.ps1 for normal string[] and toolchain-collapsed single-string comma lists without loosening declared / allowed / forbidden validation
-- update docs/自动开发任务包模板.md and control/automation_task_packet_rules.yaml to recommend the PowerShell array form and describe the single-string compatibility fallback
-- update tests/test_review_gate_controls.py and tests/test_check_automation_readiness_unicode_paths.py within the declared scope
-- keep control/product_task_library.yaml unchanged, with current_mainline_next_candidate staying as the existing MAINLINE_COMPLETE closeout record with task_id=null and packet_id=null
-- keep control/product_module_registry.yaml unchanged
+- switch control/current_task.yaml active packet to PTL-GOV-130-post-mainline-product-only-pool-fix in SCOPED_EXECUTION
+- sync control/repo_status.md current workstream wording to PTL-GOV-130-post-mainline-product-only-pool-fix (SCOPED_EXECUTION)
+- update control/product_task_library.yaml to remove governance-only / future-unlock tasks and keep only product/implementation manual-selection tasks
+- keep control/product_task_library.yaml current_mainline_next_candidate as the existing MAINLINE_COMPLETE closeout record with task_id=null and packet_id=null
+- update control/product_module_registry.yaml to reference the product-only execution ladder
+- update tests/test_stage12_extractors.py and tests/test_product_module_registry.py within the declared scope
 - keep docs/AX9S_开发执行路由图.md unchanged
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -37,9 +36,7 @@ Allowed Actions (current):
 - run the required checks and stop for report
 
 Forbidden Actions (current):
-- Any work outside PTL-GOV-124-planned-targetpaths-normalization in this round
-- Any change to control/product_task_library.yaml
-- Any change to control/product_module_registry.yaml
+- Any work outside PTL-GOV-130-post-mainline-product-only-pool-fix in this round
 - Any change to docs/AX9S_开发执行路由图.md
 - Any change to src/**, contracts/**, handoff/**
 - Any change outside the declared changed paths in control/current_task.yaml
@@ -61,9 +58,11 @@ State Semantics:
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
-- PTL-GOV-124-planned-targetpaths-normalization is a toolchain governance packet; the compatibility layer only normalizes PlannedTargetPaths input forms and does not relax declared / allowed / forbidden path validation.
+- PTL-GOV-130-post-mainline-product-only-pool-fix is a governance packet that applies product-only semantics to control/product_task_library.yaml and synchronizes control/product_module_registry.yaml to the resulting product execution ladder without changing runtime or activating a next candidate.
 - control/product_task_library.yaml current_mainline_next_candidate remains a MAINLINE_COMPLETE closeout record with no task_id and no packet_id.
-- There is no automatic next candidate after this closeout.
+- There is still no automatic next candidate after this closeout; manual-selection tasks may exist in the candidate pool without becoming current_mainline_next_candidate.
+- control/product_task_library.yaml now carries the completed mainline record plus the product-only post-mainline execution ladder; governance closeout / AX9S sync / future unlock prep remain outside the product pool and still require dedicated control packets when needed.
+- control/product_module_registry.yaml continues to expose direction-level recommendations and now references the product-only ladder for finer execution decomposition.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source; this round does not modify it.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -79,9 +78,9 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''scripts/check-task-packet.ps1'',''docs/自动开发任务包模板.md'',''control/automation_task_packet_rules.yaml'',''tests/test_check_automation_readiness_unicode_paths.py'',''tests/test_review_gate_controls.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
-- python -m pytest tests/test_check_automation_readiness_unicode_paths.py -q
-- python -m pytest tests/test_review_gate_controls.py -q
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''tests/test_stage12_extractors.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- python -m pytest tests/test_stage12_extractors.py -q
+- python -m pytest tests/test_product_module_registry.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1

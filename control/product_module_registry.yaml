@@ -41,6 +41,25 @@ post_mainline_selection:
   selection_state: OPEN_FOR_MANUAL_SELECTION
   recommended_direction_label: "Stage8 governed touch 深化"
   recommendation_is_navigation_only: true
+  detailed_execution_ladder_ref: "control/product_task_library.yaml#post_mainline_execution_ladder"
+  detailed_execution_scope: "PRODUCT_ONLY"
+  detailed_execution_bridge:
+    stage8_task_ids:
+      - PTL-S8-101-p1-candidate-compliance-boundary-refactor
+      - PTL-S8-102-p2-plan-touch-productization
+    shared_platform_task_ids:
+      - PTL-INT-101-p3-policy-validator-boundary-split
+      - PTL-INT-102-p4-repository-boundary-hardening
+    stage9_task_ids:
+      - PTL-S9-101-p5-typed-lifecycle-deepening
+      - PTL-S9-102-p6-feedback-writeback-productization
+    foundational_followup_task_ids:
+      - PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion
+      - PTL-INT-104-p8-observability-operator-workbench
+    non_product_followups_outside_pool:
+      - PTL-GOV-126-p0-current-governance-closeout
+      - PTL-GOV-127-p0b-ax9s-navigation-sync
+      - PTL-GOV-128-p9-future-unlock-prep-only
   direction_candidates:
     - direction_label: "Stage7 模块边界重构"
       future_packet_id_suggestion: PTL-S7-module-boundary-refactor

@@ -280,6 +280,67 @@ class TestStage12Extractors(unittest.TestCase):
             self.assertEqual(task_entry["planning_state"], "COMPLETED")
             self.assertFalse(task_entry["is_current_mainline_next_candidate"])
 
+        manual_selection_candidate_ids = (
+            "PTL-S8-101-p1-candidate-compliance-boundary-refactor",
+            "PTL-S8-102-p2-plan-touch-productization",
+            "PTL-INT-101-p3-policy-validator-boundary-split",
+            "PTL-INT-102-p4-repository-boundary-hardening",
+            "PTL-S9-101-p5-typed-lifecycle-deepening",
+            "PTL-S9-102-p6-feedback-writeback-productization",
+            "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion",
+            "PTL-INT-104-p8-observability-operator-workbench",
+        )
+        for task_id in manual_selection_candidate_ids:
+            task_entry = task_index[task_id]
+            self.assertEqual(task_entry["status"], "OPEN_FOR_MANUAL_SELECTION")
+            self.assertEqual(task_entry["planning_state"], "OPEN_FOR_MANUAL_SELECTION")
+            self.assertFalse(task_entry["is_current_mainline_next_candidate"])
+
+        self.assertNotIn("PTL-GOV-126-p0-current-governance-closeout", task_index)
+        self.assertNotIn("PTL-GOV-127-p0b-ax9s-navigation-sync", task_index)
+        self.assertNotIn("PTL-GOV-128-p9-future-unlock-prep-only", task_index)
+        self.assertNotIn("PTL-S8-governed-touch-deepening", task_index)
+        self.assertNotIn("PTL-S9-governed-delivery-deepening", task_index)
+
+        ladder = task_library["post_mainline_execution_ladder"]
+        self.assertEqual(ladder["status"], "EFFECTIVE")
+        self.assertEqual(ladder["mode"], "MANUAL_SELECTION_ONLY")
+        self.assertFalse(ladder["auto_activate_next_candidate"])
+        self.assertEqual(ladder["scope"], "PRODUCT_ONLY")
+        self.assertEqual(
+            ladder["excludes_non_product_tasks"],
+            [
+                "PTL-GOV-126-p0-current-governance-closeout",
+                "PTL-GOV-127-p0b-ax9s-navigation-sync",
+                "PTL-GOV-128-p9-future-unlock-prep-only",
+            ],
+        )
+        self.assertEqual(
+            ladder["priority_bands"][0]["task_ids"],
+            [
+                "PTL-S8-101-p1-candidate-compliance-boundary-refactor",
+                "PTL-S8-102-p2-plan-touch-productization",
+            ],
+        )
+        self.assertEqual(
+            ladder["priority_bands"][1]["task_ids"],
+            [
+                "PTL-INT-101-p3-policy-validator-boundary-split",
+                "PTL-INT-102-p4-repository-boundary-hardening",
+                "PTL-S9-101-p5-typed-lifecycle-deepening",
+                "PTL-S9-102-p6-feedback-writeback-productization",
+            ],
+        )
+        self.assertEqual(
+            ladder["priority_bands"][2]["task_ids"],
+            [
+                "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion",
+                "PTL-INT-104-p8-observability-operator-workbench",
+            ],
+        )
+        self.assertEqual(task_library["task_count"], len(task_library["tasks"]))
+        self.assertIn("P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8", task_library_text)
+
         self.assertIn("纯导航图", route_map_text)
         self.assertIn("非当前任务源", route_map_text)
         self.assertIn("只作导航提示，不决定执行顺序", route_map_text)
