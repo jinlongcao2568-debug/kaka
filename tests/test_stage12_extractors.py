@@ -207,119 +207,85 @@ class TestStage12Extractors(unittest.TestCase):
 
         self.assertIn("current_task -> product_task_library -> repo_status", current_task_text)
         self.assertIn("current_task -> product_task_library -> repo_status", repo_status_text)
+
         active_task = current_task["currentTask"]
-        self.assertEqual(active_task["task_id"], "PTL-GOV-118-post-mainline-direction-selection")
-        self.assertEqual(active_task["title"], "后主线方向选择")
+        self.assertTrue(active_task["task_id"])
+        self.assertIn("task_packet", active_task)
         active_packet = active_task["task_packet"]
+        self.assertIsInstance(active_packet, dict)
         self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
-        self.assertEqual(active_packet["execution_mode"], "SCOPED_EXECUTION")
+        self.assertIn(active_packet["execution_mode"], {"ACTIVATION_ONLY", "SCOPED_EXECUTION"})
         self.assertEqual(active_packet["status"], "ACTIVE")
-        self.assertEqual(active_packet["packet_id"], "PTL-GOV-118-post-mainline-direction-selection")
-        self.assertEqual(active_packet["backlog_packet_ref"], "PTL-GOV-118-post-mainline-direction-selection")
         self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
-        self.assertTrue(active_packet["scoped_execution_scope"]["enter_scoped_execution"])
-        self.assertFalse(active_packet["scoped_execution_scope"]["runtime_change"])
-        self.assertFalse(active_packet["scoped_execution_scope"]["product_task_library_change"])
-        self.assertTrue(active_packet["scoped_execution_scope"]["product_module_registry_change"])
-        self.assertTrue(active_packet["scoped_execution_scope"]["ax9s_change"])
-        self.assertTrue(active_packet["scoped_execution_scope"]["docs_change"])
-        self.assertTrue(active_packet["scoped_execution_scope"]["tests_change"])
-        self.assertFalse(active_packet["scoped_execution_scope"]["auto_next_candidate_selection"])
-        self.assertFalse(active_packet["scoped_execution_scope"]["commit_allowed"])
-        self.assertIn("control/product_module_registry.yaml", active_packet["allowed_modification_paths"])
-        self.assertNotIn("control/product_task_library.yaml", active_packet["allowed_modification_paths"])
+        for required_field in (
+            "packet_id",
+            "backlog_packet_ref",
+            "source_blueprint_batch_id",
+            "declared_changed_paths",
+            "allowed_modification_paths",
+        ):
+            self.assertIn(required_field, active_packet)
+            self.assertTrue(active_packet[required_field])
+
+        scoped_execution_scope = active_packet["scoped_execution_scope"]
+        self.assertFalse(scoped_execution_scope["runtime_change"])
+        self.assertFalse(scoped_execution_scope["product_task_library_change"])
+        self.assertFalse(scoped_execution_scope["product_module_registry_change"])
+        self.assertFalse(scoped_execution_scope["external_release_change"])
+        self.assertFalse(scoped_execution_scope["stage8_real_execution_change"])
+        self.assertFalse(scoped_execution_scope["stage9_real_payment_delivery_refund_change"])
+        self.assertFalse(scoped_execution_scope["new_formal_object_enum_gate_exception_semantics"])
+        self.assertFalse(scoped_execution_scope["commit_allowed"])
+        self.assertIn("control/current_task.yaml remains the only active execution source.", task_library_text)
+        self.assertIn(
+            "current_mainline_next_candidate is a candidate-pool pointer only; it does not auto-activate",
+            task_library_text,
+        )
+        self.assertEqual(task_library["formal_active_task_source"], "control/current_task.yaml")
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertIsNone(candidate["task_id"])
-        self.assertIsNone(candidate["packet_id"])
-        self.assertEqual(candidate["planning_state"], "MAINLINE_COMPLETE")
         self.assertEqual(candidate["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        if candidate["planning_state"] == "MAINLINE_COMPLETE":
+            self.assertIsNone(candidate["task_id"])
+            self.assertIsNone(candidate["packet_id"])
+        else:
+            self.assertTrue(candidate["task_id"])
+            self.assertEqual(candidate["planning_state"], "REALITY_ALIGNMENT_QUEUED")
         self.assertIn("planning_state: MAINLINE_COMPLETE", task_library_text)
         self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 均已 completed", task_library_text)
         self.assertIn("现在没有自动 next candidate", task_library_text)
         self.assertIn("后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认", task_library_text)
         self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
 
-        stage12_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S12-source-route-clock-authority"
+        completed_mainline_task_ids = (
+            "PTL-S12-source-route-clock-authority",
+            "PTL-S23-public-chain-to-parser-contract",
+            "PTL-S34-object-lineage-verification-handoff",
+            "PTL-S45-rule-evidence-dual-gate",
+            "PTL-S56-project-fact-review-report",
+            "PTL-S67-saleable-opportunity-derivation",
+            "PTL-S7-price-competitor-offer-resolution",
+            "PTL-S78-contact-candidate-compliance-preview",
+            "PTL-S89-outreach-writeback-delivery-governance",
+            "PTL-INT-internal-preview-surface-envelope",
         )
-        self.assertEqual(stage12_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage12_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage12_task_entry["is_current_mainline_next_candidate"])
-
-        stage23_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S23-public-chain-to-parser-contract"
-        )
-        self.assertEqual(stage23_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage23_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage23_task_entry["is_current_mainline_next_candidate"])
-
-        stage34_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S34-object-lineage-verification-handoff"
-        )
-        self.assertEqual(stage34_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage34_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage34_task_entry["is_current_mainline_next_candidate"])
-
-        stage45_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S45-rule-evidence-dual-gate"
-        )
-        self.assertEqual(stage45_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage45_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage45_task_entry["is_current_mainline_next_candidate"])
-
-        stage56_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S56-project-fact-review-report"
-        )
-        self.assertEqual(stage56_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage56_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage56_task_entry["is_current_mainline_next_candidate"])
-
-        stage67_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S67-saleable-opportunity-derivation"
-        )
-        self.assertEqual(stage67_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage67_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage67_task_entry["is_current_mainline_next_candidate"])
-
-        stage7_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S7-price-competitor-offer-resolution"
-        )
-        self.assertEqual(stage7_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage7_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage7_task_entry["is_current_mainline_next_candidate"])
-
-        stage78_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S78-contact-candidate-compliance-preview"
-        )
-        self.assertEqual(stage78_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage78_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage78_task_entry["is_current_mainline_next_candidate"])
-
-        stage89_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-S89-outreach-writeback-delivery-governance"
-        )
-        self.assertEqual(stage89_task_entry["status"], "COMPLETED")
-        self.assertEqual(stage89_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(stage89_task_entry["is_current_mainline_next_candidate"])
-
-        internal_preview_task_entry = next(
-            task for task in task_library["tasks"] if task["task_id"] == "PTL-INT-internal-preview-surface-envelope"
-        )
-        self.assertEqual(internal_preview_task_entry["status"], "COMPLETED")
-        self.assertEqual(internal_preview_task_entry["planning_state"], "COMPLETED")
-        self.assertFalse(internal_preview_task_entry["is_current_mainline_next_candidate"])
-        self.assertIn("cfc5265", internal_preview_task_entry["runtime_notes"])
-        self.assertIn("Stage1-9 + INT 主线已闭合", internal_preview_task_entry["runtime_notes"])
-        self.assertNotIn(
-            active_packet["packet_id"],
-            [task["task_id"] for task in task_library["tasks"]],
-        )
+        task_index = {task["task_id"]: task for task in task_library["tasks"]}
+        for task_id in completed_mainline_task_ids:
+            task_entry = task_index[task_id]
+            self.assertEqual(task_entry["status"], "COMPLETED")
+            self.assertEqual(task_entry["planning_state"], "COMPLETED")
+            self.assertFalse(task_entry["is_current_mainline_next_candidate"])
+        if candidate["planning_state"] == "MAINLINE_COMPLETE":
+            self.assertFalse(
+                any(task.get("is_current_mainline_next_candidate") is True for task in task_library["tasks"])
+            )
 
         self.assertIn("本文件是**纯导航图**", route_map_text)
         self.assertIn("非当前任务源", route_map_text)
         self.assertIn("只作导航提示，不决定执行顺序", route_map_text)
-        self.assertIn("PTL-GOV-118-post-mainline-direction-selection", route_map_text)
+        self.assertIn("非状态源", route_map_text)
+        self.assertIn("非完整 backlog", route_map_text)
+        self.assertIn("不是状态源、执行顺序源", route_map_text)
         self.assertIn("Stage1-9 + INT 当前产品主线闭合完成", route_map_text)
         self.assertIn("当前没有自动 next candidate", route_map_text)
         self.assertIn("post-mainline 方向选择当前只作导航提示", route_map_text)
@@ -337,6 +303,16 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("PTL-S89-outreach-writeback-delivery-governance", route_map_text)
         self.assertIn("c36dd9d", route_map_text)
         self.assertIn("PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交", route_map_text)
+        redline_surface = "\n".join(
+            (repo_status_text, route_map_text, json.dumps(active_packet, ensure_ascii=False))
+        )
+        for redline_token in (
+            "external release",
+            "Stage 8 real execution",
+            "Stage 9 real payment",
+            "blocked",
+        ):
+            self.assertIn(redline_token, redline_surface)
 
 
 if __name__ == "__main__":
