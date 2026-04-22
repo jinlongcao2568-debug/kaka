@@ -68,7 +68,7 @@ current_mainline_next_candidate:
   title: "产品主线 S12-S89 + INT 已闭合，等待人工选择后续方向"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 均已 completed；现在没有自动 next candidate；候选池已把后主线方向收口为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，并按 P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8 的顺序登记；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 均已 completed；现在没有自动 next candidate；候选池已把后主线方向收口为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，并按 P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8 的顺序登记；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -82,6 +82,8 @@ post_mainline_execution_ladder:
     - "This ladder is the explicit product-only post-mainline manual-selection ordering for future AI windows."
     - "Governance closeout / AX9S sync / future unlock prep remain outside PRODUCT_MAINLINE_TASK_LIBRARY and require dedicated control packets when needed."
     - "Direction-level recommendations may remain in control/product_module_registry.yaml, but product execution-level decomposition lives here."
+    - "Execution-level management and reporting should use the P1 -> P8 ladder plus task_ids defined here."
+    - "Direction-level labels in control/product_module_registry.yaml remain navigation-only and must not replace P1-P8 task_ids in execution-level communication."
     - "The ladder is advisory ordering only; actual activation still requires a dedicated current_task packet."
   priority_bands:
     - band_label: FIRST_PRIORITY

@@ -259,6 +259,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 均已 completed", task_library_text)
         self.assertIn("现在没有自动 next candidate", task_library_text)
         self.assertIn("后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认", task_library_text)
+        self.assertIn("执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代", task_library_text)
         self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
 
         completed_mainline_task_ids = (
@@ -340,6 +341,18 @@ class TestStage12Extractors(unittest.TestCase):
         )
         self.assertEqual(task_library["task_count"], len(task_library["tasks"]))
         self.assertIn("P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8", task_library_text)
+        self.assertIn(
+            "Execution-level management and reporting should use the P1 -> P8 ladder plus task_ids defined here.",
+            task_library_text,
+        )
+        self.assertIn(
+            "Direction-level labels in control/product_module_registry.yaml remain navigation-only and must not replace P1-P8 task_ids in execution-level communication.",
+            task_library_text,
+        )
+        self.assertIn(
+            "Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.",
+            repo_status_text,
+        )
 
         self.assertIn("纯导航图", route_map_text)
         self.assertIn("非当前任务源", route_map_text)

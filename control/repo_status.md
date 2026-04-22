@@ -62,7 +62,8 @@ State Semantics:
 - control/product_task_library.yaml current_mainline_next_candidate remains a MAINLINE_COMPLETE closeout record with no task_id and no packet_id.
 - There is still no automatic next candidate after this closeout; manual-selection tasks may exist in the candidate pool without becoming current_mainline_next_candidate.
 - control/product_task_library.yaml now carries the completed mainline record plus the product-only post-mainline execution ladder; governance closeout / AX9S sync / future unlock prep remain outside the product pool and still require dedicated control packets when needed.
-- control/product_module_registry.yaml continues to expose direction-level recommendations and now references the product-only ladder for finer execution decomposition.
+- control/product_module_registry.yaml continues to expose direction-level recommendations for navigation only and now references the product-only ladder for finer execution decomposition.
+- Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source; this round does not modify it.
 - source_blueprint_registry is the only source-blueprint allowlist.

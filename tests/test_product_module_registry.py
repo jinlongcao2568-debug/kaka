@@ -136,6 +136,10 @@ def test_post_mainline_selection_block_is_navigation_only_and_references_existin
     assert selection["recommendation_is_navigation_only"] is True
     assert selection["detailed_execution_ladder_ref"] == "control/product_task_library.yaml#post_mainline_execution_ladder"
     assert selection["detailed_execution_scope"] == "PRODUCT_ONLY"
+    assert selection["execution_management_notes"] == [
+        "Execution-level management and reporting should use control/product_task_library.yaml#post_mainline_execution_ladder and its P1 -> P8 task_ids.",
+        "Direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化 remain navigation-only and must not replace P1-P8 task_ids in execution-level communication.",
+    ]
 
     bridge = selection["detailed_execution_bridge"]
     assert bridge["stage8_task_ids"] == [
