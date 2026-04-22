@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import unittest
 
 import yaml
 
@@ -337,3 +338,24 @@ def test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked() -> Non
     assert modules["STAGE8-OUTREACH-GOVERNED"]["pending_packets"] == []
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["external_release_allowed"] is False
     assert modules["STAGE9-DELIVERY-GOVERNANCE"]["live_execution_allowed"] is False
+
+
+def load_tests(
+    loader: unittest.TestLoader,
+    tests: unittest.TestSuite,
+    pattern: str | None,
+) -> unittest.TestSuite:
+    suite = unittest.TestSuite()
+    for test in (
+        test_product_module_registry_exists_and_is_not_status_source,
+        test_product_module_registry_covers_core_stage_modules,
+        test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cleanup_is_recorded,
+        test_post_mainline_selection_block_is_navigation_only_and_references_existing_modules,
+        test_stage_module_inventory_is_expanded_for_stage1_to_stage9,
+        test_stage_module_inventory_declares_only_existing_current_surfaces,
+        test_api_and_repository_surfaces_are_not_lost_from_module_ledger,
+        test_internal_preview_packet_is_not_left_pending_in_registry,
+        test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked,
+    ):
+        suite.addTest(unittest.FunctionTestCase(test))
+    return suite
