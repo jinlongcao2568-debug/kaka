@@ -209,15 +209,23 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("current_task -> product_task_library -> repo_status", repo_status_text)
 
         active_task = current_task["currentTask"]
+        self.assertEqual(active_task["task_id"], "PTL-GOV-120-post-mainline-direction-advance-to-INT")
+        self.assertEqual(active_task["title"], "后主线方向推进到 Internal preview 产品化强化")
         self.assertTrue(active_task["task_id"])
         self.assertIn("task_packet", active_task)
         active_packet = active_task["task_packet"]
         self.assertIsInstance(active_packet, dict)
+        self.assertEqual(active_packet["packet_id"], "PTL-GOV-120-post-mainline-direction-advance-to-INT")
+        self.assertEqual(active_packet["subpacket_id"], "PTL-GOV-120-post-mainline-direction-advance-to-INT")
+        self.assertEqual(active_packet["backlog_packet_ref"], "PTL-GOV-120-post-mainline-direction-advance-to-INT")
         self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
-        self.assertIn(active_packet["execution_mode"], {"ACTIVATION_ONLY", "SCOPED_EXECUTION"})
+        self.assertEqual(active_packet["execution_mode"], "SCOPED_EXECUTION")
         self.assertEqual(active_packet["status"], "ACTIVE")
-        self.assertIsInstance(active_packet["runtime_change_in_packet"], str)
-        self.assertTrue(active_packet["runtime_change_in_packet"])
+        self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(active_packet["existing_runtime_state"], "HEAVY_RUNTIME")
+        self.assertEqual(active_packet["risk_level"], "HIGH")
+        self.assertEqual(active_packet["change_class"], "MANDATORY_HUMAN_REVIEW")
+        self.assertEqual(active_packet["baseline_dirty_paths"], [])
         for required_field in (
             "packet_id",
             "backlog_packet_ref",
@@ -227,22 +235,76 @@ class TestStage12Extractors(unittest.TestCase):
         ):
             self.assertIn(required_field, active_packet)
             self.assertTrue(active_packet[required_field])
+        expected_paths = [
+            "control/current_task.yaml",
+            "control/repo_status.md",
+            "control/product_module_registry.yaml",
+            "docs/AX9S_开发执行路由图.md",
+            "tests/test_stage12_extractors.py",
+            "tests/test_product_module_registry.py",
+        ]
+        self.assertEqual(active_packet["declared_changed_paths"], expected_paths)
+        self.assertEqual(active_packet["allowed_modification_paths"], expected_paths)
+        impacted_assets = active_packet["impacted_assets"]
+        self.assertEqual(
+            impacted_assets["control"],
+            [
+                "control/current_task.yaml",
+                "control/repo_status.md",
+                "control/product_module_registry.yaml",
+            ],
+        )
+        self.assertEqual(impacted_assets["docs"], ["docs/AX9S_开发执行路由图.md"])
+        self.assertEqual(
+            impacted_assets["tests"],
+            [
+                "tests/test_stage12_extractors.py",
+                "tests/test_product_module_registry.py",
+            ],
+        )
+        self.assertEqual(impacted_assets["runtime"], [])
+        self.assertEqual(impacted_assets["contracts"], [])
+        self.assertEqual(impacted_assets["handoff"], [])
+        self.assertEqual(impacted_assets["scripts"], [])
 
         scoped_execution_scope = active_packet["scoped_execution_scope"]
         self.assertFalse(scoped_execution_scope["product_task_library_change"])
+        self.assertTrue(scoped_execution_scope["product_module_registry_change"])
+        self.assertFalse(scoped_execution_scope["runtime_change"])
         self.assertFalse(scoped_execution_scope["external_release_change"])
         self.assertFalse(scoped_execution_scope["stage8_real_execution_change"])
         self.assertFalse(scoped_execution_scope["stage9_real_payment_delivery_refund_change"])
         self.assertFalse(scoped_execution_scope["new_formal_object_enum_gate_exception_semantics"])
+        self.assertTrue(scoped_execution_scope["tests_change"])
+        self.assertTrue(scoped_execution_scope["docs_change"])
+        self.assertTrue(scoped_execution_scope["control_change"])
+        self.assertTrue(scoped_execution_scope["ax9s_change"])
+        self.assertFalse(scoped_execution_scope["canonical_readiness_change"])
+        self.assertFalse(scoped_execution_scope["auto_next_candidate_selection"])
         self.assertFalse(scoped_execution_scope["commit_allowed"])
-        if scoped_execution_scope["runtime_change"]:
-            self.assertNotEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
-        else:
-            self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
         self.assertEqual(
             scoped_execution_scope["product_module_registry_change"],
             "control/product_module_registry.yaml" in active_packet["allowed_modification_paths"],
         )
+        for token in (
+            "not an external unlock implementation",
+            "不改业务 runtime",
+            "不改 src",
+            "不改 contracts",
+            "不改 handoff",
+            "不改 scripts",
+            "不改 control/product_task_library.yaml",
+            "不改变 canonical readiness",
+            "不放开 external release",
+            "不放开 Stage8 real execution",
+            "不放开 Stage9 real payment/delivery/refund",
+            "不新增业务对象、枚举、gate、exception 语义",
+            "不新增正式对象、枚举、gate、exception 语义",
+            "不自动选择下一主线",
+            "不自动激活推荐方向",
+            "不提交",
+        ):
+            self.assertIn(token, active_packet["non_goals"])
         self.assertIn("control/current_task.yaml remains the only active execution source.", task_library_text)
         self.assertIn(
             "current_mainline_next_candidate is a candidate-pool pointer only; it does not auto-activate",
@@ -297,7 +359,11 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("当前没有自动 next candidate", route_map_text)
         self.assertIn("post-mainline 方向选择当前只作导航提示", route_map_text)
         self.assertIn("当前推荐方向仅作导航建议，不是已激活任务", route_map_text)
+        self.assertIn("PTL-GOV-120-post-mainline-direction-advance-to-INT", route_map_text)
+        self.assertIn("Internal preview 产品化强化", route_map_text)
         self.assertIn("Stage7 模块边界重构", route_map_text)
+        self.assertIn("PTL-S7-module-boundary-refactor", route_map_text)
+        self.assertIn("2601482", route_map_text)
         self.assertIn("Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解", route_map_text)
         self.assertIn("Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解", route_map_text)
         self.assertIn("不是 live execution", route_map_text)

@@ -132,7 +132,7 @@ def test_post_mainline_selection_block_is_navigation_only_and_references_existin
     assert selection["automatic_next_candidate_disabled"] is True
     assert selection["mainline_closeout_ref"] == "PTL-GOV-117-product-mainline-completion-closeout"
     assert selection["selection_state"] == "OPEN_FOR_MANUAL_SELECTION"
-    assert selection["recommended_direction_label"] == "Stage7 模块边界重构"
+    assert selection["recommended_direction_label"] == "Internal preview 产品化强化"
     assert selection["recommendation_is_navigation_only"] is True
 
     candidates = selection["direction_candidates"]
@@ -143,18 +143,26 @@ def test_post_mainline_selection_block_is_navigation_only_and_references_existin
         "Stage9 governed delivery 深化",
     ]
 
+    candidate_by_label = {candidate["direction_label"]: candidate for candidate in candidates}
+
     for candidate in candidates:
         assert candidate["future_packet_id_suggestion"]
-        assert candidate["status"] == "OPEN_FOR_MANUAL_SELECTION"
         assert candidate["not_auto_activated"] is True
         assert candidate["rationale"]
         assert candidate["related_modules"]
         for module_id in candidate["related_modules"]:
             assert module_id in modules, module_id
 
-    assert candidates[0]["recommended_now"] is True
-    for candidate in candidates[1:]:
-        assert candidate["recommended_now"] is False
+    stage7_direction = candidate_by_label["Stage7 模块边界重构"]
+    internal_preview_direction = candidate_by_label["Internal preview 产品化强化"]
+    assert stage7_direction["status"] == "COMPLETED"
+    assert stage7_direction["recommended_now"] is False
+    assert stage7_direction["completed_ref"] == "PTL-S7-module-boundary-refactor"
+    assert internal_preview_direction["status"] == "OPEN_FOR_MANUAL_SELECTION"
+    assert internal_preview_direction["recommended_now"] is True
+    for label in ("Stage8 governed touch 深化", "Stage9 governed delivery 深化"):
+        assert candidate_by_label[label]["status"] == "OPEN_FOR_MANUAL_SELECTION"
+        assert candidate_by_label[label]["recommended_now"] is False
 
 
 def test_stage_module_inventory_is_expanded_for_stage1_to_stage9() -> None:

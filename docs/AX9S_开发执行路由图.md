@@ -21,16 +21,17 @@
 - 本仓库当前不是“从零补 skeleton”的起点，而是已经存在 Stage1-9 的 internal governed runtime。
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
 - Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked / governed / approval-gated。
-- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-GOV-118-post-mainline-direction-selection`，只做后主线方向选择的机器登记与导航同步。
+- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-GOV-120-post-mainline-direction-advance-to-INT`，只做后主线推荐方向推进、机器登记与导航同步。
 - `PTL-INT-internal-preview-surface-envelope` scoped-execution 已完成并提交：`cfc5265`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - Stage1-9 + INT 当前产品主线闭合完成；`control/product_task_library.yaml` 的 `current_mainline_next_candidate` 已收口为 `MAINLINE_COMPLETE` closeout 记录，`task_id` / `packet_id` 均为空。
 - 当前没有自动 next candidate；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认。
 - post-mainline 方向选择当前只作导航提示，不自动决定执行顺序，也不自动恢复任何 next candidate。
-- 当前推荐方向仅作导航建议，不是已激活任务；推荐标签为 `Stage7 模块边界重构`。
+- `Stage7 模块边界重构` 对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交：`2601482`；该方向当前不再 recommended_now，且不是 current active packet。
+- 当前推荐方向仅作导航建议，不是已激活任务；推荐标签为 `Internal preview 产品化强化`。
 - `PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交：`209c4cd`；它不再是 current active packet，仅作为把 current_mainline_next_candidate 推进到 `PTL-INT` 的历史控制面参照。
 - `PTL-S89-outreach-writeback-delivery-governance` scoped-execution 已完成并提交：`c36dd9d`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
-- 本轮只做 `PTL-GOV-118` 后主线方向选择、近端导航提示同步和机器可读状态对齐；不进入 runtime，不改 src / contracts / handoff / scripts，不改 Stage7 / Stage8 / Stage9 业务实现，不放开 external release 或客户平台放行。
+- 本轮只做 `PTL-GOV-120` 后主线推荐方向推进、近端导航提示同步和机器可读状态对齐；不进入 runtime，不改 src / contracts / handoff / scripts，不改 Stage7 / Stage8 / Stage9 业务实现，不放开 external release 或客户平台放行。
 - `PTL-S56-project-fact-review-report` scoped-execution 已完成并已提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S45-rule-evidence-dual-gate` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S34-object-lineage-verification-handoff` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -150,10 +151,11 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-GOV-118-post-mainline-direction-selection`；本轮只做后主线方向选择的机器登记与导航同步，不自动进入任何新 runtime 包。
+- 当前 active packet：`PTL-GOV-120-post-mainline-direction-advance-to-INT`；本轮只做后主线推荐方向推进的机器登记与导航同步，不自动进入任何新 runtime 包。
 - 当前无自动 next candidate：Stage1-9 + INT 产品主线已闭合；后续新主线、模块拆分、强化包或外发 unlock 均需另开 task packet 并人工确认，不能由本导航图自动选择。
 - post-mainline 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入候选池。
-- 当前推荐方向仅作导航建议，不是已激活任务：`Stage7 模块边界重构`。
+- `Stage7 模块边界重构`：对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交 `2601482`；该方向当前不再 recommended_now，只作为已闭合近端历史参照。
+- 当前推荐方向仅作导航建议，不是已激活任务：`Internal preview 产品化强化`。
 - `PTL-INT-internal-preview-surface-envelope`：已完成 scoped-execution 并提交 `cfc5265`；不再是 current active packet，也不再是 current_mainline_next_candidate，仅作为内部预览工作台与正式对象消费封装的已闭合历史参照；不是 external release 或客户平台放行。
 - `PTL-S89-outreach-writeback-delivery-governance`：已完成 scoped-execution 并提交 `c36dd9d`；不再是 current_mainline_next_candidate，仅作为 Stage8-9 触达记录、回写、交付与治理反馈闭合的近端历史参照。
 - `PTL-S78-contact-candidate-compliance-preview`：已完成并提交；不再是 current_mainline_next_candidate，仅作为 Stage7-8 联系候选、合规判定与预览闭合的近端历史参照。

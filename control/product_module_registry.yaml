@@ -39,7 +39,7 @@ post_mainline_selection:
   automatic_next_candidate_disabled: true
   mainline_closeout_ref: PTL-GOV-117-product-mainline-completion-closeout
   selection_state: OPEN_FOR_MANUAL_SELECTION
-  recommended_direction_label: "Stage7 模块边界重构"
+  recommended_direction_label: "Internal preview 产品化强化"
   recommendation_is_navigation_only: true
   direction_candidates:
     - direction_label: "Stage7 模块边界重构"
@@ -47,16 +47,17 @@ post_mainline_selection:
       related_modules:
         - STAGE7-SALES-DERIVATION
         - SHARED-RUNTIME-POLICY-CHAIN
-      recommended_now: true
-      status: OPEN_FOR_MANUAL_SELECTION
+      recommended_now: false
+      status: COMPLETED
       not_auto_activated: true
+      completed_ref: PTL-S7-module-boundary-refactor
       rationale: "优先收敛 Stage7 重 runtime 文件边界与消费边界，降低后续 Stage8/9 耦合；仅作内部产品方向导航建议，不自动进入候选池。"
     - direction_label: "Internal preview 产品化强化"
       future_packet_id_suggestion: PTL-INT-internal-preview-productization-strengthening
       related_modules:
         - INTERNAL-PREVIEW-SURFACE
         - SURFACE-API-TRANSPORT
-      recommended_now: false
+      recommended_now: true
       status: OPEN_FOR_MANUAL_SELECTION
       not_auto_activated: true
       rationale: "继续强化内部预览工作台与投影封装，但保持 internal-only / governed 边界；仅作内部产品方向导航建议。"
