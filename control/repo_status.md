@@ -59,6 +59,8 @@ Forbidden Actions (current):
 - Any change to src/stage9_delivery/**
 - Any change to src/storage/repositories/**
 - Any change to tests/** outside the explicit allowed list
+- Any change to control/product_task_library.yaml
+- Any change to control/product_module_registry.yaml
 - Any change to control/milestone_status.yaml
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/operator_assignment_roster_defaults.yaml
@@ -76,6 +78,7 @@ State Semantics:
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.
 - PTL-GOV-120-post-mainline-direction-advance-to-INT has completed and committed as be0b0b9.
+- PTL-GOV-121-active-task-test-strategy-hardening has completed and committed as 604b5be.
 - post_mainline_selection currently recommends Internal preview 产品化强化.
 - PTL-INT-internal-preview-productization-strengthening is now the active post-mainline strengthening packet in SCOPED_EXECUTION mode.
 - This scoped-execution round changes only the declared internal preview control/runtime/test files; it does not change product_task_library, product_module_registry, AX9S, contracts, handoff, scripts, routes, schemas, repositories, shared runtime, or Stage7/8/9 business implementation.
@@ -96,12 +99,13 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths 'control/current_task.yaml','control/repo_status.md','src/api/projections.py','src/storage/repository_boundary.py','src/storage/operator_loop_contracts.py','tests/test_internal_surface_preview.py','tests/test_internal_repository_boundary.py','tests/test_api_transport_bootstrap.py','tests/test_internal_operational_loop.py','tests/test_internal_operational_hardening.py'
+- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths <PowerShell array: control/current_task.yaml, control/repo_status.md, src/api/projections.py, src/storage/repository_boundary.py, src/storage/operator_loop_contracts.py, tests/test_internal_surface_preview.py, tests/test_internal_repository_boundary.py, tests/test_api_transport_bootstrap.py, tests/test_internal_operational_loop.py, tests/test_internal_operational_hardening.py>
 - python -m pytest tests/test_internal_surface_preview.py -q
 - python -m pytest tests/test_internal_repository_boundary.py -q
 - python -m pytest tests/test_api_transport_bootstrap.py -q
 - python -m pytest tests/test_internal_operational_loop.py -q
 - python -m pytest tests/test_internal_operational_hardening.py -q
+- python -m pytest tests/test_stage12_extractors.py -q
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1

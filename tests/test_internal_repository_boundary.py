@@ -378,6 +378,42 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             original_procurement_actor["actor_id"],
         )
 
+    def test_stage7_repository_readback_does_not_broad_fallback_when_typed_refs_are_stale(self) -> None:
+        stage7 = self.result["stage7"]
+        refresh_saleable_opportunity(stage7)
+
+        opportunity_id = stage7.record("saleable_opportunity").get("opportunity_id")
+        stage_state = DatabaseSession.default().get_stage_state(7, "opportunity_pool", opportunity_id)
+        self.assertIsNotNone(stage_state)
+
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs.update(
+            {
+                "buyer_fit_id": "BUYER-FIT-STALE-TYPED-REF-001",
+                "offer_recommendation_id": "OFFER-STALE-TYPED-REF-001",
+                "legal_action_actor_id": "LEGAL-ACTOR-STALE-TYPED-REF-001",
+                "procurement_decision_actor_id": "PROC-ACTOR-STALE-TYPED-REF-001",
+            }
+        )
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        hydrated = hydrate_stage_bundle("stage7", {"opportunity_id": opportunity_id})
+
+        self.assertIsNone(hydrated)
+        with self.assertRaises(TypeError):
+            list_saleable_opportunities({"opportunity_id": opportunity_id})
+
     def test_stage8_repository_readback_prefers_persisted_formal_refs_over_loose_lookup(self) -> None:
         stage8 = self.result["stage8"]
         original_contact = dict(stage8.record("contact_target").data)
@@ -464,6 +500,41 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             hydrated.record("contact_target").get("contact_target_id"),
             original_contact["contact_target_id"],
         )
+
+    def test_stage8_repository_readback_does_not_broad_fallback_when_typed_refs_are_stale(self) -> None:
+        stage8 = self.result["stage8"]
+        create_touch_record(stage8)
+
+        touch_id = stage8.record("touch_record").get("touch_record_id")
+        opportunity_id = stage8.record("contact_target").get("opportunity_id")
+        stage_state = DatabaseSession.default().get_stage_state(8, "outreach_workbench", touch_id)
+        self.assertIsNotNone(stage_state)
+
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs.update(
+            {
+                "contact_target_id": "CT-STALE-TYPED-REF-001",
+                "outreach_plan_id": "PLAN-STALE-TYPED-REF-001",
+            }
+        )
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        hydrated = hydrate_stage_bundle("stage8", {"opportunity_id": opportunity_id})
+
+        self.assertIsNone(hydrated)
+        with self.assertRaises(TypeError):
+            list_contact_targets({"opportunity_id": opportunity_id})
 
     def test_stage9_repository_readback_prefers_persisted_formal_refs_over_loose_lookup(self) -> None:
         stage9 = self.result["stage9"]

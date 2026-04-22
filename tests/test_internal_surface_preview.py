@@ -406,6 +406,10 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertNotIn("leadpack_candidate_review_gate", review_response["missing_approvals"])
         self.assertTrue(simulation_response["export_simulation_requested"])
         self.assertTrue(simulation_response["export_simulation_allowed"])
+        self.assertEqual(simulation_response["export_simulation_mode"], "simulation_only")
+        self.assertFalse(simulation_response["direct_export_enabled"])
+        self.assertFalse(simulation_response["external_ready_direct_export"])
+        self.assertFalse(simulation_response["external_delivery_enabled"])
         self.assertIn("approval_prerequisites_not_met", simulation_response["blocked_reasons"])
 
     def test_leadpack_activation_prep_surface_is_review_only_and_can_fail_formally(self) -> None:
