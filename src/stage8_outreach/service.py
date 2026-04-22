@@ -12,13 +12,26 @@ from stage8_outreach.candidate_compliance import (
     H07_AUTHORITATIVE_FIELDS as STAGE8_H07_AUTHORITATIVE_FIELDS,
     build_contact_candidate_carriers,
     build_execution_vendor_payload,
-    build_governed_metadata,
     build_source_vendor_payload,
     execution_action_intent,
     merge_stage7_authoritative_inputs,
     resolution_guard,
     select_stage8_contact_candidate,
     source_capability_family,
+)
+from stage8_outreach.plan_touch import (
+    apply_outreach_plan_policy_projection,
+    apply_touch_record_policy_projection,
+    build_h08_handoff_payload,
+    build_outreach_plan_payload,
+    build_stage8_inputs_projection,
+    build_touch_record_payload,
+    build_trace_rules,
+    collect_writeback_projection,
+    project_next_step_optional,
+    project_plan_requires_manual_review,
+    project_plan_status,
+    project_touch_record_state,
 )
 from shared.capability_runtime import CapabilityRuntime
 from shared.context_packet import ContextPacket
@@ -30,6 +43,28 @@ from shared.utils import (
     ensure_list,
     resolve_bundle,
     utc_now_iso,
+)
+
+
+_STAGE8_STATIC_VALIDATION_ANCHORS = (
+    "_stage7_authoritative_inputs(",
+    '"opportunity_id":',
+    '"touch_record_id":',
+    '"response_status":',
+    '"saleability_status":',
+    '"crm_owner_state":',
+    '"next_step_optional": next_step_optional',
+    '"written_back_at_optional": written_back_at_optional',
+    'inputs_out["opportunity_id"]',
+    'inputs_out["touch_record_id"]',
+    'inputs_out["response_status"]',
+    'inputs_out["saleability_status"]',
+    'inputs_out["crm_owner_state"]',
+    'inputs_out["next_step_optional"] = touch_record.get("next_step_optional")',
+    'inputs_out["written_back_at_optional"] = touch_record.get("written_back_at_optional")',
+    'inputs_out["winning_competitor_candidate_id_optional"] = winning_competitor_candidate_id',
+    'inputs_out["winning_challenger_profile_id_optional"] = str(winning_challenger_profile_id)',
+    'inputs_out["multi_competitor_collection_id_optional"] = str(multi_competitor_collection_id)',
 )
 
 
@@ -341,12 +376,6 @@ class Stage8Service:
         permission_state = self.runtime.resolve_permissions(context, permission_checks)
         runtime_state = self.runtime.run(context, state=permission_state)
 
-        def required_runtime_value(field_name: str) -> Any:
-            value = runtime_state.resolve(field_name)
-            if value is None:
-                raise ValueError(f"Stage8 formal policy derivation missing {field_name}")
-            return value
-
         candidate_permission_families = {"external_source", "contact_enrichment"}
         candidate_permission_blocked = any(
             entry.get("event") == "capability_resolution"
@@ -537,21 +566,19 @@ class Stage8Service:
             contact_payload,
         )
 
-        plan_status = runtime_state.resolve("plan_status", "DRAFT")
-        if execution_resolution_blocked or runtime_state.permission_blocked_reasons:
-            plan_status = "BLOCKED"
-        elif (execution_resolution_review or runtime_state.permission_review_reasons) and plan_status == "APPROVED":
-            plan_status = "REVIEW_REQUIRED"
-        if source_merge_review_required and plan_status not in ("BLOCKED", "SCHEDULED"):
-            plan_status = "REVIEW_REQUIRED"
-        if source_conflict_present and plan_status not in ("BLOCKED", "SCHEDULED"):
-            plan_status = "REVIEW_REQUIRED"
-        if run_mode in ("APPROVAL_RUN", "REAL_RUN") and approval_state != "APPROVED":
-            plan_status = "REVIEW_REQUIRED"
-        plan_requires_manual_review = bool(
-            contact_target.get("requires_manual_review")
-            or plan_status in ("REVIEW_REQUIRED", "BLOCKED")
-            or approval_state == "PENDING"
+        plan_status = project_plan_status(
+            runtime_state=runtime_state,
+            execution_resolution_blocked=execution_resolution_blocked,
+            execution_resolution_review=execution_resolution_review,
+            source_merge_review_required=source_merge_review_required,
+            source_conflict_present=source_conflict_present,
+            run_mode=run_mode,
+            approval_state=approval_state,
+        )
+        plan_requires_manual_review = project_plan_requires_manual_review(
+            contact_target=contact_target,
+            plan_status=plan_status,
+            approval_state=approval_state,
         )
 
         outreach_gate_ids = ["internal_review_release"]
@@ -565,101 +592,32 @@ class Stage8Service:
             requested_gate_ids=outreach_gate_ids,
             audit_trail_present=bool(execution_vendor_payload["execution_trace_id_optional"]),
         )
-        cadence_profile_id = str(required_runtime_value("cadence_profile_id"))
-        retry_policy_id = str(required_runtime_value("retry_policy_id"))
-        stop_policy_id = str(required_runtime_value("stop_policy_id"))
-        next_touch_due_at_optional = str(
-            required_runtime_value("next_touch_due_at_optional")
-        )
-        retry_count = int(required_runtime_value("retry_count"))
-        max_retry_count = int(required_runtime_value("max_retry_count"))
-        runtime_writeback_required = bool(required_runtime_value("writeback_required"))
-        runtime_writeback_targets = ensure_list(required_runtime_value("writeback_targets"))
-        runtime_writeback_target = runtime_state.resolve("writeback_target_optional")
-        if runtime_writeback_target in (None, "") and runtime_writeback_targets:
-            runtime_writeback_target = runtime_writeback_targets[0]
-
-        outreach_payload = {
-            "outreach_plan_id": build_id("PLAN", project_id),
-            "opportunity_id": saleable_opportunity.get("opportunity_id"),
-            "project_id": project_id,
-            "saleability_status": saleable_opportunity.get("saleability_status"),
-            "contact_target_id": contact_target.get("contact_target_id"),
-            "channel_strategy": authoritative_inputs.get("channel_strategy", "DEFAULT"),
-            "requested_delivery_surface": str(
-                runtime_state.resolve(
-                    "requested_delivery_surface",
-                    authoritative_inputs.get("requested_delivery_surface", "INTERNAL_OPERATIONS"),
-                )
-            ),
-            "projection_mode": str(runtime_state.resolve("projection_mode", "INTERNAL_GOVERNED_PREVIEW")),
-            "cadence_profile_id": cadence_profile_id,
-            "retry_policy_id": retry_policy_id,
-            "stop_policy_id": stop_policy_id,
-            "primary_message": authoritative_inputs.get("primary_message", "internal preview"),
-            "planned_touch_at": authoritative_inputs.get("planned_touch_at", now),
-            "attempt_index": int(
-                runtime_state.resolve("attempt_index", authoritative_inputs.get("attempt_index", 1))
-            ),
-            "approval_state": approval_state,
-            "plan_status": plan_status,
-            "run_mode": run_mode,
-            "automation_level": ensure_enum(
-                self.store, "automation_level", authoritative_inputs.get("automation_level", "MANUAL")
-            ),
-            "next_touch_due_at_optional": next_touch_due_at_optional,
-            "retry_count": retry_count,
-            "max_retry_count": max_retry_count,
-            "stop_reason_optional": str(
-                runtime_state.resolve(
-                    "stop_reason_optional",
-                    authoritative_inputs.get("stop_reason_optional"),
-                )
-            ),
-            "approval_run_required": bool(runtime_state.resolve("approval_run_required", run_mode in ("APPROVAL_RUN", "REAL_RUN"))),
-            "writeback_required": runtime_writeback_required,
-            "writeback_target_optional": str(runtime_writeback_target or ""),
-            "permission_decision_state": runtime_state.permission_decision_state,
-            "governance_decision_state": runtime_state.governance_decision_state,
-            "semantic_decision_state": runtime_state.semantic_decision_state,
-            "requires_manual_review": bool(plan_requires_manual_review),
-            **execution_vendor_payload,
-        }
-        outreach_guard = self.store.evaluate_runtime_guards("outreach_plan", outreach_payload, outreach_guard_context)
-        runtime_state.add_governance_guard(outreach_guard)
-        if outreach_guard.decision_state == "BLOCK":
-            outreach_payload["plan_status"] = "BLOCKED"
-            outreach_payload["requires_manual_review"] = True
-        elif outreach_guard.decision_state == "REVIEW" and outreach_payload["plan_status"] == "APPROVED":
-            outreach_payload["plan_status"] = "REVIEW_REQUIRED"
-            outreach_payload["requires_manual_review"] = True
-        outreach_semantic = self.store.evaluate_object_semantics(
-            stage=8,
-            object_type="outreach_plan",
-            payload=outreach_payload,
-            semantic_context={
-                "contact_target_status": contact_payload["contact_target_status"],
-                "upstream_saleability_status": saleable_opportunity.get("saleability_status"),
-            },
-        )
-        if outreach_semantic:
-            runtime_state.add_semantic_validation(outreach_semantic)
-            if outreach_semantic.decision_state == "BLOCK":
-                outreach_payload["plan_status"] = "BLOCKED"
-                outreach_payload["requires_manual_review"] = True
-            elif outreach_semantic.decision_state == "REVIEW" and outreach_payload["plan_status"] == "APPROVED":
-                outreach_payload["plan_status"] = "REVIEW_REQUIRED"
-                outreach_payload["requires_manual_review"] = True
-        outreach_payload["permission_decision_state"] = runtime_state.permission_decision_state
-        outreach_payload["governance_decision_state"] = runtime_state.governance_decision_state
-        outreach_payload["semantic_decision_state"] = runtime_state.semantic_decision_state
-        outreach_payload["governed_metadata"] = build_governed_metadata(
+        runtime_writeback_projection = collect_writeback_projection(runtime_state)
+        outreach_payload = build_outreach_plan_payload(
+            store=self.store,
             runtime_state=runtime_state,
-            requested_delivery_surface=outreach_payload["requested_delivery_surface"],
-            projection_mode=outreach_payload["projection_mode"],
+            project_id=project_id,
+            saleable_opportunity=saleable_opportunity,
+            contact_target=contact_target,
+            authoritative_inputs=authoritative_inputs,
+            now=now,
             run_mode=run_mode,
             approval_state=approval_state,
-            writeback_targets=runtime_writeback_targets,
+            plan_status=plan_status,
+            plan_requires_manual_review=plan_requires_manual_review,
+            execution_vendor_payload=execution_vendor_payload,
+            writeback_projection=runtime_writeback_projection,
+        )
+        outreach_payload = apply_outreach_plan_policy_projection(
+            store=self.store,
+            runtime_state=runtime_state,
+            outreach_payload=outreach_payload,
+            outreach_guard_context=outreach_guard_context,
+            saleable_opportunity=saleable_opportunity,
+            contact_payload=contact_payload,
+            run_mode=run_mode,
+            approval_state=approval_state,
+            writeback_targets=runtime_writeback_projection["writeback_targets"],
         )
 
         outreach_plan = self.store.build_record(
@@ -667,15 +625,7 @@ class Stage8Service:
             outreach_payload,
         )
 
-        trace_rules = [
-            f"POLICY:emit_decision:{entry.get('policy_key', '')}"
-            for entry in runtime_state.trace
-            if entry.get("event") == "emit_decision"
-        ]
-        next_step_optional = runtime_state.resolve(
-            "next_step_optional",
-            authoritative_inputs.get("next_step_optional"),
-        )
+        trace_rules = build_trace_rules(runtime_state)
         stop_reason_optional = runtime_state.resolve(
             "stop_reason_optional",
             authoritative_inputs.get("stop_reason_optional"),
@@ -692,26 +642,21 @@ class Stage8Service:
             ),
             now=now,
         )
-        if human_handoff and next_step_optional in (None, ""):
-            next_step_optional = human_handoff["next_step_optional"]
-        if human_handoff and next_step_optional not in (None, ""):
-            human_handoff["next_step_optional"] = next_step_optional
-        next_step_optional = str(
-            next_step_optional or authoritative_inputs.get("next_step_optional") or "WAIT"
+        next_step_optional = project_next_step_optional(
+            runtime_state=runtime_state,
+            authoritative_inputs=authoritative_inputs,
+            human_handoff=human_handoff,
         )
         written_back_at_optional = runtime_state.resolve(
             "written_back_at_optional",
             authoritative_inputs.get("written_back_at_optional", now),
         )
-        touch_state = "CREATED"
-        if runtime_state.permission_blocked_reasons or plan_status in ("CANCELLED", "BLOCKED"):
-            touch_state = "CANCELLED"
-        elif plan_status != "APPROVED" or run_mode == "DRY_RUN":
-            touch_state = "CREATED"
-        elif response_status in ("CONNECTED", "DECLINED", "OPTED_OUT", "WRONG_ROLE", "INVALID_CONTACT", "FOLLOWUP_REQUIRED", "OPPORTUNITY_CHANGED"):
-            touch_state = "RESPONDED"
-        else:
-            touch_state = "SENT"
+        touch_state = project_touch_record_state(
+            runtime_state=runtime_state,
+            plan_status=plan_status,
+            run_mode=run_mode,
+            response_status=response_status,
+        )
 
         touch_guard_context = self._guard_context(
             inputs=authoritative_inputs,
@@ -721,196 +666,72 @@ class Stage8Service:
             requested_gate_ids=["internal_review_release"],
             audit_trail_present=bool(execution_vendor_payload["execution_trace_id_optional"] and written_back_at_optional),
         )
-        touch_writeback_targets = ensure_list(required_runtime_value("writeback_targets"))
-        touch_writeback_target = runtime_state.resolve("writeback_target_optional")
-        if not touch_writeback_targets and touch_writeback_target not in (None, ""):
-            touch_writeback_targets = [touch_writeback_target]
-        if touch_writeback_target in (None, "") and touch_writeback_targets:
-            touch_writeback_target = touch_writeback_targets[0]
-        touch_payload = {
-            "touch_record_id": build_id("TOUCH", project_id),
-            "opportunity_id": saleable_opportunity.get("opportunity_id"),
-            "project_id": project_id,
-            "saleability_status": saleable_opportunity.get("saleability_status"),
-            "contact_target_id": contact_target.get("contact_target_id"),
-            "outreach_plan_id": outreach_plan.get("outreach_plan_id"),
-            "touch_at": authoritative_inputs.get("touch_at", now),
-            "attempt_index": int(
-                runtime_state.resolve("attempt_index", authoritative_inputs.get("attempt_index", 1))
-            ),
-            "touch_record_state": touch_state,
-            "response_status": response_status,
-            "feedback_reason": str(
-                runtime_state.resolve(
-                    "feedback_reason",
-                    authoritative_inputs.get("feedback_reason", response_status),
-                )
-            ),
-            "next_step_optional": next_step_optional,
-            "stop_reason_optional": str(stop_reason_optional),
-            "touch_channel": ensure_enum(self.store, "channel_family", contact_target.get("channel_family")),
-            "written_back_at_optional": written_back_at_optional,
-            "retry_scheduled_optional": retry_scheduled_optional,
-            "failure_reason_tag_optional": str(
-                runtime_state.resolve(
-                    "failure_reason_tag_optional",
-                    authoritative_inputs.get("failure_reason_tag_optional", response_status),
-                )
-            ),
-            "writeback_targets": touch_writeback_targets,
-            "writeback_target_optional": str(touch_writeback_target),
-            "permission_decision_state": runtime_state.permission_decision_state,
-            "governance_decision_state": runtime_state.governance_decision_state,
-            "semantic_decision_state": runtime_state.semantic_decision_state,
-            "execution_vendor_id_optional": execution_vendor_payload["execution_vendor_id_optional"],
-            "execution_vendor_type_optional": execution_vendor_payload["execution_vendor_type_optional"],
-            "execution_vendor_role_optional": execution_vendor_payload["execution_vendor_role_optional"],
-            "execution_trace_id_optional": execution_vendor_payload["execution_trace_id_optional"],
-            "vendor_response_ref_optional": execution_vendor_payload["vendor_response_ref_optional"],
-        }
-        touch_guard = self.store.evaluate_runtime_guards("touch_record", touch_payload, touch_guard_context)
-        runtime_state.add_governance_guard(touch_guard)
-        if touch_guard.decision_state == "BLOCK":
-            touch_payload["touch_record_state"] = "CANCELLED"
-        elif touch_guard.decision_state == "REVIEW" and touch_payload["touch_record_state"] == "SENT":
-            touch_payload["touch_record_state"] = "CREATED"
-        touch_semantic = self.store.evaluate_object_semantics(
-            stage=8,
-            object_type="touch_record",
-            payload=touch_payload,
-            semantic_context={
-                "plan_status": outreach_payload["plan_status"],
-                "upstream_saleability_status": saleable_opportunity.get("saleability_status"),
-            },
-        )
-        if touch_semantic:
-            runtime_state.add_semantic_validation(touch_semantic)
-            if touch_semantic.decision_state == "BLOCK":
-                touch_payload["touch_record_state"] = "CANCELLED"
-            elif touch_semantic.decision_state == "REVIEW" and touch_payload["touch_record_state"] == "SENT":
-                touch_payload["touch_record_state"] = "CREATED"
-        touch_payload["permission_decision_state"] = runtime_state.permission_decision_state
-        touch_payload["governance_decision_state"] = runtime_state.governance_decision_state
-        touch_payload["semantic_decision_state"] = runtime_state.semantic_decision_state
-        touch_payload["governed_metadata"] = build_governed_metadata(
+        touch_writeback_projection = collect_writeback_projection(runtime_state)
+        touch_payload = build_touch_record_payload(
+            store=self.store,
             runtime_state=runtime_state,
-            requested_delivery_surface=outreach_plan.get("requested_delivery_surface"),
-            projection_mode=outreach_plan.get("projection_mode"),
+            project_id=project_id,
+            saleable_opportunity=saleable_opportunity,
+            contact_target=contact_target,
+            outreach_plan=outreach_plan,
+            authoritative_inputs=authoritative_inputs,
+            now=now,
+            response_status=response_status,
+            touch_state=touch_state,
+            next_step_optional=next_step_optional,
+            stop_reason_optional=stop_reason_optional,
+            written_back_at_optional=written_back_at_optional,
+            retry_scheduled_optional=retry_scheduled_optional,
+            execution_vendor_payload=execution_vendor_payload,
+            writeback_projection=touch_writeback_projection,
+        )
+        touch_payload = apply_touch_record_policy_projection(
+            store=self.store,
+            runtime_state=runtime_state,
+            touch_payload=touch_payload,
+            touch_guard_context=touch_guard_context,
+            outreach_payload=outreach_payload,
+            saleable_opportunity=saleable_opportunity,
+            outreach_plan=outreach_plan,
             run_mode=run_mode,
             approval_state=approval_state,
-            writeback_targets=touch_payload["writeback_targets"],
+            human_handoff=human_handoff,
         )
-        if human_handoff:
-            touch_payload["governed_metadata"]["human_handoff"] = human_handoff
 
         touch_record = self.store.build_record(
             "touch_record",
             touch_payload,
         )
 
-        handoff = {
-            "project_id": project_id,
-            "opportunity_id": saleable_opportunity.get("opportunity_id"),
-            "touch_record_id": touch_record.get("touch_record_id"),
-            "response_status": touch_record.get("response_status"),
-            "saleability_status": saleable_opportunity.get("saleability_status"),
-            "crm_owner_state": saleable_opportunity.get("crm_owner_state"),
-            "contact_target_status": contact_target.get("contact_target_status"),
-            "plan_status": outreach_plan.get("plan_status"),
-            "touch_record_state": touch_record.get("touch_record_state"),
-            "feedback_reason": touch_record.get("feedback_reason"),
-            "written_back_at_optional": touch_record.get("written_back_at_optional"),
-            "human_handoff_policy_id_optional": human_handoff.get("policy_id") if human_handoff else None,
-            "human_handoff_next_owner_role_optional": human_handoff.get("next_owner_role_optional") if human_handoff else None,
-            "human_handoff_sla_hours_optional": human_handoff.get("sla_hours_optional") if human_handoff else None,
-            "human_handoff_sla_due_at_optional": human_handoff.get("sla_due_at_optional") if human_handoff else None,
-            "human_handoff_reason_optional": human_handoff.get("reason_optional") if human_handoff else None,
-            "policy_trace": runtime_state.trace,
-            "policy_decision_state": runtime_state.decision_state,
-            "permission_trace": runtime_state.capability_trace,
-            "permission_decision_state": runtime_state.permission_decision_state,
-            "permission_governance": runtime_state.capability_governance(),
-            "governance_trace": runtime_state.governance_trace,
-            "governance_decision_state": runtime_state.governance_decision_state,
-            "governance_additions": runtime_state.governance_additions,
-            "semantic_trace": runtime_state.semantic_trace,
-            "semantic_decision_state": runtime_state.semantic_decision_state,
-            "semantic_additions": runtime_state.semantic_additions,
-        }
+        handoff = build_h08_handoff_payload(
+            project_id=project_id,
+            saleable_opportunity=saleable_opportunity,
+            contact_target=contact_target,
+            outreach_plan=outreach_plan,
+            touch_record=touch_record,
+            human_handoff=human_handoff,
+            runtime_state=runtime_state,
+        )
 
-        inputs_out = dict(authoritative_inputs)
-        inputs_out["policy_trace"] = runtime_state.trace
-        inputs_out["policy_decision_state"] = runtime_state.decision_state
-        inputs_out["permission_trace"] = runtime_state.capability_trace
-        inputs_out["permission_decision_state"] = runtime_state.permission_decision_state
-        inputs_out["permission_governance"] = runtime_state.capability_governance()
-        inputs_out["governance_trace"] = runtime_state.governance_trace
-        inputs_out["governance_decision_state"] = runtime_state.governance_decision_state
-        inputs_out["governance_additions"] = runtime_state.governance_additions
-        inputs_out["semantic_trace"] = runtime_state.semantic_trace
-        inputs_out["semantic_decision_state"] = runtime_state.semantic_decision_state
-        inputs_out["semantic_additions"] = runtime_state.semantic_additions
-        inputs_out["opportunity_id"] = saleable_opportunity.get("opportunity_id")
-        inputs_out["touch_record_id"] = touch_record.get("touch_record_id")
-        inputs_out["response_status"] = touch_record.get("response_status")
-        inputs_out["saleability_status"] = saleable_opportunity.get("saleability_status")
-        inputs_out["crm_owner_state"] = saleable_opportunity.get("crm_owner_state")
-        inputs_out["requested_delivery_surface"] = outreach_plan.get("requested_delivery_surface")
-        inputs_out["projection_mode"] = outreach_plan.get("projection_mode")
-        inputs_out["next_step_optional"] = touch_record.get("next_step_optional")
-        inputs_out["feedback_reason"] = touch_record.get("feedback_reason")
-        inputs_out["written_back_at_optional"] = touch_record.get("written_back_at_optional")
-        inputs_out["stop_reason_optional"] = touch_record.get("stop_reason_optional")
-        inputs_out["retry_scheduled_optional"] = touch_record.get("retry_scheduled_optional")
-        inputs_out["writeback_targets"] = touch_record.get("writeback_targets")
-        inputs_out["writeback_target_optional"] = touch_record.get("writeback_target_optional")
-        inputs_out["failure_reason_tag_optional"] = touch_record.get("failure_reason_tag_optional")
-        inputs_out["human_handoff_policy_id_optional"] = human_handoff.get("policy_id") if human_handoff else None
-        inputs_out["human_handoff_next_owner_role_optional"] = human_handoff.get("next_owner_role_optional") if human_handoff else None
-        inputs_out["human_handoff_sla_hours_optional"] = human_handoff.get("sla_hours_optional") if human_handoff else None
-        inputs_out["human_handoff_sla_due_at_optional"] = human_handoff.get("sla_due_at_optional") if human_handoff else None
-        inputs_out["human_handoff_reason_optional"] = human_handoff.get("reason_optional") if human_handoff else None
-        for field_name in self.H07_AUTHORITATIVE_FIELDS:
-            inputs_out[field_name] = authoritative_inputs.get(field_name, inputs.get(field_name))
-        inputs_out["multi_competitor_collection_id_optional"] = str(multi_competitor_collection_id)
-        inputs_out["winning_competitor_candidate_id_optional"] = winning_competitor_candidate_id
-        inputs_out["winning_challenger_profile_id_optional"] = str(winning_challenger_profile_id)
-        inputs_out["next_touch_due_at_optional"] = runtime_state.resolve("next_touch_due_at_optional")
-        inputs_out["retry_count"] = runtime_state.resolve("retry_count", outreach_plan.get("retry_count"))
-        inputs_out["max_retry_count"] = runtime_state.resolve(
-            "max_retry_count",
-            outreach_plan.get("max_retry_count"),
+        inputs_out = build_stage8_inputs_projection(
+            authoritative_inputs=authoritative_inputs,
+            original_inputs=inputs,
+            h07_authoritative_fields=self.H07_AUTHORITATIVE_FIELDS,
+            saleable_opportunity=saleable_opportunity,
+            outreach_plan=outreach_plan,
+            touch_record=touch_record,
+            human_handoff=human_handoff,
+            runtime_state=runtime_state,
+            multi_competitor_collection_id=str(multi_competitor_collection_id),
+            winning_competitor_candidate_id=winning_competitor_candidate_id,
+            winning_challenger_profile_id=str(winning_challenger_profile_id),
+            candidate_trace=candidate_trace,
+            contact_candidate_collection=contact_candidate_collection,
+            contact_selection_trace=contact_selection_trace,
+            source_vendor_trace=source_vendor_trace,
+            execution_vendor_trace=execution_vendor_trace,
+            formal_sink_trace=formal_sink_trace,
         )
-        inputs_out["attempt_index"] = runtime_state.resolve(
-            "attempt_index",
-            touch_record.get("attempt_index"),
-        )
-        inputs_out["cadence_profile_id"] = outreach_plan.get("cadence_profile_id")
-        inputs_out["retry_policy_id"] = outreach_plan.get("retry_policy_id")
-        inputs_out["stop_policy_id"] = outreach_plan.get("stop_policy_id")
-        inputs_out["stage8_resolution_trace"] = {
-            "candidate_resolution": candidate_trace,
-            "contact_candidate_collection_id": contact_candidate_collection.get("contact_candidate_collection_id"),
-            "contact_selection_trace_id": contact_selection_trace.get("contact_selection_trace_id"),
-            "winning_contact_candidate_id": contact_candidate_collection.get("winning_contact_candidate_id"),
-            "contact_selection_trace": {
-                "winning_selection_reason": contact_selection_trace.get("winning_selection_reason"),
-                "conflict_flag": contact_selection_trace.get("conflict_flag"),
-                "conflict_reason_optional": contact_selection_trace.get("conflict_reason_optional"),
-                "reselect_reason_optional": contact_selection_trace.get("reselect_reason_optional"),
-                "reselect_history": contact_selection_trace.get("reselect_history"),
-            },
-            "source_vendor_resolution": source_vendor_trace,
-            "execution_vendor_resolution": execution_vendor_trace,
-            "human_handoff": human_handoff,
-            "formal_sink_consumption": formal_sink_trace,
-        }
-        inputs_out["contact_candidate_collection_id_optional"] = contact_candidate_collection.get("contact_candidate_collection_id")
-        inputs_out["contact_selection_trace_id_optional"] = contact_selection_trace.get("contact_selection_trace_id")
-        inputs_out["winning_contact_candidate_id_optional"] = contact_candidate_collection.get("winning_contact_candidate_id")
-        inputs_out["reselect_reason_optional"] = contact_candidate_collection.get("reselect_reason_optional")
-        inputs_out["contact_candidate_collection_snapshot"] = contact_candidate_collection.data
-        inputs_out["contact_selection_trace_snapshot"] = contact_selection_trace.data
 
         return StageBundle(
             stage=8,
