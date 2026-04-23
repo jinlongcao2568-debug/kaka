@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
 
-from api.deps import get_settings
+from api.deps import get_database_session, get_settings
 from api.routes.stage1 import register_stage1_routes
 from api.routes.stage2 import register_stage2_routes
 from api.routes.stage3 import register_stage3_routes
@@ -83,6 +83,7 @@ def _mount_routes(app: FastAPI, routes: list[dict[str, Any]]) -> None:
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    storage_session = get_database_session()
     app = FastAPI(
         title="AX9S Internal Preview API",
         version="0.1.0",
@@ -91,6 +92,7 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
     app.state.settings = settings
+    app.state.storage_session = storage_session
     app.state.storage_bootstrap = settings.storage_bootstrap_payload()
     app.state.disabled_stage_transports = {
         "stage1": register_stage1_routes(),

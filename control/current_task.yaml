@@ -88,7 +88,7 @@ currentTask:
       current_active_packet_switch: true
       previous_active_packet: "PTL-I100-105-stage8-9-governed-closure"
       target_active_packet: "PTL-I100-106-platform-foundation-and-full-chain-entry"
-      product_task_library_change: true
+      product_task_library_change: false
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false

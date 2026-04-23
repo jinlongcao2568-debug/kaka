@@ -13,6 +13,9 @@ from shared.settings import Settings
 from shared.utils import utc_now_iso
 
 
+_SUPPORTED_STORAGE_BACKENDS = frozenset({"json-file"})
+
+
 @dataclass(frozen=True)
 class PersistedRecord:
     object_type: str
@@ -162,6 +165,7 @@ class DatabaseSession:
     def __init__(self, *, storage_path: Path | None = None, settings: Settings | None = None) -> None:
         self._lock = RLock()
         self._settings = settings or self.default_settings()
+        self._storage_backend = self._resolve_storage_backend(self._settings)
         self._storage_path = storage_path or self.default_storage_path(settings=self._settings)
         self._tables: Dict[str, Dict[str, PersistedRecord]] = {}
         self._stage_states: Dict[str, PersistedStageState] = {}
@@ -171,8 +175,16 @@ class DatabaseSession:
 
     @classmethod
     def default(cls, *, reload_from_disk: bool = False, settings: Settings | None = None) -> "DatabaseSession":
-        if cls._default is None or reload_from_disk:
-            cls._default = cls(settings=settings)
+        resolved_settings = cls.default_settings(settings=settings)
+        resolved_backend = cls._resolve_storage_backend(resolved_settings)
+        resolved_storage_path = resolved_settings.resolved_storage_path()
+        if (
+            cls._default is None
+            or reload_from_disk
+            or cls._default.storage_backend != resolved_backend
+            or cls._default.storage_path != resolved_storage_path
+        ):
+            cls._default = cls(settings=resolved_settings)
         return cls._default
 
     @classmethod
@@ -181,7 +193,24 @@ class DatabaseSession:
 
     @classmethod
     def default_storage_path(cls, *, settings: Settings | None = None) -> Path:
-        return cls.default_settings(settings=settings).resolved_storage_path()
+        resolved_settings = cls.default_settings(settings=settings)
+        cls._resolve_storage_backend(resolved_settings)
+        return resolved_settings.resolved_storage_path()
+
+    @classmethod
+    def _resolve_storage_backend(cls, settings: Settings) -> str:
+        backend = (settings.storage_backend or "").strip().lower()
+        if backend not in _SUPPORTED_STORAGE_BACKENDS:
+            configured_backend = settings.storage_backend
+            raise ValueError(
+                "unsupported storage backend "
+                f"{configured_backend!r}; supported storage backends: {sorted(_SUPPORTED_STORAGE_BACKENDS)}"
+            )
+        return backend
+
+    @property
+    def storage_backend(self) -> str:
+        return self._storage_backend
 
     @property
     def storage_path(self) -> Path:

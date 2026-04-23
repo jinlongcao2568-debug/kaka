@@ -22,6 +22,7 @@ from shared.settings import Settings
 
 
 STORAGE_ENV_KEYS = (
+    "KAKA_STORAGE_BACKEND",
     "KAKA_STORAGE_PATH",
     "KAKA_STORAGE_SCOPE",
     "KAKA_STORAGE_TEST_ISOLATION",
@@ -47,6 +48,37 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertEqual(settings.storage_scope, "shared")
         self.assertEqual(settings.storage_runtime_mode, "stable-default")
         self.assertEqual(path, settings_path)
+
+    def test_settings_from_env_consumes_storage_backend_without_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "postgres",
+                    "LOCALAPPDATA": tmp_dir,
+                },
+                clear=False,
+            ):
+                for key in ("KAKA_STORAGE_PATH", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
+
+                settings = Settings.from_env()
+
+        self.assertEqual(settings.storage_backend, "postgres")
+        self.assertEqual(settings.storage_scope, "shared")
+        self.assertEqual(settings.storage_runtime_mode, "stable-default")
+
+    def test_database_session_default_fast_fails_unsupported_storage_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="postgres",
+                storage_path_optional=str(Path(tmp_dir) / "store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+
+            with self.assertRaisesRegex(ValueError, "postgres"):
+                DatabaseSession.default(settings=settings, reload_from_disk=True)
 
     def test_explicit_storage_path_takes_priority(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

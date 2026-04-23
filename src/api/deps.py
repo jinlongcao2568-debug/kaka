@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from shared.settings import Settings
+from storage.db import DatabaseSession
 
 
 def _repo_root() -> Path:
@@ -21,6 +22,13 @@ def get_settings() -> Settings:
     return Settings.from_env(
         repo_root=str(_repo_root()),
         environment="INTERNAL_ONLY",
+    )
+
+
+def get_database_session(*, reload_from_disk: bool = False) -> DatabaseSession:
+    return DatabaseSession.default(
+        reload_from_disk=reload_from_disk,
+        settings=get_settings(),
     )
 
 
@@ -37,4 +45,4 @@ def build_transport_unavailable(stage_scope: int) -> dict[str, Any]:
     }
 
 
-__all__ = ["build_transport_unavailable", "get_settings"]
+__all__ = ["build_transport_unavailable", "get_database_session", "get_settings"]

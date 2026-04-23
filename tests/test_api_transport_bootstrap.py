@@ -64,19 +64,38 @@ class TestApiTransportBootstrap(unittest.TestCase):
             Path(tmp_dir) / "kaka" / "internal_operator_loop_store.json",
         )
 
+    def test_get_settings_consumes_storage_backend_from_env(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "postgres",
+                    "LOCALAPPDATA": tmp_dir,
+                },
+                clear=False,
+            ):
+                for key in ("KAKA_STORAGE_PATH", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
+                get_settings.cache_clear()
+                settings = get_settings()
+
+        self.assertEqual(settings.storage_backend, "postgres")
+        self.assertEqual(settings.storage_scope, "shared")
+        self.assertEqual(settings.storage_runtime_mode, "stable-default")
+
     def test_create_app_mounts_storage_bootstrap_projection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             explicit_path = Path(tmp_dir) / "storage" / "custom-store.json"
             with patch.dict(
                 os.environ,
                 {
+                    "KAKA_STORAGE_BACKEND": "json-file",
                     "KAKA_STORAGE_PATH": str(explicit_path),
                     "KAKA_STORAGE_SCOPE": "process",
                     "LOCALAPPDATA": str(Path(tmp_dir) / "local-app-data"),
                 },
                 clear=False,
             ):
-                os.environ.pop("KAKA_STORAGE_BACKEND", None)
                 os.environ.pop("KAKA_STORAGE_TEST_ISOLATION", None)
                 get_settings.cache_clear()
                 app = create_app()
@@ -85,6 +104,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(app.state.settings.storage_path_optional, str(explicit_path))
         self.assertEqual(app.state.settings.storage_scope, "process")
         self.assertEqual(app.state.settings.storage_runtime_mode, "explicit-path")
+        self.assertEqual(app.state.storage_session.storage_backend, "json-file")
+        self.assertEqual(app.state.storage_session.storage_path, explicit_path)
         self.assertEqual(
             app.state.storage_bootstrap,
             {
@@ -95,6 +116,23 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 "storage_runtime_mode": "explicit-path",
             },
         )
+
+    def test_create_app_fast_fails_unsupported_storage_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "postgres",
+                    "LOCALAPPDATA": tmp_dir,
+                },
+                clear=False,
+            ):
+                for key in ("KAKA_STORAGE_PATH", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
+                get_settings.cache_clear()
+
+                with self.assertRaisesRegex(ValueError, "postgres"):
+                    create_app()
 
     def test_stage1_to_stage5_route_registrars_are_controlled_unavailable(self) -> None:
         registrars = [
