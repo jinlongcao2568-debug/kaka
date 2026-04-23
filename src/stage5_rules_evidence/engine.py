@@ -162,6 +162,10 @@ class RuleEvidenceEngine:
         inputs_out = dict(inputs)
         inputs_out["rule_hit_id"] = rule_artifacts.rule_hit.get("rule_hit_id")
         inputs_out["rule_hit_state"] = rule_artifacts.rule_hit_state
+        inputs_out["stage5_rule_hits"] = [dict(rule_hit.data) for rule_hit in rule_artifacts.rule_hits]
+        inputs_out["stage5_rule_codes"] = [
+            rule_hit.get("rule_code") for rule_hit in rule_artifacts.rule_hits
+        ]
         inputs_out["evidence_id"] = evidence_artifacts.evidence.get("evidence_id")
         inputs_out["rule_gate_decision_id"] = rule_artifacts.rule_gate_decision.get("gate_id")
         inputs_out["evidence_gate_decision_id"] = evidence_artifacts.evidence_gate_decision.get("gate_id")

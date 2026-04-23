@@ -26,6 +26,42 @@ class GateEvaluator:
     def __init__(self, store: ContractStore) -> None:
         self.store = store
 
+    def _default_missing_condition_family(
+        self,
+        *,
+        evidence_artifacts: EvidenceArtifacts,
+        inputs: Mapping[str, Any],
+    ) -> str:
+        if evidence_artifacts.evidence_gate_status != "PASS":
+            return "MISSING_EVIDENCE"
+        if inputs.get("version_conflict_state") not in (None, "CONSISTENT"):
+            return "MISSING_CLOCK"
+        if inputs.get("clock_conflict_state") not in (None, "CONSISTENT"):
+            return "MISSING_CLOCK"
+        return "MISSING_PUBLIC_PAGE"
+
+    def _default_requested_materials(
+        self,
+        *,
+        evidence_artifacts: EvidenceArtifacts,
+        rule_artifacts: RuleArtifacts,
+    ) -> list[str]:
+        if evidence_artifacts.evidence_gate_status != "PASS":
+            return [
+                "source carrier replay",
+                "public attachment backfill",
+            ]
+        if rule_artifacts.rule_gate_status == "BLOCK":
+            return ensure_list(rule_artifacts.rule_gate_decision.get("blocking_reasons")) + [
+                "manual rule block review",
+            ]
+        if rule_artifacts.rule_gate_status == "REVIEW":
+            return ensure_list(rule_artifacts.rule_gate_decision.get("blocking_reasons")) + [
+                "window confirmation",
+                "manual challenger review",
+            ]
+        return ["window confirmation", "manual challenger review"]
+
     def evaluate(
         self,
         *,
@@ -42,23 +78,27 @@ class GateEvaluator:
         )
         missing_condition_family = inputs.get("missing_condition_family")
         if not missing_condition_family:
-            if evidence_artifacts.evidence_gate_status != "PASS":
-                missing_condition_family = "MISSING_EVIDENCE"
-            elif inputs.get("version_conflict_state") not in (None, "CONSISTENT"):
-                missing_condition_family = "MISSING_CLOCK"
-            else:
-                missing_condition_family = "MISSING_PUBLIC_PAGE"
+            missing_condition_family = self._default_missing_condition_family(
+                evidence_artifacts=evidence_artifacts,
+                inputs=inputs,
+            )
 
         requested_materials = ensure_list(inputs.get("requested_materials"))
         if not requested_materials:
-            requested_materials = (
-                ["source carrier replay", "public attachment backfill"]
-                if evidence_artifacts.evidence_gate_status != "PASS"
-                else ["window confirmation", "manual challenger review"]
+            requested_materials = self._default_requested_materials(
+                evidence_artifacts=evidence_artifacts,
+                rule_artifacts=rule_artifacts,
             )
+        requested_materials = list(dict.fromkeys(requested_materials))
 
         review_request = None
         if review_required:
+            target_object_type = "evidence" if evidence_artifacts.evidence_gate_status != "PASS" else "rule_hit"
+            target_object_id = (
+                evidence_artifacts.evidence.get("evidence_id")
+                if target_object_type == "evidence"
+                else rule_artifacts.rule_hit.get("rule_hit_id")
+            )
             review_request = self.store.build_record(
                 "review_request",
                 {
@@ -68,12 +108,8 @@ class GateEvaluator:
                     "missing_condition_family": ensure_enum(
                         self.store, "missing_condition_family", missing_condition_family
                     ),
-                    "target_object_type": "rule_hit" if rule_artifacts.rule_gate_status != "PASS" else "evidence",
-                    "target_object_id": (
-                        rule_artifacts.rule_hit.get("rule_hit_id")
-                        if rule_artifacts.rule_gate_status != "PASS"
-                        else evidence_artifacts.evidence.get("evidence_id")
-                    ),
+                    "target_object_type": target_object_type,
+                    "target_object_id": target_object_id,
                     "review_lane": ensure_enum(self.store, "review_lane", inputs.get("review_lane", "STANDARD")),
                 },
             )

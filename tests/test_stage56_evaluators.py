@@ -84,6 +84,22 @@ class TestStage56Evaluators(unittest.TestCase):
             service_result.record("rule_gate_decision").get("rule_gate_status"),
             engine_result.record("rule_gate_decision").get("rule_gate_status"),
         )
+        self.assertEqual(
+            service_result.inputs.get("stage5_rule_codes"),
+            ["PROC-001", "PROC-002", "DOC-001"],
+        )
+        self.assertEqual(
+            service_result.inputs.get("stage5_rule_codes"),
+            engine_result.inputs.get("stage5_rule_codes"),
+        )
+        self.assertGreaterEqual(len(service_result.inputs.get("stage5_rule_hits", [])), 2)
+        self.assertEqual(
+            service_result.record("rule_gate_decision").get("passed_rule_hits"),
+            [
+                rule_hit.get("rule_hit_id")
+                for rule_hit in service_result.inputs.get("stage5_rule_hits", [])
+            ],
+        )
 
     def test_stage6_aggregator_matches_service_outputs(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
@@ -619,9 +635,20 @@ class TestStage56Evaluators(unittest.TestCase):
         )
         stage5 = Stage5Service().run(broken_clock_stage4)
 
-        self.assertNotEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "PASS")
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertEqual(stage5.record("review_request").get("missing_condition_family"), "MISSING_CLOCK")
+        self.assertEqual(stage5.record("review_request").get("target_object_type"), "rule_hit")
+        self.assertEqual(stage5.record("rule_gate_decision").get("passed_rule_hits"), [])
+        self.assertEqual(stage5.record("rule_gate_decision").get("blocked_rule_hits"), [])
         self.assertIn("review_request", stage5.records)
         self.assertIn("h04_clock_conflict_state_not_consistent", stage5.inputs.get("h04_authority_review_reasons"))
+        self.assertGreaterEqual(len(stage5.inputs.get("stage5_rule_hits", [])), 2)
+        self.assertTrue(
+            any(
+                rule_hit.get("rule_hit_state") == "REVIEW_REQUIRED"
+                for rule_hit in stage5.inputs.get("stage5_rule_hits", [])
+            )
+        )
 
     def test_stage5_handoff_exports_authoritative_gate_fields(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_block.json"))["stage4"]

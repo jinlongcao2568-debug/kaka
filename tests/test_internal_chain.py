@@ -234,6 +234,19 @@ class TestInternalChain(unittest.TestCase):
         )
         self.assertEqual(stage5.record("evidence").get("retrieval_readiness_status"), "READY")
         self.assertEqual(stage5.record("rule_hit").get("rule_hit_state"), "CONFIRMED")
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "PASS")
+        self.assertEqual(stage5.inputs.get("stage5_rule_codes"), ["PROC-001", "PROC-002", "DOC-001"])
+        stage5_rule_hits = stage5.inputs.get("stage5_rule_hits", [])
+        self.assertGreaterEqual(len(stage5_rule_hits), 2)
+        self.assertEqual(
+            set(stage5.record("rule_gate_decision").get("passed_rule_hits")),
+            {rule_hit.get("rule_hit_id") for rule_hit in stage5_rule_hits},
+        )
+        for rule_hit in stage5_rule_hits:
+            self.assertIn(rule_hit.get("rule_code"), {"PROC-001", "PROC-002", "DOC-001"})
+            self.assertEqual(rule_hit.get("evidence_refs"), [stage5.record("evidence").get("evidence_id")])
+            self.assertTrue(rule_hit.get("source_object_refs"))
+            self.assertTrue(rule_hit.get("boundary_note"))
         for field_name in (
             "project_id",
             "focus_bidder_id",
@@ -357,8 +370,20 @@ class TestInternalChain(unittest.TestCase):
 
         stage5 = result["stage5"]
         self.assertIn("review_request", stage5.records)
+        self.assertEqual(stage5.record("evidence_gate_decision").get("evidence_gate_status"), "REVIEW")
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
         self.assertEqual(stage5.record("review_request").get("missing_condition_family"), "MISSING_EVIDENCE")
+        self.assertEqual(stage5.record("review_request").get("target_object_type"), "evidence")
         self.assertEqual(stage5.record("rule_hit").get("rule_hit_state"), "REVIEW_REQUIRED")
+        self.assertEqual(stage5.record("rule_gate_decision").get("passed_rule_hits"), [])
+        self.assertEqual(stage5.record("rule_gate_decision").get("blocked_rule_hits"), [])
+        self.assertGreaterEqual(len(stage5.inputs.get("stage5_rule_hits", [])), 2)
+        self.assertTrue(
+            all(
+                rule_hit.get("rule_hit_state") == "REVIEW_REQUIRED"
+                for rule_hit in stage5.inputs.get("stage5_rule_hits", [])
+            )
+        )
         self.assertIn("review_request_id", self.contracts[5]["optional_payload_fields"])
         self.assertEqual(
             stage5.handoff.get("review_request_id"),
