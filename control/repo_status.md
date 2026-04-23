@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-104-stage6-productization (SCOPED_EXECUTION; activated as the current Stage6 productization packet; first slice allows scoped internal implementation for Stage6 core object persistence/replay inside declared/allowed paths, does not auto-enter PTL-I100-105, and does not approve push, external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-104-closeout (SCOPED_EXECUTION; closeout-only control packet for PTL-I100-104; this window only syncs control/current_task.yaml, control/repo_status.md, and control/product_task_library.yaml to mark task 4 completed, does not auto-activate PTL-I100-105, and does not approve push, external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,11 +20,8 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- execute PTL-I100-104 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
-- modify only listed Stage6 contracts/schemas, src/stage6_fact_review, storage repositories / boundary / bundle IO, and listed tests
-- update control/product_module_registry.yaml only when new Stage6 repository files or repository-boundary current files must be formally registered for this packet
-- modify listed Stage6 preview surface files under src/api/main.py, src/api/projections.py, src/api/routes/stage6.py, src/api/schemas/stage6.py, and listed preview/bootstrap tests only when implementing the Stage6 internal preview slice
-- modify listed Stage6 operator-loop files under src/storage/operator_loop_contracts.py, src/storage/operator_workbench_projection.py, work item / operator action repositories, and listed operational tests only when implementing the Stage6 operator queue slice
+- mark PTL-I100-104 as COMPLETED in control/product_task_library.yaml
+- sync control/current_task.yaml and control/repo_status.md to PTL-I100-104 closeout semantics
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -32,16 +29,16 @@ Allowed Actions (current):
 - keep external leadpack delivery approval + audit required
 - keep Stage 8 real execution governed / approval-gated / blocked by default
 - keep Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
-- run required checks and stop/report after check-task-packet / validate-contracts / run-golden / tests / check-state-alignment
+- run check-task-packet / check-state-alignment / git diff --check and stop/report
 
 Forbidden Actions (current):
 - Any docs/** change
-- Any contracts/** / src/** / tests/** change outside current task_packet allowed_modification_paths
+- Any contracts/** change
+- Any src/** change
+- Any tests/** change
 - Any fixtures/** change
 - Any handoff/** change
 - Any scripts/** change
- - Any control/product_task_library.yaml change
- - Any control/** change outside control/product_module_registry.yaml
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/review_gate_matrix.yaml
 - Any change to control/release_manifest.yaml
@@ -66,8 +63,8 @@ State Semantics:
 - PTL-I100-101 is completed and closed out via commits 4c9f99d, 2538589, and f370761.
 - PTL-I100-102 is completed and closed out via commits a81c7e4, e3eeff5, and 5f2addd.
 - PTL-I100-103 is completed and closed out via commits a276410, d86a6f7, and 2a14692.
-- PTL-I100-104-stage6-productization is now the active scoped execution packet.
-- PTL-I100-104 first slice must stay Stage6 persistence/replay only; if it needs API/workbench full surface or Stage7+ expansion, it must stop and report.
+- PTL-I100-104-closeout is now the active control closeout packet.
+- PTL-I100-104 implementation is complete via commits 3625e35, 068e1b7, and 2313d7e and is being marked COMPLETED in the product task pool.
 - PTL-I100-105 is not auto-activated; current_mainline_next_candidate remains null until a dedicated future current_task packet is created.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
@@ -80,11 +77,8 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
-- python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check
 - git status --short --untracked-files=all

@@ -578,16 +578,18 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage6_fact_review, internal_preview]
     task_type: internal_operable_productization
-    status: PLANNED
-    planning_state: PLANNED
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P1
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    runtime_change_in_packet: IN_SCOPE
+    completed_commit: 2313d7e
     activation_policy: "requires dedicated control/current_task.yaml packet before execution"
     hard_depends_on: [PTL-I100-103-stage5-rule-factory]
     soft_depends_on: [PTL-S56-project-fact-review-report]
+    runtime_notes: "PTL-I100-104 scoped implementation 已完成并在本地提交：3625e35、068e1b7、2313d7e；本轮完成 Stage6 core object repositories、persist/hydrate replay、repository-backed review_report_workbench preview、Stage6 internal operator work item queue 与 minimal operator actions；PTL-I100-104 不再是 current active packet，也不会自动激活 PTL-I100-105。"
     objective: "把 project_fact、report、review_queue、challenger、legal_action_recommendation 提升为可持久化、可复核、可回放的 first-class 产品对象。"
     non_goals: ["不跳过持久化直接做页面", "不放开客户可见交付", "不让 Stage7 重算 Stage6 事实"]
     expected_outputs: ["Stage6 repositories", "Stage6 internal API/workbench", "operator loop", "replay/reopen tests"]
