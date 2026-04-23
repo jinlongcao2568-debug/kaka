@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-105-stage8-9-governed-closure (SCOPED_EXECUTION; activated as the current Stage8/Stage9 governed-closure packet; first slice allows scoped internal implementation for Stage8 contact carrier persistence/readback/replay inside declared/allowed paths, does not auto-enter PTL-I100-106, and does not approve push, external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-105-stage8-9-governed-closure (SCOPED_EXECUTION; active Stage8/Stage9 governed-closure packet; Stage8 carrier persistence is implemented and the next slice may implement Stage9 internal additive governed writeback inside declared/allowed paths, does not auto-enter PTL-I100-106, and does not approve push, external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -22,6 +22,7 @@ Current Blockers:
 Allowed Actions (current):
 - execute PTL-I100-105 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
 - modify only listed Stage8 contracts/schemas, src/stage8_outreach, storage repositories / boundary / bundle IO, product module registry, and listed tests for Stage8 formal carrier persistence/readback/replay
+- modify listed Stage9 delivery/writeback runtime, existing Stage9 repositories, repository boundary / bundle IO, product module registry, and listed tests only for internal additive governed writeback
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -63,7 +64,7 @@ State Semantics:
 - PTL-I100-103 is completed and closed out via commits a276410, d86a6f7, and 2a14692.
 - PTL-I100-104 is completed and closed out via commits 3625e35, 068e1b7, 2313d7e, and 3cc70bf.
 - PTL-I100-105-stage8-9-governed-closure is now the active scoped execution packet.
-- PTL-I100-105 first slice must stay Stage8 carrier persistence/readback/replay only; Stage9 additive writeback is reserved for a later 105-B slice.
+- PTL-I100-105 Stage8 carrier persistence/readback/replay is implemented via d37ae82; Stage9 additive governed writeback is now the next scoped implementation slice.
 - PTL-I100-106 is not auto-activated; current_mainline_next_candidate remains null until a dedicated future current_task packet is created.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
