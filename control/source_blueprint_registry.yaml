@@ -136,3 +136,7 @@ registered_blueprints:
     family: post_ff_git
     compatibility: active-compatible
     description: Post-FF git consolidation blueprint
+  - blueprint_id: PTL-I100-ROADMAP-01
+    family: internal_operable_productization
+    compatibility: active-compatible
+    description: Internal 100 percent operable productization seven-packet roadmap registration

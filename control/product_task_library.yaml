@@ -65,10 +65,10 @@ planning_sync_implementation_registration:
 current_mainline_next_candidate:
   task_id: null
   packet_id: null
-  title: "产品主线 S12-S89 + INT 与后主线 P1-P8 已闭合，当前没有自动 next candidate"
+  title: "产品主线 S12-S89 + INT 与后主线 P1-P8 已闭合；I100 内部产品化路线已登记但未自动激活"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7/P8 均已 completed；current_mainline_next_candidate 继续保持 task_id=null / packet_id=null；现在没有自动 next candidate；后续进入内部运营验收、真实样本打磨或 external unlock 预研，都必须另开 dedicated current_task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7/P8 均已 completed；PTL-I100 内部 100% 可运营产品化路线已登记为 PLANNED 任务池；current_mainline_next_candidate 继续保持 task_id=null / packet_id=null；现在没有自动 next candidate；后续进入内部运营验收、真实样本打磨或 external unlock 预研，都必须另开 dedicated current_task packet 并人工确认；后续激活 I100 任一任务也必须另开 dedicated current_task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；PTL-I100 执行层管理使用 PTL-I100 task_id；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -106,7 +106,35 @@ post_mainline_execution_ladder:
       task_ids:
         - PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion
         - PTL-INT-104-p8-observability-operator-workbench
-task_count: 19
+internal_operable_productization_program:
+  program_id: PTL-I100-internal-operable-productization
+  source_doc: docs/AI代理开发总路线图_7个任务包.md
+  source_blueprint_batch_id: PTL-I100-ROADMAP-01
+  status: REGISTERED
+  planning_state: PLANNED
+  mode: MANUAL_ACTIVATION_ONLY
+  auto_activate_next_candidate: false
+  current_execution_source: control/current_task.yaml
+  route_goal: "把现有内部 governed 主链做实、做稳、做成可运营产品；不触发 external/live 解锁。"
+  acceptance_model:
+    packet_boundary: "每个任务必须先成为 control/current_task.yaml 的 dedicated scoped packet。"
+    consistency: "docs/contracts/runtime/tests 必须同批同步，不允许字段或对象双口径。"
+    functional_closure: "按单任务 definition_of_done 验收，不能只以测试通过替代产品闭环。"
+    gates: "每包至少运行 check-task-packet、check-state-alignment 与对应 targeted tests；触及 contracts/governance/release 时追加正式门禁脚本。"
+    operational: "任务 7 必须用真实样本矩阵验证 review/hold/reject/reselect/quiet-hours/approval/source-conflict/writeback 等运营场景。"
+  planned_sequence:
+    - PTL-I100-101-d8-d10-contract-runtime-field-alignment
+    - PTL-I100-102-stage1-5-real-source-vertical-slice
+    - PTL-I100-103-stage5-rule-factory
+    - PTL-I100-104-stage6-productization
+    - PTL-I100-105-stage8-9-governed-closure
+    - PTL-I100-106-platform-foundation-and-full-chain-entry
+    - PTL-I100-107-real-sample-operational-acceptance
+  redlines:
+    external_software_release: BLOCKED
+    stage8_real_execution: "governed / approval-gated / blocked by default"
+    stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
+task_count: 26
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -470,4 +498,158 @@ tasks:
     non_goals: ["不引入外部 release 能力", "不把 observability 误写成第二状态源", "不放开 execution redline"]
     expected_outputs: ["decision trace / blocked reasons / handoff correlation 强化", "operator workbench 可解释性提升", "internal preview 故障定位成本下降"]
     suggested_packet_refs: [PTL-INT-104-p8-observability-operator-workbench]
+    risk_level: HIGH
+  - task_id: PTL-I100-101-d8-d10-contract-runtime-field-alignment
+    title: "I100-1 D8/D9/D10 正文、contracts 与 runtime 字段对齐"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage7_sales, stage8_outreach, stage9_delivery]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P0
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: HEAVY_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: []
+    soft_depends_on: [PTL-INT-104-p8-observability-operator-workbench]
+    objective: "逐字段对齐 D8/D9/D10、contracts/schemas 与 Stage7/8/9 runtime payload，消除核心字段漂移。"
+    non_goals: ["不改 external release", "不放开 Stage8 real execution", "不放开 Stage9 real payment/delivery/refund", "不重写业务主链"]
+    expected_outputs: ["字段对齐裁决表", "schema/runtime/test 同步补齐", "字段漂移回归测试"]
+    acceptance_checks: ["field_alignment_table_complete", "contracts_runtime_tests_pass", "no_external_live_boundary_change"]
+    suggested_packet_refs: [PTL-I100-101-d8-d10-contract-runtime-field-alignment]
+    risk_level: HIGH
+  - task_id: PTL-I100-102-stage1-5-real-source-vertical-slice
+    title: "I100-2 Stage1-5 真实公开源纵切"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P0
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: PARTIAL_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: [PTL-I100-101-d8-d10-contract-runtime-field-alignment]
+    soft_depends_on: [PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion]
+    objective: "选择 1 个公开源家族，打通 scheduler -> fetcher -> parser -> verifier -> rule/evidence 的可复跑纵切。"
+    non_goals: ["不做多源平台化", "不接外部 live 系统", "不扩大到 Stage7-9"]
+    expected_outputs: ["单源 blueprint", "固定化 snapshot/fixture", "parser/verifier/evidence slice", "happy/bad case tests"]
+    acceptance_checks: ["one_source_family_only", "stage1_to_stage5_replayable", "evidence_lineage_traceable"]
+    suggested_packet_refs: [PTL-I100-102-stage1-5-real-source-vertical-slice]
+    risk_level: HIGH
+  - task_id: PTL-I100-103-stage5-rule-factory
+    title: "I100-3 Stage5 真规则工厂"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage5_rules_evidence]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P0
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: PARTIAL_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: [PTL-I100-102-stage1-5-real-source-vertical-slice]
+    soft_depends_on: [PTL-S45-rule-evidence-dual-gate]
+    objective: "把 Stage5 从单规则/flag 驱动升级为规则目录批量执行、evidence slice 绑定、多规则聚合与冲突解释的最小规则工厂。"
+    non_goals: ["不一次性补全全部规则", "不改 Stage6+ 消费边界", "不绕过双闸门"]
+    expected_outputs: ["规则目录结构", "批量执行器", "evidence slice 绑定", "聚合解释对象", "规则矩阵测试"]
+    acceptance_checks: ["batch_rules_execute", "evidence_refs_per_hit", "conflict_and_insufficient_evidence_visible"]
+    suggested_packet_refs: [PTL-I100-103-stage5-rule-factory]
+    risk_level: HIGH
+  - task_id: PTL-I100-104-stage6-productization
+    title: "I100-4 Stage6 统一事实与复核产品化"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage6_fact_review, internal_preview]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P1
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: HEAVY_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: [PTL-I100-103-stage5-rule-factory]
+    soft_depends_on: [PTL-S56-project-fact-review-report]
+    objective: "把 project_fact、report、review_queue、challenger、legal_action_recommendation 提升为可持久化、可复核、可回放的 first-class 产品对象。"
+    non_goals: ["不跳过持久化直接做页面", "不放开客户可见交付", "不让 Stage7 重算 Stage6 事实"]
+    expected_outputs: ["Stage6 repositories", "Stage6 internal API/workbench", "operator loop", "replay/reopen tests"]
+    acceptance_checks: ["stage6_objects_persisted", "stage7_consumes_persisted_stage6", "review_reopen_replay_pass"]
+    suggested_packet_refs: [PTL-I100-104-stage6-productization]
+    risk_level: HIGH
+  - task_id: PTL-I100-105-stage8-9-governed-closure
+    title: "I100-5 Stage8 formal carrier 与 Stage9 受治理回写闭环"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage8_outreach, stage9_delivery, internal_preview]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P1
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: HEAVY_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: [PTL-I100-104-stage6-productization]
+    soft_depends_on: [PTL-S8-102-p2-plan-touch-productization, PTL-S9-102-p6-feedback-writeback-productization]
+    objective: "补齐 Stage8 contact carrier persistence/readback/replay，并把 Stage9 projected writeback 推进为 internal additive governed 回写闭环。"
+    non_goals: ["不真实触达", "不真实支付", "不真实交付", "不修改 live unlock 策略"]
+    expected_outputs: ["Stage8 formal carrier repository", "Stage8 replay/readback", "Stage9 governed writeback pipeline", "audit/recovery tests"]
+    acceptance_checks: ["stage8_carriers_persisted", "stage9_writeback_internal_additive_only", "audit_and_recovery_visible"]
+    suggested_packet_refs: [PTL-I100-105-stage8-9-governed-closure]
+    risk_level: HIGH
+  - task_id: PTL-I100-106-platform-foundation-and-full-chain-entry
+    title: "I100-6 正式基础设施与全链入口"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [storage, api_transport, internal_preview, stage1_to_stage9]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P1
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: FILE_BACKED_INTERNAL_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: [PTL-I100-105-stage8-9-governed-closure]
+    soft_depends_on: [PTL-INT-102-p4-repository-boundary-hardening, PTL-INT-104-p8-observability-operator-workbench]
+    objective: "把文件型内测底座升级为正式内部运行底座，并裁决 Stage1-6 transport/workbench/orchestration 入口。"
+    non_goals: ["不大规模重写业务规则", "不做 external unlock", "不真实支付或外部交付"]
+    expected_outputs: ["PostgreSQL/SQLAlchemy/Alembic 迁移方案与实现", "Redis/Dramatiq 队列", "MinIO/S3 对象存储", "Docker Compose", "Stage1-6 入口策略"]
+    acceptance_checks: ["no_process_scoped_json_default", "migration_and_repository_tests_pass", "stage1_6_entry_explicit"]
+    suggested_packet_refs: [PTL-I100-106-platform-foundation-and-full-chain-entry]
+    risk_level: HIGH
+  - task_id: PTL-I100-107-real-sample-operational-acceptance
+    title: "I100-7 真实样本运营验收"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [internal_preview, stage1_to_stage9, governance_testing]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P2
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: INTERNAL_GOVERNED_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
+    soft_depends_on: [PTL-GOV-201-internal-operations-acceptance]
+    objective: "用真实样本矩阵把内部产品从回归绿推进到实测绿，形成 pilot 验收结论。"
+    non_goals: ["不为样本硬编码业务特判", "不执行 external/live", "不大规模重构前半链"]
+    expected_outputs: ["真实样本矩阵", "operator replay", "失败 taxonomy", "SLA/队列/审计最小报表", "internal pilot 验收记录"]
+    acceptance_checks: ["real_sample_matrix_replayable", "failure_taxonomy_complete", "operator_replay_and_audit_report_visible"]
+    suggested_packet_refs: [PTL-I100-107-real-sample-operational-acceptance]
     risk_level: HIGH

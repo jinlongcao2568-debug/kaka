@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-GOV-201-internal-operations-acceptance (SCOPED_EXECUTION; P8 has been synchronized as completed in control/product_task_library.yaml and control/product_module_registry.yaml with local commit b8a2762, internal operations acceptance has validated operator/workbench replay, pending actions and button flows, blocked/hold/review reasons, trace/audit/governed_context visibility, transient-vs-persisted boundaries, and Stage7/8/9 internal preview plus operator loop usability, no new internal-operability blocker remains, current_mainline_next_candidate stays unset, and the decision window has approved a local commit only; this still does not approve external release, Stage8 real execution, or Stage9 payment/delivery/refund, and it does not push)
+Current Workstream: PTL-I100-000-roadmap-registration (SCOPED_EXECUTION; user confirmed starting the AI代理开发总路线图_7个任务包 workstream, this packet only registers PTL-I100-internal-operable-productization and its seven PLANNED tasks into control/product_task_library.yaml, registers source blueprint PTL-I100-ROADMAP-01, keeps control/current_task.yaml as the only active execution source, keeps current_mainline_next_candidate unset, does not auto-activate task 1, does not modify docs/contracts/handoff/src/tests/scripts, and does not approve external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,27 +20,19 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- sync control/product_task_library.yaml so PTL-INT-104-p8-observability-operator-workbench is COMPLETED with planning_state=COMPLETED and completed_commit=b8a2762
-- keep control/product_task_library.yaml current_mainline_next_candidate at task_id=null / packet_id=null and update the product-only ladder wording to P1-P8 all completed with no auto next candidate
-- sync control/product_module_registry.yaml so INTERNAL-PREVIEW-SURFACE and related workbench api/storage ledgers record P8 completed while preserving internal-governed and non-live semantics
-- keep src/api/workbench_observability.py and src/storage/operator_workbench_projection.py as formal current files in the relevant workbench ledgers
-- switch control/current_task.yaml active packet to PTL-GOV-201-internal-operations-acceptance in SCOPED_EXECUTION
-- sync control/repo_status.md current workstream wording to PTL-GOV-201-internal-operations-acceptance
-- run the planned-path precheck against the allowed PTL-GOV-201 target paths
-- inspect blocked_reasons / hold_reasons / review_required / trace_refs / governed_context / workbench_replay / operator_loop_projection / pending_actions / pending_button_flows coverage in the allowed api/storage/test paths
-- run the targeted PTL-GOV-201 acceptance pytest set plus check-task-packet / check-state-alignment / check-final-gate / clean-python-cache / git diff --check
-- apply only minimal fixes inside src/api/projections.py, src/api/routes/stage7.py, src/api/routes/stage8.py, src/api/routes/stage9.py, src/api/workbench_observability.py, src/storage/operator_loop_contracts.py, src/storage/operator_workbench_projection.py, and the listed tests if acceptance reveals small projection/display/trace/replay gaps
-- keep operator/workbench public behavior unchanged
-- keep blocked reason / trace / replay / pending action semantics equivalent unless a concrete acceptance gap requires a minimal fix
+- register PTL-I100-ROADMAP-01 in control/source_blueprint_registry.yaml
+- register PTL-I100-internal-operable-productization program and seven PLANNED tasks in control/product_task_library.yaml
+- sync control/current_task.yaml active packet to PTL-I100-000-roadmap-registration
+- sync control/repo_status.md current workstream wording to PTL-I100-000-roadmap-registration
+- keep current_mainline_next_candidate unset / non-auto-activated
+- keep task 1 unactivated until a dedicated future current_task packet is created
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-- keep current_mainline_next_candidate unset / non-auto-activated
 - keep external software release blocked
 - keep external leadpack delivery approval + audit required
 - keep Stage 8 real execution governed / approval-gated / blocked by default
 - keep Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
-- allow decision-window local commit
-- run the required checks and stop for report
+- run check-task-packet / check-state-alignment / git diff --check and stop for report
 
 Forbidden Actions (current):
 - Any docs/** or docs/AX9S_开发执行路由图.md change
@@ -56,7 +48,6 @@ Forbidden Actions (current):
 - Any src/stage8_outreach/** change
 - Any src/stage9_delivery/** change
 - Any src/storage/repository_boundary.py change
-- Any change to control/source_blueprint_registry.yaml
 - Any change to control/operator_assignment_roster_defaults.yaml
 - Any change to control/review_gate_matrix.yaml
 - Any change to control/release_manifest.yaml
@@ -68,9 +59,9 @@ Forbidden Actions (current):
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
 - Any automatic current_mainline_next_candidate restoration
-- Any execution-window commit
+- Any automatic activation of PTL-I100-101 or later tasks
 - Any push
-- Any automatic transition to the next packet
+- Any automatic transition to the next implementation packet
 
 State Semantics:
 - READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself change external release, Stage8, or Stage9 boundaries.
@@ -81,10 +72,12 @@ State Semantics:
 - control/product_task_library.yaml now records the product-only ladder as P1 -> P8 all completed; current_mainline_next_candidate stays task_id=null / packet_id=null and no task is auto-selected from P1-P8.
 - Future work such as internal-operations acceptance, real-sample refinement, or external-unlock preresearch must use dedicated current_task packets; product_task_library remains a product-only pool rather than an auto-activation source.
 - control/product_module_registry.yaml records P8 completed on the relevant internal preview / workbench api-storage ledgers while explicitly preserving internal-governed and non-live semantics; this must not be interpreted as external-ready or live-ready.
-- PTL-GOV-201-internal-operations-acceptance is now the active scoped execution packet.
-- PTL-GOV-201 is a dedicated acceptance packet outside the product-only mainline task pool; it validates internal operability and only allows minimal repairs inside the declared api/storage-control/test scope.
+- PTL-GOV-201-internal-operations-acceptance has completed internal operability validation and is no longer the active packet.
+- PTL-I100-000-roadmap-registration is now the active scoped execution packet; it is a control registration packet only and does not implement any of the seven productization tasks.
+- PTL-I100-internal-operable-productization is registered as a manual-activation-only program with seven PLANNED tasks in control/product_task_library.yaml.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
+- PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated future current_task packet before implementation.
 - control/product_module_registry.yaml remains an execution map and product module ledger, not a status source, not a release gate, and not a second product direction source.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
@@ -96,19 +89,9 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''src/api/projections.py'',''src/api/routes/stage7.py'',''src/api/routes/stage8.py'',''src/api/routes/stage9.py'',''src/api/workbench_observability.py'',''src/storage/operator_loop_contracts.py'',''src/storage/operator_workbench_projection.py'',''tests/test_stage12_extractors.py'',''tests/test_product_module_registry.py'',''tests/test_internal_surface_preview.py'',''tests/test_internal_operational_loop.py'',''tests/test_internal_operational_hardening.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
-- rg -n "blocked_reasons|hold_reasons|review_required|trace_refs|governed_context|workbench_replay|operator_loop_projection|pending_actions|pending_button_flows|action_history_count|queue_materialized" src/api/projections.py src/storage/operator_loop_contracts.py tests/test_internal_surface_preview.py tests/test_internal_operational_loop.py tests/test_internal_operational_hardening.py tests/test_internal_repository_boundary.py
-- python -m pytest tests/test_stage12_extractors.py -q
-- python -m pytest tests/test_product_module_registry.py -q
-- python -m pytest tests/test_internal_surface_preview.py -q
-- python -m pytest tests/test_internal_operational_loop.py -q
-- python -m pytest tests/test_internal_operational_hardening.py -q
-- python -m pytest tests/test_internal_repository_boundary.py -q
-- python -m pytest tests/test_api_transport_bootstrap.py -q
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/source_blueprint_registry.yaml''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/clean-python-cache.ps1
 - git diff --check
 - git status --short --untracked-files=all
 
