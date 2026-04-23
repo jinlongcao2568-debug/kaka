@@ -117,6 +117,101 @@ class TestApiTransportBootstrap(unittest.TestCase):
             },
         )
 
+    def test_create_app_exposes_single_transport_bootstrap_readback_projection(self) -> None:
+        app = create_app()
+
+        self.assertTrue(hasattr(app.state, "transport_bootstrap"))
+        bootstrap = app.state.transport_bootstrap
+        self.assertTrue(bootstrap["internal_only"])
+        self.assertFalse(bootstrap["live_execution_enabled"])
+
+        disabled_registry = bootstrap["stage1_to_stage5_transport_state"]
+        self.assertEqual(disabled_registry, app.state.disabled_stage_transports)
+        for stage_scope in range(1, 6):
+            stage_key = f"stage{stage_scope}"
+            self.assertIn(stage_key, disabled_registry)
+            self.assertEqual(len(disabled_registry[stage_key]), 1)
+            transport_status = disabled_registry[stage_key][0]
+            self.assertEqual(transport_status["stage_scope"], stage_scope)
+            self.assertEqual(transport_status["availability_state"], "CONTROLLED_UNAVAILABLE")
+            self.assertEqual(transport_status["transport_state"], "TRANSPORT_NOT_WIRED")
+            self.assertFalse(transport_status["live_execution_enabled"])
+            self.assertTrue(transport_status["internal_only"])
+
+        mounted_operations = bootstrap["stage6_to_stage9_mounted_operations"]
+        mounted_by_id = {operation["operationId"]: operation for operation in mounted_operations}
+        expected_operations = {
+            "previewStage6ReviewReportWorkbench",
+            "listSaleableOpportunities",
+            "listContactTargets",
+            "listOrders",
+            "createOutreachPlan",
+            "createOrder",
+        }
+        self.assertTrue(expected_operations.issubset(mounted_by_id))
+        for operation_id in expected_operations:
+            operation = mounted_by_id[operation_id]
+            for key in (
+                "stage_scope",
+                "operationId",
+                "method",
+                "path",
+                "surface_mode",
+                "internal_only",
+                "live_execution_enabled",
+                "blocked_by_default",
+            ):
+                self.assertIn(key, operation)
+            self.assertTrue(operation["internal_only"])
+            self.assertFalse(operation["live_execution_enabled"])
+
+        self.assertEqual(mounted_by_id["previewStage6ReviewReportWorkbench"]["stage_scope"], 6)
+        self.assertEqual(mounted_by_id["listSaleableOpportunities"]["stage_scope"], 7)
+        self.assertEqual(mounted_by_id["listContactTargets"]["stage_scope"], 8)
+        self.assertEqual(mounted_by_id["listOrders"]["stage_scope"], 9)
+        self.assertTrue(mounted_by_id["listContactTargets"]["blocked_by_default"])
+        self.assertTrue(mounted_by_id["createOutreachPlan"]["blocked_by_default"])
+        self.assertTrue(mounted_by_id["listOrders"]["blocked_by_default"])
+        self.assertTrue(mounted_by_id["createOrder"]["blocked_by_default"])
+
+        leadpack_candidate = mounted_by_id["previewLeadpackExternalDeliveryCandidate"]
+        self.assertTrue(leadpack_candidate["candidate_only"])
+        self.assertFalse(leadpack_candidate["external_delivery_enabled"])
+        self.assertTrue(leadpack_candidate["requires_review"])
+
+        entry_strategy = bootstrap["entry_strategy"]
+        self.assertFalse(entry_strategy["stage1_to_stage5"]["http_entry_enabled"])
+        self.assertFalse(entry_strategy["stage1_to_stage5"]["real_transport_enabled"])
+        self.assertTrue(entry_strategy["stage6"]["http_entry_enabled"])
+        self.assertIn(
+            "previewStage6ReviewReportWorkbench",
+            entry_strategy["stage6"]["mounted_operations"],
+        )
+        self.assertTrue(entry_strategy["stage7_to_stage9"]["http_entry_enabled"])
+        self.assertIn(
+            "listSaleableOpportunities",
+            entry_strategy["stage7_to_stage9"]["mounted_operations_by_stage"]["stage7"],
+        )
+        self.assertFalse(
+            entry_strategy["stage1_to_stage6_full_chain_entry"]["executes_stage1_to_stage5_transport"]
+        )
+        self.assertFalse(entry_strategy["stage1_to_stage6_full_chain_entry"]["executes_real_orchestrator"])
+
+        redlines = bootstrap["redlines"]
+        self.assertFalse(redlines["new_http_endpoint_added"])
+        self.assertFalse(redlines["stage1_to_stage5_real_transport_enabled"])
+        self.assertFalse(redlines["external_software_release_enabled"])
+        self.assertTrue(redlines["external_leadpack_delivery_requires_approval_and_audit"])
+        self.assertFalse(redlines["stage8_real_execution_enabled"])
+        self.assertFalse(redlines["stage9_real_payment_delivery_refund_enabled"])
+
+        self.assertEqual(len(app.state.disabled_stage_transports), 5)
+        self.assertEqual(
+            app.state.mounted_transport_operations,
+            [operation["operationId"] for operation in mounted_operations],
+        )
+        self.assertEqual(app.state.storage_bootstrap, app.state.settings.storage_bootstrap_payload())
+
     def test_create_app_fast_fails_unsupported_storage_backend(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch.dict(

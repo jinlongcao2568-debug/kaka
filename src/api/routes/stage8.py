@@ -91,6 +91,7 @@ STAGE8_ROUTES = [
         "surface_mode": "preview-only",
         "internal_only": True,
         "live_execution_enabled": False,
+        "blocked_by_default": True,
     },
     {
         "operationId": "checkContactCompliance",
@@ -100,6 +101,7 @@ STAGE8_ROUTES = [
         "surface_mode": "preview-only",
         "internal_only": True,
         "live_execution_enabled": False,
+        "blocked_by_default": True,
     },
     {
         "operationId": "createOutreachPlan",
