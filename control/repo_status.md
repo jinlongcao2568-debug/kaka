@@ -22,6 +22,7 @@ Current Blockers:
 Allowed Actions (current):
 - execute PTL-I100-104 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
 - modify only listed Stage6 contracts/schemas, src/stage6_fact_review, storage repositories / boundary / bundle IO, and listed tests
+- update control/product_module_registry.yaml only when new Stage6 repository files or repository-boundary current files must be formally registered for this packet
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -37,7 +38,8 @@ Forbidden Actions (current):
 - Any fixtures/** change
 - Any handoff/** change
 - Any scripts/** change
-- Any control/product_task_library.yaml change
+ - Any control/product_task_library.yaml change
+ - Any control/** change outside control/product_module_registry.yaml
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/review_gate_matrix.yaml
 - Any change to control/release_manifest.yaml

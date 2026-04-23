@@ -274,9 +274,15 @@ def reopen_default_storage() -> None:
     DatabaseSession.default(reload_from_disk=True)
 
 
+def persist_stage6_bundle(bundle: StageBundle) -> StageBundle:
+    return _persist_stage6_bundle(bundle)
+
+
 def persist_stage_bundle(payload: Any) -> Any:
     if not isinstance(payload, StageBundle):
         return payload
+    if payload.stage == 6:
+        return _persist_stage6_bundle(payload)
     if payload.stage == 7:
         return _persist_stage7_bundle(payload)
     if payload.stage == 8:
@@ -286,7 +292,13 @@ def persist_stage_bundle(payload: Any) -> Any:
     return payload
 
 
+def hydrate_stage6_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
+    return _hydrate_stage6_bundle(payload)
+
+
 def hydrate_stage_bundle(stage_key: str, payload: Mapping[str, Any]) -> StageBundle | None:
+    if stage_key == "stage6":
+        return _hydrate_stage6_bundle(payload)
     if stage_key == "stage7":
         return _hydrate_stage7_bundle(payload)
     if stage_key == "stage8":
@@ -572,6 +584,10 @@ def _persist_stage7_bundle(bundle: StageBundle) -> StageBundle:
     return _repository_bundle_io_module().persist_stage7_bundle(bundle)
 
 
+def _persist_stage6_bundle(bundle: StageBundle) -> StageBundle:
+    return _repository_bundle_io_module().persist_stage6_bundle(bundle)
+
+
 def _persist_stage8_bundle(bundle: StageBundle) -> StageBundle:
     return _repository_bundle_io_module().persist_stage8_bundle(bundle)
 
@@ -783,6 +799,10 @@ def _latest_stage_state(
 
 def _hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     return _repository_bundle_io_module().hydrate_stage7_bundle(payload)
+
+
+def _hydrate_stage6_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
+    return _repository_bundle_io_module().hydrate_stage6_bundle(payload)
 
 
 def _hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
@@ -1183,8 +1203,10 @@ __all__ = [
     "OperationalContractError",
     "get_operational_context",
     "get_transient_preview_context",
+    "hydrate_stage6_bundle",
     "hydrate_stage_bundle",
     "list_stage_work_items",
+    "persist_stage6_bundle",
     "persist_stage_bundle",
     "reopen_default_storage",
     "record_operator_action",

@@ -24,6 +24,7 @@ from shared.pipeline import run_internal_chain
 from stage1_tasking.service import Stage1Service
 from stage2_ingestion.service import Stage2Service
 from stage3_parsing.service import Stage3Service
+from stage7_sales.service import Stage7Service
 from stage8_outreach.service import Stage8Service
 from stage9_delivery.service import Stage9Service
 from storage import hydrate_stage_bundle, persist_stage_bundle, reset_default_storage
@@ -1064,8 +1065,57 @@ class TestInternalChain(unittest.TestCase):
         )
 
     def test_stage7_persistence_refs_align_with_formal_outputs(self) -> None:
-        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        reset_default_storage()
+        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        stage6 = result["stage6"]
+        stage7 = result["stage7"]
         collection = stage7.record("multi_competitor_collection")
+        persist_stage_bundle(stage6)
+        hydrated_stage6 = hydrate_stage_bundle(
+            "stage6",
+            {"project_id": stage6.record("project_fact").get("project_id")},
+        )
+
+        self.assertIsNotNone(hydrated_stage6)
+        self.assertEqual(
+            hydrated_stage6.record("project_fact").get("project_fact_id"),
+            stage6.record("project_fact").get("project_fact_id"),
+        )
+        self.assertEqual(
+            hydrated_stage6.record("report_record").get("report_id"),
+            stage6.record("report_record").get("report_id"),
+        )
+        self.assertEqual(
+            hydrated_stage6.record("review_queue_profile").get("queue_profile_id"),
+            stage6.record("review_queue_profile").get("queue_profile_id"),
+        )
+        self.assertEqual(
+            hydrated_stage6.record("challenger_candidate_profile").get("challenger_profile_id"),
+            stage6.record("challenger_candidate_profile").get("challenger_profile_id"),
+        )
+        self.assertEqual(
+            hydrated_stage6.record("legal_action_recommendation").get("action_id"),
+            stage6.record("legal_action_recommendation").get("action_id"),
+        )
+        self.assertEqual(hydrated_stage6.handoff, stage6.handoff)
+        self.assertEqual(
+            hydrated_stage6.inputs.get("stage6_h06_formal_carrier_trace"),
+            stage6.inputs.get("stage6_h06_formal_carrier_trace"),
+        )
+
+        replayed_stage7 = Stage7Service().run(hydrated_stage6)
+        self.assertEqual(
+            replayed_stage7.record("saleable_opportunity").get("saleability_status"),
+            stage7.record("saleable_opportunity").get("saleability_status"),
+        )
+        self.assertEqual(
+            replayed_stage7.record("offer_recommendation").get("offer_recommendation_state"),
+            stage7.record("offer_recommendation").get("offer_recommendation_state"),
+        )
+        self.assertEqual(
+            replayed_stage7.record("buyer_fit").get("buyer_fit_id"),
+            stage7.record("buyer_fit").get("buyer_fit_id"),
+        )
 
         self.assertEqual(
             stage7.inputs.get("offer_recommendation_id"),

@@ -496,6 +496,7 @@ stage_module_inventory:
           - src/api/schemas/stage6.py
         repository_files:
           - src/storage/repositories/project_fact_repo.py
+          - src/storage/repositories/review_queue_profile_repo.py
         test_files:
           - tests/test_stage56_evaluators.py
           - tests/test_internal_chain.py
@@ -520,6 +521,8 @@ stage_module_inventory:
           - src/api/schemas/stage6.py
         repository_files:
           - src/storage/repositories/legal_action_recommendation_repo.py
+          - src/storage/repositories/report_record_repo.py
+          - src/storage/repositories/challenger_candidate_profile_repo.py
         test_files:
           - tests/test_stage56_evaluators.py
           - tests/test_stage7_runtime_closure.py
@@ -822,6 +825,9 @@ cross_cutting_surfaces:
       - src/storage/operator_workbench_projection.py
       - src/storage/repositories/work_item_repo.py
       - src/storage/repositories/project_fact_repo.py
+      - src/storage/repositories/review_queue_profile_repo.py
+      - src/storage/repositories/report_record_repo.py
+      - src/storage/repositories/challenger_candidate_profile_repo.py
       - src/storage/repositories/legal_action_recommendation_repo.py
       - src/storage/repositories/legal_action_actor_profile_repo.py
       - src/storage/repositories/procurement_decision_actor_profile_repo.py

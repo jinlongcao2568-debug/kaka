@@ -18,21 +18,27 @@ from shared.pipeline import run_internal_chain
 from api.routes.stage7 import list_saleable_opportunities, refresh_saleable_opportunity
 from api.routes.stage8 import create_touch_record, list_contact_targets
 from api.routes.stage9 import create_governance_feedback_event, list_orders
+from stage7_sales.service import Stage7Service
 from storage.db import DatabaseSession, PersistedStageState, PersistedWorkItem
-from storage import reset_default_storage
+from storage import persist_stage_bundle, reset_default_storage
 from storage.repository_boundary import hydrate_stage_bundle
 from storage.repositories import (
     BuyerFitRepository,
+    ChallengerCandidateProfileRepository,
     ContactTargetRepository,
     DeliveryRecordRepository,
     GovernanceFeedbackEventRepository,
     LegalActionActorProfileRepository,
+    LegalActionRecommendationRepository,
     OfferRecommendationRepository,
     OpportunityOutcomeEventRepository,
     OrderRecordRepository,
     OutreachPlanRepository,
     PaymentRecordRepository,
     ProcurementDecisionActorProfileRepository,
+    ProjectFactRepository,
+    ReportRecordRepository,
+    ReviewQueueProfileRepository,
     SaleableOpportunityRepository,
     TouchRecordRepository,
     WorkItemRepository,
@@ -43,6 +49,186 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
     def setUp(self) -> None:
         reset_default_storage()
         self.result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+
+    def test_stage6_repository_boundary_persists_formal_objects_and_rehydrates_stage7_inputs(self) -> None:
+        stage6 = self.result["stage6"]
+        stage7 = self.result["stage7"]
+        persist_stage_bundle(stage6)
+
+        project_fact = stage6.record("project_fact")
+        report_record = stage6.record("report_record")
+        review_queue_profile = stage6.record("review_queue_profile")
+        challenger_candidate_profile = stage6.record("challenger_candidate_profile")
+        legal_action_recommendation = stage6.record("legal_action_recommendation")
+
+        project_fact_entry = ProjectFactRepository().get_by_id(project_fact.get("project_fact_id"))
+        report_record_entry = ReportRecordRepository().get_by_id(report_record.get("report_id"))
+        review_queue_profile_entry = ReviewQueueProfileRepository().get_by_id(
+            review_queue_profile.get("queue_profile_id")
+        )
+        challenger_candidate_profile_entry = ChallengerCandidateProfileRepository().get_by_id(
+            challenger_candidate_profile.get("challenger_profile_id")
+        )
+        legal_action_recommendation_entry = LegalActionRecommendationRepository().get_by_id(
+            legal_action_recommendation.get("action_id")
+        )
+
+        self.assertIsNotNone(project_fact_entry)
+        self.assertIsNotNone(report_record_entry)
+        self.assertIsNotNone(review_queue_profile_entry)
+        self.assertIsNotNone(challenger_candidate_profile_entry)
+        self.assertIsNotNone(legal_action_recommendation_entry)
+        self.assertEqual(project_fact_entry.stage_scope, 6)
+        self.assertEqual(project_fact_entry.payload["sale_gate_status"], project_fact.get("sale_gate_status"))
+        self.assertEqual(report_record_entry.payload["report_status"], report_record.get("report_status"))
+        self.assertEqual(
+            review_queue_profile_entry.payload["review_lane"],
+            review_queue_profile.get("review_lane"),
+        )
+        self.assertEqual(
+            challenger_candidate_profile_entry.payload["challenge_actionability_score"],
+            challenger_candidate_profile.get("challenge_actionability_score"),
+        )
+        self.assertEqual(
+            legal_action_recommendation_entry.payload["action_family"],
+            legal_action_recommendation.get("action_family"),
+        )
+
+        hydrated = hydrate_stage_bundle("stage6", {"project_id": project_fact.get("project_id")})
+
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(hydrated.handoff, stage6.handoff)
+        self.assertEqual(
+            hydrated.inputs.get("stage6_review_report_trace"),
+            stage6.inputs.get("stage6_review_report_trace"),
+        )
+        self.assertEqual(
+            hydrated.inputs.get("stage6_h06_formal_carrier_trace"),
+            stage6.inputs.get("stage6_h06_formal_carrier_trace"),
+        )
+
+        replayed_stage7 = Stage7Service().run(hydrated)
+        self.assertEqual(
+            replayed_stage7.record("saleable_opportunity").get("saleability_status"),
+            stage7.record("saleable_opportunity").get("saleability_status"),
+        )
+        self.assertEqual(
+            replayed_stage7.handoff.get("project_fact_id_optional"),
+            stage7.handoff.get("project_fact_id_optional"),
+        )
+        self.assertEqual(
+            replayed_stage7.handoff.get("challenger_candidate_profile_id_optional"),
+            stage7.handoff.get("challenger_candidate_profile_id_optional"),
+        )
+
+    def test_stage6_repository_readback_prefers_persisted_formal_refs_over_project_lookup(self) -> None:
+        stage6 = self.result["stage6"]
+        persist_stage_bundle(stage6)
+
+        project_fact = dict(stage6.record("project_fact").data)
+        report_record = dict(stage6.record("report_record").data)
+        review_queue_profile = dict(stage6.record("review_queue_profile").data)
+        challenger_candidate_profile = dict(stage6.record("challenger_candidate_profile").data)
+        legal_action_recommendation = dict(stage6.record("legal_action_recommendation").data)
+
+        conflicting_project_fact = dict(project_fact)
+        conflicting_project_fact["project_fact_id"] = "FACT-CONFLICT-PROJ-001"
+        conflicting_project_fact["sale_gate_status"] = "BLOCK"
+        conflicting_report_record = dict(report_record)
+        conflicting_report_record["report_id"] = "REPORT-CONFLICT-PROJ-001"
+        conflicting_report_record["report_status"] = "REVOKED"
+        conflicting_review_queue_profile = dict(review_queue_profile)
+        conflicting_review_queue_profile["queue_profile_id"] = "QUEUE-CONFLICT-PROJ-001"
+        conflicting_review_queue_profile["review_lane"] = "FAST_WINDOW"
+        conflicting_challenger_candidate_profile = dict(challenger_candidate_profile)
+        conflicting_challenger_candidate_profile["challenger_profile_id"] = "CH-CONFLICT-PROJ-001"
+        conflicting_challenger_candidate_profile["challenge_actionability_score"] = 9
+        conflicting_legal_action_recommendation = dict(legal_action_recommendation)
+        conflicting_legal_action_recommendation["action_id"] = "LAR-CONFLICT-PROJ-001"
+        conflicting_legal_action_recommendation["action_family"] = "REVIEW_ONLY"
+
+        ProjectFactRepository().save(conflicting_project_fact)
+        ReportRecordRepository().save(conflicting_report_record)
+        ReviewQueueProfileRepository().save(conflicting_review_queue_profile)
+        ChallengerCandidateProfileRepository().save(conflicting_challenger_candidate_profile)
+        LegalActionRecommendationRepository().save(conflicting_legal_action_recommendation)
+
+        hydrated = hydrate_stage_bundle("stage6", {"project_id": project_fact["project_id"]})
+
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.record("project_fact").get("project_fact_id"),
+            project_fact["project_fact_id"],
+        )
+        self.assertEqual(
+            hydrated.record("report_record").get("report_id"),
+            report_record["report_id"],
+        )
+        self.assertEqual(
+            hydrated.record("review_queue_profile").get("queue_profile_id"),
+            review_queue_profile["queue_profile_id"],
+        )
+        self.assertEqual(
+            hydrated.record("challenger_candidate_profile").get("challenger_profile_id"),
+            challenger_candidate_profile["challenger_profile_id"],
+        )
+        self.assertEqual(
+            hydrated.record("legal_action_recommendation").get("action_id"),
+            legal_action_recommendation["action_id"],
+        )
+        self.assertEqual(
+            hydrated.record("project_fact").get("sale_gate_status"),
+            project_fact["sale_gate_status"],
+        )
+        self.assertNotEqual(
+            hydrated.record("project_fact").get("sale_gate_status"),
+            conflicting_project_fact["sale_gate_status"],
+        )
+
+    def test_stage6_repository_readback_does_not_broad_fallback_when_typed_refs_are_stale(self) -> None:
+        stage6 = self.result["stage6"]
+        persist_stage_bundle(stage6)
+
+        project_fact_id = stage6.record("project_fact").get("project_fact_id")
+        project_id = stage6.record("project_fact").get("project_id")
+
+        self.assertIsNone(
+            hydrate_stage_bundle(
+                "stage6",
+                {
+                    "project_id": project_id,
+                    "project_fact_id": "FACT-STALE-TYPED-REF-001",
+                },
+            )
+        )
+
+        stage_state = DatabaseSession.default().get_stage_state(6, "stage6_fact_review", project_fact_id)
+        self.assertIsNotNone(stage_state)
+
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs.update(
+            {
+                "project_fact_id": "FACT-STALE-TYPED-REF-001",
+                "report_record_id": "REPORT-STALE-TYPED-REF-001",
+                "review_queue_profile_id": "QUEUE-STALE-TYPED-REF-001",
+                "challenger_candidate_profile_id": "CH-STALE-TYPED-REF-001",
+                "action_id": "LAR-STALE-TYPED-REF-001",
+            }
+        )
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        self.assertIsNone(hydrate_stage_bundle("stage6", {"project_id": project_id}))
 
     def test_stage7_repository_boundary_persists_formal_objects_without_rejudging(self) -> None:
         stage7 = self.result["stage7"]

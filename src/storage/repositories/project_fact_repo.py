@@ -5,7 +5,7 @@ from storage.repositories._base import ContractRepository
 
 class ProjectFactRepository(ContractRepository):
     object_type = "project_fact"
-    id_field = "project_id"
+    id_field = "project_fact_id"
 
 
 __all__ = ["ProjectFactRepository"]

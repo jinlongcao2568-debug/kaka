@@ -84,7 +84,7 @@ currentTask:
       previous_active_packet: "PTL-I100-103-closeout"
       target_active_packet: "PTL-I100-104-stage6-productization"
       product_task_library_change: false
-      product_module_registry_change: false
+      product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
@@ -148,6 +148,7 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/product_module_registry.yaml"
       - "contracts/schemas/project_fact.schema.json"
       - "contracts/schemas/report_record.schema.json"
       - "contracts/schemas/review_queue_profile.schema.json"
@@ -170,6 +171,7 @@ currentTask:
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/product_module_registry.yaml"
       - "contracts/schemas/project_fact.schema.json"
       - "contracts/schemas/report_record.schema.json"
       - "contracts/schemas/review_queue_profile.schema.json"
@@ -226,6 +228,7 @@ currentTask:
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
+        - "control/product_module_registry.yaml"
       contracts:
         - "contracts/schemas/project_fact.schema.json"
         - "contracts/schemas/report_record.schema.json"
