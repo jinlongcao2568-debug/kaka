@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-000-roadmap-registration (SCOPED_EXECUTION; user confirmed starting the AI代理开发总路线图_7个任务包 workstream, this packet only registers PTL-I100-internal-operable-productization and its seven PLANNED tasks into control/product_task_library.yaml, registers source blueprint PTL-I100-ROADMAP-01, keeps control/current_task.yaml as the only active execution source, keeps current_mainline_next_candidate unset, does not auto-activate task 1, does not modify docs/contracts/handoff/src/tests/scripts, and does not approve external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-000-roadmap-registration (SCOPED_EXECUTION; user confirmed starting the AI代理开发总路线图_7个任务包 workstream and then requested duplicate copies not be mixed into current docs; this packet registers PTL-I100-internal-operable-productization and its seven PLANNED tasks into control/product_task_library.yaml, registers source blueprint PTL-I100-ROADMAP-01, archives docs/quality copies under archive/quality_reports/2026-04-23, keeps control/current_task.yaml as the only active execution source, keeps current_mainline_next_candidate unset, does not auto-activate task 1, does not modify current docs/contracts/handoff/src/tests/scripts, and does not approve external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -22,6 +22,7 @@ Current Blockers:
 Allowed Actions (current):
 - register PTL-I100-ROADMAP-01 in control/source_blueprint_registry.yaml
 - register PTL-I100-internal-operable-productization program and seven PLANNED tasks in control/product_task_library.yaml
+- archive docs/quality duplicate user-supplied report copies under archive/quality_reports/2026-04-23
 - sync control/current_task.yaml active packet to PTL-I100-000-roadmap-registration
 - sync control/repo_status.md current workstream wording to PTL-I100-000-roadmap-registration
 - keep current_mainline_next_candidate unset / non-auto-activated
@@ -36,6 +37,7 @@ Allowed Actions (current):
 
 Forbidden Actions (current):
 - Any docs/** or docs/AX9S_开发执行路由图.md change
+- Any attempt to promote archived report copies back into current formal docs
 - Any contracts/** change
 - Any handoff/** change
 - Any src/shared/** change
@@ -75,6 +77,7 @@ State Semantics:
 - PTL-GOV-201-internal-operations-acceptance has completed internal operability validation and is no longer the active packet.
 - PTL-I100-000-roadmap-registration is now the active scoped execution packet; it is a control registration packet only and does not implement any of the seven productization tasks.
 - PTL-I100-internal-operable-productization is registered as a manual-activation-only program with seven PLANNED tasks in control/product_task_library.yaml.
+- User-supplied docs/quality report copies are archived under archive/quality_reports/2026-04-23 and must not be treated as current formal references.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated future current_task packet before implementation.
@@ -89,7 +92,7 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/source_blueprint_registry.yaml''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/source_blueprint_registry.yaml'',''archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md'',''archive/quality_reports/2026-04-23/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md'',''archive/quality_reports/2026-04-23/评估结论报告_AI代理版_修订版.md''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check

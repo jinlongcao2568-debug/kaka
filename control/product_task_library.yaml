@@ -108,7 +108,8 @@ post_mainline_execution_ladder:
         - PTL-INT-104-p8-observability-operator-workbench
 internal_operable_productization_program:
   program_id: PTL-I100-internal-operable-productization
-  source_doc: docs/AI代理开发总路线图_7个任务包.md
+  source_doc: archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md
+  source_doc_semantics: "archived user-supplied planning input; not a current formal reference surface"
   source_blueprint_batch_id: PTL-I100-ROADMAP-01
   status: REGISTERED
   planning_state: PLANNED

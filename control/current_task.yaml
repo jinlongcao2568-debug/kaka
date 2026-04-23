@@ -5,11 +5,11 @@ updated_at: "2026-04-23"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_ROADMAP_REGISTRATION_ACTIVE"
+navigation_state: "PTL_I100_ROADMAP_REGISTRATION_AND_ARCHIVE_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "用户已确认启动 AI代理开发总路线图_7个任务包；本窗口只登记 PTL-I100 内部 100% 可运营产品化路线与 7 个候选任务，不进入任何业务实现，不自动激活任务 1，不放开 external/live 红线。"
+activation_condition: "用户已确认启动 AI代理开发总路线图_7个任务包，并要求提交前检查目标达成；随后明确要求副本不要混入当前正式 docs，放入 archive。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -18,7 +18,7 @@ state_dimensions:
   mainline_selection_ready: true
 currentTask:
   task_id: "PTL-I100-000-roadmap-registration"
-  title: "PTL-I100 内部可运营产品化路线登记包"
+  title: "PTL-I100 内部可运营产品化路线登记与副本归档包"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -31,8 +31,9 @@ currentTask:
     - "docs/D1_研发_Codex执行手册.md"
     - "docs/D11_测试验收与金标回归清单.md"
     - "docs/正式业务代码开发开工裁决页.md"
-    - "docs/AI代理开发总路线图_7个任务包.md"
-    - "docs/评估结论报告_AI代理版_修订版.md"
+    - "archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md"
+    - "archive/quality_reports/2026-04-23/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md"
+    - "archive/quality_reports/2026-04-23/评估结论报告_AI代理版_修订版.md"
     - "control/current_task.yaml"
     - "control/repo_status.md"
     - "control/product_task_library.yaml"
@@ -40,7 +41,7 @@ currentTask:
     - "control/review_gate_matrix.yaml"
     - "control/automation_task_packet_rules.yaml"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "把 AI代理开发总路线图_7个任务包收敛为仓库正式候选任务池：登记 PTL-I100 program、7 个 PLANNED 任务、验收模型、顺序依赖和红线；保持 control/current_task.yaml 为唯一 active execution source，不自动进入任务 1。"
+  objective: "把 AI代理开发总路线图_7个任务包收敛为仓库正式候选任务池，并把用户提供的 docs/quality 副本归档到 archive/quality_reports/2026-04-23；保持 control/current_task.yaml 为唯一 active execution source，不自动进入任务 1。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -69,9 +70,9 @@ currentTask:
     runtime_change_in_packet: "OUT_OF_SCOPE"
     existing_code_state: "HEAVY_RUNTIME"
     existing_runtime_state: "INTERNAL_GOVERNED_RUNTIME"
-    title: "PTL-I100 内部可运营产品化路线登记包"
+    title: "PTL-I100 内部可运营产品化路线登记与副本归档包"
     status: "ACTIVE"
-    objective: "Register the seven internal operable productization packets from docs/AI代理开发总路线图_7个任务包.md into the formal product task pool, with manual activation only, acceptance model, dependency order, and external/live redlines preserved."
+    objective: "Register the seven internal operable productization packets from the archived user-supplied roadmap input into the formal product task pool, archive duplicate report copies outside current docs, and preserve manual activation plus external/live redlines."
     depends_on:
       - "PTL-GOV-201-internal-operations-acceptance 已确认内部运营验收通过。"
       - "control/current_task.yaml 是唯一 active execution source。"
@@ -92,6 +93,7 @@ currentTask:
       execution_mode: "SCOPED_EXECUTION"
       runtime_change: false
       runtime_change_in_packet: "OUT_OF_SCOPE"
+      archive_change: true
       contracts_change: false
       handoff_change: false
       scripts_change: false
@@ -118,6 +120,7 @@ currentTask:
       - "不执行 7 个业务任务中的任何一个"
       - "not an external unlock implementation"
       - "不修改 docs/** 正文"
+      - "不把 docs/quality 副本混入当前正式 docs"
       - "不修改 contracts/**"
       - "不修改 handoff/**"
       - "不修改 src/**"
@@ -147,25 +150,31 @@ currentTask:
       - "automation_owner"
       - "governance_owner"
       - "testing_owner"
-    baseline_dirty_paths:
-      - "docs/quality/AI代理开发总路线图_7个任务包.md"
-      - "docs/quality/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md"
-      - "docs/quality/评估结论报告_AI代理版_修订版.md"
+    baseline_dirty_paths: []
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/source_blueprint_registry.yaml"
+      - "archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md"
+      - "archive/quality_reports/2026-04-23/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md"
+      - "archive/quality_reports/2026-04-23/评估结论报告_AI代理版_修订版.md"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/source_blueprint_registry.yaml"
+      - "archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md"
+      - "archive/quality_reports/2026-04-23/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md"
+      - "archive/quality_reports/2026-04-23/评估结论报告_AI代理版_修订版.md"
     current_window_actual_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/source_blueprint_registry.yaml"
+      - "archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md"
+      - "archive/quality_reports/2026-04-23/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md"
+      - "archive/quality_reports/2026-04-23/评估结论报告_AI代理版_修订版.md"
     forbidden_modification_paths:
       - "docs/**"
       - "contracts/**"
@@ -185,9 +194,11 @@ currentTask:
       - "control/future_unlock_decision_state.yaml"
     impacted_assets:
       docs:
-        - "docs/AI代理开发总路线图_7个任务包.md"
-        - "docs/评估结论报告_AI代理版_修订版.md"
         - "docs/D1_研发_Codex执行手册.md"
+      archive:
+        - "archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md"
+        - "archive/quality_reports/2026-04-23/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md"
+        - "archive/quality_reports/2026-04-23/评估结论报告_AI代理版_修订版.md"
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
@@ -202,14 +213,14 @@ currentTask:
       runtime: []
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/source_blueprint_registry.yaml''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/source_blueprint_registry.yaml'',''archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md'',''archive/quality_reports/2026-04-23/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md'',''archive/quality_reports/2026-04-23/评估结论报告_AI代理版_修订版.md''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "git diff --check"
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/source_blueprint_registry.yaml''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/source_blueprint_registry.yaml'',''archive/quality_reports/2026-04-23/AI代理开发总路线图_7个任务包.md'',''archive/quality_reports/2026-04-23/你现在不是缺“更多功能”，你是缺“把现有能力做实、做稳、做成可运营产品”。.md'',''archive/quality_reports/2026-04-23/评估结论报告_AI代理版_修订版.md''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "git diff --check": 120000
@@ -217,12 +228,15 @@ currentTask:
       - "任一脚本失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "需要修改 docs/**、contracts/**、handoff/**、src/**、tests/**、scripts/** 时立即停止汇报"
+      - "需要把归档副本恢复为当前正式 docs 引用面时立即停止汇报"
       - "需要设置 current_mainline_next_candidate 时立即停止汇报"
       - "需要放开 external release / Stage 8 real execution / Stage 9 real payment-delivery-refund 时立即停止汇报"
       - "需要新增正式对象、枚举、gate、exception 语义时立即停止汇报"
     definition_of_done:
       - "control/source_blueprint_registry.yaml 登记 PTL-I100-ROADMAP-01。"
       - "control/product_task_library.yaml 登记 PTL-I100 program 与 7 个 PLANNED 任务，task_count 与 tasks 长度一致。"
+      - "docs/quality 下用户提供的 3 个报告副本移入 archive/quality_reports/2026-04-23。"
+      - "control/product_task_library.yaml 的 PTL-I100 source_doc 指向归档输入，并声明其不是当前正式引用面。"
       - "control/current_task.yaml 切到 PTL-I100-000-roadmap-registration，且声明本包不执行任何业务实现。"
       - "control/repo_status.md 同步当前 workstream、允许动作、阻断项与验收口径。"
       - "current_mainline_next_candidate 保持 task_id=null / packet_id=null，不自动激活任务 1。"
@@ -230,6 +244,7 @@ currentTask:
     deliverables:
       - "PTL-I100 source blueprint registration"
       - "PTL-I100 seven-packet planned task pool registration"
+      - "Archived user-supplied quality report copies"
       - "PTL-I100 current task registration packet"
       - "Repo status sync for manual activation only"
     human_review_required: true
@@ -241,11 +256,12 @@ currentTask:
       declared: true
       signoff_required: true
       signoff_status: "APPROVED_FOR_LOCAL_COMMIT"
-      signoff_meaning: "用户在路线登记完成并复核目标达成后要求先提交；本确认仅批准本地提交 control 登记文件，不等于批准业务任务实现、external release、Stage 8 real execution、Stage 9 payment/delivery/refund 或 push。"
+      signoff_meaning: "用户在路线登记完成并复核目标达成后要求先提交，并明确副本不要混入、放档案文件；本确认仅批准本地提交 control 登记文件与 archive 副本归档，不等于批准业务任务实现、external release、Stage 8 real execution、Stage 9 payment/delivery/refund 或 push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
       - "control/product_task_library.yaml 是候选任务池；本包只登记 PTL-I100，不自动执行。"
+      - "archive/quality_reports/2026-04-23 是用户输入副本归档位置，不是当前正式引用面。"
       - "External leadpack delivery 继续要求 approval + audit。"
       - "external release remains blocked。"
       - "Stage 8 real execution remains governed / approval-gated / blocked by default。"
@@ -257,10 +273,12 @@ currentTask:
     - "Stage 9 real payment / delivery / refund remains governed / approval-gated / blocked by default"
   allowed_actions:
     - "允许修改 control/current_task.yaml、control/repo_status.md、control/product_task_library.yaml、control/source_blueprint_registry.yaml。"
+    - "允许把 docs/quality 下 3 个用户输入副本移动到 archive/quality_reports/2026-04-23。"
     - "允许运行本轮 required checks，并按停机规则汇报。"
     - "允许在门禁通过后本地提交本轮 control 登记文件。"
   forbidden_actions:
     - "不得修改 docs/**。"
+    - "不得把归档副本作为当前正式 docs 引用面。"
     - "不得修改 contracts/**。"
     - "不得修改 handoff/**。"
     - "不得修改 src/**。"
@@ -276,4 +294,4 @@ currentTask:
   nextActions:
     - "完成 PTL-I100 路线登记后停下汇报。"
     - "如继续推进，下一窗口应把 PTL-I100-101 单独切成 dedicated current_task packet，再执行任务 1。"
-  status_note: "PTL-I100-000-roadmap-registration 只登记 7 个任务为 PLANNED 候选池；当前 readiness 与 conditional-go 不变，external/live 红线不变，任务 1 未自动激活。"
+  status_note: "PTL-I100-000-roadmap-registration 登记 7 个任务为 PLANNED 候选池，并将用户输入副本归档；当前 readiness 与 conditional-go 不变，external/live 红线不变，任务 1 未自动激活。"
