@@ -25,6 +25,39 @@ class WritebackProjection:
     writeback_contract: dict[str, Any]
 
 
+def build_writeback_contract_summary(projection: WritebackProjection) -> dict[str, Any]:
+    persistence_targets = list(projection.writeback_contract.get("writeback_persistence_targets", []))
+    projected_targets = list(projection.writeback_contract.get("writeback_projected_targets", []))
+    advisory_targets = list(projection.writeback_contract.get("writeback_advisory_targets", []))
+    trace_only_targets = list(projection.writeback_contract.get("writeback_trace_only_targets", []))
+    return {
+        "writeback_contract_state": projection.writeback_contract.get("writeback_contract_state", "UNKNOWN"),
+        "writeback_contract_semantics": dict(
+            projection.writeback_contract.get("writeback_contract_semantics", {})
+        ),
+        "persisted_targets": persistence_targets,
+        "projected_only_targets": projected_targets,
+        "advisory_targets": advisory_targets,
+        "trace_only_targets": trace_only_targets,
+        "writeback_persistence_targets": persistence_targets,
+        "writeback_projected_targets": projected_targets,
+        "writeback_advisory_targets": advisory_targets,
+        "writeback_trace_only_targets": trace_only_targets,
+        "effective_writeback_targets": list(projection.effective_writeback_targets),
+        "resolved_effective_writeback_targets": list(projection.resolved_effective_writeback_targets),
+        "writeback_source_contracts": dict(
+            projection.writeback_target_resolution["writeback_source_contracts"]
+        ),
+        "writeback_target_sources": dict(
+            projection.writeback_target_resolution["writeback_target_sources"]
+        ),
+        "writeback_target_contracts": dict(
+            projection.writeback_contract.get("writeback_target_contracts", {})
+        ),
+        "upstream_feedback_contracts": dict(projection.upstream_feedback_contracts),
+    }
+
+
 def build_stage9_governed_metadata(
     *,
     plan_status: str,
@@ -60,6 +93,7 @@ def build_stage9_governed_metadata(
         "writeback_trace_only_targets": list(projection.writeback_contract.get("writeback_trace_only_targets", [])),
         "writeback_source_contracts": dict(projection.writeback_target_resolution["writeback_source_contracts"]),
         "writeback_target_sources": dict(projection.writeback_target_resolution["writeback_target_sources"]),
+        "writeback_contract_summary": build_writeback_contract_summary(projection),
     }
 
 
@@ -422,6 +456,7 @@ def feedback_summary_fields(
         "writeback_projected_targets": impact_result["writeback_projected_targets"],
         "writeback_advisory_targets": impact_result["writeback_advisory_targets"],
         "writeback_trace_only_targets": impact_result["writeback_trace_only_targets"],
+        "writeback_contract_summary": build_writeback_contract_summary(projection),
         "policy_trace": runtime_state.trace,
         "policy_decision_state": runtime_state.decision_state,
         "permission_trace": runtime_state.capability_trace,
@@ -509,6 +544,7 @@ __all__ = [
     "build_governance_feedback_payload",
     "build_opportunity_outcome_payload",
     "build_stage9_governed_metadata",
+    "build_writeback_contract_summary",
     "governance_feedback_guard_conditions",
     "opportunity_outcome_guard_conditions",
     "opportunity_outcome_semantic_context",

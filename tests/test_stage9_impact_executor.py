@@ -147,6 +147,27 @@ class TestStage9ImpactExecutor(unittest.TestCase):
             stage9.inputs["writeback_trace_only_targets"],
             ["controlled_exception_record", "release_gates"],
         )
+        summary = stage9.inputs["writeback_contract_summary"]
+        self.assertEqual(summary["persisted_targets"], stage9.inputs["writeback_persistence_targets"])
+        self.assertEqual(summary["projected_only_targets"], stage9.inputs["writeback_projected_targets"])
+        self.assertEqual(summary["advisory_targets"], stage9.inputs["writeback_advisory_targets"])
+        self.assertEqual(summary["trace_only_targets"], stage9.inputs["writeback_trace_only_targets"])
+        self.assertEqual(
+            summary["resolved_effective_writeback_targets"],
+            stage9.inputs["resolved_effective_writeback_targets"],
+        )
+        self.assertEqual(
+            stage9.record("governance_feedback_event")
+            .get("governed_metadata", {})
+            .get("writeback_contract_summary"),
+            summary,
+        )
+        self.assertEqual(
+            stage9.record("opportunity_outcome_event")
+            .get("governed_metadata", {})
+            .get("writeback_contract_summary"),
+            summary,
+        )
         self.assertEqual(
             contracts["delivery_record"]["mutation_semantics"],
             "PERSISTED_STAGE9_RECORD",
@@ -308,6 +329,8 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         stage9 = run_internal_chain(payload)["stage9"]
 
         self.assertEqual(stage9.inputs["writeback_trace_only_targets"], ["buyer_fit", "challenger_candidate_profile"])
+        self.assertNotIn("buyer_fit", stage9.inputs["writeback_persistence_targets"])
+        self.assertNotIn("challenger_candidate_profile", stage9.inputs["writeback_persistence_targets"])
         self.assertNotIn("buyer_fit", stage9.inputs["effective_writeback_targets"])
         self.assertNotIn("challenger_candidate_profile", stage9.inputs["effective_writeback_targets"])
         self.assertIn("buyer_fit", stage9.inputs["resolved_effective_writeback_targets"])

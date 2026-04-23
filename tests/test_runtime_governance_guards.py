@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 import copy
+import sys
 import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+TESTS = ROOT / "tests"
+for search_path in (SRC, TESTS):
+    if str(search_path) not in sys.path:
+        sys.path.insert(0, str(search_path))
 
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
@@ -88,6 +98,30 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
             self.assertIn("field_policy", entry)
             self.assertIn("delivery_matrix", entry)
             self.assertIn("release_gates", entry)
+
+    def test_stage9_payment_delivery_refund_live_execution_remains_blocked(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update({"refund_state": "REQUESTED"})
+
+        stage9 = run_internal_chain(payload)["stage9"]
+
+        for record_name in (
+            "order_record",
+            "payment_record",
+            "delivery_record",
+            "opportunity_outcome_event",
+            "governance_feedback_event",
+        ):
+            metadata = stage9.record(record_name).get("governed_metadata", {})
+            self.assertEqual(stage9.record(record_name).get("governed_execution_mode"), "INTERNAL_GOVERNED")
+            self.assertFalse(metadata.get("live_execution_enabled"))
+            self.assertTrue(metadata.get("projection_only"))
+
+        self.assertEqual(stage9.record("payment_record").get("paid_at_optional"), "NOT_PAID")
+        self.assertEqual(stage9.record("payment_record").get("refund_state"), "REQUESTED")
+        self.assertNotEqual(stage9.record("payment_record").get("refund_state"), "COMPLETED")
+        self.assertEqual(stage9.record("delivery_record").get("delivered_at_optional"), "NOT_DELIVERED")
+        self.assertNotEqual(stage9.record("delivery_record").get("delivery_status"), "DELIVERED")
 
 
 if __name__ == "__main__":

@@ -121,6 +121,7 @@ STAGE_INPUT_FIELDS = {
         "outcome_authoritative_base_targets",
         "upstream_feedback_projected_targets",
         "upstream_feedback_advisory_targets",
+        "upstream_feedback_contracts",
         "governance_writeback_targets_optional",
         "governance_legacy_writeback_targets",
         "governance_owned_self_target",
@@ -133,6 +134,7 @@ STAGE_INPUT_FIELDS = {
         "writeback_source_contracts",
         "writeback_target_sources",
         "writeback_target_contracts",
+        "writeback_contract_summary",
         "writeback_persistence_targets",
         "writeback_projected_targets",
         "writeback_advisory_targets",
@@ -148,6 +150,9 @@ STAGE_INPUT_FIELDS = {
         "impact_projected_contracts",
         "impact_advisories",
         "impact_trace",
+        "h08_workflow_fallback_trace",
+        "_stage9_handoff_snapshot",
+        "_stage9_trace_rules_snapshot",
     ),
 }
 
@@ -937,9 +942,7 @@ def _get_stage_state(stage_scope: int, surface_id: str, root_record_id: str | No
 def _resolve_stage9_stage_state(payload: Mapping[str, Any]) -> PersistedStageState | None:
     order_id = str(payload.get("order_id", "")).strip()
     if order_id:
-        stage_state = _get_stage_state(9, STAGE_SURFACE_IDS[9], order_id)
-        if stage_state is not None:
-            return stage_state
+        return _get_stage_state(9, STAGE_SURFACE_IDS[9], order_id)
 
     opportunity_id = str(payload.get("opportunity_id", "")).strip()
     if not opportunity_id:
@@ -1167,9 +1170,6 @@ def _resolve_primary_record(stage_scope: int, payload: Mapping[str, Any]) -> tup
             stage_state.root_record_id if stage_state is not None else ""
         )
         order = OrderRecordRepository().get_by_id(order_id) if order_id else None
-        if not order:
-            opportunity_id = str(payload.get("opportunity_id", "")).strip()
-            order = OrderRecordRepository().find_one_by_field("opportunity_id", opportunity_id) if opportunity_id else None
         return ("order_record", order) if order else None
     return None
 

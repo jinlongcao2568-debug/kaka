@@ -557,12 +557,28 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(delivery_entry.payload["delivery_status"], delivery.get("delivery_status"))
         self.assertEqual(outcome_entry.writeback_state["writeback_targets"], outcome.get("writeback_targets"))
         self.assertEqual(
+            outcome_entry.writeback_state["written_back_at_optional"],
+            outcome.get("written_back_at_optional"),
+        )
+        self.assertEqual(
             governance_entry.writeback_state["written_back_at_optional"],
             governance.get("written_back_at_optional"),
         )
         self.assertEqual(
+            governance_entry.writeback_state["writeback_targets"],
+            governance.get("writeback_targets"),
+        )
+        self.assertEqual(
             governance_entry.governed_state["governed_execution_mode"],
             governance.get("governed_execution_mode"),
+        )
+        self.assertEqual(
+            outcome_entry.payload["governed_metadata"]["writeback_contract_summary"],
+            stage9.inputs["writeback_contract_summary"],
+        )
+        self.assertEqual(
+            governance_entry.payload["governed_metadata"]["writeback_contract_summary"],
+            stage9.inputs["writeback_contract_summary"],
         )
 
         replay = list_orders({"opportunity_id": order.get("opportunity_id")})
@@ -603,6 +619,18 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["formal_object_refs"]["governance_feedback_event"]["object_id"],
             governance.get("governance_feedback_event_id"),
+        )
+        self.assertEqual(
+            replay["formal_object_refs"]["opportunity_outcome_event"]["governed_metadata"][
+                "writeback_contract_summary"
+            ],
+            stage9.inputs["writeback_contract_summary"],
+        )
+        self.assertEqual(
+            replay["formal_object_refs"]["governance_feedback_event"]["governed_metadata"][
+                "writeback_contract_summary"
+            ],
+            stage9.inputs["writeback_contract_summary"],
         )
 
     def test_stage7_repository_readback_prefers_persisted_formal_refs_over_project_lookup(self) -> None:
@@ -975,6 +1003,16 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertIsNone(hydrated)
         with self.assertRaises(TypeError):
             list_orders({"opportunity_id": opportunity_id})
+
+        self.assertIsNone(
+            hydrate_stage_bundle(
+                "stage9",
+                {
+                    "order_id": "ORDER-STALE-TYPED-REF-001",
+                    "opportunity_id": opportunity_id,
+                },
+            )
+        )
 
 
 if __name__ == "__main__":

@@ -1716,6 +1716,15 @@ class TestInternalChain(unittest.TestCase):
             stage9.inputs.get("writeback_target_sources"),
         )
         self.assertEqual(
+            hydrated.inputs.get("writeback_contract_summary"),
+            stage9.inputs.get("writeback_contract_summary"),
+        )
+        self.assertEqual(
+            hydrated.handoff.get("writeback_contract_summary"),
+            stage9.handoff.get("writeback_contract_summary"),
+        )
+        self.assertEqual(hydrated.trace_rules, stage9.trace_rules)
+        self.assertEqual(
             hydrated.record("order_record").get("order_status"),
             stage9.record("order_record").get("order_status"),
         )

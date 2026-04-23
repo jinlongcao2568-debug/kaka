@@ -52,6 +52,8 @@ _STAGE6_TYPED_REF_KEYS = (
 )
 _STAGE8_HANDOFF_SNAPSHOT_KEY = "_stage8_handoff_snapshot"
 _STAGE8_TRACE_RULES_SNAPSHOT_KEY = "_stage8_trace_rules_snapshot"
+_STAGE9_HANDOFF_SNAPSHOT_KEY = "_stage9_handoff_snapshot"
+_STAGE9_TRACE_RULES_SNAPSHOT_KEY = "_stage9_trace_rules_snapshot"
 
 
 def _stage6_inputs_snapshot(bundle: StageBundle) -> dict[str, Any]:
@@ -292,15 +294,30 @@ def persist_stage8_bundle(bundle: StageBundle) -> StageBundle:
     return persisted_bundle
 
 
+def _stage9_bundle_with_persistence_snapshots(bundle: StageBundle) -> StageBundle:
+    inputs = dict(bundle.inputs)
+    inputs[_STAGE9_HANDOFF_SNAPSHOT_KEY] = dict(bundle.handoff)
+    if bundle.trace_rules:
+        inputs[_STAGE9_TRACE_RULES_SNAPSHOT_KEY] = list(bundle.trace_rules)
+    return StageBundle(
+        stage=bundle.stage,
+        records=dict(bundle.records),
+        handoff=dict(bundle.handoff),
+        trace_rules=list(bundle.trace_rules),
+        inputs=inputs,
+    )
+
+
 def persist_stage9_bundle(bundle: StageBundle) -> StageBundle:
     OrderRecordRepository().save(bundle.record("order_record").data)
     PaymentRecordRepository().save(bundle.record("payment_record").data)
     DeliveryRecordRepository().save(bundle.record("delivery_record").data)
     OpportunityOutcomeEventRepository().save(bundle.record("opportunity_outcome_event").data)
     GovernanceFeedbackEventRepository().save(bundle.record("governance_feedback_event").data)
-    _save_stage_state(bundle)
-    _sync_stage_operational_loop(bundle)
-    return bundle
+    persisted_bundle = _stage9_bundle_with_persistence_snapshots(bundle)
+    _save_stage_state(persisted_bundle)
+    _sync_stage_operational_loop(persisted_bundle)
+    return persisted_bundle
 
 
 def hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
@@ -744,14 +761,11 @@ def hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
 
 
 def hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
-    opportunity_id = str(payload.get("opportunity_id", "")).strip()
     stage_state = _resolve_stage9_stage_state(payload)
     order_id = str(payload.get("order_id", "")).strip() or (
         stage_state.root_record_id if stage_state is not None else ""
     )
     order = OrderRecordRepository().get_by_id(order_id) if order_id else None
-    if not order and opportunity_id:
-        order = OrderRecordRepository().find_one_by_field("opportunity_id", opportunity_id)
     if not order:
         return None
 
@@ -778,18 +792,21 @@ def hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
         OpportunityOutcomeEventRepository(),
         ref_sources=(persisted_refs, order.object_refs, work_item_refs),
         ref_keys=("outcome_event_id",),
-        fallback_field="opportunity_id",
-        fallback_value=opportunity_id or str(order.object_refs.get("opportunity_id", "")).strip(),
+        fallback_field="outcome_event_id",
+        fallback_value="",
     )
     governance = _record_from_persisted_refs(
         GovernanceFeedbackEventRepository(),
         ref_sources=(persisted_refs, order.object_refs, work_item_refs),
         ref_keys=("governance_feedback_event_id",),
-        fallback_field="project_id",
-        fallback_value=order.project_id or "",
+        fallback_field="governance_feedback_event_id",
+        fallback_value="",
     )
     if not all((payment, delivery, outcome, governance, stage_state)):
         return None
+    stage_inputs = dict(stage_state.inputs)
+    trace_rules = list(stage_inputs.pop(_STAGE9_TRACE_RULES_SNAPSHOT_KEY, []))
+    handoff_snapshot = stage_inputs.pop(_STAGE9_HANDOFF_SNAPSHOT_KEY, None)
 
     return StageBundle(
         stage=9,
@@ -800,6 +817,7 @@ def hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
             "opportunity_outcome_event": ContractRecord("opportunity_outcome_event", outcome.as_payload()),
             "governance_feedback_event": ContractRecord("governance_feedback_event", governance.as_payload()),
         },
-        handoff={},
-        inputs=dict(stage_state.inputs),
+        handoff=dict(handoff_snapshot) if isinstance(handoff_snapshot, Mapping) else {},
+        trace_rules=trace_rules,
+        inputs=stage_inputs,
     )
