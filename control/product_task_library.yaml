@@ -554,16 +554,18 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage5_rules_evidence]
     task_type: internal_operable_productization
-    status: PLANNED
-    planning_state: PLANNED
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P0
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: PARTIAL_RUNTIME
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    runtime_change_in_packet: IN_SCOPE
+    completed_commit: d86a6f7
     activation_policy: "requires dedicated control/current_task.yaml packet before execution"
     hard_depends_on: [PTL-I100-102-stage1-5-real-source-vertical-slice]
     soft_depends_on: [PTL-S45-rule-evidence-dual-gate]
+    runtime_notes: "PTL-I100-103 scoped implementation 已完成并在本地提交：a276410、d86a6f7；本轮完成 Stage5 最小规则工厂、固定三规则 first-slice 执行、rule/evidence 绑定、聚合 gate、selection/execution trace 与 review target 可解释性；PTL-I100-103 不再是 current active packet，也不会自动激活 PTL-I100-104。"
     objective: "把 Stage5 从单规则/flag 驱动升级为规则目录批量执行、evidence slice 绑定、多规则聚合与冲突解释的最小规则工厂。"
     non_goals: ["不一次性补全全部规则", "不改 Stage6+ 消费边界", "不绕过双闸门"]
     expected_outputs: ["规则目录结构", "批量执行器", "evidence slice 绑定", "聚合解释对象", "规则矩阵测试"]
