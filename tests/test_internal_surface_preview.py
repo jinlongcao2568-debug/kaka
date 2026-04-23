@@ -17,6 +17,10 @@ if str(TESTS) not in sys.path:
 from helpers import load_fixture, run_internal_chain_to_stage7
 from api.projections import get_surface_runtime_defaults
 from shared.pipeline import run_internal_chain
+from api.routes.stage6 import (
+    preview_stage6_review_report_workbench,
+    register_stage6_routes,
+)
 from api.routes.stage7 import (
     list_saleable_opportunities,
     list_stage7_work_items,
@@ -47,7 +51,7 @@ from api.routes.stage9 import (
     register_stage9_routes,
     submit_stage9_operator_action,
 )
-from storage import reset_default_storage
+from storage import persist_stage_bundle, reset_default_storage
 
 
 def read_json(relative_path: str) -> dict:
@@ -57,6 +61,117 @@ def read_json(relative_path: str) -> dict:
 class TestInternalSurfacePreview(unittest.TestCase):
     def setUp(self) -> None:
         reset_default_storage()
+
+    def test_stage6_preview_surface_consumes_repository_backed_formal_objects(self) -> None:
+        stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
+        persist_stage_bundle(stage6)
+
+        response = preview_stage6_review_report_workbench(
+            {"project_id": stage6.record("project_fact").get("project_id")}
+        )
+
+        self.assertEqual(response["surface_id"], "review_report_workbench")
+        self.assertEqual(response["surface_mode"], "preview-only")
+        self.assertTrue(response["internal_only"])
+        self.assertFalse(response["live_execution_enabled"])
+        self.assertFalse(response["blocked_by_default"])
+        self.assertEqual(response["surface_state"], "preview-ready")
+        self.assertEqual(response["surface_state"], response["semantic_envelope"]["surface_state"])
+        self.assertEqual(response["surface_access"], response["semantic_envelope"]["surface_access"])
+        self.assertEqual(response["decision_states"], response["governance_envelope"]["decision_states"])
+        self.assertEqual(response["capability_envelope"]["surface_capability_mode"], "INTERNAL_ONLY")
+        self.assertIn("previewStage6ReviewReportWorkbench", response["governance_envelope"]["action_availability"])
+        self.assertEqual(
+            response["formal_object_refs"]["project_fact"]["object_id"],
+            stage6.record("project_fact").get("project_fact_id"),
+        )
+        self.assertEqual(
+            response["formal_object_refs"]["report_record"]["object_id"],
+            stage6.record("report_record").get("report_id"),
+        )
+        self.assertEqual(
+            response["formal_object_refs"]["review_queue_profile"]["object_id"],
+            stage6.record("review_queue_profile").get("queue_profile_id"),
+        )
+        self.assertEqual(
+            response["formal_object_refs"]["challenger_candidate_profile"]["object_id"],
+            stage6.record("challenger_candidate_profile").get("challenger_profile_id"),
+        )
+        self.assertEqual(
+            response["formal_object_refs"]["legal_action_recommendation"]["object_id"],
+            stage6.record("legal_action_recommendation").get("action_id"),
+        )
+        self.assertEqual(
+            response["preview_projection"]["project_fact_summary"]["sale_gate_status"],
+            stage6.record("project_fact").get("sale_gate_status"),
+        )
+        self.assertEqual(
+            response["preview_projection"]["report_status_summary"]["report_status"],
+            stage6.record("report_record").get("report_status"),
+        )
+        self.assertEqual(
+            response["preview_projection"]["review_queue_summary"]["review_lane"],
+            stage6.record("review_queue_profile").get("review_lane"),
+        )
+        self.assertEqual(
+            response["preview_projection"]["challenger_summary"]["challenge_actionability_score"],
+            stage6.record("challenger_candidate_profile").get("challenge_actionability_score"),
+        )
+        self.assertEqual(
+            response["preview_projection"]["legal_action_summary"]["action_family"],
+            stage6.record("legal_action_recommendation").get("action_family"),
+        )
+
+    def test_stage6_preview_surface_marks_readback_failure_as_review_or_blocked(self) -> None:
+        stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
+        persist_stage_bundle(stage6)
+        project_id = stage6.record("project_fact").get("project_id")
+
+        blocked_response = preview_stage6_review_report_workbench(
+            {
+                "project_id": project_id,
+                "project_fact_id": "FACT-STALE-TYPED-REF-001",
+            }
+        )
+        review_response = preview_stage6_review_report_workbench({"project_id": "PROJ-NOT-PERSISTED"})
+
+        self.assertEqual(blocked_response["surface_id"], "review_report_workbench")
+        self.assertEqual(blocked_response["surface_state"], "blocked")
+        self.assertEqual(blocked_response["semantic_envelope"]["surface_state"], "blocked")
+        self.assertIn(
+            "stage6_repository_readback_failed:typed_refs_unresolved",
+            blocked_response["semantic_envelope"]["state_reasons"],
+        )
+        self.assertEqual(
+            blocked_response["preview_projection"]["project_fact_summary"]["repository_readback_status"],
+            "unavailable",
+        )
+        self.assertEqual(blocked_response["decision_states"]["semantic_decision_state"], "BLOCK")
+        self.assertFalse(blocked_response["blocked_by_default"])
+
+        self.assertEqual(review_response["surface_id"], "review_report_workbench")
+        self.assertEqual(review_response["surface_state"], "review-required")
+        self.assertEqual(review_response["semantic_envelope"]["surface_state"], "review-required")
+        self.assertIn(
+            "stage6_repository_readback_failed:project_not_persisted",
+            review_response["semantic_envelope"]["state_reasons"],
+        )
+        self.assertEqual(review_response["decision_states"]["semantic_decision_state"], "REVIEW")
+        self.assertTrue(review_response["internal_only"])
+        self.assertFalse(review_response["live_execution_enabled"])
+
+    def test_stage6_route_registration_is_preview_only_and_read_only(self) -> None:
+        routes = register_stage6_routes()
+        defaults = get_surface_runtime_defaults("review_report_workbench")
+
+        self.assertEqual(len(routes), 1)
+        route = routes[0]
+        self.assertEqual(route["operationId"], "previewStage6ReviewReportWorkbench")
+        self.assertEqual(route["method"], "GET")
+        self.assertEqual(route["surface_mode"], defaults["surface_mode"])
+        self.assertEqual(route["internal_only"], defaults["internal_only"])
+        self.assertEqual(route["live_execution_enabled"], defaults["live_execution_enabled"])
+        self.assertEqual(route["blocked_by_default"], defaults["blocked_by_default"])
 
     def test_stage7_preview_surface_consumes_formal_objects(self) -> None:
         stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]

@@ -56,6 +56,11 @@ HOLD_STATUSES = {
     "NOT_STARTED",
 }
 PRIMARY_STATUS_FIELD_MAP = {
+    "project_fact": ("sale_gate_status", "competitor_quality_grade"),
+    "report_record": ("report_status", "review_task_status"),
+    "review_queue_profile": ("review_lane", "review_queue_bucket"),
+    "challenger_candidate_profile": ("candidate_position_label",),
+    "legal_action_recommendation": ("window_status", "action_family"),
     "saleable_opportunity": ("saleability_status", "opportunity_grade"),
     "offer_recommendation": ("offer_recommendation_state", "recommended_delivery_form"),
     "buyer_fit": ("buyer_type",),
@@ -71,6 +76,11 @@ PRIMARY_STATUS_FIELD_MAP = {
     "governance_feedback_event": ("trigger_type",),
 }
 PRIMARY_ID_FIELD_MAP = {
+    "project_fact": "project_fact_id",
+    "report_record": "report_id",
+    "review_queue_profile": "queue_profile_id",
+    "challenger_candidate_profile": "challenger_profile_id",
+    "legal_action_recommendation": "action_id",
     "saleable_opportunity": "opportunity_id",
     "offer_recommendation": "offer_recommendation_id",
     "buyer_fit": "buyer_fit_id",
@@ -86,6 +96,11 @@ PRIMARY_ID_FIELD_MAP = {
     "governance_feedback_event": "governance_feedback_event_id",
 }
 ID_FIELDS = (
+    "project_fact_id",
+    "report_id",
+    "queue_profile_id",
+    "challenger_profile_id",
+    "action_id",
     "opportunity_id",
     "offer_recommendation_id",
     "buyer_fit_id",
@@ -105,6 +120,7 @@ SURFACE_STATE_PROFILE_REFS = {
     "order_delivery_workbench": "stage9_internal_governed_surface",
 }
 SURFACE_CAPABILITY_MODES = {
+    "review_report_workbench": "INTERNAL_ONLY",
     "opportunity_pool": "INTERNAL_ONLY",
     "outreach_workbench": "INTERNAL_GOVERNED",
     "order_delivery_workbench": "INTERNAL_GOVERNED",
@@ -115,6 +131,13 @@ SURFACE_CAPABILITY_FAMILIES = {
     "order_delivery_workbench": ("stage9_execution", "delivery_export_variants", "risky_automation"),
 }
 SURFACE_RUNTIME_DEFAULTS = {
+    "review_report_workbench": {
+        "surface_mode": "preview-only",
+        "internal_only": True,
+        "live_execution_enabled": False,
+        "blocked_by_default": False,
+        "release_layer": "INTERNAL_OPERABLE",
+    },
     "opportunity_pool": {
         "surface_mode": "preview-only",
         "internal_only": True,
@@ -137,6 +160,14 @@ SURFACE_RUNTIME_DEFAULTS = {
         "release_layer": "INTERNAL_OPERABLE",
     },
 }
+
+STAGE6_TYPED_REF_KEYS = (
+    "project_fact_id",
+    "report_record_id",
+    "review_queue_profile_id",
+    "challenger_candidate_profile_id",
+    "action_id",
+)
 
 
 def _resolve_bundle(payload: Any, stage_key: str) -> StageBundle:
@@ -322,6 +353,15 @@ def _action_availability(
 ) -> dict[str, dict[str, Any]]:
     blocked = surface_state == "blocked"
     review_required = surface_state == "review-required"
+
+    if surface_id == "review_report_workbench":
+        return {
+            "previewStage6ReviewReportWorkbench": _action_gate(
+                allowed=True,
+                surface_state=surface_state,
+                blocked_reason=None,
+            ),
+        }
 
     if surface_id == "opportunity_pool":
         return {
@@ -535,6 +575,231 @@ def _attach_operational_context(envelope: dict[str, Any], bundle: StageBundle) -
     envelope["workbench_replay"] = build_workbench_replay_projection(
         transient_context=transient,
     )
+    return envelope
+
+
+def _stage6_locator_present(payload: Mapping[str, Any]) -> bool:
+    return any(
+        str(payload.get(key, "")).strip()
+        for key in ("project_id", *STAGE6_TYPED_REF_KEYS)
+    )
+
+
+def _stage6_preview_projection(
+    project_fact: Mapping[str, Any],
+    report_record: Mapping[str, Any],
+    review_queue_profile: Mapping[str, Any],
+    challenger_candidate_profile: Mapping[str, Any],
+    legal_action_recommendation: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "project_fact_summary": {
+            "project_fact_id": project_fact.get("project_fact_id"),
+            "project_id": project_fact.get("project_id"),
+            "sale_gate_status": project_fact.get("sale_gate_status"),
+            "rule_gate_status": project_fact.get("rule_gate_status"),
+            "evidence_gate_status": project_fact.get("evidence_gate_status"),
+            "competitor_quality_grade": project_fact.get("competitor_quality_grade"),
+            "real_competitor_count": project_fact.get("real_competitor_count"),
+            "serviceable_competitor_count": project_fact.get("serviceable_competitor_count"),
+        },
+        "report_status_summary": {
+            "report_id": report_record.get("report_id"),
+            "report_status": report_record.get("report_status"),
+            "review_task_status": report_record.get("review_task_status"),
+            "review_lane": report_record.get("review_lane"),
+            "minimum_release_level": report_record.get("minimum_release_level"),
+            "review_sla_due_at": report_record.get("review_sla_due_at"),
+        },
+        "review_queue_summary": {
+            "queue_profile_id": review_queue_profile.get("queue_profile_id"),
+            "review_lane": review_queue_profile.get("review_lane"),
+            "review_priority_score": review_queue_profile.get("review_priority_score"),
+            "review_queue_bucket": review_queue_profile.get("review_queue_bucket"),
+            "window_risk_level": review_queue_profile.get("window_risk_level"),
+            "commercial_urgency_level": review_queue_profile.get("commercial_urgency_level"),
+        },
+        "challenger_summary": {
+            "challenger_profile_id": challenger_candidate_profile.get("challenger_profile_id"),
+            "focus_bidder_id": challenger_candidate_profile.get("focus_bidder_id"),
+            "challenger_bidder_id": challenger_candidate_profile.get("challenger_bidder_id"),
+            "candidate_position_label": challenger_candidate_profile.get("candidate_position_label"),
+            "challenge_actionability_score": challenger_candidate_profile.get("challenge_actionability_score"),
+            "execution_readiness_score": challenger_candidate_profile.get("execution_readiness_score"),
+        },
+        "legal_action_summary": {
+            "action_id": legal_action_recommendation.get("action_id"),
+            "action_family": legal_action_recommendation.get("action_family"),
+            "window_status": legal_action_recommendation.get("window_status"),
+            "recommended_next_step": legal_action_recommendation.get("recommended_next_step"),
+            "blocking_reasons": legal_action_recommendation.get("blocking_reasons"),
+        },
+        "_raw_records": [
+            project_fact,
+            report_record,
+            review_queue_profile,
+            challenger_candidate_profile,
+            legal_action_recommendation,
+        ],
+    }
+
+
+def _build_stage6_readback_failure_surface(
+    payload: Mapping[str, Any],
+    *,
+    surface_state: str,
+    reason: str,
+) -> dict[str, Any]:
+    surface_defaults = get_surface_runtime_defaults("review_report_workbench")
+    decision_states = {
+        "permission_decision_state": str(payload.get("permission_decision_state", "ALLOW")),
+        "governance_decision_state": str(payload.get("governance_decision_state", "ALLOW")),
+        "semantic_decision_state": "BLOCK" if surface_state == "blocked" else "REVIEW",
+        "policy_decision_state": "BLOCK" if surface_state == "blocked" else "REVIEW",
+    }
+    capability_envelope = _capability_envelope(
+        surface_id="review_report_workbench",
+        default_mode=str(surface_defaults["surface_mode"]),
+        release_layer=str(surface_defaults["release_layer"]),
+        blocked_by_default=bool(surface_defaults["blocked_by_default"]),
+    )
+    governance_envelope = _governance_envelope(
+        decision_states=decision_states,
+        governed_context={
+            "repository_readback_status": "failed",
+            "repository_readback_reason": reason,
+            "requested_project_id": str(payload.get("project_id", "")).strip(),
+            "requested_typed_refs": {
+                key: str(payload.get(key, "")).strip()
+                for key in STAGE6_TYPED_REF_KEYS
+                if str(payload.get(key, "")).strip()
+            },
+        },
+        action_availability=_action_availability(
+            surface_id="review_report_workbench",
+            surface_state=surface_state,
+            primary_statuses={},
+        ),
+        surface_state=surface_state,
+    )
+    semantic_envelope = _semantic_envelope(
+        surface_state=surface_state,
+        primary_statuses={},
+        state_reasons=[reason],
+    )
+    return {
+        "surface_id": "review_report_workbench",
+        "surface_state": semantic_envelope["surface_state"],
+        "surface_mode": capability_envelope["surface_mode"],
+        "surface_access": semantic_envelope["surface_access"],
+        "internal_only": True,
+        "preview_only": True,
+        "draft_only": False,
+        "live_execution_enabled": False,
+        "blocked_by_default": bool(surface_defaults["blocked_by_default"]),
+        "formalization_scope": capability_envelope["formalization_scope"],
+        "release_layer": str(surface_defaults["release_layer"]),
+        "decision_states": dict(decision_states),
+        "capability_envelope": capability_envelope,
+        "governance_envelope": governance_envelope,
+        "semantic_envelope": semantic_envelope,
+        "formal_object_refs": {},
+        "preview_projection": {
+            "project_fact_summary": {"repository_readback_status": "unavailable", "reason": reason},
+            "report_status_summary": {"repository_readback_status": "unavailable", "reason": reason},
+            "review_queue_summary": {"repository_readback_status": "unavailable", "reason": reason},
+            "challenger_summary": {"repository_readback_status": "unavailable", "reason": reason},
+            "legal_action_summary": {"repository_readback_status": "unavailable", "reason": reason},
+        },
+        "trace_refs": {
+            "repository_readback_failed": True,
+            "requested_project_id": str(payload.get("project_id", "")).strip(),
+        },
+        "error": {
+            "error_code": "STAGE6-REPOSITORY-READBACK-FAILED",
+            "message": reason,
+            "meta": {
+                "trace_id": "stage6_preview_readback_failed",
+                "source_refs": ["storage.repository_boundary.hydrate_stage6_bundle"],
+            },
+        },
+    }
+
+
+def build_stage6_preview_surface(payload: Any) -> dict[str, Any]:
+    bundle: StageBundle | None = None
+    if isinstance(payload, StageBundle):
+        bundle = payload
+    elif isinstance(payload, Mapping):
+        bundle = hydrate_stage_bundle("stage6", payload)
+        if bundle is None and _stage6_locator_present(payload):
+            typed_ref_failure = any(str(payload.get(key, "")).strip() for key in STAGE6_TYPED_REF_KEYS)
+            return _build_stage6_readback_failure_surface(
+                payload,
+                surface_state="blocked" if typed_ref_failure else "review-required",
+                reason=(
+                    "stage6_repository_readback_failed:typed_refs_unresolved"
+                    if typed_ref_failure
+                    else "stage6_repository_readback_failed:project_not_persisted"
+                ),
+            )
+        stage6_candidate = payload.get("stage6")
+        if bundle is None and isinstance(stage6_candidate, StageBundle):
+            bundle = stage6_candidate
+        if bundle is None:
+            for value in payload.values():
+                if isinstance(value, StageBundle) and value.stage == 6:
+                    bundle = value
+                    break
+    if bundle is None:
+        raise TypeError("payload must include a StageBundle for stage6 or repository-backed stage6 refs")
+
+    surface_defaults = get_surface_runtime_defaults("review_report_workbench")
+    project_fact = _record_data(bundle.record("project_fact"))
+    report_record = _record_data(bundle.record("report_record"))
+    review_queue_profile = _record_data(bundle.record("review_queue_profile"))
+    challenger_candidate_profile = _record_data(bundle.record("challenger_candidate_profile"))
+    legal_action_recommendation = _record_data(bundle.record("legal_action_recommendation"))
+    formal_records = {
+        "project_fact": project_fact,
+        "report_record": report_record,
+        "review_queue_profile": review_queue_profile,
+        "challenger_candidate_profile": challenger_candidate_profile,
+        "legal_action_recommendation": legal_action_recommendation,
+    }
+    formal_objects = {
+        "project_fact": _formal_object_ref(bundle, "project_fact", project_fact),
+        "report_record": _formal_object_ref(bundle, "report_record", report_record),
+        "review_queue_profile": _formal_object_ref(bundle, "review_queue_profile", review_queue_profile),
+        "challenger_candidate_profile": _formal_object_ref(
+            bundle,
+            "challenger_candidate_profile",
+            challenger_candidate_profile,
+        ),
+        "legal_action_recommendation": _formal_object_ref(
+            bundle,
+            "legal_action_recommendation",
+            legal_action_recommendation,
+        ),
+    }
+    preview_projection = _stage6_preview_projection(
+        project_fact,
+        report_record,
+        review_queue_profile,
+        challenger_candidate_profile,
+        legal_action_recommendation,
+    )
+    envelope = _surface_envelope(
+        bundle=bundle,
+        surface_id="review_report_workbench",
+        default_mode=str(surface_defaults["surface_mode"]),
+        formal_records=formal_records,
+        formal_objects=formal_objects,
+        preview_projection=preview_projection,
+        release_layer=str(surface_defaults["release_layer"]),
+        blocked_by_default=bool(surface_defaults["blocked_by_default"]),
+    )
+    envelope["preview_projection"].pop("_raw_records", None)
     return envelope
 
 
@@ -1597,6 +1862,7 @@ def register_route_table(router: object | None, routes: list[dict[str, Any]]) ->
 
 
 __all__ = [
+    "build_stage6_preview_surface",
     "build_leadpack_activation_design_implementation_prep_surface",
     "build_leadpack_activation_prep_surface",
     "build_leadpack_external_delivery_candidate_surface",

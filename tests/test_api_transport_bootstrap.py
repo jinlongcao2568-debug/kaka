@@ -38,14 +38,13 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(settings.environment, "INTERNAL_ONLY")
         self.assertEqual(Path(settings.repo_root).resolve(), ROOT.resolve())
 
-    def test_stage1_to_stage6_route_registrars_are_controlled_unavailable(self) -> None:
+    def test_stage1_to_stage5_route_registrars_are_controlled_unavailable(self) -> None:
         registrars = [
             register_stage1_routes,
             register_stage2_routes,
             register_stage3_routes,
             register_stage4_routes,
             register_stage5_routes,
-            register_stage6_routes,
         ]
 
         for stage_scope, registrar in enumerate(registrars, start=1):
@@ -59,6 +58,19 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertTrue(transport_status["internal_only"])
             self.assertFalse(transport_status["live_execution_enabled"])
 
+    def test_stage6_route_registrar_exposes_read_only_preview_surface(self) -> None:
+        routes = register_stage6_routes()
+
+        self.assertEqual(len(routes), 1)
+        preview_route = routes[0]
+        self.assertEqual(preview_route["operationId"], "previewStage6ReviewReportWorkbench")
+        self.assertEqual(preview_route["method"], "GET")
+        self.assertEqual(preview_route["path"], "/review-report-workbench")
+        self.assertEqual(preview_route["surface_mode"], "preview-only")
+        self.assertTrue(preview_route["internal_only"])
+        self.assertFalse(preview_route["live_execution_enabled"])
+        self.assertFalse(preview_route["blocked_by_default"])
+
     def test_create_app_mounts_stage7_to_stage9_transport_routes(self) -> None:
         app = create_app()
 
@@ -69,6 +81,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
         }
         self.assertTrue(
             {
+                "previewStage6ReviewReportWorkbench",
                 "listSaleableOpportunities",
                 "listContactTargets",
                 "listOrders",
@@ -76,9 +89,50 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 "createOrder",
             }.issubset(mounted_operation_ids)
         )
-        self.assertEqual(len(app.state.disabled_stage_transports), 6)
+        self.assertEqual(len(app.state.disabled_stage_transports), 5)
         self.assertIn("stage1", app.state.disabled_stage_transports)
-        self.assertIn("stage6", app.state.disabled_stage_transports)
+        self.assertNotIn("stage6", app.state.disabled_stage_transports)
+
+    def test_stage6_http_transport_reads_repository_backed_preview(self) -> None:
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage6 = result["stage6"]
+        persist_stage_bundle(stage6)
+        project_id = stage6.record("project_fact").get("project_id")
+
+        client = TestClient(create_app())
+        response = client.request("GET", "/review-report-workbench", json={"project_id": project_id})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["surface_id"], "review_report_workbench")
+        self.assertEqual(payload["surface_mode"], "preview-only")
+        self.assertTrue(payload["internal_only"])
+        self.assertFalse(payload["live_execution_enabled"])
+        self.assertFalse(payload["blocked_by_default"])
+        self.assertEqual(
+            payload["formal_object_refs"]["project_fact"]["object_id"],
+            stage6.record("project_fact").get("project_fact_id"),
+        )
+        self.assertEqual(
+            payload["formal_object_refs"]["report_record"]["object_id"],
+            stage6.record("report_record").get("report_id"),
+        )
+        self.assertEqual(
+            payload["formal_object_refs"]["review_queue_profile"]["object_id"],
+            stage6.record("review_queue_profile").get("queue_profile_id"),
+        )
+        self.assertEqual(
+            payload["formal_object_refs"]["challenger_candidate_profile"]["object_id"],
+            stage6.record("challenger_candidate_profile").get("challenger_profile_id"),
+        )
+        self.assertEqual(
+            payload["formal_object_refs"]["legal_action_recommendation"]["object_id"],
+            stage6.record("legal_action_recommendation").get("action_id"),
+        )
+        self.assertEqual(
+            payload["preview_projection"]["project_fact_summary"]["sale_gate_status"],
+            stage6.record("project_fact").get("sale_gate_status"),
+        )
 
     def test_stage7_http_transport_reads_repository_backed_preview(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

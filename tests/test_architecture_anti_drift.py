@@ -1182,6 +1182,7 @@ class TestArchitectureAntiDrift(unittest.TestCase):
 
     def test_api_skeletons_do_not_silently_drift_from_stage_scope(self) -> None:
         expected_route_tokens = {
+            "src/api/routes/stage6.py": ["project_fact", "review_report_workbench", "preview-only", "live_execution_enabled"],
             "src/api/routes/stage7.py": ["saleable_opportunity", "preview-only", "live_execution_enabled"],
             "src/api/routes/stage8.py": ["contact_target", "draft-only", "blocked_by_default"],
             "src/api/routes/stage9.py": ["order_record", "draft-only", "blocked_by_default"],
@@ -1192,6 +1193,19 @@ class TestArchitectureAntiDrift(unittest.TestCase):
                 self.assertIn(token, text, relative_path)
 
         stage_schema_expected = {
+            "src/api/schemas/stage6.py": (
+                "Stage6Request",
+                {
+                    "project_id",
+                    "project_fact_id",
+                    "report_record_id",
+                    "review_queue_profile_id",
+                    "challenger_candidate_profile_id",
+                    "action_id",
+                    "requested_surface_state",
+                    "include_formal_objects",
+                },
+            ),
             "src/api/schemas/stage7.py": (
                 "Stage7Request",
                 {"opportunity_id", "saleability_status", "requested_surface_state", "include_formal_objects"},

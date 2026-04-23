@@ -7,17 +7,34 @@ from __future__ import annotations
 
 from typing import Any
 
-from api.deps import build_transport_unavailable
+from api.projections import build_stage6_preview_surface, register_route_table
+from api.schemas.stage6 import Stage6ReviewReportWorkbenchResponse
 
 
-STAGE6_TRANSPORT_UNAVAILABLE = {
-    **build_transport_unavailable(6),
-    "route_registrar": "register_stage6_routes",
-}
+def preview_stage6_review_report_workbench(payload: Any) -> Stage6ReviewReportWorkbenchResponse:
+    return build_stage6_preview_surface(payload)
+
+
+STAGE6_ROUTES = [
+    {
+        "operationId": "previewStage6ReviewReportWorkbench",
+        "method": "GET",
+        "path": "/review-report-workbench",
+        "handler": preview_stage6_review_report_workbench,
+        "surface_mode": "preview-only",
+        "internal_only": True,
+        "live_execution_enabled": False,
+        "blocked_by_default": False,
+    }
+]
 
 
 def register_stage6_routes(router: object | None = None) -> list[dict[str, Any]]:
-    return [dict(STAGE6_TRANSPORT_UNAVAILABLE)]
+    return register_route_table(router, list(STAGE6_ROUTES))
 
 
-__all__ = ["STAGE6_TRANSPORT_UNAVAILABLE", "register_stage6_routes"]
+__all__ = [
+    "STAGE6_ROUTES",
+    "preview_stage6_review_report_workbench",
+    "register_stage6_routes",
+]

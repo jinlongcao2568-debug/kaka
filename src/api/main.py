@@ -96,9 +96,13 @@ def create_app() -> FastAPI:
         "stage3": register_stage3_routes(),
         "stage4": register_stage4_routes(),
         "stage5": register_stage5_routes(),
-        "stage6": register_stage6_routes(),
     }
-    mounted_routes = register_stage7_routes() + register_stage8_routes() + register_stage9_routes()
+    mounted_routes = (
+        register_stage6_routes()
+        + register_stage7_routes()
+        + register_stage8_routes()
+        + register_stage9_routes()
+    )
     _mount_routes(app, mounted_routes)
     app.state.mounted_transport_operations = [route["operationId"] for route in mounted_routes]
     return app

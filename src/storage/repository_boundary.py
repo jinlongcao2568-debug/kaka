@@ -140,6 +140,13 @@ STAGE_INPUT_FIELDS = {
 }
 
 STAGE_FORMAL_OBJECTS = {
+    6: (
+        "project_fact",
+        "report_record",
+        "review_queue_profile",
+        "challenger_candidate_profile",
+        "legal_action_recommendation",
+    ),
     7: (
         "saleable_opportunity",
         "offer_recommendation",
@@ -958,6 +965,33 @@ def _surface_state_for_bundle(bundle: StageBundle, *, default_mode: str) -> str:
         for object_type in STAGE_FORMAL_OBJECTS[bundle.stage]
         if object_type in bundle.records
     ]
+    if bundle.stage == 6:
+        project_fact_status = (
+            _record_status("project_fact", bundle.record("project_fact").data)
+            if "project_fact" in bundle.records
+            else "UNKNOWN"
+        )
+        report_status = (
+            _record_status("report_record", bundle.record("report_record").data)
+            if "report_record" in bundle.records
+            else "UNKNOWN"
+        )
+        legal_window_status = (
+            _record_status("legal_action_recommendation", bundle.record("legal_action_recommendation").data)
+            if "legal_action_recommendation" in bundle.records
+            else "UNKNOWN"
+        )
+        if "BLOCK" in decisions or project_fact_status == "BLOCK" or report_status == "REVOKED":
+            return "blocked"
+        if (
+            "REVIEW" in decisions
+            or project_fact_status == "REVIEW"
+            or legal_window_status in {"REVIEW_REQUIRED", "MISSED"}
+        ):
+            return "review-required"
+        if project_fact_status == "HOLD" or report_status in {"DRAFT", "READY"}:
+            return "governed-hold"
+        return "preview-ready"
     review_statuses = set(REVIEW_STATUSES)
     hold_statuses = set(HOLD_STATUSES)
     if bundle.stage == 9:
@@ -1192,7 +1226,15 @@ def _project_id_for_bundle(bundle: StageBundle) -> str:
 
 
 def _record_status(object_type: str, record: Mapping[str, Any]) -> str:
-    for field_name in PRIMARY_STATUS_FIELDS.get(object_type, ()):
+    fallback_status_fields = {
+        "report_record": ("report_status", "review_task_status"),
+        "review_queue_profile": ("review_lane", "review_queue_bucket"),
+        "challenger_candidate_profile": ("candidate_position_label",),
+    }
+    for field_name in (
+        *PRIMARY_STATUS_FIELDS.get(object_type, ()),
+        *fallback_status_fields.get(object_type, ()),
+    ):
         value = record.get(field_name)
         if value not in (None, ""):
             return str(value)
