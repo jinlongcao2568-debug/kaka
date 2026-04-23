@@ -271,6 +271,17 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
             "award_determination_mode": "LOWEST_PRICE",
             "lineage_status": "UNVERIFIED",
             "conflict_state": "UNRESOLVED",
+            "fallback_route": "SEMI_MANUAL",
+            "route_decision_state": "BLOCK",
+            "route_review_reasons": ["payload_override"],
+            "winning_version_resolution_rule_id": "VERSION-OVERRIDE",
+            "version_conflict_state": "CONFLICTING",
+            "clock_resolution_rule_id": "CLOCK-OVERRIDE",
+            "clock_precedence_rule_id": "CLOCK-PREC-OVERRIDE",
+            "clock_conflict_state": "CONFLICTING",
+            "collection_state": "BLOCKED",
+            "current_action_start_at_optional": "1999-01-01T00:00:00Z",
+            "current_action_deadline_at_optional": "1999-01-02T00:00:00Z",
             "candidate_set_ids": ["BID-OVERRIDE"],
             "ranked_candidate_ids_optional": ["BID-OVERRIDE"],
             "candidate_ids": ["BID-OVERRIDE"],
@@ -291,6 +302,19 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
         self.assertEqual(stage4.inputs.get("notice_version_id"), stage3.handoff.get("notice_version_id"))
         self.assertEqual(stage4.inputs.get("candidate_order_mode"), stage3.handoff.get("candidate_order_mode"))
         self.assertEqual(stage4.inputs.get("award_determination_mode"), stage3.handoff.get("award_determination_mode"))
+        for field_name in (
+            "fallback_route",
+            "route_decision_state",
+            "route_review_reasons",
+            "winning_version_resolution_rule_id",
+            "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
+            "clock_conflict_state",
+            "collection_state",
+        ):
+            self.assertEqual(stage4.inputs.get(field_name), stage3.handoff.get(field_name), field_name)
+            self.assertEqual(stage4.handoff.get(field_name), stage3.handoff.get(field_name), field_name)
         self.assertEqual(stage4.record("public_attack_surface").get("candidate_set_ids"), [focus_bidder_id])
         self.assertEqual(stage4.record("public_attack_surface").get("ranked_candidate_ids_optional"), [focus_bidder_id])
         self.assertEqual(stage4.record("pseudo_competitor_signal_set").get("candidate_ids"), [focus_bidder_id])

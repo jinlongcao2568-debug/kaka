@@ -533,6 +533,15 @@ class TestStage56Evaluators(unittest.TestCase):
                 "retrieval_readiness_status": "BLOCKED",
                 "lineage_status": "UNVERIFIED",
                 "conflict_state": "UNRESOLVED",
+                "winning_version_resolution_rule_id": "VERSION-RAW-OVERRIDE",
+                "version_conflict_state": "CONFLICTING",
+                "clock_resolution_rule_id": "CLOCK-RAW-OVERRIDE",
+                "clock_precedence_rule_id": "CLOCK-PREC-RAW-OVERRIDE",
+                "clock_conflict_state": "CONFLICTING",
+                "collection_state": "BLOCKED",
+                "fallback_route": "SEMI_MANUAL",
+                "route_decision_state": "BLOCK",
+                "route_review_reasons": ["raw_override"],
                 "lineage": {
                     "lineage_status": "UNVERIFIED",
                     "conflict_state": "UNRESOLVED",
@@ -555,28 +564,64 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertEqual(stage5.inputs.get("cross_check_state"), "PASS")
         self.assertEqual(stage5.inputs.get("lineage_status"), "NORMALIZED")
         self.assertEqual(stage5.inputs.get("conflict_state"), "CONSISTENT")
+        for field_name in (
+            "winning_version_resolution_rule_id",
+            "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
+            "clock_conflict_state",
+            "collection_state",
+            "fallback_route",
+            "route_decision_state",
+            "route_review_reasons",
+        ):
+            self.assertEqual(stage5.inputs.get(field_name), stage4.handoff.get(field_name), field_name)
         self.assertEqual(stage5.handoff.get("lineage_status"), "NORMALIZED")
         self.assertEqual(stage5.handoff.get("conflict_state"), "CONSISTENT")
 
     def test_stage5_blocks_when_required_h04_handoff_fields_are_missing(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
-        broken_stage4 = StageBundle(
+
+        for missing_field in (
+            "verification_profile_id",
+            "evidence_grade_profile_id",
+            "clock_precedence_rule_id",
+        ):
+            with self.subTest(missing_field=missing_field):
+                broken_stage4 = StageBundle(
+                    stage=4,
+                    records=dict(stage4.records),
+                    handoff={
+                        key: value
+                        for key, value in stage4.handoff.items()
+                        if key != missing_field
+                    },
+                    trace_rules=list(stage4.trace_rules),
+                    inputs=dict(stage4.inputs),
+                )
+
+                with self.assertRaisesRegex(ValueError, f"missing_h04_handoff_field:{missing_field}"):
+                    Stage5Service().run(broken_stage4)
+
+                with self.assertRaisesRegex(ValueError, f"missing_h04_handoff_field:{missing_field}"):
+                    RuleEvidenceEngine(Stage5Service().store).execute(broken_stage4)
+
+        broken_clock_stage4 = StageBundle(
             stage=4,
             records=dict(stage4.records),
             handoff={
-                key: value
-                for key, value in stage4.handoff.items()
-                if key != "verification_profile_id"
+                **stage4.handoff,
+                "clock_conflict_state": "CONFLICTING",
+                "collection_state": "REVIEW_REQUIRED",
             },
             trace_rules=list(stage4.trace_rules),
             inputs=dict(stage4.inputs),
         )
+        stage5 = Stage5Service().run(broken_clock_stage4)
 
-        with self.assertRaisesRegex(ValueError, "missing_h04_handoff_field:verification_profile_id"):
-            Stage5Service().run(broken_stage4)
-
-        with self.assertRaisesRegex(ValueError, "missing_h04_handoff_field:verification_profile_id"):
-            RuleEvidenceEngine(Stage5Service().store).execute(broken_stage4)
+        self.assertNotEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "PASS")
+        self.assertIn("review_request", stage5.records)
+        self.assertIn("h04_clock_conflict_state_not_consistent", stage5.inputs.get("h04_authority_review_reasons"))
 
     def test_stage5_handoff_exports_authoritative_gate_fields(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_block.json"))["stage4"]

@@ -29,9 +29,20 @@ class Stage4Service:
         "fixation_bundle_id",
         "source_registry_id",
         "route_policy_id",
+        "fallback_route",
+        "route_decision_state",
+        "route_review_reasons",
+        "winning_version_resolution_rule_id",
         "version_conflict_state",
+        "clock_resolution_rule_id",
+        "clock_precedence_rule_id",
         "clock_conflict_state",
+        "collection_state",
         "stage3_review_path_ref_optional",
+    )
+    H03_OPTIONAL_FORMAL_FIELDS = (
+        "current_action_start_at_optional",
+        "current_action_deadline_at_optional",
     )
 
     def __init__(self, settings: Any | None = None) -> None:
@@ -78,10 +89,17 @@ class Stage4Service:
         fixation_bundle_id = resolve_h03_field("fixation_bundle_id", ())
         source_registry_id = resolve_h03_field("source_registry_id", (project_base_map, lineage_map))
         route_policy_id = resolve_h03_field("route_policy_id", (project_base_map, lineage_map))
+        fallback_route = resolve_h03_field("fallback_route", ())
         route_decision_state = resolve_h03_field("route_decision_state", ())
         route_review_reasons = ensure_list(resolve_h03_field("route_review_reasons", ()))
+        winning_version_resolution_rule_id = resolve_h03_field("winning_version_resolution_rule_id", ())
         version_conflict_state = resolve_h03_field("version_conflict_state", ())
+        clock_resolution_rule_id = resolve_h03_field("clock_resolution_rule_id", ())
+        clock_precedence_rule_id = resolve_h03_field("clock_precedence_rule_id", ())
         clock_conflict_state = resolve_h03_field("clock_conflict_state", ())
+        collection_state = resolve_h03_field("collection_state", ())
+        current_action_start_at_optional = resolve_h03_field("current_action_start_at_optional", ())
+        current_action_deadline_at_optional = resolve_h03_field("current_action_deadline_at_optional", ())
         stage3_review_path_ref = resolve_h03_field("stage3_review_path_ref_optional", (project_base_map,))
         if stage3_review_path_ref in (None, ""):
             stage3_review_path_ref = resolve_h03_field("review_path_optional", (lineage_map,))
@@ -111,8 +129,15 @@ class Stage4Service:
             "fixation_bundle_id": fixation_bundle_id,
             "source_registry_id": source_registry_id,
             "route_policy_id": route_policy_id,
+            "fallback_route": fallback_route,
+            "route_decision_state": route_decision_state,
+            "route_review_reasons": route_review_reasons,
+            "winning_version_resolution_rule_id": winning_version_resolution_rule_id,
             "version_conflict_state": version_conflict_state,
+            "clock_resolution_rule_id": clock_resolution_rule_id,
+            "clock_precedence_rule_id": clock_precedence_rule_id,
             "clock_conflict_state": clock_conflict_state,
+            "collection_state": collection_state,
             "stage3_review_path_ref_optional": stage3_review_path_ref,
         }
         missing_h03_fields = [
@@ -131,6 +156,8 @@ class Stage4Service:
             review_reasons.append("conflict_state_not_consistent")
         if version_conflict_state != "CONSISTENT":
             review_reasons.append("version_conflict_state_not_consistent")
+        if collection_state != "NORMALIZED":
+            review_reasons.append("collection_state_not_normalized")
         if clock_conflict_state != "CONSISTENT":
             review_reasons.append("clock_conflict_state_not_consistent")
         review_reasons = list(dict.fromkeys(reason for reason in review_reasons if reason))
@@ -170,7 +197,19 @@ class Stage4Service:
             f"STAGE3_FIXATION_BUNDLE:{fixation_bundle_id}",
             f"STAGE3_SOURCE_REGISTRY:{source_registry_id}",
             f"STAGE3_ROUTE_POLICY:{route_policy_id}",
+            f"STAGE3_FALLBACK_ROUTE:{fallback_route}",
+            f"STAGE3_ROUTE_DECISION:{route_decision_state}",
+            f"STAGE3_VERSION_RULE:{winning_version_resolution_rule_id}",
+            f"STAGE3_VERSION_CONFLICT:{version_conflict_state}",
+            f"STAGE3_CLOCK_RULE:{clock_resolution_rule_id}",
+            f"STAGE3_CLOCK_PRECEDENCE:{clock_precedence_rule_id}",
+            f"STAGE3_CLOCK_CONFLICT:{clock_conflict_state}",
+            f"STAGE3_COLLECTION_STATE:{collection_state}",
         ]
+        if current_action_start_at_optional not in (None, ""):
+            stage3_context_refs.append(f"STAGE3_ACTION_START:{current_action_start_at_optional}")
+        if current_action_deadline_at_optional not in (None, ""):
+            stage3_context_refs.append(f"STAGE3_ACTION_DEADLINE:{current_action_deadline_at_optional}")
         if project_manager_id:
             stage3_context_refs.append(f"STAGE3_PROJECT_MANAGER:{project_manager_id}")
 
@@ -306,13 +345,28 @@ class Stage4Service:
             "conflict_state": conflict_state,
             "pseudo_competitor_signal_set_id": pseudo_competitor_signal_set.get("signal_set_id"),
             "confidence_band": pseudo_competitor_signal_set.get("confidence_band"),
+            "fallback_route": fallback_route,
+            "route_decision_state": route_decision_state,
+            "route_review_reasons": route_review_reasons,
+            "winning_version_resolution_rule_id": winning_version_resolution_rule_id,
+            "version_conflict_state": version_conflict_state,
+            "clock_resolution_rule_id": clock_resolution_rule_id,
+            "clock_precedence_rule_id": clock_precedence_rule_id,
+            "clock_conflict_state": clock_conflict_state,
+            "collection_state": collection_state,
         }
+        if current_action_start_at_optional not in (None, ""):
+            handoff["current_action_start_at_optional"] = current_action_start_at_optional
+        if current_action_deadline_at_optional not in (None, ""):
+            handoff["current_action_deadline_at_optional"] = current_action_deadline_at_optional
 
         inputs_out = dict(inputs)
         for field_name, value in h03_values.items():
             inputs_out[field_name] = value
-        inputs_out["route_decision_state"] = route_decision_state
-        inputs_out["route_review_reasons"] = route_review_reasons
+        for field_name in self.H03_OPTIONAL_FORMAL_FIELDS:
+            value = locals()[field_name]
+            if value not in (None, ""):
+                inputs_out[field_name] = value
         inputs_out["stage3_review_reasons"] = review_reasons
         inputs_out["candidate_collection_ref_optional"] = candidate_collection_ref
         inputs_out["field_lineage_collection_ref_optional"] = field_lineage_collection_ref
@@ -322,6 +376,8 @@ class Stage4Service:
             "source_precedence": "stage3_handoff_then_formal_producer_objects",
             "missing_required_fields": missing_h03_fields,
             "review_reasons": review_reasons,
+            "formal_carrier_fields": list(self.H03_FORMAL_FIELDS),
+            "optional_formal_carrier_fields": list(self.H03_OPTIONAL_FORMAL_FIELDS),
         }
         inputs_out["focus_bidder_id"] = focus_bidder_id
         inputs_out["public_attack_surface_id"] = public_attack_surface.get("public_attack_surface_id")

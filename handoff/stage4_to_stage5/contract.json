@@ -37,7 +37,13 @@
     "lineage_status",
     "conflict_state",
     "pseudo_competitor_signal_set_id",
-    "confidence_band"
+    "confidence_band",
+    "winning_version_resolution_rule_id",
+    "version_conflict_state",
+    "clock_resolution_rule_id",
+    "clock_precedence_rule_id",
+    "clock_conflict_state",
+    "collection_state"
   ],
   "consumer_runtime_required_fields": [
     "project_id",
@@ -55,12 +61,25 @@
     "lineage_status",
     "conflict_state",
     "pseudo_competitor_signal_set_id",
-    "confidence_band"
+    "confidence_band",
+    "winning_version_resolution_rule_id",
+    "version_conflict_state",
+    "clock_resolution_rule_id",
+    "clock_precedence_rule_id",
+    "clock_conflict_state",
+    "collection_state"
   ],
-  "optional_payload_fields": [],
+  "optional_payload_fields": [
+    "fallback_route",
+    "route_decision_state",
+    "route_review_reasons",
+    "current_action_start_at_optional",
+    "current_action_deadline_at_optional"
+  ],
   "consumer_obligations": [
     "Stage5 must consume Stage4 producer objects as the single formal verification and evidence-precondition source.",
     "Stage5 must not re-derive verification_state, cross_check_state, fixation_status, provenance_chain_status, retrieval_readiness_status, lineage_status, or conflict_state from raw pre-Stage4 inputs or flags.",
+    "Stage5 must consume Stage3 route/version/clock/collection authority only when Stage4 carries it through the H-04 formal handoff.",
     "Stage5 may only derive rule/evidence gate artifacts from Stage4 formal outputs plus scoped governance inputs."
   ],
   "consumer_must_not_recompute_fields": [
@@ -79,7 +98,18 @@
     "lineage_status",
     "conflict_state",
     "pseudo_competitor_signal_set_id",
-    "confidence_band"
+    "confidence_band",
+    "winning_version_resolution_rule_id",
+    "version_conflict_state",
+    "clock_resolution_rule_id",
+    "clock_precedence_rule_id",
+    "clock_conflict_state",
+    "collection_state",
+    "fallback_route",
+    "route_decision_state",
+    "route_review_reasons",
+    "current_action_start_at_optional",
+    "current_action_deadline_at_optional"
   ],
   "blocking_conditions": [
     "d_tier_input_detected",

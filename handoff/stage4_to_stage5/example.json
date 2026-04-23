@@ -17,6 +17,17 @@
     "lineage_status": "NORMALIZED",
     "conflict_state": "CONSISTENT",
     "pseudo_competitor_signal_set_id": "PCS-PRJ-001",
-    "confidence_band": "MEDIUM"
+    "confidence_band": "MEDIUM",
+    "winning_version_resolution_rule_id": "VERSION-PROC-NOTICE-001",
+    "version_conflict_state": "CONSISTENT",
+    "clock_resolution_rule_id": "CLOCK-DEFAULT",
+    "clock_precedence_rule_id": "CLOCK-PROC-NOTICE-001",
+    "clock_conflict_state": "CONSISTENT",
+    "collection_state": "NORMALIZED",
+    "fallback_route": "DETAIL_DIRECT",
+    "route_decision_state": "ALLOW",
+    "route_review_reasons": [],
+    "current_action_start_at_optional": "2026-04-14T00:00:00Z",
+    "current_action_deadline_at_optional": "2026-04-24T23:59:59Z"
   }
 }

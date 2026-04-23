@@ -14,6 +14,13 @@ from stage5_rules_evidence.rule_runner import RuleRunner
 
 
 class RuleEvidenceEngine:
+    H04_CLOCK_AUTHORITY_FIELDS = (
+        "clock_resolution_rule_id",
+        "clock_precedence_rule_id",
+        "clock_conflict_state",
+        "collection_state",
+    )
+
     def __init__(self, store: ContractStore) -> None:
         self.store = store
         self.evidence_builder = EvidenceBuilder(store)
@@ -54,7 +61,35 @@ class RuleEvidenceEngine:
         for field_name in stage4_handoff_authority_optional_fields:
             if field_name in stage4_bundle.handoff:
                 inputs[field_name] = stage4_bundle.handoff.get(field_name)
+        self._apply_h04_clock_authority_guard(inputs)
         return inputs
+
+    def _apply_h04_clock_authority_guard(self, inputs: dict[str, Any]) -> None:
+        clock_authority = {
+            field_name: inputs.get(field_name)
+            for field_name in self.H04_CLOCK_AUTHORITY_FIELDS
+        }
+        authority_review_reasons: list[str] = []
+        if clock_authority.get("clock_conflict_state") != "CONSISTENT":
+            authority_review_reasons.append("h04_clock_conflict_state_not_consistent")
+        if clock_authority.get("collection_state") not in ("NORMALIZED", "PARSED"):
+            authority_review_reasons.append("h04_collection_state_not_normalized")
+        if inputs.get("route_decision_state") == "BLOCK" or clock_authority.get("collection_state") == "BLOCKED":
+            authority_review_reasons.append("h04_route_or_collection_blocked")
+
+        if not authority_review_reasons:
+            return
+
+        existing_reasons = inputs.get("h04_authority_review_reasons")
+        if isinstance(existing_reasons, list):
+            merged_reasons = existing_reasons + authority_review_reasons
+        elif existing_reasons:
+            merged_reasons = [str(existing_reasons), *authority_review_reasons]
+        else:
+            merged_reasons = authority_review_reasons
+        inputs["h04_authority_review_reasons"] = list(dict.fromkeys(merged_reasons))
+        if inputs.get("verification_state") == "PASS":
+            inputs["verification_state"] = "REVIEW"
 
     def execute(self, stage4_bundle: StageBundle) -> StageBundle:
         inputs = self._build_stage4_authority_inputs(stage4_bundle)

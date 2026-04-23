@@ -904,12 +904,24 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "fixation_bundle_id",
             "source_registry_id",
             "route_policy_id",
+            "fallback_route",
+            "route_decision_state",
+            "route_review_reasons",
+            "winning_version_resolution_rule_id",
             "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
             "clock_conflict_state",
+            "collection_state",
             "stage3_review_path_ref_optional",
         ):
             self.assertIn(field_name, h03["required_payload_fields"])
             self.assertIn(field_name, h03["consumer_runtime_required_fields"])
+        for field_name in (
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional",
+        ):
+            self.assertIn(field_name, h03["optional_payload_fields"])
         for field_name in (
             "lineage_status",
             "conflict_state",
@@ -917,8 +929,17 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "stage3_review_path_ref_optional",
             "source_registry_id",
             "route_policy_id",
+            "fallback_route",
+            "route_decision_state",
+            "route_review_reasons",
+            "winning_version_resolution_rule_id",
             "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
             "clock_conflict_state",
+            "collection_state",
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional",
         ):
             self.assertIn(field_name, h03["consumer_must_not_recompute_fields"])
         self.assertIn("consumer_obligations", h03)
@@ -942,9 +963,24 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "conflict_state",
             "pseudo_competitor_signal_set_id",
             "confidence_band",
+            "winning_version_resolution_rule_id",
+            "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
+            "clock_conflict_state",
+            "collection_state",
         ):
             self.assertIn(field_name, h04["required_payload_fields"])
             self.assertIn(field_name, h04["consumer_runtime_required_fields"])
+            self.assertIn(field_name, h04["consumer_must_not_recompute_fields"])
+        for field_name in (
+            "fallback_route",
+            "route_decision_state",
+            "route_review_reasons",
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional",
+        ):
+            self.assertIn(field_name, h04["optional_payload_fields"])
             self.assertIn(field_name, h04["consumer_must_not_recompute_fields"])
         self.assertIn("consumer_obligations", h04)
 
@@ -1077,6 +1113,8 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "stage3_handoff_then_formal_producer_objects",
             "candidate_collection_ref_missing",
             "stage3_review_path_requires_review",
+            "STAGE3_CLOCK_PRECEDENCE",
+            "formal_carrier_fields",
         ):
             self.assertIn(token, text)
         for token in (
@@ -1086,6 +1124,11 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             'inputs.get("award_determination_mode")',
             'inputs.get("lineage_status")',
             'inputs.get("conflict_state")',
+            'inputs.get("fallback_route")',
+            'inputs.get("clock_precedence_rule_id")',
+            'inputs.get("collection_state")',
+            'inputs.get("current_action_start_at_optional")',
+            'inputs.get("current_action_deadline_at_optional")',
             'inputs.get("candidate_set_ids")',
             'inputs.get("ranked_candidate_ids_optional")',
             'inputs.get("candidate_ids")',
@@ -1100,6 +1143,8 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "stage4_handoff_authority_required_fields",
             '"lineage",',
             "missing_h04_handoff_field:",
+            "_apply_h04_clock_authority_guard(",
+            "clock_precedence_rule_id",
         ):
             self.assertIn(token, engine_text)
         self.assertNotIn('inputs.get("lineage")', rule_runner_text)

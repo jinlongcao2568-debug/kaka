@@ -164,6 +164,12 @@ class TestInternalChain(unittest.TestCase):
             "conflict_state",
             "pseudo_competitor_signal_set_id",
             "confidence_band",
+            "winning_version_resolution_rule_id",
+            "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
+            "clock_conflict_state",
+            "collection_state",
         ):
             self.assertIn(field_name, self.contracts[4]["required_payload_fields"])
             self.assertIn(field_name, stage4.handoff)
@@ -190,6 +196,18 @@ class TestInternalChain(unittest.TestCase):
         )
         self.assertEqual(stage4.handoff.get("lineage_status"), "NORMALIZED")
         self.assertEqual(stage4.handoff.get("conflict_state"), "CONSISTENT")
+        for field_name in (
+            "fallback_route",
+            "route_decision_state",
+            "route_review_reasons",
+            "winning_version_resolution_rule_id",
+            "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
+            "clock_conflict_state",
+            "collection_state",
+        ):
+            self.assertEqual(stage4.handoff.get(field_name), stage3.handoff.get(field_name), field_name)
         public_refs = stage4.record("public_attack_surface").get("public_supporting_refs")
         self.assertIn("STAGE3_LINEAGE_STATUS:NORMALIZED", public_refs)
         self.assertIn("STAGE3_CONFLICT_STATE:CONSISTENT", public_refs)
@@ -233,6 +251,12 @@ class TestInternalChain(unittest.TestCase):
             "conflict_state",
             "pseudo_competitor_signal_set_id",
             "confidence_band",
+            "winning_version_resolution_rule_id",
+            "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
+            "clock_conflict_state",
+            "collection_state",
         ):
             self.assertIn(field_name, self.contracts[4]["required_payload_fields"])
             self.assertIn(field_name, stage5.inputs)
@@ -429,12 +453,24 @@ class TestInternalChain(unittest.TestCase):
             "fixation_bundle_id",
             "source_registry_id",
             "route_policy_id",
+            "fallback_route",
+            "route_decision_state",
+            "route_review_reasons",
+            "winning_version_resolution_rule_id",
             "version_conflict_state",
+            "clock_resolution_rule_id",
+            "clock_precedence_rule_id",
             "clock_conflict_state",
+            "collection_state",
             "stage3_review_path_ref_optional",
         ):
             self.assertIn(field_name, h03["required_payload_fields"])
             self.assertIn(field_name, h03["consumer_runtime_required_fields"])
+        for field_name in (
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional",
+        ):
+            self.assertIn(field_name, h03["optional_payload_fields"])
 
         validation = self.store.evaluate_handoff_consumer(
             producer_bundle=stage3,
