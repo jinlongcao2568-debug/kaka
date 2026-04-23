@@ -74,8 +74,12 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
+- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-governance-contracts.ps1
+- python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check
 - git status --short --untracked-files=all
