@@ -602,16 +602,18 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage8_outreach, stage9_delivery, internal_preview]
     task_type: internal_operable_productization
-    status: PLANNED
-    planning_state: PLANNED
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P1
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    runtime_change_in_packet: IN_SCOPE
+    completed_commit: fdd471e
     activation_policy: "requires dedicated control/current_task.yaml packet before execution"
     hard_depends_on: [PTL-I100-104-stage6-productization]
     soft_depends_on: [PTL-S8-102-p2-plan-touch-productization, PTL-S9-102-p6-feedback-writeback-productization]
+    runtime_notes: "PTL-I100-105 scoped implementation 已完成并在本地提交：d37ae82、fdd471e；本轮完成 Stage8 contact carrier persistence/readback/replay 与 Stage9 internal additive governed writeback 持久化/回放/解释闭环；PTL-I100-105 不再是 current active implementation packet，PTL-I100-106 已通过 dedicated current_task packet 激活为下一 scoped execution。"
     objective: "补齐 Stage8 contact carrier persistence/readback/replay，并把 Stage9 projected writeback 推进为 internal additive governed 回写闭环。"
     non_goals: ["不真实触达", "不真实支付", "不真实交付", "不修改 live unlock 策略"]
     expected_outputs: ["Stage8 formal carrier repository", "Stage8 replay/readback", "Stage9 governed writeback pipeline", "audit/recovery tests"]

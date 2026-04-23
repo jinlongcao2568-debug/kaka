@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-105-stage8-9-governed-closure (SCOPED_EXECUTION; active Stage8/Stage9 governed-closure packet; Stage8 carrier persistence is implemented and the next slice may implement Stage9 internal additive governed writeback inside declared/allowed paths, does not auto-enter PTL-I100-106, and does not approve push, external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-106-platform-foundation-and-full-chain-entry (SCOPED_EXECUTION; active storage runtime foundation first slice; PTL-I100-105 completed via d37ae82 and fdd471e; this does not approve push, external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,9 +20,8 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- execute PTL-I100-105 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
-- modify only listed Stage8 contracts/schemas, src/stage8_outreach, storage repositories / boundary / bundle IO, product module registry, and listed tests for Stage8 formal carrier persistence/readback/replay
-- modify listed Stage9 delivery/writeback runtime, existing Stage9 repositories, repository boundary / bundle IO, product module registry, and listed tests only for internal additive governed writeback
+- execute PTL-I100-106 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
+- modify only listed storage runtime foundation, repository boundary / bundle IO, API transport readback support, product module registry, and listed tests for 106A storage runtime foundation
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -30,11 +29,11 @@ Allowed Actions (current):
 - keep external leadpack delivery approval + audit required
 - keep Stage 8 real execution governed / approval-gated / blocked by default
 - keep Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
-- run required checks and stop/report after check-task-packet / validate-contracts / run-golden / tests / check-state-alignment
+- run required checks and stop/report after check-task-packet / targeted tests / tests / check-state-alignment
 
 Forbidden Actions (current):
 - Any docs/** change
-- Any contracts/** / src/** / tests/** / control/** change outside current task_packet allowed_modification_paths
+- Any contracts/** change
 - Any fixtures/** change
 - Any handoff/** change
 - Any scripts/** change
@@ -48,9 +47,8 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
-- Any automatic transition to task 2
+- Any automatic transition to PTL-I100-107
 - Any push
-- Any business implementation in this activation window
 
 State Semantics:
 - READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself change external release, Stage8, or Stage9 boundaries.
@@ -63,9 +61,9 @@ State Semantics:
 - PTL-I100-102 is completed and closed out via commits a81c7e4, e3eeff5, and 5f2addd.
 - PTL-I100-103 is completed and closed out via commits a276410, d86a6f7, and 2a14692.
 - PTL-I100-104 is completed and closed out via commits 3625e35, 068e1b7, 2313d7e, and 3cc70bf.
-- PTL-I100-105-stage8-9-governed-closure is now the active scoped execution packet.
-- PTL-I100-105 Stage8 carrier persistence/readback/replay is implemented via d37ae82; Stage9 additive governed writeback is now the next scoped implementation slice.
-- PTL-I100-106 is not auto-activated; current_mainline_next_candidate remains null until a dedicated future current_task packet is created.
+- PTL-I100-105 is completed via commits d37ae82 and fdd471e; Stage8 carrier persistence/readback/replay and Stage9 internal additive governed writeback are implemented.
+- PTL-I100-106-platform-foundation-and-full-chain-entry is now the active scoped execution packet; first slice is 106A storage runtime foundation.
+- PTL-I100-107 is not auto-activated; current_mainline_next_candidate remains null until a dedicated future current_task packet is created.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -79,8 +77,9 @@ Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
 - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1
-- pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1
+- python -m unittest tests.test_storage_concurrency -v
+- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
+- python -m unittest tests.test_api_transport_bootstrap -v
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check
