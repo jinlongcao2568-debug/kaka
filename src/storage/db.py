@@ -157,6 +157,10 @@ class PersistedOperatorAction:
 
 class DatabaseSession:
     _default: "DatabaseSession | None" = None
+    _storage_dir_name = "kaka"
+    _storage_file_stem = "internal_operator_loop_store"
+    _storage_scope_process = "process"
+    _test_isolation_truthy = {"1", "true", "yes", "on", "process"}
 
     def __init__(self, *, storage_path: Path | None = None) -> None:
         self._lock = RLock()
@@ -179,7 +183,20 @@ class DatabaseSession:
         if explicit:
             return Path(explicit)
         base = Path(os.getenv("LOCALAPPDATA") or gettempdir())
-        return base / "kaka" / f"internal_operator_loop_store-{os.getpid()}.json"
+        file_name = (
+            f"{cls._storage_file_stem}-{os.getpid()}.json"
+            if cls._uses_process_scoped_storage()
+            else f"{cls._storage_file_stem}.json"
+        )
+        return base / cls._storage_dir_name / file_name
+
+    @classmethod
+    def _uses_process_scoped_storage(cls) -> bool:
+        storage_scope = os.getenv("KAKA_STORAGE_SCOPE", "").strip().lower()
+        if storage_scope == cls._storage_scope_process:
+            return True
+        test_isolation = os.getenv("KAKA_STORAGE_TEST_ISOLATION", "").strip().lower()
+        return test_isolation in cls._test_isolation_truthy
 
     @property
     def storage_path(self) -> Path:

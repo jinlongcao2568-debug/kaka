@@ -127,6 +127,7 @@ currentTask:
       - "不一次性引入完整 PostgreSQL/Alembic 迁移体系"
       - "不一次性引入 Redis/Dramatiq 队列"
       - "不一次性引入 MinIO/S3 对象存储"
+      - "不新增业务对象、枚举、gate、exception 语义"
       - "不新增正式对象、枚举、gate、exception 语义"
       - "不修改 docs/**"
       - "不 push"
@@ -139,6 +140,7 @@ currentTask:
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
+      - "automation_control_core"
       - "storage_runtime_core"
       - "api_transport_foundation"
       - "internal_preview"
