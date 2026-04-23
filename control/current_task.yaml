@@ -5,11 +5,11 @@ updated_at: "2026-04-23"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_102_ACTIVE_SCOPED_EXECUTION"
+navigation_state: "PTL_I100_102_CLOSEOUT_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-101 已 closeout；按用户要求继续推进 PTL-I100-102，纯 control 激活由验收窗口直接处理，后续实现再下发细致窗口指令。"
+activation_condition: "PTL-I100-102 已完成 Stage1-5 单源纵切实现与全量验证；按用户要求由验收窗口直接处理 control closeout。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-102-stage1-5-real-source-vertical-slice"
-  title: "I100-2 Stage1-5 真实公开源纵切"
+  task_id: "PTL-I100-102-closeout"
+  title: "PTL-I100-102 Stage1-5 单源纵切 closeout"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -43,7 +43,7 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "激活 PTL-I100-102 为当前 scoped execution packet，锁定 1 个真实公开源家族的 Stage1-5 可复跑纵切范围；后续实现必须围绕 source -> route -> parser -> verifier -> rule/evidence 单纵切闭环。"
+  objective: "关闭 PTL-I100-102 当前实现包，完成 product_task_library / current_task / repo_status 的 control 收口；不自动激活 PTL-I100-103。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -63,43 +63,42 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-102-stage1-5-real-source-vertical-slice"
-    subpacket_id: "PTL-I100-102-stage1-5-real-source-vertical-slice"
-    backlog_packet_ref: "PTL-I100-102-stage1-5-real-source-vertical-slice"
+    packet_id: "PTL-I100-102-closeout"
+    subpacket_id: "PTL-I100-102-closeout"
+    backlog_packet_ref: "PTL-I100-102-closeout"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "IN_SCOPE"
+    runtime_change_in_packet: "OUT_OF_SCOPE"
     existing_code_state: "PARTIAL_RUNTIME"
     existing_runtime_state: "PARTIAL_RUNTIME"
-    title: "I100-2 Stage1-5 真实公开源纵切"
+    title: "PTL-I100-102 Stage1-5 单源纵切 closeout"
     status: "ACTIVE"
-    objective: "选择 1 个真实公开源家族，打通 Stage1 scheduler/extractor -> Stage2 collection/version/clock -> Stage3 truth parse -> Stage4 verification -> Stage5 rule/evidence 的最小可复跑纵切。"
+    objective: "把 PTL-I100-102 标记为 COMPLETED，并同步 current_task / repo_status / product_task_library 的状态收口；不自动进入 PTL-I100-103。"
     depends_on:
-      - "PTL-I100-101 已完成并 closeout：schema/docs 对齐已收口。"
+      - "PTL-I100-102 已完成 Stage1-5 单源纵切实现并本地提交：a81c7e4、e3eeff5。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "PTL-I100-102 已在 control/product_task_library.yaml 中登记为 PLANNED。"
-      - "source_blueprint_batch_id=PTL-I100-ROADMAP-01 已登记在 control/source_blueprint_registry.yaml。"
+      - "current_mainline_next_candidate 必须继续保持 null，不自动激活 PTL-I100-103。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-101-closeout"
-      target_active_packet: "PTL-I100-102-stage1-5-real-source-vertical-slice"
-      product_task_library_change: false
+      previous_active_packet: "PTL-I100-102-stage1-5-real-source-vertical-slice"
+      target_active_packet: "PTL-I100-102-closeout"
+      product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
-      activation_window_only: false
+      closeout_window_only: true
       enter_scoped_execution: true
-      active_packet_kind: "internal_operable_productization"
-      product_mainline_task: true
+      active_packet_kind: "closeout"
+      product_mainline_task: false
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change: true
-      runtime_change_in_packet: "IN_SCOPE"
+      runtime_change: false
+      runtime_change_in_packet: "OUT_OF_SCOPE"
       docs_change: false
-      contracts_change: true
-      handoff_change: true
+      contracts_change: false
+      handoff_change: false
       scripts_change: false
-      tests_change: true
+      tests_change: false
       control_change: true
       external_release_change: false
       stage8_real_execution_change: false
@@ -118,12 +117,9 @@ currentTask:
       - "不放开 Stage9 real payment/delivery/refund"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不新增正式对象、枚举、gate、exception 语义"
-      - "不做多源平台化"
-      - "不接外部 live 系统"
-      - "不扩大到 Stage7-9"
+      - "不修改 docs / contracts / handoff / src / fixtures / tests / scripts"
       - "不 push"
-      - "不自动进入任务 3"
-      - "不修改 Stage6 及以后模块"
+      - "不自动激活 PTL-I100-103"
     affected_stages:
       - "automation_control"
       - "stage1_tasking"
@@ -150,84 +146,22 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "contracts/governance/source_registry.json"
-      - "contracts/governance/route_policy_catalog.json"
-      - "contracts/governance/stage12_extractor_contract.json"
-      - "handoff/stage1_to_stage2/**"
-      - "handoff/stage2_to_stage3/**"
-      - "handoff/stage3_to_stage4/**"
-      - "handoff/stage4_to_stage5/**"
-      - "contracts/schemas/public_chain.schema.json"
-      - "contracts/schemas/clock_chain_profile.schema.json"
-      - "contracts/schemas/notice_version_chain.schema.json"
-      - "contracts/schemas/fixation_bundle.schema.json"
-      - "contracts/schemas/project_base.schema.json"
-      - "contracts/schemas/field_lineage_record.schema.json"
-      - "contracts/schemas/bidder_candidate.schema.json"
-      - "contracts/schemas/project_manager.schema.json"
-      - "contracts/schemas/public_attack_surface.schema.json"
-      - "contracts/schemas/focus_bidder_verification_profile.schema.json"
-      - "contracts/schemas/evidence_grade_profile.schema.json"
-      - "contracts/schemas/evidence.schema.json"
-      - "contracts/schemas/rule_hit.schema.json"
-      - "contracts/schemas/rule_gate_decision.schema.json"
-      - "contracts/schemas/evidence_gate_decision.schema.json"
-      - "contracts/schemas/review_request.schema.json"
-      - "contracts/schemas/schema_catalog.json"
-      - "src/stage1_tasking/**"
-      - "src/stage2_ingestion/**"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
-      - "src/stage5_rules_evidence/**"
-      - "fixtures/stage1_to_stage5_real_source_vertical_slice*.json"
-      - "tests/test_stage12_extractors.py"
-      - "tests/test_internal_chain.py"
-      - "tests/test_semantic_runtime_validator.py"
-      - "tests/test_architecture_anti_drift.py"
-      - "tests/test_stage56_evaluators.py"
+      - "control/product_task_library.yaml"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "contracts/governance/source_registry.json"
-      - "contracts/governance/route_policy_catalog.json"
-      - "contracts/governance/stage12_extractor_contract.json"
-      - "handoff/stage1_to_stage2/**"
-      - "handoff/stage2_to_stage3/**"
-      - "handoff/stage3_to_stage4/**"
-      - "handoff/stage4_to_stage5/**"
-      - "contracts/schemas/public_chain.schema.json"
-      - "contracts/schemas/clock_chain_profile.schema.json"
-      - "contracts/schemas/notice_version_chain.schema.json"
-      - "contracts/schemas/fixation_bundle.schema.json"
-      - "contracts/schemas/project_base.schema.json"
-      - "contracts/schemas/field_lineage_record.schema.json"
-      - "contracts/schemas/bidder_candidate.schema.json"
-      - "contracts/schemas/project_manager.schema.json"
-      - "contracts/schemas/public_attack_surface.schema.json"
-      - "contracts/schemas/focus_bidder_verification_profile.schema.json"
-      - "contracts/schemas/evidence_grade_profile.schema.json"
-      - "contracts/schemas/evidence.schema.json"
-      - "contracts/schemas/rule_hit.schema.json"
-      - "contracts/schemas/rule_gate_decision.schema.json"
-      - "contracts/schemas/evidence_gate_decision.schema.json"
-      - "contracts/schemas/review_request.schema.json"
-      - "contracts/schemas/schema_catalog.json"
-      - "src/stage1_tasking/**"
-      - "src/stage2_ingestion/**"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
-      - "src/stage5_rules_evidence/**"
-      - "fixtures/stage1_to_stage5_real_source_vertical_slice*.json"
-      - "tests/test_stage12_extractors.py"
-      - "tests/test_internal_chain.py"
-      - "tests/test_semantic_runtime_validator.py"
-      - "tests/test_architecture_anti_drift.py"
-      - "tests/test_stage56_evaluators.py"
+      - "control/product_task_library.yaml"
     current_window_actual_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/product_task_library.yaml"
     forbidden_modification_paths:
       - "docs/**"
+      - "contracts/**"
+      - "handoff/**"
+      - "fixtures/**"
+      - "tests/**"
+      - "src/**"
       - "contracts/release/**"
       - "contracts/model/**"
       - "contracts/exceptions/**"
@@ -237,105 +171,53 @@ currentTask:
       - "control/future_unlock_decision_state.yaml"
       - "control/approval_chain_state.yaml"
       - "control/exception_chain_state.yaml"
-      - "control/product_task_library.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/review_gate_matrix.yaml"
       - "control/operator_assignment_roster_defaults.yaml"
-      - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
-      - "src/stage8_outreach/**"
-      - "src/stage9_delivery/**"
-      - "src/shared/**"
-      - "src/api/**"
-      - "src/storage/**"
-      - "handoff/stage5_to_stage6/**"
-      - "handoff/stage6_to_stage7/**"
-      - "handoff/stage7_to_stage8/**"
-      - "handoff/stage8_to_stage9/**"
       - "scripts/**"
     impacted_assets:
       docs: []
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
-      contracts:
-        - "contracts/governance/source_registry.json"
-        - "contracts/governance/route_policy_catalog.json"
-        - "contracts/governance/stage12_extractor_contract.json"
-        - "contracts/schemas/public_chain.schema.json"
-        - "contracts/schemas/clock_chain_profile.schema.json"
-        - "contracts/schemas/notice_version_chain.schema.json"
-        - "contracts/schemas/fixation_bundle.schema.json"
-        - "contracts/schemas/project_base.schema.json"
-        - "contracts/schemas/field_lineage_record.schema.json"
-        - "contracts/schemas/bidder_candidate.schema.json"
-        - "contracts/schemas/project_manager.schema.json"
-        - "contracts/schemas/public_attack_surface.schema.json"
-        - "contracts/schemas/focus_bidder_verification_profile.schema.json"
-        - "contracts/schemas/evidence_grade_profile.schema.json"
-        - "contracts/schemas/evidence.schema.json"
-        - "contracts/schemas/rule_hit.schema.json"
-        - "contracts/schemas/rule_gate_decision.schema.json"
-        - "contracts/schemas/evidence_gate_decision.schema.json"
-        - "contracts/schemas/review_request.schema.json"
-        - "contracts/schemas/schema_catalog.json"
-      handoff:
-        - "handoff/stage1_to_stage2/**"
-        - "handoff/stage2_to_stage3/**"
-        - "handoff/stage3_to_stage4/**"
-        - "handoff/stage4_to_stage5/**"
+        - "control/product_task_library.yaml"
+      contracts: []
+      handoff: []
       scripts:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
-      tests:
-        - "tests/test_stage12_extractors.py"
-        - "tests/test_internal_chain.py"
-        - "tests/test_semantic_runtime_validator.py"
-        - "tests/test_architecture_anti_drift.py"
-        - "tests/test_stage56_evaluators.py"
-      runtime:
-        - "src/stage1_tasking/**"
-        - "src/stage2_ingestion/**"
-        - "src/stage3_parsing/**"
-        - "src/stage4_verification/**"
-        - "src/stage5_rules_evidence/**"
+      tests: []
+      runtime: []
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1"
-      - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "git diff --check"
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/validate-contracts.ps1": 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/run-golden.ps1": 300000
-      "python tests/run_tests.py": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "git diff --check": 120000
     stop_conditions:
       - "任一 required script 失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths 时立即停止汇报"
       - "实际改动命中 forbidden_modification_paths 时立即停止汇报"
-      - "需要修改 docs/** 或 Stage6+ / shared / api / storage / scripts 时立即停止汇报"
-      - "需要扩大为多源平台化时立即停止汇报"
-      - "需要接入外部 live 系统时立即停止汇报"
+      - "需要自动激活 PTL-I100-103 时立即停止汇报"
       - "需要 push、external release、Stage8 real execution、Stage9 payment/delivery/refund 时必须另行停机审批"
     definition_of_done:
-      - "control/current_task.yaml 当前 active packet 为 PTL-I100-102-stage1-5-real-source-vertical-slice。"
-      - "declared_changed_paths / allowed_modification_paths 锁定到 Stage1-5 单源纵切所需 contracts / handoff / runtime / tests 范围。"
-      - "repo_status.md 同步 PTL-I100-102 当前 workstream 与 required checks。"
+      - "PTL-I100-102 在 control/product_task_library.yaml 中标记为 COMPLETED。"
+      - "PTL-I100-102 记录 completed_commit=e3eeff5，并写明 a81c7e4 / e3eeff5 两个实现提交。"
+      - "control/current_task.yaml 切换为 PTL-I100-102-closeout control packet。"
+      - "repo_status.md 同步 PTL-I100-102 closeout 当前 workstream 与 required checks。"
       - "current_mainline_next_candidate 继续保持 task_id=null / packet_id=null。"
       - "check-task-packet、check-state-alignment、git diff --check 与 git status 完成并如实汇报。"
     deliverables:
-      - "PTL-I100-102 active current_task packet"
-      - "Stage1-5 single-source vertical-slice execution scope"
-      - "Repo status sync for PTL-I100-102 activation"
+      - "PTL-I100-102 closeout packet"
+      - "PTL-I100-102 completed status sync"
+      - "Repo status closeout sync"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -347,14 +229,13 @@ currentTask:
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_SCOPED_INTERNAL_IMPLEMENTATION_AND_LOCAL_COMMIT"
-      signoff_meaning: "用户要求继续推进 PTL-I100-102；本批准仅允许在 declared_changed_paths / allowed_modification_paths 范围内做 Stage1-5 单源纵切的内部 scoped implementation 与本地 commit，不批准 push、external release、Stage8 real execution、Stage9 payment/delivery/refund。"
+      signoff_status: "APPROVED_FOR_LOCAL_COMMIT"
+      signoff_meaning: "用户已明确要求简单 control closeout 由验收窗口直接处理；本批准仅允许 PTL-I100-102 closeout 的 control 收口与本地 commit，不批准 push、external release、Stage8 real execution、Stage9 payment/delivery/refund。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "本包是 PTL-I100-102 的实现包，不是 closeout 包。"
-      - "本包的第一刀必须围绕 1 个真实公开源家族，优先打通 Stage1-2 authoritative source/route/clock 到 Stage3 truth parse 的 replayable path。"
-      - "如 Stage4/5 只需兼容修复，可在同包内完成；若需要扩大为规则工厂或跨 Stage6+，必须停下。"
+      - "本包是 PTL-I100-102 的 control closeout，不是业务实现包。"
+      - "control/product_task_library.yaml 只同步 PTL-I100-102 completed 状态，不自动激活 PTL-I100-103。"
       - "External leadpack delivery 继续要求 approval + audit。"
       - "External software release remains blocked。"
       - "Stage 8 real execution remains governed / approval-gated / blocked by default。"
@@ -366,14 +247,13 @@ currentTask:
     - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
     - "允许修改 control/current_task.yaml、control/repo_status.md。"
-    - "允许修改 Stage1-5 单源纵切所需 contracts/governance、handoff/stage1_to_stage2、handoff/stage2_to_stage3、相关 schemas、src/stage1_tasking 到 src/stage5_rules_evidence、指定 fixtures 与指定 tests。"
-    - "允许在 current task 范围内做内部 scoped implementation 与本地 commit。"
+    - "允许修改 control/product_task_library.yaml。"
+    - "允许把 PTL-I100-102 标记为 COMPLETED 并写入 completed_commit=e3eeff5。"
+    - "允许同步 closeout 所需控制面语义，并保持 current_mainline_next_candidate 为 null。"
     - "允许运行本轮 required checks，并按停机规则汇报。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
-    - "不得修改 docs/**。"
-    - "不得修改未列入 allowed_modification_paths 的 contracts/**、handoff/**、src/**、fixtures/** 或 tests/**。"
-    - "不得修改 control/product_task_library.yaml。"
+    - "不得修改 docs/**、contracts/**、handoff/**、fixtures/**、tests/**、src/** 或 scripts/**。"
     - "不得修改 control/source_blueprint_registry.yaml。"
     - "不得修改 control/review_gate_matrix.yaml。"
     - "不得修改 control/release_manifest.yaml。"
@@ -382,9 +262,9 @@ currentTask:
     - "不得修改 control/future_unlock_decision_state.yaml。"
     - "不得放开 external release、Stage 8 real execution、Stage 9 real payment / delivery / refund。"
     - "不得新增正式对象、枚举、gate、exception 语义。"
-    - "不得自动进入任务 3。"
+    - "不得自动激活 PTL-I100-103。"
     - "不得 push。"
   nextActions:
-    - "下一窗口直接在 PTL-I100-102 当前 task_packet 范围内执行第一刀实现。"
-    - "若第一刀完成，再由验收窗口决定是否继续 102 第二刀还是 closeout。"
-  status_note: "PTL-I100-102 已激活为当前 SCOPED_EXECUTION packet；目标是 Stage1-5 单源纵切，external/live 红线不变。"
+    - "完成 PTL-I100-102 closeout 后停下汇报。"
+    - "如继续推进，需另开 dedicated current_task packet 手动激活 PTL-I100-103。"
+  status_note: "PTL-I100-102 closeout control packet 已接管当前 active execution source；任务 2 完成但 PTL-I100-103 未自动激活，external/live 红线不变。"

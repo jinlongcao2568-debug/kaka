@@ -530,16 +530,18 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence]
     task_type: internal_operable_productization
-    status: PLANNED
-    planning_state: PLANNED
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P0
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: PARTIAL_RUNTIME
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    runtime_change_in_packet: IN_SCOPE
+    completed_commit: e3eeff5
     activation_policy: "requires dedicated control/current_task.yaml packet before execution"
     hard_depends_on: [PTL-I100-101-d8-d10-contract-runtime-field-alignment]
     soft_depends_on: [PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion]
+    runtime_notes: "PTL-I100-102 scoped implementation 已完成并在本地提交：a81c7e4、e3eeff5；本轮固定 SRC-REG-PROC-NATIONAL-HTML / ROUTE-PROC-NOTICE-001 单源纵切，完成 H-02/H-03/H-04 authority carry-through、Stage3 truth-layer carrier、Stage4/5 formal handoff consumption 与 bad-case 回归；PTL-I100-102 不再是 current active packet，也不会自动激活 PTL-I100-103。"
     objective: "选择 1 个公开源家族，打通 scheduler -> fetcher -> parser -> verifier -> rule/evidence 的可复跑纵切。"
     non_goals: ["不做多源平台化", "不接外部 live 系统", "不扩大到 Stage7-9"]
     expected_outputs: ["单源 blueprint", "固定化 snapshot/fixture", "parser/verifier/evidence slice", "happy/bad case tests"]
