@@ -93,6 +93,30 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             legal_action_recommendation_entry.payload["action_family"],
             legal_action_recommendation.get("action_family"),
         )
+        stage6_work_items = WorkItemRepository().list(stage_scope=6)
+        self.assertEqual(len(stage6_work_items), 1)
+        self.assertEqual(stage6_work_items[0].surface_id, "review_report_workbench")
+        self.assertEqual(stage6_work_items[0].primary_object_type, "project_fact")
+        self.assertEqual(stage6_work_items[0].primary_record_id, project_fact.get("project_fact_id"))
+        self.assertEqual(
+            stage6_work_items[0].work_item_key,
+            f"6:review_report_workbench:project_fact:{project_fact.get('project_fact_id')}",
+        )
+        self.assertEqual(stage6_work_items[0].object_refs["project_fact_id"], project_fact.get("project_fact_id"))
+        self.assertEqual(stage6_work_items[0].object_refs["report_record_id"], report_record.get("report_id"))
+        self.assertEqual(
+            stage6_work_items[0].object_refs["review_queue_profile_id"],
+            review_queue_profile.get("queue_profile_id"),
+        )
+        self.assertEqual(
+            stage6_work_items[0].object_refs["challenger_candidate_profile_id"],
+            challenger_candidate_profile.get("challenger_profile_id"),
+        )
+        self.assertEqual(stage6_work_items[0].object_refs["action_id"], legal_action_recommendation.get("action_id"))
+        self.assertEqual(
+            set(stage6_work_items[0].pending_actions),
+            {"stage6_mark_reviewed", "stage6_return_for_revision"},
+        )
 
         hydrated = hydrate_stage_bundle("stage6", {"project_id": project_fact.get("project_id")})
 

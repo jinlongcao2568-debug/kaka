@@ -18,6 +18,7 @@ from helpers import load_fixture, run_internal_chain_to_stage7
 from api.projections import get_surface_runtime_defaults
 from shared.pipeline import run_internal_chain
 from api.routes.stage6 import (
+    list_stage6_work_items,
     preview_stage6_review_report_workbench,
     register_stage6_routes,
 )
@@ -121,6 +122,14 @@ class TestInternalSurfacePreview(unittest.TestCase):
             response["preview_projection"]["legal_action_summary"]["action_family"],
             stage6.record("legal_action_recommendation").get("action_family"),
         )
+        self.assertTrue(response["operational_loop_persisted"])
+        self.assertEqual(response["operational_context_status"], "persisted")
+        self.assertEqual(response["operator_loop_projection"]["context_key"], "persisted_operational_context")
+        self.assertEqual(response["workbench_replay"]["replay_source"], "repository_readback")
+        self.assertEqual(
+            response["persisted_operational_context"]["object_refs"]["report_record_id"],
+            stage6.record("report_record").get("report_id"),
+        )
 
     def test_stage6_preview_surface_marks_readback_failure_as_review_or_blocked(self) -> None:
         stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
@@ -160,18 +169,36 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertTrue(review_response["internal_only"])
         self.assertFalse(review_response["live_execution_enabled"])
 
-    def test_stage6_route_registration_is_preview_only_and_read_only(self) -> None:
+    def test_stage6_route_registration_exposes_internal_queue_without_live_execution(self) -> None:
         routes = register_stage6_routes()
         defaults = get_surface_runtime_defaults("review_report_workbench")
 
-        self.assertEqual(len(routes), 1)
-        route = routes[0]
+        self.assertEqual(len(routes), 3)
+        route = next(route for route in routes if route["operationId"] == "previewStage6ReviewReportWorkbench")
         self.assertEqual(route["operationId"], "previewStage6ReviewReportWorkbench")
         self.assertEqual(route["method"], "GET")
         self.assertEqual(route["surface_mode"], defaults["surface_mode"])
         self.assertEqual(route["internal_only"], defaults["internal_only"])
         self.assertEqual(route["live_execution_enabled"], defaults["live_execution_enabled"])
         self.assertEqual(route["blocked_by_default"], defaults["blocked_by_default"])
+        list_route = next(route for route in routes if route["operationId"] == "listStage6WorkItems")
+        action_route = next(route for route in routes if route["operationId"] == "submitStage6OperatorAction")
+        self.assertEqual(list_route["method"], "GET")
+        self.assertEqual(action_route["method"], "POST")
+        self.assertTrue(list_route["internal_only"])
+        self.assertFalse(action_route["live_execution_enabled"])
+
+    def test_stage6_work_item_route_uses_canonical_surface_defaults(self) -> None:
+        stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
+        persist_stage_bundle(stage6)
+
+        response = list_stage6_work_items({"project_id": stage6.record("project_fact").get("project_id")})
+        defaults = get_surface_runtime_defaults("review_report_workbench")
+
+        self.assertEqual(len(response["work_items"]), 1)
+        self.assertEqual(response["internal_only"], defaults["internal_only"])
+        self.assertEqual(response["live_execution_enabled"], defaults["live_execution_enabled"])
+        self.assertEqual(response["blocked_by_default"], defaults["blocked_by_default"])
 
     def test_stage7_preview_surface_consumes_formal_objects(self) -> None:
         stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]

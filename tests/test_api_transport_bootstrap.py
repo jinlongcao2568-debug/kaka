@@ -58,11 +58,11 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertTrue(transport_status["internal_only"])
             self.assertFalse(transport_status["live_execution_enabled"])
 
-    def test_stage6_route_registrar_exposes_read_only_preview_surface(self) -> None:
+    def test_stage6_route_registrar_exposes_internal_queue_surface(self) -> None:
         routes = register_stage6_routes()
 
-        self.assertEqual(len(routes), 1)
-        preview_route = routes[0]
+        self.assertEqual(len(routes), 3)
+        preview_route = next(route for route in routes if route["operationId"] == "previewStage6ReviewReportWorkbench")
         self.assertEqual(preview_route["operationId"], "previewStage6ReviewReportWorkbench")
         self.assertEqual(preview_route["method"], "GET")
         self.assertEqual(preview_route["path"], "/review-report-workbench")
@@ -70,6 +70,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(preview_route["internal_only"])
         self.assertFalse(preview_route["live_execution_enabled"])
         self.assertFalse(preview_route["blocked_by_default"])
+        list_route = next(route for route in routes if route["operationId"] == "listStage6WorkItems")
+        action_route = next(route for route in routes if route["operationId"] == "submitStage6OperatorAction")
+        self.assertEqual(list_route["method"], "GET")
+        self.assertEqual(list_route["path"], "/review-report-work-items")
+        self.assertEqual(action_route["method"], "POST")
+        self.assertEqual(action_route["path"], "/review-report-workbench/{project_fact_id}/operator-actions")
+        self.assertTrue(action_route["internal_only"])
+        self.assertFalse(action_route["live_execution_enabled"])
 
     def test_create_app_mounts_stage7_to_stage9_transport_routes(self) -> None:
         app = create_app()
@@ -82,6 +90,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(
             {
                 "previewStage6ReviewReportWorkbench",
+                "listStage6WorkItems",
+                "submitStage6OperatorAction",
                 "listSaleableOpportunities",
                 "listContactTargets",
                 "listOrders",
@@ -133,6 +143,41 @@ class TestApiTransportBootstrap(unittest.TestCase):
             payload["preview_projection"]["project_fact_summary"]["sale_gate_status"],
             stage6.record("project_fact").get("sale_gate_status"),
         )
+
+    def test_stage6_http_transport_lists_and_submits_operator_actions(self) -> None:
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage6 = result["stage6"]
+        persist_stage_bundle(stage6)
+        project_id = stage6.record("project_fact").get("project_id")
+        project_fact_id = stage6.record("project_fact").get("project_fact_id")
+
+        client = TestClient(create_app())
+        list_response = client.request("GET", "/review-report-work-items", json={"project_id": project_id})
+        action_response = client.request(
+            "POST",
+            f"/review-report-workbench/{project_fact_id}/operator-actions",
+            json={
+                "project_id": project_id,
+                "action_id": "stage6_return_for_revision",
+                "button_flow_id": "submit_stage6_return_for_revision",
+                "reason": "transport-level stage6 revision return",
+                "requested_by_role": "single_operator",
+                "requested_by": "卡卡罗特",
+            },
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(action_response.status_code, 200)
+        list_payload = list_response.json()
+        action_payload = action_response.json()
+        self.assertEqual(len(list_payload["work_items"]), 1)
+        self.assertEqual(list_payload["work_items"][0]["primary_object_type"], "project_fact")
+        self.assertEqual(action_payload["action_result"]["action_id"], "stage6_return_for_revision")
+        self.assertEqual(
+            action_payload["persisted_operational_context"]["current_operational_state"],
+            "action_returned_for_revision",
+        )
+        self.assertEqual(action_payload["persisted_operational_context"]["pending_actions"], ["stage6_mark_reviewed"])
 
     def test_stage7_http_transport_reads_repository_backed_preview(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

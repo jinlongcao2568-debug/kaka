@@ -15,6 +15,17 @@ from storage.operator_workbench_projection import (
 from shared.contract_loader import load_contract
 
 
+STAGE6_SURFACE_ID = "review_report_workbench"
+STAGE6_OPERATOR_OPERATION_ID = "submitStage6OperatorAction"
+STAGE6_FORMAL_OBJECTS = (
+    "project_fact",
+    "report_record",
+    "review_queue_profile",
+    "challenger_candidate_profile",
+    "legal_action_recommendation",
+)
+
+
 @dataclass(frozen=True)
 class ReviewActionSpec:
     action_id: str
@@ -102,6 +113,7 @@ def _review_action_specs() -> dict[str, ReviewActionSpec]:
             allowed_surface_operational_states=tuple(entry.get("allowedSurfaceOperationalStates", [])),
             allowed_assignment_lifecycle_states=tuple(entry.get("allowedAssignmentLifecycleStates", [])),
         )
+    specs.update(_stage6_review_action_specs())
     return specs
 
 
@@ -120,6 +132,7 @@ def _button_flow_specs() -> dict[str, ButtonFlowSpec]:
             allowed_when=tuple(entry.get("allowedWhen", [])),
             blocked_when=tuple(entry.get("blockedWhen", [])),
         )
+    specs.update(_stage6_button_flow_specs())
     return specs
 
 
@@ -139,7 +152,112 @@ def _queue_profiles() -> dict[int, WorkQueueProfile]:
             operational_lifecycle_map=dict(entry.get("operationalLifecycleMap", {})),
             assignment_policy=dict(entry.get("assignmentPolicy", {})),
         )
+    profiles[6] = _stage6_work_queue_profile()
     return profiles
+
+
+def _stage6_review_action_specs() -> dict[str, ReviewActionSpec]:
+    common = {
+        "applies_to_objects": STAGE6_FORMAL_OBJECTS,
+        "surface_modes": ("preview-only",),
+        "requires_approval_chain": False,
+        "requires_audit_trace": False,
+        "internal_only": True,
+        "reads_repository_boundary": True,
+        "persists_governed_state": False,
+        "allowed_surface_operational_states": ("preview_ready", "review_required", "governed_hold"),
+        "allowed_assignment_lifecycle_states": ("assigned", "returned", "in_review", "unassigned"),
+    }
+    return {
+        "stage6_mark_reviewed": ReviewActionSpec(
+            action_id="stage6_mark_reviewed",
+            review_requirement="stage6_internal_review",
+            audit_requirement="operator_action_history_persisted",
+            resulting_operational_state="action_completed",
+            resulting_assignment_lifecycle_state="completed",
+            allowed_current_operational_states=(
+                "ready_for_internal_operator_action",
+                "review_required",
+                "action_returned_for_revision",
+            ),
+            **common,
+        ),
+        "stage6_return_for_revision": ReviewActionSpec(
+            action_id="stage6_return_for_revision",
+            review_requirement="stage6_internal_revision_required",
+            audit_requirement="operator_action_history_persisted",
+            resulting_operational_state="action_returned_for_revision",
+            resulting_assignment_lifecycle_state="returned",
+            allowed_current_operational_states=(
+                "ready_for_internal_operator_action",
+                "review_required",
+            ),
+            **common,
+        ),
+    }
+
+
+def _stage6_button_flow_specs() -> dict[str, ButtonFlowSpec]:
+    return {
+        "submit_stage6_mark_reviewed": ButtonFlowSpec(
+            flow_id="submit_stage6_mark_reviewed",
+            button_type="review",
+            from_workbench=STAGE6_SURFACE_ID,
+            api_operation_id=STAGE6_OPERATOR_OPERATION_ID,
+            review_action_id="stage6_mark_reviewed",
+            allowed_when=("repository_state_available", "internal_only_surface"),
+            blocked_when=("external_surface_requested", "live_execution_requested"),
+        ),
+        "submit_stage6_return_for_revision": ButtonFlowSpec(
+            flow_id="submit_stage6_return_for_revision",
+            button_type="review",
+            from_workbench=STAGE6_SURFACE_ID,
+            api_operation_id=STAGE6_OPERATOR_OPERATION_ID,
+            review_action_id="stage6_return_for_revision",
+            allowed_when=("repository_state_available", "internal_only_surface"),
+            blocked_when=("external_surface_requested", "live_execution_requested"),
+        ),
+    }
+
+
+def _stage6_work_queue_profile() -> WorkQueueProfile:
+    return WorkQueueProfile(
+        profile_id="stage6_review_report_operator_queue",
+        stage_scope=6,
+        allowed_surface_operational_states=("preview_ready", "review_required", "governed_hold"),
+        allowed_current_operational_states=(
+            "review_required",
+            "ready_for_internal_operator_action",
+            "action_completed",
+            "action_returned_for_revision",
+        ),
+        work_item_key_components=(
+            "stage_scope",
+            "surface_id",
+            "primary_object_type",
+            "primary_record_id",
+        ),
+        lifecycle_states=("unassigned", "assigned", "in_review", "returned", "completed", "denied"),
+        operational_lifecycle_map={
+            "ready_for_internal_operator_action": "assigned",
+            "review_required": "in_review",
+            "governed_hold": "in_review",
+            "action_returned_for_revision": "returned",
+            "action_completed": "completed",
+            "action_denied": "denied",
+        },
+        assignment_policy={
+            "assignmentProfileId": "stage6_review_report_assignment",
+            "rosterBinding": "currentTask",
+            "assignedOwnerRole": "single_operator",
+            "reviewerRole": "single_operator",
+            "simplifiedBoundary": [
+                "no_claim",
+                "no_reassign",
+                "stage6_internal_only_queue",
+            ],
+        },
+    )
 
 
 def review_action_spec(action_id: str) -> ReviewActionSpec:
@@ -276,10 +394,20 @@ def resolve_assignment(
     policy = dict(profile.assignment_policy)
     roster = _load_roster_binding(str(policy.get("rosterBinding", "")))
 
-    assigned_owner_role = str(roster.get("assigned_owner_role") or policy.get("assignedOwnerRole") or "")
-    reviewer_role = str(roster.get("reviewer_role") or policy.get("reviewerRole") or "")
-    assigned_owner = str(roster.get("assigned_owner") or "").strip()
-    reviewer = str(roster.get("reviewer") or "").strip()
+    assigned_owner_role = str(
+        roster.get("assigned_owner_role")
+        or roster.get("responsible_role")
+        or policy.get("assignedOwnerRole")
+        or ""
+    )
+    reviewer_role = str(
+        roster.get("reviewer_role")
+        or roster.get("responsible_role")
+        or policy.get("reviewerRole")
+        or ""
+    )
+    assigned_owner = str(roster.get("assigned_owner") or roster.get("responsible_person") or "").strip()
+    reviewer = str(roster.get("reviewer") or roster.get("responsible_person") or "").strip()
     resolved_from = str(policy.get("rosterBinding") or "unresolved")
     lifecycle_state = _resolve_lifecycle_state(
         profile=profile,

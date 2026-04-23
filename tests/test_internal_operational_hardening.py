@@ -13,6 +13,7 @@ if str(SRC) not in sys.path:
 if str(TESTS) not in sys.path:
     sys.path.insert(0, str(TESTS))
 
+from api.routes.stage6 import submit_stage6_operator_action
 from api.routes.stage7 import list_saleable_opportunities, list_stage7_work_items, refresh_saleable_opportunity, submit_stage7_operator_action
 from api.routes.stage8 import create_touch_record, list_stage8_work_items, submit_stage8_operator_action
 from api.routes.stage9 import create_governance_feedback_event, list_stage9_work_items, submit_stage9_operator_action
@@ -53,6 +54,24 @@ class TestInternalOperationalHardening(unittest.TestCase):
         )
 
         self.assertEqual(response["error"]["error_code"], "WORKITEM-404-NOT_FOUND")
+
+    def test_stage6_missing_work_item_returns_structured_error(self) -> None:
+        stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
+
+        response = submit_stage6_operator_action(
+            {
+                "project_id": stage6.record("project_fact").get("project_id"),
+                "project_fact_id": stage6.record("project_fact").get("project_fact_id"),
+                "action_id": "stage6_mark_reviewed",
+                "button_flow_id": "submit_stage6_mark_reviewed",
+                "reason": "attempt before persistence",
+                "requested_by_role": "single_operator",
+                "requested_by": "卡卡罗特",
+            }
+        )
+
+        self.assertEqual(response["error"]["error_code"], "WORKITEM-404-NOT_FOUND")
+        self.assertEqual(response["error"]["meta"]["stage_scope"], 6)
 
     def test_invalid_transition_returns_structured_not_pending_error(self) -> None:
         stage8 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage8"]

@@ -13,19 +13,110 @@ if str(SRC) not in sys.path:
 if str(TESTS) not in sys.path:
     sys.path.insert(0, str(TESTS))
 
+from api.routes.stage6 import list_stage6_work_items, submit_stage6_operator_action
 from api.routes.stage7 import list_stage7_work_items, refresh_saleable_opportunity, submit_stage7_operator_action
 from api.routes.stage8 import create_touch_record, list_stage8_work_items, submit_stage8_operator_action
 from api.routes.stage9 import create_governance_feedback_event, list_stage9_work_items, submit_stage9_operator_action
 import copy
 from helpers import load_fixture, run_internal_chain_to_stage7
 from shared.pipeline import run_internal_chain
-from storage import reset_default_storage
-from storage.repositories import WorkItemRepository
+from storage import persist_stage_bundle, reset_default_storage
+from storage.repositories import ProjectFactRepository, WorkItemRepository
 
 
 class TestInternalOperationalLoop(unittest.TestCase):
     def setUp(self) -> None:
         reset_default_storage()
+
+    def test_stage6_operator_loop_and_work_item_queue(self) -> None:
+        stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
+        persist_stage_bundle(stage6)
+
+        project_fact_id = stage6.record("project_fact").get("project_fact_id")
+        report_record_id = stage6.record("report_record").get("report_id")
+        review_queue_profile_id = stage6.record("review_queue_profile").get("queue_profile_id")
+        challenger_candidate_profile_id = stage6.record("challenger_candidate_profile").get("challenger_profile_id")
+        action_id = stage6.record("legal_action_recommendation").get("action_id")
+        queue = list_stage6_work_items({"project_id": stage6.record("project_fact").get("project_id")})
+
+        self.assertEqual(len(queue["work_items"]), 1)
+        work_item = queue["work_items"][0]
+        self.assertEqual(work_item["primary_object_type"], "project_fact")
+        self.assertEqual(work_item["primary_record_id"], project_fact_id)
+        self.assertEqual(
+            work_item["work_item_key"],
+            f"6:review_report_workbench:project_fact:{project_fact_id}",
+        )
+        self.assertEqual(work_item["surface_id"], "review_report_workbench")
+        self.assertEqual(work_item["object_refs"]["project_fact_id"], project_fact_id)
+        self.assertEqual(work_item["object_refs"]["report_record_id"], report_record_id)
+        self.assertEqual(work_item["object_refs"]["review_queue_profile_id"], review_queue_profile_id)
+        self.assertEqual(work_item["object_refs"]["challenger_candidate_profile_id"], challenger_candidate_profile_id)
+        self.assertEqual(work_item["object_refs"]["action_id"], action_id)
+        self.assertEqual(
+            set(work_item["pending_actions"]),
+            {"stage6_mark_reviewed", "stage6_return_for_revision"},
+        )
+
+    def test_stage6_mark_reviewed_persists_action_history_without_recomputing_fact(self) -> None:
+        stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
+        persist_stage_bundle(stage6)
+
+        project_fact_id = stage6.record("project_fact").get("project_fact_id")
+        sale_gate_status = stage6.record("project_fact").get("sale_gate_status")
+        reviewed = submit_stage6_operator_action(
+            {
+                "project_id": stage6.record("project_fact").get("project_id"),
+                "project_fact_id": project_fact_id,
+                "action_id": "stage6_mark_reviewed",
+                "button_flow_id": "submit_stage6_mark_reviewed",
+                "reason": "stage6 internal review complete",
+                "requested_by_role": "single_operator",
+                "requested_by": "卡卡罗特",
+            }
+        )
+
+        self.assertEqual(reviewed["action_result"]["action_state"], "action_completed")
+        self.assertEqual(reviewed["persisted_operational_context"]["current_operational_state"], "action_completed")
+        self.assertEqual(reviewed["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "completed")
+        self.assertEqual(len(reviewed["persisted_operational_context"]["action_history"]), 1)
+        self.assertEqual(
+            reviewed["persisted_operational_context"]["action_history"][-1]["action_id"],
+            "stage6_mark_reviewed",
+        )
+        self.assertEqual(reviewed["persisted_operational_context"]["pending_actions"], [])
+        persisted_fact = ProjectFactRepository().get_by_id(project_fact_id)
+        self.assertIsNotNone(persisted_fact)
+        self.assertEqual(persisted_fact.payload["sale_gate_status"], sale_gate_status)
+
+    def test_stage6_return_for_revision_updates_pending_actions(self) -> None:
+        stage6 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage6"]
+        persist_stage_bundle(stage6)
+
+        returned = submit_stage6_operator_action(
+            {
+                "project_id": stage6.record("project_fact").get("project_id"),
+                "project_fact_id": stage6.record("project_fact").get("project_fact_id"),
+                "action_id": "stage6_return_for_revision",
+                "button_flow_id": "submit_stage6_return_for_revision",
+                "reason": "report needs revision before internal review",
+                "requested_by_role": "single_operator",
+                "requested_by": "卡卡罗特",
+            }
+        )
+
+        self.assertEqual(returned["action_result"]["action_state"], "action_returned_for_revision")
+        self.assertEqual(
+            returned["persisted_operational_context"]["current_operational_state"],
+            "action_returned_for_revision",
+        )
+        self.assertEqual(returned["persisted_operational_context"]["assignment"]["assignment_lifecycle_state"], "returned")
+        self.assertEqual(len(returned["persisted_operational_context"]["action_history"]), 1)
+        self.assertEqual(
+            returned["persisted_operational_context"]["action_history"][-1]["action_id"],
+            "stage6_return_for_revision",
+        )
+        self.assertEqual(returned["persisted_operational_context"]["pending_actions"], ["stage6_mark_reviewed"])
 
     def test_stage7_operator_loop_and_work_item_queue(self) -> None:
         stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]

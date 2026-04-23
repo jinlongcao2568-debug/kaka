@@ -361,6 +361,11 @@ def _action_availability(
                 surface_state=surface_state,
                 blocked_reason=None,
             ),
+            "listStage6WorkItems": _action_gate(
+                allowed=True,
+                surface_state=surface_state,
+                blocked_reason=None,
+            ),
         }
 
     if surface_id == "opportunity_pool":
@@ -800,7 +805,7 @@ def build_stage6_preview_surface(payload: Any) -> dict[str, Any]:
         blocked_by_default=bool(surface_defaults["blocked_by_default"]),
     )
     envelope["preview_projection"].pop("_raw_records", None)
-    return envelope
+    return _attach_operational_context(envelope, bundle)
 
 
 def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:

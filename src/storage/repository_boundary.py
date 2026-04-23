@@ -26,6 +26,7 @@ from storage.repositories import (
     OperatorActionRepository,
     OrderRecordRepository,
     OutreachPlanRepository,
+    ProjectFactRepository,
     SaleableOpportunityRepository,
     TouchRecordRepository,
     WorkItemRepository,
@@ -34,12 +35,14 @@ from storage.repositories._base import PRIMARY_STATUS_FIELDS
 
 
 STAGE_SURFACE_IDS = {
+    6: "review_report_workbench",
     7: "opportunity_pool",
     8: "outreach_workbench",
     9: "order_delivery_workbench",
 }
 
 STAGE_ROOT_OBJECTS = {
+    6: ("project_fact", "project_fact_id"),
     7: ("saleable_opportunity", "opportunity_id"),
     8: ("touch_record", "touch_record_id"),
     9: ("order_record", "order_id"),
@@ -169,12 +172,14 @@ STAGE_FORMAL_OBJECTS = {
 }
 
 STAGE_DEFAULT_MODES = {
+    6: "preview-only",
     7: "preview-only",
     8: "draft-only",
     9: "draft-only",
 }
 
 STAGE_OPERATOR_OPERATION_IDS = {
+    6: "submitStage6OperatorAction",
     7: "submitStage7OperatorAction",
     8: "submitStage8OperatorAction",
     9: "submitStage9OperatorAction",
@@ -359,7 +364,7 @@ def list_stage_work_items(stage_scope: int, payload: Mapping[str, Any] | None = 
 
 def record_operator_action(payload: Any, *, stage_scope: int) -> dict[str, Any]:
     bundle = _resolve_bundle_for_stage(payload, stage_scope)
-    if bundle is not None:
+    if bundle is not None and stage_scope != 6:
         persist_stage_bundle(bundle)
 
     action_payload = dict(payload.inputs) if isinstance(payload, StageBundle) else dict(payload)
@@ -592,7 +597,9 @@ def _persist_stage7_bundle(bundle: StageBundle) -> StageBundle:
 
 
 def _persist_stage6_bundle(bundle: StageBundle) -> StageBundle:
-    return _repository_bundle_io_module().persist_stage6_bundle(bundle)
+    persisted_bundle = _repository_bundle_io_module().persist_stage6_bundle(bundle)
+    _sync_stage_operational_loop(bundle)
+    return persisted_bundle
 
 
 def _persist_stage8_bundle(bundle: StageBundle) -> StageBundle:
@@ -1134,6 +1141,10 @@ def _resolve_assignment_for_state(
 
 
 def _resolve_primary_record(stage_scope: int, payload: Mapping[str, Any]) -> tuple[str, Any] | None:
+    if stage_scope == 6:
+        project_fact_id = str(payload.get("project_fact_id", "")).strip()
+        project_fact = ProjectFactRepository().get_by_id(project_fact_id) if project_fact_id else None
+        return ("project_fact", project_fact) if project_fact else None
     if stage_scope == 7:
         opportunity_id = str(payload.get("opportunity_id", "")).strip()
         opportunity = SaleableOpportunityRepository().get_by_id(opportunity_id) if opportunity_id else None
@@ -1155,6 +1166,28 @@ def _resolve_primary_record(stage_scope: int, payload: Mapping[str, Any]) -> tup
 
 
 def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
+    if bundle.stage == 6:
+        project_fact = bundle.record("project_fact").data
+        report_record = bundle.record("report_record").data
+        review_queue_profile = bundle.record("review_queue_profile").data
+        challenger_candidate_profile = bundle.record("challenger_candidate_profile").data
+        legal_action_recommendation = bundle.record("legal_action_recommendation").data
+        refs = {
+            "project_id": project_fact.get("project_id"),
+            "project_fact_id": project_fact.get("project_fact_id"),
+            "report_id": report_record.get("report_id"),
+            "report_record_id": report_record.get("report_id"),
+            "queue_profile_id": review_queue_profile.get("queue_profile_id"),
+            "review_queue_profile_id": review_queue_profile.get("queue_profile_id"),
+            "challenger_profile_id": challenger_candidate_profile.get("challenger_profile_id"),
+            "challenger_candidate_profile_id": challenger_candidate_profile.get("challenger_profile_id"),
+            "action_id": legal_action_recommendation.get("action_id"),
+        }
+        return {
+            key: str(value)
+            for key, value in refs.items()
+            if value not in (None, "", "UNKNOWN")
+        }
     return _repository_context_projection_module().bundle_object_refs(bundle)
 
 

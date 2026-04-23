@@ -38,6 +38,86 @@ class Stage6PreviewProjection(TypedDict, total=False):
     legal_action_summary: dict[str, Any]
 
 
+class OperationalAssignment(TypedDict, total=False):
+    assignment_profile_id: str
+    assignment_lifecycle_state: str
+    assigned_owner_role: str
+    assigned_owner: str
+    reviewer_role: str
+    reviewer: str
+    resolved_from: str
+    simplified_boundary: list[str]
+
+
+class PendingButtonFlow(TypedDict, total=False):
+    button_flow_id: str
+    action_id: str
+    button_type: str
+
+
+class OperatorActionResult(TypedDict, total=False):
+    action_event_id: str
+    work_item_id: str
+    stage_scope: int
+    action_id: str
+    button_flow_id: str | None
+    action_state: str
+    resulting_assignment_lifecycle_state: str | None
+    requested_by_role: str
+    requested_by: str
+    reason: str
+    requested_at: str
+    completed_at: str | None
+
+
+class OperationalContext(TypedDict, total=False):
+    context_source: str
+    persistence_backend: str
+    work_item_id: str
+    work_item_key: str
+    stage_scope: int
+    surface_id: str
+    primary_object_type: str
+    primary_record_id: str
+    surface_operational_state: str
+    current_operational_state: str
+    ready_for_internal_operator_action: bool
+    assignment: OperationalAssignment
+    object_refs: dict[str, str]
+    pending_actions: list[str]
+    pending_button_flows: list[PendingButtonFlow]
+    last_action: dict[str, Any] | None
+    action_history: list[dict[str, Any]]
+    trace_refs: dict[str, Any]
+    audit_refs: dict[str, Any]
+    decision_states: dict[str, str]
+    governed_context: dict[str, Any]
+    created_at: str
+    updated_at: str
+
+
+class TransientPreviewContext(TypedDict, total=False):
+    context_source: str
+    persistence_backend: str
+    work_item_key: str
+    stage_scope: int
+    surface_id: str
+    primary_object_type: str
+    primary_record_id: str
+    surface_operational_state: str
+    current_operational_state: str
+    ready_for_internal_operator_action: bool
+    assignment: OperationalAssignment
+    object_refs: dict[str, str]
+    pending_actions: list[str]
+    pending_button_flows: list[PendingButtonFlow]
+    trace_refs: dict[str, Any]
+    audit_refs: dict[str, Any]
+    decision_states: dict[str, str]
+    governed_context: dict[str, Any]
+    preview_generated_at: str
+
+
 class Stage6Response(TypedDict, total=False):
     surface_id: str
     surface_state: str
@@ -57,6 +137,11 @@ class Stage6Response(TypedDict, total=False):
     governance_envelope: dict[str, Any]
     semantic_envelope: dict[str, Any]
     trace_refs: dict[str, Any]
+    operational_loop_persisted: bool
+    operational_context_status: str
+    persisted_operational_context: OperationalContext
+    transient_preview_context: TransientPreviewContext
+    action_result: OperatorActionResult
     error: ErrorEnvelope
 
 
@@ -68,11 +153,43 @@ class Stage6ReviewReportWorkbenchResponse(Stage6Response, total=False):
     pass
 
 
+class Stage6WorkItemListRequest(Stage6Request, total=False):
+    assigned_owner: str
+
+
+class Stage6WorkItemListResponse(TypedDict, total=False):
+    work_items: list[OperationalContext]
+    internal_only: bool
+    live_execution_enabled: bool
+    blocked_by_default: bool
+
+
+class Stage6OperatorActionRequest(Stage6Request, total=False):
+    action_id: str
+    button_flow_id: str
+    reason: str
+    requested_by_role: str
+    requested_by: str
+
+
+class Stage6OperatorActionResponse(Stage6Response, total=False):
+    action_result: OperatorActionResult
+
+
 __all__ = [
     "FormalObjectRef",
+    "OperationalAssignment",
+    "OperationalContext",
+    "OperatorActionResult",
+    "PendingButtonFlow",
     "Stage6PreviewProjection",
+    "Stage6OperatorActionRequest",
+    "Stage6OperatorActionResponse",
     "Stage6Request",
     "Stage6Response",
     "Stage6ReviewReportWorkbenchRequest",
     "Stage6ReviewReportWorkbenchResponse",
+    "Stage6WorkItemListRequest",
+    "Stage6WorkItemListResponse",
+    "TransientPreviewContext",
 ]
