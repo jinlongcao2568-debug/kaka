@@ -23,6 +23,7 @@ Allowed Actions (current):
 - execute PTL-I100-104 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
 - modify only listed Stage6 contracts/schemas, src/stage6_fact_review, storage repositories / boundary / bundle IO, and listed tests
 - update control/product_module_registry.yaml only when new Stage6 repository files or repository-boundary current files must be formally registered for this packet
+- modify listed Stage6 preview surface files under src/api/main.py, src/api/projections.py, src/api/routes/stage6.py, src/api/schemas/stage6.py, and listed preview/bootstrap tests only when implementing the Stage6 internal preview slice
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
