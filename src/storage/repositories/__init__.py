@@ -1,5 +1,7 @@
 from storage.repositories.buyer_fit_repo import BuyerFitRepository
 from storage.repositories.challenger_candidate_profile_repo import ChallengerCandidateProfileRepository
+from storage.repositories.contact_candidate_collection_repo import ContactCandidateCollectionRepository
+from storage.repositories.contact_selection_trace_repo import ContactSelectionTraceRepository
 from storage.repositories.contact_target_repo import ContactTargetRepository
 from storage.repositories.delivery_record_repo import DeliveryRecordRepository
 from storage.repositories.governance_feedback_event_repo import GovernanceFeedbackEventRepository
@@ -22,6 +24,8 @@ from storage.repositories.work_item_repo import WorkItemRepository
 __all__ = [
     "BuyerFitRepository",
     "ChallengerCandidateProfileRepository",
+    "ContactCandidateCollectionRepository",
+    "ContactSelectionTraceRepository",
     "ContactTargetRepository",
     "DeliveryRecordRepository",
     "GovernanceFeedbackEventRepository",

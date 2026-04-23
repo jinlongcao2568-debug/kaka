@@ -95,6 +95,15 @@ STAGE_INPUT_FIELDS = {
         "cadence_profile_id",
         "retry_policy_id",
         "stop_policy_id",
+        "stage8_resolution_trace",
+        "contact_candidate_collection_id_optional",
+        "contact_selection_trace_id_optional",
+        "winning_contact_candidate_id_optional",
+        "reselect_reason_optional",
+        "contact_candidate_collection_snapshot",
+        "contact_selection_trace_snapshot",
+        "_stage8_handoff_snapshot",
+        "_stage8_trace_rules_snapshot",
     ),
     9: (
         "policy_trace",
@@ -1188,7 +1197,47 @@ def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
             for key, value in refs.items()
             if value not in (None, "", "UNKNOWN")
         }
-    return _repository_context_projection_module().bundle_object_refs(bundle)
+    refs = _repository_context_projection_module().bundle_object_refs(bundle)
+    if bundle.stage == 8:
+        refs.update(_stage8_carrier_refs(bundle))
+    return refs
+
+
+def _stage8_carrier_payload(bundle: StageBundle, key: str) -> Mapping[str, Any]:
+    value = bundle.inputs.get(key)
+    return value if isinstance(value, Mapping) else {}
+
+
+def _stage8_carrier_refs(bundle: StageBundle) -> dict[str, str]:
+    collection = _stage8_carrier_payload(bundle, "contact_candidate_collection_snapshot")
+    selection_trace = _stage8_carrier_payload(bundle, "contact_selection_trace_snapshot")
+    collection_id = (
+        bundle.inputs.get("contact_candidate_collection_id_optional")
+        or collection.get("contact_candidate_collection_id")
+        or selection_trace.get("contact_candidate_collection_id")
+    )
+    selection_trace_id = (
+        bundle.inputs.get("contact_selection_trace_id_optional")
+        or selection_trace.get("contact_selection_trace_id")
+        or collection.get("selection_trace_id")
+    )
+    winning_contact_candidate_id = (
+        bundle.inputs.get("winning_contact_candidate_id_optional")
+        or collection.get("winning_contact_candidate_id")
+        or selection_trace.get("winning_contact_candidate_id")
+    )
+    refs = {
+        "contact_candidate_collection_id": collection_id,
+        "contact_candidate_collection_id_optional": collection_id,
+        "contact_selection_trace_id": selection_trace_id,
+        "contact_selection_trace_id_optional": selection_trace_id,
+        "winning_contact_candidate_id_optional": winning_contact_candidate_id,
+    }
+    return {
+        key: str(value)
+        for key, value in refs.items()
+        if value not in (None, "", "UNKNOWN")
+    }
 
 
 def _persist_auxiliary_record(
@@ -1250,7 +1299,44 @@ def _bundle_decision_states(bundle: StageBundle) -> dict[str, str]:
 
 
 def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
-    return _repository_context_projection_module().bundle_governed_context(bundle)
+    governed_context = _repository_context_projection_module().bundle_governed_context(bundle)
+    if bundle.stage == 8:
+        collection = _stage8_carrier_payload(bundle, "contact_candidate_collection_snapshot")
+        selection_trace = _stage8_carrier_payload(bundle, "contact_selection_trace_snapshot")
+        refs = _stage8_carrier_refs(bundle)
+        if collection:
+            governed_context["contact_candidate_collection_summary"] = {
+                "contact_candidate_collection_id": refs.get("contact_candidate_collection_id"),
+                "winning_contact_candidate_id": refs.get("winning_contact_candidate_id_optional"),
+                "candidate_count": len(collection.get("candidate_list", []))
+                if isinstance(collection.get("candidate_list"), list)
+                else 0,
+                "source_conflict_candidate_count": collection.get("source_conflict_candidate_count", 0),
+                "source_merge_review_required_count": collection.get(
+                    "source_merge_review_required_count",
+                    0,
+                ),
+                "reselect_reason_optional": collection.get("reselect_reason_optional"),
+                "reselect_history_count": len(collection.get("reselect_history", []))
+                if isinstance(collection.get("reselect_history"), list)
+                else 0,
+            }
+        if selection_trace:
+            governed_context["contact_selection_trace_summary"] = {
+                "contact_selection_trace_id": refs.get("contact_selection_trace_id"),
+                "contact_candidate_collection_id": refs.get("contact_candidate_collection_id"),
+                "winning_contact_candidate_id": refs.get("winning_contact_candidate_id_optional"),
+                "winning_selection_reason": selection_trace.get("winning_selection_reason"),
+                "conflict_flag": selection_trace.get("conflict_flag"),
+                "conflict_reason_optional": selection_trace.get("conflict_reason_optional"),
+                "source_conflict_candidate_count": selection_trace.get("source_conflict_candidate_count", 0),
+                "source_merge_review_required_count": selection_trace.get(
+                    "source_merge_review_required_count",
+                    0,
+                ),
+                "reselect_reason_optional": selection_trace.get("reselect_reason_optional"),
+            }
+    return governed_context
 
 
 def _project_id_for_bundle(bundle: StageBundle) -> str:

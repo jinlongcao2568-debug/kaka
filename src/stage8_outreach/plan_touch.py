@@ -365,6 +365,8 @@ def build_h08_handoff_payload(
     *,
     project_id: str,
     saleable_opportunity: Mapping[str, Any],
+    contact_candidate_collection: Mapping[str, Any],
+    contact_selection_trace: Mapping[str, Any],
     contact_target: Mapping[str, Any],
     outreach_plan: Mapping[str, Any],
     touch_record: Mapping[str, Any],
@@ -374,6 +376,26 @@ def build_h08_handoff_payload(
     return {
         "project_id": project_id,
         "opportunity_id": saleable_opportunity.get("opportunity_id"),
+        "contact_candidate_collection_id": contact_candidate_collection.get(
+            "contact_candidate_collection_id"
+        ),
+        "contact_selection_trace_id": contact_selection_trace.get("contact_selection_trace_id"),
+        "contact_candidate_collection_id_optional": contact_candidate_collection.get(
+            "contact_candidate_collection_id"
+        ),
+        "contact_selection_trace_id_optional": contact_selection_trace.get(
+            "contact_selection_trace_id"
+        ),
+        "winning_contact_candidate_id_optional": contact_candidate_collection.get(
+            "winning_contact_candidate_id"
+        ),
+        "reselect_reason_optional": contact_candidate_collection.get("reselect_reason_optional"),
+        "source_conflict_candidate_count": contact_candidate_collection.get(
+            "source_conflict_candidate_count"
+        ),
+        "source_merge_review_required_count": contact_candidate_collection.get(
+            "source_merge_review_required_count"
+        ),
         "touch_record_id": touch_record.get("touch_record_id"),
         "response_status": touch_record.get("response_status"),
         "saleability_status": saleable_opportunity.get("saleability_status"),

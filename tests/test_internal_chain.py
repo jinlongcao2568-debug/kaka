@@ -1269,6 +1269,14 @@ class TestInternalChain(unittest.TestCase):
         self.assertIn("contact_selection_trace_snapshot", stage8.inputs)
         self._assert_h08_payload_ready(stage8.handoff)
         self._assert_h08_payload_ready(stage8.inputs)
+        self.assertEqual(
+            stage8.handoff.get("contact_candidate_collection_id"),
+            stage8.inputs["contact_candidate_collection_snapshot"].get("contact_candidate_collection_id"),
+        )
+        self.assertEqual(
+            stage8.handoff.get("contact_selection_trace_id"),
+            stage8.inputs["contact_selection_trace_snapshot"].get("contact_selection_trace_id"),
+        )
 
         saleable_opportunity = stage8.record("saleable_opportunity")
         contact_target = stage8.record("contact_target")

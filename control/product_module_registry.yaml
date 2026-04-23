@@ -663,6 +663,8 @@ stage_module_inventory:
           - src/api/routes/stage8.py
           - src/api/schemas/stage8.py
         repository_files:
+          - src/storage/repositories/contact_candidate_collection_repo.py
+          - src/storage/repositories/contact_selection_trace_repo.py
           - src/storage/repositories/contact_target_repo.py
         test_files:
           - tests/test_stage8_resolution_closure.py
@@ -834,6 +836,8 @@ cross_cutting_surfaces:
       - src/storage/repositories/buyer_fit_repo.py
       - src/storage/repositories/offer_recommendation_repo.py
       - src/storage/repositories/saleable_opportunity_repo.py
+      - src/storage/repositories/contact_candidate_collection_repo.py
+      - src/storage/repositories/contact_selection_trace_repo.py
       - src/storage/repositories/contact_target_repo.py
       - src/storage/repositories/outreach_plan_repo.py
       - src/storage/repositories/touch_record_repo.py
@@ -1254,6 +1258,8 @@ modules:
       - src/storage/repositories/buyer_fit_repo.py
       - src/storage/repositories/offer_recommendation_repo.py
       - src/storage/repositories/saleable_opportunity_repo.py
+      - src/storage/repositories/contact_candidate_collection_repo.py
+      - src/storage/repositories/contact_selection_trace_repo.py
       - src/storage/repositories/contact_target_repo.py
       - src/storage/repositories/outreach_plan_repo.py
       - src/storage/repositories/touch_record_repo.py

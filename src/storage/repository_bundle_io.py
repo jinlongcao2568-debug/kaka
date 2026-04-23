@@ -8,6 +8,8 @@ from storage.db import DatabaseSession, PersistedStageState, build_persisted_at
 from storage.repositories import (
     BuyerFitRepository,
     ChallengerCandidateProfileRepository,
+    ContactCandidateCollectionRepository,
+    ContactSelectionTraceRepository,
     ContactTargetRepository,
     DeliveryRecordRepository,
     GovernanceFeedbackEventRepository,
@@ -48,6 +50,8 @@ _STAGE6_TYPED_REF_KEYS = (
     "challenger_candidate_profile_id",
     "action_id",
 )
+_STAGE8_HANDOFF_SNAPSHOT_KEY = "_stage8_handoff_snapshot"
+_STAGE8_TRACE_RULES_SNAPSHOT_KEY = "_stage8_trace_rules_snapshot"
 
 
 def _stage6_inputs_snapshot(bundle: StageBundle) -> dict[str, Any]:
@@ -237,13 +241,55 @@ def persist_stage7_bundle(bundle: StageBundle) -> StageBundle:
     return bundle
 
 
+def _stage8_carrier_payload(
+    bundle: StageBundle,
+    *,
+    object_type: str,
+    input_key: str,
+) -> dict[str, Any]:
+    record = bundle.records.get(object_type)
+    if record is not None:
+        return dict(record.data)
+    snapshot = bundle.inputs.get(input_key)
+    return dict(snapshot) if isinstance(snapshot, Mapping) else {}
+
+
+def _stage8_bundle_with_persistence_snapshots(bundle: StageBundle) -> StageBundle:
+    inputs = dict(bundle.inputs)
+    inputs[_STAGE8_HANDOFF_SNAPSHOT_KEY] = dict(bundle.handoff)
+    if bundle.trace_rules:
+        inputs[_STAGE8_TRACE_RULES_SNAPSHOT_KEY] = list(bundle.trace_rules)
+    return StageBundle(
+        stage=bundle.stage,
+        records=dict(bundle.records),
+        handoff=dict(bundle.handoff),
+        trace_rules=list(bundle.trace_rules),
+        inputs=inputs,
+    )
+
+
 def persist_stage8_bundle(bundle: StageBundle) -> StageBundle:
+    contact_candidate_collection = _stage8_carrier_payload(
+        bundle,
+        object_type="contact_candidate_collection",
+        input_key="contact_candidate_collection_snapshot",
+    )
+    contact_selection_trace = _stage8_carrier_payload(
+        bundle,
+        object_type="contact_selection_trace",
+        input_key="contact_selection_trace_snapshot",
+    )
+    if contact_candidate_collection:
+        ContactCandidateCollectionRepository().save(contact_candidate_collection)
+    if contact_selection_trace:
+        ContactSelectionTraceRepository().save(contact_selection_trace)
     ContactTargetRepository().save(bundle.record("contact_target").data)
     OutreachPlanRepository().save(bundle.record("outreach_plan").data)
     TouchRecordRepository().save(bundle.record("touch_record").data)
-    _save_stage_state(bundle)
-    _sync_stage_operational_loop(bundle)
-    return bundle
+    persisted_bundle = _stage8_bundle_with_persistence_snapshots(bundle)
+    _save_stage_state(persisted_bundle)
+    _sync_stage_operational_loop(persisted_bundle)
+    return persisted_bundle
 
 
 def persist_stage9_bundle(bundle: StageBundle) -> StageBundle:
@@ -494,6 +540,165 @@ def hydrate_stage6_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     )
 
 
+def _stage8_repo_record(
+    repository: Any,
+    *,
+    stage_inputs: Mapping[str, Any],
+    persisted_refs: Mapping[str, Any],
+    ref_keys: tuple[str, ...],
+) -> tuple[dict[str, Any] | None, bool]:
+    record_id = _resolve_typed_ref(persisted_refs, stage_inputs, keys=ref_keys)
+    if not record_id:
+        return None, False
+    record = repository.get_by_id(record_id)
+    if record is None:
+        return None, True
+    return record.as_payload(), False
+
+
+def _hydrate_stage8_carriers(
+    *,
+    stage_inputs: Mapping[str, Any],
+    persisted_refs: Mapping[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None] | None:
+    contact_candidate_collection, collection_stale = _stage8_repo_record(
+        ContactCandidateCollectionRepository(),
+        stage_inputs=stage_inputs,
+        persisted_refs=persisted_refs,
+        ref_keys=("contact_candidate_collection_id", "contact_candidate_collection_id_optional"),
+    )
+    if collection_stale:
+        return None
+    contact_selection_trace, selection_stale = _stage8_repo_record(
+        ContactSelectionTraceRepository(),
+        stage_inputs=stage_inputs,
+        persisted_refs=persisted_refs,
+        ref_keys=("contact_selection_trace_id", "contact_selection_trace_id_optional"),
+    )
+    if selection_stale:
+        return None
+
+    if contact_candidate_collection is not None and contact_selection_trace is None:
+        selection_trace_id = str(contact_candidate_collection.get("selection_trace_id", "")).strip()
+        if selection_trace_id:
+            selection_record = ContactSelectionTraceRepository().get_by_id(selection_trace_id)
+            if selection_record is None:
+                return None
+            contact_selection_trace = selection_record.as_payload()
+
+    if contact_candidate_collection is None:
+        snapshot = stage_inputs.get("contact_candidate_collection_snapshot")
+        contact_candidate_collection = dict(snapshot) if isinstance(snapshot, Mapping) else None
+    if contact_selection_trace is None:
+        snapshot = stage_inputs.get("contact_selection_trace_snapshot")
+        contact_selection_trace = dict(snapshot) if isinstance(snapshot, Mapping) else None
+    return contact_candidate_collection, contact_selection_trace
+
+
+def _restore_stage8_carrier_inputs(
+    *,
+    stage_inputs: dict[str, Any],
+    contact_candidate_collection: Mapping[str, Any] | None,
+    contact_selection_trace: Mapping[str, Any] | None,
+) -> None:
+    if contact_candidate_collection is not None:
+        stage_inputs["contact_candidate_collection_snapshot"] = dict(contact_candidate_collection)
+        collection_id = contact_candidate_collection.get("contact_candidate_collection_id")
+        if collection_id not in (None, "", "UNKNOWN"):
+            stage_inputs["contact_candidate_collection_id_optional"] = str(collection_id)
+        winning_contact_candidate_id = contact_candidate_collection.get("winning_contact_candidate_id")
+        if winning_contact_candidate_id not in (None, "", "UNKNOWN"):
+            stage_inputs["winning_contact_candidate_id_optional"] = str(winning_contact_candidate_id)
+        if contact_candidate_collection.get("reselect_reason_optional") not in (None, ""):
+            stage_inputs["reselect_reason_optional"] = contact_candidate_collection.get(
+                "reselect_reason_optional"
+            )
+    if contact_selection_trace is not None:
+        stage_inputs["contact_selection_trace_snapshot"] = dict(contact_selection_trace)
+        selection_trace_id = contact_selection_trace.get("contact_selection_trace_id")
+        if selection_trace_id not in (None, "", "UNKNOWN"):
+            stage_inputs["contact_selection_trace_id_optional"] = str(selection_trace_id)
+        if stage_inputs.get("contact_candidate_collection_id_optional") in (None, ""):
+            collection_id = contact_selection_trace.get("contact_candidate_collection_id")
+            if collection_id not in (None, "", "UNKNOWN"):
+                stage_inputs["contact_candidate_collection_id_optional"] = str(collection_id)
+        if stage_inputs.get("winning_contact_candidate_id_optional") in (None, ""):
+            winning_contact_candidate_id = contact_selection_trace.get("winning_contact_candidate_id")
+            if winning_contact_candidate_id not in (None, "", "UNKNOWN"):
+                stage_inputs["winning_contact_candidate_id_optional"] = str(winning_contact_candidate_id)
+        if stage_inputs.get("reselect_reason_optional") in (None, ""):
+            reselect_reason = contact_selection_trace.get("reselect_reason_optional")
+            if reselect_reason not in (None, ""):
+                stage_inputs["reselect_reason_optional"] = reselect_reason
+
+    resolution_trace = stage_inputs.get("stage8_resolution_trace")
+    resolution_trace = dict(resolution_trace) if isinstance(resolution_trace, Mapping) else {}
+    if contact_candidate_collection is not None:
+        resolution_trace["contact_candidate_collection_id"] = contact_candidate_collection.get(
+            "contact_candidate_collection_id"
+        )
+        resolution_trace["winning_contact_candidate_id"] = contact_candidate_collection.get(
+            "winning_contact_candidate_id"
+        )
+    if contact_selection_trace is not None:
+        resolution_trace["contact_selection_trace_id"] = contact_selection_trace.get(
+            "contact_selection_trace_id"
+        )
+        resolution_trace["contact_selection_trace"] = {
+            "winning_selection_reason": contact_selection_trace.get("winning_selection_reason"),
+            "conflict_flag": contact_selection_trace.get("conflict_flag"),
+            "conflict_reason_optional": contact_selection_trace.get("conflict_reason_optional"),
+            "source_conflict_candidate_count": contact_selection_trace.get(
+                "source_conflict_candidate_count",
+                0,
+            ),
+            "source_merge_review_required_count": contact_selection_trace.get(
+                "source_merge_review_required_count",
+                0,
+            ),
+            "reselect_reason_optional": contact_selection_trace.get("reselect_reason_optional"),
+            "reselect_history": contact_selection_trace.get("reselect_history"),
+        }
+    if resolution_trace:
+        stage_inputs["stage8_resolution_trace"] = resolution_trace
+
+
+def _build_stage8_handoff_readback(
+    *,
+    handoff_snapshot: Mapping[str, Any] | None,
+    contact_target: Mapping[str, Any],
+    outreach_plan: Mapping[str, Any],
+    touch_record: Mapping[str, Any],
+    stage_inputs: Mapping[str, Any],
+) -> dict[str, Any]:
+    handoff = dict(handoff_snapshot) if isinstance(handoff_snapshot, Mapping) else {}
+    handoff.setdefault("opportunity_id", contact_target.get("opportunity_id"))
+    handoff.setdefault("touch_record_id", touch_record.get("touch_record_id"))
+    handoff.setdefault("response_status", touch_record.get("response_status"))
+    handoff.setdefault("saleability_status", touch_record.get("saleability_status"))
+    handoff.setdefault("crm_owner_state", stage_inputs.get("crm_owner_state"))
+    handoff.setdefault("contact_target_status", contact_target.get("contact_target_status"))
+    handoff.setdefault("plan_status", outreach_plan.get("plan_status"))
+    handoff.setdefault("touch_record_state", touch_record.get("touch_record_state"))
+    handoff.setdefault("feedback_reason", touch_record.get("feedback_reason"))
+    handoff.setdefault("written_back_at_optional", touch_record.get("written_back_at_optional"))
+    for field_name in (
+        "contact_candidate_collection_id_optional",
+        "contact_selection_trace_id_optional",
+        "winning_contact_candidate_id_optional",
+        "reselect_reason_optional",
+    ):
+        if stage_inputs.get(field_name) not in (None, ""):
+            handoff[field_name] = stage_inputs[field_name]
+    if stage_inputs.get("contact_candidate_collection_id_optional") not in (None, ""):
+        handoff["contact_candidate_collection_id"] = stage_inputs[
+            "contact_candidate_collection_id_optional"
+        ]
+    if stage_inputs.get("contact_selection_trace_id_optional") not in (None, ""):
+        handoff["contact_selection_trace_id"] = stage_inputs["contact_selection_trace_id_optional"]
+    return handoff
+
+
 def hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     contact_target, outreach_plan, touch_record, stage_state = _find_stage8_records(payload)
     if not all((contact_target, outreach_plan, touch_record, stage_state)):
@@ -502,6 +707,28 @@ def hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
         stage_state = _get_stage_state(8, STAGE_SURFACE_IDS[8], touch_record.record_id)
     if not stage_state:
         return None
+    stage_inputs = dict(stage_state.inputs)
+    trace_rules = list(stage_inputs.pop(_STAGE8_TRACE_RULES_SNAPSHOT_KEY, []))
+    handoff_snapshot = stage_inputs.pop(_STAGE8_HANDOFF_SNAPSHOT_KEY, None)
+    carrier_resolution = _hydrate_stage8_carriers(
+        stage_inputs=stage_inputs,
+        persisted_refs=stage_state.typed_object_refs,
+    )
+    if carrier_resolution is None:
+        return None
+    contact_candidate_collection, contact_selection_trace = carrier_resolution
+    _restore_stage8_carrier_inputs(
+        stage_inputs=stage_inputs,
+        contact_candidate_collection=contact_candidate_collection,
+        contact_selection_trace=contact_selection_trace,
+    )
+    handoff = _build_stage8_handoff_readback(
+        handoff_snapshot=handoff_snapshot,
+        contact_target=contact_target.as_payload(),
+        outreach_plan=outreach_plan.as_payload(),
+        touch_record=touch_record.as_payload(),
+        stage_inputs=stage_inputs,
+    )
 
     return StageBundle(
         stage=8,
@@ -510,8 +737,9 @@ def hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
             "outreach_plan": ContractRecord("outreach_plan", outreach_plan.as_payload()),
             "touch_record": ContractRecord("touch_record", touch_record.as_payload()),
         },
-        handoff={},
-        inputs=dict(stage_state.inputs),
+        handoff=handoff,
+        trace_rules=trace_rules,
+        inputs=stage_inputs,
     )
 
 

@@ -706,6 +706,8 @@ class Stage8Service:
         handoff = build_h08_handoff_payload(
             project_id=project_id,
             saleable_opportunity=saleable_opportunity,
+            contact_candidate_collection=contact_candidate_collection,
+            contact_selection_trace=contact_selection_trace,
             contact_target=contact_target,
             outreach_plan=outreach_plan,
             touch_record=touch_record,

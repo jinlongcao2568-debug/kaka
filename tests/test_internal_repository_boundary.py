@@ -25,6 +25,8 @@ from storage.repository_boundary import hydrate_stage_bundle
 from storage.repositories import (
     BuyerFitRepository,
     ChallengerCandidateProfileRepository,
+    ContactCandidateCollectionRepository,
+    ContactSelectionTraceRepository,
     ContactTargetRepository,
     DeliveryRecordRepository,
     GovernanceFeedbackEventRepository,
@@ -331,14 +333,34 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         create_touch_record(stage8)
 
         touch = stage8.record("touch_record")
+        collection = stage8.inputs["contact_candidate_collection_snapshot"]
+        selection_trace = stage8.inputs["contact_selection_trace_snapshot"]
         touch_entry = TouchRecordRepository().get_by_id(touch.get("touch_record_id"))
         contact_entry = ContactTargetRepository().get_by_id(stage8.record("contact_target").get("contact_target_id"))
         plan_entry = OutreachPlanRepository().get_by_id(stage8.record("outreach_plan").get("outreach_plan_id"))
+        collection_entry = ContactCandidateCollectionRepository().get_by_id(
+            collection.get("contact_candidate_collection_id")
+        )
+        selection_trace_entry = ContactSelectionTraceRepository().get_by_id(
+            selection_trace.get("contact_selection_trace_id")
+        )
 
         self.assertIsNotNone(touch_entry)
         self.assertIsNotNone(contact_entry)
         self.assertIsNotNone(plan_entry)
+        self.assertIsNotNone(collection_entry)
+        self.assertIsNotNone(selection_trace_entry)
         self.assertEqual(touch_entry.stage_scope, 8)
+        self.assertEqual(collection_entry.stage_scope, 8)
+        self.assertEqual(selection_trace_entry.stage_scope, 8)
+        self.assertEqual(
+            collection_entry.payload["winning_contact_candidate_id"],
+            collection.get("winning_contact_candidate_id"),
+        )
+        self.assertEqual(
+            selection_trace_entry.payload["contact_candidate_collection_id"],
+            collection.get("contact_candidate_collection_id"),
+        )
         self.assertEqual(
             touch_entry.writeback_state["written_back_at_optional"],
             touch.get("written_back_at_optional"),
@@ -368,6 +390,26 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             replay["decision_states"]["permission_decision_state"],
             stage8.inputs.get("permission_decision_state"),
         )
+        self.assertEqual(
+            replay["persisted_operational_context"]["object_refs"]["contact_candidate_collection_id"],
+            collection.get("contact_candidate_collection_id"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["object_refs"]["contact_selection_trace_id"],
+            selection_trace.get("contact_selection_trace_id"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["governed_context"][
+                "contact_candidate_collection_summary"
+            ]["winning_contact_candidate_id"],
+            collection.get("winning_contact_candidate_id"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["governed_context"][
+                "contact_selection_trace_summary"
+            ]["source_merge_review_required_count"],
+            selection_trace.get("source_merge_review_required_count"),
+        )
         self.assertTrue(replay["blocked_by_default"])
         hydrated = hydrate_stage_bundle(
             "stage8",
@@ -396,6 +438,26 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             hydrated.inputs["stop_policy_id"],
             stage8.record("outreach_plan").get("stop_policy_id"),
+        )
+        self.assertEqual(
+            hydrated.inputs["contact_candidate_collection_snapshot"],
+            collection_entry.payload,
+        )
+        self.assertEqual(
+            hydrated.inputs["contact_selection_trace_snapshot"],
+            selection_trace_entry.payload,
+        )
+        self.assertEqual(
+            hydrated.inputs["winning_contact_candidate_id_optional"],
+            collection.get("winning_contact_candidate_id"),
+        )
+        self.assertEqual(
+            hydrated.handoff["contact_candidate_collection_id"],
+            collection.get("contact_candidate_collection_id"),
+        )
+        self.assertEqual(
+            hydrated.handoff["contact_selection_trace_id"],
+            selection_trace.get("contact_selection_trace_id"),
         )
 
     def test_stage8_repository_replays_connected_handoff_governed_metadata(self) -> None:
@@ -725,6 +787,41 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             {
                 "contact_target_id": "CT-STALE-TYPED-REF-001",
                 "outreach_plan_id": "PLAN-STALE-TYPED-REF-001",
+            }
+        )
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        hydrated = hydrate_stage_bundle("stage8", {"opportunity_id": opportunity_id})
+
+        self.assertIsNone(hydrated)
+        with self.assertRaises(TypeError):
+            list_contact_targets({"opportunity_id": opportunity_id})
+
+    def test_stage8_carrier_readback_does_not_broad_fallback_when_typed_refs_are_stale(self) -> None:
+        stage8 = self.result["stage8"]
+        create_touch_record(stage8)
+
+        touch_id = stage8.record("touch_record").get("touch_record_id")
+        opportunity_id = stage8.record("contact_target").get("opportunity_id")
+        stage_state = DatabaseSession.default().get_stage_state(8, "outreach_workbench", touch_id)
+        self.assertIsNotNone(stage_state)
+
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs.update(
+            {
+                "contact_candidate_collection_id": "CCOLL-STALE-TYPED-REF-001",
+                "contact_selection_trace_id": "CTRACE-STALE-TYPED-REF-001",
             }
         )
         DatabaseSession.default().upsert_stage_state(
