@@ -24,6 +24,7 @@ Allowed Actions (current):
 - modify only listed Stage6 contracts/schemas, src/stage6_fact_review, storage repositories / boundary / bundle IO, and listed tests
 - update control/product_module_registry.yaml only when new Stage6 repository files or repository-boundary current files must be formally registered for this packet
 - modify listed Stage6 preview surface files under src/api/main.py, src/api/projections.py, src/api/routes/stage6.py, src/api/schemas/stage6.py, and listed preview/bootstrap tests only when implementing the Stage6 internal preview slice
+- modify listed Stage6 operator-loop files under src/storage/operator_loop_contracts.py, src/storage/operator_workbench_projection.py, work item / operator action repositories, and listed operational tests only when implementing the Stage6 operator queue slice
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
