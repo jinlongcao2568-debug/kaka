@@ -18,6 +18,7 @@ if str(TESTS) not in sys.path:
     sys.path.insert(0, str(TESTS))
 
 from storage.db import DatabaseSession, PersistedStageState, build_persisted_at
+from shared.settings import Settings
 
 
 STORAGE_ENV_KEYS = (
@@ -34,11 +35,18 @@ class TestStorageConcurrency(unittest.TestCase):
                 for key in STORAGE_ENV_KEYS:
                     os.environ.pop(key, None)
 
+                settings = Settings.from_env()
+                settings_path = settings.resolved_storage_path()
                 path = DatabaseSession.default_storage_path()
 
         self.assertEqual(path, Path(tmp_dir) / "kaka" / "internal_operator_loop_store.json")
         self.assertEqual(path.name, "internal_operator_loop_store.json")
         self.assertNotIn(str(os.getpid()), path.name)
+        self.assertEqual(settings.storage_backend, "json-file")
+        self.assertIsNone(settings.storage_path_optional)
+        self.assertEqual(settings.storage_scope, "shared")
+        self.assertEqual(settings.storage_runtime_mode, "stable-default")
+        self.assertEqual(path, settings_path)
 
     def test_explicit_storage_path_takes_priority(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -53,9 +61,15 @@ class TestStorageConcurrency(unittest.TestCase):
                 },
                 clear=False,
             ):
+                settings = Settings.from_env()
+                settings_path = settings.resolved_storage_path()
                 path = DatabaseSession.default_storage_path()
 
         self.assertEqual(path, explicit_path)
+        self.assertEqual(settings.storage_path_optional, str(explicit_path))
+        self.assertEqual(settings.storage_scope, "process")
+        self.assertEqual(settings.storage_runtime_mode, "explicit-path")
+        self.assertEqual(path, settings_path)
 
     def test_process_scoped_storage_path_requires_opt_in(self) -> None:
         cases = (
@@ -71,12 +85,17 @@ class TestStorageConcurrency(unittest.TestCase):
                             if key not in env:
                                 os.environ.pop(key, None)
 
+                        settings = Settings.from_env()
+                        settings_path = settings.resolved_storage_path()
                         path = DatabaseSession.default_storage_path()
 
                 self.assertTrue(path.name.startswith("internal_operator_loop_store-"))
                 self.assertTrue(path.name.endswith(".json"))
                 self.assertIn(str(os.getpid()), path.name)
                 self.assertEqual(path.parent, Path(tmp_dir) / "kaka")
+                self.assertEqual(settings.storage_scope, "process")
+                self.assertEqual(settings.storage_runtime_mode, "process-scoped-default")
+                self.assertEqual(path, settings_path)
 
     def test_parallel_sessions_can_flush_same_storage_path_without_tmp_collision(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

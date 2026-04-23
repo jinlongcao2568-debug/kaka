@@ -1,7 +1,7 @@
 version: 1
 templateState: "NAMED_ASSIGNED"
 single_operator_mode: true
-updated_at: "2026-04-23"
+updated_at: "2026-04-24"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
@@ -9,7 +9,7 @@ navigation_state: "PTL_I100_106_ACTIVE_SCOPED_EXECUTION"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-105 已完成 Stage8 formal carrier persistence/readback/replay 与 Stage9 internal additive governed writeback；按用户要求由总控窗口直接收口 105 并激活 PTL-I100-106 第一刀。"
+activation_condition: "PTL-I100-106A 已完成 storage runtime path 与 settings/bootstrap 单一入口收口；继续推进 PTL-I100-106 第二刀，聚焦 storage backend seam 单消费点。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -44,7 +44,7 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "激活 PTL-I100-106 为当前 scoped execution packet；106-A 第一刀只做 storage runtime foundation 边界收口，为后续 PostgreSQL/Alembic、队列、对象存储与全链入口实现建立可验证入口，不一次性改完整基础设施。"
+  objective: "保持 PTL-I100-106 为当前 scoped execution packet；106-B 第二刀只做 storage backend seam 单消费点，为后续 PostgreSQL/Alembic 等 backend 引入建立单入口，不一次性改完整基础设施。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -65,7 +65,7 @@ currentTask:
   task_packet:
     version: 1
     packet_id: "PTL-I100-106-platform-foundation-and-full-chain-entry"
-    subpacket_id: "PTL-I100-106A-storage-runtime-foundation"
+    subpacket_id: "PTL-I100-106B-storage-backend-seam"
     backlog_packet_ref: "PTL-I100-106-platform-foundation-and-full-chain-entry"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
@@ -73,11 +73,12 @@ currentTask:
     runtime_change_in_packet: "IN_SCOPE"
     existing_code_state: "HEAVY_RUNTIME"
     existing_runtime_state: "FILE_BACKED_INTERNAL_RUNTIME"
-    title: "I100-6A storage runtime foundation 第一刀"
+    title: "I100-6B storage backend seam 第一刀"
     status: "ACTIVE"
-    objective: "收紧当前 file-backed storage 的正式内部运行入口：明确默认 storage path / session lifecycle / repository backend seam，去掉生产路径对 process-scoped JSON default 的隐式依赖，并保留现有回放、preview、operator workbench 行为。"
+    objective: "把 `storage_backend` 变成 `DatabaseSession` 的单消费 seam：当前只支持 `json-file`，对未支持 backend 做明确 fast-fail，并保持 settings/bootstrap/readback 行为一致。"
     depends_on:
       - "PTL-I100-105 已完成并本地提交：d37ae82、fdd471e。"
+      - "PTL-I100-106A 已完成并本地提交：1eda05f。"
       - "PTL-INT-102 已完成 repository boundary hardening：b8288a7。"
       - "PTL-INT-104 已完成 operator/workbench observability 第一刀：b8a2762。"
       - "control/current_task.yaml 是唯一 active execution source。"
@@ -127,6 +128,7 @@ currentTask:
       - "不一次性引入完整 PostgreSQL/Alembic 迁移体系"
       - "不一次性引入 Redis/Dramatiq 队列"
       - "不一次性引入 MinIO/S3 对象存储"
+      - "不一次性引入 Docker Compose"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不新增正式对象、枚举、gate、exception 语义"
       - "不修改 docs/**"
@@ -136,7 +138,7 @@ currentTask:
       - "automation_control"
       - "storage"
       - "internal_preview"
-      - "stage1_to_stage9"
+      - "api_transport"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
@@ -156,41 +158,29 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "src/shared/settings.py"
       - "src/storage/__init__.py"
       - "src/storage/db.py"
-      - "src/storage/repositories/_base.py"
-      - "src/storage/repository_boundary.py"
-      - "src/storage/repository_bundle_io.py"
-      - "src/storage/operator_workbench_projection.py"
       - "src/api/main.py"
       - "src/api/deps.py"
       - "tests/test_storage_concurrency.py"
-      - "tests/test_internal_repository_boundary.py"
       - "tests/test_api_transport_bootstrap.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "src/shared/settings.py"
       - "src/storage/__init__.py"
       - "src/storage/db.py"
-      - "src/storage/repositories/_base.py"
-      - "src/storage/repository_boundary.py"
-      - "src/storage/repository_bundle_io.py"
-      - "src/storage/operator_workbench_projection.py"
       - "src/api/main.py"
       - "src/api/deps.py"
       - "tests/test_storage_concurrency.py"
-      - "tests/test_internal_repository_boundary.py"
       - "tests/test_api_transport_bootstrap.py"
     current_window_actual_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_task_library.yaml"
+      - "control/repo_status.md"
     forbidden_modification_paths:
       - "docs/**"
       - "contracts/**"
@@ -220,7 +210,6 @@ currentTask:
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
-        - "control/product_task_library.yaml"
         - "control/product_module_registry.yaml"
       contracts: []
       handoff: []
@@ -229,16 +218,11 @@ currentTask:
         - "scripts/check-state-alignment.ps1"
       tests:
         - "tests/test_storage_concurrency.py"
-        - "tests/test_internal_repository_boundary.py"
         - "tests/test_api_transport_bootstrap.py"
       runtime:
         - "src/shared/settings.py"
         - "src/storage/__init__.py"
         - "src/storage/db.py"
-        - "src/storage/repositories/_base.py"
-        - "src/storage/repository_boundary.py"
-        - "src/storage/repository_bundle_io.py"
-        - "src/storage/operator_workbench_projection.py"
         - "src/api/main.py"
         - "src/api/deps.py"
     required_scripts:
@@ -246,7 +230,6 @@ currentTask:
       - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python -m unittest tests.test_storage_concurrency -v"
-      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_api_transport_bootstrap -v"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -257,7 +240,6 @@ currentTask:
       "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python -m unittest tests.test_storage_concurrency -v": 300000
-      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_api_transport_bootstrap -v": 300000
       "python tests/run_tests.py": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
@@ -274,14 +256,14 @@ currentTask:
     definition_of_done:
       - "PTL-I100-105 在 control/product_task_library.yaml 中标记为 COMPLETED，并记录 completed_commit=fdd471e。"
       - "PTL-I100-106 激活为当前 active scoped execution packet。"
-      - "Storage default path / session lifecycle / repository backend seam 有明确 runtime 边界，不再把 process-scoped JSON default 当成正式内部运行默认。"
-      - "现有 repository readback、internal preview 与 operator workbench 行为保持兼容。"
+      - "`storage_backend` 由 `Settings -> deps -> DatabaseSession.default()` 单一消费。"
+      - "当前只支持 `json-file` backend；未支持 backend 会明确 fast-fail，不静默 fallback。"
+      - "现有 repository readback、internal preview 与 app bootstrap 行为保持兼容。"
       - "targeted tests 与 required scripts 全部通过。"
     deliverables:
-      - "PTL-I100-105 closeout control sync"
-      - "PTL-I100-106A storage runtime foundation task packet"
-      - "Storage runtime foundation minimal implementation"
-      - "Storage / repository / API transport regression tests"
+      - "PTL-I100-106B storage backend seam task packet"
+      - "Storage backend single-consumer seam"
+      - "Storage / API bootstrap regression tests"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -293,11 +275,11 @@ currentTask:
       declared: true
       signoff_required: true
       signoff_status: "APPROVED_FOR_SCOPED_INTERNAL_IMPLEMENTATION_AND_LOCAL_COMMIT"
-      signoff_meaning: "用户要求总控窗口在验收提交通过后直接推进下一任务；本批准仅允许 closeout PTL-I100-105、激活 PTL-I100-106A，并在 declared_changed_paths / allowed_modification_paths 范围内做 storage runtime foundation 内部 scoped implementation 与本地 commit，不批准 push、external release、Stage8 real execution、Stage9 payment/delivery/refund。"
+      signoff_meaning: "用户要求总控窗口在验收提交通过后直接推进下一任务；本批准仅允许继续 PTL-I100-106B，并在 declared_changed_paths / allowed_modification_paths 范围内做 storage backend seam 内部 scoped implementation 与本地 commit，不批准 push、external release、Stage8 real execution、Stage9 payment/delivery/refund。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "本包第一刀只做 storage runtime foundation，不做完整基础设施一次性落地。"
+      - "本包第二刀只做 storage backend seam，不做完整基础设施一次性落地。"
       - "External leadpack delivery 继续要求 approval + audit。"
       - "External software release remains blocked。"
       - "Stage 8 real execution remains governed / approval-gated / blocked by default。"
@@ -308,9 +290,9 @@ currentTask:
     - "Stage 8 real execution remains governed / approval-gated / blocked by default"
     - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "允许修改 control/current_task.yaml、control/repo_status.md、control/product_task_library.yaml。"
+    - "允许修改 control/current_task.yaml、control/repo_status.md。"
     - "允许在 PTL-I100-106 declared_changed_paths / allowed_modification_paths 范围内执行内部 scoped implementation。"
-    - "允许 storage runtime foundation / repository backend seam / API transport readback 相关最小实现。"
+    - "允许 storage backend seam / API bootstrap 相关最小实现。"
     - "允许运行本轮 required checks，并按停机规则汇报。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
@@ -323,6 +305,6 @@ currentTask:
     - "不得自动进入 PTL-I100-107。"
     - "不得 push。"
   nextActions:
-    - "下一窗口直接在 PTL-I100-106A 当前 task_packet 范围内执行 storage runtime foundation 第一刀。"
-    - "若 106A 完成，再由总控窗口决定是否继续 106B PostgreSQL/Alembic migration plan，或先补 API transport/full-chain entry。"
-  status_note: "PTL-I100-105 已完成并收口；PTL-I100-106 已激活为当前 SCOPED_EXECUTION packet，第一刀目标是 storage runtime foundation，external/live 红线不变。"
+    - "下一窗口直接在 PTL-I100-106B 当前 task_packet 范围内执行 storage backend seam 第一刀。"
+    - "若 106B 完成，再由总控窗口决定是否继续 106C full-chain entry bootstrap/readback，或先开 PostgreSQL/Alembic seam 设计包。"
+  status_note: "PTL-I100-105 已完成并收口；PTL-I100-106 保持当前 SCOPED_EXECUTION packet，当前推进切面是 106-B storage backend seam，external/live 红线不变。"

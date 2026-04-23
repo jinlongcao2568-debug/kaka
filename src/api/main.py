@@ -82,6 +82,7 @@ def _mount_routes(app: FastAPI, routes: list[dict[str, Any]]) -> None:
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
     app = FastAPI(
         title="AX9S Internal Preview API",
         version="0.1.0",
@@ -89,7 +90,8 @@ def create_app() -> FastAPI:
         redoc_url=None,
         openapi_url="/openapi.json",
     )
-    app.state.settings = get_settings()
+    app.state.settings = settings
+    app.state.storage_bootstrap = settings.storage_bootstrap_payload()
     app.state.disabled_stage_transports = {
         "stage1": register_stage1_routes(),
         "stage2": register_stage2_routes(),

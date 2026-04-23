@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-106-platform-foundation-and-full-chain-entry (SCOPED_EXECUTION; active storage runtime foundation first slice; PTL-I100-105 completed via d37ae82 and fdd471e; this does not approve push, external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-106-platform-foundation-and-full-chain-entry (SCOPED_EXECUTION; active 106-B storage backend seam slice; PTL-I100-105 completed via d37ae82 and fdd471e; PTL-I100-106A settings/bootstrap path stabilization completed via 1eda05f; this does not approve push, external release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,7 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - execute PTL-I100-106 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
-- modify only listed storage runtime foundation, repository boundary / bundle IO, API transport readback support, product module registry, and listed tests for 106A storage runtime foundation
+- modify only listed storage backend seam, settings/bootstrap, API transport bootstrap support, product module registry, and listed tests for 106-B storage backend seam
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -62,7 +62,7 @@ State Semantics:
 - PTL-I100-103 is completed and closed out via commits a276410, d86a6f7, and 2a14692.
 - PTL-I100-104 is completed and closed out via commits 3625e35, 068e1b7, 2313d7e, and 3cc70bf.
 - PTL-I100-105 is completed via commits d37ae82 and fdd471e; Stage8 carrier persistence/readback/replay and Stage9 internal additive governed writeback are implemented.
-- PTL-I100-106-platform-foundation-and-full-chain-entry is now the active scoped execution packet; first slice is 106A storage runtime foundation.
+- PTL-I100-106-platform-foundation-and-full-chain-entry is now the active scoped execution packet; 106A storage runtime path/settings/bootstrap stabilization completed via 1eda05f and 106-B storage backend seam is the current slice.
 - PTL-I100-107 is not auto-activated; current_mainline_next_candidate remains null until a dedicated future current_task packet is created.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
@@ -78,7 +78,6 @@ Current Scoped-Execution Required Checks:
 - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python -m unittest tests.test_storage_concurrency -v
-- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_api_transport_bootstrap -v
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1

@@ -4,11 +4,12 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from tempfile import gettempdir, mkstemp
+from tempfile import mkstemp
 from threading import RLock
 from time import sleep
 from typing import Any, Dict, List
 
+from shared.settings import Settings
 from shared.utils import utc_now_iso
 
 
@@ -157,14 +158,11 @@ class PersistedOperatorAction:
 
 class DatabaseSession:
     _default: "DatabaseSession | None" = None
-    _storage_dir_name = "kaka"
-    _storage_file_stem = "internal_operator_loop_store"
-    _storage_scope_process = "process"
-    _test_isolation_truthy = {"1", "true", "yes", "on", "process"}
 
-    def __init__(self, *, storage_path: Path | None = None) -> None:
+    def __init__(self, *, storage_path: Path | None = None, settings: Settings | None = None) -> None:
         self._lock = RLock()
-        self._storage_path = storage_path or self.default_storage_path()
+        self._settings = settings or self.default_settings()
+        self._storage_path = storage_path or self.default_storage_path(settings=self._settings)
         self._tables: Dict[str, Dict[str, PersistedRecord]] = {}
         self._stage_states: Dict[str, PersistedStageState] = {}
         self._work_items: Dict[str, PersistedWorkItem] = {}
@@ -172,31 +170,18 @@ class DatabaseSession:
         self._load()
 
     @classmethod
-    def default(cls, *, reload_from_disk: bool = False) -> "DatabaseSession":
+    def default(cls, *, reload_from_disk: bool = False, settings: Settings | None = None) -> "DatabaseSession":
         if cls._default is None or reload_from_disk:
-            cls._default = cls()
+            cls._default = cls(settings=settings)
         return cls._default
 
     @classmethod
-    def default_storage_path(cls) -> Path:
-        explicit = os.getenv("KAKA_STORAGE_PATH")
-        if explicit:
-            return Path(explicit)
-        base = Path(os.getenv("LOCALAPPDATA") or gettempdir())
-        file_name = (
-            f"{cls._storage_file_stem}-{os.getpid()}.json"
-            if cls._uses_process_scoped_storage()
-            else f"{cls._storage_file_stem}.json"
-        )
-        return base / cls._storage_dir_name / file_name
+    def default_settings(cls, *, settings: Settings | None = None) -> Settings:
+        return settings or Settings.from_env()
 
     @classmethod
-    def _uses_process_scoped_storage(cls) -> bool:
-        storage_scope = os.getenv("KAKA_STORAGE_SCOPE", "").strip().lower()
-        if storage_scope == cls._storage_scope_process:
-            return True
-        test_isolation = os.getenv("KAKA_STORAGE_TEST_ISOLATION", "").strip().lower()
-        return test_isolation in cls._test_isolation_truthy
+    def default_storage_path(cls, *, settings: Settings | None = None) -> Path:
+        return cls.default_settings(settings=settings).resolved_storage_path()
 
     @property
     def storage_path(self) -> Path:

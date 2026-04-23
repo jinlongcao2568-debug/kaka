@@ -18,7 +18,7 @@ def _repo_root() -> Path:
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings(
+    return Settings.from_env(
         repo_root=str(_repo_root()),
         environment="INTERNAL_ONLY",
     )
