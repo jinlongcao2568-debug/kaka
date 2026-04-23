@@ -1366,9 +1366,16 @@
         "candidate_list",
         "winning_contact_candidate_id",
         "selection_trace_id",
+        "merge_policy_id",
+        "dedupe_applied",
+        "source_conflict_candidate_count",
+        "source_merge_review_required_count",
         "reselect_history",
         "created_by_stage",
         "downstream_consumer"
+      ],
+      "optional": [
+        "reselect_reason_optional"
       ],
       "source_refs": [
         "D2-R-017",
@@ -1415,12 +1422,20 @@
         "winning_contact_candidate_id",
         "selection_policy_id",
         "selection_basis",
+        "merge_policy_id",
+        "dedupe_applied",
+        "source_conflict_candidate_count",
+        "source_merge_review_required_count",
         "trace_entries",
         "winning_selection_reason",
         "conflict_flag",
         "reselect_history",
         "created_by_stage",
         "downstream_consumer"
+      ],
+      "optional": [
+        "conflict_reason_optional",
+        "reselect_reason_optional"
       ],
       "source_refs": [
         "D2-R-017",
@@ -1744,6 +1759,13 @@
         "semantic_decision_state",
         "governed_metadata"
       ],
+      "optional": [
+        "payment_exception_family_optional",
+        "payment_exception_reason_optional",
+        "payment_exception_reason_tags_optional",
+        "amount_mismatch_state_optional",
+        "refund_amount_band_optional"
+      ],
       "source_refs": [
         "D2-R-017",
         "D2-R-063",
@@ -1789,6 +1811,14 @@
         "governance_decision_state",
         "semantic_decision_state",
         "governed_metadata"
+      ],
+      "optional": [
+        "delivery_exception_family_optional",
+        "delivery_exception_reason_optional",
+        "delivery_exception_reason_tags_optional",
+        "partial_delivery_state_optional",
+        "resend_required_optional",
+        "redeliver_required_optional"
       ],
       "source_refs": [
         "D2-R-017",
@@ -1894,6 +1924,9 @@
         "governance_decision_state",
         "semantic_decision_state",
         "governed_metadata"
+      ],
+      "optional": [
+        "governance_feedback_policy_id_optional"
       ],
       "source_refs": [
         "D2-R-017",

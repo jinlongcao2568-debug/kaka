@@ -84,6 +84,7 @@ currentTask:
       previous_active_packet: "PTL-I100-000-roadmap-registration"
       target_active_packet: "PTL-I100-101-d8-d10-contract-runtime-field-alignment"
       product_task_library_change: false
+      product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: true
       enter_scoped_execution: true
@@ -110,9 +111,11 @@ currentTask:
       push_allowed: false
     non_goals:
       - "not an external unlock implementation"
+      - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
+      - "不新增业务对象、枚举、gate、exception 语义"
       - "不新增正式对象、枚举、gate、exception 语义"
       - "不自动进入任务 2"
       - "不 push"

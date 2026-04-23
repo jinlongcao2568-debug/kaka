@@ -65,6 +65,7 @@ State Semantics:
 - PTL-I100-101 scoped internal implementation and local commit are approved by the user inside the current task_packet declared/allowed paths.
 - D8 / D9 / D10 are only allowed to receive later implementation-window tables, not正文主语义 rewrites.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
+- Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
 - operator_assignment_roster_defaults is the only stable roster source for stage7/8/9.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
