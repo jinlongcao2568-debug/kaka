@@ -21,7 +21,7 @@ Current Blockers:
 
 Allowed Actions (current):
 - execute PTL-I100-102 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
-- modify only the listed Stage1-5 contracts/governance, handoff stage1_to_stage2 / stage2_to_stage3, schemas, src/stage1_tasking to src/stage5_rules_evidence, fixtures, and listed tests
+- modify only the listed Stage1-5 contracts/governance, handoff stage1_to_stage2 / stage2_to_stage3 / stage3_to_stage4 / stage4_to_stage5, schemas, src/stage1_tasking to src/stage5_rules_evidence, fixtures, and listed tests
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
