@@ -34,13 +34,13 @@
     "route_review_reasons",
     "winning_version_resolution_rule_id",
     "version_conflict_state",
+    "clock_precedence_rule_id",
     "clock_conflict_state",
     "collection_state",
     "clock_resolution_rule_id"
   ],
   "optional_payload_fields": [
     "fallback_route",
-    "clock_precedence_rule_id",
     "current_action_start_at_optional",
     "current_action_deadline_at_optional"
   ],
@@ -58,13 +58,15 @@
     "route_review_reasons",
     "winning_version_resolution_rule_id",
     "version_conflict_state",
+    "clock_precedence_rule_id",
     "clock_conflict_state",
     "collection_state",
     "clock_resolution_rule_id"
   ],
   "consumer_obligations": [
     "Stage3 must consume Stage2 producer objects public_chain, clock_chain_profile, notice_version_chain, and fixation_bundle as read-only formal inputs.",
-    "Stage3 must consume source_registry_id, route_policy_id, route_decision_state, route_review_reasons, winning_version_resolution_rule_id, version_conflict_state, clock_conflict_state, collection_state, and clock_resolution_rule_id from Stage2 formal outputs / handoff rather than recomputing them from scattered payload override.",
+    "Stage3 must consume source_registry_id, route_policy_id, fallback_route, route_decision_state, route_review_reasons, winning_version_resolution_rule_id, version_conflict_state, clock_precedence_rule_id, clock_conflict_state, collection_state, and clock_resolution_rule_id from Stage2 formal outputs / handoff rather than recomputing them from scattered payload override.",
+    "Stage3 truth-layer carrier must project fallback_route, clock_precedence_rule_id, and optional action-window clock fields when supplied by H-02 authority.",
     "Missing or conflicting fixation, version, clock, or route authority must route Stage3 truth-layer output into REVIEW or BLOCK before Stage4 consumption."
   ],
   "consumer_must_not_recompute_fields": [
@@ -78,6 +80,7 @@
     "route_review_reasons",
     "winning_version_resolution_rule_id",
     "version_conflict_state",
+    "clock_precedence_rule_id",
     "clock_resolution_rule_id",
     "clock_conflict_state",
     "collection_state"

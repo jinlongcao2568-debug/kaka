@@ -29,6 +29,9 @@ from stage9_delivery.service import Stage9Service
 from storage import hydrate_stage_bundle, persist_stage_bundle, reset_default_storage
 
 
+VERTICAL_SLICE_FIXTURE = "stage1_to_stage5_real_source_vertical_slice_proc_national_html.json"
+
+
 class TestInternalChain(unittest.TestCase):
     def setUp(self) -> None:
         self.store = ContractStore.default()
@@ -415,7 +418,8 @@ class TestInternalChain(unittest.TestCase):
         self.assertNotIn("review_request", happy["stage5"].records)
 
     def test_stage3_truth_layer_handoff_requires_lineage_state_for_stage4(self) -> None:
-        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        result = run_internal_chain_to_stage7(load_fixture(VERTICAL_SLICE_FIXTURE))
+        stage2 = result["stage2"]
         stage3 = result["stage3"]
         h03 = self.contracts[3]
 
@@ -437,6 +441,16 @@ class TestInternalChain(unittest.TestCase):
             consumer_stage=4,
         )
         self.assertEqual(validation.decision_state, "ALLOW")
+        self.assertEqual(stage3.handoff.get("fallback_route"), stage2.handoff.get("fallback_route"))
+        self.assertEqual(stage3.handoff.get("clock_precedence_rule_id"), stage2.handoff.get("clock_precedence_rule_id"))
+        self.assertEqual(
+            stage3.handoff.get("current_action_start_at_optional"),
+            stage2.handoff.get("current_action_start_at_optional"),
+        )
+        self.assertEqual(
+            stage3.handoff.get("current_action_deadline_at_optional"),
+            stage2.handoff.get("current_action_deadline_at_optional"),
+        )
         for field_name in h03["required_payload_fields"]:
             resolved = stage3.handoff.get(field_name, stage3.inputs.get(field_name))
             if resolved in (None, ""):
@@ -499,7 +513,7 @@ class TestInternalChain(unittest.TestCase):
         )
 
     def test_stage2_projects_h02_optional_precedence_fields(self) -> None:
-        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        result = run_internal_chain_to_stage7(load_fixture(VERTICAL_SLICE_FIXTURE))
         stage2 = result["stage2"]
         h02 = self.contracts[2]
 
@@ -510,6 +524,7 @@ class TestInternalChain(unittest.TestCase):
             "route_review_reasons",
             "winning_version_resolution_rule_id",
             "version_conflict_state",
+            "clock_precedence_rule_id",
             "clock_resolution_rule_id",
             "clock_conflict_state",
             "collection_state",
@@ -518,7 +533,11 @@ class TestInternalChain(unittest.TestCase):
             self.assertIn(field_name, stage2.handoff)
             self.assertIn(field_name, stage2.inputs)
 
-        for field_name in ("fallback_route", "clock_precedence_rule_id"):
+        for field_name in (
+            "fallback_route",
+            "current_action_start_at_optional",
+            "current_action_deadline_at_optional",
+        ):
             self.assertIn(field_name, h02["optional_payload_fields"])
             self.assertIn(field_name, stage2.handoff)
 
@@ -529,9 +548,12 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage2.handoff.get("route_review_reasons"), [])
         self.assertEqual(stage2.handoff.get("winning_version_resolution_rule_id"), "VERSION-PROC-NOTICE-001")
         self.assertEqual(stage2.handoff.get("version_conflict_state"), "CONSISTENT")
+        self.assertEqual(stage2.handoff.get("clock_precedence_rule_id"), "CLOCK-PROC-NOTICE-001")
         self.assertEqual(stage2.handoff.get("clock_resolution_rule_id"), "CLOCK-DEFAULT")
         self.assertEqual(stage2.handoff.get("clock_conflict_state"), "CONSISTENT")
         self.assertEqual(stage2.handoff.get("collection_state"), "PARSED")
+        self.assertEqual(stage2.handoff.get("current_action_start_at_optional"), "2026-04-14T00:00:00Z")
+        self.assertEqual(stage2.handoff.get("current_action_deadline_at_optional"), "2026-04-24T23:59:59Z")
         self.assertIn("consumer_obligations", h02)
         self.assertIn("consumer_must_not_recompute_fields", h02)
         self.assertEqual(stage2.inputs.get("version_precedence_source"), "source_registry")
@@ -546,7 +568,7 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(stage2_trace.get("clock_precedence_rule_id_source"), "h01_authority")
 
     def test_stage2_consumes_h01_authority_over_payload_overrides(self) -> None:
-        stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
+        stage1 = Stage1Service().run(load_fixture(VERTICAL_SLICE_FIXTURE))
         conflicted = StageBundle(
             stage=1,
             records=dict(stage1.records),

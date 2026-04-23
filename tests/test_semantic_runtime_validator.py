@@ -25,6 +25,9 @@ from stage6_fact_review.service import Stage6Service
 from stage7_sales.service import Stage7Service
 
 
+VERTICAL_SLICE_FIXTURE = "stage1_to_stage5_real_source_vertical_slice_proc_national_html.json"
+
+
 class TestSemanticRuntimeValidator(unittest.TestCase):
     def setUp(self) -> None:
         self.store = ContractStore.default()
@@ -170,13 +173,13 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
             handoff={
                 key: value
                 for key, value in bundles["stage2"].handoff.items()
-                if key not in {"source_registry_id", "version_conflict_state"}
+                if key not in {"source_registry_id", "version_conflict_state", "clock_precedence_rule_id"}
             },
             trace_rules=list(bundles["stage2"].trace_rules),
             inputs={
                 key: value
                 for key, value in bundles["stage2"].inputs.items()
-                if key not in {"source_registry_id", "version_conflict_state"}
+                if key not in {"source_registry_id", "version_conflict_state", "clock_precedence_rule_id"}
             },
         )
         validation = self.store.evaluate_handoff_consumer(
@@ -186,6 +189,7 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
         self.assertEqual(validation.decision_state, "BLOCK")
         self.assertIn("source_registry_id", " ".join(validation.reasons))
         self.assertIn("version_conflict_state", " ".join(validation.reasons))
+        self.assertIn("clock_precedence_rule_id", " ".join(validation.reasons))
 
     def test_stage2_h01_authority_missing_or_conflicting_does_not_succeed_silently(self) -> None:
         stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
@@ -361,7 +365,7 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
         )
 
     def test_stage3_prefers_stage2_handoff_authority_over_input_override(self) -> None:
-        stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))
+        stage1 = Stage1Service().run(load_fixture(VERTICAL_SLICE_FIXTURE))
         stage2 = Stage2Service().run(stage1)
         conflicted_stage2 = StageBundle(
             stage=2,
@@ -377,7 +381,11 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
                 "route_review_reasons": ["payload_override"],
                 "winning_version_resolution_rule_id": "VERSION-OVERRIDE",
                 "version_conflict_state": "CONFLICTING",
+                "clock_precedence_rule_id": "CLOCK-PREC-OVERRIDE",
                 "clock_resolution_rule_id": "CLOCK-OVERRIDE",
+                "fallback_route": "SEMI_MANUAL",
+                "current_action_start_at_optional": "1999-01-01T00:00:00Z",
+                "current_action_deadline_at_optional": "1999-01-02T00:00:00Z",
             },
         )
         stage3 = Stage3Service().run(conflicted_stage2)
@@ -399,9 +407,24 @@ class TestSemanticRuntimeValidator(unittest.TestCase):
             stage3.inputs.get("clock_resolution_rule_id"),
             stage2.handoff.get("clock_resolution_rule_id"),
         )
+        self.assertEqual(
+            stage3.inputs.get("clock_precedence_rule_id"),
+            stage2.handoff.get("clock_precedence_rule_id"),
+        )
+        self.assertEqual(stage3.inputs.get("fallback_route"), stage2.handoff.get("fallback_route"))
+        self.assertEqual(
+            stage3.inputs.get("current_action_start_at_optional"),
+            stage2.handoff.get("current_action_start_at_optional"),
+        )
+        self.assertEqual(
+            stage3.inputs.get("current_action_deadline_at_optional"),
+            stage2.handoff.get("current_action_deadline_at_optional"),
+        )
         self.assertEqual(stage3.handoff.get("fixation_bundle_id"), stage2.handoff.get("fixation_bundle_id"))
         self.assertEqual(stage3.handoff.get("source_registry_id"), stage2.handoff.get("source_registry_id"))
         self.assertEqual(stage3.handoff.get("route_policy_id"), stage2.handoff.get("route_policy_id"))
+        self.assertEqual(stage3.handoff.get("clock_precedence_rule_id"), stage2.handoff.get("clock_precedence_rule_id"))
+        self.assertEqual(stage3.handoff.get("fallback_route"), stage2.handoff.get("fallback_route"))
 
     def test_stage3_missing_or_conflicting_h02_authority_forces_stage4_review_path(self) -> None:
         stage1 = Stage1Service().run(load_fixture("internal_chain_happy.json"))

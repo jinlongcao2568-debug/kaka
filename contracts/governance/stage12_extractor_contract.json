@@ -115,6 +115,7 @@
       "owned_fields": [
         "collection_state",
         "clock_conflict_state",
+        "clock_precedence_rule_id",
         "window_clock_state",
         "winning_version_resolution_rule_id",
         "fixation_bundle_id",

@@ -100,6 +100,34 @@ class Stage3Service:
                 return handoff_value
             return values[0][1]
 
+        def resolve_optional_h02_authority(
+            field_name: str,
+            carriers: list[tuple[str, Mapping[str, Any]]],
+            *,
+            normalize_list: bool = False,
+        ) -> Any:
+            values: list[tuple[str, Any, Any]] = []
+            for source_name, carrier in carriers:
+                if field_name not in carrier:
+                    continue
+                raw_value = carrier[field_name]
+                if raw_value is None or raw_value == "":
+                    continue
+                if normalize_list:
+                    value = ensure_list(raw_value)
+                    normalized = tuple(value)
+                else:
+                    value = raw_value
+                    normalized = raw_value
+                values.append((source_name, value, normalized))
+
+            handoff_value = next((value for source_name, value, _ in values if source_name == "handoff"), None)
+            if handoff_value is not None:
+                return handoff_value
+            if values:
+                return values[0][1]
+            return [] if normalize_list else None
+
         fixation_bundle_id = fixation_bundle.get("fixation_bundle_id")
         handoff_fixation_bundle_id = handoff_map.get("fixation_bundle_id")
         if handoff_fixation_bundle_id in (None, ""):
@@ -119,6 +147,14 @@ class Stage3Service:
         )
         route_policy_id = resolve_h02_authority(
             "route_policy_id",
+            [
+                ("handoff", handoff_map),
+                ("public_chain", public_chain_map),
+                ("notice_version_chain", notice_version_map),
+            ],
+        )
+        fallback_route = resolve_optional_h02_authority(
+            "fallback_route",
             [
                 ("handoff", handoff_map),
                 ("public_chain", public_chain_map),
@@ -161,6 +197,12 @@ class Stage3Service:
                 ("clock_chain_profile", clock_chain_map),
             ],
         )
+        clock_precedence_rule_id = resolve_h02_authority(
+            "clock_precedence_rule_id",
+            [
+                ("handoff", handoff_map),
+            ],
+        )
         clock_conflict_state = resolve_h02_authority(
             "clock_conflict_state",
             [
@@ -175,6 +217,20 @@ class Stage3Service:
                 ("public_chain", public_chain_map),
                 ("clock_chain_profile", clock_chain_map),
                 ("notice_version_chain", notice_version_map),
+            ],
+        )
+        current_action_start_at_optional = resolve_optional_h02_authority(
+            "current_action_start_at_optional",
+            [
+                ("handoff", handoff_map),
+                ("clock_chain_profile", clock_chain_map),
+            ],
+        )
+        current_action_deadline_at_optional = resolve_optional_h02_authority(
+            "current_action_deadline_at_optional",
+            [
+                ("handoff", handoff_map),
+                ("clock_chain_profile", clock_chain_map),
             ],
         )
 
@@ -378,10 +434,13 @@ class Stage3Service:
             "fixation_bundle_id": fixation_bundle.get("fixation_bundle_id"),
             "source_registry_id": source_registry_id,
             "route_policy_id": route_policy_id,
+            "fallback_route": fallback_route,
             "route_decision_state": route_decision_state,
             "route_review_reasons": route_review_reasons,
             "winning_version_resolution_rule_id": winning_version_resolution_rule_id,
             "clock_resolution_rule_id": clock_resolution_rule_id,
+            "clock_precedence_rule_id": clock_precedence_rule_id,
+            "collection_state": collection_state,
             "stage3_truth_layer_ref_optional": stage3_truth_layer_ref,
             "field_lineage_collection_ref_optional": lineage_collection_ref,
             "bidder_candidate_collection_ref_optional": candidate_collection_ref,
@@ -390,6 +449,10 @@ class Stage3Service:
             "version_conflict_state": version_conflict_state,
             "clock_conflict_state": clock_conflict_state,
         }
+        if current_action_start_at_optional is not None:
+            handoff["current_action_start_at_optional"] = current_action_start_at_optional
+        if current_action_deadline_at_optional is not None:
+            handoff["current_action_deadline_at_optional"] = current_action_deadline_at_optional
         if unresolved_reason_optional:
             handoff["unresolved_reason_optional"] = unresolved_reason_optional
 
@@ -402,15 +465,21 @@ class Stage3Service:
         inputs_out["fixation_bundle_id"] = fixation_bundle_id
         inputs_out["source_registry_id"] = source_registry_id
         inputs_out["route_policy_id"] = route_policy_id
+        inputs_out["fallback_route"] = fallback_route
         inputs_out["route_decision_state"] = route_decision_state
         inputs_out["route_review_reasons"] = route_review_reasons
         inputs_out["winning_version_resolution_rule_id"] = winning_version_resolution_rule_id
         inputs_out["clock_resolution_rule_id"] = clock_resolution_rule_id
+        inputs_out["clock_precedence_rule_id"] = clock_precedence_rule_id
         inputs_out["stage3_truth_layer_ref_optional"] = stage3_truth_layer_ref
         inputs_out["field_lineage_collection_ref_optional"] = lineage_collection_ref
         inputs_out["bidder_candidate_collection_ref_optional"] = candidate_collection_ref
         inputs_out["candidate_collection_ref_optional"] = candidate_collection_ref
         inputs_out["stage3_review_path_ref_optional"] = stage3_review_path_ref
+        if current_action_start_at_optional is not None:
+            inputs_out["current_action_start_at_optional"] = current_action_start_at_optional
+        if current_action_deadline_at_optional is not None:
+            inputs_out["current_action_deadline_at_optional"] = current_action_deadline_at_optional
         if unresolved_reason_optional:
             inputs_out["unresolved_reason_optional"] = unresolved_reason_optional
 

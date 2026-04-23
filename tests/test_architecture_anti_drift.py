@@ -61,6 +61,9 @@ def assert_subsequence(testcase: unittest.TestCase, text: str, tokens: list[str]
     testcase.assertEqual(positions, sorted(positions), f"{label} sequence drift: {tokens}")
 
 
+VERTICAL_SLICE_FIXTURE = "stage1_to_stage5_real_source_vertical_slice_proc_national_html.json"
+
+
 CATALOG_CONSUMPTION_SPECS = [
     {
         "path": "contracts/governance/source_registry.json",
@@ -996,7 +999,7 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             self.assertIn(field_name, h06["consumer_must_not_recompute_fields"])
 
     def test_stage3_runtime_materializes_truth_layer_and_handoff_trace(self) -> None:
-        result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))
+        result = run_internal_chain_to_stage7(load_fixture(VERTICAL_SLICE_FIXTURE))
         stage2 = result["stage2"]
         stage3 = result["stage3"]
         project_id = stage3.record("project_base").get("project_id")
@@ -1017,9 +1020,24 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             stage3.handoff.get("clock_resolution_rule_id"),
             stage2.handoff.get("clock_resolution_rule_id"),
         )
+        self.assertEqual(
+            stage3.handoff.get("clock_precedence_rule_id"),
+            stage2.handoff.get("clock_precedence_rule_id"),
+        )
+        self.assertEqual(stage3.handoff.get("fallback_route"), stage2.handoff.get("fallback_route"))
+        self.assertEqual(
+            stage3.handoff.get("current_action_start_at_optional"),
+            stage2.handoff.get("current_action_start_at_optional"),
+        )
+        self.assertEqual(
+            stage3.handoff.get("current_action_deadline_at_optional"),
+            stage2.handoff.get("current_action_deadline_at_optional"),
+        )
         self.assertEqual(stage3.handoff.get("fixation_bundle_id"), stage2.handoff.get("fixation_bundle_id"))
         self.assertIn("source_registry_id", stage3.inputs)
         self.assertIn("collection_state", stage3.inputs)
+        self.assertIn("clock_precedence_rule_id", stage3.inputs)
+        self.assertIn("fallback_route", stage3.inputs)
         self.assertIn("stage3_truth_layer_ref_optional", stage3.inputs)
         self.assertEqual(stage3.handoff.get("stage3_review_path_ref_optional"), "STAGE3_READY_FOR_STAGE4")
 
@@ -1027,6 +1045,7 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         text = read("src/stage3_parsing/service.py")
         for token in (
             "resolve_h02_authority(",
+            "resolve_optional_h02_authority(",
             '("handoff", handoff_map)',
             '("public_chain", public_chain_map)',
             '("notice_version_chain", notice_version_map)',
@@ -1038,10 +1057,14 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         for token in (
             'inputs.get("source_registry_id")',
             'inputs.get("route_policy_id")',
+            'inputs.get("fallback_route")',
             'inputs.get("route_decision_state")',
             'inputs.get("route_review_reasons")',
             'inputs.get("winning_version_resolution_rule_id")',
+            'inputs.get("clock_precedence_rule_id")',
             'inputs.get("clock_resolution_rule_id")',
+            'inputs.get("current_action_start_at_optional")',
+            'inputs.get("current_action_deadline_at_optional")',
         ):
             self.assertNotIn(token, text)
 
