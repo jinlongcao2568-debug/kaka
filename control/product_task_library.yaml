@@ -65,10 +65,10 @@ planning_sync_implementation_registration:
 current_mainline_next_candidate:
   task_id: null
   packet_id: null
-  title: "产品主线 S12-S89 + INT 与后主线 P1-P7 已闭合，等待人工选择最后一个 open/manual 的 P8"
+  title: "产品主线 S12-S89 + INT 与后主线 P1-P8 已闭合，当前没有自动 next candidate"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7 均已 completed；现在没有自动 next candidate；候选池只保留 P8 为最后一个 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7/P8 均已 completed；current_mainline_next_candidate 继续保持 task_id=null / packet_id=null；现在没有自动 next candidate；后续进入内部运营验收、真实样本打磨或 external unlock 预研，都必须另开 dedicated current_task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -79,8 +79,10 @@ post_mainline_execution_ladder:
     - PTL-GOV-127-p0b-ax9s-navigation-sync
     - PTL-GOV-128-p9-future-unlock-prep-only
   notes:
-    - "This ladder is the explicit product-only post-mainline manual-selection ordering for future AI windows."
-    - "The full post-mainline ladder remains P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8; completed tasks stay recorded in the ladder and do not auto-activate the next task."
+    - "This ladder is the explicit product-only post-mainline record for future AI windows."
+    - "The full post-mainline ladder remains P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8; all product-only tasks in this ladder are now completed and no next task is auto-activated."
+    - "There is no remaining product-only manual-selection task inside PRODUCT_MAINLINE_TASK_LIBRARY."
+    - "Future work such as internal-operations acceptance, real-sample refinement, or external-unlock preresearch must run through dedicated current_task packets."
     - "Governance closeout / AX9S sync / future unlock prep remain outside PRODUCT_MAINLINE_TASK_LIBRARY and require dedicated control packets when needed."
     - "Direction-level recommendations may remain in control/product_module_registry.yaml, but product execution-level decomposition lives here."
     - "Execution-level management and reporting should use the P1 -> P8 ladder plus task_ids defined here."
@@ -453,14 +455,15 @@ tasks:
     title: "P8 observability/operator workbench 强化"
     stage_scope: [internal_preview, stage8_outreach, stage9_delivery]
     task_type: internal_operability_hardening
-    status: OPEN_FOR_MANUAL_SELECTION
+    status: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P2
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: HEAVY_RUNTIME
-    planning_state: OPEN_FOR_MANUAL_SELECTION
+    planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
-    runtime_notes: "后主线执行链的第 10 步；目标是补 decision trace、blocked reason aggregation、handoff correlation 和 operator UX 所需的可观测性；本条只作为人工候选任务登记，不自动激活。"
+    completed_commit: b8a2762
+    runtime_notes: "P8 scoped implementation 已完成并在本地提交：b8a2762；src/api/workbench_observability.py 与 src/storage/operator_workbench_projection.py 已作为 formal current files 记录到相关 workbench surface ledger；本条关闭的是 operator/workbench observability 第一刀，不表示系统 external/live ready；PTL-INT-104 不再是 current active packet，也不再是 current_mainline_next_candidate；后续进入内部运营验收、真实样本打磨或 external unlock 预研仍需另开 dedicated current_task packet。"
     hard_depends_on: [PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion]
     soft_depends_on: [PTL-S8-102-p2-plan-touch-productization, PTL-S9-102-p6-feedback-writeback-productization, PTL-INT-internal-preview-surface-envelope]
     objective: "把 internal preview / operator workbench 做到可解释、可诊断、可追溯，减少后续运营和 AI 窗口的定位成本。"

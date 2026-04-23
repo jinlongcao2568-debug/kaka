@@ -89,7 +89,7 @@ def test_product_module_registry_covers_core_stage_modules() -> None:
     assert required.issubset(module_ids)
 
 
-def test_product_module_registry_current_files_exist_and_p1_to_p7_runtime_cleanup_is_recorded() -> None:
+def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanup_is_recorded() -> None:
     registry = read_yaml("control/product_module_registry.yaml")
     modules = {module["module_id"]: module for module in registry["modules"]}
 
@@ -145,9 +145,12 @@ def test_product_module_registry_current_files_exist_and_p1_to_p7_runtime_cleanu
     assert "src/storage/repository_context_projection.py" in storage_boundary["current_files"]
     assert "src/storage/operator_workbench_projection.py" in storage_boundary["current_files"]
     assert "PTL-INT-102-p4-repository-boundary-hardening" in storage_boundary["completed_packets"]
+    assert "PTL-INT-104-p8-observability-operator-workbench" in storage_boundary["completed_packets"]
     assert storage_boundary["pending_packets"] == []
     internal_preview = modules["INTERNAL-PREVIEW-SURFACE"]
     assert "src/api/workbench_observability.py" in internal_preview["current_files"]
+    assert "PTL-INT-104-p8-observability-operator-workbench" in internal_preview["completed_packets"]
+    assert internal_preview["pending_packets"] == []
     assert "src/stage9_delivery/typed_lifecycle.py" in stage9["current_files"]
     assert "src/stage9_delivery/feedback_writeback.py" in stage9["current_files"]
     assert stage9["pending_packets"] == []
@@ -314,6 +317,7 @@ def test_internal_preview_packet_is_not_left_pending_in_registry() -> None:
     modules = {module["module_id"]: module for module in registry["modules"]}
     surfaces = {surface["surface_id"]: surface for surface in registry["cross_cutting_surfaces"]}
     packet_id = "PTL-INT-internal-preview-surface-envelope"
+    p8_packet_id = "PTL-INT-104-p8-observability-operator-workbench"
 
     for entry_id, entry in {
         "SURFACE-API-TRANSPORT": modules["SURFACE-API-TRANSPORT"],
@@ -324,6 +328,8 @@ def test_internal_preview_packet_is_not_left_pending_in_registry() -> None:
     }.items():
         assert packet_id in entry["completed_packets"], entry_id
         assert packet_id not in entry["pending_packets"], entry_id
+        assert p8_packet_id in entry["completed_packets"], entry_id
+        assert p8_packet_id not in entry["pending_packets"], entry_id
 
     assert modules["INTERNAL-PREVIEW-SURFACE"]["external_release_allowed"] is False
     assert modules["INTERNAL-PREVIEW-SURFACE"]["live_execution_allowed"] is False
@@ -384,7 +390,7 @@ def load_tests(
     for test in (
         test_product_module_registry_exists_and_is_not_status_source,
         test_product_module_registry_covers_core_stage_modules,
-        test_product_module_registry_current_files_exist_and_p1_to_p7_runtime_cleanup_is_recorded,
+        test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanup_is_recorded,
         test_post_mainline_selection_block_is_navigation_only_and_references_existing_modules,
         test_stage_module_inventory_is_expanded_for_stage1_to_stage9,
         test_stage_module_inventory_declares_only_existing_current_surfaces,

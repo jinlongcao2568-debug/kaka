@@ -809,6 +809,7 @@ cross_cutting_surfaces:
       - tests/test_internal_surface_preview.py
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
+      - PTL-INT-104-p8-observability-operator-workbench
     pending_packets: []
   - surface_id: repository_boundary
     business_summary: "Stage6-9 和 operator loop 的持久化边界，不能替代正式对象语义。"
@@ -842,6 +843,7 @@ cross_cutting_surfaces:
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-102-p4-repository-boundary-hardening
+      - PTL-INT-104-p8-observability-operator-workbench
     pending_packets: []
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
@@ -1179,6 +1181,7 @@ modules:
     internal_governed_runtime_present: true
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
+      - PTL-INT-104-p8-observability-operator-workbench
     pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
@@ -1261,12 +1264,14 @@ modules:
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-102-p4-repository-boundary-hardening
+      - PTL-INT-104-p8-observability-operator-workbench
     pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
     notes:
       - "P4 repository boundary hardening completed in local commit b8288a7 and is now part of the formal repository-boundary ledger."
+      - "P8 observability/operator workbench first cut completed in local commit b8a2762 and src/storage/operator_workbench_projection.py remains part of the formal repository-boundary workbench ledger."
       - "Subsequent Stage9 packets such as P5 still depend on this boundary staying stable; this ledger must not be interpreted as 'all repository-boundary-dependent work finished'."
   - module_id: INTERNAL-PREVIEW-SURFACE
     stage_scope:
@@ -1291,7 +1296,10 @@ modules:
     internal_governed_runtime_present: true
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
+      - PTL-INT-104-p8-observability-operator-workbench
     pending_packets: []
+    notes:
+      - "P8 observability/operator workbench first cut completed in local commit b8a2762 and src/api/workbench_observability.py remains part of the formal internal-preview current-files ledger."
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
