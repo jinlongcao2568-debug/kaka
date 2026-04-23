@@ -256,9 +256,9 @@ class TestStage12Extractors(unittest.TestCase):
             self.assertIsNone(candidate["packet_id"])
 
         self.assertIn("planning_state: MAINLINE_COMPLETE", task_library_text)
-        self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6 均已 completed", task_library_text)
+        self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7 均已 completed", task_library_text)
         self.assertIn("现在没有自动 next candidate", task_library_text)
-        self.assertIn("P7-P8 仍 open/manual", task_library_text)
+        self.assertIn("P8 为最后一个 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务", task_library_text)
         self.assertIn("后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认", task_library_text)
         self.assertIn("执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代", task_library_text)
         self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
@@ -280,6 +280,7 @@ class TestStage12Extractors(unittest.TestCase):
             "PTL-INT-102-p4-repository-boundary-hardening",
             "PTL-S9-101-p5-typed-lifecycle-deepening",
             "PTL-S9-102-p6-feedback-writeback-productization",
+            "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion",
         )
         task_index = {task["task_id"]: task for task in task_library["tasks"]}
         for task_id in completed_task_ids:
@@ -311,11 +312,12 @@ class TestStage12Extractors(unittest.TestCase):
             task_index["PTL-S9-102-p6-feedback-writeback-productization"]["completed_commit"],
             "edff5af",
         )
-
-        manual_selection_candidate_ids = (
-            "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion",
-            "PTL-INT-104-p8-observability-operator-workbench",
+        self.assertEqual(
+            task_index["PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion"]["completed_commit"],
+            "2dbfb12",
         )
+
+        manual_selection_candidate_ids = ("PTL-INT-104-p8-observability-operator-workbench",)
         for task_id in manual_selection_candidate_ids:
             task_entry = task_index[task_id]
             self.assertEqual(task_entry["status"], "OPEN_FOR_MANUAL_SELECTION")

@@ -7,6 +7,11 @@ from typing import Any, Mapping
 
 import yaml
 
+from storage.operator_workbench_projection import (
+    build_operator_context_projection,
+    build_workbench_replay_projection,
+    sanitize_transient_preview_context,
+)
 from shared.contract_loader import load_contract
 
 
@@ -64,15 +69,6 @@ class PendingButtonFlow:
             "action_id": self.action_id,
             "button_type": self.button_type,
         }
-
-
-TRANSIENT_PREVIEW_HIDDEN_FIELDS = (
-    "work_item_id",
-    "pending_actions",
-    "pending_button_flows",
-    "last_action",
-    "action_history",
-)
 
 
 def _repo_root() -> Path:
@@ -302,83 +298,6 @@ def resolve_assignment(
     }
 
 
-def sanitize_transient_preview_context(context: Mapping[str, Any]) -> dict[str, Any]:
-    sanitized = _clone_context(context)
-    for field_name in TRANSIENT_PREVIEW_HIDDEN_FIELDS:
-        sanitized.pop(field_name, None)
-    return sanitized
-
-
-def build_operator_context_projection(
-    *,
-    operational_context_status: str,
-    persisted_context: Mapping[str, Any] | None = None,
-    transient_context: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    context_key = _context_key(persisted_context=persisted_context, transient_context=transient_context)
-    context = persisted_context or transient_context or {}
-    assignment = context.get("assignment", {})
-    assignment_payload = dict(assignment) if isinstance(assignment, Mapping) else {}
-    queue_materialized = persisted_context is not None
-    pending_actions = list(context.get("pending_actions", [])) if queue_materialized else []
-    pending_button_flows = list(context.get("pending_button_flows", [])) if queue_materialized else []
-    action_history = list(context.get("action_history", [])) if queue_materialized else []
-    return {
-        "context_status": operational_context_status,
-        "context_key": context_key,
-        "context_source": str(context.get("context_source", "unavailable")),
-        "workbench_replay_source": "repository_readback" if queue_materialized else "projection_only" if context else "unavailable",
-        "queue_materialized": queue_materialized,
-        "work_item_key": context.get("work_item_key"),
-        "work_item_id": context.get("work_item_id") if queue_materialized else None,
-        "primary_object_type": context.get("primary_object_type"),
-        "primary_record_id": context.get("primary_record_id"),
-        "surface_operational_state": context.get("surface_operational_state"),
-        "current_operational_state": context.get("current_operational_state"),
-        "assignment_lifecycle_state": assignment_payload.get("assignment_lifecycle_state"),
-        "action_history_count": len(action_history),
-        "pending_action_count": len(pending_actions),
-        "pending_button_flow_count": len(pending_button_flows),
-        "action_controls_source": (
-            "persisted_operational_context.pending_actions"
-            if queue_materialized
-            else "governance_envelope.action_availability"
-        ),
-        "display_contract": {
-            "work_item_id_visible": queue_materialized,
-            "action_history_visible": queue_materialized,
-            "pending_actions_visible": queue_materialized,
-            "pending_button_flows_visible": queue_materialized,
-            "work_item_key_visible": bool(context.get("work_item_key")),
-            "assignment_visible": bool(assignment_payload),
-        },
-    }
-
-
-def build_workbench_replay_projection(
-    *,
-    persisted_context: Mapping[str, Any] | None = None,
-    transient_context: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    context_key = _context_key(persisted_context=persisted_context, transient_context=transient_context)
-    context = persisted_context or transient_context or {}
-    assignment = context.get("assignment", {})
-    assignment_payload = dict(assignment) if isinstance(assignment, Mapping) else {}
-    queue_materialized = persisted_context is not None
-    return {
-        "context_key": context_key,
-        "replay_source": "repository_readback" if queue_materialized else "projection_only" if context else "unavailable",
-        "queue_materialized": queue_materialized,
-        "work_item_key": context.get("work_item_key"),
-        "work_item_id": context.get("work_item_id") if queue_materialized else None,
-        "primary_object_type": context.get("primary_object_type"),
-        "primary_record_id": context.get("primary_record_id"),
-        "surface_operational_state": context.get("surface_operational_state"),
-        "current_operational_state": context.get("current_operational_state"),
-        "assignment_lifecycle_state": assignment_payload.get("assignment_lifecycle_state"),
-    }
-
-
 def _load_current_task() -> Mapping[str, Any]:
     path = _repo_root() / "control" / "current_task.yaml"
     if not path.exists():
@@ -410,30 +329,6 @@ def _resolve_lifecycle_state(
     if mapped:
         return mapped
     return "assigned" if has_assignment else "unassigned"
-
-
-def _context_key(
-    *,
-    persisted_context: Mapping[str, Any] | None,
-    transient_context: Mapping[str, Any] | None,
-) -> str:
-    if persisted_context is not None:
-        return "persisted_operational_context"
-    if transient_context is not None:
-        return "transient_preview_context"
-    return "unavailable"
-
-
-def _clone_context(context: Mapping[str, Any]) -> dict[str, Any]:
-    cloned: dict[str, Any] = {}
-    for key, value in context.items():
-        if isinstance(value, Mapping):
-            cloned[key] = dict(value)
-        elif isinstance(value, list):
-            cloned[key] = [dict(item) if isinstance(item, Mapping) else item for item in value]
-        else:
-            cloned[key] = value
-    return cloned
 
 
 def _action_is_currently_allowed(

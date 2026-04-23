@@ -179,6 +179,7 @@ stage_module_inventory:
         implementation_state: PARTIAL_RUNTIME
         current_files:
           - src/stage1_tasking/service.py
+          - src/stage1_tasking/contract_runtime.py
           - src/stage1_tasking/models.py
         handoff_files:
           - handoff/stage1_to_stage2/contract.json
@@ -241,6 +242,7 @@ stage_module_inventory:
         implementation_state: PARTIAL_RUNTIME
         current_files:
           - src/stage2_ingestion/service.py
+          - src/stage2_ingestion/contract_runtime.py
           - src/stage2_ingestion/extractors.py
           - src/stage2_ingestion/models.py
         handoff_files:
@@ -782,6 +784,7 @@ cross_cutting_surfaces:
     current_files:
       - src/api/main.py
       - src/api/projections.py
+      - src/api/workbench_observability.py
       - src/api/schemas/common.py
       - src/api/routes/stage1.py
       - src/api/routes/stage2.py
@@ -815,6 +818,7 @@ cross_cutting_surfaces:
       - src/storage/repository_bundle_io.py
       - src/storage/repository_context_projection.py
       - src/storage/operator_loop_contracts.py
+      - src/storage/operator_workbench_projection.py
       - src/storage/repositories/work_item_repo.py
       - src/storage/repositories/project_fact_repo.py
       - src/storage/repositories/legal_action_recommendation_repo.py
@@ -854,6 +858,7 @@ modules:
       - execution_context
     current_files:
       - src/stage1_tasking/service.py
+      - src/stage1_tasking/contract_runtime.py
       - src/stage1_tasking/extractors.py
       - src/stage1_tasking/models.py
       - src/stage1_tasking/scheduler.py
@@ -862,10 +867,14 @@ modules:
     internal_governed_runtime_present: true
     completed_packets:
       - PTL-S12-source-route-clock-authority
+      - PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion
     pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
+    notes:
+      - "P7 Stage1 contract-runtime first cut completed in local commit 2dbfb12 and src/stage1_tasking/contract_runtime.py is now part of the formal current-files ledger."
+      - "This ledger update closes the Stage1 contract-runtime first cut only; it must not be read as 'Stage1-5 no longer need any future follow-up work'."
   - module_id: STAGE2-PUBLIC-CHAIN-INGESTION
     stage_scope:
       - stage2_ingestion
@@ -880,6 +889,7 @@ modules:
       - fixation_bundle
     current_files:
       - src/stage2_ingestion/service.py
+      - src/stage2_ingestion/contract_runtime.py
       - src/stage2_ingestion/extractors.py
       - src/stage2_ingestion/fixation.py
       - src/stage2_ingestion/models.py
@@ -888,10 +898,14 @@ modules:
     internal_governed_runtime_present: true
     completed_packets:
       - PTL-S23-public-chain-to-parser-contract
+      - PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion
     pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
+    notes:
+      - "P7 Stage2 contract-runtime first cut completed in local commit 2dbfb12 and src/stage2_ingestion/contract_runtime.py is now part of the formal current-files ledger."
+      - "This ledger update closes the Stage2 contract-runtime first cut only; downstream Stage3-5 or later runtime work can still exist and must stay under future dedicated packets."
   - module_id: STAGE3-PARSED-TRUTH-LAYER
     stage_scope:
       - stage3_parsing
@@ -1142,6 +1156,7 @@ modules:
     current_files:
       - src/api/main.py
       - src/api/projections.py
+      - src/api/workbench_observability.py
       - src/api/routes/stage1.py
       - src/api/routes/stage2.py
       - src/api/routes/stage3.py
@@ -1221,6 +1236,7 @@ modules:
       - src/storage/repository_bundle_io.py
       - src/storage/repository_context_projection.py
       - src/storage/operator_loop_contracts.py
+      - src/storage/operator_workbench_projection.py
       - src/storage/repositories/work_item_repo.py
       - src/storage/repositories/project_fact_repo.py
       - src/storage/repositories/legal_action_recommendation_repo.py
@@ -1267,6 +1283,7 @@ modules:
       - internal_preview_surface
     current_files:
       - src/api/projections.py
+      - src/api/workbench_observability.py
       - src/api/routes/stage7.py
       - src/api/routes/stage8.py
       - src/api/routes/stage9.py

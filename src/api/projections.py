@@ -6,6 +6,14 @@ from typing import Any, Mapping
 
 import yaml
 
+from api.workbench_observability import (
+    TRACE_FIELDS,
+    collect_candidate_surface_block_reasons,
+    collect_governed_context,
+    collect_trace_refs,
+    merge_trace_refs,
+    missing_audit_refs,
+)
 from shared.contract_loader import load_contract
 from shared.contracts_runtime import ContractRecord, StageBundle
 from storage.operator_loop_contracts import (
@@ -19,6 +27,11 @@ from storage.repository_boundary import (
     get_transient_preview_context,
     hydrate_stage_bundle,
 )
+
+_collect_governed_context = collect_governed_context
+_collect_trace_refs = collect_trace_refs
+_merge_trace_refs = merge_trace_refs
+_missing_audit_refs = missing_audit_refs
 
 
 BLOCKED_STATUSES = {
@@ -86,14 +99,6 @@ ID_FIELDS = (
     "outcome_event_id",
     "governance_feedback_event_id",
 )
-TRACE_FIELDS = (
-    "source_audit_ref",
-    "query_trace_id",
-    "execution_trace_id_optional",
-    "vendor_response_ref_optional",
-    "written_back_at",
-    "written_back_at_optional",
-)
 SURFACE_STATE_PROFILE_REFS = {
     "opportunity_pool": "stage7_internal_preview_surface",
     "outreach_workbench": "stage8_governed_preview_surface",
@@ -132,17 +137,6 @@ SURFACE_RUNTIME_DEFAULTS = {
         "release_layer": "INTERNAL_OPERABLE",
     },
 }
-GOVERNED_CONTEXT_FIELDS = (
-    "approval_state",
-    "projection_mode",
-    "run_mode",
-    "plan_status",
-    "governed_execution_mode",
-    "requested_delivery_surface",
-    "writeback_targets",
-    "written_back_at_optional",
-    "contact_legal_basis",
-)
 
 
 def _resolve_bundle(payload: Any, stage_key: str) -> StageBundle:
@@ -215,29 +209,6 @@ def _decision_states(bundle: StageBundle, record: Mapping[str, Any] | None = Non
     }
 
 
-def _collect_trace_refs(bundle: StageBundle, records: list[Mapping[str, Any]]) -> dict[str, Any]:
-    trace_refs: set[str] = set()
-    audit_refs: set[str] = set()
-    for record in records:
-        for field_name in TRACE_FIELDS:
-            value = record.get(field_name)
-            if value not in (None, "", "NOT_PAID", "NOT_DELIVERED"):
-                trace_refs.add(str(value))
-        for field_name in record.keys():
-            if "audit" in field_name.lower():
-                value = record.get(field_name)
-                if value not in (None, ""):
-                    audit_refs.add(str(value))
-    return {
-        "policy_trace_present": bool(bundle.inputs.get("policy_trace")),
-        "permission_trace_present": bool(bundle.inputs.get("permission_trace")),
-        "governance_trace_present": bool(bundle.inputs.get("governance_trace")),
-        "semantic_trace_present": bool(bundle.inputs.get("semantic_trace")),
-        "trace_refs": sorted(trace_refs),
-        "audit_refs": sorted(audit_refs),
-    }
-
-
 def _formal_object_ref(bundle: StageBundle, object_type: str, record: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "object_type": object_type,
@@ -251,32 +222,6 @@ def _formal_object_ref(bundle: StageBundle, object_type: str, record: Mapping[st
             if record.get(key) not in (None, "")
         },
     }
-
-
-def _collect_governed_context(
-    formal_records: Mapping[str, Mapping[str, Any]],
-    *,
-    default_mode: str,
-) -> dict[str, Any]:
-    object_contexts: dict[str, dict[str, Any]] = {}
-    for object_type, record in formal_records.items():
-        object_context: dict[str, Any] = {}
-        for field_name in GOVERNED_CONTEXT_FIELDS:
-            value = record.get(field_name)
-            if value not in (None, "", [], {}):
-                object_context[field_name] = value
-        governed_metadata = dict(record.get("governed_metadata", {}))
-        if governed_metadata:
-            object_context["governed_metadata"] = governed_metadata
-        if object_context:
-            object_contexts[object_type] = object_context
-
-    governed_context: dict[str, Any] = {
-        "surface_mode": default_mode,
-    }
-    if object_contexts:
-        governed_context["object_contexts"] = object_contexts
-    return governed_context
 
 
 def _canonical_surface_state(bundle: StageBundle, *, default_mode: str) -> str:
@@ -824,28 +769,6 @@ def _merge_formal_object_refs(*surfaces: Mapping[str, Any]) -> dict[str, dict[st
     return merged
 
 
-def _merge_trace_refs(*surfaces: Mapping[str, Any]) -> dict[str, Any]:
-    trace_refs: set[str] = set()
-    audit_refs: set[str] = set()
-    flags = {
-        "policy_trace_present": False,
-        "permission_trace_present": False,
-        "governance_trace_present": False,
-        "semantic_trace_present": False,
-    }
-    for surface in surfaces:
-        trace = surface.get("trace_refs", {})
-        for flag_name in flags:
-            flags[flag_name] = flags[flag_name] or bool(trace.get(flag_name))
-        trace_refs.update(str(value) for value in trace.get("trace_refs", []) if value)
-        audit_refs.update(str(value) for value in trace.get("audit_refs", []) if value)
-    return {
-        **flags,
-        "trace_refs": sorted(trace_refs),
-        "audit_refs": sorted(audit_refs),
-    }
-
-
 def _build_candidate_projection(
     candidate_matrix: Mapping[str, Any],
     source_projection_map: Mapping[str, Mapping[str, Any]],
@@ -868,19 +791,6 @@ def _build_candidate_projection(
             projected[field_name] = "[MASKED]"
         buckets[component["classification"]][component["component_id"]] = projected
     return buckets
-
-
-def _missing_audit_refs(required_audit_refs: list[str], aggregated_trace_refs: Mapping[str, Any]) -> list[str]:
-    available = {
-        "project_fact_audit_ref": bool(aggregated_trace_refs.get("audit_refs")),
-        "candidate_projection_audit_ref": bool(aggregated_trace_refs.get("trace_refs")),
-        "approval_chain_audit_ref": bool(
-            aggregated_trace_refs.get("permission_trace_present")
-            or aggregated_trace_refs.get("governance_trace_present")
-        ),
-        "trace_bundle_ref": bool(aggregated_trace_refs.get("trace_refs")),
-    }
-    return [audit_ref for audit_ref in required_audit_refs if not available.get(audit_ref, False)]
 
 
 def _api_error_payload(code: str, *, meta: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -947,25 +857,14 @@ def _leadpack_candidate_surface_core(
     missing_review_gates = [gate for gate in required_review_gates if gate not in requested_review_gates]
     required_audit_refs = list(candidate_matrix.get("required_audit_refs", []))
     missing_audit_refs = _missing_audit_refs(required_audit_refs, aggregated_trace_refs)
-    blocked_reasons: list[str] = []
-    hold_reasons: list[str] = []
-    if stage8_surface["surface_state"] in {"blocked", "review-required", "draft-only", "governed-hold"}:
-        hold_reasons.append("stage8_governed_preview_not_external_ready")
-    if stage9_surface["surface_state"] in {"blocked", "review-required", "draft-only", "governed-hold"}:
-        hold_reasons.append("stage9_internal_governed_preview_not_external_ready")
-    if surface_state == "blocked":
-        blocked_reasons.extend(
-            [
-                "candidate_surface_blocked_by_underlying_stage_surface",
-                "delivery_matrix_or_runtime_guard_blocked_requested_projection",
-            ]
-        )
-    if missing_approvals:
-        blocked_reasons.append("approval_prerequisites_not_met")
-    if missing_review_gates:
-        blocked_reasons.append("review_gate_prerequisites_not_met")
-    if missing_audit_refs:
-        blocked_reasons.append("audit_prerequisites_not_met")
+    gate_reasons = collect_candidate_surface_block_reasons(
+        stage8_surface_state=stage8_surface["surface_state"],
+        stage9_surface_state=stage9_surface["surface_state"],
+        surface_state=surface_state,
+        missing_approvals=missing_approvals,
+        missing_review_gates=missing_review_gates,
+        missing_audit_refs=missing_audit_refs,
+    )
 
     approval_prerequisites_met = not missing_approvals and not missing_audit_refs and surface_state == "preview-ready"
     review_gate_prerequisites_met = not missing_review_gates
@@ -1001,8 +900,8 @@ def _leadpack_candidate_surface_core(
         "missing_review_gates": missing_review_gates,
         "missing_audit_refs": missing_audit_refs,
         "denial_conditions": list(candidate_matrix.get("denial_conditions", [])),
-        "blocked_reasons": blocked_reasons,
-        "hold_reasons": hold_reasons,
+        "blocked_reasons": gate_reasons["blocked_reasons"],
+        "hold_reasons": gate_reasons["hold_reasons"],
         "why_not_live": list(candidate_matrix.get("why_not_live", [])),
         "why_not_now": list(candidate_matrix.get("why_not_now", [])),
         "future_activation_prereqs_remaining": list(candidate_matrix.get("future_activation_prereqs_remaining", [])),

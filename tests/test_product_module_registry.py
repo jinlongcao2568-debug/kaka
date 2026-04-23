@@ -89,15 +89,27 @@ def test_product_module_registry_covers_core_stage_modules() -> None:
     assert required.issubset(module_ids)
 
 
-def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cleanup_is_recorded() -> None:
+def test_product_module_registry_current_files_exist_and_p1_to_p7_runtime_cleanup_is_recorded() -> None:
     registry = read_yaml("control/product_module_registry.yaml")
     modules = {module["module_id"]: module for module in registry["modules"]}
 
     for module in modules.values():
         assert_paths_exist(module["current_files"])
 
+    stage1 = modules["STAGE1-TASKING-AUTHORITY"]
+    stage2 = modules["STAGE2-PUBLIC-CHAIN-INGESTION"]
     stage7 = modules["STAGE7-SALES-DERIVATION"]
     assert stage7["deferred_module_split"] is False
+    assert "src/stage1_tasking/contract_runtime.py" in stage1["current_files"]
+    assert "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion" in stage1["completed_packets"]
+    assert stage1["pending_packets"] == []
+    assert stage1["current_runtime_state"] == "PARTIAL_RUNTIME"
+    assert "contract-runtime first cut completed in local commit 2dbfb12" in " ".join(stage1["notes"])
+    assert "src/stage2_ingestion/contract_runtime.py" in stage2["current_files"]
+    assert "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion" in stage2["completed_packets"]
+    assert stage2["pending_packets"] == []
+    assert stage2["current_runtime_state"] == "PARTIAL_RUNTIME"
+    assert "contract-runtime first cut completed in local commit 2dbfb12" in " ".join(stage2["notes"])
     assert "PTL-S7-price-competitor-offer-resolution" in stage7["completed_packets"]
     assert "PTL-S7-module-boundary-refactor" in stage7["completed_packets"]
     assert stage7["pending_packets"] == []
@@ -131,8 +143,11 @@ def test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cl
     storage_boundary = modules["STORAGE-REPOSITORY-BOUNDARY"]
     assert "src/storage/repository_bundle_io.py" in storage_boundary["current_files"]
     assert "src/storage/repository_context_projection.py" in storage_boundary["current_files"]
+    assert "src/storage/operator_workbench_projection.py" in storage_boundary["current_files"]
     assert "PTL-INT-102-p4-repository-boundary-hardening" in storage_boundary["completed_packets"]
     assert storage_boundary["pending_packets"] == []
+    internal_preview = modules["INTERNAL-PREVIEW-SURFACE"]
+    assert "src/api/workbench_observability.py" in internal_preview["current_files"]
     assert "src/stage9_delivery/typed_lifecycle.py" in stage9["current_files"]
     assert "src/stage9_delivery/feedback_writeback.py" in stage9["current_files"]
     assert stage9["pending_packets"] == []
@@ -369,7 +384,7 @@ def load_tests(
     for test in (
         test_product_module_registry_exists_and_is_not_status_source,
         test_product_module_registry_covers_core_stage_modules,
-        test_product_module_registry_current_files_exist_and_stage7_stage8_stage9_cleanup_is_recorded,
+        test_product_module_registry_current_files_exist_and_p1_to_p7_runtime_cleanup_is_recorded,
         test_post_mainline_selection_block_is_navigation_only_and_references_existing_modules,
         test_stage_module_inventory_is_expanded_for_stage1_to_stage9,
         test_stage_module_inventory_declares_only_existing_current_surfaces,

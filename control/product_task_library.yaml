@@ -65,10 +65,10 @@ planning_sync_implementation_registration:
 current_mainline_next_candidate:
   task_id: null
   packet_id: null
-  title: "产品主线 S12-S89 + INT 与后主线 P1/P2/P3/P4/P5 已闭合，等待人工选择后续方向"
+  title: "产品主线 S12-S89 + INT 与后主线 P1-P7 已闭合，等待人工选择最后一个 open/manual 的 P8"
   planning_state: MAINLINE_COMPLETE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6 均已 completed；现在没有自动 next candidate；候选池保留 P7 -> P8 为 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务，P7-P8 仍 open/manual；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7 均已 completed；现在没有自动 next candidate；候选池只保留 P8 为最后一个 product-only 的 OPEN_FOR_MANUAL_SELECTION 任务；governance closeout / AX9S sync / future unlock prep 保持在池外，仍需 dedicated control packet；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -433,14 +433,15 @@ tasks:
     title: "P7 Stage1-5 contract-runtime 补齐"
     stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence]
     task_type: foundational_runtime_completion
-    status: OPEN_FOR_MANUAL_SELECTION
+    status: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P2
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: PARTIAL_RUNTIME
-    planning_state: OPEN_FOR_MANUAL_SELECTION
+    planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
-    runtime_notes: "后主线执行链的第 9 步；目标是逐步消化 Stage1-5 的 skeleton / placeholder / TODO 对 contract-driven runtime 的欠账；本条只作为人工候选任务登记，不自动激活。"
+    completed_commit: 2dbfb12
+    runtime_notes: "P7 scoped implementation 已完成并在本地提交：2dbfb12；Stage1/Stage2 contract-runtime helper 第一刀行为等价拆分已完成，src/stage1_tasking/contract_runtime.py 与 src/stage2_ingestion/contract_runtime.py 已纳入正式登记；本条关闭的是 Stage1/2 contract-runtime completion 第一刀，不表示 Stage1-5 所有后续工作永久完结；PTL-INT-103 不再是 current active packet，也不再是 current_mainline_next_candidate；P8 仍需 dedicated current_task packet 才能激活。"
     hard_depends_on: [PTL-S9-102-p6-feedback-writeback-productization]
     soft_depends_on: [PTL-S12-source-route-clock-authority, PTL-S23-public-chain-to-parser-contract, PTL-S34-object-lineage-verification-handoff, PTL-S45-rule-evidence-dual-gate]
     objective: "把 Stage1-5 的 contract-driven runtime 从 partial/skeleton 状态补齐到更稳定的可迭代基础设施层。"
