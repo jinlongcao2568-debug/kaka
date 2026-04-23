@@ -1145,8 +1145,18 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "missing_h04_handoff_field:",
             "_apply_h04_clock_authority_guard(",
             "clock_precedence_rule_id",
+            '"stage5_rule_selection_trace"',
+            '"stage5_rule_execution_trace"',
         ):
             self.assertIn(token, engine_text)
+        for token in (
+            "FIRST_SLICE_SUPPORTED_UPSTREAM_OBJECTS",
+            "def _selection_reason(",
+            "selected_first_slice_priority",
+            "not_in_first_slice_priority",
+            "unsupported_upstream_objects",
+        ):
+            self.assertIn(token, rule_runner_text)
         self.assertNotIn('inputs.get("lineage")', rule_runner_text)
 
     def test_placeholder_models_remain_minimal_and_do_not_silently_drift(self) -> None:

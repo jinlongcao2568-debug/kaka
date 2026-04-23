@@ -18,6 +18,8 @@ class RuleArtifacts:
     rule_hit: Any
     rule_hits: list[Any]
     rule_gate_decision: Any
+    rule_selection_trace: list[dict[str, Any]]
+    rule_execution_trace: list[dict[str, Any]]
     rule_hit_state: str
     rule_gate_status: str
     lineage_status: str
@@ -26,6 +28,18 @@ class RuleArtifacts:
 
 class RuleRunner:
     PREFERRED_STAGE5_RULE_CODES = ("PROC-001", "PROC-002", "DOC-001")
+    FIRST_SLICE_SUPPORTED_UPSTREAM_OBJECTS = frozenset(
+        {
+            "clock_chain_profile",
+            "evidence_grade_profile",
+            "field_lineage_record",
+            "focus_bidder_verification_profile",
+            "notice_version_chain",
+            "pseudo_competitor_signal_set",
+            "public_attack_surface",
+            "public_chain",
+        }
+    )
     RULE_SOURCE_OBJECT_REF_FIELDS = {
         "PROC-001": (
             "public_attack_surface_id",
@@ -47,7 +61,21 @@ class RuleRunner:
     def __init__(self, store: ContractStore) -> None:
         self.store = store
 
-    def _select_stage5_rules(self) -> list[Mapping[str, Any]]:
+    def _selection_reason(self, rule: Mapping[str, Any], *, selected_rule_codes: set[str]) -> str:
+        rule_code = str(rule.get("rule_code"))
+        if rule_code in selected_rule_codes:
+            return "selected_first_slice_priority"
+
+        upstream_objects = {
+            str(object_name)
+            for object_name in ensure_list(rule.get("upstream_objects"))
+            if object_name not in (None, "")
+        }
+        if upstream_objects.issubset(self.FIRST_SLICE_SUPPORTED_UPSTREAM_OBJECTS):
+            return "not_in_first_slice_priority"
+        return "unsupported_upstream_objects"
+
+    def _select_stage5_rules(self) -> tuple[list[Mapping[str, Any]], list[dict[str, Any]]]:
         stage5_rules = [
             entry
             for entry in self.store.rule_catalog.get("rules", [])
@@ -61,9 +89,21 @@ class RuleRunner:
             )
             if matched_rule is not None:
                 preferred.append(matched_rule)
-        if preferred:
-            return preferred[:3]
-        return stage5_rules[:3]
+        selected_rules = preferred[:3] if preferred else stage5_rules[:3]
+        selected_rule_codes = {
+            str(entry.get("rule_code"))
+            for entry in selected_rules
+        }
+        selection_trace = [
+            {
+                "rule_code": str(entry.get("rule_code")),
+                "rule_name": str(entry.get("name", entry.get("rule_code", ""))),
+                "selected": str(entry.get("rule_code")) in selected_rule_codes,
+                "reason": self._selection_reason(entry, selected_rule_codes=selected_rule_codes),
+            }
+            for entry in stage5_rules
+        ]
+        return selected_rules, selection_trace
 
     def _build_rule_source_object_refs(
         self,
@@ -153,10 +193,14 @@ class RuleRunner:
         version_conflict_state = str(inputs.get("version_conflict_state", "CONSISTENT"))
         clock_conflict_state = str(inputs.get("clock_conflict_state", "CONSISTENT"))
 
-        selected_rules = self._select_stage5_rules()
+        selected_rules, rule_selection_trace = self._select_stage5_rules()
         if not selected_rules:
             raise ValueError("stage5_rule_catalog_selection_empty")
-        evaluated_rules: list[tuple[Any, str, str, list[str]]] = []
+        selected_reason_by_code = {
+            str(entry.get("rule_code")): str(entry.get("reason"))
+            for entry in rule_selection_trace
+        }
+        evaluated_rules: list[tuple[Any, str, str, list[str], dict[str, Any]]] = []
         for rule in selected_rules:
             rule_code = str(rule.get("rule_code"))
             apply_rule(self.store, trace_rules, rule_code)
@@ -208,32 +252,57 @@ class RuleRunner:
                     "source_object_refs": source_object_refs,
                 },
             )
-            evaluated_rules.append((rule_hit, rule_gate_status_for_hit, rule_hit_state_for_hit, reasons))
+            evaluated_rules.append(
+                (
+                    rule_hit,
+                    rule_gate_status_for_hit,
+                    rule_hit_state_for_hit,
+                    reasons,
+                    {
+                        "rule_code": rule_code,
+                        "rule_name": str(rule.get("name", rule_code)),
+                        "upstream_objects": [
+                            str(object_name)
+                            for object_name in ensure_list(rule.get("upstream_objects"))
+                            if object_name not in (None, "")
+                        ],
+                        "rule_gate_status": rule_gate_status_for_hit,
+                        "rule_hit_state": rule_hit_state_for_hit,
+                        "blocking_reasons": list(reasons),
+                        "selected_reason": selected_reason_by_code.get(
+                            rule_code,
+                            "selected_first_slice_priority",
+                        ),
+                        "rule_hit_id": rule_hit.get("rule_hit_id"),
+                    },
+                )
+            )
 
         severity_order = {"BLOCK": 0, "REVIEW": 1, "PASS": 2}
-        primary_rule_hit, _, primary_rule_hit_state, _ = min(
+        primary_rule_hit, _, primary_rule_hit_state, _, _ = min(
             evaluated_rules,
             key=lambda entry: severity_order.get(entry[1], 99),
         )
         rule_hits = [entry[0] for entry in evaluated_rules]
+        rule_execution_trace = [dict(entry[4]) for entry in evaluated_rules]
         passed_rule_hits = [
             rule_hit.get("rule_hit_id")
-            for rule_hit, rule_status, _, _ in evaluated_rules
+            for rule_hit, rule_status, _, _, _ in evaluated_rules
             if rule_status == "PASS"
         ]
         blocked_rule_hits = [
             rule_hit.get("rule_hit_id")
-            for rule_hit, rule_status, _, _ in evaluated_rules
+            for rule_hit, rule_status, _, _, _ in evaluated_rules
             if rule_status == "BLOCK"
         ]
         aggregated_reasons: list[str] = []
-        for _, rule_status, _, reasons in evaluated_rules:
+        for _, rule_status, _, reasons, _ in evaluated_rules:
             if rule_status != "PASS":
                 aggregated_reasons.extend(reasons)
         blocking_reasons = list(dict.fromkeys(aggregated_reasons))
         if blocked_rule_hits:
             rule_gate_status = "BLOCK"
-        elif any(rule_status == "REVIEW" for _, rule_status, _, _ in evaluated_rules):
+        elif any(rule_status == "REVIEW" for _, rule_status, _, _, _ in evaluated_rules):
             rule_gate_status = "REVIEW"
         else:
             rule_gate_status = "PASS"
@@ -256,6 +325,8 @@ class RuleRunner:
             rule_hit=primary_rule_hit,
             rule_hits=rule_hits,
             rule_gate_decision=rule_gate_decision,
+            rule_selection_trace=rule_selection_trace,
+            rule_execution_trace=rule_execution_trace,
             rule_hit_state=primary_rule_hit_state,
             rule_gate_status=rule_gate_status,
             lineage_status=lineage_status,

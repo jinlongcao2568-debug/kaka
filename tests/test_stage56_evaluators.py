@@ -92,6 +92,62 @@ class TestStage56Evaluators(unittest.TestCase):
             service_result.inputs.get("stage5_rule_codes"),
             engine_result.inputs.get("stage5_rule_codes"),
         )
+        selection_trace = service_result.inputs.get("stage5_rule_selection_trace", [])
+        self.assertEqual(
+            selection_trace,
+            engine_result.inputs.get("stage5_rule_selection_trace"),
+        )
+        self.assertGreater(len(selection_trace), len(service_result.inputs.get("stage5_rule_codes", [])))
+        self.assertEqual(
+            {
+                entry.get("rule_code")
+                for entry in selection_trace
+                if entry.get("selected")
+            },
+            {"PROC-001", "PROC-002", "DOC-001"},
+        )
+        self.assertTrue(
+            all(
+                entry.get("reason") == "selected_first_slice_priority"
+                for entry in selection_trace
+                if entry.get("selected")
+            )
+        )
+        self.assertEqual(
+            next(
+                entry
+                for entry in selection_trace
+                if entry.get("rule_code") == "WIN-001"
+            ).get("reason"),
+            "not_in_first_slice_priority",
+        )
+        self.assertEqual(
+            next(
+                entry
+                for entry in selection_trace
+                if entry.get("rule_code") == "PROC-003"
+            ).get("reason"),
+            "unsupported_upstream_objects",
+        )
+        execution_trace = service_result.inputs.get("stage5_rule_execution_trace", [])
+        self.assertEqual(
+            execution_trace,
+            engine_result.inputs.get("stage5_rule_execution_trace"),
+        )
+        self.assertEqual(
+            [entry.get("rule_code") for entry in execution_trace],
+            ["PROC-001", "PROC-002", "DOC-001"],
+        )
+        for entry in execution_trace:
+            self.assertIn("rule_name", entry)
+            self.assertTrue(entry.get("upstream_objects"))
+            self.assertEqual(entry.get("rule_gate_status"), "PASS")
+            self.assertEqual(entry.get("rule_hit_state"), "CONFIRMED")
+            self.assertEqual(entry.get("blocking_reasons"), [])
+            self.assertEqual(entry.get("selected_reason"), "selected_first_slice_priority")
+            self.assertIsNone(entry.get("review_request_target_object_type"))
+            self.assertIsNone(entry.get("review_request_target_object_id"))
+            self.assertFalse(entry.get("review_request_target_selected"))
         self.assertGreaterEqual(len(service_result.inputs.get("stage5_rule_hits", [])), 2)
         self.assertEqual(
             service_result.record("rule_gate_decision").get("passed_rule_hits"),
@@ -643,6 +699,29 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertIn("review_request", stage5.records)
         self.assertIn("h04_clock_conflict_state_not_consistent", stage5.inputs.get("h04_authority_review_reasons"))
         self.assertGreaterEqual(len(stage5.inputs.get("stage5_rule_hits", [])), 2)
+        execution_trace = stage5.inputs.get("stage5_rule_execution_trace", [])
+        self.assertEqual(len(execution_trace), 3)
+        self.assertTrue(
+            all(entry.get("rule_gate_status") == "REVIEW" for entry in execution_trace)
+        )
+        self.assertTrue(
+            all(entry.get("review_request_target_object_type") == "rule_hit" for entry in execution_trace)
+        )
+        self.assertTrue(
+            all(
+                entry.get("review_request_target_object_id")
+                == stage5.record("review_request").get("target_object_id")
+                for entry in execution_trace
+            )
+        )
+        self.assertEqual(
+            [
+                entry.get("rule_hit_id")
+                for entry in execution_trace
+                if entry.get("review_request_target_selected")
+            ],
+            [stage5.record("rule_hit").get("rule_hit_id")],
+        )
         self.assertTrue(
             any(
                 rule_hit.get("rule_hit_state") == "REVIEW_REQUIRED"

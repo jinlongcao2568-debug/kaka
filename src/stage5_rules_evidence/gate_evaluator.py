@@ -19,6 +19,8 @@ class GateArtifacts:
     coverage_sellable_state: str
     delivery_risk_state: str
     review_request: Any | None
+    review_target_object_type: str | None
+    review_target_object_id: str | None
     review_required: bool
 
 
@@ -92,11 +94,15 @@ class GateEvaluator:
         requested_materials = list(dict.fromkeys(requested_materials))
 
         review_request = None
+        review_target_object_type: str | None = None
+        review_target_object_id: str | None = None
         if review_required:
-            target_object_type = "evidence" if evidence_artifacts.evidence_gate_status != "PASS" else "rule_hit"
-            target_object_id = (
+            review_target_object_type = (
+                "evidence" if evidence_artifacts.evidence_gate_status != "PASS" else "rule_hit"
+            )
+            review_target_object_id = (
                 evidence_artifacts.evidence.get("evidence_id")
-                if target_object_type == "evidence"
+                if review_target_object_type == "evidence"
                 else rule_artifacts.rule_hit.get("rule_hit_id")
             )
             review_request = self.store.build_record(
@@ -108,8 +114,8 @@ class GateEvaluator:
                     "missing_condition_family": ensure_enum(
                         self.store, "missing_condition_family", missing_condition_family
                     ),
-                    "target_object_type": target_object_type,
-                    "target_object_id": target_object_id,
+                    "target_object_type": review_target_object_type,
+                    "target_object_id": review_target_object_id,
                     "review_lane": ensure_enum(self.store, "review_lane", inputs.get("review_lane", "STANDARD")),
                 },
             )
@@ -134,6 +140,8 @@ class GateEvaluator:
             coverage_sellable_state=coverage_sellable_state,
             delivery_risk_state=delivery_risk_state,
             review_request=review_request,
+            review_target_object_type=review_target_object_type,
+            review_target_object_id=review_target_object_id,
             review_required=review_required,
         )
 

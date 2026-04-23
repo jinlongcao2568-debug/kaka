@@ -127,6 +127,16 @@ class RuleEvidenceEngine:
             inputs=inputs,
             flags=flags,
         )
+        stage5_rule_execution_trace = []
+        for trace_entry in rule_artifacts.rule_execution_trace:
+            enriched_entry = dict(trace_entry)
+            enriched_entry["review_request_target_object_type"] = gate_artifacts.review_target_object_type
+            enriched_entry["review_request_target_object_id"] = gate_artifacts.review_target_object_id
+            enriched_entry["review_request_target_selected"] = bool(
+                gate_artifacts.review_target_object_type == "rule_hit"
+                and trace_entry.get("rule_hit_id") == gate_artifacts.review_target_object_id
+            )
+            stage5_rule_execution_trace.append(enriched_entry)
 
         records: dict[str, Any] = {
             "evidence": evidence_artifacts.evidence,
@@ -166,6 +176,10 @@ class RuleEvidenceEngine:
         inputs_out["stage5_rule_codes"] = [
             rule_hit.get("rule_code") for rule_hit in rule_artifacts.rule_hits
         ]
+        inputs_out["stage5_rule_selection_trace"] = [
+            dict(trace_entry) for trace_entry in rule_artifacts.rule_selection_trace
+        ]
+        inputs_out["stage5_rule_execution_trace"] = stage5_rule_execution_trace
         inputs_out["evidence_id"] = evidence_artifacts.evidence.get("evidence_id")
         inputs_out["rule_gate_decision_id"] = rule_artifacts.rule_gate_decision.get("gate_id")
         inputs_out["evidence_gate_decision_id"] = evidence_artifacts.evidence_gate_decision.get("gate_id")
