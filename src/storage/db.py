@@ -13,7 +13,9 @@ from shared.settings import Settings
 from shared.utils import utc_now_iso
 
 
-_SUPPORTED_STORAGE_BACKENDS = frozenset({"json-file"})
+_JSON_FILE_STORAGE_BACKEND = "json-file"
+_SQLITE_STORAGE_BACKEND = "sqlite"
+_SUPPORTED_STORAGE_BACKENDS = frozenset({_JSON_FILE_STORAGE_BACKEND, _SQLITE_STORAGE_BACKEND})
 
 
 @dataclass(frozen=True)
@@ -164,26 +166,35 @@ class DatabaseSession:
 
     def __init__(self, *, storage_path: Path | None = None, settings: Settings | None = None) -> None:
         self._lock = RLock()
+        self._closed = False
         self._settings = settings or self.default_settings()
         self._storage_backend = self._resolve_storage_backend(self._settings)
-        self._storage_path = storage_path or self.default_storage_path(settings=self._settings)
+        self._storage_path = self._resolve_effective_storage_path(
+            storage_path or self.default_storage_path(settings=self._settings),
+            self._storage_backend,
+        )
+        self._backend = self._build_backend(self._storage_backend, self._storage_path)
         self._tables: Dict[str, Dict[str, PersistedRecord]] = {}
         self._stage_states: Dict[str, PersistedStageState] = {}
         self._work_items: Dict[str, PersistedWorkItem] = {}
         self._operator_actions: Dict[str, List[PersistedOperatorAction]] = {}
-        self._load()
+        if self._backend is None:
+            self._load()
 
     @classmethod
     def default(cls, *, reload_from_disk: bool = False, settings: Settings | None = None) -> "DatabaseSession":
         resolved_settings = cls.default_settings(settings=settings)
         resolved_backend = cls._resolve_storage_backend(resolved_settings)
-        resolved_storage_path = resolved_settings.resolved_storage_path()
+        resolved_storage_path = cls.default_storage_path(settings=resolved_settings)
         if (
             cls._default is None
+            or cls._default._closed
             or reload_from_disk
             or cls._default.storage_backend != resolved_backend
             or cls._default.storage_path != resolved_storage_path
         ):
+            if cls._default is not None:
+                cls._default.close()
             cls._default = cls(settings=resolved_settings)
         return cls._default
 
@@ -194,8 +205,11 @@ class DatabaseSession:
     @classmethod
     def default_storage_path(cls, *, settings: Settings | None = None) -> Path:
         resolved_settings = cls.default_settings(settings=settings)
-        cls._resolve_storage_backend(resolved_settings)
-        return resolved_settings.resolved_storage_path()
+        resolved_backend = cls._resolve_storage_backend(resolved_settings)
+        return cls._resolve_effective_storage_path(
+            resolved_settings.resolved_storage_path(),
+            resolved_backend,
+        )
 
     @classmethod
     def _resolve_storage_backend(cls, settings: Settings) -> str:
@@ -208,6 +222,21 @@ class DatabaseSession:
             )
         return backend
 
+    @classmethod
+    def _resolve_effective_storage_path(cls, storage_path: Path, backend: str) -> Path:
+        if backend == _SQLITE_STORAGE_BACKEND:
+            from storage.sqlite_backend import SQLiteStorageBackend
+
+            return SQLiteStorageBackend.effective_storage_path(storage_path)
+        return storage_path
+
+    def _build_backend(self, backend: str, storage_path: Path) -> Any | None:
+        if backend == _SQLITE_STORAGE_BACKEND:
+            from storage.sqlite_backend import SQLiteStorageBackend
+
+            return SQLiteStorageBackend(storage_path)
+        return None
+
     @property
     def storage_backend(self) -> str:
         return self._storage_backend
@@ -218,27 +247,42 @@ class DatabaseSession:
 
     def clear(self, *, remove_storage: bool = True) -> None:
         with self._lock:
+            if self._backend is not None:
+                self._backend.clear(remove_storage=remove_storage)
+                return
             self._tables.clear()
             self._stage_states.clear()
             self._work_items.clear()
             self._operator_actions.clear()
             if remove_storage and self._storage_path.exists():
-                self._storage_path.unlink()
+                self._storage_path.unlink(missing_ok=True)
             elif not remove_storage:
                 self._flush()
 
+    def close(self) -> None:
+        with self._lock:
+            if self._backend is not None:
+                self._backend.close()
+            self._closed = True
+
     def upsert_record(self, entry: PersistedRecord) -> PersistedRecord:
         with self._lock:
+            if self._backend is not None:
+                return self._backend.upsert_record(entry)
             self._tables.setdefault(entry.object_type, {})[entry.record_id] = entry
             self._flush()
             return entry
 
     def get_record(self, object_type: str, record_id: str) -> PersistedRecord | None:
         with self._lock:
+            if self._backend is not None:
+                return self._backend.get_record(object_type, record_id)
             return self._tables.get(object_type, {}).get(record_id)
 
     def list_records(self, object_type: str) -> list[PersistedRecord]:
         with self._lock:
+            if self._backend is not None:
+                return self._backend.list_records(object_type)
             return list(self._tables.get(object_type, {}).values())
 
     def find_records(self, object_type: str, **criteria: str) -> list[PersistedRecord]:
@@ -251,13 +295,19 @@ class DatabaseSession:
 
     def upsert_stage_state(self, entry: PersistedStageState) -> PersistedStageState:
         with self._lock:
-            self._stage_states[self._stage_key(entry.stage_scope, entry.surface_id, entry.root_record_id)] = entry
+            stage_key = self._stage_key(entry.stage_scope, entry.surface_id, entry.root_record_id)
+            if self._backend is not None:
+                return self._backend.upsert_stage_state(stage_key, entry)
+            self._stage_states[stage_key] = entry
             self._flush()
             return entry
 
     def get_stage_state(self, stage_scope: int, surface_id: str, root_record_id: str) -> PersistedStageState | None:
         with self._lock:
-            return self._stage_states.get(self._stage_key(stage_scope, surface_id, root_record_id))
+            stage_key = self._stage_key(stage_scope, surface_id, root_record_id)
+            if self._backend is not None:
+                return self._backend.get_stage_state(stage_key)
+            return self._stage_states.get(stage_key)
 
     def list_stage_states(
         self,
@@ -266,7 +316,11 @@ class DatabaseSession:
         surface_id: str | None = None,
     ) -> list[PersistedStageState]:
         with self._lock:
-            rows = list(self._stage_states.values())
+            rows = (
+                self._backend.list_stage_states()
+                if self._backend is not None
+                else list(self._stage_states.values())
+            )
         if stage_scope is not None:
             rows = [row for row in rows if row.stage_scope == stage_scope]
         if surface_id is not None:
@@ -289,6 +343,8 @@ class DatabaseSession:
 
     def upsert_work_item(self, entry: PersistedWorkItem) -> PersistedWorkItem:
         with self._lock:
+            if self._backend is not None:
+                return self._backend.upsert_work_item(entry)
             self._work_items[entry.work_item_id] = entry
             self._flush()
             return entry
@@ -302,7 +358,12 @@ class DatabaseSession:
         primary_record_id: str,
     ) -> PersistedWorkItem | None:
         with self._lock:
-            for item in self._work_items.values():
+            rows = (
+                self._backend.list_work_items()
+                if self._backend is not None
+                else list(self._work_items.values())
+            )
+            for item in rows:
                 if (
                     item.stage_scope == stage_scope
                     and item.surface_id == surface_id
@@ -314,19 +375,27 @@ class DatabaseSession:
 
     def list_work_items(self, stage_scope: int | None = None) -> list[PersistedWorkItem]:
         with self._lock:
-            rows = list(self._work_items.values())
+            rows = (
+                self._backend.list_work_items()
+                if self._backend is not None
+                else list(self._work_items.values())
+            )
         if stage_scope is None:
             return rows
         return [row for row in rows if row.stage_scope == stage_scope]
 
     def append_operator_action(self, entry: PersistedOperatorAction) -> PersistedOperatorAction:
         with self._lock:
+            if self._backend is not None:
+                return self._backend.append_operator_action(entry)
             self._operator_actions.setdefault(entry.work_item_id, []).append(entry)
             self._flush()
             return entry
 
     def list_operator_actions(self, work_item_id: str) -> list[PersistedOperatorAction]:
         with self._lock:
+            if self._backend is not None:
+                return self._backend.list_operator_actions(work_item_id)
             return list(self._operator_actions.get(work_item_id, []))
 
     def _stage_key(self, stage_scope: int, surface_id: str, root_record_id: str) -> str:

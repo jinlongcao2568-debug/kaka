@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import copy
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -51,6 +54,61 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
     def setUp(self) -> None:
         reset_default_storage()
         self.result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+
+    def test_repository_boundary_readback_works_with_sqlite_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "sqlite",
+                    "KAKA_STORAGE_PATH": str(Path(tmp_dir) / "repository-boundary.json"),
+                    "LOCALAPPDATA": str(Path(tmp_dir) / "local-app-data"),
+                },
+                clear=False,
+            ):
+                for key in ("KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
+                reset_default_storage()
+                try:
+                    result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+                    stage8 = result["stage8"]
+                    original_contact = dict(stage8.record("contact_target").data)
+                    original_plan = dict(stage8.record("outreach_plan").data)
+                    original_touch = dict(stage8.record("touch_record").data)
+
+                    create_touch_record(stage8)
+                    DatabaseSession.default(reload_from_disk=True)
+
+                    replay = list_contact_targets({"opportunity_id": original_touch["opportunity_id"]})
+                    hydrated = hydrate_stage_bundle("stage8", {"opportunity_id": original_touch["opportunity_id"]})
+                    self.assertEqual(DatabaseSession.default().storage_backend, "sqlite")
+                    self.assertEqual(
+                        replay["preview_projection"]["touch_record_preview"]["touch_record_id"],
+                        original_touch["touch_record_id"],
+                    )
+                    self.assertEqual(
+                        replay["preview_projection"]["outreach_plan_preview"]["outreach_plan_id"],
+                        original_plan["outreach_plan_id"],
+                    )
+                    self.assertEqual(
+                        replay["preview_projection"]["contact_target_preview"]["contact_target_id"],
+                        original_contact["contact_target_id"],
+                    )
+                    self.assertIsNotNone(hydrated)
+                    self.assertEqual(
+                        hydrated.record("touch_record").get("touch_record_id"),
+                        original_touch["touch_record_id"],
+                    )
+                    self.assertEqual(
+                        hydrated.record("outreach_plan").get("outreach_plan_id"),
+                        original_plan["outreach_plan_id"],
+                    )
+                    self.assertEqual(
+                        hydrated.record("contact_target").get("contact_target_id"),
+                        original_contact["contact_target_id"],
+                    )
+                finally:
+                    DatabaseSession.default().close()
 
     def test_stage6_repository_boundary_persists_formal_objects_and_rehydrates_stage7_inputs(self) -> None:
         stage6 = self.result["stage6"]

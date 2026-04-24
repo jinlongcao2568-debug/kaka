@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -17,7 +18,14 @@ if str(SRC) not in sys.path:
 if str(TESTS) not in sys.path:
     sys.path.insert(0, str(TESTS))
 
-from storage.db import DatabaseSession, PersistedStageState, build_persisted_at
+from storage.db import (
+    DatabaseSession,
+    PersistedOperatorAction,
+    PersistedRecord,
+    PersistedStageState,
+    PersistedWorkItem,
+    build_persisted_at,
+)
 from shared.settings import Settings
 
 
@@ -88,7 +96,7 @@ class TestStorageConcurrency(unittest.TestCase):
             for entry in readiness["executable_backends"]
             if entry["executable"]
         ]
-        self.assertEqual(executable_backend_names, ["json-file"])
+        self.assertEqual(executable_backend_names, ["json-file", "sqlite"])
 
     def test_database_session_default_fast_fails_unsupported_storage_backend(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -123,10 +131,15 @@ class TestStorageConcurrency(unittest.TestCase):
         readiness = payload["platform_infra_readiness"]
         self.assertEqual(readiness["active_backend"], "json-file")
         executable_backends = readiness["executable_backends"]
-        self.assertEqual([entry["backend"] for entry in executable_backends], ["json-file"])
-        self.assertEqual([entry["backend"] for entry in executable_backends if entry["executable"]], ["json-file"])
+        self.assertEqual([entry["backend"] for entry in executable_backends], ["json-file", "sqlite"])
+        self.assertEqual(
+            [entry["backend"] for entry in executable_backends if entry["executable"]],
+            ["json-file", "sqlite"],
+        )
         self.assertEqual(executable_backends[0]["readiness_state"], "EXECUTABLE")
         self.assertTrue(executable_backends[0]["configured"])
+        self.assertEqual(executable_backends[1]["readiness_state"], "EXECUTABLE")
+        self.assertFalse(executable_backends[1]["configured"])
 
         reserved_by_backend = {
             entry["backend"]: entry
@@ -157,6 +170,166 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(policy["no_external_service_connection"])
         self.assertTrue(policy["readback_only"])
         self.assertFalse(policy["runtime_behavior_changed"])
+
+    def test_storage_backend_sqlite_env_opt_in_creates_sqlite_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            explicit_path = Path(tmp_dir) / "store.json"
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "sqlite",
+                    "KAKA_STORAGE_PATH": str(explicit_path),
+                    "LOCALAPPDATA": str(Path(tmp_dir) / "local-app-data"),
+                },
+                clear=False,
+            ):
+                for key in ("KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
+                settings = Settings.from_env()
+                session = DatabaseSession.default(settings=settings, reload_from_disk=True)
+                try:
+                    readiness = settings.storage_bootstrap_payload()["platform_infra_readiness"]
+
+                    self.assertEqual(settings.storage_backend, "sqlite")
+                    self.assertEqual(session.storage_backend, "sqlite")
+                    self.assertEqual(session.storage_path, explicit_path.with_suffix(".sqlite"))
+                    self.assertTrue(session.storage_path.exists())
+                    self.assertEqual(readiness["active_backend"], "sqlite")
+                    executable_by_backend = {
+                        entry["backend"]: entry
+                        for entry in readiness["executable_backends"]
+                    }
+                    self.assertEqual(set(executable_by_backend), {"json-file", "sqlite"})
+                    self.assertTrue(executable_by_backend["json-file"]["executable"])
+                    self.assertFalse(executable_by_backend["json-file"]["configured"])
+                    self.assertTrue(executable_by_backend["sqlite"]["executable"])
+                    self.assertTrue(executable_by_backend["sqlite"]["configured"])
+                finally:
+                    session.close()
+
+    def test_sqlite_backend_reloads_records_stage_states_work_items_and_operator_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="sqlite",
+                storage_path_optional=str(Path(tmp_dir) / "durable-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+            session = DatabaseSession(settings=settings)
+            now = build_persisted_at()
+            record = PersistedRecord(
+                object_type="test_record",
+                record_id="REC-1",
+                stage_scope=8,
+                project_id="P-1",
+                object_refs={"project_id": "P-1"},
+                decision_states={"policy_decision_state": "ALLOW"},
+                trace_refs={"trace_id": "TRACE-1"},
+                audit_refs={"audit_id": "AUDIT-1"},
+                governed_state={"primary_status": "READY"},
+                writeback_state={"writeback_targets": ["test_record"]},
+                payload={"record_id": "REC-1", "project_id": "P-1", "status": "READY"},
+                persisted_at=now,
+            )
+            stage_state = PersistedStageState(
+                stage_scope=8,
+                project_id="P-1",
+                surface_id="outreach_workbench",
+                root_object_type="test_record",
+                root_record_id="REC-1",
+                inputs={"project_id": "P-1", "record_id": "REC-1"},
+                persisted_at=now,
+                typed_object_refs={"record_id": "REC-1"},
+            )
+            work_item = PersistedWorkItem(
+                work_item_id="WI-1",
+                work_item_key="8:outreach_workbench:test_record:REC-1",
+                stage_scope=8,
+                project_id="P-1",
+                surface_id="outreach_workbench",
+                primary_object_type="test_record",
+                primary_record_id="REC-1",
+                assignment_profile_id="single_operator",
+                assignment_lifecycle_state="assigned",
+                object_refs={"record_id": "REC-1"},
+                surface_operational_state="draft_only",
+                current_operational_state="ready_for_internal_operator_action",
+                assigned_owner_role="sales_user",
+                assigned_owner="operator",
+                reviewer_role="delivery_governance_user",
+                reviewer="reviewer",
+                assignment_resolved_from="test",
+                assignment_simplified_boundary=["internal_only"],
+                pending_actions=["stage8_mark_ready"],
+                pending_button_flows=[{"action_id": "stage8_mark_ready"}],
+                last_action_id=None,
+                last_action_state=None,
+                last_action_at=None,
+                trace_refs={"trace_id": "TRACE-1"},
+                audit_refs={"audit_id": "AUDIT-1"},
+                decision_states={"policy_decision_state": "ALLOW"},
+                governed_context={"approval_state": "PENDING_APPROVAL"},
+                created_at=now,
+                updated_at=now,
+            )
+            action = PersistedOperatorAction(
+                action_event_id="ACT-1",
+                work_item_id="WI-1",
+                stage_scope=8,
+                action_id="stage8_mark_ready",
+                button_flow_id="submit_stage8_mark_ready",
+                action_state="action_completed",
+                resulting_assignment_lifecycle_state="completed",
+                requested_by_role="sales_user",
+                requested_by="operator",
+                assigned_owner_role="sales_user",
+                assigned_owner="operator",
+                reviewer_role="delivery_governance_user",
+                reviewer="reviewer",
+                reason="sqlite reload coverage",
+                object_refs={"record_id": "REC-1"},
+                trace_refs={"trace_id": "TRACE-1"},
+                audit_refs={"audit_id": "AUDIT-1"},
+                requested_at=now,
+                completed_at=now,
+            )
+
+            session.upsert_record(record)
+            session.upsert_stage_state(stage_state)
+            session.upsert_work_item(work_item)
+            session.append_operator_action(action)
+            sqlite_path = session.storage_path
+            session.close()
+
+            connection = sqlite3.connect(sqlite_path)
+            try:
+                table_names = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'table'"
+                    )
+                }
+            finally:
+                connection.close()
+            self.assertTrue({"records", "stage_states", "work_items", "operator_actions"}.issubset(table_names))
+
+            reloaded = DatabaseSession(settings=settings)
+            try:
+                self.assertEqual(reloaded.get_record("test_record", "REC-1"), record)
+                self.assertEqual(reloaded.get_stage_state(8, "outreach_workbench", "REC-1"), stage_state)
+                self.assertEqual(
+                    reloaded.find_work_item(
+                        stage_scope=8,
+                        surface_id="outreach_workbench",
+                        primary_object_type="test_record",
+                        primary_record_id="REC-1",
+                    ),
+                    work_item,
+                )
+                self.assertEqual(reloaded.list_operator_actions("WI-1"), [action])
+                self.assertEqual(reloaded.storage_path, Path(tmp_dir) / "durable-store.sqlite")
+            finally:
+                reloaded.close()
 
     def test_explicit_storage_path_takes_priority(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

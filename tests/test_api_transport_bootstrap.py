@@ -208,8 +208,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(readiness["active_backend"], "json-file")
         self.assertEqual(
             [entry["backend"] for entry in readiness["executable_backends"] if entry["executable"]],
-            ["json-file"],
+            ["json-file", "sqlite"],
         )
+        executable_by_backend = {
+            entry["backend"]: entry
+            for entry in readiness["executable_backends"]
+        }
+        self.assertTrue(executable_by_backend["json-file"]["configured"])
+        self.assertFalse(executable_by_backend["sqlite"]["configured"])
         reserved_by_backend = {
             entry["backend"]: entry
             for entry in readiness["reserved_backends"]
@@ -229,6 +235,57 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(readiness["backend_policy"]["no_external_service_connection"])
         self.assertTrue(readiness["backend_policy"]["readback_only"])
         self.assertFalse(readiness["backend_policy"]["runtime_behavior_changed"])
+
+    def test_create_app_mounts_sqlite_storage_bootstrap_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            explicit_path = Path(tmp_dir) / "storage" / "custom-store.json"
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "sqlite",
+                    "KAKA_STORAGE_PATH": str(explicit_path),
+                    "LOCALAPPDATA": str(Path(tmp_dir) / "local-app-data"),
+                },
+                clear=False,
+            ):
+                for key in ("KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
+                get_settings.cache_clear()
+                app = create_app()
+                try:
+                    self.assertEqual(app.state.settings.storage_backend, "sqlite")
+                    self.assertEqual(app.state.storage_session.storage_backend, "sqlite")
+                    self.assertEqual(app.state.storage_session.storage_path, explicit_path.with_suffix(".sqlite"))
+                    storage_bootstrap = app.state.storage_bootstrap
+                    self.assertEqual(storage_bootstrap["active_backend"], "sqlite")
+                    self.assertEqual(storage_bootstrap["storage_backend"], "sqlite")
+                    self.assertEqual(storage_bootstrap["storage_path"], str(explicit_path))
+                    readiness = storage_bootstrap["platform_infra_readiness"]
+                    self.assertEqual(readiness["active_backend"], "sqlite")
+                    executable_by_backend = {
+                        entry["backend"]: entry
+                        for entry in readiness["executable_backends"]
+                    }
+                    self.assertEqual(set(executable_by_backend), {"json-file", "sqlite"})
+                    self.assertTrue(executable_by_backend["json-file"]["executable"])
+                    self.assertFalse(executable_by_backend["json-file"]["configured"])
+                    self.assertTrue(executable_by_backend["sqlite"]["executable"])
+                    self.assertTrue(executable_by_backend["sqlite"]["configured"])
+                    reserved_by_backend = {
+                        entry["backend"]: entry
+                        for entry in readiness["reserved_backends"]
+                    }
+                    self.assertEqual(set(reserved_by_backend), RESERVED_INFRA_BACKENDS)
+                    self.assertFalse(readiness["postgresql_readiness"]["executable"])
+                    self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+                    self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+                    self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
+                    self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+                    self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
+                    self.assertTrue(readiness["backend_policy"]["no_silent_fallback"])
+                    self.assertTrue(readiness["backend_policy"]["no_external_service_connection"])
+                finally:
+                    app.state.storage_session.close()
 
     def test_create_app_exposes_single_transport_bootstrap_readback_projection(self) -> None:
         app = create_app()

@@ -13,7 +13,8 @@ from typing import Any, Optional
 
 
 _DEFAULT_STORAGE_BACKEND = "json-file"
-_EXECUTABLE_STORAGE_BACKENDS = (_DEFAULT_STORAGE_BACKEND,)
+_SQLITE_STORAGE_BACKEND = "sqlite"
+_EXECUTABLE_STORAGE_BACKENDS = (_DEFAULT_STORAGE_BACKEND, _SQLITE_STORAGE_BACKEND)
 _DEFAULT_STORAGE_SCOPE = "shared"
 _PROCESS_STORAGE_SCOPE = "process"
 _DEFAULT_STORAGE_RUNTIME_MODE = "stable-default"
@@ -31,14 +32,14 @@ _RESERVED_BACKEND_DEFINITIONS: tuple[dict[str, object], ...] = (
         "category": "storage",
         "configured_aliases": ("postgres", "postgresql"),
         "aliases": ("postgres",),
-        "why_not_live": "reserved for a future PostgreSQL storage design packet; current runtime only executes json-file",
+        "why_not_live": "reserved for a future PostgreSQL storage design packet; current runtime only executes json-file and opt-in local sqlite",
     },
     {
         "backend": "sqlalchemy",
         "category": "storage-adapter",
         "configured_aliases": ("sqlalchemy",),
         "aliases": (),
-        "why_not_live": "reserved for a future SQLAlchemy adapter design packet; current runtime only executes json-file",
+        "why_not_live": "reserved for a future SQLAlchemy adapter design packet; current runtime only executes json-file and opt-in local sqlite",
     },
     {
         "backend": "alembic",
@@ -254,7 +255,9 @@ class Settings:
         return _READINESS_NOT_CONFIGURED
 
     def storage_bootstrap_payload(self) -> dict[str, Any]:
+        active_backend = _normalize_backend(self.storage_backend)
         return {
+            "active_backend": active_backend,
             "storage_backend": self.storage_backend,
             "storage_path": str(self.resolved_storage_path()),
             "storage_path_optional": self.storage_path_optional,
