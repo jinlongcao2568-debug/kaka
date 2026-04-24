@@ -24,6 +24,26 @@ from storage.repository_boundary import (
 )
 
 
+STAGE8_OUTBOX_ROUTE_READINESS = {
+    "governed_execution_mode": "INTERNAL_GOVERNED",
+    "outbox_enabled": True,
+    "repository_backed_readback": True,
+    "real_send_enabled": False,
+    "real_send_attempted": False,
+    "vendor_connection_enabled": False,
+    "stage8_execution_outbox_readiness": {
+        "governed_execution_mode": "INTERNAL_GOVERNED",
+        "live_execution_enabled": False,
+        "real_send_attempted": False,
+        "ready_for_real_send": False,
+        "blocked_reasons": [
+            "stage8_real_execution_blocked_by_default",
+            "internal_governed_outbox_only",
+        ],
+    },
+}
+
+
 def list_contact_targets(payload: Any) -> ContactTargetsListResponse:
     return build_stage8_preview_surface(payload)
 
@@ -92,6 +112,7 @@ STAGE8_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE8_OUTBOX_ROUTE_READINESS,
     },
     {
         "operationId": "checkContactCompliance",
@@ -102,6 +123,7 @@ STAGE8_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE8_OUTBOX_ROUTE_READINESS,
     },
     {
         "operationId": "createOutreachPlan",
@@ -112,6 +134,7 @@ STAGE8_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE8_OUTBOX_ROUTE_READINESS,
     },
     {
         "operationId": "createTouchRecord",
@@ -122,6 +145,7 @@ STAGE8_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE8_OUTBOX_ROUTE_READINESS,
     },
     {
         "operationId": "listStage8WorkItems",
@@ -132,6 +156,7 @@ STAGE8_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE8_OUTBOX_ROUTE_READINESS,
     },
     {
         "operationId": "submitStage8OperatorAction",
@@ -142,6 +167,7 @@ STAGE8_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE8_OUTBOX_ROUTE_READINESS,
     },
 ]
 

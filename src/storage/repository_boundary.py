@@ -95,6 +95,10 @@ STAGE_INPUT_FIELDS = {
         "cadence_profile_id",
         "retry_policy_id",
         "stop_policy_id",
+        "outbox_id_optional",
+        "outreach_execution_outbox_id_optional",
+        "outreach_execution_outbox_snapshot",
+        "outbox_readiness_summary",
         "stage8_resolution_trace",
         "contact_candidate_collection_id_optional",
         "contact_selection_trace_id_optional",
@@ -905,6 +909,8 @@ def _find_stage8_records(payload: Mapping[str, Any]) -> tuple[Any, Any, Any, Per
     if work_item is not None:
         touch_record_id = touch_record_id or str(work_item.primary_record_id or "")
     touch_record = TouchRecordRepository().get_by_id(touch_record_id) if touch_record_id else None
+    if touch_record_id and not touch_record:
+        return None, None, None, stage_state
     if not touch_record:
         opportunity_id = str(payload.get("opportunity_id", "")).strip()
         touch_record = TouchRecordRepository().find_one_by_field("opportunity_id", opportunity_id) if opportunity_id else None
@@ -1214,6 +1220,7 @@ def _stage8_carrier_payload(bundle: StageBundle, key: str) -> Mapping[str, Any]:
 def _stage8_carrier_refs(bundle: StageBundle) -> dict[str, str]:
     collection = _stage8_carrier_payload(bundle, "contact_candidate_collection_snapshot")
     selection_trace = _stage8_carrier_payload(bundle, "contact_selection_trace_snapshot")
+    outbox = _stage8_carrier_payload(bundle, "outreach_execution_outbox_snapshot")
     collection_id = (
         bundle.inputs.get("contact_candidate_collection_id_optional")
         or collection.get("contact_candidate_collection_id")
@@ -1235,6 +1242,12 @@ def _stage8_carrier_refs(bundle: StageBundle) -> dict[str, str]:
         "contact_selection_trace_id": selection_trace_id,
         "contact_selection_trace_id_optional": selection_trace_id,
         "winning_contact_candidate_id_optional": winning_contact_candidate_id,
+        "outbox_id": bundle.inputs.get("outbox_id_optional") or outbox.get("outbox_id"),
+        "outbox_id_optional": bundle.inputs.get("outbox_id_optional") or outbox.get("outbox_id"),
+        "outreach_execution_outbox_id_optional": (
+            bundle.inputs.get("outreach_execution_outbox_id_optional")
+            or outbox.get("outbox_id")
+        ),
     }
     return {
         key: str(value)
@@ -1310,6 +1323,7 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
     if bundle.stage == 8:
         collection = _stage8_carrier_payload(bundle, "contact_candidate_collection_snapshot")
         selection_trace = _stage8_carrier_payload(bundle, "contact_selection_trace_snapshot")
+        outbox = _stage8_carrier_payload(bundle, "outreach_execution_outbox_snapshot")
         refs = _stage8_carrier_refs(bundle)
         if collection:
             governed_context["contact_candidate_collection_summary"] = {
@@ -1343,6 +1357,16 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                 ),
                 "reselect_reason_optional": selection_trace.get("reselect_reason_optional"),
             }
+        if outbox:
+            governed_context["outbox_readiness_summary"] = dict(
+                bundle.inputs.get("outbox_readiness_summary")
+                if isinstance(bundle.inputs.get("outbox_readiness_summary"), Mapping)
+                else outbox.get("outbox_readiness_summary", {})
+            )
+            governed_context["outbox_id"] = refs.get("outbox_id")
+            governed_context["governed_execution_mode"] = outbox.get("governed_execution_mode")
+            governed_context["live_execution_enabled"] = bool(outbox.get("live_execution_enabled", False))
+            governed_context["real_send_attempted"] = bool(outbox.get("real_send_attempted", False))
     return governed_context
 
 

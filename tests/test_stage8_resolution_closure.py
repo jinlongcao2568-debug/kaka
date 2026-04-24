@@ -983,6 +983,62 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertEqual(touch_record.get("writeback_targets"), feedback["writeback_targets"])
         self.assertTrue(stage8.record("outreach_plan").get("writeback_required"))
 
+    def test_stage8_governed_execution_outbox_blocks_live_and_explains_prerequisites(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "run_mode": "REAL_RUN",
+                "approval_state": "PENDING",
+                "live_execution_enabled": True,
+                "audit_trail_present": False,
+                "vendor_direct_connection_requested": True,
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        outbox = stage8.inputs["outreach_execution_outbox_snapshot"]
+        readiness = stage8.inputs["outbox_readiness_summary"]
+
+        self.assertEqual(outbox["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertEqual(outbox["approval_state"], "PENDING")
+        self.assertEqual(outbox["audit_state"], "MISSING")
+        self.assertEqual(outbox["vendor_adapter_state"]["state"], "BLOCKED")
+        self.assertEqual(outbox["channel_vendor_boundary"]["allowed_adapter_scope"], "INTERNAL_OUTBOX_CARRIER_ONLY")
+        self.assertFalse(outbox["live_execution_enabled"])
+        self.assertFalse(outbox["real_send_attempted"])
+        self.assertFalse(outbox["channel_vendor_boundary"]["real_provider_receipt_allowed"])
+        self.assertIn("live_execution_requested_but_blocked", outbox["blocked_reasons"])
+        self.assertIn("approval_state=PENDING", outbox["blocked_reasons"])
+        self.assertIn("audit_ref_missing", outbox["blocked_reasons"])
+        self.assertIn("vendor_connection_enabled=false", outbox["blocked_reasons"])
+        self.assertIn("external_vendor_connection_disabled", outbox["blocked_reasons"])
+        self.assertFalse(readiness["ready_for_real_send"])
+        self.assertFalse(readiness["real_send_attempted"])
+
+    def test_stage8_governed_execution_outbox_carries_quiet_retry_stop_and_unknown_vendor(self) -> None:
+        feedback = _feedback_mapping("WRONG_ROLE")
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "quiet_hours_policy_state": "BLOCK",
+                "response_status": "WRONG_ROLE",
+                "execution_vendor_id_optional": "EXEC-UNKNOWN-SERVICE",
+            }
+        )
+
+        stage8 = run_internal_chain(payload)["stage8"]
+        outbox = stage8.inputs["outreach_execution_outbox_snapshot"]
+
+        self.assertEqual(outbox["quiet_hours_state"], "SCHEDULED")
+        self.assertEqual(outbox["retry_policy"]["retry_policy_id"], stage8.record("outreach_plan").get("retry_policy_id"))
+        self.assertEqual(outbox["retry_state"]["state"], "SCHEDULED")
+        self.assertEqual(outbox["stop_policy"]["stop_policy_id"], stage8.record("outreach_plan").get("stop_policy_id"))
+        self.assertEqual(outbox["stop_state"]["stop_reason_optional"], feedback["stop_reason_optional"])
+        self.assertEqual(outbox["vendor_adapter_state"]["resolution_decision_state"], "BLOCK")
+        self.assertEqual(outbox["vendor_adapter_state"]["resolved_from"], "EXPLICIT_UNKNOWN_VENDOR")
+        self.assertIn("quiet_hours_schedule", outbox["blocked_reasons"])
+        self.assertIn("execution_vendor_not_in_registry", outbox["blocked_reasons"])
+
 
 if __name__ == "__main__":
     unittest.main()

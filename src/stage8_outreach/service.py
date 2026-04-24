@@ -19,6 +19,7 @@ from stage8_outreach.candidate_compliance import (
     select_stage8_contact_candidate,
     source_capability_family,
 )
+from stage8_outreach.execution_outbox import build_outreach_execution_outbox_payload
 from stage8_outreach.plan_touch import (
     apply_outreach_plan_policy_projection,
     apply_touch_record_policy_projection,
@@ -702,6 +703,18 @@ class Stage8Service:
             "touch_record",
             touch_payload,
         )
+        outreach_execution_outbox = build_outreach_execution_outbox_payload(
+            runtime_state=runtime_state,
+            contact_target=contact_target,
+            outreach_plan=outreach_plan,
+            touch_record=touch_record,
+            authoritative_inputs=authoritative_inputs,
+            execution_vendor_payload=execution_vendor_payload,
+            execution_vendor_trace=execution_vendor_trace,
+            now=now,
+            run_mode=run_mode,
+            approval_state=approval_state,
+        )
 
         handoff = build_h08_handoff_payload(
             project_id=project_id,
@@ -711,6 +724,7 @@ class Stage8Service:
             contact_target=contact_target,
             outreach_plan=outreach_plan,
             touch_record=touch_record,
+            outreach_execution_outbox=outreach_execution_outbox,
             human_handoff=human_handoff,
             runtime_state=runtime_state,
         )
@@ -722,6 +736,7 @@ class Stage8Service:
             saleable_opportunity=saleable_opportunity,
             outreach_plan=outreach_plan,
             touch_record=touch_record,
+            outreach_execution_outbox=outreach_execution_outbox,
             human_handoff=human_handoff,
             runtime_state=runtime_state,
             multi_competitor_collection_id=str(multi_competitor_collection_id),

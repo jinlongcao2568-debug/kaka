@@ -38,6 +38,7 @@ from storage.repositories import (
     OfferRecommendationRepository,
     OpportunityOutcomeEventRepository,
     OrderRecordRepository,
+    OutreachExecutionOutboxRepository,
     OutreachPlanRepository,
     PaymentRecordRepository,
     ProcurementDecisionActorProfileRepository,
@@ -517,9 +518,11 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         touch = stage8.record("touch_record")
         collection = stage8.inputs["contact_candidate_collection_snapshot"]
         selection_trace = stage8.inputs["contact_selection_trace_snapshot"]
+        outbox = stage8.inputs["outreach_execution_outbox_snapshot"]
         touch_entry = TouchRecordRepository().get_by_id(touch.get("touch_record_id"))
         contact_entry = ContactTargetRepository().get_by_id(stage8.record("contact_target").get("contact_target_id"))
         plan_entry = OutreachPlanRepository().get_by_id(stage8.record("outreach_plan").get("outreach_plan_id"))
+        outbox_entry = OutreachExecutionOutboxRepository().get_by_id(outbox.get("outbox_id"))
         collection_entry = ContactCandidateCollectionRepository().get_by_id(
             collection.get("contact_candidate_collection_id")
         )
@@ -530,9 +533,11 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertIsNotNone(touch_entry)
         self.assertIsNotNone(contact_entry)
         self.assertIsNotNone(plan_entry)
+        self.assertIsNotNone(outbox_entry)
         self.assertIsNotNone(collection_entry)
         self.assertIsNotNone(selection_trace_entry)
         self.assertEqual(touch_entry.stage_scope, 8)
+        self.assertEqual(outbox_entry.stage_scope, 8)
         self.assertEqual(collection_entry.stage_scope, 8)
         self.assertEqual(selection_trace_entry.stage_scope, 8)
         self.assertEqual(
@@ -553,6 +558,11 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         )
         self.assertIn("execution_trace_id_optional", touch_entry.trace_refs)
         self.assertIn("source_audit_ref", contact_entry.audit_refs)
+        self.assertEqual(outbox_entry.payload["outbox_id"], outbox["outbox_id"])
+        self.assertEqual(outbox_entry.object_refs["outreach_plan_id"], stage8.record("outreach_plan").get("outreach_plan_id"))
+        self.assertEqual(outbox_entry.governed_state["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertFalse(outbox_entry.governed_state["live_execution_enabled"])
+        self.assertFalse(outbox_entry.governed_state["real_send_attempted"])
 
         replay = list_contact_targets(
             {
@@ -579,6 +589,18 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["persisted_operational_context"]["object_refs"]["contact_selection_trace_id"],
             selection_trace.get("contact_selection_trace_id"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["object_refs"]["outbox_id"],
+            outbox.get("outbox_id"),
+        )
+        self.assertEqual(
+            replay["preview_projection"]["outreach_execution_outbox_preview"]["outbox_id"],
+            outbox.get("outbox_id"),
+        )
+        self.assertEqual(
+            replay["outbox_readiness_summary"]["outbox_id"],
+            outbox.get("outbox_id"),
         )
         self.assertEqual(
             replay["persisted_operational_context"]["governed_context"][
@@ -628,6 +650,14 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             hydrated.inputs["contact_selection_trace_snapshot"],
             selection_trace_entry.payload,
+        )
+        self.assertEqual(
+            hydrated.inputs["outreach_execution_outbox_snapshot"],
+            outbox_entry.payload,
+        )
+        self.assertEqual(
+            hydrated.handoff["outbox_id_optional"],
+            outbox.get("outbox_id"),
         )
         self.assertEqual(
             hydrated.inputs["winning_contact_candidate_id_optional"],
@@ -1034,6 +1064,36 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
                 "contact_selection_trace_id": "CTRACE-STALE-TYPED-REF-001",
             }
         )
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        hydrated = hydrate_stage_bundle("stage8", {"opportunity_id": opportunity_id})
+
+        self.assertIsNone(hydrated)
+        with self.assertRaises(TypeError):
+            list_contact_targets({"opportunity_id": opportunity_id})
+
+    def test_stage8_outbox_readback_does_not_broad_fallback_when_typed_ref_is_stale(self) -> None:
+        stage8 = self.result["stage8"]
+        create_touch_record(stage8)
+
+        touch_id = stage8.record("touch_record").get("touch_record_id")
+        opportunity_id = stage8.record("contact_target").get("opportunity_id")
+        stage_state = DatabaseSession.default().get_stage_state(8, "outreach_workbench", touch_id)
+        self.assertIsNotNone(stage_state)
+
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs["outbox_id"] = "OUTBOX-STALE-TYPED-REF-001"
         DatabaseSession.default().upsert_stage_state(
             PersistedStageState(
                 stage_scope=stage_state.stage_scope,

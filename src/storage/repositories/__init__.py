@@ -11,6 +11,7 @@ from storage.repositories.offer_recommendation_repo import OfferRecommendationRe
 from storage.repositories.operator_action_repo import OperatorActionRepository
 from storage.repositories.opportunity_outcome_event_repo import OpportunityOutcomeEventRepository
 from storage.repositories.order_record_repo import OrderRecordRepository
+from storage.repositories.outreach_execution_outbox_repo import OutreachExecutionOutboxRepository
 from storage.repositories.outreach_plan_repo import OutreachPlanRepository
 from storage.repositories.payment_record_repo import PaymentRecordRepository
 from storage.repositories.procurement_decision_actor_profile_repo import ProcurementDecisionActorProfileRepository
@@ -35,6 +36,7 @@ __all__ = [
     "OperatorActionRepository",
     "OpportunityOutcomeEventRepository",
     "OrderRecordRepository",
+    "OutreachExecutionOutboxRepository",
     "OutreachPlanRepository",
     "PaymentRecordRepository",
     "ProcurementDecisionActorProfileRepository",

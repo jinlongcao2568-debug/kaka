@@ -79,7 +79,7 @@ currentTask:
       previous_active_packet: "PTL-I100-110A-platform-backend-operability-foundation"
       target_active_packet: "PTL-I100-110B-stage8-sales-outreach-governed-execution"
       product_task_library_change: true
-      product_module_registry_change: false
+      product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
@@ -159,6 +159,7 @@ currentTask:
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/product_operability_gap_matrix.yaml"
+      - "control/product_module_registry.yaml"
       - "src/stage8_outreach/**"
       - "src/storage/repository_bundle_io.py"
       - "src/storage/repository_boundary.py"
@@ -181,6 +182,7 @@ currentTask:
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/product_operability_gap_matrix.yaml"
+      - "control/product_module_registry.yaml"
       - "src/stage8_outreach/**"
       - "src/storage/repository_bundle_io.py"
       - "src/storage/repository_boundary.py"
@@ -203,6 +205,7 @@ currentTask:
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/product_operability_gap_matrix.yaml"
+      - "control/product_module_registry.yaml"
     forbidden_modification_paths:
       - "docs/**"
       - "contracts/**"
@@ -230,7 +233,6 @@ currentTask:
       - "src/api/routes/stage7.py"
       - "src/api/routes/stage9.py"
       - "control/product_doc_runtime_coverage_ledger.yaml"
-      - "control/product_module_registry.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/review_gate_matrix.yaml"
       - "control/release_manifest.yaml"
@@ -246,6 +248,7 @@ currentTask:
         - "control/repo_status.md"
         - "control/product_task_library.yaml"
         - "control/product_operability_gap_matrix.yaml"
+        - "control/product_module_registry.yaml"
       contracts: []
       handoff: []
       scripts:
@@ -269,7 +272,7 @@ currentTask:
         - "src/api/schemas/stage8.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','src/stage8_outreach/service.py','src/stage8_outreach/plan_touch.py','src/stage8_outreach/outreach_plan.py','src/stage8_outreach/touch_record.py','src/stage8_outreach/models.py','src/stage8_outreach/execution_outbox.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/outreach_execution_outbox_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage8.py','src/api/schemas/stage8.py','tests/test_stage8_resolution_closure.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths\""
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage8_outreach/service.py','src/stage8_outreach/plan_touch.py','src/stage8_outreach/outreach_plan.py','src/stage8_outreach/touch_record.py','src/stage8_outreach/models.py','src/stage8_outreach/execution_outbox.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/outreach_execution_outbox_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage8.py','src/api/schemas/stage8.py','tests/test_stage8_resolution_closure.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths\""
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python -m unittest tests.test_stage8_resolution_closure -v"
       - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
@@ -283,7 +286,9 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','src/stage8_outreach/service.py','src/stage8_outreach/plan_touch.py','src/stage8_outreach/outreach_plan.py','src/stage8_outreach/touch_record.py','src/stage8_outreach/models.py','src/stage8_outreach/execution_outbox.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/outreach_execution_outbox_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage8.py','src/api/schemas/stage8.py','tests/test_stage8_resolution_closure.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths\"": 300000
+      ? >-
+        pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage8_outreach/service.py','src/stage8_outreach/plan_touch.py','src/stage8_outreach/outreach_plan.py','src/stage8_outreach/touch_record.py','src/stage8_outreach/models.py','src/stage8_outreach/execution_outbox.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/outreach_execution_outbox_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage8.py','src/api/schemas/stage8.py','tests/test_stage8_resolution_closure.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
+      : 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python -m unittest tests.test_stage8_resolution_closure -v": 300000
       "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000

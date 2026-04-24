@@ -30,6 +30,8 @@ class Stage8PreviewProjection(TypedDict, total=False):
     contact_target_preview: dict[str, Any]
     outreach_plan_preview: dict[str, Any]
     touch_record_preview: dict[str, Any]
+    outreach_execution_outbox_preview: dict[str, Any]
+    outbox_readiness_summary: dict[str, Any]
 
 
 class OperationalAssignment(TypedDict, total=False):
@@ -128,6 +130,8 @@ class Stage8Response(TypedDict, total=False):
     formal_object_refs: dict[str, FormalObjectRef]
     preview_projection: Stage8PreviewProjection
     trace_refs: dict[str, Any]
+    outreach_execution_outbox: dict[str, Any]
+    outbox_readiness_summary: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str
     persisted_operational_context: OperationalContext

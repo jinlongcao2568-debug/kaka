@@ -14,6 +14,11 @@ from api.workbench_observability import (
     merge_trace_refs,
     missing_audit_refs,
 )
+from stage8_outreach.execution_outbox import (
+    OUTBOX_READINESS_INPUT_KEY,
+    OUTBOX_SNAPSHOT_INPUT_KEY,
+    build_outbox_readiness_summary,
+)
 from shared.contract_loader import load_contract
 from shared.contracts_runtime import ContractRecord, StageBundle
 from storage.operator_loop_contracts import (
@@ -885,6 +890,14 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
     contact = _record_data(bundle.record("contact_target"))
     outreach = _record_data(bundle.record("outreach_plan"))
     touch = _record_data(bundle.record("touch_record"))
+    outbox = dict(bundle.inputs.get(OUTBOX_SNAPSHOT_INPUT_KEY, {}))
+    outbox_summary = (
+        dict(bundle.inputs.get(OUTBOX_READINESS_INPUT_KEY, {}))
+        if isinstance(bundle.inputs.get(OUTBOX_READINESS_INPUT_KEY), Mapping)
+        else build_outbox_readiness_summary(outbox)
+        if outbox
+        else {}
+    )
     formal_records = {
         "contact_target": contact,
         "outreach_plan": outreach,
@@ -927,6 +940,28 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
             "writeback_targets": touch.get("writeback_targets"),
             "governed_metadata": touch.get("governed_metadata", {}),
         },
+        "outreach_execution_outbox_preview": {
+            "outbox_id": outbox.get("outbox_id"),
+            "outreach_plan_id": outbox.get("outreach_plan_id"),
+            "touch_record_id": outbox.get("touch_record_id"),
+            "contact_target_id": outbox.get("contact_target_id"),
+            "opportunity_id": outbox.get("opportunity_id"),
+            "channel": outbox.get("channel"),
+            "governed_execution_mode": outbox.get("governed_execution_mode"),
+            "vendor_adapter_state": outbox.get("vendor_adapter_state", {}),
+            "approval_state": outbox.get("approval_state"),
+            "audit_state": outbox.get("audit_state"),
+            "quiet_hours_state": outbox.get("quiet_hours_state"),
+            "retry_policy": outbox.get("retry_policy", {}),
+            "retry_state": outbox.get("retry_state", {}),
+            "stop_policy": outbox.get("stop_policy", {}),
+            "stop_state": outbox.get("stop_state", {}),
+            "dry_run_execution_state": outbox.get("dry_run_execution_state", {}),
+            "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
+            "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
+            "blocked_reasons": list(outbox.get("blocked_reasons", [])),
+        },
+        "outbox_readiness_summary": outbox_summary,
         "_raw_records": [contact, outreach, touch],
     }
     envelope = _surface_envelope(
@@ -940,6 +975,8 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
         blocked_by_default=bool(surface_defaults["blocked_by_default"]),
     )
     envelope["preview_projection"].pop("_raw_records", None)
+    envelope["outreach_execution_outbox"] = preview_projection["outreach_execution_outbox_preview"]
+    envelope["outbox_readiness_summary"] = outbox_summary
     return _attach_operational_context(envelope, bundle)
 
 

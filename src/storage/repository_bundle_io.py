@@ -4,6 +4,12 @@ from typing import Any, Mapping
 
 from shared.contracts_runtime import ContractRecord, StageBundle
 
+from stage8_outreach.execution_outbox import (
+    OUTBOX_ID_INPUT_KEY,
+    OUTBOX_READINESS_INPUT_KEY,
+    OUTBOX_SNAPSHOT_INPUT_KEY,
+    build_outbox_readiness_summary,
+)
 from storage.db import DatabaseSession, PersistedStageState, build_persisted_at
 from storage.repositories import (
     BuyerFitRepository,
@@ -18,6 +24,7 @@ from storage.repositories import (
     OfferRecommendationRepository,
     OpportunityOutcomeEventRepository,
     OrderRecordRepository,
+    OutreachExecutionOutboxRepository,
     OutreachPlanRepository,
     PaymentRecordRepository,
     ProcurementDecisionActorProfileRepository,
@@ -378,6 +385,11 @@ def _stage8_bundle_with_persistence_snapshots(bundle: StageBundle) -> StageBundl
     )
 
 
+def _stage8_outbox_payload(bundle: StageBundle) -> dict[str, Any]:
+    snapshot = bundle.inputs.get(OUTBOX_SNAPSHOT_INPUT_KEY)
+    return dict(snapshot) if isinstance(snapshot, Mapping) else {}
+
+
 def persist_stage8_bundle(bundle: StageBundle) -> StageBundle:
     contact_candidate_collection = _stage8_carrier_payload(
         bundle,
@@ -393,6 +405,9 @@ def persist_stage8_bundle(bundle: StageBundle) -> StageBundle:
         ContactCandidateCollectionRepository().save(contact_candidate_collection)
     if contact_selection_trace:
         ContactSelectionTraceRepository().save(contact_selection_trace)
+    outbox_payload = _stage8_outbox_payload(bundle)
+    if outbox_payload:
+        OutreachExecutionOutboxRepository().save(outbox_payload)
     ContactTargetRepository().save(bundle.record("contact_target").data)
     OutreachPlanRepository().save(bundle.record("outreach_plan").data)
     TouchRecordRepository().save(bundle.record("touch_record").data)
@@ -731,6 +746,25 @@ def _hydrate_stage8_carriers(
     return contact_candidate_collection, contact_selection_trace
 
 
+def _hydrate_stage8_outbox(
+    *,
+    stage_inputs: Mapping[str, Any],
+    persisted_refs: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    outbox, outbox_stale = _stage8_repo_record(
+        OutreachExecutionOutboxRepository(),
+        stage_inputs=stage_inputs,
+        persisted_refs=persisted_refs,
+        ref_keys=("outbox_id", OUTBOX_ID_INPUT_KEY, "outreach_execution_outbox_id_optional"),
+    )
+    if outbox_stale:
+        return None
+    if outbox is not None:
+        return outbox
+    snapshot = stage_inputs.get(OUTBOX_SNAPSHOT_INPUT_KEY)
+    return dict(snapshot) if isinstance(snapshot, Mapping) else {}
+
+
 def _restore_stage8_carrier_inputs(
     *,
     stage_inputs: dict[str, Any],
@@ -799,6 +833,25 @@ def _restore_stage8_carrier_inputs(
         stage_inputs["stage8_resolution_trace"] = resolution_trace
 
 
+def _restore_stage8_outbox_inputs(
+    *,
+    stage_inputs: dict[str, Any],
+    handoff: dict[str, Any],
+    outreach_execution_outbox: Mapping[str, Any],
+) -> None:
+    if not outreach_execution_outbox:
+        return
+    outbox_payload = dict(outreach_execution_outbox)
+    outbox_summary = build_outbox_readiness_summary(outbox_payload)
+    stage_inputs[OUTBOX_SNAPSHOT_INPUT_KEY] = outbox_payload
+    stage_inputs[OUTBOX_ID_INPUT_KEY] = str(outbox_payload.get("outbox_id"))
+    stage_inputs["outreach_execution_outbox_id_optional"] = str(outbox_payload.get("outbox_id"))
+    stage_inputs[OUTBOX_READINESS_INPUT_KEY] = outbox_summary
+    handoff[OUTBOX_ID_INPUT_KEY] = str(outbox_payload.get("outbox_id"))
+    handoff["outreach_execution_outbox_id_optional"] = str(outbox_payload.get("outbox_id"))
+    handoff[OUTBOX_READINESS_INPUT_KEY] = outbox_summary
+
+
 def _build_stage8_handoff_readback(
     *,
     handoff_snapshot: Mapping[str, Any] | None,
@@ -852,6 +905,12 @@ def hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     )
     if carrier_resolution is None:
         return None
+    outreach_execution_outbox = _hydrate_stage8_outbox(
+        stage_inputs=stage_inputs,
+        persisted_refs=stage_state.typed_object_refs,
+    )
+    if outreach_execution_outbox is None:
+        return None
     contact_candidate_collection, contact_selection_trace = carrier_resolution
     _restore_stage8_carrier_inputs(
         stage_inputs=stage_inputs,
@@ -864,6 +923,11 @@ def hydrate_stage8_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
         outreach_plan=outreach_plan.as_payload(),
         touch_record=touch_record.as_payload(),
         stage_inputs=stage_inputs,
+    )
+    _restore_stage8_outbox_inputs(
+        stage_inputs=stage_inputs,
+        handoff=handoff,
+        outreach_execution_outbox=outreach_execution_outbox,
     )
 
     return StageBundle(

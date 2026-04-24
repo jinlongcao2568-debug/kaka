@@ -6,6 +6,12 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from stage8_outreach.candidate_compliance import build_governed_metadata
+from stage8_outreach.execution_outbox import (
+    OUTBOX_ID_INPUT_KEY,
+    OUTBOX_READINESS_INPUT_KEY,
+    OUTBOX_SNAPSHOT_INPUT_KEY,
+    build_outbox_readiness_summary,
+)
 from shared.utils import build_id, ensure_enum, ensure_list
 
 
@@ -370,9 +376,11 @@ def build_h08_handoff_payload(
     contact_target: Mapping[str, Any],
     outreach_plan: Mapping[str, Any],
     touch_record: Mapping[str, Any],
+    outreach_execution_outbox: Mapping[str, Any],
     human_handoff: Mapping[str, Any] | None,
     runtime_state: Any,
 ) -> dict[str, Any]:
+    outbox_summary = build_outbox_readiness_summary(outreach_execution_outbox)
     return {
         "project_id": project_id,
         "opportunity_id": saleable_opportunity.get("opportunity_id"),
@@ -403,6 +411,9 @@ def build_h08_handoff_payload(
         "contact_target_status": contact_target.get("contact_target_status"),
         "plan_status": outreach_plan.get("plan_status"),
         "touch_record_state": touch_record.get("touch_record_state"),
+        OUTBOX_ID_INPUT_KEY: outreach_execution_outbox.get("outbox_id"),
+        "outreach_execution_outbox_id_optional": outreach_execution_outbox.get("outbox_id"),
+        OUTBOX_READINESS_INPUT_KEY: outbox_summary,
         "feedback_reason": touch_record.get("feedback_reason"),
         "written_back_at_optional": touch_record.get("written_back_at_optional"),
         "human_handoff_policy_id_optional": human_handoff.get("policy_id") if human_handoff else None,
@@ -432,6 +443,7 @@ def build_stage8_inputs_projection(
     saleable_opportunity: Mapping[str, Any],
     outreach_plan: Mapping[str, Any],
     touch_record: Mapping[str, Any],
+    outreach_execution_outbox: Mapping[str, Any],
     human_handoff: Mapping[str, Any] | None,
     runtime_state: Any,
     multi_competitor_collection_id: str,
@@ -444,6 +456,7 @@ def build_stage8_inputs_projection(
     execution_vendor_trace: Mapping[str, Any],
     formal_sink_trace: Mapping[str, Any],
 ) -> dict[str, Any]:
+    outbox_summary = build_outbox_readiness_summary(outreach_execution_outbox)
     inputs_out = dict(authoritative_inputs)
     inputs_out["policy_trace"] = runtime_state.trace
     inputs_out["policy_decision_state"] = runtime_state.decision_state
@@ -468,6 +481,10 @@ def build_stage8_inputs_projection(
     inputs_out["written_back_at_optional"] = touch_record.get("written_back_at_optional")
     inputs_out["stop_reason_optional"] = touch_record.get("stop_reason_optional")
     inputs_out["retry_scheduled_optional"] = touch_record.get("retry_scheduled_optional")
+    inputs_out[OUTBOX_ID_INPUT_KEY] = outreach_execution_outbox.get("outbox_id")
+    inputs_out["outreach_execution_outbox_id_optional"] = outreach_execution_outbox.get("outbox_id")
+    inputs_out[OUTBOX_SNAPSHOT_INPUT_KEY] = dict(outreach_execution_outbox)
+    inputs_out[OUTBOX_READINESS_INPUT_KEY] = outbox_summary
     inputs_out["writeback_targets"] = touch_record.get("writeback_targets")
     inputs_out["writeback_target_optional"] = touch_record.get("writeback_target_optional")
     inputs_out["failure_reason_tag_optional"] = touch_record.get("failure_reason_tag_optional")

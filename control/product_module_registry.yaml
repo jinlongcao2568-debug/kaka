@@ -687,6 +687,7 @@ stage_module_inventory:
         current_files:
           - src/stage8_outreach/outreach_plan.py
           - src/stage8_outreach/touch_record.py
+          - src/stage8_outreach/execution_outbox.py
           - src/stage8_outreach/models.py
         handoff_files:
           - handoff/stage8_to_stage9/contract.json
@@ -696,6 +697,7 @@ stage_module_inventory:
         repository_files:
           - src/storage/repositories/outreach_plan_repo.py
           - src/storage/repositories/touch_record_repo.py
+          - src/storage/repositories/outreach_execution_outbox_repo.py
         test_files:
           - tests/test_stage8_resolution_closure.py
           - tests/test_internal_surface_preview.py
@@ -841,6 +843,7 @@ cross_cutting_surfaces:
       - src/storage/repositories/contact_target_repo.py
       - src/storage/repositories/outreach_plan_repo.py
       - src/storage/repositories/touch_record_repo.py
+      - src/storage/repositories/outreach_execution_outbox_repo.py
       - src/storage/repositories/order_record_repo.py
       - src/storage/repositories/payment_record_repo.py
       - src/storage/repositories/delivery_record_repo.py
@@ -1096,6 +1099,7 @@ modules:
       - src/stage8_outreach/contact_target.py
       - src/stage8_outreach/outreach_plan.py
       - src/stage8_outreach/touch_record.py
+      - src/stage8_outreach/execution_outbox.py
       - src/stage8_outreach/resolution.py
       - src/stage8_outreach/candidate_compliance.py
       - src/stage8_outreach/models.py
@@ -1263,6 +1267,7 @@ modules:
       - src/storage/repositories/contact_target_repo.py
       - src/storage/repositories/outreach_plan_repo.py
       - src/storage/repositories/touch_record_repo.py
+      - src/storage/repositories/outreach_execution_outbox_repo.py
       - src/storage/repositories/order_record_repo.py
       - src/storage/repositories/payment_record_repo.py
       - src/storage/repositories/delivery_record_repo.py

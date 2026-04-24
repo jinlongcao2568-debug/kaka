@@ -1292,6 +1292,7 @@ class TestInternalChain(unittest.TestCase):
         self.assertTrue(set(self.contracts[8]["producer_objects"]).issubset(set(stage8.records.keys())))
         self.assertIn("contact_candidate_collection_snapshot", stage8.inputs)
         self.assertIn("contact_selection_trace_snapshot", stage8.inputs)
+        self.assertIn("outreach_execution_outbox_snapshot", stage8.inputs)
         self._assert_h08_payload_ready(stage8.handoff)
         self._assert_h08_payload_ready(stage8.inputs)
         self.assertEqual(
@@ -1307,6 +1308,7 @@ class TestInternalChain(unittest.TestCase):
         contact_target = stage8.record("contact_target")
         outreach_plan = stage8.record("outreach_plan")
         touch_record = stage8.record("touch_record")
+        outbox = stage8.inputs["outreach_execution_outbox_snapshot"]
         expected_projection = {
             "opportunity_id": saleable_opportunity.get("opportunity_id"),
             "touch_record_id": touch_record.get("touch_record_id"),
@@ -1320,6 +1322,14 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(contact_target.get("opportunity_id"), saleable_opportunity.get("opportunity_id"))
         self.assertEqual(outreach_plan.get("requested_delivery_surface"), "INTERNAL_OPERATIONS")
         self.assertEqual(outreach_plan.get("projection_mode"), "INTERNAL_GOVERNED_PREVIEW")
+        self.assertEqual(outbox["outreach_plan_id"], outreach_plan.get("outreach_plan_id"))
+        self.assertEqual(outbox["touch_record_id"], touch_record.get("touch_record_id"))
+        self.assertEqual(outbox["contact_target_id"], contact_target.get("contact_target_id"))
+        self.assertEqual(outbox["opportunity_id"], saleable_opportunity.get("opportunity_id"))
+        self.assertEqual(outbox["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertFalse(outbox["live_execution_enabled"])
+        self.assertFalse(outbox["real_send_attempted"])
+        self.assertEqual(stage8.inputs["outbox_readiness_summary"]["outbox_id"], outbox["outbox_id"])
 
     def test_stage8_failure_path_persists_writeback_fields(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
