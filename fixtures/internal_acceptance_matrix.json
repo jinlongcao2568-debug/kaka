@@ -1,10 +1,10 @@
 {
   "metadata": {
-    "matrix_id": "PTL-I100-107A-internal-acceptance-matrix",
-    "version": 1,
+    "matrix_id": "PTL-I100-107B-internal-acceptance-matrix",
+    "version": 2,
     "packet_id": "PTL-I100-107-real-sample-operational-acceptance",
-    "subpacket_id": "PTL-I100-107A-internal-acceptance-matrix-bootstrap",
-    "purpose": "Offline sanitized internal acceptance matrix bootstrap/readback for operator replay.",
+    "subpacket_id": "PTL-I100-107B-dedicated-refund-redline-fixture-readback",
+    "purpose": "Offline sanitized internal acceptance matrix readback with dedicated refund/redline replay.",
     "source_data_class": "sanitized_offline",
     "external_live_execution": false,
     "stage8_real_execution": "BLOCKED",
@@ -45,7 +45,7 @@
     "stage9_live_refund_execution": {
       "status": "BLOCKED",
       "live_execution_allowed": false,
-      "allowed_mode": "PLANNED_TRACE_ONLY_UNTIL_FIXTURE_EXISTS"
+      "allowed_mode": "INTERNAL_GOVERNED"
     }
   },
   "failure_taxonomy": [
@@ -815,35 +815,66 @@
     {
       "scenario_id": "refund-live-redline",
       "taxonomy": "stage9_refund_live_redline",
-      "title": "Refund live execution redline placeholder",
-      "replay_status": "blocked_by_missing_fixture",
-      "replay_mode": "planned_trace_only",
-      "fixture_ref": "fixtures/internal_chain_happy.json",
+      "title": "Refund live execution redline full-chain replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_acceptance_stage9_refund_redline.json",
       "payload_overrides": {},
-      "blocked_reason": "No dedicated sanitized refund-live fixture exists in PTL-I100-107A.",
       "failure_taxonomy_refs": [
-        "missing_fixture"
+        "writeback_projection_only"
       ],
       "operator_replay": {
-        "entrypoint": "not_executed",
+        "entrypoint": "run_internal_chain",
         "readback_scope": [
+          "stage7",
+          "stage8",
           "stage9"
         ],
-        "operator_action": "do_not_execute"
+        "operator_action": "refund_redline_readback_only"
       },
       "expected": {
+        "stage7": {
+          "saleability_status": "QUALIFIED",
+          "sale_gate_status": "OPEN"
+        },
+        "stage8": {
+          "contact_target_status": "ELIGIBLE",
+          "requires_manual_review": false,
+          "plan_status": "DRAFT",
+          "touch_record_state": "CREATED",
+          "execution_compliance_decision": "ALLOW_PREVIEW",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
         "stage9": {
+          "commercial_status": "PENDING_APPROVAL",
+          "order_status": "PENDING_APPROVAL",
+          "payment_status": "REFUND_PENDING",
+          "delivery_status": "NOT_READY",
+          "trigger_type": "EXCEPTION_TRIGGERED",
+          "payment_exception_family_optional": "REFUND_REQUESTED",
+          "refund_state": "REQUESTED",
           "governed_execution_mode": "INTERNAL_GOVERNED",
           "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "delivery_record",
+            "project_fact",
+            "governance_feedback_event",
+            "controlled_exception_record",
+            "release_gates",
+            "saleable_opportunity"
+          ]
         }
       },
       "readback": {
-        "execution_state": "not_executed",
+        "execution_state": "executed_offline",
         "summary": {
-          "stage7": "not_applicable",
-          "stage8": "not_applicable",
-          "stage9": "planned_trace_only",
-          "redlines": "stage9_refund_live_blocked"
+          "stage7": "qualified_open",
+          "stage8": "internal_governed_preview",
+          "stage9": "refund_requested_projection_only",
+          "redlines": "stage9_refund_payment_delivery_live_blocked"
         }
       },
       "audit_summary": {

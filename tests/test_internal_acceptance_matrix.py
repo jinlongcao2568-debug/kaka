@@ -20,6 +20,7 @@ from shared.pipeline import run_internal_chain
 
 
 MATRIX_PATH = ROOT / "fixtures" / "internal_acceptance_matrix.json"
+REFUND_REDLINE_FIXTURE_PATH = ROOT / "fixtures" / "internal_acceptance_stage9_refund_redline.json"
 REQUIRED_TAXONOMY = {
     "happy",
     "blocked",
@@ -158,6 +159,10 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
                         "payment_status": payment_record.get("payment_status"),
                         "delivery_status": delivery_record.get("delivery_status"),
                         "trigger_type": governance_feedback.get("trigger_type"),
+                        "payment_exception_family_optional": payment_record.get(
+                            "payment_exception_family_optional"
+                        ),
+                        "refund_state": payment_record.get("refund_state"),
                         "governed_execution_mode": order_record.get("governed_execution_mode"),
                         "live_execution_enabled": order_record.get("governed_metadata", {}).get(
                             "live_execution_enabled"
@@ -187,13 +192,75 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
                     "INTERNAL_GOVERNED",
                 )
 
+    def test_refund_redline_dedicated_fixture_replays_through_full_chain(self) -> None:
+        scenario = self.scenarios["refund-live-redline"]
+        self.assertTrue(REFUND_REDLINE_FIXTURE_PATH.exists())
+
+        fixture = json.loads(REFUND_REDLINE_FIXTURE_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(fixture["source_data_class"], "sanitized_offline")
+        self.assertFalse(fixture["external_live_execution"])
+        self.assertEqual(fixture["payment_exception_family_optional"], "REFUND_REQUESTED")
+        self.assertEqual(fixture["refund_state"], "REQUESTED")
+
+        self.assertEqual(scenario["replay_status"], "replayable")
+        self.assertEqual(scenario["replay_mode"], "runtime_replay")
+        self.assertEqual(scenario["fixture_ref"], "fixtures/internal_acceptance_stage9_refund_redline.json")
+        self.assertEqual(scenario["operator_replay"]["entrypoint"], "run_internal_chain")
+        self.assertEqual(scenario["readback"]["execution_state"], "executed_offline")
+        self.assertNotIn("blocked_reason", scenario)
+
+        result = run_internal_chain(build_payload(scenario))
+        stage9 = result["stage9"]
+        self.assertIn("POLICY:emit_decision:payment_exception", stage9.trace_rules)
+
+        for record_name in (
+            "order_record",
+            "payment_record",
+            "delivery_record",
+            "opportunity_outcome_event",
+            "governance_feedback_event",
+        ):
+            with self.subTest(record=record_name):
+                record = stage9.record(record_name)
+                metadata = record.get("governed_metadata", {})
+                self.assertEqual(record.get("governed_execution_mode"), "INTERNAL_GOVERNED")
+                self.assertFalse(metadata.get("live_execution_enabled"))
+                self.assertTrue(metadata.get("projection_only"))
+                self.assertTrue(metadata.get("skeleton_only"))
+
+        payment_record = stage9.record("payment_record")
+        delivery_record = stage9.record("delivery_record")
+        governance_feedback = stage9.record("governance_feedback_event")
+        outcome_event = stage9.record("opportunity_outcome_event")
+
+        self.assertEqual(payment_record.get("payment_status"), "REFUND_PENDING")
+        self.assertEqual(payment_record.get("payment_exception_family_optional"), "REFUND_REQUESTED")
+        self.assertEqual(payment_record.get("refund_state"), "REQUESTED")
+        self.assertEqual(payment_record.get("paid_at_optional"), "NOT_PAID")
+        self.assertNotEqual(payment_record.get("payment_status"), "REFUNDED")
+        self.assertNotEqual(payment_record.get("refund_state"), "COMPLETED")
+        self.assertEqual(delivery_record.get("delivery_status"), "NOT_READY")
+        self.assertEqual(delivery_record.get("delivered_at_optional"), "NOT_DELIVERED")
+        self.assertNotEqual(delivery_record.get("delivery_status"), "DELIVERED")
+        self.assertEqual(governance_feedback.get("trigger_type"), "EXCEPTION_TRIGGERED")
+        self.assertEqual(outcome_event.get("outcome_family"), "DELIVERY_ABANDONED")
+        self.assertEqual(outcome_event.get("outcome_reason_tags"), ["SIGNED"])
+
+        self.assertEqual(self.matrix["metadata"]["external_release"], "BLOCKED")
+        self.assertEqual(self.matrix["metadata"]["stage8_real_execution"], "BLOCKED")
+        self.assertEqual(self.matrix["metadata"]["stage9_live_payment_delivery_refund"], "BLOCKED")
+        self.assertFalse(self.matrix["redlines"]["external_release"]["live_execution_allowed"])
+        self.assertFalse(self.matrix["redlines"]["stage8_real_execution"]["live_execution_allowed"])
+        self.assertFalse(self.matrix["redlines"]["stage9_live_payment_execution"]["live_execution_allowed"])
+        self.assertFalse(self.matrix["redlines"]["stage9_live_delivery_execution"]["live_execution_allowed"])
+        self.assertFalse(self.matrix["redlines"]["stage9_live_refund_execution"]["live_execution_allowed"])
+
     def test_planned_only_scenarios_are_not_live_or_executed(self) -> None:
         planned = [
             scenario
             for scenario in self.matrix["scenarios"]
             if scenario["replay_mode"] == "planned_trace_only"
         ]
-        self.assertTrue(planned)
         for scenario in planned:
             with self.subTest(scenario=scenario["scenario_id"]):
                 self.assertIn(scenario["replay_status"], {"planned_trace_only", "blocked_by_missing_fixture"})
@@ -201,6 +268,13 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
                 self.assertEqual(scenario["readback"]["execution_state"], "not_executed")
                 self.assertFalse(scenario["audit_summary"]["external_live_execution"])
                 self.assertFalse(scenario["expected"]["stage9"]["live_execution_enabled"])
+        self.assertFalse(
+            any(
+                scenario["scenario_id"] == "refund-live-redline"
+                and scenario["replay_status"] == "blocked_by_missing_fixture"
+                for scenario in self.matrix["scenarios"]
+            )
+        )
 
     def test_failure_taxonomy_is_readable_and_referenced(self) -> None:
         taxonomy = {entry["failure_id"]: entry for entry in self.matrix["failure_taxonomy"]}
