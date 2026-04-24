@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-1100-product-operability-full-audit (ACTIVE scoped control/test audit after explicit user confirmation; this detects owner-usable product gaps before implementation and does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack delivery, client-visible formal export/page release, Stage 8 real execution, Stage 9 real payment / delivery / refund, or any automated refund program)
+Current Workstream: PTL-I100-110A-platform-backend-operability-foundation (ACTIVE after PTL-I100-1100 audit commit 33e6fb9; this activates durable backend foundation implementation and does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack delivery, client-visible formal export/page release, Stage 8 real execution, Stage 9 real payment / delivery / refund, or any automated refund program)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,8 +20,9 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- complete PTL-I100-1100 product operability full audit using control/product_operability_gap_matrix.yaml and tests/test_product_operability_gap_matrix.py
-- map product-doc runtime coverage capabilities to owner usable states and next implementation packets
+- implement PTL-I100-110A durable backend foundation within current_task allowed paths
+- keep JSON-file default behavior compatible while adding opt-in durable local relational backend foundation
+- keep settings -> API bootstrap -> DatabaseSession -> repository readback as the single storage config chain
 - keep real LeadPack delivery, client-visible formal export/page release, external/live transport, and external release controlled and blocked
 - keep control/product_doc_runtime_coverage_ledger.yaml as the source ledger; do not mark external/live capabilities as INTERNAL_IMPLEMENTED
 - keep automated refund execution out of scope and record refund handling as manual exception only
@@ -32,7 +33,7 @@ Allowed Actions (current):
 - keep external leadpack delivery approval + audit required
 - keep Stage 8 real execution governed / approval-gated / blocked by default
 - keep Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
-- run required checks and stop/report after check-task-packet / operability matrix tests / coverage ledger tests / planning-surface tests / external-unlock prerequisite tests / full tests / check-state-alignment
+- run required checks and stop/report after check-task-packet / storage concurrency tests / API bootstrap tests / repository boundary tests / operability matrix tests / full tests / check-state-alignment
 
 Forbidden Actions (current):
 - Any docs/** change
@@ -54,7 +55,7 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
-- Any runtime implementation outside PTL-I100-1100 audit without a new dedicated current_task packet
+- Any runtime implementation outside PTL-I100-110A allowed paths without a new dedicated current_task packet
 - Any real LeadPack external delivery or client-visible formal export/page release
 - Any use of real production samples or external live data
 - Any external/live execution
@@ -84,7 +85,9 @@ State Semantics:
 - PTL-I100-108B Stage7 CRM/external quote prerequisite readiness/readback is completed via commit a9ced6b.
 - PTL-I100-109A is completed via commit fad8a53; LeadPack external delivery candidate approval/audit readiness/readback is implemented and still non-live.
 - PTL-I100-109B is completed via commit 987636e; formal client export/page layer internal preview/readiness/readback/test coverage is implemented and still non-live.
-- PTL-I100-109 is closed out. PTL-I100-1100 is now active as a control/test audit after explicit user confirmation; it detects product operability gaps and queues implementation packets without changing runtime or opening external/live execution.
+- PTL-I100-109 is closed out.
+- PTL-I100-1100 product operability audit completed via commit 33e6fb9; it detected product operability gaps and queued implementation packets without changing runtime or opening external/live execution.
+- PTL-I100-110A is now active as durable backend foundation implementation; it may change storage/settings/API bootstrap within current_task allowed paths but cannot connect to external services or open live execution.
 - PTL-I100-110 implementation order is product-operability driven: 110A backend foundation, 110B sales outreach execution, 110C CRM/quote workbench, 110D LeadPack/evidence-pack export and delivery, 110E order/payment/delivery with refund manual-exception only.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
@@ -97,12 +100,12 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','src/shared/settings.py','src/api/deps.py','src/api/main.py','src/storage/db.py','src/storage/sqlite_backend.py','tests/test_storage_concurrency.py','tests/test_api_transport_bootstrap.py','tests/test_internal_repository_boundary.py','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+- python -m unittest tests.test_storage_concurrency -v
+- python -m unittest tests.test_api_transport_bootstrap -v
+- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_product_operability_gap_matrix -v
-- python -m unittest tests.test_product_doc_runtime_coverage -v
-- python -m unittest tests.test_stage12_extractors -v
-- python -m unittest tests.test_external_unlock_prerequisites -v
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check

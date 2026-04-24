@@ -5,11 +5,11 @@ updated_at: "2026-04-24"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_1100_PRODUCT_OPERABILITY_AUDIT_ACTIVE"
+navigation_state: "PTL_I100_110A_BACKEND_FOUNDATION_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "用户已明确确认：软件是内部使用的 LeadOps / 销售作战工具，产品售卖的是证据包/线索包；除自动退款程序不做外，销售触达、报价、导出、交付、支付等产品能力要全部补齐。因此先激活 PTL-I100-1100 产品可用性全量检测包，形成后续实现分包依据。"
+activation_condition: "PTL-I100-1100 产品可用性全量检测已完成并本地提交 33e6fb9；矩阵确认真实产品可用缺口第一优先级是 durable backend / outbox foundation，因此激活 PTL-I100-110A。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -18,7 +18,7 @@ state_dimensions:
   mainline_selection_ready: true
 currentTask:
   task_id: "PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions"
-  title: "I100-10 产品可用性全量检测与真实运营能力分包"
+  title: "I100-10A durable backend operability foundation"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,22 +29,15 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
-    - "docs/D2_正式对象契约与字段字典.md"
     - "docs/D4_OpenAPI接口契约.md"
-    - "docs/D5_页面导出与人工复核规范.md"
-    - "docs/D7_对象级交付矩阵与外发治理规范.md"
-    - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
-    - "docs/D9_联系对象与销售触达规范.md"
     - "docs/D10_订单支付交付与治理反馈规范.md"
-    - "docs/D11_测试验收与金标回归清单.md"
     - "docs/D12_部署发布与运行治理规范.md"
-    - "docs/D13_公开可查边界能力清单.md"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
-    - "control/product_doc_runtime_coverage_ledger.yaml"
+    - "control/product_operability_gap_matrix.yaml"
     - "control/repo_status.md"
-  capability_adjudication_source: "control/product_doc_runtime_coverage_ledger.yaml + docs/D8/D9/D10"
-  objective: "建立产品可用性全量检测资产：把 product-doc runtime coverage ledger 的全部能力映射为 owner 可用状态、真实产品缺口、下一实现包顺序；明确哪些已可内部使用、哪些只是 preview/readiness、哪些需要实现才能支撑证据包销售运营；不做 runtime 实现、不放开真实触达/交付/支付、不做自动退款程序。"
+  capability_adjudication_source: "control/product_operability_gap_matrix.yaml#PTL-I100-110A-platform-backend-operability-foundation"
+  objective: "实现 110A 第一刀：在不接外部服务、不放开 live execution 的前提下，给内部 LeadOps 产品建立 durable backend foundation。JSON-file 继续默认可用；新增 opt-in durable local relational backend seam，确保 settings -> API bootstrap -> DatabaseSession -> repository readback 单入口可回放，为后续 Stage8 sales outreach outbox、LeadPack export/delivery、Stage9 payment/delivery audit 打底。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -65,38 +58,36 @@ currentTask:
   task_packet:
     version: 1
     packet_id: "PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions"
-    subpacket_id: "PTL-I100-1100-product-operability-full-audit"
+    subpacket_id: "PTL-I100-110A-platform-backend-operability-foundation"
     backlog_packet_ref: "PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "OUT_OF_SCOPE"
+    runtime_change_in_packet: "IN_SCOPE"
     existing_code_state: "HEAVY_RUNTIME"
-    existing_runtime_state: "INTERNAL_GOVERNED_RUNTIME_WITH_RESERVED_LIVE_GAPS"
-    title: "I100-10-0 product operability full audit"
+    existing_runtime_state: "JSON_FILE_INTERNAL_RUNTIME_WITH_RESERVED_BACKENDS"
+    title: "I100-10A durable backend operability foundation 第一刀"
     status: "ACTIVE"
-    objective: "只新增产品可用性全量检测矩阵与测试：覆盖全部 product-doc capability，区分 operable now、preview/readiness only、blocked/live reserved、missing runtime、not product delivery goal，并输出后续 110A/110B/110C/110D/110E 实现顺序。"
+    objective: "新增 opt-in durable local relational backend foundation，并保持 JSON-file 默认行为兼容；settings/bootstrap/readiness 必须能表达新 backend executable 状态、unsupported backend fast-fail、无 silent fallback、无外部服务连接。"
     depends_on:
-      - "PTL-I100-107C product-doc runtime coverage audit 已完成并本地提交 4bfeef9。"
-      - "PTL-I100-108/109 已完成 internal entry、CRM quote readiness、LeadPack/export readiness。"
-      - "用户已确认产品目标：内部软件服务于证据包/线索包销售运营，销售触达等功能要做完整；自动退款程序不做。"
-      - "control/current_task.yaml 是唯一 active execution source。"
+      - "PTL-I100-1100 product operability full audit 已完成并本地提交 33e6fb9。"
+      - "control/product_operability_gap_matrix.yaml 将 backend foundation 排为 110A。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-109B-client-export-page-layer-coverage"
-      target_active_packet: "PTL-I100-1100-product-operability-full-audit"
+      previous_active_packet: "PTL-I100-1100-product-operability-full-audit"
+      target_active_packet: "PTL-I100-110A-platform-backend-operability-foundation"
       product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: "product_operability_audit"
+      active_packet_kind: "internal_operable_productization"
       product_mainline_task: true
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change: false
-      runtime_change_in_packet: "OUT_OF_SCOPE"
+      runtime_change: true
+      runtime_change_in_packet: "IN_SCOPE"
       docs_change: false
       contracts_change: false
       handoff_change: false
@@ -104,8 +95,8 @@ currentTask:
       tests_change: true
       fixture_change: false
       control_change: true
-      storage_change: false
-      api_change: false
+      storage_change: true
+      api_change: true
       external_release_change: false
       stage8_real_execution_change: false
       stage9_real_payment_delivery_refund_change: false
@@ -126,27 +117,31 @@ currentTask:
       - "不修改 contracts/**"
       - "不修改 handoff/**"
       - "不修改 scripts/**"
-      - "不修改 src/**"
       - "不修改 fixtures/**"
+      - "不修改 Stage1-9 业务语义"
+      - "不接真实 PostgreSQL 服务"
+      - "不运行 Alembic migration"
+      - "不接 Redis/Dramatiq"
+      - "不接 MinIO/S3"
+      - "不新增 Docker Compose runtime"
       - "不执行真实触达"
       - "不执行真实支付"
       - "不执行真实交付"
       - "不执行真实退款"
       - "不实现自动退款程序"
-      - "不接真实 CRM、短信、电话、邮件、企微、支付或交付供应商"
       - "不 push"
     affected_stages:
-      - "product_operability_audit"
-      - "automation_control"
-      - "governance_testing"
-      - "sales_operations"
-      - "stage8_outreach"
-      - "stage9_delivery"
       - "platform_infra"
+      - "storage"
+      - "api_transport"
+      - "operator_workbench"
+      - "governance_testing"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
+      - "api_transport_foundation"
+      - "storage_runtime_core"
       - "scripts_and_tests_general"
       - "future_external_unlock_prereq_core"
       - "low_risk_docs_control_sync"
@@ -163,26 +158,48 @@ currentTask:
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/product_operability_gap_matrix.yaml"
+      - "src/shared/settings.py"
+      - "src/api/deps.py"
+      - "src/api/main.py"
+      - "src/storage/db.py"
+      - "src/storage/sqlite_backend.py"
+      - "tests/test_storage_concurrency.py"
+      - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/test_product_operability_gap_matrix.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/product_operability_gap_matrix.yaml"
+      - "src/shared/settings.py"
+      - "src/api/deps.py"
+      - "src/api/main.py"
+      - "src/storage/db.py"
+      - "src/storage/sqlite_backend.py"
+      - "tests/test_storage_concurrency.py"
+      - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/test_product_operability_gap_matrix.py"
     current_window_actual_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
-      - "control/product_operability_gap_matrix.yaml"
-      - "tests/test_product_operability_gap_matrix.py"
     forbidden_modification_paths:
       - "docs/**"
       - "contracts/**"
       - "handoff/**"
       - "scripts/**"
-      - "src/**"
       - "fixtures/**"
+      - "src/stage1_tasking/**"
+      - "src/stage2_ingestion/**"
+      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
+      - "src/stage5_rules_evidence/**"
+      - "src/stage6_fact_review/**"
+      - "src/stage7_sales/**"
+      - "src/stage8_outreach/**"
+      - "src/stage9_delivery/**"
       - "control/product_doc_runtime_coverage_ledger.yaml"
       - "control/product_module_registry.yaml"
       - "control/source_blueprint_registry.yaml"
@@ -206,30 +223,36 @@ currentTask:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       tests:
+        - "tests/test_storage_concurrency.py"
+        - "tests/test_api_transport_bootstrap.py"
+        - "tests/test_internal_repository_boundary.py"
         - "tests/test_product_operability_gap_matrix.py"
-        - "tests/test_product_doc_runtime_coverage.py"
-        - "tests/test_stage12_extractors.py"
-      runtime: []
+      runtime:
+        - "src/shared/settings.py"
+        - "src/api/deps.py"
+        - "src/api/main.py"
+        - "src/storage/db.py"
+        - "src/storage/sqlite_backend.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths\""
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','src/shared/settings.py','src/api/deps.py','src/api/main.py','src/storage/db.py','src/storage/sqlite_backend.py','tests/test_storage_concurrency.py','tests/test_api_transport_bootstrap.py','tests/test_internal_repository_boundary.py','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths\""
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
+      - "python -m unittest tests.test_storage_concurrency -v"
+      - "python -m unittest tests.test_api_transport_bootstrap -v"
+      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_product_operability_gap_matrix -v"
-      - "python -m unittest tests.test_product_doc_runtime_coverage -v"
-      - "python -m unittest tests.test_stage12_extractors -v"
-      - "python -m unittest tests.test_external_unlock_prerequisites -v"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "git diff --check"
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths\"": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command \"`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','src/shared/settings.py','src/api/deps.py','src/api/main.py','src/storage/db.py','src/storage/sqlite_backend.py','tests/test_storage_concurrency.py','tests/test_api_transport_bootstrap.py','tests/test_internal_repository_boundary.py','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths\"": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
+      "python -m unittest tests.test_storage_concurrency -v": 300000
+      "python -m unittest tests.test_api_transport_bootstrap -v": 300000
+      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_product_operability_gap_matrix -v": 300000
-      "python -m unittest tests.test_product_doc_runtime_coverage -v": 300000
-      "python -m unittest tests.test_stage12_extractors -v": 300000
-      "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
       "python tests/run_tests.py": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "git diff --check": 120000
@@ -238,20 +261,23 @@ currentTask:
       - "开始前 git status 非干净时立即停止汇报"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths 时立即停止汇报"
       - "实际改动命中 forbidden_modification_paths 时立即停止汇报"
-      - "需要修改 docs/**、contracts/**、handoff/**、scripts/**、src/**、fixtures/** 时立即停止汇报"
-      - "需要新增正式对象、枚举、gate、exception 语义时立即停止汇报"
-      - "需要真实触达、真实交付、真实支付或真实退款时立即停止汇报"
+      - "需要修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/** 时立即停止汇报"
+      - "需要修改 Stage1-9 业务 runtime 时立即停止汇报"
+      - "需要真实外部服务连接、真实触达、真实交付、真实支付或真实退款时立即停止汇报"
       - "需要自动退款程序时立即停止汇报"
+      - "需要新增正式对象、枚举、gate、exception 语义时立即停止汇报"
     definition_of_done:
-      - "product operability gap matrix 覆盖 product_doc_runtime_coverage_ledger.yaml 的全部 capability_id。"
-      - "每项能力明确 owner 可用状态、当前产品缺口、下一实现包或无需实现原因。"
-      - "矩阵明确销售触达、CRM/报价、LeadPack 导出/页面、交付、支付、真实后端、自动退款边界。"
-      - "测试证明 external/live/readiness 能力没有被误标为 operable now。"
+      - "JSON-file 默认 backend 行为和现有 repository/API 调用方式保持兼容。"
+      - "新增 opt-in durable local relational backend，能通过 Settings / DatabaseSession.default(settings=...) 选择，并能持久化/回放 stage state、records、work items、operator actions。"
+      - "Settings.storage_bootstrap_payload() 清楚表达 executable backends、reserved external backends、unsupported backend fast-fail、no silent fallback。"
+      - "API create_app bootstrap/readback 能投影当前 active backend，不形成第二状态源。"
+      - "PostgreSQL/Alembic/Redis/MinIO/S3/Docker Compose 仍只作为 reserved/not-live，不连接、不迁移、不启动。"
       - "targeted tests 与 required scripts 全部通过。"
     deliverables:
-      - "control/product_operability_gap_matrix.yaml"
-      - "tests/test_product_operability_gap_matrix.py"
-      - "110 后续实现顺序：backend foundation -> sales outreach execution -> CRM/quote -> export/delivery -> payment/order, refund manual-only"
+      - "durable local relational backend implementation"
+      - "settings/bootstrap/readiness update"
+      - "storage/API/repository regression tests"
+      - "product operability matrix assertion showing backend foundation progress without live unlock"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -263,14 +289,13 @@ currentTask:
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_SCOPED_CONTROL_AND_TEST_AUDIT"
-      signoff_meaning: "用户已确认先做产品可用性全量检测；本批准不包含 runtime 实现、外发、release、真实触达、真实支付、真实交付、真实退款或自动退款程序。"
+      signoff_status: "APPROVED_FOR_SCOPED_INTERNAL_BACKEND_FOUNDATION_IMPLEMENTATION"
+      signoff_meaning: "本批准只允许 110A 在 declared paths 内实现 durable backend foundation；不批准 external/live、真实触达、真实支付、真实交付、真实退款、自动退款程序、push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "本包只做检测资产与测试，不改变产品文档正文或 runtime。"
+      - "本包优先服务后续 sales outreach outbox / export delivery / payment audit 的持久化地基。"
       - "软件是内部使用；对外卖的是证据包/线索包，不是软件本体。"
-      - "销售触达、报价、导出、交付、支付属于后续要补齐的产品能力；自动退款程序不做。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit chain"
     - "external software release remains blocked"
@@ -278,18 +303,13 @@ currentTask:
     - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
     - "automated refund program is out of scope"
   allowed_actions:
-    - "允许新增 product operability gap matrix 与对应测试。"
-    - "允许同步 current_task / product_task_library / repo_status 的 110-0 active packet 状态。"
+    - "允许在 PTL-I100-110A declared_changed_paths / allowed_modification_paths 范围内实现 durable backend foundation。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
-    - "不得修改 docs/**、contracts/**、handoff/**、scripts/**、src/**、fixtures/**。"
-    - "不得执行真实触达、真实交付、真实支付、真实退款或自动退款程序。"
+    - "不得修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/** 或 Stage1-9 业务 runtime。"
+    - "不得连接真实外部服务或执行真实触达、支付、交付、退款。"
     - "不得放开 external release、Stage8 real execution、Stage9 real payment/delivery/refund。"
     - "不得 push。"
   nextActions:
-    - "110-0 完成后进入 110A：真实后端/持久化/作业队列 foundation，承接后续销售触达与交付执行。"
-    - "110B：Stage8 sales outreach governed execution outbox 与渠道/vendor 执行边界。"
-    - "110C：Stage7 CRM/报价/销售推进工作台。"
-    - "110D：LeadPack/证据包导出、页面与交付候选执行。"
-    - "110E：订单、支付、交付闭环；退款只保留人工异常记录，不做自动退款程序。"
-  status_note: "PTL-I100-1100 产品可用性全量检测已激活；本包不做 runtime 实现，只为后续 110A-E 排序和验收标准提供机器可测依据。"
+    - "110A 完成后进入 110B：Stage8 sales outreach governed execution outbox 与渠道/vendor 执行边界。"
+  status_note: "PTL-I100-110A 已激活；下一窗口应只做 backend foundation 第一刀，不碰销售触达真实执行。"
