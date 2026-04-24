@@ -1,6 +1,6 @@
 version: 1
 library_id: PRODUCT_MAINLINE_TASK_LIBRARY
-updated_at: "2026-04-23"
+updated_at: "2026-04-24"
 status: EFFECTIVE
 role: product_mainline_task_source
 library_role: product_mainline_task_source
@@ -131,11 +131,14 @@ internal_operable_productization_program:
     - PTL-I100-105-stage8-9-governed-closure
     - PTL-I100-106-platform-foundation-and-full-chain-entry
     - PTL-I100-107-real-sample-operational-acceptance
+    - PTL-I100-108-stage1-7-internal-entry-and-crm-prereq
+    - PTL-I100-109-leadpack-export-and-page-layer-readiness
+    - PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions
   redlines:
     external_software_release: BLOCKED
     stage8_real_execution: "governed / approval-gated / blocked by default"
     stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
-task_count: 26
+task_count: 29
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -650,13 +653,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [internal_preview, stage1_to_stage9, governance_testing]
     task_type: internal_operable_productization
-    status: PLANNED
-    planning_state: PLANNED
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P2
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_GOVERNED_RUNTIME
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    completed_commit: e6d5124
     activation_policy: "requires dedicated control/current_task.yaml packet before execution"
     hard_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
     soft_depends_on: [PTL-GOV-201-internal-operations-acceptance]
@@ -666,3 +670,79 @@ tasks:
     acceptance_checks: ["real_sample_matrix_replayable", "failure_taxonomy_complete", "operator_replay_and_audit_report_visible"]
     suggested_packet_refs: [PTL-I100-107-real-sample-operational-acceptance]
     risk_level: HIGH
+    runtime_notes: "PTL-I100-107 已完成并在本地提交：389829e、10dfbf6、4bfeef9、e6d5124；本轮建立 offline/sanitized internal acceptance matrix，补 dedicated Stage9 refund redline runtime replay，建立 product-doc-to-runtime coverage ledger，并关闭 STAGE6_PRIVATE_SUPPLEMENT_IMPACT internal runtime/readback gap。剩余 MISSING_RUNTIME/MISSING_TEST 已分流到 PTL-I100-108、109、110；PTL-I100-107 不再是 current active implementation packet。"
+  - task_id: PTL-I100-108-stage1-7-internal-entry-and-crm-prereq
+    title: "I100-8 Stage1-7 内部入口与 CRM 前置闭环"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [api_transport, stage1_to_stage7, internal_preview]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P2
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: INTERNAL_GOVERNED_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: [PTL-I100-107-real-sample-operational-acceptance]
+    soft_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
+    objective: "补齐 107C ledger 中 Stage1-6 full API transport/orchestration 与 Stage7 CRM/external quote prerequisite 的内部前置闭环；第一优先级是 internal-only Stage1-6 entry，不启用 external/live。"
+    non_goals: ["不做 external unlock", "不真实触达", "不真实支付或外部交付", "不新增真实 CRM 集成", "不放开 Stage1-5 external transport"]
+    expected_outputs: ["Stage1-6 internal orchestration entry", "controlled Stage1-5 transport readback", "Stage7 CRM/external quote prereq readback", "operator/audit regression tests"]
+    acceptance_checks: ["stage1_6_internal_entry_replayable", "stage1_5_transport_remains_internal_controlled", "stage7_crm_quote_prereq_not_live"]
+    suggested_packet_refs:
+      - PTL-I100-108A-stage1-6-internal-entry-orchestration
+      - PTL-I100-108B-stage7-crm-quote-prereq-readiness
+    risk_level: HIGH
+    runtime_notes: "来自 control/product_doc_runtime_coverage_ledger.yaml：STAGE1_6_FULL_API_TRANSPORT_AND_ORCHESTRATION 与 STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE 仍存在缺口；本任务只做 internal governed 前置闭环和 readback，不批准 external/live 或真实 CRM。"
+  - task_id: PTL-I100-109-leadpack-export-and-page-layer-readiness
+    title: "I100-9 LeadPack 导出与页面层 readiness"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [internal_preview, leadpack_candidate_surface, page_export]
+    task_type: internal_operable_productization
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P3
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: INTERNAL_GOVERNED_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "requires dedicated control/current_task.yaml packet before execution"
+    hard_depends_on: [PTL-I100-108-stage1-7-internal-entry-and-crm-prereq]
+    soft_depends_on: [PTL-I100-107-real-sample-operational-acceptance]
+    objective: "补齐 107C ledger 中 LeadPack external delivery candidate surface 与 formal client export/page layer 的 internal readiness/readback/test coverage；不做真实外发。"
+    non_goals: ["不执行外发", "不发布客户可用页面", "不放开 external release", "不绕过 approval/audit"]
+    expected_outputs: ["LeadPack approval/audit readiness readback", "formal export/page layer internal preview", "client-visible export blockers", "coverage tests"]
+    acceptance_checks: ["leadpack_candidate_requires_approval_audit", "formal_export_layer_internal_preview_only", "external_release_remains_blocked"]
+    suggested_packet_refs:
+      - PTL-I100-109A-leadpack-approval-audit-readiness
+      - PTL-I100-109B-client-export-page-layer-coverage
+    risk_level: HIGH
+    runtime_notes: "来自 control/product_doc_runtime_coverage_ledger.yaml：LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE 与 FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER 仍需 internal readiness/coverage；本任务不批准真实外发或 release。"
+  - task_id: PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions
+    title: "I100-10 真实后端与 external/live 前置裁决"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [storage, platform_infra, external_live_governance]
+    task_type: prerequisite_decision_and_reserved_implementation
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P4
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: FILE_BACKED_INTERNAL_RUNTIME
+    runtime_change_in_packet: REQUIRES_HUMAN_CONFIRMATION
+    activation_policy: "requires dedicated control/current_task.yaml packet and explicit human confirmation before execution"
+    hard_depends_on: [PTL-I100-109-leadpack-export-and-page-layer-readiness]
+    soft_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
+    objective: "对真实 PostgreSQL/Alembic、queue/object storage/Docker Compose，以及 external/live release、Stage8 real execution、Stage9 payment/delivery/refund 前置条件做裁决与分包。"
+    non_goals: ["不默认实现真实后端", "不默认 release", "不默认真实触达", "不默认真实支付交付退款"]
+    expected_outputs: ["real backend implementation decision", "external/live prerequisite matrix", "go/no-go gates", "separate implementation packets if approved"]
+    acceptance_checks: ["reserved_backend_decision_explicit", "external_live_governance_prereqs_explicit", "no_live_execution_without_approval"]
+    suggested_packet_refs:
+      - PTL-I100-110A-platform-infra-real-backend-decision
+      - PTL-I100-110B-external-live-prerequisite-decision
+    risk_level: CRITICAL
+    runtime_notes: "来自 control/product_doc_runtime_coverage_ledger.yaml：POSTGRES_REDIS_OBJECT_STORAGE_DOCKER_BACKENDS、EXTERNAL_SOFTWARE_RELEASE、Stage8 real execution、Stage9 live payment/delivery/refund 仍 blocked/reserved；本任务必须人工确认后才可进入任何真实后端或 live 实现。"

@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-107-real-sample-operational-acceptance (SCOPED_EXECUTION; active 107-D Stage6 private supplement impact runtime gap slice; PTL-I100-106 foundation/readiness completed via 1eda05f, 067529f, fa36cb5, 86217a2, 3b659ad, 43e6442, and closeout c20686c; PTL-I100-107A acceptance matrix bootstrap/readback completed via 389829e; PTL-I100-107B dedicated refund/redline fixture readback completed via 10dfbf6; PTL-I100-107C product-doc runtime coverage audit completed via 4bfeef9; this does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-107-real-sample-operational-acceptance closeout (SCOPED_EXECUTION; PTL-I100-106 foundation/readiness completed via 1eda05f, 067529f, fa36cb5, 86217a2, 3b659ad, 43e6442, and closeout c20686c; PTL-I100-107A acceptance matrix bootstrap/readback completed via 389829e; PTL-I100-107B dedicated refund/redline fixture readback completed via 10dfbf6; PTL-I100-107C product-doc runtime coverage audit completed via 4bfeef9; PTL-I100-107D Stage6 private supplement runtime/readback gap completed via e6d5124; this closeout does not approve push, docs/contracts semantic changes, runtime implementation, external release, real production samples, external/live execution, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,10 +20,9 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- execute PTL-I100-107D Stage6 private supplement impact runtime gap inside current task_packet declared_changed_paths / allowed_modification_paths
-- modify only the listed Stage6/storage/tests/control files needed to close STAGE6_PRIVATE_SUPPLEMENT_IMPACT
-- read docs/contracts/handoff/src/tests/fixtures as implementation and coverage evidence without modifying forbidden files
-- update control/product_doc_runtime_coverage_ledger.yaml only for STAGE6_PRIVATE_SUPPLEMENT_IMPACT when runtime/test coverage is truly complete
+- close out PTL-I100-107 in control/product_task_library.yaml and record completed_commit=e6d5124
+- register PTL-I100-108, PTL-I100-109, and PTL-I100-110 as follow-up product tasks for remaining product-doc/runtime gaps
+- sync control/current_task.yaml and control/repo_status.md for the 107 closeout control packet
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -38,7 +37,8 @@ Forbidden Actions (current):
 - Any contracts/** change
 - Any handoff/** change
 - Any scripts/** change
-- Any src/** change outside the current task_packet allowed_modification_paths
+- Any src/** change
+- Any tests/** change
 - Any fixtures/** change
 - Any change to control/product_task_library.yaml
 - Any change to control/product_module_registry.yaml
@@ -52,7 +52,7 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
-- Any runtime implementation outside STAGE6_PRIVATE_SUPPLEMENT_IMPACT
+- Any runtime implementation or business semantic change
 - Any use of real production samples or external live data
 - Any external/live execution
 - Any real touch, payment, delivery, or refund
@@ -74,8 +74,9 @@ State Semantics:
 - PTL-I100-107A acceptance matrix bootstrap/readback is completed via commit 389829e; offline/sanitized acceptance matrix exists.
 - PTL-I100-107B dedicated refund/redline fixture readback is completed via commit 10dfbf6; refund-live-redline now has dedicated full-chain runtime replay and live execution remains blocked.
 - PTL-I100-107C product-doc runtime coverage audit is completed via commit 4bfeef9; the ledger is now the product-doc-to-runtime coverage baseline.
-- PTL-I100-107D is now the active scoped execution packet; it only closes the STAGE6_PRIVATE_SUPPLEMENT_IMPACT internal runtime/readback gap found by 107C.
-- PTL-I100-107D does not approve docs/contracts semantic changes, real production data, external/live execution, Stage8 real execution, Stage9 real payment/delivery/refund, external unlock, or other 107C missing-runtime items.
+- PTL-I100-107D Stage6 private supplement runtime/readback gap is completed via commit e6d5124.
+- PTL-I100-107-real-sample-operational-acceptance is being closed out in the current control packet; it does not approve docs/contracts semantic changes, runtime implementation, real production data, external/live execution, Stage8 real execution, Stage9 real payment/delivery/refund, or external unlock.
+- Remaining 107C ledger gaps are split into PTL-I100-108, PTL-I100-109, and PTL-I100-110; each still requires a dedicated current_task packet before implementation.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -89,11 +90,8 @@ Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
 - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & "scripts/check-task-packet.ps1" -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- python -m unittest tests.test_stage56_evaluators.TestStage56Evaluators -v
-- python -m unittest tests.test_internal_chain.TestInternalChain.test_stage6_supplement_reference_stays_out_of_stage7_formal_surface -v
-- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
-- python -m unittest tests.test_product_doc_runtime_coverage -v
-- python tests/run_tests.py
+- python -m unittest tests.test_stage12_extractors -v
+- python -m unittest tests.test_external_unlock_prerequisites -v
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check
 - git status --short --untracked-files=all
