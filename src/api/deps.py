@@ -32,8 +32,15 @@ def get_database_session(*, reload_from_disk: bool = False) -> DatabaseSession:
     )
 
 
-def build_transport_unavailable(stage_scope: int) -> dict[str, Any]:
-    return {
+def build_transport_unavailable(
+    stage_scope: int,
+    *,
+    reserved_operation_id: str | None = None,
+    reserved_path: str | None = None,
+    reserved_method: str | None = None,
+    handoff_refs: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    transport_state: dict[str, Any] = {
         "stage_scope": stage_scope,
         "availability_state": "CONTROLLED_UNAVAILABLE",
         "contract_state": "CONTRACT_READY",
@@ -43,6 +50,20 @@ def build_transport_unavailable(stage_scope: int) -> dict[str, Any]:
         "blocked_by_default": stage_scope in (8, 9),
         "why_unavailable": "stage transport is intentionally not wired in the current batch",
     }
+    if reserved_operation_id and reserved_path and reserved_method:
+        transport_state.update(
+            {
+                "reserved_entry_state": "RESERVED_NOT_LIVE",
+                "reserved_operation_id": reserved_operation_id,
+                "reserved_path": reserved_path,
+                "reserved_method": reserved_method,
+                "handoff_refs": list(handoff_refs),
+                "http_entry_enabled": False,
+                "real_transport_enabled": False,
+                "orchestrator_enabled": False,
+            }
+        )
+    return transport_state
 
 
 __all__ = ["build_transport_unavailable", "get_database_session", "get_settings"]

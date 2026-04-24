@@ -11,7 +11,13 @@ from api.deps import build_transport_unavailable
 
 
 STAGE5_TRANSPORT_UNAVAILABLE = {
-    **build_transport_unavailable(5),
+    **build_transport_unavailable(
+        5,
+        reserved_operation_id="reservedStage5RulesEvidenceEntry",
+        reserved_path="/reserved/stage5/rules-evidence",
+        reserved_method="POST",
+        handoff_refs=("H-04-STAGE4-TO-STAGE5", "H-05-STAGE5-TO-STAGE6"),
+    ),
     "route_registrar": "register_stage5_routes",
 }
 

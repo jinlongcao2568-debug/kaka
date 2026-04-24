@@ -11,7 +11,13 @@ from api.deps import build_transport_unavailable
 
 
 STAGE3_TRANSPORT_UNAVAILABLE = {
-    **build_transport_unavailable(3),
+    **build_transport_unavailable(
+        3,
+        reserved_operation_id="reservedStage3ParsingEntry",
+        reserved_path="/reserved/stage3/parsing",
+        reserved_method="POST",
+        handoff_refs=("H-02-STAGE2-TO-STAGE3", "H-03-STAGE3-TO-STAGE4"),
+    ),
     "route_registrar": "register_stage3_routes",
 }
 

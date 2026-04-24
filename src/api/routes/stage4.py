@@ -11,7 +11,13 @@ from api.deps import build_transport_unavailable
 
 
 STAGE4_TRANSPORT_UNAVAILABLE = {
-    **build_transport_unavailable(4),
+    **build_transport_unavailable(
+        4,
+        reserved_operation_id="reservedStage4VerificationEntry",
+        reserved_path="/reserved/stage4/verification",
+        reserved_method="POST",
+        handoff_refs=("H-03-STAGE3-TO-STAGE4", "H-04-STAGE4-TO-STAGE5"),
+    ),
     "route_registrar": "register_stage4_routes",
 }
 

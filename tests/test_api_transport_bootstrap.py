@@ -31,6 +31,68 @@ from shared.pipeline import run_internal_chain
 from storage import persist_stage_bundle, reset_default_storage
 
 
+RESERVED_ENTRY_PLAN_READBACK_KEYS = (
+    "stage_scope",
+    "availability_state",
+    "transport_state",
+    "reserved_entry_state",
+    "reserved_operation_id",
+    "reserved_path",
+    "reserved_method",
+    "handoff_refs",
+    "http_entry_enabled",
+    "real_transport_enabled",
+    "orchestrator_enabled",
+    "route_registrar",
+)
+RESERVED_ENTRY_EXPECTATIONS = {
+    1: {
+        "reserved_operation_id": "reservedStage1TaskingEntry",
+        "reserved_path": "/reserved/stage1/tasking",
+        "reserved_method": "POST",
+        "handoff_refs": ["H-01-STAGE1-TO-STAGE2"],
+    },
+    2: {
+        "reserved_operation_id": "reservedStage2IngestionEntry",
+        "reserved_path": "/reserved/stage2/ingestion",
+        "reserved_method": "POST",
+        "handoff_refs": ["H-01-STAGE1-TO-STAGE2", "H-02-STAGE2-TO-STAGE3"],
+    },
+    3: {
+        "reserved_operation_id": "reservedStage3ParsingEntry",
+        "reserved_path": "/reserved/stage3/parsing",
+        "reserved_method": "POST",
+        "handoff_refs": ["H-02-STAGE2-TO-STAGE3", "H-03-STAGE3-TO-STAGE4"],
+    },
+    4: {
+        "reserved_operation_id": "reservedStage4VerificationEntry",
+        "reserved_path": "/reserved/stage4/verification",
+        "reserved_method": "POST",
+        "handoff_refs": ["H-03-STAGE3-TO-STAGE4", "H-04-STAGE4-TO-STAGE5"],
+    },
+    5: {
+        "reserved_operation_id": "reservedStage5RulesEvidenceEntry",
+        "reserved_path": "/reserved/stage5/rules-evidence",
+        "reserved_method": "POST",
+        "handoff_refs": ["H-04-STAGE4-TO-STAGE5", "H-05-STAGE5-TO-STAGE6"],
+    },
+}
+
+
+def expected_reserved_entry_plan(stage_scope: int) -> dict[str, object]:
+    return {
+        "stage_scope": stage_scope,
+        "availability_state": "CONTROLLED_UNAVAILABLE",
+        "transport_state": "TRANSPORT_NOT_WIRED",
+        "reserved_entry_state": "RESERVED_NOT_LIVE",
+        **RESERVED_ENTRY_EXPECTATIONS[stage_scope],
+        "http_entry_enabled": False,
+        "real_transport_enabled": False,
+        "orchestrator_enabled": False,
+        "route_registrar": f"register_stage{stage_scope}_routes",
+    }
+
+
 class TestApiTransportBootstrap(unittest.TestCase):
     def setUp(self) -> None:
         get_settings.cache_clear()
@@ -127,6 +189,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
 
         disabled_registry = bootstrap["stage1_to_stage5_transport_state"]
         self.assertEqual(disabled_registry, app.state.disabled_stage_transports)
+        reserved_entry_plan = bootstrap["stage1_to_stage5_reserved_entry_plan"]
+        self.assertEqual(set(reserved_entry_plan), {f"stage{stage_scope}" for stage_scope in range(1, 6)})
         for stage_scope in range(1, 6):
             stage_key = f"stage{stage_scope}"
             self.assertIn(stage_key, disabled_registry)
@@ -137,6 +201,19 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertEqual(transport_status["transport_state"], "TRANSPORT_NOT_WIRED")
             self.assertFalse(transport_status["live_execution_enabled"])
             self.assertTrue(transport_status["internal_only"])
+            self.assertEqual(
+                reserved_entry_plan[stage_key],
+                [
+                    {
+                        key: transport_status[key]
+                        for key in RESERVED_ENTRY_PLAN_READBACK_KEYS
+                    }
+                ],
+            )
+            self.assertEqual(reserved_entry_plan[stage_key][0], expected_reserved_entry_plan(stage_scope))
+            self.assertFalse(reserved_entry_plan[stage_key][0]["http_entry_enabled"])
+            self.assertFalse(reserved_entry_plan[stage_key][0]["real_transport_enabled"])
+            self.assertFalse(reserved_entry_plan[stage_key][0]["orchestrator_enabled"])
 
         mounted_operations = bootstrap["stage6_to_stage9_mounted_operations"]
         mounted_by_id = {operation["operationId"]: operation for operation in mounted_operations}
@@ -182,6 +259,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
         entry_strategy = bootstrap["entry_strategy"]
         self.assertFalse(entry_strategy["stage1_to_stage5"]["http_entry_enabled"])
         self.assertFalse(entry_strategy["stage1_to_stage5"]["real_transport_enabled"])
+        self.assertFalse(entry_strategy["stage1_to_stage5"]["orchestrator_enabled"])
+        self.assertEqual(entry_strategy["stage1_to_stage5"]["reserved_entry_plan"], reserved_entry_plan)
         self.assertTrue(entry_strategy["stage6"]["http_entry_enabled"])
         self.assertIn(
             "previewStage6ReviewReportWorkbench",
@@ -248,6 +327,13 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertEqual(transport_status["transport_state"], "TRANSPORT_NOT_WIRED")
             self.assertTrue(transport_status["internal_only"])
             self.assertFalse(transport_status["live_execution_enabled"])
+            self.assertEqual(
+                {
+                    key: transport_status[key]
+                    for key in RESERVED_ENTRY_PLAN_READBACK_KEYS
+                },
+                expected_reserved_entry_plan(stage_scope),
+            )
 
     def test_stage6_route_registrar_exposes_internal_queue_surface(self) -> None:
         routes = register_stage6_routes()
@@ -293,6 +379,21 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(len(app.state.disabled_stage_transports), 5)
         self.assertIn("stage1", app.state.disabled_stage_transports)
         self.assertNotIn("stage6", app.state.disabled_stage_transports)
+
+        reserved_operation_ids = {
+            expected["reserved_operation_id"]
+            for expected in RESERVED_ENTRY_EXPECTATIONS.values()
+        }
+        reserved_paths = {
+            expected["reserved_path"]
+            for expected in RESERVED_ENTRY_EXPECTATIONS.values()
+        }
+        mounted_paths = {
+            getattr(route, "path", None)
+            for route in app.routes
+        }
+        self.assertTrue(reserved_operation_ids.isdisjoint(mounted_operation_ids))
+        self.assertTrue(reserved_paths.isdisjoint(mounted_paths))
 
     def test_stage6_http_transport_reads_repository_backed_preview(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

@@ -34,6 +34,20 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "external_delivery_enabled",
     "requires_review",
 )
+RESERVED_ENTRY_PLAN_READBACK_KEYS = (
+    "stage_scope",
+    "availability_state",
+    "transport_state",
+    "reserved_entry_state",
+    "reserved_operation_id",
+    "reserved_path",
+    "reserved_method",
+    "handoff_refs",
+    "http_entry_enabled",
+    "real_transport_enabled",
+    "orchestrator_enabled",
+    "route_registrar",
+)
 
 
 def _coerce_scalar(value: str) -> Any:
@@ -99,6 +113,22 @@ def _stage_transport_readback(stage_transports: dict[str, list[dict[str, Any]]])
     }
 
 
+def _reserved_entry_plan_readback(
+    disabled_stage_transports: dict[str, list[dict[str, Any]]]
+) -> dict[str, list[dict[str, Any]]]:
+    return {
+        stage_name: [
+            {
+                key: transport_state[key]
+                for key in RESERVED_ENTRY_PLAN_READBACK_KEYS
+                if key in transport_state
+            }
+            for transport_state in transport_states
+        ]
+        for stage_name, transport_states in disabled_stage_transports.items()
+    }
+
+
 def _mounted_operation_readback(stage_scope: int, route: dict[str, Any]) -> dict[str, Any]:
     operation = {
         key: route[key]
@@ -132,16 +162,20 @@ def _build_transport_bootstrap(
     mounted_stage_routes: dict[str, list[dict[str, Any]]],
 ) -> dict[str, Any]:
     operation_ids_by_stage = _operation_ids_by_stage(mounted_stage_routes)
+    stage1_to_stage5_reserved_entry_plan = _reserved_entry_plan_readback(disabled_stage_transports)
     return {
         "internal_only": True,
         "live_execution_enabled": False,
         "stage1_to_stage5_transport_state": _stage_transport_readback(disabled_stage_transports),
+        "stage1_to_stage5_reserved_entry_plan": stage1_to_stage5_reserved_entry_plan,
         "stage6_to_stage9_mounted_operations": _mounted_operations_readback(mounted_stage_routes),
         "entry_strategy": {
             "stage1_to_stage5": {
-                "current_entry": "controlled-unavailable readback only",
+                "current_entry": "controlled-unavailable reserved entry plan readback only",
                 "http_entry_enabled": False,
                 "real_transport_enabled": False,
+                "orchestrator_enabled": False,
+                "reserved_entry_plan": stage1_to_stage5_reserved_entry_plan,
                 "source": "stage1-stage5 transport registrars",
             },
             "stage6": {
