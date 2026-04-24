@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-110E-order-payment-delivery-no-auto-refund (ACTIVE after PTL-I100-110D LeadPack/evidence-pack package commit 43169f4; this activates Stage9 internal order/payment/delivery execution ledger/readback implementation and does not approve push, docs/contracts semantic changes, external release, real production samples, real payment gateway, real charge, real refund, automated refund program, or unapproved external/live execution)
+Current Workstream: PTL-I100-110E-order-payment-delivery-no-auto-refund (COMPLETED via commit 2fbe70d; Stage9 internal order/payment/delivery execution ledger/readback is implemented. This does not approve push, docs/contracts semantic changes, external release, real production samples, real payment gateway, real charge, real refund, automated refund program, or unapproved external/live execution)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,7 +20,8 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- implement PTL-I100-110E Stage9 internal order/payment/delivery execution ledger/readback within current_task allowed paths
+- close out PTL-I100-110E Stage9 internal order/payment/delivery execution ledger/readback after commit 2fbe70d
+- prepare PTL-I100-111 only through a dedicated current_task packet before any provider/live adapter implementation
 - keep order/payment/delivery ledger internal governed / owner-operated / manual-settlement-capable / blocked-live by default
 - keep approval, audit, payment collection state, delivery fulfillment state, manual settlement state, refund manual-exception boundary, and payment-gateway blocked policy visible in repository-backed readback
 - keep real LeadPack delivery, client-visible formal export/page release, external/live transport, and external release controlled and blocked
@@ -55,7 +56,7 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
-- Any runtime implementation outside PTL-I100-110E allowed paths without a new dedicated current_task packet
+- Any runtime implementation outside a dedicated current_task packet
 - Any real LeadPack external delivery or client-visible formal export/page release
 - Any use of real production samples or external live data
 - Any external/live execution
@@ -91,8 +92,8 @@ State Semantics:
 - PTL-I100-110B Stage8 governed outreach execution outbox is completed via commit 7965a34; it persists and replays internal outbox/readiness carrier while real send remains blocked.
 - PTL-I100-110C Stage7 CRM/quote owner-operated sales workbench is completed via commit 1d7cb80.
 - PTL-I100-110D LeadPack/evidence-pack package/page/readback is completed via commit 43169f4.
-- PTL-I100-110E is now active as Stage9 order/payment/delivery execution ledger implementation; it may change Stage9/API/repository readback within current_task allowed paths but cannot connect to a real payment gateway, execute real charges, execute real refunds, or implement automated refund.
-- PTL-I100-110 implementation order is product-operability driven: 110A backend foundation completed, 110B sales outreach governed execution outbox completed, 110C CRM/quote workbench completed, 110D LeadPack/evidence-pack export and delivery completed, 110E order/payment/delivery with refund manual-exception only active.
+- PTL-I100-110E is completed via commit 2fbe70d as Stage9 internal order/payment/delivery execution ledger/readback. It does not connect to a real payment gateway, execute real charges, execute real refunds, or implement automated refund.
+- PTL-I100-110 implementation order is product-operability driven and completed: 110A backend foundation completed, 110B sales outreach governed execution outbox completed, 110C CRM/quote workbench completed, 110D LeadPack/evidence-pack export and delivery completed, 110E order/payment/delivery with refund manual-exception only completed.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.

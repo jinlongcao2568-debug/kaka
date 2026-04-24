@@ -1,6 +1,6 @@
 matrix_id: PTL-I100-1100_PRODUCT_OPERABILITY_GAP_MATRIX
 task_id: PTL-I100-1100-product-operability-full-audit
-status: FIRST_PASS_FULL_AUDIT
+status: POST_110E_OWNER_OPERATED_LEDGER_SYNC
 updated_at: "2026-04-24"
 source_ledger: control/product_doc_runtime_coverage_ledger.yaml
 source_ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER
@@ -54,10 +54,10 @@ decision_summary:
     unlock. PTL-I100-110C completed the Stage7 CRM/quote owner-operated
     sales workbench via commit 1d7cb80. PTL-I100-110D completed
     LeadPack/evidence-pack package/page/readback via commit 43169f4.
-    PTL-I100-110E is active to close the internal owner-operated
-    order/payment/delivery execution ledger, with refund manual-exception only.
+    PTL-I100-110E completed the internal owner-operated order/payment/delivery
+    execution ledger via commit 2fbe70d, with refund manual-exception only.
     Live provider adapters, real charge, real external delivery execution, and
-    automated refund remain outside the active packet.
+    automated refund remain outside the completed packet.
 next_implementation_sequence:
   - packet_ref: PTL-I100-110A-platform-backend-operability-foundation
     priority: 1
@@ -103,7 +103,8 @@ next_implementation_sequence:
       - FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER
   - packet_ref: PTL-I100-110E-order-payment-delivery-no-auto-refund
     priority: 5
-    implementation_status: IMPLEMENTED_PENDING_FORMAL_CHECKS
+    implementation_status: COMPLETED
+    completed_commit: 2fbe70d
     objective: "Implement order/payment/delivery execution needed for selling evidence packs, while preserving refund as manual exception only and never automated refund execution."
     unlocks:
       - STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
