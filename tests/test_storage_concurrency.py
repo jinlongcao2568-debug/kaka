@@ -27,6 +27,17 @@ STORAGE_ENV_KEYS = (
     "KAKA_STORAGE_SCOPE",
     "KAKA_STORAGE_TEST_ISOLATION",
 )
+RESERVED_INFRA_BACKENDS = {
+    "postgresql",
+    "sqlalchemy",
+    "alembic",
+    "redis",
+    "dramatiq",
+    "minio",
+    "s3",
+    "docker-compose",
+}
+RESERVED_OR_NOT_CONFIGURED = {"RESERVED_NOT_LIVE", "NOT_CONFIGURED"}
 
 
 class TestStorageConcurrency(unittest.TestCase):
@@ -67,6 +78,17 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertEqual(settings.storage_backend, "postgres")
         self.assertEqual(settings.storage_scope, "shared")
         self.assertEqual(settings.storage_runtime_mode, "stable-default")
+        readiness = settings.storage_bootstrap_payload()["platform_infra_readiness"]
+        self.assertEqual(readiness["active_backend"], "postgres")
+        self.assertEqual(readiness["postgresql_readiness"]["readiness_state"], "RESERVED_NOT_LIVE")
+        self.assertTrue(readiness["postgresql_readiness"]["configured"])
+        self.assertFalse(readiness["postgresql_readiness"]["executable"])
+        executable_backend_names = [
+            entry["backend"]
+            for entry in readiness["executable_backends"]
+            if entry["executable"]
+        ]
+        self.assertEqual(executable_backend_names, ["json-file"])
 
     def test_database_session_default_fast_fails_unsupported_storage_backend(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -78,7 +100,63 @@ class TestStorageConcurrency(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "postgres"):
+                DatabaseSession.default_storage_path(settings=settings)
+            with self.assertRaisesRegex(ValueError, "postgres"):
                 DatabaseSession.default(settings=settings, reload_from_disk=True)
+
+    def test_storage_bootstrap_payload_projects_reserved_platform_infra_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+
+            payload = settings.storage_bootstrap_payload()
+
+        self.assertEqual(payload["storage_backend"], "json-file")
+        self.assertEqual(payload["storage_scope"], "shared")
+        self.assertEqual(payload["storage_runtime_mode"], "explicit-path")
+        self.assertIn("platform_infra_readiness", payload)
+
+        readiness = payload["platform_infra_readiness"]
+        self.assertEqual(readiness["active_backend"], "json-file")
+        executable_backends = readiness["executable_backends"]
+        self.assertEqual([entry["backend"] for entry in executable_backends], ["json-file"])
+        self.assertEqual([entry["backend"] for entry in executable_backends if entry["executable"]], ["json-file"])
+        self.assertEqual(executable_backends[0]["readiness_state"], "EXECUTABLE")
+        self.assertTrue(executable_backends[0]["configured"])
+
+        reserved_by_backend = {
+            entry["backend"]: entry
+            for entry in readiness["reserved_backends"]
+        }
+        self.assertEqual(set(reserved_by_backend), RESERVED_INFRA_BACKENDS)
+        for backend, entry in reserved_by_backend.items():
+            self.assertFalse(entry["executable"], backend)
+            self.assertIn(entry["readiness_state"], RESERVED_OR_NOT_CONFIGURED, backend)
+            self.assertIn("why_not_live", entry)
+
+        self.assertEqual(readiness["postgresql_readiness"]["readiness_state"], "NOT_CONFIGURED")
+        self.assertFalse(readiness["postgresql_readiness"]["executable"])
+        self.assertFalse(readiness["postgresql_readiness"]["configured"])
+        self.assertEqual(readiness["migration_readiness"]["readiness_state"], "NOT_CONFIGURED")
+        self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+        self.assertIn(readiness["queue_readiness"]["readiness_state"], RESERVED_OR_NOT_CONFIGURED)
+        self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+        self.assertIn(readiness["object_storage_readiness"]["readiness_state"], RESERVED_OR_NOT_CONFIGURED)
+        self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
+        self.assertIn(readiness["compose_readiness"]["readiness_state"], RESERVED_OR_NOT_CONFIGURED)
+        self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+
+        policy = readiness["backend_policy"]
+        self.assertTrue(policy["unsupported_backend_fast_fail"])
+        self.assertTrue(policy["no_silent_fallback"])
+        self.assertTrue(policy["no_migration_execution"])
+        self.assertTrue(policy["no_external_service_connection"])
+        self.assertTrue(policy["readback_only"])
+        self.assertFalse(policy["runtime_behavior_changed"])
 
     def test_explicit_storage_path_takes_priority(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

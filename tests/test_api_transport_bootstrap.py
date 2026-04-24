@@ -77,6 +77,17 @@ RESERVED_ENTRY_EXPECTATIONS = {
         "handoff_refs": ["H-04-STAGE4-TO-STAGE5", "H-05-STAGE5-TO-STAGE6"],
     },
 }
+RESERVED_INFRA_BACKENDS = {
+    "postgresql",
+    "sqlalchemy",
+    "alembic",
+    "redis",
+    "dramatiq",
+    "minio",
+    "s3",
+    "docker-compose",
+}
+RESERVED_OR_NOT_CONFIGURED = {"RESERVED_NOT_LIVE", "NOT_CONFIGURED"}
 
 
 def expected_reserved_entry_plan(stage_scope: int) -> dict[str, object]:
@@ -168,16 +179,39 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(app.state.settings.storage_runtime_mode, "explicit-path")
         self.assertEqual(app.state.storage_session.storage_backend, "json-file")
         self.assertEqual(app.state.storage_session.storage_path, explicit_path)
+        storage_bootstrap = app.state.storage_bootstrap
+        self.assertEqual(storage_bootstrap["storage_backend"], "json-file")
+        self.assertEqual(storage_bootstrap["storage_path"], str(explicit_path))
+        self.assertEqual(storage_bootstrap["storage_path_optional"], str(explicit_path))
+        self.assertEqual(storage_bootstrap["storage_scope"], "process")
+        self.assertEqual(storage_bootstrap["storage_runtime_mode"], "explicit-path")
+        self.assertIn("platform_infra_readiness", storage_bootstrap)
+
+        readiness = storage_bootstrap["platform_infra_readiness"]
+        self.assertEqual(readiness["active_backend"], "json-file")
         self.assertEqual(
-            app.state.storage_bootstrap,
-            {
-                "storage_backend": "json-file",
-                "storage_path": str(explicit_path),
-                "storage_path_optional": str(explicit_path),
-                "storage_scope": "process",
-                "storage_runtime_mode": "explicit-path",
-            },
+            [entry["backend"] for entry in readiness["executable_backends"] if entry["executable"]],
+            ["json-file"],
         )
+        reserved_by_backend = {
+            entry["backend"]: entry
+            for entry in readiness["reserved_backends"]
+        }
+        self.assertEqual(set(reserved_by_backend), RESERVED_INFRA_BACKENDS)
+        for backend, entry in reserved_by_backend.items():
+            self.assertFalse(entry["executable"], backend)
+            self.assertIn(entry["readiness_state"], RESERVED_OR_NOT_CONFIGURED, backend)
+        self.assertFalse(readiness["postgresql_readiness"]["executable"])
+        self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+        self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+        self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+        self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
+        self.assertTrue(readiness["backend_policy"]["no_silent_fallback"])
+        self.assertTrue(readiness["backend_policy"]["no_migration_execution"])
+        self.assertTrue(readiness["backend_policy"]["no_external_service_connection"])
+        self.assertTrue(readiness["backend_policy"]["readback_only"])
+        self.assertFalse(readiness["backend_policy"]["runtime_behavior_changed"])
 
     def test_create_app_exposes_single_transport_bootstrap_readback_projection(self) -> None:
         app = create_app()
@@ -290,6 +324,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
             [operation["operationId"] for operation in mounted_operations],
         )
         self.assertEqual(app.state.storage_bootstrap, app.state.settings.storage_bootstrap_payload())
+        self.assertIn("platform_infra_readiness", app.state.storage_bootstrap)
 
     def test_create_app_fast_fails_unsupported_storage_backend(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
