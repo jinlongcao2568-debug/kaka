@@ -675,3 +675,15 @@ AI / 模型治理一律不得：
 - B9-S1 不绑定具体模型供应商、工具供应商或联网检索供应商；
 - model/tool provider 当前只允许 internal assist / review assist / structured assist / shadow，不得替代人工签字、正式 gate、审批链或审计链；
 - tool provider externalized usage 继续保持 `LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN`，不得因 registry 存在而进入 default-open 路径。
+
+## 附：PTL-I100-OPEN-CAPABILITY-BASELINE 能力开放基线补表
+
+本补表只同步 AI/模型治理开放口径，不新增模型供应商、模型 gate 或模型 release。
+
+| 项 | D14 承接口径 |
+|---|---|
+| policy ref | `control/product_task_library.yaml#open_capability_policy` / `PTL-I100-OPEN-CAPABILITY-BASELINE` |
+| AI 作用边界 | AI 只能辅助解析、摘要、分类、draft、review assist 和运营提示；不得把模型判断直接变成客户结论、事实结论、触达结论或支付/交付结论。 |
+| `blocked-by-default` | 模型/工具能力 blocked-by-default 只表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task、模型评测和验收未满足前不能 live，不表示永久不做。 |
+| 人工复核 | 涉及客户可见结论、外发、触达、支付、交付、高限制字段或法律动作建议时，模型输出必须经人工复核与审计链。 |
+| 自动退款边界 | 自动退款执行 excluded；模型不得触发退款，只能辅助 `manual exception` / 人工异常记录、manual approval/audit 和 governed review。 |

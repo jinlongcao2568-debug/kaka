@@ -13,25 +13,28 @@
 
 - 本图只表达阶段 1-9 主链该如何理解、上下游怎么衔接、每阶段消费什么和产出什么。
 - 本图不表达当前 phase/readiness 数值快照，不替代 `control/repo_status.md`、`control/milestone_status.yaml`。
-- 本图不放开 `external release`，不放开 `Stage 8 real execution`，不放开 `Stage 9 real payment / delivery / refund`。
+- 本图承接 `PTL-I100-OPEN-CAPABILITY-BASELINE`：除自动退款执行和禁止的非公开 / 灰色能力外，产品必需能力都是目标能力，必须逐级受控开放。
+- 本图中的 `blocked-by-default` 表示未通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task 与验收前不能 live，不表示永久不做。
+- 本图不放开 `external release`，不放开 `Stage 8 real execution`，不放开 `Stage 9 real payment / delivery / refund`；自动退款执行不实现，只保留 manual exception / approval-audit / governed review。
 - 各阶段保留 1 个最贴近的导航候选 `packet_id`；更集中的近端候选提示统一放在第 3 节。
 
 ## 1.1 现实对齐说明
 
 - 本仓库当前不是“从零补 skeleton”的起点，而是已经存在 Stage1-9 的 internal governed runtime。
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
-- Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked / governed / approval-gated。
-- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-GOV-122-post-mainline-direction-advance-to-S8`，只做后主线推荐方向推进、机器登记与导航同步。
+- Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；真实触达、真实支付、真实交付是目标能力，但 `external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked-by-default / governed / approval-gated，直到 dedicated task 与验收放行。
+- 自动退款执行不属于目标能力；退款只允许作为 manual exception record、manual approval/audit 与 governed review 处理。
+- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-111F-open-capability-registry-route-doc-sync`，只做开放能力基线到注册表、路线图、D1-D14 补表和测试的同步。
 - `PTL-INT-internal-preview-productization-strengthening` scoped-execution 已完成并提交：`f788a2b`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - Stage1-9 + INT 当前产品主线闭合完成；`control/product_task_library.yaml` 的 `current_mainline_next_candidate` 已收口为 `MAINLINE_COMPLETE` closeout 记录，`task_id` / `packet_id` 均为空。
 - 当前没有自动 next candidate；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认。
 - post-mainline 方向选择当前只作导航提示，不自动决定执行顺序，也不自动恢复任何 next candidate。
 - `Stage7 模块边界重构` 对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交：`2601482`；该方向当前不再 recommended_now，且不是 current active packet。
-- 当前推荐方向仅作导航建议，不是已激活任务；推荐标签为 `Stage8 governed touch 深化`。
+- 当前推荐候选仅作导航建议，不是已激活任务；推荐下一候选为 `PTL-I100-112-production-platform-infrastructure`，但不得由本导航图自动激活。
 - `PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交：`209c4cd`；它不再是 current active packet，仅作为把 current_mainline_next_candidate 推进到 `PTL-INT` 的历史控制面参照。
 - `PTL-S89-outreach-writeback-delivery-governance` scoped-execution 已完成并提交：`c36dd9d`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
-- 本轮只做 `PTL-GOV-122` 后主线推荐方向推进、近端导航提示同步和机器可读状态对齐；不进入 runtime，不改 src / contracts / handoff / scripts，不改 Stage7 / Stage8 / Stage9 业务实现，不放开 external release 或客户平台放行。
+- 本轮只做 `PTL-I100-111F-open-capability-registry-route-doc-sync` 的 registry / route / D-doc appendix 同步；不进入 runtime，不改 src / contracts / handoff / scripts / fixtures，不放开 external release、Stage8 live send、Stage9 live payment/delivery 或客户平台放行。
 - `PTL-S56-project-fact-review-report` scoped-execution 已完成并已提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S45-rule-evidence-dual-gate` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S34-object-lineage-verification-handoff` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -123,23 +126,23 @@
 
 ## 2.8 Stage 8 联系对象与销售触达编排
 
-- 阶段目标：在 governed internal 边界内形成联系人、触达计划与触达记录，并保持 candidate 与 execution 语义分层。
+- 阶段目标：在 governed internal 边界内形成联系人、触达计划与触达记录，并保持 candidate 与 execution 语义分层；真实销售触达是目标能力，但必须逐级 gated。
 - 正式输入：`sales_lead`、`saleable_opportunity`、`multi_competitor_collection`、`legal_action_actor_profile`、`procurement_decision_actor_profile`、`buyer_fit`、`challenger_buyer_fit`、`offer_recommendation` 以及联系来源策略、合规矩阵与 cadence 规则。
 - 正式输出：`contact_candidate_collection`、`contact_selection_trace`、`contact_target`、`outreach_plan`、`touch_record`。
 - 上游 handoff：`handoff/stage7_to_stage8/contract.json`
 - 下游 handoff：`handoff/stage8_to_stage9/contract.json`
-- 正式边界：只允许在 governed internal 边界内形成 candidate、selection、plan 与 touch 记录；不放开 real execution，不直接外发高限制字段。
+- 正式边界：只允许在 governed internal 边界内形成 candidate、selection、plan 与 touch 记录；真实触达必须通过 provider config、sandbox、approval、audit、模板、频控、退订、operator action 与 dedicated current_task 验收后才能 live，不直接外发高限制字段。
 - 相关 contracts / tests：`contracts/sales/contact_compliance_matrix.json`；`contracts/sales/contact_source_policy_catalog.json`；`contracts/sales/outreach_cadence_catalog.json`；`contracts/schemas/contact_candidate_collection.schema.json`；`contracts/schemas/contact_selection_trace.schema.json`；`tests/test_stage8_resolution_closure.py`
 - 导航候选 `task_id`：`PTL-S78-contact-candidate-compliance-preview`
 
 ## 2.9 Stage 9 订单、支付、交付与治理反馈
 
-- 阶段目标：在 internal governed 边界内形成订单、支付、交付、结果事件与治理反馈回写闭环。
+- 阶段目标：在 internal governed 边界内形成订单、支付、交付、结果事件与治理反馈回写闭环；真实收款、扣款、交付、发票/收据、对账是目标能力，但必须逐级 gated。
 - 正式输入：`contact_target`、`outreach_plan`、`touch_record`、`saleable_opportunity` 与 Stage 8/9 handoff。
 - 正式输出：`order_record`、`payment_record`、`delivery_record`、`opportunity_outcome_event`、`governance_feedback_event`。
 - 上游 handoff：`handoff/stage8_to_stage9/contract.json`
 - 下游 handoff：无，主链终点。
-- 正式边界：只允许 internal preview / governed writeback；不放开 real payment / delivery / refund，不把 projected mutation 写成默认持久化执行。
+- 正式边界：只允许 internal preview / governed writeback；真实 payment / delivery 必须通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking 与 dedicated current_task 验收后才能 live；自动退款执行不实现，退款只保留 manual exception / approval-audit / governed review；不把 projected mutation 写成默认持久化执行。
 - 相关 contracts / tests：`contracts/governance/writeback_impact_policy.json`；`contracts/sales/outcome_taxonomy_catalog.json`；`contracts/schemas/delivery_record.schema.json`；`tests/test_stage9_impact_executor.py`
 - 导航候选 `task_id`：`PTL-S89-outreach-writeback-delivery-governance`
 
@@ -151,16 +154,16 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-GOV-122-post-mainline-direction-advance-to-S8`；本轮只做后主线推荐方向推进的机器登记与导航同步，不自动进入任何新 runtime 包。
+- 当前 active packet：`PTL-I100-111F-open-capability-registry-route-doc-sync`；本轮只做开放能力基线到 product_module_registry、路线图、D1-D14 补表和测试的同步，不自动进入任何新 runtime 包。
 - 当前无自动 next candidate：Stage1-9 + INT 产品主线已闭合；后续新主线、模块拆分、强化包或外发 unlock 均需另开 task packet 并人工确认，不能由本导航图自动选择。
 - post-mainline 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入候选池。
 - Stage7 模块边界重构：对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交 `2601482`；该方向当前不再 recommended_now，只作为已闭合近端历史参照。
-- 当前推荐方向仅作导航建议，不是已激活任务：`Stage8 governed touch 深化`。
+- 当前推荐候选仅作导航建议，不是已激活任务：`PTL-I100-112-production-platform-infrastructure`。推荐理由是生产持久化、审计、worker、监控和回滚基础应先于真实公开数据与 provider live 执行补齐。
 - Internal preview 产品化强化（`PTL-INT-internal-preview-productization-strengthening`）：已完成 scoped-execution 并提交 `f788a2b`；不再是 current active packet，也不再是 current_mainline_next_candidate，仅作为该方向的已闭合历史参照；不是 external release 或客户平台放行。
 - `PTL-S89-outreach-writeback-delivery-governance`：已完成 scoped-execution 并提交 `c36dd9d`；不再是 current_mainline_next_candidate，仅作为 Stage8-9 触达记录、回写、交付与治理反馈闭合的近端历史参照。
 - `PTL-S78-contact-candidate-compliance-preview`：已完成并提交；不再是 current_mainline_next_candidate，仅作为 Stage7-8 联系候选、合规判定与预览闭合的近端历史参照。
 
 历史控制面参照：`PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交 `209c4cd`，只用于说明 current_mainline_next_candidate 如何推进到 `PTL-INT`，不作为近端候选或当前执行顺序来源。
 
-主线闭合提示：本文件仍只提供近端导航提示；不提供状态源、执行顺序源、完整 backlog 或 release 放行。`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 红线不变。
+主线闭合提示：本文件仍只提供近端导航提示；不提供状态源、执行顺序源、完整 backlog 或 release 放行。`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 红线不变；blocked-by-default 只表示受控开放条件未满足前不能 live，不表示真实触达、支付或交付永久不做。自动退款执行不实现。
 

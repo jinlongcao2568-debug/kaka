@@ -22,7 +22,41 @@ source_priority:
     - docs/D9_联系对象与销售触达规范.md
     - docs/D10_订单支付交付与治理反馈规范.md
     - docs/D11_测试验收与金标回归清单.md
+    - docs/D12_部署发布与运行治理规范.md
     - docs/D13_公开可查边界能力清单.md
+    - docs/D14_AI模型治理规范.md
+open_capability_policy_ref: control/product_task_library.yaml#open_capability_policy
+open_capability_policy_id: PTL-I100-OPEN-CAPABILITY-BASELINE
+open_capability_policy_summary:
+  sold_product: evidence_pack_and_leadpack
+  software_role: owner_operated_tooling_and_customer_artifact_access
+  default_live_state: BLOCKED_BY_DEFAULT_UNTIL_GATED
+  target_capability_semantics: "blocked-by-default means gated target capability, not permanent out-of-scope"
+  target_capabilities:
+    - real_public_source_collection
+    - parsing_ocr_and_attachment_processing
+    - public_verification
+    - crm_quote
+    - leadpack_page_export
+    - sales_outreach
+    - payment_collection_and_charge
+    - delivery_fulfillment
+    - receipt_invoice_and_settlement
+  excluded_capabilities:
+    - automated_refund_execution
+    - private_or_non_public_data_collection
+    - gray_source_collection
+    - captcha_or_login_bypass
+  refund_boundary: "automated_refund_execution is excluded; refund handling remains manual exception record, manual approval/audit, and governed review only"
+  required_gates:
+    - provider_config
+    - sandbox_pass
+    - approval_chain
+    - audit_chain
+    - operator_action_record
+    - field_allowlist_and_masking
+    - dedicated_current_task_packet
+    - PTL-I100-118-full-product-operational-acceptance
 registry_rules:
   not_a_status_source: true
   not_a_release_gate: true
@@ -536,7 +570,7 @@ stage_module_inventory:
         deferred_gaps: []
   - stage_id: stage7_sales
     stage_name: "Stage7 商业承接与可售对象"
-    business_summary: "把 Stage6 formal outputs 转成 sales lead、buyer fit、offer recommendation 和 saleable opportunity。"
+    business_summary: "把 Stage6 formal outputs 转成 sales lead、buyer fit、offer recommendation、saleable opportunity、CRM/Quote workbench 与 LeadPack/Page/Export readiness；CRM/Quote 与客户可见包是目标能力，但 blocked-by-default，必须逐级 gated。"
     implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
     current_runtime_state: HEAVY_RUNTIME
     customer_visibility: LEADPACK_CANDIDATE_GATED
@@ -548,10 +582,12 @@ stage_module_inventory:
     current_blockers:
       - "Stage7 可售对象必须受 report/review/sale gate 约束。"
       - "Stage7 模块边界已拆分完成；本次仅为模块边界重构，不新增正式对象、枚举、gate 或 exception 语义。"
+      - "CRM/Quote、LeadPack/Page/Export 是目标能力但默认阻断；blocked-by-default 表示未满足受控开放条件前不能客户可见或 live，不表示永久 out of scope。"
     exit_criteria:
       - "saleable_opportunity 只消费 H-06 / Stage6 formal carriers。"
       - "sales_lead / buyer_fit / offer_recommendation 不能绕开 review/report/sale gate。"
       - "Stage7 不生成真实 contact_target，不进入 Stage8 live execution。"
+      - "CRM/Quote 与 LeadPack/Page/Export 进入客户可见或 provider live 前必须通过 provider config、sandbox、approval、audit、field allowlist/masking 与 PTL-I100-118 验收。"
     module_slices:
       - slice_id: stage7.sales_derivation
         business_summary: "生成 sales lead、buyer fit、offer recommendation 和可售机会对象。"
@@ -590,6 +626,7 @@ stage_module_inventory:
         exit_criteria:
           - "report_status 非 ready/issued 时不得无条件 qualified。"
           - "review request 或 missing condition 存在时 opportunity 必须受限。"
+          - "CRM/Quote workbench 和 LeadPack/Page/Export readiness 是 gated target capability，不得被读成永久不做或默认 live。"
         deferred_gaps:
           - gap_id: STAGE7-SALES-RUNTIME-SPLIT
             status: COMPLETED
@@ -630,7 +667,7 @@ stage_module_inventory:
         deferred_gaps: []
   - stage_id: stage8_outreach
     stage_name: "Stage8 联系对象与销售触达"
-    business_summary: "在 governed/internal 边界内形成 contact target、outreach plan 和 touch record；默认不执行真实触达。"
+    business_summary: "在 governed/internal 边界内形成 contact target、outreach plan、touch record 和 outbox；真实触达是目标能力，但 blocked-by-default，必须通过 provider config、sandbox、审批、审计、模板、频控、退订和 dedicated current_task 后才能 live。"
     implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
     current_runtime_state: HEAVY_RUNTIME
     customer_visibility: INTERNAL_GOVERNED
@@ -646,11 +683,12 @@ stage_module_inventory:
       - PTL-S8-102-p2-plan-touch-productization
     pending_packets: []
     current_blockers:
-      - "Stage8 real execution 默认阻断；contact enrichment / live outreach 需要审批和审计。"
+      - "Stage8 real execution 是目标能力但默认阻断；blocked-by-default 表示未满足受控开放条件前不能 live，不表示永久 out of scope。"
+      - "contact enrichment / live outreach 需要 provider config、sandbox、approval、audit、模板、频控、退订和 operator action。"
       - "Stage8 P1/P2 已完成，但 governed/internal-only redline 不变；后续 shared/runtime 与 Stage9 工作仍需人工选择，不得自动激活。"
     exit_criteria:
       - "contact_target 只能来自 saleable_opportunity、account context 和合法来源。"
-      - "outreach_plan / touch_record 默认只允许 preview/dry-run/governed internal path。"
+      - "outreach_plan / touch_record 默认只允许 preview/dry-run/governed internal path；进入真实触达前必须完成 gated target capability 验收。"
     module_slices:
       - slice_id: stage8.contact_candidate_compliance
         business_summary: "生成联系候选、合规判定和 contact target。"
@@ -683,7 +721,7 @@ stage_module_inventory:
         pending_packets: []
         exit_criteria:
           - "不得从灰色来源或未经授权自然人联系方式直接生成正式 contact_target。"
-          - "candidate/compliance helper 边界已由 P1 完成，但不得因此放开 Stage8 real execution。"
+          - "candidate/compliance helper 边界已由 P1 完成，但不得因此放开 Stage8 real execution；真实触达仍是 gated target capability。"
         deferred_gaps: []
       - slice_id: stage8.outreach_plan_touch_record
         business_summary: "生成受控触达计划和触达留痕，但不默认 live execute。"
@@ -714,11 +752,11 @@ stage_module_inventory:
           - PTL-S8-102-p2-plan-touch-productization
         pending_packets: []
         exit_criteria:
-          - "touch_record 只能表达 governed internal / dry-run / audit trace，不能暗示真实外发已放开。"
+          - "touch_record 只能表达 governed internal / dry-run / audit trace，不能暗示真实外发已放开；live send 必须先满足开放基线 gates。"
         deferred_gaps: []
   - stage_id: stage9_delivery
     stage_name: "Stage9 订单支付交付与治理反馈"
-    business_summary: "在 governed/internal 边界内记录订单、支付、交付、结果回写和治理反馈；默认不执行真实支付/交付/退款。"
+    business_summary: "在 governed/internal 边界内记录订单、支付、交付、结果回写和治理反馈；真实收款、扣款、交付、发票/收据和对账是目标能力但 blocked-by-default，自动退款执行 excluded/manual exception only。"
     implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
     current_runtime_state: HEAVY_RUNTIME
     customer_visibility: INTERNAL_GOVERNED
@@ -728,7 +766,8 @@ stage_module_inventory:
       - PTL-S9-101-p5-typed-lifecycle-deepening
       - PTL-S9-102-p6-feedback-writeback-productization
     current_blockers:
-      - "Stage9 real payment/delivery/refund 默认阻断，需要审批链和治理链。"
+      - "Stage9 real payment / charge / delivery 是目标能力但默认阻断；blocked-by-default 表示未满足 provider config、sandbox、approval、audit、operator action、field allowlist/masking 和验收前不能 live。"
+      - "自动退款执行不作为目标能力；退款只保留 manual exception record、manual approval/audit 和 governed review。"
     exit_criteria:
       - "order/payment/delivery/outcome/feedback 均保持 typed governed record。"
       - "任何 writeback 不得反向改写 Stage6 真相层。"
@@ -762,7 +801,7 @@ stage_module_inventory:
         target_packet_candidates:
           - PTL-S9-101-p5-typed-lifecycle-deepening
         exit_criteria:
-          - "记录状态可内部回放，但不得表示 live payment/delivery ready。"
+          - "记录状态可内部回放，但不得表示 live payment/delivery ready；payment/delivery 进入 live 前必须完成 gated target capability 验收。"
         deferred_gaps: []
       - slice_id: stage9.writeback_governance_feedback
         business_summary: "处理结果回写、impact executor 和治理反馈事件。"
@@ -1092,6 +1131,7 @@ modules:
       - "Current S67 closure is complete through service.py plus shared runtime/policy chain."
       - "STAGE7-SALES-RUNTIME-SPLIT completed by PTL-S7-module-boundary-refactor as a module boundary refactor only."
       - "This split does not add formal object, enum, gate, or exception semantics."
+      - "PTL-I100-OPEN-CAPABILITY-BASELINE treats true challenger identification, CRM/Quote, LeadPack/Page/Export, and customer-visible package delivery as target capabilities with blocked-by-default gated opening."
   - module_id: STAGE8-OUTREACH-GOVERNED
     stage_scope:
       - stage8_outreach
@@ -1129,6 +1169,7 @@ modules:
       - "P1 candidate/compliance boundary refactor completed in commit 632c6ae."
       - "P2 plan/touch productization completed in commit 9d4662a."
       - "Stage8 direction is functionally complete for P1/P2, but remains internal governed only; external/live execution redline does not change."
+      - "PTL-I100-OPEN-CAPABILITY-BASELINE treats sales outreach as a target capability with blocked-by-default gated opening, not permanent out-of-scope."
   - module_id: STAGE9-DELIVERY-GOVERNANCE
     stage_scope:
       - stage9_delivery
@@ -1171,6 +1212,8 @@ modules:
       - "P5 typed lifecycle deepening completed in local commit 3d9fc74 and src/stage9_delivery/typed_lifecycle.py is now part of the formal Stage9 current files ledger."
       - "P6 feedback/writeback productization completed in local commit edff5af and src/stage9_delivery/feedback_writeback.py is now part of the formal Stage9 current files ledger."
       - "Stage9 remains internal governed only; external/live payment, delivery, refund, and writeback mutation remain blocked/governed."
+      - "PTL-I100-OPEN-CAPABILITY-BASELINE treats payment collection, charge execution, delivery fulfillment, receipt/invoice, and settlement as gated target capabilities."
+      - "automated_refund_execution is excluded; refund handling remains manual exception record, manual approval/audit, and governed review only."
   - module_id: SURFACE-API-TRANSPORT
     stage_scope:
       - stage1_to_stage9

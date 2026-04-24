@@ -959,6 +959,18 @@ GET /v1/contact-targets
 - `governance_envelope.action_availability[operationId]` 的 sole owner 固定为 `contracts/ui/review_action_catalog.json#actionAvailabilityAuthority`；API 只做引用，不再定义第二套 action availability 口径；
 - Stage 8 / Stage 9 的 redline 固定为：`internal_only=true`、`live_execution_enabled=false`、`blocked_by_default=true`，且继续 `external blocked`。
 
+## 附：PTL-I100-OPEN-CAPABILITY-BASELINE 能力开放基线补表
+
+本补表只同步 API/live endpoint 开放口径，不新增 endpoint 或 OpenAPI schema。
+
+| 项 | D4 承接口径 |
+|---|---|
+| policy ref | `control/product_task_library.yaml#open_capability_policy` / `PTL-I100-OPEN-CAPABILITY-BASELINE` |
+| API 开放原则 | 真实触达、CRM/Quote、客户可见包、支付与交付 endpoint 是目标能力，但默认只能 internal/readback/sandbox，live endpoint 必须 dedicated current_task 放行。 |
+| `blocked-by-default` | API 返回 blocked-by-default 只表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task 和验收未满足前不能 live，不表示永久不做。 |
+| live endpoint 门禁 | 无 provider config、sandbox、approval、audit、operator action、字段白名单/脱敏和运行开关时，API 不得发起真实外部动作。 |
+| 自动退款边界 | 自动退款执行 endpoint excluded；退款 API 只允许 `manual exception` / 人工异常记录、manual approval/audit 和 governed review readback。 |
+
 
 
 

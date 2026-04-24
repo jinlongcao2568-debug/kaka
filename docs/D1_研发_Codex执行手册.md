@@ -869,6 +869,18 @@ AI / Codex 一律不得：
 | 高风险段 | 触及 shared runtime / governance / release / Stage 8-9 高风险执行 / automation control 的路线图片段，最低 `MANDATORY_HUMAN_REVIEW` |
 | blocked 红线 | external release、Stage 8 real execution、Stage 9 real payment-delivery、高限制字段放行，不得因路线图恢复而放宽 |
 
+## [D1-R-071] 附：PTL-I100-OPEN-CAPABILITY-BASELINE 能力开放基线补表
+
+本补表只同步执行口径，不改写 D1 正文既有任务包、review gate 或停机规则。
+
+| 项 | D1 承接口径 |
+|---|---|
+| policy ref | `control/product_task_library.yaml#open_capability_policy` / `PTL-I100-OPEN-CAPABILITY-BASELINE` |
+| 执行包原则 | 除自动退款执行和禁止的非公开/灰色能力外，产品必需能力都可进入 dedicated current_task 分包逐级开发；不得绕过当前 active packet。 |
+| `blocked-by-default` | 表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task 和验收未满足前不能 live，不表示永久不做。 |
+| 三层验收 | 每个能力必须同时通过 engineering regression、capability state、product closure；最终闭环门为 `PTL-I100-118-full-product-operational-acceptance`。 |
+| 自动退款边界 | 自动退款执行 excluded；退款只保留 `manual exception` / 人工异常记录、manual approval/audit 和 governed review。 |
+
 
 
 

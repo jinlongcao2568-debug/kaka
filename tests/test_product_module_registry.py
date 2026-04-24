@@ -60,9 +60,14 @@ def test_product_module_registry_exists_and_is_not_status_source() -> None:
             "docs/D9_联系对象与销售触达规范.md",
             "docs/D10_订单支付交付与治理反馈规范.md",
             "docs/D11_测试验收与金标回归清单.md",
+            "docs/D12_部署发布与运行治理规范.md",
             "docs/D13_公开可查边界能力清单.md",
+            "docs/D14_AI模型治理规范.md",
         }
     )
+    assert registry["open_capability_policy_ref"] == "control/product_task_library.yaml#open_capability_policy"
+    assert registry["open_capability_policy_id"] == "PTL-I100-OPEN-CAPABILITY-BASELINE"
+    assert "automated_refund_execution" in registry["open_capability_policy_summary"]["excluded_capabilities"]
     assert registry["registry_rules"]["not_a_status_source"] is True
     assert registry["registry_rules"]["not_a_release_gate"] is True
     assert registry["registry_rules"]["not_a_second_product_direction_source"] is True
