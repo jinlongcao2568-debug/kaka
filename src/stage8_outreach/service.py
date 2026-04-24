@@ -38,6 +38,8 @@ from shared.capability_runtime import CapabilityRuntime
 from shared.context_packet import ContextPacket
 from shared.contract_loader import load_contract
 from shared.contracts_runtime import ContractStore, StageBundle
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
+from shared.settings import Settings
 from shared.utils import (
     build_id,
     ensure_enum,
@@ -73,9 +75,9 @@ class Stage8Service:
     H07_AUTHORITATIVE_FIELDS = STAGE8_H07_AUTHORITATIVE_FIELDS
 
     def __init__(self, settings: Any | None = None) -> None:
-        self.settings = settings
-        self.store = ContractStore.default(settings)
-        self.runtime = CapabilityRuntime(settings)
+        self.settings = settings or Settings.from_env()
+        self.store = ContractStore.default(self.settings)
+        self.runtime = CapabilityRuntime(self.settings)
 
     def _guard_context(
         self,
@@ -165,6 +167,11 @@ class Stage8Service:
         authoritative_inputs = merge_stage7_authoritative_inputs(
             inputs=inputs,
             stage7_handoff=stage7_handoff,
+        )
+        provider_adapter_readiness_summary = (
+            dict(inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY])
+            if isinstance(inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY), Mapping)
+            else self.settings.provider_adapter_readiness_summary()
         )
         now = authoritative_inputs.get("now") or inputs.get("now") or utc_now_iso()
         formal_sink_trace = {
@@ -714,6 +721,7 @@ class Stage8Service:
             now=now,
             run_mode=run_mode,
             approval_state=approval_state,
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary,
         )
 
         handoff = build_h08_handoff_payload(
@@ -728,6 +736,7 @@ class Stage8Service:
             human_handoff=human_handoff,
             runtime_state=runtime_state,
         )
+        handoff["provider_adapter_readiness_summary_optional"] = provider_adapter_readiness_summary
 
         inputs_out = build_stage8_inputs_projection(
             authoritative_inputs=authoritative_inputs,
@@ -749,6 +758,7 @@ class Stage8Service:
             execution_vendor_trace=execution_vendor_trace,
             formal_sink_trace=formal_sink_trace,
         )
+        inputs_out[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary
 
         return StageBundle(
             stage=8,

@@ -4,6 +4,7 @@ from typing import Any, Mapping
 
 from shared.contract_loader import load_contract
 from shared.contracts_runtime import ContractStore, StageBundle
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 
 from stage7_sales.crm_quote_workbench import (
     CRM_ACTION_ID_INPUT_KEY,
@@ -84,6 +85,7 @@ STAGE_INPUT_FIELDS = {
         "winning_competitor_candidate_id_optional",
         "winning_challenger_profile_id_optional",
         "stage7_resolution_trace",
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
         "crm_quote_prerequisite_readiness",
         CRM_QUOTE_WORKBENCH_INPUT_KEY,
         CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
@@ -134,6 +136,7 @@ STAGE_INPUT_FIELDS = {
         "outreach_execution_outbox_id_optional",
         "outreach_execution_outbox_snapshot",
         "outbox_readiness_summary",
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
         "stage8_resolution_trace",
         "contact_candidate_collection_id_optional",
         "contact_selection_trace_id_optional",
@@ -190,6 +193,7 @@ STAGE_INPUT_FIELDS = {
         "impact_advisories",
         "impact_trace",
         "h08_workflow_fallback_trace",
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
         STAGE9_EXECUTION_LEDGER_INPUT_KEY,
         STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
         STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
@@ -1396,6 +1400,15 @@ def _bundle_decision_states(bundle: StageBundle) -> dict[str, str]:
 
 def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
     governed_context = _repository_context_projection_module().bundle_governed_context(bundle)
+    provider_adapter_readiness = bundle.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY)
+    if isinstance(provider_adapter_readiness, Mapping):
+        governed_context[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = dict(provider_adapter_readiness)
+        governed_context["provider_adapter_config_source"] = provider_adapter_readiness.get("config_source")
+        governed_context["provider_adapter_mode"] = provider_adapter_readiness.get("mode")
+        governed_context["provider_adapter_readback_only"] = bool(
+            provider_adapter_readiness.get("readback_only", True)
+        )
+        governed_context["provider_adapter_real_provider_call_enabled"] = False
     if bundle.stage == 6:
         supplement_summary = bundle.inputs.get("private_supplement_carrier_summary")
         if isinstance(supplement_summary, Mapping):

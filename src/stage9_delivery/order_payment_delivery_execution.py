@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    provider_readiness_for_family,
+)
 from shared.utils import build_id, ensure_list
 
 
@@ -108,6 +112,7 @@ def _approval_audit_state(
 
 def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(ledger.get("blocked_reasons")))
+    provider_readiness = dict(ledger.get("provider_adapter_readiness", {}))
     return {
         "execution_ledger_id": ledger.get("execution_ledger_id"),
         "order_execution_id": ledger.get("order_execution_id"),
@@ -132,6 +137,11 @@ def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -
         "audit_state": ledger.get("audit_state"),
         "blocked_reason_count": len(blocked_reasons),
         "blocked_reasons": blocked_reasons,
+        "provider_adapter_config_source": ledger.get("provider_adapter_config_source"),
+        "provider_adapter_mode": ledger.get("provider_adapter_mode"),
+        "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
     }
 
 
@@ -168,7 +178,12 @@ def build_stage9_execution_ledger(
     approval_state: str,
     audit_trail_present: bool,
     now: str,
+    provider_adapter_readiness_summary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    provider_readiness = provider_readiness_for_family(
+        provider_adapter_readiness_summary,
+        "payment_collection",
+    )
     order_id = str(order_record.get("order_id"))
     payment_id = str(payment_record.get("payment_id"))
     delivery_id = str(delivery_record.get("delivery_id"))
@@ -264,6 +279,7 @@ def build_stage9_execution_ledger(
             "automated_refund_enabled=false",
         ]
     )
+    blocked_reasons.extend(provider_readiness.get("blocked_reasons", []))
 
     ledger = {
         "execution_ledger_id": ledger_id,
@@ -287,11 +303,23 @@ def build_stage9_execution_ledger(
         "real_charge_attempted": False,
         "real_delivery_attempted": False,
         "real_refund_attempted": False,
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: dict(provider_adapter_readiness_summary or {}),
+        "provider_adapter_readiness": provider_readiness,
+        "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+        "provider_adapter_mode": provider_readiness.get("mode"),
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
         "payment_gateway_adapter_state": {
             "state": "BLOCKED",
-            "adapter_scope": "NOT_CONNECTED_IN_110E",
+            "adapter_scope": "SANDBOX_DRY_RUN_READBACK_ONLY",
             "real_payment_gateway_enabled": False,
             "real_charge_attempted": False,
+            "provider_adapter_family": "payment_collection",
+            "provider_id": provider_readiness.get("provider_id"),
+            "provider_mode": provider_readiness.get("mode"),
+            "provider_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
         },
         "delivery_execution_adapter_state": {
             "state": "INTERNAL_LEDGER_ONLY",

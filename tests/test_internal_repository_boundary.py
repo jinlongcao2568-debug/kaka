@@ -18,6 +18,7 @@ if str(TESTS) not in sys.path:
 
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from api.routes.stage7 import list_saleable_opportunities, refresh_saleable_opportunity
 from api.routes.stage8 import create_touch_record, list_contact_targets
 from api.routes.stage9 import create_governance_feedback_event, list_orders
@@ -895,6 +896,13 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["stage9_execution_ledger_readiness"]["automated_refund_enabled"],
             False,
+        )
+        self.assertEqual(
+            replay[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"],
+            "SANDBOX_DRY_RUN_READBACK",
+        )
+        self.assertFalse(
+            replay[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["real_provider_call_enabled"]
         )
         self.assertEqual(
             replay["formal_object_refs"]["opportunity_outcome_event"]["governed_metadata"][

@@ -16,6 +16,7 @@ if str(TESTS) not in sys.path:
     sys.path.insert(0, str(TESTS))
 
 from helpers import load_fixture, load_repo_json
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.pipeline import run_internal_chain
 
 
@@ -1007,6 +1008,8 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertFalse(outbox["live_execution_enabled"])
         self.assertFalse(outbox["real_send_attempted"])
         self.assertFalse(outbox["channel_vendor_boundary"]["real_provider_receipt_allowed"])
+        self.assertEqual(stage8.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertFalse(outbox["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertIn("live_execution_requested_but_blocked", outbox["blocked_reasons"])
         self.assertIn("approval_state=PENDING", outbox["blocked_reasons"])
         self.assertIn("audit_ref_missing", outbox["blocked_reasons"])

@@ -27,6 +27,8 @@ from api.routes.stage6 import (
 from api.routes.stage7 import register_stage7_routes
 from api.routes.stage8 import register_stage8_routes
 from api.routes.stage9 import register_stage9_routes
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
+from storage.repositories.provider_adapter_config_repo import ProviderAdapterConfigRepository
 
 
 RouteHandler = Callable[[Any], Any]
@@ -76,6 +78,17 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "real_delivery_enabled",
     "real_refund_enabled",
     "automated_refund_enabled",
+    "provider_adapter_config_source",
+    "provider_adapter_mode",
+    "provider_adapter_readback_only",
+    "provider_adapter_sandbox_enabled",
+    "provider_adapter_dry_run_enabled",
+    "provider_adapter_live_execution_enabled",
+    "provider_adapter_provider_call_enabled",
+    "provider_adapter_real_provider_call_enabled",
+    "provider_adapter_blocked_reasons",
+    "provider_adapter_approval_audit_prerequisites",
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
     "accepted_payload_boundary",
     "repository_backed_readback",
     "orchestrates_stage_scope",
@@ -213,12 +226,26 @@ def _operation_ids_by_stage(mounted_stage_routes: dict[str, list[dict[str, Any]]
 def _build_transport_bootstrap(
     disabled_stage_transports: dict[str, list[dict[str, Any]]],
     mounted_stage_routes: dict[str, list[dict[str, Any]]],
+    provider_adapter_bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
     operation_ids_by_stage = _operation_ids_by_stage(mounted_stage_routes)
     stage1_to_stage5_reserved_entry_plan = _reserved_entry_plan_readback(disabled_stage_transports)
+    provider_adapter_readiness = dict(
+        provider_adapter_bootstrap.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY, {})
+    )
     return {
         "internal_only": True,
         "live_execution_enabled": False,
+        "provider_adapter_bootstrap": dict(provider_adapter_bootstrap),
+        "provider_adapter_config_source": provider_adapter_bootstrap.get("provider_adapter_config_source"),
+        "provider_adapter_mode": provider_adapter_bootstrap.get("provider_adapter_mode"),
+        "provider_adapter_blocked_reasons": list(
+            provider_adapter_bootstrap.get("provider_adapter_blocked_reasons", [])
+        ),
+        "provider_adapter_approval_audit_prerequisites": dict(
+            provider_adapter_bootstrap.get("provider_adapter_approval_audit_prerequisites", {})
+        ),
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: provider_adapter_readiness,
         "stage1_to_stage5_transport_state": _stage_transport_readback(disabled_stage_transports),
         "stage1_to_stage5_reserved_entry_plan": stage1_to_stage5_reserved_entry_plan,
         "stage6_to_stage9_mounted_operations": _mounted_operations_readback(mounted_stage_routes),
@@ -284,6 +311,12 @@ def _build_transport_bootstrap(
             "stage8_real_send_enabled": False,
             "stage8_real_send_attempted": False,
             "stage9_real_payment_delivery_refund_enabled": False,
+            "provider_adapter_live_execution_enabled": False,
+            "provider_adapter_provider_call_enabled": False,
+            "provider_adapter_real_provider_call_enabled": False,
+            "provider_credentials_plaintext_persisted": False,
+            "automated_refund_program_present": False,
+            "automated_refund_program_enabled": False,
         },
     }
 
@@ -301,6 +334,13 @@ def create_app() -> FastAPI:
     app.state.settings = settings
     app.state.storage_session = storage_session
     app.state.storage_bootstrap = settings.storage_bootstrap_payload()
+    app.state.provider_adapter_bootstrap = settings.provider_adapter_bootstrap_payload()
+    app.state.provider_adapter_config_readback = ProviderAdapterConfigRepository(
+        session=storage_session
+    ).save(app.state.provider_adapter_bootstrap)
+    provider_adapter_readiness_summary = dict(
+        app.state.provider_adapter_bootstrap[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
+    )
     app.state.disabled_stage_transports = {
         "stage1": register_stage1_routes(),
         "stage2": register_stage2_routes(),
@@ -310,9 +350,15 @@ def create_app() -> FastAPI:
     }
     mounted_stage_routes = {
         "stage6": register_stage1_to_stage6_internal_orchestration_routes() + register_stage6_routes(),
-        "stage7": register_stage7_routes(),
-        "stage8": register_stage8_routes(),
-        "stage9": register_stage9_routes(),
+        "stage7": register_stage7_routes(
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary
+        ),
+        "stage8": register_stage8_routes(
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary
+        ),
+        "stage9": register_stage9_routes(
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary
+        ),
     }
     mounted_routes = [
         route
@@ -324,6 +370,7 @@ def create_app() -> FastAPI:
     app.state.transport_bootstrap = _build_transport_bootstrap(
         app.state.disabled_stage_transports,
         mounted_stage_routes,
+        app.state.provider_adapter_bootstrap,
     )
     return app
 

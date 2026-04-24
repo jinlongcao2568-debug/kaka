@@ -22,6 +22,11 @@ from storage.repository_boundary import (
     persist_stage_bundle,
     record_operator_action,
 )
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    provider_adapter_bootstrap_payload,
+    provider_readiness_for_family,
+)
 
 
 STAGE8_OUTBOX_ROUTE_READINESS = {
@@ -42,6 +47,21 @@ STAGE8_OUTBOX_ROUTE_READINESS = {
         ],
     },
 }
+
+
+def _provider_adapter_route_metadata(provider_adapter_readiness_summary: Any) -> dict[str, Any]:
+    if not isinstance(provider_adapter_readiness_summary, dict):
+        return {}
+    bootstrap = provider_adapter_bootstrap_payload(provider_adapter_readiness_summary)
+    return {
+        **bootstrap,
+        "sales_outreach_provider_adapter_readiness": provider_readiness_for_family(
+            provider_adapter_readiness_summary,
+            "sales_outreach",
+        ),
+        "provider_adapter_families_consumed": ["sales_outreach"],
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: dict(provider_adapter_readiness_summary),
+    }
 
 
 def list_contact_targets(payload: Any) -> ContactTargetsListResponse:
@@ -172,8 +192,17 @@ STAGE8_ROUTES = [
 ]
 
 
-def register_stage8_routes(router: object | None = None) -> list[dict[str, Any]]:
-    return register_route_table(router, list(STAGE8_ROUTES))
+def register_stage8_routes(
+    router: object | None = None,
+    *,
+    provider_adapter_readiness_summary: Any = None,
+) -> list[dict[str, Any]]:
+    provider_metadata = _provider_adapter_route_metadata(provider_adapter_readiness_summary)
+    routes = [
+        {**route, **provider_metadata}
+        for route in STAGE8_ROUTES
+    ]
+    return register_route_table(router, routes)
 
 
 __all__ = [

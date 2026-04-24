@@ -11,6 +11,13 @@ from pathlib import Path
 from tempfile import gettempdir
 from typing import Any, Optional
 
+from shared.provider_adapter_config import (
+    ProviderAdapterConfig,
+    build_provider_adapter_config_from_env,
+    build_provider_adapter_readiness_summary,
+    provider_adapter_bootstrap_payload,
+)
+
 
 _DEFAULT_STORAGE_BACKEND = "json-file"
 _SQLITE_STORAGE_BACKEND = "sqlite"
@@ -122,6 +129,7 @@ class Settings:
     storage_path_optional: Optional[str] = None
     storage_scope: str = _DEFAULT_STORAGE_SCOPE
     storage_runtime_mode: str = _DEFAULT_STORAGE_RUNTIME_MODE
+    provider_adapter_config: ProviderAdapterConfig | None = None
 
     @classmethod
     def from_env(
@@ -142,6 +150,7 @@ class Settings:
             storage_path_optional=storage_path_optional,
             storage_scope=storage_scope,
             storage_runtime_mode=_resolve_storage_runtime_mode(storage_path_optional, storage_scope),
+            provider_adapter_config=build_provider_adapter_config_from_env(),
         )
 
     def resolved_storage_path(self) -> Path:
@@ -264,7 +273,15 @@ class Settings:
             "storage_scope": self.storage_scope,
             "storage_runtime_mode": self.storage_runtime_mode,
             "platform_infra_readiness": self.platform_infra_readiness(),
+            "provider_adapter_bootstrap": self.provider_adapter_bootstrap_payload(),
         }
+
+    def provider_adapter_readiness_summary(self) -> dict[str, Any]:
+        config = self.provider_adapter_config or build_provider_adapter_config_from_env()
+        return build_provider_adapter_readiness_summary(config)
+
+    def provider_adapter_bootstrap_payload(self) -> dict[str, Any]:
+        return provider_adapter_bootstrap_payload(self.provider_adapter_readiness_summary())
 
 
 __all__ = ["Settings"]

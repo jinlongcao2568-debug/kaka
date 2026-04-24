@@ -17,11 +17,25 @@ if str(TESTS) not in sys.path:
 from helpers import load_fixture, run_internal_chain_to_stage7
 from shared.context_packet import ContextPacket
 from shared.contract_loader import load_contract
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.policy_executor import PolicyExecutor
 from shared.state_packet import PolicyDecision, StatePacket
 
 
 class TestStage7RuntimeClosure(unittest.TestCase):
+    def test_stage7_provider_adapter_readiness_is_shared_sandbox_readback(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        provider_summary = stage7.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
+        workbench = stage7.inputs["crm_quote_workbench"]
+        package = stage7.inputs["leadpack_delivery_package"]
+
+        self.assertEqual(provider_summary["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertFalse(provider_summary["real_provider_call_enabled"])
+        self.assertEqual(workbench[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY], provider_summary)
+        self.assertEqual(package[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY], provider_summary)
+        self.assertFalse(workbench["provider_adapter_readiness"]["real_provider_call_enabled"])
+        self.assertFalse(package["provider_adapter_readiness"]["real_provider_call_enabled"])
+
     def test_stage7_runtime_consumes_buyer_fit_scorecard(self) -> None:
         stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
         trace = stage7.inputs["stage7_resolution_trace"]["buyer_fit_scorecard"]

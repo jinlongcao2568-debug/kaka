@@ -19,6 +19,7 @@ from helpers import (
     load_repo_json,
     run_internal_chain_to_stage7,
 )
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.contracts_runtime import ContractRecord, ContractStore, StageBundle
 from shared.pipeline import run_internal_chain
 from stage1_tasking.service import Stage1Service
@@ -1775,6 +1776,10 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(
             hydrated.inputs.get("stage9_execution_ledger_readiness"),
             stage9.inputs.get("stage9_execution_ledger_readiness"),
+        )
+        self.assertEqual(
+            hydrated.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY),
+            stage9.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY),
         )
         self.assertEqual(
             hydrated.handoff.get("stage9_execution_ledger_readiness"),

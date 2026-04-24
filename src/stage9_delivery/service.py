@@ -40,6 +40,8 @@ from shared.capability_runtime import CapabilityRuntime
 from shared.contract_loader import load_contract
 from shared.context_packet import ContextPacket
 from shared.contracts_runtime import ContractStore, StageBundle
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
+from shared.settings import Settings
 from shared.utils import resolve_bundle, utc_now_iso
 
 
@@ -111,10 +113,10 @@ class Stage9Service:
     }
 
     def __init__(self, settings: Any | None = None) -> None:
-        self.settings = settings
-        self.store = ContractStore.default(settings)
-        self.runtime = CapabilityRuntime(settings)
-        self.impact_executor = ImpactExecutor(settings)
+        self.settings = settings or Settings.from_env()
+        self.store = ContractStore.default(self.settings)
+        self.runtime = CapabilityRuntime(self.settings)
+        self.impact_executor = ImpactExecutor(self.settings)
 
     def _guard_context(
         self,
@@ -383,6 +385,11 @@ class Stage9Service:
             raise ValueError(f"{handoff_validation.semantic_scope} blocked: {handoff_validation.reasons}")
         inputs = stage8_bundle.inputs or {}
         now = inputs.get("now") or utc_now_iso()
+        provider_adapter_readiness_summary = (
+            dict(inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY])
+            if isinstance(inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY), Mapping)
+            else self.settings.provider_adapter_readiness_summary()
+        )
 
         try:
             touch_record = stage8_bundle.record("touch_record")
@@ -450,6 +457,7 @@ class Stage9Service:
             "governance_decision_state": upstream_governance_decision_state,
             "permission_decision_state": upstream_permission_decision_state,
             "semantic_decision_state": upstream_semantic_decision_state,
+            PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: provider_adapter_readiness_summary,
             "trigger_type": inputs.get(
                 "trigger_type",
                 h08_contract_fallbacks.get(
@@ -767,6 +775,7 @@ class Stage9Service:
             approval_state=approval_state,
             audit_trail_present=audit_trail_present,
             now=now,
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary,
         )
 
         governance_payload = build_governance_feedback_payload(
@@ -884,6 +893,7 @@ class Stage9Service:
         )
         handoff[STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY] = execution_ledger.get("execution_ledger_id")
         handoff[STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY] = execution_ledger.get("readiness_summary")
+        handoff["provider_adapter_readiness_summary_optional"] = provider_adapter_readiness_summary
         handoff["order_execution_id"] = execution_ledger.get("order_execution_id")
         handoff["payment_execution_id"] = execution_ledger.get("payment_execution_id")
         handoff["delivery_execution_id"] = execution_ledger.get("delivery_execution_id")
@@ -897,6 +907,7 @@ class Stage9Service:
         inputs_out[STAGE9_EXECUTION_LEDGER_INPUT_KEY] = execution_ledger
         inputs_out[STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY] = execution_ledger.get("execution_ledger_id")
         inputs_out[STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY] = execution_ledger.get("readiness_summary")
+        inputs_out[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary
         inputs_out["order_execution_id"] = execution_ledger.get("order_execution_id")
         inputs_out["payment_execution_id"] = execution_ledger.get("payment_execution_id")
         inputs_out["delivery_execution_id"] = execution_ledger.get("delivery_execution_id")

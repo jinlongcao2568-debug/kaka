@@ -17,6 +17,7 @@ from storage.repositories.outreach_execution_outbox_repo import OutreachExecutio
 from storage.repositories.outreach_plan_repo import OutreachPlanRepository
 from storage.repositories.payment_record_repo import PaymentRecordRepository
 from storage.repositories.procurement_decision_actor_profile_repo import ProcurementDecisionActorProfileRepository
+from storage.repositories.provider_adapter_config_repo import ProviderAdapterConfigRepository
 from storage.repositories.project_fact_repo import ProjectFactRepository
 from storage.repositories.report_record_repo import ReportRecordRepository
 from storage.repositories.review_queue_profile_repo import ReviewQueueProfileRepository
@@ -45,6 +46,7 @@ __all__ = [
     "OutreachPlanRepository",
     "PaymentRecordRepository",
     "ProcurementDecisionActorProfileRepository",
+    "ProviderAdapterConfigRepository",
     "ProjectFactRepository",
     "ReportRecordRepository",
     "ReviewQueueProfileRepository",

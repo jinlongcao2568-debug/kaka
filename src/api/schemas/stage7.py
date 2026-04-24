@@ -200,6 +200,11 @@ class Stage7Response(TypedDict, total=False):
     leadpack_delivery_package: LeadpackDeliveryPackageCarrier
     leadpack_delivery_readiness_summary: dict[str, Any]
     package_page_delivery_summary: dict[str, Any]
+    provider_adapter_readiness_summary: dict[str, Any]
+    provider_adapter_config_source: str
+    provider_adapter_mode: str
+    provider_adapter_blocked_reasons: list[str]
+    provider_adapter_approval_audit_prerequisites: dict[str, Any]
     trace_refs: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str

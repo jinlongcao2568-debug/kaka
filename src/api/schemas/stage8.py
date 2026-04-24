@@ -132,6 +132,11 @@ class Stage8Response(TypedDict, total=False):
     trace_refs: dict[str, Any]
     outreach_execution_outbox: dict[str, Any]
     outbox_readiness_summary: dict[str, Any]
+    provider_adapter_readiness_summary: dict[str, Any]
+    provider_adapter_config_source: str
+    provider_adapter_mode: str
+    provider_adapter_blocked_reasons: list[str]
+    provider_adapter_approval_audit_prerequisites: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str
     persisted_operational_context: OperationalContext

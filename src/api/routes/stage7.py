@@ -36,6 +36,11 @@ from storage.repository_boundary import (
     persist_stage_bundle,
     record_operator_action,
 )
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    provider_adapter_bootstrap_payload,
+    provider_readiness_for_family,
+)
 from shared.contracts_runtime import StageBundle
 from shared.utils import resolve_bundle
 from stage7_sales.crm_quote_workbench import (
@@ -176,6 +181,30 @@ LEADPACK_CANDIDATE_ROUTE_METADATA = {
 }
 
 
+def _provider_adapter_route_metadata(
+    provider_adapter_readiness_summary: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    if not isinstance(provider_adapter_readiness_summary, Mapping):
+        return {}
+    bootstrap = provider_adapter_bootstrap_payload(provider_adapter_readiness_summary)
+    return {
+        **bootstrap,
+        "crm_quote_provider_adapter_readiness": provider_readiness_for_family(
+            provider_adapter_readiness_summary,
+            "crm_quote",
+        ),
+        "leadpack_page_delivery_provider_adapter_readiness": provider_readiness_for_family(
+            provider_adapter_readiness_summary,
+            "leadpack_page_delivery",
+        ),
+        "provider_adapter_families_consumed": [
+            "crm_quote",
+            "leadpack_page_delivery",
+        ],
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: dict(provider_adapter_readiness_summary),
+    }
+
+
 def _resolve_stage7_bundle_for_readiness(payload: Any) -> StageBundle | None:
     if isinstance(payload, Mapping):
         candidate = payload.get("stage7")
@@ -214,19 +243,31 @@ def _attach_crm_quote_prerequisite_readback(response: dict[str, Any], payload: A
         if isinstance(semantic_additions, Mapping):
             carrier = semantic_additions.get("crm_quote_prerequisite_readiness")
     if not isinstance(carrier, Mapping):
+        provider_summary = bundle.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY)
         carrier = build_crm_quote_prerequisite_readiness_carrier(
             sales_lead=_stage7_record_payload(bundle, "sales_lead"),
             saleable_opportunity=_stage7_record_payload(bundle, "saleable_opportunity"),
             offer_recommendation=_stage7_record_payload(bundle, "offer_recommendation"),
             stage7_resolution_trace=_stage7_trace_payload(bundle),
         )
-    response["crm_quote_prerequisite_readiness"] = dict(carrier)
+    carrier_payload = dict(carrier)
+    provider_summary = bundle.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY)
+    if isinstance(provider_summary, Mapping):
+        carrier_payload.setdefault(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY, dict(provider_summary))
+        carrier_payload.setdefault(
+            "provider_adapter_readiness",
+            provider_readiness_for_family(provider_summary, "crm_quote"),
+        )
+        carrier_payload.setdefault("provider_adapter_config_source", provider_summary.get("config_source"))
+        carrier_payload.setdefault("provider_adapter_mode", provider_summary.get("mode"))
+    response["crm_quote_prerequisite_readiness"] = carrier_payload
     workbench = bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
     if not isinstance(workbench, Mapping):
         semantic_additions = bundle.inputs.get("semantic_additions")
         if isinstance(semantic_additions, Mapping):
             workbench = semantic_additions.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
     if not isinstance(workbench, Mapping):
+        provider_summary = bundle.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY)
         workbench = build_crm_quote_workbench_carrier(
             sales_lead=_stage7_record_payload(bundle, "sales_lead"),
             saleable_opportunity=_stage7_record_payload(bundle, "saleable_opportunity"),
@@ -234,6 +275,7 @@ def _attach_crm_quote_prerequisite_readback(response: dict[str, Any], payload: A
             inputs=bundle.inputs,
             stage7_resolution_trace=_stage7_trace_payload(bundle),
             now=str(bundle.inputs.get("now") or ""),
+            provider_adapter_readiness_summary=provider_summary if isinstance(provider_summary, Mapping) else None,
         )
     response[CRM_QUOTE_WORKBENCH_INPUT_KEY] = dict(workbench)
     readiness_summary = bundle.inputs.get(CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY)
@@ -255,6 +297,7 @@ def _attach_leadpack_delivery_package_readback(response: dict[str, Any], payload
         if isinstance(semantic_additions, Mapping):
             carrier = semantic_additions.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY)
     if not isinstance(carrier, Mapping):
+        provider_summary = bundle.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY)
         carrier = build_leadpack_delivery_package_carrier(
             sales_lead=_stage7_record_payload(bundle, "sales_lead"),
             saleable_opportunity=_stage7_record_payload(bundle, "saleable_opportunity"),
@@ -268,6 +311,7 @@ def _attach_leadpack_delivery_package_readback(response: dict[str, Any], payload
             inputs=bundle.inputs,
             stage7_resolution_trace=_stage7_trace_payload(bundle),
             now=str(bundle.inputs.get("now") or ""),
+            provider_adapter_readiness_summary=provider_summary if isinstance(provider_summary, Mapping) else None,
         )
     response[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = dict(carrier)
     readiness_summary = bundle.inputs.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY)
@@ -503,8 +547,17 @@ STAGE7_ROUTES = [
 ]
 
 
-def register_stage7_routes(router: object | None = None) -> list[dict[str, Any]]:
-    return register_route_table(router, list(STAGE7_ROUTES))
+def register_stage7_routes(
+    router: object | None = None,
+    *,
+    provider_adapter_readiness_summary: Mapping[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    provider_metadata = _provider_adapter_route_metadata(provider_adapter_readiness_summary)
+    routes = [
+        {**route, **provider_metadata}
+        for route in STAGE7_ROUTES
+    ]
+    return register_route_table(router, routes)
 
 
 __all__ = [

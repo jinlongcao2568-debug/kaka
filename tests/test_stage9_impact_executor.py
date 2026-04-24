@@ -16,6 +16,7 @@ if str(TESTS) not in sys.path:
 
 from helpers import load_fixture
 from shared.contract_loader import load_contract
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.pipeline import run_internal_chain
 from stage9_delivery.impact_executor import ImpactExecutor
 
@@ -1022,8 +1023,12 @@ class TestStage9ImpactExecutor(unittest.TestCase):
 
         ledger = stage9.inputs["stage9_execution_ledger"]
         readiness = stage9.inputs["stage9_execution_ledger_readiness"]
+        provider_summary = stage9.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
 
         self.assertEqual(ledger["order_id"], stage9.record("order_record").get("order_id"))
+        self.assertFalse(provider_summary["real_provider_call_enabled"])
+        self.assertFalse(provider_summary["automated_refund_program"]["enabled"])
+        self.assertFalse(ledger["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertEqual(ledger["payment_id"], stage9.record("payment_record").get("payment_id"))
         self.assertEqual(ledger["delivery_id"], stage9.record("delivery_record").get("delivery_id"))
         self.assertEqual(ledger["payment_collection_state"], "REFUND_MANUAL_EXCEPTION_REVIEW")

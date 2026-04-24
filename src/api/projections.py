@@ -36,6 +36,7 @@ from stage9_delivery.order_payment_delivery_execution import (
     build_stage9_execution_ledger_readiness_summary,
     stage9_execution_ledger_summary,
 )
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.contract_loader import load_contract
 from shared.contracts_runtime import ContractRecord, StageBundle
 from storage.operator_loop_contracts import (
@@ -508,6 +509,25 @@ def _semantic_envelope(
     }
 
 
+def _provider_adapter_projection(bundle: StageBundle) -> dict[str, Any]:
+    summary = bundle.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY)
+    if not isinstance(summary, Mapping):
+        return {}
+    summary_payload = dict(summary)
+    return {
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: summary_payload,
+        "provider_adapter_config_source": summary_payload.get("config_source"),
+        "provider_adapter_mode": summary_payload.get("mode"),
+        "provider_adapter_blocked_reasons": list(summary_payload.get("blocked_reasons", [])),
+        "provider_adapter_approval_audit_prerequisites": dict(
+            summary_payload.get("approval_audit_prerequisites", {})
+        ),
+        "provider_adapter_readback_only": bool(summary_payload.get("readback_only", True)),
+        "provider_adapter_provider_call_enabled": False,
+        "provider_adapter_real_provider_call_enabled": False,
+    }
+
+
 def _surface_envelope(
     *,
     bundle: StageBundle,
@@ -553,6 +573,7 @@ def _surface_envelope(
         primary_statuses=primary_statuses,
         state_reasons=state_reasons,
     )
+    provider_adapter_projection = _provider_adapter_projection(bundle)
     return {
         "surface_id": surface_id,
         "surface_state": semantic_envelope["surface_state"],
@@ -572,6 +593,7 @@ def _surface_envelope(
         "formal_object_refs": formal_objects,
         "preview_projection": preview_projection,
         "trace_refs": _collect_trace_refs(bundle, list(preview_projection["_raw_records"])),
+        **provider_adapter_projection,
     }
 
 
@@ -1023,6 +1045,13 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
             "dry_run_execution_state": outbox.get("dry_run_execution_state", {}),
             "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
             "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
+            PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: outbox.get(
+                PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+                {},
+            ),
+            "provider_adapter_readiness": outbox.get("provider_adapter_readiness", {}),
+            "provider_adapter_config_source": outbox.get("provider_adapter_config_source"),
+            "provider_adapter_mode": outbox.get("provider_adapter_mode"),
             "blocked_reasons": list(outbox.get("blocked_reasons", [])),
         },
         "outbox_readiness_summary": outbox_summary,

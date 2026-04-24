@@ -19,6 +19,7 @@ from api.routes.stage7 import (
     preview_leadpack_external_delivery_candidate,
     simulate_leadpack_external_delivery_export,
 )
+from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.pipeline import run_internal_chain
 
 
@@ -136,6 +137,9 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertEqual(stage9.record("delivery_record").get("delivered_at_optional"), "NOT_DELIVERED")
         self.assertNotEqual(stage9.record("delivery_record").get("delivery_status"), "DELIVERED")
         ledger = stage9.inputs["stage9_execution_ledger"]
+        provider_summary = stage9.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
+        self.assertFalse(provider_summary["real_provider_call_enabled"])
+        self.assertFalse(provider_summary["automated_refund_program"]["enabled"])
         self.assertEqual(ledger["refund_execution_state"], "MANUAL_EXCEPTION_REVIEW")
         self.assertFalse(ledger["real_payment_gateway_enabled"])
         self.assertFalse(ledger["real_charge_attempted"])
@@ -145,6 +149,7 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertIn("real_charge_requested_but_blocked", ledger["blocked_reasons"])
         self.assertIn("real_refund_requested_but_blocked", ledger["blocked_reasons"])
         self.assertIn("automated_refund_requested_but_blocked", ledger["blocked_reasons"])
+        self.assertFalse(ledger["provider_adapter_readiness"]["real_provider_call_enabled"])
 
     def test_stage7_crm_and_external_quote_live_requests_remain_blocked(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -160,8 +165,11 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         stage7 = run_internal_chain(payload)["stage7"]
         carrier = stage7.inputs["crm_quote_prerequisite_readiness"]
         workbench = stage7.inputs["crm_quote_workbench"]
+        provider_summary = stage7.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
 
         self.assertEqual(carrier["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertFalse(provider_summary["real_provider_call_enabled"])
+        self.assertFalse(workbench["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertEqual(carrier["crm_prerequisite_state"], "RESERVED_NOT_LIVE")
         self.assertEqual(carrier["quote_prerequisite_state"], "RESERVED_NOT_LIVE")
         self.assertFalse(carrier["crm_runtime_enabled"])

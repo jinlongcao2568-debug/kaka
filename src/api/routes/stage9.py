@@ -26,6 +26,11 @@ from storage.repository_boundary import (
     persist_stage_bundle,
     record_operator_action,
 )
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    provider_adapter_bootstrap_payload,
+    provider_readiness_for_family,
+)
 
 
 STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
@@ -60,6 +65,28 @@ STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
         "automated_refund_enabled": False,
     },
 }
+
+
+def _provider_adapter_route_metadata(provider_adapter_readiness_summary: Any) -> dict[str, Any]:
+    if not isinstance(provider_adapter_readiness_summary, dict):
+        return {}
+    bootstrap = provider_adapter_bootstrap_payload(provider_adapter_readiness_summary)
+    return {
+        **bootstrap,
+        "payment_collection_provider_adapter_readiness": provider_readiness_for_family(
+            provider_adapter_readiness_summary,
+            "payment_collection",
+        ),
+        "leadpack_page_delivery_provider_adapter_readiness": provider_readiness_for_family(
+            provider_adapter_readiness_summary,
+            "leadpack_page_delivery",
+        ),
+        "provider_adapter_families_consumed": [
+            "payment_collection",
+            "leadpack_page_delivery",
+        ],
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: dict(provider_adapter_readiness_summary),
+    }
 
 
 def list_orders(payload: Any) -> OrdersListResponse:
@@ -257,8 +284,17 @@ STAGE9_ROUTES = [
 ]
 
 
-def register_stage9_routes(router: object | None = None) -> list[dict[str, Any]]:
-    return register_route_table(router, list(STAGE9_ROUTES))
+def register_stage9_routes(
+    router: object | None = None,
+    *,
+    provider_adapter_readiness_summary: Any = None,
+) -> list[dict[str, Any]]:
+    provider_metadata = _provider_adapter_route_metadata(provider_adapter_readiness_summary)
+    routes = [
+        {**route, **provider_metadata}
+        for route in STAGE9_ROUTES
+    ]
+    return register_route_table(router, routes)
 
 
 __all__ = [

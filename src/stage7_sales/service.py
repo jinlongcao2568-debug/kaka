@@ -47,15 +47,20 @@ from stage7_sales.scorecard import (
 )
 from shared.capability_runtime import CapabilityRuntime
 from shared.contracts_runtime import ContractStore, StageBundle
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    provider_readiness_for_family,
+)
+from shared.settings import Settings
 from shared.state_packet import StatePacket
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, resolve_bundle, utc_now_iso
 
 
 class Stage7Service:
     def __init__(self, settings: Any | None = None) -> None:
-        self.settings = settings
-        self.store = ContractStore.default(settings)
-        self.runtime = CapabilityRuntime(settings)
+        self.settings = settings or Settings.from_env()
+        self.store = ContractStore.default(self.settings)
+        self.runtime = CapabilityRuntime(self.settings)
 
     def run(self, payload: Mapping[str, Any] | StageBundle) -> StageBundle:
         stage6_bundle = resolve_bundle(payload)
@@ -666,12 +671,23 @@ class Stage7Service:
                 "current_action_deadline_at_optional": current_action_deadline_at_optional,
             },
         }
+        provider_adapter_readiness_summary = self.settings.provider_adapter_readiness_summary()
         crm_quote_prerequisite_readiness = build_crm_quote_prerequisite_readiness_carrier(
             sales_lead=sales_lead,
             saleable_opportunity=saleable_opportunity,
             offer_recommendation=offer_recommendation,
             stage7_resolution_trace=stage7_resolution_trace,
         )
+        crm_quote_prerequisite_readiness = {
+            **crm_quote_prerequisite_readiness,
+            PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: provider_adapter_readiness_summary,
+            "provider_adapter_readiness": provider_readiness_for_family(
+                provider_adapter_readiness_summary,
+                "crm_quote",
+            ),
+            "provider_adapter_config_source": provider_adapter_readiness_summary.get("config_source"),
+            "provider_adapter_mode": provider_adapter_readiness_summary.get("mode"),
+        }
         crm_quote_workbench = build_crm_quote_workbench_carrier(
             sales_lead=sales_lead,
             saleable_opportunity=saleable_opportunity,
@@ -679,6 +695,7 @@ class Stage7Service:
             inputs=inputs,
             stage7_resolution_trace=stage7_resolution_trace,
             now=now,
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary,
         )
         crm_quote_workbench_readiness_summary = build_crm_quote_workbench_readiness_summary(
             crm_quote_workbench
@@ -697,11 +714,13 @@ class Stage7Service:
             },
             stage7_resolution_trace=stage7_resolution_trace,
             now=now,
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary,
         )
         leadpack_delivery_readiness_summary = build_leadpack_delivery_readiness_summary(
             leadpack_delivery_package
         )
         stage7_resolution_trace["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
+        stage7_resolution_trace[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary
         stage7_resolution_trace[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
         stage7_resolution_trace[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = {
             "package_id": leadpack_delivery_package.get("package_id"),
@@ -715,6 +734,7 @@ class Stage7Service:
             "external_delivery_enabled": False,
         }
         inputs_out["stage7_resolution_trace"] = stage7_resolution_trace
+        inputs_out[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary
         inputs_out["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
         inputs_out[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
         inputs_out[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = crm_quote_workbench_readiness_summary
@@ -727,6 +747,7 @@ class Stage7Service:
         inputs_out[LEADPACK_PAGE_DRAFT_ID_INPUT_KEY] = leadpack_delivery_package.get("page_draft_id")
         inputs_out[LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY] = leadpack_delivery_package.get("artifact_manifest_id")
         handoff["crm_quote_prerequisite_readiness_optional"] = crm_quote_prerequisite_readiness
+        handoff["provider_adapter_readiness_summary_optional"] = provider_adapter_readiness_summary
         handoff["crm_quote_workbench_optional"] = crm_quote_workbench
         handoff[CRM_ACTION_ID_INPUT_KEY] = crm_quote_workbench.get("crm_action_id")
         handoff[QUOTE_DRAFT_ID_INPUT_KEY] = crm_quote_workbench.get("quote_draft_id")
@@ -765,6 +786,7 @@ class Stage7Service:
         inputs_out["semantic_decision_state"] = semantic_state.semantic_decision_state
         semantic_additions = dict(semantic_state.semantic_additions)
         semantic_additions["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
+        semantic_additions[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary
         semantic_additions[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
         semantic_additions[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = crm_quote_workbench_readiness_summary
         semantic_additions[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = leadpack_delivery_package

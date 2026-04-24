@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    provider_readiness_for_family,
+)
 from shared.utils import build_id, ensure_list
 from stage7_sales.runtime import dedupe_strings
 
@@ -111,6 +115,7 @@ def _evidence_item(
 
 def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(carrier.get("blocked_reasons")))
+    provider_readiness = dict(carrier.get("provider_adapter_readiness", {}))
     return {
         "package_id": carrier.get("package_id"),
         "opportunity_id": carrier.get("opportunity_id"),
@@ -134,6 +139,11 @@ def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dic
         "external_delivery_enabled": False,
         "blocked_reason_count": len(blocked_reasons),
         "blocked_reasons": blocked_reasons,
+        "provider_adapter_config_source": carrier.get("provider_adapter_config_source"),
+        "provider_adapter_mode": carrier.get("provider_adapter_mode"),
+        "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
     }
 
 
@@ -148,7 +158,12 @@ def build_leadpack_delivery_package_carrier(
     inputs: Mapping[str, Any],
     stage7_resolution_trace: Mapping[str, Any],
     now: str,
+    provider_adapter_readiness_summary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    provider_readiness = provider_readiness_for_family(
+        provider_adapter_readiness_summary,
+        "leadpack_page_delivery",
+    )
     opportunity_id = str(saleable_opportunity.get("opportunity_id") or "")
     project_id = str(saleable_opportunity.get("project_id") or "")
     package_id = build_id("LPKG", project_id, opportunity_id)
@@ -308,6 +323,7 @@ def build_leadpack_delivery_package_carrier(
         "approval_and_audit_chain_required_before_external_delivery",
         "manual_review_required_before_customer_visible_page",
     ]
+    blocked_reasons.extend(provider_readiness.get("blocked_reasons", []))
     if _truthy(inputs.get("customer_visible_enabled")) or _truthy(inputs.get("customer_visible_export_enabled")):
         blocked_reasons.append("customer_visible_request_blocked")
     if _truthy(inputs.get("external_delivery_enabled")) or _truthy(inputs.get("direct_export_enabled")):
@@ -402,6 +418,12 @@ def build_leadpack_delivery_package_carrier(
         "external_delivery_enabled": False,
         "external_release_enabled": False,
         "page_publication_enabled": False,
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: dict(provider_adapter_readiness_summary or {}),
+        "provider_adapter_readiness": provider_readiness,
+        "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+        "provider_adapter_mode": provider_readiness.get("mode"),
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
         "package_manifest": package_manifest,
         "evidence_item_manifest": evidence_item_manifest,
         "field_masking_summary": field_masking_summary,

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    provider_readiness_for_family,
+)
 from shared.utils import build_id, ensure_list
 from stage8_outreach.candidate_compliance import execution_action_intent
 
@@ -65,6 +69,7 @@ def _retry_schedule_reasons(
 def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(outbox.get("blocked_reasons")))
     vendor_state = dict(outbox.get("vendor_adapter_state", {}))
+    provider_readiness = dict(outbox.get("provider_adapter_readiness", {}))
     retry_state = dict(outbox.get("retry_state", {}))
     stop_state = dict(outbox.get("stop_state", {}))
     return {
@@ -85,6 +90,11 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
         "vendor_adapter_state": vendor_state.get("state"),
         "blocked_reason_count": len(blocked_reasons),
         "blocked_reasons": blocked_reasons,
+        "provider_adapter_config_source": outbox.get("provider_adapter_config_source"),
+        "provider_adapter_mode": outbox.get("provider_adapter_mode"),
+        "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
     }
 
 
@@ -100,7 +110,12 @@ def build_outreach_execution_outbox_payload(
     now: str,
     run_mode: str,
     approval_state: str,
+    provider_adapter_readiness_summary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    provider_readiness = provider_readiness_for_family(
+        provider_adapter_readiness_summary,
+        "sales_outreach",
+    )
     project_id = str(touch_record.get("project_id") or contact_target.get("project_id") or "")
     touch_record_id = str(touch_record.get("touch_record_id") or "")
     outbox_id = build_id("OUTBOX", project_id, touch_record_id)
@@ -196,6 +211,7 @@ def build_outreach_execution_outbox_payload(
             "external_vendor_connection_disabled",
         ]
     )
+    blocked_reasons.extend(provider_readiness.get("blocked_reasons", []))
 
     outbox = {
         "outbox_id": outbox_id,
@@ -219,6 +235,12 @@ def build_outreach_execution_outbox_payload(
             "vendor_connection_enabled": False,
             "direct_vendor_call_enabled": False,
             "external_vendor_connection_enabled": False,
+            "provider_adapter_family": "sales_outreach",
+            "provider_id": provider_readiness.get("provider_id"),
+            "provider_mode": provider_readiness.get("mode"),
+            "provider_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
         },
         "approval_state": approval_state,
         "approval_readiness_summary": {
@@ -273,6 +295,10 @@ def build_outreach_execution_outbox_payload(
         "real_send_attempted": False,
         "blocked_reasons": _clean_list(blocked_reasons),
         "governed_execution_mode": "INTERNAL_GOVERNED",
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: dict(provider_adapter_readiness_summary or {}),
+        "provider_adapter_readiness": provider_readiness,
+        "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+        "provider_adapter_mode": provider_readiness.get("mode"),
         "requested_action_intent": action_intent,
         "requested_live_execution": requested_live,
         "channel_vendor_boundary": {
@@ -281,6 +307,10 @@ def build_outreach_execution_outbox_payload(
             "direct_vendor_call_enabled": False,
             "external_vendor_connection_enabled": False,
             "real_provider_receipt_allowed": False,
+            "provider_adapter_family": "sales_outreach",
+            "provider_id": provider_readiness.get("provider_id"),
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
             "allowed_adapter_scope": "INTERNAL_OUTBOX_CARRIER_ONLY",
         },
         "created_at": now,

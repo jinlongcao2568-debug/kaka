@@ -43,6 +43,14 @@ def get_database_session(*, reload_from_disk: bool = False) -> DatabaseSession:
     )
 
 
+def get_provider_adapter_readiness_summary() -> dict[str, Any]:
+    return get_settings().provider_adapter_readiness_summary()
+
+
+def get_provider_adapter_bootstrap_payload() -> dict[str, Any]:
+    return get_settings().provider_adapter_bootstrap_payload()
+
+
 def build_transport_unavailable(
     stage_scope: int,
     *,
@@ -126,6 +134,8 @@ __all__ = [
     "INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY",
     "build_transport_unavailable",
     "get_database_session",
+    "get_provider_adapter_bootstrap_payload",
+    "get_provider_adapter_readiness_summary",
     "get_settings",
     "validate_internal_orchestration_payload",
 ]

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    provider_readiness_for_family,
+)
 from shared.utils import build_id, ensure_list
 from stage7_sales.runtime import build_stage7_crm_quote_governed_metadata, dedupe_strings
 
@@ -128,6 +132,7 @@ def _quote_surface_state(*, offer_state: Any, requested_external_quote: bool) ->
 
 def build_crm_quote_workbench_readiness_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(carrier.get("blocked_reasons")))
+    provider_readiness = dict(carrier.get("provider_adapter_readiness", {}))
     return {
         "opportunity_id": carrier.get("opportunity_id"),
         "crm_action_id": carrier.get("crm_action_id"),
@@ -146,6 +151,11 @@ def build_crm_quote_workbench_readiness_summary(carrier: Mapping[str, Any]) -> d
         "real_external_quote_sent": False,
         "blocked_reason_count": len(blocked_reasons),
         "blocked_reasons": blocked_reasons,
+        "provider_adapter_config_source": carrier.get("provider_adapter_config_source"),
+        "provider_adapter_mode": carrier.get("provider_adapter_mode"),
+        "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
     }
 
 
@@ -157,8 +167,13 @@ def build_crm_quote_workbench_carrier(
     inputs: Mapping[str, Any],
     stage7_resolution_trace: Mapping[str, Any],
     now: str,
+    provider_adapter_readiness_summary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     governed_metadata = build_stage7_crm_quote_governed_metadata()
+    provider_readiness = provider_readiness_for_family(
+        provider_adapter_readiness_summary,
+        "crm_quote",
+    )
     opportunity_id = str(saleable_opportunity.get("opportunity_id") or "")
     project_id = str(saleable_opportunity.get("project_id") or "")
     offer_id = offer_recommendation.get("offer_recommendation_id")
@@ -204,6 +219,7 @@ def build_crm_quote_workbench_carrier(
         "vendor_adapter_connection_disabled",
         "blocked_live_policy",
     ]
+    blocked_reasons.extend(provider_readiness.get("blocked_reasons", []))
     if requested_live_execution:
         blocked_reasons.append("live_execution_requested_but_blocked")
     if requested_live_crm:
@@ -241,6 +257,12 @@ def build_crm_quote_workbench_carrier(
             "external_vendor_connection_enabled": False,
             "real_vendor_call_enabled": False,
             "real_vendor_receipt_allowed": False,
+            "provider_adapter_family": "crm_quote",
+            "provider_id": provider_readiness.get("provider_id"),
+            "provider_mode": provider_readiness.get("mode"),
+            "provider_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
         },
         "quote_surface_state": quote_surface_state,
         "dry_run_state": "INTERNAL_DRY_RUN_CARRIER_ONLY",
@@ -250,6 +272,10 @@ def build_crm_quote_workbench_carrier(
         "customer_visible_quote_generated": False,
         "customer_visible_delivery_package_generated": False,
         "blocked_reasons": _clean_list(blocked_reasons),
+        PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: dict(provider_adapter_readiness_summary or {}),
+        "provider_adapter_readiness": provider_readiness,
+        "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+        "provider_adapter_mode": provider_readiness.get("mode"),
         "governed_execution_mode": governed_metadata["governed_execution_mode"],
         "readiness_only": True,
         "draft_only": True,

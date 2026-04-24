@@ -134,6 +134,11 @@ class Stage9Response(TypedDict, total=False):
     stage9_execution_ledger: dict[str, Any]
     stage9_execution_ledger_readiness: dict[str, Any]
     order_payment_delivery_execution_summary: dict[str, Any]
+    provider_adapter_readiness_summary: dict[str, Any]
+    provider_adapter_config_source: str
+    provider_adapter_mode: str
+    provider_adapter_blocked_reasons: list[str]
+    provider_adapter_approval_audit_prerequisites: dict[str, Any]
     trace_refs: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str

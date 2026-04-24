@@ -30,6 +30,10 @@ from api.routes.stage6 import (
     register_stage6_routes,
 )
 from helpers import load_fixture
+from shared.provider_adapter_config import (
+    PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+    PROVIDER_FAMILIES,
+)
 from shared.pipeline import run_internal_chain
 from storage import persist_stage_bundle, reset_default_storage
 
@@ -203,6 +207,15 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(storage_bootstrap["storage_scope"], "process")
         self.assertEqual(storage_bootstrap["storage_runtime_mode"], "explicit-path")
         self.assertIn("platform_infra_readiness", storage_bootstrap)
+        self.assertIn("provider_adapter_bootstrap", storage_bootstrap)
+        provider_bootstrap = storage_bootstrap["provider_adapter_bootstrap"]
+        self.assertEqual(provider_bootstrap["provider_adapter_mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertFalse(provider_bootstrap["provider_adapter_live_execution_enabled"])
+        self.assertFalse(provider_bootstrap["provider_adapter_real_provider_call_enabled"])
+        self.assertEqual(
+            set(provider_bootstrap[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["families"]),
+            set(PROVIDER_FAMILIES),
+        )
 
         readiness = storage_bootstrap["platform_infra_readiness"]
         self.assertEqual(readiness["active_backend"], "json-file")
@@ -294,6 +307,22 @@ class TestApiTransportBootstrap(unittest.TestCase):
         bootstrap = app.state.transport_bootstrap
         self.assertTrue(bootstrap["internal_only"])
         self.assertFalse(bootstrap["live_execution_enabled"])
+        self.assertIn("provider_adapter_bootstrap", bootstrap)
+        self.assertEqual(bootstrap["provider_adapter_mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertFalse(
+            bootstrap["provider_adapter_bootstrap"]["provider_adapter_live_execution_enabled"]
+        )
+        self.assertFalse(
+            bootstrap["provider_adapter_bootstrap"]["provider_adapter_real_provider_call_enabled"]
+        )
+        self.assertEqual(
+            set(bootstrap[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["families"]),
+            set(PROVIDER_FAMILIES),
+        )
+        self.assertEqual(
+            app.state.provider_adapter_config_readback.payload["mode"],
+            "SANDBOX_DRY_RUN_READBACK",
+        )
 
         disabled_registry = bootstrap["stage1_to_stage5_transport_state"]
         self.assertEqual(disabled_registry, app.state.disabled_stage_transports)
@@ -350,6 +379,11 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 self.assertIn(key, operation)
             self.assertTrue(operation["internal_only"])
             self.assertFalse(operation["live_execution_enabled"])
+            if operation["stage_scope"] in (7, 8, 9):
+                self.assertEqual(operation["provider_adapter_mode"], "SANDBOX_DRY_RUN_READBACK")
+                self.assertFalse(operation["provider_adapter_live_execution_enabled"])
+                self.assertFalse(operation["provider_adapter_real_provider_call_enabled"])
+                self.assertIn(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY, operation)
 
         orchestration_operation = mounted_by_id["runStage1ToStage6InternalOrchestration"]
         self.assertEqual(orchestration_operation["stage_scope"], 6)
@@ -505,6 +539,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(redlines["external_leadpack_delivery_requires_approval_and_audit"])
         self.assertFalse(redlines["stage8_real_execution_enabled"])
         self.assertFalse(redlines["stage9_real_payment_delivery_refund_enabled"])
+        self.assertFalse(redlines["provider_adapter_live_execution_enabled"])
+        self.assertFalse(redlines["provider_adapter_provider_call_enabled"])
+        self.assertFalse(redlines["provider_adapter_real_provider_call_enabled"])
+        self.assertFalse(redlines["provider_credentials_plaintext_persisted"])
+        self.assertFalse(redlines["automated_refund_program_present"])
+        self.assertFalse(redlines["automated_refund_program_enabled"])
 
         self.assertEqual(len(app.state.disabled_stage_transports), 5)
         self.assertEqual(
@@ -839,8 +879,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
             for operation in app.state.transport_bootstrap["stage6_to_stage9_mounted_operations"]
         }
         stage7_metadata = mounted_by_id["listSaleableOpportunities"]["crm_quote_prerequisite_readiness"]
+        provider_metadata = mounted_by_id["listSaleableOpportunities"][PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
 
         self.assertTrue(stage7_metadata["readiness_only"])
+        self.assertEqual(provider_metadata["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertFalse(provider_metadata["provider_call_enabled"])
+        self.assertFalse(provider_metadata["real_provider_call_enabled"])
+        self.assertIn("crm_quote", provider_metadata["families"])
+        self.assertIn("leadpack_page_delivery", provider_metadata["families"])
         self.assertTrue(stage7_metadata["prerequisite_only"])
         self.assertTrue(stage7_metadata["blocked_by_default"])
         self.assertEqual(stage7_metadata["governed_execution_mode"], "INTERNAL_GOVERNED")
@@ -886,6 +932,9 @@ class TestApiTransportBootstrap(unittest.TestCase):
             stage7.record("saleable_opportunity").get("opportunity_id"),
         )
         body = response.json()
+        self.assertEqual(body[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertFalse(body["crm_quote_workbench"]["provider_adapter_readiness"]["real_provider_call_enabled"])
+        self.assertFalse(body["leadpack_delivery_package"]["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertEqual(
             body["crm_quote_workbench"]["quote_draft_id"],
             stage7.inputs["crm_quote_workbench"]["quote_draft_id"],
@@ -916,6 +965,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(payload["surface_id"], "outreach_workbench")
         self.assertTrue(payload["blocked_by_default"])
         self.assertFalse(payload["live_execution_enabled"])
+        self.assertEqual(payload[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertFalse(payload["outreach_execution_outbox"]["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertEqual(payload["operational_context_status"], "persisted")
         self.assertEqual(payload["operator_loop_projection"]["context_key"], "persisted_operational_context")
         self.assertEqual(payload["operator_loop_projection"]["workbench_replay_source"], "repository_readback")
@@ -959,6 +1010,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(payload["surface_id"], "order_delivery_workbench")
         self.assertTrue(payload["blocked_by_default"])
         self.assertFalse(payload["live_execution_enabled"])
+        self.assertEqual(payload[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertFalse(payload["stage9_execution_ledger"]["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertEqual(payload["operational_context_status"], "persisted")
         self.assertEqual(payload["operator_loop_projection"]["context_key"], "persisted_operational_context")
         self.assertEqual(payload["operator_loop_projection"]["workbench_replay_source"], "repository_readback")

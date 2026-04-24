@@ -796,6 +796,7 @@ cross_cutting_surfaces:
     implementation_state: PARTIAL_RUNTIME
     current_files:
       - src/api/main.py
+      - src/api/deps.py
       - src/api/projections.py
       - src/api/workbench_observability.py
       - src/api/schemas/common.py
@@ -833,6 +834,7 @@ cross_cutting_surfaces:
       - src/storage/repository_context_projection.py
       - src/storage/operator_loop_contracts.py
       - src/storage/operator_workbench_projection.py
+      - src/storage/repositories/provider_adapter_config_repo.py
       - src/storage/repositories/work_item_repo.py
       - src/storage/repositories/project_fact_repo.py
       - src/storage/repositories/review_queue_profile_repo.py
@@ -1182,6 +1184,7 @@ modules:
       - api_schemas
     current_files:
       - src/api/main.py
+      - src/api/deps.py
       - src/api/projections.py
       - src/api/workbench_observability.py
       - src/api/routes/stage1.py
@@ -1226,6 +1229,8 @@ modules:
       - pipeline
     current_files:
       - src/shared/capability_runtime.py
+      - src/shared/settings.py
+      - src/shared/provider_adapter_config.py
       - src/shared/policy_executor.py
       - src/shared/policy_contract_helpers.py
       - src/shared/contracts_runtime.py
@@ -1265,6 +1270,7 @@ modules:
       - src/storage/repository_context_projection.py
       - src/storage/operator_loop_contracts.py
       - src/storage/operator_workbench_projection.py
+      - src/storage/repositories/provider_adapter_config_repo.py
       - src/storage/repositories/work_item_repo.py
       - src/storage/repositories/project_fact_repo.py
       - src/storage/repositories/legal_action_recommendation_repo.py
