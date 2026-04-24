@@ -1,0 +1,600 @@
+ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER
+task_id: PTL-I100-107C-product-doc-runtime-coverage-audit
+status: FIRST_PASS_AUDIT
+purpose: >
+  Machine-readable first-pass audit from product documentation capability
+  statements to current internal-governed runtime and test coverage. This file
+  records evidence only; it does not unlock external/live execution.
+scope_coverage:
+  - Stage1-5 source/rule/evidence
+  - Stage6 review/workbench
+  - Stage7 saleability/price/competitor
+  - Stage8 contact/compliance/outreach preview
+  - Stage9 order/payment/delivery/refund/writeback
+  - storage/bootstrap/transport
+  - external/live redlines
+classification_vocabulary:
+  - INTERNAL_IMPLEMENTED
+  - TEST_COVERED
+  - RESERVED_NOT_LIVE
+  - BLOCKED_BY_GOVERNANCE
+  - MISSING_RUNTIME
+  - MISSING_TEST
+classification_counts:
+  INTERNAL_IMPLEMENTED: 13
+  TEST_COVERED: 21
+  RESERVED_NOT_LIVE: 10
+  BLOCKED_BY_GOVERNANCE: 5
+  MISSING_RUNTIME: 5
+  MISSING_TEST: 2
+capabilities:
+  - capability_id: STAGE1_2_SOURCE_ROUTE_CLOCK_AUTHORITY
+    scope_group: Stage1-5 source/rule/evidence
+    external_or_live_capability: false
+    doc_refs:
+      - docs/L0.md#4.1-4.2
+      - docs/D2_正式对象契约与字段字典.md#D2-R-020
+      - docs/D2_正式对象契约与字段字典.md#D2-R-024
+      - docs/D11_测试验收与金标回归清单.md#D11-R-013
+    runtime_refs:
+      - src/stage1_tasking/extractors.py
+      - src/stage1_tasking/service.py
+      - src/stage2_ingestion/extractors.py
+      - src/stage2_ingestion/service.py
+      - src/shared/pipeline.py
+    test_refs:
+      - tests/test_stage12_extractors.py
+      - tests/test_internal_chain.py::test_stage2_h02_signal_uses_route_authority_precedence
+      - tests/test_internal_chain.py::test_stage2_clock_chain_routes_blocking_review_path
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Stage1 task/source extraction and Stage2 route, clock, notice, and fixation
+      authority are implemented as internal pipeline services and covered by
+      extractor plus chain authority tests.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE1_5_PUBLIC_SOURCE_VERTICAL_SLICE_RULE_EVIDENCE
+    scope_group: Stage1-5 source/rule/evidence
+    external_or_live_capability: false
+    doc_refs:
+      - docs/L0.md#4.3-4.5
+      - docs/D2_正式对象契约与字段字典.md#D2-R-027
+      - docs/D2_正式对象契约与字段字典.md#D2-R-032
+      - docs/D2_正式对象契约与字段字典.md#D2-R-038
+      - docs/D11_测试验收与金标回归清单.md#D11-R-014
+    runtime_refs:
+      - src/stage3_parsing/service.py
+      - src/stage4_verification/service.py
+      - src/stage5_rules_evidence/service.py
+      - src/stage5_rules_evidence/evidence_builder.py
+      - src/shared/pipeline.py
+    test_refs:
+      - tests/test_internal_chain.py::test_internal_chain_stage4_stage5_stage6_stage7_formal_outputs
+      - tests/test_internal_chain.py::test_stage3_truth_layer_handoff_requires_lineage_state_for_stage4
+      - tests/test_stage56_evaluators.py
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Stage3 base facts, Stage4 public attack surface, and Stage5 rule/evidence
+      decisions exist in the runtime chain and have direct chain/evaluator tests.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE1_5_HTTP_TRANSPORT_ENTRY
+    scope_group: storage/bootstrap/transport
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D4_OpenAPI接口契约.md#D4-R-073-E
+      - docs/D12_部署发布与运行治理规范.md#D12-R-041-F
+    runtime_refs:
+      - src/api/main.py
+      - src/api/routes/stage1.py
+      - src/api/routes/stage2.py
+      - src/api/routes/stage3.py
+      - src/api/routes/stage4.py
+      - src/api/routes/stage5.py
+    test_refs:
+      - tests/test_api_transport_bootstrap.py::test_stage1_to_stage5_route_registrars_are_controlled_unavailable
+    classification:
+      - RESERVED_NOT_LIVE
+      - TEST_COVERED
+    evidence_summary: >
+      Stage1-5 runtime exists through the internal chain, but HTTP transport is
+      deliberately controlled-unavailable for this phase and is tested as such.
+    recommended_followup_packet: PTL-I100-108-stage1-6-transport-orchestration-implementation
+
+  - capability_id: STAGE6_PROJECT_FACT_REVIEW_REPORT_WORKBENCH
+    scope_group: Stage6 review/workbench
+    external_or_live_capability: false
+    doc_refs:
+      - docs/L0.md#4.6
+      - docs/D2_正式对象契约与字段字典.md#D2-R-044
+      - docs/D4_OpenAPI接口契约.md#D4-R-073-E
+      - docs/D5_页面导出与人工复核规范.md#D5-R-065
+      - docs/D11_测试验收与金标回归清单.md#D11-R-015
+    runtime_refs:
+      - src/stage6_fact_review/service.py
+      - src/stage6_fact_review/fact_aggregator.py
+      - src/stage6_fact_review/review_queue.py
+      - src/api/routes/stage6.py
+      - src/api/projections.py
+    test_refs:
+      - tests/test_stage56_evaluators.py
+      - tests/test_internal_chain.py::test_stage6_to_stage7_minimal_chain_creates_sales_lead_and_offer_recommendation
+      - tests/test_internal_surface_preview.py
+      - tests/test_internal_operational_loop.py
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Stage6 project facts, review queue, report records, preview projection,
+      and operator workbench loop are implemented for internal governed use.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE6_PRIVATE_SUPPLEMENT_IMPACT
+    scope_group: Stage6 review/workbench
+    external_or_live_capability: false
+    doc_refs:
+      - docs/L0.md#private-supplement-boundary
+      - docs/D2_正式对象契约与字段字典.md#private_supplement_record
+      - docs/D11_测试验收与金标回归清单.md#D11-R-053-AH
+    runtime_refs:
+      - src/stage6_fact_review/service.py
+      - contracts/schemas/schema_catalog.json#private_supplement_record
+    test_refs:
+      - tests/test_stage56_evaluators.py::test_stage6_supplement_trace_is_machine_readable_and_isolated
+      - tests/test_internal_chain.py::test_stage6_supplement_reference_stays_out_of_stage7_formal_surface
+    classification:
+      - RESERVED_NOT_LIVE
+      - TEST_COVERED
+      - MISSING_RUNTIME
+    evidence_summary: >
+      Isolation and trace rules are tested, but first-class private supplement
+      impact handling remains schema-backed rather than a complete runtime
+      capability.
+    recommended_followup_packet: PTL-I100-107D-stage6-private-supplement-runtime-gap
+
+  - capability_id: STAGE7_SALEABLE_OPPORTUNITY_BUYER_FIT_VALUE
+    scope_group: Stage7 saleability/price/competitor
+    external_or_live_capability: false
+    doc_refs:
+      - docs/L0.md#4.7
+      - docs/D2_正式对象契约与字段字典.md#D2-R-049
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md#D8-core
+      - docs/D11_测试验收与金标回归清单.md#D11-R-053-T
+    runtime_refs:
+      - src/stage7_sales/service.py
+      - src/stage7_sales/recommendation.py
+      - src/api/routes/stage7.py
+      - src/api/projections.py
+    test_refs:
+      - tests/test_stage7_runtime_closure.py
+      - tests/test_internal_chain.py::test_stage7_to_stage8_minimal_chain_creates_compliant_contact_target
+      - tests/test_api_transport_bootstrap.py::test_stage7_stage8_stage9_routes_are_registered
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Sales lead, buyer fit, offer recommendation, and saleable opportunity
+      generation are available in the internal chain and preview transport.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE7_PRICE_NORMALIZATION_AND_COMPETITOR_RESOLUTION
+    scope_group: Stage7 saleability/price/competitor
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D2_正式对象契约与字段字典.md#D2-R-094-J
+      - docs/D2_正式对象契约与字段字典.md#D2-R-094-P
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md#real-competitor
+      - docs/D13_公开可查边界能力清单.md#A-08
+    runtime_refs:
+      - src/stage7_sales/pricing.py
+      - src/stage7_sales/resolution.py
+      - src/stage7_sales/service.py
+      - contracts/sales/opportunity_policy_catalog.json
+    test_refs:
+      - tests/test_stage7_runtime_closure.py::test_stage7_price_normalization_and_price_basis_policy_are_machine_readable
+      - tests/test_stage7_runtime_closure.py::test_stage7_multi_competitor_collection_and_threshold_policy_are_machine_readable
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Stage7 has machine-readable price basis policy and real-competitor
+      collection support with dedicated runtime closure tests.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE
+    scope_group: Stage7 saleability/price/competitor
+    external_or_live_capability: true
+    doc_refs:
+      - docs/D7_对象级交付矩阵与外发治理规范.md#release-levels
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md#D8-plus-boundary
+      - docs/D12_部署发布与运行治理规范.md#release-gate
+    runtime_refs:
+      - src/stage7_sales/service.py
+      - contracts/sales/opportunity_policy_catalog.json
+      - control/repo_status.md
+    test_refs:
+      - tests/test_stage7_runtime_closure.py
+      - tests/test_external_unlock_prerequisites.py
+    classification:
+      - RESERVED_NOT_LIVE
+      - BLOCKED_BY_GOVERNANCE
+      - MISSING_RUNTIME
+      - MISSING_TEST
+    evidence_summary: >
+      Internal saleability is implemented, but full CRM orchestration and
+      external quote behavior are not live, not runtime-complete, and lack a
+      dedicated positive unlock test surface.
+    recommended_followup_packet: PTL-I100-108-stage7-crm-orchestration-and-external-quote-prereq
+
+  - capability_id: STAGE8_CONTACT_COMPLIANCE_LATTICE
+    scope_group: Stage8 contact/compliance/outreach preview
+    external_or_live_capability: false
+    doc_refs:
+      - docs/L0.md#4.8
+      - docs/D2_正式对象契约与字段字典.md#D2-R-058
+      - docs/D9_联系对象与销售触达规范.md#compliance-lattice
+      - docs/D11_测试验收与金标回归清单.md#D11-R-053-Q
+    runtime_refs:
+      - src/stage8_outreach/service.py
+      - src/stage8_outreach/candidate_compliance.py
+      - src/api/routes/stage8.py
+      - src/api/projections.py
+    test_refs:
+      - tests/test_stage8_resolution_closure.py
+      - tests/test_runtime_governance_guards.py::test_stage8_high_restriction_field_requires_review_before_exposure
+      - tests/test_internal_chain.py::test_stage8_compliance_authority_has_no_shadow_implementation
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Contact target creation, legal-basis checks, high-restriction exposure
+      guardrails, and preview transport are implemented and covered.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE8_MULTI_SOURCE_CONTACT_MERGE_HUMAN_HANDOFF
+    scope_group: Stage8 contact/compliance/outreach preview
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D2_正式对象契约与字段字典.md#D2-R-094-R
+      - docs/D9_联系对象与销售触达规范.md#D9-R-071-B
+      - docs/D11_测试验收与金标回归清单.md#D11-R-053-U
+    runtime_refs:
+      - src/stage8_outreach/resolution.py
+      - src/stage8_outreach/service.py
+      - contracts/sales/contact_source_policy_catalog.json
+    test_refs:
+      - tests/test_stage8_resolution_closure.py::test_stage8_contact_candidate_collection_is_persisted_with_source_traces
+      - tests/test_stage8_resolution_closure.py::test_stage8_multi_source_merge_blocks_conflicts_and_records_human_handoff
+      - tests/test_stage8_resolution_closure.py::test_stage8_unknown_vendor_resolution_blocks_with_review_reason
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Stage8 source policy, candidate collection, merge conflict blocking,
+      vendor resolution, and human handoff are implemented for internal preview.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE8_CADENCE_RETRY_STOP_FEEDBACK_PREVIEW
+    scope_group: Stage8 contact/compliance/outreach preview
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D2_正式对象契约与字段字典.md#D2-R-060
+      - docs/D9_联系对象与销售触达规范.md#D9-R-071-C
+      - docs/D11_测试验收与金标回归清单.md#D11-R-053-W
+    runtime_refs:
+      - src/stage8_outreach/outreach_plan.py
+      - src/stage8_outreach/service.py
+      - src/storage/repository_boundary.py
+    test_refs:
+      - tests/test_stage8_resolution_closure.py::test_stage8_outreach_cadence_ladder_and_retry_are_governed_preview_only
+      - tests/test_internal_chain.py::test_stage8_outreach_plan_respects_quiet_hours
+      - tests/test_internal_repository_boundary.py
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Outreach plan, cadence, retry, stop reasons, feedback/writeback preview,
+      and repository readback are implemented as governed internal previews.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE8_REAL_OUTREACH_EXECUTION
+    scope_group: external/live redlines
+    external_or_live_capability: true
+    doc_refs:
+      - docs/D7_对象级交付矩阵与外发治理规范.md#D7-R-062-A
+      - docs/D9_联系对象与销售触达规范.md#run-mode
+      - docs/D12_部署发布与运行治理规范.md#release-gate
+    runtime_refs:
+      - src/stage8_outreach/outreach_plan.py
+      - src/stage8_outreach/service.py
+      - control/repo_status.md
+    test_refs:
+      - tests/test_internal_acceptance_matrix.py::test_stage8_real_execution_payload_is_blocked_by_governance
+      - tests/test_runtime_governance_guards.py::test_stage8_direct_leadpack_blocks_outreach_plan
+      - tests/test_external_unlock_prerequisites.py
+    classification:
+      - BLOCKED_BY_GOVERNANCE
+      - RESERVED_NOT_LIVE
+      - TEST_COVERED
+    evidence_summary: >
+      Real outreach execution is intentionally blocked. Current runtime and
+      tests preserve dry-run/preview behavior and redline direct LeadPack or
+      external send paths.
+    recommended_followup_packet: PTL-I100-110-external-live-execution-prerequisite-decision
+
+  - capability_id: STAGE9_H08_ORDER_PAYMENT_DELIVERY_TYPED_LIFECYCLE
+    scope_group: Stage9 order/payment/delivery/refund/writeback
+    external_or_live_capability: false
+    doc_refs:
+      - docs/L0.md#4.9
+      - docs/D2_正式对象契约与字段字典.md#D2-R-062
+      - docs/D10_订单支付交付与治理反馈规范.md#H-08
+      - docs/D11_测试验收与金标回归清单.md#D11-R-053-S
+    runtime_refs:
+      - src/stage9_delivery/service.py
+      - src/stage9_delivery/typed_lifecycle.py
+      - src/stage9_delivery/order.py
+      - src/api/routes/stage9.py
+    test_refs:
+      - tests/test_internal_chain.py::test_stage8_to_stage9_minimal_chain_creates_order_payment_delivery_and_outcome
+      - tests/test_internal_chain.py::test_stage9_consumes_stage8_h08_minimum_payload
+      - tests/test_stage9_impact_executor.py
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Stage9 consumes H-08 payloads and creates typed internal order, payment,
+      delivery, outcome, and governance feedback lifecycle records.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE9_PAYMENT_DELIVERY_REFUND_EXCEPTION_REPLAY
+    scope_group: Stage9 order/payment/delivery/refund/writeback
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D2_正式对象契约与字段字典.md#D2-R-094-O
+      - docs/D10_订单支付交付与治理反馈规范.md#D10-R-064
+      - docs/D10_订单支付交付与治理反馈规范.md#D10-R-065
+      - docs/D11_测试验收与金标回归清单.md#D11-R-053-AI
+    runtime_refs:
+      - src/stage9_delivery/payment.py
+      - src/stage9_delivery/service.py
+      - src/stage9_delivery/typed_lifecycle.py
+    test_refs:
+      - tests/test_internal_chain.py::test_stage9_payment_exception_matrix_sets_manual_review_and_writeback
+      - tests/test_internal_chain.py::test_stage9_delivery_exception_blocks_outcome_and_records_governance_feedback
+      - tests/test_internal_acceptance_matrix.py::test_refund_live_redline_fixture_is_dedicated_and_replayed
+      - tests/test_stage9_impact_executor.py::test_refund_exception_runtime_contract_stays_internal_and_traceable
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Internal exception and refund replay behavior is implemented as governed
+      records, including manual review, blocked outcome, feedback, and redline
+      replay tests.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE9_WRITEBACK_IMPACT_EXECUTOR
+    scope_group: Stage9 order/payment/delivery/refund/writeback
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D2_正式对象契约与字段字典.md#D2-R-094-S
+      - docs/D10_订单支付交付与治理反馈规范.md#D10-R-067-C
+      - docs/D10_订单支付交付与治理反馈规范.md#D10-R-067-H
+      - docs/D11_测试验收与金标回归清单.md#D11-R-053-S
+    runtime_refs:
+      - src/stage9_delivery/impact_executor.py
+      - src/stage9_delivery/feedback_writeback.py
+      - src/stage9_delivery/service.py
+    test_refs:
+      - tests/test_stage9_impact_executor.py::test_stage9_impact_executor_records_projected_advisory_persisted_and_trace_only_impacts
+      - tests/test_stage9_impact_executor.py::test_writeback_contract_runtime_fields_are_machine_readable
+      - tests/test_internal_repository_boundary.py
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Impact executor and writeback contracts are implemented for internal V0,
+      including projected, advisory, persisted, and trace-only semantics.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
+    scope_group: external/live redlines
+    external_or_live_capability: true
+    doc_refs:
+      - docs/D7_对象级交付矩阵与外发治理规范.md#D7-R-062-A
+      - docs/D10_订单支付交付与治理反馈规范.md#non-effective-state
+      - docs/D12_部署发布与运行治理规范.md#release-gate
+    runtime_refs:
+      - src/stage9_delivery/service.py
+      - src/stage9_delivery/impact_executor.py
+      - control/repo_status.md
+    test_refs:
+      - tests/test_internal_acceptance_matrix.py::test_stage9_payment_delivery_refund_live_paths_are_blocked_by_governance
+      - tests/test_runtime_governance_guards.py::test_stage9_payment_delivery_refund_live_paths_remain_blocked
+      - tests/test_external_unlock_prerequisites.py
+    classification:
+      - BLOCKED_BY_GOVERNANCE
+      - RESERVED_NOT_LIVE
+      - TEST_COVERED
+    evidence_summary: >
+      Live payment, delivery, refund, and direct external writeback remain
+      blocked. Current runtime is internal governed only and tests lock the
+      redline.
+    recommended_followup_packet: PTL-I100-110-external-live-execution-prerequisite-decision
+
+  - capability_id: STORAGE_BOOTSTRAP_JSON_FILE_INTERNAL_BACKBONE
+    scope_group: storage/bootstrap/transport
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D4_OpenAPI接口契约.md#D4-R-073-E
+      - docs/D12_部署发布与运行治理规范.md#D12-R-041-F
+      - contracts/schemas/schema_catalog.json
+    runtime_refs:
+      - src/shared/settings.py
+      - src/storage/repository_boundary.py
+      - src/storage/db.py
+      - src/api/main.py
+    test_refs:
+      - tests/test_api_transport_bootstrap.py::test_settings_expose_explicit_storage_bootstrap_payload
+      - tests/test_api_transport_bootstrap.py::test_json_file_store_bootstrap_creates_configured_directory
+      - tests/test_internal_repository_boundary.py
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Internal JSON-file storage bootstrap, repository readback, and API app
+      bootstrap are implemented and tested as the current runtime backbone.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: POSTGRES_REDIS_OBJECT_STORAGE_DOCKER_BACKENDS
+    scope_group: storage/bootstrap/transport
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D12_部署发布与运行治理规范.md#environment-matrix
+      - docs/D12_部署发布与运行治理规范.md#D12-R-041-F
+      - control/product_task_library.yaml#PTL-I100-106
+    runtime_refs:
+      - src/shared/settings.py
+      - src/storage/db.py
+      - control/repo_status.md
+    test_refs:
+      - tests/test_api_transport_bootstrap.py::test_reserved_infra_backends_are_named_but_not_configured
+      - tests/test_api_transport_bootstrap.py::test_app_bootstrap_fast_fails_unsupported_storage_backend
+    classification:
+      - RESERVED_NOT_LIVE
+      - MISSING_RUNTIME
+      - TEST_COVERED
+    evidence_summary: >
+      Non-JSON storage backends are explicitly named and fail closed, but real
+      Postgres, Redis, object storage, and Dockerized backend runtime are not
+      implemented in this phase.
+    recommended_followup_packet: PTL-I100-110-platform-infra-real-backend-implementation
+
+  - capability_id: STAGE7_9_API_TRANSPORT_BOOTSTRAP_INTERNAL_PREVIEW
+    scope_group: storage/bootstrap/transport
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D4_OpenAPI接口契约.md#D4-R-073-E
+      - docs/D12_部署发布与运行治理规范.md#D12-R-041-F
+      - docs/D5_页面导出与人工复核规范.md#D5-R-065
+    runtime_refs:
+      - src/api/main.py
+      - src/api/routes/stage7.py
+      - src/api/routes/stage8.py
+      - src/api/routes/stage9.py
+      - src/api/projections.py
+    test_refs:
+      - tests/test_api_transport_bootstrap.py::test_stage7_stage8_stage9_routes_are_registered
+      - tests/test_api_transport_bootstrap.py::test_stage7_to_stage9_routes_use_repository_backed_preview_readbacks
+      - tests/test_internal_surface_preview.py
+    classification:
+      - INTERNAL_IMPLEMENTED
+      - TEST_COVERED
+    evidence_summary: >
+      Stage7-9 preview transport, route registration, and repository-backed
+      readbacks are implemented for internal operator workbench usage.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
+
+  - capability_id: STAGE1_6_FULL_API_TRANSPORT_AND_ORCHESTRATION
+    scope_group: storage/bootstrap/transport
+    external_or_live_capability: false
+    doc_refs:
+      - docs/D4_OpenAPI接口契约.md#D4-R-073-E
+      - docs/D12_部署发布与运行治理规范.md#D12-R-041-F
+      - docs/D1_研发_Codex执行手册.md#execution-boundary
+    runtime_refs:
+      - src/api/main.py
+      - src/api/routes/stage1.py
+      - src/api/routes/stage2.py
+      - src/api/routes/stage3.py
+      - src/api/routes/stage4.py
+      - src/api/routes/stage5.py
+      - src/api/routes/stage6.py
+    test_refs:
+      - tests/test_api_transport_bootstrap.py::test_stage1_to_stage5_route_registrars_are_controlled_unavailable
+      - tests/test_api_transport_bootstrap.py::test_stage6_route_is_registered_for_internal_preview
+    classification:
+      - RESERVED_NOT_LIVE
+      - MISSING_RUNTIME
+      - TEST_COVERED
+    evidence_summary: >
+      Stage6 preview route is active, but full Stage1-6 API orchestration is not
+      implemented; Stage1-5 transport is intentionally controlled-unavailable.
+    recommended_followup_packet: PTL-I100-108-stage1-6-transport-orchestration-implementation
+
+  - capability_id: LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE
+    scope_group: external/live redlines
+    external_or_live_capability: true
+    doc_refs:
+      - docs/D5_页面导出与人工复核规范.md#leadpack-candidate-preview
+      - docs/D7_对象级交付矩阵与外发治理规范.md#D7-R-062-A
+      - docs/D12_部署发布与运行治理规范.md#release-gate
+    runtime_refs:
+      - src/api/projections.py
+      - src/api/routes/stage7.py
+      - control/repo_status.md
+    test_refs:
+      - tests/test_internal_surface_preview.py
+      - tests/test_runtime_governance_guards.py::test_stage8_direct_leadpack_blocks_outreach_plan
+      - tests/test_runtime_governance_guards.py::test_stage9_direct_leadpack_blocks_direct_objects
+    classification:
+      - RESERVED_NOT_LIVE
+      - BLOCKED_BY_GOVERNANCE
+      - TEST_COVERED
+    evidence_summary: >
+      LeadPack-related surfaces are candidate, projection, or review-only.
+      Direct external delivery and direct-object release remain blocked by
+      governance and tested as blocked.
+    recommended_followup_packet: PTL-I100-109-leadpack-external-delivery-approval-audit-readiness
+
+  - capability_id: EXTERNAL_SOFTWARE_RELEASE
+    scope_group: external/live redlines
+    external_or_live_capability: true
+    doc_refs:
+      - docs/L0.md#external-release-blocked
+      - docs/D12_部署发布与运行治理规范.md#release-gate
+      - docs/正式业务代码开发开工裁决页.md#external-release
+    runtime_refs:
+      - control/repo_status.md
+      - control/milestone_status.yaml
+      - control/current_task.yaml
+    test_refs:
+      - tests/test_external_unlock_prerequisites.py
+      - tests/test_internal_acceptance_matrix.py::test_external_software_release_remains_blocked
+    classification:
+      - BLOCKED_BY_GOVERNANCE
+      - RESERVED_NOT_LIVE
+      - TEST_COVERED
+    evidence_summary: >
+      External software release is a governance redline in current status and
+      remains covered by prerequisite and acceptance-matrix tests.
+    recommended_followup_packet: PTL-I100-110-external-release-prerequisite-decision
+
+  - capability_id: FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER
+    scope_group: external/live redlines
+    external_or_live_capability: true
+    doc_refs:
+      - docs/D5_页面导出与人工复核规范.md#page-directory
+      - docs/D7_对象级交付矩阵与外发治理规范.md#release-levels
+      - docs/D11_测试验收与金标回归清单.md#ui-export-layer
+    runtime_refs:
+      - src/api/projections.py
+      - src/api/routes/stage7.py
+      - control/repo_status.md
+    test_refs:
+      - tests/test_internal_surface_preview.py
+      - tests/test_external_unlock_prerequisites.py
+    classification:
+      - RESERVED_NOT_LIVE
+      - MISSING_RUNTIME
+      - MISSING_TEST
+    evidence_summary: >
+      Internal projections exist, but the formal client-visible export/page
+      layer is not implemented as a runtime surface and lacks dedicated
+      positive coverage. Current tests only cover internal preview and release
+      blockers.
+    recommended_followup_packet: PTL-I100-109-leadpack-client-export-and-page-layer-coverage
