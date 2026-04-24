@@ -1,0 +1,858 @@
+{
+  "metadata": {
+    "matrix_id": "PTL-I100-107A-internal-acceptance-matrix",
+    "version": 1,
+    "packet_id": "PTL-I100-107-real-sample-operational-acceptance",
+    "subpacket_id": "PTL-I100-107A-internal-acceptance-matrix-bootstrap",
+    "purpose": "Offline sanitized internal acceptance matrix bootstrap/readback for operator replay.",
+    "source_data_class": "sanitized_offline",
+    "external_live_execution": false,
+    "stage8_real_execution": "BLOCKED",
+    "stage9_live_payment_delivery_refund": "BLOCKED",
+    "external_release": "BLOCKED"
+  },
+  "required_scenario_taxonomy": [
+    "happy",
+    "blocked",
+    "review_hold",
+    "reject",
+    "reselect",
+    "quiet_hours",
+    "approval",
+    "source_conflict",
+    "writeback"
+  ],
+  "redlines": {
+    "external_release": {
+      "status": "BLOCKED",
+      "live_execution_allowed": false
+    },
+    "stage8_real_execution": {
+      "status": "BLOCKED",
+      "live_execution_allowed": false,
+      "allowed_mode": "INTERNAL_GOVERNED_PREVIEW"
+    },
+    "stage9_live_payment_execution": {
+      "status": "BLOCKED",
+      "live_execution_allowed": false,
+      "allowed_mode": "INTERNAL_GOVERNED"
+    },
+    "stage9_live_delivery_execution": {
+      "status": "BLOCKED",
+      "live_execution_allowed": false,
+      "allowed_mode": "INTERNAL_GOVERNED"
+    },
+    "stage9_live_refund_execution": {
+      "status": "BLOCKED",
+      "live_execution_allowed": false,
+      "allowed_mode": "PLANNED_TRACE_ONLY_UNTIL_FIXTURE_EXISTS"
+    }
+  },
+  "failure_taxonomy": [
+    {
+      "failure_id": "none",
+      "label": "No blocking failure",
+      "category": "pass",
+      "operator_readback": "Internal governed replay reaches Stage9 without release or live execution.",
+      "blocking_scope": "none"
+    },
+    {
+      "failure_id": "evidence_insufficient",
+      "label": "Evidence insufficient",
+      "category": "governance_block",
+      "operator_readback": "Evidence or source state holds the chain in review and blocks delivery release.",
+      "blocking_scope": "stage5_to_stage9"
+    },
+    {
+      "failure_id": "manual_review_required",
+      "label": "Manual review required",
+      "category": "review_hold",
+      "operator_readback": "Operator must treat the result as review or hold, not as live execution.",
+      "blocking_scope": "stage6_to_stage8"
+    },
+    {
+      "failure_id": "approval_missing",
+      "label": "Approval missing",
+      "category": "approval_hold",
+      "operator_readback": "Approval-gated work remains pending or on hold; external delivery is not unlocked.",
+      "blocking_scope": "stage8_to_stage9"
+    },
+    {
+      "failure_id": "permanent_contact_block",
+      "label": "Permanent contact block",
+      "category": "reject",
+      "operator_readback": "Contact candidate is rejected or cancelled by compliance inputs.",
+      "blocking_scope": "stage8"
+    },
+    {
+      "failure_id": "reselect_contact",
+      "label": "Reselect contact",
+      "category": "operator_rework",
+      "operator_readback": "Operator must reselect a contact target before any further execution.",
+      "blocking_scope": "stage8"
+    },
+    {
+      "failure_id": "quiet_hours_schedule",
+      "label": "Quiet-hours schedule",
+      "category": "schedule_hold",
+      "operator_readback": "Candidate stays previewable, but execution is scheduled instead of live.",
+      "blocking_scope": "stage8"
+    },
+    {
+      "failure_id": "source_conflict",
+      "label": "Source conflict",
+      "category": "source_review",
+      "operator_readback": "Source, version, or field conflict keeps acceptance in review.",
+      "blocking_scope": "stage1_to_stage9"
+    },
+    {
+      "failure_id": "writeback_projection_only",
+      "label": "Writeback projection only",
+      "category": "readback_only",
+      "operator_readback": "Writeback targets are internal readback/projection carriers, not external persistence.",
+      "blocking_scope": "stage9_external"
+    },
+    {
+      "failure_id": "missing_fixture",
+      "label": "Fixture missing",
+      "category": "planned_trace_only",
+      "operator_readback": "Scenario is documented for later replay but must not be counted as executed.",
+      "blocking_scope": "test_fixture"
+    }
+  ],
+  "operator_readback_contract": {
+    "required_fields": [
+      "scenario_id",
+      "taxonomy",
+      "replay_status",
+      "replay_mode",
+      "fixture_ref",
+      "operator_replay",
+      "readback",
+      "audit_summary"
+    ],
+    "summary_required_fields": [
+      "stage7",
+      "stage8",
+      "stage9",
+      "redlines"
+    ],
+    "audit_summary_required_fields": [
+      "source_data_class",
+      "external_live_execution",
+      "stage8_real_execution",
+      "stage9_live_payment_delivery_refund",
+      "external_release"
+    ]
+  },
+  "scenarios": [
+    {
+      "scenario_id": "happy",
+      "taxonomy": "happy",
+      "title": "Happy internal governed replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_happy.json",
+      "payload_overrides": {},
+      "failure_taxonomy_refs": [
+        "none",
+        "approval_missing",
+        "writeback_projection_only"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage7",
+          "stage8",
+          "stage9"
+        ],
+        "operator_action": "readback_only"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "QUALIFIED",
+          "sale_gate_status": "OPEN"
+        },
+        "stage8": {
+          "contact_target_status": "ELIGIBLE",
+          "requires_manual_review": false,
+          "plan_status": "DRAFT",
+          "touch_record_state": "CREATED",
+          "execution_compliance_decision": "ALLOW_PREVIEW",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "PENDING_APPROVAL",
+          "order_status": "PENDING_APPROVAL",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "NOT_READY",
+          "trigger_type": "APPROVAL_MISSING",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "order_record",
+            "payment_record"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "qualified_open",
+          "stage8": "internal_governed_preview",
+          "stage9": "pending_approval_not_live",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "blocked",
+      "taxonomy": "blocked",
+      "title": "Evidence/source governed block replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_block.json",
+      "payload_overrides": {},
+      "failure_taxonomy_refs": [
+        "evidence_insufficient",
+        "manual_review_required",
+        "writeback_projection_only"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage7",
+          "stage8",
+          "stage9"
+        ],
+        "operator_action": "hold_and_readback"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "BLOCKED",
+          "sale_gate_status": "REVIEW"
+        },
+        "stage8": {
+          "contact_target_status": "BLOCKED",
+          "requires_manual_review": true,
+          "plan_status": "REVIEW_REQUIRED",
+          "touch_record_state": "CANCELLED",
+          "execution_compliance_decision": "REVIEW_REQUIRED",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "ON_HOLD",
+          "order_status": "ON_HOLD",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "RELEASE_BLOCKED",
+          "trigger_type": "EVIDENCE_INSUFFICIENT",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "project_fact",
+            "review_queue_profile"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "blocked_review",
+          "stage8": "review_required_cancelled",
+          "stage9": "on_hold_release_blocked",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "review-hold",
+      "taxonomy": "review_hold",
+      "title": "Operator review/hold readback",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_block.json",
+      "payload_overrides": {},
+      "failure_taxonomy_refs": [
+        "manual_review_required",
+        "evidence_insufficient"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage6",
+          "stage7",
+          "stage8",
+          "stage9"
+        ],
+        "operator_action": "hold_for_review"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "BLOCKED",
+          "sale_gate_status": "REVIEW"
+        },
+        "stage8": {
+          "contact_target_status": "BLOCKED",
+          "requires_manual_review": true,
+          "plan_status": "REVIEW_REQUIRED",
+          "touch_record_state": "CANCELLED",
+          "execution_compliance_decision": "REVIEW_REQUIRED",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "ON_HOLD",
+          "order_status": "ON_HOLD",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "RELEASE_BLOCKED",
+          "trigger_type": "EVIDENCE_INSUFFICIENT",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "project_fact",
+            "review_queue_profile"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "review_hold",
+          "stage8": "manual_review_required",
+          "stage9": "on_hold",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "reject",
+      "taxonomy": "reject",
+      "title": "Contact compliance reject replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_happy.json",
+      "payload_overrides": {
+        "channel_policy_status": "BLOCK"
+      },
+      "failure_taxonomy_refs": [
+        "permanent_contact_block",
+        "approval_missing"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage8",
+          "stage9"
+        ],
+        "operator_action": "reject_contact_and_readback"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "QUALIFIED",
+          "sale_gate_status": "OPEN"
+        },
+        "stage8": {
+          "contact_target_status": "BLOCKED",
+          "requires_manual_review": true,
+          "plan_status": "CANCELLED",
+          "touch_record_state": "CANCELLED",
+          "execution_compliance_decision": "BLOCKED",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "ON_HOLD",
+          "order_status": "ON_HOLD",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "RELEASE_BLOCKED",
+          "trigger_type": "APPROVAL_MISSING",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "order_record",
+            "payment_record"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "qualified_but_contact_rejected",
+          "stage8": "cancelled",
+          "stage9": "on_hold_release_blocked",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "reselect",
+      "taxonomy": "reselect",
+      "title": "Wrong-role reselect replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_happy.json",
+      "payload_overrides": {
+        "response_status": "WRONG_ROLE"
+      },
+      "failure_taxonomy_refs": [
+        "reselect_contact",
+        "approval_missing",
+        "writeback_projection_only"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage8",
+          "stage9"
+        ],
+        "operator_action": "reselect_contact"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "QUALIFIED",
+          "sale_gate_status": "OPEN"
+        },
+        "stage8": {
+          "contact_target_status": "INVALID",
+          "requires_manual_review": false,
+          "plan_status": "DRAFT",
+          "touch_record_state": "CREATED",
+          "execution_compliance_decision": "ALLOW_PREVIEW",
+          "next_step_optional": "RESELECT_CONTACT",
+          "feedback_reason": "WRONG_ROLE",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "PENDING_APPROVAL",
+          "order_status": "PENDING_APPROVAL",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "NOT_READY",
+          "trigger_type": "APPROVAL_MISSING",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "order_record",
+            "payment_record"
+          ],
+          "stage8_touch_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "project_fact"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "qualified",
+          "stage8": "reselect_contact",
+          "stage9": "pending_approval_not_live",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "quiet-hours",
+      "taxonomy": "quiet_hours",
+      "title": "Quiet-hours scheduled replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_happy.json",
+      "payload_overrides": {
+        "quiet_hours_policy_state": "BLOCK"
+      },
+      "failure_taxonomy_refs": [
+        "quiet_hours_schedule",
+        "approval_missing"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage8",
+          "stage9"
+        ],
+        "operator_action": "schedule_after_quiet_hours"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "QUALIFIED",
+          "sale_gate_status": "OPEN"
+        },
+        "stage8": {
+          "contact_target_status": "ELIGIBLE",
+          "requires_manual_review": false,
+          "plan_status": "SCHEDULED",
+          "touch_record_state": "CREATED",
+          "execution_compliance_decision": "SCHEDULED",
+          "next_step_optional": "RETRY_AFTER_CADENCE",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "PENDING_APPROVAL",
+          "order_status": "PENDING_APPROVAL",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "NOT_READY",
+          "trigger_type": "APPROVAL_MISSING",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "order_record",
+            "payment_record"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "qualified",
+          "stage8": "scheduled_quiet_hours",
+          "stage9": "pending_approval_not_live",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "approval",
+      "taxonomy": "approval",
+      "title": "Approval required replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_happy.json",
+      "payload_overrides": {
+        "run_mode": "APPROVAL_RUN",
+        "automation_level": "ASSISTED",
+        "approval_state": "PENDING"
+      },
+      "failure_taxonomy_refs": [
+        "approval_missing",
+        "manual_review_required"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage8",
+          "stage9"
+        ],
+        "operator_action": "hold_for_approval"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "QUALIFIED",
+          "sale_gate_status": "OPEN"
+        },
+        "stage8": {
+          "contact_target_status": "ELIGIBLE",
+          "requires_manual_review": false,
+          "plan_status": "REVIEW_REQUIRED",
+          "touch_record_state": "CREATED",
+          "execution_compliance_decision": "REVIEW_REQUIRED",
+          "next_step_optional": "RETRY_AFTER_CADENCE",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "ON_HOLD",
+          "order_status": "ON_HOLD",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "RELEASE_BLOCKED",
+          "trigger_type": "APPROVAL_MISSING",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "order_record",
+            "payment_record"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "qualified",
+          "stage8": "approval_review_required",
+          "stage9": "on_hold_release_blocked",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "source-conflict",
+      "taxonomy": "source_conflict",
+      "title": "Source conflict review replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_block.json",
+      "payload_overrides": {},
+      "input_expectations": {
+        "flags": [
+          "source_mismatch",
+          "version_conflict",
+          "field_conflict",
+          "missing_source"
+        ]
+      },
+      "failure_taxonomy_refs": [
+        "source_conflict",
+        "evidence_insufficient",
+        "manual_review_required"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage1",
+          "stage3",
+          "stage7",
+          "stage9"
+        ],
+        "operator_action": "hold_source_conflict"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "BLOCKED",
+          "sale_gate_status": "REVIEW"
+        },
+        "stage8": {
+          "contact_target_status": "BLOCKED",
+          "requires_manual_review": true,
+          "plan_status": "REVIEW_REQUIRED",
+          "touch_record_state": "CANCELLED",
+          "execution_compliance_decision": "REVIEW_REQUIRED",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "ON_HOLD",
+          "order_status": "ON_HOLD",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "RELEASE_BLOCKED",
+          "trigger_type": "EVIDENCE_INSUFFICIENT",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "contact_target",
+            "saleable_opportunity",
+            "project_fact",
+            "review_queue_profile"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "source_conflict_review",
+          "stage8": "review_required",
+          "stage9": "evidence_insufficient",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "writeback",
+      "taxonomy": "writeback",
+      "title": "Opportunity-changed writeback replay",
+      "replay_status": "replayable",
+      "replay_mode": "runtime_replay",
+      "fixture_ref": "fixtures/internal_chain_happy.json",
+      "payload_overrides": {
+        "response_status": "OPPORTUNITY_CHANGED"
+      },
+      "failure_taxonomy_refs": [
+        "writeback_projection_only",
+        "approval_missing"
+      ],
+      "operator_replay": {
+        "entrypoint": "run_internal_chain",
+        "readback_scope": [
+          "stage8",
+          "stage9"
+        ],
+        "operator_action": "readback_writeback_targets"
+      },
+      "expected": {
+        "stage7": {
+          "saleability_status": "QUALIFIED",
+          "sale_gate_status": "OPEN"
+        },
+        "stage8": {
+          "contact_target_status": "ELIGIBLE",
+          "requires_manual_review": false,
+          "plan_status": "SUPERSEDED",
+          "touch_record_state": "CREATED",
+          "execution_compliance_decision": "ALLOW_PREVIEW",
+          "next_step_optional": "REVIEW_STAGE6_7",
+          "feedback_reason": "OPPORTUNITY_CHANGED",
+          "projection_mode": "INTERNAL_GOVERNED_PREVIEW",
+          "requested_delivery_surface": "INTERNAL_OPERATIONS"
+        },
+        "stage9": {
+          "commercial_status": "PENDING_APPROVAL",
+          "order_status": "PENDING_APPROVAL",
+          "payment_status": "NOT_STARTED",
+          "delivery_status": "NOT_READY",
+          "trigger_type": "APPROVAL_MISSING",
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        },
+        "writeback": {
+          "effective_writeback_targets": [
+            "project_fact",
+            "saleable_opportunity",
+            "order_record",
+            "payment_record"
+          ],
+          "stage8_touch_writeback_targets": [
+            "project_fact",
+            "saleable_opportunity"
+          ]
+        }
+      },
+      "readback": {
+        "execution_state": "executed_offline",
+        "summary": {
+          "stage7": "qualified",
+          "stage8": "review_stage6_7",
+          "stage9": "projected_writeback_only",
+          "redlines": "all_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    },
+    {
+      "scenario_id": "refund-live-redline",
+      "taxonomy": "stage9_refund_live_redline",
+      "title": "Refund live execution redline placeholder",
+      "replay_status": "blocked_by_missing_fixture",
+      "replay_mode": "planned_trace_only",
+      "fixture_ref": "fixtures/internal_chain_happy.json",
+      "payload_overrides": {},
+      "blocked_reason": "No dedicated sanitized refund-live fixture exists in PTL-I100-107A.",
+      "failure_taxonomy_refs": [
+        "missing_fixture"
+      ],
+      "operator_replay": {
+        "entrypoint": "not_executed",
+        "readback_scope": [
+          "stage9"
+        ],
+        "operator_action": "do_not_execute"
+      },
+      "expected": {
+        "stage9": {
+          "governed_execution_mode": "INTERNAL_GOVERNED",
+          "live_execution_enabled": false
+        }
+      },
+      "readback": {
+        "execution_state": "not_executed",
+        "summary": {
+          "stage7": "not_applicable",
+          "stage8": "not_applicable",
+          "stage9": "planned_trace_only",
+          "redlines": "stage9_refund_live_blocked"
+        }
+      },
+      "audit_summary": {
+        "source_data_class": "sanitized_offline",
+        "external_live_execution": false,
+        "stage8_real_execution": "BLOCKED",
+        "stage9_live_payment_delivery_refund": "BLOCKED",
+        "external_release": "BLOCKED"
+      }
+    }
+  ]
+}
