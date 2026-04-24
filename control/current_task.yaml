@@ -9,7 +9,7 @@ navigation_state: "PTL_I100_111A_PROVIDER_CONFIG_AND_SANDBOX_SEAM_COMPLETED_TASK
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-111A provider config/sandbox seam 已完成并本地提交 c279fd5；本窗口只做 111A closeout、全量缺口登记与重排任务池同步，不激活 112 或 111B，不放开真实触达、真实支付、真实交付、真实退款或自动退款程序。"
+activation_condition: "PTL-I100-111A provider config/sandbox seam 已完成并本地提交 c279fd5；本窗口只做 111A closeout、全量缺口细化登记与重排任务池同步，不激活 112/111B/121，不放开真实触达、真实支付、真实交付、真实退款或自动退款程序。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -37,7 +37,7 @@ currentTask:
     - "control/product_module_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_operability_gap_matrix.yaml#PTL-I100-111-live-provider-adapters-no-auto-refund"
-  objective: "收口 111A 第一刀：记录 provider adapter 单一配置源、sandbox/dry-run seam、bootstrap/readback 与 governance guard 已完成；同步三层验收口径，按产品可用闭环重排并登记后续全量缺口任务池。"
+  objective: "收口 111A 第一刀：记录 provider adapter 单一配置源、sandbox/dry-run seam、bootstrap/readback 与 governance guard 已完成；同步三层验收口径，按产品可用闭环重排并细化登记后续全量缺口任务池。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -68,7 +68,7 @@ currentTask:
     existing_runtime_state: "INTERNAL_OWNER_OPERATED_LEDGER_AND_READBACK"
     title: "I100-11A provider config and sandbox seam 第一刀"
     status: "ACTIVE"
-    objective: "收口 111A 已完成状态，并把能力开放版缺口、三层验收模型、112-120 与 111B/111C/111D 后续任务编排同步到任务池和产品可用性矩阵；不做 runtime 实现，不激活下一包。"
+    objective: "收口 111A 已完成状态，并把能力开放版缺口、三层验收模型、112-121 与 111B/111C/111D/111E 后续任务编排同步到任务池和产品可用性矩阵；不做 runtime 实现，不激活下一包。"
     depends_on:
       - "PTL-I100-1100 product operability full audit 已完成并本地提交 33e6fb9。"
       - "PTL-I100-110A durable backend foundation 已完成并本地提交 56fed27。"
@@ -324,7 +324,7 @@ currentTask:
     definition_of_done:
       - "111A 完成状态在 current_task、repo_status、product_task_library、product_operability_gap_matrix 中一致。"
       - "三层验收模型被记录为 engineering regression、capability state、product closure。"
-      - "112-120 与 111B/111C/111D 缺口任务已登记为候选，且没有自动激活。"
+      - "112-121 与 111B/111C/111D/111E 缺口任务和 114A-114I、111C1-111C4 子包已登记为候选，且没有自动激活。"
       - "自动退款程序仍明确不做；真实触达、真实支付、真实交付、external release 仍未放开。"
       - "targeted tests 与 required scripts 全部通过。"
     deliverables:
@@ -366,6 +366,6 @@ currentTask:
     - "不得 push。"
   nextActions:
     - "111A 已完成并提交 c279fd5；重评估后下一推荐候选是 112 production platform infrastructure，但不自动激活。"
-    - "111B/111C/111D 与 113-120 仅作为任务池候选，必须由 dedicated current_task packet 激活。"
+    - "111B/111C/111D/111E、113-121、114A-114I、111C1-111C4 仅作为任务池候选，必须由 dedicated current_task packet 激活。"
     - "后续验收必须分工程回归、能力状态、产品闭环三层，不得用测试全绿替代产品可用。"
-  status_note: "PTL-I100-111A 已完成；当前仅做 closeout、全量缺口登记与任务池重排同步。真实触达、真实支付、真实交付、真实退款、自动退款程序、external release 仍未放开。"
+  status_note: "PTL-I100-111A 已完成；当前仅做 closeout、全量缺口细化登记与任务池重排同步。真实触达、真实支付、真实交付、真实退款、自动退款程序、external release 仍未放开。"

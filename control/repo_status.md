@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-111A-provider-config-and-sandbox-seam (COMPLETED via commit c279fd5; current control work only closes out 111A, records the full production/product gap task map, and reorders implementation candidates by product-usable evidence-pack closure. It does not activate 112 or 111B, approve push, docs/contracts semantic changes, external release, real production samples, real provider calls, real touch, real payment gateway, real charge, real delivery, real refund, automated refund program, or unapproved external/live execution)
+Current Workstream: PTL-I100-111A-provider-config-and-sandbox-seam (COMPLETED via commit c279fd5; current control work only closes out 111A, records the full production/product gap task map with fine-grained subpackets, and reorders implementation candidates by product-usable evidence-pack closure. It does not activate 112, 111B, or 121 live pilots, approve push, docs/contracts semantic changes, external release, real production samples, real provider calls, real touch, real payment gateway, real charge, real delivery, real refund, automated refund program, or unapproved external/live execution)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -22,9 +22,9 @@ Current Blockers:
 Allowed Actions (current):
 - close out PTL-I100-111A provider adapter config/sandbox/readback seam after commit c279fd5
 - sync control/product_operability_gap_matrix.yaml with the three-layer acceptance model: engineering regression, capability state, and evidence-pack business closure
-- record the full open production/product gap task map for 112-120 plus 111B/111C/111D in control/product_task_library.yaml and control/product_operability_gap_matrix.yaml
+- record the full open production/product gap task map for 112-121 plus 111B/111C/111D/111E, including 114A-114I and 111C1-111C4 subpackets, in control/product_task_library.yaml and control/product_operability_gap_matrix.yaml
 - keep 112 as the next recommended candidate after reassessment, but do not auto-activate it
-- keep 111B/111C/111D and 113-120 as task-pool candidates only; none are auto-activated
+- keep 111B/111C/111D/111E, 113-121, 114A-114I, and 111C1-111C4 as task-pool candidates only; none are auto-activated
 - keep real LeadPack delivery, client-visible formal export/page release, external/live transport, provider live calls, and external release controlled and blocked
 - keep automated refund execution out of scope and record refund handling as manual exception/governed review only
 - keep current_mainline_next_candidate as null / non-auto-activated unless a dedicated activation packet changes it
@@ -96,7 +96,7 @@ State Semantics:
 - PTL-I100-110 implementation order is product-operability driven and completed: 110A backend foundation completed, 110B sales outreach governed execution outbox completed, 110C CRM/quote workbench completed, 110D LeadPack/evidence-pack export and delivery completed, 110E order/payment/delivery with refund manual-exception only completed.
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5. It did not call real providers or execute live touch/payment/delivery/refund.
 - PTL-I100-112 is the next recommended candidate after reassessment because production durability and audit/worker foundations should precede real data and provider execution.
-- PTL-I100-111B/111C/111D and PTL-I100-113 through PTL-I100-120 are registered as task-pool candidates for the open production/product gaps; none is active until control/current_task.yaml explicitly activates it.
+- PTL-I100-111B/111C/111D/111E and PTL-I100-113 through PTL-I100-121 are registered as task-pool candidates for the open production/product gaps; 114A-114I source-family subpackets and 111C1-111C4 package-type subpackets are explicit. None is active until control/current_task.yaml explicitly activates it.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.

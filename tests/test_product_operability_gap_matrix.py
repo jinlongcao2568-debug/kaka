@@ -157,9 +157,15 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-114-stage2-real-public-source-adapters",
             "PTL-I100-115-stage3-real-parser-ocr-attachments",
             "PTL-I100-116-stage4-public-verification-adapters",
+            "PTL-I100-116A-project-manager-active-conflict-vertical-slice",
             "PTL-I100-117-rule-factory-expansion-and-golden-cases",
+            "PTL-I100-119A-real-challenger-identification-hardening",
             "PTL-I100-119-stage6-product-package-hardening",
+            "PTL-I100-111E-provider-reliability-and-circuit-breaker",
             "PTL-I100-120-operator-customer-access-and-go-live-readiness",
+            "PTL-I100-121A-sales-outreach-live-pilot",
+            "PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund",
+            "PTL-I100-121C-production-slo-monitoring-incident-readiness",
             "PTL-I100-118-full-product-operational-acceptance",
         }
 
@@ -190,12 +196,68 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-114-stage2-real-public-source-adapters",
             "PTL-I100-115-stage3-real-parser-ocr-attachments",
             "PTL-I100-116-stage4-public-verification-adapters",
+            "PTL-I100-116A-project-manager-active-conflict-vertical-slice",
             "PTL-I100-117-rule-factory-expansion-and-golden-cases",
+            "PTL-I100-119A-real-challenger-identification-hardening",
             "PTL-I100-119-stage6-product-package-hardening",
+            "PTL-I100-111E-provider-reliability-and-circuit-breaker",
             "PTL-I100-120-operator-customer-access-and-go-live-readiness",
+            "PTL-I100-121A-sales-outreach-live-pilot",
+            "PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund",
+            "PTL-I100-121C-production-slo-monitoring-incident-readiness",
             "PTL-I100-118-full-product-operational-acceptance",
         ):
             self.assertTrue(tasks_by_id[task_id]["capability_gaps_covered"], task_id)
+
+    def test_source_families_and_package_types_are_explicit_subpackets(self) -> None:
+        tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}
+
+        source_subpackets = {
+            row["subpacket_id"]: row
+            for row in tasks_by_id["PTL-I100-114-stage2-real-public-source-adapters"][
+                "planned_source_family_subpackets"
+            ]
+        }
+        self.assertEqual(
+            set(source_subpackets),
+            {
+                "PTL-I100-114A-local-public-resource-trading-centers",
+                "PTL-I100-114B-provincial-bidding-platforms",
+                "PTL-I100-114C-national-construction-market-platform",
+                "PTL-I100-114D-credit-china-public-records",
+                "PTL-I100-114E-national-enterprise-credit-publicity-system",
+                "PTL-I100-114F-government-procurement-public-sites",
+                "PTL-I100-114G-tender-agency-public-sites",
+                "PTL-I100-114H-tenderer-public-notice-pages",
+                "PTL-I100-114I-industry-authority-filing-pages",
+            },
+        )
+        for row in source_subpackets.values():
+            self.assertTrue(row["covered_capabilities"], row["subpacket_id"])
+
+        package_subpackets = {
+            row["subpacket_id"]: row
+            for row in tasks_by_id["PTL-I100-111C-crm-quote-and-delivery-page-adapters"][
+                "planned_package_type_subpackets"
+            ]
+        }
+        self.assertEqual(
+            set(package_subpackets),
+            {
+                "PTL-I100-111C1-internal-leadpack",
+                "PTL-I100-111C2-customer-visible-leadpack",
+                "PTL-I100-111C3-formal-objection-pack",
+                "PTL-I100-111C4-sales-talk-track-pack",
+            },
+        )
+        for row in package_subpackets.values():
+            self.assertTrue(row["covered_capabilities"], row["subpacket_id"])
+
+    def test_task_library_count_and_task_ids_stay_unique(self) -> None:
+        task_ids = [row["task_id"] for row in self.task_library["tasks"]]
+
+        self.assertEqual(self.task_library["task_count"], len(task_ids))
+        self.assertEqual(len(task_ids), len(set(task_ids)))
 
     def test_reassessed_execution_order_prioritizes_real_data_chain_before_provider_execution(self) -> None:
         sequence = [
@@ -205,12 +267,36 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
 
         self.assertEqual(sequence[0], "PTL-I100-112-production-platform-infrastructure")
         self.assertLess(
+            sequence.index("PTL-I100-116-stage4-public-verification-adapters"),
+            sequence.index("PTL-I100-116A-project-manager-active-conflict-vertical-slice"),
+        )
+        self.assertLess(
+            sequence.index("PTL-I100-116A-project-manager-active-conflict-vertical-slice"),
+            sequence.index("PTL-I100-117-rule-factory-expansion-and-golden-cases"),
+        )
+        self.assertLess(
+            sequence.index("PTL-I100-119A-real-challenger-identification-hardening"),
             sequence.index("PTL-I100-119-stage6-product-package-hardening"),
+        )
+        self.assertLess(
+            sequence.index("PTL-I100-119-stage6-product-package-hardening"),
+            sequence.index("PTL-I100-111E-provider-reliability-and-circuit-breaker"),
+        )
+        self.assertLess(
+            sequence.index("PTL-I100-111E-provider-reliability-and-circuit-breaker"),
             sequence.index("PTL-I100-111B-sales-outreach-adapter-execution"),
         )
         self.assertLess(
             sequence.index("PTL-I100-111C-crm-quote-and-delivery-page-adapters"),
             sequence.index("PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund"),
+        )
+        self.assertLess(
+            sequence.index("PTL-I100-120-operator-customer-access-and-go-live-readiness"),
+            sequence.index("PTL-I100-121A-sales-outreach-live-pilot"),
+        )
+        self.assertLess(
+            sequence.index("PTL-I100-121C-production-slo-monitoring-incident-readiness"),
+            sequence.index("PTL-I100-118-full-product-operational-acceptance"),
         )
         self.assertEqual(sequence[-1], "PTL-I100-118-full-product-operational-acceptance")
 

@@ -160,6 +160,30 @@ production_gap_task_map:
       - attachment_download
       - snapshot_hash_lineage
       - rate_limit_retry_timeout_health_audit
+  - gap_group: stage2_public_source_family_breakdown
+    packet_ref: PTL-I100-114-stage2-real-public-source-adapters
+    status: PLANNED
+    target_capability_state: SANDBOX_READY
+    subpacket_refs:
+      - PTL-I100-114A-local-public-resource-trading-centers
+      - PTL-I100-114B-provincial-bidding-platforms
+      - PTL-I100-114C-national-construction-market-platform
+      - PTL-I100-114D-credit-china-public-records
+      - PTL-I100-114E-national-enterprise-credit-publicity-system
+      - PTL-I100-114F-government-procurement-public-sites
+      - PTL-I100-114G-tender-agency-public-sites
+      - PTL-I100-114H-tenderer-public-notice-pages
+      - PTL-I100-114I-industry-authority-filing-pages
+    covered_capabilities:
+      - local_public_resource_trading_center
+      - provincial_bidding_platform
+      - national_construction_market_platform
+      - credit_china
+      - national_enterprise_credit_publicity_system
+      - government_procurement_public_site
+      - tender_agency_public_site
+      - tenderer_public_notice_page
+      - industry_authority_filing_page
   - gap_group: stage3_real_parser_ocr_attachments
     packet_ref: PTL-I100-115-stage3-real-parser-ocr-attachments
     status: PLANNED
@@ -180,6 +204,18 @@ production_gap_task_map:
       - enterprise_personnel_qualification
       - credit_blacklist_permit_contract_completion
       - bid_opening_invalid_bid_tender_terms
+  - gap_group: project_manager_active_conflict_vertical_slice
+    packet_ref: PTL-I100-116A-project-manager-active-conflict-vertical-slice
+    status: PLANNED
+    target_capability_state: SANDBOX_READY
+    covered_capabilities:
+      - project_manager_extraction
+      - same_name_disambiguation
+      - registered_unit_verification
+      - public_project_record_resolution
+      - overlapping_time_window_judgement
+      - conflict_evidence_chain
+      - objection_value_summary
   - gap_group: stage5_rule_factory_expansion
     packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
     status: PLANNED
@@ -190,6 +226,21 @@ production_gap_task_map:
       - rule_conflict_degrade_audit
       - golden_cases_and_coverage
       - document_terms_mapping
+  - gap_group: real_challenger_identification
+    packet_ref: PTL-I100-119A-real-challenger-identification-hardening
+    status: PLANNED
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - second_rank_candidate
+      - third_rank_candidate
+      - rejected_bidder
+      - historical_competitor
+      - regional_active_company
+      - challenge_subject_eligibility
+      - purchase_capacity
+      - challenge_motivation
+      - contactability_status
+      - sales_priority
   - gap_group: stage6_product_package_hardening
     packet_ref: PTL-I100-119-stage6-product-package-hardening
     status: PLANNED
@@ -201,6 +252,31 @@ production_gap_task_map:
       - product_package_readiness
       - sales_readiness
       - downgrade_and_block_reasons
+  - gap_group: leadpack_package_type_breakdown
+    packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    status: PLANNED
+    target_capability_state: SANDBOX_READY
+    subpacket_refs:
+      - PTL-I100-111C1-internal-leadpack
+      - PTL-I100-111C2-customer-visible-leadpack
+      - PTL-I100-111C3-formal-objection-pack
+      - PTL-I100-111C4-sales-talk-track-pack
+    covered_capabilities:
+      - internal_leadpack
+      - customer_visible_leadpack
+      - formal_objection_pack
+      - sales_talk_track_pack
+  - gap_group: provider_reliability_and_circuit_breaker
+    packet_ref: PTL-I100-111E-provider-reliability-and-circuit-breaker
+    status: PLANNED
+    target_capability_state: APPROVAL_READY
+    covered_capabilities:
+      - provider_health_check
+      - provider_failure_handling
+      - rate_limit_timeout_retry
+      - circuit_breaker
+      - suspended_fallback
+      - provider_status_readback
   - gap_group: operator_customer_access_and_go_live_readiness
     packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
     status: PLANNED
@@ -213,6 +289,41 @@ production_gap_task_map:
       - deployment_readiness_check
       - monitoring_alerting_readback
       - rollback_runbook
+  - gap_group: sales_outreach_live_pilot
+    packet_ref: PTL-I100-121A-sales-outreach-live-pilot
+    status: PLANNED
+    target_capability_state: LIVE_READY
+    covered_capabilities:
+      - approved_live_email_sms_phone_wecom
+      - approved_template
+      - contact_source_trace
+      - opt_out_and_frequency_control
+      - complaint_failure_suspension
+  - gap_group: payment_delivery_live_pilot_no_auto_refund
+    packet_ref: PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
+    status: PLANNED
+    target_capability_state: LIVE_READY
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    covered_capabilities:
+      - approved_live_payment_collection
+      - payment_callback
+      - receipt_invoice
+      - delivery_unlock
+      - customer_download_audit
+      - settlement_reconciliation
+      - manual_refund_exception
+  - gap_group: production_slo_monitoring_incident_readiness
+    packet_ref: PTL-I100-121C-production-slo-monitoring-incident-readiness
+    status: PLANNED
+    target_capability_state: PRODUCTION_READY
+    covered_capabilities:
+      - production_slo
+      - monitoring_dashboards
+      - alerting_rules
+      - incident_runbook
+      - backup_restore_drill
+      - rollback_drill
+      - suspended_state_operational_runbook
   - gap_group: full_product_operational_acceptance
     packet_ref: PTL-I100-118-full-product-operational-acceptance
     status: PLANNED
@@ -239,10 +350,16 @@ recommended_execution_order_after_reassessment:
       reason: "Real parsing/OCR/attachment extraction is required before verification and rules can be reliable."
     - packet_ref: PTL-I100-116-stage4-public-verification-adapters
       reason: "Public verification adapters establish evidence credibility and legal/commercial safety."
+    - packet_ref: PTL-I100-116A-project-manager-active-conflict-vertical-slice
+      reason: "Project-manager active conflict is a core sellable evidence vertical slice and must be verified before rule/product packaging hardening."
     - packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
       reason: "Expanded rules convert verified data into scalable evidence-package logic."
+    - packet_ref: PTL-I100-119A-real-challenger-identification-hardening
+      reason: "Real challenger identification is the commercial buyer logic that determines who should be sold the evidence pack."
     - packet_ref: PTL-I100-119-stage6-product-package-hardening
       reason: "Stage6 must decide objection viability, evidence strength, delivery eligibility, and sales readiness before external sales actions."
+    - packet_ref: PTL-I100-111E-provider-reliability-and-circuit-breaker
+      reason: "Provider health, rate limit, timeout, retry, circuit breaker, and suspended fallback should be in place before provider execution expands."
     - packet_ref: PTL-I100-111B-sales-outreach-adapter-execution
       reason: "Only after productable evidence exists should sales outreach providers move from readback to sandbox execution."
     - packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
@@ -251,6 +368,12 @@ recommended_execution_order_after_reassessment:
       reason: "Payment and delivery fulfillment should follow quote/customer artifact readiness; automated refund remains excluded."
     - packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
       reason: "Operator/customer access, permissions, go-live checks, monitoring, and rollback are needed before approval/live readiness."
+    - packet_ref: PTL-I100-121A-sales-outreach-live-pilot
+      reason: "Approved small-sample sales outreach live pilot verifies real provider execution without broad live rollout."
+    - packet_ref: PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
+      reason: "Approved payment/delivery live pilot verifies collection and fulfillment while automated refund remains excluded."
+    - packet_ref: PTL-I100-121C-production-slo-monitoring-incident-readiness
+      reason: "Production SLO, alerting, incident, backup, and rollback readiness are required before production-ready acceptance."
     - packet_ref: PTL-I100-118-full-product-operational-acceptance
       reason: "Final acceptance verifies engineering regression, capability states, and evidence-pack business closure."
 next_implementation_sequence:
@@ -341,18 +464,33 @@ next_implementation_sequence:
     implementation_status: PLANNED
     objective: "Implement public verification adapters for enterprise, personnel, permit, contract, completion, credit, blacklist, and project-manager conflict checks, using public sources only."
     target_capability_state: SANDBOX_READY
-  - packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
+  - packet_ref: PTL-I100-116A-project-manager-active-conflict-vertical-slice
     priority: 12
+    implementation_status: PLANNED
+    objective: "Run the project-manager active conflict vertical slice across extraction, public verification, time overlap judgement, evidence chain, and objection value."
+    target_capability_state: SANDBOX_READY
+  - packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
+    priority: 13
     implementation_status: PLANNED
     objective: "Expand Stage5 rule catalog execution, rule versioning, evidence binding, conflict handling, audit, coverage reporting, and golden cases."
     target_capability_state: INTERNAL_READY
+  - packet_ref: PTL-I100-119A-real-challenger-identification-hardening
+    priority: 14
+    implementation_status: PLANNED
+    objective: "Harden real challenger identification, buyer fit, purchase capacity, challenge motivation, contactability, and sales priority."
+    target_capability_state: INTERNAL_READY
   - packet_ref: PTL-I100-119-stage6-product-package-hardening
-    priority: 13
+    priority: 15
     implementation_status: PLANNED
     objective: "Harden Stage6 product package readiness: objection viability, evidence strength, customer delivery eligibility, sales readiness, and downgrade/block reasons."
     target_capability_state: INTERNAL_READY
+  - packet_ref: PTL-I100-111E-provider-reliability-and-circuit-breaker
+    priority: 16
+    implementation_status: PLANNED
+    objective: "Harden provider health, failure handling, rate limit, timeout, retry, circuit breaker, and suspended fallback before provider execution expands."
+    target_capability_state: APPROVAL_READY
   - packet_ref: PTL-I100-111B-sales-outreach-adapter-execution
-    priority: 14
+    priority: 17
     implementation_status: PLANNED
     objective: "Move Stage8 from internal outbox/readback to approved sandbox provider execution records for sales outreach, with templates, audit, frequency/quiet-hours controls, retry/stop, and opt-out/readback."
     target_capability_state: SANDBOX_READY
@@ -361,7 +499,7 @@ next_implementation_sequence:
       - "no private or gray contact source"
       - "no refund program"
   - packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
-    priority: 15
+    priority: 18
     implementation_status: PLANNED
     objective: "Move Stage7 CRM/quote and LeadPack/page delivery from workbench/readiness to sandbox adapter execution records and customer-visible artifact candidate controls."
     target_capability_state: SANDBOX_READY
@@ -370,18 +508,34 @@ next_implementation_sequence:
       - "no unapproved customer-visible publication"
       - "no external delivery without audit"
   - packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
-    priority: 16
+    priority: 19
     implementation_status: PLANNED
     objective: "Move Stage9 payment collection and delivery fulfillment from internal ledger to sandbox provider execution records and fulfillment readback, while keeping refund manual-exception only."
     target_capability_state: SANDBOX_READY
     refund_boundary: "no automated refund execution"
   - packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
-    priority: 17
+    priority: 20
     implementation_status: PLANNED
     objective: "Implement operator/customer access, permission surfaces, go-live checks, monitoring/readback, and rollback readiness for governed product operation."
     target_capability_state: APPROVAL_READY
+  - packet_ref: PTL-I100-121A-sales-outreach-live-pilot
+    priority: 21
+    implementation_status: PLANNED
+    objective: "Run approved small-sample sales outreach live pilot with template approval, contact source trace, opt-out, frequency control, audit, and suspension."
+    target_capability_state: LIVE_READY
+  - packet_ref: PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
+    priority: 22
+    implementation_status: PLANNED
+    objective: "Run approved payment and delivery live pilot with payment callback, receipt/invoice, delivery unlock, download audit, settlement reconciliation, and manual refund exception only."
+    target_capability_state: LIVE_READY
+    refund_boundary: "no automated refund execution"
+  - packet_ref: PTL-I100-121C-production-slo-monitoring-incident-readiness
+    priority: 23
+    implementation_status: PLANNED
+    objective: "Harden production SLO, monitoring, alerting, incident runbook, backup/restore, rollback drill, and suspended-state operations."
+    target_capability_state: PRODUCTION_READY
   - packet_ref: PTL-I100-118-full-product-operational-acceptance
-    priority: 18
+    priority: 24
     implementation_status: PLANNED
     objective: "Run full product acceptance against the three-layer validation model: engineering regression, capability state transition, and evidence-pack business closure."
     target_capability_state: APPROVAL_READY
