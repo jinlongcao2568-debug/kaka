@@ -677,13 +677,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [api_transport, stage1_to_stage7, internal_preview]
     task_type: internal_operable_productization
-    status: PLANNED
-    planning_state: PLANNED
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P2
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_GOVERNED_RUNTIME
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    completed_commit: a9ced6b
     activation_policy: "requires dedicated control/current_task.yaml packet before execution"
     hard_depends_on: [PTL-I100-107-real-sample-operational-acceptance]
     soft_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
@@ -695,7 +696,7 @@ tasks:
       - PTL-I100-108A-stage1-6-internal-entry-orchestration
       - PTL-I100-108B-stage7-crm-quote-prereq-readiness
     risk_level: HIGH
-    runtime_notes: "来自 control/product_doc_runtime_coverage_ledger.yaml：STAGE1_6_FULL_API_TRANSPORT_AND_ORCHESTRATION 与 STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE 仍存在缺口；本任务只做 internal governed 前置闭环和 readback，不批准 external/live 或真实 CRM。"
+    runtime_notes: "PTL-I100-108 已完成并在本地提交：3baed1b、a9ced6b；本轮完成 Stage1-6 sanitized/offline internal orchestration entry/readback 与 Stage7 CRM/external quote prerequisite readiness/readback。真实 CRM、外部报价、LeadPack external delivery、external/live、Stage8 real execution、Stage9 payment/delivery/refund 仍 blocked/gated；PTL-I100-109A 已通过 dedicated current_task packet 激活。"
   - task_id: PTL-I100-109-leadpack-export-and-page-layer-readiness
     title: "I100-9 LeadPack 导出与页面层 readiness"
     program_ref: PTL-I100-internal-operable-productization

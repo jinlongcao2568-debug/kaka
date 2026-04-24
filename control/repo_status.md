@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-108-stage1-7-internal-entry-and-crm-prereq (SCOPED_EXECUTION; active 108-B Stage7 CRM/external quote prerequisite readiness/readback slice; PTL-I100-108A completed via 3baed1b; this does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real CRM integration, external quote generation, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-109-leadpack-export-and-page-layer-readiness (SCOPED_EXECUTION; active 109-A LeadPack external delivery candidate approval/audit readiness/readback slice; PTL-I100-108 completed via 3baed1b and a9ced6b; this does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack delivery, client-visible formal export/page release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,10 +20,10 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- execute PTL-I100-108B Stage7 CRM/external quote prerequisite readiness/readback inside current task_packet declared_changed_paths / allowed_modification_paths
-- modify only listed Stage7 runtime/API/schema/tests/control files needed to close STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE prerequisite readiness/readback gap
-- keep real CRM integration, external quote generation, external/live transport, and external delivery controlled and blocked
-- update control/product_doc_runtime_coverage_ledger.yaml only for STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE when prerequisite readiness/test closure is truly complete; do not mark this external/live capability as INTERNAL_IMPLEMENTED
+- execute PTL-I100-109A LeadPack external delivery candidate approval/audit readiness/readback inside current task_packet declared_changed_paths / allowed_modification_paths
+- modify only listed LeadPack candidate projection/API/schema/tests/control files needed to strengthen LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE approval/audit readiness/readback
+- keep real LeadPack delivery, client-visible formal export/page release, external/live transport, and external release controlled and blocked
+- update control/product_doc_runtime_coverage_ledger.yaml only for LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE when dedicated readiness/test coverage is truly complete; do not mark this external/live capability as INTERNAL_IMPLEMENTED
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -40,9 +40,8 @@ Forbidden Actions (current):
 - Any scripts/** change
 - Any src/** change outside the current task_packet allowed_modification_paths
 - Any tests/** change outside the current task_packet allowed_modification_paths
-- Any change to control/product_task_library.yaml
+- Any change to control/product_task_library.yaml outside the active closeout/activation scope
 - Any fixtures/** change
-- Any change to control/product_task_library.yaml
 - Any change to control/product_module_registry.yaml
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/review_gate_matrix.yaml
@@ -54,8 +53,8 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
-- Any runtime implementation outside PTL-I100-108B Stage7 CRM/external quote prerequisite readiness/readback
-- Any real CRM integration or external quote live implementation
+- Any runtime implementation outside PTL-I100-109A LeadPack approval/audit readiness/readback
+- Any real LeadPack external delivery or client-visible formal export/page release
 - Any use of real production samples or external live data
 - Any external/live execution
 - Any real touch, payment, delivery, or refund
@@ -80,7 +79,8 @@ State Semantics:
 - PTL-I100-107D Stage6 private supplement runtime/readback gap is completed via commit e6d5124.
 - PTL-I100-107-real-sample-operational-acceptance is completed and closed out via commit 08f2a30.
 - PTL-I100-108A Stage1-6 internal entry/orchestration is completed via commit 3baed1b.
-- PTL-I100-108B is now the active scoped execution packet; it only handles Stage7 CRM/external quote prerequisite readiness/readback and does not approve real CRM integration, external quote generation, LeadPack external delivery, real backend infrastructure, or external unlock.
+- PTL-I100-108B Stage7 CRM/external quote prerequisite readiness/readback is completed via commit a9ced6b.
+- PTL-I100-109A is now the active scoped execution packet; it only handles LeadPack external delivery candidate approval/audit readiness/readback and does not approve real LeadPack delivery, client-visible formal export/page release, real backend infrastructure, or external unlock.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -94,11 +94,11 @@ Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
 - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & "scripts/check-task-packet.ps1" -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- python -m unittest tests.test_internal_chain.TestInternalChain.test_happy_path_stage4_to_stage7_formal_outputs -v
-- python -m unittest tests.test_stage7_runtime_closure -v
 - python -m unittest tests.test_api_transport_bootstrap -v
+- python -m unittest tests.test_internal_surface_preview -v
 - python -m unittest tests.test_product_doc_runtime_coverage -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+- python -m unittest tests.test_external_unlock_prerequisites -v
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check

@@ -5,11 +5,11 @@ updated_at: "2026-04-24"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_108B_ACTIVE_SCOPED_EXECUTION"
+navigation_state: "PTL_I100_109A_ACTIVE_SCOPED_EXECUTION"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-108A 已完成并本地提交 3baed1b；进入 PTL-I100-108B，只补 Stage7 CRM/external quote prerequisite readiness/readback，仍不启用真实 CRM、external quote 或 live。"
+activation_condition: "PTL-I100-108A/108B 已完成并本地提交 3baed1b、a9ced6b；进入 PTL-I100-109A，只补 LeadPack external delivery candidate approval/audit readiness/readback，仍不执行真实外发或 release。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-108-stage1-7-internal-entry-and-crm-prereq"
-  title: "I100-8 Stage1-7 内部入口与 CRM 前置闭环"
+  task_id: "PTL-I100-109-leadpack-export-and-page-layer-readiness"
+  title: "I100-9 LeadPack 导出与页面层 readiness"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -55,7 +55,7 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "推进 PTL-I100-108 第二刀：只补 Stage7 CRM/external quote prerequisite readiness/readback，让 Stage7 能解释 CRM/quote 前置条件、阻断原因、审批/audit 需求与非 live 状态；不接真实 CRM，不生成外部报价，不放开 external/live。"
+  objective: "推进 PTL-I100-109 第一刀：只补 LeadPack external delivery candidate 的 approval/audit readiness/readback，使候选外发包的缺审批、缺审计、禁止真实外发原因可解释、可回放、可测试；不执行真实外发、不发布客户页面、不放开 release。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -75,18 +75,18 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-108-stage1-7-internal-entry-and-crm-prereq"
-    subpacket_id: "PTL-I100-108B-stage7-crm-quote-prereq-readiness"
-    backlog_packet_ref: "PTL-I100-108-stage1-7-internal-entry-and-crm-prereq"
+    packet_id: "PTL-I100-109-leadpack-export-and-page-layer-readiness"
+    subpacket_id: "PTL-I100-109A-leadpack-approval-audit-readiness"
+    backlog_packet_ref: "PTL-I100-109-leadpack-export-and-page-layer-readiness"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
     runtime_change_in_packet: "IN_SCOPE"
     existing_code_state: "HEAVY_RUNTIME"
     existing_runtime_state: "INTERNAL_GOVERNED_RUNTIME"
-    title: "I100-8B Stage7 CRM/external quote prerequisite readiness 第一刀"
+    title: "I100-9A LeadPack approval/audit readiness 第一刀"
     status: "ACTIVE"
-    objective: "新增或收紧 Stage7 CRM/external quote prerequisite readiness/readback：基于既有 Stage7 saleable_opportunity / offer_recommendation / sales_lead / policy trace 形成内部可解释的 CRM/quote readiness carrier、blocked/live-disabled reasons 与 operator/audit summary；不得接真实 CRM、不得生成外部报价、不得启用 external/live。"
+    objective: "新增或收紧 LeadPack external delivery candidate approval/audit readiness/readback：基于既有 Stage7/8/9 preview surfaces 与 LeadPack candidate projection，形成内部候选包的 approval/audit readiness summary、missing approvals、missing audit refs、blocked/live-disabled reasons 与 operator readback；不得执行真实外发、不得生成客户可见正式导出、不得启用 external/live。"
     depends_on:
       - "PTL-I100-105 已完成并本地提交：d37ae82、fdd471e。"
       - "PTL-I100-106 已完成并 closeout，本地提交链：1eda05f、067529f、fa36cb5、86217a2、3b659ad、43e6442、c20686c。"
@@ -96,13 +96,14 @@ currentTask:
       - "PTL-I100-107D Stage6 private supplement runtime/readback gap 已完成并本地提交：e6d5124。"
       - "PTL-I100-107 closeout 与 108/109/110 任务登记已完成并本地提交：08f2a30。"
       - "PTL-I100-108A Stage1-6 internal entry/orchestration 已完成并本地提交：3baed1b。"
+      - "PTL-I100-108B Stage7 CRM/external quote prerequisite readiness 已完成并本地提交：a9ced6b。"
       - "control/current_task.yaml 是唯一 active execution source。"
       - "source_blueprint_batch_id=PTL-I100-ROADMAP-01 已登记在 control/source_blueprint_registry.yaml。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-108A-stage1-6-internal-entry-orchestration"
-      target_active_packet: "PTL-I100-108B-stage7-crm-quote-prereq-readiness"
-      product_task_library_change: false
+      previous_active_packet: "PTL-I100-108B-stage7-crm-quote-prereq-readiness"
+      target_active_packet: "PTL-I100-109A-leadpack-approval-audit-readiness"
+      product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
@@ -144,10 +145,12 @@ currentTask:
       - "不使用真实生产数据"
       - "不接外部系统或 live 网络"
       - "不修改 Stage1-9 runtime 业务语义"
-      - "不执行 109 LeadPack/export/page layer"
       - "不执行 110 真实后端或 external/live 前置裁决"
       - "不接真实 CRM"
       - "不生成或发送外部报价"
+      - "不执行真实 LeadPack 外发"
+      - "不生成客户可见正式导出"
+      - "不发布客户页面"
       - "不修改 docs 正文"
       - "不修改 contracts 语义"
       - "不新增业务对象、枚举、gate、exception 语义"
@@ -165,7 +168,8 @@ currentTask:
       - "api_transport"
       - "internal_preview"
       - "governance_testing"
-      - "stage7_sales"
+      - "leadpack_candidate_surface"
+      - "page_export"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
@@ -184,42 +188,39 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/product_task_library.yaml"
       - "control/product_doc_runtime_coverage_ledger.yaml"
       - "src/api/main.py"
-      - "src/api/deps.py"
       - "src/api/routes/stage7.py"
       - "src/api/schemas/stage7.py"
-      - "src/stage7_sales/service.py"
-      - "src/stage7_sales/recommendation.py"
-      - "src/stage7_sales/runtime.py"
+      - "src/api/projections.py"
       - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_internal_surface_preview.py"
       - "tests/test_internal_chain.py"
       - "tests/test_product_doc_runtime_coverage.py"
       - "tests/test_runtime_governance_guards.py"
-      - "tests/test_stage7_runtime_closure.py"
+      - "tests/test_external_unlock_prerequisites.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/product_task_library.yaml"
       - "control/product_doc_runtime_coverage_ledger.yaml"
       - "src/api/main.py"
-      - "src/api/deps.py"
       - "src/api/routes/stage7.py"
       - "src/api/schemas/stage7.py"
-      - "src/stage7_sales/service.py"
-      - "src/stage7_sales/recommendation.py"
-      - "src/stage7_sales/runtime.py"
+      - "src/api/projections.py"
       - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_internal_surface_preview.py"
       - "tests/test_internal_chain.py"
       - "tests/test_product_doc_runtime_coverage.py"
       - "tests/test_runtime_governance_guards.py"
-      - "tests/test_stage7_runtime_closure.py"
+      - "tests/test_external_unlock_prerequisites.py"
     current_window_actual_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
     forbidden_modification_paths:
       - "docs/**"
       - "contracts/**"
-      - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/review_gate_matrix.yaml"
@@ -235,11 +236,13 @@ currentTask:
       - "src/stage4_verification/**"
       - "src/stage5_rules_evidence/**"
       - "src/stage6_fact_review/**"
+      - "src/stage7_sales/**"
       - "src/stage8_outreach/**"
       - "src/stage9_delivery/**"
       - "src/shared/**"
       - "src/storage/**"
       - "tests/test_stage56_evaluators.py"
+      - "tests/test_stage7_runtime_closure.py"
       - "tests/test_stage8_resolution_closure.py"
       - "tests/test_stage9_impact_executor.py"
       - "handoff/**"
@@ -250,6 +253,7 @@ currentTask:
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
+        - "control/product_task_library.yaml"
         - "control/product_doc_runtime_coverage_ledger.yaml"
       contracts: []
       handoff: []
@@ -258,27 +262,25 @@ currentTask:
         - "scripts/check-state-alignment.ps1"
       tests:
         - "tests/test_api_transport_bootstrap.py"
+        - "tests/test_internal_surface_preview.py"
         - "tests/test_internal_chain.py"
         - "tests/test_product_doc_runtime_coverage.py"
         - "tests/test_runtime_governance_guards.py"
-        - "tests/test_stage7_runtime_closure.py"
+        - "tests/test_external_unlock_prerequisites.py"
       runtime:
         - "src/api/main.py"
-        - "src/api/deps.py"
         - "src/api/routes/stage7.py"
         - "src/api/schemas/stage7.py"
-        - "src/stage7_sales/service.py"
-        - "src/stage7_sales/recommendation.py"
-        - "src/stage7_sales/runtime.py"
+        - "src/api/projections.py"
     required_scripts:
       - "git status --short --untracked-files=all"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & \"scripts/check-task-packet.ps1\" -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
-      - "python -m unittest tests.test_internal_chain.TestInternalChain.test_happy_path_stage4_to_stage7_formal_outputs -v"
-      - "python -m unittest tests.test_stage7_runtime_closure -v"
       - "python -m unittest tests.test_api_transport_bootstrap -v"
+      - "python -m unittest tests.test_internal_surface_preview -v"
       - "python -m unittest tests.test_product_doc_runtime_coverage -v"
       - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
+      - "python -m unittest tests.test_external_unlock_prerequisites -v"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "git diff --check"
@@ -287,11 +289,11 @@ currentTask:
       "git status --short --untracked-files=all": 120000
       "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & \"scripts/check-task-packet.ps1\" -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
-      "python -m unittest tests.test_internal_chain.TestInternalChain.test_happy_path_stage4_to_stage7_formal_outputs -v": 300000
-      "python -m unittest tests.test_stage7_runtime_closure -v": 300000
       "python -m unittest tests.test_api_transport_bootstrap -v": 300000
+      "python -m unittest tests.test_internal_surface_preview -v": 300000
       "python -m unittest tests.test_product_doc_runtime_coverage -v": 300000
       "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
+      "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
       "python tests/run_tests.py": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "git diff --check": 120000
@@ -302,21 +304,21 @@ currentTask:
       - "实际改动命中 forbidden_modification_paths 时立即停止汇报"
       - "需要修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/** 时立即停止汇报"
       - "需要修改未列入 allowed_modification_paths 的 src/** 或 tests/** 时立即停止汇报"
-      - "需要修改 control/product_task_library.yaml、control/product_module_registry.yaml 或 release/governance 控制资产时立即停止汇报"
+      - "需要修改 control/product_module_registry.yaml 或 release/governance 控制资产时立即停止汇报"
       - "需要新增正式对象、枚举、gate、exception 语义时立即停止汇报"
       - "需要真实生产样本、真实触达、external release、Stage8 real execution、Stage9 payment/delivery/refund 时必须另行停机审批"
-      - "需要接真实 CRM、生成外部报价、发送报价、LeadPack export/page layer、真实后端或 external/live 时立即停止汇报"
+      - "需要真实 LeadPack 外发、客户可见正式导出、客户页面发布、真实后端或 external/live 时立即停止汇报"
     definition_of_done:
-      - "Stage7 输出内部 CRM/external quote prerequisite readiness carrier，能解释 crm_prerequisite_state、quote_prerequisite_state、blocked reasons、required approvals、audit/readback refs 与 live-disabled 状态。"
-      - "carrier 来源只来自既有 Stage7 formal objects / policy trace / governed metadata，不新增正式对象、枚举、gate 或 exception 语义。"
-      - "API/bootstrap/readback 明确 Stage7 CRM/quote readiness 是 internal governed / prerequisite-only / non-live，不启用真实 CRM、不生成外部报价。"
-      - "control/product_doc_runtime_coverage_ledger.yaml 中 STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE 只能在 prerequisite readiness/test 闭环真实完成后更新；不得加 INTERNAL_IMPLEMENTED，不得修改 109/110 缺口分类。"
+      - "LeadPack candidate readback 稳定表达 approval_readiness_summary、audit_readiness_summary、missing approvals、missing audit refs、blocked reasons、why_not_live 与 direct_export_enabled=false。"
+      - "现有 LeadPack candidate / activation prep / implementation decision readiness surfaces 保持 internal-only / candidate-only / review-only，不生成客户可见正式导出。"
+      - "API/bootstrap/readback 明确 LeadPack external delivery 是 approval/audit readiness-only，不启用真实外发、不发布页面、不放开 release。"
+      - "control/product_doc_runtime_coverage_ledger.yaml 中 LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE 只能在 dedicated readiness/test 闭环真实完成后更新；不得加 INTERNAL_IMPLEMENTED，不得修改 109B/110 缺口分类。"
       - "targeted tests 与 required scripts 全部通过。"
     deliverables:
-      - "Stage7 CRM/external quote prerequisite readiness carrier"
-      - "Stage7 API/bootstrap/readback metadata update"
-      - "Stage7 prerequisite readiness regression tests"
-      - "coverage ledger STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE status update if prerequisite gap closed"
+      - "LeadPack approval/audit readiness readback"
+      - "LeadPack candidate API/bootstrap metadata update"
+      - "LeadPack external delivery blocked regression tests"
+      - "coverage ledger LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE status update if dedicated readiness gap closed"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -328,11 +330,11 @@ currentTask:
       declared: true
       signoff_required: true
       signoff_status: "APPROVED_FOR_SCOPED_INTERNAL_IMPLEMENTATION_AND_LOCAL_COMMIT"
-      signoff_meaning: "本批准仅允许 PTL-I100-108B 在 declared_changed_paths / allowed_modification_paths 范围内补 Stage7 CRM/external quote prerequisite readiness/readback；不批准 push、external release、真实生产样本、真实触达、真实 CRM、外部报价、真实支付、真实交付、真实退款、LeadPack external delivery、真实后端或 Stage8/Stage9 live execution。"
+      signoff_meaning: "本批准仅允许 PTL-I100-109A 在 declared_changed_paths / allowed_modification_paths 范围内补 LeadPack external delivery candidate approval/audit readiness/readback；不批准 push、external release、真实生产样本、真实触达、客户可见正式导出、真实 LeadPack 外发、真实支付、真实交付、真实退款、真实后端或 Stage8/Stage9 live execution。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "PTL-I100-108B 只做 Stage7 CRM/external quote prerequisite readiness/readback，不处理 109/110。"
+      - "PTL-I100-109A 只做 LeadPack approval/audit readiness/readback，不处理 109B/110。"
       - "External leadpack delivery 继续要求 approval + audit。"
       - "External software release remains blocked。"
       - "Stage 8 real execution remains governed / approval-gated / blocked by default。"
@@ -343,18 +345,18 @@ currentTask:
     - "Stage 8 real execution remains governed / approval-gated / blocked by default"
     - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "允许在 PTL-I100-108B declared_changed_paths / allowed_modification_paths 范围内修改 Stage7 runtime/API/readback、相关测试和 coverage ledger。"
+    - "允许在 PTL-I100-109A declared_changed_paths / allowed_modification_paths 范围内修改 LeadPack candidate projection/API/readback、相关测试和 coverage ledger。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
     - "不得修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/**。"
     - "不得修改未列入 allowed_modification_paths 的 src/**、tests/** 或 control/**。"
-    - "不得执行真实 CRM、外部报价、109 LeadPack/export/page layer 或 110 真实后端/external-live 工作。"
+    - "不得执行真实 LeadPack 外发、109B client export/page layer 或 110 真实后端/external-live 工作。"
     - "不得使用真实生产样本或外部 live 数据。"
     - "不得执行真实触达、真实支付、真实交付、真实退款。"
     - "不得放开 external release、Stage 8 real execution、Stage 9 real payment / delivery / refund。"
     - "不得新增正式对象、枚举、gate、exception 语义。"
     - "不得 push。"
   nextActions:
-    - "下一执行窗口直接做 PTL-I100-108B Stage7 CRM/external quote prerequisite readiness/readback 第一刀。"
-    - "108B 完成后由总控窗口验收 ledger 是否已对齐，并决定是否 closeout 108 并进入 109。"
-  status_note: "PTL-I100-108A 已完成并本地提交 3baed1b；PTL-I100-108B 作为当前 active scoped execution packet，只做 Stage7 CRM/external quote prerequisite readiness/readback；external/live 红线不变。"
+    - "下一执行窗口直接做 PTL-I100-109A LeadPack approval/audit readiness/readback 第一刀。"
+    - "109A 完成后由总控窗口验收 ledger 是否已对齐，并决定是否进入 109B。"
+  status_note: "PTL-I100-108 已完成并本地提交 3baed1b、a9ced6b；PTL-I100-109A 作为当前 active scoped execution packet，只做 LeadPack external delivery candidate approval/audit readiness/readback；external/live 红线不变。"
