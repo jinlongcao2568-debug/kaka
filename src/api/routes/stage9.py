@@ -28,6 +28,40 @@ from storage.repository_boundary import (
 )
 
 
+STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
+    "governed_execution_mode": "INTERNAL_GOVERNED",
+    "repository_backed_readback": True,
+    "payment_gateway_enabled": False,
+    "real_payment_gateway_enabled": False,
+    "real_charge_enabled": False,
+    "real_delivery_enabled": False,
+    "real_refund_enabled": False,
+    "automated_refund_enabled": False,
+    "stage9_execution_ledger_readiness": {
+        "governed_execution_mode": "INTERNAL_GOVERNED",
+        "owner_operable": True,
+        "payment_recording_enabled": True,
+        "delivery_recording_enabled": True,
+        "manual_settlement_enabled": True,
+        "refund_manual_exception_enabled": True,
+        "ready_for_real_payment_gateway": False,
+        "ready_for_real_charge": False,
+        "ready_for_real_refund": False,
+        "automated_refund_enabled": False,
+        "blocked_reasons": [
+            "real_payment_gateway_blocked_by_default",
+            "automated_refund_program_out_of_scope",
+        ],
+    },
+    "order_payment_delivery_execution_summary": {
+        "real_payment_gateway_enabled": False,
+        "real_charge_attempted": False,
+        "real_refund_attempted": False,
+        "automated_refund_enabled": False,
+    },
+}
+
+
 def list_orders(payload: Any) -> OrdersListResponse:
     return build_stage9_preview_surface(payload)
 
@@ -119,6 +153,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "createOrder",
@@ -129,6 +164,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "createPaymentRecord",
@@ -139,6 +175,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "createDeliveryRecord",
@@ -149,6 +186,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "listOpportunityOutcomes",
@@ -159,6 +197,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "createOpportunityOutcomeEvent",
@@ -169,6 +208,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "listGovernanceFeedbackEvents",
@@ -179,6 +219,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "createGovernanceFeedbackEvent",
@@ -189,6 +230,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "listStage9WorkItems",
@@ -199,6 +241,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
     {
         "operationId": "submitStage9OperatorAction",
@@ -209,6 +252,7 @@ STAGE9_ROUTES = [
         "internal_only": True,
         "live_execution_enabled": False,
         "blocked_by_default": True,
+        **STAGE9_EXECUTION_LEDGER_ROUTE_READINESS,
     },
 ]
 

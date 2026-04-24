@@ -30,8 +30,8 @@ operability_state_vocabulary:
   - NEEDS_PRODUCT_IMPLEMENTATION
   - NOT_REQUIRED_FOR_EVIDENCE_PACK_BUSINESS
 rollup_counts:
-  OPERABLE_NOW_INTERNAL: 12
-  PREVIEW_OR_REVIEW_ONLY: 5
+  OPERABLE_NOW_INTERNAL: 13
+  PREVIEW_OR_REVIEW_ONLY: 4
   NEEDS_PRODUCT_IMPLEMENTATION: 5
   NOT_REQUIRED_FOR_EVIDENCE_PACK_BUSINESS: 1
   TOTAL_CAPABILITIES: 23
@@ -54,8 +54,10 @@ decision_summary:
     unlock. PTL-I100-110C completed the Stage7 CRM/quote owner-operated
     sales workbench via commit 1d7cb80. PTL-I100-110D completed
     LeadPack/evidence-pack package/page/readback via commit 43169f4.
-    PTL-I100-110E is active to close the final current product gap:
+    PTL-I100-110E is active to close the internal owner-operated
     order/payment/delivery execution ledger, with refund manual-exception only.
+    Live provider adapters, real charge, real external delivery execution, and
+    automated refund remain outside the active packet.
 next_implementation_sequence:
   - packet_ref: PTL-I100-110A-platform-backend-operability-foundation
     priority: 1
@@ -101,7 +103,7 @@ next_implementation_sequence:
       - FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER
   - packet_ref: PTL-I100-110E-order-payment-delivery-no-auto-refund
     priority: 5
-    implementation_status: ACTIVE
+    implementation_status: IMPLEMENTED_PENDING_FORMAL_CHECKS
     objective: "Implement order/payment/delivery execution needed for selling evidence packs, while preserving refund as manual exception only and never automated refund execution."
     unlocks:
       - STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
@@ -180,10 +182,10 @@ capability_assessments:
     next_packet_ref: PTL-I100-110B-stage8-sales-outreach-governed-execution
     ready_for_live_execution: false
   - capability_id: STAGE9_H08_ORDER_PAYMENT_DELIVERY_TYPED_LIFECYCLE
-    operability_state: PREVIEW_OR_REVIEW_ONLY
-    owner_usable_now: "partial"
-    product_gap: "Typed lifecycle records exist, but payment/delivery execution is not owner-usable yet."
-    next_packet_ref: PTL-I100-110E-order-payment-delivery-no-auto-refund
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Owner-operated internal order/payment/delivery execution ledger and readback are usable for manual settlement, delivery recording, approval/audit state, and refund manual-exception review."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
     ready_for_live_execution: false
   - capability_id: STAGE9_PAYMENT_DELIVERY_REFUND_EXCEPTION_REPLAY
     operability_state: OPERABLE_NOW_INTERNAL
@@ -201,8 +203,8 @@ capability_assessments:
   - capability_id: STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
-    product_gap: "Payment and delivery execution are needed for the evidence-pack business; automated refund execution is excluded and should remain manual exception only."
-    next_packet_ref: PTL-I100-110E-order-payment-delivery-no-auto-refund
+    product_gap: "Internal owner-operated payment/delivery ledger is implemented, but real payment gateway, real charge, real external delivery execution, and any automated refund path remain not live. Automated refund execution stays excluded by product policy."
+    next_packet_ref: PTL-I100-111-live-provider-adapters-no-auto-refund
     ready_for_live_execution: false
     refund_boundary: "do_not_implement_automated_refund_program"
   - capability_id: STORAGE_BOOTSTRAP_JSON_FILE_INTERNAL_BACKBONE

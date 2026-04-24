@@ -48,6 +48,7 @@ from storage.repositories import (
     ReportRecordRepository,
     ReviewQueueProfileRepository,
     SaleableOpportunityRepository,
+    Stage9ExecutionLedgerRepository,
     TouchRecordRepository,
     WorkItemRepository,
 )
@@ -796,18 +797,21 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         delivery = stage9.record("delivery_record")
         outcome = stage9.record("opportunity_outcome_event")
         governance = stage9.record("governance_feedback_event")
+        ledger = stage9.inputs["stage9_execution_ledger"]
 
         order_entry = OrderRecordRepository().get_by_id(order.get("order_id"))
         payment_entry = PaymentRecordRepository().get_by_id(payment.get("payment_id"))
         delivery_entry = DeliveryRecordRepository().get_by_id(delivery.get("delivery_id"))
         outcome_entry = OpportunityOutcomeEventRepository().get_by_id(outcome.get("outcome_event_id"))
         governance_entry = GovernanceFeedbackEventRepository().get_by_id(governance.get("governance_feedback_event_id"))
+        ledger_entry = Stage9ExecutionLedgerRepository().get_by_id(ledger["execution_ledger_id"])
 
         self.assertIsNotNone(order_entry)
         self.assertIsNotNone(payment_entry)
         self.assertIsNotNone(delivery_entry)
         self.assertIsNotNone(outcome_entry)
         self.assertIsNotNone(governance_entry)
+        self.assertIsNotNone(ledger_entry)
         self.assertEqual(order_entry.stage_scope, 9)
         self.assertEqual(order_entry.payload["commercial_status"], order.get("commercial_status"))
         self.assertEqual(payment_entry.payload["payment_status"], payment.get("payment_status"))
@@ -836,6 +840,13 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             governance_entry.payload["governed_metadata"]["writeback_contract_summary"],
             stage9.inputs["writeback_contract_summary"],
+        )
+        self.assertEqual(ledger_entry.payload["order_id"], order.get("order_id"))
+        self.assertEqual(ledger_entry.payload["payment_id"], payment.get("payment_id"))
+        self.assertEqual(ledger_entry.payload["delivery_id"], delivery.get("delivery_id"))
+        self.assertEqual(
+            ledger_entry.writeback_state["refund_execution_state"],
+            ledger["refund_execution_state"],
         )
 
         replay = list_orders({"opportunity_id": order.get("opportunity_id")})
@@ -876,6 +887,14 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["formal_object_refs"]["governance_feedback_event"]["object_id"],
             governance.get("governance_feedback_event_id"),
+        )
+        self.assertEqual(
+            replay["stage9_execution_ledger"]["execution_ledger_id"],
+            ledger["execution_ledger_id"],
+        )
+        self.assertEqual(
+            replay["stage9_execution_ledger_readiness"]["automated_refund_enabled"],
+            False,
         )
         self.assertEqual(
             replay["formal_object_refs"]["opportunity_outcome_event"]["governed_metadata"][
@@ -1337,6 +1356,7 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
                 "delivery_id": "DELIVERY-STALE-TYPED-REF-001",
                 "outcome_event_id": "OUTCOME-STALE-TYPED-REF-001",
                 "governance_feedback_event_id": "GOV-STALE-TYPED-REF-001",
+                "execution_ledger_id": "S9LEDGER-STALE-TYPED-REF-001",
             }
         )
         DatabaseSession.default().upsert_stage_state(
@@ -1367,6 +1387,33 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
                 },
             )
         )
+
+    def test_stage9_execution_ledger_stale_typed_ref_fails_closed(self) -> None:
+        stage9 = self.result["stage9"]
+        create_governance_feedback_event(stage9)
+        order_id = stage9.record("order_record").get("order_id")
+        opportunity_id = stage9.record("order_record").get("opportunity_id")
+        stage_state = DatabaseSession.default().get_stage_state(9, "order_delivery_workbench", order_id)
+        self.assertIsNotNone(stage_state)
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs["execution_ledger_id"] = "S9LEDGER-STALE-ONLY-001"
+
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        self.assertIsNone(hydrate_stage_bundle("stage9", {"opportunity_id": opportunity_id}))
+        with self.assertRaises(TypeError):
+            list_orders({"opportunity_id": opportunity_id})
 
 
 if __name__ == "__main__":

@@ -20,6 +20,12 @@ from stage7_sales.leadpack_delivery_package import (
     LEADPACK_PAGE_DRAFT_ID_INPUT_KEY,
     leadpack_delivery_package_summary,
 )
+from stage9_delivery.order_payment_delivery_execution import (
+    STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
+    STAGE9_EXECUTION_LEDGER_INPUT_KEY,
+    STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
+    stage9_execution_ledger_summary,
+)
 from storage.db import (
     DatabaseSession,
     PersistedOperatorAction,
@@ -184,6 +190,12 @@ STAGE_INPUT_FIELDS = {
         "impact_advisories",
         "impact_trace",
         "h08_workflow_fallback_trace",
+        STAGE9_EXECUTION_LEDGER_INPUT_KEY,
+        STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
+        STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
+        "order_execution_id",
+        "payment_execution_id",
+        "delivery_execution_id",
         "_stage9_handoff_snapshot",
         "_stage9_trace_rules_snapshot",
     ),
@@ -1265,6 +1277,18 @@ def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
                     refs[key] = str(value)
     if bundle.stage == 8:
         refs.update(_stage8_carrier_refs(bundle))
+    if bundle.stage == 9:
+        execution_ledger = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_INPUT_KEY)
+        if isinstance(execution_ledger, Mapping):
+            for key, value in {
+                "execution_ledger_id": execution_ledger.get("execution_ledger_id"),
+                STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY: execution_ledger.get("execution_ledger_id"),
+                "order_execution_id": execution_ledger.get("order_execution_id"),
+                "payment_execution_id": execution_ledger.get("payment_execution_id"),
+                "delivery_execution_id": execution_ledger.get("delivery_execution_id"),
+            }.items():
+                if value not in (None, "", "UNKNOWN"):
+                    refs[key] = str(value)
     return refs
 
 
@@ -1450,6 +1474,15 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
             governed_context["governed_execution_mode"] = outbox.get("governed_execution_mode")
             governed_context["live_execution_enabled"] = bool(outbox.get("live_execution_enabled", False))
             governed_context["real_send_attempted"] = bool(outbox.get("real_send_attempted", False))
+    if bundle.stage == 9:
+        execution_ledger = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_INPUT_KEY)
+        if isinstance(execution_ledger, Mapping):
+            governed_context["stage9_execution_ledger_summary"] = stage9_execution_ledger_summary(
+                execution_ledger
+            )
+            readiness = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY)
+            if isinstance(readiness, Mapping):
+                governed_context["stage9_execution_ledger_readiness"] = dict(readiness)
     return governed_context
 
 

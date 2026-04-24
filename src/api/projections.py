@@ -30,6 +30,12 @@ from stage8_outreach.execution_outbox import (
     OUTBOX_SNAPSHOT_INPUT_KEY,
     build_outbox_readiness_summary,
 )
+from stage9_delivery.order_payment_delivery_execution import (
+    STAGE9_EXECUTION_LEDGER_INPUT_KEY,
+    STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
+    build_stage9_execution_ledger_readiness_summary,
+    stage9_execution_ledger_summary,
+)
 from shared.contract_loader import load_contract
 from shared.contracts_runtime import ContractRecord, StageBundle
 from storage.operator_loop_contracts import (
@@ -1046,6 +1052,16 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
     delivery = _record_data(bundle.record("delivery_record"))
     outcome = _record_data(bundle.record("opportunity_outcome_event"))
     governance = _record_data(bundle.record("governance_feedback_event"))
+    execution_ledger = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_INPUT_KEY)
+    execution_ledger = dict(execution_ledger) if isinstance(execution_ledger, Mapping) else {}
+    execution_ledger_readiness = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY)
+    execution_ledger_readiness = (
+        dict(execution_ledger_readiness)
+        if isinstance(execution_ledger_readiness, Mapping)
+        else build_stage9_execution_ledger_readiness_summary(execution_ledger)
+        if execution_ledger
+        else {}
+    )
     formal_records = {
         "order_record": order,
         "payment_record": payment,
@@ -1101,6 +1117,12 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
             "impact_scope_optional": governance.get("impact_scope_optional"),
             "writeback_targets": governance.get("writeback_targets"),
         },
+        "execution_ledger_preview": stage9_execution_ledger_summary(execution_ledger)
+        if execution_ledger
+        else {},
+        "order_payment_delivery_execution_summary": stage9_execution_ledger_summary(execution_ledger)
+        if execution_ledger
+        else {},
         "_raw_records": [order, payment, delivery, outcome, governance],
     }
     envelope = _surface_envelope(
@@ -1114,6 +1136,11 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
         blocked_by_default=bool(surface_defaults["blocked_by_default"]),
     )
     envelope["preview_projection"].pop("_raw_records", None)
+    envelope[STAGE9_EXECUTION_LEDGER_INPUT_KEY] = execution_ledger
+    envelope[STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY] = execution_ledger_readiness
+    envelope["order_payment_delivery_execution_summary"] = (
+        stage9_execution_ledger_summary(execution_ledger) if execution_ledger else {}
+    )
     return _attach_operational_context(envelope, bundle)
 
 

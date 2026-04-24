@@ -19,6 +19,12 @@ from stage9_delivery.feedback_writeback import (
     resolve_writeback_projection,
 )
 from stage9_delivery.impact_executor import ImpactExecutor
+from stage9_delivery.order_payment_delivery_execution import (
+    STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
+    STAGE9_EXECUTION_LEDGER_INPUT_KEY,
+    STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
+    build_stage9_execution_ledger,
+)
 from stage9_delivery.typed_lifecycle import (
     apply_delivery_decision_projection,
     apply_order_decision_projection,
@@ -752,6 +758,16 @@ class Stage9Service:
             runtime_state.add_semantic_validation(delivery_semantic)
             apply_delivery_decision_projection(delivery_spec.payload, delivery_semantic.decision_state)
         delivery_record = self.store.build_record(delivery_spec.object_type, delivery_spec.payload)
+        execution_ledger = build_stage9_execution_ledger(
+            project_id=project_id,
+            runtime_inputs=runtime_inputs,
+            order_record=order_record,
+            payment_record=payment_record,
+            delivery_record=delivery_record,
+            approval_state=approval_state,
+            audit_trail_present=audit_trail_present,
+            now=now,
+        )
 
         governance_payload = build_governance_feedback_payload(
             store=self.store,
@@ -866,6 +882,24 @@ class Stage9Service:
             impact_result=impact_result,
             h08_workflow_fallback_trace=h08_workflow_fallback_trace,
         )
+        handoff[STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY] = execution_ledger.get("execution_ledger_id")
+        handoff[STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY] = execution_ledger.get("readiness_summary")
+        handoff["order_execution_id"] = execution_ledger.get("order_execution_id")
+        handoff["payment_execution_id"] = execution_ledger.get("payment_execution_id")
+        handoff["delivery_execution_id"] = execution_ledger.get("delivery_execution_id")
+        inputs_out = build_feedback_inputs(
+            runtime_inputs=runtime_inputs,
+            projection=writeback_projection,
+            runtime_state=runtime_state,
+            impact_result=impact_result,
+            h08_workflow_fallback_trace=h08_workflow_fallback_trace,
+        )
+        inputs_out[STAGE9_EXECUTION_LEDGER_INPUT_KEY] = execution_ledger
+        inputs_out[STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY] = execution_ledger.get("execution_ledger_id")
+        inputs_out[STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY] = execution_ledger.get("readiness_summary")
+        inputs_out["order_execution_id"] = execution_ledger.get("order_execution_id")
+        inputs_out["payment_execution_id"] = execution_ledger.get("payment_execution_id")
+        inputs_out["delivery_execution_id"] = execution_ledger.get("delivery_execution_id")
 
         return StageBundle(
             stage=9,
@@ -882,13 +916,7 @@ class Stage9Service:
                 for entry in runtime_state.trace
                 if entry.get("event") == "emit_decision"
             ],
-            inputs=build_feedback_inputs(
-                runtime_inputs=runtime_inputs,
-                projection=writeback_projection,
-                runtime_state=runtime_state,
-                impact_result=impact_result,
-                h08_workflow_fallback_trace=h08_workflow_fallback_trace,
-            ),
+            inputs=inputs_out,
         )
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:

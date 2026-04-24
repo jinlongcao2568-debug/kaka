@@ -26,6 +26,12 @@ from stage8_outreach.execution_outbox import (
     OUTBOX_SNAPSHOT_INPUT_KEY,
     build_outbox_readiness_summary,
 )
+from stage9_delivery.order_payment_delivery_execution import (
+    STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
+    STAGE9_EXECUTION_LEDGER_INPUT_KEY,
+    STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
+    build_stage9_execution_ledger_readiness_summary,
+)
 from storage.db import DatabaseSession, PersistedStageState, build_persisted_at
 from storage.repositories import (
     BuyerFitRepository,
@@ -50,6 +56,7 @@ from storage.repositories import (
     ReportRecordRepository,
     ReviewQueueProfileRepository,
     SaleableOpportunityRepository,
+    Stage9ExecutionLedgerRepository,
     TouchRecordRepository,
 )
 from storage.repository_boundary import (
@@ -488,10 +495,18 @@ def persist_stage9_bundle(bundle: StageBundle) -> StageBundle:
     DeliveryRecordRepository().save(bundle.record("delivery_record").data)
     OpportunityOutcomeEventRepository().save(bundle.record("opportunity_outcome_event").data)
     GovernanceFeedbackEventRepository().save(bundle.record("governance_feedback_event").data)
+    execution_ledger = _stage9_execution_ledger_payload(bundle)
+    if execution_ledger:
+        Stage9ExecutionLedgerRepository().save(execution_ledger)
     persisted_bundle = _stage9_bundle_with_persistence_snapshots(bundle)
     _save_stage_state(persisted_bundle)
     _sync_stage_operational_loop(persisted_bundle)
     return persisted_bundle
+
+
+def _stage9_execution_ledger_payload(bundle: StageBundle) -> dict[str, Any]:
+    snapshot = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_INPUT_KEY)
+    return dict(snapshot) if isinstance(snapshot, Mapping) else {}
 
 
 def _hydrate_stage7_crm_quote_workbench(
@@ -1093,6 +1108,91 @@ def _restore_stage8_outbox_inputs(
     handoff[OUTBOX_READINESS_INPUT_KEY] = outbox_summary
 
 
+def _hydrate_stage9_execution_ledger(
+    *,
+    stage_inputs: Mapping[str, Any],
+    persisted_refs: Mapping[str, Any] | None,
+    order_refs: Mapping[str, Any] | None,
+    work_item_refs: Mapping[str, Any] | None,
+) -> tuple[dict[str, Any] | None, bool]:
+    execution_ledger_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        order_refs,
+        work_item_refs,
+        keys=("execution_ledger_id", STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY),
+    )
+    order_execution_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        order_refs,
+        work_item_refs,
+        keys=("order_execution_id",),
+    )
+    payment_execution_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        order_refs,
+        work_item_refs,
+        keys=("payment_execution_id",),
+    )
+    delivery_execution_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        order_refs,
+        work_item_refs,
+        keys=("delivery_execution_id",),
+    )
+    repository = Stage9ExecutionLedgerRepository()
+    record = repository.get_by_id(execution_ledger_id) if execution_ledger_id else None
+    if record is None and order_execution_id:
+        record = repository.get_by_order_execution_id(order_execution_id)
+    if record is None and payment_execution_id:
+        record = repository.get_by_payment_execution_id(payment_execution_id)
+    if record is None and delivery_execution_id:
+        record = repository.get_by_delivery_execution_id(delivery_execution_id)
+    if record is None:
+        if execution_ledger_id or order_execution_id or payment_execution_id or delivery_execution_id:
+            return None, True
+        snapshot = stage_inputs.get(STAGE9_EXECUTION_LEDGER_INPUT_KEY)
+        return (dict(snapshot), False) if isinstance(snapshot, Mapping) else (None, False)
+
+    payload = record.as_payload()
+    expected_ids = {
+        "execution_ledger_id": execution_ledger_id,
+        "order_execution_id": order_execution_id,
+        "payment_execution_id": payment_execution_id,
+        "delivery_execution_id": delivery_execution_id,
+    }
+    if any(
+        expected and str(payload.get(field_name, "")).strip() != expected
+        for field_name, expected in expected_ids.items()
+    ):
+        return None, True
+    return payload, False
+
+
+def _restore_stage9_execution_ledger_inputs(
+    *,
+    stage_inputs: dict[str, Any],
+    handoff: dict[str, Any],
+    execution_ledger: Mapping[str, Any] | None,
+) -> None:
+    if not execution_ledger:
+        return
+    ledger_payload = dict(execution_ledger)
+    readiness = build_stage9_execution_ledger_readiness_summary(ledger_payload)
+    stage_inputs[STAGE9_EXECUTION_LEDGER_INPUT_KEY] = ledger_payload
+    stage_inputs[STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY] = str(ledger_payload.get("execution_ledger_id"))
+    stage_inputs[STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY] = readiness
+    for field_name in ("order_execution_id", "payment_execution_id", "delivery_execution_id"):
+        if ledger_payload.get(field_name) not in (None, "", "UNKNOWN"):
+            stage_inputs[field_name] = str(ledger_payload[field_name])
+            handoff[field_name] = str(ledger_payload[field_name])
+    handoff[STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY] = str(ledger_payload.get("execution_ledger_id"))
+    handoff[STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY] = readiness
+
+
 def _build_stage8_handoff_readback(
     *,
     handoff_snapshot: Mapping[str, Any] | None,
@@ -1231,6 +1331,20 @@ def hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     stage_inputs = dict(stage_state.inputs)
     trace_rules = list(stage_inputs.pop(_STAGE9_TRACE_RULES_SNAPSHOT_KEY, []))
     handoff_snapshot = stage_inputs.pop(_STAGE9_HANDOFF_SNAPSHOT_KEY, None)
+    handoff = dict(handoff_snapshot) if isinstance(handoff_snapshot, Mapping) else {}
+    execution_ledger, execution_ledger_stale = _hydrate_stage9_execution_ledger(
+        stage_inputs=stage_inputs,
+        persisted_refs=persisted_refs,
+        order_refs=order.object_refs,
+        work_item_refs=work_item_refs,
+    )
+    if execution_ledger_stale:
+        return None
+    _restore_stage9_execution_ledger_inputs(
+        stage_inputs=stage_inputs,
+        handoff=handoff,
+        execution_ledger=execution_ledger,
+    )
 
     return StageBundle(
         stage=9,
@@ -1241,7 +1355,7 @@ def hydrate_stage9_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
             "opportunity_outcome_event": ContractRecord("opportunity_outcome_event", outcome.as_payload()),
             "governance_feedback_event": ContractRecord("governance_feedback_event", governance.as_payload()),
         },
-        handoff=dict(handoff_snapshot) if isinstance(handoff_snapshot, Mapping) else {},
+        handoff=handoff,
         trace_rules=trace_rules,
         inputs=stage_inputs,
     )

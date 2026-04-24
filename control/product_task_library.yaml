@@ -138,7 +138,7 @@ internal_operable_productization_program:
     external_software_release: BLOCKED
     stage8_real_execution: "governed / approval-gated / blocked by default"
     stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
-task_count: 29
+task_count: 30
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -752,3 +752,30 @@ tasks:
       - PTL-I100-110E-order-payment-delivery-no-auto-refund
     risk_level: CRITICAL
     runtime_notes: "PTL-I100-1100 产品可用性全量检测已完成并本地提交 33e6fb9：当前判断不是大量空白，而是多个关键能力停留在 preview/readiness/reserved；真实产品可用缺口集中在真实后端、销售触达执行、CRM/报价、LeadPack/证据包导出交付、订单支付交付。PTL-I100-110A durable local sqlite backend foundation 已完成并本地提交 56fed27，PTL-I100-110B Stage8 governed outreach outbox 已完成并本地提交 7965a34，PTL-I100-110C Stage7 CRM/quote owner-operated workbench 已完成并本地提交 1d7cb80，PTL-I100-110D LeadPack/evidence-pack package/page/readback 已完成并本地提交 43169f4。PTL-I100-110E 已激活为 order/payment/delivery execution ledger 第一刀：只做内部 order/payment/delivery ledger/readback、manual settlement note、approval/audit、refund manual exception boundary，不接真实支付网关、不真实扣款、不真实退款、不实现自动退款程序、不放开 external release。"
+  - task_id: PTL-I100-111-live-provider-adapters-no-auto-refund
+    title: "I100-11 Live provider adapters without automated refund"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage7_sales, stage8_outreach, stage9_delivery, page_export, external_live_governance]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: READY_AFTER_110E_CLOSEOUT
+    is_current_mainline_next_candidate: false
+    priority: P5
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: INTERNAL_OWNER_OPERATED_LEDGER_AND_READBACK
+    runtime_change_in_packet: REQUIRES_DEDICATED_CURRENT_TASK_PACKET
+    activation_policy: "May only be activated after PTL-I100-110E closeout. Must keep automated refund execution excluded. Any real provider/live execution must be implemented behind approval, audit, operator action, sandbox/dry-run first, and explicit current_task scope."
+    hard_depends_on: [PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions]
+    soft_depends_on: [PTL-I100-110E-order-payment-delivery-no-auto-refund]
+    objective: "把 110A-110E 已形成的 owner-operated workbench/readback 推进到真实运营所需 provider adapter seam：销售触达、CRM/报价、证据包页面/交付、订单支付收款记录与交付履约。退款只允许 manual exception record / governed review，不实现自动退款程序。"
+    non_goals: ["不实现自动退款程序", "不无审批真实触达", "不无审计真实交付", "不把 external software release 当作售卖产品", "不绕过 provider adapter sandbox/dry-run/readback"]
+    expected_outputs: ["provider adapter seam and config readback", "operator approval/audit gated execution path", "sandbox/dry-run first execution records", "live flag defaults blocked until explicit operator approval", "manual refund exception only"]
+    acceptance_checks: ["provider_adapters_have_single_config_source", "live_execution_requires_approval_audit_operator_action", "automated_refund_remains_absent", "sales_delivery_payment_readback_is_repository_backed"]
+    suggested_packet_refs:
+      - PTL-I100-111A-provider-config-and-sandbox-seam
+      - PTL-I100-111B-sales-outreach-adapter-execution
+      - PTL-I100-111C-crm-quote-and-delivery-page-adapters
+      - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+    risk_level: CRITICAL
+    runtime_notes: "Candidate only. This task exists so product_operability_gap_matrix next_packet_ref is not dangling after 110E. It does not auto-activate and does not approve real production touch/payment/delivery by itself. A dedicated control/current_task.yaml packet must define the exact provider, sandbox/live mode, approval/audit rules, allowed paths, tests, and stop conditions."

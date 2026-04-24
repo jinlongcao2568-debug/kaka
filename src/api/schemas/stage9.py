@@ -32,6 +32,8 @@ class Stage9PreviewProjection(TypedDict, total=False):
     delivery_preview: dict[str, Any]
     outcome_writeback_preview: dict[str, Any]
     governance_feedback_preview: dict[str, Any]
+    execution_ledger_preview: dict[str, Any]
+    order_payment_delivery_execution_summary: dict[str, Any]
 
 
 class OperationalAssignment(TypedDict, total=False):
@@ -129,6 +131,9 @@ class Stage9Response(TypedDict, total=False):
     decision_states: dict[str, str]
     formal_object_refs: dict[str, FormalObjectRef]
     preview_projection: Stage9PreviewProjection
+    stage9_execution_ledger: dict[str, Any]
+    stage9_execution_ledger_readiness: dict[str, Any]
+    order_payment_delivery_execution_summary: dict[str, Any]
     trace_refs: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str

@@ -991,6 +991,17 @@ class TestApiTransportBootstrap(unittest.TestCase):
             payload["formal_object_refs"]["governance_feedback_event"]["object_id"],
             stage9.record("governance_feedback_event").get("governance_feedback_event_id"),
         )
+        self.assertEqual(
+            payload["stage9_execution_ledger"]["order_id"],
+            stage9.record("order_record").get("order_id"),
+        )
+        self.assertTrue(payload["stage9_execution_ledger_readiness"]["owner_operable"])
+        self.assertTrue(payload["stage9_execution_ledger_readiness"]["payment_recording_enabled"])
+        self.assertTrue(payload["stage9_execution_ledger_readiness"]["delivery_recording_enabled"])
+        self.assertFalse(payload["stage9_execution_ledger_readiness"]["automated_refund_enabled"])
+        self.assertFalse(
+            payload["order_payment_delivery_execution_summary"]["real_payment_gateway_enabled"]
+        )
 
 
 if __name__ == "__main__":

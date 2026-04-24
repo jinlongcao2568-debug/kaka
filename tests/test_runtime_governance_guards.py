@@ -106,7 +106,15 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
 
     def test_stage9_payment_delivery_refund_live_execution_remains_blocked(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
-        payload.update({"refund_state": "REQUESTED"})
+        payload.update(
+            {
+                "refund_state": "REQUESTED",
+                "real_payment_gateway_enabled": True,
+                "real_charge_requested": True,
+                "automated_refund_requested": True,
+                "real_refund_requested": True,
+            }
+        )
 
         stage9 = run_internal_chain(payload)["stage9"]
 
@@ -127,6 +135,16 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertNotEqual(stage9.record("payment_record").get("refund_state"), "COMPLETED")
         self.assertEqual(stage9.record("delivery_record").get("delivered_at_optional"), "NOT_DELIVERED")
         self.assertNotEqual(stage9.record("delivery_record").get("delivery_status"), "DELIVERED")
+        ledger = stage9.inputs["stage9_execution_ledger"]
+        self.assertEqual(ledger["refund_execution_state"], "MANUAL_EXCEPTION_REVIEW")
+        self.assertFalse(ledger["real_payment_gateway_enabled"])
+        self.assertFalse(ledger["real_charge_attempted"])
+        self.assertFalse(ledger["real_refund_attempted"])
+        self.assertFalse(ledger["automated_refund_enabled"])
+        self.assertIn("real_payment_gateway_requested_but_blocked", ledger["blocked_reasons"])
+        self.assertIn("real_charge_requested_but_blocked", ledger["blocked_reasons"])
+        self.assertIn("real_refund_requested_but_blocked", ledger["blocked_reasons"])
+        self.assertIn("automated_refund_requested_but_blocked", ledger["blocked_reasons"])
 
     def test_stage7_crm_and_external_quote_live_requests_remain_blocked(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

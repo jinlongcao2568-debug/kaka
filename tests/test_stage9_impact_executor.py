@@ -1005,6 +1005,47 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         self.assertIn("project_fact", stage9.inputs["writeback_projected_targets"])
         self.assertNotIn("project_fact", stage9.inputs["writeback_persistence_targets"])
 
+    def test_stage9_execution_ledger_records_payment_delivery_and_blocks_auto_refund(self) -> None:
+        stage9 = self._run_stage9(
+            {
+                "payment_status": "PAID",
+                "payment_proof_state": "PROVIDED",
+                "paid_at_optional": "2026-04-24T10:00:00Z",
+                "delivery_status": "READY",
+                "manual_settlement_note_optional": "owner marked bank transfer as received",
+                "real_payment_gateway_enabled": True,
+                "real_charge_requested": True,
+                "automated_refund_requested": True,
+                "refund_state": "REQUESTED",
+            }
+        )
+
+        ledger = stage9.inputs["stage9_execution_ledger"]
+        readiness = stage9.inputs["stage9_execution_ledger_readiness"]
+
+        self.assertEqual(ledger["order_id"], stage9.record("order_record").get("order_id"))
+        self.assertEqual(ledger["payment_id"], stage9.record("payment_record").get("payment_id"))
+        self.assertEqual(ledger["delivery_id"], stage9.record("delivery_record").get("delivery_id"))
+        self.assertEqual(ledger["payment_collection_state"], "REFUND_MANUAL_EXCEPTION_REVIEW")
+        self.assertEqual(ledger["manual_settlement_state"], "RECORDED")
+        self.assertEqual(ledger["refund_execution_state"], "MANUAL_EXCEPTION_REVIEW")
+        self.assertTrue(ledger["payment_recording_enabled"])
+        self.assertTrue(ledger["delivery_recording_enabled"])
+        self.assertFalse(ledger["real_payment_gateway_enabled"])
+        self.assertFalse(ledger["real_charge_attempted"])
+        self.assertFalse(ledger["real_refund_attempted"])
+        self.assertFalse(ledger["automated_refund_enabled"])
+        self.assertIn("real_payment_gateway_requested_but_blocked", ledger["blocked_reasons"])
+        self.assertIn("real_charge_requested_but_blocked", ledger["blocked_reasons"])
+        self.assertIn("automated_refund_requested_but_blocked", ledger["blocked_reasons"])
+        self.assertTrue(readiness["owner_operable"])
+        self.assertTrue(readiness["payment_recording_enabled"])
+        self.assertTrue(readiness["delivery_recording_enabled"])
+        self.assertTrue(readiness["manual_settlement_enabled"])
+        self.assertTrue(readiness["refund_manual_exception_enabled"])
+        self.assertFalse(readiness["ready_for_real_payment_gateway"])
+        self.assertFalse(readiness["automated_refund_enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()

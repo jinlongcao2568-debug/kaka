@@ -18,6 +18,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
     def setUp(self) -> None:
         self.ledger = read_yaml("control/product_doc_runtime_coverage_ledger.yaml")
         self.matrix = read_yaml("control/product_operability_gap_matrix.yaml")
+        self.task_library = read_yaml("control/product_task_library.yaml")
 
     def test_matrix_covers_every_product_doc_capability_once(self) -> None:
         ledger_ids = {row["capability_id"] for row in self.ledger["capabilities"]}
@@ -34,6 +35,22 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         for state in self.matrix["operability_state_vocabulary"]:
             self.assertEqual(rollup[state], counts[state], state)
         self.assertEqual(rollup["TOTAL_CAPABILITIES"], len(self.matrix["capability_assessments"]))
+
+    def test_next_packet_refs_are_registered_or_explicit_none(self) -> None:
+        task_ids = {row["task_id"] for row in self.task_library["tasks"]}
+        suggested_packet_refs = {
+            packet_ref
+            for row in self.task_library["tasks"]
+            for packet_ref in row.get("suggested_packet_refs", [])
+        }
+        registered_refs = task_ids | suggested_packet_refs
+        none_refs = {"NONE_CURRENTLY_REQUIRED", "NONE_PRODUCT_GOAL"}
+
+        for row in self.matrix["capability_assessments"]:
+            next_packet_ref = row["next_packet_ref"]
+            if next_packet_ref in none_refs:
+                continue
+            self.assertIn(next_packet_ref, registered_refs, row["capability_id"])
 
     def test_missing_runtime_rows_are_product_implementation_gaps(self) -> None:
         ledger_by_id = {row["capability_id"]: row for row in self.ledger["capabilities"]}
@@ -67,11 +84,28 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "STAGE8_REAL_OUTREACH_EXECUTION": "PTL-I100-110B-stage8-sales-outreach-governed-execution",
             "STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE": "PTL-I100-110C-stage7-crm-quote-sales-workbench",
             "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER": "PTL-I100-110D-leadpack-export-page-delivery",
-            "STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION": "PTL-I100-110E-order-payment-delivery-no-auto-refund",
+            "STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION": (
+                "PTL-I100-111-live-provider-adapters-no-auto-refund"
+            ),
         }
         for capability_id, packet_ref in expected_packets.items():
             self.assertEqual(matrix_by_id[capability_id]["operability_state"], "NEEDS_PRODUCT_IMPLEMENTATION")
             self.assertEqual(matrix_by_id[capability_id]["next_packet_ref"], packet_ref)
+
+    def test_stage9_internal_order_payment_delivery_ledger_is_owner_operable(self) -> None:
+        matrix_by_id = {row["capability_id"]: row for row in self.matrix["capability_assessments"]}
+
+        h08_row = matrix_by_id["STAGE9_H08_ORDER_PAYMENT_DELIVERY_TYPED_LIFECYCLE"]
+        self.assertEqual(h08_row["operability_state"], "OPERABLE_NOW_INTERNAL")
+        self.assertTrue(h08_row["owner_usable_now"])
+        self.assertEqual(h08_row["next_packet_ref"], "NONE_CURRENTLY_REQUIRED")
+        self.assertFalse(h08_row["ready_for_live_execution"])
+
+        live_row = matrix_by_id["STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION"]
+        self.assertEqual(live_row["operability_state"], "NEEDS_PRODUCT_IMPLEMENTATION")
+        self.assertFalse(live_row["owner_usable_now"])
+        self.assertFalse(live_row["ready_for_live_execution"])
+        self.assertEqual(live_row["refund_boundary"], "do_not_implement_automated_refund_program")
 
     def test_business_model_separates_internal_software_from_sold_evidence_pack(self) -> None:
         product_model = self.matrix["product_model"]

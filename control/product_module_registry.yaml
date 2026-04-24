@@ -741,6 +741,7 @@ stage_module_inventory:
           - src/stage9_delivery/order.py
           - src/stage9_delivery/payment.py
           - src/stage9_delivery/delivery.py
+          - src/stage9_delivery/order_payment_delivery_execution.py
           - src/stage9_delivery/typed_lifecycle.py
           - src/stage9_delivery/models.py
         handoff_files:
@@ -752,6 +753,7 @@ stage_module_inventory:
           - src/storage/repositories/order_record_repo.py
           - src/storage/repositories/payment_record_repo.py
           - src/storage/repositories/delivery_record_repo.py
+          - src/storage/repositories/stage9_execution_ledger_repo.py
         test_files:
           - tests/test_stage9_impact_executor.py
           - tests/test_runtime_governance_guards.py
@@ -852,6 +854,7 @@ cross_cutting_surfaces:
       - src/storage/repositories/order_record_repo.py
       - src/storage/repositories/payment_record_repo.py
       - src/storage/repositories/delivery_record_repo.py
+      - src/storage/repositories/stage9_execution_ledger_repo.py
       - src/storage/repositories/opportunity_outcome_event_repo.py
       - src/storage/repositories/governance_feedback_event_repo.py
       - src/storage/repositories/operator_action_repo.py
@@ -1144,6 +1147,7 @@ modules:
       - src/stage9_delivery/order.py
       - src/stage9_delivery/payment.py
       - src/stage9_delivery/delivery.py
+      - src/stage9_delivery/order_payment_delivery_execution.py
       - src/stage9_delivery/typed_lifecycle.py
       - src/stage9_delivery/feedback.py
       - src/stage9_delivery/feedback_writeback.py
@@ -1280,6 +1284,7 @@ modules:
       - src/storage/repositories/order_record_repo.py
       - src/storage/repositories/payment_record_repo.py
       - src/storage/repositories/delivery_record_repo.py
+      - src/storage/repositories/stage9_execution_ledger_repo.py
       - src/storage/repositories/opportunity_outcome_event_repo.py
       - src/storage/repositories/governance_feedback_event_repo.py
       - src/storage/repositories/operator_action_repo.py
