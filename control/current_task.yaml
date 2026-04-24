@@ -5,11 +5,11 @@ updated_at: "2026-04-24"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_106_ACTIVE_SCOPED_EXECUTION"
+navigation_state: "PTL_I100_106_CLOSEOUT_CONTROL_SYNC"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-106D 已完成 Stage1-5 reserved entry plan；继续推进 PTL-I100-106 第五刀，聚焦 platform infra reserved backend readiness projection。"
+activation_condition: "PTL-I100-106A/106B/106C/106D/106E 已完成并本地提交；当前窗口只做 PTL-I100-106 closeout 与 product_task_library 状态同步，不进入 PTL-I100-107 implementation。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -18,7 +18,7 @@ state_dimensions:
   mainline_selection_ready: true
 currentTask:
   task_id: "PTL-I100-106-platform-foundation-and-full-chain-entry"
-  title: "I100-6 正式基础设施与全链入口"
+  title: "I100-6 正式基础设施与全链入口 closeout"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -44,7 +44,7 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "保持 PTL-I100-106 为当前 scoped execution packet；106-E 第五刀只做 platform infra reserved backend readiness projection，把 PostgreSQL/Alembic、queue、object storage、compose 等后续 infra 入口表达为 reserved-not-live/readiness 投影，不实现真实迁移或外部基础设施。"
+  objective: "收口 PTL-I100-106 internal foundation/readiness 成果，把 product_task_library 与 repo_status 同步到 completed 状态；本窗口只做控制面 closeout，不改变 canonical readiness，不启用 external/live，不实现真实 infra。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -65,51 +65,50 @@ currentTask:
   task_packet:
     version: 1
     packet_id: "PTL-I100-106-platform-foundation-and-full-chain-entry"
-    subpacket_id: "PTL-I100-106E-platform-infra-readiness-projection"
+    subpacket_id: "PTL-I100-106F-closeout-product-library-sync"
     backlog_packet_ref: "PTL-I100-106-platform-foundation-and-full-chain-entry"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "IN_SCOPE"
+    runtime_change_in_packet: "OUT_OF_SCOPE"
     existing_code_state: "HEAVY_RUNTIME"
     existing_runtime_state: "FILE_BACKED_INTERNAL_RUNTIME"
-    title: "I100-6E platform infra reserved backend readiness projection 第一刀"
+    title: "I100-6F foundation/readiness closeout 控制收口"
     status: "ACTIVE"
-    objective: "把 platform infra backend readiness 收成 settings/bootstrap 可读投影；当前只允许 json-file runtime，PostgreSQL/Alembic、queue、object storage、compose 只能表达 reserved-not-live / not configured / blocked-by-default，不实现真实 DB migration、队列、对象存储或 Docker Compose。"
+    objective: "把 PTL-I100-106 的 staged internal foundation/readiness 成果正式标记为 completed，并记录 106A-E 的本地提交证据；不改 runtime、contracts、docs、fixtures 或 scripts。"
     depends_on:
       - "PTL-I100-105 已完成并本地提交：d37ae82、fdd471e。"
-      - "PTL-I100-106A 已完成并本地提交：1eda05f。"
-      - "PTL-I100-106B 已完成并本地提交：fa36cb5。"
-      - "PTL-I100-106C 已完成并本地提交：86217a2。"
-      - "PTL-I100-106D 已完成并本地提交：3b659ad。"
-      - "PTL-INT-102 已完成 repository boundary hardening：b8288a7。"
-      - "PTL-INT-104 已完成 operator/workbench observability 第一刀：b8a2762。"
+      - "PTL-I100-106A storage runtime path 已完成并本地提交：1eda05f。"
+      - "PTL-I100-106A settings/bootstrap 单入口已完成并本地提交：067529f。"
+      - "PTL-I100-106B storage backend seam 已完成并本地提交：fa36cb5。"
+      - "PTL-I100-106C transport bootstrap/readback 已完成并本地提交：86217a2。"
+      - "PTL-I100-106D Stage1-5 reserved entry plan 已完成并本地提交：3b659ad。"
+      - "PTL-I100-106E platform infra readiness projection 已完成并本地提交：43e6442。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "PTL-I100-106 已在 control/product_task_library.yaml 中登记为 PLANNED。"
       - "source_blueprint_batch_id=PTL-I100-ROADMAP-01 已登记在 control/source_blueprint_registry.yaml。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-105-stage8-9-governed-closure"
-      target_active_packet: "PTL-I100-106-platform-foundation-and-full-chain-entry"
-      product_task_library_change: false
+      previous_active_packet: "PTL-I100-106E-platform-infra-readiness-projection"
+      target_active_packet: "PTL-I100-106F-closeout-product-library-sync"
+      product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: "internal_operable_productization"
+      active_packet_kind: "internal_operable_productization_closeout"
       product_mainline_task: true
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change: true
-      runtime_change_in_packet: "IN_SCOPE"
+      runtime_change: false
+      runtime_change_in_packet: "OUT_OF_SCOPE"
       docs_change: false
       contracts_change: false
       handoff_change: false
       scripts_change: false
-      tests_change: true
+      tests_change: false
       control_change: true
-      storage_change: true
-      api_change: true
+      storage_change: false
+      api_change: false
       external_release_change: false
       stage8_real_execution_change: false
       stage9_real_payment_delivery_refund_change: false
@@ -128,8 +127,6 @@ currentTask:
       - "不真实触达"
       - "不真实支付"
       - "不真实交付"
-      - "不新增 Stage1-5 HTTP endpoint"
-      - "不执行 Stage1-5 orchestrator"
       - "不实现 PostgreSQL/SQLAlchemy/Alembic 真实迁移或真实表结构"
       - "不实现 Redis/Dramatiq 队列"
       - "不实现 MinIO/S3 对象存储"
@@ -137,20 +134,23 @@ currentTask:
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不新增正式对象、枚举、gate、exception 语义"
       - "不修改 docs/**"
+      - "不修改 contracts/**"
+      - "不修改 handoff/**"
+      - "不修改 scripts/**"
+      - "不修改 fixtures/**"
+      - "不修改 src/**"
       - "不 push"
-      - "不自动进入 PTL-I100-107"
+      - "不自动执行 PTL-I100-107 implementation"
     affected_stages:
       - "automation_control"
-      - "api_transport"
       - "internal_preview"
       - "stage1_to_stage9"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "api_transport_foundation"
-      - "internal_preview"
       - "scripts_and_tests_general"
+      - "machine_assets_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
@@ -161,26 +161,15 @@ currentTask:
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "src/shared/settings.py"
-      - "src/storage/db.py"
-      - "src/api/main.py"
-      - "src/api/deps.py"
-      - "tests/test_storage_concurrency.py"
-      - "tests/test_api_transport_bootstrap.py"
-      - "tests/test_stage12_extractors.py"
+      - "control/product_task_library.yaml"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "src/shared/settings.py"
-      - "src/storage/db.py"
-      - "src/api/main.py"
-      - "src/api/deps.py"
-      - "tests/test_storage_concurrency.py"
-      - "tests/test_api_transport_bootstrap.py"
-      - "tests/test_stage12_extractors.py"
+      - "control/product_task_library.yaml"
     current_window_actual_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
+      - "control/product_task_library.yaml"
     forbidden_modification_paths:
       - "docs/**"
       - "contracts/**"
@@ -192,86 +181,60 @@ currentTask:
       - "control/future_unlock_decision_state.yaml"
       - "control/approval_chain_state.yaml"
       - "control/exception_chain_state.yaml"
-      - "src/stage1_tasking/**"
-      - "src/stage2_ingestion/**"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
-      - "src/stage5_rules_evidence/**"
-      - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
-      - "src/stage8_outreach/**"
-      - "src/stage9_delivery/**"
-      - "src/storage/models/**"
-      - "src/storage/repositories/**"
-      - "src/storage/repository_boundary.py"
-      - "src/storage/repository_bundle_io.py"
-      - "src/storage/operator_workbench_projection.py"
+      - "src/**"
+      - "tests/**"
+      - "fixtures/**"
       - "handoff/**"
       - "scripts/**"
-      - "fixtures/**"
     impacted_assets:
       docs: []
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
+        - "control/product_task_library.yaml"
       contracts: []
       handoff: []
       scripts:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
-      tests:
-        - "tests/test_storage_concurrency.py"
-        - "tests/test_api_transport_bootstrap.py"
-        - "tests/test_stage12_extractors.py"
-      runtime:
-        - "src/shared/settings.py"
-        - "src/storage/db.py"
-        - "src/api/main.py"
-        - "src/api/deps.py"
+      tests: []
+      runtime: []
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(\"control/current_task.yaml\", \"control/repo_status.md\", \"control/product_task_library.yaml\"); & \"scripts/check-task-packet.ps1\" -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
-      - "python -m unittest tests.test_storage_concurrency -v"
-      - "python -m unittest tests.test_api_transport_bootstrap -v"
       - "python -m unittest tests.test_stage12_extractors -v"
-      - "python tests/run_tests.py"
+      - "python -m unittest tests.test_external_unlock_prerequisites -v"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "git diff --check"
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(\"control/current_task.yaml\", \"control/repo_status.md\", \"control/product_task_library.yaml\"); & \"scripts/check-task-packet.ps1\" -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
-      "python -m unittest tests.test_storage_concurrency -v": 300000
-      "python -m unittest tests.test_api_transport_bootstrap -v": 300000
       "python -m unittest tests.test_stage12_extractors -v": 300000
-      "python tests/run_tests.py": 300000
+      "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "git diff --check": 120000
     stop_conditions:
       - "任一 required script 失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths 时立即停止汇报"
       - "实际改动命中 forbidden_modification_paths 时立即停止汇报"
-      - "需要修改 docs/**、contracts/**、handoff/**、scripts/** 时立即停止汇报"
+      - "需要修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/**、src/** 时立即停止汇报"
       - "需要修改 Stage1-9 业务语义时立即停止汇报"
       - "需要新增正式对象、枚举、gate、exception 语义时立即停止汇报"
-      - "需要实现真实 PostgreSQL/Alembic migration、真实 DB table、queue、object storage 或 Docker Compose 时立即停止拆包"
+      - "需要实现真实 PostgreSQL/Alembic migration、真实 DB table、queue、object storage 或 Docker Compose 时立即停止"
       - "需要真实触达、external release、Stage8 real execution、Stage9 payment/delivery/refund 时必须另行停机审批"
-      - "需要启用 Stage1-5 真实 transport 或执行真实 orchestrator 时停下拆包"
     definition_of_done:
-      - "PTL-I100-105 在 control/product_task_library.yaml 中标记为 COMPLETED，并记录 completed_commit=fdd471e。"
-      - "PTL-I100-106 激活为当前 active scoped execution packet。"
-      - "PTL-I100-106D Stage1-5 reserved entry plan 已完成并本地提交：3b659ad。"
-      - "settings/storage/api bootstrap 投影 platform infra readiness。"
-      - "json-file 是当前唯一可执行 backend。"
-      - "PostgreSQL/Alembic、queue、object storage、compose 均为 reserved-not-live/readiness，不实现真实 infra。"
-      - "现有 Stage6-9 API preview 行为保持兼容。"
-      - "targeted tests 与 required scripts 全部通过。"
+      - "PTL-I100-106 在 control/product_task_library.yaml 中标记为 COMPLETED，并记录 completed_commit=43e6442。"
+      - "runtime_notes 记录 106A-E 的本地提交证据与 internal foundation/readiness 成果。"
+      - "control/repo_status.md 明确 PTL-I100-106 已完成，且 PTL-I100-107 尚未在本提交中执行 implementation。"
+      - "本窗口只改 control/current_task.yaml、control/repo_status.md、control/product_task_library.yaml。"
+      - "required scripts 全部通过。"
     deliverables:
-      - "PTL-I100-106E platform infra readiness projection task packet"
-      - "Storage/settings/bootstrap infra readiness readback"
-      - "Reserved backend regression tests"
+      - "PTL-I100-106 closeout task packet"
+      - "product_task_library completed state sync"
+      - "repo_status 106 completed state sync"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -282,37 +245,31 @@ currentTask:
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_SCOPED_INTERNAL_IMPLEMENTATION_AND_LOCAL_COMMIT"
-      signoff_meaning: "用户要求总控窗口在验收提交通过后直接推进下一任务；本批准仅允许继续 PTL-I100-106E，并在 declared_changed_paths / allowed_modification_paths 范围内做 platform infra readiness projection 内部 scoped implementation 与本地 commit，不批准真实 PostgreSQL/Alembic migration、真实 DB table、queue、object storage、Docker Compose、push、external release、Stage8 real execution、Stage9 payment/delivery/refund。"
+      signoff_status: "APPROVED_FOR_CONTROL_CLOSEOUT_AND_LOCAL_COMMIT"
+      signoff_meaning: "用户要求总控窗口在验收提交通过后直接做 closeout；本批准仅允许 PTL-I100-106 控制面收口与本地 commit，不批准 push、external release、真实触达、真实 PostgreSQL/Alembic/queue/object storage/compose、Stage8 real execution、Stage9 payment/delivery/refund。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "本包第五刀只做 platform infra reserved backend readiness projection，不实现真实基础设施。"
+      - "本包只收口 106，不执行 107 implementation。"
       - "External leadpack delivery 继续要求 approval + audit。"
       - "External software release remains blocked。"
       - "Stage 8 real execution remains governed / approval-gated / blocked by default。"
-      - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default。"
+      - "Stage 9 real payment / delivery / refund remains governed / approval-gated / blocked by default。"
   hardBlockers:
     - "external leadpack delivery remains gated by approval + audit chain"
     - "external software release remains blocked"
     - "Stage 8 real execution remains governed / approval-gated / blocked by default"
     - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "允许修改 control/current_task.yaml、control/repo_status.md。"
-    - "允许在 PTL-I100-106 declared_changed_paths / allowed_modification_paths 范围内执行内部 scoped implementation。"
-    - "允许 platform infra readiness / storage bootstrap readback 相关最小实现。"
-    - "允许运行本轮 required checks，并按停机规则汇报。"
+    - "允许修改 control/current_task.yaml、control/repo_status.md、control/product_task_library.yaml。"
+    - "允许把 PTL-I100-106 标记为 completed 并记录完成提交。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
-    - "不得修改 docs/**。"
-    - "不得修改 contracts/**、handoff/**、fixtures/** 或 scripts/**。"
-    - "不得修改未列入 allowed_modification_paths 的 src/**、tests/** 或 control/**。"
-    - "不得修改 Stage1-9 业务语义。"
+    - "不得修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/**、src/** 或 tests/**。"
     - "不得放开 external release、Stage 8 real execution、Stage 9 real payment / delivery / refund。"
     - "不得新增正式对象、枚举、gate、exception 语义。"
-    - "不得自动进入 PTL-I100-107。"
     - "不得 push。"
+    - "不得在本提交内执行 PTL-I100-107 implementation。"
   nextActions:
-    - "下一窗口直接在 PTL-I100-106E 当前 task_packet 范围内执行 platform infra reserved backend readiness projection 第一刀。"
-    - "若 106E 完成，再由总控窗口决定是否关闭 PTL-I100-106 的 internal foundation 部分，或另开需人工裁决的真实 PostgreSQL/Alembic 设计包。"
-  status_note: "PTL-I100-105 已完成并收口；PTL-I100-106 保持当前 SCOPED_EXECUTION packet，当前推进切面是 106-E platform infra reserved backend readiness projection，external/live 红线不变。"
+    - "若本 closeout 提交通过，由总控窗口另开 PTL-I100-107A current_task packet，第一刀聚焦 internal acceptance matrix bootstrap/readback。"
+  status_note: "PTL-I100-106 internal foundation/readiness 已实现完成，当前仅做控制面 closeout；external/live 红线不变。"

@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-106-platform-foundation-and-full-chain-entry (SCOPED_EXECUTION; active 106-E platform infra reserved backend readiness projection slice; PTL-I100-105 completed via d37ae82 and fdd471e; PTL-I100-106A settings/bootstrap path stabilization completed via 1eda05f; PTL-I100-106B storage backend seam completed via fa36cb5; PTL-I100-106C transport bootstrap/readback completed via 86217a2; PTL-I100-106D reserved entry plan completed via 3b659ad; this does not approve push, external release, real PostgreSQL/Alembic migration, real DB table, queue, object storage, Docker Compose, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-106-platform-foundation-and-full-chain-entry closeout (SCOPED_EXECUTION; PTL-I100-106A storage runtime path completed via 1eda05f; settings/bootstrap single entry completed via 067529f; 106B storage backend seam completed via fa36cb5; 106C transport bootstrap/readback completed via 86217a2; 106D reserved entry plan completed via 3b659ad; 106E platform infra reserved readiness projection completed via 43e6442; this closeout does not approve push, external release, real PostgreSQL/Alembic migration, real DB table, queue, object storage, Docker Compose, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,8 +20,8 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- execute PTL-I100-106 scoped internal implementation inside current task_packet declared_changed_paths / allowed_modification_paths
-- modify only listed platform infra readiness, storage/settings/bootstrap readback support, and listed tests for 106-E platform infra reserved backend readiness projection
+- close out PTL-I100-106 in control/product_task_library.yaml and record completed_commit=43e6442
+- sync control/current_task.yaml and control/repo_status.md for the 106 closeout control packet
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -29,7 +29,7 @@ Allowed Actions (current):
 - keep external leadpack delivery approval + audit required
 - keep Stage 8 real execution governed / approval-gated / blocked by default
 - keep Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
-- run required checks and stop/report after check-task-packet / targeted tests / tests / check-state-alignment
+- run required checks and stop/report after check-task-packet / planning-surface tests / external-unlock prerequisite tests / check-state-alignment
 
 Forbidden Actions (current):
 - Any docs/** change
@@ -37,6 +37,8 @@ Forbidden Actions (current):
 - Any fixtures/** change
 - Any handoff/** change
 - Any scripts/** change
+- Any src/** change
+- Any tests/** change
 - Any change to control/source_blueprint_registry.yaml
 - Any change to control/review_gate_matrix.yaml
 - Any change to control/release_manifest.yaml
@@ -48,7 +50,7 @@ Forbidden Actions (current):
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
 - Any change that implements real PostgreSQL/Alembic migration, real DB table, queue, object storage, or Docker Compose
-- Any automatic transition to PTL-I100-107
+- Any PTL-I100-107 implementation inside the 106 closeout commit
 - Any push
 
 State Semantics:
@@ -63,8 +65,8 @@ State Semantics:
 - PTL-I100-103 is completed and closed out via commits a276410, d86a6f7, and 2a14692.
 - PTL-I100-104 is completed and closed out via commits 3625e35, 068e1b7, 2313d7e, and 3cc70bf.
 - PTL-I100-105 is completed via commits d37ae82 and fdd471e; Stage8 carrier persistence/readback/replay and Stage9 internal additive governed writeback are implemented.
-- PTL-I100-106-platform-foundation-and-full-chain-entry is now the active scoped execution packet; 106A storage runtime path/settings/bootstrap stabilization completed via 1eda05f, 106-B storage backend seam completed via fa36cb5, 106-C full-chain transport bootstrap/readback completed via 86217a2, 106-D Stage1-5 reserved entry plan completed via 3b659ad, and 106-E platform infra reserved backend readiness projection is the current slice.
-- PTL-I100-107 is not auto-activated; current_mainline_next_candidate remains null until a dedicated future current_task packet is created.
+- PTL-I100-106-platform-foundation-and-full-chain-entry is completed via commits 1eda05f, 067529f, fa36cb5, 86217a2, 3b659ad, and 43e6442; stable shared storage path/settings/bootstrap, json-file backend seam, transport bootstrap/readback, reserved entry plan, and platform infra readiness projection are now internal foundation/readiness baseline.
+- PTL-I100-107 is not implemented in this closeout commit; it must run through its own dedicated current_task packet before any implementation.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -76,12 +78,10 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @("control/current_task.yaml", "control/repo_status.md", "control/product_task_library.yaml"); & "scripts/check-task-packet.ps1" -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- python -m unittest tests.test_storage_concurrency -v
-- python -m unittest tests.test_api_transport_bootstrap -v
 - python -m unittest tests.test_stage12_extractors -v
-- python tests/run_tests.py
+- python -m unittest tests.test_external_unlock_prerequisites -v
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check
 - git status --short --untracked-files=all

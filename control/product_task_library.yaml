@@ -626,16 +626,18 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [storage, api_transport, internal_preview, stage1_to_stage9]
     task_type: internal_operable_productization
-    status: PLANNED
-    planning_state: PLANNED
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P1
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: FILE_BACKED_INTERNAL_RUNTIME
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    runtime_change_in_packet: IN_SCOPE
+    completed_commit: 43e6442
     activation_policy: "requires dedicated control/current_task.yaml packet before execution"
     hard_depends_on: [PTL-I100-105-stage8-9-governed-closure]
     soft_depends_on: [PTL-INT-102-p4-repository-boundary-hardening, PTL-INT-104-p8-observability-operator-workbench]
+    runtime_notes: "PTL-I100-106 scoped implementation 已完成并在本地提交：1eda05f、067529f、fa36cb5、86217a2、3b659ad、43e6442；本轮完成 stable shared storage path、settings/bootstrap 单入口、json-file backend seam 与 unsupported backend fast-fail、Stage1-9 transport bootstrap/readback、Stage1-5 reserved entry plan、platform infra reserved readiness projection；真实 PostgreSQL/Alembic migration、真实 DB table、queue、object storage、Docker Compose 均只表达为 reserved-not-live/readiness，未实现真实 infra；PTL-I100-106 不再是 current active implementation packet，PTL-I100-107 可通过 dedicated current_task packet 激活。"
     objective: "把文件型内测底座升级为正式内部运行底座，并裁决 Stage1-6 transport/workbench/orchestration 入口。"
     non_goals: ["不大规模重写业务规则", "不做 external unlock", "不真实支付或外部交付"]
     expected_outputs: ["PostgreSQL/SQLAlchemy/Alembic 迁移方案与实现", "Redis/Dramatiq 队列", "MinIO/S3 对象存储", "Docker Compose", "Stage1-6 入口策略"]
