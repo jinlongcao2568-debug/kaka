@@ -24,17 +24,18 @@
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
 - Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；真实触达、真实支付、真实交付是目标能力，但 `external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked-by-default / governed / approval-gated，直到 dedicated task 与验收放行。
 - 自动退款执行不属于目标能力；退款只允许作为 manual exception record、manual approval/audit 与 governed review 处理。
-- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-111F-open-capability-registry-route-doc-sync`，只做开放能力基线到注册表、路线图、D1-D14 补表和测试的同步。
+- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-112A-production-platform-storage-seam`，只做生产基础设施第一刀的 storage / SQLAlchemy-Postgres seam 与 infra readiness/readback，不放开 external/live 执行。
+- `PTL-I100-111F-open-capability-registry-route-doc-sync` 已完成并本地提交：`1c403c7`；它只同步开放能力基线到注册表、路线图、D1-D14 补表和测试，不再是 current active packet。
 - `PTL-INT-internal-preview-productization-strengthening` scoped-execution 已完成并提交：`f788a2b`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - Stage1-9 + INT 当前产品主线闭合完成；`control/product_task_library.yaml` 的 `current_mainline_next_candidate` 已收口为 `MAINLINE_COMPLETE` closeout 记录，`task_id` / `packet_id` 均为空。
 - 当前没有自动 next candidate；后续进入新主线、模块拆分、强化包或外发 unlock，都必须另开 task packet 并人工确认。
 - post-mainline 方向选择当前只作导航提示，不自动决定执行顺序，也不自动恢复任何 next candidate。
 - `Stage7 模块边界重构` 对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交：`2601482`；该方向当前不再 recommended_now，且不是 current active packet。
-- 当前推荐候选仅作导航建议，不是已激活任务；推荐下一候选为 `PTL-I100-112-production-platform-infrastructure`，但不得由本导航图自动激活。
+- 当前 112A 已由 `control/current_task.yaml` 激活；本导航图只同步近端提示，不决定后续 112B 或任何 provider/live 执行顺序。
 - `PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交：`209c4cd`；它不再是 current active packet，仅作为把 current_mainline_next_candidate 推进到 `PTL-INT` 的历史控制面参照。
 - `PTL-S89-outreach-writeback-delivery-governance` scoped-execution 已完成并提交：`c36dd9d`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
-- 本轮只做 `PTL-I100-111F-open-capability-registry-route-doc-sync` 的 registry / route / D-doc appendix 同步；不进入 runtime，不改 src / contracts / handoff / scripts / fixtures，不放开 external release、Stage8 live send、Stage9 live payment/delivery 或客户平台放行。
+- 本轮只做 `PTL-I100-112A-production-platform-storage-seam` 的 production storage seam / infra readiness 第一刀；不改 contracts / handoff / scripts / fixtures，不放开 external release、Stage8 live send、Stage9 live payment/delivery 或客户平台放行。
 - `PTL-S56-project-fact-review-report` scoped-execution 已完成并已提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S45-rule-evidence-dual-gate` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S34-object-lineage-verification-handoff` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -154,11 +155,11 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-I100-111F-open-capability-registry-route-doc-sync`；本轮只做开放能力基线到 product_module_registry、路线图、D1-D14 补表和测试的同步，不自动进入任何新 runtime 包。
+- 当前 active packet：`PTL-I100-112A-production-platform-storage-seam`；本轮只做 `PTL-I100-112-production-platform-infrastructure` 的第一刀，目标是 storage backend seam、SQLAlchemy/Postgres opt-in readiness、infra health/readback 与现有 repository 回归。
 - 当前无自动 next candidate：Stage1-9 + INT 产品主线已闭合；后续新主线、模块拆分、强化包或外发 unlock 均需另开 task packet 并人工确认，不能由本导航图自动选择。
 - post-mainline 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入候选池。
 - Stage7 模块边界重构：对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交 `2601482`；该方向当前不再 recommended_now，只作为已闭合近端历史参照。
-- 当前推荐候选仅作导航建议，不是已激活任务：`PTL-I100-112-production-platform-infrastructure`。推荐理由是生产持久化、审计、worker、监控和回滚基础应先于真实公开数据与 provider live 执行补齐。
+- 当前 112A 已激活；后续 112B/112C 候选仍需由 dedicated current_task 激活。推荐理由不变：生产持久化、审计、worker、监控和回滚基础应先于真实公开数据与 provider live 执行补齐。
 - Internal preview 产品化强化（`PTL-INT-internal-preview-productization-strengthening`）：已完成 scoped-execution 并提交 `f788a2b`；不再是 current active packet，也不再是 current_mainline_next_candidate，仅作为该方向的已闭合历史参照；不是 external release 或客户平台放行。
 - `PTL-S89-outreach-writeback-delivery-governance`：已完成 scoped-execution 并提交 `c36dd9d`；不再是 current_mainline_next_candidate，仅作为 Stage8-9 触达记录、回写、交付与治理反馈闭合的近端历史参照。
 - `PTL-S78-contact-candidate-compliance-preview`：已完成并提交；不再是 current_mainline_next_candidate，仅作为 Stage7-8 联系候选、合规判定与预览闭合的近端历史参照。
