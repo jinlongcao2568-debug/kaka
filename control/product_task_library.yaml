@@ -703,13 +703,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [internal_preview, leadpack_candidate_surface, page_export]
     task_type: internal_operable_productization
-    status: PLANNED
-    planning_state: PLANNED
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P3
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_GOVERNED_RUNTIME
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    completed_commit: 987636e
     activation_policy: "requires dedicated control/current_task.yaml packet before execution"
     hard_depends_on: [PTL-I100-108-stage1-7-internal-entry-and-crm-prereq]
     soft_depends_on: [PTL-I100-107-real-sample-operational-acceptance]
@@ -721,7 +722,7 @@ tasks:
       - PTL-I100-109A-leadpack-approval-audit-readiness
       - PTL-I100-109B-client-export-page-layer-coverage
     risk_level: HIGH
-    runtime_notes: "PTL-I100-109A 已完成并本地提交 fad8a53：LeadPack external delivery candidate approval/audit readiness/readback 已闭环，仍 non-live / candidate-only / review-only。PTL-I100-109B 已通过 dedicated current_task packet 激活，目标只补 FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER internal preview/readiness/readback/test coverage；本任务不批准真实外发、客户可见正式导出、客户页面发布、external/live 或 release。"
+    runtime_notes: "PTL-I100-109 已完成并在本地提交：fad8a53、987636e；本轮完成 LeadPack external delivery candidate approval/audit readiness/readback 与 FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER internal preview/readiness/readback/test coverage。真实 LeadPack 外发、客户可见正式导出、客户页面发布、external/live、release、Stage8 real execution、Stage9 payment/delivery/refund 仍 blocked/gated；PTL-I100-110 需显式人工确认后才能通过 dedicated current_task packet 激活。"
   - task_id: PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions
     title: "I100-10 真实后端与 external/live 前置裁决"
     program_ref: PTL-I100-internal-operable-productization

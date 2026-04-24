@@ -98,6 +98,7 @@ currentTask:
       - "PTL-I100-108A Stage1-6 internal entry/orchestration 已完成并本地提交：3baed1b。"
       - "PTL-I100-108B Stage7 CRM/external quote prerequisite readiness 已完成并本地提交：a9ced6b。"
       - "PTL-I100-109A LeadPack approval/audit readiness/readback 已完成并本地提交：fad8a53。"
+      - "PTL-I100-109B formal client export/page layer readiness/readback 已完成并本地提交：987636e。"
       - "control/current_task.yaml 是唯一 active execution source。"
       - "source_blueprint_batch_id=PTL-I100-ROADMAP-01 已登记在 control/source_blueprint_registry.yaml。"
     scoped_execution_scope:
@@ -359,6 +360,6 @@ currentTask:
     - "不得新增正式对象、枚举、gate、exception 语义。"
     - "不得 push。"
   nextActions:
-    - "下一执行窗口直接做 PTL-I100-109B formal client export/page layer internal preview/readiness/readback 第二刀。"
-    - "109B 完成后由总控窗口验收 ledger 是否已对齐，并决定是否 closeout PTL-I100-109 或进入 110 前置裁决。"
-  status_note: "PTL-I100-109A 已完成并本地提交 fad8a53；PTL-I100-109B 作为当前 active scoped execution packet，只做 formal client export/page layer internal preview/readiness/readback/test coverage；external/live 红线不变。"
+    - "PTL-I100-109 已完成 closeout；当前控制面保留 109B 作为最后 active scoped source，直到 PTL-I100-110 获得显式人工确认并通过 dedicated current_task packet 激活。"
+    - "下一步建议是 PTL-I100-110A 前置裁决窗口，不是实现窗口；进入前必须明确确认。"
+  status_note: "PTL-I100-109A/109B 已完成并本地提交 fad8a53、987636e；PTL-I100-109 已 closeout。PTL-I100-110 涉及真实后端与 external/live 前置裁决，必须显式人工确认后才可激活；external/live 红线不变。"
