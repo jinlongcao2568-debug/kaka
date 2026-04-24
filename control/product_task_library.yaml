@@ -721,7 +721,7 @@ tasks:
       - PTL-I100-109A-leadpack-approval-audit-readiness
       - PTL-I100-109B-client-export-page-layer-coverage
     risk_level: HIGH
-    runtime_notes: "来自 control/product_doc_runtime_coverage_ledger.yaml：LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE 与 FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER 仍需 internal readiness/coverage；本任务不批准真实外发或 release。"
+    runtime_notes: "PTL-I100-109A 已完成并本地提交 fad8a53：LeadPack external delivery candidate approval/audit readiness/readback 已闭环，仍 non-live / candidate-only / review-only。PTL-I100-109B 已通过 dedicated current_task packet 激活，目标只补 FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER internal preview/readiness/readback/test coverage；本任务不批准真实外发、客户可见正式导出、客户页面发布、external/live 或 release。"
   - task_id: PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions
     title: "I100-10 真实后端与 external/live 前置裁决"
     program_ref: PTL-I100-internal-operable-productization

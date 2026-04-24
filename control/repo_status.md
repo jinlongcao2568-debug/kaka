@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-109-leadpack-export-and-page-layer-readiness (SCOPED_EXECUTION; active 109-A LeadPack external delivery candidate approval/audit readiness/readback slice; PTL-I100-108 completed via 3baed1b and a9ced6b; this does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack delivery, client-visible formal export/page release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-109-leadpack-export-and-page-layer-readiness (SCOPED_EXECUTION; active 109-B formal client export/page layer internal preview/readiness/readback slice; PTL-I100-109A completed via fad8a53; this does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack delivery, client-visible formal export/page release, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,10 +20,10 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- execute PTL-I100-109A LeadPack external delivery candidate approval/audit readiness/readback inside current task_packet declared_changed_paths / allowed_modification_paths
-- modify only listed LeadPack candidate projection/API/schema/tests/control files needed to strengthen LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE approval/audit readiness/readback
+- execute PTL-I100-109B formal client export/page layer internal preview/readiness/readback inside current task_packet declared_changed_paths / allowed_modification_paths
+- modify only listed formal client export/page layer projection/API/schema/tests/control files needed to strengthen FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER internal readiness/readback/test coverage
 - keep real LeadPack delivery, client-visible formal export/page release, external/live transport, and external release controlled and blocked
-- update control/product_doc_runtime_coverage_ledger.yaml only for LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE when dedicated readiness/test coverage is truly complete; do not mark this external/live capability as INTERNAL_IMPLEMENTED
+- update control/product_doc_runtime_coverage_ledger.yaml only for FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER when dedicated internal preview/readiness/test coverage is truly complete; do not mark this external/live capability as INTERNAL_IMPLEMENTED
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -53,7 +53,7 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
-- Any runtime implementation outside PTL-I100-109A LeadPack approval/audit readiness/readback
+- Any runtime implementation outside PTL-I100-109B formal client export/page layer internal preview/readiness/readback
 - Any real LeadPack external delivery or client-visible formal export/page release
 - Any use of real production samples or external live data
 - Any external/live execution
@@ -80,7 +80,8 @@ State Semantics:
 - PTL-I100-107-real-sample-operational-acceptance is completed and closed out via commit 08f2a30.
 - PTL-I100-108A Stage1-6 internal entry/orchestration is completed via commit 3baed1b.
 - PTL-I100-108B Stage7 CRM/external quote prerequisite readiness/readback is completed via commit a9ced6b.
-- PTL-I100-109A is now the active scoped execution packet; it only handles LeadPack external delivery candidate approval/audit readiness/readback and does not approve real LeadPack delivery, client-visible formal export/page release, real backend infrastructure, or external unlock.
+- PTL-I100-109A is completed via commit fad8a53; LeadPack external delivery candidate approval/audit readiness/readback is implemented and still non-live.
+- PTL-I100-109B is now the active scoped execution packet; it only handles formal client export/page layer internal preview/readiness/readback/test coverage and does not approve real LeadPack delivery, client-visible formal export/page release, real backend infrastructure, or external unlock.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
