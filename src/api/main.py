@@ -10,13 +10,20 @@ from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException, Request
 
-from api.deps import get_database_session, get_settings
+from api.deps import (
+    INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY,
+    get_database_session,
+    get_settings,
+)
 from api.routes.stage1 import register_stage1_routes
 from api.routes.stage2 import register_stage2_routes
 from api.routes.stage3 import register_stage3_routes
 from api.routes.stage4 import register_stage4_routes
 from api.routes.stage5 import register_stage5_routes
-from api.routes.stage6 import register_stage6_routes
+from api.routes.stage6 import (
+    register_stage1_to_stage6_internal_orchestration_routes,
+    register_stage6_routes,
+)
 from api.routes.stage7 import register_stage7_routes
 from api.routes.stage8 import register_stage8_routes
 from api.routes.stage9 import register_stage9_routes
@@ -33,6 +40,9 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "candidate_only",
     "external_delivery_enabled",
     "requires_review",
+    "accepted_payload_boundary",
+    "repository_backed_readback",
+    "orchestrates_stage_scope",
 )
 RESERVED_ENTRY_PLAN_READBACK_KEYS = (
     "stage_scope",
@@ -46,6 +56,13 @@ RESERVED_ENTRY_PLAN_READBACK_KEYS = (
     "http_entry_enabled",
     "real_transport_enabled",
     "orchestrator_enabled",
+    "internal_orchestration_entry_available",
+    "internal_orchestration_operation_id",
+    "internal_orchestration_path",
+    "internal_orchestration_method",
+    "internal_orchestration_payload_boundary",
+    "stage6_readback_mode",
+    "stage1_to_stage5_external_live_transport_state",
     "route_registrar",
 )
 
@@ -171,10 +188,13 @@ def _build_transport_bootstrap(
         "stage6_to_stage9_mounted_operations": _mounted_operations_readback(mounted_stage_routes),
         "entry_strategy": {
             "stage1_to_stage5": {
-                "current_entry": "controlled-unavailable reserved entry plan readback only",
+                "current_entry": "controlled-unavailable external/live transport with internal orchestration handoff",
                 "http_entry_enabled": False,
                 "real_transport_enabled": False,
                 "orchestrator_enabled": False,
+                "external_live_transport_enabled": False,
+                "internal_orchestration_entry_available": True,
+                "internal_orchestration_entry": dict(INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY),
                 "reserved_entry_plan": stage1_to_stage5_reserved_entry_plan,
                 "source": "stage1-stage5 transport registrars",
             },
@@ -192,15 +212,35 @@ def _build_transport_bootstrap(
                 },
             },
             "stage1_to_stage6_full_chain_entry": {
-                "current_entry": "bootstrap/readback strategy only",
+                "current_entry": "internal-only sanitized/offline orchestration entry mounted on Stage6",
+                "http_entry_enabled": True,
+                "internal_only": True,
+                "live_execution_enabled": False,
+                "accepted_payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+                "operation_id": INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY[
+                    "internal_orchestration_operation_id"
+                ],
+                "path": INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY[
+                    "internal_orchestration_path"
+                ],
+                "method": INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY[
+                    "internal_orchestration_method"
+                ],
                 "executes_stage1_to_stage5_transport": False,
+                "executes_external_live_transport": False,
                 "executes_real_orchestrator": False,
+                "executes_existing_internal_chain": True,
+                "persists_stage6_bundle": True,
+                "stage6_readback_mode": "repository_backed_preview",
                 "mounted_entry_stage": 6,
             },
         },
         "redlines": {
             "new_http_endpoint_added": False,
+            "internal_stage1_to_stage6_http_endpoint_added": True,
+            "new_external_or_live_http_endpoint_added": False,
             "stage1_to_stage5_real_transport_enabled": False,
+            "stage1_to_stage5_external_live_transport_enabled": False,
             "external_software_release_enabled": False,
             "external_leadpack_delivery_requires_approval_and_audit": True,
             "stage8_real_execution_enabled": False,
@@ -230,7 +270,7 @@ def create_app() -> FastAPI:
         "stage5": register_stage5_routes(),
     }
     mounted_stage_routes = {
-        "stage6": register_stage6_routes(),
+        "stage6": register_stage1_to_stage6_internal_orchestration_routes() + register_stage6_routes(),
         "stage7": register_stage7_routes(),
         "stage8": register_stage8_routes(),
         "stage9": register_stage9_routes(),

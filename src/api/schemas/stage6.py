@@ -176,12 +176,33 @@ class Stage6OperatorActionResponse(Stage6Response, total=False):
     action_result: OperatorActionResult
 
 
+class Stage1ToStage6InternalOrchestrationResponse(TypedDict, total=False):
+    operation_id: str
+    orchestration_scope: str
+    payload_boundary: str
+    source_mode: str
+    run_mode: str
+    internal_only: bool
+    live_execution_enabled: bool
+    external_live_transport_enabled: bool
+    stage1_to_stage5_transport_state: str
+    stage1_to_stage5_http_entry_enabled: bool
+    stage1_to_stage5_real_transport_enabled: bool
+    stage1_to_stage5_external_live_transport_enabled: bool
+    stage6_repository_backed_preview: bool
+    stage6_persisted: bool
+    stage6_project_id: str
+    stage6_project_fact_id: str
+    stage6_readback: Stage6ReviewReportWorkbenchResponse
+
+
 __all__ = [
     "FormalObjectRef",
     "OperationalAssignment",
     "OperationalContext",
     "OperatorActionResult",
     "PendingButtonFlow",
+    "Stage1ToStage6InternalOrchestrationResponse",
     "Stage6PreviewProjection",
     "Stage6OperatorActionRequest",
     "Stage6OperatorActionResponse",

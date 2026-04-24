@@ -25,7 +25,10 @@ from api.routes.stage2 import register_stage2_routes
 from api.routes.stage3 import register_stage3_routes
 from api.routes.stage4 import register_stage4_routes
 from api.routes.stage5 import register_stage5_routes
-from api.routes.stage6 import register_stage6_routes
+from api.routes.stage6 import (
+    register_stage1_to_stage6_internal_orchestration_routes,
+    register_stage6_routes,
+)
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
 from storage import persist_stage_bundle, reset_default_storage
@@ -43,6 +46,13 @@ RESERVED_ENTRY_PLAN_READBACK_KEYS = (
     "http_entry_enabled",
     "real_transport_enabled",
     "orchestrator_enabled",
+    "internal_orchestration_entry_available",
+    "internal_orchestration_operation_id",
+    "internal_orchestration_path",
+    "internal_orchestration_method",
+    "internal_orchestration_payload_boundary",
+    "stage6_readback_mode",
+    "stage1_to_stage5_external_live_transport_state",
     "route_registrar",
 )
 RESERVED_ENTRY_EXPECTATIONS = {
@@ -100,6 +110,13 @@ def expected_reserved_entry_plan(stage_scope: int) -> dict[str, object]:
         "http_entry_enabled": False,
         "real_transport_enabled": False,
         "orchestrator_enabled": False,
+        "internal_orchestration_entry_available": True,
+        "internal_orchestration_operation_id": "runStage1ToStage6InternalOrchestration",
+        "internal_orchestration_path": "/internal/stage1-6/orchestrations",
+        "internal_orchestration_method": "POST",
+        "internal_orchestration_payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+        "stage6_readback_mode": "repository_backed_preview",
+        "stage1_to_stage5_external_live_transport_state": "BLOCKED_CONTROLLED_UNAVAILABLE",
         "route_registrar": f"register_stage{stage_scope}_routes",
     }
 
@@ -252,6 +269,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
         mounted_operations = bootstrap["stage6_to_stage9_mounted_operations"]
         mounted_by_id = {operation["operationId"]: operation for operation in mounted_operations}
         expected_operations = {
+            "runStage1ToStage6InternalOrchestration",
             "previewStage6ReviewReportWorkbench",
             "listSaleableOpportunities",
             "listContactTargets",
@@ -276,6 +294,16 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertTrue(operation["internal_only"])
             self.assertFalse(operation["live_execution_enabled"])
 
+        orchestration_operation = mounted_by_id["runStage1ToStage6InternalOrchestration"]
+        self.assertEqual(orchestration_operation["stage_scope"], 6)
+        self.assertEqual(orchestration_operation["method"], "POST")
+        self.assertEqual(orchestration_operation["path"], "/internal/stage1-6/orchestrations")
+        self.assertEqual(
+            orchestration_operation["accepted_payload_boundary"],
+            "SANITIZED_OFFLINE_INTERNAL",
+        )
+        self.assertTrue(orchestration_operation["repository_backed_readback"])
+        self.assertEqual(orchestration_operation["orchestrates_stage_scope"], "stage1_to_stage6")
         self.assertEqual(mounted_by_id["previewStage6ReviewReportWorkbench"]["stage_scope"], 6)
         self.assertEqual(mounted_by_id["listSaleableOpportunities"]["stage_scope"], 7)
         self.assertEqual(mounted_by_id["listContactTargets"]["stage_scope"], 8)
@@ -294,6 +322,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(entry_strategy["stage1_to_stage5"]["http_entry_enabled"])
         self.assertFalse(entry_strategy["stage1_to_stage5"]["real_transport_enabled"])
         self.assertFalse(entry_strategy["stage1_to_stage5"]["orchestrator_enabled"])
+        self.assertFalse(entry_strategy["stage1_to_stage5"]["external_live_transport_enabled"])
+        self.assertTrue(entry_strategy["stage1_to_stage5"]["internal_orchestration_entry_available"])
+        self.assertEqual(
+            entry_strategy["stage1_to_stage5"]["internal_orchestration_entry"]["internal_orchestration_path"],
+            "/internal/stage1-6/orchestrations",
+        )
         self.assertEqual(entry_strategy["stage1_to_stage5"]["reserved_entry_plan"], reserved_entry_plan)
         self.assertTrue(entry_strategy["stage6"]["http_entry_enabled"])
         self.assertIn(
@@ -308,11 +342,34 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(
             entry_strategy["stage1_to_stage6_full_chain_entry"]["executes_stage1_to_stage5_transport"]
         )
+        self.assertTrue(entry_strategy["stage1_to_stage6_full_chain_entry"]["http_entry_enabled"])
+        self.assertTrue(entry_strategy["stage1_to_stage6_full_chain_entry"]["internal_only"])
+        self.assertFalse(entry_strategy["stage1_to_stage6_full_chain_entry"]["live_execution_enabled"])
+        self.assertEqual(
+            entry_strategy["stage1_to_stage6_full_chain_entry"]["accepted_payload_boundary"],
+            "SANITIZED_OFFLINE_INTERNAL",
+        )
+        self.assertEqual(
+            entry_strategy["stage1_to_stage6_full_chain_entry"]["operation_id"],
+            "runStage1ToStage6InternalOrchestration",
+        )
+        self.assertFalse(
+            entry_strategy["stage1_to_stage6_full_chain_entry"]["executes_external_live_transport"]
+        )
         self.assertFalse(entry_strategy["stage1_to_stage6_full_chain_entry"]["executes_real_orchestrator"])
+        self.assertTrue(entry_strategy["stage1_to_stage6_full_chain_entry"]["executes_existing_internal_chain"])
+        self.assertTrue(entry_strategy["stage1_to_stage6_full_chain_entry"]["persists_stage6_bundle"])
+        self.assertEqual(
+            entry_strategy["stage1_to_stage6_full_chain_entry"]["stage6_readback_mode"],
+            "repository_backed_preview",
+        )
 
         redlines = bootstrap["redlines"]
         self.assertFalse(redlines["new_http_endpoint_added"])
+        self.assertTrue(redlines["internal_stage1_to_stage6_http_endpoint_added"])
+        self.assertFalse(redlines["new_external_or_live_http_endpoint_added"])
         self.assertFalse(redlines["stage1_to_stage5_real_transport_enabled"])
+        self.assertFalse(redlines["stage1_to_stage5_external_live_transport_enabled"])
         self.assertFalse(redlines["external_software_release_enabled"])
         self.assertTrue(redlines["external_leadpack_delivery_requires_approval_and_audit"])
         self.assertFalse(redlines["stage8_real_execution_enabled"])
@@ -391,6 +448,23 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(action_route["internal_only"])
         self.assertFalse(action_route["live_execution_enabled"])
 
+    def test_stage1_to_stage6_internal_orchestration_route_registrar_is_separate(self) -> None:
+        routes = register_stage1_to_stage6_internal_orchestration_routes()
+
+        self.assertEqual(len(routes), 1)
+        orchestration_route = next(
+            route for route in routes if route["operationId"] == "runStage1ToStage6InternalOrchestration"
+        )
+        self.assertEqual(orchestration_route["method"], "POST")
+        self.assertEqual(orchestration_route["path"], "/internal/stage1-6/orchestrations")
+        self.assertTrue(orchestration_route["internal_only"])
+        self.assertFalse(orchestration_route["live_execution_enabled"])
+        self.assertEqual(
+            orchestration_route["accepted_payload_boundary"],
+            "SANITIZED_OFFLINE_INTERNAL",
+        )
+        self.assertTrue(orchestration_route["repository_backed_readback"])
+
     def test_create_app_mounts_stage7_to_stage9_transport_routes(self) -> None:
         app = create_app()
 
@@ -402,6 +476,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(
             {
                 "previewStage6ReviewReportWorkbench",
+                "runStage1ToStage6InternalOrchestration",
                 "listStage6WorkItems",
                 "submitStage6OperatorAction",
                 "listSaleableOpportunities",
@@ -429,6 +504,66 @@ class TestApiTransportBootstrap(unittest.TestCase):
         }
         self.assertTrue(reserved_operation_ids.isdisjoint(mounted_operation_ids))
         self.assertTrue(reserved_paths.isdisjoint(mounted_paths))
+
+    def test_stage1_to_stage6_internal_orchestration_runs_repository_backed_readback(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+                "source_mode": "OFFLINE_FIXTURE",
+                "run_mode": "DRY_RUN",
+            }
+        )
+
+        client = TestClient(create_app())
+        response = client.post("/internal/stage1-6/orchestrations", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["operation_id"], "runStage1ToStage6InternalOrchestration")
+        self.assertEqual(body["orchestration_scope"], "stage1_to_stage6")
+        self.assertEqual(body["payload_boundary"], "SANITIZED_OFFLINE_INTERNAL")
+        self.assertTrue(body["internal_only"])
+        self.assertFalse(body["live_execution_enabled"])
+        self.assertFalse(body["external_live_transport_enabled"])
+        self.assertEqual(body["stage1_to_stage5_transport_state"], "BLOCKED_CONTROLLED_UNAVAILABLE")
+        self.assertFalse(body["stage1_to_stage5_http_entry_enabled"])
+        self.assertFalse(body["stage1_to_stage5_real_transport_enabled"])
+        self.assertFalse(body["stage1_to_stage5_external_live_transport_enabled"])
+        self.assertTrue(body["stage6_repository_backed_preview"])
+        self.assertTrue(body["stage6_persisted"])
+
+        readback = body["stage6_readback"]
+        self.assertEqual(readback["surface_id"], "review_report_workbench")
+        self.assertEqual(readback["surface_mode"], "preview-only")
+        self.assertTrue(readback["internal_only"])
+        self.assertFalse(readback["live_execution_enabled"])
+        self.assertEqual(readback["operational_context_status"], "persisted")
+        self.assertEqual(
+            readback["formal_object_refs"]["project_fact"]["object_id"],
+            body["stage6_project_fact_id"],
+        )
+        self.assertEqual(
+            readback["preview_projection"]["project_fact_summary"]["project_id"],
+            body["stage6_project_id"],
+        )
+
+    def test_stage1_to_stage6_internal_orchestration_rejects_live_payloads(self) -> None:
+        payload = load_fixture("internal_chain_happy.json")
+        payload.update(
+            {
+                "payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+                "source_mode": "OFFLINE_FIXTURE",
+                "run_mode": "LIVE",
+                "live_execution_enabled": True,
+            }
+        )
+
+        client = TestClient(create_app())
+        response = client.post("/internal/stage1-6/orchestrations", json=payload)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("run_mode", response.json()["detail"])
 
     def test_stage6_http_transport_reads_repository_backed_preview(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

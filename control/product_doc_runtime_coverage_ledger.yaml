@@ -21,11 +21,11 @@ classification_vocabulary:
   - MISSING_RUNTIME
   - MISSING_TEST
 classification_counts:
-  INTERNAL_IMPLEMENTED: 14
+  INTERNAL_IMPLEMENTED: 15
   TEST_COVERED: 21
   RESERVED_NOT_LIVE: 10
   BLOCKED_BY_GOVERNANCE: 5
-  MISSING_RUNTIME: 4
+  MISSING_RUNTIME: 3
   MISSING_TEST: 2
 capabilities:
   - capability_id: STAGE1_2_SOURCE_ROUTE_CLOCK_AUTHORITY
@@ -514,6 +514,7 @@ capabilities:
       - docs/D12_部署发布与运行治理规范.md#D12-R-041-F
       - docs/D1_研发_Codex执行手册.md#execution-boundary
     runtime_refs:
+      - src/api/deps.py
       - src/api/main.py
       - src/api/routes/stage1.py
       - src/api/routes/stage2.py
@@ -524,14 +525,19 @@ capabilities:
     test_refs:
       - tests/test_api_transport_bootstrap.py::test_stage1_to_stage5_route_registrars_are_controlled_unavailable
       - tests/test_api_transport_bootstrap.py::test_stage6_route_is_registered_for_internal_preview
+      - tests/test_api_transport_bootstrap.py::test_stage1_to_stage6_internal_orchestration_runs_repository_backed_readback
+      - tests/test_api_transport_bootstrap.py::test_stage1_to_stage6_internal_orchestration_rejects_live_payloads
     classification:
+      - INTERNAL_IMPLEMENTED
       - RESERVED_NOT_LIVE
-      - MISSING_RUNTIME
       - TEST_COVERED
     evidence_summary: >
-      Stage6 preview route is active, but full Stage1-6 API orchestration is not
-      implemented; Stage1-5 transport is intentionally controlled-unavailable.
-    recommended_followup_packet: PTL-I100-108-stage1-6-transport-orchestration-implementation
+      Stage1-6 internal-only orchestration is implemented as a sanitized/offline
+      API entry mounted on the Stage6 preview surface. It runs the existing
+      internal Stage1-6 chain, persists the Stage6 bundle, and returns
+      repository-backed Stage6 preview/readback while Stage1-5 external/live
+      transport remains controlled-unavailable and reserved-not-live.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
 
   - capability_id: LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE
     scope_group: external/live redlines

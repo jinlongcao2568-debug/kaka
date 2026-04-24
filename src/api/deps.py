@@ -13,6 +13,17 @@ from shared.settings import Settings
 from storage.db import DatabaseSession
 
 
+INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY = {
+    "internal_orchestration_entry_available": True,
+    "internal_orchestration_operation_id": "runStage1ToStage6InternalOrchestration",
+    "internal_orchestration_path": "/internal/stage1-6/orchestrations",
+    "internal_orchestration_method": "POST",
+    "internal_orchestration_payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+    "stage6_readback_mode": "repository_backed_preview",
+    "stage1_to_stage5_external_live_transport_state": "BLOCKED_CONTROLLED_UNAVAILABLE",
+}
+
+
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -61,9 +72,58 @@ def build_transport_unavailable(
                 "http_entry_enabled": False,
                 "real_transport_enabled": False,
                 "orchestrator_enabled": False,
+                **INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY,
             }
         )
     return transport_state
 
 
-__all__ = ["build_transport_unavailable", "get_database_session", "get_settings"]
+def validate_internal_orchestration_payload(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise TypeError("stage1-6 internal orchestration payload must be a JSON object")
+
+    payload_boundary = str(payload.get("payload_boundary", "")).strip()
+    if payload_boundary != "SANITIZED_OFFLINE_INTERNAL":
+        raise ValueError("payload_boundary must be SANITIZED_OFFLINE_INTERNAL")
+
+    source_mode = str(payload.get("source_mode", "")).strip()
+    allowed_source_modes = {
+        "OFFLINE_FIXTURE",
+        "OFFLINE_SANITIZED",
+        "INTERNAL_OFFLINE_REPLAY",
+    }
+    if source_mode not in allowed_source_modes:
+        raise ValueError("source_mode must be offline/sanitized/internal")
+
+    run_mode = str(payload.get("run_mode", "")).strip()
+    allowed_run_modes = {"DRY_RUN", "PREVIEW", "INTERNAL_PREVIEW", "OFFLINE_REPLAY"}
+    if run_mode not in allowed_run_modes:
+        raise ValueError("run_mode must be dry-run, preview, or offline replay")
+
+    blocked_truthy_flags = (
+        "live_execution_enabled",
+        "external_delivery_enabled",
+        "external_release_enabled",
+        "live_source_enabled",
+        "real_transport_enabled",
+    )
+    for flag in blocked_truthy_flags:
+        if bool(payload.get(flag, False)):
+            raise ValueError(f"{flag} is blocked for stage1-6 internal orchestration")
+
+    blocked_modes = {"LIVE", "EXTERNAL_LIVE", "PRODUCTION", "REAL_TRANSPORT"}
+    for field_name in ("run_mode", "source_mode", "transport_mode", "execution_mode"):
+        field_value = str(payload.get(field_name, "")).strip()
+        if field_value in blocked_modes:
+            raise ValueError(f"{field_name} must not request external/live execution")
+
+    return dict(payload)
+
+
+__all__ = [
+    "INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY",
+    "build_transport_unavailable",
+    "get_database_session",
+    "get_settings",
+    "validate_internal_orchestration_payload",
+]

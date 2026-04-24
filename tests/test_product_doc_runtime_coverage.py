@@ -151,6 +151,30 @@ class ProductDocRuntimeCoverageLedgerTests(unittest.TestCase):
         )
         self.assertIn("runtime/readback", capability["evidence_summary"])
 
+    def test_stage1_6_full_api_transport_orchestration_runtime_is_closed(self):
+        capability = next(
+            item
+            for item in self.capabilities
+            if item["capability_id"] == "STAGE1_6_FULL_API_TRANSPORT_AND_ORCHESTRATION"
+        )
+
+        self.assertIn("INTERNAL_IMPLEMENTED", capability["classification"])
+        self.assertIn("TEST_COVERED", capability["classification"])
+        self.assertIn("RESERVED_NOT_LIVE", capability["classification"])
+        self.assertNotIn("MISSING_RUNTIME", capability["classification"])
+        self.assertIn("src/api/deps.py", capability["runtime_refs"])
+        self.assertIn("src/api/routes/stage6.py", capability["runtime_refs"])
+        self.assertIn(
+            "tests/test_api_transport_bootstrap.py::test_stage1_to_stage6_internal_orchestration_runs_repository_backed_readback",
+            capability["test_refs"],
+        )
+        self.assertIn(
+            "tests/test_api_transport_bootstrap.py::test_stage1_to_stage6_internal_orchestration_rejects_live_payloads",
+            capability["test_refs"],
+        )
+        self.assertIn("sanitized/offline", capability["evidence_summary"])
+        self.assertIn("controlled-unavailable", capability["evidence_summary"])
+
     def test_referenced_files_exist_for_audit_evidence(self):
         for capability in self.capabilities:
             for field_name in ("doc_refs", "runtime_refs", "test_refs"):
