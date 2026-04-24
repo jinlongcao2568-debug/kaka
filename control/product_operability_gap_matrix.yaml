@@ -1,0 +1,230 @@
+matrix_id: PTL-I100-1100_PRODUCT_OPERABILITY_GAP_MATRIX
+task_id: PTL-I100-1100-product-operability-full-audit
+status: FIRST_PASS_FULL_AUDIT
+updated_at: "2026-04-24"
+source_ledger: control/product_doc_runtime_coverage_ledger.yaml
+source_ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER
+purpose: >
+  Machine-readable product operability audit. This file answers whether each
+  product-doc capability can be used by the owner to operate an evidence-pack /
+  lead-pack sales business, or whether it is only preview/readiness, blocked,
+  missing runtime, or not part of the sold product model.
+product_model:
+  internal_software_user: "卡卡罗特"
+  sold_product: "evidence_pack_and_leadpack"
+  not_sold_product: "external_software_platform"
+  required_business_capabilities:
+    - "source_to_evidence_chain"
+    - "sales_opportunity_and_quote"
+    - "sales_outreach_execution"
+    - "leadpack_export_and_delivery"
+    - "order_payment_delivery"
+    - "operator_workbench_readback"
+  refund_policy:
+    automated_refund_program: false
+    allowed_refund_handling: "manual_exception_record_and_governed_review_only"
+    disallowed_refund_handling: "automated_refund_execution"
+operability_state_vocabulary:
+  - OPERABLE_NOW_INTERNAL
+  - PREVIEW_OR_REVIEW_ONLY
+  - NEEDS_PRODUCT_IMPLEMENTATION
+  - NOT_REQUIRED_FOR_EVIDENCE_PACK_BUSINESS
+rollup_counts:
+  OPERABLE_NOW_INTERNAL: 12
+  PREVIEW_OR_REVIEW_ONLY: 5
+  NEEDS_PRODUCT_IMPLEMENTATION: 5
+  NOT_REQUIRED_FOR_EVIDENCE_PACK_BUSINESS: 1
+  TOTAL_CAPABILITIES: 23
+decision_summary:
+  not_many_blank: true
+  true_missing_runtime_count_from_ledger: 1
+  practical_product_gap_count: 5
+  main_gap_summary: >
+    Most capabilities are implemented for internal governed runtime, preview,
+    or readiness. The product is not fully owner-usable because real backend
+    persistence, sales outreach execution, CRM/external quote execution,
+    leadpack export/delivery, and payment/delivery execution still need
+    product implementation. External software release is not required for the
+    evidence-pack business model.
+next_implementation_sequence:
+  - packet_ref: PTL-I100-110A-platform-backend-operability-foundation
+    priority: 1
+    objective: "Move from JSON-file internal runtime to durable backend foundation for real operations: persistence boundary, migration plan, job/outbox durability, backup/readback, and rollback posture."
+    unlocks:
+      - POSTGRES_REDIS_OBJECT_STORAGE_DOCKER_BACKENDS
+      - sales_outreach_outbox_durability
+      - delivery_and_payment_audit_durability
+    non_goals:
+      - "no external software release"
+      - "no real outreach send"
+      - "no real payment"
+      - "no real delivery"
+      - "no automated refund program"
+  - packet_ref: PTL-I100-110B-stage8-sales-outreach-governed-execution
+    priority: 2
+    objective: "Convert Stage8 outreach preview into governed execution outbox with approval, audit, quiet-hours, retry, stop conditions, dry-run/live switch, and channel/vendor adapter boundaries."
+    unlocks:
+      - STAGE8_REAL_OUTREACH_EXECUTION
+      - sales_email_phone_sms_wecom_execution_path
+    non_goals:
+      - "no unapproved send"
+      - "no personal/private channel bypass"
+      - "no LeadPack delivery bypass"
+  - packet_ref: PTL-I100-110C-stage7-crm-quote-sales-workbench
+    priority: 3
+    objective: "Implement CRM orchestration and external quote workflow as owner-operated sales workbench capability with audit/readback and explicit vendor boundaries."
+    unlocks:
+      - STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE
+  - packet_ref: PTL-I100-110D-leadpack-export-page-delivery
+    priority: 4
+    objective: "Implement LeadPack/evidence-pack export, page generation, review, approval, masking, delivery packaging, and customer-visible artifact control."
+    unlocks:
+      - LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE
+      - FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER
+  - packet_ref: PTL-I100-110E-order-payment-delivery-no-auto-refund
+    priority: 5
+    objective: "Implement order/payment/delivery execution needed for selling evidence packs, while preserving refund as manual exception only and never automated refund execution."
+    unlocks:
+      - STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
+    refund_boundary: "payment and delivery may be implemented; automated refund execution remains out of scope."
+capability_assessments:
+  - capability_id: STAGE1_2_SOURCE_ROUTE_CLOCK_AUTHORITY
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "No immediate operability gap for internal source-route-clock authority."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE1_5_PUBLIC_SOURCE_VERTICAL_SLICE_RULE_EVIDENCE
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "No immediate operability gap for source-to-evidence internal chain."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE1_5_HTTP_TRANSPORT_ENTRY
+    operability_state: PREVIEW_OR_REVIEW_ONLY
+    owner_usable_now: "partial"
+    product_gap: "Direct Stage1-5 HTTP routes remain controlled-unavailable, but Stage1-6 internal orchestration exists through Stage6."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE6_PROJECT_FACT_REVIEW_REPORT_WORKBENCH
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "No immediate operability gap for internal review/workbench readback."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE6_PRIVATE_SUPPLEMENT_IMPACT
+    operability_state: PREVIEW_OR_REVIEW_ONLY
+    owner_usable_now: "partial"
+    product_gap: "Private supplement impact exists as internal governed carrier, not as customer-visible or live feature."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE7_SALEABLE_OPPORTUNITY_BUYER_FIT_VALUE
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Core saleability and buyer-fit logic is usable internally."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE7_PRICE_NORMALIZATION_AND_COMPETITOR_RESOLUTION
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Core price normalization and competitor resolution are usable internally."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE
+    operability_state: NEEDS_PRODUCT_IMPLEMENTATION
+    owner_usable_now: false
+    product_gap: "CRM orchestration and external quote workflow are readiness-only; they must become owner-operated sales workflow."
+    next_packet_ref: PTL-I100-110C-stage7-crm-quote-sales-workbench
+    ready_for_live_execution: false
+  - capability_id: STAGE8_CONTACT_COMPLIANCE_LATTICE
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Contact compliance can be used internally to qualify outreach candidates."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE8_MULTI_SOURCE_CONTACT_MERGE_HUMAN_HANDOFF
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Contact merge and human handoff are internally usable."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE8_CADENCE_RETRY_STOP_FEEDBACK_PREVIEW
+    operability_state: PREVIEW_OR_REVIEW_ONLY
+    owner_usable_now: "partial"
+    product_gap: "Cadence/retry/stop logic exists as governed preview; execution outbox and provider writeback are not owner-usable yet."
+    next_packet_ref: PTL-I100-110B-stage8-sales-outreach-governed-execution
+    ready_for_live_execution: false
+  - capability_id: STAGE8_REAL_OUTREACH_EXECUTION
+    operability_state: NEEDS_PRODUCT_IMPLEMENTATION
+    owner_usable_now: false
+    product_gap: "Real sales outreach execution is the main sales-operations gap: email/phone/SMS/WeCom/vendor execution must be implemented with approval and audit."
+    next_packet_ref: PTL-I100-110B-stage8-sales-outreach-governed-execution
+    ready_for_live_execution: false
+  - capability_id: STAGE9_H08_ORDER_PAYMENT_DELIVERY_TYPED_LIFECYCLE
+    operability_state: PREVIEW_OR_REVIEW_ONLY
+    owner_usable_now: "partial"
+    product_gap: "Typed lifecycle records exist, but payment/delivery execution is not owner-usable yet."
+    next_packet_ref: PTL-I100-110E-order-payment-delivery-no-auto-refund
+    ready_for_live_execution: false
+  - capability_id: STAGE9_PAYMENT_DELIVERY_REFUND_EXCEPTION_REPLAY
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Manual exception and refund-request replay are usable as governance records; automated refund remains intentionally excluded."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+    refund_boundary: "manual_exception_only"
+  - capability_id: STAGE9_WRITEBACK_IMPACT_EXECUTOR
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Internal additive writeback is usable for governed trace and replay."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
+    operability_state: NEEDS_PRODUCT_IMPLEMENTATION
+    owner_usable_now: false
+    product_gap: "Payment and delivery execution are needed for the evidence-pack business; automated refund execution is excluded and should remain manual exception only."
+    next_packet_ref: PTL-I100-110E-order-payment-delivery-no-auto-refund
+    ready_for_live_execution: false
+    refund_boundary: "do_not_implement_automated_refund_program"
+  - capability_id: STORAGE_BOOTSTRAP_JSON_FILE_INTERNAL_BACKBONE
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "JSON-file storage is usable for internal/dev operation but not enough for durable real operations at scale."
+    next_packet_ref: PTL-I100-110A-platform-backend-operability-foundation
+    ready_for_live_execution: false
+  - capability_id: POSTGRES_REDIS_OBJECT_STORAGE_DOCKER_BACKENDS
+    operability_state: NEEDS_PRODUCT_IMPLEMENTATION
+    owner_usable_now: false
+    product_gap: "Durable backend, queue/outbox, object storage, and deployment runtime are the only true MISSING_RUNTIME ledger item."
+    next_packet_ref: PTL-I100-110A-platform-backend-operability-foundation
+    ready_for_live_execution: false
+  - capability_id: STAGE7_9_API_TRANSPORT_BOOTSTRAP_INTERNAL_PREVIEW
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Internal preview transport is usable for owner-operated readback."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: STAGE1_6_FULL_API_TRANSPORT_AND_ORCHESTRATION
+    operability_state: OPERABLE_NOW_INTERNAL
+    owner_usable_now: true
+    product_gap: "Sanitized/offline Stage1-6 internal orchestration is usable as owner-operated entry."
+    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    ready_for_live_execution: false
+  - capability_id: LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE
+    operability_state: PREVIEW_OR_REVIEW_ONLY
+    owner_usable_now: "partial"
+    product_gap: "LeadPack candidate readiness exists; real export/delivery package execution is not owner-usable yet."
+    next_packet_ref: PTL-I100-110D-leadpack-export-page-delivery
+    ready_for_live_execution: false
+  - capability_id: EXTERNAL_SOFTWARE_RELEASE
+    operability_state: NOT_REQUIRED_FOR_EVIDENCE_PACK_BUSINESS
+    owner_usable_now: "not_required"
+    product_gap: "The sold product is evidence/lead packs, not external software release. Internal deployment may be needed, but public software release is not a product requirement."
+    next_packet_ref: NONE_PRODUCT_GOAL
+    ready_for_live_execution: false
+  - capability_id: FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER
+    operability_state: NEEDS_PRODUCT_IMPLEMENTATION
+    owner_usable_now: false
+    product_gap: "Formal evidence-pack/LeadPack export and customer-visible package/page layer are needed for delivery, but currently readiness-only."
+    next_packet_ref: PTL-I100-110D-leadpack-export-page-delivery
+    ready_for_live_execution: false
