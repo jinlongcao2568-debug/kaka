@@ -51,8 +51,9 @@ decision_summary:
     sqlite opt-in envelope persistence while keeping json-file default
     compatibility. PTL-I100-110B completed governed outreach execution
     outbox/readback/replay, still without real vendor send or external/live
-    unlock. PTL-I100-110C is active to close the next product gap: Stage7
-    CRM/quote owner-operated sales workbench.
+    unlock. PTL-I100-110C completed the Stage7 CRM/quote owner-operated
+    sales workbench via commit 1d7cb80. PTL-I100-110D is active to close the
+    next product gap: LeadPack/evidence-pack export, page, and delivery package.
 next_implementation_sequence:
   - packet_ref: PTL-I100-110A-platform-backend-operability-foundation
     priority: 1
@@ -83,12 +84,14 @@ next_implementation_sequence:
       - "no LeadPack delivery bypass"
   - packet_ref: PTL-I100-110C-stage7-crm-quote-sales-workbench
     priority: 3
-    implementation_status: ACTIVE
+    implementation_status: COMPLETED
+    completed_commit: 1d7cb80
     objective: "Implement CRM orchestration and external quote workflow as owner-operated sales workbench capability with audit/readback and explicit vendor boundaries."
     unlocks:
       - STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE
   - packet_ref: PTL-I100-110D-leadpack-export-page-delivery
     priority: 4
+    implementation_status: ACTIVE
     objective: "Implement LeadPack/evidence-pack export, page generation, review, approval, masking, delivery packaging, and customer-visible artifact control."
     unlocks:
       - LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE
@@ -145,7 +148,7 @@ capability_assessments:
   - capability_id: STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
-    product_gap: "CRM orchestration and external quote workflow are readiness-only; they must become owner-operated sales workflow."
+    product_gap: "CRM/quote owner-operated workbench exists internally, but full external CRM orchestration and external quote execution remain not live and still need a future governed implementation decision."
     next_packet_ref: PTL-I100-110C-stage7-crm-quote-sales-workbench
     ready_for_live_execution: false
   - capability_id: STAGE8_CONTACT_COMPLIANCE_LATTICE

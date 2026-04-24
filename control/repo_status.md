@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-110C-stage7-crm-quote-sales-workbench (ACTIVE after PTL-I100-110B governed outreach outbox commit 7965a34; this activates Stage7 CRM/quote owner-operated sales workbench/readback implementation and does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack delivery, client-visible formal export/page release, Stage 8 real execution, Stage 9 real payment / delivery / refund, or any automated refund program)
+Current Workstream: PTL-I100-110D-leadpack-export-page-delivery (ACTIVE after PTL-I100-110C CRM/quote workbench commit 1d7cb80; this activates LeadPack/evidence-pack export, page draft, delivery package, masking, approval/audit, and readback implementation and does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack external delivery, client-visible page publication, Stage 8 real execution, Stage 9 real payment / delivery / refund, or any automated refund program)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,9 +20,9 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- implement PTL-I100-110C Stage7 CRM/quote owner-operated sales workbench/readback within current_task allowed paths
-- keep CRM/quote workbench internal governed / draft / dry-run / blocked-live by default
-- keep approval, audit, CRM/vendor boundary, quote draft state, owner action state, and live-blocked policy visible in repository-backed readback
+- implement PTL-I100-110D LeadPack/evidence-pack package/page/readback within current_task allowed paths
+- keep package/page delivery workbench internal governed / draft / review / blocked-live by default
+- keep approval, audit, masking, package manifest, page draft, delivery readiness, and external-delivery blocked policy visible in repository-backed readback
 - keep real LeadPack delivery, client-visible formal export/page release, external/live transport, and external release controlled and blocked
 - keep control/product_doc_runtime_coverage_ledger.yaml as the source ledger; do not mark external/live capabilities as INTERNAL_IMPLEMENTED
 - keep automated refund execution out of scope and record refund handling as manual exception only
@@ -55,7 +55,7 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
-- Any runtime implementation outside PTL-I100-110C allowed paths without a new dedicated current_task packet
+- Any runtime implementation outside PTL-I100-110D allowed paths without a new dedicated current_task packet
 - Any real LeadPack external delivery or client-visible formal export/page release
 - Any use of real production samples or external live data
 - Any external/live execution
@@ -89,8 +89,9 @@ State Semantics:
 - PTL-I100-1100 product operability audit completed via commit 33e6fb9; it detected product operability gaps and queued implementation packets without changing runtime or opening external/live execution.
 - PTL-I100-110A durable backend foundation is completed via commit 56fed27; JSON-file default remains compatible and sqlite opt-in durable local envelope backend is available.
 - PTL-I100-110B Stage8 governed outreach execution outbox is completed via commit 7965a34; it persists and replays internal outbox/readiness carrier while real send remains blocked.
-- PTL-I100-110C is now active as Stage7 CRM/quote owner-operated sales workbench implementation; it may change Stage7/API/repository readback within current_task allowed paths but cannot connect to external CRM/quote services, send real quotes, or open live execution.
-- PTL-I100-110 implementation order is product-operability driven: 110A backend foundation completed, 110B sales outreach governed execution outbox completed, 110C CRM/quote workbench active, 110D LeadPack/evidence-pack export and delivery, 110E order/payment/delivery with refund manual-exception only.
+- PTL-I100-110C Stage7 CRM/quote owner-operated sales workbench is completed via commit 1d7cb80.
+- PTL-I100-110D is now active as LeadPack/evidence-pack export, page, and delivery package implementation; it may change Stage7/API/repository readback within current_task allowed paths but cannot publish customer pages, perform real external delivery, or open live execution.
+- PTL-I100-110 implementation order is product-operability driven: 110A backend foundation completed, 110B sales outreach governed execution outbox completed, 110C CRM/quote workbench completed, 110D LeadPack/evidence-pack export and delivery active, 110E order/payment/delivery with refund manual-exception only.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -102,10 +103,12 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage7_sales/service.py','src/stage7_sales/runtime.py','src/stage7_sales/recommendation.py','src/stage7_sales/crm_quote_workbench.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/crm_quote_workbench_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage7.py','src/api/schemas/stage7.py','tests/test_stage7_runtime_closure.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py','tests/test_product_module_registry.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage7_sales/leadpack_delivery_package.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/leadpack_delivery_package_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage7.py','src/api/schemas/stage7.py','tests/test_internal_surface_preview.py','tests/test_leadpack_candidate_surface.py','tests/test_leadpack_activation_prep.py','tests/test_leadpack_activation_design_prep.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py','tests/test_product_module_registry.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- python -m unittest tests.test_stage7_runtime_closure -v
-- python -m unittest tests.test_internal_chain.TestInternalChain -v
+- python -m unittest tests.test_internal_surface_preview -v
+- python -m unittest tests.test_leadpack_candidate_surface -v
+- python -m unittest tests.test_leadpack_activation_prep -v
+- python -m unittest tests.test_leadpack_activation_design_prep -v
 - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_api_transport_bootstrap -v
