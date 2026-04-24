@@ -5,11 +5,11 @@ updated_at: "2026-04-24"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_107C_ACTIVE_SCOPED_EXECUTION"
+navigation_state: "PTL_I100_107D_ACTIVE_SCOPED_EXECUTION"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-107B dedicated refund/redline fixture readback 已完成并本地提交 10dfbf6；进入 107-C，对齐产品文档功能口径与 runtime/test coverage，不改业务 runtime。"
+activation_condition: "PTL-I100-107C product-doc runtime coverage audit 已完成并本地提交 4bfeef9；ledger 显示 STAGE6_PRIVATE_SUPPLEMENT_IMPACT 是 internal required MISSING_RUNTIME，进入 107-D 做最小 runtime/readback 补齐。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -55,7 +55,7 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "D13 能力总表与放行边界总表"
-  objective: "推进 PTL-I100-107 第三刀：建立产品文档功能口径到 runtime/test coverage 的正式审计台账，区分 INTERNAL_IMPLEMENTED、TEST_COVERED、RESERVED_NOT_LIVE、BLOCKED_BY_GOVERNANCE、MISSING_RUNTIME、MISSING_TEST；本包只做对齐审计与测试，不补 runtime。"
+  objective: "推进 PTL-I100-107 第四刀：只补齐 Stage6 private supplement impact 的 internal governed runtime/readback 缺口，使 product-doc coverage ledger 中对应 internal required capability 可由 runtime 和测试闭环支撑。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -76,28 +76,29 @@ currentTask:
   task_packet:
     version: 1
     packet_id: "PTL-I100-107-real-sample-operational-acceptance"
-    subpacket_id: "PTL-I100-107C-product-doc-runtime-coverage-audit"
+    subpacket_id: "PTL-I100-107D-stage6-private-supplement-runtime-gap"
     backlog_packet_ref: "PTL-I100-107-real-sample-operational-acceptance"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "OUT_OF_SCOPE"
+    runtime_change_in_packet: "IN_SCOPE"
     existing_code_state: "HEAVY_RUNTIME"
     existing_runtime_state: "INTERNAL_GOVERNED_RUNTIME"
-    title: "I100-7C product-doc runtime coverage audit 第一刀"
+    title: "I100-7D Stage6 private supplement impact runtime gap 第一刀"
     status: "ACTIVE"
-    objective: "新增产品文档功能口径到 runtime/test coverage 的机器可读 ledger 与测试，判断当前 internal governed 产品功能是否与文档/契约对齐；对缺口只登记归类和后续包建议，不在本包实现。"
+    objective: "把 Stage6 private_supplement_record 从 isolation/trace-only 补齐为 internal governed impact/readback carrier：可解释、可回放、可由 repository/readback 保留，同时继续隔离在 Stage6，不进入 Stage7 formal sales surface。"
     depends_on:
       - "PTL-I100-105 已完成并本地提交：d37ae82、fdd471e。"
       - "PTL-I100-106 已完成并 closeout，本地提交链：1eda05f、067529f、fa36cb5、86217a2、3b659ad、43e6442、c20686c。"
       - "PTL-I100-107A acceptance matrix bootstrap/readback 已完成并本地提交：389829e。"
       - "PTL-I100-107B dedicated refund/redline fixture readback 已完成并本地提交：10dfbf6。"
+      - "PTL-I100-107C product-doc runtime coverage audit 已完成并本地提交：4bfeef9。"
       - "control/current_task.yaml 是唯一 active execution source。"
       - "source_blueprint_batch_id=PTL-I100-ROADMAP-01 已登记在 control/source_blueprint_registry.yaml。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-107B-dedicated-refund-redline-fixture-readback"
-      target_active_packet: "PTL-I100-107C-product-doc-runtime-coverage-audit"
+      previous_active_packet: "PTL-I100-107C-product-doc-runtime-coverage-audit"
+      target_active_packet: "PTL-I100-107D-stage6-private-supplement-runtime-gap"
       product_task_library_change: false
       product_module_registry_change: false
       source_blueprint_registry_change: false
@@ -107,8 +108,8 @@ currentTask:
       product_mainline_task: true
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change: false
-      runtime_change_in_packet: "OUT_OF_SCOPE"
+      runtime_change: true
+      runtime_change_in_packet: "IN_SCOPE"
       docs_change: false
       contracts_change: false
       handoff_change: false
@@ -116,7 +117,7 @@ currentTask:
       tests_change: true
       fixture_change: false
       control_change: true
-      storage_change: false
+      storage_change: true
       api_change: false
       external_release_change: false
       stage8_real_execution_change: false
@@ -139,8 +140,8 @@ currentTask:
       - "不真实退款"
       - "不使用真实生产数据"
       - "不接外部系统或 live 网络"
-      - "不修改 Stage1-9 runtime 业务语义"
-      - "不补 runtime 缺口"
+      - "不修改 Stage1-5、Stage7、Stage8、Stage9 runtime 业务语义"
+      - "不补 107C ledger 中除 STAGE6_PRIVATE_SUPPLEMENT_IMPACT 之外的缺口"
       - "不修改 docs 正文"
       - "不修改 contracts 语义"
       - "不新增业务对象、枚举、gate、exception 语义"
@@ -149,14 +150,15 @@ currentTask:
       - "不修改 contracts/**"
       - "不修改 handoff/**"
       - "不修改 scripts/**"
-      - "不修改 src/**"
+      - "不修改未列入 allowed_modification_paths 的 src/**"
       - "不自动进入 external unlock"
       - "不 push"
     affected_stages:
       - "automation_control"
       - "internal_preview"
       - "governance_testing"
-      - "stage1_to_stage9"
+      - "stage6_fact_review"
+      - "storage_runtime"
     risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
@@ -164,6 +166,8 @@ currentTask:
       - "scripts_and_tests_general"
       - "machine_assets_general"
       - "internal_acceptance"
+      - "stage6_fact_review_core"
+      - "storage_runtime_core"
     reviews:
       - "automation_owner"
       - "architecture_owner"
@@ -175,11 +179,29 @@ currentTask:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_doc_runtime_coverage_ledger.yaml"
+      - "src/stage6_fact_review/fact_aggregator.py"
+      - "src/stage6_fact_review/service.py"
+      - "src/storage/repository_bundle_io.py"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/repositories/__init__.py"
+      - "src/storage/repositories/private_supplement_record_repo.py"
+      - "tests/test_stage56_evaluators.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/test_product_doc_runtime_coverage.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_doc_runtime_coverage_ledger.yaml"
+      - "src/stage6_fact_review/fact_aggregator.py"
+      - "src/stage6_fact_review/service.py"
+      - "src/storage/repository_bundle_io.py"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/repositories/__init__.py"
+      - "src/storage/repositories/private_supplement_record_repo.py"
+      - "tests/test_stage56_evaluators.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/test_product_doc_runtime_coverage.py"
     current_window_actual_modification_paths:
       - "control/current_task.yaml"
@@ -197,7 +219,18 @@ currentTask:
       - "control/future_unlock_decision_state.yaml"
       - "control/approval_chain_state.yaml"
       - "control/exception_chain_state.yaml"
-      - "src/**"
+      - "src/stage1_tasking/**"
+      - "src/stage2_ingestion/**"
+      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
+      - "src/stage5_rules_evidence/**"
+      - "src/stage7_sales/**"
+      - "src/stage8_outreach/**"
+      - "src/stage9_delivery/**"
+      - "src/api/**"
+      - "src/shared/**"
+      - "src/storage/db.py"
+      - "src/storage/models/**"
       - "handoff/**"
       - "scripts/**"
       - "fixtures/**"
@@ -213,15 +246,25 @@ currentTask:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       tests:
+        - "tests/test_stage56_evaluators.py"
+        - "tests/test_internal_chain.py"
+        - "tests/test_internal_repository_boundary.py"
         - "tests/test_product_doc_runtime_coverage.py"
-      runtime: []
+      runtime:
+        - "src/stage6_fact_review/fact_aggregator.py"
+        - "src/stage6_fact_review/service.py"
+        - "src/storage/repository_bundle_io.py"
+        - "src/storage/repository_boundary.py"
+        - "src/storage/repositories/__init__.py"
+        - "src/storage/repositories/private_supplement_record_repo.py"
     required_scripts:
       - "git status --short --untracked-files=all"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & \"scripts/check-task-packet.ps1\" -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
+      - "python -m unittest tests.test_stage56_evaluators.TestStage56Evaluators -v"
+      - "python -m unittest tests.test_internal_chain.TestInternalChain.test_stage6_supplement_reference_stays_out_of_stage7_formal_surface -v"
+      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_product_doc_runtime_coverage -v"
-      - "python -m unittest tests.test_stage12_extractors -v"
-      - "python -m unittest tests.test_external_unlock_prerequisites -v"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
       - "git diff --check"
@@ -230,9 +273,10 @@ currentTask:
       "git status --short --untracked-files=all": 120000
       "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & \"scripts/check-task-packet.ps1\" -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
+      "python -m unittest tests.test_stage56_evaluators.TestStage56Evaluators -v": 300000
+      "python -m unittest tests.test_internal_chain.TestInternalChain.test_stage6_supplement_reference_stays_out_of_stage7_formal_surface -v": 300000
+      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_product_doc_runtime_coverage -v": 300000
-      "python -m unittest tests.test_stage12_extractors -v": 300000
-      "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
       "python tests/run_tests.py": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "git diff --check": 120000
@@ -241,23 +285,23 @@ currentTask:
       - "开始前 git status 非干净时立即停止汇报"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths 时立即停止汇报"
       - "实际改动命中 forbidden_modification_paths 时立即停止汇报"
-      - "需要修改 docs/**、contracts/**、handoff/**、scripts/**、src/**、fixtures/** 时立即停止汇报"
+      - "需要修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/** 时立即停止汇报"
+      - "需要修改未列入 allowed_modification_paths 的 src/** 时立即停止汇报"
       - "需要修改 control/product_task_library.yaml、control/product_module_registry.yaml 或 release/governance 控制资产时立即停止汇报"
       - "需要新增正式对象、枚举、gate、exception 语义时立即停止汇报"
       - "需要真实生产样本、真实触达、external release、Stage8 real execution、Stage9 payment/delivery/refund 时必须另行停机审批"
-      - "发现 INTERNAL_REQUIRED 功能存在 MISSING_RUNTIME 时，只登记并建议 107-D/110，不在本包修"
+      - "需要实现 107C ledger 中除 STAGE6_PRIVATE_SUPPLEMENT_IMPACT 之外的缺口时立即停止汇报"
     definition_of_done:
-      - "新增 control/product_doc_runtime_coverage_ledger.yaml，机器可读列出文档/契约功能口径、runtime/test 对齐状态、证据引用和后续补齐节点。"
-      - "ledger 至少覆盖 Stage1-5 source/rule/evidence、Stage6 review/workbench、Stage7 saleability/price/competitor、Stage8 contact/compliance/outreach preview、Stage9 order/payment/delivery/refund/writeback、storage/bootstrap/transport、external/live redlines。"
-      - "每条能力必须标注 classification：INTERNAL_IMPLEMENTED、TEST_COVERED、RESERVED_NOT_LIVE、BLOCKED_BY_GOVERNANCE、MISSING_RUNTIME、MISSING_TEST 中至少一种。"
-      - "每个 MISSING_RUNTIME / MISSING_TEST 必须给出 recommended_followup_packet，不允许只写 TODO。"
-      - "新增 tests/test_product_doc_runtime_coverage.py，验证 ledger schema、证据引用存在、external/live 能力不被标成 implemented、missing 项都有后续包。"
-      - "本包不修改产品文档正文、不修改 runtime、不补功能。"
+      - "Stage6 private_supplement_record 在 internal governed runtime 中形成稳定 impact/readback carrier，至少携带 supplement id、release_state、usable_scope、written_back_policy、impact readiness/decision trace。"
+      - "persist/hydrate 或 repository readback 能保留 Stage6 private supplement carrier，不 broad fallback，不污染 Stage7 formal sales surface。"
+      - "Stage7 仍不得出现 private_supplement_record 或 private_supplement_record_id_optional。"
+      - "control/product_doc_runtime_coverage_ledger.yaml 中 STAGE6_PRIVATE_SUPPLEMENT_IMPACT 的 classification 只在 runtime/test 闭环真实完成后调整，其他 missing 项不得顺手改成 implemented。"
+      - "本包不修改产品文档正文、不修改 contracts 语义、不新增正式对象/枚举/gate/exception。"
       - "targeted tests 与 required scripts 全部通过。"
     deliverables:
-      - "product-doc-to-runtime coverage ledger"
-      - "coverage ledger schema/regression tests"
-      - "documented followup packet recommendations for missing runtime/test gaps"
+      - "Stage6 private supplement internal runtime/readback closure"
+      - "repository/readback regression coverage"
+      - "coverage ledger STAGE6_PRIVATE_SUPPLEMENT_IMPACT status update"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -268,12 +312,12 @@ currentTask:
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_SCOPED_PRODUCT_DOC_RUNTIME_COVERAGE_AUDIT_AND_LOCAL_COMMIT"
-      signoff_meaning: "本批准仅允许 PTL-I100-107C 建立产品文档功能口径到 runtime/test coverage 的审计 ledger 与测试；不批准 push、external release、真实生产样本、真实触达、真实支付、真实交付、真实退款、Stage8 real execution、Stage9 real payment/delivery/refund、docs/contracts 语义修改或任何 src/runtime 修改。"
+      signoff_status: "APPROVED_FOR_STAGE6_PRIVATE_SUPPLEMENT_INTERNAL_RUNTIME_GAP_AND_LOCAL_COMMIT"
+      signoff_meaning: "本批准仅允许 PTL-I100-107D 补齐 Stage6 private_supplement_record 的 internal governed runtime/readback 缺口；不批准 push、external release、真实生产样本、真实触达、真实支付、真实交付、真实退款、Stage8 real execution、Stage9 real payment/delivery/refund、docs/contracts 语义修改或其他 runtime 缺口实现。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
-      - "PTL-I100-107C 是 coverage audit，不是 runtime gap fix。"
+      - "PTL-I100-107D 只处理 107C ledger 中的 STAGE6_PRIVATE_SUPPLEMENT_IMPACT internal runtime gap。"
       - "External leadpack delivery 继续要求 approval + audit。"
       - "External software release remains blocked。"
       - "Stage 8 real execution remains governed / approval-gated / blocked by default。"
@@ -284,20 +328,20 @@ currentTask:
     - "Stage 8 real execution remains governed / approval-gated / blocked by default"
     - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
   allowed_actions:
-    - "允许新增 control/product_doc_runtime_coverage_ledger.yaml。"
-    - "允许新增 tests/test_product_doc_runtime_coverage.py。"
-    - "允许读取 docs/**、contracts/**、handoff/**、src/**、tests/**、fixtures/** 作为 coverage 证据。"
+    - "允许在 Stage6 private supplement impact 闭环范围内修改列明的 Stage6/storage/tests/control 文件。"
+    - "允许读取 docs/**、contracts/**、handoff/**、src/**、tests/**、fixtures/** 作为实现与验证证据。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
-    - "不得修改 docs/**、contracts/**、handoff/**、scripts/**、src/**、fixtures/**。"
+    - "不得修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/**。"
+    - "不得修改未列入 allowed_modification_paths 的 src/**。"
     - "不得修改 control/product_task_library.yaml、control/product_module_registry.yaml 或 release/governance 控制资产。"
-    - "不得补 runtime 功能或修改业务语义。"
+    - "不得补 107C ledger 中除 STAGE6_PRIVATE_SUPPLEMENT_IMPACT 之外的 runtime 功能。"
     - "不得使用真实生产样本或外部 live 数据。"
     - "不得执行真实触达、真实支付、真实交付、真实退款。"
     - "不得放开 external release、Stage 8 real execution、Stage 9 real payment / delivery / refund。"
     - "不得新增正式对象、枚举、gate、exception 语义。"
     - "不得 push。"
   nextActions:
-    - "下一执行窗口直接做 PTL-I100-107C product-doc runtime coverage audit 第一刀。"
-    - "若 107C 发现 internal required 功能存在 MISSING_RUNTIME，后续由总控窗口拆 107-D 或 110 小包修复，不在 107C 越界修改。"
-  status_note: "PTL-I100-107B 已完成并提交 10dfbf6；PTL-I100-107C 作为当前 active scoped execution packet，只做产品文档功能口径到 runtime/test coverage 的审计 ledger 与测试；external/live 红线不变。"
+    - "下一执行窗口直接做 PTL-I100-107D Stage6 private supplement impact runtime gap 第一刀。"
+    - "107D 完成后由总控窗口验收 ledger 是否已对齐；108/109/110 缺口不得在 107D 内顺手处理。"
+  status_note: "PTL-I100-107C 已完成并提交 4bfeef9；PTL-I100-107D 作为当前 active scoped execution packet，只补 STAGE6_PRIVATE_SUPPLEMENT_IMPACT internal runtime/readback 缺口；external/live 红线不变。"
