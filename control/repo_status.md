@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-107-real-sample-operational-acceptance (SCOPED_EXECUTION; active 107-B dedicated refund/redline fixture readback slice; PTL-I100-106 foundation/readiness completed via 1eda05f, 067529f, fa36cb5, 86217a2, 3b659ad, 43e6442, and closeout c20686c; PTL-I100-107A acceptance matrix bootstrap/readback completed via 389829e; this does not approve push, external release, real production samples, external/live execution, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
+Current Workstream: PTL-I100-107-real-sample-operational-acceptance (SCOPED_EXECUTION; active 107-C product-doc runtime coverage audit slice; PTL-I100-106 foundation/readiness completed via 1eda05f, 067529f, fa36cb5, 86217a2, 3b659ad, 43e6442, and closeout c20686c; PTL-I100-107A acceptance matrix bootstrap/readback completed via 389829e; PTL-I100-107B dedicated refund/redline fixture readback completed via 10dfbf6; this does not approve push, docs/contracts semantic changes, runtime implementation, external release, real production samples, external/live execution, Stage 8 real execution, or Stage 9 real payment / delivery / refund)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,11 +20,11 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- execute PTL-I100-107B scoped internal refund/redline fixture readback inside current task_packet declared_changed_paths / allowed_modification_paths
-- update fixtures/internal_acceptance_matrix.json
-- add dedicated sanitized fixture fixtures/internal_acceptance_stage9_refund_redline.json
-- update tests/test_internal_acceptance_matrix.py and, only if needed, minimal helper support in tests/helpers.py
-- read existing Stage9 refund tests and governance guard tests for field semantics, without modifying them
+- execute PTL-I100-107C product-doc runtime coverage audit inside current task_packet declared_changed_paths / allowed_modification_paths
+- add control/product_doc_runtime_coverage_ledger.yaml
+- add tests/test_product_doc_runtime_coverage.py
+- read docs/contracts/handoff/src/tests/fixtures as coverage evidence without modifying those files
+- classify product/documented capabilities as INTERNAL_IMPLEMENTED, TEST_COVERED, RESERVED_NOT_LIVE, BLOCKED_BY_GOVERNANCE, MISSING_RUNTIME, or MISSING_TEST
 - keep current_mainline_next_candidate as null / non-auto-activated
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
@@ -32,7 +32,7 @@ Allowed Actions (current):
 - keep external leadpack delivery approval + audit required
 - keep Stage 8 real execution governed / approval-gated / blocked by default
 - keep Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
-- run required checks and stop/report after check-task-packet / acceptance matrix tests / Stage9 impact tests / runtime governance guard tests / full tests / check-state-alignment
+- run required checks and stop/report after check-task-packet / coverage ledger tests / planning-surface tests / external-unlock prerequisite tests / full tests / check-state-alignment
 
 Forbidden Actions (current):
 - Any docs/** change
@@ -40,6 +40,7 @@ Forbidden Actions (current):
 - Any handoff/** change
 - Any scripts/** change
 - Any src/** change
+- Any fixtures/** change
 - Any change to control/product_task_library.yaml
 - Any change to control/product_module_registry.yaml
 - Any change to control/source_blueprint_registry.yaml
@@ -52,6 +53,7 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
+- Any runtime implementation or business semantic change
 - Any use of real production samples or external live data
 - Any external/live execution
 - Any real touch, payment, delivery, or refund
@@ -70,9 +72,10 @@ State Semantics:
 - PTL-I100-104 is completed and closed out via commits 3625e35, 068e1b7, 2313d7e, and 3cc70bf.
 - PTL-I100-105 is completed via commits d37ae82 and fdd471e; Stage8 carrier persistence/readback/replay and Stage9 internal additive governed writeback are implemented.
 - PTL-I100-106-platform-foundation-and-full-chain-entry is completed via commits 1eda05f, 067529f, fa36cb5, 86217a2, 3b659ad, 43e6442, and c20686c; internal foundation/readiness is closed out.
-- PTL-I100-107A acceptance matrix bootstrap/readback is completed via commit 389829e; offline/sanitized acceptance matrix exists, with refund-live-redline still identified as the dedicated fixture gap.
-- PTL-I100-107B is now the active scoped execution packet; it only closes the dedicated refund/redline fixture/readback gap.
-- PTL-I100-107B does not approve real production data, external/live execution, Stage8 real execution, Stage9 real payment/delivery/refund, or external unlock.
+- PTL-I100-107A acceptance matrix bootstrap/readback is completed via commit 389829e; offline/sanitized acceptance matrix exists.
+- PTL-I100-107B dedicated refund/redline fixture readback is completed via commit 10dfbf6; refund-live-redline now has dedicated full-chain runtime replay and live execution remains blocked.
+- PTL-I100-107C is now the active scoped execution packet; it only audits product documentation function coverage against runtime/tests.
+- PTL-I100-107C does not approve docs/contracts semantic changes, runtime fixes, real production data, external/live execution, Stage8 real execution, Stage9 real payment/delivery/refund, or external unlock.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -86,9 +89,9 @@ Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
 - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual intended changed paths for this implementation window>); & "scripts/check-task-packet.ps1" -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- python -m unittest tests.test_internal_acceptance_matrix -v
-- python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v
-- python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+- python -m unittest tests.test_product_doc_runtime_coverage -v
+- python -m unittest tests.test_stage12_extractors -v
+- python -m unittest tests.test_external_unlock_prerequisites -v
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check
