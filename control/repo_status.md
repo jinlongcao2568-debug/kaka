@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-111A-provider-config-and-sandbox-seam (ACTIVE after PTL-I100-110E implementation commit 2fbe70d and closeout commit d66fe8e; this activates provider adapter config/sandbox/readback seam work and does not approve push, docs/contracts semantic changes, external release, real production samples, real provider calls, real touch, real payment gateway, real charge, real delivery, real refund, automated refund program, or unapproved external/live execution)
+Current Workstream: PTL-I100-111A-provider-config-and-sandbox-seam (COMPLETED via commit c279fd5; current control work only closes out 111A, records the full production/product gap task map, and reorders implementation candidates by product-usable evidence-pack closure. It does not activate 112 or 111B, approve push, docs/contracts semantic changes, external release, real production samples, real provider calls, real touch, real payment gateway, real charge, real delivery, real refund, automated refund program, or unapproved external/live execution)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,21 +20,21 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- implement PTL-I100-111A provider adapter config/sandbox/readback seam within current_task allowed paths
-- keep provider/live execution blocked by default while exposing config/readiness/readback for later 111B/111C/111D packets
-- keep order/payment/delivery ledger internal governed / owner-operated / manual-settlement-capable / blocked-live by default
-- keep approval, audit, payment collection state, delivery fulfillment state, manual settlement state, refund manual-exception boundary, and payment-gateway blocked policy visible in repository-backed readback
-- keep real LeadPack delivery, client-visible formal export/page release, external/live transport, and external release controlled and blocked
-- keep control/product_doc_runtime_coverage_ledger.yaml as the source ledger; do not mark external/live capabilities as INTERNAL_IMPLEMENTED
-- keep automated refund execution out of scope and record refund handling as manual exception only
-- keep current_mainline_next_candidate as null / non-auto-activated
+- close out PTL-I100-111A provider adapter config/sandbox/readback seam after commit c279fd5
+- sync control/product_operability_gap_matrix.yaml with the three-layer acceptance model: engineering regression, capability state, and evidence-pack business closure
+- record the full open production/product gap task map for 112-120 plus 111B/111C/111D in control/product_task_library.yaml and control/product_operability_gap_matrix.yaml
+- keep 112 as the next recommended candidate after reassessment, but do not auto-activate it
+- keep 111B/111C/111D and 113-120 as task-pool candidates only; none are auto-activated
+- keep real LeadPack delivery, client-visible formal export/page release, external/live transport, provider live calls, and external release controlled and blocked
+- keep automated refund execution out of scope and record refund handling as manual exception/governed review only
+- keep current_mainline_next_candidate as null / non-auto-activated unless a dedicated activation packet changes it
 - keep canonical readiness as READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 - keep conditional-go as READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
 - keep external software release blocked
 - keep external leadpack delivery approval + audit required
 - keep Stage 8 real execution governed / approval-gated / blocked by default
 - keep Stage 9 real payment/delivery/refund governed / approval-gated / blocked by default
-- run required checks and stop/report after check-task-packet / storage concurrency tests / API bootstrap tests / repository boundary tests / operability matrix tests / full tests / check-state-alignment
+- run required checks and stop/report after task-packet checks, operability matrix tests, full tests, and state alignment
 
 Forbidden Actions (current):
 - Any docs/** change
@@ -94,7 +94,9 @@ State Semantics:
 - PTL-I100-110D LeadPack/evidence-pack package/page/readback is completed via commit 43169f4.
 - PTL-I100-110E is completed via commit 2fbe70d as Stage9 internal order/payment/delivery execution ledger/readback. It does not connect to a real payment gateway, execute real charges, execute real refunds, or implement automated refund.
 - PTL-I100-110 implementation order is product-operability driven and completed: 110A backend foundation completed, 110B sales outreach governed execution outbox completed, 110C CRM/quote workbench completed, 110D LeadPack/evidence-pack export and delivery completed, 110E order/payment/delivery with refund manual-exception only completed.
-- PTL-I100-111A is now active as provider adapter config/sandbox/readback seam. It may change settings/API/stage7/stage8/stage9/storage readback within current_task allowed paths but cannot call real providers or execute live touch/payment/delivery/refund.
+- PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5. It did not call real providers or execute live touch/payment/delivery/refund.
+- PTL-I100-112 is the next recommended candidate after reassessment because production durability and audit/worker foundations should precede real data and provider execution.
+- PTL-I100-111B/111C/111D and PTL-I100-113 through PTL-I100-120 are registered as task-pool candidates for the open production/product gaps; none is active until control/current_task.yaml explicitly activates it.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -106,18 +108,9 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/shared/settings.py','src/shared/provider_adapter_config.py','src/api/deps.py','src/stage7_sales/service.py','src/stage7_sales/crm_quote_workbench.py','src/stage7_sales/leadpack_delivery_package.py','src/stage8_outreach/service.py','src/stage8_outreach/execution_outbox.py','src/stage9_delivery/service.py','src/stage9_delivery/order_payment_delivery_execution.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/provider_adapter_config_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage7.py','src/api/routes/stage8.py','src/api/routes/stage9.py','src/api/schemas/stage7.py','src/api/schemas/stage8.py','src/api/schemas/stage9.py','tests/test_provider_adapter_config.py','tests/test_stage7_runtime_closure.py','tests/test_stage8_resolution_closure.py','tests/test_stage9_impact_executor.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py','tests/test_product_module_registry.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- python -m unittest tests.test_provider_adapter_config -v
-- python -m unittest tests.test_stage7_runtime_closure -v
-- python -m unittest tests.test_stage8_resolution_closure -v
-- python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v
-- python -m unittest tests.test_internal_chain.TestInternalChain -v
-- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
-- python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
-- python -m unittest tests.test_api_transport_bootstrap -v
 - python -m unittest tests.test_product_operability_gap_matrix -v
-- python -m unittest tests.test_product_module_registry -v
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check

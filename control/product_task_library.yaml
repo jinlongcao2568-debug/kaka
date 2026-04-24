@@ -134,11 +134,37 @@ internal_operable_productization_program:
     - PTL-I100-108-stage1-7-internal-entry-and-crm-prereq
     - PTL-I100-109-leadpack-export-and-page-layer-readiness
     - PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions
+    - PTL-I100-111-live-provider-adapters-no-auto-refund
+    - PTL-I100-112-production-platform-infrastructure
+    - PTL-I100-113-stage1-scheduler-production-loop
+    - PTL-I100-114-stage2-real-public-source-adapters
+    - PTL-I100-115-stage3-real-parser-ocr-attachments
+    - PTL-I100-116-stage4-public-verification-adapters
+    - PTL-I100-117-rule-factory-expansion-and-golden-cases
+    - PTL-I100-119-stage6-product-package-hardening
+    - PTL-I100-111B-sales-outreach-adapter-execution
+    - PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+    - PTL-I100-120-operator-customer-access-and-go-live-readiness
+    - PTL-I100-118-full-product-operational-acceptance
   redlines:
     external_software_release: BLOCKED
     stage8_real_execution: "governed / approval-gated / blocked by default"
     stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
-task_count: 30
+acceptance_model:
+  rule: "Every implementation task must report engineering regression, capability-state movement, and product-closure impact separately."
+  engineering_regression:
+    required: true
+    evidence: ["targeted tests", "formal checks", "path boundary check", "git diff --check"]
+  capability_state:
+    required: true
+    state_order: [NOT_IMPLEMENTED, INTERNAL_READY, SANDBOX_READY, APPROVAL_READY, LIVE_READY, PRODUCTION_READY, SUSPENDED]
+  product_closure:
+    required: true
+    product_goal: "owner-operated evidence_pack_and_leadpack business"
+    completion_rule: "Do not call a task product-complete only because internal preview/readback or tests pass."
+    refund_boundary: "No automated refund program; refund handling remains manual exception record and governed review."
+task_count: 42
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -759,14 +785,19 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage7_sales, stage8_outreach, stage9_delivery, page_export, external_live_governance]
     task_type: product_operability_implementation
-    status: ACTIVE
-    planning_state: ACTIVE_111A_PROVIDER_CONFIG_AND_SANDBOX_SEAM
+    status: IN_PROGRESS
+    planning_state: 111A_COMPLETED_111B_CANDIDATE_NOT_ACTIVATED
     is_current_mainline_next_candidate: false
     priority: P5
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_OWNER_OPERATED_LEDGER_AND_READBACK
-    runtime_change_in_packet: IN_SCOPE_FOR_111A_PROVIDER_CONFIG_AND_SANDBOX_SEAM
-    activation_policy: "Activated via dedicated control/current_task.yaml after PTL-I100-110E implementation commit 2fbe70d and closeout commit d66fe8e. Must keep automated refund execution excluded. 111A only establishes provider config/sandbox/readback seam; real provider/live execution remains blocked until later dedicated packets."
+    runtime_change_in_packet: COMPLETED_FOR_111A_PROVIDER_CONFIG_AND_SANDBOX_SEAM
+    completed_subpackets:
+      - subpacket_id: PTL-I100-111A-provider-config-and-sandbox-seam
+        completed_commit: c279fd5
+        capability_state_after: SANDBOX_READY
+        product_closure_state: "provider seam complete; no real provider execution yet"
+    activation_policy: "111A completed via c279fd5. 111B/111C/111D remain candidate packets and require dedicated control/current_task.yaml activation before implementation. Automated refund execution remains excluded."
     hard_depends_on: [PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions]
     soft_depends_on: [PTL-I100-110E-order-payment-delivery-no-auto-refund]
     objective: "把 110A-110E 已形成的 owner-operated workbench/readback 推进到真实运营所需 provider adapter seam：销售触达、CRM/报价、证据包页面/交付、订单支付收款记录与交付履约。退款只允许 manual exception record / governed review，不实现自动退款程序。"
@@ -778,5 +809,575 @@ tasks:
       - PTL-I100-111B-sales-outreach-adapter-execution
       - PTL-I100-111C-crm-quote-and-delivery-page-adapters
       - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+    planned_subpackets:
+      - subpacket_id: PTL-I100-111B-sales-outreach-adapter-execution
+        target_capability_state: SANDBOX_READY
+        capability_gaps_covered:
+          - email_provider_adapter
+          - sms_provider_adapter
+          - phone_or_call_provider_adapter
+          - wecom_or_im_provider_adapter
+          - touch_template_contract
+          - touch_approval_gate
+          - touch_audit_persistence
+          - touch_result_readback
+          - bounce_handling
+          - unsubscribe_or_opt_out
+          - contact_frequency_control
+          - contact_risk_control
+          - touch_retry_policy
+          - touch_stop_policy
+          - touch_status_timeline
+        non_goals:
+          - "no unapproved live send"
+          - "no private or gray contact source"
+          - "no misleading outreach copy"
+      - subpacket_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+        target_capability_state: SANDBOX_READY
+        capability_gaps_covered:
+          - crm_provider_adapter
+          - crm_account_sync
+          - crm_opportunity_sync
+          - crm_activity_sync
+          - quote_provider_adapter
+          - price_recommendation
+          - quote_approval
+          - quote_versioning
+          - quote_audit
+          - quote_delivery
+          - quote_expiration
+          - discount_approval
+          - deal_tracking
+          - sales_note_and_callback
+          - customer_visible_leadpack_page_candidate
+          - formal_export_artifact_candidate
+          - pdf_word_markdown_json_export_candidates
+          - field_whitelist_blacklist_masking
+          - watermark_version_hash_replay
+          - download_and_external_delivery_audit_records
+        non_goals:
+          - "no public software release"
+          - "no unapproved customer-visible publication"
+          - "no external delivery without audit"
+      - subpacket_id: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+        target_capability_state: SANDBOX_READY
+        capability_gaps_covered:
+          - payment_gateway_adapter
+          - charge_and_payment_status
+          - payment_callback_readback
+          - receipt_record
+          - invoice_record
+          - delivery_provider_adapter
+          - delivery_artifact_record
+          - customer_download_record
+          - delivery_version_lock
+          - delivery_hash_and_audit
+          - order_lifecycle
+          - settlement_record
+          - finance_reconciliation
+          - manual_refund_exception_record
+          - manual_refund_approval_and_audit
+        refund_boundary: "manual exception/governed review only; no automated refund execution"
     risk_level: CRITICAL
-    runtime_notes: "PTL-I100-111A is active as the provider config and sandbox seam packet. It must not execute real production touch/payment/delivery, must not implement automated refund, and must leave live execution blocked by default. Later 111B/111C/111D packets can consume the seam only after this packet is validated."
+    runtime_notes: "PTL-I100-111A 已完成并本地提交 c279fd5：provider adapter config/sandbox/readback seam、credential redaction、Settings/API bootstrap、Stage7/8/9 provider readiness consumption 已闭合。真实 provider call、真实触达、真实支付、真实交付、真实退款、自动退款程序仍未放开。下一候选为 111B sales outreach adapter execution，但不会自动激活。"
+  - task_id: PTL-I100-111B-sales-outreach-adapter-execution
+    title: "I100-11B Sales outreach adapter execution"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage8_outreach, provider_adapters, sales_governance]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P13
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: GOVERNED_OUTBOX_AND_PROVIDER_READINESS
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet after real data chain, rules, and Stage6 product package hardening; must start at sandbox/dry-run/readback and may not send unapproved live outreach."
+    hard_depends_on:
+      - PTL-I100-111-live-provider-adapters-no-auto-refund
+      - PTL-I100-119-stage6-product-package-hardening
+    soft_depends_on:
+      - PTL-I100-110B-stage8-sales-outreach-governed-execution
+      - PTL-I100-117-rule-factory-expansion-and-golden-cases
+    objective: "把 Stage8 从内部 outbox/readback 推进到销售触达 sandbox provider execution records：邮件、短信、电话/呼叫、企微/IM adapter，模板、审批、审计、频控、quiet-hours、retry、stop、退订、bounce、状态时间线。"
+    capability_gaps_covered:
+      - email_provider_adapter
+      - sms_provider_adapter
+      - phone_or_call_provider_adapter
+      - wecom_or_im_provider_adapter
+      - touch_template_contract
+      - touch_approval_gate
+      - touch_audit_persistence
+      - touch_result_readback
+      - bounce_handling
+      - unsubscribe_or_opt_out
+      - contact_frequency_control
+      - contact_risk_control
+      - touch_retry_policy
+      - touch_stop_policy
+      - touch_status_timeline
+    non_goals: ["不无审批 live send", "不使用 private/灰色联系人来源", "不误导性话术", "不自动退款程序"]
+    expected_outputs: ["sandbox outreach execution records", "provider result readback", "approval/audit proof", "frequency/opt-out guard tests"]
+    acceptance_checks: ["capability_state_SANDBOX_READY", "no_unapproved_live_send", "audit_and_opt_out_visible"]
+    suggested_packet_refs: [PTL-I100-111B-sales-outreach-adapter-execution]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    title: "I100-11C CRM quote and delivery page adapters"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage7_sales, page_export, provider_adapters, customer_artifacts]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P14
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: OWNER_OPERATED_CRM_QUOTE_AND_PACKAGE_WORKBENCH
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet after Stage6 product package hardening and Stage8 outreach adapter readiness. Must keep customer-visible publication approval/audit gated."
+    hard_depends_on:
+      - PTL-I100-111-live-provider-adapters-no-auto-refund
+      - PTL-I100-119-stage6-product-package-hardening
+    soft_depends_on:
+      - PTL-I100-110C-stage7-crm-quote-sales-workbench
+      - PTL-I100-110D-leadpack-export-page-delivery
+    objective: "把 Stage7 CRM/报价和 LeadPack/page/export 从 workbench/readiness 推进到 sandbox adapter execution records 和客户可见候选物控制：CRM account/opportunity/activity sync、quote provider、价格建议、报价审批/版本/审计/有效期、折扣审批、deal tracking、客户页面/导出候选、水印/哈希/下载审计。"
+    capability_gaps_covered:
+      - crm_provider_adapter
+      - crm_account_sync
+      - crm_opportunity_sync
+      - crm_activity_sync
+      - quote_provider_adapter
+      - price_recommendation
+      - quote_approval
+      - quote_versioning
+      - quote_audit
+      - quote_delivery
+      - quote_expiration
+      - discount_approval
+      - deal_tracking
+      - sales_note_and_callback
+      - customer_visible_leadpack_page_candidate
+      - formal_export_artifact_candidate
+      - pdf_word_markdown_json_export_candidates
+      - field_whitelist_blacklist_masking
+      - watermark_version_hash_replay
+      - download_and_external_delivery_audit_records
+    non_goals: ["不发布 public software", "不无审批客户可见发布", "不无审计 external delivery", "不把内部黑箱评分外发"]
+    expected_outputs: ["sandbox CRM sync records", "sandbox quote records", "customer-visible artifact candidate controls", "export/page audit readback"]
+    acceptance_checks: ["capability_state_SANDBOX_READY", "customer_visible_requires_approval_audit", "field_masking_and_hash_visible"]
+    suggested_packet_refs: [PTL-I100-111C-crm-quote-and-delivery-page-adapters]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+    title: "I100-11D Payment collection and delivery fulfillment adapters without automated refund"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage9_delivery, payment_collection, delivery_fulfillment, finance_audit]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P15
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: INTERNAL_ORDER_PAYMENT_DELIVERY_LEDGER
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet after CRM/quote/customer artifact adapters. Payment/delivery start at sandbox provider records; automated refund execution remains excluded."
+    hard_depends_on:
+      - PTL-I100-111-live-provider-adapters-no-auto-refund
+      - PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    soft_depends_on: [PTL-I100-110E-order-payment-delivery-no-auto-refund]
+    objective: "把 Stage9 payment collection / delivery fulfillment 从内部账本推进到 sandbox provider execution records：支付网关、charge/status/callback、receipt、invoice、delivery provider、artifact/download、交付版本锁定、hash/audit、订单生命周期、settlement、reconciliation；退款只保留人工异常记录、审批和审计。"
+    capability_gaps_covered:
+      - payment_gateway_adapter
+      - charge_and_payment_status
+      - payment_callback_readback
+      - receipt_record
+      - invoice_record
+      - delivery_provider_adapter
+      - delivery_artifact_record
+      - customer_download_record
+      - delivery_version_lock
+      - delivery_hash_and_audit
+      - order_lifecycle
+      - settlement_record
+      - finance_reconciliation
+      - manual_refund_exception_record
+      - manual_refund_approval_and_audit
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    non_goals: ["不自动退款程序", "不无审批 live charge", "不无审计 delivery", "不绕过 provider config"]
+    expected_outputs: ["sandbox payment records", "sandbox delivery fulfillment records", "receipt/invoice/readback", "manual refund exception audit"]
+    acceptance_checks: ["capability_state_SANDBOX_READY", "automated_refund_absent", "payment_delivery_audit_visible"]
+    suggested_packet_refs: [PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-112-production-platform-infrastructure
+    title: "I100-12 Production platform infrastructure"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [storage, platform_infra, worker_runtime, observability]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P6
+    recommended_next_candidate: true
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: JSON_FILE_AND_SQLITE_LOCAL_ONLY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Recommended next implementation after 111A closeout. Requires dedicated current_task packet; provider adapter execution packets remain later because real data durability is now the selected blocker."
+    hard_depends_on: [PTL-I100-111A-provider-config-and-sandbox-seam]
+    soft_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
+    objective: "补生产级基础设施：Postgres/SQLAlchemy、migration、queue/worker、object storage、Docker Compose、health/readiness、audit persistence、backup、rollback、monitoring/alerting 第一刀。"
+    capability_gaps_covered:
+      - postgres_backend
+      - sqlalchemy_repository_mapping
+      - alembic_migration_path
+      - redis_or_queue_runtime
+      - durable_worker_runtime
+      - object_storage_minio_or_s3
+      - docker_compose_local_stack
+      - production_config_surface
+      - audit_log_persistence
+      - backup_and_restore_path
+      - rollback_path
+      - monitoring_foundation
+      - alerting_foundation
+      - health_and_readiness_checks
+      - outbox_provider_scheduler_workers
+    non_goals: ["不改变业务语义", "不放开真实触达/支付/交付", "不实现自动退款程序"]
+    expected_outputs: ["production backend design and seam", "migration path", "worker/outbox durability", "object storage adapter", "health/readiness checks"]
+    acceptance_checks: ["engineering_regression_pass", "capability_state_INTERNAL_READY", "no_live_execution_unlocked"]
+    suggested_packet_refs: [PTL-I100-112-production-platform-infrastructure]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-113-stage1-scheduler-production-loop
+    title: "I100-13 Stage1 scheduler production loop"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, scheduler, audit]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P7
+    existing_code_state: SKELETON_RUNTIME
+    existing_runtime_state: SCHEDULER_SKELETON_ONLY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet because Stage1 runtime is currently forbidden in 111A closeout scope."
+    hard_depends_on: [PTL-I100-112-production-platform-infrastructure]
+    soft_depends_on: [PTL-I100-102-stage1-5-real-source-vertical-slice]
+    objective: "把 Stage1 scheduler 从 skeleton-only 做成真实调度、窗口执行、失败重试、暂停恢复、冲突检测、队列读回和审计日志。"
+    capability_gaps_covered:
+      - task_scheduling_entry
+      - execution_windows
+      - multi_source_task_orchestration
+      - source_family_consumption
+      - route_graph_consumption
+      - multi_clock_model
+      - failure_retry
+      - pause_and_resume
+      - scheduling_audit
+      - stage2_connection
+      - scheduling_state_readback
+      - scheduling_conflict_detection
+      - scheduling_queue
+      - execution_log
+    non_goals: ["不接非公开数据源", "不绕过 provider/source governance"]
+    expected_outputs: ["scheduler runtime", "task queue readback", "retry/pause/resume", "audit log"]
+    acceptance_checks: ["capability_state_INTERNAL_READY", "scheduler_replayable", "audit_visible"]
+    suggested_packet_refs: [PTL-I100-113-stage1-scheduler-production-loop]
+    risk_level: HIGH
+  - task_id: PTL-I100-114-stage2-real-public-source-adapters
+    title: "I100-14 Stage2 real public source adapters"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, public_source_adapters, source_audit]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P8
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: INPUT_FIXTURE_AND_AUTHORITY_CARRIER_DRIVEN
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet and public-source allowlist review."
+    hard_depends_on: [PTL-I100-113-stage1-scheduler-production-loop]
+    soft_depends_on: [PTL-I100-102-stage1-5-real-source-vertical-slice]
+    objective: "实现合规公开源 fetch adapter、raw capture、snapshot hash、附件下载、频控、retry/timeout、source health、fetch audit 和失败降级。"
+    capability_gaps_covered:
+      - public_source_adapter
+      - http_fetcher
+      - public_platform_crawler
+      - attachment_download
+      - raw_html_capture
+      - raw_pdf_capture
+      - raw_notice_snapshot
+      - snapshot_hash
+      - snapshot_version
+      - source_lineage
+      - fetch_audit
+      - failure_degrade
+      - duplicate_fetch_control
+      - rate_limit
+      - public_access_boundary
+      - source_health_check
+      - fetch_retry
+      - fetch_timeout
+      - fetch_error_taxonomy
+      - source_coverage_report
+    non_goals: ["不绕过登录", "不破解验证码", "不使用 private/灰色/非公开数据"]
+    expected_outputs: ["public source adapter seam", "raw capture persistence", "source health/readback", "fetch audit"]
+    acceptance_checks: ["capability_state_SANDBOX_READY", "public_only_boundary_locked", "raw_snapshot_hash_replayable"]
+    suggested_packet_refs: [PTL-I100-114-stage2-real-public-source-adapters]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-115-stage3-real-parser-ocr-attachments
+    title: "I100-15 Stage3 real parser OCR attachments"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage3_parsing, parser_runtime, attachment_processing]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P9
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: STRUCTURED_INPUT_CARRIER_DRIVEN
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet after Stage2 raw capture exists."
+    hard_depends_on: [PTL-I100-114-stage2-real-public-source-adapters]
+    soft_depends_on: [PTL-S23-public-chain-to-parser-contract]
+    objective: "实现 HTML/PDF/OCR/Word/Excel/附件解析、字段切片、置信度、定位信息、parser audit、错误分类和人工复核入口。"
+    capability_gaps_covered:
+      - html_parser
+      - pdf_parser
+      - ocr_pipeline
+      - word_attachment_parser
+      - excel_attachment_parser
+      - scanned_document_parser
+      - table_extraction
+      - field_level_location
+      - field_confidence
+      - source_slice
+      - parser_golden_cases
+      - parser_failure_fallback
+      - parser_audit
+      - field_conflict_detection
+      - multi_version_parsing
+      - attachment_type_detection
+      - encoding_handling
+      - layout_anomaly_handling
+      - parse_error_taxonomy
+      - human_review_entry
+    non_goals: ["不把未核验解析结果包装成确定事实", "不跳过 Stage4 verification"]
+    expected_outputs: ["parser adapters", "field source slices", "confidence and coordinates", "parser golden cases"]
+    acceptance_checks: ["capability_state_INTERNAL_READY", "field_slice_replayable", "parser_failure_degrades"]
+    suggested_packet_refs: [PTL-I100-115-stage3-real-parser-ocr-attachments]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-116-stage4-public-verification-adapters
+    title: "I100-16 Stage4 public verification adapters"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage4_verification, public_verification_adapters]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P10
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: STATE_CARRIER_DRIVEN_NO_REAL_ADAPTERS
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet and public verification source allowlist."
+    hard_depends_on: [PTL-I100-115-stage3-real-parser-ocr-attachments]
+    soft_depends_on: [PTL-S34-object-lineage-verification-handoff]
+    objective: "实现四库一平台、信用链、企业资质、人员资格、许可、合同、竣工备案、项目经理在建冲突等公开核验 adapter 第一刀。"
+    capability_gaps_covered:
+      - national_construction_platform_enterprise_verification
+      - national_construction_platform_personnel_verification
+      - project_manager_registered_unit_verification
+      - project_manager_active_project_conflict_verification
+      - enterprise_qualification_verification
+      - credit_penalty_verification
+      - blacklist_verification
+      - construction_permit_verification
+      - completion_filing_verification
+      - public_contract_information_verification
+      - enterprise_relationship_verification
+      - performance_public_record_verification
+      - personnel_qualification_public_record_verification
+      - scoring_anomaly_supporting_verification
+      - fulfillment_anomaly_public_verification
+      - subcontract_public_record_verification
+      - candidate_notice_completeness_verification
+      - bid_opening_record_verification
+      - invalid_bid_reason_public_verification
+      - tender_terms_verification
+    non_goals: ["不访问非公开接口", "不绕过权限", "不把销售判断冒充法律结论"]
+    expected_outputs: ["verification adapter seam", "public source refs", "snapshot refs", "confidence/review flags", "failure taxonomy"]
+    acceptance_checks: ["capability_state_SANDBOX_READY", "public_boundary_locked", "verification_readback_auditable"]
+    suggested_packet_refs: [PTL-I100-116-stage4-public-verification-adapters]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-117-rule-factory-expansion-and-golden-cases
+    title: "I100-17 Stage5 rule factory expansion and golden cases"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage5_rules_evidence, rule_factory, testing]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P11
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: FIRST_SLICE_RULE_FACTORY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet after Stage4 verification adapters provide public evidence inputs."
+    hard_depends_on: [PTL-I100-116-stage4-public-verification-adapters]
+    soft_depends_on: [PTL-I100-103-stage5-rule-factory]
+    objective: "扩展 Stage5 全规则目录、规则版本、启停、依赖字段/证据、规则冲突、降级、审计、覆盖率和 golden cases。"
+    capability_gaps_covered:
+      - rule_registration
+      - rule_enable_disable
+      - rule_versioning
+      - rule_input_contracts
+      - rule_output_contracts
+      - dependency_fields
+      - dependency_evidence
+      - rule_confidence
+      - rule_hit_explanation
+      - rule_evidence_binding
+      - manual_review_entry
+      - rule_golden_cases
+      - rule_coverage_report
+      - rule_audit
+      - rule_priority
+      - rule_conflict_handling
+      - rule_degrade_path
+      - rule_status_readback
+      - rule_catalog_mapping
+      - rule_to_document_terms_mapping
+    non_goals: ["不绕过证据闸门", "不把推断当事实"]
+    expected_outputs: ["expanded rule catalog", "golden cases", "coverage report", "audit/readback"]
+    acceptance_checks: ["capability_state_INTERNAL_READY", "golden_cases_pass", "evidence_binding_visible"]
+    suggested_packet_refs: [PTL-I100-117-rule-factory-expansion-and-golden-cases]
+    risk_level: HIGH
+  - task_id: PTL-I100-119-stage6-product-package-hardening
+    title: "I100-19 Stage6 product package hardening"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage6_fact_review, productization, evidence_pack_readiness]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P12
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: INTERNAL_REVIEW_AND_PRODUCTIZATION_RUNTIME
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet after real parser/verifier/rule inputs are available or if Stage6 product packaging becomes the selected blocker."
+    hard_depends_on:
+      - PTL-I100-115-stage3-real-parser-ocr-attachments
+      - PTL-I100-116-stage4-public-verification-adapters
+      - PTL-I100-117-rule-factory-expansion-and-golden-cases
+    soft_depends_on: [PTL-I100-104-stage6-productization]
+    objective: "把 Stage6 从内部 fact/review/readback 加固成证据包产品化判断层：异议价值、证据强度、外发可见性、客户交付资格、产品包 readiness、销售 readiness、复核优先级和降级/阻断原因。"
+    capability_gaps_covered:
+      - objection_viability
+      - evidence_strength
+      - review_priority
+      - sellable_signal
+      - legal_action_subject
+      - procurement_decision_subject
+      - risk_label
+      - customer_delivery_eligibility
+      - external_visibility_status
+      - delivery_readiness
+      - objection_pack_readiness
+      - sales_readiness
+      - product_package_readiness
+      - downgrade_and_block_reasons
+    non_goals: ["不把未复核推断当事实", "不直接客户可见发布", "不让销售反馈污染事实层"]
+    expected_outputs: ["Stage6 product package readiness carrier", "delivery eligibility readback", "objection viability evidence", "review/downgrade audit"]
+    acceptance_checks: ["capability_state_INTERNAL_READY", "stage6_product_readiness_visible", "customer_visible_fields_gated"]
+    suggested_packet_refs: [PTL-I100-119-stage6-product-package-hardening]
+    risk_level: HIGH
+  - task_id: PTL-I100-120-operator-customer-access-and-go-live-readiness
+    title: "I100-20 Operator/customer access and go-live readiness"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [api_transport, operator_workbench, customer_access, deployment_readiness, governance_testing]
+    task_type: product_operability_implementation
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P16
+    existing_code_state: PARTIAL_RUNTIME
+    existing_runtime_state: INTERNAL_API_PREVIEW_AND_BOOTSTRAP
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet after provider/infra/export/payment foundations are complete. Public software release remains not the sold product, but internal production access and customer artifact access must be governed."
+    hard_depends_on:
+      - PTL-I100-111C-crm-quote-and-delivery-page-adapters
+      - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+      - PTL-I100-112-production-platform-infrastructure
+    soft_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
+    objective: "补内部运营台、客户访问账号/权限、provider/scheduler/status/audit 页面或 API surface、客户 artifact access 控制、go-live readiness、deployment runbook、监控/告警/回滚验收入口。"
+    capability_gaps_covered:
+      - internal_operator_console
+      - task_creation_entry
+      - project_import_entry
+      - full_chain_run_entry
+      - permission_framework
+      - provider_status_surface
+      - scheduler_status_surface
+      - audit_log_surface
+      - external_customer_account
+      - customer_artifact_access_control
+      - customer_download_auth
+      - deployment_readiness_check
+      - go_live_runbook
+      - monitoring_alerting_readback
+      - rollback_runbook
+    non_goals: ["不把外部软件平台作为售卖产品", "不无审批 public release", "不绕过客户交付字段白名单"]
+    expected_outputs: ["operator access surface", "customer artifact account/access control", "permission tests", "go-live readiness report"]
+    acceptance_checks: ["capability_state_APPROVAL_READY", "customer_access_is_gated", "operator_audit_visible", "release_still_explicitly_gated"]
+    suggested_packet_refs: [PTL-I100-120-operator-customer-access-and-go-live-readiness]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-118-full-product-operational-acceptance
+    title: "I100-18 Full product operational acceptance"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_to_stage9, product_acceptance, governance_testing]
+    task_type: product_operability_acceptance
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P17
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: MIXED_INTERNAL_SANDBOX_READY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Requires dedicated current_task packet after provider, infra, real data chain, parser, verifier, rules, Stage6 product hardening, and access/workbench packets are complete."
+    hard_depends_on:
+      - PTL-I100-111-live-provider-adapters-no-auto-refund
+      - PTL-I100-112-production-platform-infrastructure
+      - PTL-I100-113-stage1-scheduler-production-loop
+      - PTL-I100-114-stage2-real-public-source-adapters
+      - PTL-I100-115-stage3-real-parser-ocr-attachments
+      - PTL-I100-116-stage4-public-verification-adapters
+      - PTL-I100-117-rule-factory-expansion-and-golden-cases
+      - PTL-I100-119-stage6-product-package-hardening
+      - PTL-I100-120-operator-customer-access-and-go-live-readiness
+    soft_depends_on: [PTL-I100-107-real-sample-operational-acceptance]
+    objective: "按三层验收模型验证真实公开数据到证据包销售闭环：工程回归、能力状态推进、产品闭环可用性。"
+    capability_gaps_covered:
+      - real_public_notice_sample_acceptance
+      - real_parser_acceptance
+      - real_public_verification_acceptance
+      - evidence_pack_business_closure
+      - sales_outreach_acceptance
+      - crm_quote_acceptance
+      - leadpack_page_export_acceptance
+      - payment_delivery_acceptance
+      - audit_replay_acceptance
+      - risk_and_compliance_acceptance
+    non_goals: ["不自动 release", "不实现自动退款程序", "不绕过人工复核和审计"]
+    expected_outputs: ["full-chain acceptance matrix", "capability state report", "product closure report", "remaining blockers"]
+    acceptance_checks: ["engineering_regression_pass", "capability_states_verified", "evidence_pack_business_closure_verified"]
+    suggested_packet_refs: [PTL-I100-118-full-product-operational-acceptance]
+    risk_level: CRITICAL

@@ -66,7 +66,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         for capability_id in missing_runtime_ids:
             row = matrix_by_id[capability_id]
             self.assertEqual(row["operability_state"], "NEEDS_PRODUCT_IMPLEMENTATION")
-            self.assertEqual(row["next_packet_ref"], "PTL-I100-110A-platform-backend-operability-foundation")
+            self.assertEqual(row["next_packet_ref"], "PTL-I100-112-production-platform-infrastructure")
 
     def test_external_or_live_readiness_is_not_misclassified_as_operable(self) -> None:
         ledger_by_id = {row["capability_id"]: row for row in self.ledger["capabilities"]}
@@ -81,11 +81,11 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         matrix_by_id = {row["capability_id"]: row for row in self.matrix["capability_assessments"]}
 
         expected_packets = {
-            "STAGE8_REAL_OUTREACH_EXECUTION": "PTL-I100-110B-stage8-sales-outreach-governed-execution",
-            "STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE": "PTL-I100-110C-stage7-crm-quote-sales-workbench",
-            "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER": "PTL-I100-110D-leadpack-export-page-delivery",
+            "STAGE8_REAL_OUTREACH_EXECUTION": "PTL-I100-111B-sales-outreach-adapter-execution",
+            "STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE": "PTL-I100-111C-crm-quote-and-delivery-page-adapters",
+            "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER": "PTL-I100-111C-crm-quote-and-delivery-page-adapters",
             "STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION": (
-                "PTL-I100-111-live-provider-adapters-no-auto-refund"
+                "PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund"
             ),
         }
         for capability_id, packet_ref in expected_packets.items():
@@ -131,11 +131,99 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "do_not_implement_automated_refund_program",
         )
 
-    def test_next_sequence_starts_with_backend_then_sales_execution(self) -> None:
+    def test_next_sequence_records_completed_111a_then_open_execution_packets(self) -> None:
         sequence = self.matrix["next_implementation_sequence"]
         self.assertEqual(sequence[0]["packet_ref"], "PTL-I100-110A-platform-backend-operability-foundation")
-        self.assertEqual(sequence[1]["packet_ref"], "PTL-I100-110B-stage8-sales-outreach-governed-execution")
-        self.assertEqual(sequence[-1]["packet_ref"], "PTL-I100-110E-order-payment-delivery-no-auto-refund")
+        refs = [entry["packet_ref"] for entry in sequence]
+        self.assertIn("PTL-I100-111A-provider-config-and-sandbox-seam", refs)
+        self.assertIn("PTL-I100-111B-sales-outreach-adapter-execution", refs)
+        self.assertIn("PTL-I100-111C-crm-quote-and-delivery-page-adapters", refs)
+        self.assertIn("PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund", refs)
+        self.assertEqual(
+            refs[-1],
+            "PTL-I100-118-full-product-operational-acceptance",
+        )
+
+    def test_production_gap_task_map_records_all_open_gap_packets(self) -> None:
+        task_map = self.matrix["production_gap_task_map"]
+        mapped_refs = {row["packet_ref"] for row in task_map}
+        required_refs = {
+            "PTL-I100-111A-provider-config-and-sandbox-seam",
+            "PTL-I100-111B-sales-outreach-adapter-execution",
+            "PTL-I100-111C-crm-quote-and-delivery-page-adapters",
+            "PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund",
+            "PTL-I100-112-production-platform-infrastructure",
+            "PTL-I100-113-stage1-scheduler-production-loop",
+            "PTL-I100-114-stage2-real-public-source-adapters",
+            "PTL-I100-115-stage3-real-parser-ocr-attachments",
+            "PTL-I100-116-stage4-public-verification-adapters",
+            "PTL-I100-117-rule-factory-expansion-and-golden-cases",
+            "PTL-I100-119-stage6-product-package-hardening",
+            "PTL-I100-120-operator-customer-access-and-go-live-readiness",
+            "PTL-I100-118-full-product-operational-acceptance",
+        }
+
+        self.assertTrue(required_refs.issubset(mapped_refs))
+        for row in task_map:
+            self.assertTrue(row["covered_capabilities"], row["gap_group"])
+
+    def test_task_library_records_fine_grained_capability_gaps(self) -> None:
+        tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}
+        task_111 = tasks_by_id["PTL-I100-111-live-provider-adapters-no-auto-refund"]
+        subpackets = {row["subpacket_id"]: row for row in task_111["planned_subpackets"]}
+
+        self.assertIn("email_provider_adapter", subpackets["PTL-I100-111B-sales-outreach-adapter-execution"]["capability_gaps_covered"])
+        self.assertIn("crm_provider_adapter", subpackets["PTL-I100-111C-crm-quote-and-delivery-page-adapters"]["capability_gaps_covered"])
+        self.assertEqual(
+            subpackets["PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund"][
+                "refund_boundary"
+            ],
+            "manual exception/governed review only; no automated refund execution",
+        )
+
+        for task_id in (
+            "PTL-I100-111B-sales-outreach-adapter-execution",
+            "PTL-I100-111C-crm-quote-and-delivery-page-adapters",
+            "PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund",
+            "PTL-I100-112-production-platform-infrastructure",
+            "PTL-I100-113-stage1-scheduler-production-loop",
+            "PTL-I100-114-stage2-real-public-source-adapters",
+            "PTL-I100-115-stage3-real-parser-ocr-attachments",
+            "PTL-I100-116-stage4-public-verification-adapters",
+            "PTL-I100-117-rule-factory-expansion-and-golden-cases",
+            "PTL-I100-119-stage6-product-package-hardening",
+            "PTL-I100-120-operator-customer-access-and-go-live-readiness",
+            "PTL-I100-118-full-product-operational-acceptance",
+        ):
+            self.assertTrue(tasks_by_id[task_id]["capability_gaps_covered"], task_id)
+
+    def test_reassessed_execution_order_prioritizes_real_data_chain_before_provider_execution(self) -> None:
+        sequence = [
+            row["packet_ref"]
+            for row in self.matrix["recommended_execution_order_after_reassessment"]["sequence"]
+        ]
+
+        self.assertEqual(sequence[0], "PTL-I100-112-production-platform-infrastructure")
+        self.assertLess(
+            sequence.index("PTL-I100-119-stage6-product-package-hardening"),
+            sequence.index("PTL-I100-111B-sales-outreach-adapter-execution"),
+        )
+        self.assertLess(
+            sequence.index("PTL-I100-111C-crm-quote-and-delivery-page-adapters"),
+            sequence.index("PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund"),
+        )
+        self.assertEqual(sequence[-1], "PTL-I100-118-full-product-operational-acceptance")
+
+    def test_acceptance_model_requires_three_layer_validation(self) -> None:
+        acceptance_model = self.matrix["acceptance_model"]
+        self.assertIn("engineering_regression", acceptance_model)
+        self.assertIn("capability_state", acceptance_model)
+        self.assertIn("product_closure", acceptance_model)
+        self.assertIn("SANDBOX_READY", acceptance_model["capability_state"]["state_order"])
+        self.assertEqual(
+            acceptance_model["product_closure"]["refund_boundary"],
+            "automated refund execution remains excluded; refund handling is manual exception and governed review only.",
+        )
 
 
 if __name__ == "__main__":

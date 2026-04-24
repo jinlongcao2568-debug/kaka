@@ -1,6 +1,6 @@
 matrix_id: PTL-I100-1100_PRODUCT_OPERABILITY_GAP_MATRIX
 task_id: PTL-I100-1100-product-operability-full-audit
-status: POST_111A_PROVIDER_CONFIG_SANDBOX_SEAM_ACTIVATION
+status: POST_111A_PROVIDER_CONFIG_SANDBOX_SEAM_CLOSEOUT_TASK_POOL_SYNC
 updated_at: "2026-04-24"
 source_ledger: control/product_doc_runtime_coverage_ledger.yaml
 source_ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER
@@ -24,6 +24,28 @@ product_model:
     automated_refund_program: false
     allowed_refund_handling: "manual_exception_record_and_governed_review_only"
     disallowed_refund_handling: "automated_refund_execution"
+acceptance_model:
+  engineering_regression:
+    meaning: "Existing repo behavior remains valid."
+    required_evidence:
+      - "targeted tests pass"
+      - "formal checks pass"
+      - "full test suite passes when required by packet"
+      - "actual changed paths stay inside active packet allowed paths"
+  capability_state:
+    meaning: "Each product capability must declare the state it reached, not just that tests passed."
+    state_order:
+      - NOT_IMPLEMENTED
+      - INTERNAL_READY
+      - SANDBOX_READY
+      - APPROVAL_READY
+      - LIVE_READY
+      - PRODUCTION_READY
+      - SUSPENDED
+  product_closure:
+    meaning: "Capability is judged against the owner selling evidence/lead packs, not against internal preview alone."
+    required_answer: "Can the owner actually use this capability to operate the evidence-pack business?"
+    refund_boundary: "automated refund execution remains excluded; refund handling is manual exception and governed review only."
 operability_state_vocabulary:
   - OPERABLE_NOW_INTERNAL
   - PREVIEW_OR_REVIEW_ONLY
@@ -36,14 +58,21 @@ rollup_counts:
   NOT_REQUIRED_FOR_EVIDENCE_PACK_BUSINESS: 1
   TOTAL_CAPABILITIES: 23
 decision_summary:
-  not_many_blank: true
+  not_many_blank: false
   true_missing_runtime_count_from_ledger: 1
-  practical_product_gap_count: 5
+  practical_product_gap_count: 12
+  gap_accounting_note: >
+    The product-doc runtime coverage ledger is useful for internal runtime/test
+    coverage, but it undercounts production-commercial gaps because internal
+    chain, preview, readiness, and fixture-backed execution do not equal live or
+    production-ready capability.
   main_gap_summary: >
     Most capabilities are implemented for internal governed runtime, preview,
-    or readiness. The product is not fully owner-usable because real backend
-    persistence, sales outreach execution, CRM/external quote execution,
-    leadpack export/delivery, and payment/delivery execution still need
+    readiness, or owner-operated readback. The product is not fully owner-usable
+    because production infrastructure, real Stage1 scheduling, real public-source
+    fetch, real parsing/OCR/attachment extraction, real public verification
+    adapters, sales outreach execution, CRM/external quote execution, customer
+    visible leadpack export/delivery, and payment/delivery execution still need
     product implementation. External software release is not required for the
     evidence-pack business model.
   implementation_progress_summary: >
@@ -56,8 +85,174 @@ decision_summary:
     LeadPack/evidence-pack package/page/readback via commit 43169f4.
     PTL-I100-110E completed the internal owner-operated order/payment/delivery
     execution ledger via commit 2fbe70d, with refund manual-exception only.
-    Live provider adapters, real charge, real external delivery execution, and
-    automated refund remain outside the completed packet.
+    PTL-I100-111A completed provider adapter config/sandbox/readback seam via
+    commit c279fd5. Real provider calls, real charge, real external delivery
+    execution, and automated refund remain outside completed packets.
+production_gap_task_map:
+  - gap_group: provider_config_sandbox_and_live_control
+    packet_ref: PTL-I100-111A-provider-config-and-sandbox-seam
+    status: COMPLETED
+    completed_commit: c279fd5
+    target_capability_state: SANDBOX_READY
+    covered_capabilities:
+      - provider_adapter_config
+      - sandbox_dry_run_readback
+      - credential_redaction
+      - stage7_stage8_stage9_provider_readiness_consumption
+  - gap_group: sales_outreach_execution
+    packet_ref: PTL-I100-111B-sales-outreach-adapter-execution
+    status: PLANNED
+    target_capability_state: SANDBOX_READY
+    covered_capabilities:
+      - email_sms_phone_wecom_provider_adapters
+      - templates_approval_audit
+      - frequency_quiet_hours_retry_stop
+      - opt_out_bounce_status_timeline
+  - gap_group: crm_quote_page_and_export
+    packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    status: PLANNED
+    target_capability_state: SANDBOX_READY
+    covered_capabilities:
+      - crm_account_opportunity_activity_sync
+      - quote_provider_version_approval_audit
+      - customer_visible_leadpack_page_candidate
+      - pdf_word_markdown_json_export_candidates
+      - masking_watermark_version_hash_download_audit
+  - gap_group: payment_collection_and_delivery_fulfillment
+    packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+    status: PLANNED
+    target_capability_state: SANDBOX_READY
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    covered_capabilities:
+      - payment_gateway_charge_status_callback
+      - receipt_invoice_settlement_reconciliation
+      - delivery_provider_artifact_download_audit
+      - order_lifecycle
+      - manual_refund_exception_record
+  - gap_group: production_platform_infrastructure
+    packet_ref: PTL-I100-112-production-platform-infrastructure
+    status: PLANNED
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - postgres_sqlalchemy_alembic
+      - redis_queue_worker
+      - object_storage
+      - docker_compose
+      - backup_rollback_monitoring_alerting
+      - audit_persistence
+  - gap_group: stage1_scheduler
+    packet_ref: PTL-I100-113-stage1-scheduler-production-loop
+    status: PLANNED
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - scheduling_windows
+      - retry_pause_resume
+      - queue_readback
+      - conflict_detection
+      - scheduler_audit
+  - gap_group: stage2_real_public_source_collection
+    packet_ref: PTL-I100-114-stage2-real-public-source-adapters
+    status: PLANNED
+    target_capability_state: SANDBOX_READY
+    covered_capabilities:
+      - public_source_adapter
+      - raw_html_pdf_notice_capture
+      - attachment_download
+      - snapshot_hash_lineage
+      - rate_limit_retry_timeout_health_audit
+  - gap_group: stage3_real_parser_ocr_attachments
+    packet_ref: PTL-I100-115-stage3-real-parser-ocr-attachments
+    status: PLANNED
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - html_pdf_ocr_word_excel_parsers
+      - table_extraction
+      - field_slices_confidence_coordinates
+      - parser_audit_failure_taxonomy
+      - human_review_entry
+  - gap_group: stage4_public_verification
+    packet_ref: PTL-I100-116-stage4-public-verification-adapters
+    status: PLANNED
+    target_capability_state: SANDBOX_READY
+    covered_capabilities:
+      - four_database_one_platform_verification
+      - project_manager_active_conflict
+      - enterprise_personnel_qualification
+      - credit_blacklist_permit_contract_completion
+      - bid_opening_invalid_bid_tender_terms
+  - gap_group: stage5_rule_factory_expansion
+    packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
+    status: PLANNED
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - rule_registration_versioning
+      - rule_contracts_dependencies_evidence_binding
+      - rule_conflict_degrade_audit
+      - golden_cases_and_coverage
+      - document_terms_mapping
+  - gap_group: stage6_product_package_hardening
+    packet_ref: PTL-I100-119-stage6-product-package-hardening
+    status: PLANNED
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - objection_viability
+      - evidence_strength
+      - customer_delivery_eligibility
+      - product_package_readiness
+      - sales_readiness
+      - downgrade_and_block_reasons
+  - gap_group: operator_customer_access_and_go_live_readiness
+    packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
+    status: PLANNED
+    target_capability_state: APPROVAL_READY
+    covered_capabilities:
+      - internal_operator_console
+      - permission_framework
+      - external_customer_account
+      - customer_artifact_access_control
+      - deployment_readiness_check
+      - monitoring_alerting_readback
+      - rollback_runbook
+  - gap_group: full_product_operational_acceptance
+    packet_ref: PTL-I100-118-full-product-operational-acceptance
+    status: PLANNED
+    target_capability_state: APPROVAL_READY
+    covered_capabilities:
+      - engineering_regression_acceptance
+      - capability_state_acceptance
+      - evidence_pack_business_closure_acceptance
+      - real_sample_acceptance
+recommended_execution_order_after_reassessment:
+  principle: >
+    Build the evidence-pack product from source truth toward commercial
+    execution. Provider/live adapters remain necessary, but they should not be
+    the next implementation before durable infra and the real public data chain
+    exist, otherwise sales/payment work would only automate preview data.
+  sequence:
+    - packet_ref: PTL-I100-112-production-platform-infrastructure
+      reason: "Production durability, queue/worker, object storage, audit persistence, and health checks are prerequisites for real source ingestion and provider execution."
+    - packet_ref: PTL-I100-113-stage1-scheduler-production-loop
+      reason: "Scheduler turns one-off internal runs into repeatable discovery and execution windows."
+    - packet_ref: PTL-I100-114-stage2-real-public-source-adapters
+      reason: "Real public-source capture is required before the product can sell evidence based on real notices and attachments."
+    - packet_ref: PTL-I100-115-stage3-real-parser-ocr-attachments
+      reason: "Real parsing/OCR/attachment extraction is required before verification and rules can be reliable."
+    - packet_ref: PTL-I100-116-stage4-public-verification-adapters
+      reason: "Public verification adapters establish evidence credibility and legal/commercial safety."
+    - packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
+      reason: "Expanded rules convert verified data into scalable evidence-package logic."
+    - packet_ref: PTL-I100-119-stage6-product-package-hardening
+      reason: "Stage6 must decide objection viability, evidence strength, delivery eligibility, and sales readiness before external sales actions."
+    - packet_ref: PTL-I100-111B-sales-outreach-adapter-execution
+      reason: "Only after productable evidence exists should sales outreach providers move from readback to sandbox execution."
+    - packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+      reason: "CRM/quote/customer artifact adapters need validated saleable opportunities and product packages."
+    - packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+      reason: "Payment and delivery fulfillment should follow quote/customer artifact readiness; automated refund remains excluded."
+    - packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
+      reason: "Operator/customer access, permissions, go-live checks, monitoring, and rollback are needed before approval/live readiness."
+    - packet_ref: PTL-I100-118-full-product-operational-acceptance
+      reason: "Final acceptance verifies engineering regression, capability states, and evidence-pack business closure."
 next_implementation_sequence:
   - packet_ref: PTL-I100-110A-platform-backend-operability-foundation
     priority: 1
@@ -109,6 +304,87 @@ next_implementation_sequence:
     unlocks:
       - STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
     refund_boundary: "payment and delivery may be implemented; automated refund execution remains out of scope."
+  - packet_ref: PTL-I100-111A-provider-config-and-sandbox-seam
+    priority: 6
+    implementation_status: COMPLETED
+    completed_commit: c279fd5
+    objective: "Establish provider adapter config, sandbox/dry-run/readback seam, credential redaction, bootstrap/readback, and Stage7/8/9 shared provider readiness."
+    capability_state_after: SANDBOX_READY
+    non_goals:
+      - "no real provider calls"
+      - "no real outreach send"
+      - "no real payment"
+      - "no real delivery"
+      - "no automated refund program"
+  - packet_ref: PTL-I100-112-production-platform-infrastructure
+    priority: 7
+    implementation_status: PLANNED
+    objective: "Implement production infrastructure for durable operations: Postgres, migrations, queue/worker, object storage, Docker compose, health/readiness, backup, rollback, audit persistence, and monitoring foundations."
+    target_capability_state: INTERNAL_READY
+  - packet_ref: PTL-I100-113-stage1-scheduler-production-loop
+    priority: 8
+    implementation_status: PLANNED
+    objective: "Replace Stage1 scheduler skeleton with real task scheduling, windows, retry/pause/resume, queue readback, conflict detection, and audit logs."
+    target_capability_state: INTERNAL_READY
+  - packet_ref: PTL-I100-114-stage2-real-public-source-adapters
+    priority: 9
+    implementation_status: PLANNED
+    objective: "Implement compliant public-source fetch adapters, raw capture, snapshot hash, retry/timeout, rate limiting, source health, and audit for allowed public sources only."
+    target_capability_state: SANDBOX_READY
+  - packet_ref: PTL-I100-115-stage3-real-parser-ocr-attachments
+    priority: 10
+    implementation_status: PLANNED
+    objective: "Implement HTML/PDF/OCR/Word/Excel/attachment parsing with field slices, confidence, source coordinates, parser audit, and failure fallback."
+    target_capability_state: INTERNAL_READY
+  - packet_ref: PTL-I100-116-stage4-public-verification-adapters
+    priority: 11
+    implementation_status: PLANNED
+    objective: "Implement public verification adapters for enterprise, personnel, permit, contract, completion, credit, blacklist, and project-manager conflict checks, using public sources only."
+    target_capability_state: SANDBOX_READY
+  - packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
+    priority: 12
+    implementation_status: PLANNED
+    objective: "Expand Stage5 rule catalog execution, rule versioning, evidence binding, conflict handling, audit, coverage reporting, and golden cases."
+    target_capability_state: INTERNAL_READY
+  - packet_ref: PTL-I100-119-stage6-product-package-hardening
+    priority: 13
+    implementation_status: PLANNED
+    objective: "Harden Stage6 product package readiness: objection viability, evidence strength, customer delivery eligibility, sales readiness, and downgrade/block reasons."
+    target_capability_state: INTERNAL_READY
+  - packet_ref: PTL-I100-111B-sales-outreach-adapter-execution
+    priority: 14
+    implementation_status: PLANNED
+    objective: "Move Stage8 from internal outbox/readback to approved sandbox provider execution records for sales outreach, with templates, audit, frequency/quiet-hours controls, retry/stop, and opt-out/readback."
+    target_capability_state: SANDBOX_READY
+    non_goals:
+      - "no unapproved live send"
+      - "no private or gray contact source"
+      - "no refund program"
+  - packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    priority: 15
+    implementation_status: PLANNED
+    objective: "Move Stage7 CRM/quote and LeadPack/page delivery from workbench/readiness to sandbox adapter execution records and customer-visible artifact candidate controls."
+    target_capability_state: SANDBOX_READY
+    non_goals:
+      - "no public software release"
+      - "no unapproved customer-visible publication"
+      - "no external delivery without audit"
+  - packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+    priority: 16
+    implementation_status: PLANNED
+    objective: "Move Stage9 payment collection and delivery fulfillment from internal ledger to sandbox provider execution records and fulfillment readback, while keeping refund manual-exception only."
+    target_capability_state: SANDBOX_READY
+    refund_boundary: "no automated refund execution"
+  - packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
+    priority: 17
+    implementation_status: PLANNED
+    objective: "Implement operator/customer access, permission surfaces, go-live checks, monitoring/readback, and rollback readiness for governed product operation."
+    target_capability_state: APPROVAL_READY
+  - packet_ref: PTL-I100-118-full-product-operational-acceptance
+    priority: 18
+    implementation_status: PLANNED
+    objective: "Run full product acceptance against the three-layer validation model: engineering regression, capability state transition, and evidence-pack business closure."
+    target_capability_state: APPROVAL_READY
 capability_assessments:
   - capability_id: STAGE1_2_SOURCE_ROUTE_CLOCK_AUTHORITY
     operability_state: OPERABLE_NOW_INTERNAL
@@ -120,6 +396,13 @@ capability_assessments:
     operability_state: OPERABLE_NOW_INTERNAL
     owner_usable_now: true
     product_gap: "No immediate operability gap for source-to-evidence internal chain."
+    production_gap: "Real public-source fetch, parser/OCR/attachment extraction, and public verification adapters still need production implementation before this is a live data chain."
+    production_gap_packet_refs:
+      - PTL-I100-113-stage1-scheduler-production-loop
+      - PTL-I100-114-stage2-real-public-source-adapters
+      - PTL-I100-115-stage3-real-parser-ocr-attachments
+      - PTL-I100-116-stage4-public-verification-adapters
+      - PTL-I100-117-rule-factory-expansion-and-golden-cases
     next_packet_ref: NONE_CURRENTLY_REQUIRED
     ready_for_live_execution: false
   - capability_id: STAGE1_5_HTTP_TRANSPORT_ENTRY
@@ -131,14 +414,14 @@ capability_assessments:
   - capability_id: STAGE6_PROJECT_FACT_REVIEW_REPORT_WORKBENCH
     operability_state: OPERABLE_NOW_INTERNAL
     owner_usable_now: true
-    product_gap: "No immediate operability gap for internal review/workbench readback."
-    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    product_gap: "Internal review/workbench readback is usable, but production evidence-pack selling still needs Stage6 product package hardening for delivery eligibility, sales readiness, and downgrade/block reasons."
+    next_packet_ref: PTL-I100-119-stage6-product-package-hardening
     ready_for_live_execution: false
   - capability_id: STAGE6_PRIVATE_SUPPLEMENT_IMPACT
     operability_state: PREVIEW_OR_REVIEW_ONLY
     owner_usable_now: "partial"
-    product_gap: "Private supplement impact exists as internal governed carrier, not as customer-visible or live feature."
-    next_packet_ref: NONE_CURRENTLY_REQUIRED
+    product_gap: "Private supplement impact exists as internal governed carrier; production package hardening must decide whether and how it affects delivery eligibility and sales readiness."
+    next_packet_ref: PTL-I100-119-stage6-product-package-hardening
     ready_for_live_execution: false
   - capability_id: STAGE7_SALEABLE_OPPORTUNITY_BUYER_FIT_VALUE
     operability_state: OPERABLE_NOW_INTERNAL
@@ -155,8 +438,8 @@ capability_assessments:
   - capability_id: STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
-    product_gap: "CRM/quote owner-operated workbench exists internally, but full external CRM orchestration and external quote execution remain not live and still need a future governed implementation decision."
-    next_packet_ref: PTL-I100-110C-stage7-crm-quote-sales-workbench
+    product_gap: "CRM/quote owner-operated workbench and provider readiness seam exist internally, but full sandbox/live CRM orchestration and external quote execution remain not live."
+    next_packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
     ready_for_live_execution: false
   - capability_id: STAGE8_CONTACT_COMPLIANCE_LATTICE
     operability_state: OPERABLE_NOW_INTERNAL
@@ -179,8 +462,8 @@ capability_assessments:
   - capability_id: STAGE8_REAL_OUTREACH_EXECUTION
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
-    product_gap: "Real sales outreach execution is the main sales-operations gap: email/phone/SMS/WeCom/vendor execution must be implemented with approval and audit."
-    next_packet_ref: PTL-I100-110B-stage8-sales-outreach-governed-execution
+    product_gap: "Real sales outreach execution is the main sales-operations gap: email/phone/SMS/WeCom/vendor execution must be implemented through provider adapter seam with approval and audit."
+    next_packet_ref: PTL-I100-111B-sales-outreach-adapter-execution
     ready_for_live_execution: false
   - capability_id: STAGE9_H08_ORDER_PAYMENT_DELIVERY_TYPED_LIFECYCLE
     operability_state: OPERABLE_NOW_INTERNAL
@@ -204,21 +487,21 @@ capability_assessments:
   - capability_id: STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
-    product_gap: "Internal owner-operated payment/delivery ledger is implemented, but real payment gateway, real charge, real external delivery execution, and any automated refund path remain not live. Automated refund execution stays excluded by product policy."
-    next_packet_ref: PTL-I100-111-live-provider-adapters-no-auto-refund
+    product_gap: "Internal owner-operated payment/delivery ledger and provider seam are implemented, but real payment gateway, real charge, and real external delivery execution remain not live. Automated refund execution stays excluded by product policy."
+    next_packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
     ready_for_live_execution: false
     refund_boundary: "do_not_implement_automated_refund_program"
   - capability_id: STORAGE_BOOTSTRAP_JSON_FILE_INTERNAL_BACKBONE
     operability_state: OPERABLE_NOW_INTERNAL
     owner_usable_now: true
     product_gap: "JSON-file storage is usable for internal/dev operation but not enough for durable real operations at scale."
-    next_packet_ref: PTL-I100-110A-platform-backend-operability-foundation
+    next_packet_ref: PTL-I100-112-production-platform-infrastructure
     ready_for_live_execution: false
   - capability_id: POSTGRES_REDIS_OBJECT_STORAGE_DOCKER_BACKENDS
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
     product_gap: "Durable backend, queue/outbox, object storage, and deployment runtime are the only true MISSING_RUNTIME ledger item."
-    next_packet_ref: PTL-I100-110A-platform-backend-operability-foundation
+    next_packet_ref: PTL-I100-112-production-platform-infrastructure
     ready_for_live_execution: false
   - capability_id: STAGE7_9_API_TRANSPORT_BOOTSTRAP_INTERNAL_PREVIEW
     operability_state: OPERABLE_NOW_INTERNAL
@@ -241,12 +524,12 @@ capability_assessments:
   - capability_id: EXTERNAL_SOFTWARE_RELEASE
     operability_state: NOT_REQUIRED_FOR_EVIDENCE_PACK_BUSINESS
     owner_usable_now: "not_required"
-    product_gap: "The sold product is evidence/lead packs, not external software release. Internal deployment may be needed, but public software release is not a product requirement."
-    next_packet_ref: NONE_PRODUCT_GOAL
+    product_gap: "The sold product is evidence/lead packs, not external software release. Internal operator access, customer artifact access, deployment readiness, monitoring, and rollback still need governed product readiness."
+    next_packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
     ready_for_live_execution: false
   - capability_id: FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER
     operability_state: NEEDS_PRODUCT_IMPLEMENTATION
     owner_usable_now: false
-    product_gap: "Formal evidence-pack/LeadPack export and customer-visible package/page layer are needed for delivery, but currently readiness-only."
-    next_packet_ref: PTL-I100-110D-leadpack-export-page-delivery
+    product_gap: "Formal evidence-pack/LeadPack export and customer-visible package/page layer have internal package/readiness carriers, but sandbox adapter execution, customer-visible artifact controls, and delivery publication remain not live."
+    next_packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
     ready_for_live_execution: false
