@@ -1192,6 +1192,9 @@ def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
             "challenger_candidate_profile_id": challenger_candidate_profile.get("challenger_profile_id"),
             "action_id": legal_action_recommendation.get("action_id"),
         }
+        supplement = bundle.inputs.get("private_supplement_record_optional")
+        if isinstance(supplement, Mapping):
+            refs["private_supplement_record_id_optional"] = supplement.get("supplement_id")
         return {
             key: str(value)
             for key, value in refs.items()
@@ -1300,6 +1303,10 @@ def _bundle_decision_states(bundle: StageBundle) -> dict[str, str]:
 
 def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
     governed_context = _repository_context_projection_module().bundle_governed_context(bundle)
+    if bundle.stage == 6:
+        supplement_summary = bundle.inputs.get("private_supplement_carrier_summary")
+        if isinstance(supplement_summary, Mapping):
+            governed_context["private_supplement_carrier_summary"] = dict(supplement_summary)
     if bundle.stage == 8:
         collection = _stage8_carrier_payload(bundle, "contact_candidate_collection_snapshot")
         selection_trace = _stage8_carrier_payload(bundle, "contact_selection_trace_snapshot")

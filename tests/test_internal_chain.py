@@ -979,14 +979,39 @@ class TestInternalChain(unittest.TestCase):
         result = run_internal_chain_to_stage7(payload)
         stage6 = result["stage6"]
         stage7 = result["stage7"]
+        supplement_summary = stage6.inputs.get("private_supplement_carrier_summary")
 
         self.assertIn("private_supplement_record_optional", stage6.inputs)
+        self.assertIsNotNone(supplement_summary)
+        self.assertEqual(
+            supplement_summary.get("supplement_id"),
+            stage6.inputs["private_supplement_record_optional"].get("supplement_id"),
+        )
+        self.assertEqual(
+            supplement_summary.get("linked_review_request_id"),
+            stage6.inputs["private_supplement_record_optional"].get("linked_review_request_id"),
+        )
+        self.assertEqual(supplement_summary.get("supplement_loop_state"), "REQUESTED")
+        self.assertEqual(supplement_summary.get("impact_readiness_state"), "REVIEW_ELIGIBLE")
+        self.assertEqual(
+            supplement_summary.get("impact_decision_trace", {}).get("stage7_formal_surface_allowed"),
+            False,
+        )
         self.assertEqual(
             stage6.handoff.get("private_supplement_release_state_optional"),
             "REVIEW_ELIGIBLE",
         )
         self.assertNotIn("private_supplement_record", stage7.records)
-        self.assertNotIn("private_supplement_record_id_optional", stage7.handoff)
+        for field_name in (
+            "private_supplement_record",
+            "private_supplement_record_id_optional",
+            "private_supplement_release_state_optional",
+            "private_supplement_usable_scope_optional",
+            "private_supplement_written_back_policy_optional",
+            "private_supplement_carrier_summary",
+        ):
+            self.assertNotIn(field_name, stage7.records)
+            self.assertNotIn(field_name, stage7.handoff)
 
     def test_stage6_hold_state_when_report_not_issued(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

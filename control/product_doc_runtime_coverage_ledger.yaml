@@ -21,11 +21,11 @@ classification_vocabulary:
   - MISSING_RUNTIME
   - MISSING_TEST
 classification_counts:
-  INTERNAL_IMPLEMENTED: 13
+  INTERNAL_IMPLEMENTED: 14
   TEST_COVERED: 21
   RESERVED_NOT_LIVE: 10
   BLOCKED_BY_GOVERNANCE: 5
-  MISSING_RUNTIME: 5
+  MISSING_RUNTIME: 4
   MISSING_TEST: 2
 capabilities:
   - capability_id: STAGE1_2_SOURCE_ROUTE_CLOCK_AUTHORITY
@@ -142,19 +142,26 @@ capabilities:
       - docs/D11_测试验收与金标回归清单.md#D11-R-053-AH
     runtime_refs:
       - src/stage6_fact_review/service.py
+      - src/stage6_fact_review/fact_aggregator.py
+      - src/storage/repository_bundle_io.py
+      - src/storage/repository_boundary.py
       - contracts/schemas/schema_catalog.json#private_supplement_record
     test_refs:
       - tests/test_stage56_evaluators.py::test_stage6_supplement_trace_is_machine_readable_and_isolated
       - tests/test_internal_chain.py::test_stage6_supplement_reference_stays_out_of_stage7_formal_surface
+      - tests/test_internal_repository_boundary.py::test_stage6_private_supplement_carrier_persists_and_hydrates
+      - tests/test_internal_repository_boundary.py::test_stage6_private_supplement_readback_does_not_broad_fallback_when_typed_ref_is_stale
     classification:
+      - INTERNAL_IMPLEMENTED
       - RESERVED_NOT_LIVE
       - TEST_COVERED
-      - MISSING_RUNTIME
     evidence_summary: >
-      Isolation and trace rules are tested, but first-class private supplement
-      impact handling remains schema-backed rather than a complete runtime
-      capability.
-    recommended_followup_packet: PTL-I100-107D-stage6-private-supplement-runtime-gap
+      Stage6 private supplement impact now has internal governed runtime/readback
+      carrier coverage: supplement record summary, impact trace, repository
+      persistence, hydrate readback, stale typed-ref fail-closed behavior, and
+      Stage7 formal-surface isolation are covered. It remains reserved-not-live
+      and is not an external surface.
+    recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
 
   - capability_id: STAGE7_SALEABLE_OPPORTUNITY_BUYER_FIT_VALUE
     scope_group: Stage7 saleability/price/competitor

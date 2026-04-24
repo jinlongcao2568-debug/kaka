@@ -256,6 +256,130 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
 
         self.assertIsNone(hydrate_stage_bundle("stage6", {"project_id": project_id}))
 
+    def test_stage6_private_supplement_carrier_persists_and_hydrates(self) -> None:
+        reset_default_storage()
+        payload = copy.deepcopy(load_fixture("internal_chain_block.json"))
+        payload.update(
+            {
+                "supplement_material_family": "MISSING_ATTACHMENT_BACKFILL",
+                "supplement_source_owner": "MANUAL_REVIEW",
+                "supplement_lawful_basis": "REVIEW_CHAIN_AUTHORIZED",
+                "supplement_visible_roles": "review_user,governance_owner",
+                "supplement_written_back_policy": "GOVERNANCE_SINK_ONLY",
+            }
+        )
+        payload["flags"] = {
+            **dict(payload.get("flags", {})),
+            "supplement_ready_for_impact": True,
+        }
+        result = run_internal_chain(payload)
+        stage6 = result["stage6"]
+        supplement = stage6.inputs["private_supplement_record_optional"]
+        supplement_summary = stage6.inputs["private_supplement_carrier_summary"]
+
+        persist_stage_bundle(stage6)
+
+        supplement_entry = DatabaseSession.default().get_record(
+            "private_supplement_record",
+            supplement["supplement_id"],
+        )
+        self.assertIsNotNone(supplement_entry)
+        self.assertEqual(supplement_entry.stage_scope, 6)
+        self.assertEqual(supplement_entry.payload, supplement)
+        self.assertEqual(
+            supplement_entry.object_refs["linked_review_request_id"],
+            supplement["linked_review_request_id"],
+        )
+
+        stage_state = DatabaseSession.default().get_stage_state(
+            6,
+            "stage6_fact_review",
+            stage6.record("project_fact").get("project_fact_id"),
+        )
+        self.assertIsNotNone(stage_state)
+        self.assertEqual(
+            stage_state.typed_object_refs["private_supplement_record_id_optional"],
+            supplement["supplement_id"],
+        )
+        stage6_work_items = WorkItemRepository().list(stage_scope=6)
+        self.assertEqual(len(stage6_work_items), 1)
+        self.assertEqual(
+            stage6_work_items[0].object_refs["private_supplement_record_id_optional"],
+            supplement["supplement_id"],
+        )
+        self.assertEqual(
+            stage6_work_items[0].governed_context["private_supplement_carrier_summary"],
+            supplement_summary,
+        )
+
+        hydrated = hydrate_stage_bundle("stage6", {"project_id": supplement["project_id"]})
+
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(hydrated.inputs["private_supplement_record_optional"], supplement)
+        self.assertEqual(hydrated.inputs["private_supplement_carrier_summary"], supplement_summary)
+        self.assertEqual(
+            hydrated.handoff["private_supplement_carrier_summary"],
+            supplement_summary,
+        )
+        self.assertEqual(
+            hydrated.inputs["stage6_review_report_trace"]["supplement_trace"][
+                "private_supplement_carrier_summary"
+            ],
+            supplement_summary,
+        )
+
+        replayed_stage7 = Stage7Service().run(hydrated)
+        for field_name in (
+            "private_supplement_record",
+            "private_supplement_record_id_optional",
+            "private_supplement_release_state_optional",
+            "private_supplement_usable_scope_optional",
+            "private_supplement_written_back_policy_optional",
+            "private_supplement_carrier_summary",
+        ):
+            self.assertNotIn(field_name, replayed_stage7.records)
+            self.assertNotIn(field_name, replayed_stage7.handoff)
+
+    def test_stage6_private_supplement_readback_does_not_broad_fallback_when_typed_ref_is_stale(self) -> None:
+        reset_default_storage()
+        payload = copy.deepcopy(load_fixture("internal_chain_block.json"))
+        payload.update(
+            {
+                "supplement_material_family": "MISSING_ATTACHMENT_BACKFILL",
+                "supplement_source_owner": "MANUAL_REVIEW",
+            }
+        )
+        stage6 = run_internal_chain(payload)["stage6"]
+        persist_stage_bundle(stage6)
+
+        project_fact_id = stage6.record("project_fact").get("project_fact_id")
+        project_id = stage6.record("project_fact").get("project_id")
+        stage_state = DatabaseSession.default().get_stage_state(6, "stage6_fact_review", project_fact_id)
+        self.assertIsNotNone(stage_state)
+        self.assertIsNotNone(
+            DatabaseSession.default().get_record(
+                "private_supplement_record",
+                stage6.inputs["private_supplement_record_optional"]["supplement_id"]
+            )
+        )
+
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs["private_supplement_record_id_optional"] = "SUP-STALE-TYPED-REF-001"
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        self.assertIsNone(hydrate_stage_bundle("stage6", {"project_id": project_id}))
+
     def test_stage7_repository_boundary_persists_formal_objects_without_rejudging(self) -> None:
         stage7 = self.result["stage7"]
         refresh_saleable_opportunity(stage7)

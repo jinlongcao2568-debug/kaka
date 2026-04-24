@@ -130,6 +130,27 @@ class ProductDocRuntimeCoverageLedgerTests(unittest.TestCase):
                     capability["capability_id"],
                 )
 
+    def test_stage6_private_supplement_impact_runtime_readback_is_closed(self):
+        capability = next(
+            item
+            for item in self.capabilities
+            if item["capability_id"] == "STAGE6_PRIVATE_SUPPLEMENT_IMPACT"
+        )
+
+        self.assertIn("INTERNAL_IMPLEMENTED", capability["classification"])
+        self.assertIn("TEST_COVERED", capability["classification"])
+        self.assertIn("RESERVED_NOT_LIVE", capability["classification"])
+        self.assertNotIn("MISSING_RUNTIME", capability["classification"])
+        self.assertIn(
+            "src/storage/repository_bundle_io.py",
+            capability["runtime_refs"],
+        )
+        self.assertIn(
+            "tests/test_internal_repository_boundary.py::test_stage6_private_supplement_carrier_persists_and_hydrates",
+            capability["test_refs"],
+        )
+        self.assertIn("runtime/readback", capability["evidence_summary"])
+
     def test_referenced_files_exist_for_audit_evidence(self):
         for capability in self.capabilities:
             for field_name in ("doc_refs", "runtime_refs", "test_refs"):

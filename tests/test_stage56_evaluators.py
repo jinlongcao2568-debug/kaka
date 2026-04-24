@@ -566,8 +566,11 @@ class TestStage56Evaluators(unittest.TestCase):
         result = run_internal_chain(payload)
         stage6 = result["stage6"]
         supplement = stage6.inputs.get("private_supplement_record_optional")
+        supplement_summary = stage6.inputs.get("private_supplement_carrier_summary")
+        supplement_trace = stage6.inputs.get("stage6_review_report_trace", {}).get("supplement_trace", {})
 
         self.assertIsNotNone(supplement)
+        self.assertIsNotNone(supplement_summary)
         self.assertEqual(
             supplement.get("linked_review_request_id"),
             result["stage5"].record("review_request").get("review_request_id"),
@@ -575,10 +578,37 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertEqual(supplement.get("release_state"), "REVIEW_ELIGIBLE")
         self.assertEqual(supplement.get("usable_scope"), "REVIEW_ONLY")
         self.assertEqual(supplement.get("written_back_policy"), "GOVERNANCE_SINK_ONLY")
+        self.assertEqual(supplement_summary.get("supplement_id"), supplement.get("supplement_id"))
+        self.assertEqual(supplement_summary.get("project_id"), supplement.get("project_id"))
+        self.assertEqual(
+            supplement_summary.get("linked_review_request_id"),
+            supplement.get("linked_review_request_id"),
+        )
+        self.assertEqual(supplement_summary.get("release_state"), "REVIEW_ELIGIBLE")
+        self.assertEqual(supplement_summary.get("usable_scope"), "REVIEW_ONLY")
+        self.assertEqual(supplement_summary.get("written_back_policy"), "GOVERNANCE_SINK_ONLY")
+        self.assertEqual(supplement_summary.get("supplement_loop_state"), "REQUESTED")
+        self.assertEqual(supplement_summary.get("impact_readiness_state"), "REVIEW_ELIGIBLE")
+        self.assertEqual(
+            supplement_summary.get("impact_decision_trace", {}).get("stage6_internal_runtime_allowed"),
+            True,
+        )
+        self.assertEqual(
+            supplement_summary.get("impact_decision_trace", {}).get("stage7_formal_surface_allowed"),
+            False,
+        )
+        self.assertEqual(
+            supplement_trace.get("private_supplement_carrier_summary"),
+            supplement_summary,
+        )
         self.assertNotIn("private_supplement_record", stage6.records)
         self.assertEqual(
             stage6.handoff.get("private_supplement_record_id_optional"),
             supplement.get("supplement_id"),
+        )
+        self.assertEqual(
+            stage6.handoff.get("private_supplement_carrier_summary"),
+            supplement_summary,
         )
         self.assertNotIn("private_supplement_record_id_optional", result["stage7"].handoff)
 

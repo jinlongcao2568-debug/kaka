@@ -27,6 +27,36 @@ def _dedupe_strings(values: list[Any]) -> list[str]:
     return result
 
 
+def _private_supplement_carrier_summary(
+    supplement: Mapping[str, Any],
+    *,
+    supplement_loop_state: str,
+    missing_condition_family: Any,
+) -> dict[str, Any]:
+    release_state = str(supplement.get("release_state", "ISOLATED"))
+    usable_scope = str(supplement.get("usable_scope", "BLOCKED"))
+    written_back_policy = str(supplement.get("written_back_policy", "GOVERNANCE_SINK_ONLY"))
+    stage6_internal_runtime_allowed = release_state in {"REVIEW_ELIGIBLE", "IMPACT_ELIGIBLE"} and usable_scope != "BLOCKED"
+    return {
+        "supplement_id": supplement.get("supplement_id"),
+        "project_id": supplement.get("project_id"),
+        "linked_review_request_id": supplement.get("linked_review_request_id"),
+        "release_state": release_state,
+        "usable_scope": usable_scope,
+        "written_back_policy": written_back_policy,
+        "supplement_loop_state": supplement_loop_state,
+        "impact_readiness_state": release_state,
+        "impact_decision_trace": {
+            "source": "stage6_private_supplement_record",
+            "stage6_internal_runtime_allowed": stage6_internal_runtime_allowed,
+            "stage6_internal_impact_allowed": release_state == "IMPACT_ELIGIBLE" and stage6_internal_runtime_allowed,
+            "stage7_formal_surface_allowed": False,
+            "external_or_live_allowed": False,
+            "missing_condition_family_optional": missing_condition_family,
+        },
+    }
+
+
 class ProjectFactAggregator:
     def __init__(self, store: ContractStore) -> None:
         self.store = store
@@ -210,8 +240,16 @@ class ProjectFactAggregator:
             "supplement_loop_state": "NOT_REQUESTED",
             "linked_review_request_id_optional": review_request_id,
             "missing_condition_family_optional": missing_condition_family,
+            "impact_decision_trace": {
+                "source": "stage6_private_supplement_record",
+                "stage6_internal_runtime_allowed": False,
+                "stage6_internal_impact_allowed": False,
+                "stage7_formal_surface_allowed": False,
+                "external_or_live_allowed": False,
+            },
         }
         private_supplement_record_optional: Mapping[str, Any] | None = None
+        private_supplement_carrier_summary: dict[str, Any] | None = None
         supplement_requested = bool(
             review_request_id
             and (
@@ -252,6 +290,11 @@ class ProjectFactAggregator:
                     ),
                 },
             ).data
+            private_supplement_carrier_summary = _private_supplement_carrier_summary(
+                private_supplement_record_optional,
+                supplement_loop_state=supplement_loop_state,
+                missing_condition_family=missing_condition_family,
+            )
             supplement_trace = {
                 "supplement_loop_state": supplement_loop_state,
                 "linked_review_request_id_optional": review_request_id,
@@ -260,6 +303,9 @@ class ProjectFactAggregator:
                 "private_supplement_release_state_optional": private_supplement_record_optional.get("release_state"),
                 "private_supplement_usable_scope_optional": private_supplement_record_optional.get("usable_scope"),
                 "private_supplement_written_back_policy_optional": private_supplement_record_optional.get("written_back_policy"),
+                "impact_readiness_state": private_supplement_carrier_summary.get("impact_readiness_state"),
+                "impact_decision_trace": private_supplement_carrier_summary.get("impact_decision_trace"),
+                "private_supplement_carrier_summary": private_supplement_carrier_summary,
             }
 
         report_payload = {
@@ -614,6 +660,8 @@ class ProjectFactAggregator:
             handoff["private_supplement_release_state_optional"] = private_supplement_record_optional.get("release_state")
             handoff["private_supplement_usable_scope_optional"] = private_supplement_record_optional.get("usable_scope")
             handoff["private_supplement_written_back_policy_optional"] = private_supplement_record_optional.get("written_back_policy")
+        if private_supplement_carrier_summary:
+            handoff["private_supplement_carrier_summary"] = private_supplement_carrier_summary
 
         inputs_out = dict(inputs)
         inputs_out["window_status"] = legal_action_recommendation.get("window_status")
@@ -669,6 +717,8 @@ class ProjectFactAggregator:
             "supplement_trace": supplement_trace,
         }
         inputs_out["private_supplement_record_optional"] = private_supplement_record_optional
+        if private_supplement_carrier_summary:
+            inputs_out["private_supplement_carrier_summary"] = private_supplement_carrier_summary
         inputs_out["stage6_review_queue_policy_trace"] = queue_policy_state.trace
         inputs_out["stage6_competitor_confidence_trace"] = competitor_policy_state.trace
         inputs_out["stage6_legal_action_resolution_trace"] = legal_action_resolution_state.trace
