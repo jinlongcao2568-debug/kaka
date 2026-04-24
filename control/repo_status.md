@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-111A-provider-config-and-sandbox-seam (COMPLETED via commit c279fd5; current control work only closes out 111A, records the full production/product gap task map with fine-grained subpackets, and reorders implementation candidates by product-usable evidence-pack closure. It does not activate 112, 111B, or 121 live pilots, approve push, docs/contracts semantic changes, external release, real production samples, real provider calls, real touch, real payment gateway, real charge, real delivery, real refund, automated refund program, or unapproved external/live execution)
+Current Workstream: PTL-I100-111A-provider-config-and-sandbox-seam (COMPLETED via commit c279fd5; current control work only closes out 111A, records the full production/product gap task map with fine-grained subpackets, and synchronizes the open-capability baseline. It does not activate 112, 111B, or 121 live pilots, approve push, docs/contracts semantic changes, external release, real production samples, real provider calls, real touch, real payment gateway, real charge, real delivery, real refund, automated refund program, or unapproved external/live execution)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -19,10 +19,19 @@ Current Blockers:
 - Stage 8 real execution remains governed / approval-gated / blocked by default
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
+Product Open Capability Baseline:
+- The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
+- Except automated refund execution and prohibited non-public/gray capabilities, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
+- "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
+- Real public-source collection, parsing/OCR/attachments, public verification, rule expansion, challenger identification, CRM/quote, customer-visible LeadPack/page/export, sales outreach, payment collection, charge execution, delivery fulfillment, receipt/invoice, settlement, customer access, and production monitoring are target capabilities.
+- Automated refund execution is excluded. Refund handling remains manual exception record, manual approval/audit, and governed review only.
+- PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
+
 Allowed Actions (current):
 - close out PTL-I100-111A provider adapter config/sandbox/readback seam after commit c279fd5
 - sync control/product_operability_gap_matrix.yaml with the three-layer acceptance model: engineering regression, capability state, and evidence-pack business closure
 - record the full open production/product gap task map for 112-121 plus 111B/111C/111D/111E, including 114A-114I and 111C1-111C4 subpackets, in control/product_task_library.yaml and control/product_operability_gap_matrix.yaml
+- record the open-capability baseline: product-required functions are to be built and controlled-opened except automated refund execution; no capability becomes live by default
 - keep 112 as the next recommended candidate after reassessment, but do not auto-activate it
 - keep 111B/111C/111D/111E, 113-121, 114A-114I, and 111C1-111C4 as task-pool candidates only; none are auto-activated
 - keep real LeadPack delivery, client-visible formal export/page release, external/live transport, provider live calls, and external release controlled and blocked

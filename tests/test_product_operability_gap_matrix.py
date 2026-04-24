@@ -131,6 +131,46 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "do_not_implement_automated_refund_program",
         )
 
+    def test_open_capability_policy_targets_business_functions_except_automated_refund(self) -> None:
+        matrix_policy = self.matrix["product_model"]["open_capability_policy"]
+        task_policy = self.task_library["open_capability_policy"]
+
+        self.assertEqual(matrix_policy["policy_id"], "PTL-I100-OPEN-CAPABILITY-BASELINE")
+        self.assertEqual(task_policy["policy_id"], matrix_policy["policy_id"])
+        self.assertEqual(matrix_policy["live_default"], "BLOCKED")
+        self.assertEqual(task_policy["live_default"], "BLOCKED")
+        self.assertEqual(matrix_policy["completion_gate"], "PTL-I100-118-full-product-operational-acceptance")
+        self.assertEqual(task_policy["final_product_closure_gate"], matrix_policy["completion_gate"])
+
+        required_targets = {
+            "real_public_source_collection",
+            "real_parser_ocr_attachment_extraction",
+            "public_verification_adapters",
+            "real_challenger_identification",
+            "crm_sync",
+            "quote_execution",
+            "leadpack_customer_visible_page",
+            "formal_export_artifacts",
+            "sales_outreach_execution",
+            "payment_collection",
+            "charge_execution",
+            "delivery_fulfillment",
+            "production_monitoring_alerting_rollback",
+        }
+        self.assertTrue(
+            required_targets.issubset(set(matrix_policy["target_capabilities_to_open_under_control"]))
+        )
+        self.assertTrue(
+            required_targets.issubset(set(task_policy["target_capabilities_to_open_under_control"]))
+        )
+
+        excluded = set(matrix_policy["excluded_capabilities"]) | set(task_policy["excluded_capabilities"])
+        self.assertIn("automated_refund_execution", excluded)
+        self.assertNotIn("automated_refund_execution", matrix_policy["target_capabilities_to_open_under_control"])
+        self.assertNotIn("automated_refund_execution", task_policy["target_capabilities_to_open_under_control"])
+        self.assertIn("APPROVAL_READY", matrix_policy["state_order"])
+        self.assertIn("PRODUCTION_READY", task_policy["state_order"])
+
     def test_next_sequence_records_completed_111a_then_open_execution_packets(self) -> None:
         sequence = self.matrix["next_implementation_sequence"]
         self.assertEqual(sequence[0]["packet_ref"], "PTL-I100-110A-platform-backend-operability-foundation")

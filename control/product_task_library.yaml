@@ -1,6 +1,6 @@
 version: 1
 library_id: PRODUCT_MAINLINE_TASK_LIBRARY
-updated_at: "2026-04-24"
+updated_at: "2026-04-25"
 status: EFFECTIVE
 role: product_mainline_task_source
 library_role: product_mainline_task_source
@@ -33,6 +33,59 @@ redlines:
   external_software_release: BLOCKED
   stage8_real_execution: "governed / approval-gated / blocked by default"
   stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
+  stage9_real_payment_delivery: "target capability, but blocked by default until sandbox, approval, audit, live-pilot, and production readiness pass"
+  automated_refund_execution: EXCLUDED
+open_capability_policy:
+  policy_id: PTL-I100-OPEN-CAPABILITY-BASELINE
+  status: EFFECTIVE
+  scope: "owner-operated evidence-pack / leadpack commercial product"
+  baseline_rule: "Except automated refund execution, product-required capabilities are target capabilities and must be implemented through staged controlled opening, not left permanently as preview/readiness."
+  live_default: BLOCKED
+  activation_rule: "Every capability must be activated by a dedicated control/current_task.yaml packet; task-pool registration alone never opens live execution."
+  state_order: [NOT_IMPLEMENTED, INTERNAL_READY, SANDBOX_READY, APPROVAL_READY, LIVE_READY, PRODUCTION_READY, SUSPENDED]
+  target_capabilities_to_open_under_control:
+    - real_public_source_collection
+    - real_parser_ocr_attachment_extraction
+    - public_verification_adapters
+    - rule_factory_expansion
+    - stage6_product_package_hardening
+    - real_challenger_identification
+    - crm_sync
+    - quote_execution
+    - leadpack_customer_visible_page
+    - formal_export_artifacts
+    - sales_outreach_execution
+    - payment_collection
+    - charge_execution
+    - delivery_fulfillment
+    - receipt_invoice_record
+    - settlement_reconciliation
+    - operator_customer_access
+    - production_monitoring_alerting_rollback
+  gated_live_capabilities:
+    - sales_outreach_execution
+    - customer_visible_page_publication
+    - formal_export_delivery
+    - payment_collection
+    - charge_execution
+    - delivery_fulfillment
+  excluded_capabilities:
+    - automated_refund_execution
+    - private_or_non_public_data_collection
+    - gray_source_collection
+    - unauthorized_identity_or_social_security_query
+    - captcha_or_login_bypass
+    - unreviewed_legal_document_external_send
+  refund_boundary: "Refund handling is limited to manual exception records, manual approval/audit, and governed review; no automated refund program or automatic refund execution."
+  non_bypass_requirements:
+    - provider_config
+    - sandbox_pass
+    - approval_chain
+    - audit_chain
+    - field_allowlist_and_masking
+    - operator_action_record
+    - suspension_and_rollback_path
+  final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
 planning_sync_implementation_registration:
   packet_id: PTL-GOV-101-product-planning-sync-implementation
   title: "product_task_library 与 AX9S 路线图正式同步机制实现包"
@@ -116,7 +169,7 @@ internal_operable_productization_program:
   mode: MANUAL_ACTIVATION_ONLY
   auto_activate_next_candidate: false
   current_execution_source: control/current_task.yaml
-  route_goal: "把现有内部 governed 主链做实、做稳、做成可运营产品；不触发 external/live 解锁。"
+  route_goal: "把现有内部 governed 主链做实、做稳、做成可运营证据包/线索包产品；除自动退款执行外，产品所需能力按任务池逐级推进到受控可用，不把 preview/readiness 当作最终完成，也不在未通过 sandbox/approval/audit/live-pilot 前默认打开 external/live。"
   acceptance_model:
     packet_boundary: "每个任务必须先成为 control/current_task.yaml 的 dedicated scoped packet。"
     consistency: "docs/contracts/runtime/tests 必须同批同步，不允许字段或对象双口径。"
@@ -157,6 +210,7 @@ internal_operable_productization_program:
     external_software_release: BLOCKED
     stage8_real_execution: "governed / approval-gated / blocked by default"
     stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
+    automated_refund_execution: EXCLUDED
 acceptance_model:
   rule: "Every implementation task must report engineering regression, capability-state movement, and product-closure impact separately."
   engineering_regression:
@@ -170,6 +224,7 @@ acceptance_model:
     product_goal: "owner-operated evidence_pack_and_leadpack business"
     completion_rule: "Do not call a task product-complete only because internal preview/readback or tests pass."
     refund_boundary: "No automated refund program; refund handling remains manual exception record and governed review."
+    open_capability_policy: "All product-required capabilities except automated refund execution must map to staged implementation tasks and ultimately pass PTL-I100-118 full product operational acceptance."
 task_count: 48
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation

@@ -1,7 +1,7 @@
 matrix_id: PTL-I100-1100_PRODUCT_OPERABILITY_GAP_MATRIX
 task_id: PTL-I100-1100-product-operability-full-audit
 status: POST_111A_PROVIDER_CONFIG_SANDBOX_SEAM_CLOSEOUT_TASK_POOL_SYNC
-updated_at: "2026-04-24"
+updated_at: "2026-04-25"
 source_ledger: control/product_doc_runtime_coverage_ledger.yaml
 source_ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER
 purpose: >
@@ -20,6 +20,53 @@ product_model:
     - "leadpack_export_and_delivery"
     - "order_payment_delivery"
     - "operator_workbench_readback"
+  open_capability_policy:
+    policy_id: PTL-I100-OPEN-CAPABILITY-BASELINE
+    baseline_rule: "Except automated refund execution, every business capability required to sell evidence packs / lead packs is a target capability and must be moved through staged controlled opening."
+    live_default: BLOCKED
+    state_order:
+      - NOT_IMPLEMENTED
+      - INTERNAL_READY
+      - SANDBOX_READY
+      - APPROVAL_READY
+      - LIVE_READY
+      - PRODUCTION_READY
+      - SUSPENDED
+    target_capabilities_to_open_under_control:
+      - source_to_evidence_chain
+      - real_public_source_collection
+      - real_parser_ocr_attachment_extraction
+      - public_verification_adapters
+      - rule_factory_expansion
+      - stage6_product_package_hardening
+      - real_challenger_identification
+      - crm_sync
+      - quote_execution
+      - leadpack_customer_visible_page
+      - formal_export_artifacts
+      - sales_outreach_execution
+      - payment_collection
+      - charge_execution
+      - delivery_fulfillment
+      - receipt_invoice_record
+      - settlement_reconciliation
+      - operator_customer_access
+      - production_monitoring_alerting_rollback
+    gated_live_capabilities:
+      - sales_outreach_execution
+      - customer_visible_page_publication
+      - formal_export_delivery
+      - payment_collection
+      - charge_execution
+      - delivery_fulfillment
+    excluded_capabilities:
+      - automated_refund_execution
+      - private_or_non_public_data_collection
+      - gray_source_collection
+      - unauthorized_identity_or_social_security_query
+      - captcha_or_login_bypass
+      - unreviewed_legal_document_external_send
+    completion_gate: PTL-I100-118-full-product-operational-acceptance
   refund_policy:
     automated_refund_program: false
     allowed_refund_handling: "manual_exception_record_and_governed_review_only"
@@ -75,6 +122,13 @@ decision_summary:
     visible leadpack export/delivery, and payment/delivery execution still need
     product implementation. External software release is not required for the
     evidence-pack business model.
+  open_capability_summary: >
+    The target product posture is not permanent internal preview. Except for
+    automated refund execution and prohibited non-public/gray capabilities, every
+    business capability needed to sell evidence packs and lead packs must be
+    implemented through the task pool and moved stepwise through internal,
+    sandbox, approval, live, and production readiness. Live execution remains
+    blocked by default until the dedicated packet and acceptance gates pass.
   implementation_progress_summary: >
     PTL-I100-110A completed the first durable backend foundation via local
     sqlite opt-in envelope persistence while keeping json-file default
