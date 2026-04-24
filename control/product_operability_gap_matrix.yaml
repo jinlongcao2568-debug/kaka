@@ -1,6 +1,6 @@
 matrix_id: PTL-I100-1100_PRODUCT_OPERABILITY_GAP_MATRIX
 task_id: PTL-I100-1100-product-operability-full-audit
-status: POST_110E_OWNER_OPERATED_LEDGER_SYNC
+status: POST_111A_PROVIDER_CONFIG_SANDBOX_SEAM_ACTIVATION
 updated_at: "2026-04-24"
 source_ledger: control/product_doc_runtime_coverage_ledger.yaml
 source_ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER

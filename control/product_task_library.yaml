@@ -759,14 +759,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage7_sales, stage8_outreach, stage9_delivery, page_export, external_live_governance]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: READY_FOR_DEDICATED_PACKET_AFTER_110E_CLOSEOUT
+    status: ACTIVE
+    planning_state: ACTIVE_111A_PROVIDER_CONFIG_AND_SANDBOX_SEAM
     is_current_mainline_next_candidate: false
     priority: P5
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_OWNER_OPERATED_LEDGER_AND_READBACK
-    runtime_change_in_packet: REQUIRES_DEDICATED_CURRENT_TASK_PACKET
-    activation_policy: "May only be activated after PTL-I100-110E closeout. Must keep automated refund execution excluded. Any real provider/live execution must be implemented behind approval, audit, operator action, sandbox/dry-run first, and explicit current_task scope."
+    runtime_change_in_packet: IN_SCOPE_FOR_111A_PROVIDER_CONFIG_AND_SANDBOX_SEAM
+    activation_policy: "Activated via dedicated control/current_task.yaml after PTL-I100-110E implementation commit 2fbe70d and closeout commit d66fe8e. Must keep automated refund execution excluded. 111A only establishes provider config/sandbox/readback seam; real provider/live execution remains blocked until later dedicated packets."
     hard_depends_on: [PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions]
     soft_depends_on: [PTL-I100-110E-order-payment-delivery-no-auto-refund]
     objective: "把 110A-110E 已形成的 owner-operated workbench/readback 推进到真实运营所需 provider adapter seam：销售触达、CRM/报价、证据包页面/交付、订单支付收款记录与交付履约。退款只允许 manual exception record / governed review，不实现自动退款程序。"
@@ -779,4 +779,4 @@ tasks:
       - PTL-I100-111C-crm-quote-and-delivery-page-adapters
       - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
     risk_level: CRITICAL
-    runtime_notes: "Candidate only. This task exists so product_operability_gap_matrix next_packet_ref is not dangling after 110E. It does not auto-activate and does not approve real production touch/payment/delivery by itself. A dedicated control/current_task.yaml packet must define the exact provider, sandbox/live mode, approval/audit rules, allowed paths, tests, and stop conditions."
+    runtime_notes: "PTL-I100-111A is active as the provider config and sandbox seam packet. It must not execute real production touch/payment/delivery, must not implement automated refund, and must leave live execution blocked by default. Later 111B/111C/111D packets can consume the seam only after this packet is validated."
