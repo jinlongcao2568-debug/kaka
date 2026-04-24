@@ -536,15 +536,48 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertTrue(preview_response["internal_only"])
         self.assertTrue(preview_response["candidate_only"])
         self.assertFalse(preview_response["external_delivery_enabled"])
+        self.assertFalse(preview_response["direct_export_enabled"])
+        self.assertTrue(preview_response["readiness_only"])
+        self.assertTrue(preview_response["review_only"])
         self.assertTrue(preview_response["requires_review"])
         self.assertFalse(preview_response["approval_prerequisites_met"])
+        self.assertEqual(
+            preview_response["approval_readiness_summary"]["missing_or_pending"],
+            sorted(preview_response["missing_approvals"]),
+        )
+        self.assertEqual(
+            preview_response["audit_readiness_summary"]["missing_audit_refs"],
+            sorted(preview_response["missing_audit_refs"]),
+        )
+        self.assertEqual(
+            preview_response["approval_readiness_summary"]["ready"],
+            not preview_response["missing_approvals"],
+        )
+        self.assertEqual(
+            preview_response["audit_readiness_summary"]["ready"],
+            not preview_response["missing_audit_refs"],
+        )
         self.assertIn("leadpack_candidate_review_gate", preview_response["required_review_gates"])
         self.assertIn("leadpack_candidate_review_gate", preview_response["missing_review_gates"])
         self.assertIn("stage7.opportunity_summary", preview_response["candidate_projection"]["allowed_projection"])
         self.assertIn("stage8.contact_activity_digest", preview_response["candidate_projection"]["masked_projection"])
         self.assertIn("stage9.fulfillment_summary", preview_response["candidate_projection"]["summary_only"])
+        self.assertTrue(preview_response["candidate_readback_summary"]["readback_ready"])
+        self.assertTrue(preview_response["candidate_readback_summary"]["approval_audit_readiness_only"])
+        self.assertFalse(preview_response["candidate_readback_summary"]["customer_visible_export_enabled"])
+        self.assertFalse(preview_response["candidate_readback_summary"]["client_page_release_enabled"])
+        operator_summary = preview_response["operator_readback_summary"]
+        self.assertTrue(operator_summary["operator_can_read_candidate"])
+        self.assertTrue(operator_summary["operator_can_request_review"])
+        self.assertFalse(operator_summary["operator_can_direct_export"])
+        self.assertFalse(operator_summary["operator_can_deliver_external"])
+        self.assertFalse(operator_summary["operator_can_publish_customer_page"])
+        self.assertIn("client_report_release", operator_summary["missing_approvals"])
+        self.assertIn("approval_and_audit_chain_required_before_external_delivery", preview_response["blocked_reasons"])
+        self.assertIn("external_delivery_enabled=false", preview_response["why_not_live"])
         self.assertTrue(review_response["review_requested"])
         self.assertTrue(review_response["review_gate_prerequisites_met"])
+        self.assertTrue(review_response["review_gate_readiness_summary"]["ready"])
         self.assertNotIn("leadpack_candidate_review_gate", review_response["missing_approvals"])
         self.assertTrue(simulation_response["export_simulation_requested"])
         self.assertTrue(simulation_response["export_simulation_allowed"])

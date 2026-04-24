@@ -1063,6 +1063,20 @@ def _build_candidate_projection(
     return buckets
 
 
+def _dedupe_preserve_order(values: list[Any]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value in (None, ""):
+            continue
+        text = str(value)
+        if text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
+
+
 def _api_error_payload(code: str, *, meta: Mapping[str, Any] | None = None) -> dict[str, Any]:
     catalog = load_contract("contracts/api/error_code_catalog.json")
     for category in catalog.get("categories", []):
@@ -1124,9 +1138,12 @@ def _leadpack_candidate_surface_core(
     if requested_action in {"review", "export_simulation"}:
         requested_review_gates.append("leadpack_candidate_review_gate")
     missing_approvals = [approval for approval in required_approvals if approval not in requested_approvals]
+    satisfied_approvals = [approval for approval in required_approvals if approval not in missing_approvals]
     missing_review_gates = [gate for gate in required_review_gates if gate not in requested_review_gates]
+    satisfied_review_gates = [gate for gate in required_review_gates if gate not in missing_review_gates]
     required_audit_refs = list(candidate_matrix.get("required_audit_refs", []))
     missing_audit_refs = _missing_audit_refs(required_audit_refs, aggregated_trace_refs)
+    satisfied_audit_refs = [audit_ref for audit_ref in required_audit_refs if audit_ref not in missing_audit_refs]
     gate_reasons = collect_candidate_surface_block_reasons(
         stage8_surface_state=stage8_surface["surface_state"],
         stage9_surface_state=stage9_surface["surface_state"],
@@ -1139,6 +1156,131 @@ def _leadpack_candidate_surface_core(
     approval_prerequisites_met = not missing_approvals and not missing_audit_refs and surface_state == "preview-ready"
     review_gate_prerequisites_met = not missing_review_gates
     export_simulation_allowed = True
+    approval_trace_present = bool(
+        aggregated_trace_refs.get("permission_trace_present")
+        or aggregated_trace_refs.get("governance_trace_present")
+    )
+    audit_trace_present = bool(
+        aggregated_trace_refs.get("audit_refs")
+        or aggregated_trace_refs.get("trace_refs")
+    )
+    non_live_blocked_reasons = [
+        "external_delivery_enabled=false",
+        "direct_export_enabled=false",
+        "candidate_only_internal_preview",
+        "customer_visible_formal_export_not_generated",
+        "approval_and_audit_chain_required_before_external_delivery",
+    ]
+    blocked_reasons = _dedupe_preserve_order(gate_reasons["blocked_reasons"] + non_live_blocked_reasons)
+    hold_reasons = _dedupe_preserve_order(gate_reasons["hold_reasons"])
+    why_not_live = _dedupe_preserve_order(
+        list(candidate_matrix.get("why_not_live", []))
+        + [
+            "external_delivery_enabled=false",
+            "direct_export_enabled=false",
+            "customer_visible_formal_export_not_generated",
+        ]
+    )
+    approval_readiness_summary = {
+        "ready": not missing_approvals,
+        "required_count": len(required_approvals),
+        "missing_count": len(missing_approvals),
+        "required_approvals": required_approvals,
+        "satisfied": satisfied_approvals,
+        "missing_or_pending": sorted(missing_approvals),
+        "approval_trace_present": approval_trace_present,
+        "external_delivery_still_disabled": True,
+    }
+    review_gate_readiness_summary = {
+        "ready": review_gate_prerequisites_met,
+        "required_count": len(required_review_gates),
+        "missing_count": len(missing_review_gates),
+        "required_review_gates": required_review_gates,
+        "satisfied": satisfied_review_gates,
+        "missing_or_pending": sorted(missing_review_gates),
+        "must_not_be_treated_as_approval": True,
+    }
+    audit_readiness_summary = {
+        "ready": not missing_audit_refs,
+        "required_count": len(required_audit_refs),
+        "missing_count": len(missing_audit_refs),
+        "required_audit_refs": required_audit_refs,
+        "satisfied": satisfied_audit_refs,
+        "missing_or_pending": sorted(missing_audit_refs),
+        "missing_audit_refs": sorted(missing_audit_refs),
+        "audit_trace_present": audit_trace_present,
+        "trace_refs_present": bool(aggregated_trace_refs.get("trace_refs")),
+        "audit_refs_present": bool(aggregated_trace_refs.get("audit_refs")),
+        "policy_trace_present": bool(aggregated_trace_refs.get("policy_trace_present")),
+        "permission_trace_present": bool(aggregated_trace_refs.get("permission_trace_present")),
+        "governance_trace_present": bool(aggregated_trace_refs.get("governance_trace_present")),
+        "semantic_trace_present": bool(aggregated_trace_refs.get("semantic_trace_present")),
+        "external_delivery_still_disabled": True,
+    }
+    actual_approval_states = [
+        {
+            "approval_chain_id": approval,
+            "current_status": "MISSING_OR_PENDING" if approval in missing_approvals else "PRESENT",
+            "required_status": "APPROVED",
+            "resulting_state_if_missing": "HOLD",
+        }
+        for approval in required_approvals
+    ]
+    actual_review_gate_states = [
+        {
+            "review_gate_id": gate,
+            "current_status": "MISSING_OR_PENDING" if gate in missing_review_gates else "PRESENT",
+            "required_status": "PASSED_OR_READY_FOR_REVIEW",
+            "must_not_be_treated_as_approval": True,
+            "resulting_state_if_missing": "HOLD",
+        }
+        for gate in required_review_gates
+    ]
+    actual_audit_ref_states = [
+        {
+            "audit_ref": audit_ref,
+            "current_status": "MISSING" if audit_ref in missing_audit_refs else "PRESENT_OR_TRACE_BACKED",
+            "resulting_state_if_missing": "HOLD",
+        }
+        for audit_ref in required_audit_refs
+    ]
+    source_formal_object_types = sorted(
+        _merge_formal_object_refs(stage7_surface, stage8_surface, stage9_surface).keys()
+    )
+    candidate_readback_summary = {
+        "readback_ready": True,
+        "readback_surface": "review_report_workbench",
+        "readiness_only": True,
+        "candidate_only": True,
+        "review_only": True,
+        "projection_only": True,
+        "approval_audit_readiness_only": True,
+        "external_delivery_enabled": False,
+        "direct_export_enabled": False,
+        "customer_visible_export_enabled": False,
+        "client_page_release_enabled": False,
+        "blocked_reason_count": len(blocked_reasons),
+        "hold_reason_count": len(hold_reasons),
+        "why_not_live": why_not_live,
+    }
+    operator_readback_summary = {
+        "readback_ready": True,
+        "readback_surface": "review_report_workbench",
+        "operator_can_read_candidate": True,
+        "operator_can_request_review": True,
+        "operator_can_run_export_simulation": True,
+        "operator_can_direct_export": False,
+        "operator_can_deliver_external": False,
+        "operator_can_enable_external_delivery": False,
+        "operator_can_publish_customer_page": False,
+        "approval_ready": approval_readiness_summary["ready"],
+        "audit_ready": audit_readiness_summary["ready"],
+        "review_gate_ready": review_gate_readiness_summary["ready"],
+        "missing_approvals": sorted(missing_approvals),
+        "missing_audit_refs": sorted(missing_audit_refs),
+        "missing_review_gates": sorted(missing_review_gates),
+        "source_formal_object_types": source_formal_object_types,
+    }
     return {
         "surface_id": "review_report_workbench",
         "surface_state": surface_state,
@@ -1146,6 +1288,8 @@ def _leadpack_candidate_surface_core(
         "surface_access": "internal-readable" if surface_state in {"blocked", "review-required"} else "internal-operable",
         "internal_only": True,
         "candidate_only": True,
+        "readiness_only": True,
+        "review_only": True,
         "external_delivery_enabled": False,
         "requires_review": True,
         "approval_prerequisites_met": approval_prerequisites_met,
@@ -1169,10 +1313,18 @@ def _leadpack_candidate_surface_core(
         "missing_approvals": missing_approvals,
         "missing_review_gates": missing_review_gates,
         "missing_audit_refs": missing_audit_refs,
+        "actual_approval_states": actual_approval_states,
+        "actual_review_gate_states": actual_review_gate_states,
+        "actual_audit_ref_states": actual_audit_ref_states,
+        "approval_readiness_summary": approval_readiness_summary,
+        "review_gate_readiness_summary": review_gate_readiness_summary,
+        "audit_readiness_summary": audit_readiness_summary,
+        "candidate_readback_summary": candidate_readback_summary,
+        "operator_readback_summary": operator_readback_summary,
         "denial_conditions": list(candidate_matrix.get("denial_conditions", [])),
-        "blocked_reasons": gate_reasons["blocked_reasons"],
-        "hold_reasons": gate_reasons["hold_reasons"],
-        "why_not_live": list(candidate_matrix.get("why_not_live", [])),
+        "blocked_reasons": blocked_reasons,
+        "hold_reasons": hold_reasons,
+        "why_not_live": why_not_live,
         "why_not_now": list(candidate_matrix.get("why_not_now", [])),
         "future_activation_prereqs_remaining": list(candidate_matrix.get("future_activation_prereqs_remaining", [])),
         "trace_refs": {

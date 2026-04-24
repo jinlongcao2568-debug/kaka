@@ -557,20 +557,28 @@ capabilities:
     runtime_refs:
       - src/api/projections.py
       - src/api/routes/stage7.py
+      - src/api/schemas/stage7.py
+      - src/api/main.py
       - control/repo_status.md
     test_refs:
-      - tests/test_internal_surface_preview.py
-      - tests/test_runtime_governance_guards.py::test_stage8_direct_leadpack_blocks_outreach_plan
-      - tests/test_runtime_governance_guards.py::test_stage9_direct_leadpack_blocks_direct_objects
+      - tests/test_internal_surface_preview.py::test_leadpack_candidate_surface_is_internal_only_and_candidate_only
+      - tests/test_api_transport_bootstrap.py::test_stage7_stage8_stage9_routes_are_registered
+      - tests/test_product_doc_runtime_coverage.py::test_leadpack_external_delivery_candidate_readiness_runtime_is_closed_non_live
+      - tests/test_runtime_governance_guards.py::test_leadpack_candidate_external_delivery_requests_remain_readback_only
+      - tests/test_runtime_governance_guards.py::test_stage8_delivery_matrix_blocks_outreach_plan_on_leadpack_surface
+      - tests/test_runtime_governance_guards.py::test_stage9_delivery_matrix_blocks_direct_leadpack_objects
     classification:
       - RESERVED_NOT_LIVE
       - BLOCKED_BY_GOVERNANCE
       - TEST_COVERED
     evidence_summary: >
-      LeadPack-related surfaces are candidate, projection, or review-only.
-      Direct external delivery and direct-object release remain blocked by
-      governance and tested as blocked.
-    recommended_followup_packet: PTL-I100-109-leadpack-external-delivery-approval-audit-readiness
+      LeadPack external delivery candidate surfaces now expose approval/audit
+      readiness/readback, missing approvals, missing audit refs, blocked reasons,
+      why_not_live, direct_export_enabled=false, external_delivery_enabled=false,
+      and operator readback summaries. They remain candidate-only, review-only,
+      non-live, and blocked by governance; formal client export/page layer stays
+      separate.
+    recommended_followup_packet: PTL-I100-109-leadpack-client-export-and-page-layer-coverage
 
   - capability_id: EXTERNAL_SOFTWARE_RELEASE
     scope_group: external/live redlines

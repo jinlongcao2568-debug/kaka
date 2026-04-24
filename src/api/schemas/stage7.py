@@ -188,11 +188,16 @@ class LeadpackExternalDeliveryCandidateResponse(TypedDict, total=False):
     surface_access: str
     internal_only: bool
     candidate_only: bool
+    readiness_only: bool
+    review_only: bool
     external_delivery_enabled: bool
     requires_review: bool
     approval_prerequisites_met: bool
     review_gate_prerequisites_met: bool
     export_simulation_allowed: bool
+    export_simulation_mode: str
+    direct_export_enabled: bool
+    external_ready_direct_export: bool
     review_requested: bool
     export_simulation_requested: bool
     release_layer: str
@@ -208,6 +213,14 @@ class LeadpackExternalDeliveryCandidateResponse(TypedDict, total=False):
     missing_approvals: list[str]
     missing_review_gates: list[str]
     missing_audit_refs: list[str]
+    actual_approval_states: list[dict[str, Any]]
+    actual_review_gate_states: list[dict[str, Any]]
+    actual_audit_ref_states: list[dict[str, Any]]
+    approval_readiness_summary: dict[str, Any]
+    review_gate_readiness_summary: dict[str, Any]
+    audit_readiness_summary: dict[str, Any]
+    candidate_readback_summary: dict[str, Any]
+    operator_readback_summary: dict[str, Any]
     denial_conditions: list[str]
     blocked_reasons: list[str]
     hold_reasons: list[str]

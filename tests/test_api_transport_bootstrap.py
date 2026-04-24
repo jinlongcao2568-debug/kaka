@@ -315,8 +315,38 @@ class TestApiTransportBootstrap(unittest.TestCase):
 
         leadpack_candidate = mounted_by_id["previewLeadpackExternalDeliveryCandidate"]
         self.assertTrue(leadpack_candidate["candidate_only"])
+        self.assertTrue(leadpack_candidate["readiness_only"])
+        self.assertTrue(leadpack_candidate["review_only"])
         self.assertFalse(leadpack_candidate["external_delivery_enabled"])
+        self.assertFalse(leadpack_candidate["direct_export_enabled"])
+        self.assertFalse(leadpack_candidate["external_ready_direct_export"])
+        self.assertFalse(leadpack_candidate["customer_visible_export_enabled"])
+        self.assertFalse(leadpack_candidate["page_layer_release_enabled"])
         self.assertTrue(leadpack_candidate["requires_review"])
+        leadpack_readiness = leadpack_candidate["leadpack_external_delivery_candidate_readiness"]
+        self.assertTrue(leadpack_readiness["approval_audit_readiness_only"])
+        self.assertTrue(leadpack_readiness["candidate_only"])
+        self.assertTrue(leadpack_readiness["review_only"])
+        self.assertFalse(leadpack_readiness["external_delivery_enabled"])
+        self.assertFalse(leadpack_readiness["direct_export_enabled"])
+        self.assertFalse(leadpack_readiness["customer_visible_export_enabled"])
+        self.assertFalse(leadpack_readiness["page_layer_release_enabled"])
+        for operation_id in (
+            "requestLeadpackExternalDeliveryCandidateReview",
+            "simulateLeadpackExternalDeliveryExport",
+            "previewLeadpackActivationPrepPacket",
+            "requestLeadpackActivationPrepReview",
+            "previewLeadpackActivationDesignImplementationPrepPacket",
+            "requestLeadpackActivationDesignImplementationPrepReview",
+            "previewLeadpackImplementationDecisionReadinessPacket",
+        ):
+            operation = mounted_by_id[operation_id]
+            self.assertTrue(operation["candidate_only"], operation_id)
+            self.assertTrue(operation["readiness_only"], operation_id)
+            self.assertTrue(operation["review_only"], operation_id)
+            self.assertFalse(operation["external_delivery_enabled"], operation_id)
+            self.assertFalse(operation["direct_export_enabled"], operation_id)
+            self.assertFalse(operation["page_layer_release_enabled"], operation_id)
 
         entry_strategy = bootstrap["entry_strategy"]
         self.assertFalse(entry_strategy["stage1_to_stage5"]["http_entry_enabled"])

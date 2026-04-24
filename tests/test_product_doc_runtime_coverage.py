@@ -197,6 +197,35 @@ class ProductDocRuntimeCoverageLedgerTests(unittest.TestCase):
         self.assertIn("prerequisite readiness/readback", capability["evidence_summary"])
         self.assertIn("non-live", capability["evidence_summary"])
 
+    def test_leadpack_external_delivery_candidate_readiness_runtime_is_closed_non_live(self):
+        capability = next(
+            item
+            for item in self.capabilities
+            if item["capability_id"] == "LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE"
+        )
+
+        self.assertIn("RESERVED_NOT_LIVE", capability["classification"])
+        self.assertIn("BLOCKED_BY_GOVERNANCE", capability["classification"])
+        self.assertIn("TEST_COVERED", capability["classification"])
+        self.assertNotIn("INTERNAL_IMPLEMENTED", capability["classification"])
+        self.assertNotIn("MISSING_RUNTIME", capability["classification"])
+        self.assertNotIn("MISSING_TEST", capability["classification"])
+        self.assertIn("src/api/projections.py", capability["runtime_refs"])
+        self.assertIn("src/api/routes/stage7.py", capability["runtime_refs"])
+        self.assertIn("src/api/schemas/stage7.py", capability["runtime_refs"])
+        self.assertIn("src/api/main.py", capability["runtime_refs"])
+        self.assertIn(
+            "tests/test_internal_surface_preview.py::test_leadpack_candidate_surface_is_internal_only_and_candidate_only",
+            capability["test_refs"],
+        )
+        self.assertIn(
+            "tests/test_api_transport_bootstrap.py::test_stage7_stage8_stage9_routes_are_registered",
+            capability["test_refs"],
+        )
+        self.assertIn("approval/audit readiness/readback", capability["evidence_summary"])
+        self.assertIn("direct_export_enabled=false", capability["evidence_summary"])
+        self.assertIn("external_delivery_enabled=false", capability["evidence_summary"])
+
     def test_referenced_files_exist_for_audit_evidence(self):
         for capability in self.capabilities:
             for field_name in ("doc_refs", "runtime_refs", "test_refs"):

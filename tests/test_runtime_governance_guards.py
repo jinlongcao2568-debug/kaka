@@ -14,6 +14,10 @@ for search_path in (SRC, TESTS):
         sys.path.insert(0, str(search_path))
 
 from helpers import load_fixture
+from api.routes.stage7 import (
+    preview_leadpack_external_delivery_candidate,
+    simulate_leadpack_external_delivery_export,
+)
 from shared.pipeline import run_internal_chain
 
 
@@ -150,6 +154,35 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertFalse(carrier["operator_readback_summary"]["operator_can_enable_crm_runtime"])
         self.assertFalse(carrier["operator_readback_summary"]["operator_can_generate_external_quote"])
         self.assertFalse(carrier["operator_readback_summary"]["operator_can_deliver_external"])
+
+    def test_leadpack_candidate_external_delivery_requests_remain_readback_only(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "external_delivery_enabled": True,
+                "direct_export_enabled": True,
+                "live_execution_enabled": True,
+            }
+        )
+
+        result = run_internal_chain(payload)
+        preview = preview_leadpack_external_delivery_candidate(result)
+        simulation = simulate_leadpack_external_delivery_export(result)
+
+        for response in (preview, simulation):
+            self.assertTrue(response["readiness_only"])
+            self.assertTrue(response["review_only"])
+            self.assertTrue(response["candidate_only"])
+            self.assertFalse(response["external_delivery_enabled"])
+            self.assertFalse(response["direct_export_enabled"])
+            self.assertFalse(response["external_ready_direct_export"])
+            self.assertFalse(response["candidate_readback_summary"]["customer_visible_export_enabled"])
+            self.assertFalse(response["operator_readback_summary"]["operator_can_deliver_external"])
+            self.assertFalse(response["operator_readback_summary"]["operator_can_direct_export"])
+            self.assertIn("external_delivery_enabled=false", response["blocked_reasons"])
+            self.assertIn("direct_export_enabled=false", response["why_not_live"])
+
+        self.assertTrue(simulation["export_simulation_requested"])
 
 
 if __name__ == "__main__":

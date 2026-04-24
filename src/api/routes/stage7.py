@@ -57,6 +57,32 @@ CRM_QUOTE_PREREQUISITE_ROUTE_METADATA = {
     },
 }
 
+LEADPACK_CANDIDATE_ROUTE_METADATA = {
+    "readiness_only": True,
+    "review_only": True,
+    "governed_execution_mode": "INTERNAL_GOVERNED",
+    "candidate_only": True,
+    "external_delivery_enabled": False,
+    "direct_export_enabled": False,
+    "external_ready_direct_export": False,
+    "customer_visible_export_enabled": False,
+    "page_layer_release_enabled": False,
+    "requires_review": True,
+    "live_execution_enabled": False,
+    "leadpack_external_delivery_candidate_readiness": {
+        "readiness_only": True,
+        "approval_audit_readiness_only": True,
+        "candidate_only": True,
+        "review_only": True,
+        "external_delivery_enabled": False,
+        "direct_export_enabled": False,
+        "external_ready_direct_export": False,
+        "customer_visible_export_enabled": False,
+        "page_layer_release_enabled": False,
+        "surface": "review_report_workbench",
+    },
+}
+
 
 def _resolve_stage7_bundle_for_readiness(payload: Any) -> StageBundle | None:
     if isinstance(payload, Mapping):
@@ -236,10 +262,7 @@ STAGE7_ROUTES = [
         "handler": preview_leadpack_external_delivery_candidate,
         "surface_mode": "preview-only",
         "internal_only": True,
-        "candidate_only": True,
-        "external_delivery_enabled": False,
-        "requires_review": True,
-        "live_execution_enabled": False,
+        **LEADPACK_CANDIDATE_ROUTE_METADATA,
     },
     {
         "operationId": "requestLeadpackExternalDeliveryCandidateReview",
@@ -248,10 +271,7 @@ STAGE7_ROUTES = [
         "handler": request_leadpack_external_delivery_candidate_review,
         "surface_mode": "preview-only",
         "internal_only": True,
-        "candidate_only": True,
-        "external_delivery_enabled": False,
-        "requires_review": True,
-        "live_execution_enabled": False,
+        **LEADPACK_CANDIDATE_ROUTE_METADATA,
     },
     {
         "operationId": "simulateLeadpackExternalDeliveryExport",
@@ -260,10 +280,7 @@ STAGE7_ROUTES = [
         "handler": simulate_leadpack_external_delivery_export,
         "surface_mode": "preview-only",
         "internal_only": True,
-        "candidate_only": True,
-        "external_delivery_enabled": False,
-        "requires_review": True,
-        "live_execution_enabled": False,
+        **LEADPACK_CANDIDATE_ROUTE_METADATA,
     },
     {
         "operationId": "previewLeadpackActivationPrepPacket",
@@ -272,10 +289,7 @@ STAGE7_ROUTES = [
         "handler": preview_leadpack_activation_prep_packet,
         "surface_mode": "preview-only",
         "internal_only": True,
-        "candidate_only": True,
-        "external_delivery_enabled": False,
-        "requires_review": True,
-        "live_execution_enabled": False,
+        **LEADPACK_CANDIDATE_ROUTE_METADATA,
     },
     {
         "operationId": "requestLeadpackActivationPrepReview",
@@ -284,10 +298,7 @@ STAGE7_ROUTES = [
         "handler": request_leadpack_activation_prep_review,
         "surface_mode": "preview-only",
         "internal_only": True,
-        "candidate_only": True,
-        "external_delivery_enabled": False,
-        "requires_review": True,
-        "live_execution_enabled": False,
+        **LEADPACK_CANDIDATE_ROUTE_METADATA,
     },
     {
         "operationId": "previewLeadpackActivationDesignImplementationPrepPacket",
@@ -296,10 +307,7 @@ STAGE7_ROUTES = [
         "handler": preview_leadpack_activation_design_implementation_prep_packet,
         "surface_mode": "preview-only",
         "internal_only": True,
-        "candidate_only": True,
-        "external_delivery_enabled": False,
-        "requires_review": True,
-        "live_execution_enabled": False,
+        **LEADPACK_CANDIDATE_ROUTE_METADATA,
     },
     {
         "operationId": "previewLeadpackImplementationDecisionReadinessPacket",
@@ -308,10 +316,7 @@ STAGE7_ROUTES = [
         "handler": preview_leadpack_implementation_decision_readiness_packet,
         "surface_mode": "preview-only",
         "internal_only": True,
-        "candidate_only": True,
-        "external_delivery_enabled": False,
-        "requires_review": True,
-        "live_execution_enabled": False,
+        **LEADPACK_CANDIDATE_ROUTE_METADATA,
         "implementation_decision_executed": False,
         "implementation_approved": False,
     },
@@ -322,10 +327,7 @@ STAGE7_ROUTES = [
         "handler": request_leadpack_activation_design_implementation_prep_review,
         "surface_mode": "preview-only",
         "internal_only": True,
-        "candidate_only": True,
-        "external_delivery_enabled": False,
-        "requires_review": True,
-        "live_execution_enabled": False,
+        **LEADPACK_CANDIDATE_ROUTE_METADATA,
     },
 ]
 
