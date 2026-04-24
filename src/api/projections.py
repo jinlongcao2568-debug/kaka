@@ -2001,6 +2001,173 @@ def build_leadpack_implementation_decision_readiness_packet_surface(payload: Any
     return response
 
 
+def build_formal_client_export_page_layer_readiness_surface(
+    payload: Any,
+    *,
+    source_implementation_decision_packet: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    candidate_surface = _leadpack_candidate_surface_core(payload, requested_action="preview")
+    activation_prep = build_leadpack_activation_prep_surface(payload, requested_action="packet")
+    implementation_packet = (
+        dict(source_implementation_decision_packet)
+        if source_implementation_decision_packet is not None
+        else build_leadpack_implementation_decision_readiness_packet_surface(payload)
+    )
+
+    activation_evidence = dict(activation_prep.get("evidence_pack", {}))
+    activation_replay = dict(activation_prep.get("simulation_replay", {}))
+    implementation_decision = dict(implementation_packet.get("decision_scope", {}))
+    hold_sources = list(implementation_packet.get("hold_sources", []))
+
+    missing_approvals = _dedupe_preserve_order(
+        list(candidate_surface.get("missing_approvals", []))
+        + list(activation_replay.get("missing_approvals", []))
+        + list(implementation_packet.get("approval_readiness_summary", {}).get("missing_or_pending", []))
+    )
+    missing_review_gates = _dedupe_preserve_order(
+        list(candidate_surface.get("missing_review_gates", []))
+        + list(activation_replay.get("missing_review_gates", []))
+        + list(implementation_packet.get("review_gate_readiness_summary", {}).get("missing_or_pending", []))
+    )
+    missing_audit_refs = _dedupe_preserve_order(
+        list(candidate_surface.get("missing_audit_refs", []))
+        + list(activation_replay.get("missing_audit_refs", []))
+        + list(implementation_packet.get("audit_readiness_summary", {}).get("missing_or_pending", []))
+    )
+    missing_owner_signoffs = _dedupe_preserve_order(
+        list(implementation_packet.get("owner_signoff_summary", {}).get("missing_or_pending", []))
+    )
+
+    missing_prerequisites = _dedupe_preserve_order(
+        [f"approval:{item}" for item in missing_approvals]
+        + [f"review_gate:{item}" for item in missing_review_gates]
+        + [f"audit_ref:{item}" for item in missing_audit_refs]
+        + [f"owner_signoff:{item}" for item in missing_owner_signoffs]
+        + [
+            f"implementation_hold:{source.get('source_type', 'unknown')}:{source.get('source_id', 'UNKNOWN')}"
+            for source in hold_sources
+        ]
+        + [
+            "implementation_decision_not_approved",
+            "external_release_not_approved",
+            "client_visible_export_release_not_approved",
+            "client_page_publication_not_approved",
+        ]
+    )
+
+    disabled_capability_reasons = [
+        "customer_visible_export_enabled=false",
+        "client_page_release_enabled=false",
+        "external_release_enabled=false",
+        "external_delivery_enabled=false",
+        "direct_export_enabled=false",
+        "export_artifact_generation_enabled=false",
+        "page_publication_enabled=false",
+    ]
+    blocked_reasons = _dedupe_preserve_order(
+        list(candidate_surface.get("blocked_reasons", []))
+        + list(activation_evidence.get("activation_blockers_remaining", []))
+        + list(implementation_packet.get("blocking_conditions", []))
+        + disabled_capability_reasons
+        + [
+            "internal_preview_readiness_only",
+            "release_blocked_by_governance",
+            "implementation_decision_not_approved",
+        ]
+    )
+    why_not_live = _dedupe_preserve_order(
+        list(candidate_surface.get("why_not_live", []))
+        + disabled_capability_reasons
+        + [
+            "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER_RESERVED_NOT_LIVE",
+            "approval_audit_and_implementation_decision_required_before_live",
+        ]
+    )
+
+    source_formal_object_types = sorted(candidate_surface.get("formal_object_refs", {}).keys())
+    source_readiness_refs = {
+        "leadpack_candidate": {
+            "surface_id": candidate_surface.get("surface_id"),
+            "surface_state": candidate_surface.get("surface_state"),
+            "candidate_status": candidate_surface.get("candidate_status"),
+            "readiness_only": bool(candidate_surface.get("readiness_only", True)),
+            "candidate_only": bool(candidate_surface.get("candidate_only", True)),
+            "external_delivery_enabled": bool(candidate_surface.get("external_delivery_enabled", False)),
+            "direct_export_enabled": bool(candidate_surface.get("direct_export_enabled", False)),
+            "readback_summary": dict(candidate_surface.get("candidate_readback_summary", {})),
+        },
+        "activation_prep": {
+            "surface_id": activation_prep.get("surface_id"),
+            "activation_prep_status": activation_prep.get("readiness_transition", {}).get("current_prep_status"),
+            "evidence_pack_status": activation_evidence.get("evidence_pack_status"),
+            "simulation_replay_status": activation_replay.get("replay_status"),
+            "external_delivery_enabled": bool(activation_prep.get("external_delivery_enabled", False)),
+        },
+        "implementation_decision": {
+            "surface_id": implementation_packet.get("surface_id"),
+            "readiness_state": implementation_packet.get("readiness_state"),
+            "implementation_decision_packet_status": implementation_packet.get("implementation_decision_packet_status"),
+            "implementation_decision_ready": bool(implementation_packet.get("implementation_decision_ready", False)),
+            "implementation_decision_executed": bool(
+                implementation_packet.get("implementation_decision_executed", False)
+            ),
+            "implementation_approved": bool(implementation_packet.get("implementation_approved", False)),
+            "decision_scope": implementation_decision,
+        },
+    }
+    operator_readback_summary = {
+        "readback_ready": True,
+        "readback_surface": "formal_client_export_page_layer_readiness",
+        "operator_can_read_internal_preview": True,
+        "operator_can_review_readiness": True,
+        "operator_can_direct_export": False,
+        "operator_can_deliver_external": False,
+        "operator_can_enable_external_release": False,
+        "operator_can_enable_customer_visible_export": False,
+        "operator_can_generate_export_artifact": False,
+        "operator_can_publish_customer_page": False,
+        "missing_prerequisite_count": len(missing_prerequisites),
+        "blocked_reason_count": len(blocked_reasons),
+        "source_formal_object_types": source_formal_object_types,
+        "source_readiness_surfaces": list(source_readiness_refs.keys()),
+    }
+
+    return {
+        "surface_id": "formal_client_export_page_layer_readiness",
+        "surface_state": "governed-hold",
+        "surface_mode": "preview-only",
+        "surface_access": "internal-readable",
+        "internal_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "review_only": True,
+        "non_live": True,
+        "release_blocked": True,
+        "customer_visible_export_enabled": False,
+        "client_page_release_enabled": False,
+        "external_release_enabled": False,
+        "external_delivery_enabled": False,
+        "direct_export_enabled": False,
+        "export_artifact_generation_enabled": False,
+        "page_publication_enabled": False,
+        "readiness_state": "RESERVED_NOT_LIVE",
+        "release_layer": "RESERVED_NOT_LIVE",
+        "blocked_reasons": blocked_reasons,
+        "why_not_live": why_not_live,
+        "missing_prerequisites": missing_prerequisites,
+        "source_readiness_refs": source_readiness_refs,
+        "operator_readback_summary": operator_readback_summary,
+        "trace_refs": {
+            **dict(candidate_surface.get("trace_refs", {})),
+            "source_readiness_surface_ids": [
+                "leadpack_candidate",
+                "activation_prep",
+                "implementation_decision",
+            ],
+        },
+    }
+
+
 def register_route_table(router: object | None, routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if router is None:
         return routes
@@ -2019,6 +2186,7 @@ def register_route_table(router: object | None, routes: list[dict[str, Any]]) ->
 
 
 __all__ = [
+    "build_formal_client_export_page_layer_readiness_surface",
     "build_stage6_preview_surface",
     "build_leadpack_activation_design_implementation_prep_surface",
     "build_leadpack_activation_prep_surface",

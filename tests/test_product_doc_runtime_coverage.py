@@ -93,6 +93,8 @@ class ProductDocRuntimeCoverageLedgerTests(unittest.TestCase):
 
         self.assertEqual(self.ledger["classification_counts"], computed)
         for classification in REQUIRED_CLASSIFICATIONS:
+            self.assertGreaterEqual(computed[classification], 0, classification)
+        for classification in REQUIRED_CLASSIFICATIONS - {"MISSING_TEST"}:
             self.assertGreater(computed[classification], 0, classification)
 
     def test_required_scope_groups_are_covered(self):
@@ -225,6 +227,40 @@ class ProductDocRuntimeCoverageLedgerTests(unittest.TestCase):
         self.assertIn("approval/audit readiness/readback", capability["evidence_summary"])
         self.assertIn("direct_export_enabled=false", capability["evidence_summary"])
         self.assertIn("external_delivery_enabled=false", capability["evidence_summary"])
+
+    def test_formal_client_export_page_layer_readiness_runtime_is_closed_non_live(self):
+        capability = next(
+            item
+            for item in self.capabilities
+            if item["capability_id"] == "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER"
+        )
+
+        self.assertIn("RESERVED_NOT_LIVE", capability["classification"])
+        self.assertIn("BLOCKED_BY_GOVERNANCE", capability["classification"])
+        self.assertIn("TEST_COVERED", capability["classification"])
+        self.assertNotIn("INTERNAL_IMPLEMENTED", capability["classification"])
+        self.assertNotIn("MISSING_RUNTIME", capability["classification"])
+        self.assertNotIn("MISSING_TEST", capability["classification"])
+        self.assertIn("src/api/projections.py", capability["runtime_refs"])
+        self.assertIn("src/api/routes/stage7.py", capability["runtime_refs"])
+        self.assertIn("src/api/schemas/stage7.py", capability["runtime_refs"])
+        self.assertIn("src/api/main.py", capability["runtime_refs"])
+        self.assertIn(
+            "tests/test_internal_surface_preview.py::test_formal_client_export_page_layer_readiness_is_internal_preview_only",
+            capability["test_refs"],
+        )
+        self.assertIn(
+            "tests/test_api_transport_bootstrap.py::test_create_app_exposes_single_transport_bootstrap_readback_projection",
+            capability["test_refs"],
+        )
+        self.assertIn(
+            "tests/test_runtime_governance_guards.py::test_formal_client_export_page_layer_live_flags_remain_readiness_only",
+            capability["test_refs"],
+        )
+        self.assertIn("internal preview/readiness/readback", capability["evidence_summary"])
+        self.assertIn("customer_visible_export_enabled=false", capability["evidence_summary"])
+        self.assertIn("client_page_release_enabled=false", capability["evidence_summary"])
+        self.assertIn("external_release_enabled=false", capability["evidence_summary"])
 
     def test_referenced_files_exist_for_audit_evidence(self):
         for capability in self.capabilities:

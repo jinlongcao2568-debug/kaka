@@ -321,8 +321,32 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(leadpack_candidate["direct_export_enabled"])
         self.assertFalse(leadpack_candidate["external_ready_direct_export"])
         self.assertFalse(leadpack_candidate["customer_visible_export_enabled"])
+        self.assertFalse(leadpack_candidate["client_page_release_enabled"])
         self.assertFalse(leadpack_candidate["page_layer_release_enabled"])
+        self.assertFalse(leadpack_candidate["external_release_enabled"])
+        self.assertFalse(leadpack_candidate["export_artifact_generation_enabled"])
+        self.assertFalse(leadpack_candidate["page_publication_enabled"])
+        self.assertTrue(leadpack_candidate["projection_only"])
+        self.assertTrue(leadpack_candidate["non_live"])
+        self.assertTrue(leadpack_candidate["release_blocked"])
         self.assertTrue(leadpack_candidate["requires_review"])
+        formal_export_page_readiness = leadpack_candidate["formal_client_export_page_layer_readiness"]
+        self.assertEqual(
+            formal_export_page_readiness["surface_id"],
+            "formal_client_export_page_layer_readiness",
+        )
+        self.assertTrue(formal_export_page_readiness["internal_only"])
+        self.assertTrue(formal_export_page_readiness["readiness_only"])
+        self.assertTrue(formal_export_page_readiness["projection_only"])
+        self.assertTrue(formal_export_page_readiness["review_only"])
+        self.assertTrue(formal_export_page_readiness["release_blocked"])
+        self.assertFalse(formal_export_page_readiness["customer_visible_export_enabled"])
+        self.assertFalse(formal_export_page_readiness["client_page_release_enabled"])
+        self.assertFalse(formal_export_page_readiness["external_release_enabled"])
+        self.assertFalse(formal_export_page_readiness["external_delivery_enabled"])
+        self.assertFalse(formal_export_page_readiness["direct_export_enabled"])
+        self.assertFalse(formal_export_page_readiness["export_artifact_generation_enabled"])
+        self.assertFalse(formal_export_page_readiness["page_publication_enabled"])
         leadpack_readiness = leadpack_candidate["leadpack_external_delivery_candidate_readiness"]
         self.assertTrue(leadpack_readiness["approval_audit_readiness_only"])
         self.assertTrue(leadpack_readiness["candidate_only"])
@@ -330,6 +354,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(leadpack_readiness["external_delivery_enabled"])
         self.assertFalse(leadpack_readiness["direct_export_enabled"])
         self.assertFalse(leadpack_readiness["customer_visible_export_enabled"])
+        self.assertFalse(leadpack_readiness["client_page_release_enabled"])
         self.assertFalse(leadpack_readiness["page_layer_release_enabled"])
         for operation_id in (
             "requestLeadpackExternalDeliveryCandidateReview",
@@ -346,7 +371,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertTrue(operation["review_only"], operation_id)
             self.assertFalse(operation["external_delivery_enabled"], operation_id)
             self.assertFalse(operation["direct_export_enabled"], operation_id)
+            self.assertFalse(operation["client_page_release_enabled"], operation_id)
             self.assertFalse(operation["page_layer_release_enabled"], operation_id)
+            self.assertFalse(operation["external_release_enabled"], operation_id)
+            self.assertFalse(operation["export_artifact_generation_enabled"], operation_id)
+            self.assertFalse(operation["page_publication_enabled"], operation_id)
+            self.assertTrue(operation["projection_only"], operation_id)
+            self.assertTrue(operation["release_blocked"], operation_id)
+            self.assertIn("formal_client_export_page_layer_readiness", operation, operation_id)
 
         entry_strategy = bootstrap["entry_strategy"]
         self.assertFalse(entry_strategy["stage1_to_stage5"]["http_entry_enabled"])

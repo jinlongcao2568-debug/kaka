@@ -15,6 +15,7 @@ for search_path in (SRC, TESTS):
 
 from helpers import load_fixture
 from api.routes.stage7 import (
+    preview_formal_client_export_page_layer_readiness,
     preview_leadpack_external_delivery_candidate,
     simulate_leadpack_external_delivery_export,
 )
@@ -183,6 +184,52 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
             self.assertIn("direct_export_enabled=false", response["why_not_live"])
 
         self.assertTrue(simulation["export_simulation_requested"])
+
+    def test_formal_client_export_page_layer_live_flags_remain_readiness_only(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "customer_visible_export_enabled": True,
+                "client_page_release_enabled": True,
+                "external_release_enabled": True,
+                "external_delivery_enabled": True,
+                "direct_export_enabled": True,
+                "export_artifact_generation_enabled": True,
+                "page_publication_enabled": True,
+                "live_execution_enabled": True,
+            }
+        )
+
+        result = run_internal_chain(payload)
+        readiness = preview_formal_client_export_page_layer_readiness(result)
+
+        self.assertTrue(readiness["internal_only"])
+        self.assertTrue(readiness["readiness_only"])
+        self.assertTrue(readiness["projection_only"])
+        self.assertTrue(readiness["release_blocked"])
+        self.assertFalse(readiness["customer_visible_export_enabled"])
+        self.assertFalse(readiness["client_page_release_enabled"])
+        self.assertFalse(readiness["external_release_enabled"])
+        self.assertFalse(readiness["external_delivery_enabled"])
+        self.assertFalse(readiness["direct_export_enabled"])
+        self.assertFalse(readiness["export_artifact_generation_enabled"])
+        self.assertFalse(readiness["page_publication_enabled"])
+        for reason in (
+            "customer_visible_export_enabled=false",
+            "client_page_release_enabled=false",
+            "external_release_enabled=false",
+            "external_delivery_enabled=false",
+            "direct_export_enabled=false",
+            "export_artifact_generation_enabled=false",
+            "page_publication_enabled=false",
+        ):
+            self.assertIn(reason, readiness["blocked_reasons"])
+            self.assertIn(reason, readiness["why_not_live"])
+        operator_summary = readiness["operator_readback_summary"]
+        self.assertFalse(operator_summary["operator_can_enable_external_release"])
+        self.assertFalse(operator_summary["operator_can_enable_customer_visible_export"])
+        self.assertFalse(operator_summary["operator_can_generate_export_artifact"])
+        self.assertFalse(operator_summary["operator_can_publish_customer_page"])
 
 
 if __name__ == "__main__":

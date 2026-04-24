@@ -22,11 +22,11 @@ classification_vocabulary:
   - MISSING_TEST
 classification_counts:
   INTERNAL_IMPLEMENTED: 15
-  TEST_COVERED: 22
+  TEST_COVERED: 23
   RESERVED_NOT_LIVE: 10
-  BLOCKED_BY_GOVERNANCE: 5
-  MISSING_RUNTIME: 2
-  MISSING_TEST: 1
+  BLOCKED_BY_GOVERNANCE: 6
+  MISSING_RUNTIME: 1
+  MISSING_TEST: 0
 capabilities:
   - capability_id: STAGE1_2_SOURCE_ROUTE_CLOCK_AUTHORITY
     scope_group: Stage1-5 source/rule/evidence
@@ -613,17 +613,27 @@ capabilities:
     runtime_refs:
       - src/api/projections.py
       - src/api/routes/stage7.py
+      - src/api/schemas/stage7.py
+      - src/api/main.py
       - control/repo_status.md
     test_refs:
-      - tests/test_internal_surface_preview.py
-      - tests/test_external_unlock_prerequisites.py
+      - tests/test_internal_surface_preview.py::test_formal_client_export_page_layer_readiness_is_internal_preview_only
+      - tests/test_api_transport_bootstrap.py::test_create_app_exposes_single_transport_bootstrap_readback_projection
+      - tests/test_product_doc_runtime_coverage.py::test_formal_client_export_page_layer_readiness_runtime_is_closed_non_live
+      - tests/test_runtime_governance_guards.py::test_formal_client_export_page_layer_live_flags_remain_readiness_only
+      - tests/test_external_unlock_prerequisites.py::test_external_export_surface_remains_future_unlock_candidate_not_live
     classification:
       - RESERVED_NOT_LIVE
-      - MISSING_RUNTIME
-      - MISSING_TEST
+      - BLOCKED_BY_GOVERNANCE
+      - TEST_COVERED
     evidence_summary: >
-      Internal projections exist, but the formal client-visible export/page
-      layer is not implemented as a runtime surface and lacks dedicated
-      positive coverage. Current tests only cover internal preview and release
-      blockers.
-    recommended_followup_packet: PTL-I100-109-leadpack-client-export-and-page-layer-coverage
+      Formal client export/page layer now has a dedicated
+      internal preview/readiness/readback projection attached to existing
+      LeadPack readiness surfaces and bootstrap metadata. It reports
+      customer_visible_export_enabled=false, client_page_release_enabled=false,
+      external_release_enabled=false, external_delivery_enabled=false,
+      direct_export_enabled=false, export_artifact_generation_enabled=false,
+      page_publication_enabled=false, blocked reasons, why_not_live, missing
+      prerequisites, source LeadPack readiness summaries, and operator readback
+      while remaining reserved-not-live and blocked by governance.
+    recommended_followup_packet: PTL-I100-110-external-live-execution-prerequisite-decision

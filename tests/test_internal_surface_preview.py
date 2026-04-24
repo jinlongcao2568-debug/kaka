@@ -25,6 +25,7 @@ from api.routes.stage6 import (
 from api.routes.stage7 import (
     list_saleable_opportunities,
     list_stage7_work_items,
+    preview_formal_client_export_page_layer_readiness,
     preview_leadpack_activation_design_implementation_prep_packet,
     preview_leadpack_activation_prep_packet,
     preview_leadpack_external_delivery_candidate,
@@ -671,6 +672,67 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertIn("client_report_release", packet["approval_readiness_summary"]["missing_or_pending"])
         self.assertIn("leadpack_candidate_review_gate", packet["review_gate_readiness_summary"]["missing_or_pending"])
         self.assertIn("activation_design_decision_audit_ref", packet["audit_readiness_summary"]["missing_or_pending"])
+        formal_readiness = packet["formal_client_export_page_layer_readiness"]
+        self.assertEqual(formal_readiness["surface_id"], "formal_client_export_page_layer_readiness")
+        self.assertTrue(formal_readiness["internal_only"])
+        self.assertTrue(formal_readiness["readiness_only"])
+        self.assertTrue(formal_readiness["projection_only"])
+        self.assertTrue(formal_readiness["release_blocked"])
+        self.assertFalse(formal_readiness["customer_visible_export_enabled"])
+        self.assertFalse(formal_readiness["client_page_release_enabled"])
+        self.assertFalse(formal_readiness["external_release_enabled"])
+
+    def test_formal_client_export_page_layer_readiness_is_internal_preview_only(self) -> None:
+        happy = run_internal_chain(load_fixture("internal_chain_happy.json"))
+
+        readiness = preview_formal_client_export_page_layer_readiness(happy)
+
+        self.assertEqual(readiness["surface_id"], "formal_client_export_page_layer_readiness")
+        self.assertEqual(readiness["surface_mode"], "preview-only")
+        self.assertEqual(readiness["readiness_state"], "RESERVED_NOT_LIVE")
+        self.assertTrue(readiness["internal_only"])
+        self.assertTrue(readiness["readiness_only"])
+        self.assertTrue(readiness["projection_only"])
+        self.assertTrue(readiness["review_only"])
+        self.assertTrue(readiness["non_live"])
+        self.assertTrue(readiness["release_blocked"])
+        self.assertFalse(readiness["customer_visible_export_enabled"])
+        self.assertFalse(readiness["client_page_release_enabled"])
+        self.assertFalse(readiness["external_release_enabled"])
+        self.assertFalse(readiness["external_delivery_enabled"])
+        self.assertFalse(readiness["direct_export_enabled"])
+        self.assertFalse(readiness["export_artifact_generation_enabled"])
+        self.assertFalse(readiness["page_publication_enabled"])
+        for reason in (
+            "customer_visible_export_enabled=false",
+            "client_page_release_enabled=false",
+            "external_release_enabled=false",
+            "external_delivery_enabled=false",
+            "direct_export_enabled=false",
+            "export_artifact_generation_enabled=false",
+            "page_publication_enabled=false",
+        ):
+            self.assertIn(reason, readiness["blocked_reasons"])
+            self.assertIn(reason, readiness["why_not_live"])
+        self.assertIn("approval:client_report_release", readiness["missing_prerequisites"])
+        self.assertIn("review_gate:leadpack_candidate_review_gate", readiness["missing_prerequisites"])
+        self.assertIn("audit_ref:activation_design_decision_audit_ref", readiness["missing_prerequisites"])
+        self.assertEqual(
+            set(readiness["source_readiness_refs"]),
+            {"leadpack_candidate", "activation_prep", "implementation_decision"},
+        )
+        self.assertEqual(
+            readiness["source_readiness_refs"]["implementation_decision"]["readiness_state"],
+            "IMPLEMENTATION_DECISION_HELD",
+        )
+        operator_summary = readiness["operator_readback_summary"]
+        self.assertTrue(operator_summary["operator_can_read_internal_preview"])
+        self.assertFalse(operator_summary["operator_can_direct_export"])
+        self.assertFalse(operator_summary["operator_can_deliver_external"])
+        self.assertFalse(operator_summary["operator_can_enable_external_release"])
+        self.assertFalse(operator_summary["operator_can_enable_customer_visible_export"])
+        self.assertFalse(operator_summary["operator_can_generate_export_artifact"])
+        self.assertFalse(operator_summary["operator_can_publish_customer_page"])
 
     def test_route_registration_aligns_with_stage7_8_9_contracts(self) -> None:
         api_catalog = read_json("contracts/api/api_catalog.json")

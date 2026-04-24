@@ -9,6 +9,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from api.projections import (
+    build_formal_client_export_page_layer_readiness_surface,
     build_leadpack_activation_design_implementation_prep_surface,
     build_leadpack_activation_prep_surface,
     build_leadpack_external_delivery_candidate_surface,
@@ -18,6 +19,7 @@ from api.projections import (
     register_route_table,
 )
 from api.schemas.stage7 import (
+    FormalClientExportPageLayerReadinessResponse,
     LeadpackActivationDesignImplementationPrepResponse,
     LeadpackActivationPrepResponse,
     LeadpackImplementationDecisionReadinessPacketResponse,
@@ -57,6 +59,37 @@ CRM_QUOTE_PREREQUISITE_ROUTE_METADATA = {
     },
 }
 
+FORMAL_CLIENT_EXPORT_PAGE_LAYER_ROUTE_METADATA = {
+    "projection_only": True,
+    "non_live": True,
+    "release_blocked": True,
+    "customer_visible_export_enabled": False,
+    "client_page_release_enabled": False,
+    "page_layer_release_enabled": False,
+    "external_release_enabled": False,
+    "external_delivery_enabled": False,
+    "direct_export_enabled": False,
+    "export_artifact_generation_enabled": False,
+    "page_publication_enabled": False,
+    "formal_client_export_page_layer_readiness": {
+        "surface_id": "formal_client_export_page_layer_readiness",
+        "internal_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "review_only": True,
+        "non_live": True,
+        "release_blocked": True,
+        "customer_visible_export_enabled": False,
+        "client_page_release_enabled": False,
+        "external_release_enabled": False,
+        "external_delivery_enabled": False,
+        "direct_export_enabled": False,
+        "export_artifact_generation_enabled": False,
+        "page_publication_enabled": False,
+        "source_surface": "leadpack_implementation_decision_readiness_packet",
+    },
+}
+
 LEADPACK_CANDIDATE_ROUTE_METADATA = {
     "readiness_only": True,
     "review_only": True,
@@ -66,9 +99,11 @@ LEADPACK_CANDIDATE_ROUTE_METADATA = {
     "direct_export_enabled": False,
     "external_ready_direct_export": False,
     "customer_visible_export_enabled": False,
+    "client_page_release_enabled": False,
     "page_layer_release_enabled": False,
     "requires_review": True,
     "live_execution_enabled": False,
+    **FORMAL_CLIENT_EXPORT_PAGE_LAYER_ROUTE_METADATA,
     "leadpack_external_delivery_candidate_readiness": {
         "readiness_only": True,
         "approval_audit_readiness_only": True,
@@ -78,6 +113,7 @@ LEADPACK_CANDIDATE_ROUTE_METADATA = {
         "direct_export_enabled": False,
         "external_ready_direct_export": False,
         "customer_visible_export_enabled": False,
+        "client_page_release_enabled": False,
         "page_layer_release_enabled": False,
         "surface": "review_report_workbench",
     },
@@ -211,7 +247,20 @@ def request_leadpack_activation_design_implementation_prep_review(
 def preview_leadpack_implementation_decision_readiness_packet(
     payload: Any,
 ) -> LeadpackImplementationDecisionReadinessPacketResponse:
-    return build_leadpack_implementation_decision_readiness_packet_surface(payload)
+    response = build_leadpack_implementation_decision_readiness_packet_surface(payload)
+    response["formal_client_export_page_layer_readiness"] = (
+        build_formal_client_export_page_layer_readiness_surface(
+            payload,
+            source_implementation_decision_packet=response,
+        )
+    )
+    return response
+
+
+def preview_formal_client_export_page_layer_readiness(
+    payload: Any,
+) -> FormalClientExportPageLayerReadinessResponse:
+    return build_formal_client_export_page_layer_readiness_surface(payload)
 
 
 STAGE7_ROUTES = [
@@ -342,6 +391,7 @@ __all__ = [
     "list_stage7_work_items",
     "preview_leadpack_activation_design_implementation_prep_packet",
     "preview_leadpack_activation_prep_packet",
+    "preview_formal_client_export_page_layer_readiness",
     "preview_leadpack_external_delivery_candidate",
     "preview_leadpack_implementation_decision_readiness_packet",
     "refresh_saleable_opportunity",

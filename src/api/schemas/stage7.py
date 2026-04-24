@@ -181,6 +181,34 @@ class LeadpackImplementationDecisionReadinessPacketRequest(LeadpackActivationDes
     pass
 
 
+class FormalClientExportPageLayerReadinessResponse(TypedDict, total=False):
+    surface_id: str
+    surface_state: str
+    surface_mode: str
+    surface_access: str
+    internal_only: bool
+    readiness_only: bool
+    projection_only: bool
+    review_only: bool
+    non_live: bool
+    release_blocked: bool
+    customer_visible_export_enabled: bool
+    client_page_release_enabled: bool
+    external_release_enabled: bool
+    external_delivery_enabled: bool
+    direct_export_enabled: bool
+    export_artifact_generation_enabled: bool
+    page_publication_enabled: bool
+    readiness_state: str
+    release_layer: str
+    blocked_reasons: list[str]
+    why_not_live: list[str]
+    missing_prerequisites: list[str]
+    source_readiness_refs: dict[str, Any]
+    operator_readback_summary: dict[str, Any]
+    trace_refs: dict[str, Any]
+
+
 class LeadpackExternalDeliveryCandidateResponse(TypedDict, total=False):
     surface_id: str
     surface_state: str
@@ -374,6 +402,7 @@ class LeadpackImplementationDecisionReadinessPacketResponse(TypedDict, total=Fal
     readiness_summaries: dict[str, Any]
     blocking_conditions: list[str]
     source_design_prep_packet: LeadpackActivationDesignImplementationPrepResponse
+    formal_client_export_page_layer_readiness: FormalClientExportPageLayerReadinessResponse
     trace_refs: dict[str, Any]
 
 
@@ -439,6 +468,7 @@ class Stage7OperatorActionResponse(Stage7Response, total=False):
 
 
 __all__ = [
+    "FormalClientExportPageLayerReadinessResponse",
     "FormalObjectRef",
     "LeadpackCandidateProjection",
     "LeadpackActivationDesignImplementationPrepRequest",

@@ -130,6 +130,42 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
             "contracts/release/leadpack_activation_prep_transition_matrix.json",
         )
 
+    def test_external_export_surface_remains_future_unlock_candidate_not_live(self) -> None:
+        decision = read_json("contracts/release/future_unlock_decision_matrix.json")
+        matrix = read_json("contracts/release/external_unlock_prerequisite_matrix.json")
+        ledger = read_yaml("control/product_doc_runtime_coverage_ledger.yaml")
+
+        decision_domains = {
+            entry["capability_domain_id"]: entry
+            for entry in decision["capability_domains"]
+        }
+        prerequisite_domains = {
+            entry["capability_domain_id"]: entry
+            for entry in matrix["capability_domains"]
+        }
+        capability = next(
+            item
+            for item in ledger["capabilities"]
+            if item["capability_id"] == "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER"
+        )
+
+        self.assertEqual(
+            decision_domains["external_export_surface"]["decision_status"],
+            "FUTURE_UNLOCK_CANDIDATE",
+        )
+        self.assertEqual(
+            prerequisite_domains["external_export_surface"]["current_default_status"],
+            "BLOCKED",
+        )
+        self.assertEqual(
+            prerequisite_domains["external_export_surface"]["unlock_tier"],
+            "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET",
+        )
+        self.assertTrue(capability["external_or_live_capability"])
+        self.assertIn("RESERVED_NOT_LIVE", capability["classification"])
+        self.assertIn("BLOCKED_BY_GOVERNANCE", capability["classification"])
+        self.assertNotIn("INTERNAL_IMPLEMENTED", capability["classification"])
+
     def test_prerequisite_state_and_manifests_reference_baseline(self) -> None:
         state = read_yaml("control/external_unlock_prerequisite_state.yaml")
         decision_state = read_yaml("control/future_unlock_decision_state.yaml")
