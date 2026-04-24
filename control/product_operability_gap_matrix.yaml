@@ -52,8 +52,10 @@ decision_summary:
     compatibility. PTL-I100-110B completed governed outreach execution
     outbox/readback/replay, still without real vendor send or external/live
     unlock. PTL-I100-110C completed the Stage7 CRM/quote owner-operated
-    sales workbench via commit 1d7cb80. PTL-I100-110D is active to close the
-    next product gap: LeadPack/evidence-pack export, page, and delivery package.
+    sales workbench via commit 1d7cb80. PTL-I100-110D completed
+    LeadPack/evidence-pack package/page/readback via commit 43169f4.
+    PTL-I100-110E is active to close the final current product gap:
+    order/payment/delivery execution ledger, with refund manual-exception only.
 next_implementation_sequence:
   - packet_ref: PTL-I100-110A-platform-backend-operability-foundation
     priority: 1
@@ -91,13 +93,15 @@ next_implementation_sequence:
       - STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE
   - packet_ref: PTL-I100-110D-leadpack-export-page-delivery
     priority: 4
-    implementation_status: ACTIVE
+    implementation_status: COMPLETED
+    completed_commit: 43169f4
     objective: "Implement LeadPack/evidence-pack export, page generation, review, approval, masking, delivery packaging, and customer-visible artifact control."
     unlocks:
       - LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE
       - FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER
   - packet_ref: PTL-I100-110E-order-payment-delivery-no-auto-refund
     priority: 5
+    implementation_status: ACTIVE
     objective: "Implement order/payment/delivery execution needed for selling evidence packs, while preserving refund as manual exception only and never automated refund execution."
     unlocks:
       - STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION

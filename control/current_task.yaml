@@ -5,11 +5,11 @@ updated_at: "2026-04-24"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_110D_LEADPACK_EXPORT_PAGE_DELIVERY_ACTIVE"
+navigation_state: "PTL_I100_110E_ORDER_PAYMENT_DELIVERY_NO_AUTO_REFUND_ACTIVE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-110C Stage7 CRM/quote owner-operated workbench 已完成并本地提交 1d7cb80；产品可用性矩阵确认下一优先级是 LeadPack/evidence-pack export、page 与 delivery package，因此激活 PTL-I100-110D。"
+activation_condition: "PTL-I100-110D LeadPack/evidence-pack package/page/readback 已完成并本地提交 43169f4；产品可用性矩阵确认下一优先级是 order/payment/delivery execution，且 refund 只能保持 manual exception，因此激活 PTL-I100-110E。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -18,7 +18,7 @@ state_dimensions:
   mainline_selection_ready: true
 currentTask:
   task_id: "PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions"
-  title: "I100-10D LeadPack evidence-pack export page delivery"
+  title: "I100-10E Order payment delivery no automated refund"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,18 +29,15 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
-    - "docs/D6_字段策略字典与客户交付字段规范.md"
     - "docs/D7_对象级交付矩阵与外发治理规范.md"
-    - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
-    - "docs/D9_联系对象与销售触达规范.md"
     - "docs/D10_订单支付交付与治理反馈规范.md"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
     - "control/product_operability_gap_matrix.yaml"
     - "control/product_module_registry.yaml"
     - "control/repo_status.md"
-  capability_adjudication_source: "control/product_operability_gap_matrix.yaml#PTL-I100-110D-leadpack-export-page-delivery"
-  objective: "实现 110D 第一刀：把 LeadPack/evidence-pack export、page draft、masking、review/approval/audit、delivery package 从 readiness/preview 推进为 owner-operated internal governed package workbench。必须可持久化、可回放、可解释；不发布客户页面、不执行真实外发、不放开 external/live。"
+  capability_adjudication_source: "control/product_operability_gap_matrix.yaml#PTL-I100-110E-order-payment-delivery-no-auto-refund"
+  objective: "实现 110E 第一刀：把 Stage9 order/payment/delivery 从 typed lifecycle/readiness 推进为 owner-operated internal governed execution ledger/workbench。必须可持久化、可回放、可解释；允许 payment/delivery operator execution record，但不接真实支付网关、不真实扣款、不真实退款、不实现自动退款程序、不放开 external release。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -61,28 +58,29 @@ currentTask:
   task_packet:
     version: 1
     packet_id: "PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions"
-    subpacket_id: "PTL-I100-110D-leadpack-export-page-delivery"
+    subpacket_id: "PTL-I100-110E-order-payment-delivery-no-auto-refund"
     backlog_packet_ref: "PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "IN_SCOPE_FOR_110D_LEADPACK_EXPORT_PAGE_DELIVERY"
+    runtime_change_in_packet: "IN_SCOPE_FOR_110E_ORDER_PAYMENT_DELIVERY_NO_AUTO_REFUND"
     existing_code_state: "HEAVY_RUNTIME"
-    existing_runtime_state: "LEADPACK_EXPORT_PAGE_READINESS_ONLY"
-    title: "I100-10D LeadPack/evidence-pack export page delivery 第一刀"
+    existing_runtime_state: "STAGE9_TYPED_LIFECYCLE_AND_INTERNAL_GOVERNED_WRITEBACK"
+    title: "I100-10E Stage9 order payment delivery no automated refund 第一刀"
     status: "ACTIVE"
-    objective: "新增 LeadPack/evidence-pack delivery package carrier/persistence/readback：package manifest、evidence item manifest、field masking summary、page draft、review/approval/audit prerequisites、customer-visible control state、delivery package state 与 external delivery blocked policy 必须稳定出现在 runtime/API/repository/readback/tests 中。"
+    objective: "新增 Stage9 owner-operated internal order/payment/delivery execution ledger carrier/persistence/readback：order execution intent、payment collection ledger、delivery fulfillment ledger、manual settlement note、approval/audit prerequisites、payment/delivery blocked-live state、refund manual exception boundary 必须稳定出现在 runtime/API/repository/readback/tests 中。"
     depends_on:
       - "PTL-I100-1100 product operability full audit 已完成并本地提交 33e6fb9。"
       - "PTL-I100-110A durable backend foundation 已完成并本地提交 56fed27。"
       - "PTL-I100-110B Stage8 governed outreach outbox 已完成并本地提交 7965a34。"
       - "PTL-I100-110C Stage7 CRM/quote workbench 已完成并本地提交 1d7cb80。"
-      - "control/product_operability_gap_matrix.yaml 将 LeadPack/evidence-pack export delivery 排为 110D。"
+      - "PTL-I100-110D LeadPack/evidence-pack delivery package 已完成并本地提交 43169f4。"
+      - "control/product_operability_gap_matrix.yaml 将 order/payment/delivery no-auto-refund 排为 110E。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-110C-stage7-crm-quote-sales-workbench"
-      target_active_packet: "PTL-I100-110D-leadpack-export-page-delivery"
+      previous_active_packet: "PTL-I100-110D-leadpack-export-page-delivery"
+      target_active_packet: "PTL-I100-110E-order-payment-delivery-no-auto-refund"
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
@@ -93,7 +91,7 @@ currentTask:
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
       runtime_change: true
-      runtime_change_in_packet: "IN_SCOPE_FOR_110D_LEADPACK_EXPORT_PAGE_DELIVERY"
+      runtime_change_in_packet: "IN_SCOPE_FOR_110E_ORDER_PAYMENT_DELIVERY_NO_AUTO_REFUND"
       docs_change: false
       contracts_change: false
       handoff_change: false
@@ -103,7 +101,8 @@ currentTask:
       control_change: true
       storage_change: true
       api_change: true
-      leadpack_export_page_delivery_change: true
+      stage9_order_payment_delivery_change: true
+      automated_refund_program_change: false
       external_release_change: false
       stage8_real_execution_change: false
       stage9_real_payment_delivery_refund_change: false
@@ -117,14 +116,15 @@ currentTask:
       - "not an external software release implementation"
       - "not an external unlock implementation"
       - "不改变 canonical readiness"
-      - "不发布客户页面"
-      - "不执行真实 LeadPack 外发"
+      - "不接真实支付网关"
+      - "不真实扣款"
+      - "不真实退款"
+      - "不实现自动退款程序"
       - "不绕过 approval/audit"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
-      - "不执行真实支付、真实交付、真实退款"
-      - "不实现自动退款程序"
+      - "不无审计执行 Stage9 real payment/delivery/refund"
       - "不新增正式对象、枚举、gate、exception 语义"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "不修改 docs/**"
@@ -132,23 +132,22 @@ currentTask:
       - "不修改 handoff/**"
       - "不修改 scripts/**"
       - "不修改 fixtures/**"
-      - "不修改 Stage1-6 runtime"
-      - "不修改 Stage8 runtime"
-      - "不修改 Stage9 runtime"
+      - "不修改 Stage1-8 runtime"
       - "不 push"
     affected_stages:
-      - "stage7_sales"
+      - "stage9_delivery"
       - "api_transport"
       - "storage"
-      - "leadpack_delivery_package"
+      - "order_payment_delivery"
       - "governance_testing"
-    risk_level: "HIGH"
+    risk_level: "CRITICAL"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
       - "api_transport_foundation"
       - "storage_runtime_core"
       - "future_external_unlock_prereq_core"
+      - "governance_release_core"
       - "scripts_and_tests_general"
       - "low_risk_docs_control_sync"
     reviews:
@@ -165,19 +164,20 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_operability_gap_matrix.yaml"
       - "control/product_module_registry.yaml"
-      - "src/stage7_sales/**"
+      - "src/stage9_delivery/**"
       - "src/storage/repository_bundle_io.py"
       - "src/storage/repository_boundary.py"
       - "src/storage/repositories/__init__.py"
-      - "src/storage/repositories/leadpack_delivery_package_repo.py"
+      - "src/storage/repositories/order_record_repo.py"
+      - "src/storage/repositories/payment_record_repo.py"
+      - "src/storage/repositories/delivery_record_repo.py"
+      - "src/storage/repositories/stage9_execution_ledger_repo.py"
       - "src/api/main.py"
       - "src/api/projections.py"
-      - "src/api/routes/stage7.py"
-      - "src/api/schemas/stage7.py"
-      - "tests/test_internal_surface_preview.py"
-      - "tests/test_leadpack_candidate_surface.py"
-      - "tests/test_leadpack_activation_prep.py"
-      - "tests/test_leadpack_activation_design_prep.py"
+      - "src/api/routes/stage9.py"
+      - "src/api/schemas/stage9.py"
+      - "tests/test_stage9_impact_executor.py"
+      - "tests/test_internal_chain.py"
       - "tests/test_internal_repository_boundary.py"
       - "tests/test_runtime_governance_guards.py"
       - "tests/test_api_transport_bootstrap.py"
@@ -189,19 +189,20 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_operability_gap_matrix.yaml"
       - "control/product_module_registry.yaml"
-      - "src/stage7_sales/**"
+      - "src/stage9_delivery/**"
       - "src/storage/repository_bundle_io.py"
       - "src/storage/repository_boundary.py"
       - "src/storage/repositories/__init__.py"
-      - "src/storage/repositories/leadpack_delivery_package_repo.py"
+      - "src/storage/repositories/order_record_repo.py"
+      - "src/storage/repositories/payment_record_repo.py"
+      - "src/storage/repositories/delivery_record_repo.py"
+      - "src/storage/repositories/stage9_execution_ledger_repo.py"
       - "src/api/main.py"
       - "src/api/projections.py"
-      - "src/api/routes/stage7.py"
-      - "src/api/schemas/stage7.py"
-      - "tests/test_internal_surface_preview.py"
-      - "tests/test_leadpack_candidate_surface.py"
-      - "tests/test_leadpack_activation_prep.py"
-      - "tests/test_leadpack_activation_design_prep.py"
+      - "src/api/routes/stage9.py"
+      - "src/api/schemas/stage9.py"
+      - "tests/test_stage9_impact_executor.py"
+      - "tests/test_internal_chain.py"
       - "tests/test_internal_repository_boundary.py"
       - "tests/test_runtime_governance_guards.py"
       - "tests/test_api_transport_bootstrap.py"
@@ -224,8 +225,8 @@ currentTask:
       - "src/stage4_verification/**"
       - "src/stage5_rules_evidence/**"
       - "src/stage6_fact_review/**"
+      - "src/stage7_sales/**"
       - "src/stage8_outreach/**"
-      - "src/stage9_delivery/**"
       - "src/shared/**"
       - "src/storage/db.py"
       - "src/storage/sqlite_backend.py"
@@ -236,8 +237,8 @@ currentTask:
       - "src/api/routes/stage4.py"
       - "src/api/routes/stage5.py"
       - "src/api/routes/stage6.py"
+      - "src/api/routes/stage7.py"
       - "src/api/routes/stage8.py"
-      - "src/api/routes/stage9.py"
       - "control/product_doc_runtime_coverage_ledger.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/review_gate_matrix.yaml"
@@ -261,33 +262,29 @@ currentTask:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       tests:
-        - "tests/test_internal_surface_preview.py"
-        - "tests/test_leadpack_candidate_surface.py"
-        - "tests/test_leadpack_activation_prep.py"
-        - "tests/test_leadpack_activation_design_prep.py"
+        - "tests/test_stage9_impact_executor.py"
+        - "tests/test_internal_chain.py"
         - "tests/test_internal_repository_boundary.py"
         - "tests/test_runtime_governance_guards.py"
         - "tests/test_api_transport_bootstrap.py"
         - "tests/test_product_operability_gap_matrix.py"
         - "tests/test_product_module_registry.py"
       runtime:
-        - "src/stage7_sales/**"
+        - "src/stage9_delivery/**"
         - "src/storage/repository_bundle_io.py"
         - "src/storage/repository_boundary.py"
-        - "src/storage/repositories/leadpack_delivery_package_repo.py"
+        - "src/storage/repositories/stage9_execution_ledger_repo.py"
         - "src/api/main.py"
         - "src/api/projections.py"
-        - "src/api/routes/stage7.py"
-        - "src/api/schemas/stage7.py"
+        - "src/api/routes/stage9.py"
+        - "src/api/schemas/stage9.py"
     required_scripts:
       - "git status --short --untracked-files=all"
       - >-
-        pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage7_sales/leadpack_delivery_package.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/leadpack_delivery_package_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage7.py','src/api/schemas/stage7.py','tests/test_internal_surface_preview.py','tests/test_leadpack_candidate_surface.py','tests/test_leadpack_activation_prep.py','tests/test_leadpack_activation_design_prep.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py','tests/test_product_module_registry.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
+        pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage9_delivery/order_payment_delivery_execution.py','src/stage9_delivery/service.py','src/stage9_delivery/typed_lifecycle.py','src/stage9_delivery/payment.py','src/stage9_delivery/delivery.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/order_record_repo.py','src/storage/repositories/payment_record_repo.py','src/storage/repositories/delivery_record_repo.py','src/storage/repositories/stage9_execution_ledger_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage9.py','src/api/schemas/stage9.py','tests/test_stage9_impact_executor.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py','tests/test_product_module_registry.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
-      - "python -m unittest tests.test_internal_surface_preview -v"
-      - "python -m unittest tests.test_leadpack_candidate_surface -v"
-      - "python -m unittest tests.test_leadpack_activation_prep -v"
-      - "python -m unittest tests.test_leadpack_activation_design_prep -v"
+      - "python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v"
+      - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
       - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
       - "python -m unittest tests.test_api_transport_bootstrap -v"
@@ -300,13 +297,11 @@ currentTask:
     script_timeouts:
       "git status --short --untracked-files=all": 120000
       ? >-
-        pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage7_sales/leadpack_delivery_package.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/leadpack_delivery_package_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage7.py','src/api/schemas/stage7.py','tests/test_internal_surface_preview.py','tests/test_leadpack_candidate_surface.py','tests/test_leadpack_activation_prep.py','tests/test_leadpack_activation_design_prep.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py','tests/test_product_module_registry.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
+        pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage9_delivery/order_payment_delivery_execution.py','src/stage9_delivery/service.py','src/stage9_delivery/typed_lifecycle.py','src/stage9_delivery/payment.py','src/stage9_delivery/delivery.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/order_record_repo.py','src/storage/repositories/payment_record_repo.py','src/storage/repositories/delivery_record_repo.py','src/storage/repositories/stage9_execution_ledger_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage9.py','src/api/schemas/stage9.py','tests/test_stage9_impact_executor.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py','tests/test_product_module_registry.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
       : 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
-      "python -m unittest tests.test_internal_surface_preview -v": 300000
-      "python -m unittest tests.test_leadpack_candidate_surface -v": 300000
-      "python -m unittest tests.test_leadpack_activation_prep -v": 300000
-      "python -m unittest tests.test_leadpack_activation_design_prep -v": 300000
+      "python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v": 300000
+      "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
       "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
       "python -m unittest tests.test_api_transport_bootstrap -v": 300000
@@ -322,22 +317,22 @@ currentTask:
       - "实际改动超出 declared_changed_paths / allowed_modification_paths 时立即停止汇报"
       - "实际改动命中 forbidden_modification_paths 时立即停止汇报"
       - "需要修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/** 时立即停止汇报"
-      - "需要修改 Stage1-6、Stage8 或 Stage9 runtime 时立即停止汇报"
-      - "需要发布客户页面、执行真实 LeadPack 外发或绕过 approval/audit 时立即停止汇报"
-      - "需要真实支付、真实交付、真实退款或自动退款程序时立即停止汇报"
+      - "需要修改 Stage1-8 runtime 时立即停止汇报"
+      - "需要接真实支付网关、真实扣款、真实退款或自动退款程序时立即停止汇报"
+      - "需要发布客户页面、执行真实 LeadPack 外发或 external release 时立即停止汇报"
       - "需要新增正式对象、枚举、gate、exception 语义时立即停止汇报"
     definition_of_done:
-      - "Stage7/API runtime 稳定输出 LeadPack/evidence-pack delivery package carrier，包含 package_id、opportunity_id、evidence_pack_id、page_draft_id、artifact_manifest_id、masking_state、approval_state、audit_state、package_state、page_state、delivery_state、customer_visible_enabled=false、external_delivery_enabled=false。"
-      - "Package manifest 必须列出 evidence items、source refs、masking/field policy summary、operator review summary 与 delivery readiness summary。"
-      - "persist/hydrate 能持久化并回放 LeadPack/evidence package carrier；typed refs stale 时 fail-closed，不 broad fallback 到 opportunity_id/project_id。"
-      - "API readback/bootstrap 暴露 package/page/delivery readiness summary，并继续表达 customer page publication、external delivery、external release blocked by default。"
-      - "测试覆盖 missing approval、missing audit、masking required、customer page publish request blocked、external delivery request blocked、package readback、stale typed refs。"
+      - "Stage9 runtime 稳定输出 order/payment/delivery execution ledger carrier，包含 order_execution_id、payment_execution_id、delivery_execution_id、order_id、payment_id、delivery_id、payment_collection_state、delivery_fulfillment_state、manual_settlement_state、refund_execution_state=MANUAL_EXCEPTION_ONLY、automated_refund_enabled=false。"
+      - "payment/delivery execution 只能形成 internal governed ledger / owner-operated execution record / manual settlement note；不得连接真实支付网关、不得真实扣款、不得真实退款。"
+      - "persist_stage9_bundle / hydrate_stage9_bundle 能持久化并回放 execution ledger carrier；typed refs stale 时 fail-closed，不 broad fallback 到 opportunity_id/project_id。"
+      - "repository-backed Stage9 API readback 与 app bootstrap 暴露 order/payment/delivery execution summary，并继续表达 real payment gateway、real delivery, automated refund blocked by default。"
+      - "测试覆盖 payment requested、delivery requested、manual settlement note、refund requested manual exception、payment gateway request blocked、automated refund request blocked、stale typed refs。"
       - "targeted tests 与 required scripts 全部通过。"
     deliverables:
-      - "LeadPack/evidence-pack delivery package carrier"
-      - "package/page/artifact manifest persistence/hydrate/readback"
+      - "Stage9 order/payment/delivery execution ledger carrier"
+      - "execution ledger persistence/hydrate/readback"
       - "API/bootstrap/readback projection"
-      - "governance guard tests proving external delivery/page publication remains blocked"
+      - "governance guard tests proving payment gateway and automated refund remain blocked"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
@@ -349,27 +344,26 @@ currentTask:
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_SCOPED_INTERNAL_LEADPACK_EXPORT_PAGE_DELIVERY_IMPLEMENTATION"
-      signoff_meaning: "本批准只允许 110D 在 declared paths 内实现内部 LeadPack/evidence-pack package/page/readback；不批准真实外发、客户页面发布、external release、真实支付、真实交付、真实退款、自动退款程序或 push。"
+      signoff_status: "APPROVED_FOR_SCOPED_INTERNAL_ORDER_PAYMENT_DELIVERY_LEDGER_IMPLEMENTATION"
+      signoff_meaning: "本批准只允许 110E 在 declared paths 内实现内部 order/payment/delivery ledger/readback；不批准真实支付网关、真实扣款、真实退款、自动退款程序、external release 或 push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml 是唯一 active execution source。"
       - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
-      - "110D 是交付包/页面草稿/导出包可运营闭环第一刀，不是真实外发窗口。"
+      - "110E 是订单/支付/交付内部执行台账第一刀，不是真实支付网关或自动退款窗口。"
   hardBlockers:
-    - "external leadpack delivery remains gated by approval + audit chain"
     - "external software release remains blocked"
-    - "Stage 8 real execution remains governed / approval-gated / blocked by default"
-    - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
+    - "real payment gateway / real charge remains blocked"
     - "automated refund program is out of scope"
+    - "refund handling remains manual exception record and governed review only"
   allowed_actions:
-    - "允许在 PTL-I100-110D declared_changed_paths / allowed_modification_paths 范围内实现 LeadPack/evidence-pack package/page/readback。"
+    - "允许在 PTL-I100-110E declared_changed_paths / allowed_modification_paths 范围内实现 Stage9 internal order/payment/delivery ledger/readback。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
     - "不得修改 docs/**、contracts/**、handoff/**、scripts/**、fixtures/**。"
+    - "不得接真实支付网关、真实扣款、真实退款或自动退款程序。"
     - "不得发布客户页面、真实外发 LeadPack、放开 external release。"
-    - "不得执行真实支付、交付、退款或自动退款程序。"
     - "不得 push。"
   nextActions:
-    - "110D 完成后进入 110E：order/payment/delivery execution，refund 保持 manual exception only。"
-  status_note: "PTL-I100-110D 已激活；下一实现窗口只做内部 LeadPack/evidence-pack package/page/readback 第一刀，不做真实外发或页面发布。"
+    - "110E 完成后评估 I100 closeout：产品可用性矩阵、remaining gaps、internal pilot checklist。"
+  status_note: "PTL-I100-110E 已激活；下一实现窗口只做内部 order/payment/delivery execution ledger/readback 第一刀，不做真实支付网关、真实扣款、真实退款或自动退款。"
