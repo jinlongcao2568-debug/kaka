@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-110B-stage8-sales-outreach-governed-execution (ACTIVE after PTL-I100-110A backend foundation commit 56fed27; this activates Stage8 governed execution outbox/readback/replay implementation and does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack delivery, client-visible formal export/page release, Stage 8 real execution, Stage 9 real payment / delivery / refund, or any automated refund program)
+Current Workstream: PTL-I100-110C-stage7-crm-quote-sales-workbench (ACTIVE after PTL-I100-110B governed outreach outbox commit 7965a34; this activates Stage7 CRM/quote owner-operated sales workbench/readback implementation and does not approve push, docs/contracts semantic changes, external release, real production samples, external/live execution, real LeadPack delivery, client-visible formal export/page release, Stage 8 real execution, Stage 9 real payment / delivery / refund, or any automated refund program)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY (program control state only; FF-18-S1 only records final state-source alignment and does not change repo readiness)
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -20,9 +20,9 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 
 Allowed Actions (current):
-- implement PTL-I100-110B Stage8 governed execution outbox/readback/replay within current_task allowed paths
-- keep Stage8 execution outbox internal governed / dry-run / blocked-live by default
-- keep approval, audit, quiet-hours, retry, stop conditions, channel/vendor boundary, and live-blocked policy visible in repository-backed readback
+- implement PTL-I100-110C Stage7 CRM/quote owner-operated sales workbench/readback within current_task allowed paths
+- keep CRM/quote workbench internal governed / draft / dry-run / blocked-live by default
+- keep approval, audit, CRM/vendor boundary, quote draft state, owner action state, and live-blocked policy visible in repository-backed readback
 - keep real LeadPack delivery, client-visible formal export/page release, external/live transport, and external release controlled and blocked
 - keep control/product_doc_runtime_coverage_ledger.yaml as the source ledger; do not mark external/live capabilities as INTERNAL_IMPLEMENTED
 - keep automated refund execution out of scope and record refund handling as manual exception only
@@ -55,7 +55,7 @@ Forbidden Actions (current):
 - Any change that alters conditional-go
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal object, enum, gate, or exception semantics
-- Any runtime implementation outside PTL-I100-110B allowed paths without a new dedicated current_task packet
+- Any runtime implementation outside PTL-I100-110C allowed paths without a new dedicated current_task packet
 - Any real LeadPack external delivery or client-visible formal export/page release
 - Any use of real production samples or external live data
 - Any external/live execution
@@ -88,8 +88,9 @@ State Semantics:
 - PTL-I100-109 is closed out.
 - PTL-I100-1100 product operability audit completed via commit 33e6fb9; it detected product operability gaps and queued implementation packets without changing runtime or opening external/live execution.
 - PTL-I100-110A durable backend foundation is completed via commit 56fed27; JSON-file default remains compatible and sqlite opt-in durable local envelope backend is available.
-- PTL-I100-110B is now active as Stage8 governed execution outbox implementation; it may change Stage8/API/repository readback within current_task allowed paths but cannot connect to external services, send real outreach, or open live execution.
-- PTL-I100-110 implementation order is product-operability driven: 110A backend foundation completed, 110B sales outreach governed execution outbox active, 110C CRM/quote workbench, 110D LeadPack/evidence-pack export and delivery, 110E order/payment/delivery with refund manual-exception only.
+- PTL-I100-110B Stage8 governed outreach execution outbox is completed via commit 7965a34; it persists and replays internal outbox/readiness carrier while real send remains blocked.
+- PTL-I100-110C is now active as Stage7 CRM/quote owner-operated sales workbench implementation; it may change Stage7/API/repository readback within current_task allowed paths but cannot connect to external CRM/quote services, send real quotes, or open live execution.
+- PTL-I100-110 implementation order is product-operability driven: 110A backend foundation completed, 110B sales outreach governed execution outbox completed, 110C CRM/quote workbench active, 110D LeadPack/evidence-pack export and delivery, 110E order/payment/delivery with refund manual-exception only.
 - PTL-I100 execution-level management should use the PTL-I100 task_ids in control/product_task_library.yaml; each task requires a dedicated current_task packet before implementation.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - source_blueprint_registry is the only source-blueprint allowlist.
@@ -101,14 +102,15 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage8_outreach/service.py','src/stage8_outreach/plan_touch.py','src/stage8_outreach/outreach_plan.py','src/stage8_outreach/touch_record.py','src/stage8_outreach/models.py','src/stage8_outreach/execution_outbox.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/outreach_execution_outbox_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage8.py','src/api/schemas/stage8.py','tests/test_stage8_resolution_closure.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command "`$paths = @('control/current_task.yaml','control/repo_status.md','control/product_task_library.yaml','control/product_operability_gap_matrix.yaml','control/product_module_registry.yaml','src/stage7_sales/service.py','src/stage7_sales/runtime.py','src/stage7_sales/recommendation.py','src/stage7_sales/crm_quote_workbench.py','src/storage/repository_bundle_io.py','src/storage/repository_boundary.py','src/storage/repositories/__init__.py','src/storage/repositories/crm_quote_workbench_repo.py','src/api/main.py','src/api/projections.py','src/api/routes/stage7.py','src/api/schemas/stage7.py','tests/test_stage7_runtime_closure.py','tests/test_internal_chain.py','tests/test_internal_repository_boundary.py','tests/test_runtime_governance_guards.py','tests/test_api_transport_bootstrap.py','tests/test_product_operability_gap_matrix.py','tests/test_product_module_registry.py'); & 'scripts/check-task-packet.ps1' -PlannedTargetPaths `$paths"
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-- python -m unittest tests.test_stage8_resolution_closure -v
+- python -m unittest tests.test_stage7_runtime_closure -v
 - python -m unittest tests.test_internal_chain.TestInternalChain -v
 - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_api_transport_bootstrap -v
 - python -m unittest tests.test_product_operability_gap_matrix -v
+- python -m unittest tests.test_product_module_registry -v
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 - git diff --check

@@ -49,9 +49,10 @@ decision_summary:
   implementation_progress_summary: >
     PTL-I100-110A completed the first durable backend foundation via local
     sqlite opt-in envelope persistence while keeping json-file default
-    compatibility. PTL-I100-110B is active to close the next product gap:
-    Stage8 governed outreach execution outbox/readback/replay, still without
-    real vendor send or external/live unlock.
+    compatibility. PTL-I100-110B completed governed outreach execution
+    outbox/readback/replay, still without real vendor send or external/live
+    unlock. PTL-I100-110C is active to close the next product gap: Stage7
+    CRM/quote owner-operated sales workbench.
 next_implementation_sequence:
   - packet_ref: PTL-I100-110A-platform-backend-operability-foundation
     priority: 1
@@ -70,7 +71,8 @@ next_implementation_sequence:
       - "no automated refund program"
   - packet_ref: PTL-I100-110B-stage8-sales-outreach-governed-execution
     priority: 2
-    implementation_status: ACTIVE
+    implementation_status: COMPLETED
+    completed_commit: 7965a34
     objective: "Convert Stage8 outreach preview into governed execution outbox with approval, audit, quiet-hours, retry, stop conditions, dry-run/live switch, and channel/vendor adapter boundaries."
     unlocks:
       - STAGE8_REAL_OUTREACH_EXECUTION
@@ -81,6 +83,7 @@ next_implementation_sequence:
       - "no LeadPack delivery bypass"
   - packet_ref: PTL-I100-110C-stage7-crm-quote-sales-workbench
     priority: 3
+    implementation_status: ACTIVE
     objective: "Implement CRM orchestration and external quote workflow as owner-operated sales workbench capability with audit/readback and explicit vendor boundaries."
     unlocks:
       - STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE

@@ -730,13 +730,13 @@ tasks:
     stage_scope: [storage, platform_infra, stage7_sales, stage8_outreach, stage9_delivery, page_export, external_live_governance]
     task_type: product_operability_audit_and_implementation_planning
     status: ACTIVE
-    planning_state: ACTIVE_110B_STAGE8_OUTREACH_OUTBOX
+    planning_state: ACTIVE_110C_STAGE7_CRM_QUOTE_WORKBENCH
     is_current_mainline_next_candidate: false
     priority: P4
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: FILE_BACKED_INTERNAL_RUNTIME
-    runtime_change_in_packet: IN_SCOPE_FOR_110B_STAGE8_GOVERNED_OUTBOX
-    activation_policy: "PTL-I100-1100 product operability audit completed via 33e6fb9; PTL-I100-110A backend foundation completed via 56fed27; PTL-I100-110B Stage8 governed outreach outbox is active via dedicated control/current_task.yaml packet"
+    runtime_change_in_packet: IN_SCOPE_FOR_110C_STAGE7_CRM_QUOTE_WORKBENCH
+    activation_policy: "PTL-I100-1100 product operability audit completed via 33e6fb9; PTL-I100-110A backend foundation completed via 56fed27; PTL-I100-110B governed outreach outbox completed via 7965a34; PTL-I100-110C Stage7 CRM/quote sales workbench is active via dedicated control/current_task.yaml packet"
     hard_depends_on: [PTL-I100-109-leadpack-export-and-page-layer-readiness]
     soft_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
     objective: "先用 control/product_operability_gap_matrix.yaml 做产品可用性全量检测，把产品文档能力映射成 owner 可用状态和后续实现包；随后按真实产品闭环补真实后端、销售触达、CRM/报价、LeadPack/证据包导出交付、订单支付交付。软件是内部使用，对外卖证据包/线索包；自动退款程序不做。"
@@ -751,4 +751,4 @@ tasks:
       - PTL-I100-110D-leadpack-export-page-delivery
       - PTL-I100-110E-order-payment-delivery-no-auto-refund
     risk_level: CRITICAL
-    runtime_notes: "PTL-I100-1100 产品可用性全量检测已完成并本地提交 33e6fb9：当前判断不是大量空白，而是多个关键能力停留在 preview/readiness/reserved；真实产品可用缺口集中在真实后端、销售触达执行、CRM/报价、LeadPack/证据包导出交付、订单支付交付。PTL-I100-110A durable local sqlite backend foundation 已完成并本地提交 56fed27，JSON-file 默认兼容、sqlite opt-in 可持久化四类 envelope。PTL-I100-110B 已激活为 Stage8 sales outreach governed execution outbox 第一刀：只做内部 outbox/readback/replay、approval/audit/quiet-hours/retry/stop/dry-run/live-blocked 边界，不连接 vendor、不发送真实触达、不放开支付、交付、退款或 external release；自动退款程序明确不做，只保留人工异常记录。"
+    runtime_notes: "PTL-I100-1100 产品可用性全量检测已完成并本地提交 33e6fb9：当前判断不是大量空白，而是多个关键能力停留在 preview/readiness/reserved；真实产品可用缺口集中在真实后端、销售触达执行、CRM/报价、LeadPack/证据包导出交付、订单支付交付。PTL-I100-110A durable local sqlite backend foundation 已完成并本地提交 56fed27，PTL-I100-110B Stage8 governed outreach outbox 已完成并本地提交 7965a34。PTL-I100-110C 已激活为 Stage7 CRM/quote owner-operated sales workbench 第一刀：只做内部 CRM action / quote draft / approval-audit / vendor-boundary / readback/replay，不连接真实 CRM 或报价系统、不发送真实报价、不放开真实触达、支付、交付、退款或 external release；自动退款程序明确不做，只保留人工异常记录。"
