@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from api.projections import (
@@ -28,21 +29,92 @@ from api.schemas.stage7 import (
 )
 from storage.repository_boundary import (
     OperationalContractError,
+    hydrate_stage_bundle,
     list_stage_work_items,
     persist_stage_bundle,
     record_operator_action,
 )
+from shared.contracts_runtime import StageBundle
+from shared.utils import resolve_bundle
+from stage7_sales.recommendation import build_crm_quote_prerequisite_readiness_carrier
+
+
+CRM_QUOTE_PREREQUISITE_ROUTE_METADATA = {
+    "readiness_only": True,
+    "governed_execution_mode": "INTERNAL_GOVERNED",
+    "crm_runtime_enabled": False,
+    "external_quote_enabled": False,
+    "external_delivery_enabled": False,
+    "crm_quote_prerequisite_readiness": {
+        "readiness_only": True,
+        "prerequisite_only": True,
+        "blocked_by_default": True,
+        "crm_runtime_enabled": False,
+        "external_quote_enabled": False,
+        "external_delivery_enabled": False,
+        "governed_execution_mode": "INTERNAL_GOVERNED",
+        "surface": "opportunity_pool",
+    },
+}
+
+
+def _resolve_stage7_bundle_for_readiness(payload: Any) -> StageBundle | None:
+    if isinstance(payload, Mapping):
+        candidate = payload.get("stage7")
+        if isinstance(candidate, StageBundle):
+            return candidate
+    try:
+        bundle = resolve_bundle(payload)
+    except TypeError:
+        bundle = None
+    if bundle is not None and bundle.stage == 7:
+        return bundle
+    if isinstance(payload, Mapping):
+        return hydrate_stage_bundle("stage7", payload)
+    return None
+
+
+def _stage7_record_payload(bundle: StageBundle, record_name: str) -> dict[str, Any]:
+    record = bundle.records.get(record_name)
+    if record is None:
+        return {}
+    return dict(record.data)
+
+
+def _stage7_trace_payload(bundle: StageBundle) -> dict[str, Any]:
+    trace = bundle.inputs.get("stage7_resolution_trace")
+    return dict(trace) if isinstance(trace, Mapping) else {}
+
+
+def _attach_crm_quote_prerequisite_readback(response: dict[str, Any], payload: Any) -> dict[str, Any]:
+    bundle = _resolve_stage7_bundle_for_readiness(payload)
+    if bundle is None:
+        return response
+    carrier = bundle.inputs.get("crm_quote_prerequisite_readiness")
+    if not isinstance(carrier, Mapping):
+        semantic_additions = bundle.inputs.get("semantic_additions")
+        if isinstance(semantic_additions, Mapping):
+            carrier = semantic_additions.get("crm_quote_prerequisite_readiness")
+    if not isinstance(carrier, Mapping):
+        carrier = build_crm_quote_prerequisite_readiness_carrier(
+            sales_lead=_stage7_record_payload(bundle, "sales_lead"),
+            saleable_opportunity=_stage7_record_payload(bundle, "saleable_opportunity"),
+            offer_recommendation=_stage7_record_payload(bundle, "offer_recommendation"),
+            stage7_resolution_trace=_stage7_trace_payload(bundle),
+        )
+    response["crm_quote_prerequisite_readiness"] = dict(carrier)
+    return response
 
 
 def list_saleable_opportunities(payload: Any) -> SaleableOpportunityListResponse:
-    return build_stage7_preview_surface(payload)
+    return _attach_crm_quote_prerequisite_readback(build_stage7_preview_surface(payload), payload)
 
 
 def refresh_saleable_opportunity(payload: Any) -> SaleableOpportunityRefreshResponse:
     persist_stage_bundle(payload)
     response = build_stage7_preview_surface(payload)
     response["refresh_requested"] = True
-    return response
+    return _attach_crm_quote_prerequisite_readback(response, payload)
 
 
 def list_stage7_work_items(payload: Any) -> Stage7WorkItemListResponse:
@@ -75,7 +147,7 @@ def submit_stage7_operator_action(payload: Any) -> Stage7OperatorActionResponse:
                 "live_execution_enabled": False,
             }
         response["error"] = exc.as_payload()
-    return response
+    return _attach_crm_quote_prerequisite_readback(response, payload)
 
 
 def preview_leadpack_external_delivery_candidate(payload: Any) -> LeadpackExternalDeliveryCandidateResponse:
@@ -125,6 +197,7 @@ STAGE7_ROUTES = [
         "surface_mode": "preview-only",
         "internal_only": True,
         "live_execution_enabled": False,
+        **CRM_QUOTE_PREREQUISITE_ROUTE_METADATA,
     },
     {
         "operationId": "refreshSaleableOpportunity",
@@ -134,6 +207,7 @@ STAGE7_ROUTES = [
         "surface_mode": "preview-only",
         "internal_only": True,
         "live_execution_enabled": False,
+        **CRM_QUOTE_PREREQUISITE_ROUTE_METADATA,
     },
     {
         "operationId": "listStage7WorkItems",
@@ -143,6 +217,7 @@ STAGE7_ROUTES = [
         "surface_mode": "preview-only",
         "internal_only": True,
         "live_execution_enabled": False,
+        **CRM_QUOTE_PREREQUISITE_ROUTE_METADATA,
     },
     {
         "operationId": "submitStage7OperatorAction",
@@ -152,6 +227,7 @@ STAGE7_ROUTES = [
         "surface_mode": "preview-only",
         "internal_only": True,
         "live_execution_enabled": False,
+        **CRM_QUOTE_PREREQUISITE_ROUTE_METADATA,
     },
     {
         "operationId": "previewLeadpackExternalDeliveryCandidate",

@@ -33,6 +33,23 @@ class Stage7PreviewProjection(TypedDict, total=False):
     actor_preview: list[dict[str, Any]]
 
 
+class Stage7CrmQuotePrerequisiteReadiness(TypedDict, total=False):
+    crm_prerequisite_state: str
+    quote_prerequisite_state: str
+    governed_execution_mode: str
+    readiness_only: bool
+    prerequisite_only: bool
+    crm_runtime_enabled: bool
+    external_quote_enabled: bool
+    external_delivery_enabled: bool
+    source_object_refs: dict[str, Any]
+    blocked_reasons: list[str]
+    required_approvals: list[str]
+    required_audit_refs: list[str]
+    audit_readiness_summary: dict[str, Any]
+    operator_readback_summary: dict[str, Any]
+
+
 class OperationalAssignment(TypedDict, total=False):
     assignment_profile_id: str
     assignment_lifecycle_state: str
@@ -135,6 +152,7 @@ class Stage7Response(TypedDict, total=False):
     decision_states: dict[str, str]
     formal_object_refs: dict[str, FormalObjectRef]
     preview_projection: Stage7PreviewProjection
+    crm_quote_prerequisite_readiness: Stage7CrmQuotePrerequisiteReadiness
     trace_refs: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str
@@ -434,6 +452,7 @@ __all__ = [
     "SaleableOpportunityRefreshRequest",
     "SaleableOpportunityRefreshResponse",
     "PendingButtonFlow",
+    "Stage7CrmQuotePrerequisiteReadiness",
     "Stage7OperatorActionRequest",
     "Stage7OperatorActionResponse",
     "Stage7PreviewProjection",

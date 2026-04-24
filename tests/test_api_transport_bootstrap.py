@@ -680,6 +680,46 @@ class TestApiTransportBootstrap(unittest.TestCase):
             stage7.record("buyer_fit").get("buyer_fit_id"),
         )
 
+    def test_stage7_crm_quote_readiness_metadata_is_non_live_in_bootstrap_and_readback(self) -> None:
+        app = create_app()
+        mounted_by_id = {
+            operation["operationId"]: operation
+            for operation in app.state.transport_bootstrap["stage6_to_stage9_mounted_operations"]
+        }
+        stage7_metadata = mounted_by_id["listSaleableOpportunities"]["crm_quote_prerequisite_readiness"]
+
+        self.assertTrue(stage7_metadata["readiness_only"])
+        self.assertTrue(stage7_metadata["prerequisite_only"])
+        self.assertTrue(stage7_metadata["blocked_by_default"])
+        self.assertEqual(stage7_metadata["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertFalse(stage7_metadata["crm_runtime_enabled"])
+        self.assertFalse(stage7_metadata["external_quote_enabled"])
+        self.assertFalse(stage7_metadata["external_delivery_enabled"])
+        self.assertFalse(mounted_by_id["listSaleableOpportunities"]["crm_runtime_enabled"])
+        self.assertFalse(mounted_by_id["listSaleableOpportunities"]["external_quote_enabled"])
+        self.assertFalse(mounted_by_id["listSaleableOpportunities"]["external_delivery_enabled"])
+        self.assertTrue(mounted_by_id["listSaleableOpportunities"]["readiness_only"])
+
+        result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+        stage7 = result["stage7"]
+        persist_stage_bundle(stage7)
+        opportunity_id = stage7.record("saleable_opportunity").get("opportunity_id")
+
+        client = TestClient(app)
+        response = client.request("GET", "/saleable-opportunities", json={"opportunity_id": opportunity_id})
+
+        self.assertEqual(response.status_code, 200)
+        carrier = response.json()["crm_quote_prerequisite_readiness"]
+        self.assertEqual(carrier["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertTrue(carrier["readiness_only"])
+        self.assertFalse(carrier["crm_runtime_enabled"])
+        self.assertFalse(carrier["external_quote_enabled"])
+        self.assertFalse(carrier["external_delivery_enabled"])
+        self.assertEqual(
+            carrier["source_object_refs"]["saleable_opportunity"]["object_id"],
+            stage7.record("saleable_opportunity").get("opportunity_id"),
+        )
+
     def test_stage8_http_transport_reads_repository_backed_preview(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
         stage8 = result["stage8"]

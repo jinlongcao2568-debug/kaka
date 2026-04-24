@@ -123,6 +123,34 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertEqual(stage9.record("delivery_record").get("delivered_at_optional"), "NOT_DELIVERED")
         self.assertNotEqual(stage9.record("delivery_record").get("delivery_status"), "DELIVERED")
 
+    def test_stage7_crm_and_external_quote_live_requests_remain_blocked(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "crm_runtime_enabled": True,
+                "external_quote_enabled": True,
+                "external_delivery_enabled": True,
+                "live_execution_enabled": True,
+            }
+        )
+
+        stage7 = run_internal_chain(payload)["stage7"]
+        carrier = stage7.inputs["crm_quote_prerequisite_readiness"]
+
+        self.assertEqual(carrier["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertEqual(carrier["crm_prerequisite_state"], "RESERVED_NOT_LIVE")
+        self.assertEqual(carrier["quote_prerequisite_state"], "RESERVED_NOT_LIVE")
+        self.assertFalse(carrier["crm_runtime_enabled"])
+        self.assertFalse(carrier["external_quote_enabled"])
+        self.assertFalse(carrier["external_delivery_enabled"])
+        self.assertIn("crm_runtime_enabled=false", carrier["blocked_reasons"])
+        self.assertIn("external_quote_enabled=false", carrier["blocked_reasons"])
+        self.assertIn("external_delivery_enabled=false", carrier["blocked_reasons"])
+        self.assertIn("customer_facing_quote_not_generated", carrier["blocked_reasons"])
+        self.assertFalse(carrier["operator_readback_summary"]["operator_can_enable_crm_runtime"])
+        self.assertFalse(carrier["operator_readback_summary"]["operator_can_generate_external_quote"])
+        self.assertFalse(carrier["operator_readback_summary"]["operator_can_deliver_external"])
+
 
 if __name__ == "__main__":
     unittest.main()

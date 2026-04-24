@@ -22,11 +22,11 @@ classification_vocabulary:
   - MISSING_TEST
 classification_counts:
   INTERNAL_IMPLEMENTED: 15
-  TEST_COVERED: 21
+  TEST_COVERED: 22
   RESERVED_NOT_LIVE: 10
   BLOCKED_BY_GOVERNANCE: 5
-  MISSING_RUNTIME: 3
-  MISSING_TEST: 2
+  MISSING_RUNTIME: 2
+  MISSING_TEST: 1
 capabilities:
   - capability_id: STAGE1_2_SOURCE_ROUTE_CLOCK_AUTHORITY
     scope_group: Stage1-5 source/rule/evidence
@@ -221,20 +221,28 @@ capabilities:
       - docs/D12_部署发布与运行治理规范.md#release-gate
     runtime_refs:
       - src/stage7_sales/service.py
+      - src/stage7_sales/recommendation.py
+      - src/stage7_sales/runtime.py
+      - src/api/routes/stage7.py
+      - src/api/schemas/stage7.py
+      - src/api/main.py
       - contracts/sales/opportunity_policy_catalog.json
       - control/repo_status.md
     test_refs:
-      - tests/test_stage7_runtime_closure.py
-      - tests/test_external_unlock_prerequisites.py
+      - tests/test_stage7_runtime_closure.py::test_stage7_crm_quote_prerequisite_readiness_carrier_is_internal_non_live
+      - tests/test_api_transport_bootstrap.py::test_stage7_crm_quote_readiness_metadata_is_non_live_in_bootstrap_and_readback
+      - tests/test_runtime_governance_guards.py::test_stage7_crm_and_external_quote_live_requests_remain_blocked
+      - tests/test_product_doc_runtime_coverage.py::test_stage7_crm_quote_prerequisite_readiness_runtime_is_closed
     classification:
       - RESERVED_NOT_LIVE
       - BLOCKED_BY_GOVERNANCE
-      - MISSING_RUNTIME
-      - MISSING_TEST
+      - TEST_COVERED
     evidence_summary: >
-      Internal saleability is implemented, but full CRM orchestration and
-      external quote behavior are not live, not runtime-complete, and lack a
-      dedicated positive unlock test surface.
+      Stage7 now emits an internal governed prerequisite readiness/readback
+      carrier for CRM and external quote prerequisites, with source formal
+      object refs, policy trace refs, blocked reasons, required approvals, audit
+      readiness, and operator readback. CRM runtime, external quote generation,
+      and external delivery remain non-live and blocked by governance.
     recommended_followup_packet: PTL-I100-108-stage7-crm-orchestration-and-external-quote-prereq
 
   - capability_id: STAGE8_CONTACT_COMPLIANCE_LATTICE

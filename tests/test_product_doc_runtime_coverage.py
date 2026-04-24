@@ -175,6 +175,28 @@ class ProductDocRuntimeCoverageLedgerTests(unittest.TestCase):
         self.assertIn("sanitized/offline", capability["evidence_summary"])
         self.assertIn("controlled-unavailable", capability["evidence_summary"])
 
+    def test_stage7_crm_quote_prerequisite_readiness_runtime_is_closed(self):
+        capability = next(
+            item
+            for item in self.capabilities
+            if item["capability_id"] == "STAGE7_FULL_CRM_ORCHESTRATION_AND_EXTERNAL_QUOTE"
+        )
+
+        self.assertIn("RESERVED_NOT_LIVE", capability["classification"])
+        self.assertIn("BLOCKED_BY_GOVERNANCE", capability["classification"])
+        self.assertIn("TEST_COVERED", capability["classification"])
+        self.assertNotIn("INTERNAL_IMPLEMENTED", capability["classification"])
+        self.assertNotIn("MISSING_RUNTIME", capability["classification"])
+        self.assertNotIn("MISSING_TEST", capability["classification"])
+        self.assertIn("src/stage7_sales/service.py", capability["runtime_refs"])
+        self.assertIn("src/api/routes/stage7.py", capability["runtime_refs"])
+        self.assertIn(
+            "tests/test_stage7_runtime_closure.py::test_stage7_crm_quote_prerequisite_readiness_carrier_is_internal_non_live",
+            capability["test_refs"],
+        )
+        self.assertIn("prerequisite readiness/readback", capability["evidence_summary"])
+        self.assertIn("non-live", capability["evidence_summary"])
+
     def test_referenced_files_exist_for_audit_evidence(self):
         for capability in self.capabilities:
             for field_name in ("doc_refs", "runtime_refs", "test_refs"):

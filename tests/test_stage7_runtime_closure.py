@@ -618,6 +618,58 @@ class TestStage7RuntimeClosure(unittest.TestCase):
             collection.get("winning_challenger_profile_id"),
         )
 
+    def test_stage7_crm_quote_prerequisite_readiness_carrier_is_internal_non_live(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        carrier = stage7.inputs["crm_quote_prerequisite_readiness"]
+
+        self.assertEqual(carrier["crm_prerequisite_state"], "RESERVED_NOT_LIVE")
+        self.assertEqual(carrier["quote_prerequisite_state"], "RESERVED_NOT_LIVE")
+        self.assertEqual(carrier["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertTrue(carrier["readiness_only"])
+        self.assertTrue(carrier["prerequisite_only"])
+        self.assertFalse(carrier["crm_runtime_enabled"])
+        self.assertFalse(carrier["external_quote_enabled"])
+        self.assertFalse(carrier["external_delivery_enabled"])
+        self.assertEqual(stage7.handoff["crm_quote_prerequisite_readiness_optional"], carrier)
+        self.assertEqual(
+            stage7.inputs["stage7_resolution_trace"]["crm_quote_prerequisite_readiness"],
+            carrier,
+        )
+
+        source_refs = carrier["source_object_refs"]
+        self.assertEqual(
+            source_refs["sales_lead"]["object_id"],
+            stage7.record("sales_lead").get("lead_id"),
+        )
+        self.assertEqual(
+            source_refs["saleable_opportunity"]["object_id"],
+            stage7.record("saleable_opportunity").get("opportunity_id"),
+        )
+        self.assertEqual(
+            source_refs["offer_recommendation"]["object_id"],
+            stage7.record("offer_recommendation").get("offer_recommendation_id"),
+        )
+        self.assertTrue(source_refs["stage7_resolution_trace"]["opportunity_policy_present"])
+        self.assertTrue(source_refs["stage7_resolution_trace"]["price_resolution_present"])
+        self.assertIn("crm_runtime_enabled=false", carrier["blocked_reasons"])
+        self.assertIn("external_quote_enabled=false", carrier["blocked_reasons"])
+        self.assertIn("external_delivery_enabled=false", carrier["blocked_reasons"])
+        self.assertIn("customer_facing_quote_not_generated", carrier["blocked_reasons"])
+        self.assertIn("client_report_release", carrier["required_approvals"])
+        self.assertIn("external_action_release", carrier["required_approvals"])
+
+        audit_summary = carrier["audit_readiness_summary"]
+        self.assertFalse(audit_summary["crm_runtime_audit_ready"])
+        self.assertFalse(audit_summary["external_quote_audit_ready"])
+        self.assertFalse(audit_summary["external_delivery_audit_ready"])
+        self.assertEqual(audit_summary["missing_audit_refs"], carrier["required_audit_refs"])
+
+        operator_summary = carrier["operator_readback_summary"]
+        self.assertTrue(operator_summary["readback_ready"])
+        self.assertFalse(operator_summary["operator_can_enable_crm_runtime"])
+        self.assertFalse(operator_summary["operator_can_generate_external_quote"])
+        self.assertFalse(operator_summary["operator_can_deliver_external"])
+
 
 if __name__ == "__main__":
     unittest.main()

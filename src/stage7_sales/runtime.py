@@ -5,6 +5,21 @@ from typing import Any, Mapping
 from shared.context_packet import ContextPacket
 
 
+STAGE7_CRM_QUOTE_GOVERNED_METADATA = {
+    "governed_execution_mode": "INTERNAL_GOVERNED",
+    "readiness_only": True,
+    "prerequisite_only": True,
+    "blocked_by_default": True,
+    "crm_runtime_enabled": False,
+    "external_quote_enabled": False,
+    "external_delivery_enabled": False,
+}
+
+
+def build_stage7_crm_quote_governed_metadata() -> dict[str, Any]:
+    return dict(STAGE7_CRM_QUOTE_GOVERNED_METADATA)
+
+
 def optional_int(value: Any) -> int | None:
     if value in (None, ""):
         return None

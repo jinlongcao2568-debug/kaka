@@ -101,8 +101,10 @@ def validate_internal_orchestration_payload(payload: Any) -> dict[str, Any]:
         raise ValueError("run_mode must be dry-run, preview, or offline replay")
 
     blocked_truthy_flags = (
+        "crm_runtime_enabled",
         "live_execution_enabled",
         "external_delivery_enabled",
+        "external_quote_enabled",
         "external_release_enabled",
         "live_source_enabled",
         "real_transport_enabled",

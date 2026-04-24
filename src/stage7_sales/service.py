@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from stage7_sales.pricing import build_price_resolution_trace, resolve_price_projection
 from stage7_sales.recommendation import (
+    build_crm_quote_prerequisite_readiness_carrier,
     build_opportunity_blocking_reasons,
     build_opportunity_policy_trace,
     build_stage7_restriction_reasons,
@@ -586,7 +587,7 @@ class Stage7Service:
                 "missing_condition_family_optional": missing_condition_family_optional,
             }
         )
-        inputs_out["stage7_resolution_trace"] = {
+        stage7_resolution_trace = {
             "stage6_formal_carriers": stage6_formal_carriers,
             "review_gate_report_constraints": {
                 "sale_gate_status": sale_gate_status,
@@ -647,6 +648,16 @@ class Stage7Service:
                 "current_action_deadline_at_optional": current_action_deadline_at_optional,
             },
         }
+        crm_quote_prerequisite_readiness = build_crm_quote_prerequisite_readiness_carrier(
+            sales_lead=sales_lead,
+            saleable_opportunity=saleable_opportunity,
+            offer_recommendation=offer_recommendation,
+            stage7_resolution_trace=stage7_resolution_trace,
+        )
+        stage7_resolution_trace["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
+        inputs_out["stage7_resolution_trace"] = stage7_resolution_trace
+        inputs_out["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
+        handoff["crm_quote_prerequisite_readiness_optional"] = crm_quote_prerequisite_readiness
         inputs_out["commercial_urgency_level_optional"] = inputs.get(
             "commercial_urgency_level_optional",
             "CRITICAL" if runtime_state.resolve("window_urgency_score", 0) >= 90 else "HIGH" if runtime_state.resolve("window_urgency_score", 0) >= 80 else "NORMAL",
@@ -675,7 +686,9 @@ class Stage7Service:
         inputs_out["current_action_deadline_at_optional"] = current_action_deadline_at_optional
         inputs_out["semantic_trace"] = semantic_state.semantic_trace
         inputs_out["semantic_decision_state"] = semantic_state.semantic_decision_state
-        inputs_out["semantic_additions"] = semantic_state.semantic_additions
+        semantic_additions = dict(semantic_state.semantic_additions)
+        semantic_additions["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
+        inputs_out["semantic_additions"] = semantic_additions
 
         return StageBundle(
             stage=7,
