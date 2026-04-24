@@ -11,6 +11,15 @@ from stage7_sales.crm_quote_workbench import (
     CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
     QUOTE_DRAFT_ID_INPUT_KEY,
 )
+from stage7_sales.leadpack_delivery_package import (
+    LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY,
+    LEADPACK_DELIVERY_PACKAGE_INPUT_KEY,
+    LEADPACK_DELIVERY_READINESS_INPUT_KEY,
+    LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY,
+    LEADPACK_PACKAGE_ID_INPUT_KEY,
+    LEADPACK_PAGE_DRAFT_ID_INPUT_KEY,
+    leadpack_delivery_package_summary,
+)
 from storage.db import (
     DatabaseSession,
     PersistedOperatorAction,
@@ -74,6 +83,12 @@ STAGE_INPUT_FIELDS = {
         CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
         CRM_ACTION_ID_INPUT_KEY,
         QUOTE_DRAFT_ID_INPUT_KEY,
+        LEADPACK_DELIVERY_PACKAGE_INPUT_KEY,
+        LEADPACK_DELIVERY_READINESS_INPUT_KEY,
+        LEADPACK_PACKAGE_ID_INPUT_KEY,
+        LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY,
+        LEADPACK_PAGE_DRAFT_ID_INPUT_KEY,
+        LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY,
         "_stage7_handoff_snapshot",
         "_stage7_trace_rules_snapshot",
     ),
@@ -1234,6 +1249,20 @@ def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
             }.items():
                 if value not in (None, "", "UNKNOWN"):
                     refs[key] = str(value)
+        leadpack_package = bundle.inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY)
+        if isinstance(leadpack_package, Mapping):
+            for key, value in {
+                "package_id": leadpack_package.get("package_id"),
+                LEADPACK_PACKAGE_ID_INPUT_KEY: leadpack_package.get("package_id"),
+                "evidence_pack_id": leadpack_package.get("evidence_pack_id"),
+                LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY: leadpack_package.get("evidence_pack_id"),
+                "page_draft_id": leadpack_package.get("page_draft_id"),
+                LEADPACK_PAGE_DRAFT_ID_INPUT_KEY: leadpack_package.get("page_draft_id"),
+                "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
+                LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY: leadpack_package.get("artifact_manifest_id"),
+            }.items():
+                if value not in (None, "", "UNKNOWN"):
+                    refs[key] = str(value)
     if bundle.stage == 8:
         refs.update(_stage8_carrier_refs(bundle))
     return refs
@@ -1366,6 +1395,14 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
             readiness = bundle.inputs.get(CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY)
             if isinstance(readiness, Mapping):
                 governed_context["crm_quote_workbench_readiness_summary"] = dict(readiness)
+        leadpack_package = bundle.inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY)
+        if isinstance(leadpack_package, Mapping):
+            governed_context["leadpack_delivery_package_summary"] = leadpack_delivery_package_summary(
+                leadpack_package
+            )
+            readiness = bundle.inputs.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY)
+            if isinstance(readiness, Mapping):
+                governed_context["leadpack_delivery_readiness_summary"] = dict(readiness)
     if bundle.stage == 8:
         collection = _stage8_carrier_payload(bundle, "contact_candidate_collection_snapshot")
         selection_trace = _stage8_carrier_payload(bundle, "contact_selection_trace_snapshot")

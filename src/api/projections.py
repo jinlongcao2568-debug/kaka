@@ -19,6 +19,12 @@ from stage7_sales.crm_quote_workbench import (
     CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
     build_crm_quote_workbench_readiness_summary,
 )
+from stage7_sales.leadpack_delivery_package import (
+    LEADPACK_DELIVERY_PACKAGE_INPUT_KEY,
+    LEADPACK_DELIVERY_READINESS_INPUT_KEY,
+    build_leadpack_delivery_readiness_summary,
+    leadpack_delivery_package_summary,
+)
 from stage8_outreach.execution_outbox import (
     OUTBOX_READINESS_INPUT_KEY,
     OUTBOX_SNAPSHOT_INPUT_KEY,
@@ -834,6 +840,14 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
         if workbench
         else {}
     )
+    leadpack_package = dict(bundle.inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY, {}))
+    leadpack_readiness_summary = (
+        dict(bundle.inputs.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY, {}))
+        if isinstance(bundle.inputs.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY), Mapping)
+        else build_leadpack_delivery_readiness_summary(leadpack_package)
+        if leadpack_package
+        else {}
+    )
     formal_records = {
         "saleable_opportunity": opportunity,
         "offer_recommendation": offer,
@@ -897,6 +911,10 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
             "governed_execution_mode": workbench.get("governed_execution_mode"),
         },
         "crm_quote_workbench_readiness_summary": workbench_summary,
+        "leadpack_delivery_package_preview": leadpack_delivery_package_summary(leadpack_package)
+        if leadpack_package
+        else {},
+        "leadpack_delivery_readiness_summary": leadpack_readiness_summary,
         "_raw_records": [opportunity, offer, buyer_fit, legal_actor, procurement_actor],
     }
     envelope = _surface_envelope(
@@ -912,6 +930,15 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
     envelope["preview_projection"].pop("_raw_records", None)
     envelope[CRM_QUOTE_WORKBENCH_INPUT_KEY] = workbench or preview_projection["crm_quote_workbench_preview"]
     envelope[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = workbench_summary
+    envelope[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = leadpack_package
+    envelope[LEADPACK_DELIVERY_READINESS_INPUT_KEY] = leadpack_readiness_summary
+    envelope["package_page_delivery_summary"] = {
+        "package": leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {},
+        "readiness": leadpack_readiness_summary,
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "page_publication_enabled": False,
+    }
     return _attach_operational_context(envelope, bundle)
 
 
@@ -1315,6 +1342,15 @@ def _leadpack_candidate_surface_core(
     source_formal_object_types = sorted(
         _merge_formal_object_refs(stage7_surface, stage8_surface, stage9_surface).keys()
     )
+    leadpack_package = dict(stage7_surface.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY, {}))
+    leadpack_delivery_summary = dict(stage7_surface.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY, {}))
+    package_page_delivery_summary = {
+        "package": leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {},
+        "readiness": leadpack_delivery_summary,
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "page_publication_enabled": False,
+    }
     candidate_readback_summary = {
         "readback_ready": True,
         "readback_surface": "review_report_workbench",
@@ -1327,6 +1363,10 @@ def _leadpack_candidate_surface_core(
         "direct_export_enabled": False,
         "customer_visible_export_enabled": False,
         "client_page_release_enabled": False,
+        "package_id": leadpack_package.get("package_id"),
+        "page_draft_id": leadpack_package.get("page_draft_id"),
+        "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
+        "delivery_state": leadpack_package.get("delivery_state"),
         "blocked_reason_count": len(blocked_reasons),
         "hold_reason_count": len(hold_reasons),
         "why_not_live": why_not_live,
@@ -1337,6 +1377,7 @@ def _leadpack_candidate_surface_core(
         "operator_can_read_candidate": True,
         "operator_can_request_review": True,
         "operator_can_run_export_simulation": True,
+        "operator_can_read_delivery_package": bool(leadpack_package),
         "operator_can_direct_export": False,
         "operator_can_deliver_external": False,
         "operator_can_enable_external_delivery": False,
@@ -1373,6 +1414,9 @@ def _leadpack_candidate_surface_core(
         "candidate_scope": dict(candidate_matrix["candidate_scope"]),
         "formal_object_refs": _merge_formal_object_refs(stage7_surface, stage8_surface, stage9_surface),
         "candidate_projection": candidate_projection,
+        "leadpack_delivery_package": leadpack_package,
+        "leadpack_delivery_readiness_summary": leadpack_delivery_summary,
+        "package_page_delivery_summary": package_page_delivery_summary,
         "required_approvals": required_approvals,
         "required_review_gates": required_review_gates,
         "required_audit_refs": required_audit_refs,
@@ -2153,6 +2197,15 @@ def build_formal_client_export_page_layer_readiness_surface(
     )
 
     source_formal_object_types = sorted(candidate_surface.get("formal_object_refs", {}).keys())
+    leadpack_package = dict(candidate_surface.get("leadpack_delivery_package", {}))
+    leadpack_delivery_summary = dict(candidate_surface.get("leadpack_delivery_readiness_summary", {}))
+    package_page_delivery_summary = {
+        "package": leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {},
+        "readiness": leadpack_delivery_summary,
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "page_publication_enabled": False,
+    }
     source_readiness_refs = {
         "leadpack_candidate": {
             "surface_id": candidate_surface.get("surface_id"),
@@ -2182,6 +2235,18 @@ def build_formal_client_export_page_layer_readiness_surface(
             "implementation_approved": bool(implementation_packet.get("implementation_approved", False)),
             "decision_scope": implementation_decision,
         },
+        "delivery_package": {
+            "package_id": leadpack_package.get("package_id"),
+            "evidence_pack_id": leadpack_package.get("evidence_pack_id"),
+            "page_draft_id": leadpack_package.get("page_draft_id"),
+            "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
+            "package_state": leadpack_package.get("package_state"),
+            "page_state": leadpack_package.get("page_state"),
+            "delivery_state": leadpack_package.get("delivery_state"),
+            "customer_visible_enabled": False,
+            "external_delivery_enabled": False,
+            "delivery_ready": False,
+        },
     }
     operator_readback_summary = {
         "readback_ready": True,
@@ -2194,6 +2259,7 @@ def build_formal_client_export_page_layer_readiness_surface(
         "operator_can_enable_customer_visible_export": False,
         "operator_can_generate_export_artifact": False,
         "operator_can_publish_customer_page": False,
+        "operator_can_read_delivery_package": bool(leadpack_package),
         "missing_prerequisite_count": len(missing_prerequisites),
         "blocked_reason_count": len(blocked_reasons),
         "source_formal_object_types": source_formal_object_types,
@@ -2225,6 +2291,15 @@ def build_formal_client_export_page_layer_readiness_surface(
         "missing_prerequisites": missing_prerequisites,
         "source_readiness_refs": source_readiness_refs,
         "operator_readback_summary": operator_readback_summary,
+        "leadpack_delivery_package": leadpack_package,
+        "package_manifest": dict(leadpack_package.get("package_manifest", {})),
+        "evidence_item_manifest": dict(leadpack_package.get("evidence_item_manifest", {})),
+        "field_masking_summary": dict(leadpack_package.get("field_masking_summary", {})),
+        "page_draft": dict(leadpack_package.get("page_draft", {})),
+        "delivery_readiness_summary": dict(
+            leadpack_package.get("delivery_readiness_summary", leadpack_delivery_summary)
+        ),
+        "package_page_delivery_summary": package_page_delivery_summary,
         "trace_refs": {
             **dict(candidate_surface.get("trace_refs", {})),
             "source_readiness_surface_ids": [

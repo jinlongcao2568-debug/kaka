@@ -719,14 +719,27 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertIn("audit_ref:activation_design_decision_audit_ref", readiness["missing_prerequisites"])
         self.assertEqual(
             set(readiness["source_readiness_refs"]),
-            {"leadpack_candidate", "activation_prep", "implementation_decision"},
+            {"leadpack_candidate", "activation_prep", "implementation_decision", "delivery_package"},
         )
         self.assertEqual(
             readiness["source_readiness_refs"]["implementation_decision"]["readiness_state"],
             "IMPLEMENTATION_DECISION_HELD",
         )
+        package = readiness["leadpack_delivery_package"]
+        self.assertEqual(package["opportunity_id"], happy["stage7"].record("saleable_opportunity").get("opportunity_id"))
+        self.assertFalse(package["customer_visible_enabled"])
+        self.assertFalse(package["external_delivery_enabled"])
+        self.assertEqual(package["masking_state"], "MASKING_REQUIRED")
+        self.assertEqual(readiness["package_manifest"]["package_id"], package["package_id"])
+        self.assertTrue(readiness["evidence_item_manifest"]["items"])
+        self.assertIn("field_masking_summary", readiness)
+        self.assertEqual(readiness["page_draft"]["page_draft_id"], package["page_draft_id"])
+        self.assertFalse(readiness["delivery_readiness_summary"]["delivery_ready"])
+        self.assertFalse(readiness["package_page_delivery_summary"]["customer_visible_enabled"])
+        self.assertFalse(readiness["package_page_delivery_summary"]["external_delivery_enabled"])
         operator_summary = readiness["operator_readback_summary"]
         self.assertTrue(operator_summary["operator_can_read_internal_preview"])
+        self.assertTrue(operator_summary["operator_can_read_delivery_package"])
         self.assertFalse(operator_summary["operator_can_direct_export"])
         self.assertFalse(operator_summary["operator_can_deliver_external"])
         self.assertFalse(operator_summary["operator_can_enable_external_release"])

@@ -66,6 +66,8 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "crm_quote_workbench_readiness_summary",
     "leadpack_external_delivery_candidate_readiness",
     "formal_client_export_page_layer_readiness",
+    "leadpack_delivery_package_readiness",
+    "package_page_delivery_summary",
     "accepted_payload_boundary",
     "repository_backed_readback",
     "orchestrates_stage_scope",

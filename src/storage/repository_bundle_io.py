@@ -11,6 +11,15 @@ from stage7_sales.crm_quote_workbench import (
     QUOTE_DRAFT_ID_INPUT_KEY,
     build_crm_quote_workbench_readiness_summary,
 )
+from stage7_sales.leadpack_delivery_package import (
+    LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY,
+    LEADPACK_DELIVERY_PACKAGE_INPUT_KEY,
+    LEADPACK_DELIVERY_READINESS_INPUT_KEY,
+    LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY,
+    LEADPACK_PACKAGE_ID_INPUT_KEY,
+    LEADPACK_PAGE_DRAFT_ID_INPUT_KEY,
+    build_leadpack_delivery_readiness_summary,
+)
 from stage8_outreach.execution_outbox import (
     OUTBOX_ID_INPUT_KEY,
     OUTBOX_READINESS_INPUT_KEY,
@@ -29,6 +38,7 @@ from storage.repositories import (
     GovernanceFeedbackEventRepository,
     LegalActionActorProfileRepository,
     LegalActionRecommendationRepository,
+    LeadpackDeliveryPackageRepository,
     OfferRecommendationRepository,
     OpportunityOutcomeEventRepository,
     OrderRecordRepository,
@@ -366,6 +376,9 @@ def persist_stage7_bundle(bundle: StageBundle) -> StageBundle:
     workbench_payload = _stage7_crm_quote_workbench_payload(bundle)
     if workbench_payload:
         CRMQuoteWorkbenchRepository().save(workbench_payload)
+    leadpack_package_payload = _stage7_leadpack_delivery_package_payload(bundle)
+    if leadpack_package_payload:
+        LeadpackDeliveryPackageRepository().save(leadpack_package_payload)
     persisted_bundle = _stage7_bundle_with_persistence_snapshots(bundle)
     _save_stage_state(persisted_bundle)
     _sync_stage_operational_loop(persisted_bundle)
@@ -374,6 +387,11 @@ def persist_stage7_bundle(bundle: StageBundle) -> StageBundle:
 
 def _stage7_crm_quote_workbench_payload(bundle: StageBundle) -> dict[str, Any]:
     snapshot = bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
+    return dict(snapshot) if isinstance(snapshot, Mapping) else {}
+
+
+def _stage7_leadpack_delivery_package_payload(bundle: StageBundle) -> dict[str, Any]:
+    snapshot = bundle.inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY)
     return dict(snapshot) if isinstance(snapshot, Mapping) else {}
 
 
@@ -537,6 +555,105 @@ def _restore_stage7_crm_quote_workbench(
         stage_inputs["stage7_resolution_trace"] = resolution_trace_payload
 
 
+def _hydrate_stage7_leadpack_delivery_package(
+    *,
+    stage_inputs: Mapping[str, Any],
+    persisted_refs: Mapping[str, Any] | None,
+    opportunity_refs: Mapping[str, Any],
+    work_item_refs: Mapping[str, Any] | None,
+) -> tuple[dict[str, Any] | None, bool]:
+    package_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        opportunity_refs,
+        work_item_refs,
+        keys=("package_id", LEADPACK_PACKAGE_ID_INPUT_KEY),
+    )
+    evidence_pack_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        opportunity_refs,
+        work_item_refs,
+        keys=("evidence_pack_id", LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY),
+    )
+    page_draft_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        opportunity_refs,
+        work_item_refs,
+        keys=("page_draft_id", LEADPACK_PAGE_DRAFT_ID_INPUT_KEY),
+    )
+    artifact_manifest_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        opportunity_refs,
+        work_item_refs,
+        keys=("artifact_manifest_id", LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY),
+    )
+    repository = LeadpackDeliveryPackageRepository()
+    record = repository.get_by_id(package_id) if package_id else None
+    if record is None and evidence_pack_id:
+        record = repository.get_by_evidence_pack_id(evidence_pack_id)
+    if record is None and page_draft_id:
+        record = repository.get_by_page_draft_id(page_draft_id)
+    if record is None and artifact_manifest_id:
+        record = repository.get_by_artifact_manifest_id(artifact_manifest_id)
+    if record is None:
+        if package_id or evidence_pack_id or page_draft_id or artifact_manifest_id:
+            return None, True
+        snapshot = stage_inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY)
+        return (dict(snapshot), False) if isinstance(snapshot, Mapping) else (None, False)
+
+    payload = record.as_payload()
+    if package_id and str(payload.get("package_id", "")).strip() != package_id:
+        return None, True
+    if evidence_pack_id and str(payload.get("evidence_pack_id", "")).strip() != evidence_pack_id:
+        return None, True
+    if page_draft_id and str(payload.get("page_draft_id", "")).strip() != page_draft_id:
+        return None, True
+    if artifact_manifest_id and str(payload.get("artifact_manifest_id", "")).strip() != artifact_manifest_id:
+        return None, True
+    return payload, False
+
+
+def _restore_stage7_leadpack_delivery_package(
+    *,
+    stage_inputs: dict[str, Any],
+    handoff: dict[str, Any],
+    leadpack_package: Mapping[str, Any] | None,
+) -> None:
+    if not leadpack_package:
+        return
+    package_payload = dict(leadpack_package)
+    readiness_summary = build_leadpack_delivery_readiness_summary(package_payload)
+    stage_inputs[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = package_payload
+    stage_inputs[LEADPACK_DELIVERY_READINESS_INPUT_KEY] = readiness_summary
+    stage_inputs[LEADPACK_PACKAGE_ID_INPUT_KEY] = str(package_payload.get("package_id"))
+    stage_inputs[LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY] = str(package_payload.get("evidence_pack_id"))
+    stage_inputs[LEADPACK_PAGE_DRAFT_ID_INPUT_KEY] = str(package_payload.get("page_draft_id"))
+    stage_inputs[LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY] = str(package_payload.get("artifact_manifest_id"))
+    handoff["leadpack_delivery_package_optional"] = package_payload
+    handoff[LEADPACK_PACKAGE_ID_INPUT_KEY] = str(package_payload.get("package_id"))
+    handoff[LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY] = str(package_payload.get("evidence_pack_id"))
+    handoff[LEADPACK_PAGE_DRAFT_ID_INPUT_KEY] = str(package_payload.get("page_draft_id"))
+    handoff[LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY] = str(package_payload.get("artifact_manifest_id"))
+    resolution_trace = stage_inputs.get("stage7_resolution_trace")
+    if isinstance(resolution_trace, Mapping):
+        resolution_trace_payload = dict(resolution_trace)
+        resolution_trace_payload[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = {
+            "package_id": package_payload.get("package_id"),
+            "evidence_pack_id": package_payload.get("evidence_pack_id"),
+            "page_draft_id": package_payload.get("page_draft_id"),
+            "artifact_manifest_id": package_payload.get("artifact_manifest_id"),
+            "package_state": package_payload.get("package_state"),
+            "page_state": package_payload.get("page_state"),
+            "delivery_state": package_payload.get("delivery_state"),
+            "customer_visible_enabled": False,
+            "external_delivery_enabled": False,
+        }
+        stage_inputs["stage7_resolution_trace"] = resolution_trace_payload
+
+
 def hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     opportunity_id = str(payload.get("opportunity_id", "")).strip()
     if not opportunity_id:
@@ -611,6 +728,14 @@ def hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     )
     if workbench_stale:
         return None
+    leadpack_package_payload, leadpack_package_stale = _hydrate_stage7_leadpack_delivery_package(
+        stage_inputs=stage_inputs,
+        persisted_refs=persisted_refs,
+        opportunity_refs=opportunity.object_refs,
+        work_item_refs=work_item.object_refs if work_item is not None else None,
+    )
+    if leadpack_package_stale:
+        return None
     trace_rules = list(stage_inputs.pop(_STAGE7_TRACE_RULES_SNAPSHOT_KEY, []))
     handoff_snapshot = stage_inputs.pop(_STAGE7_HANDOFF_SNAPSHOT_KEY, None)
     handoff = dict(handoff_snapshot) if isinstance(handoff_snapshot, Mapping) else {}
@@ -618,6 +743,11 @@ def hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
         stage_inputs=stage_inputs,
         handoff=handoff,
         workbench=workbench_payload,
+    )
+    _restore_stage7_leadpack_delivery_package(
+        stage_inputs=stage_inputs,
+        handoff=handoff,
+        leadpack_package=leadpack_package_payload,
     )
 
     return StageBundle(

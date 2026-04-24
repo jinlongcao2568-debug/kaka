@@ -71,6 +71,27 @@ class Stage7CrmQuoteWorkbenchCarrier(TypedDict, total=False):
     readiness_summary: dict[str, Any]
 
 
+class LeadpackDeliveryPackageCarrier(TypedDict, total=False):
+    package_id: str
+    opportunity_id: str
+    evidence_pack_id: str
+    page_draft_id: str
+    artifact_manifest_id: str
+    masking_state: str
+    approval_state: str
+    audit_state: str
+    package_state: str
+    page_state: str
+    delivery_state: str
+    customer_visible_enabled: bool
+    external_delivery_enabled: bool
+    package_manifest: dict[str, Any]
+    evidence_item_manifest: dict[str, Any]
+    field_masking_summary: dict[str, Any]
+    page_draft: dict[str, Any]
+    delivery_readiness_summary: dict[str, Any]
+
+
 class OperationalAssignment(TypedDict, total=False):
     assignment_profile_id: str
     assignment_lifecycle_state: str
@@ -176,6 +197,9 @@ class Stage7Response(TypedDict, total=False):
     crm_quote_prerequisite_readiness: Stage7CrmQuotePrerequisiteReadiness
     crm_quote_workbench: Stage7CrmQuoteWorkbenchCarrier
     crm_quote_workbench_readiness_summary: dict[str, Any]
+    leadpack_delivery_package: LeadpackDeliveryPackageCarrier
+    leadpack_delivery_readiness_summary: dict[str, Any]
+    package_page_delivery_summary: dict[str, Any]
     trace_refs: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str
@@ -229,6 +253,13 @@ class FormalClientExportPageLayerReadinessResponse(TypedDict, total=False):
     missing_prerequisites: list[str]
     source_readiness_refs: dict[str, Any]
     operator_readback_summary: dict[str, Any]
+    leadpack_delivery_package: LeadpackDeliveryPackageCarrier
+    package_manifest: dict[str, Any]
+    evidence_item_manifest: dict[str, Any]
+    field_masking_summary: dict[str, Any]
+    page_draft: dict[str, Any]
+    delivery_readiness_summary: dict[str, Any]
+    package_page_delivery_summary: dict[str, Any]
     trace_refs: dict[str, Any]
 
 
@@ -256,6 +287,9 @@ class LeadpackExternalDeliveryCandidateResponse(TypedDict, total=False):
     candidate_scope: dict[str, Any]
     formal_object_refs: dict[str, FormalObjectRef]
     candidate_projection: LeadpackCandidateProjection
+    leadpack_delivery_package: LeadpackDeliveryPackageCarrier
+    leadpack_delivery_readiness_summary: dict[str, Any]
+    package_page_delivery_summary: dict[str, Any]
     required_approvals: list[str]
     required_review_gates: list[str]
     required_audit_refs: list[str]
@@ -494,6 +528,7 @@ __all__ = [
     "FormalClientExportPageLayerReadinessResponse",
     "FormalObjectRef",
     "LeadpackCandidateProjection",
+    "LeadpackDeliveryPackageCarrier",
     "LeadpackActivationDesignImplementationPrepRequest",
     "LeadpackActivationDesignImplementationPrepResponse",
     "LeadpackImplementationDecisionReadinessPacketRequest",

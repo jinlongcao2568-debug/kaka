@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 import json
+import sys
 import unittest
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+TESTS = ROOT / "tests"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+if str(TESTS) not in sys.path:
+    sys.path.insert(0, str(TESTS))
 
 from helpers import load_fixture
 from api.routes.stage7 import (
@@ -11,10 +20,6 @@ from api.routes.stage7 import (
     simulate_leadpack_external_delivery_export,
 )
 from shared.pipeline import run_internal_chain
-
-
-ROOT = Path(__file__).resolve().parents[1]
-
 
 def read_json(relative_path: str) -> dict:
     return json.loads((ROOT / relative_path).read_text(encoding="utf-8"))
@@ -53,6 +58,15 @@ class TestLeadpackCandidateSurface(unittest.TestCase):
             self.assertTrue(response["internal_only"])
             self.assertTrue(response["candidate_only"])
             self.assertFalse(response["external_delivery_enabled"])
+            self.assertFalse(response["leadpack_delivery_package"]["customer_visible_enabled"])
+            self.assertFalse(response["leadpack_delivery_package"]["external_delivery_enabled"])
+            self.assertEqual(response["leadpack_delivery_package"]["masking_state"], "MASKING_REQUIRED")
+            self.assertEqual(
+                response["package_page_delivery_summary"]["package"]["package_id"],
+                response["leadpack_delivery_package"]["package_id"],
+            )
+            self.assertFalse(response["leadpack_delivery_readiness_summary"]["delivery_ready"])
+            self.assertFalse(response["package_page_delivery_summary"]["page_publication_enabled"])
             self.assertTrue(response["requires_review"])
             self.assertIn(response["surface_state"], {"preview-ready", "review-required", "governed-hold", "blocked"})
             self.assertIn("approval_prerequisites_not_met", response["blocked_reasons"])

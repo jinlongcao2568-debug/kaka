@@ -44,7 +44,43 @@ from stage7_sales.crm_quote_workbench import (
     build_crm_quote_workbench_carrier,
     build_crm_quote_workbench_readiness_summary,
 )
+from stage7_sales.leadpack_delivery_package import (
+    LEADPACK_DELIVERY_PACKAGE_INPUT_KEY,
+    LEADPACK_DELIVERY_READINESS_INPUT_KEY,
+    build_leadpack_delivery_package_carrier,
+    build_leadpack_delivery_readiness_summary,
+    leadpack_delivery_package_summary,
+)
 from stage7_sales.recommendation import build_crm_quote_prerequisite_readiness_carrier
+
+
+LEADPACK_DELIVERY_PACKAGE_ROUTE_METADATA = {
+    "repository_backed_readback": True,
+    "leadpack_delivery_package_readiness": {
+        "readiness_only": False,
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "owner_operated_workbench": True,
+        "package_manifest_visible": True,
+        "evidence_item_manifest_visible": True,
+        "field_masking_summary_visible": True,
+        "page_draft_visible": True,
+        "delivery_readiness_visible": True,
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "external_release_enabled": False,
+        "page_publication_enabled": False,
+        "surface": "opportunity_pool",
+    },
+    "package_page_delivery_summary": {
+        "package_summary_visible": True,
+        "page_summary_visible": True,
+        "delivery_summary_visible": True,
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "page_publication_enabled": False,
+    },
+}
 
 
 CRM_QUOTE_PREREQUISITE_ROUTE_METADATA = {
@@ -75,6 +111,7 @@ CRM_QUOTE_PREREQUISITE_ROUTE_METADATA = {
         "external_quote_enabled": False,
         "surface": "opportunity_pool",
     },
+    **LEADPACK_DELIVERY_PACKAGE_ROUTE_METADATA,
 }
 
 FORMAL_CLIENT_EXPORT_PAGE_LAYER_ROUTE_METADATA = {
@@ -135,6 +172,7 @@ LEADPACK_CANDIDATE_ROUTE_METADATA = {
         "page_layer_release_enabled": False,
         "surface": "review_report_workbench",
     },
+    **LEADPACK_DELIVERY_PACKAGE_ROUTE_METADATA,
 }
 
 
@@ -207,15 +245,59 @@ def _attach_crm_quote_prerequisite_readback(response: dict[str, Any], payload: A
     return response
 
 
+def _attach_leadpack_delivery_package_readback(response: dict[str, Any], payload: Any) -> dict[str, Any]:
+    bundle = _resolve_stage7_bundle_for_readiness(payload)
+    if bundle is None:
+        return response
+    carrier = bundle.inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY)
+    if not isinstance(carrier, Mapping):
+        semantic_additions = bundle.inputs.get("semantic_additions")
+        if isinstance(semantic_additions, Mapping):
+            carrier = semantic_additions.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY)
+    if not isinstance(carrier, Mapping):
+        carrier = build_leadpack_delivery_package_carrier(
+            sales_lead=_stage7_record_payload(bundle, "sales_lead"),
+            saleable_opportunity=_stage7_record_payload(bundle, "saleable_opportunity"),
+            offer_recommendation=_stage7_record_payload(bundle, "offer_recommendation"),
+            buyer_fit=_stage7_record_payload(bundle, "buyer_fit"),
+            legal_action_actor_profile=_stage7_record_payload(bundle, "legal_action_actor_profile"),
+            procurement_decision_actor_profile=_stage7_record_payload(
+                bundle,
+                "procurement_decision_actor_profile",
+            ),
+            inputs=bundle.inputs,
+            stage7_resolution_trace=_stage7_trace_payload(bundle),
+            now=str(bundle.inputs.get("now") or ""),
+        )
+    response[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = dict(carrier)
+    readiness_summary = bundle.inputs.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY)
+    readiness = (
+        dict(readiness_summary)
+        if isinstance(readiness_summary, Mapping)
+        else build_leadpack_delivery_readiness_summary(carrier)
+    )
+    response[LEADPACK_DELIVERY_READINESS_INPUT_KEY] = readiness
+    response["package_page_delivery_summary"] = {
+        "package": leadpack_delivery_package_summary(carrier),
+        "readiness": readiness,
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "page_publication_enabled": False,
+    }
+    return response
+
+
 def list_saleable_opportunities(payload: Any) -> SaleableOpportunityListResponse:
-    return _attach_crm_quote_prerequisite_readback(build_stage7_preview_surface(payload), payload)
+    response = _attach_crm_quote_prerequisite_readback(build_stage7_preview_surface(payload), payload)
+    return _attach_leadpack_delivery_package_readback(response, payload)
 
 
 def refresh_saleable_opportunity(payload: Any) -> SaleableOpportunityRefreshResponse:
     persist_stage_bundle(payload)
     response = build_stage7_preview_surface(payload)
     response["refresh_requested"] = True
-    return _attach_crm_quote_prerequisite_readback(response, payload)
+    response = _attach_crm_quote_prerequisite_readback(response, payload)
+    return _attach_leadpack_delivery_package_readback(response, payload)
 
 
 def list_stage7_work_items(payload: Any) -> Stage7WorkItemListResponse:
@@ -248,7 +330,8 @@ def submit_stage7_operator_action(payload: Any) -> Stage7OperatorActionResponse:
                 "live_execution_enabled": False,
             }
         response["error"] = exc.as_payload()
-    return _attach_crm_quote_prerequisite_readback(response, payload)
+    response = _attach_crm_quote_prerequisite_readback(response, payload)
+    return _attach_leadpack_delivery_package_readback(response, payload)
 
 
 def preview_leadpack_external_delivery_candidate(payload: Any) -> LeadpackExternalDeliveryCandidateResponse:

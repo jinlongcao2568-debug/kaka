@@ -563,6 +563,7 @@ stage_module_inventory:
           - src/stage7_sales/pricing.py
           - src/stage7_sales/recommendation.py
           - src/stage7_sales/crm_quote_workbench.py
+          - src/stage7_sales/leadpack_delivery_package.py
           - src/stage7_sales/buyer_fit.py
           - src/stage7_sales/offer.py
           - src/stage7_sales/opportunity.py
@@ -577,6 +578,7 @@ stage_module_inventory:
           - src/storage/repositories/offer_recommendation_repo.py
           - src/storage/repositories/saleable_opportunity_repo.py
           - src/storage/repositories/crm_quote_workbench_repo.py
+          - src/storage/repositories/leadpack_delivery_package_repo.py
         test_files:
           - tests/test_stage7_runtime_closure.py
           - tests/test_internal_chain.py
@@ -1060,6 +1062,7 @@ modules:
       - src/stage7_sales/pricing.py
       - src/stage7_sales/recommendation.py
       - src/stage7_sales/crm_quote_workbench.py
+      - src/stage7_sales/leadpack_delivery_package.py
       - src/stage7_sales/resolution.py
       - src/stage7_sales/buyer_fit.py
       - src/stage7_sales/offer.py
@@ -1267,6 +1270,7 @@ modules:
       - src/storage/repositories/offer_recommendation_repo.py
       - src/storage/repositories/saleable_opportunity_repo.py
       - src/storage/repositories/crm_quote_workbench_repo.py
+      - src/storage/repositories/leadpack_delivery_package_repo.py
       - src/storage/repositories/contact_candidate_collection_repo.py
       - src/storage/repositories/contact_selection_trace_repo.py
       - src/storage/repositories/contact_target_repo.py

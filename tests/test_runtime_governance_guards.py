@@ -236,6 +236,15 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
             self.assertIn(reason, readiness["blocked_reasons"])
             self.assertIn(reason, readiness["why_not_live"])
         operator_summary = readiness["operator_readback_summary"]
+        package = readiness["leadpack_delivery_package"]
+        self.assertFalse(package["customer_visible_enabled"])
+        self.assertFalse(package["external_delivery_enabled"])
+        self.assertFalse(package["page_publication_enabled"])
+        self.assertFalse(readiness["delivery_readiness_summary"]["delivery_ready"])
+        self.assertIn("customer_visible_request_blocked", package["blocked_reasons"])
+        self.assertIn("external_delivery_or_direct_export_request_blocked", package["blocked_reasons"])
+        self.assertIn("page_publication_request_blocked", package["blocked_reasons"])
+        self.assertIn("external_or_live_request_blocked", package["blocked_reasons"])
         self.assertFalse(operator_summary["operator_can_enable_external_release"])
         self.assertFalse(operator_summary["operator_can_enable_customer_visible_export"])
         self.assertFalse(operator_summary["operator_can_generate_export_artifact"])

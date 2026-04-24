@@ -413,6 +413,16 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(leadpack_readiness["customer_visible_export_enabled"])
         self.assertFalse(leadpack_readiness["client_page_release_enabled"])
         self.assertFalse(leadpack_readiness["page_layer_release_enabled"])
+        package_readiness = leadpack_candidate["leadpack_delivery_package_readiness"]
+        self.assertTrue(package_readiness["owner_operated_workbench"])
+        self.assertTrue(package_readiness["package_manifest_visible"])
+        self.assertTrue(package_readiness["evidence_item_manifest_visible"])
+        self.assertTrue(package_readiness["field_masking_summary_visible"])
+        self.assertTrue(package_readiness["page_draft_visible"])
+        self.assertTrue(package_readiness["delivery_readiness_visible"])
+        self.assertFalse(package_readiness["customer_visible_enabled"])
+        self.assertFalse(package_readiness["external_delivery_enabled"])
+        self.assertFalse(package_readiness["page_publication_enabled"])
         for operation_id in (
             "requestLeadpackExternalDeliveryCandidateReview",
             "simulateLeadpackExternalDeliveryExport",
@@ -436,6 +446,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertTrue(operation["projection_only"], operation_id)
             self.assertTrue(operation["release_blocked"], operation_id)
             self.assertIn("formal_client_export_page_layer_readiness", operation, operation_id)
+            self.assertIn("leadpack_delivery_package_readiness", operation, operation_id)
+            self.assertIn("package_page_delivery_summary", operation, operation_id)
 
         entry_strategy = bootstrap["entry_strategy"]
         self.assertFalse(entry_strategy["stage1_to_stage5"]["http_entry_enabled"])
@@ -808,6 +820,17 @@ class TestApiTransportBootstrap(unittest.TestCase):
             payload["crm_quote_workbench_readiness_summary"]["crm_action_id"],
             stage7.inputs["crm_quote_workbench"]["crm_action_id"],
         )
+        self.assertEqual(
+            payload["leadpack_delivery_package"]["package_id"],
+            stage7.inputs["leadpack_delivery_package"]["package_id"],
+        )
+        self.assertEqual(
+            payload["leadpack_delivery_readiness_summary"]["page_draft_id"],
+            stage7.inputs["leadpack_delivery_package"]["page_draft_id"],
+        )
+        self.assertFalse(payload["leadpack_delivery_package"]["customer_visible_enabled"])
+        self.assertFalse(payload["leadpack_delivery_package"]["external_delivery_enabled"])
+        self.assertFalse(payload["package_page_delivery_summary"]["page_publication_enabled"])
 
     def test_stage7_crm_quote_readiness_metadata_is_non_live_in_bootstrap_and_readback(self) -> None:
         app = create_app()
@@ -836,6 +859,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(workbench_metadata["governed_execution_mode"], "INTERNAL_GOVERNED")
         self.assertFalse(workbench_metadata["live_execution_enabled"])
         self.assertFalse(workbench_metadata["real_external_quote_sent"])
+        package_metadata = mounted_by_id["listSaleableOpportunities"]["leadpack_delivery_package_readiness"]
+        self.assertTrue(package_metadata["repository_backed_readback"])
+        self.assertTrue(package_metadata["package_manifest_visible"])
+        self.assertTrue(package_metadata["page_draft_visible"])
+        self.assertFalse(package_metadata["customer_visible_enabled"])
+        self.assertFalse(package_metadata["external_delivery_enabled"])
 
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
         stage7 = result["stage7"]
@@ -867,6 +896,11 @@ class TestApiTransportBootstrap(unittest.TestCase):
             body["crm_quote_workbench_readiness_summary"]["quote_draft_id"],
             stage7.inputs["crm_quote_workbench"]["quote_draft_id"],
         )
+        self.assertEqual(
+            body["leadpack_delivery_package"]["artifact_manifest_id"],
+            stage7.inputs["leadpack_delivery_package"]["artifact_manifest_id"],
+        )
+        self.assertFalse(body["leadpack_delivery_readiness_summary"]["delivery_ready"])
 
     def test_stage8_http_transport_reads_repository_backed_preview(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
