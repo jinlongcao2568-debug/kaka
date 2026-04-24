@@ -38,6 +38,12 @@ from storage.repository_boundary import (
 )
 from shared.contracts_runtime import StageBundle
 from shared.utils import resolve_bundle
+from stage7_sales.crm_quote_workbench import (
+    CRM_QUOTE_WORKBENCH_INPUT_KEY,
+    CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
+    build_crm_quote_workbench_carrier,
+    build_crm_quote_workbench_readiness_summary,
+)
 from stage7_sales.recommendation import build_crm_quote_prerequisite_readiness_carrier
 
 
@@ -55,6 +61,18 @@ CRM_QUOTE_PREREQUISITE_ROUTE_METADATA = {
         "external_quote_enabled": False,
         "external_delivery_enabled": False,
         "governed_execution_mode": "INTERNAL_GOVERNED",
+        "surface": "opportunity_pool",
+    },
+    "crm_quote_workbench_readiness": {
+        "readiness_only": True,
+        "draft_only": True,
+        "blocked_live": True,
+        "repository_backed_readback": True,
+        "governed_execution_mode": "INTERNAL_GOVERNED",
+        "live_execution_enabled": False,
+        "real_external_quote_sent": False,
+        "crm_runtime_enabled": False,
+        "external_quote_enabled": False,
         "surface": "opportunity_pool",
     },
 }
@@ -165,6 +183,27 @@ def _attach_crm_quote_prerequisite_readback(response: dict[str, Any], payload: A
             stage7_resolution_trace=_stage7_trace_payload(bundle),
         )
     response["crm_quote_prerequisite_readiness"] = dict(carrier)
+    workbench = bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
+    if not isinstance(workbench, Mapping):
+        semantic_additions = bundle.inputs.get("semantic_additions")
+        if isinstance(semantic_additions, Mapping):
+            workbench = semantic_additions.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
+    if not isinstance(workbench, Mapping):
+        workbench = build_crm_quote_workbench_carrier(
+            sales_lead=_stage7_record_payload(bundle, "sales_lead"),
+            saleable_opportunity=_stage7_record_payload(bundle, "saleable_opportunity"),
+            offer_recommendation=_stage7_record_payload(bundle, "offer_recommendation"),
+            inputs=bundle.inputs,
+            stage7_resolution_trace=_stage7_trace_payload(bundle),
+            now=str(bundle.inputs.get("now") or ""),
+        )
+    response[CRM_QUOTE_WORKBENCH_INPUT_KEY] = dict(workbench)
+    readiness_summary = bundle.inputs.get(CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY)
+    response[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = (
+        dict(readiness_summary)
+        if isinstance(readiness_summary, Mapping)
+        else build_crm_quote_workbench_readiness_summary(workbench)
+    )
     return response
 
 

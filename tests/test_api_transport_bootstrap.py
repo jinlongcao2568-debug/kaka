@@ -798,6 +798,16 @@ class TestApiTransportBootstrap(unittest.TestCase):
             payload["formal_object_refs"]["buyer_fit"]["object_id"],
             stage7.record("buyer_fit").get("buyer_fit_id"),
         )
+        self.assertEqual(
+            payload["crm_quote_workbench"]["quote_draft_id"],
+            stage7.inputs["crm_quote_workbench"]["quote_draft_id"],
+        )
+        self.assertFalse(payload["crm_quote_workbench"]["live_execution_enabled"])
+        self.assertFalse(payload["crm_quote_workbench"]["real_external_quote_sent"])
+        self.assertEqual(
+            payload["crm_quote_workbench_readiness_summary"]["crm_action_id"],
+            stage7.inputs["crm_quote_workbench"]["crm_action_id"],
+        )
 
     def test_stage7_crm_quote_readiness_metadata_is_non_live_in_bootstrap_and_readback(self) -> None:
         app = create_app()
@@ -818,6 +828,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(mounted_by_id["listSaleableOpportunities"]["external_quote_enabled"])
         self.assertFalse(mounted_by_id["listSaleableOpportunities"]["external_delivery_enabled"])
         self.assertTrue(mounted_by_id["listSaleableOpportunities"]["readiness_only"])
+        workbench_metadata = mounted_by_id["listSaleableOpportunities"]["crm_quote_workbench_readiness"]
+        self.assertTrue(workbench_metadata["readiness_only"])
+        self.assertTrue(workbench_metadata["draft_only"])
+        self.assertTrue(workbench_metadata["blocked_live"])
+        self.assertTrue(workbench_metadata["repository_backed_readback"])
+        self.assertEqual(workbench_metadata["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertFalse(workbench_metadata["live_execution_enabled"])
+        self.assertFalse(workbench_metadata["real_external_quote_sent"])
 
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
         stage7 = result["stage7"]
@@ -837,6 +855,17 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(
             carrier["source_object_refs"]["saleable_opportunity"]["object_id"],
             stage7.record("saleable_opportunity").get("opportunity_id"),
+        )
+        body = response.json()
+        self.assertEqual(
+            body["crm_quote_workbench"]["quote_draft_id"],
+            stage7.inputs["crm_quote_workbench"]["quote_draft_id"],
+        )
+        self.assertFalse(body["crm_quote_workbench"]["live_execution_enabled"])
+        self.assertFalse(body["crm_quote_workbench"]["real_external_quote_sent"])
+        self.assertEqual(
+            body["crm_quote_workbench_readiness_summary"]["quote_draft_id"],
+            stage7.inputs["crm_quote_workbench"]["quote_draft_id"],
         )
 
     def test_stage8_http_transport_reads_repository_backed_preview(self) -> None:

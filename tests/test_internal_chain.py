@@ -1170,6 +1170,16 @@ class TestInternalChain(unittest.TestCase):
             stage7.inputs.get("winning_challenger_profile_id_optional"),
             stage7.record("saleable_opportunity").get("challenger_profile_id"),
         )
+        self.assertEqual(
+            stage7.inputs["crm_quote_workbench"]["opportunity_id"],
+            stage7.record("saleable_opportunity").get("opportunity_id"),
+        )
+        self.assertEqual(
+            stage7.inputs["crm_quote_workbench"]["quote_draft"]["offer_recommendation_id"],
+            stage7.record("offer_recommendation").get("offer_recommendation_id"),
+        )
+        self.assertFalse(stage7.inputs["crm_quote_workbench"]["live_execution_enabled"])
+        self.assertFalse(stage7.inputs["crm_quote_workbench"]["real_external_quote_sent"])
 
     def test_stage8_blocks_when_stage7_required_fields_are_missing(self) -> None:
         result = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))

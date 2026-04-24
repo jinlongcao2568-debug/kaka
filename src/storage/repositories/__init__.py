@@ -3,6 +3,7 @@ from storage.repositories.challenger_candidate_profile_repo import ChallengerCan
 from storage.repositories.contact_candidate_collection_repo import ContactCandidateCollectionRepository
 from storage.repositories.contact_selection_trace_repo import ContactSelectionTraceRepository
 from storage.repositories.contact_target_repo import ContactTargetRepository
+from storage.repositories.crm_quote_workbench_repo import CRMQuoteWorkbenchRepository
 from storage.repositories.delivery_record_repo import DeliveryRecordRepository
 from storage.repositories.governance_feedback_event_repo import GovernanceFeedbackEventRepository
 from storage.repositories.legal_action_actor_profile_repo import LegalActionActorProfileRepository
@@ -28,6 +29,7 @@ __all__ = [
     "ContactCandidateCollectionRepository",
     "ContactSelectionTraceRepository",
     "ContactTargetRepository",
+    "CRMQuoteWorkbenchRepository",
     "DeliveryRecordRepository",
     "GovernanceFeedbackEventRepository",
     "LegalActionActorProfileRepository",

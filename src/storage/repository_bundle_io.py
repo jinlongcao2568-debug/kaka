@@ -4,6 +4,13 @@ from typing import Any, Mapping
 
 from shared.contracts_runtime import ContractRecord, StageBundle
 
+from stage7_sales.crm_quote_workbench import (
+    CRM_ACTION_ID_INPUT_KEY,
+    CRM_QUOTE_WORKBENCH_INPUT_KEY,
+    CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
+    QUOTE_DRAFT_ID_INPUT_KEY,
+    build_crm_quote_workbench_readiness_summary,
+)
 from stage8_outreach.execution_outbox import (
     OUTBOX_ID_INPUT_KEY,
     OUTBOX_READINESS_INPUT_KEY,
@@ -17,6 +24,7 @@ from storage.repositories import (
     ContactCandidateCollectionRepository,
     ContactSelectionTraceRepository,
     ContactTargetRepository,
+    CRMQuoteWorkbenchRepository,
     DeliveryRecordRepository,
     GovernanceFeedbackEventRepository,
     LegalActionActorProfileRepository,
@@ -58,6 +66,8 @@ _STAGE6_TYPED_REF_KEYS = (
     "action_id",
     "private_supplement_record_id_optional",
 )
+_STAGE7_HANDOFF_SNAPSHOT_KEY = "_stage7_handoff_snapshot"
+_STAGE7_TRACE_RULES_SNAPSHOT_KEY = "_stage7_trace_rules_snapshot"
 _STAGE8_HANDOFF_SNAPSHOT_KEY = "_stage8_handoff_snapshot"
 _STAGE8_TRACE_RULES_SNAPSHOT_KEY = "_stage8_trace_rules_snapshot"
 _STAGE9_HANDOFF_SNAPSHOT_KEY = "_stage9_handoff_snapshot"
@@ -353,9 +363,32 @@ def persist_stage7_bundle(bundle: StageBundle) -> StageBundle:
         stage_scope=7,
         payload=bundle.record("multi_competitor_collection").data,
     )
-    _save_stage_state(bundle)
-    _sync_stage_operational_loop(bundle)
-    return bundle
+    workbench_payload = _stage7_crm_quote_workbench_payload(bundle)
+    if workbench_payload:
+        CRMQuoteWorkbenchRepository().save(workbench_payload)
+    persisted_bundle = _stage7_bundle_with_persistence_snapshots(bundle)
+    _save_stage_state(persisted_bundle)
+    _sync_stage_operational_loop(persisted_bundle)
+    return persisted_bundle
+
+
+def _stage7_crm_quote_workbench_payload(bundle: StageBundle) -> dict[str, Any]:
+    snapshot = bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
+    return dict(snapshot) if isinstance(snapshot, Mapping) else {}
+
+
+def _stage7_bundle_with_persistence_snapshots(bundle: StageBundle) -> StageBundle:
+    inputs = dict(bundle.inputs)
+    inputs[_STAGE7_HANDOFF_SNAPSHOT_KEY] = dict(bundle.handoff)
+    if bundle.trace_rules:
+        inputs[_STAGE7_TRACE_RULES_SNAPSHOT_KEY] = list(bundle.trace_rules)
+    return StageBundle(
+        stage=bundle.stage,
+        records=dict(bundle.records),
+        handoff=dict(bundle.handoff),
+        trace_rules=list(bundle.trace_rules),
+        inputs=inputs,
+    )
 
 
 def _stage8_carrier_payload(
@@ -443,6 +476,67 @@ def persist_stage9_bundle(bundle: StageBundle) -> StageBundle:
     return persisted_bundle
 
 
+def _hydrate_stage7_crm_quote_workbench(
+    *,
+    stage_inputs: Mapping[str, Any],
+    persisted_refs: Mapping[str, Any] | None,
+    opportunity_refs: Mapping[str, Any],
+    work_item_refs: Mapping[str, Any] | None,
+) -> tuple[dict[str, Any] | None, bool]:
+    crm_action_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        opportunity_refs,
+        work_item_refs,
+        keys=("crm_action_id", CRM_ACTION_ID_INPUT_KEY),
+    )
+    quote_draft_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        opportunity_refs,
+        work_item_refs,
+        keys=("quote_draft_id", QUOTE_DRAFT_ID_INPUT_KEY),
+    )
+    repository = CRMQuoteWorkbenchRepository()
+    record = repository.get_by_id(crm_action_id) if crm_action_id else None
+    if record is None and quote_draft_id:
+        record = repository.get_by_quote_draft_id(quote_draft_id)
+    if record is None:
+        if crm_action_id or quote_draft_id:
+            return None, True
+        snapshot = stage_inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
+        return (dict(snapshot), False) if isinstance(snapshot, Mapping) else (None, False)
+
+    payload = record.as_payload()
+    if quote_draft_id and str(payload.get("quote_draft_id", "")).strip() != quote_draft_id:
+        return None, True
+    return payload, False
+
+
+def _restore_stage7_crm_quote_workbench(
+    *,
+    stage_inputs: dict[str, Any],
+    handoff: dict[str, Any],
+    workbench: Mapping[str, Any] | None,
+) -> None:
+    if not workbench:
+        return
+    workbench_payload = dict(workbench)
+    readiness_summary = build_crm_quote_workbench_readiness_summary(workbench_payload)
+    stage_inputs[CRM_QUOTE_WORKBENCH_INPUT_KEY] = workbench_payload
+    stage_inputs[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = readiness_summary
+    stage_inputs[CRM_ACTION_ID_INPUT_KEY] = str(workbench_payload.get("crm_action_id"))
+    stage_inputs[QUOTE_DRAFT_ID_INPUT_KEY] = str(workbench_payload.get("quote_draft_id"))
+    handoff["crm_quote_workbench_optional"] = workbench_payload
+    handoff[CRM_ACTION_ID_INPUT_KEY] = str(workbench_payload.get("crm_action_id"))
+    handoff[QUOTE_DRAFT_ID_INPUT_KEY] = str(workbench_payload.get("quote_draft_id"))
+    resolution_trace = stage_inputs.get("stage7_resolution_trace")
+    if isinstance(resolution_trace, Mapping):
+        resolution_trace_payload = dict(resolution_trace)
+        resolution_trace_payload[CRM_QUOTE_WORKBENCH_INPUT_KEY] = workbench_payload
+        stage_inputs["stage7_resolution_trace"] = resolution_trace_payload
+
+
 def hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     opportunity_id = str(payload.get("opportunity_id", "")).strip()
     if not opportunity_id:
@@ -509,6 +603,22 @@ def hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
     )
     if not all((buyer_fit, offer, legal_actor, procurement_actor, multi_competitor_collection, stage_state)):
         return None
+    workbench_payload, workbench_stale = _hydrate_stage7_crm_quote_workbench(
+        stage_inputs=stage_inputs,
+        persisted_refs=persisted_refs,
+        opportunity_refs=opportunity.object_refs,
+        work_item_refs=work_item.object_refs if work_item is not None else None,
+    )
+    if workbench_stale:
+        return None
+    trace_rules = list(stage_inputs.pop(_STAGE7_TRACE_RULES_SNAPSHOT_KEY, []))
+    handoff_snapshot = stage_inputs.pop(_STAGE7_HANDOFF_SNAPSHOT_KEY, None)
+    handoff = dict(handoff_snapshot) if isinstance(handoff_snapshot, Mapping) else {}
+    _restore_stage7_crm_quote_workbench(
+        stage_inputs=stage_inputs,
+        handoff=handoff,
+        workbench=workbench_payload,
+    )
 
     return StageBundle(
         stage=7,
@@ -526,7 +636,8 @@ def hydrate_stage7_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
                 multi_competitor_collection.as_payload(),
             ),
         },
-        handoff={},
+        handoff=handoff,
+        trace_rules=trace_rules,
         inputs=stage_inputs,
     )
 

@@ -50,6 +50,27 @@ class Stage7CrmQuotePrerequisiteReadiness(TypedDict, total=False):
     operator_readback_summary: dict[str, Any]
 
 
+class Stage7CrmQuoteWorkbenchCarrier(TypedDict, total=False):
+    opportunity_id: str
+    project_id: str
+    crm_action_id: str
+    quote_draft_id: str
+    owner_action_state: str
+    approval_state: str
+    audit_state: str
+    vendor_adapter_state: dict[str, Any]
+    quote_surface_state: str
+    dry_run_state: str
+    live_execution_enabled: bool
+    real_external_quote_sent: bool
+    real_crm_receipt_generated: bool
+    customer_visible_quote_generated: bool
+    customer_visible_delivery_package_generated: bool
+    blocked_reasons: list[str]
+    governed_execution_mode: str
+    readiness_summary: dict[str, Any]
+
+
 class OperationalAssignment(TypedDict, total=False):
     assignment_profile_id: str
     assignment_lifecycle_state: str
@@ -153,6 +174,8 @@ class Stage7Response(TypedDict, total=False):
     formal_object_refs: dict[str, FormalObjectRef]
     preview_projection: Stage7PreviewProjection
     crm_quote_prerequisite_readiness: Stage7CrmQuotePrerequisiteReadiness
+    crm_quote_workbench: Stage7CrmQuoteWorkbenchCarrier
+    crm_quote_workbench_readiness_summary: dict[str, Any]
     trace_refs: dict[str, Any]
     operational_loop_persisted: bool
     operational_context_status: str
@@ -496,6 +519,7 @@ __all__ = [
     "SaleableOpportunityRefreshResponse",
     "PendingButtonFlow",
     "Stage7CrmQuotePrerequisiteReadiness",
+    "Stage7CrmQuoteWorkbenchCarrier",
     "Stage7OperatorActionRequest",
     "Stage7OperatorActionResponse",
     "Stage7PreviewProjection",

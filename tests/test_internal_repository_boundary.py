@@ -31,6 +31,7 @@ from storage.repositories import (
     ContactCandidateCollectionRepository,
     ContactSelectionTraceRepository,
     ContactTargetRepository,
+    CRMQuoteWorkbenchRepository,
     DeliveryRecordRepository,
     GovernanceFeedbackEventRepository,
     LegalActionActorProfileRepository,
@@ -444,17 +445,24 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         refresh_saleable_opportunity(stage7)
 
         opportunity = stage7.record("saleable_opportunity")
+        workbench = stage7.inputs["crm_quote_workbench"]
         opportunity_entry = SaleableOpportunityRepository().get_by_id(opportunity.get("opportunity_id"))
         offer_entry = OfferRecommendationRepository().find_one_by_field("project_id", opportunity.get("project_id"))
         buyer_entry = BuyerFitRepository().get_by_id(opportunity.get("buyer_fit_id"))
+        workbench_entry = CRMQuoteWorkbenchRepository().get_by_id(workbench["crm_action_id"])
 
         self.assertIsNotNone(opportunity_entry)
         self.assertIsNotNone(offer_entry)
         self.assertIsNotNone(buyer_entry)
+        self.assertIsNotNone(workbench_entry)
         self.assertEqual(opportunity_entry.stage_scope, 7)
+        self.assertEqual(workbench_entry.stage_scope, 7)
         self.assertEqual(opportunity_entry.payload["saleability_status"], opportunity.get("saleability_status"))
         self.assertEqual(offer_entry.payload["offer_recommendation_state"], stage7.record("offer_recommendation").get("offer_recommendation_state"))
         self.assertEqual(buyer_entry.payload["fit_score"], stage7.record("buyer_fit").get("fit_score"))
+        self.assertEqual(workbench_entry.payload["quote_draft_id"], workbench["quote_draft_id"])
+        self.assertFalse(workbench_entry.payload["live_execution_enabled"])
+        self.assertFalse(workbench_entry.payload["real_external_quote_sent"])
 
         replay = list_saleable_opportunities({"opportunity_id": opportunity.get("opportunity_id")})
         self.assertEqual(
@@ -497,6 +505,14 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             replay["persisted_operational_context"]["object_refs"]["winning_competitor_candidate_id_optional"],
             stage7.record("multi_competitor_collection").get("winning_candidate_id"),
         )
+        self.assertEqual(
+            replay["crm_quote_workbench"]["crm_action_id"],
+            workbench["crm_action_id"],
+        )
+        self.assertEqual(
+            replay["crm_quote_workbench_readiness_summary"]["quote_draft_id"],
+            workbench["quote_draft_id"],
+        )
         hydrated = hydrate_stage_bundle(
             "stage7",
             {"opportunity_id": opportunity.get("opportunity_id")},
@@ -509,6 +525,10 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             hydrated.inputs["offer_recommendation_id"],
             stage7.record("offer_recommendation").get("offer_recommendation_id"),
+        )
+        self.assertEqual(
+            hydrated.inputs["crm_quote_workbench"]["quote_draft_id"],
+            workbench["quote_draft_id"],
         )
 
     def test_stage8_repository_boundary_keeps_governed_writeback_state(self) -> None:
@@ -905,6 +925,40 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
                 "offer_recommendation_id": "OFFER-STALE-TYPED-REF-001",
                 "legal_action_actor_id": "LEGAL-ACTOR-STALE-TYPED-REF-001",
                 "procurement_decision_actor_id": "PROC-ACTOR-STALE-TYPED-REF-001",
+            }
+        )
+        DatabaseSession.default().upsert_stage_state(
+            PersistedStageState(
+                stage_scope=stage_state.stage_scope,
+                project_id=stage_state.project_id,
+                surface_id=stage_state.surface_id,
+                root_object_type=stage_state.root_object_type,
+                root_record_id=stage_state.root_record_id,
+                inputs=dict(stage_state.inputs),
+                persisted_at=stage_state.persisted_at,
+                typed_object_refs=stale_typed_refs,
+            )
+        )
+
+        hydrated = hydrate_stage_bundle("stage7", {"opportunity_id": opportunity_id})
+
+        self.assertIsNone(hydrated)
+        with self.assertRaises(TypeError):
+            list_saleable_opportunities({"opportunity_id": opportunity_id})
+
+    def test_stage7_crm_quote_workbench_readback_does_not_fallback_when_typed_ref_is_stale(self) -> None:
+        stage7 = self.result["stage7"]
+        refresh_saleable_opportunity(stage7)
+
+        opportunity_id = stage7.record("saleable_opportunity").get("opportunity_id")
+        stage_state = DatabaseSession.default().get_stage_state(7, "opportunity_pool", opportunity_id)
+        self.assertIsNotNone(stage_state)
+
+        stale_typed_refs = dict(stage_state.typed_object_refs)
+        stale_typed_refs.update(
+            {
+                "crm_action_id": "CRMACT-STALE-TYPED-REF-001",
+                "quote_draft_id": "QDRAFT-STALE-TYPED-REF-001",
             }
         )
         DatabaseSession.default().upsert_stage_state(

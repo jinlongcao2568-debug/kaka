@@ -62,6 +62,8 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "crm_runtime_enabled",
     "external_quote_enabled",
     "crm_quote_prerequisite_readiness",
+    "crm_quote_workbench_readiness",
+    "crm_quote_workbench_readiness_summary",
     "leadpack_external_delivery_candidate_readiness",
     "formal_client_export_page_layer_readiness",
     "accepted_payload_boundary",

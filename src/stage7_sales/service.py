@@ -7,6 +7,14 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from stage7_sales.crm_quote_workbench import (
+    CRM_ACTION_ID_INPUT_KEY,
+    CRM_QUOTE_WORKBENCH_INPUT_KEY,
+    CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
+    QUOTE_DRAFT_ID_INPUT_KEY,
+    build_crm_quote_workbench_carrier,
+    build_crm_quote_workbench_readiness_summary,
+)
 from stage7_sales.pricing import build_price_resolution_trace, resolve_price_projection
 from stage7_sales.recommendation import (
     build_crm_quote_prerequisite_readiness_carrier,
@@ -654,10 +662,29 @@ class Stage7Service:
             offer_recommendation=offer_recommendation,
             stage7_resolution_trace=stage7_resolution_trace,
         )
+        crm_quote_workbench = build_crm_quote_workbench_carrier(
+            sales_lead=sales_lead,
+            saleable_opportunity=saleable_opportunity,
+            offer_recommendation=offer_recommendation,
+            inputs=inputs,
+            stage7_resolution_trace=stage7_resolution_trace,
+            now=now,
+        )
+        crm_quote_workbench_readiness_summary = build_crm_quote_workbench_readiness_summary(
+            crm_quote_workbench
+        )
         stage7_resolution_trace["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
+        stage7_resolution_trace[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
         inputs_out["stage7_resolution_trace"] = stage7_resolution_trace
         inputs_out["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
+        inputs_out[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
+        inputs_out[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = crm_quote_workbench_readiness_summary
+        inputs_out[CRM_ACTION_ID_INPUT_KEY] = crm_quote_workbench.get("crm_action_id")
+        inputs_out[QUOTE_DRAFT_ID_INPUT_KEY] = crm_quote_workbench.get("quote_draft_id")
         handoff["crm_quote_prerequisite_readiness_optional"] = crm_quote_prerequisite_readiness
+        handoff["crm_quote_workbench_optional"] = crm_quote_workbench
+        handoff[CRM_ACTION_ID_INPUT_KEY] = crm_quote_workbench.get("crm_action_id")
+        handoff[QUOTE_DRAFT_ID_INPUT_KEY] = crm_quote_workbench.get("quote_draft_id")
         inputs_out["commercial_urgency_level_optional"] = inputs.get(
             "commercial_urgency_level_optional",
             "CRITICAL" if runtime_state.resolve("window_urgency_score", 0) >= 90 else "HIGH" if runtime_state.resolve("window_urgency_score", 0) >= 80 else "NORMAL",
@@ -688,6 +715,8 @@ class Stage7Service:
         inputs_out["semantic_decision_state"] = semantic_state.semantic_decision_state
         semantic_additions = dict(semantic_state.semantic_additions)
         semantic_additions["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
+        semantic_additions[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
+        semantic_additions[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = crm_quote_workbench_readiness_summary
         inputs_out["semantic_additions"] = semantic_additions
 
         return StageBundle(

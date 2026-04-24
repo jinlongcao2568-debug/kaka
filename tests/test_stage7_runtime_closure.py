@@ -621,6 +621,7 @@ class TestStage7RuntimeClosure(unittest.TestCase):
     def test_stage7_crm_quote_prerequisite_readiness_carrier_is_internal_non_live(self) -> None:
         stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
         carrier = stage7.inputs["crm_quote_prerequisite_readiness"]
+        workbench = stage7.inputs["crm_quote_workbench"]
 
         self.assertEqual(carrier["crm_prerequisite_state"], "RESERVED_NOT_LIVE")
         self.assertEqual(carrier["quote_prerequisite_state"], "RESERVED_NOT_LIVE")
@@ -669,6 +670,69 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertFalse(operator_summary["operator_can_enable_crm_runtime"])
         self.assertFalse(operator_summary["operator_can_generate_external_quote"])
         self.assertFalse(operator_summary["operator_can_deliver_external"])
+
+        self.assertEqual(
+            workbench["opportunity_id"],
+            stage7.record("saleable_opportunity").get("opportunity_id"),
+        )
+        self.assertTrue(workbench["crm_action_id"].startswith("CRMACT-"))
+        self.assertTrue(workbench["quote_draft_id"].startswith("QDRAFT-"))
+        self.assertEqual(workbench["owner_action_state"], "DRAFT")
+        self.assertEqual(workbench["approval_state"], "NOT_REQUIRED")
+        self.assertEqual(workbench["audit_state"], "MISSING")
+        self.assertEqual(workbench["vendor_adapter_state"]["state"], "READY")
+        self.assertEqual(workbench["quote_surface_state"], "DRAFT")
+        self.assertEqual(workbench["dry_run_state"], "INTERNAL_DRY_RUN_CARRIER_ONLY")
+        self.assertEqual(workbench["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertFalse(workbench["live_execution_enabled"])
+        self.assertFalse(workbench["real_external_quote_sent"])
+        self.assertFalse(workbench["real_crm_receipt_generated"])
+        self.assertFalse(workbench["customer_visible_quote_generated"])
+        self.assertFalse(workbench["customer_visible_delivery_package_generated"])
+        self.assertIn("real_crm_receipt_not_generated", workbench["blocked_reasons"])
+        self.assertIn("customer_facing_quote_not_generated", workbench["blocked_reasons"])
+        self.assertEqual(stage7.handoff["crm_quote_workbench_optional"], workbench)
+        self.assertEqual(stage7.handoff["crm_action_id_optional"], workbench["crm_action_id"])
+        self.assertEqual(stage7.handoff["quote_draft_id_optional"], workbench["quote_draft_id"])
+        self.assertEqual(
+            stage7.inputs["stage7_resolution_trace"]["crm_quote_workbench"],
+            workbench,
+        )
+        self.assertEqual(
+            stage7.inputs["crm_quote_workbench_readiness_summary"]["quote_draft_id"],
+            workbench["quote_draft_id"],
+        )
+
+    def test_stage7_crm_quote_workbench_explains_approval_audit_and_vendor_blocks(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "approval_state": "PENDING",
+                "audit_trail_present": False,
+                "crm_vendor_id_optional": "CRM-UNKNOWN-VENDOR",
+                "external_quote_enabled": True,
+                "crm_runtime_enabled": True,
+                "live_execution_enabled": True,
+            }
+        )
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+        workbench = stage7.inputs["crm_quote_workbench"]
+
+        self.assertEqual(workbench["owner_action_state"], "BLOCKED")
+        self.assertEqual(workbench["approval_state"], "PENDING")
+        self.assertEqual(workbench["audit_state"], "MISSING")
+        self.assertEqual(workbench["vendor_adapter_state"]["state"], "BLOCKED")
+        self.assertEqual(workbench["vendor_adapter_state"]["resolved_from"], "EXPLICIT_UNKNOWN_VENDOR")
+        self.assertEqual(workbench["quote_surface_state"], "BLOCKED")
+        self.assertFalse(workbench["live_execution_enabled"])
+        self.assertFalse(workbench["real_external_quote_sent"])
+        self.assertIn("approval_state=PENDING", workbench["blocked_reasons"])
+        self.assertIn("audit_ref_missing", workbench["blocked_reasons"])
+        self.assertIn("crm_vendor_not_in_registry", workbench["blocked_reasons"])
+        self.assertIn("external_quote_request_blocked", workbench["blocked_reasons"])
+        self.assertIn("live_crm_request_blocked", workbench["blocked_reasons"])
+        self.assertIn("live_execution_requested_but_blocked", workbench["blocked_reasons"])
 
 
 if __name__ == "__main__":

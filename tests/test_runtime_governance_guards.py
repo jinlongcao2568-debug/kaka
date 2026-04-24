@@ -141,6 +141,7 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
 
         stage7 = run_internal_chain(payload)["stage7"]
         carrier = stage7.inputs["crm_quote_prerequisite_readiness"]
+        workbench = stage7.inputs["crm_quote_workbench"]
 
         self.assertEqual(carrier["governed_execution_mode"], "INTERNAL_GOVERNED")
         self.assertEqual(carrier["crm_prerequisite_state"], "RESERVED_NOT_LIVE")
@@ -155,6 +156,15 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertFalse(carrier["operator_readback_summary"]["operator_can_enable_crm_runtime"])
         self.assertFalse(carrier["operator_readback_summary"]["operator_can_generate_external_quote"])
         self.assertFalse(carrier["operator_readback_summary"]["operator_can_deliver_external"])
+        self.assertEqual(workbench["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertEqual(workbench["owner_action_state"], "BLOCKED")
+        self.assertEqual(workbench["quote_surface_state"], "BLOCKED")
+        self.assertFalse(workbench["live_execution_enabled"])
+        self.assertFalse(workbench["real_external_quote_sent"])
+        self.assertFalse(workbench["real_crm_receipt_generated"])
+        self.assertIn("live_crm_request_blocked", workbench["blocked_reasons"])
+        self.assertIn("external_quote_request_blocked", workbench["blocked_reasons"])
+        self.assertIn("live_execution_requested_but_blocked", workbench["blocked_reasons"])
 
     def test_leadpack_candidate_external_delivery_requests_remain_readback_only(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

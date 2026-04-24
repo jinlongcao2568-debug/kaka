@@ -5,6 +5,12 @@ from typing import Any, Mapping
 from shared.contract_loader import load_contract
 from shared.contracts_runtime import ContractStore, StageBundle
 
+from stage7_sales.crm_quote_workbench import (
+    CRM_ACTION_ID_INPUT_KEY,
+    CRM_QUOTE_WORKBENCH_INPUT_KEY,
+    CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
+    QUOTE_DRAFT_ID_INPUT_KEY,
+)
 from storage.db import (
     DatabaseSession,
     PersistedOperatorAction,
@@ -62,6 +68,14 @@ STAGE_INPUT_FIELDS = {
         "multi_competitor_collection_id_optional",
         "winning_competitor_candidate_id_optional",
         "winning_challenger_profile_id_optional",
+        "stage7_resolution_trace",
+        "crm_quote_prerequisite_readiness",
+        CRM_QUOTE_WORKBENCH_INPUT_KEY,
+        CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
+        CRM_ACTION_ID_INPUT_KEY,
+        QUOTE_DRAFT_ID_INPUT_KEY,
+        "_stage7_handoff_snapshot",
+        "_stage7_trace_rules_snapshot",
     ),
     8: (
         "policy_trace",
@@ -1207,6 +1221,19 @@ def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
             if value not in (None, "", "UNKNOWN")
         }
     refs = _repository_context_projection_module().bundle_object_refs(bundle)
+    if bundle.stage == 7:
+        workbench = bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
+        if isinstance(workbench, Mapping):
+            crm_action_id = workbench.get("crm_action_id") or bundle.inputs.get(CRM_ACTION_ID_INPUT_KEY)
+            quote_draft_id = workbench.get("quote_draft_id") or bundle.inputs.get(QUOTE_DRAFT_ID_INPUT_KEY)
+            for key, value in {
+                "crm_action_id": crm_action_id,
+                CRM_ACTION_ID_INPUT_KEY: crm_action_id,
+                "quote_draft_id": quote_draft_id,
+                QUOTE_DRAFT_ID_INPUT_KEY: quote_draft_id,
+            }.items():
+                if value not in (None, "", "UNKNOWN"):
+                    refs[key] = str(value)
     if bundle.stage == 8:
         refs.update(_stage8_carrier_refs(bundle))
     return refs
@@ -1320,6 +1347,25 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
         supplement_summary = bundle.inputs.get("private_supplement_carrier_summary")
         if isinstance(supplement_summary, Mapping):
             governed_context["private_supplement_carrier_summary"] = dict(supplement_summary)
+    if bundle.stage == 7:
+        workbench = bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
+        if isinstance(workbench, Mapping):
+            governed_context["crm_quote_workbench_summary"] = {
+                "crm_action_id": workbench.get("crm_action_id"),
+                "quote_draft_id": workbench.get("quote_draft_id"),
+                "owner_action_state": workbench.get("owner_action_state"),
+                "approval_state": workbench.get("approval_state"),
+                "audit_state": workbench.get("audit_state"),
+                "quote_surface_state": workbench.get("quote_surface_state"),
+                "dry_run_state": workbench.get("dry_run_state"),
+                "live_execution_enabled": bool(workbench.get("live_execution_enabled", False)),
+                "real_external_quote_sent": bool(workbench.get("real_external_quote_sent", False)),
+                "governed_execution_mode": workbench.get("governed_execution_mode"),
+                "blocked_reasons": list(workbench.get("blocked_reasons", [])),
+            }
+            readiness = bundle.inputs.get(CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY)
+            if isinstance(readiness, Mapping):
+                governed_context["crm_quote_workbench_readiness_summary"] = dict(readiness)
     if bundle.stage == 8:
         collection = _stage8_carrier_payload(bundle, "contact_candidate_collection_snapshot")
         selection_trace = _stage8_carrier_payload(bundle, "contact_selection_trace_snapshot")

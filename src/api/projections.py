@@ -14,6 +14,11 @@ from api.workbench_observability import (
     merge_trace_refs,
     missing_audit_refs,
 )
+from stage7_sales.crm_quote_workbench import (
+    CRM_QUOTE_WORKBENCH_INPUT_KEY,
+    CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
+    build_crm_quote_workbench_readiness_summary,
+)
 from stage8_outreach.execution_outbox import (
     OUTBOX_READINESS_INPUT_KEY,
     OUTBOX_SNAPSHOT_INPUT_KEY,
@@ -821,6 +826,14 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
     buyer_fit = _record_data(bundle.record("buyer_fit"))
     legal_actor = _record_data(bundle.record("legal_action_actor_profile"))
     procurement_actor = _record_data(bundle.record("procurement_decision_actor_profile"))
+    workbench = dict(bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY, {}))
+    workbench_summary = (
+        dict(bundle.inputs.get(CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY, {}))
+        if isinstance(bundle.inputs.get(CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY), Mapping)
+        else build_crm_quote_workbench_readiness_summary(workbench)
+        if workbench
+        else {}
+    )
     formal_records = {
         "saleable_opportunity": opportunity,
         "offer_recommendation": offer,
@@ -868,6 +881,22 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
                 "reachable_state": procurement_actor.get("reachable_state"),
             },
         ],
+        "crm_quote_workbench_preview": {
+            "opportunity_id": workbench.get("opportunity_id"),
+            "crm_action_id": workbench.get("crm_action_id"),
+            "quote_draft_id": workbench.get("quote_draft_id"),
+            "owner_action_state": workbench.get("owner_action_state"),
+            "approval_state": workbench.get("approval_state"),
+            "audit_state": workbench.get("audit_state"),
+            "vendor_adapter_state": workbench.get("vendor_adapter_state", {}),
+            "quote_surface_state": workbench.get("quote_surface_state"),
+            "dry_run_state": workbench.get("dry_run_state"),
+            "live_execution_enabled": bool(workbench.get("live_execution_enabled", False)),
+            "real_external_quote_sent": bool(workbench.get("real_external_quote_sent", False)),
+            "blocked_reasons": list(workbench.get("blocked_reasons", [])),
+            "governed_execution_mode": workbench.get("governed_execution_mode"),
+        },
+        "crm_quote_workbench_readiness_summary": workbench_summary,
         "_raw_records": [opportunity, offer, buyer_fit, legal_actor, procurement_actor],
     }
     envelope = _surface_envelope(
@@ -881,6 +910,8 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
         blocked_by_default=bool(surface_defaults["blocked_by_default"]),
     )
     envelope["preview_projection"].pop("_raw_records", None)
+    envelope[CRM_QUOTE_WORKBENCH_INPUT_KEY] = workbench or preview_projection["crm_quote_workbench_preview"]
+    envelope[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = workbench_summary
     return _attach_operational_context(envelope, bundle)
 
 
