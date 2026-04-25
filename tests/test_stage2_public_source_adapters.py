@@ -25,6 +25,11 @@ from stage2_ingestion.public_source_adapters import (
     NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND,
     NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND,
     NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY,
+    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_ABNORMAL_OPERATION_RECORD_KIND,
+    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_REGISTRATION_RECORD_KIND,
+    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY,
     PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID,
     PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY,
     PublicSourceAdapterConfig,
@@ -35,8 +40,10 @@ from stage2_ingestion.public_source_adapters import (
     PublicSourceTransportResponse,
     StaticPublicSourceTransport,
     credit_china_adapter_config,
+    national_enterprise_credit_publicity_system_adapter_config,
     national_construction_market_platform_adapter_config,
     provincial_bidding_platform_adapter_config,
+    resolve_public_source_adapter_config,
 )
 from stage2_ingestion.service import Stage2Service
 from storage.db import DatabaseSession
@@ -82,6 +89,18 @@ CREDIT_CHINA_EXCEPTION_ATTACHMENT_URL = (
 CREDIT_CHINA_PUBLIC_REGISTRY_ID = "SRC-REG-CREDIT-CHINA-PUBLIC-RECORD"
 CREDIT_CHINA_PENALTY_REGISTRY_ID = "SRC-REG-CREDIT-CHINA-ADMINISTRATIVE-PENALTY"
 CREDIT_CHINA_EXCEPTION_REGISTRY_ID = "SRC-REG-CREDIT-CHINA-CREDIT-EXCEPTION"
+NECPS_PUBLIC_HTML_URL = (
+    "https://public.example.local/national-enterprise-credit-publicity-system/enterprise/114e.html"
+)
+NECPS_REGISTRATION_SANDBOX_PDF_URL = (
+    "sandbox://national-enterprise-credit-publicity-system/registration/114e.pdf"
+)
+NECPS_ABNORMAL_ATTACHMENT_URL = (
+    "sandbox://national-enterprise-credit-publicity-system/abnormal-operation/114e-attachment.zip"
+)
+NECPS_PUBLIC_REGISTRY_ID = "SRC-REG-NECPS-ENTERPRISE-PUBLIC-RECORD"
+NECPS_REGISTRATION_REGISTRY_ID = "SRC-REG-NECPS-ENTERPRISE-REGISTRATION"
+NECPS_ABNORMAL_REGISTRY_ID = "SRC-REG-NECPS-ENTERPRISE-ABNORMAL-OPERATION"
 
 
 class Stage2PublicSourceAdapterTests(unittest.TestCase):
@@ -210,6 +229,37 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
             },
             timeout_seconds=6,
+            max_retries=max_retries,
+            boundary_flags=boundary_flags or {},
+        )
+
+    def _necps_request(
+        self,
+        *,
+        source_url: str = NECPS_PUBLIC_HTML_URL,
+        source_registry_id: str = NECPS_PUBLIC_REGISTRY_ID,
+        source_family: str = NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY,
+        record_kind: str = NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+        source_visibility_state: str = "PUBLIC_VISIBLE",
+        fetch_mode: str = "controlled_test_transport",
+        snapshot_version: str = "necps-record-v1",
+        max_retries: int = 2,
+        boundary_flags: dict[str, bool] | None = None,
+    ) -> PublicSourceSnapshotRequest:
+        return PublicSourceSnapshotRequest(
+            source_url=source_url,
+            source_registry_id=source_registry_id,
+            source_family=source_family,
+            record_kind=record_kind,
+            source_visibility_state=source_visibility_state,
+            fetch_mode=fetch_mode,
+            snapshot_version=snapshot_version,
+            lineage_refs={
+                "project_id": "P-114E",
+                "stage1_handoff_intent_id": "HINT-114E",
+                "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
+            },
+            timeout_seconds=7,
             max_retries=max_retries,
             boundary_flags=boundary_flags or {},
         )
@@ -532,6 +582,200 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(policy["sandbox_url_prefixes"], ["sandbox://credit-china/"])
             self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
             self.assertFalse(policy["real_provider_connection_enabled"])
+
+    def test_national_enterprise_credit_publicity_system_records_capture_readback_and_replay(self) -> None:
+        cases = [
+            (
+                NECPS_PUBLIC_HTML_URL,
+                NECPS_PUBLIC_REGISTRY_ID,
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+                "PUBLIC_VISIBLE",
+                "controlled_test_transport",
+                "text/html",
+                b"<html><body>national enterprise credit public record 114E</body></html>",
+                "raw_html",
+            ),
+            (
+                NECPS_REGISTRATION_SANDBOX_PDF_URL,
+                NECPS_REGISTRATION_REGISTRY_ID,
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_REGISTRATION_RECORD_KIND,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                "application/pdf",
+                b"%PDF-1.4 national enterprise registration record",
+                "raw_pdf",
+            ),
+            (
+                NECPS_ABNORMAL_ATTACHMENT_URL,
+                NECPS_ABNORMAL_REGISTRY_ID,
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_ABNORMAL_OPERATION_RECORD_KIND,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                "application/zip",
+                b"national enterprise abnormal operation attachment",
+                "raw_attachment",
+            ),
+        ]
+        required_metadata_keys = {
+            "adapter_id",
+            "source_family",
+            "record_kind",
+            "source_registry_id",
+            "source_url",
+            "source_visibility_state",
+            "content_type",
+            "byte_size",
+            "sha256",
+            "snapshot_version",
+            "lineage_refs",
+            "fetched_at",
+            "captured_at",
+            "fetch_mode",
+            "fetch_audit",
+            "source_health",
+            "replay_state",
+            "snapshot_id",
+            "snapshot_kind",
+            "object_key",
+        }
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            responses = {
+                source_url: PublicSourceTransportResponse(
+                    content=body,
+                    content_type=content_type,
+                    fetched_at=NOW,
+                    captured_at=NOW,
+                )
+                for source_url, _, _, _, _, content_type, body, _ in cases
+            }
+            transport = StaticPublicSourceTransport(responses)
+            service = Stage2Service()
+
+            for source_url, registry_id, record_kind, visibility, fetch_mode, content_type, body, kind in cases:
+                result = service.capture_public_source_snapshot(
+                    self._necps_request(
+                        source_url=source_url,
+                        source_registry_id=registry_id,
+                        record_kind=record_kind,
+                        source_visibility_state=visibility,
+                        fetch_mode=fetch_mode,
+                        snapshot_version=f"114e-{record_kind}-v1",
+                    ),
+                    repository=repo,
+                    transport=transport,
+                )
+                replay = service.replay_public_source_snapshot(result.snapshot_id, repository=repo)
+
+                metadata = result.raw_snapshot_metadata
+                self.assertEqual(result.status, "SNAPSHOT_CAPTURED")
+                self.assertEqual(result.adapter_id, NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID)
+                self.assertTrue(result.snapshot_id.startswith("SNAP-S2-114E-"))
+                self.assertIsNotNone(metadata)
+                self.assertTrue(required_metadata_keys.issubset(metadata))
+                self.assertEqual(
+                    metadata["adapter_id"],
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+                )
+                self.assertEqual(
+                    metadata["source_family"],
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY,
+                )
+                self.assertEqual(metadata["record_kind"], record_kind)
+                self.assertEqual(metadata["source_registry_id"], registry_id)
+                self.assertEqual(metadata["source_url"], source_url)
+                self.assertEqual(metadata["source_visibility_state"], visibility)
+                self.assertEqual(metadata["content_type"], content_type)
+                self.assertEqual(metadata["byte_size"], len(body))
+                self.assertRegex(metadata["sha256"], r"^[0-9a-f]{64}$")
+                self.assertEqual(metadata["snapshot_version"], f"114e-{record_kind}-v1")
+                self.assertEqual(metadata["lineage_refs"]["project_id"], "P-114E")
+                self.assertEqual(
+                    metadata["lineage_refs"]["adapter_id"],
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+                )
+                self.assertEqual(
+                    metadata["lineage_refs"]["source_family"],
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY,
+                )
+                self.assertEqual(metadata["lineage_refs"]["record_kind"], record_kind)
+                self.assertEqual(metadata["fetched_at"], NOW)
+                self.assertEqual(metadata["captured_at"], NOW)
+                self.assertEqual(metadata["fetch_mode"], fetch_mode)
+                self.assertEqual(metadata["fetch_audit"]["transport_mode"], fetch_mode)
+                self.assertEqual(metadata["fetch_audit"]["record_kind"], record_kind)
+                self.assertEqual(
+                    metadata["fetch_audit"]["source_family"],
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY,
+                )
+                self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
+                self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
+                self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
+                self.assertEqual(result.readback["snapshot_kind"], kind)
+                self.assertEqual(result.readback["readback_state"], "READBACK_READY")
+                self.assertEqual(result.readback["content_type"], content_type)
+                self.assertEqual(result.readback["byte_size"], len(body))
+                self.assertEqual(result.readback["sha256"], metadata["sha256"])
+                self.assertEqual(result.readback["bytes"], body)
+                self.assertEqual(replay["bytes"], body)
+                self.assertEqual(replay["manifest"]["raw_snapshot_metadata"]["record_kind"], record_kind)
+                self.assertEqual(replay["manifest"]["source_health"]["record_kind"], record_kind)
+                self.assertEqual(repo.read_snapshot_bytes(result.snapshot_id), body)
+
+            policy = self._adapter(
+                repo,
+                transport,
+                config=national_enterprise_credit_publicity_system_adapter_config(),
+            ).runtime_policy()
+            self.assertEqual(
+                policy["adapter_id"],
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+            )
+            self.assertEqual(
+                policy["allowed_source_families"],
+                [NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY],
+            )
+            self.assertEqual(
+                set(policy["allowed_record_kinds"]),
+                {
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_REGISTRATION_RECORD_KIND,
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_ABNORMAL_OPERATION_RECORD_KIND,
+                },
+            )
+            self.assertIn(NECPS_PUBLIC_REGISTRY_ID, policy["allowlisted_source_registry_ids"])
+            self.assertIn(NECPS_REGISTRATION_REGISTRY_ID, policy["allowlisted_source_registry_ids"])
+            self.assertIn(NECPS_ABNORMAL_REGISTRY_ID, policy["allowlisted_source_registry_ids"])
+            self.assertEqual(
+                policy["public_url_prefixes"],
+                [
+                    "https://public.example.local/national-enterprise-credit-publicity-system/",
+                ],
+            )
+            self.assertEqual(
+                policy["sandbox_url_prefixes"],
+                ["sandbox://national-enterprise-credit-publicity-system/"],
+            )
+            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["real_provider_connection_enabled"])
+
+            resolver_cases = [
+                self._necps_request(),
+                PublicSourceSnapshotRequest(
+                    source_url=PUBLIC_HTML_URL,
+                    source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                    source_family="PROCUREMENT_NOTICE",
+                    record_kind=NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_REGISTRATION_RECORD_KIND,
+                ),
+                self._request(source_registry_id=NECPS_PUBLIC_REGISTRY_ID),
+                self._request(source_url=NECPS_PUBLIC_HTML_URL),
+            ]
+            for request in resolver_cases:
+                self.assertEqual(
+                    resolve_public_source_adapter_config(request).adapter_id,
+                    NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+                )
 
     def test_provincial_html_pdf_and_attachment_metadata_keep_hash_version_and_lineage(self) -> None:
         cases = [
@@ -1014,6 +1258,129 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(rate_limited.fetch_audit["transport_mode"], "not_called_due_to_rate_limit")
             self.assertEqual(len(transport.call_log), 1)
 
+    def test_national_enterprise_credit_publicity_system_source_health_retry_timeout_rate_limit_and_failure_degrade_are_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        NECPS_PUBLIC_HTML_URL: [
+                            PublicSourceTimeoutError("necps mirror timed out once"),
+                            PublicSourceTransportResponse(
+                                content=b"<html>necps retry success</html>",
+                                content_type="text/html",
+                                fetched_at=NOW,
+                                captured_at=NOW,
+                            ),
+                        ]
+                    }
+                ),
+                config=national_enterprise_credit_publicity_system_adapter_config(),
+            )
+            retry_result = adapter.capture(self._necps_request(max_retries=1))
+
+            self.assertEqual(retry_result.status, "SNAPSHOT_CAPTURED")
+            self.assertEqual(
+                retry_result.adapter_id,
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+            )
+            self.assertEqual(retry_result.fetch_audit["attempt_count"], 2)
+            self.assertEqual(
+                retry_result.fetch_audit["retry_events"][0]["reason"],
+                "PublicSourceTimeoutError",
+            )
+            self.assertEqual(
+                retry_result.fetch_audit["record_kind"],
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+            )
+            self.assertEqual(retry_result.source_health["source_health_state"], "HEALTHY")
+            self.assertEqual(retry_result.source_health["retry_count"], 1)
+            self.assertEqual(
+                retry_result.readback["manifest"]["source_health"]["retry_count"],
+                1,
+            )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        NECPS_PUBLIC_HTML_URL: [
+                            PublicSourceTimeoutError("necps timeout one"),
+                            PublicSourceTimeoutError("necps timeout two"),
+                        ]
+                    }
+                ),
+                config=national_enterprise_credit_publicity_system_adapter_config(),
+            )
+            timed_out = adapter.capture(self._necps_request(max_retries=1))
+
+            self.assertEqual(timed_out.status, "DEGRADED")
+            self.assertIsNone(timed_out.snapshot_id)
+            self.assertEqual(
+                timed_out.adapter_id,
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+            )
+            self.assertEqual(timed_out.source_health["source_health_state"], "DEGRADED")
+            self.assertEqual(
+                timed_out.source_health["record_kind"],
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+            )
+            self.assertEqual(timed_out.source_health["last_failure_reason"], "fetch_timeout")
+            self.assertEqual(timed_out.failure_degrade["degrade_reason"], "fetch_timeout")
+            self.assertEqual(
+                timed_out.failure_degrade["readback_state"],
+                "NO_SNAPSHOT_DUE_TO_DEGRADE",
+            )
+            self.assertTrue(timed_out.failure_degrade["manual_review_required"])
+            self.assertTrue(timed_out.failure_degrade["fail_closed"])
+            self.assertTrue(timed_out.failure_degrade["no_broad_fallback"])
+            self.assertEqual(timed_out.fetch_audit["attempt_count"], 2)
+            self.assertEqual(timed_out.fetch_audit["transport_mode"], "controlled_test_transport")
+            self.assertEqual(
+                timed_out.fetch_audit["record_kind"],
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+            )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            transport = StaticPublicSourceTransport(
+                {
+                    NECPS_PUBLIC_HTML_URL: PublicSourceTransportResponse(
+                        content=b"<html>necps rate limit</html>",
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                }
+            )
+            rate_adapter = self._adapter(
+                repo,
+                transport,
+                config=national_enterprise_credit_publicity_system_adapter_config(
+                    min_interval_seconds=60
+                ),
+            )
+            rate_adapter.capture(self._necps_request())
+            rate_limited = rate_adapter.capture(self._necps_request())
+
+            self.assertEqual(rate_limited.status, "DEGRADED")
+            self.assertEqual(rate_limited.failure_degrade["degrade_reason"], "rate_limited")
+            self.assertEqual(
+                rate_limited.source_health["record_kind"],
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+            )
+            self.assertTrue(rate_limited.failure_degrade["manual_review_required"])
+            self.assertTrue(rate_limited.failure_degrade["fail_closed"])
+            self.assertTrue(rate_limited.failure_degrade["no_broad_fallback"])
+            self.assertEqual(
+                rate_limited.fetch_audit["transport_mode"],
+                "not_called_due_to_rate_limit",
+            )
+            self.assertEqual(len(transport.call_log), 1)
+
     def test_private_gray_login_captcha_antibot_and_unknown_sources_are_rejected(self) -> None:
         blocked_visibility_states = [
             "PRIVATE",
@@ -1173,6 +1540,64 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
                     self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
+                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
+                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
+                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
+                    self.assertEqual(transport.call_log, [])
+
+    def test_national_enterprise_credit_publicity_system_blocked_sources_fail_closed_before_transport(self) -> None:
+        blocked_requests = [
+            self._necps_request(source_registry_id="SRC-REG-NECPS-UNKNOWN"),
+            self._necps_request(
+                source_family="unknown_source_family",
+                source_registry_id=NECPS_PUBLIC_REGISTRY_ID,
+            ),
+            self._necps_request(
+                source_url="https://unlisted.example.local/necps/record.html"
+            ),
+            self._necps_request(record_kind="unknown_enterprise_record"),
+            self._necps_request(source_visibility_state="PRIVATE"),
+            self._necps_request(source_visibility_state="GRAY"),
+            self._necps_request(source_visibility_state="LOGIN_REQUIRED"),
+            self._necps_request(source_visibility_state="CAPTCHA_REQUIRED"),
+            self._necps_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
+            self._necps_request(source_visibility_state="UNKNOWN"),
+            self._necps_request(boundary_flags={"private_source": True}),
+            self._necps_request(boundary_flags={"gray_source": True}),
+            self._necps_request(boundary_flags={"login_required": True}),
+            self._necps_request(boundary_flags={"captcha_required": True}),
+            self._necps_request(boundary_flags={"anti_bot_restricted": True}),
+            self._necps_request(fetch_mode="live"),
+            self._necps_request(fetch_mode="live_crawl"),
+            self._necps_request(fetch_mode="uncontrolled_live_crawl"),
+            self._necps_request(fetch_mode="real_provider"),
+        ]
+
+        for request in blocked_requests:
+            with self.subTest(
+                source_url=request.source_url,
+                state=request.source_visibility_state,
+                mode=request.fetch_mode,
+            ):
+                transport = StaticPublicSourceTransport({})
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    adapter = self._adapter(
+                        self._repo(tmp_dir),
+                        transport,
+                        config=national_enterprise_credit_publicity_system_adapter_config(),
+                    )
+                    with self.assertRaises(PublicSourceBoundaryError) as raised:
+                        adapter.capture(request)
+                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self.assertEqual(
+                        raised.exception.carrier["adapter_id"],
+                        NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+                    )
+                    self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
+                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
                     self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
                     self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
                     self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])

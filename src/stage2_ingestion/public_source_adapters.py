@@ -17,12 +17,18 @@ NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID = (
     "stage2.national_construction_market_platform.v1"
 )
 CREDIT_CHINA_ADAPTER_ID = "stage2.credit_china.v1"
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID = (
+    "stage2.national_enterprise_credit_publicity_system.v1"
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY = "local_public_resource_trading_center"
 PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY = "provincial_bidding_platform"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY = (
     "national_construction_market_platform"
 )
 CREDIT_CHINA_SOURCE_FAMILY = "credit_china"
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY = (
+    "national_enterprise_credit_publicity_system"
+)
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND = "enterprise_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND = "personnel_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND = "project_public_record"
@@ -41,6 +47,28 @@ CREDIT_CHINA_RECORD_KINDS = frozenset(
         CREDIT_CHINA_CREDIT_PUBLIC_RECORD_KIND,
         CREDIT_CHINA_ADMINISTRATIVE_PENALTY_RECORD_KIND,
         CREDIT_CHINA_CREDIT_EXCEPTION_RECORD_KIND,
+    }
+)
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND = (
+    NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND
+)
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_REGISTRATION_RECORD_KIND = (
+    "enterprise_registration_record"
+)
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_ABNORMAL_OPERATION_RECORD_KIND = (
+    "enterprise_abnormal_operation_record"
+)
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_RECORD_KINDS = frozenset(
+    {
+        NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND,
+        NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_REGISTRATION_RECORD_KIND,
+        NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_ABNORMAL_OPERATION_RECORD_KIND,
+    }
+)
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_UNIQUE_RECORD_KINDS = frozenset(
+    {
+        NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_REGISTRATION_RECORD_KIND,
+        NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_ABNORMAL_OPERATION_RECORD_KIND,
     }
 )
 
@@ -72,6 +100,13 @@ CREDIT_CHINA_REGISTRY_IDS = frozenset(
         "SRC-REG-CREDIT-CHINA-CREDIT-EXCEPTION",
     }
 )
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_REGISTRY_IDS = frozenset(
+    {
+        "SRC-REG-NECPS-ENTERPRISE-PUBLIC-RECORD",
+        "SRC-REG-NECPS-ENTERPRISE-REGISTRATION",
+        "SRC-REG-NECPS-ENTERPRISE-ABNORMAL-OPERATION",
+    }
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES = (
     "https://public.example.local/local-public-resource-trading-centers/",
     "https://public.example.local/procurement/",
@@ -99,6 +134,12 @@ CREDIT_CHINA_PUBLIC_URL_PREFIXES = (
 )
 CREDIT_CHINA_SANDBOX_URL_PREFIXES = (
     "sandbox://credit-china/",
+)
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_PUBLIC_URL_PREFIXES = (
+    "https://public.example.local/national-enterprise-credit-publicity-system/",
+)
+NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SANDBOX_URL_PREFIXES = (
+    "sandbox://national-enterprise-credit-publicity-system/",
 )
 
 PUBLIC_VISIBLE_STATE = "PUBLIC_VISIBLE"
@@ -308,6 +349,23 @@ def credit_china_adapter_config(
     )
 
 
+def national_enterprise_credit_publicity_system_adapter_config(
+    *,
+    min_interval_seconds: float = 0.0,
+) -> PublicSourceAdapterConfig:
+    return PublicSourceAdapterConfig(
+        adapter_id=NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+        allowlisted_source_registry_ids=NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_REGISTRY_IDS,
+        allowed_source_families=frozenset(
+            {NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY}
+        ),
+        allowed_record_kinds=NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_RECORD_KINDS,
+        allowed_public_url_prefixes=NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_PUBLIC_URL_PREFIXES,
+        allowed_sandbox_url_prefixes=NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SANDBOX_URL_PREFIXES,
+        min_interval_seconds=min_interval_seconds,
+    )
+
+
 def resolve_public_source_adapter_config(
     request: PublicSourceSnapshotRequest,
 ) -> PublicSourceAdapterConfig:
@@ -321,6 +379,18 @@ def resolve_public_source_adapter_config(
         or request.source_url.startswith(CREDIT_CHINA_SANDBOX_URL_PREFIXES)
     ):
         return credit_china_adapter_config()
+    if (
+        source_family == NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY
+        or record_kind in NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_UNIQUE_RECORD_KINDS
+        or request.source_registry_id in NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_REGISTRY_IDS
+        or request.source_url.startswith(
+            NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_PUBLIC_URL_PREFIXES
+        )
+        or request.source_url.startswith(
+            NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SANDBOX_URL_PREFIXES
+        )
+    ):
+        return national_enterprise_credit_publicity_system_adapter_config()
     if (
         source_family == NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY
         or record_kind in NATIONAL_CONSTRUCTION_MARKET_PLATFORM_RECORD_KINDS
@@ -758,6 +828,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             packet_marker = "114C"
         elif self.config.adapter_id == CREDIT_CHINA_ADAPTER_ID:
             packet_marker = "114D"
+        elif self.config.adapter_id == NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID:
+            packet_marker = "114E"
         else:
             packet_marker = "114A"
         return f"SNAP-S2-{packet_marker}-{digest[:20]}"
@@ -842,6 +914,15 @@ __all__ = [
     "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_REGISTRY_IDS",
     "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SANDBOX_URL_PREFIXES",
     "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_ABNORMAL_OPERATION_RECORD_KIND",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_PUBLIC_RECORD_KIND",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_REGISTRATION_RECORD_KIND",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_PUBLIC_URL_PREFIXES",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_RECORD_KINDS",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_REGISTRY_IDS",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SANDBOX_URL_PREFIXES",
+    "NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY",
     "PUBLIC_VISIBLE_STATE",
     "PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID",
     "PROVINCIAL_BIDDING_PLATFORM_PUBLIC_URL_PREFIXES",
@@ -860,6 +941,7 @@ __all__ = [
     "StaticPublicSourceTransport",
     "credit_china_adapter_config",
     "local_public_resource_trading_center_adapter_config",
+    "national_enterprise_credit_publicity_system_adapter_config",
     "national_construction_market_platform_adapter_config",
     "provincial_bidding_platform_adapter_config",
     "resolve_public_source_adapter_config",
