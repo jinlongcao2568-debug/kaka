@@ -9,6 +9,8 @@ from typing import Any, Mapping
 
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag, resolve_bundle
+from stage4_verification.verification import PublicVerificationAdapter, build_public_verification_readback
+from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
 def _record_mapping(record: Any) -> Mapping[str, Any]:
@@ -410,3 +412,24 @@ class Stage4Service:
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff
+
+    def verify_public_parsed_carrier(
+        self,
+        parsed_carrier: Mapping[str, Any],
+        *,
+        target: Mapping[str, Any],
+        repository: ObjectStorageRepository | None = None,
+        snapshot_readback: Mapping[str, Any] | None = None,
+    ) -> Mapping[str, Any]:
+        carrier = PublicVerificationAdapter(repository=repository).verify(
+            parsed_carrier,
+            target=target,
+            snapshot_readback=snapshot_readback,
+        )
+        return carrier.as_payload()
+
+    def build_public_verification_readback(
+        self,
+        carrier: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        return build_public_verification_readback(carrier)

@@ -3,4 +3,14 @@
 # Dependent handoff: H-03-STAGE3-TO-STAGE4, H-04-STAGE4-TO-STAGE5
 # Dependent schema/contracts: handoff/stage_handoff_catalog.json, contracts/schemas/schema_catalog.json, contracts/enums/enum_catalog.json
 
-__all__ = []
+from stage4_verification.verification import (
+    PublicVerificationAdapter,
+    PublicVerificationCarrier,
+    build_public_verification_readback,
+)
+
+__all__ = [
+    "PublicVerificationAdapter",
+    "PublicVerificationCarrier",
+    "build_public_verification_readback",
+]
