@@ -172,11 +172,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_112b_is_recorded_and_112c_is_active_without_closing_full_112(self) -> None:
+    def test_112c_is_recorded_and_112d_is_active_without_closing_full_112(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
 
         self.assertEqual(task_112["status"], "IN_PROGRESS")
-        self.assertEqual(task_112["planning_state"], "112B_COMPLETED_112C_ACTIVE")
+        self.assertEqual(task_112["planning_state"], "112C_COMPLETED_112D_ACTIVE")
         completed_by_id = {
             row["subpacket_id"]: row for row in task_112["completed_subpackets"]
         }
@@ -193,15 +193,21 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "1f2471d",
         )
         self.assertEqual(
+            completed_by_id["PTL-I100-112C-object-storage-snapshot-durability"][
+                "completed_commit"
+            ],
+            "52d2ad3",
+        )
+        self.assertEqual(
             task_112["active_subpacket"]["subpacket_id"],
-            "PTL-I100-112C-object-storage-snapshot-durability",
+            "PTL-I100-112D-docker-compose-health-readiness",
         )
         self.assertIn(
-            "local object storage / artifact manifest / evidence snapshot durability seam",
+            "Docker/Compose local stack definition + health/readiness seam",
             task_112["active_subpacket"]["objective"],
         )
         self.assertIn(
-            "MinIO/S3 remains reserved/not connected",
+            "no docker compose up",
             task_112["active_subpacket"]["objective"],
         )
         serialized_acceptance = yaml.safe_dump(
