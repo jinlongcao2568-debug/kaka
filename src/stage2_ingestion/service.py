@@ -14,6 +14,7 @@ from stage2_ingestion.public_source_adapters import (
     PublicSourceSnapshotRequest,
     PublicSourceSnapshotResult,
     PublicSourceTransport,
+    resolve_public_source_adapter_config,
 )
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, get_flag, resolve_bundle, utc_now_iso
@@ -210,6 +211,7 @@ class Stage2Service:
         resolved_adapter = adapter or LocalPublicResourceTradingCenterSourceAdapter(
             repository=repository or ObjectStorageRepository(settings=self.settings),
             transport=transport,
+            config=resolve_public_source_adapter_config(request),
         )
         return resolved_adapter.capture(request)
 

@@ -13,7 +13,10 @@ if str(SRC) not in sys.path:
 
 from shared.settings import Settings
 from stage2_ingestion.public_source_adapters import (
+    LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID,
     LocalPublicResourceTradingCenterSourceAdapter,
+    PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID,
+    PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY,
     PublicSourceAdapterConfig,
     PublicSourceBoundaryError,
     PublicSourceSnapshotRequest,
@@ -21,6 +24,7 @@ from stage2_ingestion.public_source_adapters import (
     PublicSourceTransportError,
     PublicSourceTransportResponse,
     StaticPublicSourceTransport,
+    provincial_bidding_platform_adapter_config,
 )
 from stage2_ingestion.service import Stage2Service
 from storage.db import DatabaseSession
@@ -32,6 +36,16 @@ PUBLIC_HTML_URL = (
     "https://public.example.local/local-public-resource-trading-centers/notices/114a.html"
 )
 SANDBOX_PDF_URL = "sandbox://local-public-resource-trading-centers/mirror/114a.pdf"
+PROVINCIAL_HTML_URL = (
+    "https://public.example.local/provincial-bidding-platforms/notices/114b.html"
+)
+PROVINCIAL_SANDBOX_PDF_URL = "sandbox://provincial-bidding-platforms/mirror/114b.pdf"
+PROVINCIAL_ATTACHMENT_URL = (
+    "sandbox://provincial-bidding-platforms/mirror/114b-attachment.docx"
+)
+PROVINCIAL_HTML_REGISTRY_ID = "SRC-REG-PROV-BID-ANNOUNCEMENT-HTML"
+PROVINCIAL_PDF_REGISTRY_ID = "SRC-REG-PROV-BID-ANNOUNCEMENT-PDF"
+PROVINCIAL_ATTACHMENT_REGISTRY_ID = "SRC-REG-PROV-BID-ATTACHMENT"
 
 
 class Stage2PublicSourceAdapterTests(unittest.TestCase):
@@ -72,6 +86,34 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 "stage1_handoff_intent_id": "HINT-114A",
             },
             timeout_seconds=3,
+            max_retries=max_retries,
+            boundary_flags=boundary_flags or {},
+        )
+
+    def _provincial_request(
+        self,
+        *,
+        source_url: str = PROVINCIAL_HTML_URL,
+        source_registry_id: str = PROVINCIAL_HTML_REGISTRY_ID,
+        source_visibility_state: str = "PUBLIC_VISIBLE",
+        fetch_mode: str = "controlled_test_transport",
+        snapshot_version: str = "provincial-notice-v1",
+        max_retries: int = 2,
+        boundary_flags: dict[str, bool] | None = None,
+    ) -> PublicSourceSnapshotRequest:
+        return PublicSourceSnapshotRequest(
+            source_url=source_url,
+            source_registry_id=source_registry_id,
+            source_family=PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY,
+            source_visibility_state=source_visibility_state,
+            fetch_mode=fetch_mode,
+            snapshot_version=snapshot_version,
+            lineage_refs={
+                "project_id": "P-114B",
+                "stage1_handoff_intent_id": "HINT-114B",
+                "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
+            },
+            timeout_seconds=4,
             max_retries=max_retries,
             boundary_flags=boundary_flags or {},
         )
@@ -126,6 +168,125 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
             self.assertEqual(result.readback["readback_state"], "READBACK_READY")
             self.assertEqual(result.readback["manifest"]["raw_snapshot_metadata"]["sha256"], metadata["sha256"])
+
+    def test_provincial_bidding_platform_allowlisted_source_can_capture_raw_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            transport = StaticPublicSourceTransport(
+                {
+                    PROVINCIAL_HTML_URL: PublicSourceTransportResponse(
+                        content=b"<html><body>provincial bidding notice 114B</body></html>",
+                        content_type="text/html; charset=utf-8",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                }
+            )
+
+            result = Stage2Service().capture_public_source_snapshot(
+                self._provincial_request(),
+                repository=repo,
+                transport=transport,
+            )
+
+            metadata = result.raw_snapshot_metadata
+            self.assertEqual(result.status, "SNAPSHOT_CAPTURED")
+            self.assertIsNotNone(metadata)
+            self.assertEqual(result.adapter_id, PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID)
+            self.assertEqual(metadata["adapter_id"], PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID)
+            self.assertEqual(metadata["source_family"], PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY)
+            self.assertEqual(metadata["source_registry_id"], PROVINCIAL_HTML_REGISTRY_ID)
+            self.assertEqual(metadata["source_url"], PROVINCIAL_HTML_URL)
+            self.assertEqual(metadata["source_visibility_state"], "PUBLIC_VISIBLE")
+            self.assertEqual(metadata["content_type"], "text/html; charset=utf-8")
+            self.assertRegex(metadata["sha256"], r"^[0-9a-f]{64}$")
+            self.assertEqual(metadata["snapshot_version"], "provincial-notice-v1")
+            self.assertEqual(metadata["lineage_refs"]["project_id"], "P-114B")
+            self.assertEqual(metadata["lineage_refs"]["source_registry_id"], PROVINCIAL_HTML_REGISTRY_ID)
+            self.assertEqual(metadata["fetched_at"], NOW)
+            self.assertEqual(metadata["captured_at"], NOW)
+            self.assertEqual(metadata["fetch_audit"]["transport_mode"], "controlled_test_transport")
+            self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
+            self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
+            self.assertTrue(result.snapshot_id.startswith("SNAP-S2-114B-"))
+            self.assertEqual(result.readback["readback_state"], "READBACK_READY")
+            self.assertEqual(
+                result.readback["manifest"]["raw_snapshot_metadata"]["source_health"]["source_health_state"],
+                "HEALTHY",
+            )
+
+    def test_provincial_html_pdf_and_attachment_metadata_keep_hash_version_and_lineage(self) -> None:
+        cases = [
+            (
+                PROVINCIAL_HTML_URL,
+                PROVINCIAL_HTML_REGISTRY_ID,
+                "PUBLIC_VISIBLE",
+                "controlled_test_transport",
+                "text/html",
+                b"<html>provincial notice</html>",
+                "raw_html",
+            ),
+            (
+                PROVINCIAL_SANDBOX_PDF_URL,
+                PROVINCIAL_PDF_REGISTRY_ID,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                "application/pdf",
+                b"%PDF-1.4 provincial sandbox bytes",
+                "raw_pdf",
+            ),
+            (
+                PROVINCIAL_ATTACHMENT_URL,
+                PROVINCIAL_ATTACHMENT_REGISTRY_ID,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                b"provincial attachment bytes",
+                "raw_attachment",
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            responses = {
+                source_url: PublicSourceTransportResponse(
+                    content=body,
+                    content_type=content_type,
+                    fetched_at=NOW,
+                    captured_at=NOW,
+                )
+                for source_url, _, _, _, content_type, body, _ in cases
+            }
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(responses),
+                config=provincial_bidding_platform_adapter_config(),
+            )
+
+            for source_url, registry_id, visibility, fetch_mode, content_type, body, kind in cases:
+                result = adapter.capture(
+                    self._provincial_request(
+                        source_url=source_url,
+                        source_registry_id=registry_id,
+                        source_visibility_state=visibility,
+                        fetch_mode=fetch_mode,
+                        snapshot_version=f"114b-{kind}-v1",
+                    )
+                )
+
+                metadata = result.raw_snapshot_metadata
+                self.assertEqual(metadata["adapter_id"], PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID)
+                self.assertEqual(metadata["source_family"], PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY)
+                self.assertEqual(metadata["content_type"], content_type)
+                self.assertEqual(metadata["byte_size"], len(body))
+                self.assertRegex(metadata["sha256"], r"^[0-9a-f]{64}$")
+                self.assertEqual(metadata["snapshot_version"], f"114b-{kind}-v1")
+                self.assertEqual(metadata["lineage_refs"]["stage_scope"], "2")
+                self.assertEqual(metadata["lineage_refs"]["adapter_id"], PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID)
+                self.assertEqual(metadata["fetch_audit"]["transport_mode"], fetch_mode)
+                self.assertEqual(metadata["source_health"]["failure_degrade_state"], "NOT_DEGRADED")
+                self.assertEqual(result.readback["snapshot_kind"], kind)
+                self.assertEqual(result.readback["manifest"]["snapshot_version_optional"], f"114b-{kind}-v1")
 
     def test_html_pdf_and_attachment_snapshots_carry_hash_version_and_lineage(self) -> None:
         cases = [
@@ -293,6 +454,65 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertTrue(failing.failure_degrade["no_broad_fallback"])
             self.assertEqual(failing.fetch_audit["attempt_count"], 2)
 
+    def test_provincial_source_health_retry_timeout_and_failure_degrade_are_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        PROVINCIAL_HTML_URL: [
+                            PublicSourceTimeoutError("provincial mirror timed out once"),
+                            PublicSourceTransportResponse(
+                                content=b"<html>provincial retry success</html>",
+                                content_type="text/html",
+                                fetched_at=NOW,
+                                captured_at=NOW,
+                            ),
+                        ]
+                    }
+                ),
+                config=provincial_bidding_platform_adapter_config(),
+            )
+            retry_result = adapter.capture(self._provincial_request(max_retries=1))
+
+            self.assertEqual(retry_result.status, "SNAPSHOT_CAPTURED")
+            self.assertEqual(retry_result.fetch_audit["attempt_count"], 2)
+            self.assertEqual(retry_result.fetch_audit["retry_events"][0]["reason"], "PublicSourceTimeoutError")
+            self.assertEqual(retry_result.source_health["source_health_state"], "HEALTHY")
+            self.assertEqual(retry_result.source_health["retry_count"], 1)
+            self.assertEqual(
+                retry_result.readback["manifest"]["source_health"]["retry_count"],
+                1,
+            )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        PROVINCIAL_HTML_URL: [
+                            PublicSourceTimeoutError("provincial timeout one"),
+                            PublicSourceTimeoutError("provincial timeout two"),
+                        ]
+                    }
+                ),
+                config=provincial_bidding_platform_adapter_config(),
+            )
+            timed_out = adapter.capture(self._provincial_request(max_retries=1))
+
+            self.assertEqual(timed_out.status, "DEGRADED")
+            self.assertIsNone(timed_out.snapshot_id)
+            self.assertEqual(timed_out.source_health["source_health_state"], "DEGRADED")
+            self.assertEqual(timed_out.source_health["last_failure_reason"], "fetch_timeout")
+            self.assertEqual(timed_out.failure_degrade["degrade_reason"], "fetch_timeout")
+            self.assertEqual(timed_out.failure_degrade["readback_state"], "NO_SNAPSHOT_DUE_TO_DEGRADE")
+            self.assertTrue(timed_out.failure_degrade["manual_review_required"])
+            self.assertTrue(timed_out.failure_degrade["fail_closed"])
+            self.assertEqual(timed_out.fetch_audit["attempt_count"], 2)
+            self.assertEqual(timed_out.fetch_audit["transport_mode"], "controlled_test_transport")
+
     def test_private_gray_login_captcha_antibot_and_unknown_sources_are_rejected(self) -> None:
         blocked_visibility_states = [
             "PRIVATE",
@@ -341,6 +561,47 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertIn("unknown_or_unregistered_source", raised.exception.reason)
             self.assertEqual(transport.call_log, [])
 
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            transport = StaticPublicSourceTransport({})
+            adapter = self._adapter(self._repo(tmp_dir), transport)
+            with self.assertRaises(PublicSourceBoundaryError) as raised:
+                adapter.capture(
+                    self._request(source_url="https://unlisted.example.local/public/notice.html")
+                )
+            self.assertEqual(raised.exception.reason, "source_url_not_allowlisted")
+            self.assertEqual(transport.call_log, [])
+
+    def test_provincial_unknown_unlisted_private_gray_login_captcha_antibot_are_blocked_before_transport(self) -> None:
+        blocked_requests = [
+            self._provincial_request(source_registry_id="SRC-REG-PROV-BID-UNKNOWN"),
+            self._provincial_request(source_url="https://unlisted.example.local/provincial/notice.html"),
+            self._provincial_request(source_visibility_state="PRIVATE"),
+            self._provincial_request(source_visibility_state="GRAY"),
+            self._provincial_request(source_visibility_state="LOGIN_REQUIRED"),
+            self._provincial_request(source_visibility_state="CAPTCHA_REQUIRED"),
+            self._provincial_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
+            self._provincial_request(boundary_flags={"private_source": True}),
+            self._provincial_request(boundary_flags={"gray_source": True}),
+            self._provincial_request(boundary_flags={"login_required": True}),
+            self._provincial_request(boundary_flags={"captcha_required": True}),
+            self._provincial_request(boundary_flags={"anti_bot_restricted": True}),
+        ]
+
+        for request in blocked_requests:
+            with self.subTest(source_url=request.source_url, state=request.source_visibility_state):
+                transport = StaticPublicSourceTransport({})
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    adapter = self._adapter(
+                        self._repo(tmp_dir),
+                        transport,
+                        config=provincial_bidding_platform_adapter_config(),
+                    )
+                    with self.assertRaises(PublicSourceBoundaryError) as raised:
+                        adapter.capture(request)
+                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertEqual(transport.call_log, [])
+
     def test_uncontrolled_live_crawler_modes_are_blocked_before_transport(self) -> None:
         for fetch_mode in ("live_crawl", "uncontrolled_live_crawl", "real_provider"):
             with self.subTest(fetch_mode=fetch_mode):
@@ -388,6 +649,12 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             replay = service.replay_public_source_snapshot(result.snapshot_id, repository=repo)
 
             self.assertEqual(result.status, "SNAPSHOT_CAPTURED")
+            self.assertEqual(result.adapter_id, LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID)
+            self.assertTrue(result.snapshot_id.startswith("SNAP-S2-114A-"))
+            self.assertEqual(
+                result.raw_snapshot_metadata["adapter_id"],
+                LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID,
+            )
             self.assertEqual(replay["readback_state"], "READBACK_READY")
             self.assertTrue(hasattr(service, "run"))
 

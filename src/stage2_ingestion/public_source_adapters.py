@@ -12,6 +12,39 @@ from storage.repositories.object_storage_repo import ObjectStorageRepository
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID = (
     "stage2.local_public_resource_trading_center.v1"
 )
+PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID = "stage2.provincial_bidding_platform.v1"
+LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY = "local_public_resource_trading_center"
+PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY = "provincial_bidding_platform"
+
+LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS = frozenset(
+    {
+        "SRC-REG-PROC-NATIONAL-HTML",
+        "SRC-REG-PROC-CITY-PDF",
+        "SRC-REG-AWARD-CITY-HTML",
+    }
+)
+PROVINCIAL_BIDDING_PLATFORM_REGISTRY_IDS = frozenset(
+    {
+        "SRC-REG-PROV-BID-ANNOUNCEMENT-HTML",
+        "SRC-REG-PROV-BID-ANNOUNCEMENT-PDF",
+        "SRC-REG-PROV-BID-ATTACHMENT",
+    }
+)
+LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES = (
+    "https://public.example.local/local-public-resource-trading-centers/",
+    "https://public.example.local/procurement/",
+    "https://public.example.local/award/",
+)
+LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SANDBOX_URL_PREFIXES = (
+    "sandbox://local-public-resource-trading-centers/",
+)
+PROVINCIAL_BIDDING_PLATFORM_PUBLIC_URL_PREFIXES = (
+    "https://public.example.local/provincial-bidding-platforms/",
+    "https://public.example.local/provincial-bidding/",
+)
+PROVINCIAL_BIDDING_PLATFORM_SANDBOX_URL_PREFIXES = (
+    "sandbox://provincial-bidding-platforms/",
+)
 
 PUBLIC_VISIBLE_STATE = "PUBLIC_VISIBLE"
 SANDBOX_LOCAL_MIRROR_STATE = "SANDBOX_LOCAL_MIRROR"
@@ -149,25 +182,55 @@ class PublicSourceSnapshotRequest:
 @dataclass(frozen=True)
 class PublicSourceAdapterConfig:
     adapter_id: str = LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID
-    allowlisted_source_registry_ids: frozenset[str] = frozenset(
+    allowlisted_source_registry_ids: frozenset[str] = LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS
+    allowed_source_families: frozenset[str] = frozenset(
         {
-            "SRC-REG-PROC-NATIONAL-HTML",
-            "SRC-REG-PROC-CITY-PDF",
-            "SRC-REG-AWARD-CITY-HTML",
+            LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY,
+            "PROCUREMENT_NOTICE",
+            "AWARD_NOTICE",
         }
     )
-    allowed_public_url_prefixes: tuple[str, ...] = (
-        "https://public.example.local/local-public-resource-trading-centers/",
-        "https://public.example.local/procurement/",
-        "https://public.example.local/award/",
-    )
-    allowed_sandbox_url_prefixes: tuple[str, ...] = (
-        "sandbox://local-public-resource-trading-centers/",
-    )
+    allowed_public_url_prefixes: tuple[str, ...] = LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES
+    allowed_sandbox_url_prefixes: tuple[str, ...] = LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SANDBOX_URL_PREFIXES
     allowed_fetch_modes: frozenset[str] = ALLOWED_FETCH_MODES
     min_interval_seconds: float = 0.0
     uncontrolled_live_crawler_enabled: bool = False
     real_provider_connection_enabled: bool = False
+
+
+def local_public_resource_trading_center_adapter_config(
+    *,
+    min_interval_seconds: float = 0.0,
+) -> PublicSourceAdapterConfig:
+    return PublicSourceAdapterConfig(min_interval_seconds=min_interval_seconds)
+
+
+def provincial_bidding_platform_adapter_config(
+    *,
+    min_interval_seconds: float = 0.0,
+) -> PublicSourceAdapterConfig:
+    return PublicSourceAdapterConfig(
+        adapter_id=PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID,
+        allowlisted_source_registry_ids=PROVINCIAL_BIDDING_PLATFORM_REGISTRY_IDS,
+        allowed_source_families=frozenset({PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY}),
+        allowed_public_url_prefixes=PROVINCIAL_BIDDING_PLATFORM_PUBLIC_URL_PREFIXES,
+        allowed_sandbox_url_prefixes=PROVINCIAL_BIDDING_PLATFORM_SANDBOX_URL_PREFIXES,
+        min_interval_seconds=min_interval_seconds,
+    )
+
+
+def resolve_public_source_adapter_config(
+    request: PublicSourceSnapshotRequest,
+) -> PublicSourceAdapterConfig:
+    source_family = str(request.source_family or "").strip()
+    if (
+        source_family == PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY
+        or request.source_registry_id in PROVINCIAL_BIDDING_PLATFORM_REGISTRY_IDS
+        or request.source_url.startswith(PROVINCIAL_BIDDING_PLATFORM_PUBLIC_URL_PREFIXES)
+        or request.source_url.startswith(PROVINCIAL_BIDDING_PLATFORM_SANDBOX_URL_PREFIXES)
+    ):
+        return provincial_bidding_platform_adapter_config()
+    return local_public_resource_trading_center_adapter_config()
 
 
 @dataclass(frozen=True)
@@ -213,6 +276,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         return {
             "adapter_id": self.config.adapter_id,
             "allowed_fetch_modes": sorted(self.config.allowed_fetch_modes),
+            "allowed_source_families": sorted(self.config.allowed_source_families),
             "allowlisted_source_registry_ids": sorted(
                 self.config.allowlisted_source_registry_ids
             ),
@@ -309,7 +373,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
                 "timeout_seconds": request.timeout_seconds,
                 "retry_events": retry_events,
                 "rate_limit": rate_limit,
-                "transport_mode": "controlled_test_transport",
+                "transport_mode": request.fetch_mode,
                 "dedupe_state": "NOT_EVALUATED",
                 "uncontrolled_live_crawler_enabled": False,
                 "real_provider_connection_enabled": False,
@@ -346,7 +410,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "timeout_seconds": request.timeout_seconds,
             "retry_events": retry_events,
             "rate_limit": dict(rate_limit),
-            "transport_mode": "controlled_test_transport",
+            "transport_mode": request.fetch_mode,
             "dedupe_state": "DEDUPED_BY_SHA256_OBJECT_KEY"
             if dedupe_existing
             else "NEW_OBJECT_WRITTEN",
@@ -354,9 +418,20 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "uncontrolled_live_crawler_enabled": False,
             "real_provider_connection_enabled": False,
         }
+        source_health = {
+            "adapter_id": self.config.adapter_id,
+            "source_registry_id": request.source_registry_id,
+            "source_health_state": "HEALTHY",
+            "last_failure_reason": None,
+            "failure_degrade_state": "NOT_DEGRADED",
+            "rate_limit_state": dict(rate_limit),
+            "retry_count": max(0, attempt_count - 1),
+            "timeout_seconds": request.timeout_seconds,
+        }
         raw_snapshot_metadata = {
             "adapter_id": self.config.adapter_id,
             "source_family": request.source_family,
+            "source_registry_id": request.source_registry_id,
             "source_url": response.final_url or request.source_url,
             "source_visibility_state": request.source_visibility_state,
             "content_type": content_type,
@@ -368,20 +443,11 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "captured_at": captured_at,
             "fetch_mode": request.fetch_mode,
             "fetch_audit": fetch_audit,
+            "source_health": source_health,
             "replay_state": "READBACK_READY",
             "snapshot_id": snapshot_id,
             "snapshot_kind": self._snapshot_kind(content_type),
             "object_key": object_key,
-        }
-        source_health = {
-            "adapter_id": self.config.adapter_id,
-            "source_registry_id": request.source_registry_id,
-            "source_health_state": "HEALTHY",
-            "last_failure_reason": None,
-            "failure_degrade_state": "NOT_DEGRADED",
-            "rate_limit_state": dict(rate_limit),
-            "retry_count": max(0, attempt_count - 1),
-            "timeout_seconds": request.timeout_seconds,
         }
         manifest = self.repository.save_snapshot(
             data,
@@ -434,6 +500,11 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             return self._boundary_block(
                 request,
                 f"unknown_or_unregistered_source:{request.source_registry_id}",
+            )
+        if request.source_family not in self.config.allowed_source_families:
+            return self._boundary_block(
+                request,
+                f"unregistered_source_family:{request.source_family}",
             )
         if not self._url_is_allowlisted(request.source_url):
             return self._boundary_block(request, "source_url_not_allowlisted")
@@ -551,7 +622,12 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         digest = hashlib.sha256(
             f"{self.config.adapter_id}|{source_url}|{snapshot_version}|{sha256}".encode("utf-8")
         ).hexdigest()
-        return f"SNAP-S2-114A-{digest[:20]}"
+        packet_marker = (
+            "114B"
+            if self.config.adapter_id == PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID
+            else "114A"
+        )
+        return f"SNAP-S2-{packet_marker}-{digest[:20]}"
 
     def _lineage_refs(
         self,
@@ -607,8 +683,17 @@ __all__ = [
     "BLOCKED_VISIBILITY_STATES",
     "CONTROLLED_TEST_TRANSPORT_STATE",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID",
+    "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES",
+    "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS",
+    "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SANDBOX_URL_PREFIXES",
+    "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY",
     "LocalPublicResourceTradingCenterSourceAdapter",
     "PUBLIC_VISIBLE_STATE",
+    "PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID",
+    "PROVINCIAL_BIDDING_PLATFORM_PUBLIC_URL_PREFIXES",
+    "PROVINCIAL_BIDDING_PLATFORM_REGISTRY_IDS",
+    "PROVINCIAL_BIDDING_PLATFORM_SANDBOX_URL_PREFIXES",
+    "PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY",
     "PublicSourceAdapterConfig",
     "PublicSourceAdapterError",
     "PublicSourceBoundaryError",
@@ -619,4 +704,7 @@ __all__ = [
     "PublicSourceTransportResponse",
     "SANDBOX_LOCAL_MIRROR_STATE",
     "StaticPublicSourceTransport",
+    "local_public_resource_trading_center_adapter_config",
+    "provincial_bidding_platform_adapter_config",
+    "resolve_public_source_adapter_config",
 ]
