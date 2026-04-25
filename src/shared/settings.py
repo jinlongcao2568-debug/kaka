@@ -130,8 +130,9 @@ class Settings:
 
     def platform_infra_readiness(self) -> dict[str, Any]:
         from storage.production_infra_readiness import build_platform_infra_readiness
+        from storage.monitoring_alerting import build_monitoring_alerting_readiness
 
-        return build_platform_infra_readiness(
+        readiness = build_platform_infra_readiness(
             storage_backend=self.storage_backend,
             storage_database_url_optional=self.storage_database_url_optional,
             queue_backend=self.queue_backend,
@@ -140,6 +141,27 @@ class Settings:
             object_storage_path_optional=str(self.resolved_object_storage_path()),
             repo_root=self.repo_root,
         )
+        monitoring_alerting_readiness = build_monitoring_alerting_readiness(
+            platform_infra_readiness=readiness,
+            provider_adapter_readiness=self.provider_adapter_readiness_summary(),
+        )
+        readiness["monitoring_alerting_readiness"] = monitoring_alerting_readiness
+        readiness["monitoring_readiness"] = monitoring_alerting_readiness["monitoring_readiness"]
+        readiness["alert_rule_catalog"] = monitoring_alerting_readiness["alert_rule_catalog"]
+        readiness["alert_readiness"] = monitoring_alerting_readiness["alert_readiness"]
+        readiness["incident_readiness"] = monitoring_alerting_readiness["incident_readiness"]
+        readiness["redlines"].update(
+            {
+                "external_observability_provider_enabled": False,
+                "external_apm_enabled": False,
+                "external_paging_enabled": False,
+                "notification_enabled": False,
+                "live_alert_dispatch_enabled": False,
+                "real_alert_dispatch_enabled": False,
+                "incident_automation_enabled": False,
+            }
+        )
+        return readiness
 
     def storage_bootstrap_payload(self) -> dict[str, Any]:
         active_backend = self.normalized_storage_backend()
@@ -164,6 +186,11 @@ class Settings:
             "worker_queue_bootstrap": readiness["worker_queue_bootstrap"],
             "backup_restore_readiness": readiness["backup_restore_readiness"],
             "rollback_readiness": readiness["rollback_readiness"],
+            "monitoring_alerting_readiness": readiness["monitoring_alerting_readiness"],
+            "monitoring_readiness": readiness["monitoring_readiness"],
+            "alert_rule_catalog": readiness["alert_rule_catalog"],
+            "alert_readiness": readiness["alert_readiness"],
+            "incident_readiness": readiness["incident_readiness"],
             "local_stack_readiness": readiness["compose_readiness"],
             "platform_infra_readiness": readiness,
             "provider_adapter_bootstrap": self.provider_adapter_bootstrap_payload(),

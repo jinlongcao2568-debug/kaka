@@ -26,7 +26,7 @@ from storage.db import (
     PersistedWorkItem,
     build_persisted_at,
 )
-from storage.repositories import WorkerQueueRepository
+from storage.repositories import MonitoringAlertingRepository, WorkerQueueRepository
 from storage.repositories.backup_restore_repo import BackupRestoreRepository
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 from storage.object_storage import ObjectStorageMissingError
@@ -268,6 +268,11 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(payload["worker_queue_bootstrap"]["durable_queue_enabled"])
         self.assertTrue(payload["worker_queue_bootstrap"]["worker_lease_enabled"])
         self.assertFalse(payload["worker_queue_bootstrap"]["external_queue_connection_enabled"])
+        self.assertIn("monitoring_alerting_readiness", payload)
+        self.assertIn("monitoring_readiness", payload)
+        self.assertIn("alert_rule_catalog", payload)
+        self.assertIn("alert_readiness", payload)
+        self.assertIn("incident_readiness", payload)
         self.assertIn("platform_infra_readiness", payload)
 
         readiness = payload["platform_infra_readiness"]
@@ -363,6 +368,53 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(policy["no_external_service_connection"])
         self.assertTrue(policy["readback_only"])
         self.assertFalse(policy["runtime_behavior_changed"])
+        monitoring = readiness["monitoring_readiness"]
+        self.assertEqual(monitoring["readiness_state"], "INTERNAL_READBACK_READY")
+        self.assertTrue(monitoring["replayable_readback"])
+        self.assertIn("storage.backend", monitoring["component_ids"])
+        self.assertIn("queue.worker", monitoring["component_ids"])
+        self.assertIn("object_storage.local_snapshot", monitoring["component_ids"])
+        self.assertIn("backup_restore.local_manifest", monitoring["component_ids"])
+        self.assertIn("local_stack.compose_definition", monitoring["component_ids"])
+        self.assertIn("provider.redline", monitoring["component_ids"])
+        for component in readiness["monitoring_alerting_readiness"]["monitoring_components"]:
+            self.assertIn("component_id", component)
+            self.assertIn("component_family", component)
+            self.assertIn("readiness_state", component)
+            self.assertIn("health_state", component)
+            self.assertIn("signal_sources", component)
+            self.assertIn("last_observed_at_optional", component)
+            self.assertIn("degraded_reasons", component)
+            self.assertIn("blocking_reasons", component)
+            self.assertIn("audit_refs", component)
+            self.assertTrue(component["replayable_readback"])
+        alert_readiness = readiness["alert_readiness"]
+        self.assertEqual(alert_readiness["readiness_state"], "CATALOG_READY_READBACK_ONLY")
+        self.assertFalse(alert_readiness["notification_enabled"])
+        self.assertFalse(alert_readiness["live_dispatch_enabled"])
+        self.assertFalse(alert_readiness["external_observability_provider_enabled"])
+        self.assertTrue(alert_readiness["approval_required"])
+        self.assertTrue(alert_readiness["audit_required"])
+        self.assertGreaterEqual(len(readiness["alert_rule_catalog"]), 6)
+        for rule in readiness["alert_rule_catalog"]:
+            self.assertIn("alert_rule_id", rule)
+            self.assertIn("severity", rule)
+            self.assertIn("threshold_summary", rule)
+            self.assertIn("owner_role", rule)
+            self.assertFalse(rule["notification_enabled"])
+            self.assertFalse(rule["live_dispatch_enabled"])
+            self.assertIn("suppression_state", rule)
+            self.assertIn("suspended_state", rule)
+            self.assertTrue(rule["approval_required"])
+            self.assertTrue(rule["audit_required"])
+        incident = readiness["incident_readiness"]
+        self.assertEqual(incident["incident_state"], "MANUAL_OWNER_ACTION_READY")
+        self.assertTrue(incident["runbook_refs"])
+        self.assertTrue(incident["rollback_refs"])
+        self.assertTrue(incident["backup_refs"])
+        self.assertTrue(incident["manual_owner_action_required"])
+        self.assertFalse(incident["incident_automation_enabled"])
+        self.assertFalse(incident["external_paging_enabled"])
         redlines = readiness["redlines"]
         self.assertTrue(redlines["no_live_provider_call"])
         self.assertTrue(redlines["no_real_payment"])
@@ -374,8 +426,43 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertFalse(redlines["docker_compose_up_executed"])
         self.assertFalse(redlines["real_provider_execution_enabled"])
         self.assertFalse(redlines["real_payment_delivery_enabled"])
+        self.assertFalse(redlines["external_observability_provider_enabled"])
+        self.assertFalse(redlines["external_apm_enabled"])
+        self.assertFalse(redlines["external_paging_enabled"])
+        self.assertFalse(redlines["notification_enabled"])
+        self.assertFalse(redlines["live_alert_dispatch_enabled"])
+        self.assertFalse(redlines["real_alert_dispatch_enabled"])
+        self.assertFalse(redlines["incident_automation_enabled"])
         self.assertFalse(redlines["automated_refund_enabled"])
         self.assertFalse(redlines["external_software_release_enabled"])
+
+    def test_monitoring_alerting_repository_persists_readback_and_replay_with_json_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "monitoring-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+            session = DatabaseSession(settings=settings)
+            repo = MonitoringAlertingRepository(session=session, settings=settings)
+
+            record = repo.save_current()
+            readback = repo.readback()
+            replay = repo.replay()
+
+        self.assertEqual(record.object_type, "monitoring_alerting_readiness")
+        self.assertEqual(readback["readback_state"], "READBACK_READY")
+        self.assertTrue(readback["payload_present"])
+        self.assertFalse(readback["fail_closed"])
+        self.assertTrue(replay["replayable"])
+        self.assertEqual(replay["replay_state"], "READBACK_READY")
+        self.assertTrue(replay["monitoring_readiness"]["replayable_readback"])
+        self.assertFalse(replay["alert_readiness"]["notification_enabled"])
+        self.assertFalse(replay["alert_readiness"]["live_dispatch_enabled"])
+        self.assertTrue(replay["incident_readiness"]["manual_owner_action_required"])
+        self.assertFalse(replay["incident_readiness"]["incident_automation_enabled"])
+        self.assertFalse(replay["incident_readiness"]["external_paging_enabled"])
 
     def test_local_stack_definition_files_exist_without_real_secret_material(self) -> None:
         for relative_path in LOCAL_STACK_FILES:

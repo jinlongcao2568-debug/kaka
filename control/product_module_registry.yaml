@@ -876,6 +876,7 @@ cross_cutting_surfaces:
       - src/storage/object_storage.py
       - src/storage/backup_restore.py
       - src/storage/worker_queue.py
+      - src/storage/monitoring_alerting.py
       - src/storage/repository_boundary.py
       - src/storage/repository_bundle_io.py
       - src/storage/repository_context_projection.py
@@ -910,6 +911,7 @@ cross_cutting_surfaces:
       - src/storage/repositories/object_storage_repo.py
       - src/storage/repositories/backup_restore_repo.py
       - src/storage/repositories/worker_queue_repo.py
+      - src/storage/repositories/monitoring_alerting_repo.py
     test_files:
       - tests/test_internal_repository_boundary.py
       - tests/test_storage_concurrency.py
@@ -917,10 +919,11 @@ cross_cutting_surfaces:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-102-p4-repository-boundary-hardening
       - PTL-INT-104-p8-observability-operator-workbench
-    pending_packets:
       - PTL-I100-112E-backup-restore-rollback-readiness
+    pending_packets:
+      - PTL-I100-112F-monitoring-alerting-readiness
   - surface_id: platform_deployment_readiness
-    business_summary: "Docker/Compose 本地栈定义、health/readiness、backup/restore dry-run 与 rollback readiness 投影面；仅表达 local stack / local manifest 配置和依赖边界，不代表容器已运行、破坏性 restore 已放开或 external/live 可用。"
+    business_summary: "Docker/Compose 本地栈定义、health/readiness、backup/restore dry-run、rollback、monitoring/alerting/incident readiness 投影面；仅表达 local stack / local manifest / internal readback 配置和依赖边界，不代表容器已运行、破坏性 restore 已放开、真实告警已发送或 external/live 可用。"
     implementation_state: PARTIAL_RUNTIME
     current_files:
       - .dockerignore
@@ -929,7 +932,9 @@ cross_cutting_surfaces:
       - src/shared/settings.py
       - src/storage/production_infra_readiness.py
       - src/storage/backup_restore.py
+      - src/storage/monitoring_alerting.py
       - src/storage/repositories/backup_restore_repo.py
+      - src/storage/repositories/monitoring_alerting_repo.py
       - src/api/deps.py
       - src/api/main.py
     test_files:
@@ -940,8 +945,9 @@ cross_cutting_surfaces:
       - tests/test_product_acceptance_checklist.py
     completed_packets:
       - PTL-I100-112D-docker-compose-health-readiness
-    pending_packets:
       - PTL-I100-112E-backup-restore-rollback-readiness
+    pending_packets:
+      - PTL-I100-112F-monitoring-alerting-readiness
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
     stage_scope:
@@ -1351,6 +1357,7 @@ modules:
       - src/storage/object_storage.py
       - src/storage/backup_restore.py
       - src/storage/worker_queue.py
+      - src/storage/monitoring_alerting.py
       - src/storage/repository_boundary.py
       - src/storage/repository_bundle_io.py
       - src/storage/repository_context_projection.py
@@ -1383,6 +1390,7 @@ modules:
       - src/storage/repositories/object_storage_repo.py
       - src/storage/repositories/backup_restore_repo.py
       - src/storage/repositories/worker_queue_repo.py
+      - src/storage/repositories/monitoring_alerting_repo.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
     target_packet_candidates:
@@ -1391,8 +1399,9 @@ modules:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-102-p4-repository-boundary-hardening
       - PTL-INT-104-p8-observability-operator-workbench
-    pending_packets:
       - PTL-I100-112E-backup-restore-rollback-readiness
+    pending_packets:
+      - PTL-I100-112F-monitoring-alerting-readiness
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
@@ -1407,7 +1416,10 @@ modules:
       - health_readiness
       - backup_restore_readiness
       - rollback_readiness
-    product_area: "Docker/Compose local stack definition / backup restore and rollback readiness projection"
+      - monitoring_readiness
+      - alerting_readiness
+      - incident_readiness
+    product_area: "Docker/Compose local stack definition / backup restore / rollback / monitoring alerting incident readiness projection"
     source_docs:
       - docs/D11_测试验收与金标回归清单.md
       - docs/D12_部署发布与运行治理规范.md
@@ -1416,6 +1428,10 @@ modules:
       - deployment_readiness
       - backup_restore_readiness
       - rollback_readiness
+      - monitoring_readiness
+      - alert_rule_catalog
+      - alert_readiness
+      - incident_readiness
     current_files:
       - .dockerignore
       - Dockerfile
@@ -1423,7 +1439,9 @@ modules:
       - src/shared/settings.py
       - src/storage/production_infra_readiness.py
       - src/storage/backup_restore.py
+      - src/storage/monitoring_alerting.py
       - src/storage/repositories/backup_restore_repo.py
+      - src/storage/repositories/monitoring_alerting_repo.py
       - src/api/deps.py
       - src/api/main.py
     current_runtime_state: PARTIAL_RUNTIME
@@ -1432,14 +1450,16 @@ modules:
       - PTL-I100-112-production-platform-infrastructure
     completed_packets:
       - PTL-I100-112D-docker-compose-health-readiness
-    pending_packets:
       - PTL-I100-112E-backup-restore-rollback-readiness
+    pending_packets:
+      - PTL-I100-112F-monitoring-alerting-readiness
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
     notes:
       - "PTL-I100-112D 只登记 Docker/Compose local stack definition 与 bootstrap/readiness 投影；不运行容器、不执行 docker compose up、不连接真实 Postgres/Redis/MinIO/S3、不放开 provider/payment/delivery/refund/external release。"
       - "PTL-I100-112E 登记 local backup manifest、restore dry-run 与 rollback readiness seam；不接外部备份服务、不对 active storage 执行破坏性 restore、不执行 migration、不放开 provider/payment/delivery/refund/external release。"
+      - "PTL-I100-112F 登记 internal monitoring/alerting/incident readiness seam；不接外部 observability/APM/paging provider、不发送真实告警、不执行 incident automation、不放开 external/live。"
   - module_id: INTERNAL-PREVIEW-SURFACE
     stage_scope:
       - internal_preview

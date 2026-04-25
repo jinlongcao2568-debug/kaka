@@ -68,6 +68,10 @@ def get_rollback_readiness_payload() -> dict[str, Any]:
     return dict(get_settings().storage_bootstrap_payload()["rollback_readiness"])
 
 
+def get_monitoring_alerting_readiness_payload() -> dict[str, Any]:
+    return dict(get_settings().storage_bootstrap_payload()["monitoring_alerting_readiness"])
+
+
 def get_object_storage_repository() -> ObjectStorageRepository:
     return ObjectStorageRepository(
         session=get_database_session(),
@@ -159,6 +163,7 @@ __all__ = [
     "build_transport_unavailable",
     "get_database_session",
     "get_backup_restore_readiness_payload",
+    "get_monitoring_alerting_readiness_payload",
     "get_provider_adapter_bootstrap_payload",
     "get_provider_adapter_readiness_summary",
     "get_object_storage_bootstrap_payload",

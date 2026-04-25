@@ -251,6 +251,27 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(storage_bootstrap["rollback_readiness"]["destructive_restore_enabled"])
         self.assertTrue(storage_bootstrap["rollback_readiness"]["approval_required"])
         self.assertTrue(storage_bootstrap["rollback_readiness"]["audit_required"])
+        self.assertIn("monitoring_alerting_readiness", storage_bootstrap)
+        self.assertIn("monitoring_readiness", storage_bootstrap)
+        self.assertIn("alert_rule_catalog", storage_bootstrap)
+        self.assertIn("alert_readiness", storage_bootstrap)
+        self.assertIn("incident_readiness", storage_bootstrap)
+        self.assertEqual(
+            storage_bootstrap["monitoring_readiness"]["readiness_state"],
+            "INTERNAL_READBACK_READY",
+        )
+        self.assertIn("storage.backend", storage_bootstrap["monitoring_readiness"]["component_ids"])
+        self.assertIn("queue.worker", storage_bootstrap["monitoring_readiness"]["component_ids"])
+        self.assertFalse(storage_bootstrap["alert_readiness"]["notification_enabled"])
+        self.assertFalse(storage_bootstrap["alert_readiness"]["live_dispatch_enabled"])
+        self.assertGreaterEqual(len(storage_bootstrap["alert_rule_catalog"]), 6)
+        self.assertEqual(
+            storage_bootstrap["incident_readiness"]["incident_state"],
+            "MANUAL_OWNER_ACTION_READY",
+        )
+        self.assertTrue(storage_bootstrap["incident_readiness"]["manual_owner_action_required"])
+        self.assertFalse(storage_bootstrap["incident_readiness"]["incident_automation_enabled"])
+        self.assertFalse(storage_bootstrap["incident_readiness"]["external_paging_enabled"])
         self.assertIn("platform_infra_readiness", storage_bootstrap)
         self.assertIn("provider_adapter_bootstrap", storage_bootstrap)
         provider_bootstrap = storage_bootstrap["provider_adapter_bootstrap"]
@@ -324,6 +345,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(readiness["backup_restore_readiness"]["restore_execution_enabled"])
         self.assertFalse(readiness["backup_restore_readiness"]["active_storage_write_enabled"])
         self.assertFalse(readiness["rollback_readiness"]["rollback_execution_enabled"])
+        self.assertEqual(
+            readiness["monitoring_alerting_readiness"],
+            storage_bootstrap["monitoring_alerting_readiness"],
+        )
+        self.assertEqual(readiness["monitoring_readiness"], storage_bootstrap["monitoring_readiness"])
+        self.assertEqual(readiness["alert_readiness"], storage_bootstrap["alert_readiness"])
+        self.assertEqual(readiness["alert_rule_catalog"], storage_bootstrap["alert_rule_catalog"])
+        self.assertEqual(readiness["incident_readiness"], storage_bootstrap["incident_readiness"])
         self.assertIn("local_stack_readiness", storage_bootstrap)
         self.assertEqual(storage_bootstrap["local_stack_readiness"], readiness["compose_readiness"])
         self.assertTrue(readiness["compose_readiness"]["dockerfile_present"])
@@ -770,6 +799,17 @@ class TestApiTransportBootstrap(unittest.TestCase):
             entry_strategy["backup_restore"]["rollback_readiness"],
             bootstrap["rollback_readiness"],
         )
+        monitoring_entry = entry_strategy["monitoring_alerting"]
+        self.assertEqual(monitoring_entry["monitoring_readiness_state"], "INTERNAL_READBACK_READY")
+        self.assertEqual(monitoring_entry["alert_readiness_state"], "CATALOG_READY_READBACK_ONLY")
+        self.assertEqual(monitoring_entry["incident_state"], "MANUAL_OWNER_ACTION_READY")
+        self.assertTrue(monitoring_entry["repository_backed_readback"])
+        self.assertTrue(monitoring_entry["replayable_readback"])
+        self.assertFalse(monitoring_entry["notification_enabled"])
+        self.assertFalse(monitoring_entry["live_dispatch_enabled"])
+        self.assertFalse(monitoring_entry["external_observability_provider_enabled"])
+        self.assertFalse(monitoring_entry["external_paging_enabled"])
+        self.assertFalse(monitoring_entry["incident_automation_enabled"])
 
         queue_worker = bootstrap["queue_worker_readiness"]
         self.assertEqual(queue_worker["effective_queue_backend"], "storage")
@@ -812,6 +852,13 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(redlines["real_provider_execution_enabled"])
         self.assertFalse(redlines["real_payment_delivery_enabled"])
         self.assertFalse(redlines["provider_credentials_plaintext_persisted"])
+        self.assertFalse(redlines["external_observability_provider_enabled"])
+        self.assertFalse(redlines["external_apm_enabled"])
+        self.assertFalse(redlines["external_paging_enabled"])
+        self.assertFalse(redlines["notification_enabled"])
+        self.assertFalse(redlines["live_alert_dispatch_enabled"])
+        self.assertFalse(redlines["real_alert_dispatch_enabled"])
+        self.assertFalse(redlines["incident_automation_enabled"])
         self.assertFalse(redlines["automated_refund_program_present"])
         self.assertFalse(redlines["automated_refund_program_enabled"])
         self.assertFalse(redlines["automated_refund_enabled"])
@@ -844,6 +891,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(
             app.state.transport_bootstrap["platform_infra_readiness"],
             app.state.storage_bootstrap["platform_infra_readiness"],
+        )
+        self.assertEqual(
+            app.state.transport_bootstrap["monitoring_alerting_readiness"],
+            app.state.storage_bootstrap["monitoring_alerting_readiness"],
+        )
+        self.assertEqual(
+            app.state.monitoring_alerting_readback.payload["readiness_id"],
+            "MONITORING_ALERTING_READINESS_CURRENT",
         )
 
     def test_create_app_fast_fails_postgres_without_database_url(self) -> None:

@@ -89,11 +89,32 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertFalse(redlines["real_provider_execution_enabled"])
         self.assertFalse(redlines["real_payment_delivery_enabled"])
         self.assertFalse(redlines["automated_refund_enabled"])
+        self.assertFalse(redlines["external_observability_provider_enabled"])
+        self.assertFalse(redlines["external_apm_enabled"])
+        self.assertFalse(redlines["external_paging_enabled"])
+        self.assertFalse(redlines["notification_enabled"])
+        self.assertFalse(redlines["live_alert_dispatch_enabled"])
+        self.assertFalse(redlines["real_alert_dispatch_enabled"])
+        self.assertFalse(redlines["incident_automation_enabled"])
         for service_name in ("postgres", "redis", "minio"):
             dependency = readiness["compose_readiness"]["service_dependency_summary"][service_name]
             self.assertEqual(dependency["readiness_state"], "RESERVED_NOT_LIVE")
             self.assertFalse(dependency["external_service_connection_enabled"])
             self.assertFalse(dependency["container_execution_enabled"])
+        monitoring = readiness["monitoring_alerting_readiness"]
+        self.assertEqual(monitoring["monitoring_readiness"]["readiness_state"], "INTERNAL_READBACK_READY")
+        self.assertTrue(monitoring["monitoring_readiness"]["replayable_readback"])
+        self.assertIn("provider.redline", monitoring["monitoring_readiness"]["component_ids"])
+        self.assertEqual(monitoring["alert_readiness"]["readiness_state"], "CATALOG_READY_READBACK_ONLY")
+        self.assertFalse(monitoring["alert_readiness"]["notification_enabled"])
+        self.assertFalse(monitoring["alert_readiness"]["live_dispatch_enabled"])
+        self.assertFalse(monitoring["alert_readiness"]["external_paging_enabled"])
+        self.assertGreaterEqual(len(monitoring["alert_rule_catalog"]), 6)
+        self.assertEqual(monitoring["incident_readiness"]["incident_state"], "MANUAL_OWNER_ACTION_READY")
+        self.assertTrue(monitoring["incident_readiness"]["manual_owner_action_required"])
+        self.assertFalse(monitoring["incident_readiness"]["incident_automation_enabled"])
+        self.assertFalse(monitoring["incident_readiness"]["external_paging_enabled"])
+        self.assertTrue(monitoring["validation"]["valid"])
 
     def test_stage8_high_restriction_field_requires_runtime_review(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

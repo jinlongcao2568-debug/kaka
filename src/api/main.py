@@ -28,6 +28,7 @@ from api.routes.stage7 import register_stage7_routes
 from api.routes.stage8 import register_stage8_routes
 from api.routes.stage9 import register_stage9_routes
 from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
+from storage.repositories.monitoring_alerting_repo import MonitoringAlertingRepository
 from storage.repositories.provider_adapter_config_repo import ProviderAdapterConfigRepository
 
 
@@ -238,6 +239,11 @@ def _build_transport_bootstrap(
     object_storage_bootstrap = dict(storage_bootstrap.get("object_storage_bootstrap", {}))
     backup_restore_readiness = dict(storage_bootstrap.get("backup_restore_readiness", {}))
     rollback_readiness = dict(storage_bootstrap.get("rollback_readiness", {}))
+    monitoring_alerting_readiness = dict(storage_bootstrap.get("monitoring_alerting_readiness", {}))
+    monitoring_readiness = dict(storage_bootstrap.get("monitoring_readiness", {}))
+    alert_readiness = dict(storage_bootstrap.get("alert_readiness", {}))
+    alert_rule_catalog = list(storage_bootstrap.get("alert_rule_catalog", []))
+    incident_readiness = dict(storage_bootstrap.get("incident_readiness", {}))
     local_stack_readiness = dict(
         storage_bootstrap.get(
             "local_stack_readiness",
@@ -256,6 +262,11 @@ def _build_transport_bootstrap(
         "object_storage_readiness": object_storage_bootstrap,
         "backup_restore_readiness": backup_restore_readiness,
         "rollback_readiness": rollback_readiness,
+        "monitoring_alerting_readiness": monitoring_alerting_readiness,
+        "monitoring_readiness": monitoring_readiness,
+        "alert_rule_catalog": alert_rule_catalog,
+        "alert_readiness": alert_readiness,
+        "incident_readiness": incident_readiness,
         "queue_worker_readiness": {
             "queue_backend": worker_queue_bootstrap.get("queue_backend"),
             "effective_queue_backend": worker_queue_bootstrap.get("effective_queue_backend"),
@@ -399,6 +410,26 @@ def _build_transport_bootstrap(
                 "migration_execution_enabled": False,
                 "rollback_readiness": rollback_readiness,
             },
+            "monitoring_alerting": {
+                "current_entry": "internal monitoring / alerting / incident readiness readback",
+                "monitoring_readiness_state": monitoring_readiness.get("readiness_state"),
+                "monitoring_health_state": monitoring_readiness.get("health_state"),
+                "alert_rule_catalog_ready": bool(alert_rule_catalog),
+                "alert_rule_count": len(alert_rule_catalog),
+                "alert_readiness_state": alert_readiness.get("readiness_state"),
+                "incident_state": incident_readiness.get("incident_state"),
+                "repository_backed_readback": True,
+                "replayable_readback": bool(
+                    monitoring_alerting_readiness.get("replayable_readback", True)
+                ),
+                "notification_enabled": False,
+                "live_dispatch_enabled": False,
+                "external_observability_provider_enabled": False,
+                "external_apm_enabled": False,
+                "external_paging_enabled": False,
+                "incident_automation_enabled": False,
+                "manual_owner_action_required": True,
+            },
         },
         "redlines": {
             "new_http_endpoint_added": False,
@@ -433,6 +464,13 @@ def _build_transport_bootstrap(
             "real_provider_execution_enabled": False,
             "real_payment_delivery_enabled": False,
             "provider_credentials_plaintext_persisted": False,
+            "external_observability_provider_enabled": False,
+            "external_apm_enabled": False,
+            "external_paging_enabled": False,
+            "notification_enabled": False,
+            "live_alert_dispatch_enabled": False,
+            "real_alert_dispatch_enabled": False,
+            "incident_automation_enabled": False,
             "automated_refund_program_present": False,
             "automated_refund_program_enabled": False,
             "automated_refund_enabled": False,
@@ -457,6 +495,10 @@ def create_app() -> FastAPI:
     app.state.provider_adapter_config_readback = ProviderAdapterConfigRepository(
         session=storage_session
     ).save(app.state.provider_adapter_bootstrap)
+    app.state.monitoring_alerting_readback = MonitoringAlertingRepository(
+        session=storage_session,
+        settings=settings,
+    ).save(app.state.storage_bootstrap["monitoring_alerting_readiness"])
     provider_adapter_readiness_summary = dict(
         app.state.provider_adapter_bootstrap[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
     )

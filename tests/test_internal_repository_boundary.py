@@ -39,6 +39,7 @@ from storage.repositories import (
     LegalActionActorProfileRepository,
     LegalActionRecommendationRepository,
     LeadpackDeliveryPackageRepository,
+    MonitoringAlertingRepository,
     ObjectStorageRepository,
     OfferRecommendationRepository,
     OpportunityOutcomeEventRepository,
@@ -223,6 +224,41 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             self.assertEqual(missing_replay["object_key"], manifest.object_key)
             with self.assertRaises(ObjectStorageMissingError):
                 repo.read_snapshot_bytes("SNAP-BOUNDARY-1")
+
+    def test_monitoring_alerting_readback_fails_closed_for_stale_signal_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "monitoring-readback.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+            repo = MonitoringAlertingRepository(
+                session=DatabaseSession(settings=settings),
+                settings=settings,
+            )
+            payload = settings.storage_bootstrap_payload()["monitoring_alerting_readiness"]
+            repo.save(payload)
+            good_replay = repo.replay()
+
+            stale_payload = copy.deepcopy(payload)
+            stale_payload["alert_rule_catalog"][0]["signal_component_ids"] = ["missing.component"]
+            repo.save(stale_payload)
+            stale_replay = repo.replay()
+
+        self.assertEqual(good_replay["readback_state"], "READBACK_READY")
+        self.assertTrue(good_replay["replayable"])
+        self.assertEqual(stale_replay["readback_state"], "FAIL_CLOSED_STALE_OR_MISSING_REFS")
+        self.assertFalse(stale_replay["replayable"])
+        self.assertTrue(stale_replay["fail_closed"])
+        self.assertTrue(stale_replay["no_broad_fallback"])
+        self.assertEqual(
+            stale_replay["validation"]["stale_or_missing_refs"][0]["missing_component_id"],
+            "missing.component",
+        )
+        self.assertFalse(stale_replay["live_dispatch_enabled"])
+        self.assertFalse(stale_replay["incident_automation_enabled"])
+        self.assertFalse(stale_replay["external_paging_enabled"])
 
     def test_stage6_repository_boundary_persists_formal_objects_and_rehydrates_stage7_inputs(self) -> None:
         stage6 = self.result["stage6"]

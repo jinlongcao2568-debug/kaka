@@ -10,6 +10,7 @@ from storage.repositories.governance_feedback_event_repo import GovernanceFeedba
 from storage.repositories.legal_action_actor_profile_repo import LegalActionActorProfileRepository
 from storage.repositories.legal_action_recommendation_repo import LegalActionRecommendationRepository
 from storage.repositories.leadpack_delivery_package_repo import LeadpackDeliveryPackageRepository
+from storage.repositories.monitoring_alerting_repo import MonitoringAlertingRepository
 from storage.repositories.offer_recommendation_repo import OfferRecommendationRepository
 from storage.repositories.operator_action_repo import OperatorActionRepository
 from storage.repositories.object_storage_repo import ObjectStorageRepository
@@ -42,6 +43,7 @@ __all__ = [
     "LegalActionActorProfileRepository",
     "LegalActionRecommendationRepository",
     "LeadpackDeliveryPackageRepository",
+    "MonitoringAlertingRepository",
     "OfferRecommendationRepository",
     "OperatorActionRepository",
     "ObjectStorageRepository",
