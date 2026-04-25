@@ -18,6 +18,11 @@ from stage2_ingestion.public_source_adapters import (
     CREDIT_CHINA_CREDIT_EXCEPTION_RECORD_KIND,
     CREDIT_CHINA_CREDIT_PUBLIC_RECORD_KIND,
     CREDIT_CHINA_SOURCE_FAMILY,
+    GOVERNMENT_PROCUREMENT_ATTACHMENT_RECORD_KIND,
+    GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+    GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
+    GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY,
+    GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
     LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID,
     LocalPublicResourceTradingCenterSourceAdapter,
     NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID,
@@ -40,6 +45,7 @@ from stage2_ingestion.public_source_adapters import (
     PublicSourceTransportResponse,
     StaticPublicSourceTransport,
     credit_china_adapter_config,
+    government_procurement_public_site_adapter_config,
     national_enterprise_credit_publicity_system_adapter_config,
     national_construction_market_platform_adapter_config,
     provincial_bidding_platform_adapter_config,
@@ -101,6 +107,18 @@ NECPS_ABNORMAL_ATTACHMENT_URL = (
 NECPS_PUBLIC_REGISTRY_ID = "SRC-REG-NECPS-ENTERPRISE-PUBLIC-RECORD"
 NECPS_REGISTRATION_REGISTRY_ID = "SRC-REG-NECPS-ENTERPRISE-REGISTRATION"
 NECPS_ABNORMAL_REGISTRY_ID = "SRC-REG-NECPS-ENTERPRISE-ABNORMAL-OPERATION"
+GOV_PROC_NOTICE_URL = (
+    "https://public.example.local/government-procurement-public-sites/notices/114f.html"
+)
+GOV_PROC_RESULT_PDF_URL = (
+    "sandbox://government-procurement-public-sites/results/114f-result.pdf"
+)
+GOV_PROC_ATTACHMENT_URL = (
+    "sandbox://government-procurement-public-sites/attachments/114f-attachment.zip"
+)
+GOV_PROC_NOTICE_REGISTRY_ID = "SRC-REG-GOV-PROCUREMENT-NOTICE"
+GOV_PROC_RESULT_REGISTRY_ID = "SRC-REG-GOV-PROCUREMENT-RESULT"
+GOV_PROC_ATTACHMENT_REGISTRY_ID = "SRC-REG-GOV-PROCUREMENT-ATTACHMENT"
 
 
 class Stage2PublicSourceAdapterTests(unittest.TestCase):
@@ -260,6 +278,43 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
             },
             timeout_seconds=7,
+            max_retries=max_retries,
+            boundary_flags=boundary_flags or {},
+        )
+
+    def _government_procurement_request(
+        self,
+        *,
+        source_url: str = GOV_PROC_NOTICE_URL,
+        source_registry_id: str = GOV_PROC_NOTICE_REGISTRY_ID,
+        source_family: str = GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY,
+        record_kind: str = GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+        source_visibility_state: str = "PUBLIC_VISIBLE",
+        fetch_mode: str = "controlled_test_transport",
+        snapshot_version: str = "gov-procurement-notice-v1",
+        content_type_hint: str | None = None,
+        max_retries: int = 2,
+        boundary_flags: dict[str, bool] | None = None,
+        lineage_refs: dict[str, str] | None = None,
+    ) -> PublicSourceSnapshotRequest:
+        resolved_lineage_refs = {
+            "project_id": "P-114F",
+            "stage1_handoff_intent_id": "HINT-114F",
+            "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
+            "project_lineage_id": "PROJECT-LINEAGE-114F",
+        }
+        resolved_lineage_refs.update(lineage_refs or {})
+        return PublicSourceSnapshotRequest(
+            source_url=source_url,
+            source_registry_id=source_registry_id,
+            source_family=source_family,
+            record_kind=record_kind,
+            source_visibility_state=source_visibility_state,
+            fetch_mode=fetch_mode,
+            snapshot_version=snapshot_version,
+            content_type_hint=content_type_hint,
+            lineage_refs=resolved_lineage_refs,
+            timeout_seconds=8,
             max_retries=max_retries,
             boundary_flags=boundary_flags or {},
         )
@@ -776,6 +831,527 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     resolve_public_source_adapter_config(request).adapter_id,
                     NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
                 )
+
+    def test_government_procurement_notice_result_attachment_capture_readback_replay_and_metadata(self) -> None:
+        required_metadata_keys = {
+            "adapter_id",
+            "source_family",
+            "record_kind",
+            "source_registry_id",
+            "source_url",
+            "source_visibility_state",
+            "content_type",
+            "byte_size",
+            "sha256",
+            "snapshot_version",
+            "lineage_refs",
+            "fetched_at",
+            "captured_at",
+            "fetch_mode",
+            "fetch_audit",
+            "source_health",
+            "replay_state",
+            "snapshot_id",
+            "snapshot_kind",
+            "object_key",
+        }
+        notice_body = b"<html><body>government procurement notice 114F</body></html>"
+        result_body = b"%PDF-1.4 government procurement result announcement"
+        attachment_body = b"government procurement attachment snapshot"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            service = Stage2Service()
+            transport = StaticPublicSourceTransport(
+                {
+                    GOV_PROC_NOTICE_URL: PublicSourceTransportResponse(
+                        content=notice_body,
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    ),
+                    GOV_PROC_RESULT_PDF_URL: PublicSourceTransportResponse(
+                        content=result_body,
+                        content_type="application/pdf",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    ),
+                    GOV_PROC_ATTACHMENT_URL: PublicSourceTransportResponse(
+                        content=attachment_body,
+                        content_type="application/zip",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    ),
+                }
+            )
+
+            notice = service.capture_public_source_snapshot(
+                self._government_procurement_request(
+                    snapshot_version="114f-notice-v1",
+                ),
+                repository=repo,
+                transport=transport,
+            )
+            result = service.capture_public_source_snapshot(
+                self._government_procurement_request(
+                    source_url=GOV_PROC_RESULT_PDF_URL,
+                    source_registry_id=GOV_PROC_RESULT_REGISTRY_ID,
+                    record_kind=GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
+                    source_visibility_state="SANDBOX_LOCAL_MIRROR",
+                    fetch_mode="sandbox_local_mirror",
+                    snapshot_version="114f-result-v1",
+                ),
+                repository=repo,
+                transport=transport,
+            )
+            attachment = service.capture_public_source_snapshot(
+                self._government_procurement_request(
+                    source_url=GOV_PROC_ATTACHMENT_URL,
+                    source_registry_id=GOV_PROC_ATTACHMENT_REGISTRY_ID,
+                    record_kind=GOVERNMENT_PROCUREMENT_ATTACHMENT_RECORD_KIND,
+                    source_visibility_state="SANDBOX_LOCAL_MIRROR",
+                    fetch_mode="sandbox_local_mirror",
+                    snapshot_version="114f-attachment-v1",
+                    lineage_refs={
+                        "notice_snapshot_id": notice.snapshot_id,
+                        "notice_source_url": GOV_PROC_NOTICE_URL,
+                        "parent_record_kind": GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+                    },
+                ),
+                repository=repo,
+                transport=transport,
+            )
+
+            cases = [
+                (
+                    notice,
+                    GOV_PROC_NOTICE_URL,
+                    GOV_PROC_NOTICE_REGISTRY_ID,
+                    GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+                    "PUBLIC_VISIBLE",
+                    "controlled_test_transport",
+                    "text/html",
+                    notice_body,
+                    "raw_html",
+                    "114f-notice-v1",
+                ),
+                (
+                    result,
+                    GOV_PROC_RESULT_PDF_URL,
+                    GOV_PROC_RESULT_REGISTRY_ID,
+                    GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
+                    "SANDBOX_LOCAL_MIRROR",
+                    "sandbox_local_mirror",
+                    "application/pdf",
+                    result_body,
+                    "raw_pdf",
+                    "114f-result-v1",
+                ),
+                (
+                    attachment,
+                    GOV_PROC_ATTACHMENT_URL,
+                    GOV_PROC_ATTACHMENT_REGISTRY_ID,
+                    GOVERNMENT_PROCUREMENT_ATTACHMENT_RECORD_KIND,
+                    "SANDBOX_LOCAL_MIRROR",
+                    "sandbox_local_mirror",
+                    "application/zip",
+                    attachment_body,
+                    "raw_attachment",
+                    "114f-attachment-v1",
+                ),
+            ]
+
+            for capture, source_url, registry_id, record_kind, visibility, fetch_mode, content_type, body, kind, version in cases:
+                replay = service.replay_public_source_snapshot(capture.snapshot_id, repository=repo)
+                metadata = capture.raw_snapshot_metadata
+
+                self.assertEqual(capture.status, "SNAPSHOT_CAPTURED")
+                self.assertEqual(capture.adapter_id, GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID)
+                self.assertTrue(capture.snapshot_id.startswith("SNAP-S2-114F-"))
+                self.assertIsNotNone(metadata)
+                self.assertTrue(required_metadata_keys.issubset(metadata))
+                self.assertEqual(metadata["adapter_id"], GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID)
+                self.assertEqual(metadata["source_family"], GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY)
+                self.assertEqual(metadata["record_kind"], record_kind)
+                self.assertEqual(metadata["source_registry_id"], registry_id)
+                self.assertEqual(metadata["source_url"], source_url)
+                self.assertEqual(metadata["source_visibility_state"], visibility)
+                self.assertEqual(metadata["content_type"], content_type)
+                self.assertEqual(metadata["byte_size"], len(body))
+                self.assertRegex(metadata["sha256"], r"^[0-9a-f]{64}$")
+                self.assertEqual(metadata["snapshot_version"], version)
+                self.assertEqual(metadata["lineage_refs"]["project_id"], "P-114F")
+                self.assertEqual(
+                    metadata["lineage_refs"]["adapter_id"],
+                    GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
+                )
+                self.assertEqual(
+                    metadata["lineage_refs"]["source_family"],
+                    GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY,
+                )
+                self.assertEqual(metadata["lineage_refs"]["record_kind"], record_kind)
+                self.assertEqual(metadata["fetched_at"], NOW)
+                self.assertEqual(metadata["captured_at"], NOW)
+                self.assertEqual(metadata["fetch_mode"], fetch_mode)
+                self.assertEqual(metadata["fetch_audit"]["transport_mode"], fetch_mode)
+                self.assertEqual(metadata["fetch_audit"]["record_kind"], record_kind)
+                self.assertEqual(
+                    metadata["fetch_audit"]["source_family"],
+                    GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY,
+                )
+                self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
+                self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
+                self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
+                self.assertEqual(capture.readback["snapshot_kind"], kind)
+                self.assertEqual(capture.readback["readback_state"], "READBACK_READY")
+                self.assertEqual(capture.readback["content_type"], content_type)
+                self.assertEqual(capture.readback["byte_size"], len(body))
+                self.assertEqual(capture.readback["bytes"], body)
+                self.assertEqual(replay["bytes"], body)
+                self.assertEqual(replay["manifest"]["raw_snapshot_metadata"]["record_kind"], record_kind)
+                self.assertEqual(replay["manifest"]["source_health"]["record_kind"], record_kind)
+                self.assertEqual(repo.read_snapshot_bytes(capture.snapshot_id), body)
+
+            attachment_lineage = attachment.raw_snapshot_metadata["lineage_refs"]
+            self.assertEqual(attachment_lineage["notice_snapshot_id"], notice.snapshot_id)
+            self.assertEqual(attachment_lineage["notice_source_url"], GOV_PROC_NOTICE_URL)
+            self.assertEqual(
+                attachment_lineage["parent_record_kind"],
+                GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+            )
+
+    def test_government_procurement_runtime_policy_resolver_and_adapter_isolation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            transport = StaticPublicSourceTransport({})
+            policy = self._adapter(
+                repo,
+                transport,
+                config=government_procurement_public_site_adapter_config(),
+            ).runtime_policy()
+
+            self.assertEqual(policy["adapter_id"], GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID)
+            self.assertEqual(
+                policy["allowed_source_families"],
+                [GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY],
+            )
+            self.assertEqual(
+                set(policy["allowed_record_kinds"]),
+                {
+                    GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+                    GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
+                    GOVERNMENT_PROCUREMENT_ATTACHMENT_RECORD_KIND,
+                },
+            )
+            self.assertEqual(
+                set(policy["allowlisted_source_registry_ids"]),
+                {
+                    GOV_PROC_NOTICE_REGISTRY_ID,
+                    GOV_PROC_RESULT_REGISTRY_ID,
+                    GOV_PROC_ATTACHMENT_REGISTRY_ID,
+                },
+            )
+            self.assertEqual(
+                policy["public_url_prefixes"],
+                ["https://public.example.local/government-procurement-public-sites/"],
+            )
+            self.assertEqual(
+                policy["sandbox_url_prefixes"],
+                ["sandbox://government-procurement-public-sites/"],
+            )
+            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["real_provider_connection_enabled"])
+
+        resolver_cases = [
+            self._government_procurement_request(),
+            PublicSourceSnapshotRequest(
+                source_url=PUBLIC_HTML_URL,
+                source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                source_family="PROCUREMENT_NOTICE",
+                record_kind=GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
+            ),
+            self._request(source_registry_id=GOV_PROC_RESULT_REGISTRY_ID),
+            self._request(source_url=GOV_PROC_NOTICE_URL),
+        ]
+        for request in resolver_cases:
+            self.assertEqual(
+                resolve_public_source_adapter_config(request).adapter_id,
+                GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
+            )
+
+        old_adapter_cases = [
+            (self._request(), LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID),
+            (self._provincial_request(), PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID),
+            (self._national_request(), NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID),
+            (self._credit_china_request(), CREDIT_CHINA_ADAPTER_ID),
+            (
+                self._necps_request(),
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+            ),
+            (
+                PublicSourceSnapshotRequest(
+                    source_url=PROVINCIAL_ATTACHMENT_URL,
+                    source_registry_id=PROVINCIAL_ATTACHMENT_REGISTRY_ID,
+                    source_family=PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY,
+                    record_kind="attachment",
+                ),
+                PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID,
+            ),
+        ]
+        for request, expected_adapter_id in old_adapter_cases:
+            self.assertEqual(
+                resolve_public_source_adapter_config(request).adapter_id,
+                expected_adapter_id,
+            )
+
+    def test_government_procurement_retry_timeout_rate_limit_and_failure_degrade_are_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        GOV_PROC_NOTICE_URL: [
+                            PublicSourceTimeoutError("government procurement timeout once"),
+                            PublicSourceTransportResponse(
+                                content=b"<html>government procurement retry success</html>",
+                                content_type="text/html",
+                                fetched_at=NOW,
+                                captured_at=NOW,
+                            ),
+                        ]
+                    }
+                ),
+                config=government_procurement_public_site_adapter_config(),
+            )
+            retry_result = adapter.capture(
+                self._government_procurement_request(max_retries=1)
+            )
+
+            self.assertEqual(retry_result.status, "SNAPSHOT_CAPTURED")
+            self.assertEqual(retry_result.adapter_id, GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID)
+            self.assertEqual(retry_result.fetch_audit["attempt_count"], 2)
+            self.assertEqual(
+                retry_result.fetch_audit["retry_events"][0]["reason"],
+                "PublicSourceTimeoutError",
+            )
+            self.assertEqual(
+                retry_result.fetch_audit["record_kind"],
+                GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+            )
+            self.assertEqual(retry_result.source_health["source_health_state"], "HEALTHY")
+            self.assertEqual(retry_result.source_health["retry_count"], 1)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        GOV_PROC_NOTICE_URL: [
+                            PublicSourceTimeoutError("government procurement timeout one"),
+                            PublicSourceTimeoutError("government procurement timeout two"),
+                        ]
+                    }
+                ),
+                config=government_procurement_public_site_adapter_config(),
+            )
+            timed_out = adapter.capture(
+                self._government_procurement_request(max_retries=1)
+            )
+
+            self.assertEqual(timed_out.status, "DEGRADED")
+            self.assertIsNone(timed_out.snapshot_id)
+            self.assertEqual(timed_out.adapter_id, GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID)
+            self.assertEqual(timed_out.source_health["source_health_state"], "DEGRADED")
+            self.assertEqual(
+                timed_out.source_health["record_kind"],
+                GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+            )
+            self.assertEqual(timed_out.source_health["last_failure_reason"], "fetch_timeout")
+            self.assertEqual(timed_out.failure_degrade["degrade_reason"], "fetch_timeout")
+            self.assertEqual(
+                timed_out.failure_degrade["readback_state"],
+                "NO_SNAPSHOT_DUE_TO_DEGRADE",
+            )
+            self.assertTrue(timed_out.failure_degrade["manual_review_required"])
+            self.assertTrue(timed_out.failure_degrade["fail_closed"])
+            self.assertTrue(timed_out.failure_degrade["no_broad_fallback"])
+            self.assertEqual(timed_out.fetch_audit["attempt_count"], 2)
+            self.assertEqual(timed_out.fetch_audit["transport_mode"], "controlled_test_transport")
+            self.assertEqual(
+                timed_out.fetch_audit["record_kind"],
+                GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+            )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            transport = StaticPublicSourceTransport(
+                {
+                    GOV_PROC_NOTICE_URL: PublicSourceTransportResponse(
+                        content=b"<html>government procurement rate limit</html>",
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                }
+            )
+            rate_adapter = self._adapter(
+                repo,
+                transport,
+                config=government_procurement_public_site_adapter_config(
+                    min_interval_seconds=60
+                ),
+            )
+            rate_adapter.capture(self._government_procurement_request())
+            rate_limited = rate_adapter.capture(self._government_procurement_request())
+
+            self.assertEqual(rate_limited.status, "DEGRADED")
+            self.assertEqual(rate_limited.failure_degrade["degrade_reason"], "rate_limited")
+            self.assertEqual(
+                rate_limited.source_health["record_kind"],
+                GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+            )
+            self.assertTrue(rate_limited.failure_degrade["manual_review_required"])
+            self.assertTrue(rate_limited.failure_degrade["fail_closed"])
+            self.assertTrue(rate_limited.failure_degrade["no_broad_fallback"])
+            self.assertEqual(
+                rate_limited.fetch_audit["transport_mode"],
+                "not_called_due_to_rate_limit",
+            )
+            self.assertEqual(len(transport.call_log), 1)
+
+    def test_government_procurement_duplicate_capture_keeps_dedupe_metadata_without_source_confusion(self) -> None:
+        duplicate_body = b"same government procurement public source bytes"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        GOV_PROC_NOTICE_URL: PublicSourceTransportResponse(
+                            content=duplicate_body,
+                            content_type="application/octet-stream",
+                            fetched_at=NOW,
+                            captured_at=NOW,
+                        ),
+                        GOV_PROC_RESULT_PDF_URL: PublicSourceTransportResponse(
+                            content=duplicate_body,
+                            content_type="application/octet-stream",
+                            fetched_at=NOW,
+                            captured_at=NOW,
+                        ),
+                    }
+                ),
+                config=government_procurement_public_site_adapter_config(),
+            )
+
+            first = adapter.capture(
+                self._government_procurement_request(
+                    snapshot_version="114f-duplicate-v1",
+                    content_type_hint="application/octet-stream",
+                )
+            )
+            second = adapter.capture(
+                self._government_procurement_request(
+                    source_url=GOV_PROC_RESULT_PDF_URL,
+                    source_registry_id=GOV_PROC_RESULT_REGISTRY_ID,
+                    record_kind=GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
+                    source_visibility_state="SANDBOX_LOCAL_MIRROR",
+                    fetch_mode="sandbox_local_mirror",
+                    snapshot_version="114f-duplicate-v1",
+                    content_type_hint="application/octet-stream",
+                )
+            )
+
+            self.assertEqual(first.fetch_audit["dedupe_state"], "NEW_OBJECT_WRITTEN")
+            self.assertEqual(
+                second.fetch_audit["dedupe_state"],
+                "DEDUPED_BY_SHA256_OBJECT_KEY",
+            )
+            self.assertNotEqual(first.snapshot_id, second.snapshot_id)
+            self.assertEqual(
+                first.raw_snapshot_metadata["object_key"],
+                second.raw_snapshot_metadata["object_key"],
+            )
+            self.assertEqual(
+                first.raw_snapshot_metadata["record_kind"],
+                GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+            )
+            self.assertEqual(
+                second.raw_snapshot_metadata["record_kind"],
+                GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
+            )
+            self.assertEqual(
+                repo.replay_snapshot(first.snapshot_id)["manifest"]["raw_snapshot_metadata"]["source_registry_id"],
+                GOV_PROC_NOTICE_REGISTRY_ID,
+            )
+            self.assertEqual(
+                repo.replay_snapshot(second.snapshot_id)["manifest"]["raw_snapshot_metadata"]["source_registry_id"],
+                GOV_PROC_RESULT_REGISTRY_ID,
+            )
+            self.assertEqual(repo.read_snapshot_bytes(first.snapshot_id), duplicate_body)
+            self.assertEqual(repo.read_snapshot_bytes(second.snapshot_id), duplicate_body)
+
+    def test_government_procurement_blocked_sources_fail_closed_before_transport(self) -> None:
+        blocked_requests = [
+            self._government_procurement_request(source_registry_id="SRC-REG-GOV-PROCUREMENT-UNKNOWN"),
+            self._government_procurement_request(
+                source_family="unknown_source_family",
+                source_registry_id=GOV_PROC_NOTICE_REGISTRY_ID,
+            ),
+            self._government_procurement_request(
+                source_url="https://unlisted.example.local/government/notice.html"
+            ),
+            self._government_procurement_request(record_kind="unknown_government_record"),
+            self._government_procurement_request(source_visibility_state="PRIVATE"),
+            self._government_procurement_request(source_visibility_state="GRAY"),
+            self._government_procurement_request(source_visibility_state="LOGIN_REQUIRED"),
+            self._government_procurement_request(source_visibility_state="CAPTCHA_REQUIRED"),
+            self._government_procurement_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
+            self._government_procurement_request(source_visibility_state="UNKNOWN"),
+            self._government_procurement_request(boundary_flags={"private_source": True}),
+            self._government_procurement_request(boundary_flags={"gray_source": True}),
+            self._government_procurement_request(boundary_flags={"login_required": True}),
+            self._government_procurement_request(boundary_flags={"captcha_required": True}),
+            self._government_procurement_request(boundary_flags={"anti_bot_restricted": True}),
+            self._government_procurement_request(fetch_mode="live"),
+            self._government_procurement_request(fetch_mode="live_crawl"),
+            self._government_procurement_request(fetch_mode="uncontrolled_live_crawl"),
+            self._government_procurement_request(fetch_mode="crawler"),
+            self._government_procurement_request(fetch_mode="real_provider"),
+        ]
+
+        for request in blocked_requests:
+            with self.subTest(
+                source_url=request.source_url,
+                state=request.source_visibility_state,
+                mode=request.fetch_mode,
+            ):
+                transport = StaticPublicSourceTransport({})
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    adapter = self._adapter(
+                        self._repo(tmp_dir),
+                        transport,
+                        config=government_procurement_public_site_adapter_config(),
+                    )
+                    with self.assertRaises(PublicSourceBoundaryError) as raised:
+                        adapter.capture(request)
+                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self.assertEqual(
+                        raised.exception.carrier["adapter_id"],
+                        GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
+                    )
+                    self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
+                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
+                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
+                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
+                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
+                    self.assertEqual(transport.call_log, [])
 
     def test_provincial_html_pdf_and_attachment_metadata_keep_hash_version_and_lineage(self) -> None:
         cases = [

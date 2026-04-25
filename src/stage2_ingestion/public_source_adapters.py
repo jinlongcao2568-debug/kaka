@@ -20,6 +20,9 @@ CREDIT_CHINA_ADAPTER_ID = "stage2.credit_china.v1"
 NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID = (
     "stage2.national_enterprise_credit_publicity_system.v1"
 )
+GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID = (
+    "stage2.government_procurement_public_site.v1"
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY = "local_public_resource_trading_center"
 PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY = "provincial_bidding_platform"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY = (
@@ -29,6 +32,7 @@ CREDIT_CHINA_SOURCE_FAMILY = "credit_china"
 NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY = (
     "national_enterprise_credit_publicity_system"
 )
+GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY = "government_procurement_public_site"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND = "enterprise_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND = "personnel_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND = "project_public_record"
@@ -71,6 +75,16 @@ NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_UNIQUE_RECORD_KINDS = frozenset(
         NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ENTERPRISE_ABNORMAL_OPERATION_RECORD_KIND,
     }
 )
+GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND = "government_procurement_notice_record"
+GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND = "government_procurement_result_record"
+GOVERNMENT_PROCUREMENT_ATTACHMENT_RECORD_KIND = "government_procurement_attachment_record"
+GOVERNMENT_PROCUREMENT_PUBLIC_SITE_RECORD_KINDS = frozenset(
+    {
+        GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+        GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
+        GOVERNMENT_PROCUREMENT_ATTACHMENT_RECORD_KIND,
+    }
+)
 
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS = frozenset(
     {
@@ -107,6 +121,13 @@ NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_REGISTRY_IDS = frozenset(
         "SRC-REG-NECPS-ENTERPRISE-ABNORMAL-OPERATION",
     }
 )
+GOVERNMENT_PROCUREMENT_PUBLIC_SITE_REGISTRY_IDS = frozenset(
+    {
+        "SRC-REG-GOV-PROCUREMENT-NOTICE",
+        "SRC-REG-GOV-PROCUREMENT-RESULT",
+        "SRC-REG-GOV-PROCUREMENT-ATTACHMENT",
+    }
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES = (
     "https://public.example.local/local-public-resource-trading-centers/",
     "https://public.example.local/procurement/",
@@ -140,6 +161,12 @@ NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_PUBLIC_URL_PREFIXES = (
 )
 NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SANDBOX_URL_PREFIXES = (
     "sandbox://national-enterprise-credit-publicity-system/",
+)
+GOVERNMENT_PROCUREMENT_PUBLIC_SITE_PUBLIC_URL_PREFIXES = (
+    "https://public.example.local/government-procurement-public-sites/",
+)
+GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SANDBOX_URL_PREFIXES = (
+    "sandbox://government-procurement-public-sites/",
 )
 
 PUBLIC_VISIBLE_STATE = "PUBLIC_VISIBLE"
@@ -366,6 +393,23 @@ def national_enterprise_credit_publicity_system_adapter_config(
     )
 
 
+def government_procurement_public_site_adapter_config(
+    *,
+    min_interval_seconds: float = 0.0,
+) -> PublicSourceAdapterConfig:
+    return PublicSourceAdapterConfig(
+        adapter_id=GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
+        allowlisted_source_registry_ids=GOVERNMENT_PROCUREMENT_PUBLIC_SITE_REGISTRY_IDS,
+        allowed_source_families=frozenset(
+            {GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY}
+        ),
+        allowed_record_kinds=GOVERNMENT_PROCUREMENT_PUBLIC_SITE_RECORD_KINDS,
+        allowed_public_url_prefixes=GOVERNMENT_PROCUREMENT_PUBLIC_SITE_PUBLIC_URL_PREFIXES,
+        allowed_sandbox_url_prefixes=GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SANDBOX_URL_PREFIXES,
+        min_interval_seconds=min_interval_seconds,
+    )
+
+
 def resolve_public_source_adapter_config(
     request: PublicSourceSnapshotRequest,
 ) -> PublicSourceAdapterConfig:
@@ -391,6 +435,18 @@ def resolve_public_source_adapter_config(
         )
     ):
         return national_enterprise_credit_publicity_system_adapter_config()
+    if (
+        source_family == GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY
+        or record_kind in GOVERNMENT_PROCUREMENT_PUBLIC_SITE_RECORD_KINDS
+        or request.source_registry_id in GOVERNMENT_PROCUREMENT_PUBLIC_SITE_REGISTRY_IDS
+        or request.source_url.startswith(
+            GOVERNMENT_PROCUREMENT_PUBLIC_SITE_PUBLIC_URL_PREFIXES
+        )
+        or request.source_url.startswith(
+            GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SANDBOX_URL_PREFIXES
+        )
+    ):
+        return government_procurement_public_site_adapter_config()
     if (
         source_family == NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY
         or record_kind in NATIONAL_CONSTRUCTION_MARKET_PLATFORM_RECORD_KINDS
@@ -830,6 +886,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             packet_marker = "114D"
         elif self.config.adapter_id == NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID:
             packet_marker = "114E"
+        elif self.config.adapter_id == GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID:
+            packet_marker = "114F"
         else:
             packet_marker = "114A"
         return f"SNAP-S2-{packet_marker}-{digest[:20]}"
@@ -899,6 +957,15 @@ __all__ = [
     "CREDIT_CHINA_REGISTRY_IDS",
     "CREDIT_CHINA_SANDBOX_URL_PREFIXES",
     "CREDIT_CHINA_SOURCE_FAMILY",
+    "GOVERNMENT_PROCUREMENT_ATTACHMENT_RECORD_KIND",
+    "GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND",
+    "GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID",
+    "GOVERNMENT_PROCUREMENT_PUBLIC_SITE_PUBLIC_URL_PREFIXES",
+    "GOVERNMENT_PROCUREMENT_PUBLIC_SITE_RECORD_KINDS",
+    "GOVERNMENT_PROCUREMENT_PUBLIC_SITE_REGISTRY_IDS",
+    "GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SANDBOX_URL_PREFIXES",
+    "GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY",
+    "GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS",
@@ -940,6 +1007,7 @@ __all__ = [
     "SANDBOX_LOCAL_MIRROR_STATE",
     "StaticPublicSourceTransport",
     "credit_china_adapter_config",
+    "government_procurement_public_site_adapter_config",
     "local_public_resource_trading_center_adapter_config",
     "national_enterprise_credit_publicity_system_adapter_config",
     "national_construction_market_platform_adapter_config",
