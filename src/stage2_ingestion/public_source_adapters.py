@@ -13,8 +13,24 @@ LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID = (
     "stage2.local_public_resource_trading_center.v1"
 )
 PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID = "stage2.provincial_bidding_platform.v1"
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID = (
+    "stage2.national_construction_market_platform.v1"
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY = "local_public_resource_trading_center"
 PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY = "provincial_bidding_platform"
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY = (
+    "national_construction_market_platform"
+)
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND = "enterprise_public_record"
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND = "personnel_public_record"
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND = "project_public_record"
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_RECORD_KINDS = frozenset(
+    {
+        NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND,
+        NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND,
+        NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND,
+    }
+)
 
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS = frozenset(
     {
@@ -28,6 +44,13 @@ PROVINCIAL_BIDDING_PLATFORM_REGISTRY_IDS = frozenset(
         "SRC-REG-PROV-BID-ANNOUNCEMENT-HTML",
         "SRC-REG-PROV-BID-ANNOUNCEMENT-PDF",
         "SRC-REG-PROV-BID-ATTACHMENT",
+    }
+)
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_REGISTRY_IDS = frozenset(
+    {
+        "SRC-REG-NCMP-ENTERPRISE-PUBLIC-RECORD",
+        "SRC-REG-NCMP-PERSONNEL-PUBLIC-RECORD",
+        "SRC-REG-NCMP-PROJECT-PUBLIC-RECORD",
     }
 )
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES = (
@@ -44,6 +67,13 @@ PROVINCIAL_BIDDING_PLATFORM_PUBLIC_URL_PREFIXES = (
 )
 PROVINCIAL_BIDDING_PLATFORM_SANDBOX_URL_PREFIXES = (
     "sandbox://provincial-bidding-platforms/",
+)
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PUBLIC_URL_PREFIXES = (
+    "https://public.example.local/national-construction-market-platform/",
+    "https://public.example.local/national-construction-market/",
+)
+NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SANDBOX_URL_PREFIXES = (
+    "sandbox://national-construction-market-platform/",
 )
 
 PUBLIC_VISIBLE_STATE = "PUBLIC_VISIBLE"
@@ -168,6 +198,7 @@ class PublicSourceSnapshotRequest:
     source_url: str
     source_registry_id: str
     source_family: str
+    record_kind: str | None = None
     source_visibility_state: str = PUBLIC_VISIBLE_STATE
     fetch_mode: str = "controlled_test_transport"
     lineage_refs: Mapping[str, Any] = field(default_factory=dict)
@@ -190,6 +221,7 @@ class PublicSourceAdapterConfig:
             "AWARD_NOTICE",
         }
     )
+    allowed_record_kinds: frozenset[str] = frozenset()
     allowed_public_url_prefixes: tuple[str, ...] = LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES
     allowed_sandbox_url_prefixes: tuple[str, ...] = LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SANDBOX_URL_PREFIXES
     allowed_fetch_modes: frozenset[str] = ALLOWED_FETCH_MODES
@@ -219,10 +251,36 @@ def provincial_bidding_platform_adapter_config(
     )
 
 
+def national_construction_market_platform_adapter_config(
+    *,
+    min_interval_seconds: float = 0.0,
+) -> PublicSourceAdapterConfig:
+    return PublicSourceAdapterConfig(
+        adapter_id=NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID,
+        allowlisted_source_registry_ids=NATIONAL_CONSTRUCTION_MARKET_PLATFORM_REGISTRY_IDS,
+        allowed_source_families=frozenset(
+            {NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY}
+        ),
+        allowed_record_kinds=NATIONAL_CONSTRUCTION_MARKET_PLATFORM_RECORD_KINDS,
+        allowed_public_url_prefixes=NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PUBLIC_URL_PREFIXES,
+        allowed_sandbox_url_prefixes=NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SANDBOX_URL_PREFIXES,
+        min_interval_seconds=min_interval_seconds,
+    )
+
+
 def resolve_public_source_adapter_config(
     request: PublicSourceSnapshotRequest,
 ) -> PublicSourceAdapterConfig:
     source_family = str(request.source_family or "").strip()
+    record_kind = str(request.record_kind or "").strip()
+    if (
+        source_family == NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY
+        or record_kind in NATIONAL_CONSTRUCTION_MARKET_PLATFORM_RECORD_KINDS
+        or request.source_registry_id in NATIONAL_CONSTRUCTION_MARKET_PLATFORM_REGISTRY_IDS
+        or request.source_url.startswith(NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PUBLIC_URL_PREFIXES)
+        or request.source_url.startswith(NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SANDBOX_URL_PREFIXES)
+    ):
+        return national_construction_market_platform_adapter_config()
     if (
         source_family == PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY
         or request.source_registry_id in PROVINCIAL_BIDDING_PLATFORM_REGISTRY_IDS
@@ -276,6 +334,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         return {
             "adapter_id": self.config.adapter_id,
             "allowed_fetch_modes": sorted(self.config.allowed_fetch_modes),
+            "allowed_record_kinds": sorted(self.config.allowed_record_kinds),
             "allowed_source_families": sorted(self.config.allowed_source_families),
             "allowlisted_source_registry_ids": sorted(
                 self.config.allowlisted_source_registry_ids
@@ -408,6 +467,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "attempt_count": attempt_count,
             "max_retries": request.max_retries,
             "timeout_seconds": request.timeout_seconds,
+            "source_family": request.source_family,
+            "record_kind": request.record_kind,
             "retry_events": retry_events,
             "rate_limit": dict(rate_limit),
             "transport_mode": request.fetch_mode,
@@ -420,7 +481,10 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         }
         source_health = {
             "adapter_id": self.config.adapter_id,
+            "source_family": request.source_family,
+            "record_kind": request.record_kind,
             "source_registry_id": request.source_registry_id,
+            "source_url": response.final_url or request.source_url,
             "source_health_state": "HEALTHY",
             "last_failure_reason": None,
             "failure_degrade_state": "NOT_DEGRADED",
@@ -431,6 +495,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         raw_snapshot_metadata = {
             "adapter_id": self.config.adapter_id,
             "source_family": request.source_family,
+            "record_kind": request.record_kind,
             "source_registry_id": request.source_registry_id,
             "source_url": response.final_url or request.source_url,
             "source_visibility_state": request.source_visibility_state,
@@ -506,6 +571,14 @@ class LocalPublicResourceTradingCenterSourceAdapter:
                 request,
                 f"unregistered_source_family:{request.source_family}",
             )
+        if (
+            self.config.allowed_record_kinds
+            and request.record_kind not in self.config.allowed_record_kinds
+        ):
+            return self._boundary_block(
+                request,
+                f"unregistered_record_kind:{request.record_kind}",
+            )
         if not self._url_is_allowlisted(request.source_url):
             return self._boundary_block(request, "source_url_not_allowlisted")
         return {
@@ -513,6 +586,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "blocked_reason": None,
             "source_visibility_state": visibility_state,
             "source_registry_id": request.source_registry_id,
+            "record_kind": request.record_kind,
             "fetch_mode": fetch_mode,
             "public_visible_url": request.source_url.startswith("https://"),
             "sandbox_local_mirror": request.source_url.startswith("sandbox://"),
@@ -524,6 +598,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "blocked_reason": reason,
             "source_visibility_state": request.source_visibility_state,
             "source_registry_id": request.source_registry_id,
+            "record_kind": request.record_kind,
             "fetch_mode": request.fetch_mode,
             "public_visible_url": False,
             "sandbox_local_mirror": False,
@@ -541,6 +616,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "source_url": request.source_url,
             "source_family": request.source_family,
             "source_registry_id": request.source_registry_id,
+            "record_kind": request.record_kind,
             "source_boundary": dict(boundary),
             "fetch_mode": request.fetch_mode,
             "uncontrolled_live_crawler_enabled": False,
@@ -588,14 +664,20 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         now: str,
         fetch_audit: Mapping[str, Any],
     ) -> PublicSourceSnapshotResult:
+        resolved_fetch_audit = dict(fetch_audit)
+        resolved_fetch_audit.setdefault("source_family", request.source_family)
+        resolved_fetch_audit.setdefault("record_kind", request.record_kind)
         source_health = {
             "adapter_id": self.config.adapter_id,
+            "source_family": request.source_family,
+            "record_kind": request.record_kind,
             "source_registry_id": request.source_registry_id,
+            "source_url": request.source_url,
             "source_health_state": "DEGRADED",
             "last_failure_reason": reason,
             "failure_degrade_state": "DEGRADED_TO_READBACK_CARRIER",
-            "rate_limit_state": dict(fetch_audit.get("rate_limit", {})),
-            "retry_count": max(0, int(fetch_audit.get("attempt_count", 0)) - 1),
+            "rate_limit_state": dict(resolved_fetch_audit.get("rate_limit", {})),
+            "retry_count": max(0, int(resolved_fetch_audit.get("attempt_count", 0)) - 1),
             "timeout_seconds": request.timeout_seconds,
         }
         failure_degrade = {
@@ -613,7 +695,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             snapshot_id=None,
             raw_snapshot_metadata=None,
             source_health=source_health,
-            fetch_audit=dict(fetch_audit),
+            fetch_audit=resolved_fetch_audit,
             readback=None,
             failure_degrade=failure_degrade,
         )
@@ -622,11 +704,12 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         digest = hashlib.sha256(
             f"{self.config.adapter_id}|{source_url}|{snapshot_version}|{sha256}".encode("utf-8")
         ).hexdigest()
-        packet_marker = (
-            "114B"
-            if self.config.adapter_id == PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID
-            else "114A"
-        )
+        if self.config.adapter_id == PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID:
+            packet_marker = "114B"
+        elif self.config.adapter_id == NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID:
+            packet_marker = "114C"
+        else:
+            packet_marker = "114A"
         return f"SNAP-S2-{packet_marker}-{digest[:20]}"
 
     def _lineage_refs(
@@ -644,10 +727,13 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             {
                 "stage_scope": "2",
                 "adapter_id": self.config.adapter_id,
+                "source_family": request.source_family,
                 "source_registry_id": request.source_registry_id,
                 "snapshot_version": snapshot_version,
             }
         )
+        if request.record_kind not in (None, ""):
+            refs["record_kind"] = str(request.record_kind)
         return refs
 
     def _snapshot_kind(self, content_type: str) -> str:
@@ -688,6 +774,15 @@ __all__ = [
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SANDBOX_URL_PREFIXES",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY",
     "LocalPublicResourceTradingCenterSourceAdapter",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PUBLIC_URL_PREFIXES",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_RECORD_KINDS",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_REGISTRY_IDS",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SANDBOX_URL_PREFIXES",
+    "NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY",
     "PUBLIC_VISIBLE_STATE",
     "PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID",
     "PROVINCIAL_BIDDING_PLATFORM_PUBLIC_URL_PREFIXES",
@@ -705,6 +800,7 @@ __all__ = [
     "SANDBOX_LOCAL_MIRROR_STATE",
     "StaticPublicSourceTransport",
     "local_public_resource_trading_center_adapter_config",
+    "national_construction_market_platform_adapter_config",
     "provincial_bidding_platform_adapter_config",
     "resolve_public_source_adapter_config",
 ]

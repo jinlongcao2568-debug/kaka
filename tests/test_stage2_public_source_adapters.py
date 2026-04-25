@@ -15,6 +15,11 @@ from shared.settings import Settings
 from stage2_ingestion.public_source_adapters import (
     LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID,
     LocalPublicResourceTradingCenterSourceAdapter,
+    NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID,
+    NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND,
+    NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND,
+    NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND,
+    NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY,
     PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID,
     PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY,
     PublicSourceAdapterConfig,
@@ -24,6 +29,7 @@ from stage2_ingestion.public_source_adapters import (
     PublicSourceTransportError,
     PublicSourceTransportResponse,
     StaticPublicSourceTransport,
+    national_construction_market_platform_adapter_config,
     provincial_bidding_platform_adapter_config,
 )
 from stage2_ingestion.service import Stage2Service
@@ -46,6 +52,18 @@ PROVINCIAL_ATTACHMENT_URL = (
 PROVINCIAL_HTML_REGISTRY_ID = "SRC-REG-PROV-BID-ANNOUNCEMENT-HTML"
 PROVINCIAL_PDF_REGISTRY_ID = "SRC-REG-PROV-BID-ANNOUNCEMENT-PDF"
 PROVINCIAL_ATTACHMENT_REGISTRY_ID = "SRC-REG-PROV-BID-ATTACHMENT"
+NATIONAL_ENTERPRISE_HTML_URL = (
+    "https://public.example.local/national-construction-market-platform/enterprise/114c.html"
+)
+NATIONAL_PERSONNEL_SANDBOX_PDF_URL = (
+    "sandbox://national-construction-market-platform/personnel/114c.pdf"
+)
+NATIONAL_PROJECT_ATTACHMENT_URL = (
+    "sandbox://national-construction-market-platform/project/114c-attachment.zip"
+)
+NATIONAL_ENTERPRISE_REGISTRY_ID = "SRC-REG-NCMP-ENTERPRISE-PUBLIC-RECORD"
+NATIONAL_PERSONNEL_REGISTRY_ID = "SRC-REG-NCMP-PERSONNEL-PUBLIC-RECORD"
+NATIONAL_PROJECT_REGISTRY_ID = "SRC-REG-NCMP-PROJECT-PUBLIC-RECORD"
 
 
 class Stage2PublicSourceAdapterTests(unittest.TestCase):
@@ -114,6 +132,36 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
             },
             timeout_seconds=4,
+            max_retries=max_retries,
+            boundary_flags=boundary_flags or {},
+        )
+
+    def _national_request(
+        self,
+        *,
+        source_url: str = NATIONAL_ENTERPRISE_HTML_URL,
+        source_registry_id: str = NATIONAL_ENTERPRISE_REGISTRY_ID,
+        record_kind: str = NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND,
+        source_visibility_state: str = "PUBLIC_VISIBLE",
+        fetch_mode: str = "controlled_test_transport",
+        snapshot_version: str = "national-record-v1",
+        max_retries: int = 2,
+        boundary_flags: dict[str, bool] | None = None,
+    ) -> PublicSourceSnapshotRequest:
+        return PublicSourceSnapshotRequest(
+            source_url=source_url,
+            source_registry_id=source_registry_id,
+            source_family=NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY,
+            record_kind=record_kind,
+            source_visibility_state=source_visibility_state,
+            fetch_mode=fetch_mode,
+            snapshot_version=snapshot_version,
+            lineage_refs={
+                "project_id": "P-114C",
+                "stage1_handoff_intent_id": "HINT-114C",
+                "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
+            },
+            timeout_seconds=5,
             max_retries=max_retries,
             boundary_flags=boundary_flags or {},
         )
@@ -215,6 +263,105 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 result.readback["manifest"]["raw_snapshot_metadata"]["source_health"]["source_health_state"],
                 "HEALTHY",
             )
+
+    def test_national_construction_market_enterprise_personnel_project_records_capture_raw_snapshots(self) -> None:
+        cases = [
+            (
+                NATIONAL_ENTERPRISE_HTML_URL,
+                NATIONAL_ENTERPRISE_REGISTRY_ID,
+                NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND,
+                "PUBLIC_VISIBLE",
+                "controlled_test_transport",
+                "text/html",
+                b"<html><body>national enterprise public record 114C</body></html>",
+                "raw_html",
+            ),
+            (
+                NATIONAL_PERSONNEL_SANDBOX_PDF_URL,
+                NATIONAL_PERSONNEL_REGISTRY_ID,
+                NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                "application/pdf",
+                b"%PDF-1.4 national personnel public record",
+                "raw_pdf",
+            ),
+            (
+                NATIONAL_PROJECT_ATTACHMENT_URL,
+                NATIONAL_PROJECT_REGISTRY_ID,
+                NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                "application/zip",
+                b"national project public record attachment",
+                "raw_attachment",
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            responses = {
+                source_url: PublicSourceTransportResponse(
+                    content=body,
+                    content_type=content_type,
+                    fetched_at=NOW,
+                    captured_at=NOW,
+                )
+                for source_url, _, _, _, _, content_type, body, _ in cases
+            }
+            transport = StaticPublicSourceTransport(responses)
+            service = Stage2Service()
+
+            for source_url, registry_id, record_kind, visibility, fetch_mode, content_type, body, kind in cases:
+                result = service.capture_public_source_snapshot(
+                    self._national_request(
+                        source_url=source_url,
+                        source_registry_id=registry_id,
+                        record_kind=record_kind,
+                        source_visibility_state=visibility,
+                        fetch_mode=fetch_mode,
+                        snapshot_version=f"114c-{record_kind}-v1",
+                    ),
+                    repository=repo,
+                    transport=transport,
+                )
+
+                metadata = result.raw_snapshot_metadata
+                self.assertEqual(result.status, "SNAPSHOT_CAPTURED")
+                self.assertEqual(result.adapter_id, NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID)
+                self.assertTrue(result.snapshot_id.startswith("SNAP-S2-114C-"))
+                self.assertIsNotNone(metadata)
+                self.assertEqual(metadata["adapter_id"], NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID)
+                self.assertEqual(metadata["source_family"], NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY)
+                self.assertEqual(metadata["record_kind"], record_kind)
+                self.assertEqual(metadata["source_registry_id"], registry_id)
+                self.assertEqual(metadata["source_url"], source_url)
+                self.assertEqual(metadata["source_visibility_state"], visibility)
+                self.assertEqual(metadata["content_type"], content_type)
+                self.assertEqual(metadata["byte_size"], len(body))
+                self.assertRegex(metadata["sha256"], r"^[0-9a-f]{64}$")
+                self.assertEqual(metadata["snapshot_version"], f"114c-{record_kind}-v1")
+                self.assertEqual(metadata["lineage_refs"]["project_id"], "P-114C")
+                self.assertEqual(metadata["lineage_refs"]["adapter_id"], NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID)
+                self.assertEqual(metadata["lineage_refs"]["source_family"], NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY)
+                self.assertEqual(metadata["lineage_refs"]["record_kind"], record_kind)
+                self.assertEqual(metadata["fetched_at"], NOW)
+                self.assertEqual(metadata["captured_at"], NOW)
+                self.assertEqual(metadata["fetch_audit"]["transport_mode"], fetch_mode)
+                self.assertEqual(metadata["fetch_audit"]["record_kind"], record_kind)
+                self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
+                self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
+                self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
+                self.assertEqual(result.readback["snapshot_kind"], kind)
+                self.assertEqual(result.readback["readback_state"], "READBACK_READY")
+                self.assertEqual(
+                    result.readback["manifest"]["raw_snapshot_metadata"]["record_kind"],
+                    record_kind,
+                )
+                self.assertEqual(
+                    result.readback["manifest"]["source_health"]["record_kind"],
+                    record_kind,
+                )
 
     def test_provincial_html_pdf_and_attachment_metadata_keep_hash_version_and_lineage(self) -> None:
         cases = [
@@ -513,6 +660,96 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(timed_out.fetch_audit["attempt_count"], 2)
             self.assertEqual(timed_out.fetch_audit["transport_mode"], "controlled_test_transport")
 
+    def test_national_construction_market_source_health_retry_timeout_and_failure_degrade_are_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        NATIONAL_ENTERPRISE_HTML_URL: [
+                            PublicSourceTimeoutError("national mirror timed out once"),
+                            PublicSourceTransportResponse(
+                                content=b"<html>national retry success</html>",
+                                content_type="text/html",
+                                fetched_at=NOW,
+                                captured_at=NOW,
+                            ),
+                        ]
+                    }
+                ),
+                config=national_construction_market_platform_adapter_config(),
+            )
+            retry_result = adapter.capture(self._national_request(max_retries=1))
+
+            self.assertEqual(retry_result.status, "SNAPSHOT_CAPTURED")
+            self.assertEqual(retry_result.fetch_audit["attempt_count"], 2)
+            self.assertEqual(retry_result.fetch_audit["retry_events"][0]["reason"], "PublicSourceTimeoutError")
+            self.assertEqual(
+                retry_result.fetch_audit["record_kind"],
+                NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND,
+            )
+            self.assertEqual(retry_result.source_health["source_health_state"], "HEALTHY")
+            self.assertEqual(retry_result.source_health["retry_count"], 1)
+            self.assertEqual(
+                retry_result.readback["manifest"]["source_health"]["retry_count"],
+                1,
+            )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        NATIONAL_ENTERPRISE_HTML_URL: [
+                            PublicSourceTimeoutError("national timeout one"),
+                            PublicSourceTimeoutError("national timeout two"),
+                        ]
+                    }
+                ),
+                config=national_construction_market_platform_adapter_config(),
+            )
+            timed_out = adapter.capture(self._national_request(max_retries=1))
+
+            self.assertEqual(timed_out.status, "DEGRADED")
+            self.assertIsNone(timed_out.snapshot_id)
+            self.assertEqual(timed_out.source_health["source_health_state"], "DEGRADED")
+            self.assertEqual(timed_out.source_health["record_kind"], NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND)
+            self.assertEqual(timed_out.source_health["last_failure_reason"], "fetch_timeout")
+            self.assertEqual(timed_out.failure_degrade["degrade_reason"], "fetch_timeout")
+            self.assertEqual(timed_out.failure_degrade["readback_state"], "NO_SNAPSHOT_DUE_TO_DEGRADE")
+            self.assertTrue(timed_out.failure_degrade["manual_review_required"])
+            self.assertTrue(timed_out.failure_degrade["fail_closed"])
+            self.assertEqual(timed_out.fetch_audit["attempt_count"], 2)
+            self.assertEqual(timed_out.fetch_audit["record_kind"], NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            transport = StaticPublicSourceTransport(
+                {
+                    NATIONAL_ENTERPRISE_HTML_URL: PublicSourceTransportResponse(
+                        content=b"<html>national rate limit</html>",
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                }
+            )
+            rate_adapter = self._adapter(
+                repo,
+                transport,
+                config=national_construction_market_platform_adapter_config(min_interval_seconds=60),
+            )
+            rate_adapter.capture(self._national_request())
+            rate_limited = rate_adapter.capture(self._national_request())
+
+            self.assertEqual(rate_limited.status, "DEGRADED")
+            self.assertEqual(rate_limited.failure_degrade["degrade_reason"], "rate_limited")
+            self.assertEqual(rate_limited.source_health["record_kind"], NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND)
+            self.assertTrue(rate_limited.failure_degrade["no_broad_fallback"])
+            self.assertEqual(len(transport.call_log), 1)
+
     def test_private_gray_login_captcha_antibot_and_unknown_sources_are_rejected(self) -> None:
         blocked_visibility_states = [
             "PRIVATE",
@@ -599,6 +836,39 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
                     self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertEqual(transport.call_log, [])
+
+    def test_national_construction_market_unknown_unlisted_private_gray_login_captcha_antibot_are_blocked_before_transport(self) -> None:
+        blocked_requests = [
+            self._national_request(source_registry_id="SRC-REG-NCMP-UNKNOWN"),
+            self._national_request(source_url="https://unlisted.example.local/ncmp/enterprise.html"),
+            self._national_request(record_kind="unknown_public_record"),
+            self._national_request(source_visibility_state="PRIVATE"),
+            self._national_request(source_visibility_state="GRAY"),
+            self._national_request(source_visibility_state="LOGIN_REQUIRED"),
+            self._national_request(source_visibility_state="CAPTCHA_REQUIRED"),
+            self._national_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
+            self._national_request(boundary_flags={"private_source": True}),
+            self._national_request(boundary_flags={"gray_source": True}),
+            self._national_request(boundary_flags={"login_required": True}),
+            self._national_request(boundary_flags={"captcha_required": True}),
+            self._national_request(boundary_flags={"anti_bot_restricted": True}),
+        ]
+
+        for request in blocked_requests:
+            with self.subTest(source_url=request.source_url, state=request.source_visibility_state):
+                transport = StaticPublicSourceTransport({})
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    adapter = self._adapter(
+                        self._repo(tmp_dir),
+                        transport,
+                        config=national_construction_market_platform_adapter_config(),
+                    )
+                    with self.assertRaises(PublicSourceBoundaryError) as raised:
+                        adapter.capture(request)
+                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
                     self.assertEqual(transport.call_log, [])
 
