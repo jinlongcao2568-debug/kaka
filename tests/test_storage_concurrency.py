@@ -32,12 +32,11 @@ from shared.settings import Settings
 STORAGE_ENV_KEYS = (
     "KAKA_STORAGE_BACKEND",
     "KAKA_STORAGE_PATH",
+    "KAKA_STORAGE_DATABASE_URL",
     "KAKA_STORAGE_SCOPE",
     "KAKA_STORAGE_TEST_ISOLATION",
 )
 RESERVED_INFRA_BACKENDS = {
-    "postgresql",
-    "sqlalchemy",
     "alembic",
     "redis",
     "dramatiq",
@@ -46,6 +45,95 @@ RESERVED_INFRA_BACKENDS = {
     "docker-compose",
 }
 RESERVED_OR_NOT_CONFIGURED = {"RESERVED_NOT_LIVE", "NOT_CONFIGURED"}
+
+
+def sqlalchemy_sqlite_url(path: Path) -> str:
+    return f"sqlite:///{path.as_posix()}"
+
+
+def build_envelope_entries(now: str) -> tuple[
+    PersistedRecord,
+    PersistedStageState,
+    PersistedWorkItem,
+    PersistedOperatorAction,
+]:
+    record = PersistedRecord(
+        object_type="test_record",
+        record_id="REC-1",
+        stage_scope=8,
+        project_id="P-1",
+        object_refs={"project_id": "P-1"},
+        decision_states={"policy_decision_state": "ALLOW"},
+        trace_refs={"trace_id": "TRACE-1"},
+        audit_refs={"audit_id": "AUDIT-1"},
+        governed_state={"primary_status": "READY"},
+        writeback_state={"writeback_targets": ["test_record"]},
+        payload={"record_id": "REC-1", "project_id": "P-1", "status": "READY"},
+        persisted_at=now,
+    )
+    stage_state = PersistedStageState(
+        stage_scope=8,
+        project_id="P-1",
+        surface_id="outreach_workbench",
+        root_object_type="test_record",
+        root_record_id="REC-1",
+        inputs={"project_id": "P-1", "record_id": "REC-1"},
+        persisted_at=now,
+        typed_object_refs={"record_id": "REC-1"},
+    )
+    work_item = PersistedWorkItem(
+        work_item_id="WI-1",
+        work_item_key="8:outreach_workbench:test_record:REC-1",
+        stage_scope=8,
+        project_id="P-1",
+        surface_id="outreach_workbench",
+        primary_object_type="test_record",
+        primary_record_id="REC-1",
+        assignment_profile_id="single_operator",
+        assignment_lifecycle_state="assigned",
+        object_refs={"record_id": "REC-1"},
+        surface_operational_state="draft_only",
+        current_operational_state="ready_for_internal_operator_action",
+        assigned_owner_role="sales_user",
+        assigned_owner="operator",
+        reviewer_role="delivery_governance_user",
+        reviewer="reviewer",
+        assignment_resolved_from="test",
+        assignment_simplified_boundary=["internal_only"],
+        pending_actions=["stage8_mark_ready"],
+        pending_button_flows=[{"action_id": "stage8_mark_ready"}],
+        last_action_id=None,
+        last_action_state=None,
+        last_action_at=None,
+        trace_refs={"trace_id": "TRACE-1"},
+        audit_refs={"audit_id": "AUDIT-1"},
+        decision_states={"policy_decision_state": "ALLOW"},
+        governed_context={"approval_state": "PENDING_APPROVAL"},
+        created_at=now,
+        updated_at=now,
+    )
+    action = PersistedOperatorAction(
+        action_event_id="ACT-1",
+        work_item_id="WI-1",
+        stage_scope=8,
+        action_id="stage8_mark_ready",
+        button_flow_id="submit_stage8_mark_ready",
+        action_state="action_completed",
+        resulting_assignment_lifecycle_state="completed",
+        requested_by_role="sales_user",
+        requested_by="operator",
+        assigned_owner_role="sales_user",
+        assigned_owner="operator",
+        reviewer_role="delivery_governance_user",
+        reviewer="reviewer",
+        reason="sqlalchemy reload coverage",
+        object_refs={"record_id": "REC-1"},
+        trace_refs={"trace_id": "TRACE-1"},
+        audit_refs={"audit_id": "AUDIT-1"},
+        requested_at=now,
+        completed_at=now,
+    )
+    return record, stage_state, work_item, action
 
 
 class TestStorageConcurrency(unittest.TestCase):
@@ -78,7 +166,12 @@ class TestStorageConcurrency(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_PATH", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in (
+                    "KAKA_STORAGE_PATH",
+                    "KAKA_STORAGE_DATABASE_URL",
+                    "KAKA_STORAGE_SCOPE",
+                    "KAKA_STORAGE_TEST_ISOLATION",
+                ):
                     os.environ.pop(key, None)
 
                 settings = Settings.from_env()
@@ -87,10 +180,12 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertEqual(settings.storage_scope, "shared")
         self.assertEqual(settings.storage_runtime_mode, "stable-default")
         readiness = settings.storage_bootstrap_payload()["platform_infra_readiness"]
-        self.assertEqual(readiness["active_backend"], "postgres")
-        self.assertEqual(readiness["postgresql_readiness"]["readiness_state"], "RESERVED_NOT_LIVE")
+        self.assertEqual(readiness["active_backend"], "postgresql")
+        self.assertEqual(readiness["postgresql_readiness"]["readiness_state"], "CONFIG_REQUIRED")
         self.assertTrue(readiness["postgresql_readiness"]["configured"])
         self.assertFalse(readiness["postgresql_readiness"]["executable"])
+        self.assertFalse(readiness["postgresql_readiness"]["database_url_configured"])
+        self.assertEqual(readiness["sqlalchemy_readiness"]["readiness_state"], "NOT_CONFIGURED")
         executable_backend_names = [
             entry["backend"]
             for entry in readiness["executable_backends"]
@@ -98,18 +193,33 @@ class TestStorageConcurrency(unittest.TestCase):
         ]
         self.assertEqual(executable_backend_names, ["json-file", "sqlite"])
 
-    def test_database_session_default_fast_fails_unsupported_storage_backend(self) -> None:
+    def test_database_session_default_fast_fails_postgres_without_database_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings = Settings(
                 storage_backend="postgres",
+                storage_path_optional=str(Path(tmp_dir) / "store.json"),
+                storage_database_url_optional=None,
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+
+            with self.assertRaisesRegex(ValueError, "KAKA_STORAGE_DATABASE_URL"):
+                DatabaseSession.default_storage_path(settings=settings)
+            with self.assertRaisesRegex(ValueError, "KAKA_STORAGE_DATABASE_URL"):
+                DatabaseSession.default(settings=settings, reload_from_disk=True)
+
+    def test_database_session_default_fast_fails_unsupported_storage_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="unsupported-backend",
                 storage_path_optional=str(Path(tmp_dir) / "store.json"),
                 storage_scope="shared",
                 storage_runtime_mode="explicit-path",
             )
 
-            with self.assertRaisesRegex(ValueError, "postgres"):
+            with self.assertRaisesRegex(ValueError, "unsupported storage backend"):
                 DatabaseSession.default_storage_path(settings=settings)
-            with self.assertRaisesRegex(ValueError, "postgres"):
+            with self.assertRaisesRegex(ValueError, "unsupported storage backend"):
                 DatabaseSession.default(settings=settings, reload_from_disk=True)
 
     def test_storage_bootstrap_payload_projects_reserved_platform_infra_readiness(self) -> None:
@@ -124,6 +234,8 @@ class TestStorageConcurrency(unittest.TestCase):
             payload = settings.storage_bootstrap_payload()
 
         self.assertEqual(payload["storage_backend"], "json-file")
+        self.assertFalse(payload["storage_database_url_configured"])
+        self.assertIsNone(payload["storage_database_url_redacted"])
         self.assertEqual(payload["storage_scope"], "shared")
         self.assertEqual(payload["storage_runtime_mode"], "explicit-path")
         self.assertIn("platform_infra_readiness", payload)
@@ -131,7 +243,10 @@ class TestStorageConcurrency(unittest.TestCase):
         readiness = payload["platform_infra_readiness"]
         self.assertEqual(readiness["active_backend"], "json-file")
         executable_backends = readiness["executable_backends"]
-        self.assertEqual([entry["backend"] for entry in executable_backends], ["json-file", "sqlite"])
+        self.assertEqual(
+            [entry["backend"] for entry in executable_backends],
+            ["json-file", "sqlite", "sqlalchemy", "postgresql"],
+        )
         self.assertEqual(
             [entry["backend"] for entry in executable_backends if entry["executable"]],
             ["json-file", "sqlite"],
@@ -140,6 +255,12 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(executable_backends[0]["configured"])
         self.assertEqual(executable_backends[1]["readiness_state"], "EXECUTABLE")
         self.assertFalse(executable_backends[1]["configured"])
+        self.assertEqual(executable_backends[2]["readiness_state"], "NOT_CONFIGURED")
+        self.assertFalse(executable_backends[2]["configured"])
+        self.assertFalse(executable_backends[2]["database_url_configured"])
+        self.assertEqual(executable_backends[3]["readiness_state"], "NOT_CONFIGURED")
+        self.assertFalse(executable_backends[3]["configured"])
+        self.assertFalse(executable_backends[3]["database_url_configured"])
 
         reserved_by_backend = {
             entry["backend"]: entry
@@ -154,6 +275,10 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertEqual(readiness["postgresql_readiness"]["readiness_state"], "NOT_CONFIGURED")
         self.assertFalse(readiness["postgresql_readiness"]["executable"])
         self.assertFalse(readiness["postgresql_readiness"]["configured"])
+        self.assertEqual(readiness["sqlalchemy_readiness"]["readiness_state"], "NOT_CONFIGURED")
+        self.assertFalse(readiness["sqlalchemy_readiness"]["executable"])
+        self.assertFalse(readiness["sqlalchemy_readiness"]["configured"])
+        self.assertFalse(readiness["sqlalchemy_readiness"]["database_url_configured"])
         self.assertEqual(readiness["migration_readiness"]["readiness_state"], "NOT_CONFIGURED")
         self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
         self.assertIn(readiness["queue_readiness"]["readiness_state"], RESERVED_OR_NOT_CONFIGURED)
@@ -165,11 +290,19 @@ class TestStorageConcurrency(unittest.TestCase):
 
         policy = readiness["backend_policy"]
         self.assertTrue(policy["unsupported_backend_fast_fail"])
+        self.assertTrue(policy["missing_database_url_fast_fail"])
         self.assertTrue(policy["no_silent_fallback"])
         self.assertTrue(policy["no_migration_execution"])
         self.assertTrue(policy["no_external_service_connection"])
         self.assertTrue(policy["readback_only"])
         self.assertFalse(policy["runtime_behavior_changed"])
+        redlines = readiness["redlines"]
+        self.assertTrue(redlines["no_live_provider_call"])
+        self.assertTrue(redlines["no_real_payment"])
+        self.assertTrue(redlines["no_real_delivery"])
+        self.assertTrue(redlines["no_real_refund"])
+        self.assertTrue(redlines["no_automated_refund"])
+        self.assertFalse(redlines["external_software_release_enabled"])
 
     def test_storage_backend_sqlite_env_opt_in_creates_sqlite_session(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -183,7 +316,7 @@ class TestStorageConcurrency(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in ("KAKA_STORAGE_DATABASE_URL", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
                     os.environ.pop(key, None)
                 settings = Settings.from_env()
                 session = DatabaseSession.default(settings=settings, reload_from_disk=True)
@@ -199,7 +332,7 @@ class TestStorageConcurrency(unittest.TestCase):
                         entry["backend"]: entry
                         for entry in readiness["executable_backends"]
                     }
-                    self.assertEqual(set(executable_by_backend), {"json-file", "sqlite"})
+                    self.assertEqual(set(executable_by_backend), {"json-file", "sqlite", "sqlalchemy", "postgresql"})
                     self.assertTrue(executable_by_backend["json-file"]["executable"])
                     self.assertFalse(executable_by_backend["json-file"]["configured"])
                     self.assertTrue(executable_by_backend["sqlite"]["executable"])
@@ -328,6 +461,61 @@ class TestStorageConcurrency(unittest.TestCase):
                 )
                 self.assertEqual(reloaded.list_operator_actions("WI-1"), [action])
                 self.assertEqual(reloaded.storage_path, Path(tmp_dir) / "durable-store.sqlite")
+            finally:
+                reloaded.close()
+
+    def test_sqlalchemy_backend_reloads_records_stage_states_work_items_and_operator_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            database_path = Path(tmp_dir) / "sqlalchemy-store.sqlite"
+            settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_path_optional=str(Path(tmp_dir) / "unused-json-store.json"),
+                storage_database_url_optional=sqlalchemy_sqlite_url(database_path),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+            session = DatabaseSession(settings=settings)
+            now = build_persisted_at()
+            record, stage_state, work_item, action = build_envelope_entries(now)
+
+            session.upsert_record(record)
+            session.upsert_stage_state(stage_state)
+            session.upsert_work_item(work_item)
+            session.append_operator_action(action)
+            session.close()
+
+            connection = sqlite3.connect(database_path)
+            try:
+                table_names = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'table'"
+                    )
+                }
+            finally:
+                connection.close()
+            self.assertTrue({"records", "stage_states", "work_items", "operator_actions"}.issubset(table_names))
+
+            reloaded = DatabaseSession(settings=settings)
+            try:
+                self.assertEqual(reloaded.storage_backend, "sqlalchemy")
+                self.assertEqual(reloaded.storage_path, database_path)
+                self.assertEqual(reloaded.storage_database_url, sqlalchemy_sqlite_url(database_path))
+                self.assertEqual(reloaded.get_record("test_record", "REC-1"), record)
+                self.assertEqual(reloaded.list_records("test_record"), [record])
+                self.assertEqual(reloaded.get_stage_state(8, "outreach_workbench", "REC-1"), stage_state)
+                self.assertEqual(reloaded.list_stage_states(stage_scope=8), [stage_state])
+                self.assertEqual(
+                    reloaded.find_work_item(
+                        stage_scope=8,
+                        surface_id="outreach_workbench",
+                        primary_object_type="test_record",
+                        primary_record_id="REC-1",
+                    ),
+                    work_item,
+                )
+                self.assertEqual(reloaded.list_work_items(stage_scope=8), [work_item])
+                self.assertEqual(reloaded.list_operator_actions("WI-1"), [action])
             finally:
                 reloaded.close()
 

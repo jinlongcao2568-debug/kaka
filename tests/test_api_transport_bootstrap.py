@@ -92,8 +92,6 @@ RESERVED_ENTRY_EXPECTATIONS = {
     },
 }
 RESERVED_INFRA_BACKENDS = {
-    "postgresql",
-    "sqlalchemy",
     "alembic",
     "redis",
     "dramatiq",
@@ -102,6 +100,10 @@ RESERVED_INFRA_BACKENDS = {
     "docker-compose",
 }
 RESERVED_OR_NOT_CONFIGURED = {"RESERVED_NOT_LIVE", "NOT_CONFIGURED"}
+
+
+def sqlalchemy_sqlite_url(path: Path) -> str:
+    return f"sqlite:///{path.as_posix()}"
 
 
 def expected_reserved_entry_plan(stage_scope: int) -> dict[str, object]:
@@ -139,6 +141,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 for key in (
                     "KAKA_STORAGE_BACKEND",
                     "KAKA_STORAGE_PATH",
+                    "KAKA_STORAGE_DATABASE_URL",
                     "KAKA_STORAGE_SCOPE",
                     "KAKA_STORAGE_TEST_ISOLATION",
                 ):
@@ -151,6 +154,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(Path(settings.repo_root).resolve(), ROOT.resolve())
         self.assertEqual(settings.storage_backend, "json-file")
         self.assertIsNone(settings.storage_path_optional)
+        self.assertIsNone(settings.storage_database_url_optional)
         self.assertEqual(settings.storage_scope, "shared")
         self.assertEqual(settings.storage_runtime_mode, "stable-default")
         self.assertEqual(
@@ -168,7 +172,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_PATH", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in (
+                    "KAKA_STORAGE_PATH",
+                    "KAKA_STORAGE_DATABASE_URL",
+                    "KAKA_STORAGE_SCOPE",
+                    "KAKA_STORAGE_TEST_ISOLATION",
+                ):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
                 settings = get_settings()
@@ -190,7 +199,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 },
                 clear=False,
             ):
-                os.environ.pop("KAKA_STORAGE_TEST_ISOLATION", None)
+                for key in ("KAKA_STORAGE_DATABASE_URL", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
                 get_settings.cache_clear()
                 app = create_app()
 
@@ -204,6 +214,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(storage_bootstrap["storage_backend"], "json-file")
         self.assertEqual(storage_bootstrap["storage_path"], str(explicit_path))
         self.assertEqual(storage_bootstrap["storage_path_optional"], str(explicit_path))
+        self.assertFalse(storage_bootstrap["storage_database_url_configured"])
+        self.assertIsNone(storage_bootstrap["storage_database_url_redacted"])
         self.assertEqual(storage_bootstrap["storage_scope"], "process")
         self.assertEqual(storage_bootstrap["storage_runtime_mode"], "explicit-path")
         self.assertIn("platform_infra_readiness", storage_bootstrap)
@@ -229,6 +241,9 @@ class TestApiTransportBootstrap(unittest.TestCase):
         }
         self.assertTrue(executable_by_backend["json-file"]["configured"])
         self.assertFalse(executable_by_backend["sqlite"]["configured"])
+        self.assertEqual(set(executable_by_backend), {"json-file", "sqlite", "sqlalchemy", "postgresql"})
+        self.assertEqual(executable_by_backend["sqlalchemy"]["readiness_state"], "NOT_CONFIGURED")
+        self.assertEqual(executable_by_backend["postgresql"]["readiness_state"], "NOT_CONFIGURED")
         reserved_by_backend = {
             entry["backend"]: entry
             for entry in readiness["reserved_backends"]
@@ -238,11 +253,15 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertFalse(entry["executable"], backend)
             self.assertIn(entry["readiness_state"], RESERVED_OR_NOT_CONFIGURED, backend)
         self.assertFalse(readiness["postgresql_readiness"]["executable"])
+        self.assertFalse(readiness["postgresql_readiness"]["database_url_configured"])
+        self.assertFalse(readiness["sqlalchemy_readiness"]["executable"])
+        self.assertFalse(readiness["sqlalchemy_readiness"]["database_url_configured"])
         self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
         self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
         self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
+        self.assertTrue(readiness["backend_policy"]["missing_database_url_fast_fail"])
         self.assertTrue(readiness["backend_policy"]["no_silent_fallback"])
         self.assertTrue(readiness["backend_policy"]["no_migration_execution"])
         self.assertTrue(readiness["backend_policy"]["no_external_service_connection"])
@@ -261,7 +280,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in ("KAKA_STORAGE_DATABASE_URL", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
                 app = create_app()
@@ -279,7 +298,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
                         entry["backend"]: entry
                         for entry in readiness["executable_backends"]
                     }
-                    self.assertEqual(set(executable_by_backend), {"json-file", "sqlite"})
+                    self.assertEqual(set(executable_by_backend), {"json-file", "sqlite", "sqlalchemy", "postgresql"})
                     self.assertTrue(executable_by_backend["json-file"]["executable"])
                     self.assertFalse(executable_by_backend["json-file"]["configured"])
                     self.assertTrue(executable_by_backend["sqlite"]["executable"])
@@ -297,6 +316,47 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
                     self.assertTrue(readiness["backend_policy"]["no_silent_fallback"])
                     self.assertTrue(readiness["backend_policy"]["no_external_service_connection"])
+                finally:
+                    app.state.storage_session.close()
+
+    def test_create_app_mounts_sqlalchemy_storage_bootstrap_projection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            database_path = Path(tmp_dir) / "storage" / "sqlalchemy-store.sqlite"
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "sqlalchemy",
+                    "KAKA_STORAGE_DATABASE_URL": sqlalchemy_sqlite_url(database_path),
+                    "LOCALAPPDATA": str(Path(tmp_dir) / "local-app-data"),
+                },
+                clear=False,
+            ):
+                for key in ("KAKA_STORAGE_PATH", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
+                get_settings.cache_clear()
+                app = create_app()
+                try:
+                    storage_bootstrap = app.state.storage_bootstrap
+                    readiness = storage_bootstrap["platform_infra_readiness"]
+                    self.assertEqual(app.state.storage_session.storage_backend, "sqlalchemy")
+                    self.assertEqual(app.state.storage_session.storage_path, database_path)
+                    self.assertEqual(storage_bootstrap["active_backend"], "sqlalchemy")
+                    self.assertEqual(storage_bootstrap["storage_backend"], "sqlalchemy")
+                    self.assertTrue(storage_bootstrap["storage_database_url_configured"])
+                    self.assertEqual(storage_bootstrap["storage_database_url_dialect"], "sqlite")
+                    self.assertEqual(readiness["active_backend"], "sqlalchemy")
+                    self.assertEqual(readiness["sqlalchemy_readiness"]["readiness_state"], "EXECUTABLE")
+                    self.assertTrue(readiness["sqlalchemy_readiness"]["executable"])
+                    self.assertTrue(readiness["sqlalchemy_readiness"]["configured"])
+                    self.assertEqual(readiness["sqlalchemy_readiness"]["database_url_dialect"], "sqlite")
+                    self.assertEqual(readiness["postgresql_readiness"]["readiness_state"], "NOT_CONFIGURED")
+                    self.assertFalse(readiness["postgresql_readiness"]["configured"])
+                    self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+                    self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+                    self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
+                    self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+                    self.assertEqual(app.state.transport_bootstrap["storage_bootstrap"], storage_bootstrap)
+                    self.assertEqual(app.state.transport_bootstrap["platform_infra_readiness"], readiness)
                 finally:
                     app.state.storage_session.close()
 
@@ -553,8 +613,13 @@ class TestApiTransportBootstrap(unittest.TestCase):
         )
         self.assertEqual(app.state.storage_bootstrap, app.state.settings.storage_bootstrap_payload())
         self.assertIn("platform_infra_readiness", app.state.storage_bootstrap)
+        self.assertEqual(app.state.transport_bootstrap["storage_bootstrap"], app.state.storage_bootstrap)
+        self.assertEqual(
+            app.state.transport_bootstrap["platform_infra_readiness"],
+            app.state.storage_bootstrap["platform_infra_readiness"],
+        )
 
-    def test_create_app_fast_fails_unsupported_storage_backend(self) -> None:
+    def test_create_app_fast_fails_postgres_without_database_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch.dict(
                 os.environ,
@@ -564,11 +629,38 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_PATH", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in (
+                    "KAKA_STORAGE_PATH",
+                    "KAKA_STORAGE_DATABASE_URL",
+                    "KAKA_STORAGE_SCOPE",
+                    "KAKA_STORAGE_TEST_ISOLATION",
+                ):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
 
-                with self.assertRaisesRegex(ValueError, "postgres"):
+                with self.assertRaisesRegex(ValueError, "KAKA_STORAGE_DATABASE_URL"):
+                    create_app()
+
+    def test_create_app_fast_fails_unsupported_storage_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "unsupported-backend",
+                    "LOCALAPPDATA": tmp_dir,
+                },
+                clear=False,
+            ):
+                for key in (
+                    "KAKA_STORAGE_PATH",
+                    "KAKA_STORAGE_DATABASE_URL",
+                    "KAKA_STORAGE_SCOPE",
+                    "KAKA_STORAGE_TEST_ISOLATION",
+                ):
+                    os.environ.pop(key, None)
+                get_settings.cache_clear()
+
+                with self.assertRaisesRegex(ValueError, "unsupported storage backend"):
                     create_app()
 
     def test_stage1_to_stage5_route_registrars_are_controlled_unavailable(self) -> None:

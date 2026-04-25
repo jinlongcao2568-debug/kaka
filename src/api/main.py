@@ -227,6 +227,7 @@ def _build_transport_bootstrap(
     disabled_stage_transports: dict[str, list[dict[str, Any]]],
     mounted_stage_routes: dict[str, list[dict[str, Any]]],
     provider_adapter_bootstrap: dict[str, Any],
+    storage_bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
     operation_ids_by_stage = _operation_ids_by_stage(mounted_stage_routes)
     stage1_to_stage5_reserved_entry_plan = _reserved_entry_plan_readback(disabled_stage_transports)
@@ -236,6 +237,8 @@ def _build_transport_bootstrap(
     return {
         "internal_only": True,
         "live_execution_enabled": False,
+        "storage_bootstrap": dict(storage_bootstrap),
+        "platform_infra_readiness": dict(storage_bootstrap.get("platform_infra_readiness", {})),
         "provider_adapter_bootstrap": dict(provider_adapter_bootstrap),
         "provider_adapter_config_source": provider_adapter_bootstrap.get("provider_adapter_config_source"),
         "provider_adapter_mode": provider_adapter_bootstrap.get("provider_adapter_mode"),
@@ -371,6 +374,7 @@ def create_app() -> FastAPI:
         app.state.disabled_stage_transports,
         mounted_stage_routes,
         app.state.provider_adapter_bootstrap,
+        app.state.storage_bootstrap,
     )
     return app
 

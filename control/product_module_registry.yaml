@@ -868,6 +868,11 @@ cross_cutting_surfaces:
     business_summary: "Stage6-9 和 operator loop 的持久化边界，不能替代正式对象语义。"
     implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
     current_files:
+      - src/storage/db.py
+      - src/storage/sqlite_backend.py
+      - src/storage/sqlalchemy_backend.py
+      - src/storage/sqlalchemy_schema.py
+      - src/storage/production_infra_readiness.py
       - src/storage/repository_boundary.py
       - src/storage/repository_bundle_io.py
       - src/storage/repository_context_projection.py
@@ -1308,6 +1313,11 @@ modules:
       - repository_boundary
       - repositories
     current_files:
+      - src/storage/db.py
+      - src/storage/sqlite_backend.py
+      - src/storage/sqlalchemy_backend.py
+      - src/storage/sqlalchemy_schema.py
+      - src/storage/production_infra_readiness.py
       - src/storage/repository_boundary.py
       - src/storage/repository_bundle_io.py
       - src/storage/repository_context_projection.py

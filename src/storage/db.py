@@ -11,11 +11,20 @@ from typing import Any, Dict, List
 
 from shared.settings import Settings
 from shared.utils import utc_now_iso
+from storage.production_infra_readiness import (
+    DEFAULT_STORAGE_BACKEND,
+    EXECUTABLE_STORAGE_BACKENDS,
+    POSTGRESQL_STORAGE_BACKEND,
+    SQLALCHEMY_STORAGE_BACKEND,
+    SQLITE_STORAGE_BACKEND,
+    is_postgresql_database_url,
+    normalize_storage_backend_name,
+)
 
 
-_JSON_FILE_STORAGE_BACKEND = "json-file"
-_SQLITE_STORAGE_BACKEND = "sqlite"
-_SUPPORTED_STORAGE_BACKENDS = frozenset({_JSON_FILE_STORAGE_BACKEND, _SQLITE_STORAGE_BACKEND})
+_JSON_FILE_STORAGE_BACKEND = DEFAULT_STORAGE_BACKEND
+_SQLITE_STORAGE_BACKEND = SQLITE_STORAGE_BACKEND
+_SUPPORTED_STORAGE_BACKENDS = frozenset(EXECUTABLE_STORAGE_BACKENDS)
 
 
 @dataclass(frozen=True)
@@ -169,11 +178,14 @@ class DatabaseSession:
         self._closed = False
         self._settings = settings or self.default_settings()
         self._storage_backend = self._resolve_storage_backend(self._settings)
+        self._validate_storage_backend_configuration(self._storage_backend, self._settings)
+        self._storage_database_url = self._settings.storage_database_url_optional
         self._storage_path = self._resolve_effective_storage_path(
             storage_path or self.default_storage_path(settings=self._settings),
             self._storage_backend,
+            self._settings,
         )
-        self._backend = self._build_backend(self._storage_backend, self._storage_path)
+        self._backend = self._build_backend(self._storage_backend, self._storage_path, self._settings)
         self._tables: Dict[str, Dict[str, PersistedRecord]] = {}
         self._stage_states: Dict[str, PersistedStageState] = {}
         self._work_items: Dict[str, PersistedWorkItem] = {}
@@ -186,12 +198,14 @@ class DatabaseSession:
         resolved_settings = cls.default_settings(settings=settings)
         resolved_backend = cls._resolve_storage_backend(resolved_settings)
         resolved_storage_path = cls.default_storage_path(settings=resolved_settings)
+        resolved_database_url = resolved_settings.storage_database_url_optional
         if (
             cls._default is None
             or cls._default._closed
             or reload_from_disk
             or cls._default.storage_backend != resolved_backend
             or cls._default.storage_path != resolved_storage_path
+            or cls._default.storage_database_url != resolved_database_url
         ):
             if cls._default is not None:
                 cls._default.close()
@@ -206,35 +220,74 @@ class DatabaseSession:
     def default_storage_path(cls, *, settings: Settings | None = None) -> Path:
         resolved_settings = cls.default_settings(settings=settings)
         resolved_backend = cls._resolve_storage_backend(resolved_settings)
+        cls._validate_storage_backend_configuration(resolved_backend, resolved_settings)
         return cls._resolve_effective_storage_path(
             resolved_settings.resolved_storage_path(),
             resolved_backend,
+            resolved_settings,
         )
 
     @classmethod
     def _resolve_storage_backend(cls, settings: Settings) -> str:
-        backend = (settings.storage_backend or "").strip().lower()
+        backend = normalize_storage_backend_name(settings.storage_backend)
         if backend not in _SUPPORTED_STORAGE_BACKENDS:
             configured_backend = settings.storage_backend
             raise ValueError(
                 "unsupported storage backend "
-                f"{configured_backend!r}; supported storage backends: {sorted(_SUPPORTED_STORAGE_BACKENDS)}"
+                f"{configured_backend!r}; supported storage backends: {sorted(_SUPPORTED_STORAGE_BACKENDS)}; "
+                "backend config must use KAKA_STORAGE_BACKEND; no_silent_fallback"
             )
         return backend
 
     @classmethod
-    def _resolve_effective_storage_path(cls, storage_path: Path, backend: str) -> Path:
+    def _validate_storage_backend_configuration(cls, backend: str, settings: Settings) -> None:
+        if backend not in {SQLALCHEMY_STORAGE_BACKEND, POSTGRESQL_STORAGE_BACKEND}:
+            return
+        database_url = settings.storage_database_url_optional
+        if not database_url:
+            raise ValueError(
+                f"storage backend {backend!r} requires KAKA_STORAGE_DATABASE_URL config; "
+                "no_silent_fallback"
+            )
+        if backend == POSTGRESQL_STORAGE_BACKEND and not is_postgresql_database_url(database_url):
+            raise ValueError(
+                "storage backend 'postgresql' requires a postgresql KAKA_STORAGE_DATABASE_URL config; "
+                "no_silent_fallback"
+            )
+
+    @classmethod
+    def _resolve_effective_storage_path(cls, storage_path: Path, backend: str, settings: Settings) -> Path:
         if backend == _SQLITE_STORAGE_BACKEND:
             from storage.sqlite_backend import SQLiteStorageBackend
 
             return SQLiteStorageBackend.effective_storage_path(storage_path)
+        if backend in {SQLALCHEMY_STORAGE_BACKEND, POSTGRESQL_STORAGE_BACKEND}:
+            from storage.sqlalchemy_backend import SQLAlchemyStorageBackend
+
+            effective_path = SQLAlchemyStorageBackend.effective_storage_path(
+                settings.storage_database_url_optional or ""
+            )
+            return effective_path or storage_path
         return storage_path
 
-    def _build_backend(self, backend: str, storage_path: Path) -> Any | None:
+    def _build_backend(self, backend: str, storage_path: Path, settings: Settings) -> Any | None:
         if backend == _SQLITE_STORAGE_BACKEND:
             from storage.sqlite_backend import SQLiteStorageBackend
 
             return SQLiteStorageBackend(storage_path)
+        if backend in {SQLALCHEMY_STORAGE_BACKEND, POSTGRESQL_STORAGE_BACKEND}:
+            try:
+                from storage.sqlalchemy_backend import SQLAlchemyStorageBackend
+            except ImportError as exc:
+                raise RuntimeError(
+                    f"storage backend {backend!r} requires SQLAlchemy; "
+                    "install the dependency or choose json-file/sqlite; no_silent_fallback"
+                ) from exc
+
+            return SQLAlchemyStorageBackend(
+                settings.storage_database_url_optional or "",
+                storage_backend=backend,
+            )
         return None
 
     @property
@@ -244,6 +297,10 @@ class DatabaseSession:
     @property
     def storage_path(self) -> Path:
         return self._storage_path
+
+    @property
+    def storage_database_url(self) -> str | None:
+        return self._storage_database_url
 
     def clear(self, *, remove_storage: bool = True) -> None:
         with self._lock:

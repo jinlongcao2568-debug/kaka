@@ -19,11 +19,34 @@ from api.routes.stage7 import (
     preview_leadpack_external_delivery_candidate,
     simulate_leadpack_external_delivery_export,
 )
+from shared.settings import Settings
 from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.pipeline import run_internal_chain
 
 
 class TestRuntimeGovernanceGuards(unittest.TestCase):
+    def test_platform_infra_readiness_keeps_external_live_redlines_locked(self) -> None:
+        settings = Settings(
+            storage_backend="sqlalchemy",
+            storage_database_url_optional="sqlite:///:memory:",
+        )
+
+        readiness = settings.platform_infra_readiness()
+        redlines = readiness["redlines"]
+
+        self.assertTrue(redlines["no_live_provider_call"])
+        self.assertTrue(redlines["no_real_sales_outreach"])
+        self.assertTrue(redlines["no_real_payment"])
+        self.assertTrue(redlines["no_real_charge"])
+        self.assertTrue(redlines["no_real_delivery"])
+        self.assertTrue(redlines["no_real_refund"])
+        self.assertTrue(redlines["no_automated_refund"])
+        self.assertFalse(redlines["external_software_release_enabled"])
+        self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+        self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+        self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+
     def test_stage8_high_restriction_field_requires_runtime_review(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(
