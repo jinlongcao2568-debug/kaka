@@ -44,12 +44,19 @@ from stage2_ingestion.public_source_adapters import (
     PublicSourceTransportError,
     PublicSourceTransportResponse,
     StaticPublicSourceTransport,
+    TENDER_AGENCY_AWARD_RESULT_RECORD_KIND,
+    TENDER_AGENCY_CANDIDATE_NOTICE_RECORD_KIND,
+    TENDER_AGENCY_CORRECTION_NOTICE_RECORD_KIND,
+    TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID,
+    TENDER_AGENCY_PUBLIC_SITE_SOURCE_FAMILY,
+    TENDER_AGENCY_TENDER_NOTICE_RECORD_KIND,
     credit_china_adapter_config,
     government_procurement_public_site_adapter_config,
     national_enterprise_credit_publicity_system_adapter_config,
     national_construction_market_platform_adapter_config,
     provincial_bidding_platform_adapter_config,
     resolve_public_source_adapter_config,
+    tender_agency_public_site_adapter_config,
 )
 from stage2_ingestion.service import Stage2Service
 from storage.db import DatabaseSession
@@ -119,6 +126,28 @@ GOV_PROC_ATTACHMENT_URL = (
 GOV_PROC_NOTICE_REGISTRY_ID = "SRC-REG-GOV-PROCUREMENT-NOTICE"
 GOV_PROC_RESULT_REGISTRY_ID = "SRC-REG-GOV-PROCUREMENT-RESULT"
 GOV_PROC_ATTACHMENT_REGISTRY_ID = "SRC-REG-GOV-PROCUREMENT-ATTACHMENT"
+TENDER_AGENCY_TENDER_NOTICE_URL = (
+    "https://public.example.local/tender-agency-public-sites/notices/114g-tender.html"
+)
+TENDER_AGENCY_CORRECTION_NOTICE_URL = (
+    "sandbox://tender-agency-public-sites/corrections/114g-correction.html"
+)
+TENDER_AGENCY_CANDIDATE_NOTICE_URL = (
+    "https://public.example.local/tender-agency-public-sites/candidates/114g-candidate.html"
+)
+TENDER_AGENCY_AWARD_RESULT_URL = (
+    "sandbox://tender-agency-public-sites/results/114g-award-result.html"
+)
+TENDER_AGENCY_TENDER_NOTICE_REGISTRY_ID = "SRC-REG-TENDER-AGENCY-TENDER-NOTICE"
+TENDER_AGENCY_CORRECTION_NOTICE_REGISTRY_ID = (
+    "SRC-REG-TENDER-AGENCY-CORRECTION-NOTICE"
+)
+TENDER_AGENCY_CANDIDATE_NOTICE_REGISTRY_ID = (
+    "SRC-REG-TENDER-AGENCY-CANDIDATE-NOTICE"
+)
+TENDER_AGENCY_AWARD_RESULT_REGISTRY_ID = (
+    "SRC-REG-TENDER-AGENCY-AWARD-RESULT"
+)
 
 
 class Stage2PublicSourceAdapterTests(unittest.TestCase):
@@ -315,6 +344,43 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             content_type_hint=content_type_hint,
             lineage_refs=resolved_lineage_refs,
             timeout_seconds=8,
+            max_retries=max_retries,
+            boundary_flags=boundary_flags or {},
+        )
+
+    def _tender_agency_request(
+        self,
+        *,
+        source_url: str = TENDER_AGENCY_TENDER_NOTICE_URL,
+        source_registry_id: str = TENDER_AGENCY_TENDER_NOTICE_REGISTRY_ID,
+        source_family: str = TENDER_AGENCY_PUBLIC_SITE_SOURCE_FAMILY,
+        record_kind: str = TENDER_AGENCY_TENDER_NOTICE_RECORD_KIND,
+        source_visibility_state: str = "PUBLIC_VISIBLE",
+        fetch_mode: str = "controlled_test_transport",
+        snapshot_version: str = "tender-agency-notice-v1",
+        max_retries: int = 2,
+        boundary_flags: dict[str, bool] | None = None,
+        lineage_refs: dict[str, str] | None = None,
+    ) -> PublicSourceSnapshotRequest:
+        resolved_lineage_refs = {
+            "project_id": "P-114G",
+            "stage1_handoff_intent_id": "HINT-114G",
+            "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
+            "project_lineage_id": "PROJECT-LINEAGE-114G",
+            "agency_name_optional": "Example Tender Agency",
+            "agency_site_domain_optional": "public.example.local",
+        }
+        resolved_lineage_refs.update(lineage_refs or {})
+        return PublicSourceSnapshotRequest(
+            source_url=source_url,
+            source_registry_id=source_registry_id,
+            source_family=source_family,
+            record_kind=record_kind,
+            source_visibility_state=source_visibility_state,
+            fetch_mode=fetch_mode,
+            snapshot_version=snapshot_version,
+            lineage_refs=resolved_lineage_refs,
+            timeout_seconds=9,
             max_retries=max_retries,
             boundary_flags=boundary_flags or {},
         )
@@ -1342,6 +1408,445 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertEqual(
                         raised.exception.carrier["adapter_id"],
                         GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
+                    )
+                    self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
+                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
+                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
+                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
+                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
+                    self.assertEqual(transport.call_log, [])
+
+    def test_tender_agency_notice_types_capture_readback_replay_and_lineage(self) -> None:
+        required_metadata_keys = {
+            "adapter_id",
+            "source_family",
+            "record_kind",
+            "source_registry_id",
+            "source_url",
+            "source_visibility_state",
+            "content_type",
+            "byte_size",
+            "sha256",
+            "snapshot_version",
+            "lineage_refs",
+            "fetched_at",
+            "captured_at",
+            "fetch_mode",
+            "fetch_audit",
+            "source_health",
+            "replay_state",
+            "snapshot_id",
+            "snapshot_kind",
+            "object_key",
+            "agency_name_optional",
+            "agency_site_domain_optional",
+            "notice_type",
+            "project_lineage_id",
+            "source_blueprint_batch_id",
+        }
+        cases = [
+            (
+                TENDER_AGENCY_TENDER_NOTICE_URL,
+                TENDER_AGENCY_TENDER_NOTICE_REGISTRY_ID,
+                TENDER_AGENCY_TENDER_NOTICE_RECORD_KIND,
+                "PUBLIC_VISIBLE",
+                "controlled_test_transport",
+                b"<html><body>tender agency tender notice 114G</body></html>",
+                "tender",
+                "114g-tender-v1",
+            ),
+            (
+                TENDER_AGENCY_CORRECTION_NOTICE_URL,
+                TENDER_AGENCY_CORRECTION_NOTICE_REGISTRY_ID,
+                TENDER_AGENCY_CORRECTION_NOTICE_RECORD_KIND,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                b"<html><body>tender agency correction notice 114G</body></html>",
+                "correction",
+                "114g-correction-v1",
+            ),
+            (
+                TENDER_AGENCY_CANDIDATE_NOTICE_URL,
+                TENDER_AGENCY_CANDIDATE_NOTICE_REGISTRY_ID,
+                TENDER_AGENCY_CANDIDATE_NOTICE_RECORD_KIND,
+                "PUBLIC_VISIBLE",
+                "controlled_test_transport",
+                b"<html><body>tender agency candidate notice 114G</body></html>",
+                "candidate",
+                "114g-candidate-v1",
+            ),
+            (
+                TENDER_AGENCY_AWARD_RESULT_URL,
+                TENDER_AGENCY_AWARD_RESULT_REGISTRY_ID,
+                TENDER_AGENCY_AWARD_RESULT_RECORD_KIND,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                b"<html><body>tender agency award result 114G</body></html>",
+                "award_result",
+                "114g-award-result-v1",
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            service = Stage2Service()
+            transport = StaticPublicSourceTransport(
+                {
+                    source_url: PublicSourceTransportResponse(
+                        content=body,
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                    for source_url, _, _, _, _, body, _, _ in cases
+                }
+            )
+
+            for source_url, registry_id, record_kind, visibility, fetch_mode, body, notice_type, version in cases:
+                with self.subTest(record_kind=record_kind):
+                    capture = service.capture_public_source_snapshot(
+                        self._tender_agency_request(
+                            source_url=source_url,
+                            source_registry_id=registry_id,
+                            record_kind=record_kind,
+                            source_visibility_state=visibility,
+                            fetch_mode=fetch_mode,
+                            snapshot_version=version,
+                        ),
+                        repository=repo,
+                        transport=transport,
+                    )
+                    replay = service.replay_public_source_snapshot(
+                        capture.snapshot_id,
+                        repository=repo,
+                    )
+                    metadata = capture.raw_snapshot_metadata
+
+                    self.assertEqual(capture.status, "SNAPSHOT_CAPTURED")
+                    self.assertEqual(capture.adapter_id, TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID)
+                    self.assertTrue(capture.snapshot_id.startswith("SNAP-S2-114G-"))
+                    self.assertIsNotNone(metadata)
+                    self.assertTrue(required_metadata_keys.issubset(metadata))
+                    self.assertEqual(metadata["adapter_id"], TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID)
+                    self.assertEqual(metadata["source_family"], TENDER_AGENCY_PUBLIC_SITE_SOURCE_FAMILY)
+                    self.assertEqual(metadata["record_kind"], record_kind)
+                    self.assertEqual(metadata["source_registry_id"], registry_id)
+                    self.assertEqual(metadata["source_url"], source_url)
+                    self.assertEqual(metadata["source_visibility_state"], visibility)
+                    self.assertEqual(metadata["content_type"], "text/html")
+                    self.assertEqual(metadata["byte_size"], len(body))
+                    self.assertRegex(metadata["sha256"], r"^[0-9a-f]{64}$")
+                    self.assertEqual(metadata["snapshot_version"], version)
+                    self.assertEqual(metadata["lineage_refs"]["project_id"], "P-114G")
+                    self.assertEqual(
+                        metadata["lineage_refs"]["project_lineage_id"],
+                        "PROJECT-LINEAGE-114G",
+                    )
+                    self.assertEqual(
+                        metadata["lineage_refs"]["source_blueprint_batch_id"],
+                        "PTL-I100-ROADMAP-01",
+                    )
+                    self.assertEqual(
+                        metadata["lineage_refs"]["agency_name_optional"],
+                        "Example Tender Agency",
+                    )
+                    self.assertEqual(
+                        metadata["lineage_refs"]["agency_site_domain_optional"],
+                        "public.example.local",
+                    )
+                    self.assertEqual(metadata["lineage_refs"]["notice_type"], notice_type)
+                    self.assertEqual(metadata["notice_type"], notice_type)
+                    self.assertEqual(metadata["project_lineage_id"], "PROJECT-LINEAGE-114G")
+                    self.assertEqual(metadata["source_blueprint_batch_id"], "PTL-I100-ROADMAP-01")
+                    self.assertEqual(metadata["agency_name_optional"], "Example Tender Agency")
+                    self.assertEqual(metadata["agency_site_domain_optional"], "public.example.local")
+                    self.assertEqual(metadata["fetched_at"], NOW)
+                    self.assertEqual(metadata["captured_at"], NOW)
+                    self.assertEqual(metadata["fetch_mode"], fetch_mode)
+                    self.assertEqual(metadata["fetch_audit"]["transport_mode"], fetch_mode)
+                    self.assertEqual(metadata["fetch_audit"]["record_kind"], record_kind)
+                    self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
+                    self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
+                    self.assertEqual(metadata["source_health"]["notice_type"], notice_type)
+                    self.assertFalse(metadata["source_health"]["manual_review_required"])
+                    self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
+                    self.assertEqual(capture.readback["snapshot_kind"], "raw_html")
+                    self.assertEqual(capture.readback["readback_state"], "READBACK_READY")
+                    self.assertEqual(capture.readback["bytes"], body)
+                    self.assertEqual(replay["bytes"], body)
+                    self.assertEqual(
+                        replay["manifest"]["raw_snapshot_metadata"]["notice_type"],
+                        notice_type,
+                    )
+                    self.assertEqual(
+                        replay["manifest"]["raw_snapshot_metadata"]["agency_name_optional"],
+                        "Example Tender Agency",
+                    )
+                    self.assertEqual(repo.read_snapshot_bytes(capture.snapshot_id), body)
+
+    def test_tender_agency_runtime_policy_resolver_and_adapter_isolation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            policy = self._adapter(
+                self._repo(tmp_dir),
+                StaticPublicSourceTransport({}),
+                config=tender_agency_public_site_adapter_config(),
+            ).runtime_policy()
+
+            self.assertEqual(policy["adapter_id"], TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID)
+            self.assertEqual(
+                policy["allowed_source_families"],
+                [TENDER_AGENCY_PUBLIC_SITE_SOURCE_FAMILY],
+            )
+            self.assertEqual(
+                set(policy["allowed_record_kinds"]),
+                {
+                    TENDER_AGENCY_TENDER_NOTICE_RECORD_KIND,
+                    TENDER_AGENCY_CORRECTION_NOTICE_RECORD_KIND,
+                    TENDER_AGENCY_CANDIDATE_NOTICE_RECORD_KIND,
+                    TENDER_AGENCY_AWARD_RESULT_RECORD_KIND,
+                },
+            )
+            self.assertEqual(
+                set(policy["allowlisted_source_registry_ids"]),
+                {
+                    TENDER_AGENCY_TENDER_NOTICE_REGISTRY_ID,
+                    TENDER_AGENCY_CORRECTION_NOTICE_REGISTRY_ID,
+                    TENDER_AGENCY_CANDIDATE_NOTICE_REGISTRY_ID,
+                    TENDER_AGENCY_AWARD_RESULT_REGISTRY_ID,
+                },
+            )
+            self.assertEqual(
+                policy["public_url_prefixes"],
+                ["https://public.example.local/tender-agency-public-sites/"],
+            )
+            self.assertEqual(
+                policy["sandbox_url_prefixes"],
+                ["sandbox://tender-agency-public-sites/"],
+            )
+            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["real_provider_connection_enabled"])
+            self.assertFalse(policy["private_or_gray_source_enabled"])
+
+        resolver_cases = [
+            self._tender_agency_request(),
+            PublicSourceSnapshotRequest(
+                source_url=PUBLIC_HTML_URL,
+                source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                source_family=TENDER_AGENCY_PUBLIC_SITE_SOURCE_FAMILY,
+            ),
+            PublicSourceSnapshotRequest(
+                source_url=PUBLIC_HTML_URL,
+                source_registry_id=TENDER_AGENCY_CORRECTION_NOTICE_REGISTRY_ID,
+                source_family="PROCUREMENT_NOTICE",
+            ),
+            PublicSourceSnapshotRequest(
+                source_url=PUBLIC_HTML_URL,
+                source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                source_family="PROCUREMENT_NOTICE",
+                record_kind=TENDER_AGENCY_CANDIDATE_NOTICE_RECORD_KIND,
+            ),
+            PublicSourceSnapshotRequest(
+                source_url=TENDER_AGENCY_AWARD_RESULT_URL,
+                source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                source_family="PROCUREMENT_NOTICE",
+            ),
+        ]
+        for request in resolver_cases:
+            self.assertEqual(
+                resolve_public_source_adapter_config(request).adapter_id,
+                TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID,
+            )
+
+        old_adapter_cases = [
+            (self._request(), LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID),
+            (self._provincial_request(), PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID),
+            (self._national_request(), NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID),
+            (self._credit_china_request(), CREDIT_CHINA_ADAPTER_ID),
+            (
+                self._necps_request(),
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+            ),
+            (self._government_procurement_request(), GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID),
+            (
+                PublicSourceSnapshotRequest(
+                    source_url=PUBLIC_HTML_URL,
+                    source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                    source_family="PROCUREMENT_NOTICE",
+                    record_kind=GOVERNMENT_PROCUREMENT_NOTICE_RECORD_KIND,
+                ),
+                GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
+            ),
+        ]
+        for request, expected_adapter_id in old_adapter_cases:
+            self.assertEqual(
+                resolve_public_source_adapter_config(request).adapter_id,
+                expected_adapter_id,
+            )
+
+    def test_tender_agency_retry_timeout_rate_limit_and_failure_degrade_are_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        TENDER_AGENCY_TENDER_NOTICE_URL: [
+                            PublicSourceTimeoutError("tender agency timeout once"),
+                            PublicSourceTransportResponse(
+                                content=b"<html>tender agency retry success</html>",
+                                content_type="text/html",
+                                fetched_at=NOW,
+                                captured_at=NOW,
+                            ),
+                        ]
+                    }
+                ),
+                config=tender_agency_public_site_adapter_config(),
+            )
+            retry_result = adapter.capture(self._tender_agency_request(max_retries=1))
+
+            self.assertEqual(retry_result.status, "SNAPSHOT_CAPTURED")
+            self.assertEqual(retry_result.adapter_id, TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID)
+            self.assertEqual(retry_result.fetch_audit["attempt_count"], 2)
+            self.assertEqual(
+                retry_result.fetch_audit["retry_events"][0]["reason"],
+                "PublicSourceTimeoutError",
+            )
+            self.assertEqual(
+                retry_result.fetch_audit["record_kind"],
+                TENDER_AGENCY_TENDER_NOTICE_RECORD_KIND,
+            )
+            self.assertEqual(retry_result.source_health["source_health_state"], "HEALTHY")
+            self.assertEqual(retry_result.source_health["retry_count"], 1)
+            self.assertFalse(retry_result.source_health["manual_review_required"])
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        TENDER_AGENCY_TENDER_NOTICE_URL: [
+                            PublicSourceTimeoutError("weak tender agency page timed out one"),
+                            PublicSourceTimeoutError("weak tender agency page timed out two"),
+                        ]
+                    }
+                ),
+                config=tender_agency_public_site_adapter_config(),
+            )
+            timed_out = adapter.capture(self._tender_agency_request(max_retries=1))
+
+            self.assertEqual(timed_out.status, "DEGRADED")
+            self.assertIsNone(timed_out.snapshot_id)
+            self.assertEqual(timed_out.adapter_id, TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID)
+            self.assertEqual(timed_out.source_health["source_health_state"], "DEGRADED")
+            self.assertEqual(
+                timed_out.source_health["record_kind"],
+                TENDER_AGENCY_TENDER_NOTICE_RECORD_KIND,
+            )
+            self.assertEqual(timed_out.source_health["last_failure_reason"], "fetch_timeout")
+            self.assertTrue(timed_out.source_health["manual_review_required"])
+            self.assertEqual(timed_out.failure_degrade["degrade_reason"], "fetch_timeout")
+            self.assertEqual(
+                timed_out.failure_degrade["readback_state"],
+                "NO_SNAPSHOT_DUE_TO_DEGRADE",
+            )
+            self.assertTrue(timed_out.failure_degrade["manual_review_required"])
+            self.assertTrue(timed_out.failure_degrade["fail_closed"])
+            self.assertTrue(timed_out.failure_degrade["no_broad_fallback"])
+            self.assertEqual(timed_out.fetch_audit["attempt_count"], 2)
+            self.assertEqual(timed_out.fetch_audit["transport_mode"], "controlled_test_transport")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            transport = StaticPublicSourceTransport(
+                {
+                    TENDER_AGENCY_TENDER_NOTICE_URL: PublicSourceTransportResponse(
+                        content=b"<html>tender agency rate limit</html>",
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                }
+            )
+            rate_adapter = self._adapter(
+                repo,
+                transport,
+                config=tender_agency_public_site_adapter_config(min_interval_seconds=60),
+            )
+            rate_adapter.capture(self._tender_agency_request())
+            rate_limited = rate_adapter.capture(self._tender_agency_request())
+
+            self.assertEqual(rate_limited.status, "DEGRADED")
+            self.assertEqual(rate_limited.failure_degrade["degrade_reason"], "rate_limited")
+            self.assertEqual(
+                rate_limited.source_health["record_kind"],
+                TENDER_AGENCY_TENDER_NOTICE_RECORD_KIND,
+            )
+            self.assertEqual(rate_limited.source_health["source_health_state"], "DEGRADED")
+            self.assertTrue(rate_limited.source_health["manual_review_required"])
+            self.assertTrue(rate_limited.failure_degrade["manual_review_required"])
+            self.assertTrue(rate_limited.failure_degrade["fail_closed"])
+            self.assertTrue(rate_limited.failure_degrade["no_broad_fallback"])
+            self.assertEqual(
+                rate_limited.fetch_audit["transport_mode"],
+                "not_called_due_to_rate_limit",
+            )
+            self.assertEqual(len(transport.call_log), 1)
+
+    def test_tender_agency_blocked_sources_fail_closed_before_transport(self) -> None:
+        blocked_requests = [
+            self._tender_agency_request(source_registry_id="SRC-REG-TENDER-AGENCY-UNKNOWN"),
+            self._tender_agency_request(
+                source_family="unknown_source_family",
+                source_registry_id=TENDER_AGENCY_TENDER_NOTICE_REGISTRY_ID,
+            ),
+            self._tender_agency_request(
+                source_url="https://unlisted.example.local/tender-agency/notice.html"
+            ),
+            self._tender_agency_request(record_kind="unknown_tender_agency_record"),
+            self._tender_agency_request(source_visibility_state="PRIVATE"),
+            self._tender_agency_request(source_visibility_state="GRAY"),
+            self._tender_agency_request(source_visibility_state="LOGIN_REQUIRED"),
+            self._tender_agency_request(source_visibility_state="CAPTCHA_REQUIRED"),
+            self._tender_agency_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
+            self._tender_agency_request(source_visibility_state="UNKNOWN"),
+            self._tender_agency_request(boundary_flags={"private_source": True}),
+            self._tender_agency_request(boundary_flags={"gray_source": True}),
+            self._tender_agency_request(boundary_flags={"login_required": True}),
+            self._tender_agency_request(boundary_flags={"captcha_required": True}),
+            self._tender_agency_request(boundary_flags={"anti_bot_restricted": True}),
+            self._tender_agency_request(fetch_mode="live"),
+            self._tender_agency_request(fetch_mode="live_crawl"),
+            self._tender_agency_request(fetch_mode="uncontrolled_live_crawl"),
+            self._tender_agency_request(fetch_mode="crawler"),
+            self._tender_agency_request(fetch_mode="real_provider"),
+        ]
+
+        for request in blocked_requests:
+            with self.subTest(
+                source_url=request.source_url,
+                state=request.source_visibility_state,
+                mode=request.fetch_mode,
+                record_kind=request.record_kind,
+            ):
+                transport = StaticPublicSourceTransport({})
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    adapter = self._adapter(
+                        self._repo(tmp_dir),
+                        transport,
+                        config=tender_agency_public_site_adapter_config(),
+                    )
+                    with self.assertRaises(PublicSourceBoundaryError) as raised:
+                        adapter.capture(request)
+                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self.assertEqual(
+                        raised.exception.carrier["adapter_id"],
+                        TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID,
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
