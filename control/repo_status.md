@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-113-stage1-scheduler-production-loop (ACTIVE; Stage1 scheduler production loop. This packet may implement internal task scheduling, execution windows, route/source family consumption, durable queue readback, retry, pause/resume, conflict detection, and audit logs. It does not fetch real external sources, connect real providers, bypass public/source governance, run Stage2 crawlers, perform real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
+Current Workstream: PTL-I100-114A-local-public-resource-trading-centers (ACTIVE; Stage2 local public resource trading center source adapter first cut. This packet may implement allowlisted public source adapter seams, sandbox/local mirror fetch, raw snapshot metadata, hash/version/lineage, rate limit, retry/timeout, failure degrade, source health, and fetch audit. It does not use private or gray sources, bypass login/captcha/anti-bot controls, run uncontrolled live crawling, connect real providers, perform real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -19,7 +19,7 @@ Current Blockers:
 - Stage 8 real execution remains governed / approval-gated / blocked by default
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only
-- Real external source fetch remains blocked until dedicated Stage2 source adapter packets
+- Real external source fetch remains gated by dedicated Stage2 source adapter packets; 114A only opens allowlisted/sandbox public-source adapter readback, not uncontrolled live crawling
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -28,14 +28,15 @@ Product Open Capability Baseline:
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 - PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
 
-Current 113 Scope:
-- Activate PTL-I100-113 as the Stage1 scheduler production loop packet.
-- Implement internal scheduler task creation, execution windows, source family / route graph / clock authority consumption, queue readback, retry, pause/resume, conflict detection, and scheduling audit.
-- Stage1 may emit explicit Stage2 handoff intent, but this packet must not perform real Stage2 fetch or crawler execution.
-- Use public/source blueprint governance; do not add private, gray, login-gated, captcha-bypass, or anti-bot-bypass source behavior.
+Current 114A Scope:
+- Activate PTL-I100-114A as the first Stage2 real public source adapter subpacket under PTL-I100-114.
+- Implement local public resource trading center adapter seam, allowlisted/sandbox fetch abstraction, raw HTML/PDF/attachment snapshot metadata, hash/version/lineage, rate limit, retry/timeout, dedupe, failure degrade, source health, and fetch audit.
+- Target capability state is SANDBOX_READY/readback; do not run uncontrolled live crawlers or treat public-source adapter registration as permission to scrape any site.
+- Public boundary remains hard: no private/gray sources, no login/captcha/anti-bot bypass, no non-public data, no source allowlist bypass.
 - Keep real provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release out of this slice.
 
 Recently Closed:
+- PTL-I100-113-stage1-scheduler-production-loop completed and committed locally: ce733ba. It added Stage1 scheduler task creation, execution windows, H-01 authority consumption, durable queue readback, lease/retry/pause/resume/dead-letter, replay, audit refs, and explicit Stage2 handoff intent without executing real Stage2 fetch, private/gray collection, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
 - PTL-I100-112F-monitoring-alerting-readiness completed and committed locally: 0fe9212. It added internal monitoring / alerting / incident readiness, persistence/readback, and stale-ref fail-closed behavior without connecting external observability/APM/paging providers, sending real alerts, running incident automation, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
 - PTL-I100-112E-backup-restore-rollback-readiness completed and committed locally: bea524b. It added local backup manifest, restore dry-run, rollback readiness, and audit/readback projection without connecting external backup services, performing destructive restore, running migration, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
 - PTL-I100-112D-docker-compose-health-readiness completed and committed locally: c8ace6f. It added Docker/Compose local stack definition and health/readiness projection without running containers, connecting external services, executing migration, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
@@ -47,11 +48,10 @@ Recently Closed:
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5.
 
 Allowed Actions (current):
-- update Stage1 scheduler files listed by current_task
-- update storage queue/repository files listed by current_task only for Stage1 scheduler readback/persistence
-- update Stage1 API route/schema/bootstrap files listed by current_task only if needed for scheduler readback
-- update control/product_module_registry.yaml only if new Stage1/storage/runtime files must be registered
-- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, and control/product_acceptance_checklist.yaml for 113 activation/status
+- update Stage2 ingestion files listed by current_task for the 114A local public resource trading center adapter only
+- update local object storage / repository boundary files listed by current_task only when needed for raw snapshot metadata persistence/readback
+- update control/product_module_registry.yaml only if new Stage2/storage/runtime files must be registered
+- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, and control/product_acceptance_checklist.yaml for 114A status
 - update targeted tests listed in control/current_task.yaml
 - run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet
 
@@ -61,10 +61,10 @@ Forbidden Actions (current):
 - Any handoff/** change
 - Any scripts/** change
 - Any fixtures/** change
-- Any Stage2-9 business runtime change
+- Any Stage1 or Stage3-9 business runtime change
 - Any src/storage/models/** change
 - Any docker compose up, container execution, live deployment, migration, or unauthorized production DB connection
-- Any real external source fetch, private/gray source collection, login bypass, captcha bypass, anti-bot bypass, or source allowlist bypass
+- Any private/gray source collection, login bypass, captcha bypass, anti-bot bypass, source allowlist bypass, or uncontrolled live crawling
 - Any true external/live provider call
 - Any real LeadPack external delivery or client-visible formal export/page release
 - Any real touch, payment, delivery, or refund
@@ -79,7 +79,7 @@ State Semantics:
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - PTL-I100-112 is completed through 112A-112F; production/live pilots still require later dedicated packets.
-- PTL-I100-113 is active; PTL-I100-114 through PTL-I100-121 and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
+- PTL-I100-113 is completed; PTL-I100-114A is active as the first Stage2 public source adapter subpacket. PTL-I100-114B through PTL-I100-121 and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
@@ -87,15 +87,14 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_stage1_scheduler -v
+- python -m unittest tests.test_stage2_public_source_adapters -v
 - python -m unittest tests.test_stage12_extractors -v
 - python -m unittest tests.test_internal_chain.TestInternalChain -v
 - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
-- python -m unittest tests.test_api_transport_bootstrap -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage1_tasking/__init__.py'',''src/stage1_tasking/scheduler.py'',''src/stage1_tasking/service.py'',''src/stage1_tasking/models.py'',''src/storage/worker_queue.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/worker_queue_repo.py'',''src/storage/repositories/stage1_scheduler_repo.py'',''src/api/routes/stage1.py'',''src/api/schemas/stage1.py'',''src/api/main.py'',''tests/test_stage1_scheduler.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage2_ingestion/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_stage2_public_source_adapters.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1

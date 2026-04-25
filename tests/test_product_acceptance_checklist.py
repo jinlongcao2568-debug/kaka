@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 18)
+        self.assertEqual(len(non_completed), 17)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -172,9 +172,10 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_112_is_closed_and_113_is_active(self) -> None:
+    def test_113_is_closed_and_114_is_active(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
         task_113 = self.tasks_by_id["PTL-I100-113-stage1-scheduler-production-loop"]
+        task_114 = self.tasks_by_id["PTL-I100-114-stage2-real-public-source-adapters"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -220,11 +221,20 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIsNone(task_112["active_subpacket"])
         self.assertEqual(task_112["completed_commit"], "0fe9212")
         self.assertEqual(task_112["capability_state_after"], "INTERNAL_READY")
-        self.assertEqual(task_113["status"], "IN_PROGRESS")
-        self.assertEqual(task_113["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_113["status"], "COMPLETED")
+        self.assertEqual(task_113["planning_state"], "COMPLETED")
+        self.assertEqual(task_113["completed_commit"], "ce733ba")
+        self.assertEqual(task_113["capability_state_after"], "INTERNAL_READY")
         self.assertEqual(
             task_113["runtime_change_in_packet"],
-            "ACTIVE_113_STAGE1_SCHEDULER_PRODUCTION_LOOP",
+            "COMPLETED_113_STAGE1_SCHEDULER_PRODUCTION_LOOP",
+        )
+        self.assertEqual(task_114["status"], "IN_PROGRESS")
+        self.assertEqual(task_114["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_114["active_subpacket"], "PTL-I100-114A-local-public-resource-trading-centers")
+        self.assertEqual(
+            task_114["runtime_change_in_packet"],
+            "ACTIVE_114A_STAGE2_LOCAL_PUBLIC_SOURCE_ADAPTER",
         )
         self.assertIn("docker_compose_local_stack", task_112["capability_gaps_covered"])
         self.assertIn("health_and_readiness_checks", task_112["capability_gaps_covered"])

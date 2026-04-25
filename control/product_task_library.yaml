@@ -1210,14 +1210,17 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, scheduler, audit]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P7
     existing_code_state: SKELETON_RUNTIME
     existing_runtime_state: SCHEDULER_SKELETON_ONLY
-    runtime_change_in_packet: ACTIVE_113_STAGE1_SCHEDULER_PRODUCTION_LOOP
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-112 closeout via 0fe9212. This packet may implement Stage1 internal scheduler runtime only; it does not fetch real external sources or bypass source governance."
+    runtime_change_in_packet: COMPLETED_113_STAGE1_SCHEDULER_PRODUCTION_LOOP
+    activation_policy: "Completed via ce733ba. This packet implemented Stage1 internal scheduler runtime/readback only; it did not fetch real external sources or bypass source governance."
+    completed_commit: ce733ba
+    capability_state_after: INTERNAL_READY
+    product_closure_state: "Stage1 scheduler production loop first cut complete: task creation, execution windows, H-01 authority consumption, durable queue readback, lease/retry/pause/resume/dead-letter, replay, audit refs, and no real Stage2 fetch."
     hard_depends_on: [PTL-I100-112-production-platform-infrastructure]
     soft_depends_on: [PTL-I100-102-stage1-5-real-source-vertical-slice]
     objective: "把 Stage1 scheduler 从 skeleton-only 做成真实调度、窗口执行、失败重试、暂停恢复、冲突检测、队列读回和审计日志。"
@@ -1248,14 +1251,15 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, public_source_adapters, source_audit]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P8
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: INPUT_FIXTURE_AND_AUTHORITY_CARRIER_DRIVEN
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet and public-source allowlist review."
+    runtime_change_in_packet: ACTIVE_114A_STAGE2_LOCAL_PUBLIC_SOURCE_ADAPTER
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-113 closeout via ce733ba. The active subpacket is PTL-I100-114A local public resource trading centers; it targets SANDBOX_READY/readback and does not allow private/gray sources, login/captcha/anti-bot bypass, uncontrolled live crawling, provider execution, external release, or push."
+    active_subpacket: PTL-I100-114A-local-public-resource-trading-centers
     hard_depends_on: [PTL-I100-113-stage1-scheduler-production-loop]
     soft_depends_on: [PTL-I100-102-stage1-5-real-source-vertical-slice]
     objective: "实现合规公开源 fetch adapter、raw capture、snapshot hash、附件下载、频控、retry/timeout、source health、fetch audit 和失败降级。"
