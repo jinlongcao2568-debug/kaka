@@ -9,6 +9,8 @@ from typing import Any, Mapping
 
 from shared.contracts_runtime import ContractStore, ContractRecord, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag, resolve_bundle
+from stage3_parsing.real_parser import Stage3RealParser
+from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
 def _carrier_mapping(carrier: Any) -> Mapping[str, Any]:
@@ -498,3 +500,14 @@ class Stage3Service:
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff
+
+    def parse_raw_snapshot(
+        self,
+        snapshot_id: str,
+        *,
+        repository: ObjectStorageRepository | None = None,
+    ) -> Mapping[str, Any]:
+        return Stage3RealParser(repository=repository).parse_snapshot(snapshot_id)
+
+    def parse_raw_snapshot_readback(self, readback: Mapping[str, Any]) -> Mapping[str, Any]:
+        return Stage3RealParser().parse_readback(readback)

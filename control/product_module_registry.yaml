@@ -352,6 +352,7 @@ stage_module_inventory:
         implementation_state: PARTIAL_RUNTIME
         current_files:
           - src/stage3_parsing/service.py
+          - src/stage3_parsing/real_parser.py
           - src/stage3_parsing/project.py
         handoff_files:
           - handoff/stage3_to_stage4/contract.json
@@ -360,6 +361,7 @@ stage_module_inventory:
           - src/api/schemas/stage3.py
         repository_files: []
         test_files:
+          - tests/test_stage3_real_parser.py
           - tests/test_internal_chain.py
           - tests/test_architecture_anti_drift.py
         depends_on_slices:
@@ -1051,6 +1053,7 @@ modules:
       - project_manager
     current_files:
       - src/stage3_parsing/service.py
+      - src/stage3_parsing/real_parser.py
       - src/stage3_parsing/project.py
       - src/stage3_parsing/lineage.py
       - src/stage3_parsing/candidate.py

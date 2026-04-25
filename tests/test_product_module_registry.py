@@ -105,6 +105,7 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
 
     stage1 = modules["STAGE1-TASKING-AUTHORITY"]
     stage2 = modules["STAGE2-PUBLIC-CHAIN-INGESTION"]
+    stage3 = modules["STAGE3-PARSED-TRUTH-LAYER"]
     stage7 = modules["STAGE7-SALES-DERIVATION"]
     assert stage7["deferred_module_split"] is False
     assert "src/stage1_tasking/contract_runtime.py" in stage1["current_files"]
@@ -126,6 +127,8 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-I100-114G extends the same Stage2 public source adapter seam for tender agency public site" in " ".join(stage2["notes"])
     assert "PTL-I100-114H extends the same Stage2 public source adapter seam for tenderer/procurer/owner public notice pages" in " ".join(stage2["notes"])
     assert "PTL-I100-114I extends the same Stage2 public source adapter seam for industry authority filing pages" in " ".join(stage2["notes"])
+    assert "src/stage3_parsing/real_parser.py" in stage3["current_files"]
+    assert (ROOT / "src/stage3_parsing/real_parser.py").exists()
     assert "PTL-S7-price-competitor-offer-resolution" in stage7["completed_packets"]
     assert "PTL-S7-module-boundary-refactor" in stage7["completed_packets"]
     assert stage7["pending_packets"] == []
