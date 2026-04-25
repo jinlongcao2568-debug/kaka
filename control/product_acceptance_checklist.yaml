@@ -164,6 +164,10 @@ tasks:
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
     completed_reference_subpackets:
       - PTL-I100-112A-production-platform-storage-seam
+      - PTL-I100-112B-production-queue-worker-durability
+      - PTL-I100-112C-object-storage-snapshot-durability
+      - PTL-I100-112D-docker-compose-health-readiness
+      - PTL-I100-112E-backup-restore-rollback-readiness
     completion_must_prove:
       - "Postgres/SQLAlchemy, migration path, queue/worker, object storage, Docker/Compose, health/readiness, audit persistence, backup, rollback, monitoring, and alerting are represented by executable or explicitly reserved seams"
       - "production backend misconfiguration fast-fails without silent fallback"

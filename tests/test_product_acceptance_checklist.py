@@ -172,11 +172,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_112d_is_recorded_and_112e_is_active_without_closing_full_112(self) -> None:
+    def test_112e_is_recorded_and_112f_is_active_without_closing_full_112(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
 
         self.assertEqual(task_112["status"], "IN_PROGRESS")
-        self.assertEqual(task_112["planning_state"], "112D_COMPLETED_112E_ACTIVE")
+        self.assertEqual(task_112["planning_state"], "112E_COMPLETED_112F_ACTIVE")
         completed_by_id = {
             row["subpacket_id"]: row for row in task_112["completed_subpackets"]
         }
@@ -205,19 +205,25 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "c8ace6f",
         )
         self.assertEqual(
+            completed_by_id["PTL-I100-112E-backup-restore-rollback-readiness"][
+                "completed_commit"
+            ],
+            "bea524b",
+        )
+        self.assertEqual(
             task_112["active_subpacket"]["subpacket_id"],
-            "PTL-I100-112E-backup-restore-rollback-readiness",
+            "PTL-I100-112F-monitoring-alerting-readiness",
         )
         self.assertIn(
-            "local backup manifest / restore dry-run / rollback readiness seam",
+            "internal monitoring / alerting readiness seam",
             task_112["active_subpacket"]["objective"],
         )
         self.assertIn(
-            "no destructive restore",
+            "no external observability provider",
             task_112["active_subpacket"]["objective"],
         )
         self.assertIn(
-            "no external backup service",
+            "no live paging/notification",
             task_112["active_subpacket"]["objective"],
         )
         self.assertIn("docker_compose_local_stack", task_112["capability_gaps_covered"])
@@ -233,7 +239,13 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.checklist["tasks"]["PTL-I100-112-production-platform-infrastructure"][
                 "completed_reference_subpackets"
             ],
-            ["PTL-I100-112A-production-platform-storage-seam"],
+            [
+                "PTL-I100-112A-production-platform-storage-seam",
+                "PTL-I100-112B-production-queue-worker-durability",
+                "PTL-I100-112C-object-storage-snapshot-durability",
+                "PTL-I100-112D-docker-compose-health-readiness",
+                "PTL-I100-112E-backup-restore-rollback-readiness",
+            ],
         )
 
     def test_final_gate_requires_product_closure_not_just_tests(self) -> None:

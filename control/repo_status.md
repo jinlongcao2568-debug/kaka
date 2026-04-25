@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-112E-backup-restore-rollback-readiness (ACTIVE; production platform infrastructure fifth knife. This packet implements local backup manifest, restore dry-run, and rollback readiness projection. It does not connect external backup services, perform destructive restore against active storage, run containers, execute migrations, call real providers, perform real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
+Current Workstream: PTL-I100-112F-monitoring-alerting-readiness (ACTIVE; production platform infrastructure sixth knife. This packet implements internal monitoring / alerting / incident readiness projection. It does not connect external observability, APM, paging, notification, or backup services; does not send real alerts; does not run incident automation, containers, migrations, real providers, real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -27,15 +27,16 @@ Product Open Capability Baseline:
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 - PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
 
-Current 112E Scope:
-- Activate PTL-I100-112E as the fifth implementation slice of PTL-I100-112-production-platform-infrastructure.
-- Implement local backup manifest, restore dry-run, rollback plan/readiness, and audit/readback projection.
-- Backup scope may cover existing storage records, stage states, work items, operator actions, worker queue state, object metadata, and object storage refs.
-- Restore must be dry-run/readiness by default; do not perform destructive restore against current active storage in this slice.
-- Keep external backup service, production DB migration, container execution, monitoring dashboards, real provider calls, real outreach, real payment, real delivery, and automated refund out of this slice.
-- Expose backup/restore/rollback readiness through existing Settings/API bootstrap surfaces.
+Current 112F Scope:
+- Activate PTL-I100-112F as the sixth implementation slice of PTL-I100-112-production-platform-infrastructure.
+- Implement internal monitoring readiness, alert rule/readiness catalog, incident readiness, and audit/readback projection.
+- Monitoring scope may summarize existing storage/backend, queue/worker, object storage, backup/restore, local stack, provider redline, and bootstrap signals.
+- Alerting must remain readiness/readback by default; do not send real alerts, connect external paging/notification providers, or execute incident automation in this slice.
+- Keep external observability/APM/paging providers, production DB migration, container execution, real provider calls, real outreach, real payment, real delivery, and automated refund out of this slice.
+- Expose monitoring/alerting/incident readiness through existing Settings/API bootstrap surfaces.
 
 Recently Closed:
+- PTL-I100-112E-backup-restore-rollback-readiness completed and committed locally: bea524b. It added local backup manifest, restore dry-run, rollback readiness, and audit/readback projection without connecting external backup services, performing destructive restore, running migration, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
 - PTL-I100-112D-docker-compose-health-readiness completed and committed locally: c8ace6f. It added Docker/Compose local stack definition and health/readiness projection without running containers, connecting external services, executing migration, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
 - PTL-I100-112C-object-storage-snapshot-durability completed and committed locally: 52d2ad3. It added local filesystem object storage / evidence snapshot durability seam, manifest replay, MinIO/S3 reserved-not-live readiness, and registry coverage without connecting real object storage, real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
 - PTL-I100-112B-production-queue-worker-durability completed and committed locally: 1f2471d. It added durable queue / worker lease / retry / suspension / readback seam and fixed product_module_registry registration without opening real Redis/external queue, real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
@@ -45,11 +46,11 @@ Recently Closed:
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5. It did not call real providers or execute live touch/payment/delivery/refund.
 
 Allowed Actions (current):
-- update src/storage backup/restore readiness files listed by current_task
-- update src/shared/settings.py and src/storage/production_infra_readiness.py backup/restore/rollback readiness only
-- update src/api/deps.py and src/api/main.py bootstrap/readback only if needed for backup/restore readiness projection
+- update src/storage monitoring/alerting readiness files listed by current_task
+- update src/shared/settings.py and src/storage/production_infra_readiness.py monitoring/alerting/incident readiness only
+- update src/api/deps.py and src/api/main.py bootstrap/readback only if needed for monitoring/alerting readiness projection
 - update control/product_module_registry.yaml only if new storage/runtime files must be registered
-- update control/current_task.yaml, control/repo_status.md, and control/product_task_library.yaml for 112E activation/status
+- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, and control/product_acceptance_checklist.yaml for 112F activation/status
 - update targeted tests listed in control/current_task.yaml
 - run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet
 
@@ -62,13 +63,14 @@ Forbidden Actions (current):
 - Any Stage1-9 business runtime change
 - Any src/storage/models/** change
 - Any docker compose up, container execution, or live deployment
+- Any external observability/APM/paging/notification provider integration, real alert dispatch, or incident automation execution
 - Any external backup service integration or destructive restore against current active storage
 - Any true MinIO/S3/external object storage activation
 - Any true Redis/external queue activation beyond the existing internal 112B seam
 - Any true Postgres/Redis/MinIO/S3 service connection or production migration
 - Any true external/live provider call
 - Any real production database migration or unauthorized production DB connection
-- Any Stage1 scheduler, Stage2 crawler, Stage3 parser/OCR, monitoring dashboard or alerting implementation in 112E
+- Any Stage1 scheduler, Stage2 crawler, Stage3 parser/OCR, customer-facing dashboard, live alerting, or incident automation implementation in 112F
 - Any change that loosens external release / Stage8 / Stage 8 / Stage9 / Stage 9 redlines
 - Any change that adds formal business object, enum, release gate, or exception semantics
 - Any real LeadPack external delivery or client-visible formal export/page release
@@ -88,7 +90,8 @@ State Semantics:
 - PTL-I100-112B is completed via 1f2471d.
 - PTL-I100-112C is completed via 52d2ad3.
 - PTL-I100-112D is completed via c8ace6f.
-- PTL-I100-112E is active; later 112 slices for monitoring and alerting require separate dedicated current_task packets.
+- PTL-I100-112E is completed via bea524b.
+- PTL-I100-112F is active; after 112F验收，总控可判断是否 closeout PTL-I100-112 and activate PTL-I100-113.
 - PTL-I100-111B/111C/111D/111E and PTL-I100-113 through PTL-I100-121 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
@@ -103,7 +106,7 @@ Current Scoped-Execution Required Checks:
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''src/shared/settings.py'',''src/storage/db.py'',''src/storage/object_storage.py'',''src/storage/production_infra_readiness.py'',''src/storage/backup_restore.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/backup_restore_repo.py'',''src/api/deps.py'',''src/api/main.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/shared/settings.py'',''src/storage/db.py'',''src/storage/production_infra_readiness.py'',''src/storage/monitoring_alerting.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/monitoring_alerting_repo.py'',''src/api/deps.py'',''src/api/main.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
