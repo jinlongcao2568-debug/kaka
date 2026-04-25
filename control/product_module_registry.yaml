@@ -920,8 +920,8 @@ cross_cutting_surfaces:
       - PTL-INT-102-p4-repository-boundary-hardening
       - PTL-INT-104-p8-observability-operator-workbench
       - PTL-I100-112E-backup-restore-rollback-readiness
-    pending_packets:
       - PTL-I100-112F-monitoring-alerting-readiness
+    pending_packets: []
   - surface_id: platform_deployment_readiness
     business_summary: "Docker/Compose 本地栈定义、health/readiness、backup/restore dry-run、rollback、monitoring/alerting/incident readiness 投影面；仅表达 local stack / local manifest / internal readback 配置和依赖边界，不代表容器已运行、破坏性 restore 已放开、真实告警已发送或 external/live 可用。"
     implementation_state: PARTIAL_RUNTIME
@@ -946,8 +946,8 @@ cross_cutting_surfaces:
     completed_packets:
       - PTL-I100-112D-docker-compose-health-readiness
       - PTL-I100-112E-backup-restore-rollback-readiness
-    pending_packets:
       - PTL-I100-112F-monitoring-alerting-readiness
+    pending_packets: []
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
     stage_scope:
@@ -1400,8 +1400,8 @@ modules:
       - PTL-INT-102-p4-repository-boundary-hardening
       - PTL-INT-104-p8-observability-operator-workbench
       - PTL-I100-112E-backup-restore-rollback-readiness
-    pending_packets:
       - PTL-I100-112F-monitoring-alerting-readiness
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
@@ -1451,8 +1451,8 @@ modules:
     completed_packets:
       - PTL-I100-112D-docker-compose-health-readiness
       - PTL-I100-112E-backup-restore-rollback-readiness
-    pending_packets:
       - PTL-I100-112F-monitoring-alerting-readiness
+    pending_packets: []
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false

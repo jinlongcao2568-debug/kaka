@@ -166,7 +166,8 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-INT-102-p4-repository-boundary-hardening" in storage_boundary["completed_packets"]
     assert "PTL-INT-104-p8-observability-operator-workbench" in storage_boundary["completed_packets"]
     assert "PTL-I100-112E-backup-restore-rollback-readiness" in storage_boundary["completed_packets"]
-    assert storage_boundary["pending_packets"] == ["PTL-I100-112F-monitoring-alerting-readiness"]
+    assert "PTL-I100-112F-monitoring-alerting-readiness" in storage_boundary["completed_packets"]
+    assert storage_boundary["pending_packets"] == []
     platform_stack = modules["PLATFORM-LOCAL-STACK-READINESS"]
     assert ".dockerignore" in platform_stack["current_files"]
     assert "Dockerfile" in platform_stack["current_files"]
@@ -183,7 +184,8 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "incident_readiness" in platform_stack["formal_objects"]
     assert "PTL-I100-112D-docker-compose-health-readiness" in platform_stack["completed_packets"]
     assert "PTL-I100-112E-backup-restore-rollback-readiness" in platform_stack["completed_packets"]
-    assert platform_stack["pending_packets"] == ["PTL-I100-112F-monitoring-alerting-readiness"]
+    assert "PTL-I100-112F-monitoring-alerting-readiness" in platform_stack["completed_packets"]
+    assert platform_stack["pending_packets"] == []
     assert platform_stack["external_release_allowed"] is False
     assert platform_stack["live_execution_allowed"] is False
     internal_preview = modules["INTERNAL-PREVIEW-SURFACE"]
@@ -401,13 +403,15 @@ def test_platform_local_stack_files_are_registered_on_deployment_surface_and_mod
     assert deployment_surface["completed_packets"] == [
         "PTL-I100-112D-docker-compose-health-readiness",
         "PTL-I100-112E-backup-restore-rollback-readiness",
+        "PTL-I100-112F-monitoring-alerting-readiness",
     ]
     assert deployment_module["completed_packets"] == [
         "PTL-I100-112D-docker-compose-health-readiness",
         "PTL-I100-112E-backup-restore-rollback-readiness",
+        "PTL-I100-112F-monitoring-alerting-readiness",
     ]
-    assert deployment_surface["pending_packets"] == ["PTL-I100-112F-monitoring-alerting-readiness"]
-    assert deployment_module["pending_packets"] == ["PTL-I100-112F-monitoring-alerting-readiness"]
+    assert deployment_surface["pending_packets"] == []
+    assert deployment_module["pending_packets"] == []
     assert "backup_restore_readiness" in deployment_module["formal_objects"]
     assert "rollback_readiness" in deployment_module["formal_objects"]
     assert "monitoring_readiness" in deployment_module["formal_objects"]
