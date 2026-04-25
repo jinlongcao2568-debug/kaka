@@ -24,6 +24,9 @@ GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID = (
     "stage2.government_procurement_public_site.v1"
 )
 TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID = "stage2.tender_agency_public_site.v1"
+TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID = (
+    "stage2.tenderer_public_notice_page.v1"
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY = "local_public_resource_trading_center"
 PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY = "provincial_bidding_platform"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY = (
@@ -35,6 +38,7 @@ NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY = (
 )
 GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY = "government_procurement_public_site"
 TENDER_AGENCY_PUBLIC_SITE_SOURCE_FAMILY = "tender_agency_public_site"
+TENDERER_PUBLIC_NOTICE_PAGE_SOURCE_FAMILY = "tenderer_public_notice_page"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND = "enterprise_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND = "personnel_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND = "project_public_record"
@@ -105,6 +109,24 @@ TENDER_AGENCY_NOTICE_TYPES_BY_RECORD_KIND = {
     TENDER_AGENCY_CANDIDATE_NOTICE_RECORD_KIND: "candidate",
     TENDER_AGENCY_AWARD_RESULT_RECORD_KIND: "award_result",
 }
+TENDERER_OWNER_NOTICE_RECORD_KIND = "tenderer_owner_notice_record"
+TENDERER_CORRECTION_NOTICE_RECORD_KIND = "tenderer_correction_notice_record"
+TENDERER_CANDIDATE_NOTICE_RECORD_KIND = "tenderer_candidate_notice_record"
+TENDERER_AWARD_RESULT_RECORD_KIND = "tenderer_award_result_record"
+TENDERER_PUBLIC_NOTICE_PAGE_RECORD_KINDS = frozenset(
+    {
+        TENDERER_OWNER_NOTICE_RECORD_KIND,
+        TENDERER_CORRECTION_NOTICE_RECORD_KIND,
+        TENDERER_CANDIDATE_NOTICE_RECORD_KIND,
+        TENDERER_AWARD_RESULT_RECORD_KIND,
+    }
+)
+TENDERER_NOTICE_TYPES_BY_RECORD_KIND = {
+    TENDERER_OWNER_NOTICE_RECORD_KIND: "owner_notice",
+    TENDERER_CORRECTION_NOTICE_RECORD_KIND: "correction_notice",
+    TENDERER_CANDIDATE_NOTICE_RECORD_KIND: "candidate_notice",
+    TENDERER_AWARD_RESULT_RECORD_KIND: "award_result",
+}
 
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS = frozenset(
     {
@@ -156,6 +178,14 @@ TENDER_AGENCY_PUBLIC_SITE_REGISTRY_IDS = frozenset(
         "SRC-REG-TENDER-AGENCY-AWARD-RESULT",
     }
 )
+TENDERER_PUBLIC_NOTICE_PAGE_REGISTRY_IDS = frozenset(
+    {
+        "SRC-REG-TENDERER-OWNER-NOTICE",
+        "SRC-REG-TENDERER-CORRECTION-NOTICE",
+        "SRC-REG-TENDERER-CANDIDATE-NOTICE",
+        "SRC-REG-TENDERER-AWARD-RESULT",
+    }
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES = (
     "https://public.example.local/local-public-resource-trading-centers/",
     "https://public.example.local/procurement/",
@@ -201,6 +231,12 @@ TENDER_AGENCY_PUBLIC_SITE_PUBLIC_URL_PREFIXES = (
 )
 TENDER_AGENCY_PUBLIC_SITE_SANDBOX_URL_PREFIXES = (
     "sandbox://tender-agency-public-sites/",
+)
+TENDERER_PUBLIC_NOTICE_PAGE_PUBLIC_URL_PREFIXES = (
+    "https://public.example.local/tenderer-public-notice-pages/",
+)
+TENDERER_PUBLIC_NOTICE_PAGE_SANDBOX_URL_PREFIXES = (
+    "sandbox://tenderer-public-notice-pages/",
 )
 
 PUBLIC_VISIBLE_STATE = "PUBLIC_VISIBLE"
@@ -459,11 +495,34 @@ def tender_agency_public_site_adapter_config(
     )
 
 
+def tenderer_public_notice_page_adapter_config(
+    *,
+    min_interval_seconds: float = 0.0,
+) -> PublicSourceAdapterConfig:
+    return PublicSourceAdapterConfig(
+        adapter_id=TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID,
+        allowlisted_source_registry_ids=TENDERER_PUBLIC_NOTICE_PAGE_REGISTRY_IDS,
+        allowed_source_families=frozenset({TENDERER_PUBLIC_NOTICE_PAGE_SOURCE_FAMILY}),
+        allowed_record_kinds=TENDERER_PUBLIC_NOTICE_PAGE_RECORD_KINDS,
+        allowed_public_url_prefixes=TENDERER_PUBLIC_NOTICE_PAGE_PUBLIC_URL_PREFIXES,
+        allowed_sandbox_url_prefixes=TENDERER_PUBLIC_NOTICE_PAGE_SANDBOX_URL_PREFIXES,
+        min_interval_seconds=min_interval_seconds,
+    )
+
+
 def resolve_public_source_adapter_config(
     request: PublicSourceSnapshotRequest,
 ) -> PublicSourceAdapterConfig:
     source_family = str(request.source_family or "").strip()
     record_kind = str(request.record_kind or "").strip()
+    if (
+        source_family == TENDERER_PUBLIC_NOTICE_PAGE_SOURCE_FAMILY
+        or record_kind in TENDERER_PUBLIC_NOTICE_PAGE_RECORD_KINDS
+        or request.source_registry_id in TENDERER_PUBLIC_NOTICE_PAGE_REGISTRY_IDS
+        or request.source_url.startswith(TENDERER_PUBLIC_NOTICE_PAGE_PUBLIC_URL_PREFIXES)
+        or request.source_url.startswith(TENDERER_PUBLIC_NOTICE_PAGE_SANDBOX_URL_PREFIXES)
+    ):
+        return tenderer_public_notice_page_adapter_config()
     if (
         source_family == CREDIT_CHINA_SOURCE_FAMILY
         or record_kind in CREDIT_CHINA_RECORD_KINDS
@@ -587,6 +646,25 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             raise PublicSourceBoundaryError(
                 str(boundary["blocked_reason"]),
                 carrier=self._blocked_carrier(request, boundary=boundary),
+            )
+
+        preflight_degrade = self._preflight_degrade_reason(request)
+        if preflight_degrade is not None:
+            return self._degraded_result(
+                request,
+                reason=preflight_degrade,
+                now=now,
+                fetch_audit={
+                    "attempt_count": 0,
+                    "max_retries": request.max_retries,
+                    "timeout_seconds": request.timeout_seconds,
+                    "retry_events": [],
+                    "rate_limit": self._rate_limit_state(request, now=now),
+                    "transport_mode": "not_called_due_to_preflight_degrade",
+                    "dedupe_state": "NOT_EVALUATED",
+                    "uncontrolled_live_crawler_enabled": False,
+                    "real_provider_connection_enabled": False,
+                },
             )
 
         rate_limit = self._rate_limit_state(request, now=now)
@@ -915,6 +993,11 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "timeout_seconds": request.timeout_seconds,
             "manual_review_required": True,
         }
+        lineage_refs = self._lineage_refs(
+            request,
+            snapshot_version=request.snapshot_version or "DEGRADED",
+        )
+        self._copy_lineage_metadata(source_health, lineage_refs)
         failure_degrade = {
             "degrade_reason": reason,
             "degraded_at": now,
@@ -951,6 +1034,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             packet_marker = "114F"
         elif self.config.adapter_id == TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID:
             packet_marker = "114G"
+        elif self.config.adapter_id == TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID:
+            packet_marker = "114H"
         else:
             packet_marker = "114A"
         return f"SNAP-S2-{packet_marker}-{digest[:20]}"
@@ -977,9 +1062,10 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         )
         if request.record_kind not in (None, ""):
             refs["record_kind"] = str(request.record_kind)
+        normalized_record_kind = str(request.record_kind or "")
         notice_type = TENDER_AGENCY_NOTICE_TYPES_BY_RECORD_KIND.get(
-            str(request.record_kind or "")
-        )
+            normalized_record_kind
+        ) or TENDERER_NOTICE_TYPES_BY_RECORD_KIND.get(normalized_record_kind)
         if notice_type and "notice_type" not in refs:
             refs["notice_type"] = notice_type
         return refs
@@ -1000,6 +1086,9 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         for key in (
             "agency_name_optional",
             "agency_site_domain_optional",
+            "tenderer_name_optional",
+            "tenderer_site_domain_optional",
+            "notice_authority_role",
             "notice_type",
             "project_lineage_id",
             "source_blueprint_batch_id",
@@ -1007,6 +1096,27 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             value = lineage_refs.get(key)
             if value not in (None, ""):
                 target[key] = value
+
+    def _preflight_degrade_reason(
+        self,
+        request: PublicSourceSnapshotRequest,
+    ) -> str | None:
+        if self.config.adapter_id == TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID:
+            flags = {
+                str(key): bool(value) for key, value in request.boundary_flags.items()
+            }
+            for flag_name in ("weak_structure", "weak_page_structure"):
+                if flags.get(flag_name):
+                    return "weak_structure"
+            lineage = dict(request.lineage_refs)
+            for key in (
+                "notice_authority_role",
+                "project_lineage_id",
+                "source_blueprint_batch_id",
+            ):
+                if lineage.get(key) in (None, ""):
+                    return "missing_key_lineage"
+        return None
 
 
 def _seconds_between(start: str, end: str) -> float | None:
@@ -1101,6 +1211,17 @@ __all__ = [
     "TENDER_AGENCY_PUBLIC_SITE_SANDBOX_URL_PREFIXES",
     "TENDER_AGENCY_PUBLIC_SITE_SOURCE_FAMILY",
     "TENDER_AGENCY_TENDER_NOTICE_RECORD_KIND",
+    "TENDERER_AWARD_RESULT_RECORD_KIND",
+    "TENDERER_CANDIDATE_NOTICE_RECORD_KIND",
+    "TENDERER_CORRECTION_NOTICE_RECORD_KIND",
+    "TENDERER_NOTICE_TYPES_BY_RECORD_KIND",
+    "TENDERER_OWNER_NOTICE_RECORD_KIND",
+    "TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID",
+    "TENDERER_PUBLIC_NOTICE_PAGE_PUBLIC_URL_PREFIXES",
+    "TENDERER_PUBLIC_NOTICE_PAGE_RECORD_KINDS",
+    "TENDERER_PUBLIC_NOTICE_PAGE_REGISTRY_IDS",
+    "TENDERER_PUBLIC_NOTICE_PAGE_SANDBOX_URL_PREFIXES",
+    "TENDERER_PUBLIC_NOTICE_PAGE_SOURCE_FAMILY",
     "credit_china_adapter_config",
     "government_procurement_public_site_adapter_config",
     "local_public_resource_trading_center_adapter_config",
@@ -1109,4 +1230,5 @@ __all__ = [
     "provincial_bidding_platform_adapter_config",
     "resolve_public_source_adapter_config",
     "tender_agency_public_site_adapter_config",
+    "tenderer_public_notice_page_adapter_config",
 ]
