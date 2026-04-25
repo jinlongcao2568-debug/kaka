@@ -9,8 +9,15 @@ from typing import Any, Mapping
 
 from stage2_ingestion.contract_runtime import build_stage2_handoff, build_stage2_inputs
 from stage2_ingestion.extractors import extract_stage2
+from stage2_ingestion.public_source_adapters import (
+    LocalPublicResourceTradingCenterSourceAdapter,
+    PublicSourceSnapshotRequest,
+    PublicSourceSnapshotResult,
+    PublicSourceTransport,
+)
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, get_flag, resolve_bundle, utc_now_iso
+from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
 class Stage2Service:
@@ -191,3 +198,26 @@ class Stage2Service:
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff
+
+    def capture_public_source_snapshot(
+        self,
+        request: PublicSourceSnapshotRequest,
+        *,
+        repository: ObjectStorageRepository | None = None,
+        transport: PublicSourceTransport | None = None,
+        adapter: LocalPublicResourceTradingCenterSourceAdapter | None = None,
+    ) -> PublicSourceSnapshotResult:
+        resolved_adapter = adapter or LocalPublicResourceTradingCenterSourceAdapter(
+            repository=repository or ObjectStorageRepository(settings=self.settings),
+            transport=transport,
+        )
+        return resolved_adapter.capture(request)
+
+    def replay_public_source_snapshot(
+        self,
+        snapshot_id: str,
+        *,
+        repository: ObjectStorageRepository | None = None,
+    ) -> Mapping[str, Any]:
+        resolved_repository = repository or ObjectStorageRepository(settings=self.settings)
+        return resolved_repository.replay_snapshot(snapshot_id)

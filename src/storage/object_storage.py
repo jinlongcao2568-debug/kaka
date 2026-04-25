@@ -64,11 +64,24 @@ class EvidenceSnapshotManifest:
     created_at: str = field(default_factory=utc_now_iso)
     storage_backend: str = LOCAL_OBJECT_STORAGE_BACKEND
     replay_metadata: dict[str, Any] = field(default_factory=dict)
+    adapter_id_optional: str | None = None
+    source_visibility_state_optional: str | None = None
+    snapshot_version_optional: str | None = None
+    fetched_at_optional: str | None = None
+    captured_at_optional: str | None = None
+    fetch_mode_optional: str | None = None
+    fetch_audit: dict[str, Any] = field(default_factory=dict)
+    replay_state: str = "READBACK_READY"
+    raw_snapshot_metadata: dict[str, Any] = field(default_factory=dict)
+    source_health: dict[str, Any] = field(default_factory=dict)
 
     def as_payload(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["lineage_refs"] = dict(self.lineage_refs)
         payload["replay_metadata"] = dict(self.replay_metadata)
+        payload["fetch_audit"] = dict(self.fetch_audit)
+        payload["raw_snapshot_metadata"] = dict(self.raw_snapshot_metadata)
+        payload["source_health"] = dict(self.source_health)
         return payload
 
 
@@ -247,6 +260,40 @@ def manifest_from_payload(payload: Mapping[str, Any]) -> EvidenceSnapshotManifes
         created_at=str(payload["created_at"]),
         storage_backend=str(payload.get("storage_backend", LOCAL_OBJECT_STORAGE_BACKEND)),
         replay_metadata=dict(payload.get("replay_metadata", {})),
+        adapter_id_optional=(
+            str(payload["adapter_id_optional"])
+            if payload.get("adapter_id_optional") not in (None, "")
+            else None
+        ),
+        source_visibility_state_optional=(
+            str(payload["source_visibility_state_optional"])
+            if payload.get("source_visibility_state_optional") not in (None, "")
+            else None
+        ),
+        snapshot_version_optional=(
+            str(payload["snapshot_version_optional"])
+            if payload.get("snapshot_version_optional") not in (None, "")
+            else None
+        ),
+        fetched_at_optional=(
+            str(payload["fetched_at_optional"])
+            if payload.get("fetched_at_optional") not in (None, "")
+            else None
+        ),
+        captured_at_optional=(
+            str(payload["captured_at_optional"])
+            if payload.get("captured_at_optional") not in (None, "")
+            else None
+        ),
+        fetch_mode_optional=(
+            str(payload["fetch_mode_optional"])
+            if payload.get("fetch_mode_optional") not in (None, "")
+            else None
+        ),
+        fetch_audit=dict(payload.get("fetch_audit", {})),
+        replay_state=str(payload.get("replay_state", "READBACK_READY")),
+        raw_snapshot_metadata=dict(payload.get("raw_snapshot_metadata", {})),
+        source_health=dict(payload.get("source_health", {})),
     )
 
 

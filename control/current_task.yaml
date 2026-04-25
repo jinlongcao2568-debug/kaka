@@ -263,6 +263,8 @@ currentTask:
       "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
       "python -m unittest tests.test_product_module_registry -v": 300000
       "python -m unittest tests.test_product_acceptance_checklist -v": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage2_ingestion/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_stage2_public_source_adapters.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python tests/run_tests.py": 600000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "git diff --check": 120000

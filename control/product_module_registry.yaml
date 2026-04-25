@@ -285,6 +285,7 @@ stage_module_inventory:
           - src/stage2_ingestion/service.py
           - src/stage2_ingestion/contract_runtime.py
           - src/stage2_ingestion/extractors.py
+          - src/stage2_ingestion/public_source_adapters.py
           - src/stage2_ingestion/models.py
         handoff_files:
           - handoff/stage2_to_stage3/contract.json
@@ -293,7 +294,9 @@ stage_module_inventory:
           - src/api/schemas/stage2.py
         repository_files:
           - src/storage/repositories/work_item_repo.py
+          - src/storage/repositories/object_storage_repo.py
         test_files:
+          - tests/test_stage2_public_source_adapters.py
           - tests/test_stage12_extractors.py
           - tests/test_pre_route_behavior.py
         depends_on_slices:
@@ -308,14 +311,17 @@ stage_module_inventory:
         implementation_state: PARTIAL_RUNTIME
         current_files:
           - src/stage2_ingestion/fixation.py
+          - src/stage2_ingestion/public_source_adapters.py
           - src/stage2_ingestion/models.py
         handoff_files:
           - handoff/stage2_to_stage3/contract.json
         api_surface_files:
           - src/api/routes/stage2.py
           - src/api/schemas/stage2.py
-        repository_files: []
+        repository_files:
+          - src/storage/repositories/object_storage_repo.py
         test_files:
+          - tests/test_stage2_public_source_adapters.py
           - tests/test_stage12_extractors.py
           - tests/test_formal_sink_fields.py
         depends_on_slices:
@@ -1008,6 +1014,7 @@ modules:
       - src/stage2_ingestion/service.py
       - src/stage2_ingestion/contract_runtime.py
       - src/stage2_ingestion/extractors.py
+      - src/stage2_ingestion/public_source_adapters.py
       - src/stage2_ingestion/fixation.py
       - src/stage2_ingestion/models.py
       - handoff/stage2_to_stage3/contract.json
@@ -1023,6 +1030,7 @@ modules:
     notes:
       - "P7 Stage2 contract-runtime first cut completed in local commit 2dbfb12 and src/stage2_ingestion/contract_runtime.py is now part of the formal current-files ledger."
       - "This ledger update closes the Stage2 contract-runtime first cut only; downstream Stage3-5 or later runtime work can still exist and must stay under future dedicated packets."
+      - "PTL-I100-114A registers src/stage2_ingestion/public_source_adapters.py as the Stage2 local public source adapter seam; it is sandbox/readback only and does not open uncontrolled live crawling."
   - module_id: STAGE3-PARSED-TRUTH-LAYER
     stage_scope:
       - stage3_parsing

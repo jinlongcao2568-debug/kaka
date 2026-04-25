@@ -97,6 +97,7 @@ def test_product_module_registry_covers_core_stage_modules() -> None:
 
 def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanup_is_recorded() -> None:
     registry = read_yaml("control/product_module_registry.yaml")
+    registry_text = (ROOT / "control/product_module_registry.yaml").read_text(encoding="utf-8")
     modules = {module["module_id"]: module for module in registry["modules"]}
 
     for module in modules.values():
@@ -112,10 +113,13 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert stage1["current_runtime_state"] == "PARTIAL_RUNTIME"
     assert "contract-runtime first cut completed in local commit 2dbfb12" in " ".join(stage1["notes"])
     assert "src/stage2_ingestion/contract_runtime.py" in stage2["current_files"]
+    assert "src/stage2_ingestion/public_source_adapters.py" in stage2["current_files"]
+    assert "tests/test_stage2_public_source_adapters.py" in registry_text
     assert "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion" in stage2["completed_packets"]
     assert stage2["pending_packets"] == []
     assert stage2["current_runtime_state"] == "PARTIAL_RUNTIME"
     assert "contract-runtime first cut completed in local commit 2dbfb12" in " ".join(stage2["notes"])
+    assert "sandbox/readback only" in " ".join(stage2["notes"])
     assert "PTL-S7-price-competitor-offer-resolution" in stage7["completed_packets"]
     assert "PTL-S7-module-boundary-refactor" in stage7["completed_packets"]
     assert stage7["pending_packets"] == []

@@ -80,6 +80,16 @@ class ObjectStorageRepository:
         lineage_refs: Mapping[str, str] | None = None,
         object_key: str | None = None,
         created_at: str | None = None,
+        adapter_id: str | None = None,
+        source_visibility_state: str | None = None,
+        snapshot_version: str | None = None,
+        fetched_at: str | None = None,
+        captured_at: str | None = None,
+        fetch_mode: str | None = None,
+        fetch_audit: Mapping[str, Any] | None = None,
+        replay_state: str = "READBACK_READY",
+        raw_snapshot_metadata: Mapping[str, Any] | None = None,
+        source_health: Mapping[str, Any] | None = None,
     ) -> EvidenceSnapshotManifest:
         created = created_at or utc_now_iso()
         object_metadata = self.put_object(
@@ -108,6 +118,16 @@ class ObjectStorageRepository:
                 object_metadata=object_metadata,
                 replayed_at=created,
             ),
+            adapter_id_optional=adapter_id,
+            source_visibility_state_optional=source_visibility_state,
+            snapshot_version_optional=snapshot_version,
+            fetched_at_optional=fetched_at,
+            captured_at_optional=captured_at,
+            fetch_mode_optional=fetch_mode,
+            fetch_audit=dict(fetch_audit or {}),
+            replay_state=replay_state,
+            raw_snapshot_metadata=dict(raw_snapshot_metadata or {}),
+            source_health=dict(source_health or {}),
         )
         self.save_manifest(manifest)
         return manifest
@@ -168,6 +188,9 @@ class ObjectStorageRepository:
                 "readback_state": "MISSING_MANIFEST",
                 "manifest_present": False,
                 "object_present": False,
+                "replayable": False,
+                "fail_closed": True,
+                "no_broad_fallback": True,
                 "external_service_connection_enabled": False,
             }
         try:
@@ -184,6 +207,9 @@ class ObjectStorageRepository:
                 "object_present": False,
                 "object_key": manifest.object_key,
                 "manifest": manifest.as_payload(),
+                "replayable": False,
+                "fail_closed": True,
+                "no_broad_fallback": True,
                 "external_service_connection_enabled": False,
             }
 
@@ -192,6 +218,9 @@ class ObjectStorageRepository:
             "readback_state": "READBACK_READY",
             "manifest_present": True,
             "object_present": True,
+            "replayable": True,
+            "fail_closed": False,
+            "no_broad_fallback": True,
             "object_key": manifest.object_key,
             "content_type": manifest.content_type,
             "byte_size": manifest.byte_size,
