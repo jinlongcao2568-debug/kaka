@@ -172,16 +172,20 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_112a_is_recorded_as_completed_slice_without_closing_full_112(self) -> None:
+    def test_112a_is_recorded_and_112b_is_active_without_closing_full_112(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
 
         self.assertEqual(task_112["status"], "IN_PROGRESS")
-        self.assertEqual(task_112["planning_state"], "112A_COMPLETED_112B_CANDIDATE_NOT_ACTIVATED")
+        self.assertEqual(task_112["planning_state"], "112A_COMPLETED_112B_ACTIVE")
         self.assertEqual(
             task_112["completed_subpackets"][0]["subpacket_id"],
             "PTL-I100-112A-production-platform-storage-seam",
         )
         self.assertEqual(task_112["completed_subpackets"][0]["completed_commit"], "e3870ab")
+        self.assertEqual(
+            task_112["active_subpacket"]["subpacket_id"],
+            "PTL-I100-112B-production-queue-worker-durability",
+        )
         self.assertEqual(
             self.checklist["tasks"]["PTL-I100-112-production-platform-infrastructure"][
                 "completed_reference_subpackets"
