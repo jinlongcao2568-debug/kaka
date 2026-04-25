@@ -236,11 +236,19 @@ def _build_transport_bootstrap(
     )
     worker_queue_bootstrap = dict(storage_bootstrap.get("worker_queue_bootstrap", {}))
     object_storage_bootstrap = dict(storage_bootstrap.get("object_storage_bootstrap", {}))
+    local_stack_readiness = dict(
+        storage_bootstrap.get(
+            "local_stack_readiness",
+            storage_bootstrap.get("platform_infra_readiness", {}).get("compose_readiness", {}),
+        )
+    )
     return {
         "internal_only": True,
         "live_execution_enabled": False,
         "storage_bootstrap": dict(storage_bootstrap),
         "platform_infra_readiness": dict(storage_bootstrap.get("platform_infra_readiness", {})),
+        "local_stack_readiness": local_stack_readiness,
+        "compose_readiness": local_stack_readiness,
         "worker_queue_bootstrap": worker_queue_bootstrap,
         "object_storage_bootstrap": object_storage_bootstrap,
         "object_storage_readiness": object_storage_bootstrap,
@@ -355,6 +363,22 @@ def _build_transport_bootstrap(
                 "s3_connection_enabled": False,
                 "external_service_connection_enabled": False,
             },
+            "local_stack": {
+                "current_entry": "Docker/Compose local stack definition and readiness projection only",
+                "dockerfile_present": bool(local_stack_readiness.get("dockerfile_present", False)),
+                "compose_file_present": bool(local_stack_readiness.get("compose_file_present", False)),
+                "docker_compose_config_present": bool(
+                    local_stack_readiness.get("docker_compose_config_present", False)
+                ),
+                "compose_runtime_enabled": False,
+                "container_execution_enabled": False,
+                "docker_compose_up_executed": False,
+                "external_service_connection_enabled": False,
+                "real_provider_execution_enabled": False,
+                "real_payment_delivery_enabled": False,
+                "automated_refund_enabled": False,
+                "reserved_services": ["postgres", "redis", "minio"],
+            },
         },
         "redlines": {
             "new_http_endpoint_added": False,
@@ -378,9 +402,15 @@ def _build_transport_bootstrap(
             "minio_connection_enabled": False,
             "s3_connection_enabled": False,
             "external_object_storage_connection_enabled": False,
+            "compose_runtime_enabled": False,
+            "container_execution_enabled": False,
+            "docker_compose_up_executed": False,
+            "real_provider_execution_enabled": False,
+            "real_payment_delivery_enabled": False,
             "provider_credentials_plaintext_persisted": False,
             "automated_refund_program_present": False,
             "automated_refund_program_enabled": False,
+            "automated_refund_enabled": False,
         },
     }
 

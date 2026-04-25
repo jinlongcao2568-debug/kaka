@@ -89,6 +89,7 @@ def test_product_module_registry_covers_core_stage_modules() -> None:
         "SURFACE-API-TRANSPORT",
         "SHARED-RUNTIME-POLICY-CHAIN",
         "STORAGE-REPOSITORY-BOUNDARY",
+        "PLATFORM-LOCAL-STACK-READINESS",
         "INTERNAL-PREVIEW-SURFACE",
     }
     assert required.issubset(module_ids)
@@ -161,6 +162,13 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-INT-102-p4-repository-boundary-hardening" in storage_boundary["completed_packets"]
     assert "PTL-INT-104-p8-observability-operator-workbench" in storage_boundary["completed_packets"]
     assert storage_boundary["pending_packets"] == []
+    platform_stack = modules["PLATFORM-LOCAL-STACK-READINESS"]
+    assert ".dockerignore" in platform_stack["current_files"]
+    assert "Dockerfile" in platform_stack["current_files"]
+    assert "docker-compose.yml" in platform_stack["current_files"]
+    assert "PTL-I100-112D-docker-compose-health-readiness" in platform_stack["pending_packets"]
+    assert platform_stack["external_release_allowed"] is False
+    assert platform_stack["live_execution_allowed"] is False
     internal_preview = modules["INTERNAL-PREVIEW-SURFACE"]
     assert "src/api/workbench_observability.py" in internal_preview["current_files"]
     assert "PTL-INT-104-p8-observability-operator-workbench" in internal_preview["completed_packets"]
@@ -349,6 +357,33 @@ def test_internal_preview_packet_is_not_left_pending_in_registry() -> None:
     assert modules["INTERNAL-PREVIEW-SURFACE"]["live_execution_allowed"] is False
 
 
+def test_platform_local_stack_files_are_registered_on_deployment_surface_and_module() -> None:
+    registry = read_yaml("control/product_module_registry.yaml")
+    modules = {module["module_id"]: module for module in registry["modules"]}
+    surfaces = {surface["surface_id"]: surface for surface in registry["cross_cutting_surfaces"]}
+    expected_files = {
+        ".dockerignore",
+        "Dockerfile",
+        "docker-compose.yml",
+        "src/shared/settings.py",
+        "src/storage/production_infra_readiness.py",
+        "src/api/deps.py",
+        "src/api/main.py",
+    }
+
+    deployment_surface = surfaces["platform_deployment_readiness"]
+    deployment_module = modules["PLATFORM-LOCAL-STACK-READINESS"]
+
+    assert expected_files.issubset(set(deployment_surface["current_files"]))
+    assert expected_files.issubset(set(deployment_module["current_files"]))
+    assert "tests/test_product_module_registry.py" in deployment_surface["test_files"]
+    assert deployment_surface["pending_packets"] == ["PTL-I100-112D-docker-compose-health-readiness"]
+    assert deployment_module["pending_packets"] == ["PTL-I100-112D-docker-compose-health-readiness"]
+    assert deployment_module["external_release_allowed"] is False
+    assert deployment_module["live_execution_allowed"] is False
+    assert_paths_exist(sorted(expected_files))
+
+
 def test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked() -> None:
     registry = read_yaml("control/product_module_registry.yaml")
     stages = {stage["stage_id"]: stage for stage in registry["stage_module_inventory"]}
@@ -410,6 +445,7 @@ def load_tests(
         test_stage_module_inventory_declares_only_existing_current_surfaces,
         test_api_and_repository_surfaces_are_not_lost_from_module_ledger,
         test_internal_preview_packet_is_not_left_pending_in_registry,
+        test_platform_local_stack_files_are_registered_on_deployment_surface_and_module,
         test_stage7_deferred_split_and_stage8_stage9_redlines_remain_locked,
     ):
         suite.addTest(unittest.FunctionTestCase(test))

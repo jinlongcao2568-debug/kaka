@@ -210,6 +210,12 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "no docker compose up",
             task_112["active_subpacket"]["objective"],
         )
+        self.assertIn(
+            "no real external service connection",
+            task_112["active_subpacket"]["objective"],
+        )
+        self.assertIn("docker_compose_local_stack", task_112["capability_gaps_covered"])
+        self.assertIn("health_and_readiness_checks", task_112["capability_gaps_covered"])
         serialized_acceptance = yaml.safe_dump(
             self.checklist["tasks"]["PTL-I100-112-production-platform-infrastructure"],
             allow_unicode=True,

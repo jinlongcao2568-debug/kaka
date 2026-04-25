@@ -1,0 +1,114 @@
+name: kaka-local
+
+x-kaka-boundary:
+  runtime_scope: local_stack_definition_only
+  docker_compose_up_executed: false
+  compose_runtime_enabled: false
+  container_execution_enabled: false
+  external_service_connection_enabled: false
+  real_provider_execution_enabled: false
+  real_payment_delivery_enabled: false
+  automated_refund_enabled: false
+  external_release_enabled: false
+
+x-kaka-reserved-service-defaults: &kaka-reserved-service-defaults
+  profiles:
+    - reserved-local-deps
+  networks:
+    - kaka-local
+  restart: "no"
+  labels:
+    kaka.local_stack_only: "true"
+    kaka.reserved_not_live: "true"
+    kaka.external_service_connection_enabled: "false"
+    kaka.container_execution_enabled: "false"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: kaka-local-runtime:dev
+    command:
+      - python
+      - -c
+      - "from api.main import create_app; create_app(); print('kaka local runtime bootstrap ready')"
+    environment:
+      KAKA_STORAGE_BACKEND: json-file
+      KAKA_STORAGE_SCOPE: process
+      KAKA_STORAGE_PATH: /app/.kaka-local/storage/internal_operator_loop_store.json
+      KAKA_OBJECT_STORAGE_BACKEND: local-filesystem
+      KAKA_OBJECT_STORAGE_PATH: /app/.kaka-local/object-storage
+      KAKA_QUEUE_BACKEND: storage
+      KAKA_WORKER_RUNTIME: internal-storage-worker
+      KAKA_PROVIDER_MODE: SANDBOX_DRY_RUN_READBACK
+    volumes:
+      - kaka-local-storage:/app/.kaka-local
+    networks:
+      - kaka-local
+    restart: "no"
+    labels:
+      kaka.runtime_scope: local_stack_definition_only
+      kaka.compose_runtime_enabled: "false"
+      kaka.container_execution_enabled: "false"
+      kaka.external_service_connection_enabled: "false"
+      kaka.real_provider_execution_enabled: "false"
+      kaka.real_payment_delivery_enabled: "false"
+      kaka.automated_refund_enabled: "false"
+      kaka.external_release_enabled: "false"
+
+  postgres:
+    <<: *kaka-reserved-service-defaults
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: kaka_local
+      POSTGRES_USER: kaka_local
+      POSTGRES_PASSWORD: local_dev_placeholder_not_secret
+    volumes:
+      - kaka-postgres-data:/var/lib/postgresql/data
+    labels:
+      kaka.service_role: reserved_postgres_local_only
+      kaka.migration_execution_enabled: "false"
+
+  redis:
+    <<: *kaka-reserved-service-defaults
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    volumes:
+      - kaka-redis-data:/data
+    labels:
+      kaka.service_role: reserved_redis_local_only
+      kaka.external_queue_connection_enabled: "false"
+
+  minio:
+    <<: *kaka-reserved-service-defaults
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
+    environment:
+      MINIO_ROOT_USER: kaka_local
+      MINIO_ROOT_PASSWORD: local_dev_placeholder_not_secret
+    volumes:
+      - kaka-minio-data:/data
+    labels:
+      kaka.service_role: reserved_minio_local_only
+      kaka.s3_connection_enabled: "false"
+
+networks:
+  kaka-local:
+    driver: bridge
+    internal: true
+
+volumes:
+  kaka-local-storage:
+  kaka-postgres-data:
+  kaka-redis-data:
+  kaka-minio-data:

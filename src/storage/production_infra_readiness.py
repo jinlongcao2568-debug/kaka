@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from importlib.util import find_spec
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -64,7 +65,7 @@ _RESERVED_BACKEND_DEFINITIONS: tuple[dict[str, object], ...] = (
         "backend": "docker-compose",
         "category": "composition",
         "configured_aliases": ("docker-compose",),
-        "why_not_live": "reserved for future local infra composition design; current packet must not add compose runtime",
+        "why_not_live": "local stack configuration is static readiness metadata only; current packet must not run compose runtime",
     },
 )
 
@@ -116,6 +117,7 @@ def build_platform_infra_readiness(
     worker_runtime: str = "internal-storage-worker",
     object_storage_backend: str = LOCAL_OBJECT_STORAGE_BACKEND,
     object_storage_path_optional: str | None = None,
+    repo_root: str | None = None,
 ) -> dict[str, Any]:
     active_backend = normalize_storage_backend_name(storage_backend)
     active_object_storage_backend = normalize_object_storage_backend_name(object_storage_backend)
@@ -143,6 +145,12 @@ def build_platform_infra_readiness(
         queue_backend=queue_backend,
         worker_runtime=worker_runtime,
         active_storage_backend=active_backend,
+        reserved_by_backend=reserved_by_backend,
+    )
+    compose_readiness = _compose_local_stack_readiness(
+        repo_root=repo_root,
+        active_backend=active_backend,
+        active_object_storage_backend=active_object_storage_backend,
         reserved_by_backend=reserved_by_backend,
     )
 
@@ -224,14 +232,8 @@ def build_platform_infra_readiness(
             object_storage_path_optional=object_storage_path_optional,
             reserved_by_backend=reserved_by_backend,
         ),
-        "compose_readiness": {
-            "backend": "docker-compose",
-            "readiness_state": reserved_by_backend["docker-compose"]["readiness_state"],
-            "executable": False,
-            "configured": reserved_by_backend["docker-compose"]["configured"],
-            "compose_runtime_enabled": False,
-            "why_not_live": reserved_by_backend["docker-compose"]["why_not_live"],
-        },
+        "compose_readiness": compose_readiness,
+        "local_stack_readiness": compose_readiness,
         "redlines": {
             "no_live_provider_call": True,
             "no_real_sales_outreach": True,
@@ -240,6 +242,12 @@ def build_platform_infra_readiness(
             "no_real_delivery": True,
             "no_real_refund": True,
             "no_automated_refund": True,
+            "compose_runtime_enabled": False,
+            "container_execution_enabled": False,
+            "docker_compose_up_executed": False,
+            "real_provider_execution_enabled": False,
+            "real_payment_delivery_enabled": False,
+            "automated_refund_enabled": False,
             "external_software_release_enabled": False,
         },
     }
@@ -429,6 +437,142 @@ def _combined_reserved_state(
     if any(reserved_by_backend[backend]["configured"] for backend in backends):
         return READINESS_RESERVED_NOT_LIVE
     return READINESS_NOT_CONFIGURED
+
+
+def _repo_root(repo_root: str | None) -> Path:
+    if repo_root:
+        return Path(repo_root)
+    return Path(__file__).resolve().parents[2]
+
+
+def _compose_local_stack_readiness(
+    *,
+    repo_root: str | None,
+    active_backend: str,
+    active_object_storage_backend: str,
+    reserved_by_backend: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    root = _repo_root(repo_root)
+    dockerfile_present = (root / "Dockerfile").is_file()
+    compose_file_present = (root / "docker-compose.yml").is_file()
+    dockerignore_present = (root / ".dockerignore").is_file()
+    config_present = dockerfile_present and compose_file_present and dockerignore_present
+    local_stack_services = [
+        {
+            "service": "app",
+            "role": "local_runtime_bootstrap",
+            "profile": "default",
+            "readiness_state": "CONFIG_PRESENT" if config_present else READINESS_NOT_CONFIGURED,
+            "configured": config_present,
+            "local_stack_only": True,
+            "container_execution_enabled": False,
+            "external_service_connection_enabled": False,
+            "real_provider_execution_enabled": False,
+        },
+        {
+            "service": "postgres",
+            "role": "reserved_local_database",
+            "profile": "reserved-local-deps",
+            "readiness_state": READINESS_RESERVED_NOT_LIVE,
+            "configured": False,
+            "local_stack_only": True,
+            "container_execution_enabled": False,
+            "external_service_connection_enabled": False,
+            "migration_execution_enabled": False,
+        },
+        {
+            "service": "redis",
+            "role": "reserved_local_queue_broker",
+            "profile": "reserved-local-deps",
+            "readiness_state": READINESS_RESERVED_NOT_LIVE,
+            "configured": False,
+            "local_stack_only": True,
+            "container_execution_enabled": False,
+            "external_service_connection_enabled": False,
+            "redis_connection_enabled": False,
+        },
+        {
+            "service": "minio",
+            "role": "reserved_local_object_storage",
+            "profile": "reserved-local-deps",
+            "readiness_state": READINESS_RESERVED_NOT_LIVE,
+            "configured": False,
+            "local_stack_only": True,
+            "container_execution_enabled": False,
+            "external_service_connection_enabled": False,
+            "minio_connection_enabled": False,
+            "s3_connection_enabled": False,
+        },
+    ]
+    service_dependency_summary = {
+        "app": {
+            "depends_on": ["json-file-or-sqlite-storage", "storage-backed-worker-queue", "local-filesystem-object-storage"],
+            "runtime_entry": "api.main:create_app bootstrap projection",
+            "storage_backend": active_backend,
+            "object_storage_backend": active_object_storage_backend,
+            "compose_service": "app",
+            "local_stack_only": True,
+            "container_execution_enabled": False,
+            "external_service_connection_enabled": False,
+        },
+        "postgres": {
+            "compose_service": "postgres",
+            "dependency_role": "reserved_local_postgres",
+            "readiness_state": READINESS_RESERVED_NOT_LIVE,
+            "profile": "reserved-local-deps",
+            "external_service_connection_enabled": False,
+            "container_execution_enabled": False,
+            "migration_execution_enabled": False,
+            "live_ready": False,
+        },
+        "redis": {
+            "compose_service": "redis",
+            "dependency_role": "reserved_local_redis_queue",
+            "readiness_state": READINESS_RESERVED_NOT_LIVE,
+            "profile": "reserved-local-deps",
+            "external_service_connection_enabled": False,
+            "container_execution_enabled": False,
+            "redis_connection_enabled": False,
+            "live_ready": False,
+        },
+        "minio": {
+            "compose_service": "minio",
+            "dependency_role": "reserved_local_minio_object_storage",
+            "readiness_state": READINESS_RESERVED_NOT_LIVE,
+            "profile": "reserved-local-deps",
+            "external_service_connection_enabled": False,
+            "container_execution_enabled": False,
+            "minio_connection_enabled": False,
+            "s3_connection_enabled": False,
+            "live_ready": False,
+        },
+    }
+    return {
+        "backend": "docker-compose",
+        "readiness_state": "CONFIG_PRESENT_NOT_EXECUTED" if config_present else READINESS_NOT_CONFIGURED,
+        "executable": False,
+        "configured": config_present,
+        "dockerfile_present": dockerfile_present,
+        "compose_file_present": compose_file_present,
+        "dockerignore_present": dockerignore_present,
+        "docker_compose_config_present": compose_file_present,
+        "compose_runtime_enabled": False,
+        "container_execution_enabled": False,
+        "docker_compose_up_executed": False,
+        "local_stack_definition_only": True,
+        "reserved_profile": "reserved-local-deps",
+        "local_stack_services": local_stack_services,
+        "service_dependency_summary": service_dependency_summary,
+        "postgres": service_dependency_summary["postgres"],
+        "redis": service_dependency_summary["redis"],
+        "minio": service_dependency_summary["minio"],
+        "external_service_connection_enabled": False,
+        "real_provider_execution_enabled": False,
+        "real_payment_delivery_enabled": False,
+        "automated_refund_enabled": False,
+        "external_release_enabled": False,
+        "why_not_live": reserved_by_backend["docker-compose"]["why_not_live"],
+    }
 
 
 def _worker_queue_bootstrap_readiness(

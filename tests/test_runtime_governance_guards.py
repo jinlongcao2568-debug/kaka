@@ -61,6 +61,22 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertFalse(readiness["object_storage_readiness"]["connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["container_execution_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["docker_compose_up_executed"])
+        self.assertFalse(readiness["compose_readiness"]["real_provider_execution_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["real_payment_delivery_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["automated_refund_enabled"])
+        self.assertFalse(redlines["compose_runtime_enabled"])
+        self.assertFalse(redlines["container_execution_enabled"])
+        self.assertFalse(redlines["docker_compose_up_executed"])
+        self.assertFalse(redlines["real_provider_execution_enabled"])
+        self.assertFalse(redlines["real_payment_delivery_enabled"])
+        self.assertFalse(redlines["automated_refund_enabled"])
+        for service_name in ("postgres", "redis", "minio"):
+            dependency = readiness["compose_readiness"]["service_dependency_summary"][service_name]
+            self.assertEqual(dependency["readiness_state"], "RESERVED_NOT_LIVE")
+            self.assertFalse(dependency["external_service_connection_enabled"])
+            self.assertFalse(dependency["container_execution_enabled"])
 
     def test_stage8_high_restriction_field_requires_runtime_review(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

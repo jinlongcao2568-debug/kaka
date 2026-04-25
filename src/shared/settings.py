@@ -138,6 +138,7 @@ class Settings:
             worker_runtime=self.worker_runtime,
             object_storage_backend=self.object_storage_backend,
             object_storage_path_optional=str(self.resolved_object_storage_path()),
+            repo_root=self.repo_root,
         )
 
     def storage_bootstrap_payload(self) -> dict[str, Any]:
@@ -161,6 +162,7 @@ class Settings:
             "object_storage_path_optional": self.object_storage_path_optional,
             "object_storage_bootstrap": readiness["object_storage_readiness"],
             "worker_queue_bootstrap": readiness["worker_queue_bootstrap"],
+            "local_stack_readiness": readiness["compose_readiness"],
             "platform_infra_readiness": readiness,
             "provider_adapter_bootstrap": self.provider_adapter_bootstrap_payload(),
         }

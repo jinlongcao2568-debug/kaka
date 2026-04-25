@@ -916,6 +916,26 @@ cross_cutting_surfaces:
       - PTL-INT-102-p4-repository-boundary-hardening
       - PTL-INT-104-p8-observability-operator-workbench
     pending_packets: []
+  - surface_id: platform_deployment_readiness
+    business_summary: "Docker/Compose 本地栈定义与 health/readiness 投影面；仅表达 local stack 配置存在和依赖边界，不代表容器已运行或 external/live 可用。"
+    implementation_state: PARTIAL_RUNTIME
+    current_files:
+      - .dockerignore
+      - Dockerfile
+      - docker-compose.yml
+      - src/shared/settings.py
+      - src/storage/production_infra_readiness.py
+      - src/api/deps.py
+      - src/api/main.py
+    test_files:
+      - tests/test_storage_concurrency.py
+      - tests/test_api_transport_bootstrap.py
+      - tests/test_runtime_governance_guards.py
+      - tests/test_product_module_registry.py
+      - tests/test_product_acceptance_checklist.py
+    completed_packets: []
+    pending_packets:
+      - PTL-I100-112D-docker-compose-health-readiness
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
     stage_scope:
@@ -1371,6 +1391,38 @@ modules:
       - "P4 repository boundary hardening completed in local commit b8288a7 and is now part of the formal repository-boundary ledger."
       - "P8 observability/operator workbench first cut completed in local commit b8a2762 and src/storage/operator_workbench_projection.py remains part of the formal repository-boundary workbench ledger."
       - "Subsequent Stage9 packets such as P5 still depend on this boundary staying stable; this ledger must not be interpreted as 'all repository-boundary-dependent work finished'."
+  - module_id: PLATFORM-LOCAL-STACK-READINESS
+    stage_scope:
+      - platform_infra
+      - deployment_readiness
+      - health_readiness
+    product_area: "Docker/Compose local stack definition / readiness projection"
+    source_docs:
+      - docs/D11_测试验收与金标回归清单.md
+      - docs/D12_部署发布与运行治理规范.md
+    formal_objects:
+      - platform_infra_readiness
+      - deployment_readiness
+    current_files:
+      - .dockerignore
+      - Dockerfile
+      - docker-compose.yml
+      - src/shared/settings.py
+      - src/storage/production_infra_readiness.py
+      - src/api/deps.py
+      - src/api/main.py
+    current_runtime_state: PARTIAL_RUNTIME
+    internal_governed_runtime_present: true
+    target_packet_candidates:
+      - PTL-I100-112-production-platform-infrastructure
+    completed_packets: []
+    pending_packets:
+      - PTL-I100-112D-docker-compose-health-readiness
+    external_release_allowed: false
+    live_execution_allowed: false
+    deferred_module_split: false
+    notes:
+      - "PTL-I100-112D 只登记 Docker/Compose local stack definition 与 bootstrap/readiness 投影；不运行容器、不执行 docker compose up、不连接真实 Postgres/Redis/MinIO/S3、不放开 provider/payment/delivery/refund/external release。"
   - module_id: INTERNAL-PREVIEW-SURFACE
     stage_scope:
       - internal_preview

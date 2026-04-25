@@ -50,6 +50,16 @@ RESERVED_INFRA_BACKENDS = {
     "docker-compose",
 }
 RESERVED_OR_NOT_CONFIGURED = {"RESERVED_NOT_LIVE", "NOT_CONFIGURED"}
+LOCAL_STACK_FILES = (".dockerignore", "Dockerfile", "docker-compose.yml")
+FORBIDDEN_REAL_SECRET_MARKERS = (
+    "akia",
+    "sk_live",
+    "pk_live",
+    "xoxb-",
+    "aws_secret_access_key=",
+    "stripe_live",
+    "production_secret",
+)
 
 
 def sqlalchemy_sqlite_url(path: Path) -> str:
@@ -324,8 +334,24 @@ class TestStorageConcurrency(unittest.TestCase):
         )
         self.assertFalse(readiness["object_storage_readiness"]["connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
-        self.assertIn(readiness["compose_readiness"]["readiness_state"], RESERVED_OR_NOT_CONFIGURED)
+        self.assertEqual(readiness["compose_readiness"]["readiness_state"], "CONFIG_PRESENT_NOT_EXECUTED")
+        self.assertTrue(readiness["compose_readiness"]["dockerfile_present"])
+        self.assertTrue(readiness["compose_readiness"]["compose_file_present"])
+        self.assertTrue(readiness["compose_readiness"]["dockerignore_present"])
+        self.assertTrue(readiness["compose_readiness"]["docker_compose_config_present"])
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["container_execution_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["docker_compose_up_executed"])
+        self.assertFalse(readiness["compose_readiness"]["external_service_connection_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["real_provider_execution_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["real_payment_delivery_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["automated_refund_enabled"])
+        service_summary = readiness["compose_readiness"]["service_dependency_summary"]
+        self.assertEqual(set(service_summary), {"app", "postgres", "redis", "minio"})
+        for reserved_service in ("postgres", "redis", "minio"):
+            self.assertEqual(service_summary[reserved_service]["readiness_state"], "RESERVED_NOT_LIVE")
+            self.assertFalse(service_summary[reserved_service]["external_service_connection_enabled"])
+            self.assertFalse(service_summary[reserved_service]["container_execution_enabled"])
 
         policy = readiness["backend_policy"]
         self.assertTrue(policy["unsupported_backend_fast_fail"])
@@ -341,7 +367,32 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(redlines["no_real_delivery"])
         self.assertTrue(redlines["no_real_refund"])
         self.assertTrue(redlines["no_automated_refund"])
+        self.assertFalse(redlines["compose_runtime_enabled"])
+        self.assertFalse(redlines["container_execution_enabled"])
+        self.assertFalse(redlines["docker_compose_up_executed"])
+        self.assertFalse(redlines["real_provider_execution_enabled"])
+        self.assertFalse(redlines["real_payment_delivery_enabled"])
+        self.assertFalse(redlines["automated_refund_enabled"])
         self.assertFalse(redlines["external_software_release_enabled"])
+
+    def test_local_stack_definition_files_exist_without_real_secret_material(self) -> None:
+        for relative_path in LOCAL_STACK_FILES:
+            path = ROOT / relative_path
+            self.assertTrue(path.exists(), relative_path)
+            content = path.read_text(encoding="utf-8").lower()
+            for marker in FORBIDDEN_REAL_SECRET_MARKERS:
+                self.assertNotIn(marker, content, relative_path)
+
+        dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+        for ignored_path in (".git", "__pycache__/", ".pytest_cache/", "object-storage/", "minio-data/"):
+            self.assertIn(ignored_path, dockerignore)
+
+        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+        self.assertIn("reserved-local-deps", compose)
+        self.assertIn("local_dev_placeholder_not_secret", compose)
+        self.assertIn("compose_runtime_enabled: false", compose)
+        self.assertIn("container_execution_enabled: false", compose)
+        self.assertIn("docker_compose_up_executed: false", compose)
 
     def test_object_storage_readiness_keeps_minio_s3_reserved_not_live(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

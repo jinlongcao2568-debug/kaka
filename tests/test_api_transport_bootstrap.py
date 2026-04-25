@@ -300,7 +300,28 @@ class TestApiTransportBootstrap(unittest.TestCase):
         )
         self.assertFalse(readiness["object_storage_readiness"]["connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
+        self.assertIn("local_stack_readiness", storage_bootstrap)
+        self.assertEqual(storage_bootstrap["local_stack_readiness"], readiness["compose_readiness"])
+        self.assertTrue(readiness["compose_readiness"]["dockerfile_present"])
+        self.assertTrue(readiness["compose_readiness"]["compose_file_present"])
+        self.assertTrue(readiness["compose_readiness"]["docker_compose_config_present"])
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["container_execution_enabled"])
+        self.assertFalse(readiness["compose_readiness"]["docker_compose_up_executed"])
+        self.assertEqual(
+            readiness["compose_readiness"]["service_dependency_summary"]["postgres"]["readiness_state"],
+            "RESERVED_NOT_LIVE",
+        )
+        self.assertFalse(
+            readiness["compose_readiness"]["service_dependency_summary"]["redis"][
+                "external_service_connection_enabled"
+            ]
+        )
+        self.assertFalse(
+            readiness["compose_readiness"]["service_dependency_summary"]["minio"][
+                "external_service_connection_enabled"
+            ]
+        )
         self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
         self.assertTrue(readiness["backend_policy"]["missing_database_url_fast_fail"])
         self.assertTrue(readiness["backend_policy"]["no_silent_fallback"])
@@ -368,6 +389,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     )
                     self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
                     self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+                    self.assertFalse(readiness["compose_readiness"]["container_execution_enabled"])
+                    self.assertFalse(readiness["compose_readiness"]["docker_compose_up_executed"])
                     self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
                     self.assertTrue(readiness["backend_policy"]["no_silent_fallback"])
                     self.assertTrue(readiness["backend_policy"]["no_external_service_connection"])
@@ -456,8 +479,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     self.assertTrue(readiness["object_storage_readiness"]["local_filesystem"]["executable"])
                     self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
                     self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
+                    self.assertFalse(readiness["compose_readiness"]["container_execution_enabled"])
+                    self.assertFalse(readiness["compose_readiness"]["docker_compose_up_executed"])
                     self.assertEqual(app.state.transport_bootstrap["storage_bootstrap"], storage_bootstrap)
                     self.assertEqual(app.state.transport_bootstrap["platform_infra_readiness"], readiness)
+                    self.assertEqual(
+                        app.state.transport_bootstrap["local_stack_readiness"],
+                        readiness["compose_readiness"],
+                    )
                     self.assertEqual(
                         app.state.transport_bootstrap["worker_queue_bootstrap"],
                         storage_bootstrap["worker_queue_bootstrap"],
@@ -735,9 +764,32 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(redlines["minio_connection_enabled"])
         self.assertFalse(redlines["s3_connection_enabled"])
         self.assertFalse(redlines["external_object_storage_connection_enabled"])
+        self.assertFalse(redlines["compose_runtime_enabled"])
+        self.assertFalse(redlines["container_execution_enabled"])
+        self.assertFalse(redlines["docker_compose_up_executed"])
+        self.assertFalse(redlines["real_provider_execution_enabled"])
+        self.assertFalse(redlines["real_payment_delivery_enabled"])
         self.assertFalse(redlines["provider_credentials_plaintext_persisted"])
         self.assertFalse(redlines["automated_refund_program_present"])
         self.assertFalse(redlines["automated_refund_program_enabled"])
+        self.assertFalse(redlines["automated_refund_enabled"])
+
+        local_stack = app.state.transport_bootstrap["local_stack_readiness"]
+        self.assertTrue(local_stack["dockerfile_present"])
+        self.assertTrue(local_stack["compose_file_present"])
+        self.assertTrue(local_stack["docker_compose_config_present"])
+        self.assertFalse(local_stack["compose_runtime_enabled"])
+        self.assertFalse(local_stack["container_execution_enabled"])
+        self.assertFalse(local_stack["docker_compose_up_executed"])
+        self.assertEqual(
+            app.state.transport_bootstrap["entry_strategy"]["local_stack"]["reserved_services"],
+            ["postgres", "redis", "minio"],
+        )
+        for reserved_service in ("postgres", "redis", "minio"):
+            dependency = local_stack["service_dependency_summary"][reserved_service]
+            self.assertEqual(dependency["readiness_state"], "RESERVED_NOT_LIVE")
+            self.assertFalse(dependency["external_service_connection_enabled"])
+            self.assertFalse(dependency["container_execution_enabled"])
 
         self.assertEqual(len(app.state.disabled_stage_transports), 5)
         self.assertEqual(
