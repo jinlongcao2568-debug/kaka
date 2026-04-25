@@ -16,11 +16,13 @@ PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID = "stage2.provincial_bidding_platform.v1"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID = (
     "stage2.national_construction_market_platform.v1"
 )
+CREDIT_CHINA_ADAPTER_ID = "stage2.credit_china.v1"
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY = "local_public_resource_trading_center"
 PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY = "provincial_bidding_platform"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY = (
     "national_construction_market_platform"
 )
+CREDIT_CHINA_SOURCE_FAMILY = "credit_china"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND = "enterprise_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND = "personnel_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND = "project_public_record"
@@ -29,6 +31,16 @@ NATIONAL_CONSTRUCTION_MARKET_PLATFORM_RECORD_KINDS = frozenset(
         NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND,
         NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND,
         NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND,
+    }
+)
+CREDIT_CHINA_CREDIT_PUBLIC_RECORD_KIND = "credit_public_record"
+CREDIT_CHINA_ADMINISTRATIVE_PENALTY_RECORD_KIND = "administrative_penalty_record"
+CREDIT_CHINA_CREDIT_EXCEPTION_RECORD_KIND = "credit_exception_record"
+CREDIT_CHINA_RECORD_KINDS = frozenset(
+    {
+        CREDIT_CHINA_CREDIT_PUBLIC_RECORD_KIND,
+        CREDIT_CHINA_ADMINISTRATIVE_PENALTY_RECORD_KIND,
+        CREDIT_CHINA_CREDIT_EXCEPTION_RECORD_KIND,
     }
 )
 
@@ -53,6 +65,13 @@ NATIONAL_CONSTRUCTION_MARKET_PLATFORM_REGISTRY_IDS = frozenset(
         "SRC-REG-NCMP-PROJECT-PUBLIC-RECORD",
     }
 )
+CREDIT_CHINA_REGISTRY_IDS = frozenset(
+    {
+        "SRC-REG-CREDIT-CHINA-PUBLIC-RECORD",
+        "SRC-REG-CREDIT-CHINA-ADMINISTRATIVE-PENALTY",
+        "SRC-REG-CREDIT-CHINA-CREDIT-EXCEPTION",
+    }
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES = (
     "https://public.example.local/local-public-resource-trading-centers/",
     "https://public.example.local/procurement/",
@@ -74,6 +93,12 @@ NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PUBLIC_URL_PREFIXES = (
 )
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SANDBOX_URL_PREFIXES = (
     "sandbox://national-construction-market-platform/",
+)
+CREDIT_CHINA_PUBLIC_URL_PREFIXES = (
+    "https://public.example.local/credit-china/",
+)
+CREDIT_CHINA_SANDBOX_URL_PREFIXES = (
+    "sandbox://credit-china/",
 )
 
 PUBLIC_VISIBLE_STATE = "PUBLIC_VISIBLE"
@@ -268,11 +293,34 @@ def national_construction_market_platform_adapter_config(
     )
 
 
+def credit_china_adapter_config(
+    *,
+    min_interval_seconds: float = 0.0,
+) -> PublicSourceAdapterConfig:
+    return PublicSourceAdapterConfig(
+        adapter_id=CREDIT_CHINA_ADAPTER_ID,
+        allowlisted_source_registry_ids=CREDIT_CHINA_REGISTRY_IDS,
+        allowed_source_families=frozenset({CREDIT_CHINA_SOURCE_FAMILY}),
+        allowed_record_kinds=CREDIT_CHINA_RECORD_KINDS,
+        allowed_public_url_prefixes=CREDIT_CHINA_PUBLIC_URL_PREFIXES,
+        allowed_sandbox_url_prefixes=CREDIT_CHINA_SANDBOX_URL_PREFIXES,
+        min_interval_seconds=min_interval_seconds,
+    )
+
+
 def resolve_public_source_adapter_config(
     request: PublicSourceSnapshotRequest,
 ) -> PublicSourceAdapterConfig:
     source_family = str(request.source_family or "").strip()
     record_kind = str(request.record_kind or "").strip()
+    if (
+        source_family == CREDIT_CHINA_SOURCE_FAMILY
+        or record_kind in CREDIT_CHINA_RECORD_KINDS
+        or request.source_registry_id in CREDIT_CHINA_REGISTRY_IDS
+        or request.source_url.startswith(CREDIT_CHINA_PUBLIC_URL_PREFIXES)
+        or request.source_url.startswith(CREDIT_CHINA_SANDBOX_URL_PREFIXES)
+    ):
+        return credit_china_adapter_config()
     if (
         source_family == NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY
         or record_kind in NATIONAL_CONSTRUCTION_MARKET_PLATFORM_RECORD_KINDS
@@ -708,6 +756,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             packet_marker = "114B"
         elif self.config.adapter_id == NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID:
             packet_marker = "114C"
+        elif self.config.adapter_id == CREDIT_CHINA_ADAPTER_ID:
+            packet_marker = "114D"
         else:
             packet_marker = "114A"
         return f"SNAP-S2-{packet_marker}-{digest[:20]}"
@@ -768,6 +818,15 @@ __all__ = [
     "BLOCKED_FETCH_MODES",
     "BLOCKED_VISIBILITY_STATES",
     "CONTROLLED_TEST_TRANSPORT_STATE",
+    "CREDIT_CHINA_ADAPTER_ID",
+    "CREDIT_CHINA_ADMINISTRATIVE_PENALTY_RECORD_KIND",
+    "CREDIT_CHINA_CREDIT_EXCEPTION_RECORD_KIND",
+    "CREDIT_CHINA_CREDIT_PUBLIC_RECORD_KIND",
+    "CREDIT_CHINA_PUBLIC_URL_PREFIXES",
+    "CREDIT_CHINA_RECORD_KINDS",
+    "CREDIT_CHINA_REGISTRY_IDS",
+    "CREDIT_CHINA_SANDBOX_URL_PREFIXES",
+    "CREDIT_CHINA_SOURCE_FAMILY",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS",
@@ -799,6 +858,7 @@ __all__ = [
     "PublicSourceTransportResponse",
     "SANDBOX_LOCAL_MIRROR_STATE",
     "StaticPublicSourceTransport",
+    "credit_china_adapter_config",
     "local_public_resource_trading_center_adapter_config",
     "national_construction_market_platform_adapter_config",
     "provincial_bidding_platform_adapter_config",

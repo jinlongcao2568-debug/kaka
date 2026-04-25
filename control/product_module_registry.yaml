@@ -1031,6 +1031,7 @@ modules:
       - "P7 Stage2 contract-runtime first cut completed in local commit 2dbfb12 and src/stage2_ingestion/contract_runtime.py is now part of the formal current-files ledger."
       - "This ledger update closes the Stage2 contract-runtime first cut only; downstream Stage3-5 or later runtime work can still exist and must stay under future dedicated packets."
       - "PTL-I100-114A registers src/stage2_ingestion/public_source_adapters.py as the Stage2 local public source adapter seam; it is sandbox/readback only and does not open uncontrolled live crawling."
+      - "PTL-I100-114D extends the same Stage2 public source adapter seam for Credit China public credit, administrative penalty, and credit exception records; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
   - module_id: STAGE3-PARSED-TRUTH-LAYER
     stage_scope:
       - stage3_parsing
