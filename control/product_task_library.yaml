@@ -1257,9 +1257,9 @@ tasks:
     priority: P8
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: INPUT_FIXTURE_AND_AUTHORITY_CARRIER_DRIVEN
-    runtime_change_in_packet: ACTIVE_114H_STAGE2_TENDERER_PUBLIC_NOTICE_PAGES_ADAPTER
-    activation_policy: "114A completed via 7de630d. 114B completed via 6b4f91b. 114C completed via 2c403d6. 114D completed via e75a461. 114E completed via e93b503. 114F completed via 3f6bf5f. 114G completed via a4f71bb. Activated by control/current_task.yaml for PTL-I100-114H tenderer public notice pages; it targets SANDBOX_READY/readback and does not allow private/gray sources, login/captcha/anti-bot bypass, uncontrolled live crawling, provider execution, external release, or push."
-    active_subpacket: PTL-I100-114H-tenderer-public-notice-pages
+    runtime_change_in_packet: ACTIVE_114I_STAGE2_INDUSTRY_AUTHORITY_FILING_PAGES_ADAPTER
+    activation_policy: "114A completed via 7de630d. 114B completed via 6b4f91b. 114C completed via 2c403d6. 114D completed via e75a461. 114E completed via e93b503. 114F completed via 3f6bf5f. 114G completed via a4f71bb. 114H completed via 9e9c033. Activated by control/current_task.yaml for PTL-I100-114I industry authority filing pages; it targets SANDBOX_READY/readback and does not allow private/gray sources, login/captcha/anti-bot bypass, uncontrolled live crawling, provider execution, external release, or push."
+    active_subpacket: PTL-I100-114I-industry-authority-filing-pages
     completed_subpackets:
       - subpacket_id: PTL-I100-114A-local-public-resource-trading-centers
         completed_commit: 7de630d
@@ -1289,6 +1289,10 @@ tasks:
         completed_commit: a4f71bb
         capability_state_after: SANDBOX_READY
         product_closure_state: "tender agency public sites adapter seam for tender, correction, candidate, and award-result notice carriers, raw snapshot metadata, agency lineage, notice type, source health, retry/timeout/degrade, and fail-closed replay completed"
+      - subpacket_id: PTL-I100-114H-tenderer-public-notice-pages
+        completed_commit: 9e9c033
+        capability_state_after: SANDBOX_READY
+        product_closure_state: "tenderer/procurer/owner public notice pages adapter seam for owner, correction, candidate, and award-result notice carriers, raw snapshot metadata, authority lineage, notice type, source health, retry/timeout/degrade, weak-lineage degrade, and fail-closed replay completed"
     hard_depends_on: [PTL-I100-113-stage1-scheduler-production-loop]
     soft_depends_on: [PTL-I100-102-stage1-5-real-source-vertical-slice]
     objective: "实现合规公开源 fetch adapter、raw capture、snapshot hash、附件下载、频控、retry/timeout、source health、fetch audit 和失败降级。"
