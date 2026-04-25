@@ -9,6 +9,10 @@ from typing import Any, Mapping
 
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, get_flag, resolve_bundle
+from stage4_verification.active_conflict import (
+    build_project_manager_active_conflict_readback as build_active_conflict_readback,
+    evaluate_project_manager_active_conflict as evaluate_active_conflict,
+)
 from stage4_verification.verification import PublicVerificationAdapter, build_public_verification_readback
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
@@ -433,3 +437,23 @@ class Stage4Service:
         carrier: Mapping[str, Any],
     ) -> Mapping[str, Any]:
         return build_public_verification_readback(carrier)
+
+    def evaluate_project_manager_active_conflict(
+        self,
+        parsed_context: Mapping[str, Any] | StageBundle,
+        *,
+        public_verification_carriers: list[Mapping[str, Any]] | None = None,
+        possible_conflicting_projects: list[Mapping[str, Any]] | None = None,
+    ) -> Mapping[str, Any]:
+        carrier = evaluate_active_conflict(
+            parsed_context,
+            public_verification_carriers=public_verification_carriers,
+            possible_conflicting_projects=possible_conflicting_projects,
+        )
+        return carrier.as_payload()
+
+    def build_project_manager_active_conflict_readback(
+        self,
+        carrier: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        return build_active_conflict_readback(carrier)

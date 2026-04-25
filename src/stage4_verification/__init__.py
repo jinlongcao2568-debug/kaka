@@ -8,9 +8,17 @@ from stage4_verification.verification import (
     PublicVerificationCarrier,
     build_public_verification_readback,
 )
+from stage4_verification.active_conflict import (
+    ProjectManagerActiveConflictCarrier,
+    build_project_manager_active_conflict_readback,
+    evaluate_project_manager_active_conflict,
+)
 
 __all__ = [
+    "ProjectManagerActiveConflictCarrier",
     "PublicVerificationAdapter",
     "PublicVerificationCarrier",
+    "build_project_manager_active_conflict_readback",
     "build_public_verification_readback",
+    "evaluate_project_manager_active_conflict",
 ]

@@ -416,6 +416,7 @@ stage_module_inventory:
         current_files:
           - src/stage4_verification/service.py
           - src/stage4_verification/verification.py
+          - src/stage4_verification/active_conflict.py
         handoff_files:
           - handoff/stage4_to_stage5/contract.json
         api_surface_files:
@@ -425,6 +426,7 @@ stage_module_inventory:
         test_files:
           - tests/test_internal_chain.py
           - tests/test_architecture_anti_drift.py
+          - tests/test_project_manager_active_conflict_vertical_slice.py
         depends_on_slices:
           - stage3.lineage_candidates_manager
         target_packet_candidates:
@@ -1084,6 +1086,7 @@ modules:
       - src/stage4_verification/service.py
       - src/stage4_verification/attack_surface.py
       - src/stage4_verification/verification.py
+      - src/stage4_verification/active_conflict.py
       - src/stage4_verification/evidence_grade.py
       - handoff/stage4_to_stage5/contract.json
     current_runtime_state: PARTIAL_RUNTIME
