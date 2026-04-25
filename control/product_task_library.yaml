@@ -1363,14 +1363,16 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage3_parsing, parser_runtime, attachment_processing]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P9
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: STRUCTURED_INPUT_CARRIER_DRIVEN
-    runtime_change_in_packet: ACTIVE_115_STAGE3_REAL_PARSER_OCR_ATTACHMENTS
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-114 completed via af13a96; target is INTERNAL_READY parser/OCR/attachment readback, not Stage4 verification or final facts."
+    runtime_change_in_packet: COMPLETED_115_STAGE3_REAL_PARSER_OCR_ATTACHMENTS
+    activation_policy: "Completed via 4eca3f3. This packet implemented Stage3 parser/OCR/attachment readback only; parser output remains UNVERIFIED and must pass Stage4 verification before facts, rules, productization, or customer-visible conclusions."
+    completed_commit: 4eca3f3
+    capability_state_after: INTERNAL_READY
     hard_depends_on: [PTL-I100-114-stage2-real-public-source-adapters]
     soft_depends_on: [PTL-S23-public-chain-to-parser-contract]
     objective: "实现 HTML/PDF/OCR/Word/Excel/附件解析、字段切片、置信度、定位信息、parser audit、错误分类和人工复核入口。"
@@ -1407,14 +1409,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage4_verification, public_verification_adapters]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P10
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: STATE_CARRIER_DRIVEN_NO_REAL_ADAPTERS
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet and public verification source allowlist."
+    runtime_change_in_packet: ACTIVE_116_STAGE4_PUBLIC_VERIFICATION_ADAPTERS
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-115 completed via 4eca3f3; target is SANDBOX_READY public verification adapter readback, not 116A project manager active-project conflict vertical slice or Stage5 rule decisions."
     hard_depends_on: [PTL-I100-115-stage3-real-parser-ocr-attachments]
     soft_depends_on: [PTL-S34-object-lineage-verification-handoff]
     objective: "实现四库一平台、信用链、企业资质、人员资格、许可、合同、竣工备案、项目经理在建冲突等公开核验 adapter 第一刀。"

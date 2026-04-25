@@ -5,11 +5,11 @@ updated_at: "2026-04-26"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_115_STAGE3_REAL_PARSER_OCR_ATTACHMENTS"
+navigation_state: "PTL_I100_116_STAGE4_PUBLIC_VERIFICATION_ADAPTERS"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-114I industry authority filing pages 已通过验收并本地提交 af13a96；PTL-I100-114 Stage2 real public source adapters 整包完成；本窗口激活 PTL-I100-115 Stage3 real parser OCR attachments。"
+activation_condition: "PTL-I100-115 Stage3 real parser OCR attachments 已通过验收并本地提交 4eca3f3；本窗口激活 PTL-I100-116 Stage4 public verification adapters。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-115-stage3-real-parser-ocr-attachments"
-  title: "I100-115 Stage3 real parser OCR attachments"
+  task_id: "PTL-I100-116-stage4-public-verification-adapters"
+  title: "I100-116 Stage4 public verification adapters"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -39,8 +39,8 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-115-stage3-real-parser-ocr-attachments"
-  objective: "实现 Stage3 real parser OCR attachments 第一刀：从 Stage2 raw snapshot/readback 输入构造 HTML/PDF/OCR/Word/Excel/附件解析 seam，输出字段值、source page/file/slice/version、raw text、locator、confidence、parser version、parser audit、parse error taxonomy 与 review flag。目标是 INTERNAL_READY；不做 Stage4 公开核验，不把解析结果包装成最终事实。"
+  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-116-stage4-public-verification-adapters"
+  objective: "实现 Stage4 public verification adapters 第一刀：消费 Stage3 UNVERIFIED parsed field carriers 与 Stage2 snapshot refs，建立公开核验 adapter/readback seam，输出核验对象、公开来源、核验结果、URL、snapshot id、evidence grade、confidence、visibility、provider/version、failure reason 与 review flag。目标是 SANDBOX_READY；只基于公开可查来源，不访问非公开接口，不做 116A 项目经理在建冲突专项。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -60,29 +60,29 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-115-stage3-real-parser-ocr-attachments"
-    subpacket_id: "PTL-I100-115-stage3-real-parser-ocr-attachments"
-    backlog_packet_ref: "PTL-I100-115-stage3-real-parser-ocr-attachments"
+    packet_id: "PTL-I100-116-stage4-public-verification-adapters"
+    subpacket_id: "PTL-I100-116-stage4-public-verification-adapters"
+    backlog_packet_ref: "PTL-I100-116-stage4-public-verification-adapters"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "ACTIVE_115_STAGE3_REAL_PARSER_OCR_ATTACHMENTS"
+    runtime_change_in_packet: "ACTIVE_116_STAGE4_PUBLIC_VERIFICATION_ADAPTERS"
     existing_code_state: "PARTIAL_RUNTIME"
     existing_runtime_state: "INPUT_FIXTURE_AND_AUTHORITY_CARRIER_DRIVEN"
-    title: "I100-115 Stage3 real parser OCR attachments"
+    title: "I100-116 Stage4 public verification adapters"
     status: "ACTIVE"
-    objective: "在 114A-114I raw snapshot seam 基础上实现 Stage3 parser 第一刀：HTML/PDF/OCR/Word/Excel/附件类型识别、字段级切片、置信度、定位信息、parser audit、错误分类、失败降级与人工复核入口。"
+    objective: "在 115 parser carrier 基础上实现 Stage4 public verification adapter 第一刀：企业/人员/资质/信用/黑名单/许可/合同/竣工/履约等公开核验 seam、source refs、snapshot refs、evidence grade、confidence、review flag、failure taxonomy 与 readback。"
     depends_on:
-      - "PTL-I100-114I industry authority filing pages 已完成并本地提交 af13a96。"
-      - "PTL-I100-114 Stage2 real public source adapters 整包已完成，raw snapshot 可作为 Stage3 parser 输入。"
-      - "PTL-I100-112C local object storage / snapshot durability seam 可用于 raw snapshot 持久化。"
-      - "115 必须消费 Stage2 raw snapshot/readback seam，不回头修改 Stage2 source adapter，不把解析字段升格为 Stage4 verified fact。"
+      - "PTL-I100-115 Stage3 real parser OCR attachments 已完成并本地提交 4eca3f3。"
+      - "PTL-I100-114 Stage2 real public source adapters 整包已完成，raw snapshot 可作为核验 source refs。"
+      - "115 parser 输出保持 UNVERIFIED，可作为 Stage4 verification input candidates。"
+      - "116 必须只基于公开可查来源/snapshot refs 形成 verification carrier，不访问非公开接口，不绕过登录/验证码/反爬，不进入 116A 项目经理在建冲突专项。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-114I-industry-authority-filing-pages"
-      target_active_packet: "PTL-I100-115-stage3-real-parser-ocr-attachments"
-      parent_packet: "PTL-I100-115-stage3-real-parser-ocr-attachments"
+      previous_active_packet: "PTL-I100-115-stage3-real-parser-ocr-attachments"
+      target_active_packet: "PTL-I100-116-stage4-public-verification-adapters"
+      parent_packet: "PTL-I100-116-stage4-public-verification-adapters"
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
@@ -93,7 +93,7 @@ currentTask:
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
       runtime_change: true
-      runtime_change_in_packet: "ACTIVE_115_STAGE3_REAL_PARSER_OCR_ATTACHMENTS"
+      runtime_change_in_packet: "ACTIVE_116_STAGE4_PUBLIC_VERIFICATION_ADAPTERS"
       docs_change: false
       contracts_change: false
       handoff_change: false
@@ -102,7 +102,8 @@ currentTask:
       fixture_change: false
       control_change: true
       stage2_source_adapter_change: false
-      stage3_parser_change: true
+      stage3_parser_change: false
+      stage4_public_verification_change: true
       object_storage_readback_change: true
       api_change: false
       automated_refund_program_change: false
@@ -115,9 +116,9 @@ currentTask:
       current_mainline_next_candidate_change: false
       push_allowed: false
     non_goals:
-      - "not a broad parser platform rewrite"
-      - "not Stage4 verification adapter implementation"
+      - "not project manager active-project conflict vertical slice"
       - "not Stage5 rule implementation"
+      - "not Stage6 productization"
       - "not private or gray source collection"
       - "not login/captcha/anti-bot bypass"
       - "not uncontrolled live crawler execution"
@@ -134,23 +135,23 @@ currentTask:
       - "not a docs/contracts/handoff/scripts change"
       - "not push"
     affected_stages:
-      - "stage3_parsing"
-      - "parser_runtime"
-      - "attachment_processing"
-      - "source_slice"
+      - "stage4_verification"
+      - "public_verification_adapters"
+      - "verification_readback"
+      - "evidence_grade"
       - "object_storage_snapshot"
       - "governance_testing"
     risk_level: "CRITICAL"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "stage3_parsing_core"
+      - "stage4_verification_core"
       - "storage_runtime_core"
       - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
-      - "stage3_owner"
+      - "stage4_owner"
       - "storage_owner"
       - "governance_owner"
       - "testing_owner"
@@ -161,12 +162,12 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
       - "src/storage/object_storage.py"
       - "src/storage/repositories/__init__.py"
       - "src/storage/repositories/object_storage_repo.py"
       - "src/storage/repository_boundary.py"
-      - "tests/test_stage3_real_parser.py"
+      - "tests/test_stage4_public_verification_adapters.py"
       - "tests/test_stage12_extractors.py"
       - "tests/test_internal_chain.py"
       - "tests/test_internal_repository_boundary.py"
@@ -179,12 +180,12 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
       - "src/storage/object_storage.py"
       - "src/storage/repositories/__init__.py"
       - "src/storage/repositories/object_storage_repo.py"
       - "src/storage/repository_boundary.py"
-      - "tests/test_stage3_real_parser.py"
+      - "tests/test_stage4_public_verification_adapters.py"
       - "tests/test_stage12_extractors.py"
       - "tests/test_internal_chain.py"
       - "tests/test_internal_repository_boundary.py"
@@ -199,7 +200,7 @@ currentTask:
       - "fixtures/**"
       - "src/stage1_tasking/**"
       - "src/stage2_ingestion/**"
-      - "src/stage4_verification/**"
+      - "src/stage3_parsing/**"
       - "src/stage5_rules_evidence/**"
       - "src/stage6_fact_review/**"
       - "src/stage7_sales/**"
@@ -230,7 +231,7 @@ currentTask:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       tests:
-        - "tests/test_stage3_real_parser.py"
+        - "tests/test_stage4_public_verification_adapters.py"
         - "tests/test_stage12_extractors.py"
         - "tests/test_internal_chain.py"
         - "tests/test_internal_repository_boundary.py"
@@ -238,20 +239,20 @@ currentTask:
         - "tests/test_product_module_registry.py"
         - "tests/test_product_acceptance_checklist.py"
       runtime:
-        - "src/stage3_parsing/**"
+        - "src/stage4_verification/**"
         - "src/storage/object_storage.py"
         - "src/storage/repositories/object_storage_repo.py"
         - "src/storage/repository_boundary.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_stage3_real_parser -v"
+      - "python -m unittest tests.test_stage4_public_verification_adapters -v"
       - "python -m unittest tests.test_stage12_extractors -v"
       - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
       - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
       - "python -m unittest tests.test_product_module_registry -v"
       - "python -m unittest tests.test_product_acceptance_checklist -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage3_parsing/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_stage3_real_parser.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage4_verification/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_stage4_public_verification_adapters.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -259,14 +260,14 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_stage3_real_parser -v": 300000
+      "python -m unittest tests.test_stage4_public_verification_adapters -v": 300000
       "python -m unittest tests.test_stage12_extractors -v": 300000
       "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
       "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
       "python -m unittest tests.test_product_module_registry -v": 300000
       "python -m unittest tests.test_product_acceptance_checklist -v": 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage3_parsing/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_stage3_real_parser.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage4_verification/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_stage4_public_verification_adapters.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python tests/run_tests.py": 600000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
@@ -277,35 +278,35 @@ currentTask:
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "实际改动命中 forbidden_modification_paths"
       - "需要修改 docs、contracts、handoff、scripts、fixtures"
-      - "需要修改 Stage1、Stage2 或 Stage4-9 业务 runtime"
+      - "需要修改 Stage1、Stage2、Stage3 或 Stage5-9 业务 runtime"
       - "需要新增正式业务对象、枚举、release gate、exception 语义"
-      - "需要抓取新来源、连接未 allowlist 的真实网站、绕过登录、验证码或反爬"
+      - "需要访问非公开接口、抓取新来源、连接未 allowlist 的真实网站、绕过登录、验证码或反爬"
       - "需要真实 provider 调用、真实触达、真实支付、真实交付、真实退款或自动退款执行"
       - "需要 push"
     definition_of_done:
-      - "HTML/PDF/OCR/Word/Excel/attachment parser seam 能从 Stage2 raw snapshot/readback 输入生成字段级 parse carrier。"
-      - "每个 parsed field 携带 field value、source page/file/slice/version、raw text、locator、confidence、parser version 与 review flag。"
-      - "parser audit、parse error taxonomy、layout/encoding/table/scan/attachment 变体、失败降级到人工复核路径可读回。"
-      - "不得把未核验解析结果包装成确定事实，不得跳过 Stage4 verification。"
+      - "Stage4 public verification adapter seam 能消费 Stage3 parsed carriers 与 Stage2 snapshot refs，输出可审计 verification carrier。"
+      - "verification result 携带 object、source、result、time、URL、snapshot id、evidence grade、confidence、visibility、provider、version、failure reason 与 review flag。"
+      - "企业/人员/资质/信用/黑名单/许可/合同/竣工/履约等公开核验方向有第一刀 carrier/readback/failure taxonomy 覆盖。"
+      - "不访问非公开接口，不绕过权限，不把销售判断冒充法律结论；不进入 116A 项目经理在建冲突专项。"
       - "targeted tests、验收清单测试与 formal checks 全部通过。"
     deliverables:
-      - "activated 115 current_task packet"
-      - "Stage3 parser runtime/readback first cut"
-      - "field source slice, confidence, locator, parser audit and failure-degrade tests"
-      - "module registry update for new Stage3/parser files if needed"
+      - "activated 116 current_task packet"
+      - "Stage4 public verification adapter runtime/readback first cut"
+      - "verification carrier, evidence grade, confidence, public source refs, failure taxonomy and review-flag tests"
+      - "module registry update for new Stage4/verification files if needed"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
       - "architecture_owner"
-      - "stage3_owner"
+      - "stage4_owner"
       - "storage_owner"
       - "governance_owner"
       - "testing_owner"
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_115_STAGE3_REAL_PARSER_OCR_ATTACHMENTS_INTERNAL_READY"
-      signoff_meaning: "本批准只允许 Stage3 parser/OCR/attachment parsing 第一刀；不批准新增采集来源、Stage4 核验结论、规则命中、真实 provider、真实触达、真实支付/交付/退款、自动退款、external release 或 push。"
+      signoff_status: "APPROVED_FOR_116_STAGE4_PUBLIC_VERIFICATION_ADAPTERS_SANDBOX_READY"
+      signoff_meaning: "本批准只允许 Stage4 public verification adapter 第一刀；不批准非公开接口、绕权限、116A 项目经理在建冲突专项、Stage5 规则命中、真实 provider、真实触达、真实支付/交付/退款、自动退款、external release 或 push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml is the only active execution source."
@@ -313,7 +314,7 @@ currentTask:
       - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
   hardBlockers:
     - "external software release remains blocked"
-    - "Stage3 parser output remains unverified until Stage4 verification"
+    - "Stage4 verification remains public-source only and review-gated for uncertain data"
     - "private or gray source collection remains forbidden"
     - "login/captcha/anti-bot bypass remains forbidden"
     - "uncontrolled live crawling remains blocked"
@@ -322,16 +323,16 @@ currentTask:
     - "real payment / charge / delivery / refund remains blocked until gated"
     - "automated refund execution is out of scope"
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 115 Stage3 real parser OCR attachments first cut。"
+    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 116 Stage4 public verification adapters first cut。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
     - "不得修改 docs、contracts、handoff、scripts、fixtures。"
-    - "不得修改 Stage1、Stage2 或 Stage4-9 业务 runtime。"
-    - "不得新增采集来源、抓取非公开来源、未登记真实网站，或绕过登录、验证码、反爬。"
-    - "不得把 parser 输出直接写成 Stage4 verified fact、Stage5 rule hit 或客户可见结论。"
+    - "不得修改 Stage1、Stage2、Stage3 或 Stage5-9 业务 runtime。"
+    - "不得访问非公开接口、新增采集来源、抓取非公开来源、未登记真实网站，或绕过登录、验证码、反爬。"
+    - "不得进入 116A 项目经理在建冲突专项，不得输出 Stage5 rule hit 或客户可见法律结论。"
     - "不得调用真实 provider API、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得发布客户页面、真实外发 LeadPack、放开 external release。"
     - "不得 push。"
   nextActions:
-    - "115 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-116 Stage4 public verification adapters。"
-  status_note: "PTL-I100-115 已激活为 Stage3 real parser OCR attachments 第一刀；当前目标是 INTERNAL_READY，不做 Stage4 verification，不把 parser 输出作为最终事实。"
+    - "116 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-116A project manager active-project conflict vertical slice。"
+  status_note: "PTL-I100-116 已激活为 Stage4 public verification adapters 第一刀；当前目标是 SANDBOX_READY/public-source readback，不访问非公开接口，不进入 116A 专项。"
