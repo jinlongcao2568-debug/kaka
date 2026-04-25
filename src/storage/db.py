@@ -442,6 +442,40 @@ class DatabaseSession:
                 return self._backend.list_records(object_type)
             return list(self._tables.get(object_type, {}).values())
 
+    def list_record_object_types(self) -> list[str]:
+        with self._lock:
+            if self._backend is None:
+                return sorted(self._tables)
+            if hasattr(self._backend, "_fetchall"):
+                rows = self._backend._fetchall(
+                    "SELECT DISTINCT object_type FROM records ORDER BY object_type",
+                    (),
+                )
+                return [str(row["object_type"]) for row in rows]
+            if hasattr(self._backend, "_engine"):
+                from sqlalchemy import select
+                from storage.sqlalchemy_schema import records
+
+                with self._backend._engine.begin() as connection:
+                    rows = connection.execute(
+                        select(records.c.object_type).distinct().order_by(records.c.object_type)
+                    ).fetchall()
+                return [str(row[0]) for row in rows]
+            return []
+
+    def list_all_records(
+        self,
+        *,
+        exclude_object_types: tuple[str, ...] = (),
+    ) -> list[PersistedRecord]:
+        excluded = set(exclude_object_types)
+        rows: list[PersistedRecord] = []
+        for object_type in self.list_record_object_types():
+            if object_type in excluded:
+                continue
+            rows.extend(self.list_records(object_type))
+        return sorted(rows, key=lambda row: (row.object_type, row.record_id))
+
     def find_records(self, object_type: str, **criteria: str) -> list[PersistedRecord]:
         rows = self.list_records(object_type)
         matched: list[PersistedRecord] = []
@@ -555,6 +589,42 @@ class DatabaseSession:
                 return self._backend.list_operator_actions(work_item_id)
             return list(self._operator_actions.get(work_item_id, []))
 
+    def list_all_operator_actions(self) -> list[PersistedOperatorAction]:
+        with self._lock:
+            if self._backend is None:
+                rows = [
+                    entry
+                    for entries in self._operator_actions.values()
+                    for entry in entries
+                ]
+            elif hasattr(self._backend, "_fetchall"):
+                raw_rows = self._backend._fetchall(
+                    "SELECT payload FROM operator_actions ORDER BY id",
+                    (),
+                )
+                rows = [
+                    self._backend._operator_action_from_json(str(row["payload"]))
+                    for row in raw_rows
+                ]
+            elif hasattr(self._backend, "_engine"):
+                from sqlalchemy import select
+                from storage.sqlalchemy_schema import operator_actions
+
+                with self._backend._engine.begin() as connection:
+                    raw_rows = connection.execute(
+                        select(operator_actions.c.payload).order_by(operator_actions.c.id)
+                    ).fetchall()
+                rows = [
+                    self._backend._operator_action_from_json(str(row[0]))
+                    for row in raw_rows
+                ]
+            else:
+                rows = []
+        return sorted(
+            rows,
+            key=lambda row: (row.work_item_id, row.action_event_id, row.requested_at),
+        )
+
     def upsert_worker_queue_item(self, entry: PersistedWorkerQueueItem) -> PersistedWorkerQueueItem:
         with self._lock:
             if self._backend is not None:
@@ -600,6 +670,56 @@ class DatabaseSession:
             if self._backend is not None:
                 return self._backend.list_worker_queue_events(queue_item_id)
             return list(self._worker_queue_events.get(queue_item_id, []))
+
+    def list_all_worker_queue_events(self) -> list[PersistedWorkerQueueEvent]:
+        with self._lock:
+            if self._backend is None:
+                rows = [
+                    entry
+                    for entries in self._worker_queue_events.values()
+                    for entry in entries
+                ]
+            elif hasattr(self._backend, "_fetchall"):
+                raw_rows = self._backend._fetchall(
+                    "SELECT payload FROM worker_queue_events ORDER BY id",
+                    (),
+                )
+                rows = [
+                    self._backend._worker_queue_event_from_json(str(row["payload"]))
+                    for row in raw_rows
+                ]
+            elif hasattr(self._backend, "_engine"):
+                from sqlalchemy import select
+                from storage.sqlalchemy_schema import worker_queue_events
+
+                with self._backend._engine.begin() as connection:
+                    raw_rows = connection.execute(
+                        select(worker_queue_events.c.payload).order_by(worker_queue_events.c.id)
+                    ).fetchall()
+                rows = [
+                    self._backend._worker_queue_event_from_json(str(row[0]))
+                    for row in raw_rows
+                ]
+            else:
+                rows = []
+        return sorted(
+            rows,
+            key=lambda row: (row.queue_item_id, row.occurred_at, row.event_id),
+        )
+
+    def export_backup_snapshot(
+        self,
+        *,
+        exclude_record_object_types: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
+        return {
+            "records": self.list_all_records(exclude_object_types=exclude_record_object_types),
+            "stage_states": self.list_stage_states(),
+            "work_items": self.list_work_items(),
+            "operator_actions": self.list_all_operator_actions(),
+            "worker_queue_items": self.list_worker_queue_items(),
+            "worker_queue_events": self.list_all_worker_queue_events(),
+        }
 
     def _stage_key(self, stage_scope: int, surface_id: str, root_record_id: str) -> str:
         return f"{stage_scope}:{surface_id}:{root_record_id}"

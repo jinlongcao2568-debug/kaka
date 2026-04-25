@@ -147,6 +147,12 @@ def build_platform_infra_readiness(
         active_storage_backend=active_backend,
         reserved_by_backend=reserved_by_backend,
     )
+    backup_restore_readiness = _backup_restore_readiness(
+        active_backend=active_backend,
+        active_object_storage_backend=active_object_storage_backend,
+        object_storage_path_optional=object_storage_path_optional,
+    )
+    rollback_readiness = _rollback_readiness(backup_restore_readiness)
     compose_readiness = _compose_local_stack_readiness(
         repo_root=repo_root,
         active_backend=active_backend,
@@ -175,6 +181,10 @@ def build_platform_infra_readiness(
             "internal_durable_queue_enabled": True,
             "local_object_storage_enabled": active_object_storage_backend == LOCAL_OBJECT_STORAGE_BACKEND,
             "snapshot_manifest_durability_enabled": True,
+            "backup_manifest_enabled": True,
+            "restore_dry_run_enabled": True,
+            "destructive_restore_enabled": False,
+            "rollback_execution_enabled": False,
             "readback_only": True,
             "runtime_behavior_changed": False,
         },
@@ -232,6 +242,8 @@ def build_platform_infra_readiness(
             object_storage_path_optional=object_storage_path_optional,
             reserved_by_backend=reserved_by_backend,
         ),
+        "backup_restore_readiness": backup_restore_readiness,
+        "rollback_readiness": rollback_readiness,
         "compose_readiness": compose_readiness,
         "local_stack_readiness": compose_readiness,
         "redlines": {
@@ -242,6 +254,10 @@ def build_platform_infra_readiness(
             "no_real_delivery": True,
             "no_real_refund": True,
             "no_automated_refund": True,
+            "external_backup_service_enabled": False,
+            "destructive_restore_enabled": False,
+            "restore_execution_enabled": False,
+            "rollback_execution_enabled": False,
             "compose_runtime_enabled": False,
             "container_execution_enabled": False,
             "docker_compose_up_executed": False,
@@ -427,6 +443,66 @@ def _object_storage_readiness(
         "minio_connection_enabled": False,
         "s3_connection_enabled": False,
         "why_not_live": "Object storage is local-filesystem only in this packet; MinIO/S3 are reserved readiness metadata and never connected",
+    }
+
+
+def _backup_restore_readiness(
+    *,
+    active_backend: str,
+    active_object_storage_backend: str,
+    object_storage_path_optional: str | None,
+) -> dict[str, Any]:
+    return {
+        "readiness_state": READINESS_EXECUTABLE,
+        "backup_manifest_enabled": True,
+        "backup_manifest_repository_backed": True,
+        "manifest_hash_enabled": True,
+        "restore_dry_run_enabled": True,
+        "restore_plan_enabled": True,
+        "safe_to_restore": False,
+        "destructive_restore_enabled": False,
+        "restore_execution_enabled": False,
+        "approval_required": True,
+        "audit_required": True,
+        "source_storage_backend": active_backend,
+        "object_storage_backend": active_object_storage_backend,
+        "object_storage_root_optional": object_storage_path_optional,
+        "included_scopes": [
+            "PersistedRecord",
+            "PersistedStageState",
+            "PersistedWorkItem",
+            "PersistedOperatorAction",
+            "worker_queue_state",
+            "object_storage_metadata",
+            "object_storage_refs",
+        ],
+        "external_backup_service_enabled": False,
+        "external_service_connection_enabled": False,
+        "migration_execution_enabled": False,
+        "active_storage_write_enabled": False,
+        "why_not_live": "backup/restore is local manifest and dry-run/readiness only; destructive restore and external backup services remain disabled",
+    }
+
+
+def _rollback_readiness(backup_restore_readiness: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "readiness_state": READINESS_EXECUTABLE,
+        "rollback_point": "BACKUP_MANIFEST_REQUIRED",
+        "rollback_plan": {
+            "restore_mode": "dry-run-only",
+            "conflict_policy": "review-required",
+            "source": "backup_restore_readiness",
+        },
+        "rollback_state": "REVIEW_REQUIRED",
+        "safe_to_restore": False,
+        "approval_required": True,
+        "audit_required": True,
+        "external_service_connection_enabled": False,
+        "destructive_restore_enabled": False,
+        "rollback_execution_enabled": False,
+        "migration_execution_enabled": False,
+        "restore_dry_run_enabled": bool(backup_restore_readiness["restore_dry_run_enabled"]),
+        "why_not_live": "rollback is readiness/readback only until a separately approved destructive restore window exists",
     }
 
 

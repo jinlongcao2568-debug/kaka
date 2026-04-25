@@ -27,8 +27,10 @@ from storage.db import (
     build_persisted_at,
 )
 from storage.repositories import WorkerQueueRepository
+from storage.repositories.backup_restore_repo import BackupRestoreRepository
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 from storage.object_storage import ObjectStorageMissingError
+from storage.backup_restore import compute_manifest_hash
 from shared.settings import Settings
 
 
@@ -1131,6 +1133,140 @@ class TestStorageConcurrency(unittest.TestCase):
                 )
             finally:
                 reloaded_repo.session.close()
+
+    def test_backup_manifest_persists_readback_and_counts_core_scopes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "backup-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+            )
+            session = DatabaseSession(settings=settings)
+            now = "2026-04-25T03:00:00+00:00"
+            record, stage_state, work_item, action = build_envelope_entries(now)
+            session.upsert_record(record)
+            session.upsert_stage_state(stage_state)
+            session.upsert_work_item(work_item)
+            session.append_operator_action(action)
+            WorkerQueueRepository(session=session).enqueue(
+                queue_item_id="WQ-BACKUP-1",
+                queue_name="backup-readiness",
+                payload={"dry_run": True},
+                now=now,
+            )
+            snapshot_manifest = ObjectStorageRepository(
+                session=session,
+                settings=settings,
+            ).save_snapshot(
+                b"backup object bytes",
+                snapshot_id="SNAP-BACKUP-1",
+                snapshot_kind="backup_fixture",
+                content_type="text/plain",
+                lineage_refs={"project_id": "P-1", "audit_ref": "AUDIT-BACKUP-1"},
+                created_at=now,
+            )
+            backup_repo = BackupRestoreRepository(session=session, settings=settings)
+
+            manifest = backup_repo.create_manifest(
+                backup_id="BACKUP-TEST-1",
+                created_at=now,
+            )
+            readback = backup_repo.readback_manifest("BACKUP-TEST-1")
+
+        self.assertEqual(readback["manifest"], manifest)
+        self.assertTrue(readback["manifest_valid"])
+        self.assertEqual(manifest["manifest_hash"], compute_manifest_hash(manifest))
+        self.assertEqual(manifest["sha256"], manifest["manifest_hash"])
+        self.assertEqual(
+            manifest["included_scopes"],
+            [
+                "PersistedRecord",
+                "PersistedStageState",
+                "PersistedWorkItem",
+                "PersistedOperatorAction",
+                "worker_queue_state",
+                "object_storage_metadata",
+                "object_storage_refs",
+            ],
+        )
+        self.assertEqual(manifest["record_counts"]["PersistedStageState"], 1)
+        self.assertEqual(manifest["record_counts"]["PersistedWorkItem"], 1)
+        self.assertEqual(manifest["record_counts"]["PersistedOperatorAction"], 1)
+        self.assertEqual(manifest["record_counts"]["worker_queue_items"], 1)
+        self.assertEqual(manifest["record_counts"]["worker_queue_events"], 1)
+        self.assertEqual(
+            manifest["record_counts"]["PersistedRecord_by_object_type"]["test_record"],
+            1,
+        )
+        self.assertEqual(manifest["record_counts"]["object_storage_metadata"], 1)
+        self.assertEqual(manifest["record_counts"]["evidence_snapshot_manifests"], 1)
+        self.assertIn(
+            snapshot_manifest.object_key,
+            manifest["object_refs_summary"]["object_keys"],
+        )
+        self.assertTrue(manifest["approval_required"])
+        self.assertTrue(manifest["audit_required"])
+        self.assertFalse(manifest["external_service_connection_enabled"])
+        self.assertFalse(manifest["destructive_restore_enabled"])
+
+    def test_restore_dry_run_marks_missing_object_refs_and_does_not_write_active_storage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "backup-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+            )
+            session = DatabaseSession(settings=settings)
+            now = "2026-04-25T04:00:00+00:00"
+            ObjectStorageRepository(session=session, settings=settings).save_snapshot(
+                b"dry-run object bytes",
+                snapshot_id="SNAP-DRY-RUN-1",
+                snapshot_kind="backup_fixture",
+                content_type="text/plain",
+                lineage_refs={"project_id": "P-DRY-RUN"},
+                created_at=now,
+            )
+            backup_repo = BackupRestoreRepository(session=session, settings=settings)
+            manifest = backup_repo.create_manifest(
+                backup_id="BACKUP-DRY-RUN-1",
+                created_at=now,
+            )
+            before_record_count = len(session.list_all_records())
+            missing_key = manifest["object_refs_summary"]["object_storage_refs"][0]["object_key"]
+            (settings.resolved_object_storage_path() / missing_key).unlink()
+
+            dry_run = backup_repo.restore_dry_run(
+                "BACKUP-DRY-RUN-1",
+                target_path=Path(tmp_dir) / "restore-target",
+            )
+            after_record_count = len(session.list_all_records())
+            rollback = backup_repo.rollback_readiness("BACKUP-DRY-RUN-1")
+
+        self.assertEqual(after_record_count, before_record_count)
+        self.assertEqual(dry_run["restore_mode"], "DRY_RUN_ONLY")
+        self.assertFalse(dry_run["safe_to_restore"])
+        self.assertFalse(dry_run["destructive_restore_enabled"])
+        self.assertFalse(dry_run["active_storage_write_enabled"])
+        self.assertTrue(dry_run["approval_required"])
+        self.assertTrue(dry_run["audit_required"])
+        self.assertFalse(dry_run["external_service_connection_enabled"])
+        self.assertFalse(dry_run["migration_execution_enabled"])
+        self.assertIn("missing_or_invalid_object_refs", dry_run["blocking_reasons"])
+        self.assertEqual(
+            dry_run["restore_plan"]["missing_object_refs"][0]["reason"],
+            "object_missing",
+        )
+        self.assertEqual(rollback["rollback_point"], "BACKUP-DRY-RUN-1")
+        self.assertFalse(rollback["safe_to_restore"])
+        self.assertFalse(rollback["destructive_restore_enabled"])
+        self.assertFalse(rollback["rollback_execution_enabled"])
+        self.assertTrue(rollback["approval_required"])
+        self.assertTrue(rollback["audit_required"])
+        self.assertFalse(rollback["external_service_connection_enabled"])
 
 
 if __name__ == "__main__":

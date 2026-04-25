@@ -1,3 +1,4 @@
+from storage.repositories.backup_restore_repo import BackupRestoreRepository
 from storage.repositories.buyer_fit_repo import BuyerFitRepository
 from storage.repositories.challenger_candidate_profile_repo import ChallengerCandidateProfileRepository
 from storage.repositories.contact_candidate_collection_repo import ContactCandidateCollectionRepository
@@ -29,6 +30,7 @@ from storage.repositories.work_item_repo import WorkItemRepository
 from storage.repositories.worker_queue_repo import WorkerQueueRepository
 
 __all__ = [
+    "BackupRestoreRepository",
     "BuyerFitRepository",
     "ChallengerCandidateProfileRepository",
     "ContactCandidateCollectionRepository",

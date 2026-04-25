@@ -236,6 +236,8 @@ def _build_transport_bootstrap(
     )
     worker_queue_bootstrap = dict(storage_bootstrap.get("worker_queue_bootstrap", {}))
     object_storage_bootstrap = dict(storage_bootstrap.get("object_storage_bootstrap", {}))
+    backup_restore_readiness = dict(storage_bootstrap.get("backup_restore_readiness", {}))
+    rollback_readiness = dict(storage_bootstrap.get("rollback_readiness", {}))
     local_stack_readiness = dict(
         storage_bootstrap.get(
             "local_stack_readiness",
@@ -252,6 +254,8 @@ def _build_transport_bootstrap(
         "worker_queue_bootstrap": worker_queue_bootstrap,
         "object_storage_bootstrap": object_storage_bootstrap,
         "object_storage_readiness": object_storage_bootstrap,
+        "backup_restore_readiness": backup_restore_readiness,
+        "rollback_readiness": rollback_readiness,
         "queue_worker_readiness": {
             "queue_backend": worker_queue_bootstrap.get("queue_backend"),
             "effective_queue_backend": worker_queue_bootstrap.get("effective_queue_backend"),
@@ -379,6 +383,22 @@ def _build_transport_bootstrap(
                 "automated_refund_enabled": False,
                 "reserved_services": ["postgres", "redis", "minio"],
             },
+            "backup_restore": {
+                "current_entry": "local backup manifest, restore dry-run, and rollback readiness projection",
+                "backup_manifest_enabled": bool(backup_restore_readiness.get("backup_manifest_enabled", False)),
+                "restore_dry_run_enabled": bool(backup_restore_readiness.get("restore_dry_run_enabled", False)),
+                "manifest_hash_enabled": bool(backup_restore_readiness.get("manifest_hash_enabled", False)),
+                "approval_required": True,
+                "audit_required": True,
+                "safe_to_restore": False,
+                "destructive_restore_enabled": False,
+                "restore_execution_enabled": False,
+                "rollback_execution_enabled": False,
+                "external_backup_service_enabled": False,
+                "external_service_connection_enabled": False,
+                "migration_execution_enabled": False,
+                "rollback_readiness": rollback_readiness,
+            },
         },
         "redlines": {
             "new_http_endpoint_added": False,
@@ -402,6 +422,11 @@ def _build_transport_bootstrap(
             "minio_connection_enabled": False,
             "s3_connection_enabled": False,
             "external_object_storage_connection_enabled": False,
+            "external_backup_service_enabled": False,
+            "destructive_restore_enabled": False,
+            "restore_execution_enabled": False,
+            "rollback_execution_enabled": False,
+            "migration_execution_enabled": False,
             "compose_runtime_enabled": False,
             "container_execution_enabled": False,
             "docker_compose_up_executed": False,

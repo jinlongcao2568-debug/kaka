@@ -153,20 +153,27 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "src/storage/sqlalchemy_schema.py" in storage_boundary["current_files"]
     assert "src/storage/production_infra_readiness.py" in storage_boundary["current_files"]
     assert "src/storage/object_storage.py" in storage_boundary["current_files"]
+    assert "src/storage/backup_restore.py" in storage_boundary["current_files"]
     assert "src/storage/worker_queue.py" in storage_boundary["current_files"]
     assert "src/storage/repositories/object_storage_repo.py" in storage_boundary["current_files"]
+    assert "src/storage/repositories/backup_restore_repo.py" in storage_boundary["current_files"]
     assert "src/storage/repositories/worker_queue_repo.py" in storage_boundary["current_files"]
     assert "src/storage/repository_bundle_io.py" in storage_boundary["current_files"]
     assert "src/storage/repository_context_projection.py" in storage_boundary["current_files"]
     assert "src/storage/operator_workbench_projection.py" in storage_boundary["current_files"]
     assert "PTL-INT-102-p4-repository-boundary-hardening" in storage_boundary["completed_packets"]
     assert "PTL-INT-104-p8-observability-operator-workbench" in storage_boundary["completed_packets"]
-    assert storage_boundary["pending_packets"] == []
+    assert storage_boundary["pending_packets"] == ["PTL-I100-112E-backup-restore-rollback-readiness"]
     platform_stack = modules["PLATFORM-LOCAL-STACK-READINESS"]
     assert ".dockerignore" in platform_stack["current_files"]
     assert "Dockerfile" in platform_stack["current_files"]
     assert "docker-compose.yml" in platform_stack["current_files"]
-    assert "PTL-I100-112D-docker-compose-health-readiness" in platform_stack["pending_packets"]
+    assert "src/storage/backup_restore.py" in platform_stack["current_files"]
+    assert "src/storage/repositories/backup_restore_repo.py" in platform_stack["current_files"]
+    assert "backup_restore_readiness" in platform_stack["formal_objects"]
+    assert "rollback_readiness" in platform_stack["formal_objects"]
+    assert "PTL-I100-112D-docker-compose-health-readiness" in platform_stack["completed_packets"]
+    assert platform_stack["pending_packets"] == ["PTL-I100-112E-backup-restore-rollback-readiness"]
     assert platform_stack["external_release_allowed"] is False
     assert platform_stack["live_execution_allowed"] is False
     internal_preview = modules["INTERNAL-PREVIEW-SURFACE"]
@@ -367,6 +374,8 @@ def test_platform_local_stack_files_are_registered_on_deployment_surface_and_mod
         "docker-compose.yml",
         "src/shared/settings.py",
         "src/storage/production_infra_readiness.py",
+        "src/storage/backup_restore.py",
+        "src/storage/repositories/backup_restore_repo.py",
         "src/api/deps.py",
         "src/api/main.py",
     }
@@ -377,8 +386,12 @@ def test_platform_local_stack_files_are_registered_on_deployment_surface_and_mod
     assert expected_files.issubset(set(deployment_surface["current_files"]))
     assert expected_files.issubset(set(deployment_module["current_files"]))
     assert "tests/test_product_module_registry.py" in deployment_surface["test_files"]
-    assert deployment_surface["pending_packets"] == ["PTL-I100-112D-docker-compose-health-readiness"]
-    assert deployment_module["pending_packets"] == ["PTL-I100-112D-docker-compose-health-readiness"]
+    assert deployment_surface["completed_packets"] == ["PTL-I100-112D-docker-compose-health-readiness"]
+    assert deployment_module["completed_packets"] == ["PTL-I100-112D-docker-compose-health-readiness"]
+    assert deployment_surface["pending_packets"] == ["PTL-I100-112E-backup-restore-rollback-readiness"]
+    assert deployment_module["pending_packets"] == ["PTL-I100-112E-backup-restore-rollback-readiness"]
+    assert "backup_restore_readiness" in deployment_module["formal_objects"]
+    assert "rollback_readiness" in deployment_module["formal_objects"]
     assert deployment_module["external_release_allowed"] is False
     assert deployment_module["live_execution_allowed"] is False
     assert_paths_exist(sorted(expected_files))

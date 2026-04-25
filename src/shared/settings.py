@@ -162,6 +162,8 @@ class Settings:
             "object_storage_path_optional": self.object_storage_path_optional,
             "object_storage_bootstrap": readiness["object_storage_readiness"],
             "worker_queue_bootstrap": readiness["worker_queue_bootstrap"],
+            "backup_restore_readiness": readiness["backup_restore_readiness"],
+            "rollback_readiness": readiness["rollback_readiness"],
             "local_stack_readiness": readiness["compose_readiness"],
             "platform_infra_readiness": readiness,
             "provider_adapter_bootstrap": self.provider_adapter_bootstrap_payload(),

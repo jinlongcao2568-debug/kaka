@@ -874,6 +874,7 @@ cross_cutting_surfaces:
       - src/storage/sqlalchemy_schema.py
       - src/storage/production_infra_readiness.py
       - src/storage/object_storage.py
+      - src/storage/backup_restore.py
       - src/storage/worker_queue.py
       - src/storage/repository_boundary.py
       - src/storage/repository_bundle_io.py
@@ -907,6 +908,7 @@ cross_cutting_surfaces:
       - src/storage/repositories/governance_feedback_event_repo.py
       - src/storage/repositories/operator_action_repo.py
       - src/storage/repositories/object_storage_repo.py
+      - src/storage/repositories/backup_restore_repo.py
       - src/storage/repositories/worker_queue_repo.py
     test_files:
       - tests/test_internal_repository_boundary.py
@@ -915,9 +917,10 @@ cross_cutting_surfaces:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-102-p4-repository-boundary-hardening
       - PTL-INT-104-p8-observability-operator-workbench
-    pending_packets: []
+    pending_packets:
+      - PTL-I100-112E-backup-restore-rollback-readiness
   - surface_id: platform_deployment_readiness
-    business_summary: "Docker/Compose 本地栈定义与 health/readiness 投影面；仅表达 local stack 配置存在和依赖边界，不代表容器已运行或 external/live 可用。"
+    business_summary: "Docker/Compose 本地栈定义、health/readiness、backup/restore dry-run 与 rollback readiness 投影面；仅表达 local stack / local manifest 配置和依赖边界，不代表容器已运行、破坏性 restore 已放开或 external/live 可用。"
     implementation_state: PARTIAL_RUNTIME
     current_files:
       - .dockerignore
@@ -925,6 +928,8 @@ cross_cutting_surfaces:
       - docker-compose.yml
       - src/shared/settings.py
       - src/storage/production_infra_readiness.py
+      - src/storage/backup_restore.py
+      - src/storage/repositories/backup_restore_repo.py
       - src/api/deps.py
       - src/api/main.py
     test_files:
@@ -933,9 +938,10 @@ cross_cutting_surfaces:
       - tests/test_runtime_governance_guards.py
       - tests/test_product_module_registry.py
       - tests/test_product_acceptance_checklist.py
-    completed_packets: []
-    pending_packets:
+    completed_packets:
       - PTL-I100-112D-docker-compose-health-readiness
+    pending_packets:
+      - PTL-I100-112E-backup-restore-rollback-readiness
 modules:
   - module_id: STAGE1-TASKING-AUTHORITY
     stage_scope:
@@ -1343,6 +1349,7 @@ modules:
       - src/storage/sqlalchemy_schema.py
       - src/storage/production_infra_readiness.py
       - src/storage/object_storage.py
+      - src/storage/backup_restore.py
       - src/storage/worker_queue.py
       - src/storage/repository_boundary.py
       - src/storage/repository_bundle_io.py
@@ -1374,6 +1381,7 @@ modules:
       - src/storage/repositories/governance_feedback_event_repo.py
       - src/storage/repositories/operator_action_repo.py
       - src/storage/repositories/object_storage_repo.py
+      - src/storage/repositories/backup_restore_repo.py
       - src/storage/repositories/worker_queue_repo.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true
@@ -1383,7 +1391,8 @@ modules:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-102-p4-repository-boundary-hardening
       - PTL-INT-104-p8-observability-operator-workbench
-    pending_packets: []
+    pending_packets:
+      - PTL-I100-112E-backup-restore-rollback-readiness
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
@@ -1396,33 +1405,41 @@ modules:
       - platform_infra
       - deployment_readiness
       - health_readiness
-    product_area: "Docker/Compose local stack definition / readiness projection"
+      - backup_restore_readiness
+      - rollback_readiness
+    product_area: "Docker/Compose local stack definition / backup restore and rollback readiness projection"
     source_docs:
       - docs/D11_测试验收与金标回归清单.md
       - docs/D12_部署发布与运行治理规范.md
     formal_objects:
       - platform_infra_readiness
       - deployment_readiness
+      - backup_restore_readiness
+      - rollback_readiness
     current_files:
       - .dockerignore
       - Dockerfile
       - docker-compose.yml
       - src/shared/settings.py
       - src/storage/production_infra_readiness.py
+      - src/storage/backup_restore.py
+      - src/storage/repositories/backup_restore_repo.py
       - src/api/deps.py
       - src/api/main.py
     current_runtime_state: PARTIAL_RUNTIME
     internal_governed_runtime_present: true
     target_packet_candidates:
       - PTL-I100-112-production-platform-infrastructure
-    completed_packets: []
-    pending_packets:
+    completed_packets:
       - PTL-I100-112D-docker-compose-health-readiness
+    pending_packets:
+      - PTL-I100-112E-backup-restore-rollback-readiness
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false
     notes:
       - "PTL-I100-112D 只登记 Docker/Compose local stack definition 与 bootstrap/readiness 投影；不运行容器、不执行 docker compose up、不连接真实 Postgres/Redis/MinIO/S3、不放开 provider/payment/delivery/refund/external release。"
+      - "PTL-I100-112E 登记 local backup manifest、restore dry-run 与 rollback readiness seam；不接外部备份服务、不对 active storage 执行破坏性 restore、不执行 migration、不放开 provider/payment/delivery/refund/external release。"
   - module_id: INTERNAL-PREVIEW-SURFACE
     stage_scope:
       - internal_preview

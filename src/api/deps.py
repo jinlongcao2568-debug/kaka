@@ -60,6 +60,14 @@ def get_object_storage_bootstrap_payload() -> dict[str, Any]:
     return dict(get_settings().storage_bootstrap_payload()["object_storage_bootstrap"])
 
 
+def get_backup_restore_readiness_payload() -> dict[str, Any]:
+    return dict(get_settings().storage_bootstrap_payload()["backup_restore_readiness"])
+
+
+def get_rollback_readiness_payload() -> dict[str, Any]:
+    return dict(get_settings().storage_bootstrap_payload()["rollback_readiness"])
+
+
 def get_object_storage_repository() -> ObjectStorageRepository:
     return ObjectStorageRepository(
         session=get_database_session(),
@@ -150,10 +158,12 @@ __all__ = [
     "INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY",
     "build_transport_unavailable",
     "get_database_session",
+    "get_backup_restore_readiness_payload",
     "get_provider_adapter_bootstrap_payload",
     "get_provider_adapter_readiness_summary",
     "get_object_storage_bootstrap_payload",
     "get_object_storage_repository",
+    "get_rollback_readiness_payload",
     "get_settings",
     "get_worker_queue_bootstrap_payload",
     "validate_internal_orchestration_payload",

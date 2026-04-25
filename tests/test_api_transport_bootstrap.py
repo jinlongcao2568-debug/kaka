@@ -239,6 +239,18 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(storage_bootstrap["worker_queue_bootstrap"]["durable_queue_enabled"])
         self.assertTrue(storage_bootstrap["worker_queue_bootstrap"]["worker_lease_enabled"])
         self.assertFalse(storage_bootstrap["worker_queue_bootstrap"]["external_queue_connection_enabled"])
+        self.assertIn("backup_restore_readiness", storage_bootstrap)
+        self.assertIn("rollback_readiness", storage_bootstrap)
+        self.assertTrue(storage_bootstrap["backup_restore_readiness"]["backup_manifest_enabled"])
+        self.assertTrue(storage_bootstrap["backup_restore_readiness"]["restore_dry_run_enabled"])
+        self.assertFalse(storage_bootstrap["backup_restore_readiness"]["destructive_restore_enabled"])
+        self.assertFalse(storage_bootstrap["backup_restore_readiness"]["external_backup_service_enabled"])
+        self.assertFalse(storage_bootstrap["backup_restore_readiness"]["external_service_connection_enabled"])
+        self.assertFalse(storage_bootstrap["backup_restore_readiness"]["migration_execution_enabled"])
+        self.assertFalse(storage_bootstrap["rollback_readiness"]["rollback_execution_enabled"])
+        self.assertFalse(storage_bootstrap["rollback_readiness"]["destructive_restore_enabled"])
+        self.assertTrue(storage_bootstrap["rollback_readiness"]["approval_required"])
+        self.assertTrue(storage_bootstrap["rollback_readiness"]["audit_required"])
         self.assertIn("platform_infra_readiness", storage_bootstrap)
         self.assertIn("provider_adapter_bootstrap", storage_bootstrap)
         provider_bootstrap = storage_bootstrap["provider_adapter_bootstrap"]
@@ -300,6 +312,18 @@ class TestApiTransportBootstrap(unittest.TestCase):
         )
         self.assertFalse(readiness["object_storage_readiness"]["connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
+        self.assertEqual(
+            readiness["backup_restore_readiness"],
+            storage_bootstrap["backup_restore_readiness"],
+        )
+        self.assertEqual(
+            readiness["rollback_readiness"],
+            storage_bootstrap["rollback_readiness"],
+        )
+        self.assertTrue(readiness["backup_restore_readiness"]["manifest_hash_enabled"])
+        self.assertFalse(readiness["backup_restore_readiness"]["restore_execution_enabled"])
+        self.assertFalse(readiness["backup_restore_readiness"]["active_storage_write_enabled"])
+        self.assertFalse(readiness["rollback_readiness"]["rollback_execution_enabled"])
         self.assertIn("local_stack_readiness", storage_bootstrap)
         self.assertEqual(storage_bootstrap["local_stack_readiness"], readiness["compose_readiness"])
         self.assertTrue(readiness["compose_readiness"]["dockerfile_present"])
@@ -733,6 +757,19 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(entry_strategy["object_storage"]["snapshot_manifest_repository_backed"])
         self.assertTrue(entry_strategy["object_storage"]["snapshot_readback_replay_enabled"])
         self.assertFalse(entry_strategy["object_storage"]["external_service_connection_enabled"])
+        self.assertTrue(entry_strategy["backup_restore"]["backup_manifest_enabled"])
+        self.assertTrue(entry_strategy["backup_restore"]["restore_dry_run_enabled"])
+        self.assertFalse(entry_strategy["backup_restore"]["safe_to_restore"])
+        self.assertFalse(entry_strategy["backup_restore"]["destructive_restore_enabled"])
+        self.assertFalse(entry_strategy["backup_restore"]["restore_execution_enabled"])
+        self.assertFalse(entry_strategy["backup_restore"]["rollback_execution_enabled"])
+        self.assertFalse(entry_strategy["backup_restore"]["external_backup_service_enabled"])
+        self.assertFalse(entry_strategy["backup_restore"]["external_service_connection_enabled"])
+        self.assertFalse(entry_strategy["backup_restore"]["migration_execution_enabled"])
+        self.assertEqual(
+            entry_strategy["backup_restore"]["rollback_readiness"],
+            bootstrap["rollback_readiness"],
+        )
 
         queue_worker = bootstrap["queue_worker_readiness"]
         self.assertEqual(queue_worker["effective_queue_backend"], "storage")
@@ -764,6 +801,11 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(redlines["minio_connection_enabled"])
         self.assertFalse(redlines["s3_connection_enabled"])
         self.assertFalse(redlines["external_object_storage_connection_enabled"])
+        self.assertFalse(redlines["external_backup_service_enabled"])
+        self.assertFalse(redlines["destructive_restore_enabled"])
+        self.assertFalse(redlines["restore_execution_enabled"])
+        self.assertFalse(redlines["rollback_execution_enabled"])
+        self.assertFalse(redlines["migration_execution_enabled"])
         self.assertFalse(redlines["compose_runtime_enabled"])
         self.assertFalse(redlines["container_execution_enabled"])
         self.assertFalse(redlines["docker_compose_up_executed"])
