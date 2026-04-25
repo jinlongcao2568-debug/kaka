@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-114B-provincial-bidding-platforms (ACTIVE; Stage2 provincial bidding platform source adapter second cut. This packet may extend the 114A public source adapter seam for provincial bidding platform public notice/attachment sources, sandbox/local mirror fetch, raw snapshot metadata, hash/version/lineage, retry/timeout, failure degrade, source health, and fetch audit. It does not use private or gray sources, bypass login/captcha/anti-bot controls, run uncontrolled live crawling, connect real providers, perform real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
+Current Workstream: PTL-I100-114C-national-construction-market-platform (ACTIVE; Stage2 national construction market platform source adapter third cut. This packet may extend the 114A/114B public source adapter seam for national construction market platform public enterprise/personnel/project records, sandbox/local mirror fetch, raw snapshot metadata, hash/version/lineage, retry/timeout, failure degrade, source health, and fetch audit. It does not use private or gray sources, bypass login/captcha/anti-bot controls, run uncontrolled live crawling, connect real providers, perform real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -28,14 +28,15 @@ Product Open Capability Baseline:
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 - PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
 
-Current 114B Scope:
-- Activate PTL-I100-114B as the second Stage2 real public source adapter subpacket under PTL-I100-114.
-- Extend the 114A adapter seam for provincial bidding platform public notices and attachments: allowlisted/sandbox fetch abstraction, raw HTML/PDF/attachment snapshot metadata, hash/version/lineage, retry/timeout, source health, and fetch audit.
+Current 114C Scope:
+- Activate PTL-I100-114C as the third Stage2 real public source adapter subpacket under PTL-I100-114.
+- Extend the 114A/114B adapter seam for national construction market platform public enterprise/personnel/project records: allowlisted/sandbox fetch abstraction, raw HTML/PDF/attachment snapshot metadata, hash/version/lineage, retry/timeout, source health, and fetch audit.
 - Target capability state is SANDBOX_READY/readback; do not run uncontrolled live crawlers or treat public-source adapter registration as permission to scrape any site.
 - Public boundary remains hard: no private/gray sources, no login/captcha/anti-bot bypass, no non-public data, no source allowlist bypass.
 - Keep real provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release out of this slice.
 
 Recently Closed:
+- PTL-I100-114B-provincial-bidding-platforms completed and committed locally: 6b4f91b. It extended the Stage2 public source adapter seam for provincial bidding platform public notice/attachment sources without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
 - PTL-I100-114A-local-public-resource-trading-centers completed and committed locally: 7de630d. It added Stage2 public source adapter seam, controlled sandbox transport, raw HTML/PDF/attachment snapshot metadata, object-storage-backed replay, source health, retry/timeout/rate-limit/degrade carriers, and public-boundary tests without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
 - PTL-I100-113-stage1-scheduler-production-loop completed and committed locally: ce733ba. It added Stage1 scheduler task creation, execution windows, H-01 authority consumption, durable queue readback, lease/retry/pause/resume/dead-letter, replay, audit refs, and explicit Stage2 handoff intent without executing real Stage2 fetch, private/gray collection, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
 - PTL-I100-112F-monitoring-alerting-readiness completed and committed locally: 0fe9212. It added internal monitoring / alerting / incident readiness, persistence/readback, and stale-ref fail-closed behavior without connecting external observability/APM/paging providers, sending real alerts, running incident automation, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
@@ -80,7 +81,7 @@ State Semantics:
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - PTL-I100-112 is completed through 112A-112F; production/live pilots still require later dedicated packets.
-- PTL-I100-113 and PTL-I100-114A are completed; PTL-I100-114B is active as the second Stage2 public source adapter subpacket. PTL-I100-114C through PTL-I100-121 and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
+- PTL-I100-113, PTL-I100-114A, and PTL-I100-114B are completed; PTL-I100-114C is active as the third Stage2 public source adapter subpacket. PTL-I100-114D through PTL-I100-121 and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
