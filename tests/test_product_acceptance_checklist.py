@@ -231,10 +231,10 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         )
         self.assertEqual(task_114["status"], "IN_PROGRESS")
         self.assertEqual(task_114["planning_state"], "ACTIVE_BY_CURRENT_TASK")
-        self.assertEqual(task_114["active_subpacket"], "PTL-I100-114E-national-enterprise-credit-publicity-system")
+        self.assertEqual(task_114["active_subpacket"], "PTL-I100-114F-government-procurement-public-sites")
         self.assertEqual(
             task_114["runtime_change_in_packet"],
-            "ACTIVE_114E_STAGE2_NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER",
+            "ACTIVE_114F_STAGE2_GOVERNMENT_PROCUREMENT_PUBLIC_SITES_ADAPTER",
         )
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]
@@ -262,6 +262,12 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 "completed_commit"
             ],
             "e75a461",
+        )
+        self.assertEqual(
+            completed_114["PTL-I100-114E-national-enterprise-credit-publicity-system"][
+                "completed_commit"
+            ],
+            "e93b503",
         )
         self.assertIn("docker_compose_local_stack", task_112["capability_gaps_covered"])
         self.assertIn("health_and_readiness_checks", task_112["capability_gaps_covered"])
