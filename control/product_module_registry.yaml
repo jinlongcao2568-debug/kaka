@@ -1036,6 +1036,7 @@ modules:
       - "PTL-I100-114F extends the same Stage2 public source adapter seam for government procurement public site notice, result, and attachment carriers; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
       - "PTL-I100-114G extends the same Stage2 public source adapter seam for tender agency public site tender, correction, candidate, and award-result notice carriers; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
       - "PTL-I100-114H extends the same Stage2 public source adapter seam for tenderer/procurer/owner public notice pages owner, correction, candidate, and award-result notice carriers; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
+      - "PTL-I100-114I extends the same Stage2 public source adapter seam for industry authority filing pages construction permit, contract filing, completion acceptance, and performance filing carriers; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
   - module_id: STAGE3-PARSED-TRUTH-LAYER
     stage_scope:
       - stage3_parsing

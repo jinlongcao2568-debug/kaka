@@ -125,6 +125,7 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-I100-114F extends the same Stage2 public source adapter seam for government procurement public site" in " ".join(stage2["notes"])
     assert "PTL-I100-114G extends the same Stage2 public source adapter seam for tender agency public site" in " ".join(stage2["notes"])
     assert "PTL-I100-114H extends the same Stage2 public source adapter seam for tenderer/procurer/owner public notice pages" in " ".join(stage2["notes"])
+    assert "PTL-I100-114I extends the same Stage2 public source adapter seam for industry authority filing pages" in " ".join(stage2["notes"])
     assert "PTL-S7-price-competitor-offer-resolution" in stage7["completed_packets"]
     assert "PTL-S7-module-boundary-refactor" in stage7["completed_packets"]
     assert stage7["pending_packets"] == []

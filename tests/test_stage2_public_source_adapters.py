@@ -23,6 +23,13 @@ from stage2_ingestion.public_source_adapters import (
     GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
     GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY,
     GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND,
+    INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_FILING_RECORD_KIND,
+    INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND,
+    INDUSTRY_AUTHORITY_CONTRACT_FILING_RECORD_KIND,
+    INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID,
+    INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY,
+    INDUSTRY_AUTHORITY_FILING_TYPES,
+    INDUSTRY_AUTHORITY_PERFORMANCE_FILING_RECORD_KIND,
     LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID,
     LocalPublicResourceTradingCenterSourceAdapter,
     NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID,
@@ -58,6 +65,7 @@ from stage2_ingestion.public_source_adapters import (
     TENDERER_PUBLIC_NOTICE_PAGE_SOURCE_FAMILY,
     credit_china_adapter_config,
     government_procurement_public_site_adapter_config,
+    industry_authority_filing_page_adapter_config,
     national_enterprise_credit_publicity_system_adapter_config,
     national_construction_market_platform_adapter_config,
     provincial_bidding_platform_adapter_config,
@@ -171,6 +179,30 @@ TENDERER_OWNER_NOTICE_REGISTRY_ID = "SRC-REG-TENDERER-OWNER-NOTICE"
 TENDERER_CORRECTION_NOTICE_REGISTRY_ID = "SRC-REG-TENDERER-CORRECTION-NOTICE"
 TENDERER_CANDIDATE_NOTICE_REGISTRY_ID = "SRC-REG-TENDERER-CANDIDATE-NOTICE"
 TENDERER_AWARD_RESULT_REGISTRY_ID = "SRC-REG-TENDERER-AWARD-RESULT"
+INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_URL = (
+    "https://public.example.local/industry-authority-filing-pages/permits/114i-permit.html"
+)
+INDUSTRY_AUTHORITY_CONTRACT_FILING_URL = (
+    "sandbox://industry-authority-filing-pages/contracts/114i-contract.html"
+)
+INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_URL = (
+    "https://public.example.local/industry-authority-filing-pages/completion/114i-completion.html"
+)
+INDUSTRY_AUTHORITY_PERFORMANCE_FILING_URL = (
+    "sandbox://industry-authority-filing-pages/performance/114i-performance.html"
+)
+INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_REGISTRY_ID = (
+    "SRC-REG-INDUSTRY-AUTHORITY-CONSTRUCTION-PERMIT"
+)
+INDUSTRY_AUTHORITY_CONTRACT_FILING_REGISTRY_ID = (
+    "SRC-REG-INDUSTRY-AUTHORITY-CONTRACT-FILING"
+)
+INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_REGISTRY_ID = (
+    "SRC-REG-INDUSTRY-AUTHORITY-COMPLETION-ACCEPTANCE"
+)
+INDUSTRY_AUTHORITY_PERFORMANCE_FILING_REGISTRY_ID = (
+    "SRC-REG-INDUSTRY-AUTHORITY-PERFORMANCE-FILING"
+)
 
 
 class Stage2PublicSourceAdapterTests(unittest.TestCase):
@@ -443,6 +475,73 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             snapshot_version=snapshot_version,
             lineage_refs=resolved_lineage_refs,
             timeout_seconds=10,
+            max_retries=max_retries,
+            boundary_flags=boundary_flags or {},
+        )
+
+    def _industry_authority_coverage_report(
+        self,
+        *,
+        coverage_state: str = "COMPLETE",
+        captured_filing_types: list[str] | None = None,
+        missing_filing_types: list[str] | None = None,
+        duplicate_source_refs: list[str] | None = None,
+        manual_review_required: bool = False,
+        no_broad_fallback: bool = True,
+    ) -> dict[str, object]:
+        return {
+            "coverage_state": coverage_state,
+            "expected_filing_types": sorted(INDUSTRY_AUTHORITY_FILING_TYPES),
+            "captured_filing_types": captured_filing_types
+            if captured_filing_types is not None
+            else sorted(INDUSTRY_AUTHORITY_FILING_TYPES),
+            "missing_filing_types": missing_filing_types or [],
+            "duplicate_source_refs": duplicate_source_refs or [],
+            "manual_review_required": manual_review_required,
+            "no_broad_fallback": no_broad_fallback,
+        }
+
+    def _industry_authority_request(
+        self,
+        *,
+        source_url: str = INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_URL,
+        source_registry_id: str = INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_REGISTRY_ID,
+        source_family: str = INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY,
+        record_kind: str = INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND,
+        source_visibility_state: str = "PUBLIC_VISIBLE",
+        fetch_mode: str = "controlled_test_transport",
+        snapshot_version: str = "industry-authority-permit-v1",
+        filing_type: str = "construction_permit",
+        content_type_hint: str | None = None,
+        max_retries: int = 2,
+        boundary_flags: dict[str, bool] | None = None,
+        lineage_refs: dict[str, object] | None = None,
+    ) -> PublicSourceSnapshotRequest:
+        resolved_lineage_refs: dict[str, object] = {
+            "project_id": "P-114I",
+            "stage1_handoff_intent_id": "HINT-114I",
+            "source_blueprint_batch_id": "PTL-I100-ROADMAP-01",
+            "project_lineage_id": "PROJECT-LINEAGE-114I",
+            "authority_name_optional": "Example Industry Authority",
+            "authority_site_domain_optional": "public.example.local",
+            "authority_level_optional": "city",
+            "authority_region_optional": "Example Region",
+            "filing_type": filing_type,
+            "filing_record_id_optional": "FILING-114I-001",
+            "source_coverage_report": self._industry_authority_coverage_report(),
+        }
+        resolved_lineage_refs.update(lineage_refs or {})
+        return PublicSourceSnapshotRequest(
+            source_url=source_url,
+            source_registry_id=source_registry_id,
+            source_family=source_family,
+            record_kind=record_kind,
+            source_visibility_state=source_visibility_state,
+            fetch_mode=fetch_mode,
+            snapshot_version=snapshot_version,
+            content_type_hint=content_type_hint,
+            lineage_refs=resolved_lineage_refs,
+            timeout_seconds=11,
             max_retries=max_retries,
             boundary_flags=boundary_flags or {},
         )
@@ -2422,6 +2521,553 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertEqual(
                         raised.exception.carrier["adapter_id"],
                         TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID,
+                    )
+                    self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
+                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
+                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
+                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
+                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
+                    self.assertEqual(transport.call_log, [])
+
+    def test_industry_authority_filing_pages_capture_readback_replay_and_source_coverage_report(self) -> None:
+        required_metadata_keys = {
+            "adapter_id",
+            "source_family",
+            "record_kind",
+            "source_registry_id",
+            "source_url",
+            "source_visibility_state",
+            "content_type",
+            "byte_size",
+            "sha256",
+            "snapshot_version",
+            "lineage_refs",
+            "fetched_at",
+            "captured_at",
+            "fetch_mode",
+            "fetch_audit",
+            "source_health",
+            "replay_state",
+            "snapshot_id",
+            "snapshot_kind",
+            "object_key",
+            "authority_name_optional",
+            "authority_site_domain_optional",
+            "authority_level_optional",
+            "authority_region_optional",
+            "filing_type",
+            "filing_record_id_optional",
+            "project_lineage_id",
+            "source_blueprint_batch_id",
+            "source_coverage_report",
+        }
+        cases = [
+            (
+                INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_URL,
+                INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_REGISTRY_ID,
+                INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND,
+                "PUBLIC_VISIBLE",
+                "controlled_test_transport",
+                b"<html><body>industry authority permit filing 114I</body></html>",
+                "construction_permit",
+                "114i-construction-permit-v1",
+            ),
+            (
+                INDUSTRY_AUTHORITY_CONTRACT_FILING_URL,
+                INDUSTRY_AUTHORITY_CONTRACT_FILING_REGISTRY_ID,
+                INDUSTRY_AUTHORITY_CONTRACT_FILING_RECORD_KIND,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                b"<html><body>industry authority contract filing 114I</body></html>",
+                "contract_filing",
+                "114i-contract-filing-v1",
+            ),
+            (
+                INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_URL,
+                INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_REGISTRY_ID,
+                INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_FILING_RECORD_KIND,
+                "PUBLIC_VISIBLE",
+                "controlled_test_transport",
+                b"<html><body>industry authority completion filing 114I</body></html>",
+                "completion_acceptance",
+                "114i-completion-acceptance-v1",
+            ),
+            (
+                INDUSTRY_AUTHORITY_PERFORMANCE_FILING_URL,
+                INDUSTRY_AUTHORITY_PERFORMANCE_FILING_REGISTRY_ID,
+                INDUSTRY_AUTHORITY_PERFORMANCE_FILING_RECORD_KIND,
+                "SANDBOX_LOCAL_MIRROR",
+                "sandbox_local_mirror",
+                b"<html><body>industry authority performance filing 114I</body></html>",
+                "performance_filing",
+                "114i-performance-filing-v1",
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            service = Stage2Service()
+            transport = StaticPublicSourceTransport(
+                {
+                    source_url: PublicSourceTransportResponse(
+                        content=body,
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                    for source_url, _, _, _, _, body, _, _ in cases
+                }
+            )
+
+            for source_url, registry_id, record_kind, visibility, fetch_mode, body, filing_type, version in cases:
+                with self.subTest(record_kind=record_kind):
+                    coverage_report = self._industry_authority_coverage_report()
+                    capture = service.capture_public_source_snapshot(
+                        self._industry_authority_request(
+                            source_url=source_url,
+                            source_registry_id=registry_id,
+                            record_kind=record_kind,
+                            source_visibility_state=visibility,
+                            fetch_mode=fetch_mode,
+                            snapshot_version=version,
+                            filing_type=filing_type,
+                            lineage_refs={
+                                "filing_record_id_optional": f"{filing_type}-record-114I",
+                                "source_coverage_report": coverage_report,
+                            },
+                        ),
+                        repository=repo,
+                        transport=transport,
+                    )
+                    replay = service.replay_public_source_snapshot(
+                        capture.snapshot_id,
+                        repository=repo,
+                    )
+                    metadata = capture.raw_snapshot_metadata
+
+                    self.assertEqual(capture.status, "SNAPSHOT_CAPTURED")
+                    self.assertEqual(capture.adapter_id, INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID)
+                    self.assertTrue(capture.snapshot_id.startswith("SNAP-S2-114I-"))
+                    self.assertIsNotNone(metadata)
+                    self.assertTrue(required_metadata_keys.issubset(metadata))
+                    self.assertEqual(metadata["adapter_id"], INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID)
+                    self.assertEqual(metadata["source_family"], INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY)
+                    self.assertEqual(metadata["record_kind"], record_kind)
+                    self.assertEqual(metadata["source_registry_id"], registry_id)
+                    self.assertEqual(metadata["source_url"], source_url)
+                    self.assertEqual(metadata["source_visibility_state"], visibility)
+                    self.assertEqual(metadata["content_type"], "text/html")
+                    self.assertEqual(metadata["byte_size"], len(body))
+                    self.assertRegex(metadata["sha256"], r"^[0-9a-f]{64}$")
+                    self.assertEqual(metadata["snapshot_version"], version)
+                    self.assertEqual(metadata["lineage_refs"]["project_id"], "P-114I")
+                    self.assertEqual(
+                        metadata["lineage_refs"]["project_lineage_id"],
+                        "PROJECT-LINEAGE-114I",
+                    )
+                    self.assertEqual(
+                        metadata["lineage_refs"]["source_blueprint_batch_id"],
+                        "PTL-I100-ROADMAP-01",
+                    )
+                    self.assertEqual(metadata["lineage_refs"]["filing_type"], filing_type)
+                    self.assertEqual(
+                        metadata["lineage_refs"]["source_coverage_report"],
+                        coverage_report,
+                    )
+                    self.assertEqual(metadata["authority_name_optional"], "Example Industry Authority")
+                    self.assertEqual(metadata["authority_site_domain_optional"], "public.example.local")
+                    self.assertEqual(metadata["authority_level_optional"], "city")
+                    self.assertEqual(metadata["authority_region_optional"], "Example Region")
+                    self.assertEqual(metadata["filing_type"], filing_type)
+                    self.assertEqual(
+                        metadata["filing_record_id_optional"],
+                        f"{filing_type}-record-114I",
+                    )
+                    self.assertEqual(metadata["project_lineage_id"], "PROJECT-LINEAGE-114I")
+                    self.assertEqual(metadata["source_blueprint_batch_id"], "PTL-I100-ROADMAP-01")
+                    self.assertEqual(metadata["source_coverage_report"], coverage_report)
+                    self.assertEqual(metadata["source_coverage_report"]["coverage_state"], "COMPLETE")
+                    self.assertEqual(metadata["source_coverage_report"]["missing_filing_types"], [])
+                    self.assertEqual(metadata["source_coverage_report"]["duplicate_source_refs"], [])
+                    self.assertFalse(metadata["source_coverage_report"]["manual_review_required"])
+                    self.assertTrue(metadata["source_coverage_report"]["no_broad_fallback"])
+                    self.assertEqual(metadata["fetched_at"], NOW)
+                    self.assertEqual(metadata["captured_at"], NOW)
+                    self.assertEqual(metadata["fetch_mode"], fetch_mode)
+                    self.assertEqual(metadata["fetch_audit"]["transport_mode"], fetch_mode)
+                    self.assertEqual(metadata["fetch_audit"]["record_kind"], record_kind)
+                    self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
+                    self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
+                    self.assertEqual(metadata["source_health"]["filing_type"], filing_type)
+                    self.assertEqual(
+                        metadata["source_health"]["source_coverage_report"],
+                        coverage_report,
+                    )
+                    self.assertFalse(metadata["source_health"]["manual_review_required"])
+                    self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
+                    self.assertEqual(capture.readback["snapshot_kind"], "raw_html")
+                    self.assertEqual(capture.readback["readback_state"], "READBACK_READY")
+                    self.assertEqual(capture.readback["bytes"], body)
+                    self.assertEqual(replay["bytes"], body)
+                    self.assertEqual(
+                        replay["manifest"]["raw_snapshot_metadata"]["source_coverage_report"],
+                        coverage_report,
+                    )
+                    self.assertEqual(
+                        replay["manifest"]["source_health"]["filing_type"],
+                        filing_type,
+                    )
+                    self.assertEqual(repo.read_snapshot_bytes(capture.snapshot_id), body)
+
+    def test_industry_authority_runtime_policy_resolver_and_adapter_isolation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            policy = self._adapter(
+                self._repo(tmp_dir),
+                StaticPublicSourceTransport({}),
+                config=industry_authority_filing_page_adapter_config(),
+            ).runtime_policy()
+
+            self.assertEqual(policy["adapter_id"], INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID)
+            self.assertEqual(
+                policy["allowed_source_families"],
+                [INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY],
+            )
+            self.assertEqual(
+                set(policy["allowed_record_kinds"]),
+                {
+                    INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND,
+                    INDUSTRY_AUTHORITY_CONTRACT_FILING_RECORD_KIND,
+                    INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_FILING_RECORD_KIND,
+                    INDUSTRY_AUTHORITY_PERFORMANCE_FILING_RECORD_KIND,
+                },
+            )
+            self.assertEqual(
+                set(policy["allowlisted_source_registry_ids"]),
+                {
+                    INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_REGISTRY_ID,
+                    INDUSTRY_AUTHORITY_CONTRACT_FILING_REGISTRY_ID,
+                    INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_REGISTRY_ID,
+                    INDUSTRY_AUTHORITY_PERFORMANCE_FILING_REGISTRY_ID,
+                },
+            )
+            self.assertEqual(
+                policy["public_url_prefixes"],
+                ["https://public.example.local/industry-authority-filing-pages/"],
+            )
+            self.assertEqual(
+                policy["sandbox_url_prefixes"],
+                ["sandbox://industry-authority-filing-pages/"],
+            )
+            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["real_provider_connection_enabled"])
+            self.assertFalse(policy["private_or_gray_source_enabled"])
+
+        resolver_cases = [
+            self._industry_authority_request(),
+            PublicSourceSnapshotRequest(
+                source_url=PUBLIC_HTML_URL,
+                source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                source_family=INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY,
+            ),
+            PublicSourceSnapshotRequest(
+                source_url=PUBLIC_HTML_URL,
+                source_registry_id=INDUSTRY_AUTHORITY_CONTRACT_FILING_REGISTRY_ID,
+                source_family="PROCUREMENT_NOTICE",
+            ),
+            PublicSourceSnapshotRequest(
+                source_url=PUBLIC_HTML_URL,
+                source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                source_family="PROCUREMENT_NOTICE",
+                record_kind=INDUSTRY_AUTHORITY_PERFORMANCE_FILING_RECORD_KIND,
+            ),
+            PublicSourceSnapshotRequest(
+                source_url=INDUSTRY_AUTHORITY_PERFORMANCE_FILING_URL,
+                source_registry_id="SRC-REG-PROC-NATIONAL-HTML",
+                source_family="PROCUREMENT_NOTICE",
+            ),
+        ]
+        for request in resolver_cases:
+            self.assertEqual(
+                resolve_public_source_adapter_config(request).adapter_id,
+                INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID,
+            )
+
+        old_adapter_cases = [
+            (self._request(), LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID),
+            (self._provincial_request(), PROVINCIAL_BIDDING_PLATFORM_ADAPTER_ID),
+            (self._national_request(), NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ADAPTER_ID),
+            (self._credit_china_request(), CREDIT_CHINA_ADAPTER_ID),
+            (
+                self._necps_request(),
+                NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
+            ),
+            (self._government_procurement_request(), GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID),
+            (self._tender_agency_request(), TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID),
+            (self._tenderer_request(), TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID),
+        ]
+        for request, expected_adapter_id in old_adapter_cases:
+            self.assertEqual(
+                resolve_public_source_adapter_config(request).adapter_id,
+                expected_adapter_id,
+            )
+
+    def test_industry_authority_retry_timeout_rate_limit_and_degrade_are_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_URL: [
+                            PublicSourceTimeoutError("industry authority timeout once"),
+                            PublicSourceTransportResponse(
+                                content=b"<html>industry authority retry success</html>",
+                                content_type="text/html",
+                                fetched_at=NOW,
+                                captured_at=NOW,
+                            ),
+                        ]
+                    }
+                ),
+                config=industry_authority_filing_page_adapter_config(),
+            )
+            retry_result = adapter.capture(
+                self._industry_authority_request(max_retries=1)
+            )
+
+            self.assertEqual(retry_result.status, "SNAPSHOT_CAPTURED")
+            self.assertEqual(retry_result.adapter_id, INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID)
+            self.assertEqual(retry_result.fetch_audit["attempt_count"], 2)
+            self.assertEqual(
+                retry_result.fetch_audit["retry_events"][0]["reason"],
+                "PublicSourceTimeoutError",
+            )
+            self.assertEqual(
+                retry_result.fetch_audit["record_kind"],
+                INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND,
+            )
+            self.assertEqual(retry_result.source_health["source_health_state"], "HEALTHY")
+            self.assertEqual(retry_result.source_health["retry_count"], 1)
+            self.assertEqual(retry_result.source_health["filing_type"], "construction_permit")
+            self.assertFalse(retry_result.source_health["manual_review_required"])
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_URL: [
+                            PublicSourceTimeoutError("industry authority timeout one"),
+                            PublicSourceTimeoutError("industry authority timeout two"),
+                        ]
+                    }
+                ),
+                config=industry_authority_filing_page_adapter_config(),
+            )
+            timed_out = adapter.capture(
+                self._industry_authority_request(max_retries=1)
+            )
+
+            self.assertEqual(timed_out.status, "DEGRADED")
+            self.assertIsNone(timed_out.snapshot_id)
+            self.assertEqual(timed_out.adapter_id, INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID)
+            self.assertEqual(timed_out.source_health["source_health_state"], "DEGRADED")
+            self.assertEqual(
+                timed_out.source_health["record_kind"],
+                INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND,
+            )
+            self.assertEqual(timed_out.source_health["last_failure_reason"], "fetch_timeout")
+            self.assertEqual(timed_out.source_health["filing_type"], "construction_permit")
+            self.assertTrue(timed_out.source_health["manual_review_required"])
+            self.assertTrue(timed_out.source_health["fail_closed"])
+            self.assertTrue(timed_out.source_health["no_broad_fallback"])
+            self.assertEqual(timed_out.failure_degrade["degrade_reason"], "fetch_timeout")
+            self.assertEqual(
+                timed_out.failure_degrade["readback_state"],
+                "NO_SNAPSHOT_DUE_TO_DEGRADE",
+            )
+            self.assertTrue(timed_out.failure_degrade["manual_review_required"])
+            self.assertTrue(timed_out.failure_degrade["fail_closed"])
+            self.assertTrue(timed_out.failure_degrade["no_broad_fallback"])
+            self.assertEqual(timed_out.fetch_audit["attempt_count"], 2)
+            self.assertEqual(timed_out.fetch_audit["transport_mode"], "controlled_test_transport")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            transport = StaticPublicSourceTransport(
+                {
+                    INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_URL: PublicSourceTransportResponse(
+                        content=b"<html>industry authority rate limit</html>",
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                }
+            )
+            rate_adapter = self._adapter(
+                repo,
+                transport,
+                config=industry_authority_filing_page_adapter_config(
+                    min_interval_seconds=60
+                ),
+            )
+            rate_adapter.capture(self._industry_authority_request())
+            rate_limited = rate_adapter.capture(self._industry_authority_request())
+
+            self.assertEqual(rate_limited.status, "DEGRADED")
+            self.assertEqual(rate_limited.failure_degrade["degrade_reason"], "rate_limited")
+            self.assertEqual(
+                rate_limited.source_health["record_kind"],
+                INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND,
+            )
+            self.assertEqual(rate_limited.source_health["filing_type"], "construction_permit")
+            self.assertEqual(rate_limited.source_health["source_health_state"], "DEGRADED")
+            self.assertTrue(rate_limited.source_health["manual_review_required"])
+            self.assertTrue(rate_limited.failure_degrade["manual_review_required"])
+            self.assertTrue(rate_limited.failure_degrade["fail_closed"])
+            self.assertTrue(rate_limited.failure_degrade["no_broad_fallback"])
+            self.assertEqual(
+                rate_limited.fetch_audit["transport_mode"],
+                "not_called_due_to_rate_limit",
+            )
+            self.assertEqual(len(transport.call_log), 1)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_URL: [
+                            PublicSourceTransportError("industry authority fetch failed"),
+                            PublicSourceTransportError("industry authority still failed"),
+                        ]
+                    }
+                ),
+                config=industry_authority_filing_page_adapter_config(),
+            )
+            failed = adapter.capture(
+                self._industry_authority_request(max_retries=1)
+            )
+
+            self.assertEqual(failed.status, "DEGRADED")
+            self.assertEqual(failed.failure_degrade["degrade_reason"], "fetch_failed")
+            self.assertEqual(failed.source_health["last_failure_reason"], "fetch_failed")
+            self.assertEqual(failed.source_health["filing_type"], "construction_permit")
+            self.assertTrue(failed.failure_degrade["manual_review_required"])
+            self.assertTrue(failed.failure_degrade["fail_closed"])
+            self.assertTrue(failed.failure_degrade["no_broad_fallback"])
+            self.assertEqual(failed.fetch_audit["attempt_count"], 2)
+
+        degraded_cases = [
+            (
+                self._industry_authority_request(
+                    lineage_refs={"project_lineage_id": ""}
+                ),
+                "missing_key_lineage",
+            ),
+            (
+                self._industry_authority_request(lineage_refs={"filing_type": ""}),
+                "missing_filing_type",
+            ),
+            (
+                self._industry_authority_request(
+                    lineage_refs={
+                        "source_coverage_report": self._industry_authority_coverage_report(
+                            coverage_state="PARTIAL",
+                            captured_filing_types=["construction_permit"],
+                            missing_filing_types=["contract_filing"],
+                            manual_review_required=True,
+                        )
+                    }
+                ),
+                "weak_coverage",
+            ),
+            (
+                self._industry_authority_request(boundary_flags={"weak_coverage": True}),
+                "weak_coverage",
+            ),
+        ]
+        for request, reason in degraded_cases:
+            with self.subTest(reason=reason):
+                transport = StaticPublicSourceTransport({})
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    adapter = self._adapter(
+                        self._repo(tmp_dir),
+                        transport,
+                        config=industry_authority_filing_page_adapter_config(),
+                    )
+                    degraded = adapter.capture(request)
+                    self.assertEqual(degraded.status, "DEGRADED")
+                    self.assertEqual(degraded.failure_degrade["degrade_reason"], reason)
+                    self.assertTrue(degraded.failure_degrade["manual_review_required"])
+                    self.assertTrue(degraded.failure_degrade["fail_closed"])
+                    self.assertTrue(degraded.failure_degrade["no_broad_fallback"])
+                    self.assertTrue(degraded.source_health["manual_review_required"])
+                    self.assertTrue(degraded.source_health["fail_closed"])
+                    self.assertTrue(degraded.source_health["no_broad_fallback"])
+                    self.assertEqual(
+                        degraded.fetch_audit["transport_mode"],
+                        "not_called_due_to_preflight_degrade",
+                    )
+                    self.assertEqual(transport.call_log, [])
+
+    def test_industry_authority_blocked_sources_fail_closed_before_transport(self) -> None:
+        blocked_requests = [
+            self._industry_authority_request(
+                source_registry_id="SRC-REG-INDUSTRY-AUTHORITY-UNKNOWN"
+            ),
+            self._industry_authority_request(
+                source_family="unknown_source_family",
+                source_registry_id=INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_REGISTRY_ID,
+            ),
+            self._industry_authority_request(
+                source_url="https://unlisted.example.local/industry-authority/filing.html"
+            ),
+            self._industry_authority_request(record_kind="unknown_industry_authority_record"),
+            self._industry_authority_request(source_visibility_state="PRIVATE"),
+            self._industry_authority_request(source_visibility_state="GRAY"),
+            self._industry_authority_request(source_visibility_state="LOGIN_REQUIRED"),
+            self._industry_authority_request(source_visibility_state="CAPTCHA_REQUIRED"),
+            self._industry_authority_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
+            self._industry_authority_request(source_visibility_state="UNKNOWN"),
+            self._industry_authority_request(boundary_flags={"private_source": True}),
+            self._industry_authority_request(boundary_flags={"gray_source": True}),
+            self._industry_authority_request(boundary_flags={"login_required": True}),
+            self._industry_authority_request(boundary_flags={"captcha_required": True}),
+            self._industry_authority_request(boundary_flags={"anti_bot_restricted": True}),
+            self._industry_authority_request(fetch_mode="live"),
+            self._industry_authority_request(fetch_mode="live_crawl"),
+            self._industry_authority_request(fetch_mode="uncontrolled_live_crawl"),
+            self._industry_authority_request(fetch_mode="crawler"),
+            self._industry_authority_request(fetch_mode="real_provider"),
+        ]
+
+        for request in blocked_requests:
+            with self.subTest(
+                source_url=request.source_url,
+                state=request.source_visibility_state,
+                mode=request.fetch_mode,
+                record_kind=request.record_kind,
+            ):
+                transport = StaticPublicSourceTransport({})
+                with tempfile.TemporaryDirectory() as tmp_dir:
+                    adapter = self._adapter(
+                        self._repo(tmp_dir),
+                        transport,
+                        config=industry_authority_filing_page_adapter_config(),
+                    )
+                    with self.assertRaises(PublicSourceBoundaryError) as raised:
+                        adapter.capture(request)
+                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self.assertEqual(
+                        raised.exception.carrier["adapter_id"],
+                        INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID,
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])

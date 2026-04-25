@@ -27,6 +27,9 @@ TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID = "stage2.tender_agency_public_site.v1"
 TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID = (
     "stage2.tenderer_public_notice_page.v1"
 )
+INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID = (
+    "stage2.industry_authority_filing_page.v1"
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SOURCE_FAMILY = "local_public_resource_trading_center"
 PROVINCIAL_BIDDING_PLATFORM_SOURCE_FAMILY = "provincial_bidding_platform"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_SOURCE_FAMILY = (
@@ -39,6 +42,7 @@ NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_SOURCE_FAMILY = (
 GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY = "government_procurement_public_site"
 TENDER_AGENCY_PUBLIC_SITE_SOURCE_FAMILY = "tender_agency_public_site"
 TENDERER_PUBLIC_NOTICE_PAGE_SOURCE_FAMILY = "tenderer_public_notice_page"
+INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY = "industry_authority_filing_page"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_ENTERPRISE_RECORD_KIND = "enterprise_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PERSONNEL_RECORD_KIND = "personnel_public_record"
 NATIONAL_CONSTRUCTION_MARKET_PLATFORM_PROJECT_RECORD_KIND = "project_public_record"
@@ -127,6 +131,46 @@ TENDERER_NOTICE_TYPES_BY_RECORD_KIND = {
     TENDERER_CANDIDATE_NOTICE_RECORD_KIND: "candidate_notice",
     TENDERER_AWARD_RESULT_RECORD_KIND: "award_result",
 }
+INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND = (
+    "industry_authority_construction_permit_filing_record"
+)
+INDUSTRY_AUTHORITY_CONTRACT_FILING_RECORD_KIND = (
+    "industry_authority_contract_filing_record"
+)
+INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_FILING_RECORD_KIND = (
+    "industry_authority_completion_acceptance_filing_record"
+)
+INDUSTRY_AUTHORITY_PERFORMANCE_FILING_RECORD_KIND = (
+    "industry_authority_performance_filing_record"
+)
+INDUSTRY_AUTHORITY_FILING_PAGE_RECORD_KINDS = frozenset(
+    {
+        INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND,
+        INDUSTRY_AUTHORITY_CONTRACT_FILING_RECORD_KIND,
+        INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_FILING_RECORD_KIND,
+        INDUSTRY_AUTHORITY_PERFORMANCE_FILING_RECORD_KIND,
+    }
+)
+INDUSTRY_AUTHORITY_FILING_TYPES_BY_RECORD_KIND = {
+    INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND: "construction_permit",
+    INDUSTRY_AUTHORITY_CONTRACT_FILING_RECORD_KIND: "contract_filing",
+    INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_FILING_RECORD_KIND: "completion_acceptance",
+    INDUSTRY_AUTHORITY_PERFORMANCE_FILING_RECORD_KIND: "performance_filing",
+}
+INDUSTRY_AUTHORITY_FILING_TYPES = frozenset(
+    INDUSTRY_AUTHORITY_FILING_TYPES_BY_RECORD_KIND.values()
+)
+INDUSTRY_AUTHORITY_SOURCE_COVERAGE_REPORT_KEYS = frozenset(
+    {
+        "coverage_state",
+        "expected_filing_types",
+        "captured_filing_types",
+        "missing_filing_types",
+        "duplicate_source_refs",
+        "manual_review_required",
+        "no_broad_fallback",
+    }
+)
 
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS = frozenset(
     {
@@ -186,6 +230,14 @@ TENDERER_PUBLIC_NOTICE_PAGE_REGISTRY_IDS = frozenset(
         "SRC-REG-TENDERER-AWARD-RESULT",
     }
 )
+INDUSTRY_AUTHORITY_FILING_PAGE_REGISTRY_IDS = frozenset(
+    {
+        "SRC-REG-INDUSTRY-AUTHORITY-CONSTRUCTION-PERMIT",
+        "SRC-REG-INDUSTRY-AUTHORITY-CONTRACT-FILING",
+        "SRC-REG-INDUSTRY-AUTHORITY-COMPLETION-ACCEPTANCE",
+        "SRC-REG-INDUSTRY-AUTHORITY-PERFORMANCE-FILING",
+    }
+)
 LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES = (
     "https://public.example.local/local-public-resource-trading-centers/",
     "https://public.example.local/procurement/",
@@ -237,6 +289,12 @@ TENDERER_PUBLIC_NOTICE_PAGE_PUBLIC_URL_PREFIXES = (
 )
 TENDERER_PUBLIC_NOTICE_PAGE_SANDBOX_URL_PREFIXES = (
     "sandbox://tenderer-public-notice-pages/",
+)
+INDUSTRY_AUTHORITY_FILING_PAGE_PUBLIC_URL_PREFIXES = (
+    "https://public.example.local/industry-authority-filing-pages/",
+)
+INDUSTRY_AUTHORITY_FILING_PAGE_SANDBOX_URL_PREFIXES = (
+    "sandbox://industry-authority-filing-pages/",
 )
 
 PUBLIC_VISIBLE_STATE = "PUBLIC_VISIBLE"
@@ -510,11 +568,40 @@ def tenderer_public_notice_page_adapter_config(
     )
 
 
+def industry_authority_filing_page_adapter_config(
+    *,
+    min_interval_seconds: float = 0.0,
+) -> PublicSourceAdapterConfig:
+    return PublicSourceAdapterConfig(
+        adapter_id=INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID,
+        allowlisted_source_registry_ids=INDUSTRY_AUTHORITY_FILING_PAGE_REGISTRY_IDS,
+        allowed_source_families=frozenset(
+            {INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY}
+        ),
+        allowed_record_kinds=INDUSTRY_AUTHORITY_FILING_PAGE_RECORD_KINDS,
+        allowed_public_url_prefixes=INDUSTRY_AUTHORITY_FILING_PAGE_PUBLIC_URL_PREFIXES,
+        allowed_sandbox_url_prefixes=INDUSTRY_AUTHORITY_FILING_PAGE_SANDBOX_URL_PREFIXES,
+        min_interval_seconds=min_interval_seconds,
+    )
+
+
 def resolve_public_source_adapter_config(
     request: PublicSourceSnapshotRequest,
 ) -> PublicSourceAdapterConfig:
     source_family = str(request.source_family or "").strip()
     record_kind = str(request.record_kind or "").strip()
+    if (
+        source_family == INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY
+        or record_kind in INDUSTRY_AUTHORITY_FILING_PAGE_RECORD_KINDS
+        or request.source_registry_id in INDUSTRY_AUTHORITY_FILING_PAGE_REGISTRY_IDS
+        or request.source_url.startswith(
+            INDUSTRY_AUTHORITY_FILING_PAGE_PUBLIC_URL_PREFIXES
+        )
+        or request.source_url.startswith(
+            INDUSTRY_AUTHORITY_FILING_PAGE_SANDBOX_URL_PREFIXES
+        )
+    ):
+        return industry_authority_filing_page_adapter_config()
     if (
         source_family == TENDERER_PUBLIC_NOTICE_PAGE_SOURCE_FAMILY
         or record_kind in TENDERER_PUBLIC_NOTICE_PAGE_RECORD_KINDS
@@ -992,6 +1079,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "retry_count": max(0, int(resolved_fetch_audit.get("attempt_count", 0)) - 1),
             "timeout_seconds": request.timeout_seconds,
             "manual_review_required": True,
+            "no_broad_fallback": True,
+            "fail_closed": True,
         }
         lineage_refs = self._lineage_refs(
             request,
@@ -1036,6 +1125,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             packet_marker = "114G"
         elif self.config.adapter_id == TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID:
             packet_marker = "114H"
+        elif self.config.adapter_id == INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID:
+            packet_marker = "114I"
         else:
             packet_marker = "114A"
         return f"SNAP-S2-{packet_marker}-{digest[:20]}"
@@ -1045,9 +1136,9 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         request: PublicSourceSnapshotRequest,
         *,
         snapshot_version: str,
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         refs = {
-            str(key): str(value)
+            str(key): value
             for key, value in dict(request.lineage_refs).items()
             if value not in (None, "")
         }
@@ -1068,6 +1159,11 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         ) or TENDERER_NOTICE_TYPES_BY_RECORD_KIND.get(normalized_record_kind)
         if notice_type and "notice_type" not in refs:
             refs["notice_type"] = notice_type
+        filing_type = INDUSTRY_AUTHORITY_FILING_TYPES_BY_RECORD_KIND.get(
+            normalized_record_kind
+        )
+        if filing_type and "filing_type" not in refs:
+            refs["filing_type"] = filing_type
         return refs
 
     def _snapshot_kind(self, content_type: str) -> str:
@@ -1090,8 +1186,15 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "tenderer_site_domain_optional",
             "notice_authority_role",
             "notice_type",
+            "authority_name_optional",
+            "authority_site_domain_optional",
+            "authority_level_optional",
+            "authority_region_optional",
+            "filing_type",
+            "filing_record_id_optional",
             "project_lineage_id",
             "source_blueprint_batch_id",
+            "source_coverage_report",
         ):
             value = lineage_refs.get(key)
             if value not in (None, ""):
@@ -1116,7 +1219,65 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             ):
                 if lineage.get(key) in (None, ""):
                     return "missing_key_lineage"
+        if self.config.adapter_id == INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID:
+            flags = {
+                str(key): bool(value) for key, value in request.boundary_flags.items()
+            }
+            if flags.get("weak_coverage") or flags.get("weak_source_coverage"):
+                return "weak_coverage"
+            lineage = dict(request.lineage_refs)
+            for key in ("project_lineage_id", "source_blueprint_batch_id"):
+                if lineage.get(key) in (None, ""):
+                    return "missing_key_lineage"
+            filing_type = lineage.get("filing_type")
+            expected_filing_type = INDUSTRY_AUTHORITY_FILING_TYPES_BY_RECORD_KIND.get(
+                str(request.record_kind or "")
+            )
+            if filing_type in (None, "") or (
+                expected_filing_type and str(filing_type) != expected_filing_type
+            ):
+                return "missing_filing_type"
+            if self._industry_authority_coverage_report_is_weak(
+                lineage.get("source_coverage_report"),
+                filing_type=str(filing_type),
+            ):
+                return "weak_coverage"
         return None
+
+    def _industry_authority_coverage_report_is_weak(
+        self,
+        coverage_report: Any,
+        *,
+        filing_type: str,
+    ) -> bool:
+        if not isinstance(coverage_report, Mapping):
+            return True
+        if not INDUSTRY_AUTHORITY_SOURCE_COVERAGE_REPORT_KEYS.issubset(
+            set(coverage_report)
+        ):
+            return True
+        coverage_state = str(coverage_report.get("coverage_state") or "").upper()
+        if coverage_state not in {"COMPLETE", "FULL_COVERAGE"}:
+            return True
+        if _truthy(coverage_report.get("manual_review_required")):
+            return True
+        if not _truthy(coverage_report.get("no_broad_fallback")):
+            return True
+        expected_filing_types = _string_set(
+            coverage_report.get("expected_filing_types")
+        )
+        captured_filing_types = _string_set(
+            coverage_report.get("captured_filing_types")
+        )
+        if not INDUSTRY_AUTHORITY_FILING_TYPES.issubset(expected_filing_types):
+            return True
+        if filing_type not in captured_filing_types:
+            return True
+        if _string_set(coverage_report.get("missing_filing_types")):
+            return True
+        if _string_set(coverage_report.get("duplicate_source_refs")):
+            return True
+        return False
 
 
 def _seconds_between(start: str, end: str) -> float | None:
@@ -1126,6 +1287,25 @@ def _seconds_between(start: str, end: str) -> float | None:
     except ValueError:
         return None
     return (end_dt - start_dt).total_seconds()
+
+
+def _string_set(value: Any) -> set[str]:
+    if value in (None, ""):
+        return set()
+    if isinstance(value, str):
+        return {value.strip()} if value.strip() else set()
+    try:
+        return {str(item) for item in value if item not in (None, "")}
+    except TypeError:
+        return {str(value)}
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "y"}
+    return bool(value)
 
 
 def _parse_iso_datetime(value: str) -> datetime:
@@ -1160,6 +1340,19 @@ __all__ = [
     "GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SANDBOX_URL_PREFIXES",
     "GOVERNMENT_PROCUREMENT_PUBLIC_SITE_SOURCE_FAMILY",
     "GOVERNMENT_PROCUREMENT_RESULT_RECORD_KIND",
+    "INDUSTRY_AUTHORITY_COMPLETION_ACCEPTANCE_FILING_RECORD_KIND",
+    "INDUSTRY_AUTHORITY_CONSTRUCTION_PERMIT_FILING_RECORD_KIND",
+    "INDUSTRY_AUTHORITY_CONTRACT_FILING_RECORD_KIND",
+    "INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID",
+    "INDUSTRY_AUTHORITY_FILING_PAGE_PUBLIC_URL_PREFIXES",
+    "INDUSTRY_AUTHORITY_FILING_PAGE_RECORD_KINDS",
+    "INDUSTRY_AUTHORITY_FILING_PAGE_REGISTRY_IDS",
+    "INDUSTRY_AUTHORITY_FILING_PAGE_SANDBOX_URL_PREFIXES",
+    "INDUSTRY_AUTHORITY_FILING_PAGE_SOURCE_FAMILY",
+    "INDUSTRY_AUTHORITY_FILING_TYPES",
+    "INDUSTRY_AUTHORITY_FILING_TYPES_BY_RECORD_KIND",
+    "INDUSTRY_AUTHORITY_PERFORMANCE_FILING_RECORD_KIND",
+    "INDUSTRY_AUTHORITY_SOURCE_COVERAGE_REPORT_KEYS",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_PUBLIC_URL_PREFIXES",
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_REGISTRY_IDS",
@@ -1224,6 +1417,7 @@ __all__ = [
     "TENDERER_PUBLIC_NOTICE_PAGE_SOURCE_FAMILY",
     "credit_china_adapter_config",
     "government_procurement_public_site_adapter_config",
+    "industry_authority_filing_page_adapter_config",
     "local_public_resource_trading_center_adapter_config",
     "national_enterprise_credit_publicity_system_adapter_config",
     "national_construction_market_platform_adapter_config",

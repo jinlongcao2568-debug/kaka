@@ -167,6 +167,14 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             },
         )
         self.assertEqual(len(source_subpacket_ids), 9)
+        self.assertIn(
+            "coverage report",
+            " ".join(
+                subpacket_acceptance[
+                    "PTL-I100-114I-industry-authority-filing-pages"
+                ]["completion_must_prove"]
+            ),
+        )
         for subpacket_id in package_subpacket_ids | source_subpacket_ids:
             self.assertIn(subpacket_id, subpacket_acceptance)
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
