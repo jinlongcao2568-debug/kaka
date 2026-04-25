@@ -231,10 +231,19 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         )
         self.assertEqual(task_114["status"], "IN_PROGRESS")
         self.assertEqual(task_114["planning_state"], "ACTIVE_BY_CURRENT_TASK")
-        self.assertEqual(task_114["active_subpacket"], "PTL-I100-114A-local-public-resource-trading-centers")
+        self.assertEqual(task_114["active_subpacket"], "PTL-I100-114B-provincial-bidding-platforms")
         self.assertEqual(
             task_114["runtime_change_in_packet"],
-            "ACTIVE_114A_STAGE2_LOCAL_PUBLIC_SOURCE_ADAPTER",
+            "ACTIVE_114B_STAGE2_PROVINCIAL_BIDDING_PLATFORM_ADAPTER",
+        )
+        completed_114 = {
+            row["subpacket_id"]: row for row in task_114["completed_subpackets"]
+        }
+        self.assertEqual(
+            completed_114["PTL-I100-114A-local-public-resource-trading-centers"][
+                "completed_commit"
+            ],
+            "7de630d",
         )
         self.assertIn("docker_compose_local_stack", task_112["capability_gaps_covered"])
         self.assertIn("health_and_readiness_checks", task_112["capability_gaps_covered"])
