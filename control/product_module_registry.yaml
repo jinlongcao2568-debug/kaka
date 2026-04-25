@@ -873,6 +873,7 @@ cross_cutting_surfaces:
       - src/storage/sqlalchemy_backend.py
       - src/storage/sqlalchemy_schema.py
       - src/storage/production_infra_readiness.py
+      - src/storage/object_storage.py
       - src/storage/worker_queue.py
       - src/storage/repository_boundary.py
       - src/storage/repository_bundle_io.py
@@ -905,6 +906,7 @@ cross_cutting_surfaces:
       - src/storage/repositories/opportunity_outcome_event_repo.py
       - src/storage/repositories/governance_feedback_event_repo.py
       - src/storage/repositories/operator_action_repo.py
+      - src/storage/repositories/object_storage_repo.py
       - src/storage/repositories/worker_queue_repo.py
     test_files:
       - tests/test_internal_repository_boundary.py
@@ -1320,6 +1322,7 @@ modules:
       - src/storage/sqlalchemy_backend.py
       - src/storage/sqlalchemy_schema.py
       - src/storage/production_infra_readiness.py
+      - src/storage/object_storage.py
       - src/storage/worker_queue.py
       - src/storage/repository_boundary.py
       - src/storage/repository_bundle_io.py
@@ -1350,6 +1353,7 @@ modules:
       - src/storage/repositories/opportunity_outcome_event_repo.py
       - src/storage/repositories/governance_feedback_event_repo.py
       - src/storage/repositories/operator_action_repo.py
+      - src/storage/repositories/object_storage_repo.py
       - src/storage/repositories/worker_queue_repo.py
     current_runtime_state: HEAVY_RUNTIME
     internal_governed_runtime_present: true

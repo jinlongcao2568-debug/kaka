@@ -100,6 +100,15 @@ RESERVED_INFRA_BACKENDS = {
     "docker-compose",
 }
 RESERVED_OR_NOT_CONFIGURED = {"RESERVED_NOT_LIVE", "NOT_CONFIGURED"}
+STORAGE_ENV_KEYS = (
+    "KAKA_STORAGE_BACKEND",
+    "KAKA_STORAGE_PATH",
+    "KAKA_STORAGE_DATABASE_URL",
+    "KAKA_STORAGE_SCOPE",
+    "KAKA_STORAGE_TEST_ISOLATION",
+    "KAKA_OBJECT_STORAGE_BACKEND",
+    "KAKA_OBJECT_STORAGE_PATH",
+)
 
 
 def sqlalchemy_sqlite_url(path: Path) -> str:
@@ -138,13 +147,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
     def test_get_settings_returns_formal_internal_settings(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch.dict(os.environ, {"LOCALAPPDATA": tmp_dir}, clear=False):
-                for key in (
-                    "KAKA_STORAGE_BACKEND",
-                    "KAKA_STORAGE_PATH",
-                    "KAKA_STORAGE_DATABASE_URL",
-                    "KAKA_STORAGE_SCOPE",
-                    "KAKA_STORAGE_TEST_ISOLATION",
-                ):
+                for key in STORAGE_ENV_KEYS:
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
                 settings = get_settings()
@@ -177,6 +180,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     "KAKA_STORAGE_DATABASE_URL",
                     "KAKA_STORAGE_SCOPE",
                     "KAKA_STORAGE_TEST_ISOLATION",
+                    "KAKA_OBJECT_STORAGE_BACKEND",
+                    "KAKA_OBJECT_STORAGE_PATH",
                 ):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
@@ -199,7 +204,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_DATABASE_URL", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in (
+                    "KAKA_STORAGE_DATABASE_URL",
+                    "KAKA_STORAGE_TEST_ISOLATION",
+                    "KAKA_OBJECT_STORAGE_BACKEND",
+                    "KAKA_OBJECT_STORAGE_PATH",
+                ):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
                 app = create_app()
@@ -220,6 +230,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(storage_bootstrap["storage_runtime_mode"], "explicit-path")
         self.assertEqual(storage_bootstrap["queue_backend"], "storage")
         self.assertEqual(storage_bootstrap["worker_runtime"], "internal-storage-worker")
+        self.assertEqual(storage_bootstrap["active_object_storage_backend"], "local-filesystem")
+        self.assertEqual(storage_bootstrap["object_storage_backend"], "local-filesystem")
+        self.assertEqual(
+            storage_bootstrap["object_storage_path"],
+            str(explicit_path.parent / "object-storage"),
+        )
         self.assertTrue(storage_bootstrap["worker_queue_bootstrap"]["durable_queue_enabled"])
         self.assertTrue(storage_bootstrap["worker_queue_bootstrap"]["worker_lease_enabled"])
         self.assertFalse(storage_bootstrap["worker_queue_bootstrap"]["external_queue_connection_enabled"])
@@ -269,6 +285,20 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(readiness["worker_runtime_readiness"]["heartbeat_persistence_enabled"])
         self.assertTrue(readiness["worker_runtime_readiness"]["dead_letter_persistence_enabled"])
         self.assertFalse(readiness["worker_runtime_readiness"]["stage1_scheduler_enabled"])
+        self.assertEqual(readiness["object_storage_readiness"]["active_backend"], "local-filesystem")
+        self.assertEqual(readiness["object_storage_readiness"]["readiness_state"], "EXECUTABLE")
+        self.assertTrue(readiness["object_storage_readiness"]["local_filesystem"]["executable"])
+        self.assertTrue(
+            readiness["object_storage_readiness"]["snapshot_durability"][
+                "manifest_repository_backed"
+            ]
+        )
+        self.assertTrue(
+            readiness["object_storage_readiness"]["snapshot_durability"][
+                "readback_replay_enabled"
+            ]
+        )
+        self.assertFalse(readiness["object_storage_readiness"]["connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
         self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
@@ -291,7 +321,13 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_DATABASE_URL", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in (
+                    "KAKA_STORAGE_DATABASE_URL",
+                    "KAKA_STORAGE_SCOPE",
+                    "KAKA_STORAGE_TEST_ISOLATION",
+                    "KAKA_OBJECT_STORAGE_BACKEND",
+                    "KAKA_OBJECT_STORAGE_PATH",
+                ):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
                 app = create_app()
@@ -324,6 +360,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     self.assertEqual(readiness["queue_readiness"]["internal_durable_queue"]["active_storage_backend"], "sqlite")
                     self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
                     self.assertTrue(readiness["worker_runtime_readiness"]["suspend_resume_persistence_enabled"])
+                    self.assertEqual(readiness["object_storage_readiness"]["readiness_state"], "EXECUTABLE")
+                    self.assertTrue(
+                        readiness["object_storage_readiness"]["snapshot_durability"][
+                            "readback_replay_enabled"
+                        ]
+                    )
                     self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
                     self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
                     self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
@@ -331,6 +373,42 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     self.assertTrue(readiness["backend_policy"]["no_external_service_connection"])
                 finally:
                     app.state.storage_session.close()
+
+    def test_create_app_keeps_minio_object_storage_reserved_not_live(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            explicit_path = Path(tmp_dir) / "storage" / "custom-store.json"
+            with patch.dict(
+                os.environ,
+                {
+                    "KAKA_STORAGE_BACKEND": "json-file",
+                    "KAKA_STORAGE_PATH": str(explicit_path),
+                    "KAKA_OBJECT_STORAGE_BACKEND": "minio",
+                    "KAKA_OBJECT_STORAGE_PATH": str(Path(tmp_dir) / "objects"),
+                    "LOCALAPPDATA": str(Path(tmp_dir) / "local-app-data"),
+                },
+                clear=False,
+            ):
+                for key in ("KAKA_STORAGE_DATABASE_URL", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                    os.environ.pop(key, None)
+                get_settings.cache_clear()
+                app = create_app()
+
+        readiness = app.state.storage_bootstrap["platform_infra_readiness"]
+        object_readiness = readiness["object_storage_readiness"]
+        self.assertEqual(app.state.storage_bootstrap["active_object_storage_backend"], "minio")
+        self.assertEqual(object_readiness["active_backend"], "minio")
+        self.assertEqual(object_readiness["readiness_state"], "RESERVED_NOT_LIVE")
+        self.assertFalse(object_readiness["executable"])
+        self.assertFalse(object_readiness["connection_enabled"])
+        self.assertFalse(object_readiness["external_service_connection_enabled"])
+        self.assertFalse(object_readiness["minio_connection_enabled"])
+        self.assertFalse(object_readiness["s3_connection_enabled"])
+        self.assertFalse(app.state.transport_bootstrap["redlines"]["minio_connection_enabled"])
+        reserved_by_backend = {
+            entry["backend"]: entry
+            for entry in readiness["reserved_backends"]
+        }
+        self.assertEqual(reserved_by_backend["minio"]["readiness_state"], "RESERVED_NOT_LIVE")
 
     def test_create_app_mounts_sqlalchemy_storage_bootstrap_projection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -344,7 +422,13 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_PATH", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in (
+                    "KAKA_STORAGE_PATH",
+                    "KAKA_STORAGE_SCOPE",
+                    "KAKA_STORAGE_TEST_ISOLATION",
+                    "KAKA_OBJECT_STORAGE_BACKEND",
+                    "KAKA_OBJECT_STORAGE_PATH",
+                ):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
                 app = create_app()
@@ -368,6 +452,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     self.assertEqual(readiness["queue_readiness"]["internal_durable_queue"]["active_storage_backend"], "sqlalchemy")
                     self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
                     self.assertTrue(readiness["worker_runtime_readiness"]["retry_persistence_enabled"])
+                    self.assertEqual(readiness["object_storage_readiness"]["readiness_state"], "EXECUTABLE")
+                    self.assertTrue(readiness["object_storage_readiness"]["local_filesystem"]["executable"])
                     self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
                     self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
                     self.assertEqual(app.state.transport_bootstrap["storage_bootstrap"], storage_bootstrap)
@@ -612,6 +698,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(entry_strategy["queue_worker"]["repository_backed"])
         self.assertFalse(entry_strategy["queue_worker"]["redis_connection_enabled"])
         self.assertFalse(entry_strategy["queue_worker"]["stage1_scheduler_enabled"])
+        self.assertEqual(entry_strategy["object_storage"]["object_storage_backend"], "local-filesystem")
+        self.assertEqual(entry_strategy["object_storage"]["effective_backend"], "local-filesystem")
+        self.assertTrue(entry_strategy["object_storage"]["local_filesystem_executable"])
+        self.assertTrue(entry_strategy["object_storage"]["snapshot_manifest_repository_backed"])
+        self.assertTrue(entry_strategy["object_storage"]["snapshot_readback_replay_enabled"])
+        self.assertFalse(entry_strategy["object_storage"]["external_service_connection_enabled"])
 
         queue_worker = bootstrap["queue_worker_readiness"]
         self.assertEqual(queue_worker["effective_queue_backend"], "storage")
@@ -640,6 +732,9 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(redlines["redis_connection_enabled"])
         self.assertFalse(redlines["external_queue_connection_enabled"])
         self.assertFalse(redlines["external_worker_process_enabled"])
+        self.assertFalse(redlines["minio_connection_enabled"])
+        self.assertFalse(redlines["s3_connection_enabled"])
+        self.assertFalse(redlines["external_object_storage_connection_enabled"])
         self.assertFalse(redlines["provider_credentials_plaintext_persisted"])
         self.assertFalse(redlines["automated_refund_program_present"])
         self.assertFalse(redlines["automated_refund_program_enabled"])
@@ -672,6 +767,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     "KAKA_STORAGE_DATABASE_URL",
                     "KAKA_STORAGE_SCOPE",
                     "KAKA_STORAGE_TEST_ISOLATION",
+                    "KAKA_OBJECT_STORAGE_BACKEND",
+                    "KAKA_OBJECT_STORAGE_PATH",
                 ):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()
@@ -694,6 +791,8 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     "KAKA_STORAGE_DATABASE_URL",
                     "KAKA_STORAGE_SCOPE",
                     "KAKA_STORAGE_TEST_ISOLATION",
+                    "KAKA_OBJECT_STORAGE_BACKEND",
+                    "KAKA_OBJECT_STORAGE_PATH",
                 ):
                     os.environ.pop(key, None)
                 get_settings.cache_clear()

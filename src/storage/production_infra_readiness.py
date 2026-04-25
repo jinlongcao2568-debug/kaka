@@ -4,6 +4,12 @@ from importlib.util import find_spec
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from storage.object_storage import (
+    LOCAL_OBJECT_STORAGE_BACKEND,
+    RESERVED_OBJECT_STORAGE_BACKENDS,
+    normalize_object_storage_backend_name,
+)
+
 
 DEFAULT_STORAGE_BACKEND = "json-file"
 SQLITE_STORAGE_BACKEND = "sqlite"
@@ -108,8 +114,11 @@ def build_platform_infra_readiness(
     storage_database_url_optional: str | None,
     queue_backend: str = "storage",
     worker_runtime: str = "internal-storage-worker",
+    object_storage_backend: str = LOCAL_OBJECT_STORAGE_BACKEND,
+    object_storage_path_optional: str | None = None,
 ) -> dict[str, Any]:
     active_backend = normalize_storage_backend_name(storage_backend)
+    active_object_storage_backend = normalize_object_storage_backend_name(object_storage_backend)
     sqlalchemy_available = find_spec("sqlalchemy") is not None
     database_url_configured = bool(storage_database_url_optional)
     database_url_dialect = storage_database_url_dialect(storage_database_url_optional)
@@ -125,7 +134,10 @@ def build_platform_infra_readiness(
         database_url_configured=database_url_configured,
         database_url_dialect=database_url_dialect,
     )
-    reserved_backends = _reserved_backend_readiness(active_backend)
+    reserved_backends = _reserved_backend_readiness(
+        active_backend,
+        active_object_storage_backend=active_object_storage_backend,
+    )
     reserved_by_backend = {entry["backend"]: entry for entry in reserved_backends}
     worker_queue_bootstrap = _worker_queue_bootstrap_readiness(
         queue_backend=queue_backend,
@@ -153,6 +165,8 @@ def build_platform_infra_readiness(
             "no_migration_execution": True,
             "no_external_service_connection": True,
             "internal_durable_queue_enabled": True,
+            "local_object_storage_enabled": active_object_storage_backend == LOCAL_OBJECT_STORAGE_BACKEND,
+            "snapshot_manifest_durability_enabled": True,
             "readback_only": True,
             "runtime_behavior_changed": False,
         },
@@ -205,14 +219,11 @@ def build_platform_infra_readiness(
             "real_provider_execution_enabled": False,
         },
         "worker_queue_bootstrap": worker_queue_bootstrap,
-        "object_storage_readiness": {
-            "backends": ["minio", "s3"],
-            "readiness_state": _combined_reserved_state(reserved_by_backend, ("minio", "s3")),
-            "executable": False,
-            "configured": any(reserved_by_backend[backend]["configured"] for backend in ("minio", "s3")),
-            "external_service_connection_enabled": False,
-            "why_not_live": "MinIO/S3 are reserved readback only in the current packet",
-        },
+        "object_storage_readiness": _object_storage_readiness(
+            active_object_storage_backend=active_object_storage_backend,
+            object_storage_path_optional=object_storage_path_optional,
+            reserved_by_backend=reserved_by_backend,
+        ),
         "compose_readiness": {
             "backend": "docker-compose",
             "readiness_state": reserved_by_backend["docker-compose"]["readiness_state"],
@@ -333,12 +344,18 @@ def _sql_backend_state(
     return READINESS_EXECUTABLE
 
 
-def _reserved_backend_readiness(active_backend: str) -> list[dict[str, Any]]:
+def _reserved_backend_readiness(
+    active_backend: str,
+    *,
+    active_object_storage_backend: str,
+) -> list[dict[str, Any]]:
     reserved_backends: list[dict[str, Any]] = []
     for definition in _RESERVED_BACKEND_DEFINITIONS:
         backend = str(definition["backend"])
         configured_aliases = tuple(str(alias) for alias in definition["configured_aliases"])
         configured = active_backend in configured_aliases
+        if backend in RESERVED_OBJECT_STORAGE_BACKENDS:
+            configured = active_object_storage_backend in configured_aliases
         reserved_backends.append(
             {
                 "backend": backend,
@@ -350,6 +367,59 @@ def _reserved_backend_readiness(active_backend: str) -> list[dict[str, Any]]:
             }
         )
     return reserved_backends
+
+
+def _object_storage_readiness(
+    *,
+    active_object_storage_backend: str,
+    object_storage_path_optional: str | None,
+    reserved_by_backend: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    local_active = active_object_storage_backend == LOCAL_OBJECT_STORAGE_BACKEND
+    minio_s3_state = _combined_reserved_state(reserved_by_backend, ("minio", "s3"))
+    return {
+        "active_backend": active_object_storage_backend,
+        "effective_backend": LOCAL_OBJECT_STORAGE_BACKEND if local_active else active_object_storage_backend,
+        "backends": [LOCAL_OBJECT_STORAGE_BACKEND, "minio", "s3"],
+        "readiness_state": READINESS_EXECUTABLE if local_active else minio_s3_state,
+        "executable": local_active,
+        "configured": True,
+        "storage_path": object_storage_path_optional,
+        "storage_backend": LOCAL_OBJECT_STORAGE_BACKEND,
+        "local_filesystem": {
+            "backend": LOCAL_OBJECT_STORAGE_BACKEND,
+            "readiness_state": READINESS_EXECUTABLE,
+            "executable": True,
+            "configured": local_active,
+            "storage_path": object_storage_path_optional,
+            "byte_persistence_enabled": True,
+            "readback_enabled": True,
+        },
+        "snapshot_durability": {
+            "readiness_state": READINESS_EXECUTABLE if local_active else READINESS_RESERVED_NOT_LIVE,
+            "manifest_repository_backed": True,
+            "metadata_backend": "existing_storage_records",
+            "content_addressed_object_keys": True,
+            "content_type_recorded": True,
+            "byte_size_recorded": True,
+            "sha256_recorded": True,
+            "lineage_refs_recorded": True,
+            "created_at_recorded": True,
+            "readback_replay_enabled": local_active,
+            "fail_closed_on_missing_object": True,
+        },
+        "reserved_backends": [
+            dict(reserved_by_backend["minio"]),
+            dict(reserved_by_backend["s3"]),
+        ],
+        "minio_reserved_state": reserved_by_backend["minio"]["readiness_state"],
+        "s3_reserved_state": reserved_by_backend["s3"]["readiness_state"],
+        "connection_enabled": False,
+        "external_service_connection_enabled": False,
+        "minio_connection_enabled": False,
+        "s3_connection_enabled": False,
+        "why_not_live": "Object storage is local-filesystem only in this packet; MinIO/S3 are reserved readiness metadata and never connected",
+    }
 
 
 def _combined_reserved_state(
@@ -402,6 +472,7 @@ def _worker_queue_bootstrap_readiness(
 __all__ = [
     "DEFAULT_STORAGE_BACKEND",
     "EXECUTABLE_STORAGE_BACKENDS",
+    "LOCAL_OBJECT_STORAGE_BACKEND",
     "POSTGRESQL_STORAGE_BACKEND",
     "SQLALCHEMY_STORAGE_BACKEND",
     "SQLITE_STORAGE_BACKEND",

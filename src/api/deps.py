@@ -11,6 +11,7 @@ from typing import Any
 
 from shared.settings import Settings
 from storage.db import DatabaseSession
+from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
 INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY = {
@@ -53,6 +54,17 @@ def get_provider_adapter_bootstrap_payload() -> dict[str, Any]:
 
 def get_worker_queue_bootstrap_payload() -> dict[str, Any]:
     return dict(get_settings().storage_bootstrap_payload()["worker_queue_bootstrap"])
+
+
+def get_object_storage_bootstrap_payload() -> dict[str, Any]:
+    return dict(get_settings().storage_bootstrap_payload()["object_storage_bootstrap"])
+
+
+def get_object_storage_repository() -> ObjectStorageRepository:
+    return ObjectStorageRepository(
+        session=get_database_session(),
+        settings=get_settings(),
+    )
 
 
 def build_transport_unavailable(
@@ -140,6 +152,8 @@ __all__ = [
     "get_database_session",
     "get_provider_adapter_bootstrap_payload",
     "get_provider_adapter_readiness_summary",
+    "get_object_storage_bootstrap_payload",
+    "get_object_storage_repository",
     "get_settings",
     "get_worker_queue_bootstrap_payload",
     "validate_internal_orchestration_payload",

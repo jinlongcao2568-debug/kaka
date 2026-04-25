@@ -11,6 +11,7 @@ from storage.repositories.legal_action_recommendation_repo import LegalActionRec
 from storage.repositories.leadpack_delivery_package_repo import LeadpackDeliveryPackageRepository
 from storage.repositories.offer_recommendation_repo import OfferRecommendationRepository
 from storage.repositories.operator_action_repo import OperatorActionRepository
+from storage.repositories.object_storage_repo import ObjectStorageRepository
 from storage.repositories.opportunity_outcome_event_repo import OpportunityOutcomeEventRepository
 from storage.repositories.order_record_repo import OrderRecordRepository
 from storage.repositories.outreach_execution_outbox_repo import OutreachExecutionOutboxRepository
@@ -41,6 +42,7 @@ __all__ = [
     "LeadpackDeliveryPackageRepository",
     "OfferRecommendationRepository",
     "OperatorActionRepository",
+    "ObjectStorageRepository",
     "OpportunityOutcomeEventRepository",
     "OrderRecordRepository",
     "OutreachExecutionOutboxRepository",

@@ -23,6 +23,7 @@ _DEFAULT_STORAGE_BACKEND = "json-file"
 _DEFAULT_STORAGE_SCOPE = "shared"
 _DEFAULT_QUEUE_BACKEND = "storage"
 _DEFAULT_WORKER_RUNTIME = "internal-storage-worker"
+_DEFAULT_OBJECT_STORAGE_BACKEND = "local-filesystem"
 _PROCESS_STORAGE_SCOPE = "process"
 _DEFAULT_STORAGE_RUNTIME_MODE = "stable-default"
 _EXPLICIT_STORAGE_RUNTIME_MODE = "explicit-path"
@@ -67,6 +68,8 @@ class Settings:
     storage_runtime_mode: str = _DEFAULT_STORAGE_RUNTIME_MODE
     queue_backend: str = _DEFAULT_QUEUE_BACKEND
     worker_runtime: str = _DEFAULT_WORKER_RUNTIME
+    object_storage_backend: str = _DEFAULT_OBJECT_STORAGE_BACKEND
+    object_storage_path_optional: Optional[str] = None
     provider_adapter_config: ProviderAdapterConfig | None = None
 
     @classmethod
@@ -91,6 +94,11 @@ class Settings:
             storage_runtime_mode=_resolve_storage_runtime_mode(storage_path_optional, storage_scope),
             queue_backend=_read_env_optional("KAKA_QUEUE_BACKEND") or _DEFAULT_QUEUE_BACKEND,
             worker_runtime=_read_env_optional("KAKA_WORKER_RUNTIME") or _DEFAULT_WORKER_RUNTIME,
+            object_storage_backend=(
+                _read_env_optional("KAKA_OBJECT_STORAGE_BACKEND")
+                or _DEFAULT_OBJECT_STORAGE_BACKEND
+            ),
+            object_storage_path_optional=_read_env_optional("KAKA_OBJECT_STORAGE_PATH"),
             provider_adapter_config=build_provider_adapter_config_from_env(),
         )
 
@@ -110,6 +118,16 @@ class Settings:
 
         return normalize_storage_backend_name(self.storage_backend)
 
+    def normalized_object_storage_backend(self) -> str:
+        from storage.object_storage import normalize_object_storage_backend_name
+
+        return normalize_object_storage_backend_name(self.object_storage_backend)
+
+    def resolved_object_storage_path(self) -> Path:
+        from storage.object_storage import default_object_storage_path
+
+        return default_object_storage_path(self)
+
     def platform_infra_readiness(self) -> dict[str, Any]:
         from storage.production_infra_readiness import build_platform_infra_readiness
 
@@ -118,6 +136,8 @@ class Settings:
             storage_database_url_optional=self.storage_database_url_optional,
             queue_backend=self.queue_backend,
             worker_runtime=self.worker_runtime,
+            object_storage_backend=self.object_storage_backend,
+            object_storage_path_optional=str(self.resolved_object_storage_path()),
         )
 
     def storage_bootstrap_payload(self) -> dict[str, Any]:
@@ -135,6 +155,11 @@ class Settings:
             "storage_runtime_mode": self.storage_runtime_mode,
             "queue_backend": self.queue_backend,
             "worker_runtime": self.worker_runtime,
+            "object_storage_backend": self.object_storage_backend,
+            "active_object_storage_backend": self.normalized_object_storage_backend(),
+            "object_storage_path": str(self.resolved_object_storage_path()),
+            "object_storage_path_optional": self.object_storage_path_optional,
+            "object_storage_bootstrap": readiness["object_storage_readiness"],
             "worker_queue_bootstrap": readiness["worker_queue_bootstrap"],
             "platform_infra_readiness": readiness,
             "provider_adapter_bootstrap": self.provider_adapter_bootstrap_payload(),

@@ -50,6 +50,15 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertFalse(readiness["worker_runtime_readiness"]["real_provider_execution_enabled"])
         self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
         self.assertFalse(readiness["worker_queue_bootstrap"]["redis_connection_enabled"])
+        self.assertEqual(readiness["object_storage_readiness"]["active_backend"], "local-filesystem")
+        self.assertEqual(readiness["object_storage_readiness"]["readiness_state"], "EXECUTABLE")
+        self.assertTrue(readiness["object_storage_readiness"]["local_filesystem"]["executable"])
+        self.assertTrue(
+            readiness["object_storage_readiness"]["snapshot_durability"][
+                "fail_closed_on_missing_object"
+            ]
+        )
+        self.assertFalse(readiness["object_storage_readiness"]["connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
 

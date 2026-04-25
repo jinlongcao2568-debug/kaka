@@ -27,6 +27,8 @@ from storage.db import (
     build_persisted_at,
 )
 from storage.repositories import WorkerQueueRepository
+from storage.repositories.object_storage_repo import ObjectStorageRepository
+from storage.object_storage import ObjectStorageMissingError
 from shared.settings import Settings
 
 
@@ -36,6 +38,8 @@ STORAGE_ENV_KEYS = (
     "KAKA_STORAGE_DATABASE_URL",
     "KAKA_STORAGE_SCOPE",
     "KAKA_STORAGE_TEST_ISOLATION",
+    "KAKA_OBJECT_STORAGE_BACKEND",
+    "KAKA_OBJECT_STORAGE_PATH",
 )
 RESERVED_INFRA_BACKENDS = {
     "alembic",
@@ -146,6 +150,7 @@ class TestStorageConcurrency(unittest.TestCase):
 
                 settings = Settings.from_env()
                 settings_path = settings.resolved_storage_path()
+                settings_object_path = settings.resolved_object_storage_path()
                 path = DatabaseSession.default_storage_path()
 
         self.assertEqual(path, Path(tmp_dir) / "kaka" / "internal_operator_loop_store.json")
@@ -155,6 +160,11 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertIsNone(settings.storage_path_optional)
         self.assertEqual(settings.storage_scope, "shared")
         self.assertEqual(settings.storage_runtime_mode, "stable-default")
+        self.assertEqual(settings.object_storage_backend, "local-filesystem")
+        self.assertEqual(
+            settings_object_path,
+            Path(tmp_dir) / "kaka" / "object-storage",
+        )
         self.assertEqual(path, settings_path)
 
     def test_settings_from_env_consumes_storage_backend_without_fallback(self) -> None:
@@ -172,6 +182,8 @@ class TestStorageConcurrency(unittest.TestCase):
                     "KAKA_STORAGE_DATABASE_URL",
                     "KAKA_STORAGE_SCOPE",
                     "KAKA_STORAGE_TEST_ISOLATION",
+                    "KAKA_OBJECT_STORAGE_BACKEND",
+                    "KAKA_OBJECT_STORAGE_PATH",
                 ):
                     os.environ.pop(key, None)
 
@@ -297,7 +309,20 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(readiness["worker_runtime_readiness"]["suspend_resume_persistence_enabled"])
         self.assertFalse(readiness["worker_runtime_readiness"]["stage1_scheduler_enabled"])
         self.assertTrue(readiness["worker_queue_bootstrap"]["audit_replay_enabled"])
-        self.assertIn(readiness["object_storage_readiness"]["readiness_state"], RESERVED_OR_NOT_CONFIGURED)
+        self.assertEqual(readiness["object_storage_readiness"]["active_backend"], "local-filesystem")
+        self.assertEqual(readiness["object_storage_readiness"]["readiness_state"], "EXECUTABLE")
+        self.assertTrue(readiness["object_storage_readiness"]["local_filesystem"]["executable"])
+        self.assertTrue(
+            readiness["object_storage_readiness"]["snapshot_durability"][
+                "manifest_repository_backed"
+            ]
+        )
+        self.assertTrue(
+            readiness["object_storage_readiness"]["snapshot_durability"][
+                "readback_replay_enabled"
+            ]
+        )
+        self.assertFalse(readiness["object_storage_readiness"]["connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
         self.assertIn(readiness["compose_readiness"]["readiness_state"], RESERVED_OR_NOT_CONFIGURED)
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
@@ -318,6 +343,34 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(redlines["no_automated_refund"])
         self.assertFalse(redlines["external_software_release_enabled"])
 
+    def test_object_storage_readiness_keeps_minio_s3_reserved_not_live(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_backend="minio",
+                object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+            )
+
+            readiness = settings.storage_bootstrap_payload()["platform_infra_readiness"]
+
+        object_readiness = readiness["object_storage_readiness"]
+        self.assertEqual(object_readiness["active_backend"], "minio")
+        self.assertEqual(object_readiness["readiness_state"], "RESERVED_NOT_LIVE")
+        self.assertFalse(object_readiness["executable"])
+        self.assertFalse(object_readiness["connection_enabled"])
+        self.assertFalse(object_readiness["external_service_connection_enabled"])
+        self.assertFalse(object_readiness["minio_connection_enabled"])
+        self.assertFalse(object_readiness["s3_connection_enabled"])
+        reserved_by_backend = {
+            entry["backend"]: entry
+            for entry in readiness["reserved_backends"]
+        }
+        self.assertEqual(reserved_by_backend["minio"]["readiness_state"], "RESERVED_NOT_LIVE")
+        self.assertFalse(reserved_by_backend["minio"]["executable"])
+
     def test_storage_backend_sqlite_env_opt_in_creates_sqlite_session(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             explicit_path = Path(tmp_dir) / "store.json"
@@ -330,7 +383,13 @@ class TestStorageConcurrency(unittest.TestCase):
                 },
                 clear=False,
             ):
-                for key in ("KAKA_STORAGE_DATABASE_URL", "KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                for key in (
+                    "KAKA_STORAGE_DATABASE_URL",
+                    "KAKA_STORAGE_SCOPE",
+                    "KAKA_STORAGE_TEST_ISOLATION",
+                    "KAKA_OBJECT_STORAGE_BACKEND",
+                    "KAKA_OBJECT_STORAGE_PATH",
+                ):
                     os.environ.pop(key, None)
                 settings = Settings.from_env()
                 session = DatabaseSession.default(settings=settings, reload_from_disk=True)
@@ -351,8 +410,160 @@ class TestStorageConcurrency(unittest.TestCase):
                     self.assertFalse(executable_by_backend["json-file"]["configured"])
                     self.assertTrue(executable_by_backend["sqlite"]["executable"])
                     self.assertTrue(executable_by_backend["sqlite"]["configured"])
+                    self.assertEqual(
+                        readiness["object_storage_readiness"]["readiness_state"],
+                        "EXECUTABLE",
+                    )
+                    self.assertTrue(
+                        readiness["object_storage_readiness"]["snapshot_durability"][
+                            "readback_replay_enabled"
+                        ]
+                    )
                 finally:
                     session.close()
+
+    def test_local_object_storage_persists_snapshot_manifest_with_json_file_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "object-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+            )
+            repo = ObjectStorageRepository(session=DatabaseSession(settings=settings), settings=settings)
+            data = b"public notice bytes"
+
+            manifest = repo.save_snapshot(
+                data,
+                snapshot_id="SNAP-JSON-1",
+                snapshot_kind="evidence_snapshot",
+                content_type="text/plain",
+                source_url_optional="https://example.invalid/notice/1",
+                source_family_optional="public_notice",
+                lineage_refs={
+                    "project_id": "P-1",
+                    "source_trace_id": "TRACE-1",
+                    "audit_ref": "AUDIT-1",
+                },
+                created_at="2026-04-25T00:00:00+00:00",
+            )
+            replay = repo.replay_snapshot("SNAP-JSON-1")
+
+            self.assertEqual(repo.read_snapshot_bytes("SNAP-JSON-1"), data)
+            self.assertEqual(replay["bytes"], data)
+            self.assertEqual(manifest.snapshot_id, "SNAP-JSON-1")
+            self.assertEqual(manifest.snapshot_kind, "evidence_snapshot")
+            self.assertEqual(manifest.content_type, "text/plain")
+            self.assertEqual(manifest.byte_size, len(data))
+            self.assertEqual(len(manifest.sha256), 64)
+            self.assertEqual(replay["object_key"], manifest.object_key)
+            self.assertEqual(replay["lineage_refs"]["project_id"], "P-1")
+            self.assertTrue(manifest.replay_metadata["sha256_verified"])
+            self.assertTrue(manifest.replay_metadata["byte_size_verified"])
+            self.assertTrue((Path(tmp_dir) / "objects" / manifest.object_key).exists())
+
+    def test_local_object_storage_persists_manifest_with_sqlite_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="sqlite",
+                storage_path_optional=str(Path(tmp_dir) / "object-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+            )
+            session = DatabaseSession(settings=settings)
+            repo = ObjectStorageRepository(session=session, settings=settings)
+            manifest = repo.save_snapshot(
+                b"sqlite bytes",
+                snapshot_id="SNAP-SQLITE-1",
+                snapshot_kind="artifact_manifest",
+                content_type="application/octet-stream",
+                lineage_refs={"project_id": "P-SQLITE", "audit_ref": "AUDIT-SQLITE"},
+                created_at="2026-04-25T00:00:00+00:00",
+            )
+            session.close()
+
+            reloaded_repo = ObjectStorageRepository(session=DatabaseSession(settings=settings), settings=settings)
+            try:
+                reloaded = reloaded_repo.get_manifest("SNAP-SQLITE-1")
+                replay = reloaded_repo.replay_snapshot("SNAP-SQLITE-1")
+
+                self.assertIsNotNone(reloaded)
+                self.assertEqual(reloaded.object_key, manifest.object_key)
+                self.assertEqual(reloaded.content_type, "application/octet-stream")
+                self.assertEqual(reloaded.byte_size, len(b"sqlite bytes"))
+                self.assertEqual(reloaded.sha256, manifest.sha256)
+                self.assertEqual(reloaded.snapshot_kind, "artifact_manifest")
+                self.assertEqual(replay["bytes"], b"sqlite bytes")
+                self.assertEqual(replay["readback_state"], "READBACK_READY")
+            finally:
+                reloaded_repo.session.close()
+
+    def test_local_object_storage_persists_manifest_with_sqlalchemy_backend(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            database_path = Path(tmp_dir) / "object-store-sqlalchemy.sqlite"
+            settings = Settings(
+                storage_backend="sqlalchemy",
+                storage_database_url_optional=sqlalchemy_sqlite_url(database_path),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+            )
+            session = DatabaseSession(settings=settings)
+            repo = ObjectStorageRepository(session=session, settings=settings)
+            manifest = repo.save_snapshot(
+                b"sqlalchemy bytes",
+                snapshot_id="SNAP-SA-1",
+                snapshot_kind="evidence_snapshot",
+                content_type="text/plain",
+                lineage_refs={"project_id": "P-SA", "trace_id": "TRACE-SA"},
+                created_at="2026-04-25T00:00:00+00:00",
+            )
+            session.close()
+
+            reloaded_repo = ObjectStorageRepository(session=DatabaseSession(settings=settings), settings=settings)
+            try:
+                replay = reloaded_repo.replay_snapshot("SNAP-SA-1")
+
+                self.assertEqual(replay["manifest"]["object_key"], manifest.object_key)
+                self.assertEqual(replay["manifest"]["content_type"], "text/plain")
+                self.assertEqual(replay["manifest"]["byte_size"], len(b"sqlalchemy bytes"))
+                self.assertEqual(replay["manifest"]["sha256"], manifest.sha256)
+                self.assertEqual(replay["manifest"]["snapshot_kind"], "evidence_snapshot")
+                self.assertEqual(replay["lineage_refs"]["project_id"], "P-SA")
+                self.assertEqual(replay["bytes"], b"sqlalchemy bytes")
+            finally:
+                reloaded_repo.session.close()
+
+    def test_object_storage_replay_fails_closed_for_missing_object_ref(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "object-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+            )
+            repo = ObjectStorageRepository(session=DatabaseSession(settings=settings), settings=settings)
+            manifest = repo.save_snapshot(
+                b"delete me",
+                snapshot_id="SNAP-MISSING-1",
+                snapshot_kind="evidence_snapshot",
+                content_type="text/plain",
+                lineage_refs={"project_id": "P-MISSING"},
+                created_at="2026-04-25T00:00:00+00:00",
+            )
+            (Path(tmp_dir) / "objects" / manifest.object_key).unlink()
+
+            replay = repo.replay_snapshot("SNAP-MISSING-1")
+
+            self.assertEqual(replay["readback_state"], "MISSING_OBJECT")
+            self.assertTrue(replay["manifest_present"])
+            self.assertFalse(replay["object_present"])
+            self.assertEqual(replay["object_key"], manifest.object_key)
+            with self.assertRaises(ObjectStorageMissingError):
+                repo.read_snapshot_bytes("SNAP-MISSING-1")
 
     def test_sqlite_backend_reloads_records_stage_states_work_items_and_operator_actions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -546,6 +757,8 @@ class TestStorageConcurrency(unittest.TestCase):
                 },
                 clear=False,
             ):
+                for key in ("KAKA_OBJECT_STORAGE_BACKEND", "KAKA_OBJECT_STORAGE_PATH"):
+                    os.environ.pop(key, None)
                 settings = Settings.from_env()
                 settings_path = settings.resolved_storage_path()
                 path = DatabaseSession.default_storage_path()
@@ -566,7 +779,12 @@ class TestStorageConcurrency(unittest.TestCase):
                 with tempfile.TemporaryDirectory() as tmp_dir:
                     with patch.dict(os.environ, {"LOCALAPPDATA": tmp_dir, **env}, clear=False):
                         os.environ.pop("KAKA_STORAGE_PATH", None)
-                        for key in ("KAKA_STORAGE_SCOPE", "KAKA_STORAGE_TEST_ISOLATION"):
+                        for key in (
+                            "KAKA_STORAGE_SCOPE",
+                            "KAKA_STORAGE_TEST_ISOLATION",
+                            "KAKA_OBJECT_STORAGE_BACKEND",
+                            "KAKA_OBJECT_STORAGE_PATH",
+                        ):
                             if key not in env:
                                 os.environ.pop(key, None)
 

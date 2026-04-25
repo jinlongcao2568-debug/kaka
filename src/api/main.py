@@ -235,12 +235,15 @@ def _build_transport_bootstrap(
         provider_adapter_bootstrap.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY, {})
     )
     worker_queue_bootstrap = dict(storage_bootstrap.get("worker_queue_bootstrap", {}))
+    object_storage_bootstrap = dict(storage_bootstrap.get("object_storage_bootstrap", {}))
     return {
         "internal_only": True,
         "live_execution_enabled": False,
         "storage_bootstrap": dict(storage_bootstrap),
         "platform_infra_readiness": dict(storage_bootstrap.get("platform_infra_readiness", {})),
         "worker_queue_bootstrap": worker_queue_bootstrap,
+        "object_storage_bootstrap": object_storage_bootstrap,
+        "object_storage_readiness": object_storage_bootstrap,
         "queue_worker_readiness": {
             "queue_backend": worker_queue_bootstrap.get("queue_backend"),
             "effective_queue_backend": worker_queue_bootstrap.get("effective_queue_backend"),
@@ -328,6 +331,30 @@ def _build_transport_bootstrap(
                 "stage1_scheduler_enabled": False,
                 "real_provider_execution_enabled": False,
             },
+            "object_storage": {
+                "current_entry": "local-filesystem evidence snapshot durability seam",
+                "object_storage_backend": object_storage_bootstrap.get("active_backend"),
+                "effective_backend": object_storage_bootstrap.get("effective_backend"),
+                "storage_path": object_storage_bootstrap.get("storage_path"),
+                "local_filesystem_executable": bool(
+                    object_storage_bootstrap.get("local_filesystem", {}).get("executable", False)
+                ),
+                "snapshot_manifest_repository_backed": bool(
+                    object_storage_bootstrap.get("snapshot_durability", {}).get(
+                        "manifest_repository_backed",
+                        False,
+                    )
+                ),
+                "snapshot_readback_replay_enabled": bool(
+                    object_storage_bootstrap.get("snapshot_durability", {}).get(
+                        "readback_replay_enabled",
+                        False,
+                    )
+                ),
+                "minio_connection_enabled": False,
+                "s3_connection_enabled": False,
+                "external_service_connection_enabled": False,
+            },
         },
         "redlines": {
             "new_http_endpoint_added": False,
@@ -348,6 +375,9 @@ def _build_transport_bootstrap(
             "redis_connection_enabled": False,
             "external_queue_connection_enabled": False,
             "external_worker_process_enabled": False,
+            "minio_connection_enabled": False,
+            "s3_connection_enabled": False,
+            "external_object_storage_connection_enabled": False,
             "provider_credentials_plaintext_persisted": False,
             "automated_refund_program_present": False,
             "automated_refund_program_enabled": False,

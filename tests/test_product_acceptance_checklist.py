@@ -196,6 +196,21 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_112["active_subpacket"]["subpacket_id"],
             "PTL-I100-112C-object-storage-snapshot-durability",
         )
+        self.assertIn(
+            "local object storage / artifact manifest / evidence snapshot durability seam",
+            task_112["active_subpacket"]["objective"],
+        )
+        self.assertIn(
+            "MinIO/S3 remains reserved/not connected",
+            task_112["active_subpacket"]["objective"],
+        )
+        serialized_acceptance = yaml.safe_dump(
+            self.checklist["tasks"]["PTL-I100-112-production-platform-infrastructure"],
+            allow_unicode=True,
+        )
+        self.assertIn("object storage", serialized_acceptance)
+        self.assertIn("explicitly reserved seams", serialized_acceptance)
+        self.assertIn("no_live_execution_unlocked", serialized_acceptance)
         self.assertEqual(
             self.checklist["tasks"]["PTL-I100-112-production-platform-infrastructure"][
                 "completed_reference_subpackets"

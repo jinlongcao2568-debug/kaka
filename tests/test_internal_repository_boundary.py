@@ -19,6 +19,7 @@ if str(TESTS) not in sys.path:
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
 from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
+from shared.settings import Settings
 from api.routes.stage7 import list_saleable_opportunities, refresh_saleable_opportunity
 from api.routes.stage8 import create_touch_record, list_contact_targets
 from api.routes.stage9 import create_governance_feedback_event, list_orders
@@ -38,6 +39,7 @@ from storage.repositories import (
     LegalActionActorProfileRepository,
     LegalActionRecommendationRepository,
     LeadpackDeliveryPackageRepository,
+    ObjectStorageRepository,
     OfferRecommendationRepository,
     OpportunityOutcomeEventRepository,
     OrderRecordRepository,
@@ -53,6 +55,7 @@ from storage.repositories import (
     TouchRecordRepository,
     WorkItemRepository,
 )
+from storage.object_storage import ObjectStorageMissingError
 
 
 def sqlalchemy_sqlite_url(path: Path) -> str:
@@ -175,6 +178,51 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
                     )
                 finally:
                     DatabaseSession.default().close()
+
+    def test_object_storage_repository_replays_snapshot_without_stage_lookup_fallback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "object-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+                object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+            )
+            repo = ObjectStorageRepository(session=DatabaseSession(settings=settings), settings=settings)
+            data = b"repository boundary object bytes"
+            manifest = repo.save_snapshot(
+                data,
+                snapshot_id="SNAP-BOUNDARY-1",
+                snapshot_kind="evidence_snapshot",
+                content_type="text/plain",
+                source_url_optional="https://example.invalid/source/1",
+                source_family_optional="public_notice",
+                lineage_refs={
+                    "project_id": "P-BOUNDARY",
+                    "stage_scope": "2",
+                    "source_trace_id": "TRACE-BOUNDARY",
+                    "audit_ref": "AUDIT-BOUNDARY",
+                },
+                created_at="2026-04-25T00:00:00+00:00",
+            )
+            replay = repo.replay_snapshot("SNAP-BOUNDARY-1")
+            (Path(tmp_dir) / "objects" / manifest.object_key).unlink()
+            missing_replay = repo.replay_snapshot("SNAP-BOUNDARY-1")
+
+            self.assertEqual(replay["bytes"], data)
+            self.assertEqual(replay["manifest"]["source_url_optional"], "https://example.invalid/source/1")
+            self.assertEqual(replay["manifest"]["source_family_optional"], "public_notice")
+            self.assertEqual(replay["manifest"]["snapshot_kind"], "evidence_snapshot")
+            self.assertEqual(replay["manifest"]["content_type"], "text/plain")
+            self.assertEqual(replay["manifest"]["byte_size"], len(data))
+            self.assertEqual(replay["manifest"]["sha256"], manifest.sha256)
+            self.assertEqual(replay["manifest"]["lineage_refs"]["project_id"], "P-BOUNDARY")
+            self.assertEqual(missing_replay["readback_state"], "MISSING_OBJECT")
+            self.assertTrue(missing_replay["manifest_present"])
+            self.assertFalse(missing_replay["object_present"])
+            self.assertEqual(missing_replay["object_key"], manifest.object_key)
+            with self.assertRaises(ObjectStorageMissingError):
+                repo.read_snapshot_bytes("SNAP-BOUNDARY-1")
 
     def test_stage6_repository_boundary_persists_formal_objects_and_rehydrates_stage7_inputs(self) -> None:
         stage6 = self.result["stage6"]
