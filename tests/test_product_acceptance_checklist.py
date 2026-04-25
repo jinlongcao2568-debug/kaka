@@ -172,11 +172,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_112c_is_recorded_and_112d_is_active_without_closing_full_112(self) -> None:
+    def test_112d_is_recorded_and_112e_is_active_without_closing_full_112(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
 
         self.assertEqual(task_112["status"], "IN_PROGRESS")
-        self.assertEqual(task_112["planning_state"], "112C_COMPLETED_112D_ACTIVE")
+        self.assertEqual(task_112["planning_state"], "112D_COMPLETED_112E_ACTIVE")
         completed_by_id = {
             row["subpacket_id"]: row for row in task_112["completed_subpackets"]
         }
@@ -199,19 +199,25 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "52d2ad3",
         )
         self.assertEqual(
+            completed_by_id["PTL-I100-112D-docker-compose-health-readiness"][
+                "completed_commit"
+            ],
+            "c8ace6f",
+        )
+        self.assertEqual(
             task_112["active_subpacket"]["subpacket_id"],
-            "PTL-I100-112D-docker-compose-health-readiness",
+            "PTL-I100-112E-backup-restore-rollback-readiness",
         )
         self.assertIn(
-            "Docker/Compose local stack definition + health/readiness seam",
+            "local backup manifest / restore dry-run / rollback readiness seam",
             task_112["active_subpacket"]["objective"],
         )
         self.assertIn(
-            "no docker compose up",
+            "no destructive restore",
             task_112["active_subpacket"]["objective"],
         )
         self.assertIn(
-            "no real external service connection",
+            "no external backup service",
             task_112["active_subpacket"]["objective"],
         )
         self.assertIn("docker_compose_local_stack", task_112["capability_gaps_covered"])

@@ -1142,13 +1142,13 @@ tasks:
     stage_scope: [storage, platform_infra, worker_runtime, observability]
     task_type: product_operability_implementation
     status: IN_PROGRESS
-    planning_state: 112C_COMPLETED_112D_ACTIVE
+    planning_state: 112D_COMPLETED_112E_ACTIVE
     is_current_mainline_next_candidate: false
     priority: P6
     recommended_next_candidate: true
     existing_code_state: PARTIAL_RUNTIME
-    existing_runtime_state: JSON_FILE_SQLITE_SQLALCHEMY_DURABLE_QUEUE_WORKER_AND_OBJECT_STORAGE_SEAMS
-    runtime_change_in_packet: ACTIVE_112D_DOCKER_COMPOSE_HEALTH_READINESS_SEAM
+    existing_runtime_state: JSON_FILE_SQLITE_SQLALCHEMY_DURABLE_QUEUE_WORKER_OBJECT_STORAGE_AND_LOCAL_STACK_SEAMS
+    runtime_change_in_packet: ACTIVE_112E_BACKUP_RESTORE_ROLLBACK_READINESS_SEAM
     completed_subpackets:
       - subpacket_id: PTL-I100-112A-production-platform-storage-seam
         completed_commit: e3870ab
@@ -1162,11 +1162,15 @@ tasks:
         completed_commit: 52d2ad3
         capability_state_after: INTERNAL_READY
         product_closure_state: "local object storage / artifact manifest / evidence snapshot durability seam complete; Docker/Compose, monitoring, backup/restore, and alerting remain future 112 slices"
+      - subpacket_id: PTL-I100-112D-docker-compose-health-readiness
+        completed_commit: c8ace6f
+        capability_state_after: INTERNAL_READY
+        product_closure_state: "Docker/Compose local stack definition and health/readiness seam complete; backup/restore, monitoring, and alerting remain future 112 slices"
     active_subpacket:
-      subpacket_id: PTL-I100-112D-docker-compose-health-readiness
+      subpacket_id: PTL-I100-112E-backup-restore-rollback-readiness
       activation_status: ACTIVE_BY_CURRENT_TASK
-      objective: "Docker/Compose local stack definition + health/readiness seam; no docker compose up, no real external service connection"
-    activation_policy: "112A completed via e3870ab. 112B completed via 1f2471d. 112C completed via 52d2ad3. 112D is the active dedicated current_task packet for Docker/Compose local stack definition and health/readiness seam. Remaining 112 slices still require dedicated current_task packets; provider adapter execution packets remain later because production operation readiness is still the selected blocker."
+      objective: "local backup manifest / restore dry-run / rollback readiness seam; no external backup service, no destructive restore"
+    activation_policy: "112A completed via e3870ab. 112B completed via 1f2471d. 112C completed via 52d2ad3. 112D completed via c8ace6f. 112E is the active dedicated current_task packet for backup/restore + rollback readiness seam. Remaining monitoring/alerting slices still require dedicated current_task packets; provider adapter execution packets remain later because production operation readiness is still the selected blocker."
     hard_depends_on: [PTL-I100-111A-provider-config-and-sandbox-seam]
     soft_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
     objective: "补生产级基础设施：Postgres/SQLAlchemy、migration、queue/worker、object storage、Docker Compose、health/readiness、audit persistence、backup、rollback、monitoring/alerting 第一刀。"
