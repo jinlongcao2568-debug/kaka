@@ -5,11 +5,11 @@ updated_at: "2026-04-26"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_116A_PROJECT_MANAGER_ACTIVE_CONFLICT_VERTICAL_SLICE"
+navigation_state: "PTL_I100_117_STAGE5_RULE_FACTORY_EXPANSION_AND_GOLDEN_CASES"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-116 Stage4 public verification adapters 已通过验收并本地提交 511cd30；本窗口激活 PTL-I100-116A project manager active-project conflict vertical slice。"
+activation_condition: "PTL-I100-116A project manager active-project conflict vertical slice 已通过验收并本地提交 7fba84a；本窗口激活 PTL-I100-117 Stage5 rule factory expansion and golden cases。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-116A-project-manager-active-conflict-vertical-slice"
-  title: "I100-116A Project manager active-project conflict vertical slice"
+  task_id: "PTL-I100-117-rule-factory-expansion-and-golden-cases"
+  title: "I100-117 Stage5 rule factory expansion and golden cases"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,8 +29,10 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
+    - "docs/D3_正式规则码总表与判定说明书.md"
     - "docs/D11_测试验收与金标回归清单.md"
     - "docs/D13_公开可查边界能力清单.md"
+    - "contracts/rules/rule_catalog.json"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
     - "control/product_acceptance_checklist.yaml"
@@ -39,8 +41,8 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-116A-project-manager-active-conflict-vertical-slice"
-  objective: "实现项目经理在建冲突专项纵向切片：基于 Stage2 公开 snapshot、Stage3 parsed fields 和 Stage4 public verification carriers，提取当前项目/候选单位/拟派项目经理，核验公开项目记录、注册单位、合同/竣工/验收时间，输出同名消歧、时间重叠判断、公开证据链、人工复核建议和异议价值摘要。目标是 SANDBOX_READY/readback；只使用公开可查来源，不使用非公开人员隐私数据，不把同名推断当确定事实。"
+  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-117-rule-factory-expansion-and-golden-cases"
+  objective: "扩展 Stage5 rule factory 第一刀：在现有 RuleEvidenceEngine / RuleRunner / EvidenceBuilder / GateEvaluator 架构内，补齐规则注册、启停/状态、版本、输入输出契约、依赖字段/证据、优先级、冲突/降级、审计/readback、覆盖率和 golden cases。目标是 INTERNAL_READY；不绕过 evidence gate，不把推断当事实，不新增正式对象/枚举/gate/exception。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -60,30 +62,31 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-116A-project-manager-active-conflict-vertical-slice"
-    subpacket_id: "PTL-I100-116A-project-manager-active-conflict-vertical-slice"
-    backlog_packet_ref: "PTL-I100-116A-project-manager-active-conflict-vertical-slice"
+    packet_id: "PTL-I100-117-rule-factory-expansion-and-golden-cases"
+    subpacket_id: "PTL-I100-117-rule-factory-expansion-and-golden-cases"
+    backlog_packet_ref: "PTL-I100-117-rule-factory-expansion-and-golden-cases"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "ACTIVE_116A_PROJECT_MANAGER_ACTIVE_CONFLICT_VERTICAL_SLICE"
+    runtime_change_in_packet: "ACTIVE_117_STAGE5_RULE_FACTORY_EXPANSION_AND_GOLDEN_CASES"
     existing_code_state: "PARTIAL_RUNTIME"
-    existing_runtime_state: "NO_DEDICATED_ACTIVE_CONFLICT_VERTICAL_SLICE"
-    title: "I100-116A Project manager active-project conflict vertical slice"
+    existing_runtime_state: "FIRST_SLICE_RULE_FACTORY"
+    title: "I100-117 Stage5 rule factory expansion and golden cases"
     status: "ACTIVE"
-    objective: "专项跑通项目经理在建冲突：从公开公告/候选人公示 parser fields 中提取项目经理与单位，使用 Stage4 公开核验 carrier/readback 核验同名、注册单位、公开项目记录、合同时间、竣工/验收状态，判断是否存在时间重叠风险，并形成证据链、消歧说明、人工复核建议与异议价值摘要。"
+    objective: "在现有 Stage5 规则引擎上扩展规则工厂：规则目录读取、规则启停/状态、版本、输入契约、输出契约、依赖字段、依赖证据、置信度、命中说明、证据绑定、人工复核入口、golden cases、覆盖率、审计、优先级、冲突处理、降级、状态 readback、规则目录映射和规则-文档条款映射。"
     depends_on:
+      - "PTL-I100-116A project manager active-project conflict vertical slice 已完成并本地提交 7fba84a。"
       - "PTL-I100-116 Stage4 public verification adapters 已完成并本地提交 511cd30。"
       - "PTL-I100-115 Stage3 real parser OCR attachments 已完成并本地提交 4eca3f3。"
-      - "PTL-I100-114 Stage2 real public source adapters 整包已完成，raw snapshot 可作为核验 source refs。"
-      - "116 public verification carrier 已可表达公开来源、evidence grade、confidence、failure taxonomy 与 review flag。"
-      - "116A 必须只基于公开可查来源与 replayable snapshot/verification refs；不得使用非公开人员隐私数据、非法身份查询、登录/验证码/反爬绕过或同名即确定的推断。"
+      - "现有 RuleEvidenceEngine 由 RuleRunner / EvidenceBuilder / GateEvaluator 组成，RuleRunner 当前只硬编码 first-slice preferred rules。"
+      - "117 必须复用 contracts/rules/rule_catalog.json 作为正式规则目录，不得新造第二套规则词表。"
+      - "117 必须保持 evidence gate / rule gate / review_request 约束，不得绕过证据闸门或把推断当事实。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-116-stage4-public-verification-adapters"
-      target_active_packet: "PTL-I100-116A-project-manager-active-conflict-vertical-slice"
-      parent_packet: "PTL-I100-116A-project-manager-active-conflict-vertical-slice"
+      previous_active_packet: "PTL-I100-116A-project-manager-active-conflict-vertical-slice"
+      target_active_packet: "PTL-I100-117-rule-factory-expansion-and-golden-cases"
+      parent_packet: "PTL-I100-117-rule-factory-expansion-and-golden-cases"
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
@@ -94,20 +97,20 @@ currentTask:
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
       runtime_change: true
-      runtime_change_in_packet: "ACTIVE_116A_PROJECT_MANAGER_ACTIVE_CONFLICT_VERTICAL_SLICE"
+      runtime_change_in_packet: "ACTIVE_117_STAGE5_RULE_FACTORY_EXPANSION_AND_GOLDEN_CASES"
       docs_change: false
-      contracts_change: false
+      contracts_change: true
       handoff_change: false
       scripts_change: false
       tests_change: true
       fixture_change: false
       control_change: true
       stage2_source_adapter_change: false
-      stage3_parser_change: true
-      stage4_public_verification_change: true
+      stage3_parser_change: false
+      stage4_public_verification_change: false
       stage5_rule_evidence_change: true
-      stage6_fact_review_change: true
-      object_storage_readback_change: true
+      stage6_fact_review_change: false
+      object_storage_readback_change: false
       api_change: false
       automated_refund_program_change: false
       external_release_change: false
@@ -119,13 +122,17 @@ currentTask:
       current_mainline_next_candidate_change: false
       push_allowed: false
     non_goals:
-      - "not broad Stage2 source adapter expansion"
-      - "not broad Stage5 rule factory expansion"
-      - "not broad Stage6 productization"
+      - "not Stage2 source adapter expansion"
+      - "not Stage3 parser expansion"
+      - "not Stage4 verification expansion"
+      - "not Stage6 productization"
       - "not private or gray source collection"
       - "not non-public personnel privacy data"
       - "not illegal identity lookup"
       - "not same-name inference treated as verified fact"
+      - "not new formal schema object"
+      - "not new enum catalog value"
+      - "not new release gate or exception semantics"
       - "not login/captcha/anti-bot bypass"
       - "not uncontrolled live crawler execution"
       - "not external provider execution"
@@ -141,33 +148,25 @@ currentTask:
       - "not a docs/contracts/handoff/scripts change"
       - "not push"
     affected_stages:
-      - "stage3_parsing"
-      - "stage4_verification"
       - "stage5_rules_evidence"
-      - "stage6_fact_review"
-      - "project_manager_active_conflict"
-      - "same_name_disambiguation"
-      - "public_evidence_chain"
-      - "object_storage_snapshot"
+      - "rule_factory"
+      - "rule_catalog"
+      - "rule_golden_cases"
+      - "rule_coverage_report"
+      - "evidence_binding"
       - "governance_testing"
     risk_level: "CRITICAL"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "stage3_parsing_core"
-      - "stage4_verification_core"
       - "stage5_rules_evidence_core"
-      - "stage6_fact_review_core"
-      - "storage_runtime_core"
+      - "contracts_rules_catalog"
       - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
-      - "stage3_owner"
-      - "stage4_owner"
       - "stage5_owner"
-      - "stage6_owner"
-      - "storage_owner"
+      - "contracts_owner"
       - "governance_owner"
       - "testing_owner"
     baseline_dirty_paths: []
@@ -177,20 +176,13 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
+      - "contracts/rules/rule_catalog.json"
       - "src/stage5_rules_evidence/**"
-      - "src/stage6_fact_review/**"
-      - "src/storage/object_storage.py"
-      - "src/storage/repositories/__init__.py"
-      - "src/storage/repositories/object_storage_repo.py"
-      - "src/storage/repository_boundary.py"
-      - "tests/test_project_manager_active_conflict_vertical_slice.py"
-      - "tests/test_stage4_public_verification_adapters.py"
+      - "tests/test_stage5_rule_factory_expansion.py"
       - "tests/test_stage56_evaluators.py"
+      - "tests/test_project_manager_active_conflict_vertical_slice.py"
       - "tests/test_stage12_extractors.py"
       - "tests/test_internal_chain.py"
-      - "tests/test_internal_repository_boundary.py"
       - "tests/test_runtime_governance_guards.py"
       - "tests/test_product_module_registry.py"
       - "tests/test_product_acceptance_checklist.py"
@@ -200,31 +192,33 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
+      - "contracts/rules/rule_catalog.json"
       - "src/stage5_rules_evidence/**"
-      - "src/stage6_fact_review/**"
-      - "src/storage/object_storage.py"
-      - "src/storage/repositories/__init__.py"
-      - "src/storage/repositories/object_storage_repo.py"
-      - "src/storage/repository_boundary.py"
-      - "tests/test_project_manager_active_conflict_vertical_slice.py"
-      - "tests/test_stage4_public_verification_adapters.py"
+      - "tests/test_stage5_rule_factory_expansion.py"
       - "tests/test_stage56_evaluators.py"
+      - "tests/test_project_manager_active_conflict_vertical_slice.py"
       - "tests/test_stage12_extractors.py"
       - "tests/test_internal_chain.py"
-      - "tests/test_internal_repository_boundary.py"
       - "tests/test_runtime_governance_guards.py"
       - "tests/test_product_module_registry.py"
       - "tests/test_product_acceptance_checklist.py"
     forbidden_modification_paths:
       - "docs/**"
-      - "contracts/**"
+      - "contracts/schemas/**"
+      - "contracts/enums/**"
+      - "contracts/gates/**"
+      - "contracts/governance/**"
+      - "contracts/release/**"
+      - "contracts/model/**"
+      - "contracts/exceptions/**"
       - "handoff/**"
       - "scripts/**"
       - "fixtures/**"
       - "src/stage1_tasking/**"
       - "src/stage2_ingestion/**"
+      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
+      - "src/stage6_fact_review/**"
       - "src/stage7_sales/**"
       - "src/stage8_outreach/**"
       - "src/stage9_delivery/**"
@@ -247,41 +241,34 @@ currentTask:
         - "control/product_task_library.yaml"
         - "control/product_module_registry.yaml"
         - "control/product_acceptance_checklist.yaml"
-      contracts: []
+      contracts:
+        - "contracts/rules/rule_catalog.json"
       handoff: []
       scripts:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       tests:
-        - "tests/test_project_manager_active_conflict_vertical_slice.py"
-        - "tests/test_stage4_public_verification_adapters.py"
+        - "tests/test_stage5_rule_factory_expansion.py"
         - "tests/test_stage56_evaluators.py"
+        - "tests/test_project_manager_active_conflict_vertical_slice.py"
         - "tests/test_stage12_extractors.py"
         - "tests/test_internal_chain.py"
-        - "tests/test_internal_repository_boundary.py"
         - "tests/test_runtime_governance_guards.py"
         - "tests/test_product_module_registry.py"
         - "tests/test_product_acceptance_checklist.py"
       runtime:
-        - "src/stage3_parsing/**"
-        - "src/stage4_verification/**"
         - "src/stage5_rules_evidence/**"
-        - "src/stage6_fact_review/**"
-        - "src/storage/object_storage.py"
-        - "src/storage/repositories/object_storage_repo.py"
-        - "src/storage/repository_boundary.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_project_manager_active_conflict_vertical_slice -v"
-      - "python -m unittest tests.test_stage4_public_verification_adapters -v"
+      - "python -m unittest tests.test_stage5_rule_factory_expansion -v"
       - "python -m unittest tests.test_stage56_evaluators -v"
+      - "python -m unittest tests.test_project_manager_active_conflict_vertical_slice -v"
       - "python -m unittest tests.test_stage12_extractors -v"
       - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
-      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
       - "python -m unittest tests.test_product_module_registry -v"
       - "python -m unittest tests.test_product_acceptance_checklist -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage3_parsing/**'',''src/stage4_verification/**'',''src/stage5_rules_evidence/**'',''src/stage6_fact_review/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_project_manager_active_conflict_vertical_slice.py'',''tests/test_stage4_public_verification_adapters.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''contracts/rules/rule_catalog.json'',''src/stage5_rules_evidence/**'',''tests/test_stage5_rule_factory_expansion.py'',''tests/test_stage56_evaluators.py'',''tests/test_project_manager_active_conflict_vertical_slice.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -289,16 +276,15 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_project_manager_active_conflict_vertical_slice -v": 300000
-      "python -m unittest tests.test_stage4_public_verification_adapters -v": 300000
+      "python -m unittest tests.test_stage5_rule_factory_expansion -v": 300000
       "python -m unittest tests.test_stage56_evaluators -v": 300000
+      "python -m unittest tests.test_project_manager_active_conflict_vertical_slice -v": 300000
       "python -m unittest tests.test_stage12_extractors -v": 300000
       "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
-      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
       "python -m unittest tests.test_product_module_registry -v": 300000
       "python -m unittest tests.test_product_acceptance_checklist -v": 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage3_parsing/**'',''src/stage4_verification/**'',''src/stage5_rules_evidence/**'',''src/stage6_fact_review/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_project_manager_active_conflict_vertical_slice.py'',''tests/test_stage4_public_verification_adapters.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''contracts/rules/rule_catalog.json'',''src/stage5_rules_evidence/**'',''tests/test_stage5_rule_factory_expansion.py'',''tests/test_stage56_evaluators.py'',''tests/test_project_manager_active_conflict_vertical_slice.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python tests/run_tests.py": 600000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
@@ -309,38 +295,36 @@ currentTask:
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "实际改动命中 forbidden_modification_paths"
       - "需要修改 docs、contracts、handoff、scripts、fixtures"
-      - "需要修改 Stage1、Stage2 或 Stage7-9 业务 runtime"
-      - "需要新增正式业务对象、枚举、release gate、exception 语义"
+      - "需要修改 Stage1、Stage2、Stage3、Stage4 或 Stage6-9 业务 runtime"
+      - "需要新增正式业务对象、schema、enum、release gate、exception 语义"
+      - "需要修改 contracts/rules/rule_catalog.json 以外的 contracts 文件"
       - "需要访问非公开接口、抓取新来源、连接未 allowlist 的真实网站、绕过登录、验证码或反爬"
       - "需要真实 provider 调用、真实触达、真实支付、真实交付、真实退款或自动退款执行"
       - "需要 push"
     definition_of_done:
-      - "项目经理在建冲突专项 carrier 能表达当前项目、候选单位、拟派项目经理、公开核验来源、疑似冲突项目、时间区间、同名消歧、证据强度、复核建议和异议价值摘要。"
-      - "专项链路能消费 Stage2 snapshot refs、Stage3 parsed fields 与 Stage4 verification carriers，不新增 Stage2 source adapter。"
-      - "同名、弱证据、缺公开竣工/验收状态、缺合同时间、冲突证据不完整时必须 review_required/fail closed，不把推断当确定事实。"
-      - "只使用公开可查来源；不访问非公开人员隐私数据、不做非法身份查询、不绕过权限，不输出客户可见法律结论。"
+      - "Stage5 rule factory 能从 contracts/rules/rule_catalog.json 读取扩展规则目录，不再只依赖硬编码 first-slice preferred rules。"
+      - "规则 selection/execution trace 能表达 registration、enabled/disabled/status、version、priority、input/output contract、dependency fields/evidence、evidence binding、confidence、reason、audit/readback 和 degrade/conflict reasons。"
+      - "项目经理在建冲突专项至少有规则目录映射和 golden case 覆盖，但不得绕过 evidence gate 或把推断当事实。"
+      - "rule coverage report 和 golden cases 可由测试稳定回放。"
       - "targeted tests、验收清单测试与 formal checks 全部通过。"
     deliverables:
-      - "activated 116A current_task packet"
-      - "project manager active-project conflict vertical slice runtime/readback first cut"
-      - "same-name disambiguation, time-window overlap, public evidence chain, review recommendation and objection-value summary tests"
-      - "module registry update for any new Stage3/Stage4/Stage5/Stage6 files if needed"
+      - "activated 117 current_task packet"
+      - "Stage5 rule factory expansion and golden cases"
+      - "rule catalog/readback/coverage/audit/priority/conflict/degrade tests"
+      - "module registry update for any new Stage5 files if needed"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
       - "architecture_owner"
-      - "stage3_owner"
-      - "stage4_owner"
       - "stage5_owner"
-      - "stage6_owner"
-      - "storage_owner"
+      - "contracts_owner"
       - "governance_owner"
       - "testing_owner"
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_116A_PROJECT_MANAGER_ACTIVE_CONFLICT_VERTICAL_SLICE_SANDBOX_READY"
-      signoff_meaning: "本批准只允许项目经理在建冲突公开证据专项第一刀；不批准新增来源、非公开人员隐私数据、非法身份查询、同名即确定、客户可见法律结论、真实 provider、真实触达、真实支付/交付/退款、自动退款、external release 或 push。"
+      signoff_status: "APPROVED_FOR_117_STAGE5_RULE_FACTORY_EXPANSION_INTERNAL_READY"
+      signoff_meaning: "本批准只允许 Stage5 rule factory expansion / golden cases 第一刀；不批准修改 schema/enum/gate/exception、新增外部执行、绕过 evidence gate、把推断当事实、真实 provider、真实触达、真实支付/交付/退款、自动退款、external release 或 push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml is the only active execution source."
@@ -348,7 +332,7 @@ currentTask:
       - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
   hardBlockers:
     - "external software release remains blocked"
-    - "project manager active-conflict judgement remains public-source only and review-gated for uncertain data"
+    - "Stage5 rule outputs remain evidence-gated and review-gated for uncertain data"
     - "private or gray source collection remains forbidden"
     - "login/captcha/anti-bot bypass remains forbidden"
     - "uncontrolled live crawling remains blocked"
@@ -357,16 +341,16 @@ currentTask:
     - "real payment / charge / delivery / refund remains blocked until gated"
     - "automated refund execution is out of scope"
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 116A 项目经理在建冲突专项第一刀。"
+    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 117 Stage5 rule factory expansion and golden cases。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
     - "不得修改 docs、contracts、handoff、scripts、fixtures。"
-    - "不得修改 Stage1、Stage2 或 Stage7-9 业务 runtime。"
+    - "不得修改 Stage1、Stage2、Stage3、Stage4 或 Stage6-9 业务 runtime。"
     - "不得访问非公开接口、新增采集来源、抓取非公开来源、未登记真实网站，或绕过登录、验证码、反爬。"
-    - "不得新增 Stage2 source adapter，不得使用非公开人员隐私数据，不得把同名推断当确定事实，不得输出客户可见法律结论。"
+    - "不得绕过 evidence gate，不得把推断当事实，不得新增 schema/enum/gate/exception 语义。"
     - "不得调用真实 provider API、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得发布客户页面、真实外发 LeadPack、放开 external release。"
     - "不得 push。"
   nextActions:
-    - "116A 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-117 rule factory expansion and golden cases。"
-  status_note: "PTL-I100-116A 已激活为项目经理在建冲突专项纵向切片；当前目标是 SANDBOX_READY/public-source readback，不新增来源，不使用非公开人员隐私数据，不把同名推断当确定事实。"
+    - "117 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-119A real challenger identification hardening。"
+  status_note: "PTL-I100-117 已激活为 Stage5 rule factory expansion and golden cases；当前目标是 INTERNAL_READY，不绕过 evidence gate，不新增正式 schema/enum/gate/exception。"

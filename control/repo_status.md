@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-116A-project-manager-active-conflict-vertical-slice (ACTIVE; project manager active-project conflict vertical slice. This packet may consume Stage2 public snapshot refs, Stage3 parsed fields, and Stage4 public verification carriers to produce public-only active-conflict evidence chains, same-name disambiguation trace, time-window overlap judgement, manual review recommendation, and objection-value summary. It does not add Stage2 source adapters, use non-public personnel privacy data, perform illegal identity lookup, treat same-name inference as verified fact, create customer-visible legal conclusions, call real providers, perform real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
+Current Workstream: PTL-I100-117-rule-factory-expansion-and-golden-cases (ACTIVE; Stage5 rule factory expansion and golden cases. This packet may update contracts/rules/rule_catalog.json and src/stage5_rules_evidence/** to expand rule registration, enabled/status/version metadata, input/output contracts, dependency fields/evidence, evidence binding, rule priority, conflict/degrade handling, audit/readback, coverage report, and golden cases. It does not modify schemas/enums/gates/exceptions, bypass evidence gate, treat inference as fact, call real providers, perform real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -23,6 +23,7 @@ Current Blockers:
 - Stage3 parser output remains unverified until Stage4 verification; parser carriers must not be written as final facts or customer-visible conclusions.
 - Stage4 verification remains public-source only and review-gated for weak, ambiguous, conflicting, or non-replayable evidence.
 - Project manager active-conflict judgement remains public-source only; same-name matches, missing completion status, missing contract time, or weak evidence must degrade to manual review.
+- Stage5 rule outputs remain evidence-gated; rule factory expansion must not bypass evidence_gate_decision / rule_gate_decision / review_request.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -31,14 +32,15 @@ Product Open Capability Baseline:
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 - PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
 
-Current 116A Scope:
-- Activate PTL-I100-116A as the project manager active-project conflict vertical slice after PTL-I100-116 completion.
-- Consume Stage2 public snapshot refs, Stage3 parsed fields, and Stage4 public verification carriers to produce current project, candidate company, project manager, public verification sources, possible conflicting project, conflict time range, same-name disambiguation, evidence strength, review recommendation, and objection-value summary.
-- Target capability state is SANDBOX_READY/readback; do not add Stage2 source adapters, do not broaden Stage5 rule factory, do not perform broad Stage6 productization, do not create customer-visible delivery or final legal conclusion.
-- Missing public identifiers, same-name ambiguity, missing registered unit evidence, missing completion/acceptance status, missing contract time, weak public evidence, or non-replayable snapshots must degrade to manual review without fabricating facts.
-- Keep private/gray source collection, non-public personnel privacy data, illegal identity lookup, login/captcha/anti-bot bypass, uncontrolled live crawling, real provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release out of this slice.
+Current 117 Scope:
+- Activate PTL-I100-117 as the Stage5 rule factory expansion and golden cases packet after PTL-I100-116A completion.
+- Expand Stage5 within the existing RuleEvidenceEngine / RuleRunner / EvidenceBuilder / GateEvaluator architecture; do not create a second rule runtime.
+- Consume contracts/rules/rule_catalog.json as the formal rule directory and expose rule registration, enabled/status/version metadata, input/output contracts, dependency fields/evidence, evidence binding, confidence, reason, audit/readback, priority, conflict/degrade status, coverage report, and golden cases.
+- Target capability state is INTERNAL_READY/readback; do not modify schemas/enums/gates/exceptions, Stage4 verification logic, Stage6 product facts, customer-visible delivery, or legal conclusions.
+- Keep private/gray source collection, non-public personnel privacy data, login/captcha/anti-bot bypass, uncontrolled live crawling, real provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release out of this slice.
 
 Recently Closed:
+- PTL-I100-116A-project-manager-active-conflict-vertical-slice completed and committed locally: 7fba84a. It added a public-source project-manager active-conflict readback carrier, same-name disambiguation trace, time-window overlap judgement, evidence chain, manual review recommendation, and objection-value summary without new Stage2 source adapters, non-public personnel data, illegal identity lookup, same-name-as-fact, customer-visible legal conclusions, real providers, outreach, payment, delivery, refund, automated refund, external release, or push.
 - PTL-I100-116-stage4-public-verification-adapters completed and committed locally: 511cd30. It added Stage4 public verification adapter/readback carrier for 8 public verification directions, evidence grade, confidence, source/snapshot refs, failure taxonomy, and fail-closed review behavior without 116A active-conflict judgement, Stage5 rule hits, Stage6 product facts, customer-visible legal conclusions, real providers, outreach, payment, delivery, refund, automated refund, external release, or push.
 - PTL-I100-115-stage3-real-parser-ocr-attachments completed and committed locally: 4eca3f3. It added Stage3 real parser carrier/readback seam for HTML/PDF/OCR/Word/Excel/unknown attachment handling, field slices, raw text, locators, confidence, parser audit, parse error taxonomy, and review flags while keeping parser output UNVERIFIED and not customer-visible.
 - PTL-I100-114-stage2-real-public-source-adapters completed and committed locally through final subpacket 114I: af13a96. The Stage2 public source adapter series now covers 114A-114I allowlisted/sandbox public-source capture/readback without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
@@ -63,27 +65,27 @@ Recently Closed:
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5.
 
 Allowed Actions (current):
-- update Stage3, Stage4, Stage5, and Stage6 files listed by current_task for the 116A project-manager active-conflict vertical slice only
-- update local object storage / repository boundary files listed by current_task only when needed for replayable snapshot refs, verification refs, or active-conflict readback
-- update control/product_module_registry.yaml only if new Stage3/Stage4/Stage5/Stage6 runtime files must be registered
-- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, and control/product_acceptance_checklist.yaml for 116A status
+- update contracts/rules/rule_catalog.json and src/stage5_rules_evidence/** for the 117 rule factory expansion only
+- update control/product_module_registry.yaml only if new Stage5 runtime/test files must be registered
+- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, and control/product_acceptance_checklist.yaml for 117 status
 - update targeted tests listed in control/current_task.yaml
 - run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet
 
 Forbidden Actions (current):
 - Any docs/** change
-- Any contracts/** change
+- Any contracts/** change except contracts/rules/rule_catalog.json
 - Any handoff/** change
 - Any scripts/** change
 - Any fixtures/** change
-- Any Stage1, Stage2, or Stage7-9 business runtime change
+- Any Stage1, Stage2, Stage3, Stage4, or Stage6-9 business runtime change
+- Any contracts file outside contracts/rules/rule_catalog.json
 - Any src/storage/models/** change
 - Any docker compose up, container execution, live deployment, migration, or unauthorized production DB connection
 - Any private/gray source collection, login bypass, captcha bypass, anti-bot bypass, source allowlist bypass, uncontrolled live crawling, or new source collection
-- Any new Stage2 source adapter or source allowlist expansion
-- Any non-public personnel privacy data or illegal identity lookup
-- Any same-name inference treated as verified fact
-- Any active-conflict output treated as customer-visible legal conclusion or external assertion
+- Any schema/enum/gate/exception semantic addition
+- Any evidence gate or rule gate bypass
+- Any inference treated as verified fact
+- Any rule output treated as customer-visible legal conclusion or external assertion
 - Any true external/live provider call
 - Any real LeadPack external delivery or client-visible formal export/page release
 - Any real touch, payment, delivery, or refund
@@ -98,7 +100,7 @@ State Semantics:
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - PTL-I100-112 is completed through 112A-112F; production/live pilots still require later dedicated packets.
-- PTL-I100-113, PTL-I100-114A through PTL-I100-114I, PTL-I100-115, and PTL-I100-116 are completed; PTL-I100-116A is active as the project manager active-conflict vertical slice. PTL-I100-117 through PTL-I100-121 and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
+- PTL-I100-113, PTL-I100-114A through PTL-I100-114I, PTL-I100-115, PTL-I100-116, and PTL-I100-116A are completed; PTL-I100-117 is active as the Stage5 rule factory expansion and golden cases packet. PTL-I100-119A through PTL-I100-121 and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
@@ -106,16 +108,15 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_project_manager_active_conflict_vertical_slice -v
-- python -m unittest tests.test_stage4_public_verification_adapters -v
+- python -m unittest tests.test_stage5_rule_factory_expansion -v
 - python -m unittest tests.test_stage56_evaluators -v
+- python -m unittest tests.test_project_manager_active_conflict_vertical_slice -v
 - python -m unittest tests.test_stage12_extractors -v
 - python -m unittest tests.test_internal_chain.TestInternalChain -v
-- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage3_parsing/**'',''src/stage4_verification/**'',''src/stage5_rules_evidence/**'',''src/stage6_fact_review/**'',''src/storage/object_storage.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/object_storage_repo.py'',''src/storage/repository_boundary.py'',''tests/test_project_manager_active_conflict_vertical_slice.py'',''tests/test_stage4_public_verification_adapters.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''contracts/rules/rule_catalog.json'',''src/stage5_rules_evidence/**'',''tests/test_stage5_rule_factory_expansion.py'',''tests/test_stage56_evaluators.py'',''tests/test_project_manager_active_conflict_vertical_slice.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1

@@ -1455,14 +1455,16 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P10A
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: NO_DEDICATED_ACTIVE_CONFLICT_VERTICAL_SLICE
-    runtime_change_in_packet: ACTIVE_116A_PROJECT_MANAGER_ACTIVE_CONFLICT_VERTICAL_SLICE
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-116 completed via 511cd30. This core product value slice must remain public-source only and must not treat same-name inference as verified fact."
+    runtime_change_in_packet: COMPLETED_116A_PROJECT_MANAGER_ACTIVE_CONFLICT_VERTICAL_SLICE
+    activation_policy: "Completed via 7fba84a. This packet implemented the public-source project-manager active-conflict vertical slice; Stage5 rule factory expansion is activated separately by control/current_task.yaml."
+    completed_commit: 7fba84a
+    capability_state_after: SANDBOX_READY
     hard_depends_on:
       - PTL-I100-114-stage2-real-public-source-adapters
       - PTL-I100-115-stage3-real-parser-ocr-attachments
@@ -1496,15 +1498,17 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage5_rules_evidence, rule_factory, testing]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P11
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: FIRST_SLICE_RULE_FACTORY
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet after Stage4 verification adapters provide public evidence inputs."
-    hard_depends_on: [PTL-I100-116-stage4-public-verification-adapters]
+    runtime_change_in_packet: ACTIVE_117_STAGE5_RULE_FACTORY_EXPANSION_AND_GOLDEN_CASES
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-116A completed via 7fba84a; target is INTERNAL_READY rule factory expansion/golden cases while preserving evidence gate and no-fabrication boundaries."
+    hard_depends_on:
+      - PTL-I100-116-stage4-public-verification-adapters
+      - PTL-I100-116A-project-manager-active-conflict-vertical-slice
     soft_depends_on: [PTL-I100-103-stage5-rule-factory]
     objective: "扩展 Stage5 全规则目录、规则版本、启停、依赖字段/证据、规则冲突、降级、审计、覆盖率和 golden cases。"
     capability_gaps_covered:
