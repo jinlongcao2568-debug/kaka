@@ -225,6 +225,14 @@ acceptance_model:
     completion_rule: "Do not call a task product-complete only because internal preview/readback or tests pass."
     refund_boundary: "No automated refund program; refund handling remains manual exception record and governed review."
     open_capability_policy: "All product-required capabilities except automated refund execution must map to staged implementation tasks and ultimately pass PTL-I100-118 full product operational acceptance."
+acceptance_checklist_ref: control/product_acceptance_checklist.yaml
+acceptance_checklist_policy:
+  status: EFFECTIVE
+  rule: "Every non-completed PTL-I100 implementation or pilot task must reference control/product_acceptance_checklist.yaml and pass the checklist entry for its task_id before closeout."
+  mandatory_layers: [engineering_regression, capability_state, product_closure]
+  live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
+  final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
+  refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
 task_count: 48
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
@@ -865,6 +873,7 @@ tasks:
     non_goals: ["不实现自动退款程序", "不无审批真实触达", "不无审计真实交付", "不把 external software release 当作售卖产品", "不绕过 provider adapter sandbox/dry-run/readback"]
     expected_outputs: ["provider adapter seam and config readback", "operator approval/audit gated execution path", "sandbox/dry-run first execution records", "live flag defaults blocked until explicit operator approval", "manual refund exception only"]
     acceptance_checks: ["provider_adapters_have_single_config_source", "live_execution_requires_approval_audit_operator_action", "automated_refund_remains_absent", "sales_delivery_payment_readback_is_repository_backed"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-111-live-provider-adapters-no-auto-refund
     suggested_packet_refs:
       - PTL-I100-111A-provider-config-and-sandbox-seam
       - PTL-I100-111B-sales-outreach-adapter-execution
@@ -981,6 +990,7 @@ tasks:
     non_goals: ["不无审批 live send", "不使用 private/灰色联系人来源", "不误导性话术", "不自动退款程序"]
     expected_outputs: ["sandbox outreach execution records", "provider result readback", "approval/audit proof", "frequency/opt-out guard tests"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "no_unapproved_live_send", "audit_and_opt_out_visible"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-111B-sales-outreach-adapter-execution
     suggested_packet_refs: [PTL-I100-111B-sales-outreach-adapter-execution]
     risk_level: CRITICAL
   - task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
@@ -1041,6 +1051,7 @@ tasks:
     non_goals: ["不发布 public software", "不无审批客户可见发布", "不无审计 external delivery", "不把内部黑箱评分外发"]
     expected_outputs: ["sandbox CRM sync records", "sandbox quote records", "customer-visible artifact candidate controls", "export/page audit readback"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "customer_visible_requires_approval_audit", "field_masking_and_hash_visible"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-111C-crm-quote-and-delivery-page-adapters
     suggested_packet_refs: [PTL-I100-111C-crm-quote-and-delivery-page-adapters]
     risk_level: CRITICAL
   - task_id: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
@@ -1082,6 +1093,7 @@ tasks:
     non_goals: ["不自动退款程序", "不无审批 live charge", "不无审计 delivery", "不绕过 provider config"]
     expected_outputs: ["sandbox payment records", "sandbox delivery fulfillment records", "receipt/invoice/readback", "manual refund exception audit"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "automated_refund_absent", "payment_delivery_audit_visible"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
     suggested_packet_refs: [PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund]
     risk_level: CRITICAL
   - task_id: PTL-I100-111E-provider-reliability-and-circuit-breaker
@@ -1120,6 +1132,7 @@ tasks:
     non_goals: ["不默认 live execution", "不绕过 approval/audit", "不自动退款程序"]
     expected_outputs: ["provider reliability policy", "health/readback", "circuit breaker state", "failure taxonomy", "suspended fallback"]
     acceptance_checks: ["capability_state_APPROVAL_READY", "provider_health_visible", "circuit_breaker_blocks_when_unhealthy", "no_live_default"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-111E-provider-reliability-and-circuit-breaker
     suggested_packet_refs: [PTL-I100-111E-provider-reliability-and-circuit-breaker]
     risk_level: CRITICAL
   - task_id: PTL-I100-112-production-platform-infrastructure
@@ -1128,15 +1141,20 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [storage, platform_infra, worker_runtime, observability]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: 112A_COMPLETED_112B_CANDIDATE_NOT_ACTIVATED
     is_current_mainline_next_candidate: false
     priority: P6
     recommended_next_candidate: true
     existing_code_state: PARTIAL_RUNTIME
-    existing_runtime_state: JSON_FILE_AND_SQLITE_LOCAL_ONLY
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Recommended next implementation after 111A closeout. Requires dedicated current_task packet; provider adapter execution packets remain later because real data durability is now the selected blocker."
+    existing_runtime_state: JSON_FILE_SQLITE_AND_SQLALCHEMY_STORAGE_SEAM
+    runtime_change_in_packet: COMPLETED_FOR_112A_STORAGE_SEAM
+    completed_subpackets:
+      - subpacket_id: PTL-I100-112A-production-platform-storage-seam
+        completed_commit: e3870ab
+        capability_state_after: INTERNAL_READY
+        product_closure_state: "storage backend seam complete; queue/worker, object storage, Docker/Compose, monitoring, backup/restore, and alerting remain future 112 slices"
+    activation_policy: "112A completed via e3870ab. Remaining 112 slices require dedicated current_task packets; provider adapter execution packets remain later because real data durability is still the selected blocker."
     hard_depends_on: [PTL-I100-111A-provider-config-and-sandbox-seam]
     soft_depends_on: [PTL-I100-106-platform-foundation-and-full-chain-entry]
     objective: "补生产级基础设施：Postgres/SQLAlchemy、migration、queue/worker、object storage、Docker Compose、health/readiness、audit persistence、backup、rollback、monitoring/alerting 第一刀。"
@@ -1159,6 +1177,7 @@ tasks:
     non_goals: ["不改变业务语义", "不放开真实触达/支付/交付", "不实现自动退款程序"]
     expected_outputs: ["production backend design and seam", "migration path", "worker/outbox durability", "object storage adapter", "health/readiness checks"]
     acceptance_checks: ["engineering_regression_pass", "capability_state_INTERNAL_READY", "no_live_execution_unlocked"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-112-production-platform-infrastructure
     suggested_packet_refs: [PTL-I100-112-production-platform-infrastructure]
     risk_level: CRITICAL
   - task_id: PTL-I100-113-stage1-scheduler-production-loop
@@ -1196,6 +1215,7 @@ tasks:
     non_goals: ["不接非公开数据源", "不绕过 provider/source governance"]
     expected_outputs: ["scheduler runtime", "task queue readback", "retry/pause/resume", "audit log"]
     acceptance_checks: ["capability_state_INTERNAL_READY", "scheduler_replayable", "audit_visible"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-113-stage1-scheduler-production-loop
     suggested_packet_refs: [PTL-I100-113-stage1-scheduler-production-loop]
     risk_level: HIGH
   - task_id: PTL-I100-114-stage2-real-public-source-adapters
@@ -1267,6 +1287,7 @@ tasks:
     non_goals: ["不绕过登录", "不破解验证码", "不使用 private/灰色/非公开数据"]
     expected_outputs: ["public source adapter seam", "raw capture persistence", "source health/readback", "fetch audit"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "public_only_boundary_locked", "raw_snapshot_hash_replayable"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-114-stage2-real-public-source-adapters
     suggested_packet_refs: [PTL-I100-114-stage2-real-public-source-adapters]
     risk_level: CRITICAL
   - task_id: PTL-I100-115-stage3-real-parser-ocr-attachments
@@ -1310,6 +1331,7 @@ tasks:
     non_goals: ["不把未核验解析结果包装成确定事实", "不跳过 Stage4 verification"]
     expected_outputs: ["parser adapters", "field source slices", "confidence and coordinates", "parser golden cases"]
     acceptance_checks: ["capability_state_INTERNAL_READY", "field_slice_replayable", "parser_failure_degrades"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-115-stage3-real-parser-ocr-attachments
     suggested_packet_refs: [PTL-I100-115-stage3-real-parser-ocr-attachments]
     risk_level: CRITICAL
   - task_id: PTL-I100-116-stage4-public-verification-adapters
@@ -1353,6 +1375,7 @@ tasks:
     non_goals: ["不访问非公开接口", "不绕过权限", "不把销售判断冒充法律结论"]
     expected_outputs: ["verification adapter seam", "public source refs", "snapshot refs", "confidence/review flags", "failure taxonomy"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "public_boundary_locked", "verification_readback_auditable"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-116-stage4-public-verification-adapters
     suggested_packet_refs: [PTL-I100-116-stage4-public-verification-adapters]
     risk_level: CRITICAL
   - task_id: PTL-I100-116A-project-manager-active-conflict-vertical-slice
@@ -1393,6 +1416,7 @@ tasks:
     non_goals: ["不使用非公开人员隐私数据", "不非法身份查询", "不把同名推断当确定事实"]
     expected_outputs: ["active conflict vertical slice carrier", "public source refs", "disambiguation trace", "evidence chain", "review recommendation"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "public_only_boundary_locked", "same_name_disambiguation_visible", "conflict_evidence_replayable"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-116A-project-manager-active-conflict-vertical-slice
     suggested_packet_refs: [PTL-I100-116A-project-manager-active-conflict-vertical-slice]
     risk_level: CRITICAL
   - task_id: PTL-I100-117-rule-factory-expansion-and-golden-cases
@@ -1436,6 +1460,7 @@ tasks:
     non_goals: ["不绕过证据闸门", "不把推断当事实"]
     expected_outputs: ["expanded rule catalog", "golden cases", "coverage report", "audit/readback"]
     acceptance_checks: ["capability_state_INTERNAL_READY", "golden_cases_pass", "evidence_binding_visible"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-117-rule-factory-expansion-and-golden-cases
     suggested_packet_refs: [PTL-I100-117-rule-factory-expansion-and-golden-cases]
     risk_level: HIGH
   - task_id: PTL-I100-119A-real-challenger-identification-hardening
@@ -1476,6 +1501,7 @@ tasks:
     non_goals: ["不把内部黑箱评分直接外发", "不把销售判断冒充法律结论", "不无复核触达"]
     expected_outputs: ["real challenger candidate set", "buyer fit scorecard", "motivation/capacity trace", "sales priority readback"]
     acceptance_checks: ["capability_state_INTERNAL_READY", "real_challenger_trace_visible", "sales_priority_explainable", "customer_visible_fields_gated"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-119A-real-challenger-identification-hardening
     suggested_packet_refs: [PTL-I100-119A-real-challenger-identification-hardening]
     risk_level: HIGH
   - task_id: PTL-I100-119-stage6-product-package-hardening
@@ -1516,6 +1542,7 @@ tasks:
     non_goals: ["不把未复核推断当事实", "不直接客户可见发布", "不让销售反馈污染事实层"]
     expected_outputs: ["Stage6 product package readiness carrier", "delivery eligibility readback", "objection viability evidence", "review/downgrade audit"]
     acceptance_checks: ["capability_state_INTERNAL_READY", "stage6_product_readiness_visible", "customer_visible_fields_gated"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-119-stage6-product-package-hardening
     suggested_packet_refs: [PTL-I100-119-stage6-product-package-hardening]
     risk_level: HIGH
   - task_id: PTL-I100-120-operator-customer-access-and-go-live-readiness
@@ -1557,6 +1584,7 @@ tasks:
     non_goals: ["不把外部软件平台作为售卖产品", "不无审批 public release", "不绕过客户交付字段白名单"]
     expected_outputs: ["operator access surface", "customer artifact account/access control", "permission tests", "go-live readiness report"]
     acceptance_checks: ["capability_state_APPROVAL_READY", "customer_access_is_gated", "operator_audit_visible", "release_still_explicitly_gated"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-120-operator-customer-access-and-go-live-readiness
     suggested_packet_refs: [PTL-I100-120-operator-customer-access-and-go-live-readiness]
     risk_level: CRITICAL
   - task_id: PTL-I100-121A-sales-outreach-live-pilot
@@ -1592,7 +1620,8 @@ tasks:
       - complaint_or_failure_suspension
     non_goals: ["不批量群发", "不无审批触达", "不使用 private/灰色联系人", "不自动外发法律文书"]
     expected_outputs: ["live pilot outreach records", "provider result readback", "complaint/failure rollback", "approval/audit evidence"]
-    acceptance_checks: ["capability_state_LIVE_READY_PILOT", "approval_audit_required", "opt_out_and_frequency_control_work", "suspension_path_works"]
+    acceptance_checks: ["capability_state_LIVE_READY", "pilot_scope_limited", "approval_audit_required", "opt_out_and_frequency_control_work", "suspension_path_works"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-121A-sales-outreach-live-pilot
     suggested_packet_refs: [PTL-I100-121A-sales-outreach-live-pilot]
     risk_level: CRITICAL
   - task_id: PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
@@ -1629,7 +1658,8 @@ tasks:
     refund_boundary: "manual exception/governed review only; no automated refund execution"
     non_goals: ["不自动退款程序", "不无审批扣款", "不无审计交付", "不交付未批准版本"]
     expected_outputs: ["live pilot payment records", "live delivery audit", "settlement reconciliation", "manual refund exception evidence"]
-    acceptance_checks: ["capability_state_LIVE_READY_PILOT", "payment_delivery_audit_persistent", "automated_refund_absent", "rollback_path_works"]
+    acceptance_checks: ["capability_state_LIVE_READY", "pilot_scope_limited", "payment_delivery_audit_persistent", "automated_refund_absent", "rollback_path_works"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
     suggested_packet_refs: [PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund]
     risk_level: CRITICAL
   - task_id: PTL-I100-121C-production-slo-monitoring-incident-readiness
@@ -1666,7 +1696,8 @@ tasks:
       - suspended_state_operational_runbook
     non_goals: ["不默认扩大 live 范围", "不绕过人工事故复核", "不删除治理阻断"]
     expected_outputs: ["SLO/readiness report", "monitoring/alert rules", "incident runbook", "backup/rollback drill evidence"]
-    acceptance_checks: ["capability_state_PRODUCTION_READY_CANDIDATE", "alerts_fire_on_failures", "rollback_drill_recorded", "suspended_state_works"]
+    acceptance_checks: ["capability_state_PRODUCTION_READY", "alerts_fire_on_failures", "rollback_drill_recorded", "suspended_state_works"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-121C-production-slo-monitoring-incident-readiness
     suggested_packet_refs: [PTL-I100-121C-production-slo-monitoring-incident-readiness]
     risk_level: CRITICAL
   - task_id: PTL-I100-118-full-product-operational-acceptance
@@ -1711,6 +1742,7 @@ tasks:
       - risk_and_compliance_acceptance
     non_goals: ["不自动 release", "不实现自动退款程序", "不绕过人工复核和审计"]
     expected_outputs: ["full-chain acceptance matrix", "capability state report", "product closure report", "remaining blockers"]
-    acceptance_checks: ["engineering_regression_pass", "capability_states_verified", "evidence_pack_business_closure_verified"]
+    acceptance_checks: ["engineering_regression_pass", "capability_states_verified", "evidence_pack_business_closure_verified", "automated_refund_absent"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-118-full-product-operational-acceptance
     suggested_packet_refs: [PTL-I100-118-full-product-operational-acceptance]
     risk_level: CRITICAL

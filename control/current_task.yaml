@@ -5,11 +5,11 @@ updated_at: "2026-04-25"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_112A_PRODUCTION_PLATFORM_STORAGE_SEAM"
+navigation_state: "PTL_I100_ACCEPTANCE_CHECKLIST_SYNC"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-111F 已完成并本地提交；按开放能力路线进入 PTL-I100-112 第一刀。本窗口只激活 112A production platform storage / infra readiness seam，不放开 external release、真实触达、真实支付、真实交付、真实退款或自动退款执行。"
+activation_condition: "PTL-I100-112A 已验收并本地提交 e3870ab；本窗口只补 PTL-I100 剩余任务验收指标和统一验收清单，不修改 runtime，不放开 external/live。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-112A-production-platform-storage-seam"
-  title: "I100-112A Production platform storage seam and infra readiness first knife"
+  task_id: "PTL-I100-ACCEPTANCE-CHECKLIST-SYNC"
+  title: "PTL-I100 remaining task acceptance checklist sync"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,16 +29,15 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
+    - "docs/D11_测试验收与金标回归清单.md"
     - "docs/D12_部署发布与运行治理规范.md"
     - "docs/D13_公开可查边界能力清单.md"
-    - "docs/AX9S_开发执行路由图.md"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
     - "control/product_operability_gap_matrix.yaml"
-    - "control/product_module_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  objective: "把 PTL-I100-112-production-platform-infrastructure 拆出第一刀：补生产级 storage backend seam、SQLAlchemy/Postgres opt-in 接入边界、基础 infra readiness/readback、health/error 表达和 repository reload 回归；默认 json-file/sqlite 行为不退化，不执行真实 provider、真实触达、真实支付、真实交付或自动退款。"
+  objective: "给 PTL-I100 剩余未完成任务建立统一验收清单，并让任务池逐项引用三层验收口径：工程回归、能力状态推进、产品闭环可用性。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -58,48 +57,47 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-112-production-platform-infrastructure"
-    subpacket_id: "PTL-I100-112A-production-platform-storage-seam"
-    backlog_packet_ref: "PTL-I100-112-production-platform-infrastructure"
+    packet_id: "PTL-I100-ACCEPTANCE-CHECKLIST-SYNC"
+    subpacket_id: "PTL-I100-ACCEPTANCE-CHECKLIST-SYNC"
+    backlog_packet_ref: "PTL-I100-ACCEPTANCE-CHECKLIST-SYNC"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "CONTROLLED_PRODUCTION_INFRA_STORAGE_SEAM_FIRST_KNIFE"
-    existing_code_state: "PARTIAL_RUNTIME"
-    existing_runtime_state: "JSON_FILE_AND_SQLITE_LOCAL_ONLY"
-    title: "I100-112A production platform storage seam and infra readiness first knife"
+    runtime_change_in_packet: "OUT_OF_SCOPE"
+    existing_code_state: "CONTROL_SYNC_ONLY"
+    existing_runtime_state: "UNCHANGED"
+    title: "PTL-I100 remaining task acceptance checklist sync"
     status: "ACTIVE"
-    objective: "生产基础设施第一刀：实现生产 storage seam 的可配置、可读回、可测试闭环；Postgres/SQLAlchemy 必须 opt-in 且无 silent fallback；默认本地 json-file/sqlite 行为保持兼容。"
+    objective: "补齐 PTL-I100 剩余任务验收指标：每个未完成任务必须能按工程回归、能力状态、产品闭环三层验收；自动退款仍 excluded；blocked-by-default 仍表示未满足受控开放条件前不能 live。"
     depends_on:
-      - "PTL-I100-111A provider config/sandbox/readback seam 已完成。"
       - "PTL-I100-111F open capability registry/route/D-doc sync 已完成并本地提交 1c403c7。"
-      - "PTL-I100-112 是 product_operability_gap_matrix 推荐的下一实现候选。"
+      - "PTL-I100-112A production storage seam 已完成并本地提交 e3870ab。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-111F-open-capability-registry-route-doc-sync"
-      target_active_packet: "PTL-I100-112A-production-platform-storage-seam"
-      product_task_library_change: false
-      product_module_registry_change: true
+      previous_active_packet: "PTL-I100-112A-production-platform-storage-seam"
+      target_active_packet: "PTL-I100-ACCEPTANCE-CHECKLIST-SYNC"
+      product_task_library_change: true
+      product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: "runtime_implementation"
-      product_mainline_task: true
+      active_packet_kind: "control_acceptance_sync"
+      product_mainline_task: false
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change: true
-      runtime_change_in_packet: "CONTROLLED_PRODUCTION_INFRA_STORAGE_SEAM_FIRST_KNIFE"
-      docs_change: true
+      runtime_change: false
+      runtime_change_in_packet: "OUT_OF_SCOPE"
+      docs_change: false
       contracts_change: false
       handoff_change: false
       scripts_change: false
       tests_change: true
       fixture_change: false
       control_change: true
-      storage_change: true
-      api_change: true
-      shared_settings_change: true
+      storage_change: false
+      api_change: false
+      shared_settings_change: false
       provider_adapter_config_change: false
       automated_refund_program_change: false
       external_release_change: false
@@ -111,13 +109,9 @@ currentTask:
       current_mainline_next_candidate_change: false
       push_allowed: false
     non_goals:
-      - "not an external unlock implementation"
-      - "not PTL-I100-113 scheduler"
-      - "not Stage2 real source adapter"
-      - "not Redis/worker full implementation in this first knife"
-      - "not object storage implementation in this first knife"
-      - "not Docker Compose runtime in this first knife"
-      - "not real migration execution against an external database"
+      - "not a runtime implementation"
+      - "not PTL-I100-112B queue/worker"
+      - "not Stage2/3/4/5/6/7/8/9 implementation"
       - "not real provider execution"
       - "not real sales outreach"
       - "not real payment gateway"
@@ -127,6 +121,7 @@ currentTask:
       - "not external software release"
       - "not a contracts/handoff/scripts/fixtures change"
       - "not a new formal business object, enum, release gate, or exception semantics change"
+      - "not an external unlock implementation"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
@@ -134,82 +129,48 @@ currentTask:
       - "不新增业务对象、枚举、gate、exception 语义"
       - "not push"
     affected_stages:
-      - "storage"
-      - "platform_infra"
-      - "worker_runtime_readiness"
-      - "observability_readiness"
-      - "api_bootstrap"
-      - "governance_testing"
-    risk_level: "CRITICAL"
+      - "product_task_planning"
+      - "acceptance_governance"
+      - "testing_governance"
+    risk_level: "HIGH"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "storage_runtime_core"
-      - "api_transport_foundation"
-      - "platform_infra_core"
-      - "observability_readiness"
+      - "product_acceptance_governance"
       - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
-      - "storage_owner"
-      - "governance_owner"
+      - "product_owner"
       - "testing_owner"
-      - "release_approver"
+      - "governance_owner"
     baseline_dirty_paths: []
     declared_changed_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_module_registry.yaml"
-      - "docs/AX9S_开发执行路由图.md"
-      - "src/shared/settings.py"
-      - "src/storage/db.py"
-      - "src/storage/sqlalchemy_backend.py"
-      - "src/storage/sqlalchemy_schema.py"
-      - "src/storage/production_infra_readiness.py"
-      - "src/api/main.py"
-      - "tests/test_storage_concurrency.py"
-      - "tests/test_api_transport_bootstrap.py"
-      - "tests/test_internal_repository_boundary.py"
-      - "tests/test_runtime_governance_guards.py"
-      - "tests/test_product_module_registry.py"
+      - "control/product_task_library.yaml"
+      - "control/product_acceptance_checklist.yaml"
+      - "tests/test_product_acceptance_checklist.py"
+      - "tests/test_product_operability_gap_matrix.py"
+      - "tests/test_stage12_extractors.py"
+      - "tests/test_post_repair_state_sync.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
-      - "control/product_module_registry.yaml"
-      - "docs/AX9S_开发执行路由图.md"
-      - "src/shared/settings.py"
-      - "src/storage/db.py"
-      - "src/storage/sqlalchemy_backend.py"
-      - "src/storage/sqlalchemy_schema.py"
-      - "src/storage/production_infra_readiness.py"
-      - "src/api/main.py"
-      - "tests/test_storage_concurrency.py"
-      - "tests/test_api_transport_bootstrap.py"
-      - "tests/test_internal_repository_boundary.py"
-      - "tests/test_runtime_governance_guards.py"
-      - "tests/test_product_module_registry.py"
+      - "control/product_task_library.yaml"
+      - "control/product_acceptance_checklist.yaml"
+      - "tests/test_product_acceptance_checklist.py"
+      - "tests/test_product_operability_gap_matrix.py"
+      - "tests/test_stage12_extractors.py"
+      - "tests/test_post_repair_state_sync.py"
     forbidden_modification_paths:
       - "contracts/**"
       - "handoff/**"
       - "scripts/**"
       - "fixtures/**"
-      - "docs/D*.md"
-      - "docs/L0.md"
-      - "docs/裁决总表.md"
-      - "src/stage1_tasking/**"
-      - "src/stage2_ingestion/**"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
-      - "src/stage5_rules_evidence/**"
-      - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
-      - "src/stage8_outreach/**"
-      - "src/stage9_delivery/**"
-      - "src/shared/provider_adapter_config.py"
-      - "src/storage/models/**"
-      - "src/storage/repositories/**"
-      - "control/product_task_library.yaml"
+      - "docs/**"
+      - "src/**"
+      - "control/product_module_registry.yaml"
       - "control/product_operability_gap_matrix.yaml"
       - "control/source_blueprint_registry.yaml"
       - "control/review_gate_matrix.yaml"
@@ -220,38 +181,30 @@ currentTask:
       - "docker-compose*.yml"
       - "Dockerfile"
     impacted_assets:
-      docs:
-        - "docs/AX9S_开发执行路由图.md"
+      docs: []
       control:
         - "control/current_task.yaml"
         - "control/repo_status.md"
-        - "control/product_module_registry.yaml"
+        - "control/product_task_library.yaml"
+        - "control/product_acceptance_checklist.yaml"
       contracts: []
       handoff: []
       scripts:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       tests:
-        - "tests/test_storage_concurrency.py"
-        - "tests/test_api_transport_bootstrap.py"
-        - "tests/test_internal_repository_boundary.py"
-        - "tests/test_runtime_governance_guards.py"
-        - "tests/test_product_module_registry.py"
-      runtime:
-        - "src/shared/settings.py"
-        - "src/storage/db.py"
-        - "src/storage/sqlalchemy_backend.py"
-        - "src/storage/sqlalchemy_schema.py"
-        - "src/storage/production_infra_readiness.py"
-        - "src/api/main.py"
+        - "tests/test_product_acceptance_checklist.py"
+        - "tests/test_product_operability_gap_matrix.py"
+        - "tests/test_stage12_extractors.py"
+        - "tests/test_post_repair_state_sync.py"
+      runtime: []
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_storage_concurrency -v"
-      - "python -m unittest tests.test_api_transport_bootstrap -v"
-      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
-      - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
-      - "python -m unittest tests.test_product_module_registry -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_module_registry.yaml'',''docs/AX9S_开发执行路由图.md'',''src/shared/settings.py'',''src/storage/db.py'',''src/storage/sqlalchemy_backend.py'',''src/storage/sqlalchemy_schema.py'',''src/storage/production_infra_readiness.py'',''src/api/main.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "python -m unittest tests.test_product_acceptance_checklist -v"
+      - "python -m unittest tests.test_product_operability_gap_matrix -v"
+      - "python -m unittest tests.test_stage12_extractors -v"
+      - "python -m unittest tests.test_post_repair_state_sync -v"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_stage12_extractors.py'',''tests/test_post_repair_state_sync.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -259,12 +212,11 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_storage_concurrency -v": 300000
-      "python -m unittest tests.test_api_transport_bootstrap -v": 300000
-      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
-      "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
-      "python -m unittest tests.test_product_module_registry -v": 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_module_registry.yaml'',''docs/AX9S_开发执行路由图.md'',''src/shared/settings.py'',''src/storage/db.py'',''src/storage/sqlalchemy_backend.py'',''src/storage/sqlalchemy_schema.py'',''src/storage/production_infra_readiness.py'',''src/api/main.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "python -m unittest tests.test_product_acceptance_checklist -v": 300000
+      "python -m unittest tests.test_product_operability_gap_matrix -v": 300000
+      "python -m unittest tests.test_stage12_extractors -v": 300000
+      "python -m unittest tests.test_post_repair_state_sync -v": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_stage12_extractors.py'',''tests/test_post_repair_state_sync.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python tests/run_tests.py": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
@@ -274,59 +226,53 @@ currentTask:
       - "任一 targeted test 或 formal check 失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "实际改动命中 forbidden_modification_paths"
-      - "需要修改 contracts、handoff、scripts、fixtures"
-      - "需要修改 Stage1-9 业务 runtime"
+      - "需要修改 docs、contracts、handoff、scripts、fixtures、src"
       - "需要新增正式业务对象、枚举、release gate、exception 语义"
       - "需要真实 provider 调用、真实触达、真实支付、真实交付、真实退款或自动退款执行"
-      - "需要运行真实外部数据库迁移或连接未授权生产数据库"
       - "需要 push"
     definition_of_done:
-      - "默认 json-file storage 行为保持兼容，sqlite opt-in 行为不退化。"
-      - "Postgres/SQLAlchemy backend seam 只能 opt-in，缺少 DSN 或驱动时 fast-fail，不能 silent fallback 到 json-file/sqlite。"
-      - "platform_infra_readiness / storage_bootstrap 能解释 active backend、SQLAlchemy/Postgres readiness、migration readiness、health/error 状态和 no-live redlines。"
-      - "repository save/get/list/readback 在新增 seam 下可回放 PersistedRecord、PersistedStageState、PersistedWorkItem、PersistedOperatorAction。"
-      - "不执行真实 provider、真实触达、真实支付、真实交付、真实退款或自动退款。"
+      - "control/product_acceptance_checklist.yaml 覆盖所有 PTL-I100 未完成顶层任务。"
+      - "111C1-111C4 与 114A-114I 子包具备专门验收指标。"
+      - "任务池未完成任务全部引用统一验收清单。"
+      - "验收清单强制三层验收：工程回归、能力状态、产品闭环。"
+      - "live/触达/支付/交付任务必须保留 provider config、sandbox、approval、audit、operator action、suspension/rollback 验收。"
+      - "自动退款执行仍 excluded，只允许人工异常记录、人工审批审计和治理复核。"
       - "targeted tests 与 formal checks 全部通过。"
     deliverables:
-      - "activated 112A current_task packet"
-      - "production storage backend seam"
-      - "SQLAlchemy/Postgres opt-in readiness/readback"
-      - "storage bootstrap health/readiness projection"
-      - "repository boundary regression tests"
+      - "product acceptance checklist control asset"
+      - "task library acceptance checklist refs"
+      - "acceptance checklist tests"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
       - "architecture_owner"
-      - "storage_owner"
-      - "governance_owner"
+      - "product_owner"
       - "testing_owner"
-      - "release_approver"
+      - "governance_owner"
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_112A_CONTROLLED_INFRA_FIRST_KNIFE"
-      signoff_meaning: "本批准只允许 112A production infra storage seam 第一刀；不批准真实 provider 调用、真实触达、真实支付、真实交付、自动退款、external release、push 或未授权生产 DB migration。"
+      signoff_status: "APPROVED_FOR_ACCEPTANCE_CHECKLIST_SYNC"
+      signoff_meaning: "本批准只允许补验收指标和控制面引用；不批准 runtime 实现、live 执行、自动退款、external release 或 push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml is the only active execution source."
-      - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
-      - "PTL-I100-112A 是 112 的第一刀，不代表 112 的 Redis/worker、object storage、Docker、monitoring 全部完成。"
+      - "每个剩余实现包以后必须按 control/product_acceptance_checklist.yaml 对应条目验收。"
   hardBlockers:
     - "external software release remains blocked"
-    - "real provider call remains blocked"
-    - "real sales outreach remains blocked until gated"
-    - "real payment / charge remains blocked until gated"
-    - "real delivery remains blocked until gated"
+    - "real provider call remains blocked until dedicated task and gates pass"
+    - "real sales outreach remains blocked until sandbox, approval, audit, and pilot gates pass"
+    - "real payment / charge remains blocked until sandbox, approval, audit, and pilot gates pass"
+    - "real delivery remains blocked until sandbox, approval, audit, and pilot gates pass"
     - "automated refund execution is out of scope"
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 112A storage seam 与 infra readiness 第一刀。"
+    - "允许在 declared_changed_paths / allowed_modification_paths 范围内补验收清单和测试。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
-    - "不得修改 contracts、handoff、scripts、fixtures。"
+    - "不得修改 docs、contracts、handoff、scripts、fixtures、src。"
     - "不得调用真实 provider API、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得发布客户页面、真实外发 LeadPack、放开 external release。"
     - "不得 push。"
   nextActions:
-    - "112A 完成后由总控验收；不自动进入 112B。"
-    - "112B 候选方向：queue/worker durability 或 object storage seam，由总控在 112A 验收后决定。"
-  status_note: "PTL-I100-112A 已激活为 production platform infrastructure 第一刀；当前目标是 storage/SQLAlchemy/Postgres seam 与 infra readiness/readback，不放开任何 external/live 执行。"
+    - "验收清单同步完成后，由总控决定是否激活 112B queue/worker durability 或 112C object storage seam。"
+  status_note: "当前窗口只补剩余任务验收指标；不进入 112B runtime。"

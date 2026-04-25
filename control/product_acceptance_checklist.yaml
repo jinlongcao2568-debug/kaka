@@ -1,0 +1,425 @@
+version: 1
+checklist_id: PTL-I100-PRODUCT-ACCEPTANCE-CHECKLIST
+status: EFFECTIVE
+updated_at: "2026-04-25"
+policy_ref: control/product_task_library.yaml#open_capability_policy
+scope: "PTL-I100 remaining product-operability tasks"
+source_priority: "current_task -> product_task_library -> repo_status"
+final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
+refund_boundary: "automated refund execution is excluded; refund handling is manual exception record, manual approval/audit, and governed review only"
+state_order:
+  - NOT_IMPLEMENTED
+  - INTERNAL_READY
+  - SANDBOX_READY
+  - APPROVAL_READY
+  - LIVE_READY
+  - PRODUCTION_READY
+  - SUSPENDED
+global_acceptance_layers:
+  engineering_regression:
+    required: true
+    minimum_evidence:
+      - "git status before and after"
+      - "actual diff reviewed against allowed paths"
+      - "targeted tests for changed capability"
+      - "formal task-packet check"
+      - "full regression or documented packet-approved substitute"
+      - "check-state-alignment"
+      - "git diff --check"
+  capability_state:
+    required: true
+    minimum_evidence:
+      - "before_state"
+      - "after_state"
+      - "why state movement is justified"
+      - "blocked-by-default/live redlines preserved until gates pass"
+      - "rollback or suspension path for APPROVAL_READY and above"
+  product_closure:
+    required: true
+    minimum_evidence:
+      - "owner usable scenario"
+      - "customer-visible boundary when applicable"
+      - "audit/readback/replay evidence"
+      - "manual review path for uncertain or high-risk outputs"
+      - "remaining blockers and next packet"
+minimum_formal_checks:
+  - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual changed paths>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+  - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
+  - "python tests/run_tests.py"
+  - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
+  - "git diff --check"
+  - "git status --short --untracked-files=all"
+live_or_external_gate_requirements:
+  - provider_config
+  - sandbox_pass
+  - approval_chain
+  - audit_chain
+  - operator_action_record
+  - field_allowlist_and_masking
+  - credential_redaction
+  - opt_out_or_customer_access_control_when_applicable
+  - rate_limit_timeout_retry_when_applicable
+  - suspension_and_rollback_path
+  - no_silent_fallback
+public_data_boundary_requirements:
+  - public_visible_source_only
+  - no_private_or_gray_source
+  - no_login_or_captcha_bypass
+  - source_url_snapshot_hash_and_lineage
+  - weak_public_or_uncertain_data_degrades_to_review
+  - model_or_inference_never_becomes_customer_fact_without_review
+reporting_contract:
+  required_fields:
+    - modified_files
+    - per_file_changes
+    - targeted_tests
+    - formal_checks
+    - capability_state_movement
+    - product_closure_result
+    - live_or_external_boundary_result
+    - refund_boundary_result
+    - blockers
+    - next_step_recommendation
+tasks:
+  PTL-I100-111-live-provider-adapters-no-auto-refund:
+    target_capability_state: SANDBOX_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "111B/111C/111D adapter paths share provider config/readiness and do not bypass it"
+      - "sandbox/dry-run execution records are repository-backed and replayable"
+      - "live defaults remain blocked until dedicated live-pilot packets"
+      - "automated refund program remains absent"
+    targeted_test_expectations:
+      - provider_adapter_config
+      - stage7_crm_quote_or_page_readback
+      - stage8_outreach_readback
+      - stage9_payment_delivery_readback
+      - runtime_governance_guards
+    redline_checks:
+      - no_unapproved_live_provider_call
+      - no_automated_refund_execution
+  PTL-I100-111B-sales-outreach-adapter-execution:
+    target_capability_state: SANDBOX_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "email/sms/phone/wecom provider adapters can produce sandbox execution records"
+      - "templates, contact source, frequency control, quiet hours, opt-out, retry, stop policy, and bounce/failure readback are visible"
+      - "no real send happens without approval, audit, provider config, and operator action"
+    targeted_test_expectations:
+      - stage8_resolution_closure
+      - internal_repository_boundary
+      - api_transport_bootstrap
+      - runtime_governance_guards
+    redline_checks:
+      - no_unapproved_live_send
+      - no_private_or_gray_contact_source
+  PTL-I100-111C-crm-quote-and-delivery-page-adapters:
+    target_capability_state: SANDBOX_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "CRM account/opportunity/activity and quote records can be sandbox-synced and replayed"
+      - "customer-visible page/export candidates use field whitelist, blacklist, masking, watermark, version, hash, and audit records"
+      - "customer-visible publication and external delivery remain approval/audit gated"
+    targeted_test_expectations:
+      - stage7_runtime_closure
+      - leadpack_candidate_surface
+      - internal_surface_preview
+      - api_transport_bootstrap
+      - runtime_governance_guards
+    redline_checks:
+      - no_unapproved_customer_visible_publication
+      - no_internal_blackbox_score_customer_exposure
+  PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund:
+    target_capability_state: SANDBOX_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "payment, charge, receipt/invoice, delivery artifact, download audit, settlement, and reconciliation records are sandbox-backed and replayable"
+      - "payment callback and delivery unlock are auditable and do not silently fallback"
+      - "refund handling is manual exception/governed review only"
+    targeted_test_expectations:
+      - stage9_impact_executor
+      - internal_repository_boundary
+      - api_transport_bootstrap
+      - runtime_governance_guards
+    redline_checks:
+      - no_unapproved_charge
+      - no_unapproved_delivery
+      - automated_refund_absent
+  PTL-I100-111E-provider-reliability-and-circuit-breaker:
+    target_capability_state: APPROVAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "provider health, rate limit, timeout, retry, failure taxonomy, and circuit breaker are visible"
+      - "unhealthy providers force blocked/suspended state"
+      - "provider metrics and audit events are replayable"
+    targeted_test_expectations:
+      - provider_adapter_config
+      - runtime_governance_guards
+      - api_transport_bootstrap
+    redline_checks:
+      - no_live_default
+      - circuit_breaker_blocks_unhealthy_provider
+  PTL-I100-112-production-platform-infrastructure:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completed_reference_subpackets:
+      - PTL-I100-112A-production-platform-storage-seam
+    completion_must_prove:
+      - "Postgres/SQLAlchemy, migration path, queue/worker, object storage, Docker/Compose, health/readiness, audit persistence, backup, rollback, monitoring, and alerting are represented by executable or explicitly reserved seams"
+      - "production backend misconfiguration fast-fails without silent fallback"
+      - "real provider/touch/payment/delivery/refund remains blocked until dedicated packets"
+    targeted_test_expectations:
+      - storage_concurrency
+      - api_transport_bootstrap
+      - internal_repository_boundary
+      - runtime_governance_guards
+      - product_module_registry
+    redline_checks:
+      - no_live_execution_unlocked
+      - no_unauthorized_production_db_migration
+  PTL-I100-113-stage1-scheduler-production-loop:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "scheduler can create, pause, resume, retry, and audit tasks"
+      - "time windows, route graph, source family selection, conflict detection, and queue state are replayable"
+      - "Stage2 handoff is explicit and does not fetch private sources"
+    targeted_test_expectations:
+      - stage12_extractors
+      - internal_chain
+      - scheduler_repository_readback
+    redline_checks:
+      - no_external_fetch_without_source_allowlist
+  PTL-I100-114-stage2-real-public-source-adapters:
+    target_capability_state: SANDBOX_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "public source adapters fetch only allowlisted public pages and attachments"
+      - "raw HTML/PDF/notice snapshots, hash, version, lineage, fetch audit, health, retry, timeout, dedupe, and degrade paths are replayable"
+      - "source coverage report distinguishes supported, weak, failing, and suspended sources"
+    targeted_test_expectations:
+      - source_adapter_contracts
+      - public_boundary_guards
+      - internal_chain_real_sample_slice
+    redline_checks:
+      - public_only_boundary_locked
+      - no_login_captcha_or_gray_source_bypass
+  PTL-I100-115-stage3-real-parser-ocr-attachments:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "HTML/PDF/OCR/Word/Excel/attachment parsers output field value, source page/file/slice/version, confidence, raw text, locator, parser version, and review flag"
+      - "parser failures degrade to review without fabricating fields"
+      - "golden cases cover layout, encoding, table, scan, and attachment variants"
+    targeted_test_expectations:
+      - parser_golden_cases
+      - semantic_runtime_validator
+      - internal_chain_real_sample_slice
+    redline_checks:
+      - no_unlocated_customer_fact
+      - no_model_output_as_final_fact
+  PTL-I100-116-stage4-public-verification-adapters:
+    target_capability_state: SANDBOX_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "public verification adapters cover enterprise, personnel, qualification, credit, blacklist, contract, permit, completion, performance, and tender public records"
+      - "verification result carries object, source, result, time, URL, snapshot id, evidence grade, confidence, visibility, provider, version, failure reason, and review flag"
+      - "uncertain or weak public data degrades to review"
+    targeted_test_expectations:
+      - verification_adapter_contracts
+      - public_boundary_guards
+      - stage4_to_stage5_rule_inputs
+    redline_checks:
+      - public_boundary_locked
+      - no_private_identity_or_social_security_query
+  PTL-I100-116A-project-manager-active-conflict-vertical-slice:
+    target_capability_state: SANDBOX_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "project manager and bidder extraction, public lookup, same-name disambiguation, registered unit verification, public project record resolution, time-window overlap, and completion status are replayable"
+      - "conflict evidence chain includes source refs, strength, uncertainty, and manual review recommendation"
+      - "same-name or weak identifier cases cannot become certain customer-facing facts"
+    targeted_test_expectations:
+      - active_conflict_vertical_slice
+      - public_boundary_guards
+      - rule_evidence_binding
+    redline_checks:
+      - same_name_disambiguation_visible
+      - no_private_identity_query
+  PTL-I100-117-rule-factory-expansion-and-golden-cases:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "rules are registered, versioned, enabled/disabled, dependency-bound, auditable, prioritized, conflict-aware, degradable, and mapped to document terms"
+      - "rule hit explanation binds evidence and confidence"
+      - "golden cases and coverage report prove each first-priority rule"
+    targeted_test_expectations:
+      - stage56_evaluators
+      - rule_factory_golden_cases
+      - semantic_runtime_validator
+    redline_checks:
+      - no_rule_without_evidence_binding
+      - no_inference_as_fact
+  PTL-I100-119A-real-challenger-identification-hardening:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "second/third/rejected/historical/regional competitors are represented with subject eligibility, motivation, capacity, buyer fit, contactability, offer, and sales priority"
+      - "commercial scoring is explainable and separated from customer-visible claims"
+      - "contactability does not bypass Stage8 compliance"
+    targeted_test_expectations:
+      - stage7_runtime_closure
+      - internal_chain
+      - internal_surface_preview
+    redline_checks:
+      - customer_visible_fields_gated
+      - sales_judgment_not_legal_conclusion
+  PTL-I100-119-stage6-product-package-hardening:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "Stage6 produces objection viability, evidence strength, review priority, sellable signal, delivery eligibility, visibility status, product package readiness, and downgrade/block reasons"
+      - "customer delivery eligibility is gated by evidence, public visibility, and review state"
+      - "sales or customer feedback does not mutate formal facts"
+    targeted_test_expectations:
+      - stage56_evaluators
+      - internal_chain
+      - internal_repository_boundary
+    redline_checks:
+      - customer_visible_fields_gated
+      - stage9_feedback_does_not_pollute_fact_layer
+  PTL-I100-120-operator-customer-access-and-go-live-readiness:
+    target_capability_state: APPROVAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "operator console, task creation, project import, full-chain run, permission framework, provider/scheduler/audit status, customer artifact access, customer download auth, deployment readiness, and rollback runbook are visible"
+      - "customer access is gated and does not become public software release"
+      - "go-live readiness reports all remaining blockers"
+    targeted_test_expectations:
+      - api_transport_bootstrap
+      - internal_surface_preview
+      - runtime_governance_guards
+      - product_operability_gap_matrix
+    redline_checks:
+      - external_release_still_explicitly_gated
+      - customer_access_is_gated
+  PTL-I100-121A-sales-outreach-live-pilot:
+    target_capability_state: LIVE_READY
+    pilot_scope: true
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "approved small-sample live outreach records are produced only for compliant contacts and approved templates"
+      - "provider result, bounce/failure, complaint, opt-out, frequency, quiet hours, suspension, and rollback are auditable"
+      - "pilot scope and stop conditions are explicit"
+    targeted_test_expectations:
+      - stage8_resolution_closure
+      - provider_reliability
+      - runtime_governance_guards
+      - live_pilot_audit_readback
+    redline_checks:
+      - approval_audit_required
+      - opt_out_and_frequency_control_work
+      - suspension_path_works
+  PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund:
+    target_capability_state: LIVE_READY
+    pilot_scope: true
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "approved small-sample live payment, callback, receipt/invoice, delivery unlock, version lock, download audit, settlement, rollback, and manual refund exception records are replayable"
+      - "delivery only unlocks approved artifacts after payment confirmation"
+      - "automated refund remains absent"
+    targeted_test_expectations:
+      - stage9_impact_executor
+      - live_payment_delivery_audit
+      - runtime_governance_guards
+      - settlement_reconciliation
+    redline_checks:
+      - payment_delivery_audit_persistent
+      - automated_refund_absent
+      - rollback_path_works
+  PTL-I100-121C-production-slo-monitoring-incident-readiness:
+    target_capability_state: PRODUCTION_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "SLO, monitoring dashboards, alerting rules, incident runbook, backup/restore drill, rollback drill, provider/source/payment/delivery failure alerts, and suspended-state operations are documented and tested"
+      - "alerts fire on simulated failures"
+      - "suspension and rollback controls are auditable"
+    targeted_test_expectations:
+      - observability_readiness
+      - incident_response_readiness
+      - runtime_governance_guards
+    redline_checks:
+      - alerts_fire_on_failures
+      - rollback_drill_recorded
+      - suspended_state_works
+  PTL-I100-118-full-product-operational-acceptance:
+    target_capability_state: PRODUCTION_READY
+    final_closure_gate: true
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "real public notice sample can flow through source fetch, parser, public verification, rules, Stage6 productization, real challenger identification, LeadPack/export, outreach, CRM/quote, payment, delivery, audit, and writeback where the prior tasks made those capabilities available"
+      - "every registered capability has a verified state and remaining blockers are explicit"
+      - "evidence-pack business closure is proven without implementing automated refund execution"
+    targeted_test_expectations:
+      - full_chain_operational_acceptance
+      - real_sample_matrix
+      - product_operability_gap_matrix
+      - runtime_governance_guards
+    redline_checks:
+      - engineering_regression_pass
+      - capability_states_verified
+      - evidence_pack_business_closure_verified
+      - automated_refund_absent
+subpacket_acceptance:
+  PTL-I100-111C1-internal-leadpack:
+    parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    completion_must_prove: ["internal notes, full evidence summary, sales recommendation, review state, and internal risk labels are visible only to internal operators"]
+    redline_checks: ["not_customer_visible_without_export_gate"]
+  PTL-I100-111C2-customer-visible-leadpack:
+    parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    completion_must_prove: ["customer field whitelist, masking, watermark, version hash, and download audit are enforced"]
+    redline_checks: ["no_internal_blackbox_or_unreviewed_inference_customer_exposure"]
+  PTL-I100-111C3-formal-objection-pack:
+    parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    completion_must_prove: ["formal claim structure, public evidence refs, visibility status, approval record, and export replay are present"]
+    redline_checks: ["no_auto_external_legal_document_send"]
+  PTL-I100-111C4-sales-talk-track-pack:
+    parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
+    completion_must_prove: ["talking points, risk disclaimers, quote alignment, and non-misleading copy review are present"]
+    redline_checks: ["no_misleading_outreach_copy"]
+  PTL-I100-114A-local-public-resource-trading-centers:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["notice fetch, attachment download, raw snapshot, source lineage, and rate limit are covered"]
+    redline_checks: ["public_visible_pages_only"]
+  PTL-I100-114B-provincial-bidding-platforms:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["notice fetch, attachment download, raw snapshot, lineage, and source health are covered"]
+    redline_checks: ["public_visible_pages_only"]
+  PTL-I100-114C-national-construction-market-platform:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["enterprise, personnel, project public record fetch and snapshot hash are covered"]
+    redline_checks: ["no_login_or_captcha_bypass"]
+  PTL-I100-114D-credit-china-public-records:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["credit record fetch, penalty snapshot, lineage, retry, and timeout are covered"]
+    redline_checks: ["public_visible_pages_only"]
+  PTL-I100-114E-national-enterprise-credit-publicity-system:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["enterprise public record fetch, raw snapshot, and source visibility are covered"]
+    redline_checks: ["no_private_or_internal_enterprise_source"]
+  PTL-I100-114F-government-procurement-public-sites:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["notice fetch, attachment download, dedupe, and fetch audit are covered"]
+    redline_checks: ["public_visible_pages_only"]
+  PTL-I100-114G-tender-agency-public-sites:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["notice fetch, raw HTML capture, source health, and failure degrade are covered"]
+    redline_checks: ["public_visible_pages_only"]
+  PTL-I100-114H-tenderer-public-notice-pages:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["notice fetch, raw HTML capture, lineage, and public access boundary are covered"]
+    redline_checks: ["public_visible_pages_only"]
+  PTL-I100-114I-industry-authority-filing-pages:
+    parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
+    completion_must_prove: ["filing record fetch, raw snapshot, snapshot version, and coverage report are covered"]
+    redline_checks: ["public_visible_pages_only"]
