@@ -234,11 +234,28 @@ def _build_transport_bootstrap(
     provider_adapter_readiness = dict(
         provider_adapter_bootstrap.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY, {})
     )
+    worker_queue_bootstrap = dict(storage_bootstrap.get("worker_queue_bootstrap", {}))
     return {
         "internal_only": True,
         "live_execution_enabled": False,
         "storage_bootstrap": dict(storage_bootstrap),
         "platform_infra_readiness": dict(storage_bootstrap.get("platform_infra_readiness", {})),
+        "worker_queue_bootstrap": worker_queue_bootstrap,
+        "queue_worker_readiness": {
+            "queue_backend": worker_queue_bootstrap.get("queue_backend"),
+            "effective_queue_backend": worker_queue_bootstrap.get("effective_queue_backend"),
+            "worker_runtime": worker_queue_bootstrap.get("worker_runtime"),
+            "readiness_state": worker_queue_bootstrap.get("readiness_state"),
+            "repository_backed": bool(worker_queue_bootstrap.get("repository_backed", False)),
+            "durable_queue_enabled": bool(worker_queue_bootstrap.get("durable_queue_enabled", False)),
+            "worker_lease_enabled": bool(worker_queue_bootstrap.get("worker_lease_enabled", False)),
+            "retry_enabled": bool(worker_queue_bootstrap.get("retry_enabled", False)),
+            "suspend_resume_enabled": bool(worker_queue_bootstrap.get("suspend_resume_enabled", False)),
+            "audit_replay_enabled": bool(worker_queue_bootstrap.get("audit_replay_enabled", False)),
+            "external_queue_connection_enabled": False,
+            "stage1_scheduler_enabled": False,
+            "real_provider_execution_enabled": False,
+        },
         "provider_adapter_bootstrap": dict(provider_adapter_bootstrap),
         "provider_adapter_config_source": provider_adapter_bootstrap.get("provider_adapter_config_source"),
         "provider_adapter_mode": provider_adapter_bootstrap.get("provider_adapter_mode"),
@@ -300,6 +317,17 @@ def _build_transport_bootstrap(
                 "stage6_readback_mode": "repository_backed_preview",
                 "mounted_entry_stage": 6,
             },
+            "queue_worker": {
+                "current_entry": "storage-backed durable queue and worker lease seam",
+                "queue_backend": worker_queue_bootstrap.get("queue_backend"),
+                "effective_queue_backend": worker_queue_bootstrap.get("effective_queue_backend"),
+                "worker_runtime": worker_queue_bootstrap.get("worker_runtime"),
+                "repository_backed": True,
+                "redis_connection_enabled": False,
+                "external_queue_connection_enabled": False,
+                "stage1_scheduler_enabled": False,
+                "real_provider_execution_enabled": False,
+            },
         },
         "redlines": {
             "new_http_endpoint_added": False,
@@ -317,6 +345,9 @@ def _build_transport_bootstrap(
             "provider_adapter_live_execution_enabled": False,
             "provider_adapter_provider_call_enabled": False,
             "provider_adapter_real_provider_call_enabled": False,
+            "redis_connection_enabled": False,
+            "external_queue_connection_enabled": False,
+            "external_worker_process_enabled": False,
             "provider_credentials_plaintext_persisted": False,
             "automated_refund_program_present": False,
             "automated_refund_program_enabled": False,

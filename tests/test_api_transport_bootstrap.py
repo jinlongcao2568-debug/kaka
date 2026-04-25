@@ -218,6 +218,11 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertIsNone(storage_bootstrap["storage_database_url_redacted"])
         self.assertEqual(storage_bootstrap["storage_scope"], "process")
         self.assertEqual(storage_bootstrap["storage_runtime_mode"], "explicit-path")
+        self.assertEqual(storage_bootstrap["queue_backend"], "storage")
+        self.assertEqual(storage_bootstrap["worker_runtime"], "internal-storage-worker")
+        self.assertTrue(storage_bootstrap["worker_queue_bootstrap"]["durable_queue_enabled"])
+        self.assertTrue(storage_bootstrap["worker_queue_bootstrap"]["worker_lease_enabled"])
+        self.assertFalse(storage_bootstrap["worker_queue_bootstrap"]["external_queue_connection_enabled"])
         self.assertIn("platform_infra_readiness", storage_bootstrap)
         self.assertIn("provider_adapter_bootstrap", storage_bootstrap)
         provider_bootstrap = storage_bootstrap["provider_adapter_bootstrap"]
@@ -257,7 +262,13 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(readiness["sqlalchemy_readiness"]["executable"])
         self.assertFalse(readiness["sqlalchemy_readiness"]["database_url_configured"])
         self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+        self.assertEqual(readiness["queue_readiness"]["internal_durable_queue"]["readiness_state"], "EXECUTABLE")
+        self.assertTrue(readiness["queue_readiness"]["internal_durable_queue"]["repository_backed"])
         self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+        self.assertEqual(readiness["worker_runtime_readiness"]["readiness_state"], "EXECUTABLE")
+        self.assertTrue(readiness["worker_runtime_readiness"]["heartbeat_persistence_enabled"])
+        self.assertTrue(readiness["worker_runtime_readiness"]["dead_letter_persistence_enabled"])
+        self.assertFalse(readiness["worker_runtime_readiness"]["stage1_scheduler_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
         self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
@@ -310,7 +321,9 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     self.assertEqual(set(reserved_by_backend), RESERVED_INFRA_BACKENDS)
                     self.assertFalse(readiness["postgresql_readiness"]["executable"])
                     self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+                    self.assertEqual(readiness["queue_readiness"]["internal_durable_queue"]["active_storage_backend"], "sqlite")
                     self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+                    self.assertTrue(readiness["worker_runtime_readiness"]["suspend_resume_persistence_enabled"])
                     self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
                     self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
                     self.assertTrue(readiness["backend_policy"]["unsupported_backend_fast_fail"])
@@ -352,11 +365,18 @@ class TestApiTransportBootstrap(unittest.TestCase):
                     self.assertEqual(readiness["postgresql_readiness"]["readiness_state"], "NOT_CONFIGURED")
                     self.assertFalse(readiness["postgresql_readiness"]["configured"])
                     self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+                    self.assertEqual(readiness["queue_readiness"]["internal_durable_queue"]["active_storage_backend"], "sqlalchemy")
                     self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+                    self.assertTrue(readiness["worker_runtime_readiness"]["retry_persistence_enabled"])
                     self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
                     self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
                     self.assertEqual(app.state.transport_bootstrap["storage_bootstrap"], storage_bootstrap)
                     self.assertEqual(app.state.transport_bootstrap["platform_infra_readiness"], readiness)
+                    self.assertEqual(
+                        app.state.transport_bootstrap["worker_queue_bootstrap"],
+                        storage_bootstrap["worker_queue_bootstrap"],
+                    )
+                    self.assertTrue(app.state.transport_bootstrap["queue_worker_readiness"]["durable_queue_enabled"])
                 finally:
                     app.state.storage_session.close()
 
@@ -588,6 +608,21 @@ class TestApiTransportBootstrap(unittest.TestCase):
             entry_strategy["stage1_to_stage6_full_chain_entry"]["stage6_readback_mode"],
             "repository_backed_preview",
         )
+        self.assertEqual(entry_strategy["queue_worker"]["effective_queue_backend"], "storage")
+        self.assertTrue(entry_strategy["queue_worker"]["repository_backed"])
+        self.assertFalse(entry_strategy["queue_worker"]["redis_connection_enabled"])
+        self.assertFalse(entry_strategy["queue_worker"]["stage1_scheduler_enabled"])
+
+        queue_worker = bootstrap["queue_worker_readiness"]
+        self.assertEqual(queue_worker["effective_queue_backend"], "storage")
+        self.assertEqual(queue_worker["readiness_state"], "EXECUTABLE")
+        self.assertTrue(queue_worker["durable_queue_enabled"])
+        self.assertTrue(queue_worker["worker_lease_enabled"])
+        self.assertTrue(queue_worker["retry_enabled"])
+        self.assertTrue(queue_worker["suspend_resume_enabled"])
+        self.assertTrue(queue_worker["audit_replay_enabled"])
+        self.assertFalse(queue_worker["external_queue_connection_enabled"])
+        self.assertFalse(queue_worker["real_provider_execution_enabled"])
 
         redlines = bootstrap["redlines"]
         self.assertFalse(redlines["new_http_endpoint_added"])
@@ -602,6 +637,9 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(redlines["provider_adapter_live_execution_enabled"])
         self.assertFalse(redlines["provider_adapter_provider_call_enabled"])
         self.assertFalse(redlines["provider_adapter_real_provider_call_enabled"])
+        self.assertFalse(redlines["redis_connection_enabled"])
+        self.assertFalse(redlines["external_queue_connection_enabled"])
+        self.assertFalse(redlines["external_worker_process_enabled"])
         self.assertFalse(redlines["provider_credentials_plaintext_persisted"])
         self.assertFalse(redlines["automated_refund_program_present"])
         self.assertFalse(redlines["automated_refund_program_enabled"])

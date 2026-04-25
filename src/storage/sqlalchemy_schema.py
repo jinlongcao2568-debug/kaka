@@ -40,11 +40,35 @@ operator_actions = Table(
     Column("payload", Text, nullable=False),
 )
 
+worker_queue_items = Table(
+    "worker_queue_items",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("queue_item_id", String, nullable=False, unique=True),
+    Column("queue_name", String, nullable=False),
+    Column("status", String, nullable=False),
+    Column("priority", Integer, nullable=False),
+    Column("next_run_at", String, nullable=True),
+    Column("payload", Text, nullable=False),
+)
+
+worker_queue_events = Table(
+    "worker_queue_events",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("queue_item_id", String, nullable=False),
+    Column("event_id", String, nullable=False),
+    Column("event_type", String, nullable=False),
+    Column("payload", Text, nullable=False),
+)
+
 ENVELOPE_TABLES = {
     "records": records,
     "stage_states": stage_states,
     "work_items": work_items,
     "operator_actions": operator_actions,
+    "worker_queue_items": worker_queue_items,
+    "worker_queue_events": worker_queue_events,
 }
 
 
@@ -54,5 +78,7 @@ __all__ = [
     "operator_actions",
     "records",
     "stage_states",
+    "worker_queue_events",
+    "worker_queue_items",
     "work_items",
 ]

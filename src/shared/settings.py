@@ -21,6 +21,8 @@ from shared.provider_adapter_config import (
 
 _DEFAULT_STORAGE_BACKEND = "json-file"
 _DEFAULT_STORAGE_SCOPE = "shared"
+_DEFAULT_QUEUE_BACKEND = "storage"
+_DEFAULT_WORKER_RUNTIME = "internal-storage-worker"
 _PROCESS_STORAGE_SCOPE = "process"
 _DEFAULT_STORAGE_RUNTIME_MODE = "stable-default"
 _EXPLICIT_STORAGE_RUNTIME_MODE = "explicit-path"
@@ -63,6 +65,8 @@ class Settings:
     storage_database_url_optional: Optional[str] = None
     storage_scope: str = _DEFAULT_STORAGE_SCOPE
     storage_runtime_mode: str = _DEFAULT_STORAGE_RUNTIME_MODE
+    queue_backend: str = _DEFAULT_QUEUE_BACKEND
+    worker_runtime: str = _DEFAULT_WORKER_RUNTIME
     provider_adapter_config: ProviderAdapterConfig | None = None
 
     @classmethod
@@ -85,6 +89,8 @@ class Settings:
             storage_database_url_optional=_read_env_optional("KAKA_STORAGE_DATABASE_URL"),
             storage_scope=storage_scope,
             storage_runtime_mode=_resolve_storage_runtime_mode(storage_path_optional, storage_scope),
+            queue_backend=_read_env_optional("KAKA_QUEUE_BACKEND") or _DEFAULT_QUEUE_BACKEND,
+            worker_runtime=_read_env_optional("KAKA_WORKER_RUNTIME") or _DEFAULT_WORKER_RUNTIME,
             provider_adapter_config=build_provider_adapter_config_from_env(),
         )
 
@@ -110,6 +116,8 @@ class Settings:
         return build_platform_infra_readiness(
             storage_backend=self.storage_backend,
             storage_database_url_optional=self.storage_database_url_optional,
+            queue_backend=self.queue_backend,
+            worker_runtime=self.worker_runtime,
         )
 
     def storage_bootstrap_payload(self) -> dict[str, Any]:
@@ -125,6 +133,9 @@ class Settings:
             "storage_database_url_dialect": readiness["storage_database_url_dialect"],
             "storage_scope": self.storage_scope,
             "storage_runtime_mode": self.storage_runtime_mode,
+            "queue_backend": self.queue_backend,
+            "worker_runtime": self.worker_runtime,
+            "worker_queue_bootstrap": readiness["worker_queue_bootstrap"],
             "platform_infra_readiness": readiness,
             "provider_adapter_bootstrap": self.provider_adapter_bootstrap_payload(),
         }

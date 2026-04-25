@@ -170,6 +170,102 @@ class PersistedOperatorAction:
         }
 
 
+@dataclass(frozen=True)
+class PersistedWorkerQueueItem:
+    queue_item_id: str
+    queue_name: str
+    status: str
+    payload: Dict[str, Any]
+    priority: int
+    worker_id: str | None
+    lease_id: str | None
+    claimed_at: str | None
+    heartbeat_at: str | None
+    expires_at: str | None
+    attempt_count: int
+    max_attempts: int
+    next_run_at: str | None
+    last_error: str | None
+    suspended_at: str | None
+    suspended_by: str | None
+    suspend_reason: str | None
+    resumed_at: str | None
+    completed_at: str | None
+    dead_letter_at: str | None
+    trace_refs: Dict[str, str]
+    audit_refs: Dict[str, str]
+    audit_trace: List[Dict[str, Any]]
+    created_at: str
+    updated_at: str
+
+    def as_payload(self) -> Dict[str, Any]:
+        return {
+            "queue_item_id": self.queue_item_id,
+            "queue_name": self.queue_name,
+            "status": self.status,
+            "payload": dict(self.payload),
+            "priority": self.priority,
+            "worker_id": self.worker_id,
+            "lease_id": self.lease_id,
+            "claimed_at": self.claimed_at,
+            "heartbeat_at": self.heartbeat_at,
+            "expires_at": self.expires_at,
+            "attempt_count": self.attempt_count,
+            "max_attempts": self.max_attempts,
+            "next_run_at": self.next_run_at,
+            "last_error": self.last_error,
+            "suspended_at": self.suspended_at,
+            "suspended_by": self.suspended_by,
+            "suspend_reason": self.suspend_reason,
+            "resumed_at": self.resumed_at,
+            "completed_at": self.completed_at,
+            "dead_letter_at": self.dead_letter_at,
+            "trace_refs": dict(self.trace_refs),
+            "audit_refs": dict(self.audit_refs),
+            "audit_trace": [dict(entry) for entry in self.audit_trace],
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
+
+
+@dataclass(frozen=True)
+class PersistedWorkerQueueEvent:
+    queue_item_id: str
+    event_id: str
+    event_type: str
+    queue_name: str
+    worker_id: str | None
+    lease_id: str | None
+    previous_status: str | None
+    next_status: str
+    attempt_count: int
+    next_run_at: str | None
+    last_error: str | None
+    trace_refs: Dict[str, str]
+    audit_refs: Dict[str, str]
+    detail: Dict[str, Any]
+    occurred_at: str
+
+    def as_payload(self) -> Dict[str, Any]:
+        return {
+            "queue_item_id": self.queue_item_id,
+            "event_id": self.event_id,
+            "event_type": self.event_type,
+            "queue_name": self.queue_name,
+            "worker_id": self.worker_id,
+            "lease_id": self.lease_id,
+            "previous_status": self.previous_status,
+            "next_status": self.next_status,
+            "attempt_count": self.attempt_count,
+            "next_run_at": self.next_run_at,
+            "last_error": self.last_error,
+            "trace_refs": dict(self.trace_refs),
+            "audit_refs": dict(self.audit_refs),
+            "detail": dict(self.detail),
+            "occurred_at": self.occurred_at,
+        }
+
+
 class DatabaseSession:
     _default: "DatabaseSession | None" = None
 
@@ -190,6 +286,8 @@ class DatabaseSession:
         self._stage_states: Dict[str, PersistedStageState] = {}
         self._work_items: Dict[str, PersistedWorkItem] = {}
         self._operator_actions: Dict[str, List[PersistedOperatorAction]] = {}
+        self._worker_queue_items: Dict[str, PersistedWorkerQueueItem] = {}
+        self._worker_queue_events: Dict[str, List[PersistedWorkerQueueEvent]] = {}
         if self._backend is None:
             self._load()
 
@@ -311,6 +409,8 @@ class DatabaseSession:
             self._stage_states.clear()
             self._work_items.clear()
             self._operator_actions.clear()
+            self._worker_queue_items.clear()
+            self._worker_queue_events.clear()
             if remove_storage and self._storage_path.exists():
                 self._storage_path.unlink(missing_ok=True)
             elif not remove_storage:
@@ -455,6 +555,52 @@ class DatabaseSession:
                 return self._backend.list_operator_actions(work_item_id)
             return list(self._operator_actions.get(work_item_id, []))
 
+    def upsert_worker_queue_item(self, entry: PersistedWorkerQueueItem) -> PersistedWorkerQueueItem:
+        with self._lock:
+            if self._backend is not None:
+                return self._backend.upsert_worker_queue_item(entry)
+            self._worker_queue_items[entry.queue_item_id] = entry
+            self._flush()
+            return entry
+
+    def get_worker_queue_item(self, queue_item_id: str) -> PersistedWorkerQueueItem | None:
+        with self._lock:
+            if self._backend is not None:
+                return self._backend.get_worker_queue_item(queue_item_id)
+            return self._worker_queue_items.get(queue_item_id)
+
+    def list_worker_queue_items(
+        self,
+        *,
+        queue_name: str | None = None,
+        status: str | None = None,
+    ) -> list[PersistedWorkerQueueItem]:
+        with self._lock:
+            rows = (
+                self._backend.list_worker_queue_items()
+                if self._backend is not None
+                else list(self._worker_queue_items.values())
+            )
+        if queue_name is not None:
+            rows = [row for row in rows if row.queue_name == queue_name]
+        if status is not None:
+            rows = [row for row in rows if row.status == status]
+        return rows
+
+    def append_worker_queue_event(self, entry: PersistedWorkerQueueEvent) -> PersistedWorkerQueueEvent:
+        with self._lock:
+            if self._backend is not None:
+                return self._backend.append_worker_queue_event(entry)
+            self._worker_queue_events.setdefault(entry.queue_item_id, []).append(entry)
+            self._flush()
+            return entry
+
+    def list_worker_queue_events(self, queue_item_id: str) -> list[PersistedWorkerQueueEvent]:
+        with self._lock:
+            if self._backend is not None:
+                return self._backend.list_worker_queue_events(queue_item_id)
+            return list(self._worker_queue_events.get(queue_item_id, []))
+
     def _stage_key(self, stage_scope: int, surface_id: str, root_record_id: str) -> str:
         return f"{stage_scope}:{surface_id}:{root_record_id}"
 
@@ -481,6 +627,14 @@ class DatabaseSession:
             work_item_id: [PersistedOperatorAction(**entry) for entry in rows]
             for work_item_id, rows in raw.get("operator_actions", {}).items()
         }
+        self._worker_queue_items = {
+            queue_item_id: PersistedWorkerQueueItem(**payload)
+            for queue_item_id, payload in raw.get("worker_queue_items", {}).items()
+        }
+        self._worker_queue_events = {
+            queue_item_id: [PersistedWorkerQueueEvent(**entry) for entry in rows]
+            for queue_item_id, rows in raw.get("worker_queue_events", {}).items()
+        }
 
     def _flush(self) -> None:
         self._storage_path.parent.mkdir(parents=True, exist_ok=True)
@@ -504,6 +658,14 @@ class DatabaseSession:
             "operator_actions": {
                 work_item_id: [asdict(entry) for entry in rows]
                 for work_item_id, rows in self._operator_actions.items()
+            },
+            "worker_queue_items": {
+                queue_item_id: asdict(entry)
+                for queue_item_id, entry in self._worker_queue_items.items()
+            },
+            "worker_queue_events": {
+                queue_item_id: [asdict(entry) for entry in rows]
+                for queue_item_id, rows in self._worker_queue_events.items()
             },
         }
         fd, temp_name = mkstemp(
@@ -576,5 +738,7 @@ __all__ = [
     "PersistedRecord",
     "PersistedStageState",
     "PersistedWorkItem",
+    "PersistedWorkerQueueEvent",
+    "PersistedWorkerQueueItem",
     "build_persisted_at",
 ]

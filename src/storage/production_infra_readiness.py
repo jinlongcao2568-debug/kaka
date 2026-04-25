@@ -34,13 +34,13 @@ _RESERVED_BACKEND_DEFINITIONS: tuple[dict[str, object], ...] = (
         "backend": "redis",
         "category": "queue-broker",
         "configured_aliases": ("redis",),
-        "why_not_live": "reserved for future queue design; current packet must not connect to external services",
+        "why_not_live": "reserved for future external queue broker design; current packet must not connect to external services",
     },
     {
         "backend": "dramatiq",
         "category": "queue-worker",
         "configured_aliases": ("dramatiq",),
-        "why_not_live": "reserved for future queue worker design; current packet must not enqueue work",
+        "why_not_live": "reserved for future external worker process design; current packet must not run external queue workers",
     },
     {
         "backend": "minio",
@@ -106,6 +106,8 @@ def build_platform_infra_readiness(
     *,
     storage_backend: str,
     storage_database_url_optional: str | None,
+    queue_backend: str = "storage",
+    worker_runtime: str = "internal-storage-worker",
 ) -> dict[str, Any]:
     active_backend = normalize_storage_backend_name(storage_backend)
     sqlalchemy_available = find_spec("sqlalchemy") is not None
@@ -125,6 +127,12 @@ def build_platform_infra_readiness(
     )
     reserved_backends = _reserved_backend_readiness(active_backend)
     reserved_by_backend = {entry["backend"]: entry for entry in reserved_backends}
+    worker_queue_bootstrap = _worker_queue_bootstrap_readiness(
+        queue_backend=queue_backend,
+        worker_runtime=worker_runtime,
+        active_storage_backend=active_backend,
+        reserved_by_backend=reserved_by_backend,
+    )
 
     return {
         "active_backend": active_backend,
@@ -144,6 +152,7 @@ def build_platform_infra_readiness(
             "no_silent_fallback": True,
             "no_migration_execution": True,
             "no_external_service_connection": True,
+            "internal_durable_queue_enabled": True,
             "readback_only": True,
             "runtime_behavior_changed": False,
         },
@@ -159,13 +168,43 @@ def build_platform_infra_readiness(
             "why_not_live": reserved_by_backend["alembic"]["why_not_live"],
         },
         "queue_readiness": {
-            "backends": ["redis", "dramatiq"],
+            "queue_backend": worker_queue_bootstrap["queue_backend"],
+            "effective_queue_backend": worker_queue_bootstrap["effective_queue_backend"],
+            "internal_durable_queue": {
+                "backend": "storage",
+                "readiness_state": READINESS_EXECUTABLE,
+                "executable": True,
+                "repository_backed": True,
+                "active_storage_backend": active_backend,
+                "state_persistence_enabled": True,
+                "audit_replay_enabled": True,
+            },
+            "external_backends": ["redis", "dramatiq"],
             "readiness_state": _combined_reserved_state(reserved_by_backend, ("redis", "dramatiq")),
             "executable": False,
             "configured": any(reserved_by_backend[backend]["configured"] for backend in ("redis", "dramatiq")),
             "external_service_connection_enabled": False,
+            "redis_connection_enabled": False,
+            "dramatiq_worker_enabled": False,
             "why_not_live": "Redis/Dramatiq are reserved readback only in the current packet",
         },
+        "worker_runtime_readiness": {
+            "worker_runtime": worker_queue_bootstrap["worker_runtime"],
+            "readiness_state": READINESS_EXECUTABLE,
+            "executable": True,
+            "lease_persistence_enabled": True,
+            "heartbeat_persistence_enabled": True,
+            "attempt_count_persistence_enabled": True,
+            "retry_persistence_enabled": True,
+            "timeout_recovery_enabled": True,
+            "suspend_resume_persistence_enabled": True,
+            "dead_letter_persistence_enabled": True,
+            "audit_replay_enabled": True,
+            "stage1_scheduler_enabled": False,
+            "external_worker_process_enabled": False,
+            "real_provider_execution_enabled": False,
+        },
+        "worker_queue_bootstrap": worker_queue_bootstrap,
         "object_storage_readiness": {
             "backends": ["minio", "s3"],
             "readiness_state": _combined_reserved_state(reserved_by_backend, ("minio", "s3")),
@@ -320,6 +359,44 @@ def _combined_reserved_state(
     if any(reserved_by_backend[backend]["configured"] for backend in backends):
         return READINESS_RESERVED_NOT_LIVE
     return READINESS_NOT_CONFIGURED
+
+
+def _worker_queue_bootstrap_readiness(
+    *,
+    queue_backend: str,
+    worker_runtime: str,
+    active_storage_backend: str,
+    reserved_by_backend: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    configured_queue_backend = str(queue_backend or "storage").strip().lower()
+    configured_external_queue = configured_queue_backend in {"redis", "dramatiq", "external"}
+    return {
+        "queue_backend": configured_queue_backend,
+        "effective_queue_backend": "storage",
+        "active_storage_backend": active_storage_backend,
+        "worker_runtime": str(worker_runtime or "internal-storage-worker").strip(),
+        "readiness_state": READINESS_EXECUTABLE,
+        "repository_backed": True,
+        "durable_queue_enabled": True,
+        "worker_lease_enabled": True,
+        "heartbeat_enabled": True,
+        "attempt_count_enabled": True,
+        "retry_enabled": True,
+        "timeout_recovery_enabled": True,
+        "suspend_resume_enabled": True,
+        "dead_letter_enabled": True,
+        "audit_replay_enabled": True,
+        "status_values": ["queued", "running", "succeeded", "failed", "suspended", "retry", "dead-letter"],
+        "redis_reserved_state": reserved_by_backend["redis"]["readiness_state"],
+        "dramatiq_reserved_state": reserved_by_backend["dramatiq"]["readiness_state"],
+        "external_queue_backend_configured": configured_external_queue,
+        "external_queue_connection_enabled": False,
+        "redis_connection_enabled": False,
+        "dramatiq_worker_enabled": False,
+        "stage1_scheduler_enabled": False,
+        "real_provider_execution_enabled": False,
+        "why_not_live": "queue/worker durability uses existing storage only; Redis/Dramatiq, Stage1 scheduler, and provider execution remain reserved/not connected",
+    }
 
 
 __all__ = [

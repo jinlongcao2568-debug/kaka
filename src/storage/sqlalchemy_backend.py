@@ -10,7 +10,15 @@ from urllib.parse import unquote, urlsplit
 from sqlalchemy import create_engine, delete, insert, select, update
 from sqlalchemy.engine import Engine
 
-from storage.sqlalchemy_schema import metadata, operator_actions, records, stage_states, work_items
+from storage.sqlalchemy_schema import (
+    metadata,
+    operator_actions,
+    records,
+    stage_states,
+    work_items,
+    worker_queue_events,
+    worker_queue_items,
+)
 
 
 class SQLAlchemyStorageBackend:
@@ -49,6 +57,8 @@ class SQLAlchemyStorageBackend:
 
             with self._engine.begin() as connection:
                 connection.execute(delete(operator_actions))
+                connection.execute(delete(worker_queue_events))
+                connection.execute(delete(worker_queue_items))
                 connection.execute(delete(work_items))
                 connection.execute(delete(stage_states))
                 connection.execute(delete(records))
@@ -154,6 +164,63 @@ class SQLAlchemyStorageBackend:
         )
         return [self._operator_action_from_json(payload) for payload in rows]
 
+    def upsert_worker_queue_item(self, entry: Any) -> Any:
+        with self._lock:
+            self._upsert(
+                table=worker_queue_items,
+                match_columns={"queue_item_id": entry.queue_item_id},
+                values={
+                    "queue_item_id": entry.queue_item_id,
+                    "queue_name": entry.queue_name,
+                    "status": entry.status,
+                    "priority": entry.priority,
+                    "next_run_at": entry.next_run_at,
+                    "payload": self._to_json(entry),
+                },
+            )
+            return entry
+
+    def get_worker_queue_item(self, queue_item_id: str) -> Any | None:
+        payload = self._fetch_payload(
+            select(worker_queue_items.c.payload).where(
+                worker_queue_items.c.queue_item_id == queue_item_id
+            )
+        )
+        if payload is None:
+            return None
+        return self._worker_queue_item_from_json(payload)
+
+    def list_worker_queue_items(self) -> list[Any]:
+        rows = self._fetch_payloads(
+            select(worker_queue_items.c.payload).order_by(
+                worker_queue_items.c.priority.desc(),
+                worker_queue_items.c.next_run_at,
+                worker_queue_items.c.id,
+            )
+        )
+        return [self._worker_queue_item_from_json(payload) for payload in rows]
+
+    def append_worker_queue_event(self, entry: Any) -> Any:
+        with self._lock:
+            with self._engine.begin() as connection:
+                connection.execute(
+                    insert(worker_queue_events).values(
+                        queue_item_id=entry.queue_item_id,
+                        event_id=entry.event_id,
+                        event_type=entry.event_type,
+                        payload=self._to_json(entry),
+                    )
+                )
+            return entry
+
+    def list_worker_queue_events(self, queue_item_id: str) -> list[Any]:
+        rows = self._fetch_payloads(
+            select(worker_queue_events.c.payload)
+            .where(worker_queue_events.c.queue_item_id == queue_item_id)
+            .order_by(worker_queue_events.c.id)
+        )
+        return [self._worker_queue_event_from_json(payload) for payload in rows]
+
     def _connect(self) -> Engine:
         try:
             connect_args: dict[str, Any] = {}
@@ -181,8 +248,13 @@ class SQLAlchemyStorageBackend:
 
     def _upsert(self, *, table: Any, match_columns: dict[str, Any], values: dict[str, Any]) -> None:
         predicates = [getattr(table.c, name) == value for name, value in match_columns.items()]
+        update_values = {
+            key: value
+            for key, value in values.items()
+            if key not in match_columns
+        }
         with self._engine.begin() as connection:
-            result = connection.execute(update(table).where(*predicates).values(payload=values["payload"]))
+            result = connection.execute(update(table).where(*predicates).values(**update_values))
             if result.rowcount == 0:
                 connection.execute(insert(table).values(**values))
 
@@ -222,6 +294,16 @@ class SQLAlchemyStorageBackend:
         from storage.db import PersistedOperatorAction
 
         return PersistedOperatorAction(**json.loads(payload))
+
+    def _worker_queue_item_from_json(self, payload: str) -> Any:
+        from storage.db import PersistedWorkerQueueItem
+
+        return PersistedWorkerQueueItem(**json.loads(payload))
+
+    def _worker_queue_event_from_json(self, payload: str) -> Any:
+        from storage.db import PersistedWorkerQueueEvent
+
+        return PersistedWorkerQueueEvent(**json.loads(payload))
 
 
 __all__ = ["SQLAlchemyStorageBackend"]

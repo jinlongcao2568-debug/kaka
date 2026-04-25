@@ -43,7 +43,13 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertTrue(redlines["no_automated_refund"])
         self.assertFalse(redlines["external_software_release_enabled"])
         self.assertFalse(readiness["migration_readiness"]["migration_execution_enabled"])
+        self.assertEqual(readiness["queue_readiness"]["internal_durable_queue"]["readiness_state"], "EXECUTABLE")
+        self.assertTrue(readiness["worker_runtime_readiness"]["lease_persistence_enabled"])
+        self.assertTrue(readiness["worker_runtime_readiness"]["timeout_recovery_enabled"])
+        self.assertTrue(readiness["worker_runtime_readiness"]["suspend_resume_persistence_enabled"])
+        self.assertFalse(readiness["worker_runtime_readiness"]["real_provider_execution_enabled"])
         self.assertFalse(readiness["queue_readiness"]["external_service_connection_enabled"])
+        self.assertFalse(readiness["worker_queue_bootstrap"]["redis_connection_enabled"])
         self.assertFalse(readiness["object_storage_readiness"]["external_service_connection_enabled"])
         self.assertFalse(readiness["compose_readiness"]["compose_runtime_enabled"])
 

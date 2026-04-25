@@ -51,6 +51,10 @@ def get_provider_adapter_bootstrap_payload() -> dict[str, Any]:
     return get_settings().provider_adapter_bootstrap_payload()
 
 
+def get_worker_queue_bootstrap_payload() -> dict[str, Any]:
+    return dict(get_settings().storage_bootstrap_payload()["worker_queue_bootstrap"])
+
+
 def build_transport_unavailable(
     stage_scope: int,
     *,
@@ -137,5 +141,6 @@ __all__ = [
     "get_provider_adapter_bootstrap_payload",
     "get_provider_adapter_readiness_summary",
     "get_settings",
+    "get_worker_queue_bootstrap_payload",
     "validate_internal_orchestration_payload",
 ]

@@ -25,6 +25,7 @@ from storage.repositories.saleable_opportunity_repo import SaleableOpportunityRe
 from storage.repositories.stage9_execution_ledger_repo import Stage9ExecutionLedgerRepository
 from storage.repositories.touch_record_repo import TouchRecordRepository
 from storage.repositories.work_item_repo import WorkItemRepository
+from storage.repositories.worker_queue_repo import WorkerQueueRepository
 
 __all__ = [
     "BuyerFitRepository",
@@ -54,4 +55,5 @@ __all__ = [
     "Stage9ExecutionLedgerRepository",
     "TouchRecordRepository",
     "WorkItemRepository",
+    "WorkerQueueRepository",
 ]
