@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 17)
+        self.assertEqual(len(non_completed), 16)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -180,10 +180,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_113_is_closed_and_114_is_active(self) -> None:
+    def test_114_is_closed_and_115_is_active(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
         task_113 = self.tasks_by_id["PTL-I100-113-stage1-scheduler-production-loop"]
         task_114 = self.tasks_by_id["PTL-I100-114-stage2-real-public-source-adapters"]
+        task_115 = self.tasks_by_id["PTL-I100-115-stage3-real-parser-ocr-attachments"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -237,12 +238,20 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_113["runtime_change_in_packet"],
             "COMPLETED_113_STAGE1_SCHEDULER_PRODUCTION_LOOP",
         )
-        self.assertEqual(task_114["status"], "IN_PROGRESS")
-        self.assertEqual(task_114["planning_state"], "ACTIVE_BY_CURRENT_TASK")
-        self.assertEqual(task_114["active_subpacket"], "PTL-I100-114I-industry-authority-filing-pages")
+        self.assertEqual(task_114["status"], "COMPLETED")
+        self.assertEqual(task_114["planning_state"], "COMPLETED")
+        self.assertIsNone(task_114["active_subpacket"])
+        self.assertEqual(task_114["completed_commit"], "af13a96")
+        self.assertEqual(task_114["capability_state_after"], "SANDBOX_READY")
         self.assertEqual(
             task_114["runtime_change_in_packet"],
-            "ACTIVE_114I_STAGE2_INDUSTRY_AUTHORITY_FILING_PAGES_ADAPTER",
+            "COMPLETED_114_STAGE2_REAL_PUBLIC_SOURCE_ADAPTERS",
+        )
+        self.assertEqual(task_115["status"], "IN_PROGRESS")
+        self.assertEqual(task_115["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(
+            task_115["runtime_change_in_packet"],
+            "ACTIVE_115_STAGE3_REAL_PARSER_OCR_ATTACHMENTS",
         )
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]
@@ -294,6 +303,12 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 "completed_commit"
             ],
             "9e9c033",
+        )
+        self.assertEqual(
+            completed_114["PTL-I100-114I-industry-authority-filing-pages"][
+                "completed_commit"
+            ],
+            "af13a96",
         )
         self.assertIn("docker_compose_local_stack", task_112["capability_gaps_covered"])
         self.assertIn("health_and_readiness_checks", task_112["capability_gaps_covered"])

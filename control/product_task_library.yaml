@@ -1251,15 +1251,17 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, public_source_adapters, source_audit]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P8
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: INPUT_FIXTURE_AND_AUTHORITY_CARRIER_DRIVEN
-    runtime_change_in_packet: ACTIVE_114I_STAGE2_INDUSTRY_AUTHORITY_FILING_PAGES_ADAPTER
-    activation_policy: "114A completed via 7de630d. 114B completed via 6b4f91b. 114C completed via 2c403d6. 114D completed via e75a461. 114E completed via e93b503. 114F completed via 3f6bf5f. 114G completed via a4f71bb. 114H completed via 9e9c033. Activated by control/current_task.yaml for PTL-I100-114I industry authority filing pages; it targets SANDBOX_READY/readback and does not allow private/gray sources, login/captcha/anti-bot bypass, uncontrolled live crawling, provider execution, external release, or push."
-    active_subpacket: PTL-I100-114I-industry-authority-filing-pages
+    runtime_change_in_packet: COMPLETED_114_STAGE2_REAL_PUBLIC_SOURCE_ADAPTERS
+    activation_policy: "114A completed via 7de630d. 114B completed via 6b4f91b. 114C completed via 2c403d6. 114D completed via e75a461. 114E completed via e93b503. 114F completed via 3f6bf5f. 114G completed via a4f71bb. 114H completed via 9e9c033. 114I completed via af13a96. PTL-I100-114 is complete and no longer active; PTL-I100-115 is activated by control/current_task.yaml."
+    active_subpacket: null
+    completed_commit: af13a96
+    capability_state_after: SANDBOX_READY
     completed_subpackets:
       - subpacket_id: PTL-I100-114A-local-public-resource-trading-centers
         completed_commit: 7de630d
@@ -1293,6 +1295,10 @@ tasks:
         completed_commit: 9e9c033
         capability_state_after: SANDBOX_READY
         product_closure_state: "tenderer/procurer/owner public notice pages adapter seam for owner, correction, candidate, and award-result notice carriers, raw snapshot metadata, authority lineage, notice type, source health, retry/timeout/degrade, weak-lineage degrade, and fail-closed replay completed"
+      - subpacket_id: PTL-I100-114I-industry-authority-filing-pages
+        completed_commit: af13a96
+        capability_state_after: SANDBOX_READY
+        product_closure_state: "industry authority filing pages adapter seam for construction permit, contract filing, completion acceptance, and performance filing carriers, raw snapshot metadata, filing type, source coverage report, source health, retry/timeout/degrade, weak-coverage degrade, and fail-closed replay completed"
     hard_depends_on: [PTL-I100-113-stage1-scheduler-production-loop]
     soft_depends_on: [PTL-I100-102-stage1-5-real-source-vertical-slice]
     objective: "实现合规公开源 fetch adapter、raw capture、snapshot hash、附件下载、频控、retry/timeout、source health、fetch audit 和失败降级。"
@@ -1357,14 +1363,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage3_parsing, parser_runtime, attachment_processing]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P9
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: STRUCTURED_INPUT_CARRIER_DRIVEN
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet after Stage2 raw capture exists."
+    runtime_change_in_packet: ACTIVE_115_STAGE3_REAL_PARSER_OCR_ATTACHMENTS
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-114 completed via af13a96; target is INTERNAL_READY parser/OCR/attachment readback, not Stage4 verification or final facts."
     hard_depends_on: [PTL-I100-114-stage2-real-public-source-adapters]
     soft_depends_on: [PTL-S23-public-chain-to-parser-contract]
     objective: "实现 HTML/PDF/OCR/Word/Excel/附件解析、字段切片、置信度、定位信息、parser audit、错误分类和人工复核入口。"
