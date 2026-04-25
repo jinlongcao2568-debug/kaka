@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from stage1_tasking.scheduler import Stage1Scheduler
 from api.deps import build_transport_unavailable
 
 
@@ -26,4 +27,27 @@ def register_stage1_routes(router: object | None = None) -> list[dict[str, Any]]
     return [dict(STAGE1_TRANSPORT_UNAVAILABLE)]
 
 
-__all__ = ["STAGE1_TRANSPORT_UNAVAILABLE", "register_stage1_routes"]
+def create_stage1_scheduler_task(payload: dict[str, Any]) -> dict[str, Any]:
+    task = Stage1Scheduler().create_task(payload)
+    return {
+        "status": task.status,
+        "scheduler_task": task.as_payload(),
+        "stage2_handoff_intent": task.stage2_handoff_intent.as_payload(),
+        "real_external_fetch_enabled": False,
+        "crawler_enabled": False,
+    }
+
+
+def read_stage1_scheduler_task(payload: dict[str, Any]) -> dict[str, Any]:
+    queue_item_id = payload.get("queue_item_id")
+    if not queue_item_id:
+        raise ValueError("queue_item_id is required for stage1 scheduler readback")
+    return Stage1Scheduler().readback(str(queue_item_id))
+
+
+__all__ = [
+    "STAGE1_TRANSPORT_UNAVAILABLE",
+    "create_stage1_scheduler_task",
+    "read_stage1_scheduler_task",
+    "register_stage1_routes",
+]

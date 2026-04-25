@@ -25,6 +25,7 @@ from storage.repositories.project_fact_repo import ProjectFactRepository
 from storage.repositories.report_record_repo import ReportRecordRepository
 from storage.repositories.review_queue_profile_repo import ReviewQueueProfileRepository
 from storage.repositories.saleable_opportunity_repo import SaleableOpportunityRepository
+from storage.repositories.stage1_scheduler_repo import Stage1SchedulerRepository
 from storage.repositories.stage9_execution_ledger_repo import Stage9ExecutionLedgerRepository
 from storage.repositories.touch_record_repo import TouchRecordRepository
 from storage.repositories.work_item_repo import WorkItemRepository
@@ -58,6 +59,7 @@ __all__ = [
     "ReportRecordRepository",
     "ReviewQueueProfileRepository",
     "SaleableOpportunityRepository",
+    "Stage1SchedulerRepository",
     "Stage9ExecutionLedgerRepository",
     "TouchRecordRepository",
     "WorkItemRepository",

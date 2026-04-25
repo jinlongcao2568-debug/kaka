@@ -134,3 +134,9 @@ class Stage1Service:
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff
+
+    def schedule(self, payload: Mapping[str, Any]) -> Any:
+        from stage1_tasking.scheduler import Stage1Scheduler
+
+        self.validate_input(payload)
+        return Stage1Scheduler(settings=self.settings, store=self.store).create_task(payload)

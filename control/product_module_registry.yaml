@@ -212,6 +212,7 @@ stage_module_inventory:
         business_summary: "生成受控执行上下文，承接任务身份、来源策略、默认路由和时钟口径。"
         implementation_state: PARTIAL_RUNTIME
         current_files:
+          - src/stage1_tasking/__init__.py
           - src/stage1_tasking/service.py
           - src/stage1_tasking/contract_runtime.py
           - src/stage1_tasking/models.py
@@ -222,7 +223,10 @@ stage_module_inventory:
           - src/api/schemas/stage1.py
         repository_files:
           - src/storage/repositories/work_item_repo.py
+          - src/storage/repositories/stage1_scheduler_repo.py
+          - src/storage/repositories/worker_queue_repo.py
         test_files:
+          - tests/test_stage1_scheduler.py
           - tests/test_stage12_extractors.py
           - tests/test_pre_route_behavior.py
         depends_on_slices: []
@@ -245,7 +249,10 @@ stage_module_inventory:
           - src/api/schemas/stage1.py
         repository_files:
           - src/storage/repositories/work_item_repo.py
+          - src/storage/repositories/stage1_scheduler_repo.py
+          - src/storage/repositories/worker_queue_repo.py
         test_files:
+          - tests/test_stage1_scheduler.py
           - tests/test_stage12_extractors.py
           - tests/test_pre_route_behavior.py
         depends_on_slices:
@@ -910,9 +917,11 @@ cross_cutting_surfaces:
       - src/storage/repositories/operator_action_repo.py
       - src/storage/repositories/object_storage_repo.py
       - src/storage/repositories/backup_restore_repo.py
+      - src/storage/repositories/stage1_scheduler_repo.py
       - src/storage/repositories/worker_queue_repo.py
       - src/storage/repositories/monitoring_alerting_repo.py
     test_files:
+      - tests/test_stage1_scheduler.py
       - tests/test_internal_repository_boundary.py
       - tests/test_storage_concurrency.py
     completed_packets:
@@ -962,11 +971,14 @@ modules:
       - clock_strategy_profile
       - execution_context
     current_files:
+      - src/stage1_tasking/__init__.py
       - src/stage1_tasking/service.py
       - src/stage1_tasking/contract_runtime.py
       - src/stage1_tasking/extractors.py
       - src/stage1_tasking/models.py
       - src/stage1_tasking/scheduler.py
+      - src/storage/repositories/stage1_scheduler_repo.py
+      - src/storage/repositories/worker_queue_repo.py
       - handoff/stage1_to_stage2/contract.json
     current_runtime_state: PARTIAL_RUNTIME
     internal_governed_runtime_present: true
@@ -1389,6 +1401,7 @@ modules:
       - src/storage/repositories/operator_action_repo.py
       - src/storage/repositories/object_storage_repo.py
       - src/storage/repositories/backup_restore_repo.py
+      - src/storage/repositories/stage1_scheduler_repo.py
       - src/storage/repositories/worker_queue_repo.py
       - src/storage/repositories/monitoring_alerting_repo.py
     current_runtime_state: HEAVY_RUNTIME

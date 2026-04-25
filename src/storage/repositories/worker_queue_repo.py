@@ -335,6 +335,36 @@ class WorkerQueueRepository:
             now=effective_now,
         )
 
+    def dead_letter(
+        self,
+        *,
+        queue_item_id: str,
+        reason: str,
+        now: str | None = None,
+    ) -> PersistedWorkerQueueItem:
+        item = self._require_item(queue_item_id)
+        effective_now = now or utc_now()
+        updated = replace(
+            item,
+            status=QUEUE_STATUS_DEAD_LETTER,
+            worker_id=None,
+            lease_id=None,
+            claimed_at=None,
+            heartbeat_at=None,
+            expires_at=None,
+            next_run_at=None,
+            last_error=reason,
+            dead_letter_at=effective_now,
+            updated_at=effective_now,
+        )
+        return self._commit_transition(
+            previous_status=item.status,
+            item=updated,
+            event_type="dead_lettered",
+            detail={"reason": reason, "manual_dead_letter": True},
+            now=effective_now,
+        )
+
     def list_events(self, queue_item_id: str) -> list[PersistedWorkerQueueEvent]:
         return self.session.list_worker_queue_events(queue_item_id)
 
