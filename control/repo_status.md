@@ -16,9 +16,9 @@ Capability Adjudication Source: control/product_task_library.yaml#open_capabilit
 Current Blockers:
 - External leadpack delivery remains gated by approval + audit chain
 - External software release remains blocked
-- Stage 8 real execution remains governed / approval-gated / blocked by default except the completed 121A gated pilot implementation/readback path; no real send may occur in development or tests
-- Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
-- Stage 9 real payment/delivery remains governed / approval-gated / blocked by default except the completed 121B gated pilot implementation/readback path; no real payment capture, charge, delivery fulfillment, customer download, refund, or automated refund may occur in development or tests
+- Stage 8 real execution remains governed / approval-gated / blocked by default; it is a target capability for PTL-I100-122, but remains blocked until a dedicated current_task packet, provider config, sandbox pass, approval, audit, operator action, frequency/quiet-hours/opt-out gates, and acceptance pass; no unapproved real send may occur in development or tests
+- Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default; payment/delivery are target capabilities for PTL-I100-123, but remain blocked until a dedicated current_task packet, provider config, sandbox pass, payment/delivery approval, finance review, audit, callback verification, artifact/download/settlement/reconciliation gates, and acceptance pass
+- Stage 9 real refund execution remains blocked/manual-exception-only; automated refund execution remains excluded
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only
 - Real external source fetch remains gated by dedicated Stage2 source adapter packets; 114A-114I only open allowlisted/sandbox public-source adapter readback, not uncontrolled live crawling
 - Stage3 parser output remains unverified until Stage4 verification; parser carriers must not be written as final facts or customer-visible conclusions
@@ -94,7 +94,7 @@ State Semantics:
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
-- External release remains blocked; Stage8 real execution is limited to the completed 121A gated pilot path and must not run in development/tests; Stage9 payment/delivery is limited to the completed 121B gated pilot path and must not run in development/tests; real refund and automated refund remain blocked/excluded.
+- External release remains blocked; Stage8 real execution may only be developed/executed through PTL-I100-122 dedicated gated approval, and Stage9 payment/delivery may only be developed/executed through PTL-I100-123 dedicated gated approval. Until those packets pass, unapproved real send/payment/delivery remain blocked in development/tests; real refund remains manual-exception-only and automated refund remains excluded.
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all

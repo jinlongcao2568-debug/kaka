@@ -31,8 +31,8 @@ rules:
   - "repo readiness is not decided here; control/repo_status.md and control/milestone_status.yaml remain status truth sources."
 redlines:
   external_software_release: BLOCKED
-  stage8_real_execution: "governed / approval-gated / blocked by default"
-  stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
+  stage8_real_execution: "target capability for PTL-I100-122, but blocked by default until dedicated current_task, provider config, sandbox, approval, audit, operator action, frequency/opt-out/quiet-hours gates, and acceptance pass"
+  stage9_real_payment_delivery_refund: "payment/delivery are target capabilities for PTL-I100-123; real refund and automated refund remain excluded/blocked except manual exception/governed review"
   stage9_real_payment_delivery: "target capability, but blocked by default until sandbox, approval, audit, live-pilot, and production readiness pass"
   automated_refund_execution: EXCLUDED
 open_capability_policy:
@@ -213,8 +213,8 @@ internal_operable_productization_program:
     - PTL-I100-126-production-live-dependency-and-drill-approval
   redlines:
     external_software_release: BLOCKED
-    stage8_real_execution: "governed / approval-gated / blocked by default"
-    stage9_real_payment_delivery_refund: "governed / approval-gated / blocked by default"
+    stage8_real_execution: "target capability for PTL-I100-122, blocked before dedicated gated activation"
+    stage9_real_payment_delivery_refund: "payment/delivery target capability for PTL-I100-123; refund execution remains manual-exception-only and automated refund excluded"
     automated_refund_execution: EXCLUDED
 acceptance_model:
   rule: "Every implementation task must report engineering regression, capability-state movement, and product-closure impact separately."

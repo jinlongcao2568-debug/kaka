@@ -124,9 +124,9 @@ currentTask:
     non_goals:
       - "not an external unlock implementation"
       - "不改变 canonical readiness"
-      - "不放开 external release"
-      - "不放开 Stage8 real execution"
-      - "不放开 Stage9 real payment/delivery/refund"
+      - "不放开 external software release"
+      - "不在 118 内实现或执行 Stage8 real execution；122 可在 dedicated current_task、provider config、sandbox、approval、audit、operator action、频控/退订/quiet-hours 和验收通过后受控开发 approved provider execution"
+      - "不在 118 内实现或执行 Stage9 real payment/delivery/refund；123 可在 dedicated current_task、provider config、sandbox、approval、audit、finance review、artifact/download/settlement/reconciliation 和验收通过后受控开发 payment/delivery execution；自动退款仍 excluded"
       - "不新增业务对象、枚举、gate、exception 语义"
       - "not a runtime implementation packet"
       - "not a feature development packet"
@@ -317,5 +317,6 @@ currentTask:
     - "不得真实 provider call、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得 push。"
   nextActions:
-    - "执行 118 产品运营验收；若发现 runtime 产品缺口，输出最小补齐任务，不在 118 内扩大实现。"
-  status_note: "PTL-I100-118 已激活为 full product operational acceptance packet；当前目标是证明产品闭环是否真实可运营，而不是简单重复前序代码测试。"
+    - "118 已输出产品闭环 blocker，并已登记 PTL-I100-122 到 PTL-I100-126 作为最小后续实现任务。"
+    - "进入 122 前只允许同步会阻断后续开发的控制面/测试口径；runtime 实现必须等 dedicated current_task 激活。"
+  status_note: "PTL-I100-118 已完成产品运营验收并确认 NOT_CLOSED；122-126 是补齐真实触达、支付交付、客户可见交付、CRM/报价和生产依赖执行的后续任务。"
