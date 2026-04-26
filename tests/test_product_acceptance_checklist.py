@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 7)
+        self.assertEqual(len(non_completed), 5)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -180,7 +180,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_111c_is_closed_and_111d_is_active(self) -> None:
+    def test_111d_is_closed_and_120_is_active(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
         task_113 = self.tasks_by_id["PTL-I100-113-stage1-scheduler-production-loop"]
         task_114 = self.tasks_by_id["PTL-I100-114-stage2-real-public-source-adapters"]
@@ -196,6 +196,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund"
         ]
         task_111e = self.tasks_by_id["PTL-I100-111E-provider-reliability-and-circuit-breaker"]
+        task_120 = self.tasks_by_id["PTL-I100-120-operator-customer-access-and-go-live-readiness"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -330,11 +331,19 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_111c["runtime_change_in_packet"],
             "COMPLETED_111C_CRM_QUOTE_AND_DELIVERY_PAGE_ADAPTERS",
         )
-        self.assertEqual(task_111d["status"], "IN_PROGRESS")
-        self.assertEqual(task_111d["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_111d["status"], "COMPLETED")
+        self.assertEqual(task_111d["planning_state"], "COMPLETED")
+        self.assertEqual(task_111d["completed_commit"], "0ab2dba")
+        self.assertEqual(task_111d["capability_state_after"], "SANDBOX_READY")
         self.assertEqual(
             task_111d["runtime_change_in_packet"],
-            "ACTIVE_111D_PAYMENT_COLLECTION_AND_DELIVERY_FULFILLMENT_ADAPTERS_NO_REFUND",
+            "COMPLETED_111D_PAYMENT_COLLECTION_AND_DELIVERY_FULFILLMENT_ADAPTERS_NO_REFUND",
+        )
+        self.assertEqual(task_120["status"], "IN_PROGRESS")
+        self.assertEqual(task_120["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(
+            task_120["runtime_change_in_packet"],
+            "ACTIVE_120_OPERATOR_CUSTOMER_ACCESS_AND_GO_LIVE_READINESS",
         )
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]

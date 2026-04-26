@@ -854,13 +854,16 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage7_sales, stage8_outreach, stage9_delivery, page_export, external_live_governance]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: 111A_111E_111B_111C_COMPLETED_111D_ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P5
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_OWNER_OPERATED_LEDGER_AND_READBACK
-    runtime_change_in_packet: COMPLETED_FOR_111A_PROVIDER_CONFIG_AND_SANDBOX_SEAM
+    runtime_change_in_packet: COMPLETED_111_LIVE_PROVIDER_ADAPTERS_NO_AUTO_REFUND
+    completed_commit: 0ab2dba
+    capability_state_after: SANDBOX_READY
+    product_closure_state: "Provider config, reliability/circuit breaker, Stage8 outreach sandbox records, Stage7 CRM/quote/page/export sandbox records, and Stage9 payment/delivery sandbox records are complete; real live pilots still require PTL-I100-120/121 dedicated gated packets."
     completed_subpackets:
       - subpacket_id: PTL-I100-111A-provider-config-and-sandbox-seam
         completed_commit: c279fd5
@@ -878,7 +881,11 @@ tasks:
         completed_commit: 7af8966
         capability_state_after: SANDBOX_READY
         product_closure_state: "CRM/quote/page/export sandbox records and customer artifact candidate controls complete; no customer-visible publication or external delivery"
-    activation_policy: "111A completed via c279fd5. 111E completed via 1a1233c. 111B completed via 5642cb4. 111C completed via 7af8966. 111D is active by control/current_task.yaml after CRM/quote/page adapter closeout. Automated refund execution remains excluded."
+      - subpacket_id: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+        completed_commit: 0ab2dba
+        capability_state_after: SANDBOX_READY
+        product_closure_state: "payment gateway/charge/status/callback, receipt, invoice, delivery provider/artifact/download/version/hash/audit, settlement/reconciliation, and manual refund exception readback complete; no real charge, delivery, refund, or automated refund"
+    activation_policy: "111A completed via c279fd5. 111E completed via 1a1233c. 111B completed via 5642cb4. 111C completed via 7af8966. 111D completed via 0ab2dba. Automated refund execution remains excluded; live pilots require dedicated gated packets."
     hard_depends_on: [PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions]
     soft_depends_on: [PTL-I100-110E-order-payment-delivery-no-auto-refund]
     objective: "把 110A-110E 已形成的 owner-operated workbench/readback 推进到真实运营所需 provider adapter seam：销售触达、CRM/报价、证据包页面/交付、订单支付收款记录与交付履约。退款只允许 manual exception record / governed review，不实现自动退款程序。"
@@ -962,7 +969,7 @@ tasks:
           - manual_refund_approval_and_audit
         refund_boundary: "manual exception/governed review only; no automated refund execution"
     risk_level: CRITICAL
-    runtime_notes: "PTL-I100-111A 已完成并本地提交 c279fd5；PTL-I100-111E 已完成并本地提交 1a1233c；PTL-I100-111B 已完成并本地提交 5642cb4；PTL-I100-111C 已完成并本地提交 7af8966：CRM/quote/page/export sandbox readback 已闭合。111D payment collection and delivery fulfillment adapters 已激活。真实 provider call、真实触达、真实 CRM sync、真实报价外发、客户可见发布、真实支付、真实交付、真实退款、自动退款程序仍未放开。"
+    runtime_notes: "PTL-I100-111A 已完成并本地提交 c279fd5；PTL-I100-111E 已完成并本地提交 1a1233c；PTL-I100-111B 已完成并本地提交 5642cb4；PTL-I100-111C 已完成并本地提交 7af8966；PTL-I100-111D 已完成并本地提交 0ab2dba。111 系列关闭 provider config/reliability、销售触达、CRM/报价/页面导出、支付交付 sandbox/readback 第一轮；真实 provider call、真实触达、真实 CRM sync、真实报价外发、客户可见发布、真实支付、真实交付、真实退款、自动退款程序仍未放开。"
   - task_id: PTL-I100-111B-sales-outreach-adapter-execution
     title: "I100-111B Sales outreach adapter execution"
     program_ref: PTL-I100-internal-operable-productization
@@ -1079,14 +1086,17 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage9_delivery, payment_collection, delivery_fulfillment, finance_audit]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P17
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_ORDER_PAYMENT_DELIVERY_LEDGER
-    runtime_change_in_packet: ACTIVE_111D_PAYMENT_COLLECTION_AND_DELIVERY_FULFILLMENT_ADAPTERS_NO_REFUND
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-111C completed via 7af8966. Payment/delivery start at sandbox provider records; automated refund execution remains excluded."
+    runtime_change_in_packet: COMPLETED_111D_PAYMENT_COLLECTION_AND_DELIVERY_FULFILLMENT_ADAPTERS_NO_REFUND
+    completed_commit: 0ab2dba
+    capability_state_after: SANDBOX_READY
+    product_closure_state: "Stage9 payment/delivery sandbox provider records, receipt/invoice, settlement/reconciliation, manual refund exception approval/audit, repository/API readback, and live/refund redline guards completed."
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-111C completed via 7af8966; completed via 0ab2dba. Payment/delivery remain sandbox/readback until dedicated live pilot; automated refund execution remains excluded."
     hard_depends_on:
       - PTL-I100-111-live-provider-adapters-no-auto-refund
       - PTL-I100-111C-crm-quote-and-delivery-page-adapters
@@ -1655,14 +1665,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [api_transport, operator_workbench, customer_access, deployment_readiness, governance_testing]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P18
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: INTERNAL_API_PREVIEW_AND_BOOTSTRAP
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet after provider/infra/export/payment foundations are complete. Public software release remains not the sold product, but internal production access and customer artifact access must be governed."
+    runtime_change_in_packet: ACTIVE_120_OPERATOR_CUSTOMER_ACCESS_AND_GO_LIVE_READINESS
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-111D completed via 0ab2dba. Public software release remains not the sold product; internal production access and customer artifact access must be governed, approval/audit gated, and not live by default."
     hard_depends_on:
       - PTL-I100-111C-crm-quote-and-delivery-page-adapters
       - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
