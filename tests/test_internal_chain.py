@@ -1804,6 +1804,14 @@ class TestInternalChain(unittest.TestCase):
             stage9.inputs.get("manual_refund_exception_record"),
         )
         self.assertEqual(
+            hydrated.inputs.get("payment_delivery_live_pilot"),
+            stage9.inputs.get("payment_delivery_live_pilot"),
+        )
+        self.assertEqual(
+            hydrated.handoff.get("payment_delivery_live_pilot"),
+            stage9.handoff.get("payment_delivery_live_pilot"),
+        )
+        self.assertEqual(
             hydrated.record("payment_record").get("payment_sandbox_provider_records"),
             stage9.record("payment_record").get("payment_sandbox_provider_records"),
         )

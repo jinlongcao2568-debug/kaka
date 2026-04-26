@@ -18,11 +18,18 @@ STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY = "stage9_execution_ledger_id_optional"
 PAYMENT_SANDBOX_RECORDS_INPUT_KEY = "payment_sandbox_provider_records"
 DELIVERY_SANDBOX_RECORDS_INPUT_KEY = "delivery_sandbox_provider_records"
 MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY = "manual_refund_exception_record"
+PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY = "payment_delivery_live_pilot"
 
 _EMPTY_VALUES = {None, "", "UNKNOWN", "NOT_APPLICABLE"}
 _SUSPENDED_STATES = {"SUSPENDED"}
 _CIRCUIT_OPEN_STATES = {"OPEN", "HALF_OPEN", "FORCED_OPEN"}
 _PROVIDER_FAILURE_BLOCKING_CLASSES = {"UNHEALTHY", "RATE_LIMITED", "TIMEOUT", "CIRCUIT_OPEN"}
+_LIVE_APPROVED_STATES = {"APPROVED", "APPROVED_FOR_LIVE_PILOT", "SATISFIED", "SATISFIED_FOR_LIVE_PILOT"}
+_FINANCE_REVIEW_APPROVED_STATES = {"APPROVED", "APPROVED_FOR_LIVE_PILOT", "REVIEWED", "SATISFIED"}
+_DOWNLOAD_AUTH_APPROVED_STATES = {"APPROVED", "AUTHORIZED", "APPROVED_FOR_LIVE_PILOT", "GRANTED"}
+_CALLBACK_BLOCKING_STATES = {"MISMATCH", "MISMATCH_CONFIRMED", "BLOCKED", "FAILED"}
+_CALLBACK_REVIEW_STATES = {"REVIEW", "REVIEW_REQUIRED", "MISMATCH_REVIEW", "MISMATCH_PENDING_REVIEW"}
+_DELIVERY_FAILURE_STATES = {"RELEASE_BLOCKED", "FAILED", "CANCELLED", "FULFILLMENT_BLOCKED"}
 
 
 def _truthy(value: Any) -> bool:
@@ -34,7 +41,11 @@ def _truthy(value: Any) -> bool:
 
 
 def _has_value(value: Any) -> bool:
-    return value not in _EMPTY_VALUES
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return value not in _EMPTY_VALUES
+    return True
 
 
 def _clean_list(values: list[Any]) -> list[str]:
@@ -49,6 +60,28 @@ def _clean_list(values: list[Any]) -> list[str]:
         seen.add(text)
         cleaned.append(text)
     return cleaned
+
+
+def _state_token(value: Any, *, default: str = "MISSING") -> str:
+    if value in _EMPTY_VALUES:
+        return default
+    return str(value).strip().upper().replace("-", "_").replace(" ", "_")
+
+
+def _int_from_inputs(
+    inputs: Mapping[str, Any],
+    *field_names: str,
+    default: int = 0,
+) -> int:
+    for field_name in field_names:
+        value = inputs.get(field_name)
+        if value in _EMPTY_VALUES:
+            continue
+        try:
+            return max(int(value), 0)
+        except (TypeError, ValueError):
+            return default
+    return default
 
 
 def _requested_flag(inputs: Mapping[str, Any], *field_names: str) -> bool:
@@ -99,6 +132,500 @@ def _provider_blocked_reasons(provider_readiness: Mapping[str, Any], *extra: str
     if str(provider_circuit_breaker.get("state", "CLOSED")).upper() in _CIRCUIT_OPEN_STATES:
         reasons.append("provider_circuit_open_fail_closed")
     return _clean_list(reasons)
+
+
+def _operator_action_audit_refs(inputs: Mapping[str, Any]) -> list[str]:
+    values: list[Any] = []
+    for field_name in (
+        "operator_action_audit_refs",
+        "operator_action_audit_ref",
+        "stage9_operator_action_audit_refs",
+        "stage9_operator_action_audit_ref",
+        "payment_delivery_live_pilot_operator_action_audit_refs",
+        "payment_delivery_live_pilot_operator_action_audit_ref",
+        "live_pilot_operator_action_audit_refs",
+        "live_pilot_operator_action_audit_ref",
+    ):
+        value = inputs.get(field_name)
+        if not _has_value(value):
+            continue
+        values.extend(ensure_list(value))
+    expanded: list[str] = []
+    for value in values:
+        if isinstance(value, str) and "," in value:
+            expanded.extend(part.strip() for part in value.split(","))
+        else:
+            expanded.append(str(value))
+    return _clean_list(expanded)
+
+
+def _live_pilot_scope(inputs: Mapping[str, Any], *, live_requested: bool) -> dict[str, Any]:
+    approved_sample_size = _int_from_inputs(
+        inputs,
+        "approved_sample_size",
+        "pilot_approved_sample_size",
+        "live_pilot_approved_sample_size",
+        "payment_delivery_live_pilot_approved_sample_size",
+        default=0,
+    )
+    requested_sample_size = _int_from_inputs(
+        inputs,
+        "requested_sample_size",
+        "pilot_requested_sample_size",
+        "live_pilot_requested_sample_size",
+        "payment_delivery_live_pilot_requested_sample_size",
+        default=1 if live_requested else 0,
+    )
+    max_sample_size = _int_from_inputs(
+        inputs,
+        "max_small_sample_size",
+        "live_pilot_max_sample_size",
+        "payment_delivery_live_pilot_max_sample_size",
+        default=10,
+    )
+    requested_batch_execution_enabled = any(
+        _truthy(inputs.get(field_name))
+        for field_name in (
+            "batch_execution_enabled",
+            "bulk_execution_enabled",
+            "mass_execution_enabled",
+            "batch_send_enabled",
+            "bulk_send_enabled",
+            "stage8_bulk_execution_enabled",
+            "payment_delivery_batch_execution_enabled",
+            "payment_delivery_live_pilot_batch_execution_enabled",
+        )
+    )
+    scope_type = str(
+        inputs.get("pilot_scope")
+        or inputs.get("live_pilot_scope")
+        or inputs.get("payment_delivery_live_pilot_scope")
+        or "small_sample"
+    ).strip().lower().replace("-", "_").replace(" ", "_")
+    small_sample = (
+        scope_type == "small_sample"
+        and approved_sample_size > 0
+        and requested_sample_size > 0
+        and requested_sample_size <= approved_sample_size
+        and approved_sample_size <= max_sample_size
+        and not requested_batch_execution_enabled
+    )
+    return {
+        "pilot_scope": "small_sample",
+        "scope_type": scope_type,
+        "approved_sample_size": approved_sample_size,
+        "requested_sample_size": requested_sample_size,
+        "max_small_sample_size": max_sample_size,
+        "small_sample": small_sample,
+        "batch_execution_enabled": False,
+        "bulk_execution_enabled": False,
+        "requested_batch_execution_enabled": requested_batch_execution_enabled,
+    }
+
+
+def _sandbox_payment_pass_state(
+    inputs: Mapping[str, Any],
+    payment_gateway_record: Mapping[str, Any],
+    charge_record: Mapping[str, Any],
+) -> str:
+    explicit = _state_token(
+        inputs.get("sandbox_payment_pass_state")
+        or inputs.get("payment_sandbox_pass_state")
+        or inputs.get("sandbox_pass_state"),
+        default="",
+    )
+    if explicit in {"PASSED", "PASS", "SANDBOX_RECORDED"}:
+        return "PASSED"
+    if explicit:
+        return "SUSPENDED" if explicit == "SUSPENDED" else "BLOCKED"
+    gateway_state = str(payment_gateway_record.get("gateway_execution_state", "BLOCKED"))
+    charge_state = str(charge_record.get("sandbox_execution_state", "BLOCKED"))
+    if "SUSPENDED" in {gateway_state, charge_state}:
+        return "SUSPENDED"
+    if gateway_state == "SANDBOX_RECORDED" and charge_state == "SANDBOX_RECORDED":
+        return "PASSED"
+    return "BLOCKED"
+
+
+def _provider_result_readback(
+    *,
+    family: str,
+    provider_readiness: Mapping[str, Any],
+    readiness_state: str,
+    live_enabled: bool,
+    records: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "provider_family": family,
+        "provider_id": provider_readiness.get("provider_id"),
+        "provider_mode": provider_readiness.get("mode"),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": _provider_is_suspended(provider_readiness),
+        "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
+        "readiness_state": readiness_state,
+        "live_pilot_record_enabled": live_enabled,
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "provider_call_executed": False,
+        "real_charge_attempted": False,
+        "real_delivery_fulfillment_attempted": False,
+        "live_fallback_allowed": False,
+        "readback_only": True,
+        "records": dict(records),
+    }
+
+
+def _pilot_readiness_state(
+    *,
+    suspension_reasons: list[str],
+    blocked_reasons: list[str],
+    review_reasons: list[str],
+) -> str:
+    if suspension_reasons:
+        return "SUSPENDED"
+    if blocked_reasons:
+        return "BLOCKED"
+    if review_reasons:
+        return "REVIEW"
+    return "LIVE_READY"
+
+
+def _build_payment_delivery_live_pilot_carrier(
+    *,
+    project_id: str,
+    runtime_inputs: Mapping[str, Any],
+    order_id: str,
+    payment_id: str,
+    delivery_id: str,
+    opportunity_id: str,
+    payment_gateway_record: Mapping[str, Any],
+    charge_record: Mapping[str, Any],
+    receipt_record: Mapping[str, Any],
+    invoice_record: Mapping[str, Any],
+    settlement_record: Mapping[str, Any],
+    reconciliation_record: Mapping[str, Any],
+    manual_refund_record: Mapping[str, Any],
+    delivery_provider_record: Mapping[str, Any],
+    delivery_artifact_record: Mapping[str, Any],
+    delivery_version_lock_record: Mapping[str, Any],
+    delivery_hash_record: Mapping[str, Any],
+    delivery_audit_record: Mapping[str, Any],
+    delivery_record: Mapping[str, Any],
+    provider_summary: Mapping[str, Any],
+    payment_provider_readiness: Mapping[str, Any],
+    delivery_provider_readiness: Mapping[str, Any],
+    audit_state: str,
+    now: str,
+) -> dict[str, Any]:
+    live_payment_requested = _requested_flag(
+        runtime_inputs,
+        "live_payment_requested",
+        "payment_live_pilot_requested",
+        "payment_delivery_live_pilot_requested",
+    )
+    live_delivery_requested = _requested_flag(
+        runtime_inputs,
+        "live_delivery_requested",
+        "delivery_live_pilot_requested",
+        "payment_delivery_live_pilot_requested",
+    )
+    live_requested = live_payment_requested or live_delivery_requested
+    pilot_scope = _live_pilot_scope(runtime_inputs, live_requested=live_requested)
+    operator_action_audit_refs = _operator_action_audit_refs(runtime_inputs)
+    sandbox_payment_pass_state = _sandbox_payment_pass_state(
+        runtime_inputs,
+        payment_gateway_record,
+        charge_record,
+    )
+    payment_approval_state = _state_token(
+        runtime_inputs.get("payment_approval_state")
+        or runtime_inputs.get("live_payment_approval_state")
+        or runtime_inputs.get("payment_live_pilot_approval_state"),
+    )
+    delivery_approval_state = _state_token(
+        runtime_inputs.get("delivery_approval_state")
+        or runtime_inputs.get("live_delivery_approval_state")
+        or runtime_inputs.get("delivery_live_pilot_approval_state"),
+    )
+    finance_review_state = _state_token(
+        runtime_inputs.get("finance_review_state")
+        or runtime_inputs.get("finance_reconciliation_review_state")
+        or runtime_inputs.get("payment_finance_review_state")
+        or runtime_inputs.get("settlement_finance_review_state"),
+    )
+    download_auth_state = _state_token(
+        runtime_inputs.get("download_auth_state")
+        or runtime_inputs.get("customer_download_auth_state")
+        or runtime_inputs.get("delivery_download_auth_state")
+        or runtime_inputs.get("artifact_download_auth_state"),
+    )
+    callback_mismatch_state = _state_token(
+        runtime_inputs.get("callback_mismatch_state")
+        or runtime_inputs.get("payment_callback_mismatch_state"),
+        default="NO_MISMATCH",
+    )
+    delivery_failure_state = _state_token(
+        runtime_inputs.get("delivery_failure_state")
+        or delivery_record.get("delivery_status")
+        or delivery_provider_record.get("provider_execution_state"),
+        default="NONE",
+    )
+    settlement_state = _state_token(settlement_record.get("settlement_state"), default="MISSING")
+    reconciliation_state = _state_token(
+        reconciliation_record.get("reconciliation_state"),
+        default="MISSING",
+    )
+    artifact_version_locked = bool(delivery_version_lock_record.get("version_locked", False))
+    payment_provider_suspended = _provider_is_suspended(payment_provider_readiness)
+    delivery_provider_suspended = _provider_is_suspended(delivery_provider_readiness)
+    delivery_failure = (
+        delivery_failure_state in _DELIVERY_FAILURE_STATES
+        or str(delivery_provider_record.get("provider_execution_state", "")).upper() in _DELIVERY_FAILURE_STATES
+    )
+
+    payment_blocked_reasons: list[str] = []
+    delivery_blocked_reasons: list[str] = []
+    payment_review_reasons: list[str] = []
+    delivery_review_reasons: list[str] = []
+    payment_suspension_reasons: list[str] = []
+    delivery_suspension_reasons: list[str] = []
+
+    if not live_payment_requested:
+        payment_blocked_reasons.append("live_payment_not_requested")
+    if not live_delivery_requested:
+        delivery_blocked_reasons.append("live_delivery_not_requested")
+    if not pilot_scope["small_sample"]:
+        payment_blocked_reasons.append("pilot_scope_not_approved_small_sample")
+        delivery_blocked_reasons.append("pilot_scope_not_approved_small_sample")
+    if pilot_scope["requested_batch_execution_enabled"]:
+        payment_blocked_reasons.append("batch_execution_requested_but_disabled")
+        delivery_blocked_reasons.append("batch_execution_requested_but_disabled")
+    if sandbox_payment_pass_state == "SUSPENDED":
+        payment_suspension_reasons.append("sandbox_payment_pass_state=SUSPENDED")
+    elif sandbox_payment_pass_state != "PASSED":
+        payment_blocked_reasons.append(f"sandbox_payment_pass_state={sandbox_payment_pass_state}")
+    if payment_approval_state not in _LIVE_APPROVED_STATES:
+        payment_blocked_reasons.append("payment_approval_missing")
+    if delivery_approval_state not in _LIVE_APPROVED_STATES:
+        delivery_blocked_reasons.append("delivery_approval_missing")
+    if finance_review_state not in _FINANCE_REVIEW_APPROVED_STATES:
+        payment_blocked_reasons.append("finance_review_missing")
+        delivery_blocked_reasons.append("finance_review_missing")
+    if not operator_action_audit_refs:
+        payment_blocked_reasons.append("operator_action_audit_missing")
+        delivery_blocked_reasons.append("operator_action_audit_missing")
+    if audit_state == "MISSING":
+        payment_blocked_reasons.append("audit_ref_missing")
+        delivery_blocked_reasons.append("audit_ref_missing")
+    if payment_provider_suspended:
+        payment_suspension_reasons.append("payment_provider_suspended_fail_closed")
+    if delivery_provider_suspended:
+        delivery_suspension_reasons.append("delivery_provider_suspended_fail_closed")
+    if callback_mismatch_state in _CALLBACK_BLOCKING_STATES:
+        payment_blocked_reasons.append(f"callback_mismatch_state={callback_mismatch_state}")
+    elif callback_mismatch_state in _CALLBACK_REVIEW_STATES:
+        payment_review_reasons.append(f"callback_mismatch_state={callback_mismatch_state}")
+    if settlement_state not in {"RECORDED", "SETTLED", "MATCHED"}:
+        payment_review_reasons.append(f"settlement_state={settlement_state}")
+        delivery_review_reasons.append(f"settlement_state={settlement_state}")
+    if reconciliation_state != "MATCHED":
+        payment_review_reasons.append(f"reconciliation_state={reconciliation_state}")
+        delivery_review_reasons.append(f"reconciliation_state={reconciliation_state}")
+    if not artifact_version_locked:
+        delivery_blocked_reasons.append("artifact_version_not_locked")
+    if download_auth_state not in _DOWNLOAD_AUTH_APPROVED_STATES:
+        delivery_blocked_reasons.append("download_auth_missing")
+    if delivery_failure:
+        delivery_suspension_reasons.append("delivery_failure_rollback_required")
+    if payment_blocked_reasons or payment_suspension_reasons:
+        delivery_blocked_reasons.append("payment_live_pilot_not_ready")
+    elif payment_review_reasons:
+        delivery_review_reasons.append("payment_live_pilot_review_required")
+
+    payment_readiness_state = _pilot_readiness_state(
+        suspension_reasons=payment_suspension_reasons,
+        blocked_reasons=payment_blocked_reasons,
+        review_reasons=payment_review_reasons,
+    )
+    delivery_readiness_state = _pilot_readiness_state(
+        suspension_reasons=delivery_suspension_reasons,
+        blocked_reasons=delivery_blocked_reasons,
+        review_reasons=delivery_review_reasons,
+    )
+    live_payment_enabled = live_payment_requested and payment_readiness_state == "LIVE_READY"
+    live_delivery_enabled = live_delivery_requested and delivery_readiness_state == "LIVE_READY"
+    callback_record = {
+        "charge_status_callback_sandbox_record": dict(charge_record),
+        "callback_mismatch_state": callback_mismatch_state,
+        "status_readback_state": charge_record.get("status_readback_state"),
+        "callback_readback_state": charge_record.get("callback_readback_state"),
+        "real_callback_received": False,
+        "replayable": bool(charge_record.get("replayable", False)),
+    }
+    rollback_readiness = {
+        "state": "ROLLBACK_REQUIRED" if delivery_failure else "READY_FOR_MANUAL_REVIEW",
+        "rollback_required": delivery_failure,
+        "manual_approval_required": True,
+        "audit_required": True,
+        "rollback_execution_enabled": False,
+        "destructive_rollback_enabled": False,
+        "external_provider_rollback_enabled": False,
+        "replayable": True,
+        "blocked_reasons": ["rollback_execution_enabled=false"],
+    }
+    payment_provider_result = _provider_result_readback(
+        family="payment_collection",
+        provider_readiness=payment_provider_readiness,
+        readiness_state=payment_readiness_state,
+        live_enabled=live_payment_enabled,
+        records={
+            "payment_gateway_sandbox_record": dict(payment_gateway_record),
+            "charge_status_callback_sandbox_record": dict(charge_record),
+            "receipt_record": dict(receipt_record),
+            "invoice_record": dict(invoice_record),
+            "settlement_record": dict(settlement_record),
+            "finance_reconciliation_record": dict(reconciliation_record),
+        },
+    )
+    delivery_provider_result = _provider_result_readback(
+        family="leadpack_page_delivery",
+        provider_readiness=delivery_provider_readiness,
+        readiness_state=delivery_readiness_state,
+        live_enabled=live_delivery_enabled,
+        records={
+            "delivery_provider_sandbox_record": dict(delivery_provider_record),
+            "delivery_artifact_download_record": dict(delivery_artifact_record),
+            "delivery_version_lock_record": dict(delivery_version_lock_record),
+            "delivery_hash_record": dict(delivery_hash_record),
+            "delivery_audit_record": dict(delivery_audit_record),
+        },
+    )
+    blocked_reasons = _clean_list(payment_blocked_reasons + delivery_blocked_reasons)
+    review_reasons = _clean_list(payment_review_reasons + delivery_review_reasons)
+    suspension_reasons = _clean_list(payment_suspension_reasons + delivery_suspension_reasons)
+    overall_state = _pilot_readiness_state(
+        suspension_reasons=suspension_reasons,
+        blocked_reasons=blocked_reasons,
+        review_reasons=review_reasons,
+    )
+
+    return {
+        "pilot_id": str(runtime_inputs.get("payment_delivery_live_pilot_id") or build_id("S9PILOT", project_id, order_id)),
+        "order_id": order_id,
+        "payment_id": payment_id,
+        "delivery_id": delivery_id,
+        "opportunity_id": opportunity_id,
+        "pilot_scope": "small_sample",
+        "approved_sample_size": pilot_scope["approved_sample_size"],
+        "requested_sample_size": pilot_scope["requested_sample_size"],
+        "batch_execution_enabled": False,
+        "bulk_execution_enabled": False,
+        "requested_batch_execution_enabled": pilot_scope["requested_batch_execution_enabled"],
+        "provider_adapter_readiness_summary": dict(provider_summary),
+        "payment_provider_adapter_readiness": dict(payment_provider_readiness),
+        "delivery_provider_adapter_readiness": dict(delivery_provider_readiness),
+        "sandbox_payment_pass_state": sandbox_payment_pass_state,
+        "payment_approval_state": payment_approval_state,
+        "delivery_approval_state": delivery_approval_state,
+        "operator_action_audit_refs": operator_action_audit_refs,
+        "finance_review_state": finance_review_state,
+        "download_auth_state": download_auth_state,
+        "payment_live_pilot_readiness_state": payment_readiness_state,
+        "delivery_live_pilot_readiness_state": delivery_readiness_state,
+        "overall_live_pilot_readiness_state": overall_state,
+        "live_payment_requested": live_payment_requested,
+        "live_delivery_requested": live_delivery_requested,
+        "live_payment_enabled": live_payment_enabled,
+        "live_delivery_enabled": live_delivery_enabled,
+        "real_payment_capture_attempted": False,
+        "real_charge_attempted": False,
+        "real_delivery_fulfillment_attempted": False,
+        "real_customer_download_attempted": False,
+        "real_refund_attempted": False,
+        "automated_refund_program": {
+            "present": False,
+            "enabled": False,
+            "state": "ABSENT_BLOCKED",
+        },
+        "payment_provider_result_readback": payment_provider_result,
+        "delivery_provider_result_readback": delivery_provider_result,
+        "callback_record": callback_record,
+        "callback_mismatch_state": callback_mismatch_state,
+        "receipt_record": dict(receipt_record),
+        "invoice_record": dict(invoice_record),
+        "delivery_unlock_record": {
+            "delivery_id": delivery_id,
+            "approval_state": delivery_approval_state,
+            "unlock_state": "APPROVED_FOR_LIVE_PILOT" if live_delivery_enabled else delivery_readiness_state,
+            "customer_visible_unlock_enabled": live_delivery_enabled,
+            "real_delivery_fulfillment_attempted": False,
+            "external_delivery_enabled": False,
+            "audit_refs": operator_action_audit_refs,
+        },
+        "delivery_artifact_version_lock": dict(delivery_version_lock_record),
+        "delivery_hash_record": dict(delivery_hash_record),
+        "customer_download_audit_record": {
+            "delivery_artifact_download_record": dict(delivery_artifact_record),
+            "delivery_audit_record": dict(delivery_audit_record),
+            "download_auth_state": download_auth_state,
+            "customer_download_authorized": download_auth_state in _DOWNLOAD_AUTH_APPROVED_STATES,
+            "customer_download_enabled": live_delivery_enabled,
+            "real_customer_download_attempted": False,
+            "audit_refs": operator_action_audit_refs,
+            "replayable": bool(delivery_artifact_record.get("replayable", False))
+            and bool(delivery_audit_record.get("replayable", False)),
+        },
+        "settlement_record": dict(settlement_record),
+        "finance_reconciliation_record": dict(reconciliation_record),
+        "settlement_reconciliation_readback": {
+            "settlement_state": settlement_state,
+            "reconciliation_state": reconciliation_state,
+            "readiness_state": "LIVE_READY"
+            if settlement_state in {"RECORDED", "SETTLED", "MATCHED"} and reconciliation_state == "MATCHED"
+            else "REVIEW",
+            "real_finance_posting_enabled": False,
+            "replayable": bool(settlement_record.get("replayable", False))
+            and bool(reconciliation_record.get("replayable", False)),
+        },
+        "rollback_readiness": rollback_readiness,
+        "manual_refund_exception_record": dict(manual_refund_record),
+        "manual_refund_governance": {
+            "manual_refund_exception_state": manual_refund_record.get("manual_refund_exception_state"),
+            "manual_approval_state": dict(manual_refund_record.get("approval_record", {})).get("approval_state"),
+            "manual_audit_state": dict(manual_refund_record.get("audit_record", {})).get("audit_state"),
+            "governed_review_required": bool(
+                manual_refund_record.get("manual_refund_exception_required", False)
+            ),
+            "automatic_approval_enabled": False,
+            "automated_refund_enabled": False,
+            "real_refund_attempted": False,
+        },
+        "suspension_state": {
+            "state": "SUSPENDED" if suspension_reasons else "ACTIVE",
+            "reasons": suspension_reasons,
+            "manual_resume_required": bool(suspension_reasons),
+            "payment_provider_suspended": payment_provider_suspended,
+            "delivery_provider_suspended": delivery_provider_suspended,
+            "delivery_failure_rollback_required": delivery_failure,
+        },
+        "replay_state": {
+            "state": "REPLAYABLE",
+            "repository_backed": True,
+            "live_pilot_record_replayable": True,
+            "payment_provider_result_readback_replayable": True,
+            "delivery_provider_result_readback_replayable": True,
+            "callback_record_replayable": True,
+            "receipt_invoice_replayable": True,
+            "settlement_reconciliation_replayable": True,
+            "delivery_artifact_readback_replayable": True,
+            "manual_refund_exception_replayable": True,
+            "real_provider_call_executed": False,
+        },
+        "blocked_reasons": blocked_reasons,
+        "review_reasons": review_reasons,
+        "suspension_reasons": suspension_reasons,
+        "decided_at": now,
+    }
 
 
 def _provider_snapshot(
@@ -541,6 +1068,7 @@ def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -
     settlement_record = dict(ledger.get("settlement_record", {}))
     reconciliation_record = dict(ledger.get("finance_reconciliation_record", {}))
     manual_refund_record = dict(ledger.get(MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY, {}))
+    live_pilot_carrier = dict(ledger.get(PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY, {}))
     return {
         "execution_ledger_id": ledger.get("execution_ledger_id"),
         "order_execution_id": ledger.get("order_execution_id"),
@@ -599,10 +1127,27 @@ def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -
             "real_refund_attempted": False,
             "replayable": bool(dict(manual_refund_record.get("audit_record", {})).get("replayable", False)),
         },
+        PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY: live_pilot_carrier,
+        "payment_live_pilot_readiness_state": live_pilot_carrier.get("payment_live_pilot_readiness_state"),
+        "delivery_live_pilot_readiness_state": live_pilot_carrier.get("delivery_live_pilot_readiness_state"),
+        "overall_live_pilot_readiness_state": live_pilot_carrier.get("overall_live_pilot_readiness_state"),
+        "live_payment_requested": bool(live_pilot_carrier.get("live_payment_requested", False)),
+        "live_delivery_requested": bool(live_pilot_carrier.get("live_delivery_requested", False)),
+        "live_payment_enabled": bool(live_pilot_carrier.get("live_payment_enabled", False)),
+        "live_delivery_enabled": bool(live_pilot_carrier.get("live_delivery_enabled", False)),
+        "real_payment_capture_attempted": False,
+        "real_delivery_fulfillment_attempted": False,
+        "real_customer_download_attempted": False,
+        "automated_refund_program": {
+            "present": False,
+            "enabled": False,
+            "state": "ABSENT_BLOCKED",
+        },
     }
 
 
 def stage9_execution_ledger_summary(ledger: Mapping[str, Any]) -> dict[str, Any]:
+    live_pilot_carrier = dict(ledger.get(PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY, {}))
     return {
         "execution_ledger_id": ledger.get("execution_ledger_id"),
         "order_execution_id": ledger.get("order_execution_id"),
@@ -643,6 +1188,12 @@ def stage9_execution_ledger_summary(ledger: Mapping[str, Any]) -> dict[str, Any]
         "manual_refund_exception_state": dict(ledger.get(MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY, {})).get(
             "manual_refund_exception_state"
         ),
+        PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY: live_pilot_carrier,
+        "payment_live_pilot_readiness_state": live_pilot_carrier.get("payment_live_pilot_readiness_state"),
+        "delivery_live_pilot_readiness_state": live_pilot_carrier.get("delivery_live_pilot_readiness_state"),
+        "overall_live_pilot_readiness_state": live_pilot_carrier.get("overall_live_pilot_readiness_state"),
+        "live_payment_enabled": bool(live_pilot_carrier.get("live_payment_enabled", False)),
+        "live_delivery_enabled": bool(live_pilot_carrier.get("live_delivery_enabled", False)),
     }
 
 
@@ -786,6 +1337,35 @@ def build_stage9_execution_ledger(
     delivery_version_lock_record = dict(delivery_record.get("delivery_version_lock_record", {}))
     delivery_hash_record = dict(delivery_record.get("delivery_hash_record", {}))
     delivery_audit_record = dict(delivery_sandbox_records.get("delivery_audit_record", {}))
+    live_pilot_carrier = _build_payment_delivery_live_pilot_carrier(
+        project_id=project_id,
+        runtime_inputs=runtime_inputs,
+        order_id=order_id,
+        payment_id=payment_id,
+        delivery_id=delivery_id,
+        opportunity_id=opportunity_id,
+        payment_gateway_record=payment_gateway_record,
+        charge_record=charge_record,
+        receipt_record=receipt_record,
+        invoice_record=invoice_record,
+        settlement_record=settlement_record,
+        reconciliation_record=reconciliation_record,
+        manual_refund_record=manual_refund_record,
+        delivery_provider_record=delivery_provider_record,
+        delivery_artifact_record=delivery_artifact_record,
+        delivery_version_lock_record=delivery_version_lock_record,
+        delivery_hash_record=delivery_hash_record,
+        delivery_audit_record=delivery_audit_record,
+        delivery_record=delivery_record,
+        provider_summary=provider_summary,
+        payment_provider_readiness=provider_readiness,
+        delivery_provider_readiness=delivery_provider_readiness,
+        audit_state=audit_state,
+        now=now,
+    )
+    blocked_reasons.extend(live_pilot_carrier.get("blocked_reasons", []))
+    blocked_reasons.extend(live_pilot_carrier.get("review_reasons", []))
+    blocked_reasons.extend(live_pilot_carrier.get("suspension_reasons", []))
 
     ledger = {
         "execution_ledger_id": ledger_id,
@@ -809,6 +1389,16 @@ def build_stage9_execution_ledger(
         "real_charge_attempted": False,
         "real_delivery_attempted": False,
         "real_refund_attempted": False,
+        "real_payment_capture_attempted": False,
+        "real_delivery_fulfillment_attempted": False,
+        "real_customer_download_attempted": False,
+        "live_payment_requested": bool(live_pilot_carrier.get("live_payment_requested", False)),
+        "live_delivery_requested": bool(live_pilot_carrier.get("live_delivery_requested", False)),
+        "live_payment_enabled": bool(live_pilot_carrier.get("live_payment_enabled", False)),
+        "live_delivery_enabled": bool(live_pilot_carrier.get("live_delivery_enabled", False)),
+        "payment_live_pilot_readiness_state": live_pilot_carrier.get("payment_live_pilot_readiness_state"),
+        "delivery_live_pilot_readiness_state": live_pilot_carrier.get("delivery_live_pilot_readiness_state"),
+        "overall_live_pilot_readiness_state": live_pilot_carrier.get("overall_live_pilot_readiness_state"),
         PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: provider_summary,
         "provider_adapter_readiness": provider_readiness,
         "delivery_provider_adapter_readiness": delivery_provider_readiness,
@@ -841,6 +1431,7 @@ def build_stage9_execution_ledger(
         "delivery_hash_record": delivery_hash_record,
         "delivery_audit_record": delivery_audit_record,
         DELIVERY_SANDBOX_RECORDS_INPUT_KEY: delivery_sandbox_records,
+        PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY: live_pilot_carrier,
         "payment_gateway_adapter_state": {
             "state": _provider_sandbox_state(provider_readiness),
             "adapter_scope": "SANDBOX_DRY_RUN_READBACK_ONLY",
@@ -908,6 +1499,7 @@ def build_stage9_execution_ledger(
 __all__ = [
     "DELIVERY_SANDBOX_RECORDS_INPUT_KEY",
     "MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY",
+    "PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY",
     "PAYMENT_SANDBOX_RECORDS_INPUT_KEY",
     "STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY",
     "STAGE9_EXECUTION_LEDGER_INPUT_KEY",

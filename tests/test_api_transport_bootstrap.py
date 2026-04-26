@@ -677,6 +677,24 @@ class TestApiTransportBootstrap(unittest.TestCase):
                 "automated_refund_enabled"
             ]
         )
+        live_pilot_metadata = mounted_by_id["createPaymentRecord"]["payment_delivery_live_pilot"]
+        self.assertEqual(
+            live_pilot_metadata["readiness_scope"],
+            "gated_small_sample_payment_delivery_live_pilot_readback",
+        )
+        self.assertFalse(live_pilot_metadata["batch_execution_enabled"])
+        self.assertTrue(live_pilot_metadata["payment_approval_required"])
+        self.assertTrue(live_pilot_metadata["delivery_approval_required"])
+        self.assertTrue(live_pilot_metadata["finance_review_required"])
+        self.assertTrue(live_pilot_metadata["operator_action_audit_required"])
+        self.assertTrue(live_pilot_metadata["artifact_version_lock_required"])
+        self.assertTrue(live_pilot_metadata["download_auth_required"])
+        self.assertFalse(live_pilot_metadata["provider_call_enabled"])
+        self.assertFalse(live_pilot_metadata["real_provider_call_enabled"])
+        self.assertFalse(live_pilot_metadata["real_charge_attempted"])
+        self.assertFalse(live_pilot_metadata["real_delivery_fulfillment_attempted"])
+        self.assertFalse(live_pilot_metadata["real_refund_attempted"])
+        self.assertFalse(live_pilot_metadata["automated_refund_enabled"])
         self.assertEqual(mounted_by_id["listOrders"]["stage_scope"], 9)
         self.assertTrue(mounted_by_id["listContactTargets"]["blocked_by_default"])
         self.assertTrue(
@@ -916,6 +934,23 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(redlines["automated_refund_program_present"])
         self.assertFalse(redlines["automated_refund_program_enabled"])
         self.assertFalse(redlines["automated_refund_enabled"])
+        stage9_live_pilot = app.state.transport_bootstrap["entry_strategy"][
+            "stage9_payment_delivery_live_pilot"
+        ]
+        self.assertFalse(stage9_live_pilot["batch_execution_enabled"])
+        self.assertTrue(stage9_live_pilot["payment_approval_required"])
+        self.assertTrue(stage9_live_pilot["delivery_approval_required"])
+        self.assertTrue(stage9_live_pilot["finance_review_required"])
+        self.assertTrue(stage9_live_pilot["operator_action_audit_required"])
+        self.assertTrue(stage9_live_pilot["artifact_version_lock_required"])
+        self.assertTrue(stage9_live_pilot["download_auth_required"])
+        self.assertFalse(stage9_live_pilot["provider_call_enabled"])
+        self.assertFalse(stage9_live_pilot["real_provider_call_enabled"])
+        self.assertFalse(stage9_live_pilot["real_charge_attempted"])
+        self.assertFalse(stage9_live_pilot["real_delivery_fulfillment_attempted"])
+        self.assertFalse(stage9_live_pilot["real_customer_download_attempted"])
+        self.assertFalse(stage9_live_pilot["real_refund_attempted"])
+        self.assertFalse(stage9_live_pilot["automated_refund_enabled"])
 
         local_stack = app.state.transport_bootstrap["local_stack_readiness"]
         self.assertTrue(local_stack["dockerfile_present"])
@@ -1591,6 +1626,20 @@ class TestApiTransportBootstrap(unittest.TestCase):
             payload["manual_refund_exception_record"],
             stage9.record("payment_record").get("manual_refund_exception_record"),
         )
+        self.assertEqual(
+            payload["payment_delivery_live_pilot"],
+            stage9.inputs["payment_delivery_live_pilot"],
+        )
+        self.assertEqual(
+            payload["preview_projection"]["payment_delivery_live_pilot_preview"],
+            stage9.inputs["payment_delivery_live_pilot"],
+        )
+        self.assertFalse(payload["payment_delivery_live_pilot"]["payment_provider_result_readback"]["provider_call_executed"])
+        self.assertFalse(payload["payment_delivery_live_pilot"]["delivery_provider_result_readback"]["provider_call_executed"])
+        self.assertFalse(payload["payment_delivery_live_pilot"]["real_charge_attempted"])
+        self.assertFalse(payload["payment_delivery_live_pilot"]["real_delivery_fulfillment_attempted"])
+        self.assertFalse(payload["payment_delivery_live_pilot"]["real_refund_attempted"])
+        self.assertFalse(payload["payment_delivery_live_pilot"]["automated_refund_program"]["enabled"])
         self.assertFalse(
             payload["payment_sandbox_provider_records"]["charge_status_callback_sandbox_record"][
                 "payment_capture_enabled"

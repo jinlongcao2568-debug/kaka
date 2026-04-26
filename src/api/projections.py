@@ -33,6 +33,7 @@ from stage8_outreach.execution_outbox import (
 from stage9_delivery.order_payment_delivery_execution import (
     DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
     MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
+    PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY,
     PAYMENT_SANDBOX_RECORDS_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
@@ -1166,6 +1167,12 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
         )
         or {}
     )
+    payment_delivery_live_pilot = bundle.inputs.get(PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY)
+    payment_delivery_live_pilot = (
+        dict(payment_delivery_live_pilot)
+        if isinstance(payment_delivery_live_pilot, Mapping)
+        else dict(execution_ledger.get(PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY, {}))
+    )
     formal_records = {
         "order_record": order,
         "payment_record": payment,
@@ -1236,6 +1243,7 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
             ),
         },
         "manual_refund_exception_preview": manual_refund_exception_record,
+        "payment_delivery_live_pilot_preview": payment_delivery_live_pilot,
         "_raw_records": [order, payment, delivery, outcome, governance],
     }
     envelope = _surface_envelope(
@@ -1257,6 +1265,7 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
     envelope[PAYMENT_SANDBOX_RECORDS_INPUT_KEY] = payment_sandbox_records
     envelope[DELIVERY_SANDBOX_RECORDS_INPUT_KEY] = delivery_sandbox_records
     envelope[MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY] = manual_refund_exception_record
+    envelope[PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY] = payment_delivery_live_pilot
     return _attach_operational_context(envelope, bundle)
 
 

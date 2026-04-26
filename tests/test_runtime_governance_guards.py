@@ -293,6 +293,26 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
                 self.assertFalse(provider_payload["live_fallback_allowed"])
                 self.assertIn(expected_reason, carrier["blocked_reasons"])
                 self.assertIn("provider_suspended_fail_closed_no_live_fallback", ledger["blocked_reasons"])
+                live_pilot = ledger["payment_delivery_live_pilot"]
+                self.assertEqual(live_pilot["overall_live_pilot_readiness_state"], "SUSPENDED")
+                self.assertFalse(live_pilot["payment_provider_result_readback"]["provider_call_executed"])
+                self.assertFalse(live_pilot["delivery_provider_result_readback"]["provider_call_executed"])
+                self.assertFalse(live_pilot["real_charge_attempted"])
+                self.assertFalse(live_pilot["real_delivery_fulfillment_attempted"])
+                self.assertFalse(live_pilot["real_refund_attempted"])
+                self.assertFalse(live_pilot["automated_refund_program"]["enabled"])
+                if adapter_state_key == "payment_gateway_adapter_state":
+                    self.assertEqual(live_pilot["payment_live_pilot_readiness_state"], "SUSPENDED")
+                    self.assertIn(
+                        "payment_provider_suspended_fail_closed",
+                        live_pilot["suspension_reasons"],
+                    )
+                else:
+                    self.assertEqual(live_pilot["delivery_live_pilot_readiness_state"], "SUSPENDED")
+                    self.assertIn(
+                        "delivery_provider_suspended_fail_closed",
+                        live_pilot["suspension_reasons"],
+                    )
 
     def test_provider_circuit_breaker_fail_closed_is_shared_across_stage7_to_stage9(self) -> None:
         with patch.dict("os.environ", {"KAKA_PROVIDER_ADAPTER_CIRCUIT_OPEN": "true"}, clear=False):

@@ -31,6 +31,7 @@ from shared.provider_adapter_config import (
     provider_adapter_bootstrap_payload,
     provider_readiness_for_family,
 )
+from stage9_delivery.order_payment_delivery_execution import PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY
 
 
 STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
@@ -93,6 +94,41 @@ STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
         "automated_refund_program_present": False,
         "automated_refund_enabled": False,
         "real_refund_enabled": False,
+    },
+    PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY: {
+        "readiness_scope": "gated_small_sample_payment_delivery_live_pilot_readback",
+        "repository_backed_readback": True,
+        "pilot_scope": "small_sample",
+        "approved_sample_size_required": True,
+        "requested_sample_size_required": True,
+        "batch_execution_enabled": False,
+        "sandbox_payment_pass_required": True,
+        "payment_approval_required": True,
+        "delivery_approval_required": True,
+        "operator_action_audit_required": True,
+        "finance_review_required": True,
+        "provider_reliability_required": True,
+        "artifact_version_lock_required": True,
+        "download_auth_required": True,
+        "settlement_reconciliation_readback_required": True,
+        "rollback_readiness_required": True,
+        "manual_refund_exception_manual_approval_audit_required": True,
+        "payment_live_pilot_readiness_state": "BLOCKED",
+        "delivery_live_pilot_readiness_state": "BLOCKED",
+        "live_payment_requested": False,
+        "live_delivery_requested": False,
+        "live_payment_enabled": False,
+        "live_delivery_enabled": False,
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "real_payment_capture_attempted": False,
+        "real_charge_attempted": False,
+        "real_delivery_fulfillment_attempted": False,
+        "real_customer_download_attempted": False,
+        "real_refund_attempted": False,
+        "automated_refund_program_present": False,
+        "automated_refund_enabled": False,
+        "live_fallback_allowed": False,
     },
 }
 

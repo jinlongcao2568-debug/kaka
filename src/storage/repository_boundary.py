@@ -24,6 +24,7 @@ from stage7_sales.leadpack_delivery_package import (
 from stage9_delivery.order_payment_delivery_execution import (
     DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
     MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
+    PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY,
     PAYMENT_SANDBOX_RECORDS_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_INPUT_KEY,
@@ -205,6 +206,7 @@ STAGE_INPUT_FIELDS = {
         PAYMENT_SANDBOX_RECORDS_INPUT_KEY,
         DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
         MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
+        PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY,
         "order_execution_id",
         "payment_execution_id",
         "delivery_execution_id",
@@ -1571,6 +1573,24 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
             readiness = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY)
             if isinstance(readiness, Mapping):
                 governed_context["stage9_execution_ledger_readiness"] = dict(readiness)
+            live_pilot_carrier = execution_ledger.get(PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY)
+            if isinstance(live_pilot_carrier, Mapping):
+                governed_context[PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY] = dict(live_pilot_carrier)
+                governed_context["payment_delivery_live_pilot_summary"] = {
+                    "pilot_id": live_pilot_carrier.get("pilot_id"),
+                    "payment_live_pilot_readiness_state": live_pilot_carrier.get(
+                        "payment_live_pilot_readiness_state"
+                    ),
+                    "delivery_live_pilot_readiness_state": live_pilot_carrier.get(
+                        "delivery_live_pilot_readiness_state"
+                    ),
+                    "live_payment_enabled": bool(live_pilot_carrier.get("live_payment_enabled", False)),
+                    "live_delivery_enabled": bool(live_pilot_carrier.get("live_delivery_enabled", False)),
+                    "real_charge_attempted": False,
+                    "real_delivery_fulfillment_attempted": False,
+                    "real_refund_attempted": False,
+                    "automated_refund_enabled": False,
+                }
     return governed_context
 
 

@@ -1017,6 +1017,7 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         outcome = stage9.record("opportunity_outcome_event")
         governance = stage9.record("governance_feedback_event")
         ledger = stage9.inputs["stage9_execution_ledger"]
+        live_pilot = stage9.inputs["payment_delivery_live_pilot"]
 
         order_entry = OrderRecordRepository().get_by_id(order.get("order_id"))
         payment_entry = PaymentRecordRepository().get_by_id(payment.get("payment_id"))
@@ -1087,6 +1088,15 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             ledger_entry.payload["manual_refund_exception_record"],
             payment.get("manual_refund_exception_record"),
         )
+        self.assertEqual(
+            ledger_entry.payload["payment_delivery_live_pilot"],
+            live_pilot,
+        )
+        self.assertFalse(ledger_entry.payload["payment_delivery_live_pilot"]["real_charge_attempted"])
+        self.assertFalse(
+            ledger_entry.payload["payment_delivery_live_pilot"]["real_delivery_fulfillment_attempted"]
+        )
+        self.assertFalse(ledger_entry.payload["payment_delivery_live_pilot"]["automated_refund_program"]["enabled"])
 
         replay = list_orders({"opportunity_id": order.get("opportunity_id")})
         self.assertEqual(
@@ -1146,6 +1156,14 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["manual_refund_exception_record"],
             payment.get("manual_refund_exception_record"),
+        )
+        self.assertEqual(
+            replay["payment_delivery_live_pilot"],
+            live_pilot,
+        )
+        self.assertEqual(
+            replay["preview_projection"]["payment_delivery_live_pilot_preview"],
+            live_pilot,
         )
         self.assertEqual(
             replay["preview_projection"]["settlement_reconciliation_preview"]["settlement_record"],
