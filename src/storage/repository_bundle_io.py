@@ -75,6 +75,7 @@ from storage.repository_boundary import (
 STAGE6_SURFACE_ID = "stage6_fact_review"
 _STAGE6_HANDOFF_SNAPSHOT_KEY = "_stage6_handoff_snapshot"
 _STAGE6_TRACE_RULES_SNAPSHOT_KEY = "_stage6_trace_rules_snapshot"
+_STAGE6_PRODUCT_PACKAGE_READINESS_KEY = "stage6_product_package_readiness"
 _STAGE6_TYPED_REF_KEYS = (
     "project_fact_id",
     "report_record_id",
@@ -205,6 +206,24 @@ def _restore_stage6_private_supplement_carrier(
     handoff["private_supplement_carrier_summary"] = summary
 
 
+def _restore_stage6_product_package_readiness(
+    *,
+    stage_inputs: dict[str, Any],
+    handoff: dict[str, Any],
+) -> None:
+    carrier = stage_inputs.get(_STAGE6_PRODUCT_PACKAGE_READINESS_KEY)
+    if not isinstance(carrier, Mapping):
+        return
+    carrier_payload = dict(carrier)
+    stage_inputs[_STAGE6_PRODUCT_PACKAGE_READINESS_KEY] = carrier_payload
+    handoff[_STAGE6_PRODUCT_PACKAGE_READINESS_KEY] = carrier_payload
+    review_trace = stage_inputs.get("stage6_review_report_trace")
+    if isinstance(review_trace, Mapping):
+        review_trace_payload = dict(review_trace)
+        review_trace_payload["product_package_readiness"] = carrier_payload
+        stage_inputs["stage6_review_report_trace"] = review_trace_payload
+
+
 def _latest_stage6_state(project_id: str) -> PersistedStageState | None:
     if not project_id:
         return None
@@ -311,6 +330,7 @@ def _build_stage6_handoff(
         "private_supplement_usable_scope_optional",
         "private_supplement_written_back_policy_optional",
         "private_supplement_carrier_summary",
+        _STAGE6_PRODUCT_PACKAGE_READINESS_KEY,
         "legal_action_actor_org_name_seed",
         "procurement_decision_actor_org_name_seed",
         "buyer_type_hint",
@@ -937,6 +957,10 @@ def hydrate_stage6_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
         stage_inputs=stage_inputs,
         handoff=handoff,
         supplement=private_supplement,
+    )
+    _restore_stage6_product_package_readiness(
+        stage_inputs=stage_inputs,
+        handoff=handoff,
     )
     return StageBundle(
         stage=6,

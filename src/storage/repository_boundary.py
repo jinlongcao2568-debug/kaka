@@ -56,6 +56,8 @@ from storage.repositories import (
 from storage.repositories._base import PRIMARY_STATUS_FIELDS
 
 
+STAGE6_PRODUCT_PACKAGE_READINESS_KEY = "stage6_product_package_readiness"
+
 STAGE_SURFACE_IDS = {
     6: "review_report_workbench",
     7: "opportunity_pool",
@@ -1413,6 +1415,9 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
         supplement_summary = bundle.inputs.get("private_supplement_carrier_summary")
         if isinstance(supplement_summary, Mapping):
             governed_context["private_supplement_carrier_summary"] = dict(supplement_summary)
+        product_package_readiness = bundle.inputs.get(STAGE6_PRODUCT_PACKAGE_READINESS_KEY)
+        if isinstance(product_package_readiness, Mapping):
+            governed_context[STAGE6_PRODUCT_PACKAGE_READINESS_KEY] = dict(product_package_readiness)
     if bundle.stage == 7:
         workbench = bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
         if isinstance(workbench, Mapping):

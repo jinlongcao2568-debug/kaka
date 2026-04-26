@@ -530,6 +530,7 @@ stage_module_inventory:
     target_packet_candidates:
       - PTL-S56-project-fact-review-report
       - PTL-S67-saleable-opportunity-derivation
+      - PTL-I100-119-stage6-product-package-hardening
     current_blockers:
       - "主链已闭合；后续变更必须保持 Stage7 只消费 Stage6 formal outputs。"
     exit_criteria:
@@ -551,6 +552,7 @@ stage_module_inventory:
           - src/storage/repositories/project_fact_repo.py
           - src/storage/repositories/review_queue_profile_repo.py
         test_files:
+          - tests/test_stage6_product_package_hardening.py
           - tests/test_stage56_evaluators.py
           - tests/test_internal_chain.py
         depends_on_slices:
@@ -577,6 +579,7 @@ stage_module_inventory:
           - src/storage/repositories/report_record_repo.py
           - src/storage/repositories/challenger_candidate_profile_repo.py
         test_files:
+          - tests/test_stage6_product_package_hardening.py
           - tests/test_stage56_evaluators.py
           - tests/test_stage7_runtime_closure.py
         depends_on_slices:
@@ -1163,6 +1166,7 @@ modules:
     deferred_module_split: false
     notes:
       - "Canonical Stage6 aggregator file is src/stage6_fact_review/fact_aggregator.py; aggregator.py is not the current canonical path."
+      - "PTL-I100-119 first slice adds an internal additive product package readiness carrier/readback; it does not create customer-visible publication or live execution."
   - module_id: STAGE7-SALES-DERIVATION
     stage_scope:
       - stage7_sales
