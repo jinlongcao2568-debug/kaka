@@ -109,6 +109,7 @@ class TestStage56Evaluators(unittest.TestCase):
         self.assertTrue(
             all(
                 entry.get("reason") == "selected_first_slice_priority"
+                or entry.get("reason") == "selected_catalog_priority"
                 for entry in selection_trace
                 if entry.get("selected")
             )
@@ -119,7 +120,7 @@ class TestStage56Evaluators(unittest.TestCase):
                 for entry in selection_trace
                 if entry.get("rule_code") == "WIN-001"
             ).get("reason"),
-            "not_in_first_slice_priority",
+            "skipped_by_priority_limit",
         )
         self.assertEqual(
             next(
@@ -141,13 +142,24 @@ class TestStage56Evaluators(unittest.TestCase):
         for entry in execution_trace:
             self.assertIn("rule_name", entry)
             self.assertTrue(entry.get("upstream_objects"))
+            self.assertIn("version", entry)
+            self.assertTrue(entry.get("dependency_fields"))
+            self.assertTrue(entry.get("dependency_evidence"))
+            self.assertEqual(entry.get("evidence_refs"), [service_result.record("evidence").get("evidence_id")])
+            self.assertGreaterEqual(entry.get("confidence"), 0.6)
             self.assertEqual(entry.get("rule_gate_status"), "PASS")
             self.assertEqual(entry.get("rule_hit_state"), "CONFIRMED")
             self.assertEqual(entry.get("blocking_reasons"), [])
-            self.assertEqual(entry.get("selected_reason"), "selected_first_slice_priority")
+            self.assertEqual(entry.get("selected_reason"), "selected_catalog_priority")
             self.assertIsNone(entry.get("review_request_target_object_type"))
             self.assertIsNone(entry.get("review_request_target_object_id"))
             self.assertFalse(entry.get("review_request_target_selected"))
+        coverage = service_result.inputs.get("stage5_rule_coverage_summary", {})
+        self.assertEqual(coverage.get("selected_count"), 3)
+        self.assertEqual(coverage.get("pass_count"), 3)
+        self.assertEqual(coverage.get("review_count"), 0)
+        self.assertEqual(coverage.get("block_count"), 0)
+        self.assertTrue(coverage.get("golden_case_refs"))
         self.assertGreaterEqual(len(service_result.inputs.get("stage5_rule_hits", [])), 2)
         self.assertEqual(
             service_result.record("rule_gate_decision").get("passed_rule_hits"),

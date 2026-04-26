@@ -20,6 +20,7 @@ class RuleArtifacts:
     rule_gate_decision: Any
     rule_selection_trace: list[dict[str, Any]]
     rule_execution_trace: list[dict[str, Any]]
+    rule_coverage_summary: dict[str, Any]
     rule_hit_state: str
     rule_gate_status: str
     lineage_status: str
@@ -27,7 +28,6 @@ class RuleArtifacts:
 
 
 class RuleRunner:
-    PREFERRED_STAGE5_RULE_CODES = ("PROC-001", "PROC-002", "DOC-001")
     FIRST_SLICE_SUPPORTED_UPSTREAM_OBJECTS = frozenset(
         {
             "clock_chain_profile",
@@ -40,6 +40,13 @@ class RuleRunner:
             "public_chain",
         }
     )
+    # Compatibility labels retained for existing anti-drift guards:
+    # selected_first_slice_priority, not_in_first_slice_priority, unsupported_upstream_objects.
+    LEGACY_SELECTION_REASON_ALIASES = {
+        "selected_first_slice_priority": "selected_catalog_priority",
+        "not_in_first_slice_priority": "skipped_by_priority_limit",
+        "unsupported_upstream_objects": "unsupported_upstream_objects",
+    }
     RULE_SOURCE_OBJECT_REF_FIELDS = {
         "PROC-001": (
             "public_attack_surface_id",
@@ -56,10 +63,242 @@ class RuleRunner:
             "verification_profile_id",
             "public_attack_surface_id",
         ),
+        "PM-002": (
+            "project_manager_active_conflict_readback.active_conflict_run_id",
+            "project_manager_id_optional",
+            "verification_profile_id",
+        ),
     }
+    ACTIVE_RULE_STATUSES = frozenset({"DRAFT", "ACTIVE", "INTERNAL_READY"})
 
     def __init__(self, store: ContractStore) -> None:
         self.store = store
+
+    def _factory_config(self) -> Mapping[str, Any]:
+        factory = self.store.rule_catalog.get("stage5_rule_factory", {})
+        return factory if isinstance(factory, Mapping) else {}
+
+    def _selection_policy(self) -> Mapping[str, Any]:
+        policy = self._factory_config().get("selection_policy", {})
+        return policy if isinstance(policy, Mapping) else {}
+
+    def _rule_binding(self, rule_code: str) -> Mapping[str, Any]:
+        bindings = self._factory_config().get("rule_bindings", {})
+        if not isinstance(bindings, Mapping):
+            return {}
+        binding = bindings.get(rule_code, {})
+        return binding if isinstance(binding, Mapping) else {}
+
+    def _coerce_bool(self, value: Any, *, default: bool) -> bool:
+        if value in (None, ""):
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() not in {"false", "0", "no", "disabled"}
+        return bool(value)
+
+    def _priority_from_value(self, rule: Mapping[str, Any]) -> int:
+        value = str(rule.get("value_priority", "P9")).upper()
+        if value.startswith("P") and value[1:].isdigit():
+            return 1000 + int(value[1:]) * 100
+        return 9999
+
+    def _get_path(self, data: Mapping[str, Any], path: str) -> Any:
+        current: Any = data
+        for part in path.split("."):
+            if isinstance(current, Mapping):
+                current = current.get(part)
+            else:
+                return None
+        return current
+
+    def _is_missing(self, value: Any) -> bool:
+        return value in (None, "", [], {})
+
+    def _as_strings(self, values: Any) -> list[str]:
+        result: list[str] = []
+        for value in ensure_list(values):
+            if value in (None, "", [], {}):
+                continue
+            if isinstance(value, Mapping):
+                for key in (
+                    "source_snapshot_id",
+                    "source_url",
+                    "verification_run_id",
+                    "evidence_id",
+                    "active_conflict_run_id",
+                ):
+                    nested_value = value.get(key)
+                    if nested_value not in (None, "", [], {}):
+                        result.append(str(nested_value))
+                continue
+            result.append(str(value))
+        return list(dict.fromkeys(result))
+
+    def _supported_upstream_objects(self, inputs: Mapping[str, Any]) -> set[str]:
+        policy = self._selection_policy()
+        configured = {
+            str(value)
+            for value in ensure_list(policy.get("supported_upstream_objects"))
+            if value not in (None, "")
+        }
+        supported = configured or set(self.FIRST_SLICE_SUPPORTED_UPSTREAM_OBJECTS)
+        for key in ("stage5_supported_upstream_objects", "stage5_supported_upstream_objects_optional"):
+            supported.update(str(value) for value in ensure_list(inputs.get(key)) if value not in (None, ""))
+        return supported
+
+    def _requested_rule_codes(self, inputs: Mapping[str, Any]) -> list[str]:
+        requested = ensure_list(
+            inputs.get("stage5_requested_rule_codes")
+            or inputs.get("stage5_rule_codes_requested")
+            or inputs.get("requested_stage5_rule_codes")
+        )
+        return [str(value) for value in requested if value not in (None, "")]
+
+    def _active_rule_statuses(self) -> set[str]:
+        configured = {
+            str(value)
+            for value in ensure_list(self._selection_policy().get("active_statuses"))
+            if value not in (None, "")
+        }
+        return configured or set(self.ACTIVE_RULE_STATUSES)
+
+    def _version_pin_for(self, inputs: Mapping[str, Any], rule_code: str) -> str | None:
+        pins = inputs.get("stage5_rule_version_pins")
+        if isinstance(pins, Mapping) and pins.get(rule_code) not in (None, ""):
+            return str(pins.get(rule_code))
+        return None
+
+    def _dependency_evidence_refs(
+        self,
+        *,
+        dependency_evidence_fields: list[str],
+        inputs: Mapping[str, Any],
+        evidence_artifacts: EvidenceArtifacts,
+        public_attack_surface: Any,
+        focus_bidder_verification_profile: Any,
+        pseudo_competitor_signal_set: Any,
+    ) -> list[str]:
+        merged_inputs = {
+            **dict(inputs),
+            "evidence_id": evidence_artifacts.evidence.get("evidence_id"),
+            "public_attack_surface_id": public_attack_surface.get("public_attack_surface_id"),
+            "verification_profile_id": focus_bidder_verification_profile.get("verification_profile_id"),
+            "pseudo_competitor_signal_set_id": pseudo_competitor_signal_set.get("signal_set_id"),
+        }
+        refs: list[str] = []
+        for field_path in dependency_evidence_fields:
+            refs.extend(self._as_strings(self._get_path(merged_inputs, field_path)))
+        if not refs:
+            refs.append(str(evidence_artifacts.evidence.get("evidence_id")))
+        return list(dict.fromkeys(refs))
+
+    def _confidence_score(self, *, inputs: Mapping[str, Any], pseudo_competitor_signal_set: Any) -> float:
+        explicit = inputs.get("stage5_rule_confidence")
+        if explicit not in (None, ""):
+            try:
+                return float(explicit)
+            except (TypeError, ValueError):
+                return 0.0
+        band = str(inputs.get("confidence_band") or pseudo_competitor_signal_set.get("confidence_band") or "LOW")
+        return {
+            "HIGH": 0.9,
+            "MEDIUM": 0.72,
+            "LOW": 0.35,
+        }.get(band.upper(), 0.5)
+
+    def _rule_profile(self, rule: Mapping[str, Any], *, inputs: Mapping[str, Any]) -> dict[str, Any]:
+        rule_code = str(rule.get("rule_code"))
+        binding = self._rule_binding(rule_code)
+        factory = self._factory_config()
+        version = str(
+            binding.get("version")
+            or rule.get("version")
+            or factory.get("default_rule_version")
+            or self.store.rule_catalog.get("version", "")
+        )
+        dependency_fields = [
+            str(value)
+            for value in ensure_list(binding.get("dependency_fields"))
+            if value not in (None, "")
+        ]
+        dependency_evidence_fields = [
+            str(value)
+            for value in ensure_list(binding.get("dependency_evidence"))
+            if value not in (None, "")
+        ]
+        upstream_objects = [
+            str(object_name)
+            for object_name in ensure_list(rule.get("upstream_objects"))
+            if object_name not in (None, "")
+        ]
+        supported_upstream_objects = self._supported_upstream_objects(inputs)
+        unsupported_upstream_objects = [
+            object_name for object_name in upstream_objects if object_name not in supported_upstream_objects
+        ]
+        missing_dependency_fields = [
+            field_name for field_name in dependency_fields if self._is_missing(self._get_path(inputs, field_name))
+        ]
+        expected_version = self._version_pin_for(inputs, rule_code)
+        version_conflict = bool(expected_version and expected_version != version)
+        priority = binding.get("priority", rule.get("priority"))
+        if priority in (None, ""):
+            priority = self._priority_from_value(rule)
+
+        return {
+            "rule": rule,
+            "rule_code": rule_code,
+            "rule_name": str(rule.get("name", rule_code)),
+            "enabled": self._coerce_bool(binding.get("enabled", rule.get("enabled", True)), default=True),
+            "status": str(rule.get("status", "")),
+            "version": version,
+            "expected_version": expected_version,
+            "version_conflict": version_conflict,
+            "priority": int(priority),
+            "upstream_objects": upstream_objects,
+            "unsupported_upstream_objects": unsupported_upstream_objects,
+            "dependency_fields": dependency_fields,
+            "missing_dependency_fields": missing_dependency_fields,
+            "dependency_evidence_fields": dependency_evidence_fields,
+            "input_contract": dict(binding.get("input_contract", {}))
+            if isinstance(binding.get("input_contract"), Mapping)
+            else {},
+            "output_contract": dict(binding.get("output_contract", {}))
+            if isinstance(binding.get("output_contract"), Mapping)
+            else {},
+            "document_term_refs": [
+                str(value)
+                for value in ensure_list(binding.get("document_term_refs"))
+                if value not in (None, "")
+            ],
+            "golden_case_refs": [
+                str(value)
+                for value in ensure_list(binding.get("golden_case_refs"))
+                if value not in (None, "")
+            ],
+            "minimum_confidence": float(binding.get("minimum_confidence", factory.get("minimum_confidence", 0.6))),
+        }
+
+    def _profile_fail_closed_reasons(self, profile: Mapping[str, Any]) -> list[str]:
+        rule_code = str(profile["rule_code"])
+        active_statuses = self._active_rule_statuses()
+        reasons: list[str] = []
+        if not profile["enabled"]:
+            reasons.append(f"{rule_code}: catalog disabled")
+        if profile["status"] not in active_statuses:
+            reasons.append(f"{rule_code}: catalog status {profile['status']} not executable")
+        if profile["unsupported_upstream_objects"]:
+            reasons.append(
+                f"{rule_code}: unsupported upstream objects {','.join(profile['unsupported_upstream_objects'])}"
+            )
+        if profile["missing_dependency_fields"]:
+            reasons.append(f"{rule_code}: missing dependency fields {','.join(profile['missing_dependency_fields'])}")
+        if profile["version_conflict"]:
+            reasons.append(
+                f"{rule_code}: version conflict expected {profile['expected_version']} actual {profile['version']}"
+            )
+        return reasons
 
     def _selection_reason(self, rule: Mapping[str, Any], *, selected_rule_codes: set[str]) -> str:
         rule_code = str(rule.get("rule_code"))
@@ -75,35 +314,138 @@ class RuleRunner:
             return "not_in_first_slice_priority"
         return "unsupported_upstream_objects"
 
-    def _select_stage5_rules(self) -> tuple[list[Mapping[str, Any]], list[dict[str, Any]]]:
-        stage5_rules = [
-            entry
+    def _select_stage5_rules(
+        self,
+        *,
+        inputs: Mapping[str, Any],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+        stage5_profiles = [
+            self._rule_profile(entry, inputs=inputs)
             for entry in self.store.rule_catalog.get("rules", [])
             if int(entry.get("stage", -1)) == 5
         ]
-        preferred = []
-        for rule_code in self.PREFERRED_STAGE5_RULE_CODES:
-            matched_rule = next(
-                (entry for entry in stage5_rules if str(entry.get("rule_code")) == rule_code),
-                None,
-            )
-            if matched_rule is not None:
-                preferred.append(matched_rule)
-        selected_rules = preferred[:3] if preferred else stage5_rules[:3]
-        selected_rule_codes = {
-            str(entry.get("rule_code"))
-            for entry in selected_rules
-        }
-        selection_trace = [
-            {
-                "rule_code": str(entry.get("rule_code")),
-                "rule_name": str(entry.get("name", entry.get("rule_code", ""))),
-                "selected": str(entry.get("rule_code")) in selected_rule_codes,
-                "reason": self._selection_reason(entry, selected_rule_codes=selected_rule_codes),
-            }
-            for entry in stage5_rules
+        requested_rule_codes = self._requested_rule_codes(inputs)
+        requested_rule_code_set = set(requested_rule_codes)
+        selection_limit = int(self._selection_policy().get("default_selection_limit", 3))
+
+        eligible_profiles = [
+            profile
+            for profile in stage5_profiles
+            if not self._profile_fail_closed_reasons(profile)
         ]
-        return selected_rules, selection_trace
+        if requested_rule_codes:
+            selected_profiles = [
+                profile for profile in stage5_profiles if profile["rule_code"] in requested_rule_code_set
+            ]
+            missing_requested = [
+                rule_code for rule_code in requested_rule_codes if rule_code not in {p["rule_code"] for p in selected_profiles}
+            ]
+            if missing_requested:
+                raise ValueError(f"stage5_requested_rule_not_in_catalog:{','.join(missing_requested)}")
+        else:
+            selected_profiles = sorted(eligible_profiles, key=lambda profile: (profile["priority"], profile["rule_code"]))[
+                :selection_limit
+            ]
+
+        if not selected_profiles and stage5_profiles:
+            selected_profiles = [sorted(stage5_profiles, key=lambda profile: (profile["priority"], profile["rule_code"]))[0]]
+
+        selected_rule_codes = {profile["rule_code"] for profile in selected_profiles}
+        active_statuses = self._active_rule_statuses()
+        for profile in selected_profiles:
+            fail_closed_reasons = self._profile_fail_closed_reasons(profile)
+            profile["fail_closed_reasons"] = fail_closed_reasons
+            profile["selected_reason"] = (
+                "selected_requested_fail_closed"
+                if requested_rule_codes and fail_closed_reasons
+                else "selected_requested_rule"
+                if requested_rule_codes
+                else "selected_catalog_priority"
+            )
+
+        selection_trace: list[dict[str, Any]] = []
+        disabled_count = 0
+        unsupported_count = 0
+        missing_dependency_count = 0
+        version_conflict_count = 0
+        for profile in stage5_profiles:
+            fail_closed_reasons = self._profile_fail_closed_reasons(profile)
+            if not profile["enabled"] or profile["status"] not in active_statuses:
+                disabled_count += 1
+            if profile["unsupported_upstream_objects"]:
+                unsupported_count += 1
+            if profile["missing_dependency_fields"]:
+                missing_dependency_count += 1
+            if profile["version_conflict"]:
+                version_conflict_count += 1
+
+            if profile["rule_code"] in selected_rule_codes:
+                reason = str(profile.get("selected_reason", "selected_catalog_priority"))
+                selected = True
+            elif fail_closed_reasons:
+                selected = False
+                if not profile["enabled"] or profile["status"] not in active_statuses:
+                    reason = "catalog_disabled"
+                elif profile["version_conflict"]:
+                    reason = "version_conflict"
+                elif profile["unsupported_upstream_objects"]:
+                    reason = "unsupported_upstream_objects"
+                else:
+                    reason = "missing_dependency"
+            else:
+                selected = False
+                reason = "skipped_by_priority_limit"
+
+            selection_trace.append(
+                {
+                    "rule_code": profile["rule_code"],
+                    "rule_name": profile["rule_name"],
+                    "stage": 5,
+                    "enabled": profile["enabled"],
+                    "status": profile["status"],
+                    "version": profile["version"],
+                    "priority": profile["priority"],
+                    "selected": selected,
+                    "reason": reason,
+                    "selected_reason": reason if selected else None,
+                    "upstream_objects": list(profile["upstream_objects"]),
+                    "unsupported_upstream_objects": list(profile["unsupported_upstream_objects"]),
+                    "dependency_fields": list(profile["dependency_fields"]),
+                    "missing_dependency_fields": list(profile["missing_dependency_fields"]),
+                    "dependency_evidence_fields": list(profile["dependency_evidence_fields"]),
+                    "golden_case_refs": list(profile["golden_case_refs"]),
+                    "input_contract": dict(profile["input_contract"]),
+                    "output_contract": dict(profile["output_contract"]),
+                    "document_term_refs": list(profile["document_term_refs"]),
+                    "fail_closed_reasons": list(fail_closed_reasons),
+                }
+            )
+
+        golden_case_refs = sorted(
+            {
+                ref
+                for profile in selected_profiles
+                for ref in ensure_list(profile.get("golden_case_refs"))
+                if ref not in (None, "")
+            }
+        )
+        coverage_summary = {
+            "catalog_id": self.store.rule_catalog.get("catalog_id"),
+            "catalog_version": self.store.rule_catalog.get("version"),
+            "factory_version": self._factory_config().get("version"),
+            "selected_count": len(selected_profiles),
+            "skipped_count": max(len(stage5_profiles) - len(selected_profiles), 0),
+            "disabled_count": disabled_count,
+            "unsupported_count": unsupported_count,
+            "missing_dependency_count": missing_dependency_count,
+            "version_conflict_count": version_conflict_count,
+            "selected_rule_codes": [profile["rule_code"] for profile in selected_profiles],
+            "skipped_rule_codes": [
+                profile["rule_code"] for profile in stage5_profiles if profile["rule_code"] not in selected_rule_codes
+            ],
+            "golden_case_refs": golden_case_refs,
+        }
+        return selected_profiles, selection_trace, coverage_summary
 
     def _build_rule_source_object_refs(
         self,
@@ -125,7 +467,7 @@ class RuleRunner:
             inputs.get("clock_precedence_rule_id"),
         ]
         preferred_fields = self.RULE_SOURCE_OBJECT_REF_FIELDS.get(rule_code, ())
-        ordered_refs = [inputs.get(field_name) for field_name in preferred_fields]
+        ordered_refs = [self._get_path(inputs, field_name) for field_name in preferred_fields]
         ordered_refs.extend(source_refs)
         return [str(ref) for ref in ordered_refs if ref not in (None, "")]
 
@@ -174,6 +516,40 @@ class RuleRunner:
 
         return "PASS", "CONFIRMED", [], "STATE-507"
 
+    def _active_conflict_review_reasons(self, *, rule_code: str, inputs: Mapping[str, Any]) -> list[str]:
+        if rule_code != "PM-002":
+            return []
+        carrier = inputs.get("project_manager_active_conflict_readback") or inputs.get(
+            "project_manager_active_conflict_carrier"
+        )
+        if not isinstance(carrier, Mapping):
+            return []
+        reasons: list[str] = []
+        if carrier.get("review_required") is True:
+            reasons.append(f"{rule_code}: project manager active conflict requires manual review")
+        if carrier.get("fail_closed") is True or carrier.get("readback_state") == "FAIL_CLOSED_INCOMPLETE_OR_NON_PUBLIC":
+            reasons.append(f"{rule_code}: active conflict readback failed closed")
+        if carrier.get("no_legal_conclusion") is False or carrier.get("customer_visible") is True:
+            reasons.append(f"{rule_code}: active conflict boundary violation")
+        return reasons
+
+    def _degrade_for_preflight(
+        self,
+        *,
+        rule_code: str,
+        current_status: str,
+        current_hit_state: str,
+        current_reasons: list[str],
+        current_state_trace_rule: str,
+        preflight_reasons: list[str],
+    ) -> tuple[str, str, list[str], str]:
+        if not preflight_reasons:
+            return current_status, current_hit_state, current_reasons, current_state_trace_rule
+        merged_reasons = list(dict.fromkeys([*preflight_reasons, *current_reasons]))
+        if current_status == "BLOCK":
+            return current_status, current_hit_state, merged_reasons, current_state_trace_rule
+        return "REVIEW", "REVIEW_REQUIRED", merged_reasons, "STATE-503"
+
     def run(
         self,
         *,
@@ -193,16 +569,14 @@ class RuleRunner:
         version_conflict_state = str(inputs.get("version_conflict_state", "CONSISTENT"))
         clock_conflict_state = str(inputs.get("clock_conflict_state", "CONSISTENT"))
 
-        selected_rules, rule_selection_trace = self._select_stage5_rules()
-        if not selected_rules:
+        selected_profiles, rule_selection_trace, coverage_summary = self._select_stage5_rules(inputs=inputs)
+        if not selected_profiles:
             raise ValueError("stage5_rule_catalog_selection_empty")
-        selected_reason_by_code = {
-            str(entry.get("rule_code")): str(entry.get("reason"))
-            for entry in rule_selection_trace
-        }
+
         evaluated_rules: list[tuple[Any, str, str, list[str], dict[str, Any]]] = []
-        for rule in selected_rules:
-            rule_code = str(rule.get("rule_code"))
+        for profile in selected_profiles:
+            rule = profile["rule"]
+            rule_code = str(profile["rule_code"])
             apply_rule(self.store, trace_rules, rule_code)
             rule_gate_status_for_hit, rule_hit_state_for_hit, reasons, state_trace_rule = self._evaluate_rule_status(
                 rule_code=rule_code,
@@ -214,23 +588,57 @@ class RuleRunner:
                 clock_conflict_state=clock_conflict_state,
                 flags=flags,
             )
+
+            confidence = self._confidence_score(
+                inputs=inputs,
+                pseudo_competitor_signal_set=pseudo_competitor_signal_set,
+            )
+            preflight_reasons = list(profile.get("fail_closed_reasons", []))
+            if confidence < float(profile["minimum_confidence"]):
+                preflight_reasons.append(
+                    f"{rule_code}: weak evidence confidence {confidence:.2f} below {float(profile['minimum_confidence']):.2f}"
+                )
+            preflight_reasons.extend(self._active_conflict_review_reasons(rule_code=rule_code, inputs=inputs))
+            (
+                rule_gate_status_for_hit,
+                rule_hit_state_for_hit,
+                reasons,
+                state_trace_rule,
+            ) = self._degrade_for_preflight(
+                rule_code=rule_code,
+                current_status=rule_gate_status_for_hit,
+                current_hit_state=rule_hit_state_for_hit,
+                current_reasons=reasons,
+                current_state_trace_rule=state_trace_rule,
+                preflight_reasons=preflight_reasons,
+            )
             apply_rule(self.store, trace_rules, state_trace_rule)
-            source_object_refs = ensure_list(
-                inputs.get("source_object_refs")
-                if len(selected_rules) == 1
-                else self._build_rule_source_object_refs(
+
+            dependency_evidence_refs = self._dependency_evidence_refs(
+                dependency_evidence_fields=list(profile["dependency_evidence_fields"]),
+                inputs=inputs,
+                evidence_artifacts=evidence_artifacts,
+                public_attack_surface=public_attack_surface,
+                focus_bidder_verification_profile=focus_bidder_verification_profile,
+                pseudo_competitor_signal_set=pseudo_competitor_signal_set,
+            )
+            source_object_refs = ensure_list(inputs.get("source_object_refs"))
+            if not source_object_refs:
+                source_object_refs = self._build_rule_source_object_refs(
                     rule_code,
                     inputs=inputs,
                     public_attack_surface=public_attack_surface,
                     focus_bidder_verification_profile=focus_bidder_verification_profile,
                     pseudo_competitor_signal_set=pseudo_competitor_signal_set,
                 )
-            )
+            source_object_refs = list(dict.fromkeys([*dependency_evidence_refs, *[str(ref) for ref in source_object_refs]]))
             boundary_note = (
-                f"{rule.get('name')}; upstream={','.join(rule.get('upstream_objects', []))}; "
+                f"{rule.get('name')}; version={profile['version']}; priority={profile['priority']}; "
+                f"upstream={','.join(profile['upstream_objects'])}; "
+                f"dependency_fields={','.join(profile['dependency_fields'])}; "
                 f"verification={verification_state}; evidence_gate={evidence_artifacts.evidence_gate_status}; "
-                f"version={version_conflict_state}; clock={clock_conflict_state}; "
-                f"pseudo_signal={pseudo_competitor_signal_set.get('confidence_band')}"
+                f"version_state={version_conflict_state}; clock={clock_conflict_state}; "
+                f"confidence={confidence:.2f}; pseudo_signal={pseudo_competitor_signal_set.get('confidence_band')}"
             )
             if reasons:
                 boundary_note = f"{boundary_note}; reasons={'; '.join(reasons)}"
@@ -260,20 +668,22 @@ class RuleRunner:
                     reasons,
                     {
                         "rule_code": rule_code,
-                        "rule_name": str(rule.get("name", rule_code)),
-                        "upstream_objects": [
-                            str(object_name)
-                            for object_name in ensure_list(rule.get("upstream_objects"))
-                            if object_name not in (None, "")
-                        ],
+                        "rule_name": str(profile["rule_name"]),
+                        "version": str(profile["version"]),
+                        "priority": int(profile["priority"]),
+                        "selected_reason": str(profile.get("selected_reason", "selected_catalog_priority")),
+                        "upstream_objects": list(profile["upstream_objects"]),
+                        "dependency_fields": list(profile["dependency_fields"]),
+                        "dependency_evidence": dependency_evidence_refs,
+                        "dependency_evidence_fields": list(profile["dependency_evidence_fields"]),
+                        "evidence_refs": [evidence_artifacts.evidence.get("evidence_id")],
+                        "confidence": confidence,
                         "rule_gate_status": rule_gate_status_for_hit,
                         "rule_hit_state": rule_hit_state_for_hit,
                         "blocking_reasons": list(reasons),
-                        "selected_reason": selected_reason_by_code.get(
-                            rule_code,
-                            "selected_first_slice_priority",
-                        ),
                         "rule_hit_id": rule_hit.get("rule_hit_id"),
+                        "golden_case_refs": list(profile["golden_case_refs"]),
+                        "document_term_refs": list(profile["document_term_refs"]),
                     },
                 )
             )
@@ -321,12 +731,27 @@ class RuleRunner:
             },
         )
 
+        pass_count = sum(1 for _, rule_status, _, _, _ in evaluated_rules if rule_status == "PASS")
+        review_count = sum(1 for _, rule_status, _, _, _ in evaluated_rules if rule_status == "REVIEW")
+        block_count = sum(1 for _, rule_status, _, _, _ in evaluated_rules if rule_status == "BLOCK")
+        coverage_summary = {
+            **coverage_summary,
+            "pass_count": pass_count,
+            "review_count": review_count,
+            "block_count": block_count,
+            "rule_gate_status": rule_gate_status,
+            "evidence_gate_status": evidence_artifacts.evidence_gate_status,
+            "blocking_reasons": [] if rule_gate_status == "PASS" else blocking_reasons,
+            "evidence_refs": [evidence_artifacts.evidence.get("evidence_id")],
+        }
+
         return RuleArtifacts(
             rule_hit=primary_rule_hit,
             rule_hits=rule_hits,
             rule_gate_decision=rule_gate_decision,
             rule_selection_trace=rule_selection_trace,
             rule_execution_trace=rule_execution_trace,
+            rule_coverage_summary=coverage_summary,
             rule_hit_state=primary_rule_hit_state,
             rule_gate_status=rule_gate_status,
             lineage_status=lineage_status,

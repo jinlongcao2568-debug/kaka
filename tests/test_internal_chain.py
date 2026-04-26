@@ -257,7 +257,7 @@ class TestInternalChain(unittest.TestCase):
                 for entry in stage5_rule_selection_trace
                 if entry.get("rule_code") == "WIN-001"
             ).get("reason"),
-            "not_in_first_slice_priority",
+            "skipped_by_priority_limit",
         )
         self.assertEqual(
             next(
@@ -273,7 +273,7 @@ class TestInternalChain(unittest.TestCase):
             ["PROC-001", "PROC-002", "DOC-001"],
         )
         self.assertTrue(
-            all(entry.get("selected_reason") == "selected_first_slice_priority" for entry in stage5_rule_execution_trace)
+            all(entry.get("selected_reason") == "selected_catalog_priority" for entry in stage5_rule_execution_trace)
         )
         self.assertTrue(
             all(entry.get("rule_gate_status") == "PASS" for entry in stage5_rule_execution_trace)
@@ -300,6 +300,12 @@ class TestInternalChain(unittest.TestCase):
             self.assertEqual(rule_hit.get("evidence_refs"), [stage5.record("evidence").get("evidence_id")])
             self.assertTrue(rule_hit.get("source_object_refs"))
             self.assertTrue(rule_hit.get("boundary_note"))
+        coverage = stage5.inputs.get("stage5_rule_coverage_summary", {})
+        self.assertEqual(coverage.get("selected_count"), 3)
+        self.assertEqual(coverage.get("pass_count"), 3)
+        self.assertEqual(coverage.get("review_count"), 0)
+        self.assertEqual(coverage.get("block_count"), 0)
+        self.assertTrue(coverage.get("golden_case_refs"))
         for field_name in (
             "project_id",
             "focus_bidder_id",

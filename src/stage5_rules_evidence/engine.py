@@ -180,6 +180,33 @@ class RuleEvidenceEngine:
             dict(trace_entry) for trace_entry in rule_artifacts.rule_selection_trace
         ]
         inputs_out["stage5_rule_execution_trace"] = stage5_rule_execution_trace
+        rule_coverage_summary = dict(rule_artifacts.rule_coverage_summary)
+        rule_coverage_summary["review_required"] = gate_artifacts.review_required
+        rule_coverage_summary["coverage_sellable_state"] = gate_artifacts.coverage_sellable_state
+        rule_coverage_summary["delivery_risk_state"] = gate_artifacts.delivery_risk_state
+        if gate_artifacts.review_request is not None:
+            rule_coverage_summary["review_request_id"] = gate_artifacts.review_request.get("review_request_id")
+            rule_coverage_summary["review_target_object_type"] = gate_artifacts.review_target_object_type
+            rule_coverage_summary["review_target_object_id"] = gate_artifacts.review_target_object_id
+        inputs_out["stage5_rule_coverage_summary"] = rule_coverage_summary
+        inputs_out["stage5_rule_readback_summary"] = {
+            "catalog_id": rule_coverage_summary.get("catalog_id"),
+            "catalog_version": rule_coverage_summary.get("catalog_version"),
+            "factory_version": rule_coverage_summary.get("factory_version"),
+            "selected_count": rule_coverage_summary.get("selected_count"),
+            "skipped_count": rule_coverage_summary.get("skipped_count"),
+            "disabled_count": rule_coverage_summary.get("disabled_count"),
+            "unsupported_count": rule_coverage_summary.get("unsupported_count"),
+            "missing_dependency_count": rule_coverage_summary.get("missing_dependency_count"),
+            "pass_count": rule_coverage_summary.get("pass_count"),
+            "review_count": rule_coverage_summary.get("review_count"),
+            "block_count": rule_coverage_summary.get("block_count"),
+            "golden_case_refs": list(rule_coverage_summary.get("golden_case_refs", [])),
+            "rule_gate_decision_id": rule_artifacts.rule_gate_decision.get("gate_id"),
+            "evidence_gate_decision_id": evidence_artifacts.evidence_gate_decision.get("gate_id"),
+            "review_request_id": rule_coverage_summary.get("review_request_id"),
+            "evidence_refs": list(rule_coverage_summary.get("evidence_refs", [])),
+        }
         inputs_out["evidence_id"] = evidence_artifacts.evidence.get("evidence_id")
         inputs_out["rule_gate_decision_id"] = rule_artifacts.rule_gate_decision.get("gate_id")
         inputs_out["evidence_gate_decision_id"] = evidence_artifacts.evidence_gate_decision.get("gate_id")

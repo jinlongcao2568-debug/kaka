@@ -1,6 +1,6 @@
 {
   "catalog_id": "rule-catalog",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "metadata": {
     "package_name": "contracts core package round 1",
     "status": "DRAFT",
@@ -26,6 +26,350 @@
     ],
     "machine_path": "contracts/rules/rule_catalog.json",
     "scope": "formal rule directory with result, evidence and boundary constraints"
+  },
+  "stage5_rule_factory": {
+    "version": "0.1.0",
+    "state": "INTERNAL_READY",
+    "runtime_entrypoint": "RuleEvidenceEngine",
+    "runtime_components": [
+      "RuleRunner",
+      "EvidenceBuilder",
+      "GateEvaluator"
+    ],
+    "selection_policy": {
+      "stage": 5,
+      "default_selection_limit": 3,
+      "active_statuses": [
+        "DRAFT",
+        "ACTIVE",
+        "INTERNAL_READY"
+      ],
+      "supported_upstream_objects": [
+        "clock_chain_profile",
+        "evidence_grade_profile",
+        "field_lineage_record",
+        "focus_bidder_verification_profile",
+        "notice_version_chain",
+        "pseudo_competitor_signal_set",
+        "public_attack_surface",
+        "public_chain"
+      ],
+      "fail_closed_reasons": [
+        "catalog_disabled",
+        "unsupported_upstream",
+        "missing_dependency",
+        "weak_evidence",
+        "verification_review_or_block",
+        "version_conflict"
+      ],
+      "coverage_summary_fields": [
+        "selected_count",
+        "skipped_count",
+        "disabled_count",
+        "unsupported_count",
+        "missing_dependency_count",
+        "pass_count",
+        "review_count",
+        "block_count",
+        "golden_case_refs"
+      ]
+    },
+    "golden_cases": [
+      {
+        "case_ref": "GC-STAGE5-PROC-001-PASS",
+        "rule_code": "PROC-001",
+        "expected_rule_gate_status": "PASS"
+      },
+      {
+        "case_ref": "GC-STAGE5-PROC-002-PASS",
+        "rule_code": "PROC-002",
+        "expected_rule_gate_status": "PASS"
+      },
+      {
+        "case_ref": "GC-STAGE5-DOC-001-PASS",
+        "rule_code": "DOC-001",
+        "expected_rule_gate_status": "PASS"
+      },
+      {
+        "case_ref": "GC-STAGE5-PM-002-REVIEW",
+        "rule_code": "PM-002",
+        "expected_rule_gate_status": "REVIEW"
+      },
+      {
+        "case_ref": "GC-STAGE5-MISSING-DEPENDENCY-REVIEW",
+        "rule_code": "PM-002",
+        "expected_rule_gate_status": "REVIEW"
+      },
+      {
+        "case_ref": "GC-STAGE5-VERSION-CONFLICT-REVIEW",
+        "rule_code": "PROC-001",
+        "expected_rule_gate_status": "REVIEW"
+      }
+    ],
+    "rule_bindings": {
+      "PROC-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 10,
+        "dependency_fields": [
+          "public_attack_surface_id",
+          "clock_resolution_rule_id",
+          "clock_precedence_rule_id",
+          "evidence_grade_profile_id"
+        ],
+        "dependency_evidence": [
+          "public_attack_surface_id",
+          "clock_resolution_rule_id",
+          "clock_precedence_rule_id",
+          "evidence_grade_profile_id"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-028",
+          "D13-R-013"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-PROC-001-PASS"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "PROC-002": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 20,
+        "dependency_fields": [
+          "winning_version_resolution_rule_id",
+          "version_conflict_state",
+          "clock_resolution_rule_id",
+          "clock_precedence_rule_id"
+        ],
+        "dependency_evidence": [
+          "winning_version_resolution_rule_id",
+          "clock_resolution_rule_id",
+          "clock_precedence_rule_id"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-028",
+          "D13-R-017"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-PROC-002-PASS"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "DOC-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 30,
+        "dependency_fields": [
+          "winning_version_resolution_rule_id",
+          "verification_profile_id",
+          "public_attack_surface_id",
+          "evidence_grade_profile_id"
+        ],
+        "dependency_evidence": [
+          "winning_version_resolution_rule_id",
+          "verification_profile_id",
+          "public_attack_surface_id",
+          "evidence_grade_profile_id"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-028",
+          "D13-R-017"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-DOC-001-PASS"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "WIN-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 40,
+        "dependency_fields": [
+          "clock_resolution_rule_id",
+          "clock_precedence_rule_id"
+        ],
+        "dependency_evidence": [
+          "clock_resolution_rule_id",
+          "clock_precedence_rule_id"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-054",
+          "D8-R-084"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-WIN-001-PRIORITY-SKIP"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "PROC-003": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 50,
+        "dependency_fields": [
+          "current_action_deadline_at_optional"
+        ],
+        "dependency_evidence": [
+          "clock_resolution_rule_id"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-PROC-003-UNSUPPORTED-UPSTREAM"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "QUAL-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 60,
+        "dependency_fields": [
+          "project_base_id",
+          "verification_profile_id"
+        ],
+        "dependency_evidence": [
+          "verification_profile_id"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-QUAL-001-UNSUPPORTED-UPSTREAM"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "CREDIT-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 70,
+        "dependency_fields": [
+          "verification_profile_id",
+          "evidence_grade_profile_id",
+          "confidence_band"
+        ],
+        "dependency_evidence": [
+          "verification_profile_id",
+          "evidence_grade_profile_id"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-CREDIT-001-PRIORITY-SKIP"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "ATTACK-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 80,
+        "dependency_fields": [
+          "public_attack_surface_id",
+          "candidate_collection_ref_optional"
+        ],
+        "dependency_evidence": [
+          "public_attack_surface_id"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-ATTACK-001-UNSUPPORTED-UPSTREAM"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "WIN-002": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 90,
+        "dependency_fields": [
+          "clock_resolution_rule_id"
+        ],
+        "dependency_evidence": [
+          "clock_resolution_rule_id"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-WIN-002-UNSUPPORTED-UPSTREAM"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "PM-002": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 110,
+        "dependency_fields": [
+          "project_manager_id_optional",
+          "verification_profile_id",
+          "project_manager_active_conflict_readback.active_conflict_run_id"
+        ],
+        "dependency_evidence": [
+          "verification_profile_id",
+          "project_manager_active_conflict_readback.active_conflict_run_id"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "project_manager_active_conflict_readback"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-029",
+          "D13-R-028"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-PM-002-REVIEW",
+          "GC-STAGE5-MISSING-DEPENDENCY-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
+      "GOV-004": {
+        "enabled": false,
+        "version": "stage5-factory-v1",
+        "priority": 900,
+        "dependency_fields": [
+          "contact_target_id"
+        ],
+        "dependency_evidence": [],
+        "golden_case_refs": [
+          "GC-STAGE5-CATALOG-DISABLED-SKIP"
+        ],
+        "minimum_confidence": 0.6
+      }
+    }
   },
   "rule_groups": [
     {

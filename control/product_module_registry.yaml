@@ -486,6 +486,7 @@ stage_module_inventory:
           - src/api/schemas/stage5.py
         repository_files: []
         test_files:
+          - tests/test_stage5_rule_factory_expansion.py
           - tests/test_stage56_evaluators.py
           - tests/test_internal_chain.py
         depends_on_slices:
@@ -508,6 +509,7 @@ stage_module_inventory:
           - src/api/schemas/stage5.py
         repository_files: []
         test_files:
+          - tests/test_stage5_rule_factory_expansion.py
           - tests/test_stage56_evaluators.py
           - tests/test_semantic_runtime_validator.py
         depends_on_slices:
