@@ -13,5 +13,8 @@ class OperatorActionRepository:
     def list(self, *, work_item_id: str) -> list[PersistedOperatorAction]:
         return self.session.list_operator_actions(work_item_id)
 
+    def list_all(self) -> list[PersistedOperatorAction]:
+        return self.session.list_all_operator_actions()
+
 
 __all__ = ["OperatorActionRepository"]

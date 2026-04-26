@@ -871,6 +871,7 @@ cross_cutting_surfaces:
       - src/api/routes/stage4.py
       - src/api/routes/stage5.py
       - src/api/routes/stage6.py
+      - src/api/routes/operator_customer_access.py
       - src/api/routes/stage7.py
       - src/api/routes/stage8.py
       - src/api/routes/stage9.py
@@ -886,6 +887,7 @@ cross_cutting_surfaces:
     test_files:
       - tests/test_api_transport_bootstrap.py
       - tests/test_internal_surface_preview.py
+      - tests/test_operator_customer_access.py
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-104-p8-observability-operator-workbench
@@ -965,12 +967,14 @@ cross_cutting_surfaces:
       - src/storage/repositories/monitoring_alerting_repo.py
       - src/api/deps.py
       - src/api/main.py
+      - src/api/routes/operator_customer_access.py
     test_files:
       - tests/test_storage_concurrency.py
       - tests/test_api_transport_bootstrap.py
       - tests/test_runtime_governance_guards.py
       - tests/test_product_module_registry.py
       - tests/test_product_acceptance_checklist.py
+      - tests/test_operator_customer_access.py
     completed_packets:
       - PTL-I100-112D-docker-compose-health-readiness
       - PTL-I100-112E-backup-restore-rollback-readiness
@@ -1320,6 +1324,7 @@ modules:
       - src/api/routes/stage4.py
       - src/api/routes/stage5.py
       - src/api/routes/stage6.py
+      - src/api/routes/operator_customer_access.py
       - src/api/routes/stage7.py
       - src/api/routes/stage8.py
       - src/api/routes/stage9.py
@@ -1488,6 +1493,7 @@ modules:
       - src/storage/repositories/monitoring_alerting_repo.py
       - src/api/deps.py
       - src/api/main.py
+      - src/api/routes/operator_customer_access.py
     current_runtime_state: PARTIAL_RUNTIME
     internal_governed_runtime_present: true
     target_packet_candidates:
@@ -1520,6 +1526,7 @@ modules:
     current_files:
       - src/api/projections.py
       - src/api/workbench_observability.py
+      - src/api/routes/operator_customer_access.py
       - src/api/routes/stage7.py
       - src/api/routes/stage8.py
       - src/api/routes/stage9.py

@@ -2456,6 +2456,469 @@ def build_formal_client_export_page_layer_readiness_surface(
     }
 
 
+def _audit_readback_summary(audit_log: list[Mapping[str, Any]]) -> dict[str, Any]:
+    return {
+        "readback_ready": True,
+        "repository_backed": True,
+        "replayable": True,
+        "operator_action_count": len(audit_log),
+        "audit_log_visible": True,
+        "latest_action_event_id": str(audit_log[-1].get("action_event_id", "")) if audit_log else None,
+        "actions": [dict(entry) for entry in audit_log],
+    }
+
+
+def _formal_client_export_page_layer_readiness_from_stage7_readback(payload: Any) -> dict[str, Any]:
+    stage7_surface = build_stage7_preview_surface(payload)
+    leadpack_package = dict(stage7_surface.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY, {}))
+    leadpack_delivery_summary = dict(stage7_surface.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY, {}))
+    field_policy = dict(leadpack_package.get("field_policy", {}))
+    field_masking_summary = dict(leadpack_package.get("field_masking_summary", {}))
+    download_audit = dict(leadpack_package.get("download_audit", {}))
+    blocked_reasons = _dedupe_preserve_order(
+        list(stage7_surface.get("blocked_reasons", []))
+        + [
+            "stage8_stage9_delivery_context_not_required_for_access_candidate_readback",
+            "customer_visible_export_enabled=false",
+            "client_page_release_enabled=false",
+            "external_release_enabled=false",
+            "external_delivery_enabled=false",
+            "direct_export_enabled=false",
+            "approval_audit_and_implementation_decision_required_before_live",
+        ]
+    )
+    why_not_live = _dedupe_preserve_order(
+        list(stage7_surface.get("why_not_live", []))
+        + [
+            "stage7_repository_backed_customer_artifact_candidate_only",
+            "customer_visible_export_enabled=false",
+            "external_release_enabled=false",
+            "approval_audit_and_implementation_decision_required_before_live",
+        ]
+    )
+    package_page_delivery_summary = {
+        "package": leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {},
+        "readiness": leadpack_delivery_summary,
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "page_publication_enabled": False,
+        "customer_visible_artifact_candidate": dict(
+            leadpack_package.get("customer_visible_artifact_candidate", {})
+        ),
+        "page_export_candidate": dict(leadpack_package.get("page_export_candidate", {})),
+        "download_audit": download_audit,
+        "export_page_replay": dict(leadpack_package.get("export_page_replay", {})),
+    }
+    return {
+        "surface_id": "formal_client_export_page_layer_readiness",
+        "surface_state": "governed-hold",
+        "surface_mode": "preview-only",
+        "surface_access": "internal-readable",
+        "internal_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "review_only": True,
+        "non_live": True,
+        "release_blocked": True,
+        "customer_visible_export_enabled": False,
+        "client_page_release_enabled": False,
+        "external_release_enabled": False,
+        "external_delivery_enabled": False,
+        "direct_export_enabled": False,
+        "export_artifact_generation_enabled": False,
+        "page_publication_enabled": False,
+        "readiness_state": "RESERVED_NOT_LIVE",
+        "release_layer": "RESERVED_NOT_LIVE",
+        "blocked_reasons": blocked_reasons,
+        "why_not_live": why_not_live,
+        "missing_prerequisites": [
+            "approval:customer_artifact_access_approval",
+            "audit_ref:customer_download_audit_ref",
+            "implementation_decision_not_approved",
+            "external_release_not_approved",
+        ],
+        "source_readiness_refs": {
+            "delivery_package": {
+                "package_id": leadpack_package.get("package_id"),
+                "evidence_pack_id": leadpack_package.get("evidence_pack_id"),
+                "page_draft_id": leadpack_package.get("page_draft_id"),
+                "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
+                "package_state": leadpack_package.get("package_state"),
+                "page_state": leadpack_package.get("page_state"),
+                "delivery_state": leadpack_package.get("delivery_state"),
+                "customer_visible_enabled": False,
+                "external_delivery_enabled": False,
+                "delivery_ready": False,
+            },
+            "stage7_repository_readback": {
+                "surface_id": stage7_surface.get("surface_id"),
+                "surface_state": stage7_surface.get("surface_state"),
+                "repository_backed": True,
+                "readback_replayable": True,
+            },
+        },
+        "operator_readback_summary": {
+            "readback_ready": True,
+            "readback_surface": "formal_client_export_page_layer_readiness",
+            "operator_can_read_internal_preview": True,
+            "operator_can_review_readiness": True,
+            "operator_can_direct_export": False,
+            "operator_can_deliver_external": False,
+            "operator_can_enable_external_release": False,
+            "operator_can_enable_customer_visible_export": False,
+            "operator_can_generate_export_artifact": False,
+            "operator_can_publish_customer_page": False,
+            "operator_can_read_delivery_package": bool(leadpack_package),
+            "source_readiness_surfaces": ["delivery_package", "stage7_repository_readback"],
+        },
+        "leadpack_delivery_package": leadpack_package,
+        "package_manifest": dict(leadpack_package.get("package_manifest", {})),
+        "evidence_item_manifest": dict(leadpack_package.get("evidence_item_manifest", {})),
+        "field_masking_summary": field_masking_summary,
+        "field_policy": field_policy,
+        "watermark": dict(leadpack_package.get("watermark", {})),
+        "artifact_version_hash": leadpack_package.get("artifact_version_hash"),
+        "download_audit": download_audit,
+        "export_page_replay": dict(leadpack_package.get("export_page_replay", {})),
+        "customer_visible_artifact_candidate": dict(
+            leadpack_package.get("customer_visible_artifact_candidate", {})
+        ),
+        "page_export_candidate": dict(leadpack_package.get("page_export_candidate", {})),
+        "page_draft": dict(leadpack_package.get("page_draft", {})),
+        "delivery_readiness_summary": dict(
+            leadpack_package.get("delivery_readiness_summary", leadpack_delivery_summary)
+        ),
+        "package_page_delivery_summary": package_page_delivery_summary,
+        "trace_refs": dict(stage7_surface.get("trace_refs", {})),
+    }
+
+
+def build_customer_artifact_access_candidate_surface(payload: Any) -> dict[str, Any]:
+    if (
+        isinstance(payload, Mapping)
+        and bool(payload.get("opportunity_id"))
+        and not any(key in payload for key in ("records", "handoff", "stage7", "stage8", "stage9"))
+    ):
+        formal_readiness = _formal_client_export_page_layer_readiness_from_stage7_readback(payload)
+    else:
+        formal_readiness = build_formal_client_export_page_layer_readiness_surface(payload)
+    field_policy = dict(formal_readiness.get("field_policy", {}))
+    field_masking_summary = dict(formal_readiness.get("field_masking_summary", {}))
+    download_audit = dict(formal_readiness.get("download_audit", {}))
+    leadpack_package = dict(formal_readiness.get("leadpack_delivery_package", {}))
+    missing_prerequisites = list(formal_readiness.get("missing_prerequisites", []))
+    blocked_reasons = _dedupe_preserve_order(
+        list(formal_readiness.get("blocked_reasons", []))
+        + [
+            "customer_account_access_control_required",
+            "download_auth_required",
+            "approval_audit_required_before_customer_download",
+            "public_software_release_not_approved",
+        ]
+    )
+    return {
+        "surface_id": "customer_artifact_access_candidate",
+        "surface_state": "governed-hold",
+        "surface_mode": "preview-only",
+        "surface_access": "internal-readable",
+        "capability_state": "APPROVAL_READY",
+        "internal_only": True,
+        "candidate_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "review_only": True,
+        "release_blocked": True,
+        "public_software_release": False,
+        "external_release_enabled": False,
+        "customer_visible_export_enabled": False,
+        "client_page_release_enabled": False,
+        "external_delivery_enabled": False,
+        "direct_export_enabled": False,
+        "page_publication_enabled": False,
+        "account_access_control": {
+            "account_required": True,
+            "account_state": "ACCESS_CANDIDATE_HELD",
+            "account_creation_enabled": False,
+            "public_signup_enabled": False,
+            "access_scope": "single_artifact_candidate",
+            "permission_check_required": True,
+            "allowed_after_approval": False,
+            "required_roles": ["customer_artifact_viewer"],
+            "operator_can_grant_without_approval": False,
+        },
+        "download_auth": {
+            "auth_required": True,
+            "download_enabled": False,
+            "customer_download_enabled": False,
+            "signed_download_url_enabled": False,
+            "download_audit_required": True,
+            "approval_required": True,
+            "audit_required": True,
+            "download_audit_readback": download_audit,
+        },
+        "field_allowlist_masking": {
+            "allowlist_enforced": True,
+            "masking_required": True,
+            "field_allowlist": list(field_policy.get("field_allowlist", [])),
+            "field_blacklist": list(field_policy.get("field_blacklist", [])),
+            "masking_state": str(leadpack_package.get("masking_state", "MASKING_REQUIRED")),
+            "field_masking_summary": field_masking_summary,
+            "internal_blackbox_fields_exposed": False,
+        },
+        "approval_audit_readback": {
+            "approval_required": True,
+            "audit_required": True,
+            "missing_prerequisites": missing_prerequisites,
+            "source_readiness_refs": dict(formal_readiness.get("source_readiness_refs", {})),
+            "operator_readback_summary": dict(formal_readiness.get("operator_readback_summary", {})),
+        },
+        "customer_artifact_readback": {
+            "package_id": leadpack_package.get("package_id"),
+            "evidence_pack_id": leadpack_package.get("evidence_pack_id"),
+            "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
+            "artifact_version_hash": formal_readiness.get("artifact_version_hash"),
+            "watermark": dict(formal_readiness.get("watermark", {})),
+            "export_page_replay": dict(formal_readiness.get("export_page_replay", {})),
+            "download_audit": download_audit,
+            "readback_replayable": True,
+        },
+        "blocked_reasons": blocked_reasons,
+        "why_not_live": _dedupe_preserve_order(
+            list(formal_readiness.get("why_not_live", []))
+            + [
+                "customer_account_not_approved",
+                "download_auth_not_issued",
+                "external_release_blocked",
+            ]
+        ),
+        "source_formal_client_export_page_layer_readiness": formal_readiness,
+    }
+
+
+def build_go_live_readiness_surface(
+    *,
+    storage_bootstrap: Mapping[str, Any],
+    provider_adapter_bootstrap: Mapping[str, Any],
+    audit_log: list[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    platform = dict(storage_bootstrap.get("platform_infra_readiness", {}))
+    monitoring = dict(storage_bootstrap.get("monitoring_alerting_readiness", {}))
+    monitoring_readiness = dict(storage_bootstrap.get("monitoring_readiness", {}))
+    alert_readiness = dict(storage_bootstrap.get("alert_readiness", {}))
+    incident_readiness = dict(storage_bootstrap.get("incident_readiness", {}))
+    rollback_readiness = dict(storage_bootstrap.get("rollback_readiness", {}))
+    backup_restore_readiness = dict(storage_bootstrap.get("backup_restore_readiness", {}))
+    local_stack = dict(
+        storage_bootstrap.get(
+            "local_stack_readiness",
+            platform.get("compose_readiness", {}),
+        )
+    )
+    provider_summary = dict(provider_adapter_bootstrap.get("provider_reliability_summary", {}))
+    audit_entries = [dict(entry) for entry in (audit_log or [])]
+    remaining_blockers = [
+        "external_software_release_blocked",
+        "customer_artifact_access_requires_account_permission_approval_and_audit",
+        "provider_live_execution_requires_dedicated_live_packet",
+        "stage8_real_execution_blocked_by_default",
+        "stage9_real_payment_delivery_refund_blocked_by_default",
+        "automated_refund_execution_excluded",
+        "destructive_restore_or_rollback_requires_manual_approval_window",
+    ]
+    if bool(provider_adapter_bootstrap.get("provider_adapter_suspended", False)):
+        remaining_blockers.append("provider_adapter_suspended")
+
+    return {
+        "surface_id": "go_live_readiness",
+        "surface_state": "approval-ready-readback",
+        "surface_mode": "readiness-only",
+        "capability_state": "APPROVAL_READY",
+        "approval_ready": True,
+        "go_live_enabled": False,
+        "production_release_enabled": False,
+        "external_release_enabled": False,
+        "public_software_release": False,
+        "internal_only": True,
+        "readiness_only": True,
+        "deployment_readiness": {
+            "readiness_state": "APPROVAL_READY",
+            "local_stack_readiness_state": local_stack.get("readiness_state"),
+            "dockerfile_present": bool(local_stack.get("dockerfile_present", False)),
+            "compose_file_present": bool(local_stack.get("compose_file_present", False)),
+            "compose_runtime_enabled": False,
+            "container_execution_enabled": False,
+            "migration_execution_enabled": False,
+            "deployment_execution_enabled": False,
+        },
+        "provider_config_readiness": {
+            "config_source": provider_adapter_bootstrap.get("provider_adapter_config_source"),
+            "mode": provider_adapter_bootstrap.get("provider_adapter_mode"),
+            "reliability_state": provider_adapter_bootstrap.get("provider_reliability_state"),
+            "circuit_breaker_state": provider_adapter_bootstrap.get("provider_circuit_breaker_state"),
+            "suspended": bool(provider_adapter_bootstrap.get("provider_adapter_suspended", False)),
+            "suspended_families": list(provider_adapter_bootstrap.get("provider_adapter_suspended_families", [])),
+            "readback_only": bool(provider_adapter_bootstrap.get("provider_adapter_readback_only", True)),
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
+            "live_fallback_allowed": False,
+            "credential_redaction_audit": dict(
+                provider_adapter_bootstrap.get("provider_credential_redaction_audit", {})
+            ),
+            "summary": provider_summary,
+        },
+        "monitoring_rollback_refs": {
+            "monitoring_readiness_state": monitoring_readiness.get("readiness_state"),
+            "alert_readiness_state": alert_readiness.get("readiness_state"),
+            "incident_state": incident_readiness.get("incident_state"),
+            "rollback_state": rollback_readiness.get("rollback_state"),
+            "rollback_point": rollback_readiness.get("rollback_point"),
+            "backup_manifest_enabled": bool(backup_restore_readiness.get("backup_manifest_enabled", False)),
+            "restore_dry_run_enabled": bool(backup_restore_readiness.get("restore_dry_run_enabled", False)),
+            "rollback_execution_enabled": False,
+            "destructive_restore_enabled": False,
+            "monitoring_alerting_readiness": monitoring,
+            "rollback_readiness": rollback_readiness,
+        },
+        "remaining_blockers": remaining_blockers,
+        "required_approvals": [
+            "external_release_governance_approval",
+            "customer_artifact_access_approval",
+            "provider_live_execution_approval",
+            "stage8_live_pilot_approval",
+            "stage9_payment_delivery_live_pilot_approval",
+        ],
+        "required_audits": [
+            "customer_access_audit_ref",
+            "download_auth_audit_ref",
+            "provider_status_audit_ref",
+            "operator_action_audit_ref",
+            "rollback_readiness_audit_ref",
+        ],
+        "required_operator_actions": [
+            "review_customer_artifact_access_candidate",
+            "record_operator_action_before_customer_download_unlock",
+            "confirm_provider_status_readback",
+            "confirm_scheduler_status_readback",
+            "confirm_monitoring_and_rollback_refs",
+        ],
+        "audit_readback": _audit_readback_summary(audit_entries),
+        "redlines": {
+            "external_software_release_enabled": False,
+            "customer_visible_publication_enabled": False,
+            "provider_live_execution_enabled": False,
+            "stage8_real_execution_enabled": False,
+            "stage9_real_payment_delivery_refund_enabled": False,
+            "real_payment_enabled": False,
+            "real_delivery_enabled": False,
+            "real_refund_enabled": False,
+            "automated_refund_enabled": False,
+        },
+    }
+
+
+def build_operator_customer_access_readiness_surface(
+    payload: Any,
+    *,
+    storage_bootstrap: Mapping[str, Any],
+    provider_adapter_bootstrap: Mapping[str, Any],
+    audit_log: list[Mapping[str, Any]] | None = None,
+    operator_operation_readback: list[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    worker_queue = dict(storage_bootstrap.get("worker_queue_bootstrap", {}))
+    provider_status = dict(provider_adapter_bootstrap.get("provider_status_readback", {}))
+    audit_entries = [dict(entry) for entry in (audit_log or [])]
+    go_live = build_go_live_readiness_surface(
+        storage_bootstrap=storage_bootstrap,
+        provider_adapter_bootstrap=provider_adapter_bootstrap,
+        audit_log=audit_entries,
+    )
+    return {
+        "surface_id": "operator_customer_access_readiness",
+        "surface_state": "approval-ready-readback",
+        "surface_mode": "internal-readback",
+        "capability_state": "APPROVAL_READY",
+        "internal_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "public_software_release": False,
+        "operator_console": {
+            "task_creation_entry": {
+                "operation_id": "createOperatorTask",
+                "method": "POST",
+                "path": "/operator-console/tasks",
+                "entry_visible": True,
+                "repository_backed_readback": True,
+                "stage2_fetch_enabled": False,
+                "real_external_fetch_enabled": False,
+            },
+            "project_import_entry": {
+                "operation_id": "importOperatorProject",
+                "method": "POST",
+                "path": "/operator-console/project-imports",
+                "entry_visible": True,
+                "import_mode": "internal_scheduler_task_intent",
+                "repository_backed_readback": True,
+                "real_external_fetch_enabled": False,
+            },
+            "full_chain_run_entry": {
+                "operation_id": "runStage1ToStage6InternalOrchestration",
+                "method": "POST",
+                "path": "/internal/stage1-6/orchestrations",
+                "entry_visible": True,
+                "payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+                "stage1_to_stage5_external_live_transport_enabled": False,
+                "persists_stage6_bundle": True,
+            },
+            "workbench_entries": {
+                "stage6_review_report": "/review-report-workbench",
+                "stage7_opportunity_pool": "/saleable-opportunities",
+                "stage8_outreach_workbench": "/contact-targets",
+                "stage9_order_delivery_workbench": "/orders",
+            },
+        },
+        "provider_status": {
+            "readback_ready": True,
+            "provider_status_replayable": bool(provider_adapter_bootstrap.get("provider_status_replayable", True)),
+            "provider_reliability_state": provider_adapter_bootstrap.get("provider_reliability_state"),
+            "provider_circuit_breaker_state": provider_adapter_bootstrap.get("provider_circuit_breaker_state"),
+            "provider_adapter_mode": provider_adapter_bootstrap.get("provider_adapter_mode"),
+            "provider_adapter_suspended": bool(provider_adapter_bootstrap.get("provider_adapter_suspended", False)),
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
+            "provider_status_readback": provider_status,
+        },
+        "scheduler_status": {
+            "readback_ready": True,
+            "repository_backed": bool(worker_queue.get("repository_backed", True)),
+            "readiness_state": worker_queue.get("readiness_state"),
+            "queue_backend": worker_queue.get("queue_backend"),
+            "effective_queue_backend": worker_queue.get("effective_queue_backend"),
+            "durable_queue_enabled": bool(worker_queue.get("durable_queue_enabled", False)),
+            "worker_lease_enabled": bool(worker_queue.get("worker_lease_enabled", False)),
+            "retry_enabled": bool(worker_queue.get("retry_enabled", False)),
+            "suspend_resume_enabled": bool(worker_queue.get("suspend_resume_enabled", False)),
+            "audit_replay_enabled": bool(worker_queue.get("audit_replay_enabled", False)),
+            "external_queue_connection_enabled": False,
+            "real_provider_execution_enabled": False,
+        },
+        "audit_log": _audit_readback_summary(audit_entries),
+        "customer_access": {
+            "candidate_path": "/customer-artifact-access-candidates/{opportunity_id}",
+            "account_access_control_visible": True,
+            "download_auth_visible": True,
+            "field_allowlist_masking_visible": True,
+            "approval_audit_readback_visible": True,
+            "customer_visible_publication_enabled": False,
+            "external_delivery_enabled": False,
+            "public_software_release": False,
+        },
+        "go_live_readiness": go_live,
+        "operator_operation_readback": [dict(entry) for entry in (operator_operation_readback or [])],
+    }
+
+
 def register_route_table(router: object | None, routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if router is None:
         return routes
@@ -2474,7 +2937,10 @@ def register_route_table(router: object | None, routes: list[dict[str, Any]]) ->
 
 
 __all__ = [
+    "build_customer_artifact_access_candidate_surface",
     "build_formal_client_export_page_layer_readiness_surface",
+    "build_go_live_readiness_surface",
+    "build_operator_customer_access_readiness_surface",
     "build_stage6_preview_surface",
     "build_leadpack_activation_design_implementation_prep_surface",
     "build_leadpack_activation_prep_surface",

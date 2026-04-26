@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import copy
 import json
+import sys
 import unittest
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+for search_path in (ROOT / "tests", ROOT / "src"):
+    if str(search_path) not in sys.path:
+        sys.path.insert(0, str(search_path))
 
 from helpers import load_fixture, run_internal_chain_to_stage7
 from shared.capability_runtime import CapabilityResolver, CapabilityRuntime
 from shared.context_packet import ContextPacket
 from shared.pipeline import run_internal_chain
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestCapabilityPermissionLayer(unittest.TestCase):
