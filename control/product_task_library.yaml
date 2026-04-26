@@ -1665,14 +1665,16 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [api_transport, operator_workbench, customer_access, deployment_readiness, governance_testing]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P18
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: INTERNAL_API_PREVIEW_AND_BOOTSTRAP
-    runtime_change_in_packet: ACTIVE_120_OPERATOR_CUSTOMER_ACCESS_AND_GO_LIVE_READINESS
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-111D completed via 0ab2dba. Public software release remains not the sold product; internal production access and customer artifact access must be governed, approval/audit gated, and not live by default."
+    runtime_change_in_packet: COMPLETED_120_OPERATOR_CUSTOMER_ACCESS_AND_GO_LIVE_READINESS
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-111D completed via 0ab2dba; completed via 5bd558d. Public software release remains not the sold product; internal production access and customer artifact access are governed, approval/audit gated, and not live by default. PTL-I100-121A is activated separately by control/current_task.yaml."
+    capability_state_after: APPROVAL_READY
+    completed_commit: 5bd558d
     hard_depends_on:
       - PTL-I100-111C-crm-quote-and-delivery-page-adapters
       - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
@@ -1707,14 +1709,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage8_outreach, provider_adapters, live_pilot_governance]
     task_type: product_operability_live_pilot
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P19
     existing_code_state: HEAVY_RUNTIME
-    existing_runtime_state: SANDBOX_OUTREACH_EXPECTED_BEFORE_ACTIVATION
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires explicit dedicated current_task packet, sandbox pass, approval chain, audit chain, approved templates, opt-out, frequency control, and provider reliability. This is not auto-activated."
+    existing_runtime_state: SANDBOX_OUTREACH_READY_FOR_GATED_LIVE_PILOT
+    runtime_change_in_packet: ACTIVE_121A_SALES_OUTREACH_LIVE_PILOT
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-120 completed via 5bd558d. This packet may implement a gated small-sample live pilot path and readback, but the implementation window must not actually send real outreach; any real send requires provider config, sandbox pass, approval, audit, opt-out/frequency controls, and separate operator execution."
     hard_depends_on:
       - PTL-I100-111B-sales-outreach-adapter-execution
       - PTL-I100-111E-provider-reliability-and-circuit-breaker

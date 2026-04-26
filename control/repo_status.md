@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-120-operator-customer-access-and-go-live-readiness (ACTIVE; operator/customer access and go-live readiness. This packet may update API/bootstrap/workbench surfaces, operator workbench projection, operator action/readback, permission/customer artifact access readiness, deployment/go-live/rollback readiness, module registry, product task/checklist control status, and targeted tests. It does not open public software release, real provider calls, real outreach, real CRM sync, real quote delivery, unapproved customer-visible publication, real payment capture, live charge, real delivery fulfillment, real refund, automated refund execution, or push)
+Current Workstream: PTL-I100-121A-sales-outreach-live-pilot (ACTIVE; gated small-sample sales outreach live pilot implementation/readback. This packet may update Stage8 outreach runtime, provider adapter config/readback, API/bootstrap, repository readback, module registry, product task/checklist control status, and targeted tests. It may implement an approval/audit-gated pilot path, but the development/test window must not actually send real outreach. It does not open public software release, customer-visible publication, real CRM sync, real quote delivery, real payment capture, live charge, real delivery fulfillment, real refund, automated refund execution, or push)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -16,7 +16,7 @@ Capability Adjudication Source: control/product_task_library.yaml#open_capabilit
 Current Blockers:
 - External leadpack delivery remains gated by approval + audit chain
 - External software release remains blocked
-- Stage 8 real execution remains governed / approval-gated / blocked by default
+- Stage 8 real execution remains governed / approval-gated / blocked by default except the dedicated 121A gated pilot implementation/readback path; no real send may occur in development or tests
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only
 - Real external source fetch remains gated by dedicated Stage2 source adapter packets; 114A-114I only open allowlisted/sandbox public-source adapter readback, not uncontrolled live crawling
@@ -33,14 +33,15 @@ Product Open Capability Baseline:
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 - PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
 
-Current 120 Scope:
-- Activate PTL-I100-120 as the operator/customer access and go-live readiness packet after PTL-I100-111D completion.
-- Build internal operator console/readback surfaces for task creation, project import, full-chain run entry, provider status, scheduler status, audit log, deployment readiness, go-live readiness, monitoring/rollback references, and remaining blocker reporting.
-- Build customer artifact access readiness as a gated candidate path with account/access control, download auth, field allowlist/masking, approval/audit/readback, and no public software release.
-- Target capability state is APPROVAL_READY/readback; do not open public software release, real provider/live, real outreach, real CRM sync, real quote delivery, unapproved customer-visible publication, real payment, real delivery, real refund, automated refund, or external release.
-- Keep automatic refund execution, private/gray source collection, non-public personnel privacy data, login/captcha/anti-bot bypass, uncontrolled live crawling, true live provider calls, real touch, real payment, real delivery, real refund, and external release out of this slice.
+Current 121A Scope:
+- Activate PTL-I100-121A as the sales outreach live pilot packet after PTL-I100-120 completion.
+- Build a gated Stage8 live pilot implementation/readback path for approved small samples only: provider config, sandbox pass, template approval, contact source audit, operator approval/action, frequency control, quiet hours, opt-out/unsubscribe, audit refs, provider reliability, and suspension/rollback must all be enforced.
+- Cover email, SMS, phone/call task, and wecom/IM adapter families as governed pilot records/readback without sending real messages in the implementation or test window.
+- Target capability state is LIVE_READY for the gated pilot path only; do not open bulk send, public software release, unapproved customer-visible publication, real CRM sync, real quote delivery, Stage9 payment/delivery/refund, automated refund, or external release.
+- Keep automatic refund execution, private/gray contact sources, non-public personnel privacy data, login/captcha/anti-bot bypass, uncontrolled live crawling, unapproved real touch, real payment, real delivery, real refund, and external release out of this slice.
 
 Recently Closed:
+- PTL-I100-120-operator-customer-access-and-go-live-readiness completed and committed locally: 5bd558d. It added internal operator/customer/go-live readiness routes, operator task and project import entry readback, customer artifact access candidate gating, account/download auth/field allowlist/masking readiness, go-live blocker/approval/audit readback, and module/test coverage without public software release, provider live calls, real outreach, CRM sync, quote delivery, customer-visible publication, payment, delivery, refund, automated refund execution, external release, or push.
 - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund completed and committed locally: 0ab2dba. It added Stage9 payment gateway, charge/status/callback, receipt, invoice, delivery provider, delivery artifact/download, version lock, hash/audit, order lifecycle, settlement, finance reconciliation, manual refund exception approval/audit, repository/API readback, provider fail-closed behavior, and live/refund redline guards without real payment capture, live charge, real delivery fulfillment, real refund, automated refund execution, real provider calls, real outreach, CRM/quote provider execution, customer-visible publication, external release, or push.
 - PTL-I100-111C-crm-quote-and-delivery-page-adapters completed and committed locally: 7af8966. It added CRM account/opportunity/activity sandbox sync records, quote sandbox records, price/approval/version/audit/expiration/discount/deal tracking/readback, customer-visible artifact candidates, field allowlist/blacklist, masking, watermark, version hash, download audit, export/page replay, provider suspension, and no-publication guards without real CRM sync, external quote send, customer-visible publication, external delivery, real provider calls, real outreach, payment, delivery, refund, automated refund execution, external release, or push.
 - PTL-I100-111B-sales-outreach-adapter-execution completed and committed locally: 5642cb4. It added Stage8 email/SMS/phone/wecom sandbox execution records, template approval, contact source audit, frequency control, quiet-hours, opt-out/unsubscribe, bounce/failure, retry/stop policy, execution timeline, provider reliability/circuit-breaker blocking, repository/API readback, and no-live-send guards without real provider calls, real outreach, CRM/quote provider execution, payment, delivery, refund, automated refund execution, external release, or push.
@@ -73,10 +74,11 @@ Recently Closed:
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5.
 
 Allowed Actions (current):
-- update operator/customer access and go-live readiness only inside control/current_task.yaml allowed paths for 120
-- update API/bootstrap/workbench/readback surfaces and narrow operator-workbench/storage readback paths only as needed for 120
+- update Stage8 live pilot readiness/runtime/readback only inside control/current_task.yaml allowed paths for 121A
+- update provider reliability/config readback only as needed to enforce 121A pilot gates; do not output plaintext credentials
+- update API/bootstrap/repository readback surfaces only as needed for 121A pilot status, result, failure, complaint, and suspension readback
 - update control/product_module_registry.yaml only if new API/storage/test files must be registered
-- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, control/product_module_registry.yaml, and control/product_acceptance_checklist.yaml for 120 status
+- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, control/product_module_registry.yaml, and control/product_acceptance_checklist.yaml for 121A status
 - update targeted tests listed in control/current_task.yaml
 - run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet
 
@@ -86,16 +88,18 @@ Forbidden Actions (current):
 - Any handoff/** change
 - Any scripts/** change
 - Any fixtures/** change
-- Any Stage1, Stage2, Stage3, Stage4, Stage5, Stage6, Stage7, Stage8, or Stage9 business runtime change
-- Any storage change outside the narrow operator workbench / operator action / readiness paths allowed by current_task.yaml
+- Any Stage1, Stage2, Stage3, Stage4, Stage5, Stage6, Stage7, or Stage9 business runtime change
+- Any Stage8 change outside the current_task allowed pilot/readback paths
+- Any storage change outside the narrow repository/readback paths allowed by current_task.yaml
 - Any contracts file
 - Any src/storage/models/** change
 - Any docker compose up, container execution, live deployment, migration, or unauthorized production DB connection
 - Any private/gray source collection, login bypass, captcha bypass, anti-bot bypass, source allowlist bypass, uncontrolled live crawling, or new source collection
 - Any schema/enum/gate/exception semantic addition
-- Any provider readiness treated as approval to execute live
+- Any provider readiness treated as approval to execute live without dedicated pilot approval/audit/operator action
 - Any Stage7/Stage8/Stage9 execution bypass
-- Any true external/live provider call
+- Any true external/live provider call during implementation or tests
+- Any real outreach send during implementation or tests
 - Any real LeadPack external delivery or client-visible formal export/page release
 - Any real touch, payment, delivery, or refund
 - Any automated refund program
@@ -109,23 +113,25 @@ State Semantics:
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - PTL-I100-112 is completed through 112A-112F; production/live pilots still require later dedicated packets.
-- PTL-I100-113, PTL-I100-114A through PTL-I100-114I, PTL-I100-115, PTL-I100-116, PTL-I100-116A, PTL-I100-117, PTL-I100-119A, PTL-I100-119, PTL-I100-111E, PTL-I100-111B, PTL-I100-111C, and PTL-I100-111D are completed; PTL-I100-120 is active as the operator/customer access and go-live readiness packet. PTL-I100-121A through PTL-I100-121C and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
+- PTL-I100-113, PTL-I100-114A through PTL-I100-114I, PTL-I100-115, PTL-I100-116, PTL-I100-116A, PTL-I100-117, PTL-I100-119A, PTL-I100-119, PTL-I100-111E, PTL-I100-111B, PTL-I100-111C, PTL-I100-111D, and PTL-I100-120 are completed; PTL-I100-121A is active as the gated sales outreach live pilot packet. PTL-I100-121B through PTL-I100-121C and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
-- External release remains blocked; Stage8 real execution remains blocked by default; Stage9 real payment/delivery/refund remains blocked by default.
+- External release remains blocked; Stage8 real execution is limited to the 121A gated pilot path and must not run in development/tests; Stage9 real payment/delivery/refund remains blocked by default.
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_operator_customer_access -v
+- python -m unittest tests.test_stage8_resolution_closure -v
+- python -m unittest tests.test_internal_chain.TestInternalChain -v
+- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_api_transport_bootstrap -v
-- python -m unittest tests.test_internal_surface_preview -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+- python -m unittest tests.test_provider_adapter_config -v
+- python -m unittest tests.test_operator_customer_access -v
 - python -m unittest tests.test_product_operability_gap_matrix -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
-- python -m unittest tests.test_capability_permission_layer -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/api/**'',''src/storage/operator_workbench_projection.py'',''src/storage/operator_loop_contracts.py'',''src/storage/repository_boundary.py'',''src/storage/repositories/operator_action_repo.py'',''src/storage/production_infra_readiness.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_surface_preview.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_capability_permission_layer.py'',''tests/test_operator_customer_access.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage8_outreach/**'',''src/shared/provider_adapter_config.py'',''src/api/**'',''src/storage/repository_bundle_io.py'',''src/storage/repository_boundary.py'',''src/storage/repositories/outreach_execution_outbox_repo.py'',''src/storage/repositories/operator_action_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_provider_adapter_config.py'',''tests/test_operator_customer_access.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
