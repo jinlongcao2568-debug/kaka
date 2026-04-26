@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 12)
+        self.assertEqual(len(non_completed), 11)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -180,7 +180,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_117_is_closed_and_119a_is_active(self) -> None:
+    def test_119a_is_closed_and_119_is_active(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
         task_113 = self.tasks_by_id["PTL-I100-113-stage1-scheduler-production-loop"]
         task_114 = self.tasks_by_id["PTL-I100-114-stage2-real-public-source-adapters"]
@@ -189,6 +189,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_116a = self.tasks_by_id["PTL-I100-116A-project-manager-active-conflict-vertical-slice"]
         task_117 = self.tasks_by_id["PTL-I100-117-rule-factory-expansion-and-golden-cases"]
         task_119a = self.tasks_by_id["PTL-I100-119A-real-challenger-identification-hardening"]
+        task_119 = self.tasks_by_id["PTL-I100-119-stage6-product-package-hardening"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -283,11 +284,19 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_117["runtime_change_in_packet"],
             "COMPLETED_117_STAGE5_RULE_FACTORY_EXPANSION_AND_GOLDEN_CASES",
         )
-        self.assertEqual(task_119a["status"], "IN_PROGRESS")
-        self.assertEqual(task_119a["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_119a["status"], "COMPLETED")
+        self.assertEqual(task_119a["planning_state"], "COMPLETED")
+        self.assertEqual(task_119a["completed_commit"], "56cd04e")
+        self.assertEqual(task_119a["capability_state_after"], "INTERNAL_READY")
         self.assertEqual(
             task_119a["runtime_change_in_packet"],
-            "ACTIVE_119A_REAL_CHALLENGER_IDENTIFICATION_HARDENING",
+            "COMPLETED_119A_REAL_CHALLENGER_IDENTIFICATION_HARDENING",
+        )
+        self.assertEqual(task_119["status"], "IN_PROGRESS")
+        self.assertEqual(task_119["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(
+            task_119["runtime_change_in_packet"],
+            "ACTIVE_119_STAGE6_PRODUCT_PACKAGE_HARDENING",
         )
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]

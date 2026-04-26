@@ -5,11 +5,11 @@ updated_at: "2026-04-26"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_119A_REAL_CHALLENGER_IDENTIFICATION_HARDENING"
+navigation_state: "PTL_I100_119_STAGE6_PRODUCT_PACKAGE_HARDENING"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-117 Stage5 rule factory expansion and golden cases 已通过验收并本地提交 c073440；本窗口激活 PTL-I100-119A real challenger identification hardening。"
+activation_condition: "PTL-I100-119A real challenger identification hardening 已通过验收并本地提交 56cd04e；本窗口激活 PTL-I100-119 Stage6 product package hardening。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-119A-real-challenger-identification-hardening"
-  title: "I100-119A Real challenger identification hardening"
+  task_id: "PTL-I100-119-stage6-product-package-hardening"
+  title: "I100-119 Stage6 product package hardening"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,11 +29,10 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
+    - "docs/D6_字段策略字典与客户交付字段规范.md"
+    - "docs/D7_对象级交付矩阵与外发治理规范.md"
     - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
     - "docs/D11_测试验收与金标回归清单.md"
-    - "contracts/sales/challenger_profile_catalog.json"
-    - "contracts/sales/buyer_fit_scorecard.json"
-    - "contracts/sales/opportunity_policy_catalog.json"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
     - "control/product_acceptance_checklist.yaml"
@@ -42,8 +41,8 @@ currentTask:
     - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-119A-real-challenger-identification-hardening"
-  objective: "把真实竞争者识别做成 Stage7 核心商业能力第一刀：从 Stage6 challenger_candidate_profile、public evidence/rule outputs 和现有 Stage7 runtime 中形成 second/third/rejected/historical/regional candidate set、subject eligibility、challenge motivation、purchase capacity、buyer fit、contactability、recommended offer 和 sales priority readback。目标是 INTERNAL_READY；不把内部黑箱评分外发，不把销售判断冒充法律结论，不绕过 Stage8 触达合规。"
+  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-119-stage6-product-package-hardening"
+  objective: "把 Stage6 从内部 fact/review/readback 加固为证据包产品化判断层：输出 objection viability、evidence strength、review priority、sellable signal、delivery eligibility、external visibility、product package readiness、objection pack readiness、sales readiness、downgrade/block reasons 和可回放 readback。目标是 INTERNAL_READY；不把未复核推断当事实，不直接客户可见发布，不让销售反馈污染事实层。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -63,29 +62,29 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-119A-real-challenger-identification-hardening"
-    subpacket_id: "PTL-I100-119A-real-challenger-identification-hardening"
-    backlog_packet_ref: "PTL-I100-119A-real-challenger-identification-hardening"
+    packet_id: "PTL-I100-119-stage6-product-package-hardening"
+    subpacket_id: "PTL-I100-119-stage6-product-package-hardening"
+    backlog_packet_ref: "PTL-I100-119-stage6-product-package-hardening"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "ACTIVE_119A_REAL_CHALLENGER_IDENTIFICATION_HARDENING"
+    runtime_change_in_packet: "ACTIVE_119_STAGE6_PRODUCT_PACKAGE_HARDENING"
     existing_code_state: "HEAVY_RUNTIME"
-    existing_runtime_state: "INTERNAL_SALEABILITY_AND_COMPETITOR_RESOLUTION"
-    title: "I100-119A Real challenger identification hardening"
+    existing_runtime_state: "INTERNAL_REVIEW_AND_PRODUCTIZATION_RUNTIME"
+    title: "I100-119 Stage6 product package hardening"
     status: "ACTIVE"
-    objective: "在现有 Stage6/Stage7 商业承接 runtime 上硬化真实竞争者识别：第二名、第三名、被否决投标人、历史竞争企业、同区域同类型活跃企业、具备主体资格且有购买动机的企业，输出 buyer fit、购买能力、异议动机、可触达状态、推荐报价、销售优先级和可解释 readback。"
+    objective: "在现有 Stage6 ProjectFactAggregator / Stage6Service 上硬化产品包 readiness：异议价值、证据强度、复核优先级、可售信号、客户交付资格、外发可见性、delivery readiness、objection pack readiness、sales readiness、降级/阻断原因、audit/readback。"
     depends_on:
+      - "PTL-I100-119A real challenger identification hardening 已完成并本地提交 56cd04e。"
       - "PTL-I100-117 Stage5 rule factory expansion and golden cases 已完成并本地提交 c073440。"
-      - "PTL-I100-116A project manager active-project conflict vertical slice 已完成并本地提交 7fba84a。"
-      - "现有 Stage6 已输出 challenger_candidate_profile，Stage7 已输出 buyer_fit、challenger_buyer_fit、sales_lead、offer_recommendation、saleable_opportunity。"
-      - "119A 必须硬化真实竞争者候选集、商业动机、购买能力、可触达状态和销售优先级；不得直接进入 Stage8 真实触达。"
+      - "现有 Stage6 已输出 project_fact、legal_action_recommendation、review_queue_profile、report_record、challenger_candidate_profile。"
+      - "119 必须硬化证据包产品化 readiness 和客户交付资格；不得直接发布客户可见材料或修改 Stage7/8/9 执行语义。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-117-rule-factory-expansion-and-golden-cases"
-      target_active_packet: "PTL-I100-119A-real-challenger-identification-hardening"
-      parent_packet: "PTL-I100-119A-real-challenger-identification-hardening"
+      previous_active_packet: "PTL-I100-119A-real-challenger-identification-hardening"
+      target_active_packet: "PTL-I100-119-stage6-product-package-hardening"
+      parent_packet: "PTL-I100-119-stage6-product-package-hardening"
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
@@ -96,9 +95,9 @@ currentTask:
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
       runtime_change: true
-      runtime_change_in_packet: "ACTIVE_119A_REAL_CHALLENGER_IDENTIFICATION_HARDENING"
+      runtime_change_in_packet: "ACTIVE_119_STAGE6_PRODUCT_PACKAGE_HARDENING"
       docs_change: false
-      contracts_change: true
+      contracts_change: false
       handoff_change: false
       scripts_change: false
       tests_change: true
@@ -125,7 +124,7 @@ currentTask:
       - "not Stage3 parser expansion"
       - "not Stage4 verification expansion"
       - "not Stage5 rule factory expansion"
-      - "not broad Stage6 product package hardening"
+      - "not Stage7 sales execution hardening"
       - "not private or gray source collection"
       - "not non-public personnel privacy data"
       - "not illegal identity lookup"
@@ -152,27 +151,25 @@ currentTask:
       - "not push"
     affected_stages:
       - "stage6_fact_review"
-      - "stage7_sales"
-      - "real_challenger_identification"
-      - "buyer_fit"
-      - "sales_priority"
-      - "contactability_status"
-      - "offer_recommendation"
+      - "productization"
+      - "evidence_pack_readiness"
+      - "customer_delivery_eligibility"
+      - "product_package_readiness"
+      - "objection_pack_readiness"
+      - "sales_readiness"
       - "governance_testing"
     risk_level: "CRITICAL"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
       - "stage6_fact_review_core"
-      - "stage7_sales_core"
-      - "contracts_sales_policy_catalog"
+      - "storage_runtime_core"
       - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
       - "stage6_owner"
-      - "stage7_owner"
-      - "contracts_owner"
+      - "storage_owner"
       - "governance_owner"
       - "testing_owner"
     baseline_dirty_paths: []
@@ -182,17 +179,14 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "contracts/sales/challenger_profile_catalog.json"
-      - "contracts/sales/buyer_fit_scorecard.json"
-      - "contracts/sales/opportunity_policy_catalog.json"
       - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
-      - "tests/test_real_challenger_identification.py"
-      - "tests/test_stage7_runtime_closure.py"
+      - "src/storage/repository_bundle_io.py"
+      - "src/storage/repository_boundary.py"
+      - "tests/test_stage6_product_package_hardening.py"
       - "tests/test_stage56_evaluators.py"
       - "tests/test_stage12_extractors.py"
       - "tests/test_internal_chain.py"
-      - "tests/test_internal_surface_preview.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/test_runtime_governance_guards.py"
       - "tests/test_product_module_registry.py"
       - "tests/test_product_acceptance_checklist.py"
@@ -202,17 +196,14 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "contracts/sales/challenger_profile_catalog.json"
-      - "contracts/sales/buyer_fit_scorecard.json"
-      - "contracts/sales/opportunity_policy_catalog.json"
       - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
-      - "tests/test_real_challenger_identification.py"
-      - "tests/test_stage7_runtime_closure.py"
+      - "src/storage/repository_bundle_io.py"
+      - "src/storage/repository_boundary.py"
+      - "tests/test_stage6_product_package_hardening.py"
       - "tests/test_stage56_evaluators.py"
       - "tests/test_stage12_extractors.py"
       - "tests/test_internal_chain.py"
-      - "tests/test_internal_surface_preview.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/test_runtime_governance_guards.py"
       - "tests/test_product_module_registry.py"
       - "tests/test_product_acceptance_checklist.py"
@@ -226,6 +217,7 @@ currentTask:
       - "contracts/model/**"
       - "contracts/exceptions/**"
       - "contracts/rules/**"
+      - "contracts/sales/**"
       - "handoff/**"
       - "scripts/**"
       - "fixtures/**"
@@ -234,6 +226,7 @@ currentTask:
       - "src/stage3_parsing/**"
       - "src/stage4_verification/**"
       - "src/stage5_rules_evidence/**"
+      - "src/stage7_sales/**"
       - "src/stage8_outreach/**"
       - "src/stage9_delivery/**"
       - "src/shared/provider_adapter_config.py"
@@ -255,39 +248,35 @@ currentTask:
         - "control/product_task_library.yaml"
         - "control/product_module_registry.yaml"
         - "control/product_acceptance_checklist.yaml"
-      contracts:
-        - "contracts/sales/challenger_profile_catalog.json"
-        - "contracts/sales/buyer_fit_scorecard.json"
-        - "contracts/sales/opportunity_policy_catalog.json"
+      contracts: []
       handoff: []
       scripts:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       tests:
-        - "tests/test_real_challenger_identification.py"
-        - "tests/test_stage7_runtime_closure.py"
+        - "tests/test_stage6_product_package_hardening.py"
         - "tests/test_stage56_evaluators.py"
         - "tests/test_stage12_extractors.py"
         - "tests/test_internal_chain.py"
-        - "tests/test_internal_surface_preview.py"
+        - "tests/test_internal_repository_boundary.py"
         - "tests/test_runtime_governance_guards.py"
         - "tests/test_product_module_registry.py"
         - "tests/test_product_acceptance_checklist.py"
       runtime:
         - "src/stage6_fact_review/**"
-        - "src/stage7_sales/**"
+        - "src/storage/repository_bundle_io.py"
+        - "src/storage/repository_boundary.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_real_challenger_identification -v"
-      - "python -m unittest tests.test_stage7_runtime_closure -v"
+      - "python -m unittest tests.test_stage6_product_package_hardening -v"
       - "python -m unittest tests.test_stage56_evaluators -v"
       - "python -m unittest tests.test_stage12_extractors -v"
       - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
-      - "python -m unittest tests.test_internal_surface_preview -v"
+      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
       - "python -m unittest tests.test_product_module_registry -v"
       - "python -m unittest tests.test_product_acceptance_checklist -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''contracts/sales/challenger_profile_catalog.json'',''contracts/sales/buyer_fit_scorecard.json'',''contracts/sales/opportunity_policy_catalog.json'',''src/stage6_fact_review/**'',''src/stage7_sales/**'',''tests/test_real_challenger_identification.py'',''tests/test_stage7_runtime_closure.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_surface_preview.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage6_fact_review/**'',''src/storage/repository_bundle_io.py'',''src/storage/repository_boundary.py'',''tests/test_stage6_product_package_hardening.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -295,16 +284,15 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_real_challenger_identification -v": 300000
-      "python -m unittest tests.test_stage7_runtime_closure -v": 300000
+      "python -m unittest tests.test_stage6_product_package_hardening -v": 300000
       "python -m unittest tests.test_stage56_evaluators -v": 300000
       "python -m unittest tests.test_stage12_extractors -v": 300000
       "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
-      "python -m unittest tests.test_internal_surface_preview -v": 300000
+      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
       "python -m unittest tests.test_product_module_registry -v": 300000
       "python -m unittest tests.test_product_acceptance_checklist -v": 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''contracts/sales/challenger_profile_catalog.json'',''contracts/sales/buyer_fit_scorecard.json'',''contracts/sales/opportunity_policy_catalog.json'',''src/stage6_fact_review/**'',''src/stage7_sales/**'',''tests/test_real_challenger_identification.py'',''tests/test_stage7_runtime_closure.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_surface_preview.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage6_fact_review/**'',''src/storage/repository_bundle_io.py'',''src/storage/repository_boundary.py'',''tests/test_stage6_product_package_hardening.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python tests/run_tests.py": 600000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
@@ -317,35 +305,34 @@ currentTask:
       - "需要修改 docs、handoff、scripts、fixtures"
       - "需要修改 Stage1、Stage2、Stage3、Stage4、Stage5 或 Stage8-9 业务 runtime"
       - "需要新增正式业务对象、schema、enum、release gate、exception 语义"
-      - "需要修改 contracts/sales/challenger_profile_catalog.json、contracts/sales/buyer_fit_scorecard.json、contracts/sales/opportunity_policy_catalog.json 以外的 contracts 文件"
+      - "需要修改任何 contracts 文件"
       - "需要访问非公开接口、抓取新来源、连接未 allowlist 的真实网站、绕过登录、验证码或反爬"
       - "需要真实 provider 调用、真实触达、真实支付、真实交付、真实退款或自动退款执行"
       - "需要 push"
     definition_of_done:
-      - "Stage6/Stage7 能表达 second/third/rejected/historical/regional challenger candidate set，并能选择 winning challenger。"
-      - "每个候选竞争者至少有 subject eligibility、challenge motivation、purchase capacity、buyer fit、contactability、recommended offer、sales priority 和 source/readback trace。"
-      - "商业评分可解释，并与客户可见结论隔离；不得把内部黑箱评分或销售判断冒充法律结论。"
-      - "contactability 只作为 Stage7 内部 readiness，不绕过 Stage8 compliance/outbox。"
+      - "Stage6 能表达 objection viability、evidence strength、review priority、sellable signal、delivery eligibility、external visibility、product package readiness、objection pack readiness、sales readiness 和 downgrade/block reasons。"
+      - "客户交付资格由 evidence gate、public visibility、review state、field allowlist/masking 和 delivery governance 共同约束。"
+      - "Stage6 product package readiness 可在 persist/hydrate/readback 后稳定回放。"
+      - "sales/customer feedback 不污染 Stage6 formal facts。"
       - "targeted tests、验收清单测试与 formal checks 全部通过。"
     deliverables:
-      - "activated 119A current_task packet"
-      - "real challenger candidate set and selection trace"
-      - "buyer fit / motivation / capacity / contactability / offer / sales priority readback"
-      - "module registry update for any new Stage6/Stage7 files if needed"
+      - "activated 119 current_task packet"
+      - "Stage6 product package readiness carrier"
+      - "delivery eligibility / objection viability / downgrade-block readback"
+      - "module registry update for any new Stage6/storage files if needed"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
       - "architecture_owner"
       - "stage6_owner"
-      - "stage7_owner"
-      - "contracts_owner"
+      - "storage_owner"
       - "governance_owner"
       - "testing_owner"
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_119A_REAL_CHALLENGER_IDENTIFICATION_INTERNAL_READY"
-      signoff_meaning: "本批准只允许 Stage6/Stage7 real challenger identification hardening 第一刀；不批准真实触达、CRM/quote provider 调用、客户可见外发、真实支付/交付/退款、自动退款、external release、schema/enum/gate/exception 新语义或 push。"
+      signoff_status: "APPROVED_FOR_119_STAGE6_PRODUCT_PACKAGE_HARDENING_INTERNAL_READY"
+      signoff_meaning: "本批准只允许 Stage6 product package readiness 第一刀；不批准客户可见发布、真实外发、真实触达、CRM/quote provider 调用、真实支付/交付/退款、自动退款、external release、schema/enum/gate/exception 新语义或 push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml is the only active execution source."
@@ -353,7 +340,7 @@ currentTask:
       - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
   hardBlockers:
     - "external software release remains blocked"
-    - "Stage7 sales judgement remains internal and cannot be treated as legal conclusion"
+    - "Stage6 product package readiness remains internal until field allowlist, review, approval, and delivery gates pass"
     - "private or gray source collection remains forbidden"
     - "login/captcha/anti-bot bypass remains forbidden"
     - "uncontrolled live crawling remains blocked"
@@ -362,16 +349,16 @@ currentTask:
     - "real payment / charge / delivery / refund remains blocked until gated"
     - "automated refund execution is out of scope"
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 119A real challenger identification hardening。"
+    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 119 Stage6 product package hardening。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
     - "不得修改 docs、handoff、scripts、fixtures。"
     - "不得修改 Stage1、Stage2、Stage3、Stage4、Stage5 或 Stage8-9 业务 runtime。"
     - "不得访问非公开接口、新增采集来源、抓取非公开来源、未登记真实网站，或绕过登录、验证码、反爬。"
-    - "不得把销售判断、buyer fit 或内部评分当法律结论，不得新增 schema/enum/gate/exception 语义。"
+    - "不得把未复核推断当事实，不得把内部 readiness 当客户可见交付，不得新增 schema/enum/gate/exception 语义。"
     - "不得调用真实 provider API、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得发布客户页面、真实外发 LeadPack、放开 external release。"
     - "不得 push。"
   nextActions:
-    - "119A 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-119 stage6 product package hardening。"
-  status_note: "PTL-I100-119A 已激活为 real challenger identification hardening；当前目标是 INTERNAL_READY，不放开真实触达、CRM/quote provider、客户可见外发或支付交付。"
+    - "119 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-120 operator/customer access and go-live readiness。"
+  status_note: "PTL-I100-119 已激活为 Stage6 product package hardening；当前目标是 INTERNAL_READY，不放开客户可见外发、真实触达、CRM/quote provider 或支付交付。"
