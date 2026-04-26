@@ -1788,14 +1788,16 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [platform_infra, observability, incident_response, production_governance]
     task_type: product_operability_production_hardening
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P21
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: HEALTH_READINESS_AND_BASIC_AUDIT_EXPECTED_BEFORE_ACTIVATION
-    runtime_change_in_packet: ACTIVE_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-121B completed via c1515f5. This packet hardens SLO, monitoring, alerting, incident runbook, backup/restore evidence, and suspension/rollback controls without expanding live scope, running incident automation, sending real alerts, executing rollback, or opening external release."
+    runtime_change_in_packet: COMPLETED_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-121B completed via c1515f5; completed via aaf903c. This packet hardened SLO, monitoring, alerting, incident runbook, backup/restore evidence, and suspension/rollback controls without expanding live scope, running incident automation, sending real alerts, executing rollback, or opening external release. PTL-I100-118 is activated separately by control/current_task.yaml as the final product operational acceptance gate."
+    completed_commit: aaf903c
+    capability_state_after: PRODUCTION_READY
     hard_depends_on:
       - PTL-I100-112-production-platform-infrastructure
       - PTL-I100-120-operator-customer-access-and-go-live-readiness
@@ -1826,14 +1828,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_to_stage9, product_acceptance, governance_testing]
     task_type: product_operability_acceptance
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P22
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: MIXED_INTERNAL_SANDBOX_READY
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet after provider, infra, real data chain, parser, verifier, rules, Stage6 product hardening, and access/workbench packets are complete."
+    runtime_change_in_packet: OUT_OF_SCOPE
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-121C completed via aaf903c. This is a product operational acceptance packet, not a runtime implementation packet: it must validate engineering regression, capability states, and evidence-pack business closure, then report remaining blockers with minimal follow-up tasks."
     hard_depends_on:
       - PTL-I100-111-live-provider-adapters-no-auto-refund
       - PTL-I100-112-production-platform-infrastructure

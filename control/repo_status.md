@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-121C-production-slo-monitoring-incident-readiness (ACTIVE; production SLO, monitoring, alerting, incident runbook, backup/restore drill, rollback drill, provider/source/payment/delivery failure alert, suspended-state operation, API/bootstrap/readback, and governance testing packet. This packet must not expand live scope, send real alerts, connect external paging/APM providers, run incident automation, execute destructive restore or rollback, run migration, execute true provider calls, perform real outreach, capture payment, fulfill delivery, issue refunds, or execute automated refund.)
+Current Workstream: PTL-I100-118-full-product-operational-acceptance (ACTIVE; final product operational acceptance packet. This packet validates engineering regression, capability states, owner/operator usability, evidence-pack business closure, customer-delivery gating, governance redlines, and production-readiness evidence. It is not a runtime implementation packet and must not expand live scope, connect external providers, perform real outreach, capture payment, fulfill delivery, issue refunds, execute automated refund, or authorize external release.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -25,7 +25,7 @@ Current Blockers:
 - Stage4 verification remains public-source only and review-gated for weak, ambiguous, conflicting, or non-replayable evidence
 - Stage6 product package readiness remains internal; customer delivery eligibility requires evidence, public visibility, review state, field allowlist/masking, approval, and delivery governance
 - Provider reliability/circuit breaker work is completed as readback/gating; unhealthy, rate-limited, timeout, or circuit-open provider state must block or suspend execution and must not silently fallback to live
-- 121C monitoring/incident work may simulate failures and produce readback evidence only; real alert dispatch, external paging, incident automation, destructive restore, real rollback, provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release remain blocked
+- 118 full product operational acceptance may validate product closure and produce blocker/follow-up evidence only; runtime implementation, real external actions, automatic release, real refund, automated refund, and customer-visible delivery without approval/audit/field allowlist remain blocked
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -34,13 +34,15 @@ Product Open Capability Baseline:
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 - PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
 
-Current 121C Scope:
-- Activate PTL-I100-121C as the production SLO monitoring incident readiness packet after PTL-I100-121B completion.
-- Build a production readiness/readback layer for SLO, monitoring dashboards, alerting rules, incident runbook, backup/restore drill, rollback drill, provider/source/payment/delivery failure alerts, and suspended-state operations.
-- Alerts must fire only as simulated/readback evidence in this packet; notification dispatch, external paging/APM, incident automation, destructive restore, real rollback, provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release remain disabled.
-- Target capability state is PRODUCTION_READY for monitoring/incident readiness evidence only; this does not authorize external release or production go-live by itself.
+Current 118 Scope:
+- Activate PTL-I100-118 as the final full product operational acceptance packet after PTL-I100-121C completion.
+- Validate three layers: engineering regression, capability state evidence, and product business closure.
+- The acceptance target is not "tests are green"; it must prove whether the owner-operated evidence-pack / leadpack product can be used end to end, and must list any remaining blockers with minimal follow-up task ids.
+- 118 may update acceptance matrices, sanitized/offline acceptance fixtures, product operability gap matrix, module registry/readback evidence, and tests inside the active packet scope.
+- 118 must stop if it finds a product gap that requires runtime implementation; that gap must become a follow-up implementation packet instead of being patched inside 118.
 
 Recently Closed:
+- PTL-I100-121C-production-slo-monitoring-incident-readiness completed and committed locally: aaf903c. It added production SLO/monitoring/alert simulation/incident runbook/backup-restore drill/rollback drill/suspended-state readback and repository/API/bootstrap evidence, fixed the required_scripts/script_timeouts key drift, and did not send real alerts, connect external paging/APM, run incident automation, execute destructive restore or rollback, perform provider calls, real outreach, real payment/delivery/refund, automated refund, external release, or push.
 - PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund completed and committed locally: c1515f5. It added Stage9 gated small-sample payment/delivery live pilot carrier/readback, approval/audit/provider/sandbox/finance gates, callback/receipt/invoice/settlement/reconciliation/delivery version lock/download audit/rollback/manual refund exception evidence, and no-real-charge/no-real-delivery/no-real-refund/no-automated-refund guards without actual payment capture, charge, provider call, delivery fulfillment, customer download, refund, automated refund execution, external release, or push.
 - PTL-I100-121A-sales-outreach-live-pilot completed and committed locally: 4fc8020. It added a gated small-sample Stage8 live pilot carrier/readback with provider config, sandbox pass, template approval, contact source audit, operator approval/action, frequency control, quiet-hours, opt-out/unsubscribe, bounce/failure/complaint, retry/stop/suspension, provider result readback, repository/API replay, and no-real-send guards without actual provider calls, real outreach in development/tests, bulk send, CRM sync, quote delivery, customer-visible publication, payment, delivery, refund, automated refund execution, external release, or push.
 - PTL-I100-120-operator-customer-access-and-go-live-readiness completed and committed locally: 5bd558d.
@@ -60,8 +62,8 @@ Recently Closed:
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5.
 
 Allowed Actions (current):
-- update production SLO, monitoring, alerting, incident, backup/restore drill, rollback drill, suspended-state operation, API/bootstrap, repository readback, module registry, and targeted tests only inside control/current_task.yaml allowed paths for 121C
-- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, control/product_module_registry.yaml, and control/product_acceptance_checklist.yaml for 121C status
+- update product operational acceptance matrix/report/checklist/gap evidence, sanitized/offline internal acceptance fixtures, product module registry acceptance refs, and targeted tests only inside control/current_task.yaml allowed paths for 118
+- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, control/product_acceptance_checklist.yaml, control/product_operability_gap_matrix.yaml, and control/product_module_registry.yaml for 118 status and acceptance evidence
 - run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet
 
 Forbidden Actions (current):
@@ -69,8 +71,7 @@ Forbidden Actions (current):
 - Any contracts/** change
 - Any handoff/** change
 - Any scripts/** change
-- Any fixtures/** change
-- Any Stage1, Stage2, Stage3, Stage4, Stage5, Stage6, Stage7, Stage8, or Stage9 business runtime change
+- Any src/** runtime change
 - Any schema/enum/gate/exception semantic addition
 - Any external APM/paging/notification provider connection or real alert dispatch
 - Any incident automation, destructive restore, real rollback, migration, docker compose up, live deployment, or unauthorized production DB connection
@@ -89,7 +90,7 @@ State Semantics:
 - control/current_task.yaml is the only active execution source.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
-- PTL-I100-112 through PTL-I100-121B are completed; PTL-I100-121C is active as the production SLO monitoring incident readiness packet. PTL-I100-118 remains a registered task-pool candidate and is not active until control/current_task.yaml explicitly activates it.
+- PTL-I100-112 through PTL-I100-121C are completed; PTL-I100-118 is active as the final full product operational acceptance packet. Product acceptance must judge product closure and remaining blockers, not merely repeat prior unit-test success.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
@@ -97,17 +98,16 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_production_slo_incident_readiness -v
-- python -m unittest tests.test_storage_concurrency -v
-- python -m unittest tests.test_api_transport_bootstrap -v
-- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
-- python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
-- python -m unittest tests.test_provider_adapter_config -v
-- python -m unittest tests.test_operator_customer_access -v
-- python -m unittest tests.test_product_operability_gap_matrix -v
-- python -m unittest tests.test_product_module_registry -v
+- python -m unittest tests.test_full_product_operational_acceptance -v
 - python -m unittest tests.test_product_acceptance_checklist -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/shared/settings.py'',''src/api/**'',''src/storage/production_infra_readiness.py'',''src/storage/monitoring_alerting.py'',''src/storage/production_slo_incident_readiness.py'',''src/storage/backup_restore.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/monitoring_alerting_repo.py'',''src/storage/repositories/backup_restore_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/production_slo_incident_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_production_slo_incident_readiness.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_provider_adapter_config.py'',''tests/test_operator_customer_access.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- python -m unittest tests.test_product_operability_gap_matrix -v
+- python -m unittest tests.test_internal_acceptance_matrix -v
+- python -m unittest tests.test_internal_chain.TestInternalChain -v
+- python -m unittest tests.test_api_transport_bootstrap -v
+- python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+- python -m unittest tests.test_external_unlock_prerequisites -v
+- python -m unittest tests.test_product_module_registry -v
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''fixtures/internal_acceptance_matrix.json'',''fixtures/internal_acceptance_*.json'',''tests/test_full_product_operational_acceptance.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_internal_acceptance_matrix.py'',''tests/test_internal_chain.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_external_unlock_prerequisites.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1

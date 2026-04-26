@@ -5,11 +5,11 @@ updated_at: "2026-04-26"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS"
+navigation_state: "PTL_I100_118_FULL_PRODUCT_OPERATIONAL_ACCEPTANCE"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-121B payment/delivery live pilot no-auto-refund 已通过验收并本地提交 c1515f5；按 product_task_library planned_sequence 激活 PTL-I100-121C production SLO monitoring incident readiness。"
+activation_condition: "PTL-I100-121C production SLO monitoring incident readiness 已通过验收并本地提交 aaf903c；按 product_task_library final_product_closure_gate 激活 PTL-I100-118 full product operational acceptance。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-121C-production-slo-monitoring-incident-readiness"
-  title: "I100-21C Production SLO monitoring and incident readiness"
+  task_id: "PTL-I100-118-full-product-operational-acceptance"
+  title: "I100-18 Full product operational acceptance"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -31,14 +31,17 @@ currentTask:
     - "docs/D1_研发_Codex执行手册.md"
     - "docs/D11_测试验收与金标回归清单.md"
     - "docs/D12_部署发布与运行治理规范.md"
+    - "docs/D13_公开可查边界能力清单.md"
+    - "docs/D14_AI模型治理规范.md"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
     - "control/product_acceptance_checklist.yaml"
+    - "control/product_operability_gap_matrix.yaml"
     - "control/product_module_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-121C-production-slo-monitoring-incident-readiness"
-  objective: "把已有 monitoring / alerting / backup / rollback / provider reliability / Stage8 pilot / Stage9 pilot readback 串成生产级 SLO、告警规则、事故处理、暂停恢复、演练证据和审计回放闭环；不扩大 live 范围，不发真实告警，不运行 incident automation，不执行真实 rollback，不打开 external release。"
+  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-118-full-product-operational-acceptance"
+  objective: "按三层验收模型做产品运营验收：工程回归、能力状态、产品闭环。重点判断公开来源到证据包销售、LeadPack、触达、CRM/报价、支付交付、审计回放是否能被 owner 实际运营；测试全绿只是底线，不得替代产品闭环验收。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -58,51 +61,59 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-121C-production-slo-monitoring-incident-readiness"
-    subpacket_id: "PTL-I100-121C-production-slo-monitoring-incident-readiness"
-    backlog_packet_ref: "PTL-I100-121C-production-slo-monitoring-incident-readiness"
+    packet_id: "PTL-I100-118-full-product-operational-acceptance"
+    subpacket_id: "PTL-I100-118-full-product-operational-acceptance"
+    backlog_packet_ref: "PTL-I100-118-full-product-operational-acceptance"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "ACTIVE_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS"
-    existing_code_state: "PARTIAL_RUNTIME"
-    existing_runtime_state: "HEALTH_READINESS_AND_BASIC_AUDIT_EXPECTED_BEFORE_ACTIVATION"
-    title: "I100-21C Production SLO monitoring and incident readiness"
+    runtime_change_in_packet: "OUT_OF_SCOPE"
+    existing_code_state: "HEAVY_RUNTIME"
+    existing_runtime_state: "MIXED_INTERNAL_SANDBOX_APPROVAL_LIVE_PRODUCTION_READY"
+    title: "I100-18 Full product operational acceptance"
     status: "ACTIVE"
-    objective: "补生产级 SLO/监控/告警/事故处理/备份恢复/暂停回滚能力，确保真实采集、触达、支付、交付出现异常时可发现、可审计、可暂停、可恢复。"
+    objective: "验证当前已登记产品缺口是否真正闭合为 owner 可运营的 evidence-pack / leadpack 商业产品闭环；输出通过/不通过、能力状态、产品闭环证据、剩余阻断和最小补齐任务。"
     depends_on:
-      - "PTL-I100-112 production platform infrastructure 已完成并本地提交 0fe9212。"
-      - "PTL-I100-120 operator/customer access and go-live readiness 已完成并本地提交 5bd558d。"
-      - "PTL-I100-121A sales outreach live pilot 已完成并本地提交 4fc8020。"
-      - "PTL-I100-121B payment/delivery live pilot no-auto-refund 已完成并本地提交 c1515f5。"
-      - "121C 只能实现生产监控、SLO、告警、事故、暂停/恢复、备份/回滚演练 readback；不得扩大 live 执行范围。"
+      - "PTL-I100-111 live provider adapters no-auto-refund 已完成。"
+      - "PTL-I100-112 production platform infrastructure 已完成。"
+      - "PTL-I100-113 Stage1 scheduler production loop 已完成。"
+      - "PTL-I100-114 Stage2 public source adapters 114A-114I 已完成。"
+      - "PTL-I100-115 Stage3 parser/OCR/attachments 已完成。"
+      - "PTL-I100-116 Stage4 public verification adapters 已完成。"
+      - "PTL-I100-116A project manager active-conflict slice 已完成。"
+      - "PTL-I100-117 Stage5 rule factory expansion 已完成。"
+      - "PTL-I100-119A real challenger identification 已完成。"
+      - "PTL-I100-119 Stage6 product package hardening 已完成。"
+      - "PTL-I100-120 operator/customer access/go-live readiness 已完成。"
+      - "PTL-I100-121A sales outreach live pilot readback 已完成。"
+      - "PTL-I100-121B payment/delivery live pilot no-auto-refund readback 已完成。"
+      - "PTL-I100-121C production SLO monitoring incident readiness 已完成并本地提交 aaf903c。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund"
-      target_active_packet: "PTL-I100-121C-production-slo-monitoring-incident-readiness"
+      previous_active_packet: "PTL-I100-121C-production-slo-monitoring-incident-readiness"
+      target_active_packet: "PTL-I100-118-full-product-operational-acceptance"
       parent_packet: "PTL-I100-internal-operable-productization"
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: "runtime_implementation"
+      active_packet_kind: "product_operational_acceptance"
       product_mainline_task: true
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change: true
-      runtime_change_in_packet: "ACTIVE_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS"
+      runtime_change: false
+      runtime_change_in_packet: "OUT_OF_SCOPE"
       docs_change: false
       contracts_change: false
       handoff_change: false
       scripts_change: false
       tests_change: true
-      fixture_change: false
+      fixture_change: true
       control_change: true
-      observability_readiness_change: true
-      incident_response_readiness_change: true
-      backup_rollback_drill_readback_change: true
+      product_operational_acceptance_change: true
+      capability_state_audit_change: true
       live_execution_scope_change: false
       automated_refund_program_change: false
       new_business_object_enum_gate_exception_semantics: false
@@ -117,29 +128,21 @@ currentTask:
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
       - "不新增业务对象、枚举、gate、exception 语义"
-      - "not a new live execution feature"
-      - "not real alert dispatch"
-      - "not external APM or paging integration"
-      - "not incident automation execution"
-      - "not destructive restore or rollback execution"
-      - "not container execution or deployment"
-      - "not migration"
-      - "not real provider call"
-      - "not real outreach"
-      - "not real payment capture"
-      - "not real delivery fulfillment"
-      - "not real refund"
+      - "not a runtime implementation packet"
+      - "not a feature development packet"
+      - "not a simple test-green repeat"
+      - "not automatic release"
       - "not automated refund"
-      - "not docs/contracts/handoff/scripts/fixtures change"
+      - "not unapproved live provider execution"
+      - "not customer-visible delivery without approval/audit/field allowlist/masking"
+      - "not docs/contracts/handoff/scripts change"
       - "not push"
     affected_stages:
-      - "platform_infra"
-      - "observability"
-      - "incident_response"
-      - "production_governance"
-      - "api_transport"
-      - "repository_readback"
+      - "stage1_to_stage9"
+      - "product_acceptance"
+      - "capability_state_audit"
       - "governance_testing"
+      - "operator_acceptance"
     risk_level: "CRITICAL"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
@@ -158,77 +161,44 @@ currentTask:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
-      - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "src/shared/settings.py"
-      - "src/api/**"
-      - "src/storage/production_infra_readiness.py"
-      - "src/storage/monitoring_alerting.py"
-      - "src/storage/production_slo_incident_readiness.py"
-      - "src/storage/backup_restore.py"
-      - "src/storage/repository_boundary.py"
-      - "src/storage/repository_bundle_io.py"
-      - "src/storage/repositories/monitoring_alerting_repo.py"
-      - "src/storage/repositories/backup_restore_repo.py"
-      - "src/storage/repositories/provider_adapter_config_repo.py"
-      - "src/storage/repositories/production_slo_incident_repo.py"
-      - "src/storage/repositories/__init__.py"
-      - "tests/test_production_slo_incident_readiness.py"
-      - "tests/test_storage_concurrency.py"
-      - "tests/test_api_transport_bootstrap.py"
-      - "tests/test_internal_repository_boundary.py"
-      - "tests/test_runtime_governance_guards.py"
-      - "tests/test_provider_adapter_config.py"
-      - "tests/test_operator_customer_access.py"
-      - "tests/test_product_operability_gap_matrix.py"
-      - "tests/test_product_module_registry.py"
+      - "control/product_operability_gap_matrix.yaml"
+      - "control/product_module_registry.yaml"
+      - "fixtures/internal_acceptance_matrix.json"
+      - "fixtures/internal_acceptance_*.json"
+      - "tests/test_full_product_operational_acceptance.py"
       - "tests/test_product_acceptance_checklist.py"
+      - "tests/test_product_operability_gap_matrix.py"
+      - "tests/test_internal_acceptance_matrix.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_runtime_governance_guards.py"
+      - "tests/test_external_unlock_prerequisites.py"
+      - "tests/test_product_module_registry.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
-      - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "src/shared/settings.py"
-      - "src/api/**"
-      - "src/storage/production_infra_readiness.py"
-      - "src/storage/monitoring_alerting.py"
-      - "src/storage/production_slo_incident_readiness.py"
-      - "src/storage/backup_restore.py"
-      - "src/storage/repository_boundary.py"
-      - "src/storage/repository_bundle_io.py"
-      - "src/storage/repositories/monitoring_alerting_repo.py"
-      - "src/storage/repositories/backup_restore_repo.py"
-      - "src/storage/repositories/provider_adapter_config_repo.py"
-      - "src/storage/repositories/production_slo_incident_repo.py"
-      - "src/storage/repositories/__init__.py"
-      - "tests/test_production_slo_incident_readiness.py"
-      - "tests/test_storage_concurrency.py"
-      - "tests/test_api_transport_bootstrap.py"
-      - "tests/test_internal_repository_boundary.py"
-      - "tests/test_runtime_governance_guards.py"
-      - "tests/test_provider_adapter_config.py"
-      - "tests/test_operator_customer_access.py"
-      - "tests/test_product_operability_gap_matrix.py"
-      - "tests/test_product_module_registry.py"
+      - "control/product_operability_gap_matrix.yaml"
+      - "control/product_module_registry.yaml"
+      - "fixtures/internal_acceptance_matrix.json"
+      - "fixtures/internal_acceptance_*.json"
+      - "tests/test_full_product_operational_acceptance.py"
       - "tests/test_product_acceptance_checklist.py"
+      - "tests/test_product_operability_gap_matrix.py"
+      - "tests/test_internal_acceptance_matrix.py"
+      - "tests/test_internal_chain.py"
+      - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_runtime_governance_guards.py"
+      - "tests/test_external_unlock_prerequisites.py"
+      - "tests/test_product_module_registry.py"
     forbidden_modification_paths:
       - "docs/**"
       - "contracts/**"
       - "handoff/**"
       - "scripts/**"
-      - "fixtures/**"
-      - "src/stage1_tasking/**"
-      - "src/stage2_ingestion/**"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
-      - "src/stage5_rules_evidence/**"
-      - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
-      - "src/stage8_outreach/**"
-      - "src/stage9_delivery/**"
-      - "src/storage/db.py"
-      - "src/storage/models/**"
+      - "src/**"
       - "migrations/**"
       - "alembic.ini"
       - ".dockerignore"
@@ -239,52 +209,41 @@ currentTask:
         - "control/current_task.yaml"
         - "control/repo_status.md"
         - "control/product_task_library.yaml"
-        - "control/product_module_registry.yaml"
         - "control/product_acceptance_checklist.yaml"
+        - "control/product_operability_gap_matrix.yaml"
+        - "control/product_module_registry.yaml"
       docs: []
       contracts: []
       handoff: []
       scripts:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
-      runtime:
-        - "src/shared/settings.py"
-        - "src/api/**"
-        - "src/storage/production_infra_readiness.py"
-        - "src/storage/monitoring_alerting.py"
-        - "src/storage/production_slo_incident_readiness.py"
-        - "src/storage/backup_restore.py"
-        - "src/storage/repository_boundary.py"
-        - "src/storage/repository_bundle_io.py"
-        - "src/storage/repositories/monitoring_alerting_repo.py"
-        - "src/storage/repositories/backup_restore_repo.py"
-        - "src/storage/repositories/provider_adapter_config_repo.py"
-        - "src/storage/repositories/production_slo_incident_repo.py"
-        - "src/storage/repositories/__init__.py"
+      runtime: []
+      fixtures:
+        - "fixtures/internal_acceptance_matrix.json"
+        - "fixtures/internal_acceptance_*.json"
       tests:
-        - "tests/test_production_slo_incident_readiness.py"
-        - "tests/test_storage_concurrency.py"
-        - "tests/test_api_transport_bootstrap.py"
-        - "tests/test_internal_repository_boundary.py"
-        - "tests/test_runtime_governance_guards.py"
-        - "tests/test_provider_adapter_config.py"
-        - "tests/test_operator_customer_access.py"
-        - "tests/test_product_operability_gap_matrix.py"
-        - "tests/test_product_module_registry.py"
+        - "tests/test_full_product_operational_acceptance.py"
         - "tests/test_product_acceptance_checklist.py"
+        - "tests/test_product_operability_gap_matrix.py"
+        - "tests/test_internal_acceptance_matrix.py"
+        - "tests/test_internal_chain.py"
+        - "tests/test_api_transport_bootstrap.py"
+        - "tests/test_runtime_governance_guards.py"
+        - "tests/test_external_unlock_prerequisites.py"
+        - "tests/test_product_module_registry.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_production_slo_incident_readiness -v"
-      - "python -m unittest tests.test_storage_concurrency -v"
-      - "python -m unittest tests.test_api_transport_bootstrap -v"
-      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
-      - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
-      - "python -m unittest tests.test_provider_adapter_config -v"
-      - "python -m unittest tests.test_operator_customer_access -v"
-      - "python -m unittest tests.test_product_operability_gap_matrix -v"
-      - "python -m unittest tests.test_product_module_registry -v"
+      - "python -m unittest tests.test_full_product_operational_acceptance -v"
       - "python -m unittest tests.test_product_acceptance_checklist -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/shared/settings.py'',''src/api/**'',''src/storage/production_infra_readiness.py'',''src/storage/monitoring_alerting.py'',''src/storage/production_slo_incident_readiness.py'',''src/storage/backup_restore.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/monitoring_alerting_repo.py'',''src/storage/repositories/backup_restore_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/production_slo_incident_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_production_slo_incident_readiness.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_provider_adapter_config.py'',''tests/test_operator_customer_access.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "python -m unittest tests.test_product_operability_gap_matrix -v"
+      - "python -m unittest tests.test_internal_acceptance_matrix -v"
+      - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
+      - "python -m unittest tests.test_api_transport_bootstrap -v"
+      - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
+      - "python -m unittest tests.test_external_unlock_prerequisites -v"
+      - "python -m unittest tests.test_product_module_registry -v"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''fixtures/internal_acceptance_matrix.json'',''fixtures/internal_acceptance_*.json'',''tests/test_full_product_operational_acceptance.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_internal_acceptance_matrix.py'',''tests/test_internal_chain.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_external_unlock_prerequisites.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -292,20 +251,19 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_production_slo_incident_readiness -v": 300000
-      "python -m unittest tests.test_storage_concurrency -v": 300000
-      "python -m unittest tests.test_api_transport_bootstrap -v": 300000
-      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
-      "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
-      "python -m unittest tests.test_provider_adapter_config -v": 300000
-      "python -m unittest tests.test_operator_customer_access -v": 300000
-      "python -m unittest tests.test_product_operability_gap_matrix -v": 300000
-      "python -m unittest tests.test_product_module_registry -v": 300000
+      "python -m unittest tests.test_full_product_operational_acceptance -v": 300000
       "python -m unittest tests.test_product_acceptance_checklist -v": 300000
-      ? "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/shared/settings.py'',''src/api/**'',''src/storage/production_infra_readiness.py'',''src/storage/monitoring_alerting.py'',''src/storage/production_slo_incident_readiness.py'',''src/storage/backup_restore.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/monitoring_alerting_repo.py'',''src/storage/repositories/backup_restore_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/production_slo_incident_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_production_slo_incident_readiness.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_provider_adapter_config.py'',''tests/test_operator_customer_access.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      "python -m unittest tests.test_product_operability_gap_matrix -v": 300000
+      "python -m unittest tests.test_internal_acceptance_matrix -v": 300000
+      "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
+      "python -m unittest tests.test_api_transport_bootstrap -v": 300000
+      "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
+      "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
+      "python -m unittest tests.test_product_module_registry -v": 300000
+      ? "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''fixtures/internal_acceptance_matrix.json'',''fixtures/internal_acceptance_*.json'',''tests/test_full_product_operational_acceptance.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_internal_acceptance_matrix.py'',''tests/test_internal_chain.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_external_unlock_prerequisites.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       : 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
-      "python tests/run_tests.py": 600000
+      "python tests/run_tests.py": 900000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
       "git diff --check": 120000
     stop_conditions:
@@ -313,28 +271,23 @@ currentTask:
       - "任一 targeted test 或 formal check 失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "实际改动命中 forbidden_modification_paths"
-      - "需要修改 docs、contracts、handoff、scripts、fixtures"
-      - "需要修改 Stage1-9 business runtime"
-      - "需要新增正式业务对象、schema、enum、release gate、exception 语义"
-      - "需要连接外部 APM/paging/notification provider 或发送真实告警"
-      - "需要执行 incident automation、destructive restore、rollback、migration、docker compose up 或 live deployment"
-      - "需要真实 provider call、真实触达、真实扣款、真实交付、真实退款或自动退款执行"
-      - "需要 external release 或 push"
+      - "需要修改 docs、contracts、handoff、scripts 或 src runtime"
+      - "发现产品闭环缺口需要 runtime 实现时，停止并输出最小后续任务，不在 118 内顺手实现"
+      - "需要新增正式对象、schema、enum、release gate、exception 语义"
+      - "需要连接外部 provider、真实触达、真实扣款、真实交付、真实退款、自动退款、external release 或 push"
     definition_of_done:
-      - "SLO carrier 覆盖 source fetch、parser、verification、rule factory、Stage6 product package、Stage8 outreach pilot、Stage9 payment/delivery pilot、provider reliability、backup/restore、rollback、audit replay。"
-      - "Monitoring dashboard/readback 能展示 health、latency/error/throughput、failure counters、suspension states、last observed timestamp 和 owner action refs。"
-      - "Alert catalog 能在 simulated source/provider/payment/delivery/backup/rollback failure 下计算 alert_fired=true，但 notification/live dispatch/external paging 均为 false。"
-      - "Incident runbook carrier 能串起 detection、triage、suspend、rollback dry-run、restore dry-run、manual owner action、resume readiness 和 post-incident audit。"
-      - "Backup/restore drill 和 rollback drill 只做 dry-run/readback/audit evidence，不执行破坏性恢复或真实 rollback。"
-      - "Suspended-state operations 可回放，且不 silent fallback 到 live execution。"
+      - "输出 full-chain acceptance matrix，逐项说明 Stage1-9 到 evidence-pack/leadpack 商业闭环的可用性。"
+      - "输出 capability state report，明确每个登记能力当前状态和证据，不把 readback/preview 冒充 live/production。"
+      - "输出 product closure report，验证 owner/operator 是否能实际运营销售证据包。"
+      - "输出 remaining blockers，且每个 blocker 都映射到最小补齐任务或明确不做边界。"
+      - "自动退款执行保持 absent/excluded，退款只保留 manual exception + approval/audit/governed review。"
       - "targeted tests、验收清单测试与 formal checks 全部通过。"
     deliverables:
-      - "activated 121C current_task packet"
-      - "production SLO/readiness carrier and API/bootstrap readback"
-      - "monitoring dashboard/readback and alert rule catalog"
-      - "incident runbook, suspend/resume, backup/rollback drill evidence"
-      - "simulated failure alert tests for source/provider/outreach/payment/delivery"
-      - "module registry update for any new runtime/test files if needed"
+      - "activated 118 current_task packet"
+      - "full-chain operational acceptance matrix/test"
+      - "capability state report/test"
+      - "product closure report/test"
+      - "remaining blocker map with minimal follow-up tasks"
     human_review_required: true
     owner_reviews_required:
       - "architecture_owner"
@@ -345,27 +298,24 @@ currentTask:
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS_IMPLEMENTATION"
-      signoff_meaning: "本批准只允许实现生产 SLO、监控、告警规则、事故处理、暂停恢复、备份/回滚演练 readback 和审计；不批准真实告警发送、incident automation、destructive restore、真实 rollback、live provider call、真实触达、真实支付/交付/退款、自动退款、external release 或 push。"
+      signoff_status: "APPROVED_FOR_118_FULL_PRODUCT_OPERATIONAL_ACCEPTANCE"
+      signoff_meaning: "本批准只允许做产品运营验收、能力状态审计、验收矩阵和阻断清单；不批准新增 runtime 功能、真实外部执行、自动退款、external release 或 push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml is the only active execution source."
-      - "blocked-by-default 表示未满足 provider config、sandbox、审批、审计、operator action 和验收前不能 live，不表示不开发。"
+      - "118 的验收本体是产品闭环，不是重复证明前序单包测试全绿。"
       - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
   hardBlockers:
     - "external software release remains blocked"
-    - "real alert dispatch, external paging, incident automation, destructive restore, real rollback, real provider calls, real outreach, real payment, real delivery, real refund, and automated refund remain blocked"
+    - "unapproved real outreach, real payment capture, real delivery fulfillment, real refund, automated refund, and customer-visible external delivery remain blocked"
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 121C production SLO monitoring incident readiness/readback。"
+    - "允许在 declared_changed_paths / allowed_modification_paths 范围内做 118 产品运营验收资产和测试。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
-    - "不得修改 docs、contracts、handoff、scripts、fixtures。"
-    - "不得修改 Stage1-9 business runtime。"
+    - "不得修改 docs、contracts、handoff、scripts 或 src runtime。"
     - "不得新增 schema/enum/gate/exception 语义。"
-    - "不得连接外部 APM/paging/notification provider 或发送真实告警。"
-    - "不得执行 incident automation、destructive restore、real rollback、migration、docker compose up 或 live deployment。"
     - "不得真实 provider call、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得 push。"
   nextActions:
-    - "121C 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-118 full product operational acceptance。"
-  status_note: "PTL-I100-121C 已激活为 production SLO monitoring incident readiness packet；当前目标是 PRODUCTION_READY 的监控/告警/事故/回滚演练 readback，不允许在开发/测试窗口执行任何真实外部动作。"
+    - "执行 118 产品运营验收；若发现 runtime 产品缺口，输出最小补齐任务，不在 118 内扩大实现。"
+  status_note: "PTL-I100-118 已激活为 full product operational acceptance packet；当前目标是证明产品闭环是否真实可运营，而不是简单重复前序代码测试。"
