@@ -1498,14 +1498,16 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage5_rules_evidence, rule_factory, testing]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P11
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: FIRST_SLICE_RULE_FACTORY
-    runtime_change_in_packet: ACTIVE_117_STAGE5_RULE_FACTORY_EXPANSION_AND_GOLDEN_CASES
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-116A completed via 7fba84a; target is INTERNAL_READY rule factory expansion/golden cases while preserving evidence gate and no-fabrication boundaries."
+    runtime_change_in_packet: COMPLETED_117_STAGE5_RULE_FACTORY_EXPANSION_AND_GOLDEN_CASES
+    activation_policy: "Completed via c073440. This packet expanded Stage5 rule factory/golden cases while preserving evidence gate and no-fabrication boundaries; real challenger identification is activated separately by control/current_task.yaml."
+    completed_commit: c073440
+    capability_state_after: INTERNAL_READY
     hard_depends_on:
       - PTL-I100-116-stage4-public-verification-adapters
       - PTL-I100-116A-project-manager-active-conflict-vertical-slice
@@ -1544,14 +1546,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage6_fact_review, stage7_sales, sales_productization]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P11A
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_SALEABILITY_AND_COMPETITOR_RESOLUTION
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet after rule and verification inputs are available. It should harden the commercial buyer logic before outreach execution."
+    runtime_change_in_packet: ACTIVE_119A_REAL_CHALLENGER_IDENTIFICATION_HARDENING
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-117 completed via c073440; target is INTERNAL_READY real challenger identification and commercial buyer logic before outreach execution."
     hard_depends_on:
       - PTL-I100-116A-project-manager-active-conflict-vertical-slice
       - PTL-I100-117-rule-factory-expansion-and-golden-cases
