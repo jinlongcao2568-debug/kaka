@@ -1529,12 +1529,33 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                 "outbox_id": refs.get("outbox_id"),
                 "adapter_family": outbox.get("adapter_family"),
                 "sandbox_execution_state": outbox.get("sandbox_execution_state"),
+                "sandbox_pass_state": outbox.get("sandbox_pass_state"),
                 "provider_family": outbox.get("provider_family"),
                 "provider_adapter_suspended": bool(outbox.get("provider_adapter_suspended", False)),
                 "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
                 "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
                 "external_delivery_enabled": bool(outbox.get("external_delivery_enabled", False)),
                 "replay_state": dict(outbox.get("replay_state", {})),
+            }
+            governed_context["live_pilot_readiness_summary"] = dict(
+                outbox.get("live_pilot_readiness_summary", {})
+            )
+            governed_context["live_pilot_execution_summary"] = {
+                "pilot_id": outbox.get("pilot_id"),
+                "execution_id": outbox.get("execution_id"),
+                "outbox_id": refs.get("outbox_id"),
+                "adapter_family": outbox.get("adapter_family"),
+                "pilot_scope": outbox.get("pilot_scope"),
+                "approved_sample_size": outbox.get("approved_sample_size"),
+                "batch_send_enabled": bool(outbox.get("batch_send_enabled", False)),
+                "live_pilot_readiness_state": outbox.get("live_pilot_readiness_state"),
+                "live_execution_requested": bool(outbox.get("live_execution_requested", False)),
+                "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
+                "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
+                "provider_call_enabled": False,
+                "real_provider_call_enabled": False,
+                "provider_result_readback": dict(outbox.get("provider_result_readback", {})),
+                "suspension_state": dict(outbox.get("suspension_state", {})),
             }
             governed_context["sandbox_execution_timeline"] = list(outbox.get("execution_timeline", []))
             governed_context["outbox_id"] = refs.get("outbox_id")

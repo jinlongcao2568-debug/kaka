@@ -1328,6 +1328,7 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         original_contact = dict(stage8.record("contact_target").data)
         original_plan = dict(stage8.record("outreach_plan").data)
         original_touch = dict(stage8.record("touch_record").data)
+        original_outbox = dict(stage8.inputs["outreach_execution_outbox_snapshot"])
 
         create_touch_record(stage8)
 
@@ -1396,6 +1397,17 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             replay["preview_projection"]["contact_target_preview"]["contact_target_id"],
             original_contact["contact_target_id"],
         )
+        self.assertEqual(
+            replay["outreach_execution_outbox"]["pilot_id"],
+            original_outbox["pilot_id"],
+        )
+        self.assertEqual(
+            replay["outbox_readiness_summary"]["live_pilot_readiness_summary"]["pilot_id"],
+            original_outbox["pilot_id"],
+        )
+        self.assertFalse(
+            replay["outreach_execution_outbox"]["provider_result_readback"]["provider_call_executed"]
+        )
         self.assertIsNotNone(hydrated)
         self.assertEqual(
             hydrated.record("touch_record").get("touch_record_id"),
@@ -1408,6 +1420,14 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             hydrated.record("contact_target").get("contact_target_id"),
             original_contact["contact_target_id"],
+        )
+        self.assertEqual(
+            hydrated.inputs.get("outreach_execution_outbox_snapshot", {}).get("pilot_id"),
+            original_outbox["pilot_id"],
+        )
+        self.assertEqual(
+            hydrated.inputs.get("outbox_readiness_summary", {}).get("live_pilot_readiness_summary", {}).get("pilot_id"),
+            original_outbox["pilot_id"],
         )
 
     def test_stage8_repository_readback_does_not_broad_fallback_when_typed_refs_are_stale(self) -> None:

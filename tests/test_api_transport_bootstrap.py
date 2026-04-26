@@ -1446,12 +1446,31 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(body["leadpack_delivery_readiness_summary"]["delivery_ready"])
 
     def test_stage8_http_transport_reads_repository_backed_preview(self) -> None:
+        app = create_app()
+        mounted_by_id = {
+            operation["operationId"]: operation
+            for operation in app.state.transport_bootstrap["stage6_to_stage9_mounted_operations"]
+        }
+        live_pilot_metadata = mounted_by_id["listContactTargets"]["stage8_live_pilot_readiness"]
+        self.assertEqual(live_pilot_metadata["readiness_scope"], "gated_small_sample_live_pilot_readback")
+        self.assertEqual(
+            set(live_pilot_metadata["supported_adapter_families"]),
+            {"email", "sms", "phone_call", "wecom_im"},
+        )
+        self.assertFalse(live_pilot_metadata["batch_send_enabled"])
+        self.assertFalse(live_pilot_metadata["provider_call_enabled"])
+        self.assertFalse(live_pilot_metadata["real_provider_call_enabled"])
+        self.assertFalse(live_pilot_metadata["real_send_attempted"])
+        self.assertFalse(live_pilot_metadata["stage9_payment_delivery_refund_enabled"])
+        self.assertFalse(live_pilot_metadata["automated_refund_enabled"])
+        self.assertFalse(app.state.transport_bootstrap["entry_strategy"]["stage8_live_pilot"]["real_send_attempted"])
+
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
         stage8 = result["stage8"]
         persist_stage_bundle(stage8)
         opportunity_id = stage8.record("touch_record").get("opportunity_id")
 
-        client = TestClient(create_app())
+        client = TestClient(app)
         response = client.request("GET", "/contact-targets", json={"opportunity_id": opportunity_id})
 
         self.assertEqual(response.status_code, 200)
@@ -1462,11 +1481,16 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(payload[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"], "SANDBOX_DRY_RUN_READBACK")
         self.assertTrue(payload["outreach_execution_outbox"]["execution_id"].startswith("EXEC-"))
         self.assertEqual(payload["outreach_execution_outbox"]["adapter_family"], "email")
+        self.assertEqual(payload["outreach_execution_outbox"]["pilot_scope"], "small_sample")
+        self.assertFalse(payload["outreach_execution_outbox"]["batch_send_enabled"])
+        self.assertEqual(payload["outreach_execution_outbox"]["live_pilot_readiness_state"], "BLOCKED")
+        self.assertFalse(payload["outreach_execution_outbox"]["provider_result_readback"]["provider_call_executed"])
         self.assertIn("execution_timeline", payload["outreach_execution_outbox"])
         self.assertEqual(
             payload["outbox_readiness_summary"]["execution_id"],
             payload["outreach_execution_outbox"]["execution_id"],
         )
+        self.assertIn("live_pilot_readiness_summary", payload["outbox_readiness_summary"])
         self.assertFalse(payload["outreach_execution_outbox"]["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertFalse(payload["outreach_execution_outbox"]["real_send_attempted"])
         self.assertFalse(payload["outreach_execution_outbox"]["external_delivery_enabled"])

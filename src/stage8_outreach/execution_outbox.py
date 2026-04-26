@@ -17,6 +17,8 @@ OUTBOX_READINESS_INPUT_KEY = "outbox_readiness_summary"
 
 _EMPTY_VALUES = {None, "", "UNKNOWN", "None"}
 _ADAPTER_FAMILIES = ("email", "sms", "phone_call", "wecom_im")
+_LIVE_APPROVED_STATES = {"APPROVED", "APPROVED_FOR_LIVE", "APPROVED_FOR_LIVE_PILOT"}
+_SANDBOX_PASS_STATES = {"PASSED", "PASS", "SANDBOX_PASSED", "SANDBOX_RECORDED"}
 _TEMPLATE_BLOCKING_STATES = {
     "MISSING",
     "MISSING_APPROVAL",
@@ -28,9 +30,24 @@ _TEMPLATE_BLOCKING_STATES = {
     "REJECTED",
     "BLOCKED",
 }
+_LIVE_TEMPLATE_APPROVED_STATES = {"APPROVED", "APPROVED_FOR_LIVE", "APPROVED_FOR_LIVE_PILOT"}
 _OPT_OUT_BLOCKING_STATES = {"OPTED_OUT", "BLOCKED"}
 _UNSUBSCRIBE_BLOCKING_STATES = {"UNSUBSCRIBED", "OPTED_OUT", "BLOCKED"}
 _BOUNCE_BLOCKING_STATES = {"BOUNCE", "HARD_BOUNCE", "INVALID_CONTACT_BOUNCE"}
+_COMPLAINT_BLOCKING_STATES = {
+    "COMPLAINT",
+    "COMPLAINT_RECEIVED",
+    "CUSTOMER_COMPLAINT",
+    "THRESHOLD_EXCEEDED",
+    "BLOCKED",
+    "SUSPENDED",
+}
+_FAILURE_THRESHOLD_BLOCKING_STATES = {
+    "THRESHOLD_EXCEEDED",
+    "FAILURE_THRESHOLD_EXCEEDED",
+    "BLOCKED",
+    "SUSPENDED",
+}
 _NO_STOP_VALUES = _EMPTY_VALUES | {"NONE", "NOT_STOPPED", "NO_STOP", "ACTIVE"}
 
 
@@ -38,13 +55,20 @@ def _clean_list(values: list[Any]) -> list[str]:
     seen: set[str] = set()
     cleaned: list[str] = []
     for value in values:
-        if value in _EMPTY_VALUES:
+        if _is_empty_value(value):
             continue
         text = str(value)
         if text not in seen:
             seen.add(text)
             cleaned.append(text)
     return cleaned
+
+
+def _is_empty_value(value: Any) -> bool:
+    try:
+        return value in _EMPTY_VALUES
+    except TypeError:
+        return False
 
 
 def _truthy(value: Any) -> bool:
@@ -64,7 +88,7 @@ def _state_from_decision(decision_state: str) -> str:
 
 
 def _has_value(value: Any) -> bool:
-    return value not in _EMPTY_VALUES
+    return not _is_empty_value(value)
 
 
 def _retry_schedule_reasons(
@@ -89,6 +113,157 @@ def _normalize_token(value: Any) -> str:
 def _state_token(value: Any, *, default: str = "UNKNOWN") -> str:
     text = str(value or "").strip().upper().replace("-", "_").replace(" ", "_")
     return text or default
+
+
+def _int_from_inputs(
+    authoritative_inputs: Mapping[str, Any],
+    *keys: str,
+    default: int = 0,
+) -> int:
+    for key in keys:
+        value = authoritative_inputs.get(key)
+        if _is_empty_value(value):
+            continue
+        try:
+            return max(int(value), 0)
+        except (TypeError, ValueError):
+            return default
+    return default
+
+
+def _operator_action_audit_refs(authoritative_inputs: Mapping[str, Any]) -> list[str]:
+    values: list[Any] = []
+    for key in (
+        "operator_action_audit_refs",
+        "operator_action_audit_ref",
+        "stage8_operator_action_audit_refs",
+        "stage8_operator_action_audit_ref",
+        "live_pilot_operator_action_audit_refs",
+        "live_pilot_operator_action_audit_ref",
+    ):
+        value = authoritative_inputs.get(key)
+        if _is_empty_value(value):
+            continue
+        values.extend(ensure_list(value))
+    expanded: list[str] = []
+    for value in values:
+        if isinstance(value, str) and "," in value:
+            expanded.extend(part.strip() for part in value.split(","))
+        else:
+            expanded.append(str(value))
+    return _clean_list(expanded)
+
+
+def _pilot_scope(authoritative_inputs: Mapping[str, Any], *, live_execution_requested: bool) -> dict[str, Any]:
+    approved_sample_size = _int_from_inputs(
+        authoritative_inputs,
+        "approved_sample_size",
+        "pilot_approved_sample_size",
+        "live_pilot_approved_sample_size",
+        default=0,
+    )
+    requested_sample_size = _int_from_inputs(
+        authoritative_inputs,
+        "requested_sample_size",
+        "pilot_requested_sample_size",
+        "live_pilot_requested_sample_size",
+        default=1 if live_execution_requested else 0,
+    )
+    max_sample_size = _int_from_inputs(
+        authoritative_inputs,
+        "max_small_sample_size",
+        "live_pilot_max_sample_size",
+        default=10,
+    )
+    requested_batch_send_enabled = any(
+        _truthy(authoritative_inputs.get(key))
+        for key in (
+            "batch_send_enabled",
+            "bulk_send_enabled",
+            "mass_send_enabled",
+            "group_send_enabled",
+        )
+    )
+    scope_type = str(
+        authoritative_inputs.get("pilot_scope")
+        or authoritative_inputs.get("live_pilot_scope")
+        or "small_sample"
+    ).strip().lower().replace("-", "_").replace(" ", "_")
+    small_sample = (
+        scope_type == "small_sample"
+        and approved_sample_size > 0
+        and requested_sample_size > 0
+        and requested_sample_size <= approved_sample_size
+        and approved_sample_size <= max_sample_size
+        and not requested_batch_send_enabled
+    )
+    return {
+        "pilot_scope": "small_sample",
+        "scope_type": scope_type,
+        "approved_sample_size": approved_sample_size,
+        "requested_sample_size": requested_sample_size,
+        "max_small_sample_size": max_sample_size,
+        "small_sample": small_sample,
+        "batch_send_enabled": False,
+        "bulk_send_enabled": False,
+        "requested_batch_send_enabled": requested_batch_send_enabled,
+    }
+
+
+def _sandbox_pass_state(
+    authoritative_inputs: Mapping[str, Any],
+    sandbox_execution_state: str,
+) -> str:
+    explicit = _state_token(authoritative_inputs.get("sandbox_pass_state"), default="")
+    if explicit in _SANDBOX_PASS_STATES:
+        return "PASSED"
+    if explicit:
+        return "BLOCKED"
+    if sandbox_execution_state == "SANDBOX_RECORDED":
+        return "PASSED"
+    if sandbox_execution_state == "SUSPENDED":
+        return "SUSPENDED"
+    if sandbox_execution_state == "STOPPED":
+        return "STOPPED"
+    if sandbox_execution_state == "HELD":
+        return "HELD"
+    return "BLOCKED"
+
+
+def _complaint_taxonomy(authoritative_inputs: Mapping[str, Any]) -> dict[str, Any]:
+    state = _state_token(
+        authoritative_inputs.get("complaint_state")
+        or authoritative_inputs.get("provider_complaint_state"),
+        default="NONE",
+    )
+    threshold_state = _state_token(
+        authoritative_inputs.get("complaint_threshold_state")
+        or authoritative_inputs.get("complaint_rate_state"),
+        default="OK",
+    )
+    complaint_class = _state_token(authoritative_inputs.get("complaint_class"), default="NONE")
+    suspended = state in _COMPLAINT_BLOCKING_STATES or threshold_state in _COMPLAINT_BLOCKING_STATES
+    return {
+        "state": state,
+        "complaint_class": complaint_class,
+        "threshold_state": threshold_state,
+        "suspends_live_pilot": suspended,
+        "fail_closed": suspended,
+    }
+
+
+def _failure_threshold_state(authoritative_inputs: Mapping[str, Any]) -> dict[str, Any]:
+    threshold_state = _state_token(
+        authoritative_inputs.get("failure_threshold_state")
+        or authoritative_inputs.get("provider_failure_threshold_state"),
+        default="OK",
+    )
+    suspended = threshold_state in _FAILURE_THRESHOLD_BLOCKING_STATES
+    return {
+        "state": threshold_state,
+        "suspends_live_pilot": suspended,
+        "fail_closed": suspended,
+    }
 
 
 def _adapter_family_for_channel(
@@ -321,6 +496,318 @@ def _execution_timeline(
     ]
 
 
+def _adapter_family_readiness(
+    *,
+    active_adapter_family: str,
+    provider_readiness: Mapping[str, Any],
+    live_pilot_readiness_state: str,
+    live_execution_enabled: bool,
+) -> dict[str, Any]:
+    provider_suspended = bool(provider_readiness.get("provider_adapter_suspended", False))
+    readiness: dict[str, Any] = {}
+    for family in _ADAPTER_FAMILIES:
+        active = family == active_adapter_family
+        readiness[family] = {
+            "adapter_family": family,
+            "active_adapter_family": active,
+            "provider_family": provider_readiness.get("family", "sales_outreach"),
+            "provider_id": provider_readiness.get("provider_id"),
+            "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+            "provider_adapter_suspended": provider_suspended,
+            "live_pilot_supported": True,
+            "live_pilot_readiness_state": live_pilot_readiness_state if active else "AVAILABLE_FOR_PILOT_RECORD",
+            "live_execution_enabled": bool(live_execution_enabled and active),
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
+            "real_send_attempted": False,
+            "bulk_send_enabled": False,
+        }
+    return readiness
+
+
+def _provider_result_readback(
+    *,
+    authoritative_inputs: Mapping[str, Any],
+    adapter_family: str,
+    provider_readiness: Mapping[str, Any],
+    failure_state: Mapping[str, Any],
+    bounce_state: str,
+    complaint_taxonomy: Mapping[str, Any],
+    live_pilot_readiness_state: str,
+    live_execution_enabled: bool,
+) -> dict[str, Any]:
+    supplied = authoritative_inputs.get("provider_result_readback")
+    supplied_payload = dict(supplied) if isinstance(supplied, Mapping) else {}
+    result_state = _state_token(
+        supplied_payload.get("result_state")
+        or supplied_payload.get("state")
+        or authoritative_inputs.get("provider_result_state"),
+        default="",
+    )
+    if not result_state:
+        if live_pilot_readiness_state == "SUSPENDED":
+            result_state = "SUSPENDED"
+        elif live_pilot_readiness_state == "STOPPED":
+            result_state = "STOPPED"
+        elif dict(failure_state).get("state") == "FAILED":
+            result_state = "FAILED"
+        elif live_execution_enabled:
+            result_state = "READY_FOR_OPERATOR_DISPATCH"
+        else:
+            result_state = "NOT_DISPATCHED"
+    return {
+        **supplied_payload,
+        "result_state": result_state,
+        "adapter_family": adapter_family,
+        "provider_family": provider_readiness.get("family", "sales_outreach"),
+        "provider_id": provider_readiness.get("provider_id"),
+        "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
+        "bounce_taxonomy": {
+            "state": bounce_state,
+            "failure_class": "BOUNCE" if bounce_state != "NONE" else "NONE",
+            "retryable": bounce_state not in {"NONE", "HARD_BOUNCE", "INVALID_CONTACT_BOUNCE"},
+        },
+        "failure_taxonomy": dict(failure_state),
+        "complaint_taxonomy": dict(complaint_taxonomy),
+        "readback_only": True,
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "provider_call_executed": False,
+        "real_send_attempted": False,
+        "real_provider_receipt_generated": False,
+    }
+
+
+def _live_pilot_readiness(
+    *,
+    authoritative_inputs: Mapping[str, Any],
+    execution_id: str,
+    outbox_id: str,
+    touch_record_id: str,
+    contact_target: Mapping[str, Any],
+    provider_readiness: Mapping[str, Any],
+    adapter_family: str,
+    sandbox_execution_state: str,
+    provider_suspended: bool,
+    live_execution_requested: bool,
+    approval_state: str,
+    audit_state: str,
+    template_approval_state: str,
+    contact_source_audit_state: str,
+    frequency_control_state: str,
+    quiet_hours_state: str,
+    opt_out_state: str,
+    unsubscribe_state: str,
+    failure_state: Mapping[str, Any],
+    bounce_state: str,
+    stop_state: str,
+    now: str,
+) -> dict[str, Any]:
+    pilot_id = str(authoritative_inputs.get("pilot_id") or build_id("PILOT", outbox_id))
+    pilot_scope = _pilot_scope(authoritative_inputs, live_execution_requested=live_execution_requested)
+    operator_approval_state = _state_token(
+        authoritative_inputs.get("operator_approval_state")
+        or authoritative_inputs.get("live_pilot_operator_approval_state"),
+        default="MISSING",
+    )
+    operator_action_audit_refs = _operator_action_audit_refs(authoritative_inputs)
+    sandbox_pass_state = _sandbox_pass_state(authoritative_inputs, sandbox_execution_state)
+    complaint_taxonomy = _complaint_taxonomy(authoritative_inputs)
+    failure_threshold = _failure_threshold_state(authoritative_inputs)
+
+    blocked_reasons: list[str] = []
+    held_reasons: list[str] = []
+    stopped_reasons: list[str] = []
+    suspension_reasons: list[str] = []
+
+    if not live_execution_requested:
+        blocked_reasons.append("live_execution_not_requested")
+    if approval_state not in _LIVE_APPROVED_STATES:
+        blocked_reasons.append("live_pilot_approval_missing")
+    if operator_approval_state not in _LIVE_APPROVED_STATES:
+        blocked_reasons.append("operator_approval_missing")
+    if not operator_action_audit_refs:
+        blocked_reasons.append("operator_action_audit_missing")
+    if sandbox_pass_state == "SUSPENDED":
+        suspension_reasons.append("sandbox_pass_state=SUSPENDED")
+    elif sandbox_pass_state == "STOPPED":
+        stopped_reasons.append("sandbox_pass_state=STOPPED")
+    elif sandbox_pass_state == "HELD":
+        held_reasons.append("sandbox_pass_state=HELD")
+    elif sandbox_pass_state != "PASSED":
+        blocked_reasons.append(f"sandbox_pass_state={sandbox_pass_state}")
+    if audit_state == "MISSING":
+        blocked_reasons.append("audit_ref_missing")
+    if template_approval_state not in _LIVE_TEMPLATE_APPROVED_STATES:
+        blocked_reasons.append("template_approval_missing")
+    if contact_source_audit_state != "AUDITED":
+        blocked_reasons.append("contact_source_audit_missing")
+    if str(contact_target.get("contact_target_status")) != "ELIGIBLE":
+        blocked_reasons.append("contact_target_not_eligible")
+    if not pilot_scope["small_sample"]:
+        blocked_reasons.append("pilot_scope_not_approved_small_sample")
+    if pilot_scope["requested_batch_send_enabled"]:
+        blocked_reasons.append("batch_send_requested_but_disabled")
+
+    if frequency_control_state == "HELD":
+        held_reasons.append("frequency_control_held")
+    elif frequency_control_state != "ALLOW":
+        blocked_reasons.append("frequency_control_not_allow")
+    if quiet_hours_state == "SCHEDULED":
+        held_reasons.append("quiet_hours_scheduled")
+    elif quiet_hours_state != "ALLOW":
+        held_reasons.append("quiet_hours_not_allow")
+
+    if opt_out_state in _OPT_OUT_BLOCKING_STATES:
+        stopped_reasons.append("opt_out_blocked")
+    if unsubscribe_state in _UNSUBSCRIBE_BLOCKING_STATES:
+        stopped_reasons.append("unsubscribe_blocked")
+    if stop_state == "STOPPED":
+        stopped_reasons.append("stop_policy_stopped")
+    if bounce_state in _BOUNCE_BLOCKING_STATES:
+        stopped_reasons.append(f"bounce_state:{bounce_state}")
+
+    if provider_suspended:
+        suspension_reasons.append("provider_adapter_suspended_fail_closed")
+    if complaint_taxonomy["suspends_live_pilot"]:
+        suspension_reasons.append("complaint_threshold_suspended")
+    if failure_threshold["suspends_live_pilot"]:
+        suspension_reasons.append("failure_threshold_suspended")
+
+    if suspension_reasons:
+        readiness_state = "SUSPENDED"
+    elif stopped_reasons:
+        readiness_state = "STOPPED"
+    elif blocked_reasons:
+        readiness_state = "BLOCKED"
+    elif held_reasons:
+        readiness_state = "HELD"
+    else:
+        readiness_state = "LIVE_READY"
+    live_execution_enabled = live_execution_requested and readiness_state == "LIVE_READY"
+
+    provider_result = _provider_result_readback(
+        authoritative_inputs=authoritative_inputs,
+        adapter_family=adapter_family,
+        provider_readiness=provider_readiness,
+        failure_state=failure_state,
+        bounce_state=bounce_state,
+        complaint_taxonomy=complaint_taxonomy,
+        live_pilot_readiness_state=readiness_state,
+        live_execution_enabled=live_execution_enabled,
+    )
+    suspension_state = {
+        "state": "SUSPENDED" if readiness_state == "SUSPENDED" else "ACTIVE",
+        "reasons": _clean_list(suspension_reasons),
+        "manual_resume_required": bool(suspension_reasons),
+        "provider_adapter_suspended": provider_suspended,
+        "complaint_threshold_suspended": complaint_taxonomy["suspends_live_pilot"],
+        "failure_threshold_suspended": failure_threshold["suspends_live_pilot"],
+    }
+    retry_stop_suspension_state = {
+        "retry_allowed_after_manual_review": readiness_state not in {"STOPPED", "SUSPENDED"},
+        "stop_state": stop_state,
+        "suspension_state": suspension_state["state"],
+        "replay_required_before_resume": True,
+        "real_retry_execution_enabled": False,
+    }
+    adapter_family_readiness = _adapter_family_readiness(
+        active_adapter_family=adapter_family,
+        provider_readiness=provider_readiness,
+        live_pilot_readiness_state=readiness_state,
+        live_execution_enabled=live_execution_enabled,
+    )
+    readiness_summary = {
+        "pilot_id": pilot_id,
+        "execution_id": execution_id,
+        "outbox_id": outbox_id,
+        "touch_record_id": touch_record_id,
+        "contact_target_id": contact_target.get("contact_target_id"),
+        "opportunity_id": contact_target.get("opportunity_id"),
+        "adapter_family": adapter_family,
+        "supported_adapter_families": list(_ADAPTER_FAMILIES),
+        "pilot_scope": "small_sample",
+        "approved_sample_size": pilot_scope["approved_sample_size"],
+        "requested_sample_size": pilot_scope["requested_sample_size"],
+        "batch_send_enabled": False,
+        "bulk_send_enabled": False,
+        "provider_adapter_readiness_summary": dict(provider_readiness),
+        "sandbox_pass_state": sandbox_pass_state,
+        "template_approval_state": template_approval_state,
+        "contact_source_audit_state": contact_source_audit_state,
+        "operator_approval_state": operator_approval_state,
+        "operator_action_audit_refs": operator_action_audit_refs,
+        "frequency_control_state": frequency_control_state,
+        "quiet_hours_state": quiet_hours_state,
+        "opt_out_state": opt_out_state,
+        "unsubscribe_state": unsubscribe_state,
+        "live_pilot_readiness_state": readiness_state,
+        "live_execution_requested": live_execution_requested,
+        "live_execution_enabled": live_execution_enabled,
+        "real_send_attempted": False,
+        "provider_result_readback": provider_result,
+        "bounce_taxonomy": dict(provider_result["bounce_taxonomy"]),
+        "failure_taxonomy": dict(provider_result["failure_taxonomy"]),
+        "complaint_taxonomy": dict(complaint_taxonomy),
+        "failure_threshold_state": dict(failure_threshold),
+        "retry_stop_suspension_state": retry_stop_suspension_state,
+        "suspension_state": suspension_state,
+        "replay_state": {
+            "state": "REPLAYABLE",
+            "repository_backed": True,
+            "live_pilot_record_replayable": True,
+            "provider_result_readback_replayable": True,
+            "real_provider_call_executed": False,
+        },
+        "adapter_family_readiness": adapter_family_readiness,
+        "blocked_reasons": _clean_list(blocked_reasons),
+        "held_reasons": _clean_list(held_reasons),
+        "stopped_reasons": _clean_list(stopped_reasons),
+        "suspension_reasons": _clean_list(suspension_reasons),
+        "decided_at": now,
+    }
+    return {
+        "pilot_id": pilot_id,
+        "pilot_scope": "small_sample",
+        "pilot_scope_details": pilot_scope,
+        "approved_sample_size": pilot_scope["approved_sample_size"],
+        "requested_sample_size": pilot_scope["requested_sample_size"],
+        "batch_send_enabled": False,
+        "bulk_send_enabled": False,
+        "requested_batch_send_enabled": pilot_scope["requested_batch_send_enabled"],
+        "sandbox_pass_state": sandbox_pass_state,
+        "operator_approval_state": operator_approval_state,
+        "operator_action_audit_refs": operator_action_audit_refs,
+        "complaint_taxonomy": dict(complaint_taxonomy),
+        "failure_threshold_state": dict(failure_threshold),
+        "suspension_state": suspension_state,
+        "retry_stop_suspension_state": retry_stop_suspension_state,
+        "provider_result_readback": provider_result,
+        "adapter_family_readiness": adapter_family_readiness,
+        "live_pilot_readiness_state": readiness_state,
+        "live_execution_requested": live_execution_requested,
+        "live_execution_enabled": live_execution_enabled,
+        "live_execution_record": {
+            "pilot_id": pilot_id,
+            "execution_id": execution_id,
+            "outbox_id": outbox_id,
+            "adapter_family": adapter_family,
+            "execution_state": readiness_state,
+            "live_execution_requested": live_execution_requested,
+            "live_execution_enabled": live_execution_enabled,
+            "real_send_attempted": False,
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
+            "provider_result_readback": provider_result,
+        },
+        "live_pilot_readiness_summary": readiness_summary,
+        "blocked_reasons": _clean_list(blocked_reasons),
+        "held_reasons": _clean_list(held_reasons),
+        "stopped_reasons": _clean_list(stopped_reasons),
+        "suspension_reasons": _clean_list(suspension_reasons),
+    }
+
+
 def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(outbox.get("blocked_reasons")))
     vendor_state = dict(outbox.get("vendor_adapter_state", {}))
@@ -330,6 +817,7 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
     provider_status_readback = dict(provider_readiness.get("provider_status_readback", {}))
     retry_state = dict(outbox.get("retry_state", {}))
     stop_state = dict(outbox.get("stop_state", {}))
+    live_pilot_summary = dict(outbox.get("live_pilot_readiness_summary", {}))
     sandbox_execution_state = str(outbox.get("sandbox_execution_state") or "BLOCKED")
     provider_suspended = bool(provider_readiness.get("provider_adapter_suspended", False)) or bool(
         outbox.get("provider_adapter_suspended", False)
@@ -352,15 +840,25 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
         "opportunity_id": outbox.get("opportunity_id"),
         "channel": outbox.get("channel"),
         "adapter_family": outbox.get("adapter_family"),
+        "pilot_id": outbox.get("pilot_id"),
+        "pilot_scope": outbox.get("pilot_scope"),
+        "approved_sample_size": outbox.get("approved_sample_size"),
+        "requested_sample_size": outbox.get("requested_sample_size"),
+        "batch_send_enabled": bool(outbox.get("batch_send_enabled", False)),
+        "bulk_send_enabled": bool(outbox.get("bulk_send_enabled", False)),
         "provider_family": outbox.get("provider_family", "sales_outreach"),
         "sandbox_execution_state": sandbox_execution_state,
+        "sandbox_pass_state": outbox.get("sandbox_pass_state"),
         "sandbox_execution_readiness": sandbox_execution_readiness,
         "sandbox_execution_record_ready": bool(outbox.get("execution_id")),
         "governed_execution_mode": outbox.get("governed_execution_mode", "INTERNAL_GOVERNED"),
         "readback_ready": bool(outbox.get("outbox_id")),
         "ready_for_real_send": False,
         "dry_run_ready": sandbox_ready,
-        "live_execution_enabled": False,
+        "live_pilot_readiness_state": outbox.get("live_pilot_readiness_state"),
+        "live_pilot_execution_ready": bool(outbox.get("live_execution_enabled", False)),
+        "live_execution_requested": bool(outbox.get("live_execution_requested", False)),
+        "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
         "real_send_attempted": False,
         "external_delivery_enabled": False,
         "approval_state": outbox.get("approval_state"),
@@ -371,8 +869,14 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
         "quiet_hours_state": outbox.get("quiet_hours_state"),
         "opt_out_state": outbox.get("opt_out_state"),
         "unsubscribe_state": outbox.get("unsubscribe_state"),
+        "operator_approval_state": outbox.get("operator_approval_state"),
+        "operator_action_audit_refs": list(outbox.get("operator_action_audit_refs", [])),
         "bounce_state": outbox.get("bounce_state"),
         "failure_state": dict(outbox.get("failure_state", {})),
+        "provider_result_readback": dict(outbox.get("provider_result_readback", {})),
+        "complaint_taxonomy": dict(outbox.get("complaint_taxonomy", {})),
+        "failure_threshold_state": dict(outbox.get("failure_threshold_state", {})),
+        "suspension_state": dict(outbox.get("suspension_state", {})),
         "retry_state": retry_state.get("state"),
         "stop_state": stop_state.get("state"),
         "vendor_adapter_state": vendor_state.get("state"),
@@ -380,6 +884,8 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
         "blocked_reasons": blocked_reasons,
         "execution_timeline": list(outbox.get("execution_timeline", [])),
         "replay_state": dict(outbox.get("replay_state", {})),
+        "live_pilot_readiness_summary": live_pilot_summary,
+        "adapter_family_readiness": dict(outbox.get("adapter_family_readiness", {})),
         "provider_adapter_config_source": outbox.get("provider_adapter_config_source"),
         "provider_adapter_mode": outbox.get("provider_adapter_mode"),
         "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
@@ -432,6 +938,8 @@ def build_outreach_execution_outbox_payload(
     action_intent = execution_action_intent(run_mode)
     requested_live = (
         action_intent == "LIVE_EXECUTION"
+        or _truthy(authoritative_inputs.get("live_execution_requested"))
+        or _truthy(authoritative_inputs.get("live_pilot_execution_requested"))
         or _truthy(authoritative_inputs.get("live_execution_enabled"))
         or _truthy(authoritative_inputs.get("external_live_execution_requested"))
     )
@@ -523,8 +1031,7 @@ def build_outreach_execution_outbox_payload(
     held = frequency_control_state == "HELD" or quiet_hours_state == "SCHEDULED"
     stopped = stop_state == "STOPPED" or opt_out_blocked or unsubscribe_blocked or bounce_blocked
     hard_blocked = (
-        requested_live
-        or vendor_connection_requested
+        vendor_connection_requested
         or execution_decision == "BLOCK"
         or approval_missing
         or audit_state == "MISSING"
@@ -551,12 +1058,36 @@ def build_outreach_execution_outbox_payload(
         retry_state=retry_state,
         stop_state=stop_state,
     )
+    live_pilot = _live_pilot_readiness(
+        authoritative_inputs=authoritative_inputs,
+        execution_id=execution_id,
+        outbox_id=outbox_id,
+        touch_record_id=touch_record_id,
+        contact_target=contact_target,
+        provider_readiness=provider_readiness,
+        adapter_family=adapter_family,
+        sandbox_execution_state=sandbox_execution_state,
+        provider_suspended=provider_suspended,
+        live_execution_requested=requested_live,
+        approval_state=approval_state,
+        audit_state=audit_state,
+        template_approval_state=template_approval_state,
+        contact_source_audit_state=contact_source_audit_state,
+        frequency_control_state=frequency_control_state,
+        quiet_hours_state=quiet_hours_state,
+        opt_out_state=opt_out_state,
+        unsubscribe_state=unsubscribe_state,
+        failure_state=failure_state,
+        bounce_state=bounce_state,
+        stop_state=stop_state,
+        now=now,
+    )
 
     blocked_reasons = []
     blocked_reasons.extend(ensure_list(contact_target.get("blocking_reasons")))
     blocked_reasons.extend(ensure_list(runtime_state.blocked_reasons))
     blocked_reasons.extend(ensure_list(runtime_state.permission_blocked_reasons))
-    if requested_live:
+    if requested_live and not live_pilot["live_execution_enabled"]:
         blocked_reasons.append("live_execution_requested_but_blocked")
     if vendor_connection_requested:
         blocked_reasons.append("vendor_connection_enabled=false")
@@ -593,14 +1124,21 @@ def build_outreach_execution_outbox_payload(
         blocked_reasons.append(f"stop_condition:{stop_decision_reason}")
     if provider_suspended:
         blocked_reasons.append("provider_adapter_suspended_fail_closed")
+    blocked_reasons.extend(live_pilot["blocked_reasons"])
+    blocked_reasons.extend(live_pilot["held_reasons"])
+    blocked_reasons.extend(live_pilot["stopped_reasons"])
+    blocked_reasons.extend(live_pilot["suspension_reasons"])
     blocked_reasons.extend(
         [
             "internal_governed_outbox_only",
-            "live_execution_enabled=false",
             "real_send_attempted=false",
             "external_vendor_connection_disabled",
         ]
     )
+    if live_pilot["live_execution_enabled"]:
+        blocked_reasons.append("real_provider_call_blocked_readback_only")
+    else:
+        blocked_reasons.append("live_execution_enabled=false")
     blocked_reasons.extend(provider_readiness.get("blocked_reasons", []))
 
     outbox = {
@@ -613,15 +1151,31 @@ def build_outreach_execution_outbox_payload(
         "project_id": project_id,
         "channel": channel,
         "adapter_family": adapter_family,
+        "pilot_id": live_pilot["pilot_id"],
+        "pilot_scope": live_pilot["pilot_scope"],
+        "pilot_scope_details": live_pilot["pilot_scope_details"],
+        "approved_sample_size": live_pilot["approved_sample_size"],
+        "requested_sample_size": live_pilot["requested_sample_size"],
+        "batch_send_enabled": False,
+        "bulk_send_enabled": False,
+        "requested_batch_send_enabled": live_pilot["requested_batch_send_enabled"],
         "sandbox_execution_state": sandbox_execution_state,
+        "sandbox_pass_state": live_pilot["sandbox_pass_state"],
         "provider_family": provider_family,
         "template_approval_state": template_approval_state,
         "contact_source_audit_state": contact_source_audit_state,
         "frequency_control_state": frequency_control_state,
         "opt_out_state": opt_out_state,
         "unsubscribe_state": unsubscribe_state,
+        "operator_approval_state": live_pilot["operator_approval_state"],
+        "operator_action_audit_refs": live_pilot["operator_action_audit_refs"],
         "bounce_state": bounce_state,
         "failure_state": failure_state,
+        "failure_threshold_state": live_pilot["failure_threshold_state"],
+        "complaint_taxonomy": live_pilot["complaint_taxonomy"],
+        "provider_result_readback": live_pilot["provider_result_readback"],
+        "suspension_state": live_pilot["suspension_state"],
+        "retry_stop_suspension_state": live_pilot["retry_stop_suspension_state"],
         "vendor_adapter_state": {
             "state": vendor_state,
             "execution_vendor_id_optional": execution_vendor_payload.get("execution_vendor_id_optional"),
@@ -703,7 +1257,12 @@ def build_outreach_execution_outbox_payload(
             "receipt_scope": "INTERNAL_SIMULATION_ONLY",
             "real_send_attempted": False,
         },
-        "live_execution_enabled": False,
+        "live_pilot_readiness_state": live_pilot["live_pilot_readiness_state"],
+        "live_execution_requested": live_pilot["live_execution_requested"],
+        "live_execution_enabled": live_pilot["live_execution_enabled"],
+        "live_execution_record": live_pilot["live_execution_record"],
+        "live_pilot_readiness_summary": live_pilot["live_pilot_readiness_summary"],
+        "adapter_family_readiness": live_pilot["adapter_family_readiness"],
         "real_send_attempted": False,
         "external_delivery_enabled": False,
         "execution_timeline": execution_timeline,
@@ -724,7 +1283,9 @@ def build_outreach_execution_outbox_payload(
             "state": "REPLAYABLE",
             "repository_backed": True,
             "sandbox_record_replayable": True,
+            "live_pilot_record_replayable": True,
             "execution_timeline_replayable": True,
+            "provider_result_readback_replayable": True,
             "provider_status_replayable": bool(
                 dict(provider_readiness.get("provider_status_readback", {})).get("replayable", True)
             ),
@@ -746,6 +1307,8 @@ def build_outreach_execution_outbox_payload(
             "provider_call_enabled": False,
             "real_provider_call_enabled": False,
             "allowed_adapter_scope": "INTERNAL_OUTBOX_CARRIER_ONLY",
+            "pilot_scope": "small_sample",
+            "batch_send_enabled": False,
         },
         "created_at": now,
     }

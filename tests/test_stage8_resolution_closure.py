@@ -1101,21 +1101,35 @@ class TestStage8ResolutionClosure(unittest.TestCase):
             "opportunity_id",
             "channel",
             "adapter_family",
+            "pilot_id",
+            "pilot_scope",
+            "approved_sample_size",
+            "batch_send_enabled",
             "sandbox_execution_state",
+            "sandbox_pass_state",
             "provider_family",
             PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
             "template_approval_state",
             "contact_source_audit_state",
+            "operator_approval_state",
+            "operator_action_audit_refs",
             "frequency_control_state",
             "quiet_hours_state",
             "opt_out_state",
             "unsubscribe_state",
+            "live_pilot_readiness_state",
+            "live_execution_requested",
             "bounce_state",
             "failure_state",
+            "provider_result_readback",
+            "complaint_taxonomy",
             "retry_policy",
             "retry_state",
             "stop_policy",
             "stop_state",
+            "suspension_state",
+            "live_execution_record",
+            "live_pilot_readiness_summary",
             "execution_timeline",
             "approval_state",
             "audit_state",
@@ -1145,11 +1159,97 @@ class TestStage8ResolutionClosure(unittest.TestCase):
                 self.assertEqual(outbox["governed_execution_mode"], "INTERNAL_GOVERNED")
                 self.assertEqual(readiness["execution_id"], outbox["execution_id"])
                 self.assertEqual(readiness["adapter_family"], expected_family)
+                self.assertEqual(outbox["pilot_scope"], "small_sample")
+                self.assertFalse(outbox["batch_send_enabled"])
+                self.assertFalse(outbox["live_execution_enabled"])
+                self.assertFalse(outbox["provider_result_readback"]["provider_call_executed"])
                 self.assertTrue(outbox["replay_state"]["sandbox_record_replayable"])
+                self.assertTrue(outbox["replay_state"]["live_pilot_record_replayable"])
                 self.assertEqual(
                     outbox["execution_timeline"][-1]["event"],
                     "sandbox_execution_readiness_decided",
                 )
+
+    def test_stage8_gated_live_pilot_enables_only_approved_small_sample_readback(self) -> None:
+        stage8, outbox = self._stage8_with_outbox(
+            {
+                "live_execution_requested": True,
+                "approval_state": "APPROVED",
+                "template_approval_state": "APPROVED",
+                "operator_approval_state": "APPROVED",
+                "operator_action_audit_refs": ["AUD-STAGE8-LIVE-PILOT-001"],
+                "approved_sample_size": 1,
+                "requested_sample_size": 1,
+            }
+        )
+        readiness = stage8.inputs["outbox_readiness_summary"]
+        summary = outbox["live_pilot_readiness_summary"]
+
+        self.assertEqual(outbox["live_pilot_readiness_state"], "LIVE_READY")
+        self.assertTrue(outbox["live_execution_requested"])
+        self.assertTrue(outbox["live_execution_enabled"])
+        self.assertEqual(outbox["pilot_scope"], "small_sample")
+        self.assertEqual(outbox["approved_sample_size"], 1)
+        self.assertFalse(outbox["batch_send_enabled"])
+        self.assertEqual(outbox["sandbox_pass_state"], "PASSED")
+        self.assertEqual(outbox["operator_approval_state"], "APPROVED")
+        self.assertEqual(outbox["operator_action_audit_refs"], ["AUD-STAGE8-LIVE-PILOT-001"])
+        self.assertEqual(outbox["template_approval_state"], "APPROVED")
+        self.assertEqual(outbox["contact_source_audit_state"], "AUDITED")
+        self.assertEqual(outbox["frequency_control_state"], "ALLOW")
+        self.assertEqual(outbox["quiet_hours_state"], "ALLOW")
+        self.assertEqual(outbox["opt_out_state"], "ACTIVE")
+        self.assertEqual(outbox["unsubscribe_state"], "ACTIVE")
+        self.assertEqual(set(summary["supported_adapter_families"]), {"email", "sms", "phone_call", "wecom_im"})
+        self.assertTrue(readiness["live_pilot_execution_ready"])
+        self.assertTrue(readiness["live_execution_enabled"])
+        self.assertFalse(readiness["ready_for_real_send"])
+        self.assertFalse(outbox["real_send_attempted"])
+        self.assertFalse(outbox["provider_result_readback"]["provider_call_executed"])
+        self.assertFalse(outbox["provider_result_readback"]["real_provider_call_enabled"])
+        self.assertFalse(outbox["live_execution_record"]["real_provider_call_enabled"])
+        self.assertTrue(outbox["replay_state"]["provider_result_readback_replayable"])
+
+    def test_stage8_gated_live_pilot_fail_closed_gate_states(self) -> None:
+        base = {
+            "live_execution_requested": True,
+            "approval_state": "APPROVED",
+            "template_approval_state": "APPROVED",
+            "operator_approval_state": "APPROVED",
+            "operator_action_audit_refs": ["AUD-STAGE8-LIVE-PILOT-001"],
+            "approved_sample_size": 1,
+            "requested_sample_size": 1,
+        }
+        scenarios = [
+            ("missing_template", {"template_approval_state": "MISSING"}, "BLOCKED", "template_approval_missing"),
+            ("missing_contact_audit", {"audit_trail_present": False}, "BLOCKED", "contact_source_audit_missing"),
+            ("missing_operator_approval", {"operator_approval_state": "PENDING"}, "BLOCKED", "operator_approval_missing"),
+            ("missing_operator_action", {"operator_action_audit_refs": []}, "BLOCKED", "operator_action_audit_missing"),
+            ("frequency_block", {"frequency_policy_state": "BLOCK"}, "HELD", "frequency_control_held"),
+            ("quiet_hours_block", {"quiet_hours_policy_state": "BLOCK"}, "HELD", "quiet_hours_scheduled"),
+            ("opt_out", {"opt_out_state": "OPTED_OUT"}, "STOPPED", "opt_out_blocked"),
+            ("unsubscribe", {"unsubscribe_state": "UNSUBSCRIBED"}, "STOPPED", "unsubscribe_blocked"),
+            ("complaint_threshold", {"complaint_threshold_state": "THRESHOLD_EXCEEDED"}, "SUSPENDED", "complaint_threshold_suspended"),
+            ("failure_threshold", {"failure_threshold_state": "THRESHOLD_EXCEEDED"}, "SUSPENDED", "failure_threshold_suspended"),
+            ("batch_send", {"batch_send_enabled": True}, "BLOCKED", "batch_send_requested_but_disabled"),
+        ]
+
+        for name, updates, expected_state, expected_reason in scenarios:
+            with self.subTest(name=name):
+                payload = {**base, **updates}
+                _, outbox = self._stage8_with_outbox(payload)
+                summary = outbox["live_pilot_readiness_summary"]
+
+                self.assertEqual(outbox["live_pilot_readiness_state"], expected_state)
+                self.assertFalse(outbox["live_execution_enabled"])
+                self.assertFalse(outbox["real_send_attempted"])
+                all_reasons = (
+                    summary["blocked_reasons"]
+                    + summary["held_reasons"]
+                    + summary["stopped_reasons"]
+                    + summary["suspension_reasons"]
+                )
+                self.assertIn(expected_reason, all_reasons)
 
     def test_stage8_sandbox_execution_governance_states_explain_blocks_and_holds(self) -> None:
         scenarios = [
@@ -1275,6 +1375,8 @@ class TestStage8ResolutionClosure(unittest.TestCase):
                 self.assertEqual(outbox["provider_adapter_readiness"]["readiness_state"], "SUSPENDED")
                 self.assertTrue(outbox["provider_adapter_suspended"])
                 self.assertEqual(outbox["sandbox_execution_state"], "SUSPENDED")
+                self.assertEqual(outbox["live_pilot_readiness_state"], "SUSPENDED")
+                self.assertEqual(outbox["suspension_state"]["state"], "SUSPENDED")
                 self.assertEqual(readiness["sandbox_execution_readiness"], "SUSPENDED")
                 self.assertFalse(readiness["dry_run_ready"])
                 self.assertIn(expected_reason, outbox["blocked_reasons"])

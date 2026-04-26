@@ -114,6 +114,12 @@ currentTask:
       current_mainline_next_candidate_change: false
       push_allowed: false
     non_goals:
+      - "not an external unlock implementation"
+      - "不改变 canonical readiness"
+      - "不放开 external release"
+      - "不放开 Stage8 real execution"
+      - "不放开 Stage9 real payment/delivery/refund"
+      - "不新增业务对象、枚举、gate、exception 语义"
       - "not bulk outreach"
       - "not unapproved live send"
       - "not real send during implementation or tests"
@@ -135,6 +141,7 @@ currentTask:
     risk_level: "CRITICAL"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
+      - "automation_control_core"
       - "provider_vendor_source_policy_core"
       - "governance_release_core"
       - "stage8_outreach_runtime"
@@ -142,6 +149,7 @@ currentTask:
     reviews:
       - "architecture_owner"
       - "governance_owner"
+      - "model_governance_owner"
       - "testing_owner"
       - "automation_owner"
     baseline_dirty_paths: []
@@ -314,6 +322,7 @@ currentTask:
     owner_reviews_required:
       - "architecture_owner"
       - "governance_owner"
+      - "model_governance_owner"
       - "testing_owner"
       - "automation_owner"
     review_evidence:
