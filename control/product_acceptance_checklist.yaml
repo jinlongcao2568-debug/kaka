@@ -375,6 +375,98 @@ tasks:
       - capability_states_verified
       - evidence_pack_business_closure_verified
       - automated_refund_absent
+    current_118_acceptance_result:
+      acceptance_result: BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS
+      engineering_regression_result: PASS_REQUIRED_BY_CURRENT_WINDOW_CHECKS
+      capability_state_result: VERIFIED_MIXED_READY_READBACK
+      product_closure_result: NOT_CLOSED
+      owner_internal_loop_operable: true
+      owner_end_to_end_sales_delivery_operable: false
+      blocker_ref: control/product_operability_gap_matrix.yaml#final_118_operational_acceptance.remaining_blockers
+      minimum_followup_task_refs:
+        - PTL-I100-122-approved-sales-outreach-provider-execution
+        - PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+        - PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
+        - PTL-I100-125-approved-crm-quote-provider-execution
+        - PTL-I100-126-production-live-dependency-and-drill-approval
+      closeout_recommendation: DO_NOT_CLOSEOUT
+  PTL-I100-122-approved-sales-outreach-provider-execution:
+    target_capability_state: LIVE_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "approved small-sample provider send executes only after provider_config, sandbox_pass, template approval, contact source audit, operator approval/action audit, frequency control, quiet-hours, opt-out/unsubscribe, and provider reliability gates pass"
+      - "provider result, bounce/failure/complaint, retry/stop/suspension, and execution timeline are persisted and replayable"
+      - "unapproved, bulk, misleading, or unrelated outreach remains blocked"
+    targeted_test_expectations:
+      - stage8_provider_execution
+      - outreach_provider_result_readback
+      - runtime_governance_guards
+    redline_checks:
+      - provider_send_requires_approval_audit
+      - opt_out_and_frequency_control_work
+      - no_unapproved_bulk_send
+  PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund:
+    target_capability_state: LIVE_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    refund_boundary: "manual refund exception/governed review only; automated refund execution remains excluded"
+    completion_must_prove:
+      - "approved payment capture/charge executes only after sandbox pass, payment approval, delivery approval, finance review, operator action audit, provider reliability, callback verification, and settlement/reconciliation gates pass"
+      - "approved delivery fulfillment executes only for locked/versioned artifacts with download auth, hash, delivery audit, and rollback path"
+      - "refund handling remains manual exception record, manual approval/audit, and governed review only"
+    targeted_test_expectations:
+      - stage9_provider_execution
+      - payment_delivery_audit
+      - settlement_reconciliation
+      - runtime_governance_guards
+    redline_checks:
+      - payment_delivery_requires_approval_audit
+      - automated_refund_absent
+      - rollback_path_works
+  PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock:
+    target_capability_state: LIVE_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "customer-visible LeadPack/page/export unlocks only after approval, audit, customer access control, download auth, field allowlist/blacklist, masking, watermark, version hash, and external visibility checks pass"
+      - "internal blackbox scores, unreviewed inference, private data, and non-customer-visible fields remain excluded from customer artifacts"
+      - "download and delivery records are persisted and replayable"
+    targeted_test_expectations:
+      - leadpack_customer_visible_delivery
+      - field_policy_and_masking
+      - customer_download_audit
+    redline_checks:
+      - customer_visible_requires_approval_audit
+      - no_internal_blackbox_or_unreviewed_inference_customer_exposure
+      - download_audit_visible
+  PTL-I100-125-approved-crm-quote-provider-execution:
+    target_capability_state: LIVE_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "CRM account/opportunity/activity sync and quote send execute only after provider_config, sandbox pass, approval, audit, operator action, quote version/expiration/discount policy, and provider reliability gates pass"
+      - "provider result, deal tracking, sales notes, callbacks, and quote audit are persisted and replayable"
+      - "no silent live fallback occurs when provider is suspended, unhealthy, rate-limited, timed out, or circuit-open"
+    targeted_test_expectations:
+      - crm_quote_provider_execution
+      - quote_audit_and_versioning
+      - provider_reliability_guards
+    redline_checks:
+      - crm_quote_requires_approval_audit
+      - provider_result_readback
+      - no_silent_live_fallback
+  PTL-I100-126-production-live-dependency-and-drill-approval:
+    target_capability_state: PRODUCTION_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "container/compose execution, external APM/paging/notification provider, alert dispatch, restore drill, rollback drill, and incident manual execution are only enabled after named owner approval and audit evidence"
+      - "destructive restore, rollback, alert dispatch, and incident actions have dry-run evidence, approval records, rollback plans, and replayable audit"
+      - "external software release remains separately gated and is not implied by dependency/drill approval"
+    targeted_test_expectations:
+      - production_live_dependency_approval
+      - alert_dispatch_approval
+      - restore_rollback_drill_audit
+    redline_checks:
+      - live_dependency_requires_approval_audit
+      - rollback_restore_drills_audited
+      - external_release_still_gated
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

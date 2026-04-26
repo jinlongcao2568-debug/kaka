@@ -1,7 +1,7 @@
 matrix_id: PTL-I100-1100_PRODUCT_OPERABILITY_GAP_MATRIX
 task_id: PTL-I100-1100-product-operability-full-audit
-status: POST_111A_PROVIDER_CONFIG_SANDBOX_SEAM_CLOSEOUT_TASK_POOL_SYNC
-updated_at: "2026-04-25"
+status: PTL_I100_118_ACCEPTANCE_BLOCKED_BY_OPERATIONAL_GAPS
+updated_at: "2026-04-26"
 source_ledger: control/product_doc_runtime_coverage_ledger.yaml
 source_ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER
 purpose: >
@@ -107,21 +107,20 @@ rollup_counts:
 decision_summary:
   not_many_blank: false
   true_missing_runtime_count_from_ledger: 1
-  practical_product_gap_count: 12
+  practical_product_gap_count: 5
   gap_accounting_note: >
     The product-doc runtime coverage ledger is useful for internal runtime/test
-    coverage, but it undercounts production-commercial gaps because internal
-    chain, preview, readiness, and fixture-backed execution do not equal live or
-    production-ready capability.
+    coverage, but 118 acceptance must separate completed readiness/readback
+    carriers from actual owner-operable sales execution. Internal chain,
+    sandbox readiness, live-pilot readback, and SLO readiness do not by
+    themselves prove customer-visible delivery or real provider execution.
   main_gap_summary: >
-    Most capabilities are implemented for internal governed runtime, preview,
-    readiness, or owner-operated readback. The product is not fully owner-usable
-    because production infrastructure, real Stage1 scheduling, real public-source
-    fetch, real parsing/OCR/attachment extraction, real public verification
-    adapters, sales outreach execution, CRM/external quote execution, customer
-    visible leadpack export/delivery, and payment/delivery execution still need
-    product implementation. External software release is not required for the
-    evidence-pack business model.
+    PTL-I100-112 through PTL-I100-121C closed the registered engineering and
+    readiness packets, but 118 acceptance does not pass full product closeout:
+    sales outreach, external quote/CRM handoff, customer-visible LeadPack
+    publication/download, and payment/delivery remain gated readback or live
+    pilot carriers rather than actual provider/customer execution. External
+    software release remains not required for the evidence-pack business model.
   open_capability_summary: >
     The target product posture is not permanent internal preview. Except for
     automated refund execution and prohibited non-public/gray capabilities, every
@@ -130,18 +129,74 @@ decision_summary:
     sandbox, approval, live, and production readiness. Live execution remains
     blocked by default until the dedicated packet and acceptance gates pass.
   implementation_progress_summary: >
-    PTL-I100-110A completed the first durable backend foundation via local
-    sqlite opt-in envelope persistence while keeping json-file default
-    compatibility. PTL-I100-110B completed governed outreach execution
-    outbox/readback/replay, still without real vendor send or external/live
-    unlock. PTL-I100-110C completed the Stage7 CRM/quote owner-operated
-    sales workbench via commit 1d7cb80. PTL-I100-110D completed
-    LeadPack/evidence-pack package/page/readback via commit 43169f4.
-    PTL-I100-110E completed the internal owner-operated order/payment/delivery
-    execution ledger via commit 2fbe70d, with refund manual-exception only.
-    PTL-I100-111A completed provider adapter config/sandbox/readback seam via
-    commit c279fd5. Real provider calls, real charge, real external delivery
-    execution, and automated refund remain outside completed packets.
+    PTL-I100-112 through PTL-I100-121C are recorded as completed in
+    control/current_task.yaml and control/repo_status.md. The current 118
+    result is a product acceptance block, not an engineering regression block:
+    owner can operate the internal evidence/readback chain, but cannot yet
+    close the full sales-to-customer-delivery loop without manual/external
+    steps outside the governed product runtime.
+final_118_operational_acceptance:
+  packet_ref: PTL-I100-118-full-product-operational-acceptance
+  acceptance_result: BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS
+  engineering_regression_result: PASS_REQUIRED_BY_CURRENT_WINDOW_CHECKS
+  capability_state_result: VERIFIED_MIXED_READY_READBACK
+  product_closure_result: NOT_CLOSED
+  owner_internal_loop_operable: true
+  owner_end_to_end_sales_delivery_operable: false
+  closeout_recommendation: DO_NOT_CLOSEOUT
+  truly_operable_now:
+    - source_to_stage6_internal_evidence_chain
+    - stage6_internal_product_package_readiness
+    - real_challenger_buyer_fit_offer_readback
+    - crm_quote_sandbox_workbench_records
+    - leadpack_package_page_export_candidate_records
+    - stage8_outreach_outbox_sandbox_and_approved_live_pilot_readback
+    - stage9_order_payment_delivery_internal_ledger_and_approved_live_pilot_readback
+    - production_slo_monitoring_incident_backup_rollback_readback
+  readiness_or_readback_only:
+    - approved_live_outreach_provider_send
+    - external_crm_quote_provider_execution
+    - customer_visible_leadpack_publication_download
+    - real_payment_capture_charge_delivery_fulfillment
+    - external_software_release
+  remaining_blockers:
+    - blocker_id: B118_STAGE8_REAL_SEND_NOT_EXECUTABLE
+      capability: sales_outreach_execution
+      current_state: LIVE_READY
+      evidence: "approved small-sample live pilot carrier can reach LIVE_READY, but provider_call_executed=false and real_send_attempted=false in runtime readback"
+      minimum_followup_task_id: PTL-I100-122-approved-sales-outreach-provider-execution
+      forbidden_in_118: true
+    - blocker_id: B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE
+      capability: payment_collection_and_delivery_fulfillment
+      current_state: LIVE_READY
+      evidence: "approved payment/delivery live pilot carrier can reach LIVE_READY, but real_payment_capture_attempted=false, real_charge_attempted=false, real_delivery_fulfillment_attempted=false, and real_customer_download_attempted=false"
+      minimum_followup_task_id: PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+      refund_boundary: "manual exception/governed review only; no automated refund execution"
+      forbidden_in_118: true
+    - blocker_id: B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED
+      capability: leadpack_customer_visible_page_and_formal_export
+      current_state: SANDBOX_READY
+      evidence: "field allowlist, masking, watermark, version hash, and download audit exist, but customer_visible_enabled=false, external_delivery_enabled=false, page_publication_enabled=false, and customer_download_enabled=false"
+      minimum_followup_task_id: PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
+      forbidden_in_118: true
+    - blocker_id: B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED
+      capability: crm_sync_and_quote_execution
+      current_state: SANDBOX_READY
+      evidence: "CRM/quote sandbox records and quote draft readback exist, but real_crm_sync_enabled=false, external_quote_sent=false, and real_provider_call_enabled=false"
+      minimum_followup_task_id: PTL-I100-125-approved-crm-quote-provider-execution
+      forbidden_in_118: true
+    - blocker_id: B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY
+      capability: production_platform_and_alerting
+      current_state: PRODUCTION_READY
+      evidence: "SLO, alert simulation, incident, backup, rollback, suspend/resume are replayable, but compose/container execution, external APM/paging, destructive restore, and real rollback remain disabled"
+      minimum_followup_task_id: PTL-I100-126-production-live-dependency-and-drill-approval
+      forbidden_in_118: true
+  redlines_preserved:
+    external_software_release: BLOCKED
+    unapproved_customer_delivery: BLOCKED
+    unapproved_live_provider_call: BLOCKED
+    real_refund_execution: BLOCKED
+    automated_refund_execution: EXCLUDED
 production_gap_task_map:
   - gap_group: provider_config_sandbox_and_live_control
     packet_ref: PTL-I100-111A-provider-config-and-sandbox-seam

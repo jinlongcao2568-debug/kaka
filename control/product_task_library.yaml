@@ -206,6 +206,11 @@ internal_operable_productization_program:
     - PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
     - PTL-I100-121C-production-slo-monitoring-incident-readiness
     - PTL-I100-118-full-product-operational-acceptance
+    - PTL-I100-122-approved-sales-outreach-provider-execution
+    - PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+    - PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
+    - PTL-I100-125-approved-crm-quote-provider-execution
+    - PTL-I100-126-production-live-dependency-and-drill-approval
   redlines:
     external_software_release: BLOCKED
     stage8_real_execution: "governed / approval-gated / blocked by default"
@@ -233,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 48
+task_count: 53
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -1867,4 +1872,164 @@ tasks:
     acceptance_checks: ["engineering_regression_pass", "capability_states_verified", "evidence_pack_business_closure_verified", "automated_refund_absent"]
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-118-full-product-operational-acceptance
     suggested_packet_refs: [PTL-I100-118-full-product-operational-acceptance]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-122-approved-sales-outreach-provider-execution
+    title: "I100-22 Approved sales outreach provider execution"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage8_outreach, provider_execution, sales_governance]
+    task_type: approved_live_provider_execution
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P23
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: LIVE_READY_READBACK_ONLY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created from 118 blocker B118_STAGE8_REAL_SEND_NOT_EXECUTABLE. Requires dedicated current_task activation; must implement only approved, audited, small-scope provider execution paths and must not enable bulk/unapproved sends."
+    hard_depends_on:
+      - PTL-I100-118-full-product-operational-acceptance
+      - PTL-I100-111B-sales-outreach-adapter-execution
+      - PTL-I100-121A-sales-outreach-live-pilot
+      - PTL-I100-111E-provider-reliability-and-circuit-breaker
+    objective: "把 Stage8 从 approved live pilot readback 推进到可执行的 approved provider send path：仅在 provider config、sandbox pass、template approval、contact source audit、operator approval/action audit、frequency/quiet-hours/opt-out/complaint gates 全部满足时允许小范围真实发送，并持久化 provider result/bounce/failure/timeline。"
+    capability_gaps_covered:
+      - approved_sales_outreach_provider_send
+      - email_sms_phone_wecom_provider_execution
+      - provider_result_readback
+      - bounce_failure_complaint_handling
+      - opt_out_unsubscribe_frequency_enforcement
+    non_goals: ["不批量外发", "不绕过审批/审计", "不绕过退订/频控/quiet-hours", "不发送未复核结论", "不 external software release"]
+    expected_outputs: ["approved provider execution adapter", "provider result timeline", "bounce/failure/complaint readback", "suspension path"]
+    acceptance_checks: ["capability_state_LIVE_READY", "provider_send_requires_approval_audit", "opt_out_and_frequency_control_work", "no_unapproved_bulk_send"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-122-approved-sales-outreach-provider-execution
+    suggested_packet_refs: [PTL-I100-122-approved-sales-outreach-provider-execution]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+    title: "I100-23 Approved payment and delivery provider execution no auto refund"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage9_delivery, payment_provider, delivery_provider, finance_governance]
+    task_type: approved_live_payment_delivery_execution
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P24
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: LIVE_READY_READBACK_ONLY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created from 118 blocker B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE. Requires dedicated current_task activation; must keep automated refund execution excluded."
+    hard_depends_on:
+      - PTL-I100-118-full-product-operational-acceptance
+      - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
+      - PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
+      - PTL-I100-111E-provider-reliability-and-circuit-breaker
+    objective: "把 Stage9 approved payment/delivery pilot readback 推进到可执行的 approved payment capture/charge and delivery fulfillment path：必须具备 sandbox pass、payment/delivery approval、finance review、operator action audit、provider reliability、callback verification、artifact version lock、download auth、settlement/reconciliation 和 rollback path；退款只保留人工异常记录/审批/审计。"
+    capability_gaps_covered:
+      - approved_payment_capture
+      - approved_charge_execution
+      - delivery_fulfillment_execution
+      - customer_download_execution_audit
+      - receipt_invoice_settlement_reconciliation
+      - manual_refund_exception_only
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    non_goals: ["不自动退款程序", "不无审批扣款", "不无审计交付", "不交付未批准版本", "不 external software release"]
+    expected_outputs: ["approved payment provider execution", "delivery fulfillment execution", "download audit", "settlement/reconciliation", "manual refund exception evidence"]
+    acceptance_checks: ["capability_state_LIVE_READY", "payment_delivery_requires_approval_audit", "automated_refund_absent", "rollback_path_works"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+    suggested_packet_refs: [PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
+    title: "I100-24 Customer-visible LeadPack delivery approval unlock"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage7_sales, leadpack_delivery, customer_artifact_access]
+    task_type: customer_visible_delivery_unlock
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P25
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: SANDBOX_READY_READBACK_ONLY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created from 118 blocker B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED. Requires dedicated current_task activation; must not expose internal blackbox scoring or unreviewed inference."
+    hard_depends_on:
+      - PTL-I100-118-full-product-operational-acceptance
+      - PTL-I100-111C-crm-quote-and-delivery-page-adapters
+      - PTL-I100-120-operator-customer-access-and-go-live-readiness
+    objective: "把 LeadPack/page/export 从 customer-visible candidate/readback 推进到审批后可见/可下载：必须执行字段白名单、黑名单、脱敏、水印、版本 hash、download auth、approval/audit、external visibility 和 replay，不暴露内部黑箱或未复核结论。"
+    capability_gaps_covered:
+      - customer_visible_leadpack_publication
+      - formal_export_artifact_delivery
+      - customer_download_auth
+      - field_allowlist_masking_watermark
+      - delivery_version_hash_replay
+    non_goals: ["不无审批客户可见发布", "不暴露内部黑箱评分", "不外发未复核推断", "不自动法律文书外发"]
+    expected_outputs: ["approved customer-visible LeadPack/page unlock", "download authorization", "field policy enforcement", "download audit replay"]
+    acceptance_checks: ["capability_state_LIVE_READY", "customer_visible_requires_approval_audit", "field_allowlist_and_masking_enforced", "download_audit_visible"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
+    suggested_packet_refs: [PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-125-approved-crm-quote-provider-execution
+    title: "I100-25 Approved CRM and quote provider execution"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage7_sales, crm_provider, quote_provider, sales_governance]
+    task_type: approved_crm_quote_provider_execution
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P26
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: SANDBOX_READY_READBACK_ONLY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created from 118 blocker B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED. Requires dedicated current_task activation; must use provider config and must not silently fallback to live."
+    hard_depends_on:
+      - PTL-I100-118-full-product-operational-acceptance
+      - PTL-I100-111C-crm-quote-and-delivery-page-adapters
+      - PTL-I100-111E-provider-reliability-and-circuit-breaker
+    objective: "把 CRM/quote 从 sandbox workbench/readback 推进到审批后 provider execution：CRM account/opportunity/activity sync、quote version/approval/expiration/discount audit 和 provider result readback 都必须可追溯；external quote send 必须经过 approval/audit/operator action。"
+    capability_gaps_covered:
+      - approved_crm_account_sync
+      - approved_crm_opportunity_sync
+      - approved_crm_activity_sync
+      - approved_quote_send
+      - quote_version_discount_expiration_audit
+    non_goals: ["不无审批同步 CRM", "不无审批发送报价", "不绕过 provider reliability", "不 external software release"]
+    expected_outputs: ["approved CRM provider execution", "approved quote provider execution", "provider result readback", "deal tracking timeline"]
+    acceptance_checks: ["capability_state_LIVE_READY", "crm_quote_requires_approval_audit", "provider_result_readback", "no_silent_live_fallback"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-125-approved-crm-quote-provider-execution
+    suggested_packet_refs: [PTL-I100-125-approved-crm-quote-provider-execution]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-126-production-live-dependency-and-drill-approval
+    title: "I100-26 Production live dependency and drill approval"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [platform_infra, production_governance, deployment_readiness]
+    task_type: production_live_dependency_approval
+    status: PLANNED
+    planning_state: CANDIDATE_NOT_ACTIVATED
+    is_current_mainline_next_candidate: false
+    priority: P27
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: PRODUCTION_READY_READBACK_ONLY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created from 118 blocker B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY. Requires dedicated current_task activation and named owner approval before any external dependency execution."
+    hard_depends_on:
+      - PTL-I100-118-full-product-operational-acceptance
+      - PTL-I100-112-production-platform-infrastructure
+      - PTL-I100-121C-production-slo-monitoring-incident-readiness
+    objective: "把 production live dependency/readiness 从 readback 推进到审批后可执行演练：container/compose runbook、external APM/paging/notification provider、backup restore drill、rollback drill、health/SLO/alert dispatch approval 和 incident manual execution 都必须有审计与回退。"
+    capability_gaps_covered:
+      - approved_container_stack_execution
+      - approved_external_apm_paging
+      - approved_alert_dispatch
+      - approved_restore_drill
+      - approved_rollback_drill
+      - production_incident_manual_execution
+    non_goals: ["不默认 external release", "不无审批破坏性 restore", "不无审批 rollback", "不自动 incident automation", "不绕过审计"]
+    expected_outputs: ["approved live dependency runbook", "SLO alert dispatch approval evidence", "restore/rollback drill approval evidence", "incident manual execution audit"]
+    acceptance_checks: ["capability_state_PRODUCTION_READY", "live_dependency_requires_approval_audit", "rollback_restore_drills_audited", "external_release_still_gated"]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-126-production-live-dependency-and-drill-approval
+    suggested_packet_refs: [PTL-I100-126-production-live-dependency-and-drill-approval]
     risk_level: CRITICAL

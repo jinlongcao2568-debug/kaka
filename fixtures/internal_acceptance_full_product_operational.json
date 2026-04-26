@@ -1,0 +1,187 @@
+{
+  "metadata": {
+    "fixture_id": "PTL-I100-118-full-product-operational-acceptance",
+    "version": 1,
+    "packet_id": "PTL-I100-118-full-product-operational-acceptance",
+    "source_data_class": "sanitized_offline",
+    "acceptance_window": "full_product_operational_acceptance",
+    "acceptance_result": "BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS",
+    "external_live_execution": false,
+    "external_release": "BLOCKED",
+    "stage8_real_execution": "APPROVAL_GATED_READBACK_ONLY",
+    "stage9_live_payment_delivery_refund": "APPROVAL_GATED_READBACK_ONLY_NO_AUTO_REFUND"
+  },
+  "three_layer_acceptance": {
+    "engineering_regression": {
+      "status": "PASS_REQUIRED_BY_CURRENT_WINDOW_CHECKS",
+      "required_targeted_tests": [
+        "tests.test_full_product_operational_acceptance",
+        "tests.test_product_acceptance_checklist",
+        "tests.test_product_operability_gap_matrix",
+        "tests.test_internal_acceptance_matrix",
+        "tests.test_internal_chain.TestInternalChain",
+        "tests.test_api_transport_bootstrap",
+        "tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards",
+        "tests.test_external_unlock_prerequisites",
+        "tests.test_product_module_registry"
+      ]
+    },
+    "capability_state": {
+      "status": "VERIFIED_MIXED_READY_READBACK",
+      "state_order": [
+        "NOT_IMPLEMENTED",
+        "INTERNAL_READY",
+        "SANDBOX_READY",
+        "APPROVAL_READY",
+        "LIVE_READY",
+        "PRODUCTION_READY",
+        "SUSPENDED"
+      ],
+      "capabilities": [
+        {
+          "capability_id": "source_to_evidence_chain",
+          "state": "SANDBOX_READY",
+          "owner_operability": "internal_or_sandbox_operable",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "parser_ocr_attachment_extraction",
+          "state": "INTERNAL_READY",
+          "owner_operability": "internal_operable",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "public_verification_adapters",
+          "state": "SANDBOX_READY",
+          "owner_operability": "sandbox_operable_public_only",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "stage6_product_package",
+          "state": "INTERNAL_READY",
+          "owner_operability": "internal_operable_customer_gated",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "real_challenger_buyer_fit_offer",
+          "state": "INTERNAL_READY",
+          "owner_operability": "internal_operable_sales_judgment_only",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "crm_quote_page_export",
+          "state": "SANDBOX_READY",
+          "owner_operability": "sandbox_readback_only",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "sales_outreach_live_pilot",
+          "state": "LIVE_READY",
+          "owner_operability": "approved_live_pilot_readback_only",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "payment_delivery_live_pilot_no_auto_refund",
+          "state": "LIVE_READY",
+          "owner_operability": "approved_live_pilot_readback_only",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "production_slo_monitoring_incident",
+          "state": "PRODUCTION_READY",
+          "owner_operability": "production_readback_and_manual_runbook_ready",
+          "default_live_execution_enabled": false
+        },
+        {
+          "capability_id": "automated_refund_execution",
+          "state": "EXCLUDED",
+          "owner_operability": "not_part_of_product",
+          "default_live_execution_enabled": false
+        }
+      ]
+    },
+    "product_closure": {
+      "status": "NOT_CLOSED",
+      "owner_internal_loop_operable": true,
+      "owner_end_to_end_sales_delivery_operable": false,
+      "sold_product": "evidence_pack_and_leadpack",
+      "software_product_external_release_required": false,
+      "closeout_recommendation": "DO_NOT_CLOSEOUT"
+    }
+  },
+  "full_chain_segments": [
+    {
+      "segment_id": "public_source_to_stage6_product_package",
+      "state": "INTERNAL_OR_SANDBOX_OPERABLE",
+      "owner_operable": true,
+      "evidence": "runtime exposes Stage1-6 records, public boundary guards, parser lineage, verification/rule evidence, and Stage6 product package readiness"
+    },
+    {
+      "segment_id": "real_challenger_to_offer",
+      "state": "INTERNAL_READY",
+      "owner_operable": true,
+      "evidence": "real challenger readback includes candidate, buyer fit, capacity/motivation, contactability, recommended offer, and sales priority"
+    },
+    {
+      "segment_id": "leadpack_export_page_customer_boundary",
+      "state": "SANDBOX_READY_READBACK_ONLY",
+      "owner_operable": false,
+      "evidence": "field allowlist, masking, watermark, artifact version hash, export replay, and download audit are present, but customer-visible publication/download stay disabled"
+    },
+    {
+      "segment_id": "sales_outreach",
+      "state": "LIVE_READY_READBACK_ONLY",
+      "owner_operable": false,
+      "evidence": "approved live pilot carrier can become LIVE_READY, but provider_call_executed and real_send_attempted remain false"
+    },
+    {
+      "segment_id": "crm_quote",
+      "state": "SANDBOX_READY_READBACK_ONLY",
+      "owner_operable": false,
+      "evidence": "CRM account/opportunity/activity and quote sandbox records exist, but real CRM sync and external quote send remain disabled"
+    },
+    {
+      "segment_id": "payment_delivery",
+      "state": "LIVE_READY_READBACK_ONLY_NO_AUTO_REFUND",
+      "owner_operable": false,
+      "evidence": "approved live pilot carrier can become LIVE_READY, but real payment capture, charge, delivery fulfillment, customer download, and refund remain false"
+    },
+    {
+      "segment_id": "audit_writeback_resilience",
+      "state": "PRODUCTION_READY_READBACK",
+      "owner_operable": true,
+      "evidence": "audit/writeback, SLO, alert simulation, incident runbook, backup/restore drill, rollback drill, and suspended-state readback are replayable"
+    }
+  ],
+  "remaining_blockers": [
+    {
+      "blocker_id": "B118_STAGE8_REAL_SEND_NOT_EXECUTABLE",
+      "minimum_followup_task_id": "PTL-I100-122-approved-sales-outreach-provider-execution"
+    },
+    {
+      "blocker_id": "B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE",
+      "minimum_followup_task_id": "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
+    },
+    {
+      "blocker_id": "B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED",
+      "minimum_followup_task_id": "PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock"
+    },
+    {
+      "blocker_id": "B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED",
+      "minimum_followup_task_id": "PTL-I100-125-approved-crm-quote-provider-execution"
+    },
+    {
+      "blocker_id": "B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY",
+      "minimum_followup_task_id": "PTL-I100-126-production-live-dependency-and-drill-approval"
+    }
+  ],
+  "redlines_preserved": {
+    "public_only": true,
+    "private_or_gray_source_collection": false,
+    "unapproved_external_delivery": false,
+    "unapproved_live_provider_call": false,
+    "real_refund_execution": false,
+    "automated_refund_execution": false,
+    "external_software_release": false
+  }
+}

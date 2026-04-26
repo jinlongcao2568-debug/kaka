@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 1)
+        self.assertEqual(len(non_completed), 6)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -74,6 +74,19 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertIn("capability_state_LIVE_READY", task["acceptance_checks"])
             self.assertNotIn("capability_state_LIVE_READY_PILOT", task["acceptance_checks"])
             self.assertTrue(checklist_tasks[task_id]["pilot_scope"])
+
+        for task_id in (
+            "PTL-I100-122-approved-sales-outreach-provider-execution",
+            "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund",
+            "PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock",
+            "PTL-I100-125-approved-crm-quote-provider-execution",
+        ):
+            task = self.tasks_by_id[task_id]
+            self.assertIn("capability_state_LIVE_READY", task["acceptance_checks"])
+            self.assertNotIn("capability_state_LIVE_READY_PILOT", task["acceptance_checks"])
+
+        task_126 = self.tasks_by_id["PTL-I100-126-production-live-dependency-and-drill-approval"]
+        self.assertIn("capability_state_PRODUCTION_READY", task_126["acceptance_checks"])
 
         production_task = self.tasks_by_id["PTL-I100-121C-production-slo-monitoring-incident-readiness"]
         self.assertIn("capability_state_PRODUCTION_READY", production_task["acceptance_checks"])
@@ -114,6 +127,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund",
             "PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund",
             "PTL-I100-118-full-product-operational-acceptance",
+            "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund",
         }
         for task_id in refund_sensitive_ids:
             serialized = yaml.safe_dump(self.checklist["tasks"][task_id], allow_unicode=True)
@@ -466,6 +480,17 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIn("real public notice sample", serialized)
         self.assertIn("evidence-pack business closure", serialized)
         self.assertIn("automated refund", serialized)
+        result = final_entry["current_118_acceptance_result"]
+        self.assertEqual(result["acceptance_result"], "BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS")
+        self.assertEqual(result["product_closure_result"], "NOT_CLOSED")
+        self.assertTrue(result["owner_internal_loop_operable"])
+        self.assertFalse(result["owner_end_to_end_sales_delivery_operable"])
+        self.assertEqual(result["closeout_recommendation"], "DO_NOT_CLOSEOUT")
+        self.assertEqual(len(result["minimum_followup_task_refs"]), 5)
+        self.assertIn(
+            "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund",
+            result["minimum_followup_task_refs"],
+        )
 
 
 if __name__ == "__main__":

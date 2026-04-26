@@ -246,6 +246,11 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund",
             "PTL-I100-121C-production-slo-monitoring-incident-readiness",
             "PTL-I100-118-full-product-operational-acceptance",
+            "PTL-I100-122-approved-sales-outreach-provider-execution",
+            "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund",
+            "PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock",
+            "PTL-I100-125-approved-crm-quote-provider-execution",
+            "PTL-I100-126-production-live-dependency-and-drill-approval",
         ):
             self.assertTrue(tasks_by_id[task_id]["capability_gaps_covered"], task_id)
 
@@ -350,6 +355,43 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             acceptance_model["product_closure"]["refund_boundary"],
             "automated refund execution remains excluded; refund handling is manual exception and governed review only.",
         )
+
+    def test_118_final_acceptance_records_operational_blockers_not_closeout(self) -> None:
+        final = self.matrix["final_118_operational_acceptance"]
+
+        self.assertEqual(final["packet_ref"], "PTL-I100-118-full-product-operational-acceptance")
+        self.assertEqual(final["acceptance_result"], "BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS")
+        self.assertEqual(final["capability_state_result"], "VERIFIED_MIXED_READY_READBACK")
+        self.assertEqual(final["product_closure_result"], "NOT_CLOSED")
+        self.assertTrue(final["owner_internal_loop_operable"])
+        self.assertFalse(final["owner_end_to_end_sales_delivery_operable"])
+        self.assertEqual(final["closeout_recommendation"], "DO_NOT_CLOSEOUT")
+
+        blockers = {row["blocker_id"]: row for row in final["remaining_blockers"]}
+        self.assertEqual(
+            set(blockers),
+            {
+                "B118_STAGE8_REAL_SEND_NOT_EXECUTABLE",
+                "B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE",
+                "B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED",
+                "B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED",
+                "B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY",
+            },
+        )
+        for blocker in blockers.values():
+            self.assertTrue(blocker["minimum_followup_task_id"].startswith("PTL-I100-12"))
+            self.assertIn(blocker["minimum_followup_task_id"], self.task_library_task_ids())
+            self.assertTrue(blocker["forbidden_in_118"])
+
+        self.assertEqual(blockers["B118_STAGE8_REAL_SEND_NOT_EXECUTABLE"]["current_state"], "LIVE_READY")
+        self.assertEqual(
+            blockers["B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE"]["refund_boundary"],
+            "manual exception/governed review only; no automated refund execution",
+        )
+        self.assertEqual(final["redlines_preserved"]["automated_refund_execution"], "EXCLUDED")
+
+    def task_library_task_ids(self) -> set[str]:
+        return {row["task_id"] for row in self.task_library["tasks"]}
 
 
 if __name__ == "__main__":
