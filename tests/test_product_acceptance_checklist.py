@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 4)
+        self.assertEqual(len(non_completed), 3)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -198,6 +198,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_111e = self.tasks_by_id["PTL-I100-111E-provider-reliability-and-circuit-breaker"]
         task_120 = self.tasks_by_id["PTL-I100-120-operator-customer-access-and-go-live-readiness"]
         task_121a = self.tasks_by_id["PTL-I100-121A-sales-outreach-live-pilot"]
+        task_121b = self.tasks_by_id["PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -348,11 +349,19 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_120["runtime_change_in_packet"],
             "COMPLETED_120_OPERATOR_CUSTOMER_ACCESS_AND_GO_LIVE_READINESS",
         )
-        self.assertEqual(task_121a["status"], "IN_PROGRESS")
-        self.assertEqual(task_121a["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_121a["status"], "COMPLETED")
+        self.assertEqual(task_121a["planning_state"], "COMPLETED")
+        self.assertEqual(task_121a["completed_commit"], "4fc8020")
+        self.assertEqual(task_121a["capability_state_after"], "LIVE_READY")
         self.assertEqual(
             task_121a["runtime_change_in_packet"],
-            "ACTIVE_121A_SALES_OUTREACH_LIVE_PILOT",
+            "COMPLETED_121A_SALES_OUTREACH_LIVE_PILOT",
+        )
+        self.assertEqual(task_121b["status"], "IN_PROGRESS")
+        self.assertEqual(task_121b["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(
+            task_121b["runtime_change_in_packet"],
+            "ACTIVE_121B_PAYMENT_DELIVERY_LIVE_PILOT_NO_AUTO_REFUND",
         )
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]

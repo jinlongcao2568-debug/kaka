@@ -1709,14 +1709,16 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage8_outreach, provider_adapters, live_pilot_governance]
     task_type: product_operability_live_pilot
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P19
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: SANDBOX_OUTREACH_READY_FOR_GATED_LIVE_PILOT
-    runtime_change_in_packet: ACTIVE_121A_SALES_OUTREACH_LIVE_PILOT
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-120 completed via 5bd558d. This packet may implement a gated small-sample live pilot path and readback, but the implementation window must not actually send real outreach; any real send requires provider config, sandbox pass, approval, audit, opt-out/frequency controls, and separate operator execution."
+    runtime_change_in_packet: COMPLETED_121A_SALES_OUTREACH_LIVE_PILOT
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-120 completed via 5bd558d; completed via 4fc8020. This packet implemented a gated small-sample live pilot path and readback without actually sending real outreach in development/tests; any real send still requires provider config, sandbox pass, approval, audit, opt-out/frequency controls, and separate operator execution. PTL-I100-121B is activated separately by control/current_task.yaml."
+    capability_state_after: LIVE_READY
+    completed_commit: 4fc8020
     hard_depends_on:
       - PTL-I100-111B-sales-outreach-adapter-execution
       - PTL-I100-111E-provider-reliability-and-circuit-breaker
@@ -1746,14 +1748,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage9_delivery, payment_collection, delivery_fulfillment, live_pilot_governance]
     task_type: product_operability_live_pilot
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P20
     existing_code_state: HEAVY_RUNTIME
-    existing_runtime_state: SANDBOX_PAYMENT_DELIVERY_EXPECTED_BEFORE_ACTIVATION
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires explicit dedicated current_task packet, sandbox payment pass, delivery artifact approval, audit persistence, finance review, and provider reliability. Automated refund execution remains excluded."
+    existing_runtime_state: SANDBOX_PAYMENT_DELIVERY_READY_FOR_GATED_LIVE_PILOT
+    runtime_change_in_packet: ACTIVE_121B_PAYMENT_DELIVERY_LIVE_PILOT_NO_AUTO_REFUND
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-121A completed via 4fc8020. This packet may implement gated small-sample payment/delivery live pilot path and readback, but the implementation window must not actually capture payment, charge cards, fulfill delivery, issue refunds, or execute automated refund; any real execution requires sandbox pass, payment/delivery approval, audit persistence, finance review, provider reliability, and separate operator execution."
     hard_depends_on:
       - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
       - PTL-I100-111E-provider-reliability-and-circuit-breaker
