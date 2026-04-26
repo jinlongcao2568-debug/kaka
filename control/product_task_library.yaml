@@ -1748,14 +1748,16 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage9_delivery, payment_collection, delivery_fulfillment, live_pilot_governance]
     task_type: product_operability_live_pilot
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P20
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: SANDBOX_PAYMENT_DELIVERY_READY_FOR_GATED_LIVE_PILOT
-    runtime_change_in_packet: ACTIVE_121B_PAYMENT_DELIVERY_LIVE_PILOT_NO_AUTO_REFUND
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-121A completed via 4fc8020. This packet may implement gated small-sample payment/delivery live pilot path and readback, but the implementation window must not actually capture payment, charge cards, fulfill delivery, issue refunds, or execute automated refund; any real execution requires sandbox pass, payment/delivery approval, audit persistence, finance review, provider reliability, and separate operator execution."
+    runtime_change_in_packet: COMPLETED_121B_PAYMENT_DELIVERY_LIVE_PILOT_NO_AUTO_REFUND
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-121A completed via 4fc8020; completed via c1515f5. This packet implemented a gated small-sample payment/delivery live pilot path and readback without actually capturing payment, charging cards, fulfilling delivery, issuing refunds, or executing automated refund in development/tests. Any real execution still requires sandbox pass, payment/delivery approval, audit persistence, finance review, provider reliability, and separate operator execution. PTL-I100-121C is activated separately by control/current_task.yaml."
+    completed_commit: c1515f5
+    capability_state_after: LIVE_READY
     hard_depends_on:
       - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
       - PTL-I100-111E-provider-reliability-and-circuit-breaker
@@ -1786,14 +1788,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [platform_infra, observability, incident_response, production_governance]
     task_type: product_operability_production_hardening
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P21
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: HEALTH_READINESS_AND_BASIC_AUDIT_EXPECTED_BEFORE_ACTIVATION
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet after live pilots. This hardens SLO, monitoring, alerting, incident runbook, backup/restore evidence, and suspension/rollback controls."
+    runtime_change_in_packet: ACTIVE_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-121B completed via c1515f5. This packet hardens SLO, monitoring, alerting, incident runbook, backup/restore evidence, and suspension/rollback controls without expanding live scope, running incident automation, sending real alerts, executing rollback, or opening external release."
     hard_depends_on:
       - PTL-I100-112-production-platform-infrastructure
       - PTL-I100-120-operator-customer-access-and-go-live-readiness

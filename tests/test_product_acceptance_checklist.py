@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 3)
+        self.assertEqual(len(non_completed), 2)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -199,6 +199,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_120 = self.tasks_by_id["PTL-I100-120-operator-customer-access-and-go-live-readiness"]
         task_121a = self.tasks_by_id["PTL-I100-121A-sales-outreach-live-pilot"]
         task_121b = self.tasks_by_id["PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund"]
+        task_121c = self.tasks_by_id["PTL-I100-121C-production-slo-monitoring-incident-readiness"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -357,11 +358,19 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_121a["runtime_change_in_packet"],
             "COMPLETED_121A_SALES_OUTREACH_LIVE_PILOT",
         )
-        self.assertEqual(task_121b["status"], "IN_PROGRESS")
-        self.assertEqual(task_121b["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_121b["status"], "COMPLETED")
+        self.assertEqual(task_121b["planning_state"], "COMPLETED")
+        self.assertEqual(task_121b["completed_commit"], "c1515f5")
+        self.assertEqual(task_121b["capability_state_after"], "LIVE_READY")
         self.assertEqual(
             task_121b["runtime_change_in_packet"],
-            "ACTIVE_121B_PAYMENT_DELIVERY_LIVE_PILOT_NO_AUTO_REFUND",
+            "COMPLETED_121B_PAYMENT_DELIVERY_LIVE_PILOT_NO_AUTO_REFUND",
+        )
+        self.assertEqual(task_121c["status"], "IN_PROGRESS")
+        self.assertEqual(task_121c["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(
+            task_121c["runtime_change_in_packet"],
+            "ACTIVE_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS",
         )
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]

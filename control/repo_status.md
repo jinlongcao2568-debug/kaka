@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund (ACTIVE; gated small-sample payment/delivery live pilot implementation/readback. This packet may update Stage9 delivery runtime, provider adapter config/readback, API/bootstrap, repository readback, module registry, product task/checklist control status, and targeted tests. It may implement approval/audit-gated payment and delivery pilot paths, but the development/test window must not actually capture payment, charge, fulfill delivery, issue refunds, or execute automated refund. It does not open public software release, customer-visible publication without approval, real outreach, real CRM sync, real quote delivery, automated refund execution, or push)
+Current Workstream: PTL-I100-121C-production-slo-monitoring-incident-readiness (ACTIVE; production SLO, monitoring, alerting, incident runbook, backup/restore drill, rollback drill, provider/source/payment/delivery failure alert, suspended-state operation, API/bootstrap/readback, and governance testing packet. This packet must not expand live scope, send real alerts, connect external paging/APM providers, run incident automation, execute destructive restore or rollback, run migration, execute true provider calls, perform real outreach, capture payment, fulfill delivery, issue refunds, or execute automated refund.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -18,14 +18,14 @@ Current Blockers:
 - External software release remains blocked
 - Stage 8 real execution remains governed / approval-gated / blocked by default except the completed 121A gated pilot implementation/readback path; no real send may occur in development or tests
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default
-- Stage 9 real payment/delivery remains governed / approval-gated / blocked by default except the dedicated 121B gated pilot implementation/readback path; no real payment capture, charge, delivery fulfillment, customer download, refund, or automated refund may occur in development or tests
+- Stage 9 real payment/delivery remains governed / approval-gated / blocked by default except the completed 121B gated pilot implementation/readback path; no real payment capture, charge, delivery fulfillment, customer download, refund, or automated refund may occur in development or tests
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only
 - Real external source fetch remains gated by dedicated Stage2 source adapter packets; 114A-114I only open allowlisted/sandbox public-source adapter readback, not uncontrolled live crawling
-- Stage3 parser output remains unverified until Stage4 verification; parser carriers must not be written as final facts or customer-visible conclusions.
-- Stage4 verification remains public-source only and review-gated for weak, ambiguous, conflicting, or non-replayable evidence.
-- Project manager active-conflict judgement remains public-source only; same-name matches, missing completion status, missing contract time, or weak evidence must degrade to manual review.
-- Stage6 product package readiness remains internal; customer delivery eligibility requires evidence, public visibility, review state, field allowlist/masking, approval, and delivery governance.
-- Provider reliability/circuit breaker work is completed as readback/gating; unhealthy, rate-limited, timeout, or circuit-open provider state must block or suspend payment/delivery sandbox readiness and must not silently fallback to live.
+- Stage3 parser output remains unverified until Stage4 verification; parser carriers must not be written as final facts or customer-visible conclusions
+- Stage4 verification remains public-source only and review-gated for weak, ambiguous, conflicting, or non-replayable evidence
+- Stage6 product package readiness remains internal; customer delivery eligibility requires evidence, public visibility, review state, field allowlist/masking, approval, and delivery governance
+- Provider reliability/circuit breaker work is completed as readback/gating; unhealthy, rate-limited, timeout, or circuit-open provider state must block or suspend execution and must not silently fallback to live
+- 121C monitoring/incident work may simulate failures and produce readback evidence only; real alert dispatch, external paging, incident automation, destructive restore, real rollback, provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release remain blocked
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -34,54 +34,34 @@ Product Open Capability Baseline:
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 - PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
 
-Current 121B Scope:
-- Activate PTL-I100-121B as the payment/delivery live pilot no-auto-refund packet after PTL-I100-121A completion.
-- Build a gated Stage9 payment/delivery live pilot implementation/readback path for approved small samples only: provider config, sandbox payment pass, payment approval, delivery approval, finance review, operator action, audit refs, provider reliability, artifact version lock, download auth, settlement/reconciliation, and rollback readiness must all be enforced.
-- Cover payment confirmation/callback, receipt/invoice record, delivery unlock, artifact version/hash/download audit, settlement/reconciliation, delivery failure rollback, and manual refund exception record without real payment capture, charge, delivery fulfillment, customer download, refund, or automated refund in the implementation or test window.
-- Target capability state is LIVE_READY for the gated pilot path only; do not open public software release, unapproved customer-visible publication, bulk outreach, automated refund, or external release.
-- Keep automatic refund execution, private/gray source/contact data, non-public personnel privacy data, login/captcha/anti-bot bypass, uncontrolled live crawling, unapproved real payment, unapproved real delivery, real refund, and external release out of this slice.
+Current 121C Scope:
+- Activate PTL-I100-121C as the production SLO monitoring incident readiness packet after PTL-I100-121B completion.
+- Build a production readiness/readback layer for SLO, monitoring dashboards, alerting rules, incident runbook, backup/restore drill, rollback drill, provider/source/payment/delivery failure alerts, and suspended-state operations.
+- Alerts must fire only as simulated/readback evidence in this packet; notification dispatch, external paging/APM, incident automation, destructive restore, real rollback, provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release remain disabled.
+- Target capability state is PRODUCTION_READY for monitoring/incident readiness evidence only; this does not authorize external release or production go-live by itself.
 
 Recently Closed:
+- PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund completed and committed locally: c1515f5. It added Stage9 gated small-sample payment/delivery live pilot carrier/readback, approval/audit/provider/sandbox/finance gates, callback/receipt/invoice/settlement/reconciliation/delivery version lock/download audit/rollback/manual refund exception evidence, and no-real-charge/no-real-delivery/no-real-refund/no-automated-refund guards without actual payment capture, charge, provider call, delivery fulfillment, customer download, refund, automated refund execution, external release, or push.
 - PTL-I100-121A-sales-outreach-live-pilot completed and committed locally: 4fc8020. It added a gated small-sample Stage8 live pilot carrier/readback with provider config, sandbox pass, template approval, contact source audit, operator approval/action, frequency control, quiet-hours, opt-out/unsubscribe, bounce/failure/complaint, retry/stop/suspension, provider result readback, repository/API replay, and no-real-send guards without actual provider calls, real outreach in development/tests, bulk send, CRM sync, quote delivery, customer-visible publication, payment, delivery, refund, automated refund execution, external release, or push.
-- PTL-I100-120-operator-customer-access-and-go-live-readiness completed and committed locally: 5bd558d. It added internal operator/customer/go-live readiness routes, operator task and project import entry readback, customer artifact access candidate gating, account/download auth/field allowlist/masking readiness, go-live blocker/approval/audit readback, and module/test coverage without public software release, provider live calls, real outreach, CRM sync, quote delivery, customer-visible publication, payment, delivery, refund, automated refund execution, external release, or push.
-- PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund completed and committed locally: 0ab2dba. It added Stage9 payment gateway, charge/status/callback, receipt, invoice, delivery provider, delivery artifact/download, version lock, hash/audit, order lifecycle, settlement, finance reconciliation, manual refund exception approval/audit, repository/API readback, provider fail-closed behavior, and live/refund redline guards without real payment capture, live charge, real delivery fulfillment, real refund, automated refund execution, real provider calls, real outreach, CRM/quote provider execution, customer-visible publication, external release, or push.
-- PTL-I100-111C-crm-quote-and-delivery-page-adapters completed and committed locally: 7af8966. It added CRM account/opportunity/activity sandbox sync records, quote sandbox records, price/approval/version/audit/expiration/discount/deal tracking/readback, customer-visible artifact candidates, field allowlist/blacklist, masking, watermark, version hash, download audit, export/page replay, provider suspension, and no-publication guards without real CRM sync, external quote send, customer-visible publication, external delivery, real provider calls, real outreach, payment, delivery, refund, automated refund execution, external release, or push.
-- PTL-I100-111B-sales-outreach-adapter-execution completed and committed locally: 5642cb4. It added Stage8 email/SMS/phone/wecom sandbox execution records, template approval, contact source audit, frequency control, quiet-hours, opt-out/unsubscribe, bounce/failure, retry/stop policy, execution timeline, provider reliability/circuit-breaker blocking, repository/API readback, and no-live-send guards without real provider calls, real outreach, CRM/quote provider execution, payment, delivery, refund, automated refund execution, external release, or push.
-- PTL-I100-111E-provider-reliability-and-circuit-breaker completed and committed locally: 1a1233c. It added provider health, rate-limit, timeout, retry, failure taxonomy, circuit breaker, credential redaction audit, fallback policy, SUSPENDED state, Stage7/8/9 provider reliability consumption, sanitized repository/API/bootstrap readback, and replayable provider status without true live provider calls, real outreach, CRM/quote provider execution, payment, delivery, refund, automated refund execution, external release, or push.
-- PTL-I100-119-stage6-product-package-hardening completed and committed locally: 54112c8. It added an internal additive Stage6 product package readiness carrier/readback with objection viability, evidence strength, review priority, sellable signal, customer delivery eligibility, external visibility, delivery/product/objection/sales readiness, downgrade/block reasons, delivery governance, and audit trace without customer-visible publication, Stage7/8/9 execution, provider calls, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-119A-real-challenger-identification-hardening completed and committed locally: 56cd04e. It added Stage7 real challenger candidate/readback hardening, winning challenger consumption, buyer fit/motivation/capacity/contactability/sales-priority traces, and customer-visible/Stage8 outreach isolation.
-- PTL-I100-117-rule-factory-expansion-and-golden-cases completed and committed locally: c073440. It expanded Stage5 rule factory metadata, catalog-aware selection, execution/readback traces, evidence binding, coverage summary, and golden cases while preserving evidence/rule gates and no-fabrication boundaries.
-- PTL-I100-116A-project-manager-active-conflict-vertical-slice completed and committed locally: 7fba84a. It added a public-source project-manager active-conflict readback carrier, same-name disambiguation trace, time-window overlap judgement, evidence chain, manual review recommendation, and objection-value summary without new Stage2 source adapters, non-public personnel data, illegal identity lookup, same-name-as-fact, customer-visible legal conclusions, real providers, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-116-stage4-public-verification-adapters completed and committed locally: 511cd30. It added Stage4 public verification adapter/readback carrier for 8 public verification directions, evidence grade, confidence, source/snapshot refs, failure taxonomy, and fail-closed review behavior without 116A active-conflict judgement, Stage5 rule hits, Stage6 product facts, customer-visible legal conclusions, real providers, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-115-stage3-real-parser-ocr-attachments completed and committed locally: 4eca3f3. It added Stage3 real parser carrier/readback seam for HTML/PDF/OCR/Word/Excel/unknown attachment handling, field slices, raw text, locators, confidence, parser audit, parse error taxonomy, and review flags while keeping parser output UNVERIFIED and not customer-visible.
-- PTL-I100-114-stage2-real-public-source-adapters completed and committed locally through final subpacket 114I: af13a96. The Stage2 public source adapter series now covers 114A-114I allowlisted/sandbox public-source capture/readback without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114I-industry-authority-filing-pages completed and committed locally: af13a96. It extended the Stage2 public source adapter seam for industry authority construction permit, contract filing, completion acceptance, and performance filing carriers, filing type, source coverage report, raw snapshot metadata, source health, retry/timeout/degrade, and fail-closed replay without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114H-tenderer-public-notice-pages completed and committed locally: 9e9c033. It extended the Stage2 public source adapter seam for tenderer/procurer/owner owner/correction/candidate/award-result notice carriers, authority lineage, notice type, weak-lineage degrade, raw snapshot metadata, source health, retry/timeout/degrade, and fail-closed replay without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114G-tender-agency-public-sites completed and committed locally: a4f71bb. It extended the Stage2 public source adapter seam for tender agency tender/correction/candidate/award-result notice carriers, agency lineage, notice type, raw snapshot metadata, source health, retry/timeout/degrade, and fail-closed replay without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114F-government-procurement-public-sites completed and committed locally: 3f6bf5f. It extended the Stage2 public source adapter seam for government procurement public site notice, result, and attachment carriers without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114E-national-enterprise-credit-publicity-system completed and committed locally: e93b503. It extended the Stage2 public source adapter seam for national enterprise credit publicity system public enterprise, registration, and abnormal-operation records without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114D-credit-china-public-records completed and committed locally: e75a461. It extended the Stage2 public source adapter seam for Credit China public credit, administrative penalty, and credit exception records without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114C-national-construction-market-platform completed and committed locally: 2c403d6. It extended the Stage2 public source adapter seam for national construction market platform public enterprise/personnel/project records without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114B-provincial-bidding-platforms completed and committed locally: 6b4f91b. It extended the Stage2 public source adapter seam for provincial bidding platform public notice/attachment sources without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-114A-local-public-resource-trading-centers completed and committed locally: 7de630d. It added Stage2 public source adapter seam, controlled sandbox transport, raw HTML/PDF/attachment snapshot metadata, object-storage-backed replay, source health, retry/timeout/rate-limit/degrade carriers, and public-boundary tests without private/gray collection, login/captcha/anti-bot bypass, uncontrolled live crawling, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-113-stage1-scheduler-production-loop completed and committed locally: ce733ba. It added Stage1 scheduler task creation, execution windows, H-01 authority consumption, durable queue readback, lease/retry/pause/resume/dead-letter, replay, audit refs, and explicit Stage2 handoff intent without executing real Stage2 fetch, private/gray collection, provider calls, outreach, payment, delivery, refund, automated refund, external release, or push.
-- PTL-I100-112F-monitoring-alerting-readiness completed and committed locally: 0fe9212. It added internal monitoring / alerting / incident readiness, persistence/readback, and stale-ref fail-closed behavior without connecting external observability/APM/paging providers, sending real alerts, running incident automation, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
-- PTL-I100-112E-backup-restore-rollback-readiness completed and committed locally: bea524b. It added local backup manifest, restore dry-run, rollback readiness, and audit/readback projection without connecting external backup services, performing destructive restore, running migration, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
-- PTL-I100-112D-docker-compose-health-readiness completed and committed locally: c8ace6f. It added Docker/Compose local stack definition and health/readiness projection without running containers, connecting external services, executing migration, opening real provider calls, real outreach, real payment, real delivery, real refund, automated refund execution, external release, or push.
-- PTL-I100-112C-object-storage-snapshot-durability completed and committed locally: 52d2ad3.
-- PTL-I100-112B-production-queue-worker-durability completed and committed locally: 1f2471d.
-- PTL-I100-112A-production-platform-storage-seam completed and committed locally: e3870ab.
-- PTL-I100-ACCEPTANCE-CHECKLIST-SYNC completed and committed locally: 421816d.
-- PTL-I100-111F-open-capability-registry-route-doc-sync completed and committed locally: 1c403c7.
+- PTL-I100-120-operator-customer-access-and-go-live-readiness completed and committed locally: 5bd558d.
+- PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund completed and committed locally: 0ab2dba.
+- PTL-I100-111C-crm-quote-and-delivery-page-adapters completed and committed locally: 7af8966.
+- PTL-I100-111B-sales-outreach-adapter-execution completed and committed locally: 5642cb4.
+- PTL-I100-111E-provider-reliability-and-circuit-breaker completed and committed locally: 1a1233c.
+- PTL-I100-119-stage6-product-package-hardening completed and committed locally: 54112c8.
+- PTL-I100-119A-real-challenger-identification-hardening completed and committed locally: 56cd04e.
+- PTL-I100-117-rule-factory-expansion-and-golden-cases completed and committed locally: c073440.
+- PTL-I100-116A-project-manager-active-conflict-vertical-slice completed and committed locally: 7fba84a.
+- PTL-I100-116-stage4-public-verification-adapters completed and committed locally: 511cd30.
+- PTL-I100-115-stage3-real-parser-ocr-attachments completed and committed locally: 4eca3f3.
+- PTL-I100-114-stage2-real-public-source-adapters completed and committed locally through final subpacket 114I: af13a96.
+- PTL-I100-113-stage1-scheduler-production-loop completed and committed locally: ce733ba.
+- PTL-I100-112-production-platform-infrastructure completed through 112A-112F and committed locally: 0fe9212.
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5.
 
 Allowed Actions (current):
-- update Stage9 payment/delivery live pilot readiness/runtime/readback only inside control/current_task.yaml allowed paths for 121B
-- update provider reliability/config readback only as needed to enforce 121B payment/delivery pilot gates; do not output plaintext credentials
-- update API/bootstrap/repository readback surfaces only as needed for 121B payment, delivery, settlement, reconciliation, failure, rollback, and manual refund exception readback
-- update control/product_module_registry.yaml only if new API/storage/test files must be registered
-- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, control/product_module_registry.yaml, and control/product_acceptance_checklist.yaml for 121B status
-- update targeted tests listed in control/current_task.yaml
+- update production SLO, monitoring, alerting, incident, backup/restore drill, rollback drill, suspended-state operation, API/bootstrap, repository readback, module registry, and targeted tests only inside control/current_task.yaml allowed paths for 121C
+- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, control/product_module_registry.yaml, and control/product_acceptance_checklist.yaml for 121C status
 - run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet
 
 Forbidden Actions (current):
@@ -90,21 +70,15 @@ Forbidden Actions (current):
 - Any handoff/** change
 - Any scripts/** change
 - Any fixtures/** change
-- Any Stage1, Stage2, Stage3, Stage4, Stage5, Stage6, Stage7, or Stage8 business runtime change
-- Any Stage9 change outside the current_task allowed pilot/readback paths
-- Any storage change outside the narrow repository/readback paths allowed by current_task.yaml
-- Any contracts file
-- Any src/storage/models/** change
-- Any docker compose up, container execution, live deployment, migration, or unauthorized production DB connection
-- Any private/gray source collection, login bypass, captcha bypass, anti-bot bypass, source allowlist bypass, uncontrolled live crawling, or new source collection
+- Any Stage1, Stage2, Stage3, Stage4, Stage5, Stage6, Stage7, Stage8, or Stage9 business runtime change
 - Any schema/enum/gate/exception semantic addition
-- Any provider readiness treated as approval to execute live without dedicated pilot approval/audit/operator action
-- Any Stage7/Stage8/Stage9 execution bypass
+- Any external APM/paging/notification provider connection or real alert dispatch
+- Any incident automation, destructive restore, real rollback, migration, docker compose up, live deployment, or unauthorized production DB connection
+- Any private/gray source collection, login bypass, captcha bypass, anti-bot bypass, source allowlist bypass, uncontrolled live crawling, or new source collection
 - Any true external/live provider call during implementation or tests
 - Any real outreach send during implementation or tests
 - Any real payment capture, live charge, payment callback execution, delivery fulfillment, customer download, refund, or automated refund during implementation or tests
 - Any real LeadPack external delivery or client-visible formal export/page release
-- Any real touch, payment, delivery, or refund
 - Any automated refund program
 - Any push
 
@@ -115,26 +89,25 @@ State Semantics:
 - control/current_task.yaml is the only active execution source.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
-- PTL-I100-112 is completed through 112A-112F; production/live pilots still require later dedicated packets.
-- PTL-I100-113, PTL-I100-114A through PTL-I100-114I, PTL-I100-115, PTL-I100-116, PTL-I100-116A, PTL-I100-117, PTL-I100-119A, PTL-I100-119, PTL-I100-111E, PTL-I100-111B, PTL-I100-111C, PTL-I100-111D, PTL-I100-120, and PTL-I100-121A are completed; PTL-I100-121B is active as the gated payment/delivery live pilot packet without automated refund. PTL-I100-121C and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
+- PTL-I100-112 through PTL-I100-121B are completed; PTL-I100-121C is active as the production SLO monitoring incident readiness packet. PTL-I100-118 remains a registered task-pool candidate and is not active until control/current_task.yaml explicitly activates it.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
-- External release remains blocked; Stage8 real execution is limited to the completed 121A gated pilot path and must not run in development/tests; Stage9 payment/delivery is limited to the 121B gated pilot path and must not run in development/tests; real refund and automated refund remain blocked/excluded.
+- External release remains blocked; Stage8 real execution is limited to the completed 121A gated pilot path and must not run in development/tests; Stage9 payment/delivery is limited to the completed 121B gated pilot path and must not run in development/tests; real refund and automated refund remain blocked/excluded.
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v
-- python -m unittest tests.test_internal_chain.TestInternalChain -v
-- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
+- python -m unittest tests.test_production_slo_incident_readiness -v
+- python -m unittest tests.test_storage_concurrency -v
 - python -m unittest tests.test_api_transport_bootstrap -v
+- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_provider_adapter_config -v
 - python -m unittest tests.test_operator_customer_access -v
 - python -m unittest tests.test_product_operability_gap_matrix -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage9_delivery/**'',''src/shared/provider_adapter_config.py'',''src/api/**'',''src/storage/repository_bundle_io.py'',''src/storage/repository_boundary.py'',''src/storage/repositories/order_record_repo.py'',''src/storage/repositories/payment_record_repo.py'',''src/storage/repositories/delivery_record_repo.py'',''src/storage/repositories/opportunity_outcome_event_repo.py'',''src/storage/repositories/governance_feedback_event_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_stage9_impact_executor.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_provider_adapter_config.py'',''tests/test_operator_customer_access.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/shared/settings.py'',''src/api/**'',''src/storage/production_infra_readiness.py'',''src/storage/monitoring_alerting.py'',''src/storage/production_slo_incident_readiness.py'',''src/storage/backup_restore.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/monitoring_alerting_repo.py'',''src/storage/repositories/backup_restore_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/production_slo_incident_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_production_slo_incident_readiness.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_provider_adapter_config.py'',''tests/test_operator_customer_access.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
