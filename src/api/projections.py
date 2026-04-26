@@ -31,6 +31,9 @@ from stage8_outreach.execution_outbox import (
     build_outbox_readiness_summary,
 )
 from stage9_delivery.order_payment_delivery_execution import (
+    DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
+    MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
+    PAYMENT_SANDBOX_RECORDS_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
     build_stage9_execution_ledger_readiness_summary,
@@ -1116,6 +1119,27 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
         if execution_ledger
         else {}
     )
+    payment_sandbox_records = dict(
+        payment.get(
+            PAYMENT_SANDBOX_RECORDS_INPUT_KEY,
+            execution_ledger.get(PAYMENT_SANDBOX_RECORDS_INPUT_KEY, {}),
+        )
+        or {}
+    )
+    delivery_sandbox_records = dict(
+        delivery.get(
+            DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
+            execution_ledger.get(DELIVERY_SANDBOX_RECORDS_INPUT_KEY, {}),
+        )
+        or {}
+    )
+    manual_refund_exception_record = dict(
+        payment.get(
+            MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
+            execution_ledger.get(MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY, {}),
+        )
+        or {}
+    )
     formal_records = {
         "order_record": order,
         "payment_record": payment,
@@ -1177,6 +1201,15 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
         "order_payment_delivery_execution_summary": stage9_execution_ledger_summary(execution_ledger)
         if execution_ledger
         else {},
+        "payment_sandbox_records": payment_sandbox_records,
+        "delivery_sandbox_records": delivery_sandbox_records,
+        "settlement_reconciliation_preview": {
+            "settlement_record": dict(payment_sandbox_records.get("settlement_record", {})),
+            "finance_reconciliation_record": dict(
+                payment_sandbox_records.get("finance_reconciliation_record", {})
+            ),
+        },
+        "manual_refund_exception_preview": manual_refund_exception_record,
         "_raw_records": [order, payment, delivery, outcome, governance],
     }
     envelope = _surface_envelope(
@@ -1195,6 +1228,9 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
     envelope["order_payment_delivery_execution_summary"] = (
         stage9_execution_ledger_summary(execution_ledger) if execution_ledger else {}
     )
+    envelope[PAYMENT_SANDBOX_RECORDS_INPUT_KEY] = payment_sandbox_records
+    envelope[DELIVERY_SANDBOX_RECORDS_INPUT_KEY] = delivery_sandbox_records
+    envelope[MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY] = manual_refund_exception_record
     return _attach_operational_context(envelope, bundle)
 
 

@@ -1792,6 +1792,26 @@ class TestInternalChain(unittest.TestCase):
             stage9.inputs.get("stage9_execution_ledger_readiness"),
         )
         self.assertEqual(
+            hydrated.inputs.get("payment_sandbox_provider_records"),
+            stage9.inputs.get("payment_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            hydrated.inputs.get("delivery_sandbox_provider_records"),
+            stage9.inputs.get("delivery_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            hydrated.inputs.get("manual_refund_exception_record"),
+            stage9.inputs.get("manual_refund_exception_record"),
+        )
+        self.assertEqual(
+            hydrated.record("payment_record").get("payment_sandbox_provider_records"),
+            stage9.record("payment_record").get("payment_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            hydrated.record("delivery_record").get("delivery_sandbox_provider_records"),
+            stage9.record("delivery_record").get("delivery_sandbox_provider_records"),
+        )
+        self.assertEqual(
             hydrated.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY),
             stage9.inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY),
         )

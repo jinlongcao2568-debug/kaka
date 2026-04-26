@@ -244,6 +244,56 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertIn("automated_refund_requested_but_blocked", ledger["blocked_reasons"])
         self.assertFalse(ledger["provider_adapter_readiness"]["real_provider_call_enabled"])
 
+    def test_stage9_provider_unhealthy_rate_limit_and_timeout_suspend_sandbox_records(self) -> None:
+        scenarios = (
+            (
+                {"KAKA_PAYMENT_COLLECTION_PROVIDER_HEALTH": "UNHEALTHY"},
+                "payment_gateway_adapter_state",
+                "payment_gateway_sandbox_record",
+                "provider_health_unhealthy_fail_closed",
+            ),
+            (
+                {"KAKA_PAYMENT_COLLECTION_PROVIDER_RATE_LIMITED": "true"},
+                "payment_gateway_adapter_state",
+                "payment_gateway_sandbox_record",
+                "provider_rate_limited_fail_closed",
+            ),
+            (
+                {"KAKA_PAYMENT_COLLECTION_PROVIDER_TIMEOUT": "true"},
+                "payment_gateway_adapter_state",
+                "payment_gateway_sandbox_record",
+                "provider_timeout_fail_closed",
+            ),
+            (
+                {"KAKA_LEADPACK_DELIVERY_PROVIDER_HEALTH": "UNHEALTHY"},
+                "delivery_execution_adapter_state",
+                "delivery_provider_sandbox_record",
+                "provider_health_unhealthy_fail_closed",
+            ),
+        )
+
+        for env, adapter_state_key, record_key, expected_reason in scenarios:
+            with self.subTest(env=env):
+                with patch.dict("os.environ", env, clear=False):
+                    stage9 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage9"]
+
+                ledger = stage9.inputs["stage9_execution_ledger"]
+                record_source = (
+                    stage9.record("delivery_record")
+                    if record_key == "delivery_provider_sandbox_record"
+                    else stage9.record("payment_record")
+                )
+                carrier = record_source.get(record_key)
+                provider_payload = carrier.get("delivery_provider") or carrier.get("gateway_provider")
+
+                self.assertEqual(ledger[adapter_state_key]["state"], "SUSPENDED")
+                self.assertEqual(provider_payload["provider_reliability_state"], "SUSPENDED")
+                self.assertTrue(provider_payload["provider_adapter_suspended"])
+                self.assertFalse(provider_payload["real_provider_call_enabled"])
+                self.assertFalse(provider_payload["live_fallback_allowed"])
+                self.assertIn(expected_reason, carrier["blocked_reasons"])
+                self.assertIn("provider_suspended_fail_closed_no_live_fallback", ledger["blocked_reasons"])
+
     def test_provider_circuit_breaker_fail_closed_is_shared_across_stage7_to_stage9(self) -> None:
         with patch.dict("os.environ", {"KAKA_PROVIDER_ADAPTER_CIRCUIT_OPEN": "true"}, clear=False):
             result = run_internal_chain(load_fixture("internal_chain_happy.json"))

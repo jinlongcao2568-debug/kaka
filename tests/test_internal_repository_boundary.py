@@ -1067,6 +1067,26 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             ledger_entry.writeback_state["refund_execution_state"],
             ledger["refund_execution_state"],
         )
+        self.assertEqual(
+            payment_entry.payload["payment_sandbox_provider_records"],
+            payment.get("payment_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            delivery_entry.payload["delivery_sandbox_provider_records"],
+            delivery.get("delivery_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            ledger_entry.payload["payment_gateway_sandbox_record"],
+            payment.get("payment_gateway_sandbox_record"),
+        )
+        self.assertEqual(
+            ledger_entry.payload["delivery_provider_sandbox_record"],
+            delivery.get("delivery_provider_sandbox_record"),
+        )
+        self.assertEqual(
+            ledger_entry.payload["manual_refund_exception_record"],
+            payment.get("manual_refund_exception_record"),
+        )
 
         replay = list_orders({"opportunity_id": order.get("opportunity_id")})
         self.assertEqual(
@@ -1114,6 +1134,26 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["stage9_execution_ledger_readiness"]["automated_refund_enabled"],
             False,
+        )
+        self.assertEqual(
+            replay["payment_sandbox_provider_records"],
+            payment.get("payment_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            replay["delivery_sandbox_provider_records"],
+            delivery.get("delivery_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            replay["manual_refund_exception_record"],
+            payment.get("manual_refund_exception_record"),
+        )
+        self.assertEqual(
+            replay["preview_projection"]["settlement_reconciliation_preview"]["settlement_record"],
+            payment.get("settlement_record"),
+        )
+        self.assertEqual(
+            replay["preview_projection"]["manual_refund_exception_preview"],
+            payment.get("manual_refund_exception_record"),
         )
         self.assertEqual(
             replay[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"],

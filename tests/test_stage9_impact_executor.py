@@ -1024,6 +1024,11 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         ledger = stage9.inputs["stage9_execution_ledger"]
         readiness = stage9.inputs["stage9_execution_ledger_readiness"]
         provider_summary = stage9.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
+        payment_record = stage9.record("payment_record")
+        delivery_record = stage9.record("delivery_record")
+        payment_sandbox = payment_record.get("payment_sandbox_provider_records")
+        delivery_sandbox = delivery_record.get("delivery_sandbox_provider_records")
+        manual_refund = payment_record.get("manual_refund_exception_record")
 
         self.assertEqual(ledger["order_id"], stage9.record("order_record").get("order_id"))
         self.assertEqual(provider_summary["provider_reliability_state"], "APPROVAL_READY")
@@ -1044,8 +1049,57 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         self.assertTrue(ledger["delivery_recording_enabled"])
         self.assertFalse(ledger["real_payment_gateway_enabled"])
         self.assertFalse(ledger["real_charge_attempted"])
+        self.assertFalse(ledger["real_delivery_attempted"])
         self.assertFalse(ledger["real_refund_attempted"])
         self.assertFalse(ledger["automated_refund_enabled"])
+        self.assertEqual(
+            payment_sandbox["payment_gateway_sandbox_record"]["gateway_execution_state"],
+            "SANDBOX_RECORDED",
+        )
+        self.assertEqual(
+            payment_sandbox["charge_status_callback_sandbox_record"]["sandbox_execution_state"],
+            "SANDBOX_RECORDED",
+        )
+        self.assertFalse(
+            payment_sandbox["charge_status_callback_sandbox_record"]["payment_capture_enabled"]
+        )
+        self.assertFalse(
+            payment_sandbox["charge_status_callback_sandbox_record"]["real_charge_attempted"]
+        )
+        self.assertTrue(payment_sandbox["receipt_record"]["replayable"])
+        self.assertTrue(payment_sandbox["invoice_record"]["replayable"])
+        self.assertEqual(
+            payment_sandbox["settlement_record"]["manual_settlement_state"],
+            "RECORDED",
+        )
+        self.assertEqual(
+            payment_sandbox["finance_reconciliation_record"]["reconciliation_state"],
+            "MATCHED",
+        )
+        self.assertEqual(
+            delivery_sandbox["delivery_provider_sandbox_record"]["provider_execution_state"],
+            "SANDBOX_RECORDED",
+        )
+        self.assertFalse(
+            delivery_sandbox["delivery_provider_sandbox_record"]["real_delivery_fulfillment_attempted"]
+        )
+        self.assertTrue(delivery_sandbox["delivery_version_lock_record"]["version_locked"])
+        self.assertEqual(delivery_sandbox["delivery_hash_record"]["hash_algorithm"], "sha256")
+        self.assertTrue(delivery_sandbox["delivery_audit_record"]["replayable"])
+        self.assertTrue(manual_refund["manual_refund_exception_required"])
+        self.assertEqual(manual_refund["approval_record"]["approval_state"], "PENDING_MANUAL_APPROVAL")
+        self.assertEqual(manual_refund["audit_record"]["audit_state"], "RECORDED")
+        self.assertFalse(manual_refund["automated_refund_program"]["enabled"])
+        self.assertFalse(manual_refund["real_refund_attempted"])
+        self.assertEqual(
+            ledger["payment_gateway_sandbox_record"],
+            payment_sandbox["payment_gateway_sandbox_record"],
+        )
+        self.assertEqual(
+            ledger["delivery_provider_sandbox_record"],
+            delivery_sandbox["delivery_provider_sandbox_record"],
+        )
+        self.assertEqual(ledger["manual_refund_exception_record"], manual_refund)
         self.assertIn("real_payment_gateway_requested_but_blocked", ledger["blocked_reasons"])
         self.assertIn("real_charge_requested_but_blocked", ledger["blocked_reasons"])
         self.assertIn("automated_refund_requested_but_blocked", ledger["blocked_reasons"])
@@ -1059,6 +1113,18 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         self.assertEqual(readiness["provider_reliability_state"], "APPROVAL_READY")
         self.assertEqual(readiness["provider_circuit_breaker_state"], "CLOSED")
         self.assertTrue(readiness["provider_status_replayable"])
+        self.assertEqual(readiness["payment_gateway_sandbox_state"], "SANDBOX_RECORDED")
+        self.assertEqual(readiness["delivery_provider_sandbox_state"], "SANDBOX_RECORDED")
+        self.assertTrue(readiness["receipt_replayable"])
+        self.assertTrue(readiness["invoice_replayable"])
+        self.assertTrue(readiness["settlement_reconciliation_readiness"]["replayable"])
+        self.assertEqual(
+            readiness["manual_refund_exception_readiness"]["manual_refund_exception_state"],
+            "MANUAL_REVIEW_REQUIRED",
+        )
+        self.assertFalse(
+            readiness["manual_refund_exception_readiness"]["automated_refund_program_present"]
+        )
 
 
 if __name__ == "__main__":

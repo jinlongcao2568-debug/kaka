@@ -20,9 +20,15 @@ from stage9_delivery.feedback_writeback import (
 )
 from stage9_delivery.impact_executor import ImpactExecutor
 from stage9_delivery.order_payment_delivery_execution import (
+    DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
+    MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
+    PAYMENT_SANDBOX_RECORDS_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
+    attach_delivery_sandbox_records,
+    attach_order_lifecycle_record,
+    attach_payment_sandbox_records,
     build_stage9_execution_ledger,
 )
 from stage9_delivery.typed_lifecycle import (
@@ -681,6 +687,11 @@ class Stage9Service:
         if order_semantic:
             runtime_state.add_semantic_validation(order_semantic)
             apply_order_decision_projection(order_spec.payload, order_semantic.decision_state)
+        attach_order_lifecycle_record(
+            order_spec.payload,
+            runtime_inputs=runtime_inputs,
+            now=now,
+        )
         order_record = self.store.build_record(order_spec.object_type, order_spec.payload)
 
         payment_spec = build_payment_record_spec(
@@ -719,6 +730,12 @@ class Stage9Service:
         if payment_semantic:
             runtime_state.add_semantic_validation(payment_semantic)
             apply_payment_decision_projection(payment_spec.payload, payment_semantic.decision_state)
+        attach_payment_sandbox_records(
+            payment_spec.payload,
+            runtime_inputs=runtime_inputs,
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary,
+            now=now,
+        )
         payment_record = self.store.build_record(payment_spec.object_type, payment_spec.payload)
 
         delivery_spec = build_delivery_record_spec(
@@ -765,6 +782,11 @@ class Stage9Service:
         if delivery_semantic:
             runtime_state.add_semantic_validation(delivery_semantic)
             apply_delivery_decision_projection(delivery_spec.payload, delivery_semantic.decision_state)
+        attach_delivery_sandbox_records(
+            delivery_spec.payload,
+            provider_adapter_readiness_summary=provider_adapter_readiness_summary,
+            now=now,
+        )
         delivery_record = self.store.build_record(delivery_spec.object_type, delivery_spec.payload)
         execution_ledger = build_stage9_execution_ledger(
             project_id=project_id,
@@ -897,6 +919,11 @@ class Stage9Service:
         handoff["order_execution_id"] = execution_ledger.get("order_execution_id")
         handoff["payment_execution_id"] = execution_ledger.get("payment_execution_id")
         handoff["delivery_execution_id"] = execution_ledger.get("delivery_execution_id")
+        handoff[PAYMENT_SANDBOX_RECORDS_INPUT_KEY] = payment_record.get(PAYMENT_SANDBOX_RECORDS_INPUT_KEY)
+        handoff[DELIVERY_SANDBOX_RECORDS_INPUT_KEY] = delivery_record.get(DELIVERY_SANDBOX_RECORDS_INPUT_KEY)
+        handoff[MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY] = payment_record.get(
+            MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY
+        )
         inputs_out = build_feedback_inputs(
             runtime_inputs=runtime_inputs,
             projection=writeback_projection,
@@ -911,6 +938,11 @@ class Stage9Service:
         inputs_out["order_execution_id"] = execution_ledger.get("order_execution_id")
         inputs_out["payment_execution_id"] = execution_ledger.get("payment_execution_id")
         inputs_out["delivery_execution_id"] = execution_ledger.get("delivery_execution_id")
+        inputs_out[PAYMENT_SANDBOX_RECORDS_INPUT_KEY] = payment_record.get(PAYMENT_SANDBOX_RECORDS_INPUT_KEY)
+        inputs_out[DELIVERY_SANDBOX_RECORDS_INPUT_KEY] = delivery_record.get(DELIVERY_SANDBOX_RECORDS_INPUT_KEY)
+        inputs_out[MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY] = payment_record.get(
+            MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY
+        )
 
         return StageBundle(
             stage=9,

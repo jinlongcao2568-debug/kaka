@@ -22,6 +22,9 @@ from stage7_sales.leadpack_delivery_package import (
     leadpack_delivery_package_summary,
 )
 from stage9_delivery.order_payment_delivery_execution import (
+    DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
+    MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
+    PAYMENT_SANDBOX_RECORDS_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
@@ -199,6 +202,9 @@ STAGE_INPUT_FIELDS = {
         STAGE9_EXECUTION_LEDGER_INPUT_KEY,
         STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
         STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY,
+        PAYMENT_SANDBOX_RECORDS_INPUT_KEY,
+        DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
+        MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
         "order_execution_id",
         "payment_execution_id",
         "delivery_execution_id",

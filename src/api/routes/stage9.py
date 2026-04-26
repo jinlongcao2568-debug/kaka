@@ -64,6 +64,36 @@ STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
         "real_refund_attempted": False,
         "automated_refund_enabled": False,
     },
+    "payment_sandbox_provider_records": {
+        "readback_ready": True,
+        "gateway_record_enabled": True,
+        "charge_status_callback_record_enabled": True,
+        "receipt_record_enabled": True,
+        "invoice_record_enabled": True,
+        "real_charge_enabled": False,
+        "payment_capture_enabled": False,
+        "real_provider_call_enabled": False,
+        "live_fallback_allowed": False,
+    },
+    "delivery_sandbox_provider_records": {
+        "readback_ready": True,
+        "provider_record_enabled": True,
+        "artifact_download_record_enabled": True,
+        "version_lock_enabled": True,
+        "delivery_hash_enabled": True,
+        "delivery_audit_enabled": True,
+        "real_delivery_enabled": False,
+        "real_provider_call_enabled": False,
+        "live_fallback_allowed": False,
+    },
+    "manual_refund_exception_record": {
+        "readback_ready": True,
+        "manual_exception_enabled": True,
+        "manual_approval_audit_enabled": True,
+        "automated_refund_program_present": False,
+        "automated_refund_enabled": False,
+        "real_refund_enabled": False,
+    },
 }
 
 

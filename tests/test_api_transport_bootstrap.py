@@ -658,6 +658,25 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(mounted_by_id["previewStage6ReviewReportWorkbench"]["stage_scope"], 6)
         self.assertEqual(mounted_by_id["listSaleableOpportunities"]["stage_scope"], 7)
         self.assertEqual(mounted_by_id["listContactTargets"]["stage_scope"], 8)
+        self.assertIn("createPaymentRecord", mounted_by_id)
+        self.assertIn("createDeliveryRecord", mounted_by_id)
+        self.assertTrue(
+            mounted_by_id["createPaymentRecord"]["payment_sandbox_provider_records"]["readback_ready"]
+        )
+        self.assertFalse(
+            mounted_by_id["createPaymentRecord"]["payment_sandbox_provider_records"]["payment_capture_enabled"]
+        )
+        self.assertTrue(
+            mounted_by_id["createDeliveryRecord"]["delivery_sandbox_provider_records"]["version_lock_enabled"]
+        )
+        self.assertFalse(
+            mounted_by_id["createDeliveryRecord"]["delivery_sandbox_provider_records"]["real_delivery_enabled"]
+        )
+        self.assertFalse(
+            mounted_by_id["createPaymentRecord"]["manual_refund_exception_record"][
+                "automated_refund_enabled"
+            ]
+        )
         self.assertEqual(mounted_by_id["listOrders"]["stage_scope"], 9)
         self.assertTrue(mounted_by_id["listContactTargets"]["blocked_by_default"])
         self.assertTrue(
@@ -1536,6 +1555,28 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(payload["stage9_execution_ledger_readiness"]["payment_recording_enabled"])
         self.assertTrue(payload["stage9_execution_ledger_readiness"]["delivery_recording_enabled"])
         self.assertFalse(payload["stage9_execution_ledger_readiness"]["automated_refund_enabled"])
+        self.assertEqual(
+            payload["payment_sandbox_provider_records"],
+            stage9.record("payment_record").get("payment_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            payload["delivery_sandbox_provider_records"],
+            stage9.record("delivery_record").get("delivery_sandbox_provider_records"),
+        )
+        self.assertEqual(
+            payload["manual_refund_exception_record"],
+            stage9.record("payment_record").get("manual_refund_exception_record"),
+        )
+        self.assertFalse(
+            payload["payment_sandbox_provider_records"]["charge_status_callback_sandbox_record"][
+                "payment_capture_enabled"
+            ]
+        )
+        self.assertFalse(
+            payload["delivery_sandbox_provider_records"]["delivery_provider_sandbox_record"][
+                "real_delivery_fulfillment_attempted"
+            ]
+        )
         self.assertFalse(
             payload["order_payment_delivery_execution_summary"]["real_payment_gateway_enabled"]
         )
