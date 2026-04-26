@@ -30,9 +30,18 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         package = stage7.inputs["leadpack_delivery_package"]
 
         self.assertEqual(provider_summary["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertEqual(provider_summary["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(provider_summary["provider_circuit_breaker_state"], "CLOSED")
+        self.assertTrue(provider_summary["provider_reliability_summary"]["health_check_visible"])
+        self.assertTrue(provider_summary["provider_reliability_summary"]["circuit_breaker_visible"])
+        self.assertFalse(provider_summary["provider_reliability_summary"]["live_fallback_allowed"])
         self.assertFalse(provider_summary["real_provider_call_enabled"])
         self.assertEqual(workbench[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY], provider_summary)
         self.assertEqual(package[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY], provider_summary)
+        self.assertEqual(workbench["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(package["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(workbench["provider_circuit_breaker_state"], "CLOSED")
+        self.assertEqual(package["provider_circuit_breaker_state"], "CLOSED")
         self.assertFalse(workbench["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertFalse(package["provider_adapter_readiness"]["real_provider_call_enabled"])
 

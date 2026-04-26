@@ -70,6 +70,9 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(outbox.get("blocked_reasons")))
     vendor_state = dict(outbox.get("vendor_adapter_state", {}))
     provider_readiness = dict(outbox.get("provider_adapter_readiness", {}))
+    provider_circuit_breaker = dict(provider_readiness.get("provider_circuit_breaker", {}))
+    provider_failure_taxonomy = dict(provider_readiness.get("provider_failure_taxonomy", {}))
+    provider_status_readback = dict(provider_readiness.get("provider_status_readback", {}))
     retry_state = dict(outbox.get("retry_state", {}))
     stop_state = dict(outbox.get("stop_state", {}))
     return {
@@ -93,6 +96,11 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
         "provider_adapter_config_source": outbox.get("provider_adapter_config_source"),
         "provider_adapter_mode": outbox.get("provider_adapter_mode"),
         "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": bool(provider_readiness.get("provider_adapter_suspended", False)),
+        "provider_circuit_breaker_state": provider_circuit_breaker.get("state"),
+        "provider_failure_class": provider_failure_taxonomy.get("failure_class"),
+        "provider_status_replayable": bool(provider_status_readback.get("replayable", True)),
         "provider_call_enabled": False,
         "real_provider_call_enabled": False,
     }
@@ -144,6 +152,9 @@ def build_outreach_execution_outbox_payload(
     execution_decision = str(execution_vendor_trace.get("decision_state", "ALLOW"))
     vendor_state = _state_from_decision(execution_decision)
     if vendor_connection_requested:
+        vendor_state = "BLOCKED"
+    provider_suspended = bool(provider_readiness.get("provider_adapter_suspended", False))
+    if provider_suspended:
         vendor_state = "BLOCKED"
 
     approval_missing = action_intent in {"APPROVAL_EXECUTION", "LIVE_EXECUTION"} and approval_state != "APPROVED"
@@ -239,6 +250,11 @@ def build_outreach_execution_outbox_payload(
             "provider_id": provider_readiness.get("provider_id"),
             "provider_mode": provider_readiness.get("mode"),
             "provider_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+            "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+            "provider_adapter_suspended": provider_suspended,
+            "provider_circuit_breaker_state": dict(
+                provider_readiness.get("provider_circuit_breaker", {})
+            ).get("state"),
             "provider_call_enabled": False,
             "real_provider_call_enabled": False,
         },
@@ -299,6 +315,11 @@ def build_outreach_execution_outbox_payload(
         "provider_adapter_readiness": provider_readiness,
         "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
         "provider_adapter_mode": provider_readiness.get("mode"),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": provider_suspended,
+        "provider_circuit_breaker_state": dict(provider_readiness.get("provider_circuit_breaker", {})).get("state"),
+        "provider_failure_taxonomy": dict(provider_readiness.get("provider_failure_taxonomy", {})),
+        "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
         "requested_action_intent": action_intent,
         "requested_live_execution": requested_live,
         "channel_vendor_boundary": {
@@ -309,6 +330,8 @@ def build_outreach_execution_outbox_payload(
             "real_provider_receipt_allowed": False,
             "provider_adapter_family": "sales_outreach",
             "provider_id": provider_readiness.get("provider_id"),
+            "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+            "provider_adapter_suspended": provider_suspended,
             "provider_call_enabled": False,
             "real_provider_call_enabled": False,
             "allowed_adapter_scope": "INTERNAL_OUTBOX_CARRIER_ONLY",

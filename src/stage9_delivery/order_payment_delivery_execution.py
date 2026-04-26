@@ -113,6 +113,9 @@ def _approval_audit_state(
 def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(ledger.get("blocked_reasons")))
     provider_readiness = dict(ledger.get("provider_adapter_readiness", {}))
+    provider_circuit_breaker = dict(provider_readiness.get("provider_circuit_breaker", {}))
+    provider_failure_taxonomy = dict(provider_readiness.get("provider_failure_taxonomy", {}))
+    provider_status_readback = dict(provider_readiness.get("provider_status_readback", {}))
     return {
         "execution_ledger_id": ledger.get("execution_ledger_id"),
         "order_execution_id": ledger.get("order_execution_id"),
@@ -140,6 +143,11 @@ def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -
         "provider_adapter_config_source": ledger.get("provider_adapter_config_source"),
         "provider_adapter_mode": ledger.get("provider_adapter_mode"),
         "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": bool(provider_readiness.get("provider_adapter_suspended", False)),
+        "provider_circuit_breaker_state": provider_circuit_breaker.get("state"),
+        "provider_failure_class": provider_failure_taxonomy.get("failure_class"),
+        "provider_status_replayable": bool(provider_status_readback.get("replayable", True)),
         "provider_call_enabled": False,
         "real_provider_call_enabled": False,
     }
@@ -184,6 +192,7 @@ def build_stage9_execution_ledger(
         provider_adapter_readiness_summary,
         "payment_collection",
     )
+    provider_suspended = bool(provider_readiness.get("provider_adapter_suspended", False))
     order_id = str(order_record.get("order_id"))
     payment_id = str(payment_record.get("payment_id"))
     delivery_id = str(delivery_record.get("delivery_id"))
@@ -307,10 +316,15 @@ def build_stage9_execution_ledger(
         "provider_adapter_readiness": provider_readiness,
         "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
         "provider_adapter_mode": provider_readiness.get("mode"),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": provider_suspended,
+        "provider_circuit_breaker_state": dict(provider_readiness.get("provider_circuit_breaker", {})).get("state"),
+        "provider_failure_taxonomy": dict(provider_readiness.get("provider_failure_taxonomy", {})),
+        "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
         "provider_call_enabled": False,
         "real_provider_call_enabled": False,
         "payment_gateway_adapter_state": {
-            "state": "BLOCKED",
+            "state": "SUSPENDED" if provider_suspended else "BLOCKED",
             "adapter_scope": "SANDBOX_DRY_RUN_READBACK_ONLY",
             "real_payment_gateway_enabled": False,
             "real_charge_attempted": False,
@@ -318,6 +332,8 @@ def build_stage9_execution_ledger(
             "provider_id": provider_readiness.get("provider_id"),
             "provider_mode": provider_readiness.get("mode"),
             "provider_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+            "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+            "provider_adapter_suspended": provider_suspended,
             "provider_call_enabled": False,
             "real_provider_call_enabled": False,
         },

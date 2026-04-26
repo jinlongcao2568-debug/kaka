@@ -746,7 +746,12 @@ class Stage7Service:
                 "current_action_deadline_at_optional": current_action_deadline_at_optional,
             },
         }
-        provider_adapter_readiness_summary = self.settings.provider_adapter_readiness_summary()
+        input_provider_adapter_readiness_summary = inputs.get(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY)
+        provider_adapter_readiness_summary = (
+            dict(input_provider_adapter_readiness_summary)
+            if isinstance(input_provider_adapter_readiness_summary, Mapping)
+            else self.settings.provider_adapter_readiness_summary()
+        )
         crm_quote_prerequisite_readiness = build_crm_quote_prerequisite_readiness_carrier(
             sales_lead=sales_lead,
             saleable_opportunity=saleable_opportunity,

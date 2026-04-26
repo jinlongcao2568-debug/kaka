@@ -1008,7 +1008,14 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertFalse(outbox["live_execution_enabled"])
         self.assertFalse(outbox["real_send_attempted"])
         self.assertFalse(outbox["channel_vendor_boundary"]["real_provider_receipt_allowed"])
-        self.assertEqual(stage8.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"], "SANDBOX_DRY_RUN_READBACK")
+        provider_summary = stage8.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
+        self.assertEqual(provider_summary["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertEqual(provider_summary["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(provider_summary["provider_circuit_breaker_state"], "CLOSED")
+        self.assertFalse(provider_summary["provider_reliability_summary"]["live_fallback_allowed"])
+        self.assertEqual(outbox["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(outbox["provider_circuit_breaker_state"], "CLOSED")
+        self.assertFalse(outbox["provider_adapter_suspended"])
         self.assertFalse(outbox["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertIn("live_execution_requested_but_blocked", outbox["blocked_reasons"])
         self.assertIn("approval_state=PENDING", outbox["blocked_reasons"])
@@ -1017,6 +1024,9 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertIn("external_vendor_connection_disabled", outbox["blocked_reasons"])
         self.assertFalse(readiness["ready_for_real_send"])
         self.assertFalse(readiness["real_send_attempted"])
+        self.assertEqual(readiness["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(readiness["provider_circuit_breaker_state"], "CLOSED")
+        self.assertTrue(readiness["provider_status_replayable"])
 
     def test_stage8_governed_execution_outbox_carries_quiet_retry_stop_and_unknown_vendor(self) -> None:
         feedback = _feedback_mapping("WRONG_ROLE")

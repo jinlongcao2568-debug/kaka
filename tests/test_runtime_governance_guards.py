@@ -4,6 +4,7 @@ import copy
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -242,6 +243,51 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertIn("real_refund_requested_but_blocked", ledger["blocked_reasons"])
         self.assertIn("automated_refund_requested_but_blocked", ledger["blocked_reasons"])
         self.assertFalse(ledger["provider_adapter_readiness"]["real_provider_call_enabled"])
+
+    def test_provider_circuit_breaker_fail_closed_is_shared_across_stage7_to_stage9(self) -> None:
+        with patch.dict("os.environ", {"KAKA_PROVIDER_ADAPTER_CIRCUIT_OPEN": "true"}, clear=False):
+            result = run_internal_chain(load_fixture("internal_chain_happy.json"))
+
+        stage7 = result["stage7"]
+        stage8 = result["stage8"]
+        stage9 = result["stage9"]
+        provider_summary = stage9.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
+
+        self.assertEqual(
+            stage7.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY],
+            provider_summary,
+        )
+        self.assertEqual(
+            stage8.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY],
+            provider_summary,
+        )
+        self.assertEqual(provider_summary["provider_reliability_state"], "SUSPENDED")
+        self.assertEqual(provider_summary["provider_circuit_breaker_state"], "OPEN")
+        self.assertTrue(provider_summary["provider_adapter_suspended"])
+        self.assertEqual(
+            set(provider_summary["provider_adapter_suspended_families"]),
+            {"sales_outreach", "crm_quote", "leadpack_page_delivery", "payment_collection"},
+        )
+        self.assertFalse(provider_summary["provider_reliability_summary"]["live_fallback_allowed"])
+        self.assertIn("provider_circuit_open_fail_closed", provider_summary["blocked_reasons"])
+
+        workbench = stage7.inputs["crm_quote_workbench"]
+        package = stage7.inputs["leadpack_delivery_package"]
+        outbox = stage8.inputs["outreach_execution_outbox_snapshot"]
+        ledger = stage9.inputs["stage9_execution_ledger"]
+
+        self.assertEqual(workbench["provider_adapter_readiness"]["readiness_state"], "SUSPENDED")
+        self.assertEqual(package["provider_adapter_readiness"]["readiness_state"], "SUSPENDED")
+        self.assertEqual(outbox["provider_adapter_readiness"]["readiness_state"], "SUSPENDED")
+        self.assertEqual(ledger["provider_adapter_readiness"]["readiness_state"], "SUSPENDED")
+        self.assertEqual(workbench["owner_action_state"], "BLOCKED")
+        self.assertEqual(workbench["quote_surface_state"], "BLOCKED")
+        self.assertEqual(outbox["vendor_adapter_state"]["state"], "BLOCKED")
+        self.assertEqual(ledger["payment_gateway_adapter_state"]["state"], "SUSPENDED")
+        for carrier in (workbench, package, outbox, ledger):
+            self.assertTrue(carrier["provider_adapter_suspended"])
+            self.assertEqual(carrier["provider_circuit_breaker_state"], "OPEN")
+            self.assertFalse(carrier["provider_adapter_readiness"]["real_provider_call_enabled"])
 
     def test_stage7_crm_and_external_quote_live_requests_remain_blocked(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

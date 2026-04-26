@@ -1026,8 +1026,14 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         provider_summary = stage9.inputs[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
 
         self.assertEqual(ledger["order_id"], stage9.record("order_record").get("order_id"))
+        self.assertEqual(provider_summary["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(provider_summary["provider_circuit_breaker_state"], "CLOSED")
+        self.assertFalse(provider_summary["provider_reliability_summary"]["live_fallback_allowed"])
         self.assertFalse(provider_summary["real_provider_call_enabled"])
         self.assertFalse(provider_summary["automated_refund_program"]["enabled"])
+        self.assertEqual(ledger["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(ledger["provider_circuit_breaker_state"], "CLOSED")
+        self.assertFalse(ledger["provider_adapter_suspended"])
         self.assertFalse(ledger["provider_adapter_readiness"]["real_provider_call_enabled"])
         self.assertEqual(ledger["payment_id"], stage9.record("payment_record").get("payment_id"))
         self.assertEqual(ledger["delivery_id"], stage9.record("delivery_record").get("delivery_id"))
@@ -1050,6 +1056,9 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         self.assertTrue(readiness["refund_manual_exception_enabled"])
         self.assertFalse(readiness["ready_for_real_payment_gateway"])
         self.assertFalse(readiness["automated_refund_enabled"])
+        self.assertEqual(readiness["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(readiness["provider_circuit_breaker_state"], "CLOSED")
+        self.assertTrue(readiness["provider_status_replayable"])
 
 
 if __name__ == "__main__":

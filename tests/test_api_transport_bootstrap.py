@@ -557,6 +557,11 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(bootstrap["live_execution_enabled"])
         self.assertIn("provider_adapter_bootstrap", bootstrap)
         self.assertEqual(bootstrap["provider_adapter_mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertEqual(bootstrap["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(bootstrap["provider_circuit_breaker_state"], "CLOSED")
+        self.assertFalse(bootstrap["provider_adapter_suspended"])
+        self.assertTrue(bootstrap["provider_status_replayable"])
+        self.assertTrue(bootstrap["provider_reliability_summary"]["circuit_breaker_visible"])
         self.assertFalse(
             bootstrap["provider_adapter_bootstrap"]["provider_adapter_live_execution_enabled"]
         )
@@ -570,6 +575,10 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(
             app.state.provider_adapter_config_readback.payload["mode"],
             "SANDBOX_DRY_RUN_READBACK",
+        )
+        self.assertEqual(
+            app.state.provider_adapter_config_readback.governed_state["provider_reliability_state"],
+            "APPROVAL_READY",
         )
 
         disabled_registry = bootstrap["stage1_to_stage5_transport_state"]
@@ -629,6 +638,9 @@ class TestApiTransportBootstrap(unittest.TestCase):
             self.assertFalse(operation["live_execution_enabled"])
             if operation["stage_scope"] in (7, 8, 9):
                 self.assertEqual(operation["provider_adapter_mode"], "SANDBOX_DRY_RUN_READBACK")
+                self.assertEqual(operation["provider_reliability_state"], "APPROVAL_READY")
+                self.assertEqual(operation["provider_circuit_breaker_state"], "CLOSED")
+                self.assertFalse(operation["provider_adapter_suspended"])
                 self.assertFalse(operation["provider_adapter_live_execution_enabled"])
                 self.assertFalse(operation["provider_adapter_real_provider_call_enabled"])
                 self.assertIn(PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY, operation)
@@ -658,6 +670,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(leadpack_candidate["review_only"])
         self.assertFalse(leadpack_candidate["external_delivery_enabled"])
         self.assertFalse(leadpack_candidate["direct_export_enabled"])
+
         self.assertFalse(leadpack_candidate["external_ready_direct_export"])
         self.assertFalse(leadpack_candidate["customer_visible_export_enabled"])
         self.assertFalse(leadpack_candidate["client_page_release_enabled"])
@@ -900,6 +913,43 @@ class TestApiTransportBootstrap(unittest.TestCase):
             app.state.monitoring_alerting_readback.payload["readiness_id"],
             "MONITORING_ALERTING_READINESS_CURRENT",
         )
+
+    def test_provider_circuit_breaker_status_is_visible_in_api_bootstrap_and_route_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "LOCALAPPDATA": tmp_dir,
+                    "KAKA_PROVIDER_ADAPTER_CIRCUIT_OPEN": "true",
+                },
+                clear=False,
+            ):
+                get_settings.cache_clear()
+                app = create_app()
+                try:
+                    bootstrap = app.state.transport_bootstrap
+                    mounted_by_id = {
+                        operation["operationId"]: operation
+                        for operation in bootstrap["stage6_to_stage9_mounted_operations"]
+                    }
+                    provider_readback = app.state.provider_adapter_config_readback
+                finally:
+                    app.state.storage_session.close()
+
+        self.assertEqual(bootstrap["provider_reliability_state"], "SUSPENDED")
+        self.assertEqual(bootstrap["provider_circuit_breaker_state"], "OPEN")
+        self.assertTrue(bootstrap["provider_adapter_suspended"])
+        self.assertEqual(set(bootstrap["provider_adapter_suspended_families"]), set(PROVIDER_FAMILIES))
+        self.assertTrue(bootstrap["provider_reliability_summary"]["replayable_provider_status"])
+        self.assertFalse(bootstrap["provider_reliability_summary"]["live_fallback_allowed"])
+        self.assertEqual(provider_readback.governed_state["provider_reliability_state"], "SUSPENDED")
+        self.assertEqual(provider_readback.governed_state["provider_circuit_breaker_state"], "OPEN")
+        for operation_id in ("listSaleableOpportunities", "listContactTargets", "listOrders"):
+            operation = mounted_by_id[operation_id]
+            self.assertEqual(operation["provider_reliability_state"], "SUSPENDED")
+            self.assertEqual(operation["provider_circuit_breaker_state"], "OPEN")
+            self.assertTrue(operation["provider_adapter_suspended"])
+            self.assertFalse(operation["provider_adapter_real_provider_call_enabled"])
 
     def test_create_app_fast_fails_postgres_without_database_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -87,8 +87,21 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "provider_adapter_live_execution_enabled",
     "provider_adapter_provider_call_enabled",
     "provider_adapter_real_provider_call_enabled",
+    "provider_reliability_state",
+    "provider_circuit_breaker_state",
+    "provider_adapter_suspended",
+    "provider_adapter_suspended_families",
+    "provider_status_replayable",
+    "provider_reliability_summary",
+    "provider_status_readback",
+    "provider_credential_redaction_audit",
     "provider_adapter_blocked_reasons",
     "provider_adapter_approval_audit_prerequisites",
+    "provider_adapter_families_consumed",
+    "crm_quote_provider_adapter_readiness",
+    "leadpack_page_delivery_provider_adapter_readiness",
+    "sales_outreach_provider_adapter_readiness",
+    "payment_collection_provider_adapter_readiness",
     PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
     "accepted_payload_boundary",
     "repository_backed_readback",
@@ -285,6 +298,18 @@ def _build_transport_bootstrap(
         "provider_adapter_bootstrap": dict(provider_adapter_bootstrap),
         "provider_adapter_config_source": provider_adapter_bootstrap.get("provider_adapter_config_source"),
         "provider_adapter_mode": provider_adapter_bootstrap.get("provider_adapter_mode"),
+        "provider_reliability_state": provider_adapter_bootstrap.get("provider_reliability_state"),
+        "provider_circuit_breaker_state": provider_adapter_bootstrap.get("provider_circuit_breaker_state"),
+        "provider_adapter_suspended": bool(provider_adapter_bootstrap.get("provider_adapter_suspended", False)),
+        "provider_adapter_suspended_families": list(
+            provider_adapter_bootstrap.get("provider_adapter_suspended_families", [])
+        ),
+        "provider_status_replayable": bool(provider_adapter_bootstrap.get("provider_status_replayable", True)),
+        "provider_reliability_summary": dict(provider_adapter_bootstrap.get("provider_reliability_summary", {})),
+        "provider_status_readback": dict(provider_adapter_bootstrap.get("provider_status_readback", {})),
+        "provider_credential_redaction_audit": dict(
+            provider_adapter_bootstrap.get("provider_credential_redaction_audit", {})
+        ),
         "provider_adapter_blocked_reasons": list(
             provider_adapter_bootstrap.get("provider_adapter_blocked_reasons", [])
         ),
@@ -430,6 +455,24 @@ def _build_transport_bootstrap(
                 "incident_automation_enabled": False,
                 "manual_owner_action_required": True,
             },
+            "provider_adapter": {
+                "current_entry": "sandbox dry-run provider readiness and circuit breaker readback",
+                "provider_reliability_state": provider_adapter_bootstrap.get("provider_reliability_state"),
+                "provider_circuit_breaker_state": provider_adapter_bootstrap.get("provider_circuit_breaker_state"),
+                "provider_adapter_suspended": bool(
+                    provider_adapter_bootstrap.get("provider_adapter_suspended", False)
+                ),
+                "provider_adapter_suspended_families": list(
+                    provider_adapter_bootstrap.get("provider_adapter_suspended_families", [])
+                ),
+                "replayable_provider_status": bool(
+                    provider_adapter_bootstrap.get("provider_status_replayable", True)
+                ),
+                "readback_only": True,
+                "provider_call_enabled": False,
+                "real_provider_call_enabled": False,
+                "live_fallback_allowed": False,
+            },
         },
         "redlines": {
             "new_http_endpoint_added": False,
@@ -447,6 +490,8 @@ def _build_transport_bootstrap(
             "provider_adapter_live_execution_enabled": False,
             "provider_adapter_provider_call_enabled": False,
             "provider_adapter_real_provider_call_enabled": False,
+            "provider_adapter_silent_live_fallback_enabled": False,
+            "provider_adapter_circuit_breaker_bypass_enabled": False,
             "redis_connection_enabled": False,
             "external_queue_connection_enabled": False,
             "external_worker_process_enabled": False,

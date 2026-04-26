@@ -133,6 +133,9 @@ def _quote_surface_state(*, offer_state: Any, requested_external_quote: bool) ->
 def build_crm_quote_workbench_readiness_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(carrier.get("blocked_reasons")))
     provider_readiness = dict(carrier.get("provider_adapter_readiness", {}))
+    provider_circuit_breaker = dict(provider_readiness.get("provider_circuit_breaker", {}))
+    provider_failure_taxonomy = dict(provider_readiness.get("provider_failure_taxonomy", {}))
+    provider_status_readback = dict(provider_readiness.get("provider_status_readback", {}))
     return {
         "opportunity_id": carrier.get("opportunity_id"),
         "crm_action_id": carrier.get("crm_action_id"),
@@ -154,6 +157,11 @@ def build_crm_quote_workbench_readiness_summary(carrier: Mapping[str, Any]) -> d
         "provider_adapter_config_source": carrier.get("provider_adapter_config_source"),
         "provider_adapter_mode": carrier.get("provider_adapter_mode"),
         "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": bool(provider_readiness.get("provider_adapter_suspended", False)),
+        "provider_circuit_breaker_state": provider_circuit_breaker.get("state"),
+        "provider_failure_class": provider_failure_taxonomy.get("failure_class"),
+        "provider_status_replayable": bool(provider_status_readback.get("replayable", True)),
         "provider_call_enabled": False,
         "real_provider_call_enabled": False,
     }
@@ -190,6 +198,7 @@ def build_crm_quote_workbench_carrier(
     unknown_vendor = bool(requested_vendor_id and requested_vendor_id not in _INTERNAL_ONLY_VENDOR_IDS)
     offer_state = offer_recommendation.get("offer_recommendation_state")
     saleability_status = saleable_opportunity.get("saleability_status")
+    provider_suspended = bool(provider_readiness.get("provider_adapter_suspended", False))
 
     approval_missing = approval_state not in {"APPROVED", "NOT_REQUIRED"}
     if requested_external_quote or requested_live_crm or requested_live_execution:
@@ -206,6 +215,10 @@ def build_crm_quote_workbench_carrier(
         requested_external_quote=requested_external_quote,
     )
     vendor_state = "BLOCKED" if unknown_vendor or vendor_connection_requested else "READY"
+    if provider_suspended:
+        owner_action_state = "BLOCKED"
+        quote_surface_state = "BLOCKED"
+        vendor_state = "BLOCKED"
 
     blocked_reasons: list[Any] = [
         "internal_governed_owner_operated_workbench_only",
@@ -261,6 +274,11 @@ def build_crm_quote_workbench_carrier(
             "provider_id": provider_readiness.get("provider_id"),
             "provider_mode": provider_readiness.get("mode"),
             "provider_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
+            "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+            "provider_adapter_suspended": provider_suspended,
+            "provider_circuit_breaker_state": dict(
+                provider_readiness.get("provider_circuit_breaker", {})
+            ).get("state"),
             "provider_call_enabled": False,
             "real_provider_call_enabled": False,
         },
@@ -276,6 +294,11 @@ def build_crm_quote_workbench_carrier(
         "provider_adapter_readiness": provider_readiness,
         "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
         "provider_adapter_mode": provider_readiness.get("mode"),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": provider_suspended,
+        "provider_circuit_breaker_state": dict(provider_readiness.get("provider_circuit_breaker", {})).get("state"),
+        "provider_failure_taxonomy": dict(provider_readiness.get("provider_failure_taxonomy", {})),
+        "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
         "governed_execution_mode": governed_metadata["governed_execution_mode"],
         "readiness_only": True,
         "draft_only": True,

@@ -116,6 +116,9 @@ def _evidence_item(
 def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(carrier.get("blocked_reasons")))
     provider_readiness = dict(carrier.get("provider_adapter_readiness", {}))
+    provider_circuit_breaker = dict(provider_readiness.get("provider_circuit_breaker", {}))
+    provider_failure_taxonomy = dict(provider_readiness.get("provider_failure_taxonomy", {}))
+    provider_status_readback = dict(provider_readiness.get("provider_status_readback", {}))
     return {
         "package_id": carrier.get("package_id"),
         "opportunity_id": carrier.get("opportunity_id"),
@@ -142,6 +145,11 @@ def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dic
         "provider_adapter_config_source": carrier.get("provider_adapter_config_source"),
         "provider_adapter_mode": carrier.get("provider_adapter_mode"),
         "provider_adapter_readback_only": bool(provider_readiness.get("readback_only", True)),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": bool(provider_readiness.get("provider_adapter_suspended", False)),
+        "provider_circuit_breaker_state": provider_circuit_breaker.get("state"),
+        "provider_failure_class": provider_failure_taxonomy.get("failure_class"),
+        "provider_status_replayable": bool(provider_status_readback.get("replayable", True)),
         "provider_call_enabled": False,
         "real_provider_call_enabled": False,
     }
@@ -181,6 +189,9 @@ def build_leadpack_delivery_package_carrier(
         saleability_status=saleability_status,
         offer_state=offer_state,
     )
+    provider_suspended = bool(provider_readiness.get("provider_adapter_suspended", False))
+    if provider_suspended:
+        package_state = "PACKET_HELD"
     page_state = "PAGE_DRAFT_ONLY"
     delivery_state = _delivery_state(package_state=package_state)
 
@@ -422,6 +433,11 @@ def build_leadpack_delivery_package_carrier(
         "provider_adapter_readiness": provider_readiness,
         "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
         "provider_adapter_mode": provider_readiness.get("mode"),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": provider_suspended,
+        "provider_circuit_breaker_state": dict(provider_readiness.get("provider_circuit_breaker", {})).get("state"),
+        "provider_failure_taxonomy": dict(provider_readiness.get("provider_failure_taxonomy", {})),
+        "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
         "provider_call_enabled": False,
         "real_provider_call_enabled": False,
         "package_manifest": package_manifest,
