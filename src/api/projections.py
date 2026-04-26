@@ -937,6 +937,11 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
             "real_external_quote_sent": bool(workbench.get("real_external_quote_sent", False)),
             "blocked_reasons": list(workbench.get("blocked_reasons", [])),
             "governed_execution_mode": workbench.get("governed_execution_mode"),
+            "crm_sandbox_sync_records": dict(workbench.get("crm_sandbox_sync_records", {})),
+            "quote_sandbox_record": dict(workbench.get("quote_sandbox_record", {})),
+            "deal_tracking_record": dict(workbench.get("deal_tracking_record", {})),
+            "sales_followup_record": dict(workbench.get("sales_followup_record", {})),
+            "sandbox_adapter_execution": dict(workbench.get("sandbox_adapter_execution", {})),
         },
         "crm_quote_workbench_readiness_summary": workbench_summary,
         "leadpack_delivery_package_preview": leadpack_delivery_package_summary(leadpack_package)
@@ -966,6 +971,12 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
         "customer_visible_enabled": False,
         "external_delivery_enabled": False,
         "page_publication_enabled": False,
+        "customer_visible_artifact_candidate": dict(
+            leadpack_package.get("customer_visible_artifact_candidate", {})
+        ),
+        "page_export_candidate": dict(leadpack_package.get("page_export_candidate", {})),
+        "download_audit": dict(leadpack_package.get("download_audit", {})),
+        "export_page_replay": dict(leadpack_package.get("export_page_replay", {})),
     }
     return _attach_operational_context(envelope, bundle)
 
@@ -1420,6 +1431,12 @@ def _leadpack_candidate_surface_core(
         "customer_visible_enabled": False,
         "external_delivery_enabled": False,
         "page_publication_enabled": False,
+        "customer_visible_artifact_candidate": dict(
+            leadpack_package.get("customer_visible_artifact_candidate", {})
+        ),
+        "page_export_candidate": dict(leadpack_package.get("page_export_candidate", {})),
+        "download_audit": dict(leadpack_package.get("download_audit", {})),
+        "export_page_replay": dict(leadpack_package.get("export_page_replay", {})),
     }
     candidate_readback_summary = {
         "readback_ready": True,
@@ -1436,6 +1453,13 @@ def _leadpack_candidate_surface_core(
         "package_id": leadpack_package.get("package_id"),
         "page_draft_id": leadpack_package.get("page_draft_id"),
         "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
+        "artifact_version_hash": leadpack_package.get("artifact_version_hash"),
+        "download_audit_id": dict(leadpack_package.get("download_audit", {})).get("download_audit_id"),
+        "export_page_replay_id": dict(leadpack_package.get("export_page_replay", {})).get("replay_id"),
+        "customer_visible_artifact_candidate_state": dict(
+            leadpack_package.get("customer_visible_artifact_candidate", {})
+        ).get("candidate_state"),
+        "page_export_candidate_state": dict(leadpack_package.get("page_export_candidate", {})).get("candidate_state"),
         "delivery_state": leadpack_package.get("delivery_state"),
         "blocked_reason_count": len(blocked_reasons),
         "hold_reason_count": len(hold_reasons),
@@ -2275,6 +2299,12 @@ def build_formal_client_export_page_layer_readiness_surface(
         "customer_visible_enabled": False,
         "external_delivery_enabled": False,
         "page_publication_enabled": False,
+        "customer_visible_artifact_candidate": dict(
+            leadpack_package.get("customer_visible_artifact_candidate", {})
+        ),
+        "page_export_candidate": dict(leadpack_package.get("page_export_candidate", {})),
+        "download_audit": dict(leadpack_package.get("download_audit", {})),
+        "export_page_replay": dict(leadpack_package.get("export_page_replay", {})),
     }
     source_readiness_refs = {
         "leadpack_candidate": {
@@ -2365,6 +2395,15 @@ def build_formal_client_export_page_layer_readiness_surface(
         "package_manifest": dict(leadpack_package.get("package_manifest", {})),
         "evidence_item_manifest": dict(leadpack_package.get("evidence_item_manifest", {})),
         "field_masking_summary": dict(leadpack_package.get("field_masking_summary", {})),
+        "field_policy": dict(leadpack_package.get("field_policy", {})),
+        "watermark": dict(leadpack_package.get("watermark", {})),
+        "artifact_version_hash": leadpack_package.get("artifact_version_hash"),
+        "download_audit": dict(leadpack_package.get("download_audit", {})),
+        "export_page_replay": dict(leadpack_package.get("export_page_replay", {})),
+        "customer_visible_artifact_candidate": dict(
+            leadpack_package.get("customer_visible_artifact_candidate", {})
+        ),
+        "page_export_candidate": dict(leadpack_package.get("page_export_candidate", {})),
         "page_draft": dict(leadpack_package.get("page_draft", {})),
         "delivery_readiness_summary": dict(
             leadpack_package.get("delivery_readiness_summary", leadpack_delivery_summary)

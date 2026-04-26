@@ -615,9 +615,33 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(workbench_entry.payload["quote_draft_id"], workbench["quote_draft_id"])
         self.assertFalse(workbench_entry.payload["live_execution_enabled"])
         self.assertFalse(workbench_entry.payload["real_external_quote_sent"])
+        self.assertEqual(
+            set(workbench_entry.payload["crm_sandbox_sync_records"]),
+            {"account", "opportunity", "activity"},
+        )
+        self.assertEqual(
+            workbench_entry.payload["quote_sandbox_record"]["quote_sandbox_record_id"],
+            workbench["quote_sandbox_record"]["quote_sandbox_record_id"],
+        )
+        self.assertEqual(
+            workbench_entry.payload["deal_tracking_record"]["deal_tracking_record_id"],
+            workbench["deal_tracking_record"]["deal_tracking_record_id"],
+        )
         self.assertEqual(package_entry.payload["page_draft_id"], package["page_draft_id"])
         self.assertFalse(package_entry.payload["customer_visible_enabled"])
         self.assertFalse(package_entry.payload["external_delivery_enabled"])
+        self.assertEqual(
+            package_entry.payload["artifact_version_hash"],
+            package["artifact_version_hash"],
+        )
+        self.assertEqual(
+            package_entry.payload["download_audit"]["download_audit_id"],
+            package["download_audit"]["download_audit_id"],
+        )
+        self.assertEqual(
+            package_entry.payload["export_page_replay"]["replay_id"],
+            package["export_page_replay"]["replay_id"],
+        )
 
         replay = list_saleable_opportunities({"opportunity_id": opportunity.get("opportunity_id")})
         self.assertEqual(
@@ -665,6 +689,10 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             workbench["crm_action_id"],
         )
         self.assertEqual(
+            replay["crm_quote_workbench"]["quote_sandbox_record"]["quote_sandbox_record_id"],
+            workbench["quote_sandbox_record"]["quote_sandbox_record_id"],
+        )
+        self.assertEqual(
             replay["crm_quote_workbench_readiness_summary"]["quote_draft_id"],
             workbench["quote_draft_id"],
         )
@@ -675,6 +703,14 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["leadpack_delivery_readiness_summary"]["page_draft_id"],
             package["page_draft_id"],
+        )
+        self.assertEqual(
+            replay["leadpack_delivery_readiness_summary"]["artifact_version_hash"],
+            package["artifact_version_hash"],
+        )
+        self.assertEqual(
+            replay["package_page_delivery_summary"]["download_audit"]["download_audit_id"],
+            package["download_audit"]["download_audit_id"],
         )
         self.assertFalse(replay["leadpack_delivery_readiness_summary"]["delivery_ready"])
         self.assertEqual(
@@ -699,8 +735,16 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             workbench["quote_draft_id"],
         )
         self.assertEqual(
+            hydrated.inputs["crm_quote_workbench"]["crm_sandbox_sync_records"]["activity"]["sandbox_sync_record_id"],
+            workbench["crm_sandbox_sync_records"]["activity"]["sandbox_sync_record_id"],
+        )
+        self.assertEqual(
             hydrated.inputs["leadpack_delivery_package"]["artifact_manifest_id"],
             package["artifact_manifest_id"],
+        )
+        self.assertEqual(
+            hydrated.inputs["leadpack_delivery_package"]["artifact_version_hash"],
+            package["artifact_version_hash"],
         )
 
     def test_stage8_repository_boundary_keeps_governed_writeback_state(self) -> None:

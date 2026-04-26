@@ -66,6 +66,11 @@ class Stage7CrmQuoteWorkbenchCarrier(TypedDict, total=False):
     real_crm_receipt_generated: bool
     customer_visible_quote_generated: bool
     customer_visible_delivery_package_generated: bool
+    crm_sandbox_sync_records: dict[str, Any]
+    quote_sandbox_record: dict[str, Any]
+    deal_tracking_record: dict[str, Any]
+    sales_followup_record: dict[str, Any]
+    sandbox_adapter_execution: dict[str, Any]
     blocked_reasons: list[str]
     governed_execution_mode: str
     readiness_summary: dict[str, Any]
@@ -88,6 +93,13 @@ class LeadpackDeliveryPackageCarrier(TypedDict, total=False):
     package_manifest: dict[str, Any]
     evidence_item_manifest: dict[str, Any]
     field_masking_summary: dict[str, Any]
+    field_policy: dict[str, Any]
+    watermark: dict[str, Any]
+    artifact_version_hash: str
+    download_audit: dict[str, Any]
+    export_page_replay: dict[str, Any]
+    customer_visible_artifact_candidate: dict[str, Any]
+    page_export_candidate: dict[str, Any]
     page_draft: dict[str, Any]
     delivery_readiness_summary: dict[str, Any]
 
@@ -262,6 +274,13 @@ class FormalClientExportPageLayerReadinessResponse(TypedDict, total=False):
     package_manifest: dict[str, Any]
     evidence_item_manifest: dict[str, Any]
     field_masking_summary: dict[str, Any]
+    field_policy: dict[str, Any]
+    watermark: dict[str, Any]
+    artifact_version_hash: str
+    download_audit: dict[str, Any]
+    export_page_replay: dict[str, Any]
+    customer_visible_artifact_candidate: dict[str, Any]
+    page_export_candidate: dict[str, Any]
     page_draft: dict[str, Any]
     delivery_readiness_summary: dict[str, Any]
     package_page_delivery_summary: dict[str, Any]

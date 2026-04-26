@@ -1433,6 +1433,19 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                 "real_external_quote_sent": bool(workbench.get("real_external_quote_sent", False)),
                 "governed_execution_mode": workbench.get("governed_execution_mode"),
                 "blocked_reasons": list(workbench.get("blocked_reasons", [])),
+                "sandbox_adapter_execution": dict(workbench.get("sandbox_adapter_execution", {})),
+                "crm_sandbox_sync_record_count": len(
+                    dict(workbench.get("crm_sandbox_sync_records", {}))
+                ),
+                "quote_sandbox_record_id": dict(workbench.get("quote_sandbox_record", {})).get(
+                    "quote_sandbox_record_id"
+                ),
+                "deal_tracking_record_id": dict(workbench.get("deal_tracking_record", {})).get(
+                    "deal_tracking_record_id"
+                ),
+                "callback_task_id": dict(workbench.get("sales_followup_record", {})).get(
+                    "callback_task_id"
+                ),
             }
             readiness = bundle.inputs.get(CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY)
             if isinstance(readiness, Mapping):
@@ -1442,6 +1455,23 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
             governed_context["leadpack_delivery_package_summary"] = leadpack_delivery_package_summary(
                 leadpack_package
             )
+            governed_context["leadpack_customer_artifact_candidate_summary"] = {
+                "artifact_version_hash": leadpack_package.get("artifact_version_hash"),
+                "customer_visible_artifact_candidate_state": dict(
+                    leadpack_package.get("customer_visible_artifact_candidate", {})
+                ).get("candidate_state"),
+                "page_export_candidate_state": dict(
+                    leadpack_package.get("page_export_candidate", {})
+                ).get("candidate_state"),
+                "download_audit_id": dict(leadpack_package.get("download_audit", {})).get(
+                    "download_audit_id"
+                ),
+                "export_page_replay_id": dict(leadpack_package.get("export_page_replay", {})).get(
+                    "replay_id"
+                ),
+                "customer_visible_enabled": False,
+                "external_delivery_enabled": False,
+            }
             readiness = bundle.inputs.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY)
             if isinstance(readiness, Mapping):
                 governed_context["leadpack_delivery_readiness_summary"] = dict(readiness)

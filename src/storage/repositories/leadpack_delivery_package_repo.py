@@ -67,6 +67,19 @@ class LeadpackDeliveryPackageRepository:
                 object_type = source.get("object_type")
                 if object_id not in (None, "", "UNKNOWN") and object_type:
                     refs[f"{object_type}_id"] = str(object_id)
+        for nested_key in (
+            "watermark",
+            "download_audit",
+            "export_page_replay",
+            "customer_visible_artifact_candidate",
+            "page_export_candidate",
+        ):
+            nested = payload.get(nested_key)
+            if isinstance(nested, Mapping):
+                for key, value in nested.items():
+                    if key.endswith("_id") or key.endswith("_id_optional"):
+                        if value not in (None, "", "UNKNOWN"):
+                            refs[key] = str(value)
         return refs
 
     def _collect_named_values(self, payload: Mapping[str, Any], *, include_token: str) -> dict[str, str]:
@@ -101,6 +114,15 @@ class LeadpackDeliveryPackageRepository:
             "external_release_enabled": bool(payload.get("external_release_enabled", False)),
             "page_publication_enabled": bool(payload.get("page_publication_enabled", False)),
             "readiness_summary": dict(payload.get("readiness_summary", {})),
+            "field_policy": dict(payload.get("field_policy", {})),
+            "watermark": dict(payload.get("watermark", {})),
+            "artifact_version_hash": payload.get("artifact_version_hash"),
+            "download_audit": dict(payload.get("download_audit", {})),
+            "export_page_replay": dict(payload.get("export_page_replay", {})),
+            "customer_visible_artifact_candidate": dict(
+                payload.get("customer_visible_artifact_candidate", {})
+            ),
+            "page_export_candidate": dict(payload.get("page_export_candidate", {})),
         }
 
     def _coerce_optional(self, value: Any) -> str | None:

@@ -58,6 +58,26 @@ class CRMQuoteWorkbenchRepository:
                 if key.endswith("_id") or key.endswith("_id_optional"):
                     if value not in (None, "", "UNKNOWN"):
                         refs[key] = str(value)
+        for nested_key in (
+            "quote_sandbox_record",
+            "deal_tracking_record",
+            "sales_followup_record",
+            "sandbox_adapter_execution",
+        ):
+            nested = payload.get(nested_key)
+            if isinstance(nested, Mapping):
+                for key, value in nested.items():
+                    if key.endswith("_id") or key.endswith("_id_optional"):
+                        if value not in (None, "", "UNKNOWN"):
+                            refs[key] = str(value)
+        crm_records = payload.get("crm_sandbox_sync_records")
+        if isinstance(crm_records, Mapping):
+            for target, record in crm_records.items():
+                if not isinstance(record, Mapping):
+                    continue
+                record_id = record.get("sandbox_sync_record_id")
+                if record_id not in (None, "", "UNKNOWN"):
+                    refs[f"crm_{target}_sandbox_sync_record_id"] = str(record_id)
         return refs
 
     def _collect_named_values(self, payload: Mapping[str, Any], *, include_token: str) -> dict[str, str]:
@@ -85,6 +105,10 @@ class CRMQuoteWorkbenchRepository:
             "real_external_quote_sent": bool(payload.get("real_external_quote_sent", False)),
             "blocked_reasons": list(payload.get("blocked_reasons", [])),
             "readiness_summary": dict(payload.get("readiness_summary", {})),
+            "sandbox_adapter_execution": dict(payload.get("sandbox_adapter_execution", {})),
+            "quote_sandbox_record": dict(payload.get("quote_sandbox_record", {})),
+            "deal_tracking_record": dict(payload.get("deal_tracking_record", {})),
+            "sales_followup_record": dict(payload.get("sales_followup_record", {})),
         }
 
     def _coerce_optional(self, value: Any) -> str | None:

@@ -729,6 +729,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(package_readiness["package_manifest_visible"])
         self.assertTrue(package_readiness["evidence_item_manifest_visible"])
         self.assertTrue(package_readiness["field_masking_summary_visible"])
+        self.assertTrue(package_readiness["field_allowlist_blacklist_visible"])
+        self.assertTrue(package_readiness["customer_visible_artifact_candidate_visible"])
+        self.assertTrue(package_readiness["watermark_visible"])
+        self.assertTrue(package_readiness["artifact_version_hash_visible"])
+        self.assertTrue(package_readiness["download_audit_visible"])
+        self.assertTrue(package_readiness["export_page_replay_visible"])
         self.assertTrue(package_readiness["page_draft_visible"])
         self.assertTrue(package_readiness["delivery_readiness_visible"])
         self.assertFalse(package_readiness["customer_visible_enabled"])
@@ -1346,12 +1352,21 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(workbench_metadata["draft_only"])
         self.assertTrue(workbench_metadata["blocked_live"])
         self.assertTrue(workbench_metadata["repository_backed_readback"])
+        self.assertTrue(workbench_metadata["crm_account_sandbox_sync_record_visible"])
+        self.assertTrue(workbench_metadata["crm_opportunity_sandbox_sync_record_visible"])
+        self.assertTrue(workbench_metadata["crm_activity_sandbox_sync_record_visible"])
+        self.assertTrue(workbench_metadata["quote_sandbox_record_visible"])
+        self.assertTrue(workbench_metadata["deal_tracking_record_visible"])
+        self.assertTrue(workbench_metadata["sales_note_callback_record_visible"])
         self.assertEqual(workbench_metadata["governed_execution_mode"], "INTERNAL_GOVERNED")
         self.assertFalse(workbench_metadata["live_execution_enabled"])
         self.assertFalse(workbench_metadata["real_external_quote_sent"])
         package_metadata = mounted_by_id["listSaleableOpportunities"]["leadpack_delivery_package_readiness"]
         self.assertTrue(package_metadata["repository_backed_readback"])
         self.assertTrue(package_metadata["package_manifest_visible"])
+        self.assertTrue(package_metadata["customer_visible_artifact_candidate_visible"])
+        self.assertTrue(package_metadata["artifact_version_hash_visible"])
+        self.assertTrue(package_metadata["download_audit_visible"])
         self.assertTrue(package_metadata["page_draft_visible"])
         self.assertFalse(package_metadata["customer_visible_enabled"])
         self.assertFalse(package_metadata["external_delivery_enabled"])
@@ -1383,6 +1398,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
             body["crm_quote_workbench"]["quote_draft_id"],
             stage7.inputs["crm_quote_workbench"]["quote_draft_id"],
         )
+        self.assertEqual(
+            set(body["crm_quote_workbench"]["crm_sandbox_sync_records"]),
+            {"account", "opportunity", "activity"},
+        )
+        self.assertEqual(
+            body["crm_quote_workbench"]["quote_sandbox_record"]["quote_sandbox_record_id"],
+            stage7.inputs["crm_quote_workbench"]["quote_sandbox_record"]["quote_sandbox_record_id"],
+        )
         self.assertFalse(body["crm_quote_workbench"]["live_execution_enabled"])
         self.assertFalse(body["crm_quote_workbench"]["real_external_quote_sent"])
         self.assertEqual(
@@ -1392,6 +1415,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(
             body["leadpack_delivery_package"]["artifact_manifest_id"],
             stage7.inputs["leadpack_delivery_package"]["artifact_manifest_id"],
+        )
+        self.assertEqual(
+            body["leadpack_delivery_package"]["artifact_version_hash"],
+            stage7.inputs["leadpack_delivery_package"]["artifact_version_hash"],
+        )
+        self.assertEqual(
+            body["package_page_delivery_summary"]["export_page_replay"]["replay_id"],
+            stage7.inputs["leadpack_delivery_package"]["export_page_replay"]["replay_id"],
         )
         self.assertFalse(body["leadpack_delivery_readiness_summary"]["delivery_ready"])
 

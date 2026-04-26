@@ -69,6 +69,12 @@ LEADPACK_DELIVERY_PACKAGE_ROUTE_METADATA = {
         "package_manifest_visible": True,
         "evidence_item_manifest_visible": True,
         "field_masking_summary_visible": True,
+        "field_allowlist_blacklist_visible": True,
+        "customer_visible_artifact_candidate_visible": True,
+        "watermark_visible": True,
+        "artifact_version_hash_visible": True,
+        "download_audit_visible": True,
+        "export_page_replay_visible": True,
         "page_draft_visible": True,
         "delivery_readiness_visible": True,
         "customer_visible_enabled": False,
@@ -109,6 +115,12 @@ CRM_QUOTE_PREREQUISITE_ROUTE_METADATA = {
         "draft_only": True,
         "blocked_live": True,
         "repository_backed_readback": True,
+        "crm_account_sandbox_sync_record_visible": True,
+        "crm_opportunity_sandbox_sync_record_visible": True,
+        "crm_activity_sandbox_sync_record_visible": True,
+        "quote_sandbox_record_visible": True,
+        "deal_tracking_record_visible": True,
+        "sales_note_callback_record_visible": True,
         "governed_execution_mode": "INTERNAL_GOVERNED",
         "live_execution_enabled": False,
         "real_external_quote_sent": False,
@@ -313,7 +325,8 @@ def _attach_leadpack_delivery_package_readback(response: dict[str, Any], payload
             now=str(bundle.inputs.get("now") or ""),
             provider_adapter_readiness_summary=provider_summary if isinstance(provider_summary, Mapping) else None,
         )
-    response[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = dict(carrier)
+    carrier_payload = dict(carrier)
+    response[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = carrier_payload
     readiness_summary = bundle.inputs.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY)
     readiness = (
         dict(readiness_summary)
@@ -327,6 +340,12 @@ def _attach_leadpack_delivery_package_readback(response: dict[str, Any], payload
         "customer_visible_enabled": False,
         "external_delivery_enabled": False,
         "page_publication_enabled": False,
+        "customer_visible_artifact_candidate": dict(
+            carrier_payload.get("customer_visible_artifact_candidate", {})
+        ),
+        "page_export_candidate": dict(carrier_payload.get("page_export_candidate", {})),
+        "download_audit": dict(carrier_payload.get("download_audit", {})),
+        "export_page_replay": dict(carrier_payload.get("export_page_replay", {})),
     }
     return response
 

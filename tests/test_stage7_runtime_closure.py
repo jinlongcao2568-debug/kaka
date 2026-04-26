@@ -726,6 +726,42 @@ class TestStage7RuntimeClosure(unittest.TestCase):
             workbench["quote_draft_id"],
         )
 
+    def test_stage7_crm_quote_workbench_carries_sandbox_records(self) -> None:
+        stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
+        workbench = stage7.inputs["crm_quote_workbench"]
+        readiness = stage7.inputs["crm_quote_workbench_readiness_summary"]
+
+        crm_records = workbench["crm_sandbox_sync_records"]
+        self.assertEqual(set(crm_records), {"account", "opportunity", "activity"})
+        for target, record in crm_records.items():
+            self.assertEqual(record["sync_target"], target)
+            self.assertEqual(record["sandbox_execution_mode"], "SANDBOX_READBACK_ONLY")
+            self.assertEqual(record["sandbox_sync_state"], "SANDBOX_READBACK_READY")
+            self.assertFalse(record["real_crm_sync_enabled"])
+            self.assertFalse(record["real_crm_sync_executed"])
+            self.assertFalse(record["live_fallback_allowed"])
+
+        quote_record = workbench["quote_sandbox_record"]
+        self.assertEqual(quote_record["quote_draft_id"], workbench["quote_draft_id"])
+        self.assertEqual(quote_record["quote_sandbox_state"], "SANDBOX_READBACK_READY")
+        self.assertEqual(
+            quote_record["price_recommendation"]["recommended_quote_band"],
+            stage7.record("offer_recommendation").get("recommended_quote_band"),
+        )
+        self.assertIn("discount_approval_state", quote_record["discount_approval"])
+        self.assertEqual(quote_record["version"]["version_state"], "DRAFT_VERSION")
+        self.assertTrue(quote_record["approval"]["approval_required_before_external_quote"])
+        self.assertTrue(quote_record["audit"]["audit_required_before_external_quote"])
+        self.assertFalse(quote_record["expiration"]["external_quote_send_allowed"])
+        self.assertFalse(quote_record["real_provider_call_enabled"])
+
+        self.assertEqual(workbench["deal_tracking_record"]["deal_state"], "INTERNAL_TRACKING_ONLY")
+        self.assertEqual(workbench["sales_followup_record"]["callback_state"], "SANDBOX_CALLBACK_READY")
+        self.assertFalse(workbench["sales_followup_record"]["real_callback_dispatch_enabled"])
+        self.assertEqual(readiness["sandbox_execution_readiness"], "SANDBOX_READY")
+        self.assertEqual(readiness["crm_sandbox_sync_targets"], ["account", "opportunity", "activity"])
+        self.assertEqual(readiness["quote_sandbox_record_id"], quote_record["quote_sandbox_record_id"])
+
     def test_stage7_crm_quote_workbench_explains_approval_audit_and_vendor_blocks(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(
@@ -756,6 +792,62 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertIn("external_quote_request_blocked", workbench["blocked_reasons"])
         self.assertIn("live_crm_request_blocked", workbench["blocked_reasons"])
         self.assertIn("live_execution_requested_but_blocked", workbench["blocked_reasons"])
+
+    def test_stage7_crm_quote_provider_suspension_blocks_all_sandbox_records(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        provider_summary = {
+            "config_source": "test.provider",
+            "mode": "SANDBOX_DRY_RUN_READBACK",
+            "provider_reliability_state": "SUSPENDED",
+            "provider_circuit_breaker_state": "OPEN",
+            "provider_adapter_suspended": True,
+            "readback_only": True,
+            "real_provider_call_enabled": False,
+            "families": {
+                "crm_quote": {
+                    "family": "crm_quote",
+                    "readiness_state": "SUSPENDED",
+                    "provider_reliability_state": "SUSPENDED",
+                    "provider_adapter_suspended": True,
+                    "mode": "SANDBOX_DRY_RUN_READBACK",
+                    "readback_only": True,
+                    "real_provider_call_enabled": False,
+                    "provider_circuit_breaker": {"state": "OPEN", "open": True},
+                    "provider_failure_taxonomy": {"failure_class": "CIRCUIT_OPEN"},
+                    "provider_status_readback": {"replayable": True},
+                    "blocked_reasons": ["provider_circuit_open_fail_closed"],
+                },
+                "leadpack_page_delivery": {
+                    "family": "leadpack_page_delivery",
+                    "readiness_state": "SUSPENDED",
+                    "provider_reliability_state": "SUSPENDED",
+                    "provider_adapter_suspended": True,
+                    "mode": "SANDBOX_DRY_RUN_READBACK",
+                    "readback_only": True,
+                    "real_provider_call_enabled": False,
+                    "provider_circuit_breaker": {"state": "OPEN", "open": True},
+                    "provider_failure_taxonomy": {"failure_class": "CIRCUIT_OPEN"},
+                    "provider_status_readback": {"replayable": True},
+                    "blocked_reasons": ["provider_circuit_open_fail_closed"],
+                },
+            },
+        }
+        payload[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_summary
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+        workbench = stage7.inputs["crm_quote_workbench"]
+        package = stage7.inputs["leadpack_delivery_package"]
+
+        self.assertEqual(workbench["sandbox_adapter_execution"]["readiness_state"], "SUSPENDED")
+        self.assertEqual(workbench["quote_sandbox_record"]["quote_sandbox_state"], "SUSPENDED")
+        self.assertTrue(workbench["provider_adapter_suspended"])
+        self.assertIn("provider_adapter_suspended_fail_closed", workbench["blocked_reasons"])
+        for record in workbench["crm_sandbox_sync_records"].values():
+            self.assertEqual(record["sandbox_sync_state"], "SUSPENDED")
+            self.assertFalse(record["live_fallback_allowed"])
+        self.assertEqual(package["customer_visible_artifact_candidate"]["candidate_state"], "SUSPENDED")
+        self.assertEqual(package["export_page_replay"]["replay_state"], "SUSPENDED")
+        self.assertIn("provider_adapter_suspended_fail_closed", package["blocked_reasons"])
 
 
 if __name__ == "__main__":

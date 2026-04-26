@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any, Mapping
 
 from shared.provider_adapter_config import (
@@ -33,6 +35,30 @@ _REQUIRED_AUDIT_REFS = [
     "candidate_projection_audit_ref",
     "approval_chain_audit_ref",
     "trace_bundle_ref",
+]
+_CUSTOMER_VISIBLE_FIELD_ALLOWLIST = [
+    "opportunity_id",
+    "saleability_status",
+    "opportunity_grade",
+    "recommended_sku",
+    "offer_recommendation_state",
+    "sku_code",
+    "recommended_delivery_form",
+    "recommended_quote_band",
+    "buyer_type",
+    "fit_score",
+    "fit_reason_tags",
+]
+_CUSTOMER_VISIBLE_FIELD_BLACKLIST = [
+    "policy_trace",
+    "semantic_trace",
+    "governance_trace",
+    "internal_score_raw",
+    "outreach_plan",
+    "payment_record",
+    "delivery_record",
+    "governance_feedback_event",
+    "provider_credential",
 ]
 
 
@@ -113,12 +139,130 @@ def _evidence_item(
     }
 
 
+def _stable_version_hash(payload: Mapping[str, Any]) -> str:
+    serialized = json.dumps(payload, ensure_ascii=True, sort_keys=True, default=str, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _artifact_candidate_controls(
+    *,
+    project_id: str,
+    opportunity_id: str,
+    package_id: str,
+    evidence_pack_id: str,
+    page_draft_id: str,
+    artifact_manifest_id: str,
+    masking_state: str,
+    provider_suspended: bool,
+    inputs: Mapping[str, Any],
+    now: str,
+) -> dict[str, Any]:
+    field_policy = {
+        "field_allowlist": list(_CUSTOMER_VISIBLE_FIELD_ALLOWLIST),
+        "field_blacklist": list(_CUSTOMER_VISIBLE_FIELD_BLACKLIST),
+        "allowlist_enforced": True,
+        "blacklist_enforced": True,
+        "direct_object_export_allowed": False,
+        "internal_black_box_score_exposure_allowed": False,
+    }
+    watermark = {
+        "watermark_id": build_id("WATERMARK", project_id, opportunity_id),
+        "watermark_state": "APPLIED_TO_DRAFT",
+        "watermark_text": "INTERNAL DRAFT - NOT CUSTOMER RELEASED",
+        "applies_to": ["page_draft", "export_simulation"],
+        "customer_removal_allowed": False,
+    }
+    hash_source = {
+        "package_id": package_id,
+        "evidence_pack_id": evidence_pack_id,
+        "page_draft_id": page_draft_id,
+        "artifact_manifest_id": artifact_manifest_id,
+        "field_policy": field_policy,
+        "masking_state": masking_state,
+        "watermark_text": watermark["watermark_text"],
+    }
+    artifact_version_hash = _stable_version_hash(hash_source)
+    download_requested = _truthy(inputs.get("download_requested")) or _truthy(
+        inputs.get("customer_download_requested")
+    )
+    download_audit = {
+        "download_audit_id": build_id("DLAUDIT", project_id, opportunity_id),
+        "download_audit_state": "SANDBOX_RECORDED" if download_requested else "READBACK_READY",
+        "download_requested": download_requested,
+        "download_enabled": False,
+        "customer_download_enabled": False,
+        "real_customer_download_executed": False,
+        "audit_required": True,
+        "audit_replayable": True,
+        "created_at": now,
+    }
+    export_page_replay = {
+        "replay_id": build_id("LPREPLAY", project_id, opportunity_id),
+        "replay_state": "SUSPENDED" if provider_suspended else "REPLAY_READY",
+        "page_draft_id": page_draft_id,
+        "artifact_manifest_id": artifact_manifest_id,
+        "artifact_version_hash": artifact_version_hash,
+        "export_simulation_enabled": True,
+        "external_delivery_enabled": False,
+        "direct_export_enabled": False,
+        "page_publication_enabled": False,
+        "real_provider_call_enabled": False,
+        "live_fallback_allowed": False,
+    }
+    customer_visible_artifact_candidate = {
+        "candidate_id": build_id("LPCAND", project_id, opportunity_id),
+        "candidate_state": "SUSPENDED" if provider_suspended else "SANDBOX_CANDIDATE_READY",
+        "candidate_only": True,
+        "readback_only": True,
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "field_policy": field_policy,
+        "masking": {
+            "masking_state": masking_state,
+            "masking_required": True,
+            "masked_before_customer_visible_release": True,
+        },
+        "watermark": watermark,
+        "artifact_version_hash": artifact_version_hash,
+        "download_audit": download_audit,
+        "export_page_replay": export_page_replay,
+    }
+    page_export_candidate = {
+        "page_candidate_id": build_id("LPPAGECAND", project_id, opportunity_id),
+        "export_candidate_id": build_id("LPEXPORTCAND", project_id, opportunity_id),
+        "candidate_state": customer_visible_artifact_candidate["candidate_state"],
+        "page_draft_id": page_draft_id,
+        "artifact_manifest_id": artifact_manifest_id,
+        "artifact_version_hash": artifact_version_hash,
+        "watermark_id": watermark["watermark_id"],
+        "download_audit_id": download_audit["download_audit_id"],
+        "replay_id": export_page_replay["replay_id"],
+        "page_publication_enabled": False,
+        "direct_export_enabled": False,
+        "customer_visible_export_enabled": False,
+        "external_delivery_enabled": False,
+    }
+    return {
+        "field_policy": field_policy,
+        "watermark": watermark,
+        "artifact_version_hash": artifact_version_hash,
+        "download_audit": download_audit,
+        "export_page_replay": export_page_replay,
+        "customer_visible_artifact_candidate": customer_visible_artifact_candidate,
+        "page_export_candidate": page_export_candidate,
+    }
+
+
 def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(carrier.get("blocked_reasons")))
     provider_readiness = dict(carrier.get("provider_adapter_readiness", {}))
     provider_circuit_breaker = dict(provider_readiness.get("provider_circuit_breaker", {}))
     provider_failure_taxonomy = dict(provider_readiness.get("provider_failure_taxonomy", {}))
     provider_status_readback = dict(provider_readiness.get("provider_status_readback", {}))
+    customer_candidate = dict(carrier.get("customer_visible_artifact_candidate", {}))
+    page_export_candidate = dict(carrier.get("page_export_candidate", {}))
+    download_audit = dict(carrier.get("download_audit", {}))
+    export_page_replay = dict(carrier.get("export_page_replay", {}))
     return {
         "package_id": carrier.get("package_id"),
         "opportunity_id": carrier.get("opportunity_id"),
@@ -138,6 +282,17 @@ def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dic
             and carrier.get("artifact_manifest_id")
         ),
         "delivery_ready": False,
+        "customer_visible_artifact_candidate_state": customer_candidate.get("candidate_state"),
+        "page_export_candidate_state": page_export_candidate.get("candidate_state"),
+        "artifact_version_hash": carrier.get("artifact_version_hash"),
+        "field_allowlist_count": len(dict(carrier.get("field_policy", {})).get("field_allowlist", [])),
+        "field_blacklist_count": len(dict(carrier.get("field_policy", {})).get("field_blacklist", [])),
+        "watermark_state": dict(carrier.get("watermark", {})).get("watermark_state"),
+        "download_audit_state": download_audit.get("download_audit_state"),
+        "download_audit_id": download_audit.get("download_audit_id"),
+        "export_page_replay_state": export_page_replay.get("replay_state"),
+        "export_page_replay_id": export_page_replay.get("replay_id"),
+        "page_export_replay_ready": export_page_replay.get("replay_state") == "REPLAY_READY",
         "customer_visible_enabled": False,
         "external_delivery_enabled": False,
         "blocked_reason_count": len(blocked_reasons),
@@ -268,6 +423,10 @@ def build_leadpack_delivery_package_carrier(
         "masking_required": True,
         "customer_visible_enabled": False,
         "external_delivery_enabled": False,
+        "field_allowlist": list(_CUSTOMER_VISIBLE_FIELD_ALLOWLIST),
+        "field_blacklist": list(_CUSTOMER_VISIBLE_FIELD_BLACKLIST),
+        "allowlist_enforced": True,
+        "blacklist_enforced": True,
         "allowed_projection_items": [
             item["item_id"] for item in evidence_items if item["masking_policy"] == "allowed_projection"
         ],
@@ -325,6 +484,31 @@ def build_leadpack_delivery_package_carrier(
         "missing_audit_refs": missing_audit_refs,
         "missing_review_gates": list(_REQUIRED_REVIEW_GATES),
     }
+    artifact_controls = _artifact_candidate_controls(
+        project_id=project_id,
+        opportunity_id=opportunity_id,
+        package_id=package_id,
+        evidence_pack_id=evidence_pack_id,
+        page_draft_id=page_draft_id,
+        artifact_manifest_id=artifact_manifest_id,
+        masking_state=masking_state,
+        provider_suspended=provider_suspended,
+        inputs=inputs,
+        now=now,
+    )
+    delivery_readiness_summary.update(
+        {
+            "customer_visible_artifact_candidate_state": artifact_controls[
+                "customer_visible_artifact_candidate"
+            ]["candidate_state"],
+            "page_export_candidate_state": artifact_controls["page_export_candidate"]["candidate_state"],
+            "artifact_version_hash": artifact_controls["artifact_version_hash"],
+            "download_audit_id": artifact_controls["download_audit"]["download_audit_id"],
+            "download_audit_state": artifact_controls["download_audit"]["download_audit_state"],
+            "export_page_replay_id": artifact_controls["export_page_replay"]["replay_id"],
+            "export_page_replay_state": artifact_controls["export_page_replay"]["replay_state"],
+        }
+    )
     blocked_reasons = [
         "owner_operated_internal_package_workbench_only",
         "customer_visible_enabled=false",
@@ -335,6 +519,8 @@ def build_leadpack_delivery_package_carrier(
         "manual_review_required_before_customer_visible_page",
     ]
     blocked_reasons.extend(provider_readiness.get("blocked_reasons", []))
+    if provider_suspended:
+        blocked_reasons.append("provider_adapter_suspended_fail_closed")
     if _truthy(inputs.get("customer_visible_enabled")) or _truthy(inputs.get("customer_visible_export_enabled")):
         blocked_reasons.append("customer_visible_request_blocked")
     if _truthy(inputs.get("external_delivery_enabled")) or _truthy(inputs.get("direct_export_enabled")):
@@ -343,6 +529,8 @@ def build_leadpack_delivery_package_carrier(
         blocked_reasons.append("page_publication_request_blocked")
     if _truthy(inputs.get("external_release_enabled")) or _truthy(inputs.get("live_execution_enabled")):
         blocked_reasons.append("external_or_live_request_blocked")
+    if _truthy(inputs.get("download_requested")) or _truthy(inputs.get("customer_download_requested")):
+        blocked_reasons.append("customer_download_request_blocked")
     blocked_reasons.extend(f"missing_approval:{item}" for item in missing_approvals)
     blocked_reasons.extend(f"missing_audit_ref:{item}" for item in missing_audit_refs)
     if saleability_status != "QUALIFIED":
@@ -386,6 +574,9 @@ def build_leadpack_delivery_package_carrier(
         "customer_visible_enabled": False,
         "page_publication_enabled": False,
         "public_url": None,
+        "watermark": artifact_controls["watermark"],
+        "artifact_version_hash": artifact_controls["artifact_version_hash"],
+        "export_page_replay": artifact_controls["export_page_replay"],
         "draft_sections": [
             "opportunity_summary",
             "offer_summary",
@@ -409,6 +600,13 @@ def build_leadpack_delivery_package_carrier(
             ],
         },
         "masking_field_policy_summary": field_masking_summary,
+        "field_policy": artifact_controls["field_policy"],
+        "watermark": artifact_controls["watermark"],
+        "artifact_version_hash": artifact_controls["artifact_version_hash"],
+        "download_audit": artifact_controls["download_audit"],
+        "export_page_replay": artifact_controls["export_page_replay"],
+        "customer_visible_artifact_candidate": artifact_controls["customer_visible_artifact_candidate"],
+        "page_export_candidate": artifact_controls["page_export_candidate"],
         "operator_review_summary": operator_review_summary,
         "delivery_readiness_summary": delivery_readiness_summary,
     }
@@ -443,6 +641,13 @@ def build_leadpack_delivery_package_carrier(
         "package_manifest": package_manifest,
         "evidence_item_manifest": evidence_item_manifest,
         "field_masking_summary": field_masking_summary,
+        "field_policy": artifact_controls["field_policy"],
+        "watermark": artifact_controls["watermark"],
+        "artifact_version_hash": artifact_controls["artifact_version_hash"],
+        "download_audit": artifact_controls["download_audit"],
+        "export_page_replay": artifact_controls["export_page_replay"],
+        "customer_visible_artifact_candidate": artifact_controls["customer_visible_artifact_candidate"],
+        "page_export_candidate": artifact_controls["page_export_candidate"],
         "page_draft": page_draft,
         "approval_audit_prerequisites": approval_audit_prerequisites,
         "customer_visible_control_state": {
@@ -456,6 +661,9 @@ def build_leadpack_delivery_package_carrier(
         "artifact_manifest": {
             "artifact_manifest_id": artifact_manifest_id,
             "artifact_generation_enabled": False,
+            "artifact_version_hash": artifact_controls["artifact_version_hash"],
+            "watermark_id": artifact_controls["watermark"]["watermark_id"],
+            "download_audit_id": artifact_controls["download_audit"]["download_audit_id"],
             "artifacts": [
                 {"artifact_id": evidence_pack_id, "artifact_type": "evidence_pack_manifest", "state": "DRAFT"},
                 {"artifact_id": page_draft_id, "artifact_type": "page_draft", "state": page_state},
@@ -486,6 +694,13 @@ def leadpack_delivery_package_summary(carrier: Mapping[str, Any]) -> dict[str, A
         "customer_visible_enabled": False,
         "external_delivery_enabled": False,
         "delivery_ready": False,
+        "artifact_version_hash": carrier.get("artifact_version_hash"),
+        "customer_visible_artifact_candidate_state": dict(
+            carrier.get("customer_visible_artifact_candidate", {})
+        ).get("candidate_state"),
+        "page_export_candidate_state": dict(carrier.get("page_export_candidate", {})).get("candidate_state"),
+        "download_audit_id": dict(carrier.get("download_audit", {})).get("download_audit_id"),
+        "export_page_replay_id": dict(carrier.get("export_page_replay", {})).get("replay_id"),
     }
 
 

@@ -61,11 +61,45 @@ class TestLeadpackCandidateSurface(unittest.TestCase):
             self.assertFalse(response["leadpack_delivery_package"]["customer_visible_enabled"])
             self.assertFalse(response["leadpack_delivery_package"]["external_delivery_enabled"])
             self.assertEqual(response["leadpack_delivery_package"]["masking_state"], "MASKING_REQUIRED")
+            artifact_candidate = response["leadpack_delivery_package"]["customer_visible_artifact_candidate"]
+            page_export_candidate = response["leadpack_delivery_package"]["page_export_candidate"]
+            field_policy = artifact_candidate["field_policy"]
+            self.assertEqual(artifact_candidate["candidate_state"], "SANDBOX_CANDIDATE_READY")
+            self.assertFalse(artifact_candidate["customer_visible_enabled"])
+            self.assertFalse(artifact_candidate["external_delivery_enabled"])
+            self.assertIn("opportunity_id", field_policy["field_allowlist"])
+            self.assertIn("payment_record", field_policy["field_blacklist"])
+            self.assertTrue(field_policy["allowlist_enforced"])
+            self.assertTrue(field_policy["blacklist_enforced"])
+            self.assertEqual(artifact_candidate["watermark"]["watermark_state"], "APPLIED_TO_DRAFT")
+            self.assertTrue(
+                artifact_candidate["artifact_version_hash"].startswith("sha256:"),
+                artifact_candidate["artifact_version_hash"],
+            )
+            self.assertFalse(artifact_candidate["download_audit"]["customer_download_enabled"])
+            self.assertEqual(artifact_candidate["export_page_replay"]["replay_state"], "REPLAY_READY")
+            self.assertEqual(
+                page_export_candidate["artifact_version_hash"],
+                artifact_candidate["artifact_version_hash"],
+            )
+            self.assertFalse(page_export_candidate["page_publication_enabled"])
             self.assertEqual(
                 response["package_page_delivery_summary"]["package"]["package_id"],
                 response["leadpack_delivery_package"]["package_id"],
             )
+            self.assertEqual(
+                response["package_page_delivery_summary"]["page_export_candidate"]["export_candidate_id"],
+                page_export_candidate["export_candidate_id"],
+            )
             self.assertFalse(response["leadpack_delivery_readiness_summary"]["delivery_ready"])
+            self.assertEqual(
+                response["leadpack_delivery_readiness_summary"]["artifact_version_hash"],
+                artifact_candidate["artifact_version_hash"],
+            )
+            self.assertEqual(
+                response["candidate_readback_summary"]["export_page_replay_id"],
+                artifact_candidate["export_page_replay"]["replay_id"],
+            )
             self.assertFalse(response["package_page_delivery_summary"]["page_publication_enabled"])
             self.assertTrue(response["requires_review"])
             self.assertIn(response["surface_state"], {"preview-ready", "review-required", "governed-hold", "blocked"})

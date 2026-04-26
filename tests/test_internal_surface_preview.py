@@ -733,6 +733,18 @@ class TestInternalSurfacePreview(unittest.TestCase):
         self.assertEqual(readiness["package_manifest"]["package_id"], package["package_id"])
         self.assertTrue(readiness["evidence_item_manifest"]["items"])
         self.assertIn("field_masking_summary", readiness)
+        self.assertIn("field_policy", readiness)
+        self.assertIn("opportunity_id", readiness["field_policy"]["field_allowlist"])
+        self.assertIn("payment_record", readiness["field_policy"]["field_blacklist"])
+        self.assertEqual(readiness["watermark"]["watermark_state"], "APPLIED_TO_DRAFT")
+        self.assertTrue(readiness["artifact_version_hash"].startswith("sha256:"))
+        self.assertEqual(
+            readiness["customer_visible_artifact_candidate"]["artifact_version_hash"],
+            readiness["artifact_version_hash"],
+        )
+        self.assertFalse(readiness["download_audit"]["customer_download_enabled"])
+        self.assertEqual(readiness["export_page_replay"]["replay_state"], "REPLAY_READY")
+        self.assertFalse(readiness["page_export_candidate"]["direct_export_enabled"])
         self.assertEqual(readiness["page_draft"]["page_draft_id"], package["page_draft_id"])
         self.assertFalse(readiness["delivery_readiness_summary"]["delivery_ready"])
         self.assertFalse(readiness["package_page_delivery_summary"]["customer_visible_enabled"])
