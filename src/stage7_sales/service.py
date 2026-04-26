@@ -32,9 +32,11 @@ from stage7_sales.recommendation import (
     build_opportunity_policy_trace,
     build_stage7_restriction_reasons,
 )
+from stage7_sales.real_challenger import build_real_challenger_readback
 from stage7_sales.resolution import resolve_actor_seed
 from stage7_sales.runtime import (
     build_stage7_runtime_context,
+    dedupe_strings,
     optional_int,
     optional_str,
     require_h06_field,
@@ -217,6 +219,33 @@ class Stage7Service:
         winning_competitor_candidate = dict(required_runtime_value(runtime_state, "winning_competitor_candidate"))
         competitor_selection_trace = dict(required_runtime_value(runtime_state, "competitor_selection_trace"))
         competitor_trace_summary = dict(required_runtime_value(runtime_state, "competitor_trace_summary"))
+        offer_recommendation_id = build_id("OFFER", project_id)
+        real_challenger_projection = build_real_challenger_readback(
+            project_id=str(project_id),
+            inputs=inputs,
+            runtime_state=runtime_state,
+            multi_competitor_candidates=multi_competitor_candidates,
+            top_n_competitor_ids=top_n_competitor_ids,
+            winning_competitor_candidate=winning_competitor_candidate,
+            competitor_selection_trace=competitor_selection_trace,
+            competitor_trace_summary=competitor_trace_summary,
+            sale_gate_status=str(sale_gate_status),
+            saleability_status_seed=str(saleability_status_seed),
+            report_status=str(report_status),
+            review_task_status=str(review_task_status),
+            action_family=str(action_family),
+            linked_review_request_id_optional=linked_review_request_id_optional,
+            missing_condition_family_optional=missing_condition_family_optional,
+            offer_recommendation_id=offer_recommendation_id,
+        )
+        multi_competitor_candidates = ensure_list(real_challenger_projection["multi_competitor_candidates"])
+        winning_competitor_candidate = dict(real_challenger_projection["winning_competitor_candidate"])
+        competitor_selection_trace = dict(real_challenger_projection["competitor_selection_trace"])
+        real_challenger_readback = dict(real_challenger_projection["real_challenger_readback"])
+        real_challenger_decision_state = str(real_challenger_projection["real_challenger_decision_state"])
+        real_challenger_blocking_reasons = ensure_list(
+            real_challenger_projection["real_challenger_blocking_reasons"]
+        )
         challenger_profile_id = winning_competitor_candidate.get("challenger_profile_id", challenger_profile_id)
         focus_bidder_id = winning_competitor_candidate.get("focus_bidder_id", focus_bidder_id)
         challenger_bidder_id = winning_competitor_candidate.get("challenger_bidder_id", challenger_bidder_id)
@@ -252,13 +281,18 @@ class Stage7Service:
         )
 
         lead_status = "QUALIFIED"
-        if sale_gate_status == "BLOCK" or runtime_state.decision_state == "BLOCK":
+        if (
+            sale_gate_status == "BLOCK"
+            or runtime_state.decision_state == "BLOCK"
+            or real_challenger_decision_state == "BLOCK"
+        ):
             apply_rule(self.store, trace_rules, "SALE-001")
             lead_status = "DISQUALIFIED"
         elif (
             sale_gate_status in ("REVIEW", "HOLD")
             or report_status != "ISSUED"
             or has_review_constraint
+            or real_challenger_decision_state == "REVIEW"
         ):
             apply_rule(self.store, trace_rules, "SALE-001")
             lead_status = "REVIEW"
@@ -292,6 +326,7 @@ class Stage7Service:
             saleability_status_seed == "BLOCKED"
             or sale_gate_status == "BLOCK"
             or runtime_state.decision_state == "BLOCK"
+            or real_challenger_decision_state == "BLOCK"
         ):
             apply_rule(self.store, trace_rules, "SALE-002")
             saleability_status = "BLOCKED"
@@ -301,9 +336,15 @@ class Stage7Service:
             or report_status != "ISSUED"
             or has_review_constraint
             or runtime_state.resolve("offer_recommendation_state", offer_state) == "REVIEW_REQUIRED"
+            or real_challenger_decision_state == "REVIEW"
         ):
             apply_rule(self.store, trace_rules, "SALE-002")
             saleability_status = "RESTRICTED"
+
+        if real_challenger_decision_state == "BLOCK":
+            offer_state = "BLOCKED"
+        elif real_challenger_decision_state == "REVIEW" and offer_state == "APPROVED":
+            offer_state = "REVIEW_REQUIRED"
 
         action_window_state = "UNKNOWN"
         runtime_window_status = runtime_state.resolve("window_status", window_status)
@@ -405,8 +446,12 @@ class Stage7Service:
         )
 
         offer_state = runtime_state.resolve("offer_recommendation_state", offer_state)
+        if real_challenger_decision_state == "BLOCK":
+            offer_state = "BLOCKED"
+        elif real_challenger_decision_state == "REVIEW" and offer_state == "APPROVED":
+            offer_state = "REVIEW_REQUIRED"
         offer_recommendation_payload = {
-            "offer_recommendation_id": build_id("OFFER", project_id),
+            "offer_recommendation_id": offer_recommendation_id,
             "project_id": project_id,
             "offer_recommendation_state": offer_state,
             "sku_code": ensure_enum(
@@ -452,6 +497,25 @@ class Stage7Service:
             elif offer_semantic.decision_state == "REVIEW" and offer_recommendation_payload["offer_recommendation_state"] == "APPROVED":
                 offer_recommendation_payload["offer_recommendation_state"] = "REVIEW_REQUIRED"
         offer_recommendation = self.store.build_record("offer_recommendation", offer_recommendation_payload)
+        final_offer_summary = {
+            "offer_recommendation_id": offer_recommendation.get("offer_recommendation_id"),
+            "sku_code": offer_recommendation.get("sku_code"),
+            "recommended_delivery_form": offer_recommendation.get("recommended_delivery_form"),
+            "recommended_quote_band": offer_recommendation.get("recommended_quote_band"),
+            "offer_recommendation_state": offer_recommendation.get("offer_recommendation_state"),
+            "why_recommended": offer_recommendation.get("why_recommended"),
+        }
+        for candidate in multi_competitor_candidates:
+            if isinstance(candidate, dict):
+                candidate["recommended_offer_ref"] = offer_recommendation.get("offer_recommendation_id")
+                candidate["recommended_offer_summary"] = dict(final_offer_summary)
+        real_challenger_readback["candidate_set"] = multi_competitor_candidates
+        real_challenger_readback["recommended_offer_summary"] = dict(final_offer_summary)
+        if isinstance(real_challenger_readback.get("winning_candidate"), dict):
+            real_challenger_readback["winning_candidate"]["recommended_offer_ref"] = offer_recommendation.get(
+                "offer_recommendation_id"
+            )
+            real_challenger_readback["winning_candidate"]["recommended_offer_summary"] = dict(final_offer_summary)
 
         stage7_restriction_reasons = build_stage7_restriction_reasons(
             saleability_status_seed=saleability_status_seed,
@@ -467,6 +531,14 @@ class Stage7Service:
             saleability_status=saleability_status,
             stage7_restriction_reasons=stage7_restriction_reasons,
         )
+        if real_challenger_decision_state != "ALLOW":
+            opportunity_blocking_reasons = dedupe_strings(
+                opportunity_blocking_reasons
+                + [
+                    f"real_challenger:{reason}"
+                    for reason in real_challenger_blocking_reasons
+                ]
+            )
 
         opportunity_payload = {
             "opportunity_id": build_id("OPP", project_id),
@@ -660,7 +732,10 @@ class Stage7Service:
                 "candidate_only_candidate_ids": competitor_trace_summary["candidate_only_candidate_ids"],
                 "alias_deduped_count": competitor_trace_summary["alias_deduped_count"],
                 "selection_trace": multi_competitor_collection.get("selection_trace"),
+                "real_challenger_decision_state": real_challenger_decision_state,
+                "candidate_source_types_covered": real_challenger_readback.get("candidate_source_types_covered"),
             },
+            "real_challenger_identification": real_challenger_readback,
             "formal_sink_projection": {
                 "project_value_score_optional": project_value_score_optional,
                 "opportunity_value_score_optional": opportunity_value_score_optional,
@@ -763,6 +838,11 @@ class Stage7Service:
         inputs_out["multi_competitor_collection_id_optional"] = multi_competitor_collection.get("multi_competitor_collection_id")
         inputs_out["winning_competitor_candidate_id_optional"] = multi_competitor_collection.get("winning_candidate_id")
         inputs_out["winning_challenger_profile_id_optional"] = multi_competitor_collection.get("winning_challenger_profile_id")
+        inputs_out["real_challenger_readback"] = real_challenger_readback
+        inputs_out["real_challenger_candidate_set"] = real_challenger_readback.get("candidate_set")
+        inputs_out["winning_real_challenger_candidate"] = real_challenger_readback.get("winning_candidate")
+        inputs_out["real_challenger_decision_state"] = real_challenger_decision_state
+        inputs_out["real_challenger_blocking_reasons"] = real_challenger_blocking_reasons
         inputs_out["saleability_status"] = saleable_opportunity.get("saleability_status")
         inputs_out["window_urgency_score"] = runtime_state.resolve(
             "window_urgency_score",
@@ -785,6 +865,7 @@ class Stage7Service:
         inputs_out["semantic_trace"] = semantic_state.semantic_trace
         inputs_out["semantic_decision_state"] = semantic_state.semantic_decision_state
         semantic_additions = dict(semantic_state.semantic_additions)
+        semantic_additions["real_challenger_identification"] = real_challenger_readback
         semantic_additions["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
         semantic_additions[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary
         semantic_additions[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench

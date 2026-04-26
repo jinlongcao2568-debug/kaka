@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.1.1",
+  "catalogVersion": "1.2.0",
   "catalogId": "buyer_fit_scorecard",
   "ownerDocs": [
     "D8",
@@ -333,6 +333,35 @@
       ]
     }
   ],
+  "winningChallengerConsumption": {
+    "policyId": "BUYER-FIT-WINNING-CHALLENGER-119A-001",
+    "sourceTracePath": "stage7_resolution_trace.real_challenger_identification.winning_candidate",
+    "selectionTracePath": "stage7_resolution_trace.real_challenger_identification.selection_trace",
+    "consumerObjects": [
+      "buyer_fit",
+      "challenger_buyer_fit",
+      "sales_lead",
+      "offer_recommendation",
+      "saleable_opportunity"
+    ],
+    "requiredSelectedFields": [
+      "challenger_profile_id",
+      "candidate_source_type",
+      "subject_eligibility_state",
+      "challenge_motivation_score",
+      "purchase_capacity_score",
+      "buyer_fit_score",
+      "contactability_status",
+      "sales_priority",
+      "blocking_reasons"
+    ],
+    "failClosedRules": [
+      "selected subject_eligibility_state in [REVIEW,BLOCK] forces Stage7 REVIEW/BLOCK handling",
+      "missing purchase capacity score or purchase capacity below threshold forces REVIEW",
+      "contactability_status is readiness only; REVIEW/BLOCK never authorizes outreach",
+      "buyer_fit_score and sales_priority are internal sales judgement and not customer-visible facts"
+    ]
+  },
   "notes": [
     "All scorecard dimensions must derive from formal Stage6/Stage7 rule outputs or formal objects; service-local seed constants are not authoritative.",
     "The scorecards are deterministic and do not introduce a model as final decision maker.",

@@ -1,5 +1,5 @@
 {
-  "catalogVersion": "1.1.0",
+  "catalogVersion": "1.2.0",
   "ownerDocs": [
     "D8",
     "D2"
@@ -89,5 +89,63 @@
       ],
       "notes": "回答谁最可能拍板采购 / 付款。"
     }
-  ]
+  ],
+  "realChallengerIdentification": {
+    "policyId": "REAL-CHALLENGER-119A-001",
+    "carrierObject": "multi_competitor_collection",
+    "readbackTracePath": "stage7_resolution_trace.real_challenger_identification",
+    "targetCapabilityState": "INTERNAL_READY",
+    "requiredCandidateSourceTypes": [
+      "second_rank",
+      "third_rank",
+      "rejected_bidder",
+      "historical_competitor",
+      "regional_active_company"
+    ],
+    "requiredCandidateFields": [
+      "challenger_profile_id",
+      "challenger_name",
+      "name_optional",
+      "candidate_source_type",
+      "rank",
+      "status",
+      "subject_eligibility_state",
+      "challenge_motivation_score",
+      "purchase_capacity_score",
+      "buyer_fit_score",
+      "contactability_status",
+      "recommended_offer_ref",
+      "recommended_offer_summary",
+      "sales_priority",
+      "source_refs",
+      "explainability_reasons"
+    ],
+    "selectionTraceFields": [
+      "selection_policy",
+      "score_components",
+      "tie_breaker",
+      "reject_skip_reasons",
+      "selected_candidate_id",
+      "selected_challenger_profile_id"
+    ],
+    "boundaryRules": [
+      "candidate source type is an internal commercial classification, not a legal conclusion",
+      "contactability_status is Stage7 internal readiness only and cannot create outreach execution",
+      "winning challenger must be the challenger_profile_id consumed by buyer_fit, challenger_buyer_fit, sales_lead, offer_recommendation and saleable_opportunity",
+      "weak evidence, missing subject eligibility, missing purchase capacity, missing contactability basis, or upstream review/block state must degrade to REVIEW or BLOCK with blocking reasons"
+    ],
+    "customerVisibleIsolation": {
+      "internalOnlyFields": [
+        "challenge_motivation_score",
+        "purchase_capacity_score",
+        "buyer_fit_score",
+        "contactability_status",
+        "sales_priority",
+        "selection_trace",
+        "blocking_reasons"
+      ],
+      "customerVisibleEnabled": false,
+      "notLegalConclusion": true
+    }
+  }
 }

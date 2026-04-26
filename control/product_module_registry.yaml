@@ -617,6 +617,7 @@ stage_module_inventory:
           - src/stage7_sales/scorecard.py
           - src/stage7_sales/pricing.py
           - src/stage7_sales/recommendation.py
+          - src/stage7_sales/real_challenger.py
           - src/stage7_sales/crm_quote_workbench.py
           - src/stage7_sales/leadpack_delivery_package.py
           - src/stage7_sales/buyer_fit.py
@@ -635,6 +636,7 @@ stage_module_inventory:
           - src/storage/repositories/crm_quote_workbench_repo.py
           - src/storage/repositories/leadpack_delivery_package_repo.py
         test_files:
+          - tests/test_real_challenger_identification.py
           - tests/test_stage7_runtime_closure.py
           - tests/test_internal_chain.py
         depends_on_slices:
@@ -664,6 +666,7 @@ stage_module_inventory:
         implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
         current_files:
           - src/stage7_sales/resolution.py
+          - src/stage7_sales/real_challenger.py
           - src/stage7_sales/offer.py
           - src/stage7_sales/models.py
         handoff_files:
@@ -675,6 +678,7 @@ stage_module_inventory:
           - src/storage/repositories/legal_action_actor_profile_repo.py
           - src/storage/repositories/procurement_decision_actor_profile_repo.py
         test_files:
+          - tests/test_real_challenger_identification.py
           - tests/test_stage7_runtime_closure.py
           - tests/test_architecture_anti_drift.py
         depends_on_slices:
@@ -1180,6 +1184,7 @@ modules:
       - src/stage7_sales/scorecard.py
       - src/stage7_sales/pricing.py
       - src/stage7_sales/recommendation.py
+      - src/stage7_sales/real_challenger.py
       - src/stage7_sales/crm_quote_workbench.py
       - src/stage7_sales/leadpack_delivery_package.py
       - src/stage7_sales/resolution.py
@@ -1536,6 +1541,7 @@ deferred_module_splits:
       - src/stage7_sales/scorecard.py
       - src/stage7_sales/pricing.py
       - src/stage7_sales/recommendation.py
+      - src/stage7_sales/real_challenger.py
       - src/stage7_sales/buyer_fit.py
       - src/stage7_sales/offer.py
       - src/stage7_sales/opportunity.py
