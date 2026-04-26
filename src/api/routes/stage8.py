@@ -38,8 +38,12 @@ STAGE8_OUTBOX_ROUTE_READINESS = {
     "vendor_connection_enabled": False,
     "stage8_execution_outbox_readiness": {
         "governed_execution_mode": "INTERNAL_GOVERNED",
+        "sandbox_execution_record_enabled": True,
+        "sandbox_adapter_families": ["email", "sms", "phone_call", "wecom_im"],
+        "execution_timeline_visible": True,
         "live_execution_enabled": False,
         "real_send_attempted": False,
+        "external_delivery_enabled": False,
         "ready_for_real_send": False,
         "blocked_reasons": [
             "stage8_real_execution_blocked_by_default",

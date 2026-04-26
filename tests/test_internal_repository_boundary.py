@@ -751,10 +751,17 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertIn("execution_trace_id_optional", touch_entry.trace_refs)
         self.assertIn("source_audit_ref", contact_entry.audit_refs)
         self.assertEqual(outbox_entry.payload["outbox_id"], outbox["outbox_id"])
+        self.assertEqual(outbox_entry.payload["execution_id"], outbox["execution_id"])
         self.assertEqual(outbox_entry.object_refs["outreach_plan_id"], stage8.record("outreach_plan").get("outreach_plan_id"))
         self.assertEqual(outbox_entry.governed_state["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertEqual(outbox_entry.governed_state["execution_id"], outbox["execution_id"])
+        self.assertEqual(outbox_entry.governed_state["sandbox_execution_state"], outbox["sandbox_execution_state"])
+        self.assertEqual(outbox_entry.governed_state["adapter_family"], outbox["adapter_family"])
+        self.assertEqual(outbox_entry.governed_state["execution_timeline"], outbox["execution_timeline"])
+        self.assertEqual(outbox_entry.governed_state["replay_state"], outbox["replay_state"])
         self.assertFalse(outbox_entry.governed_state["live_execution_enabled"])
         self.assertFalse(outbox_entry.governed_state["real_send_attempted"])
+        self.assertFalse(outbox_entry.governed_state["external_delivery_enabled"])
 
         replay = list_contact_targets(
             {
@@ -791,8 +798,20 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             outbox.get("outbox_id"),
         )
         self.assertEqual(
+            replay["preview_projection"]["outreach_execution_outbox_preview"]["execution_id"],
+            outbox.get("execution_id"),
+        )
+        self.assertEqual(
+            replay["preview_projection"]["outreach_execution_outbox_preview"]["execution_timeline"],
+            outbox.get("execution_timeline"),
+        )
+        self.assertEqual(
             replay["outbox_readiness_summary"]["outbox_id"],
             outbox.get("outbox_id"),
+        )
+        self.assertEqual(
+            replay["outbox_readiness_summary"]["execution_id"],
+            outbox.get("execution_id"),
         )
         self.assertEqual(
             replay["persisted_operational_context"]["governed_context"][
@@ -805,6 +824,16 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
                 "contact_selection_trace_summary"
             ]["source_merge_review_required_count"],
             selection_trace.get("source_merge_review_required_count"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["governed_context"][
+                "sandbox_execution_record_summary"
+            ]["execution_id"],
+            outbox.get("execution_id"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["governed_context"]["sandbox_execution_timeline"],
+            outbox.get("execution_timeline"),
         )
         self.assertTrue(replay["blocked_by_default"])
         hydrated = hydrate_stage_bundle(

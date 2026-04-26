@@ -55,6 +55,14 @@ class TestStage8ResolutionClosure(unittest.TestCase):
             if isinstance(entry, dict) and entry.get("catalog_id")
         }
 
+    @staticmethod
+    def _stage8_with_outbox(payload_updates: dict | None = None):
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        if payload_updates:
+            payload.update(payload_updates)
+        stage8 = run_internal_chain(payload)["stage8"]
+        return stage8, stage8.inputs["outreach_execution_outbox_snapshot"]
+
     def test_source_vendor_usage_policy_requires_carriers_and_blocks_live_override(self) -> None:
         policy = load_repo_json("contracts/sales/source_vendor_usage_policy.json")
 
@@ -1051,6 +1059,248 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertEqual(outbox["vendor_adapter_state"]["resolved_from"], "EXPLICIT_UNKNOWN_VENDOR")
         self.assertIn("quiet_hours_schedule", outbox["blocked_reasons"])
         self.assertIn("execution_vendor_not_in_registry", outbox["blocked_reasons"])
+
+    def test_stage8_sandbox_execution_record_supports_four_adapter_families(self) -> None:
+        scenarios = [
+            (
+                "email",
+                {
+                    "channel_family": "ORG_EMAIL",
+                    "contact_channel": "EMAIL",
+                },
+            ),
+            (
+                "sms",
+                {
+                    "channel_family": "CRM_APPROVED_DIRECT",
+                    "contact_channel": "SMS",
+                },
+            ),
+            (
+                "phone_call",
+                {
+                    "channel_family": "ORG_PHONE",
+                    "contact_channel": "PHONE",
+                },
+            ),
+            (
+                "wecom_im",
+                {
+                    "channel_family": "CRM_APPROVED_DIRECT",
+                    "contact_channel": "WECOM_IM",
+                },
+            ),
+        ]
+
+        required_fields = {
+            "execution_id",
+            "outbox_id",
+            "outreach_plan_id",
+            "touch_record_id",
+            "contact_target_id",
+            "opportunity_id",
+            "channel",
+            "adapter_family",
+            "sandbox_execution_state",
+            "provider_family",
+            PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
+            "template_approval_state",
+            "contact_source_audit_state",
+            "frequency_control_state",
+            "quiet_hours_state",
+            "opt_out_state",
+            "unsubscribe_state",
+            "bounce_state",
+            "failure_state",
+            "retry_policy",
+            "retry_state",
+            "stop_policy",
+            "stop_state",
+            "execution_timeline",
+            "approval_state",
+            "audit_state",
+            "live_execution_enabled",
+            "real_send_attempted",
+            "external_delivery_enabled",
+            "governed_execution_mode",
+            "blocked_reasons",
+            "replay_state",
+        }
+
+        for expected_family, updates in scenarios:
+            with self.subTest(adapter_family=expected_family):
+                stage8, outbox = self._stage8_with_outbox(updates)
+                readiness = stage8.inputs["outbox_readiness_summary"]
+
+                self.assertTrue(required_fields.issubset(outbox.keys()))
+                self.assertEqual(outbox["adapter_family"], expected_family)
+                self.assertEqual(outbox["provider_family"], "sales_outreach")
+                self.assertIn(
+                    outbox["sandbox_execution_state"],
+                    {"SANDBOX_RECORDED", "HELD", "BLOCKED", "STOPPED", "SUSPENDED"},
+                )
+                self.assertFalse(outbox["live_execution_enabled"])
+                self.assertFalse(outbox["real_send_attempted"])
+                self.assertFalse(outbox["external_delivery_enabled"])
+                self.assertEqual(outbox["governed_execution_mode"], "INTERNAL_GOVERNED")
+                self.assertEqual(readiness["execution_id"], outbox["execution_id"])
+                self.assertEqual(readiness["adapter_family"], expected_family)
+                self.assertTrue(outbox["replay_state"]["sandbox_record_replayable"])
+                self.assertEqual(
+                    outbox["execution_timeline"][-1]["event"],
+                    "sandbox_execution_readiness_decided",
+                )
+
+    def test_stage8_sandbox_execution_governance_states_explain_blocks_and_holds(self) -> None:
+        scenarios = [
+            (
+                "missing_template",
+                {"template_approval_state": "MISSING"},
+                "template_approval_state",
+                "MISSING",
+                "template_approval_missing",
+                "BLOCKED",
+            ),
+            (
+                "missing_contact_source_audit",
+                {"audit_trail_present": False},
+                "contact_source_audit_state",
+                "MISSING",
+                "contact_source_audit_missing",
+                "BLOCKED",
+            ),
+            (
+                "frequency_held",
+                {"frequency_policy_state": "BLOCK"},
+                "frequency_control_state",
+                "HELD",
+                "frequency_control_held",
+                "HELD",
+            ),
+            (
+                "quiet_hours_held",
+                {"quiet_hours_policy_state": "BLOCK"},
+                "quiet_hours_state",
+                "SCHEDULED",
+                "quiet_hours_schedule",
+                "HELD",
+            ),
+            (
+                "opt_out_blocked",
+                {"opt_out_state": "OPTED_OUT"},
+                "opt_out_state",
+                "OPTED_OUT",
+                "opt_out_blocked",
+                "STOPPED",
+            ),
+            (
+                "unsubscribe_blocked",
+                {"unsubscribe_state": "UNSUBSCRIBED"},
+                "unsubscribe_state",
+                "UNSUBSCRIBED",
+                "unsubscribe_blocked",
+                "STOPPED",
+            ),
+        ]
+
+        for name, updates, state_field, expected_state, reason, execution_state in scenarios:
+            with self.subTest(name=name):
+                _, outbox = self._stage8_with_outbox(updates)
+
+                self.assertEqual(outbox[state_field], expected_state)
+                self.assertIn(reason, outbox["blocked_reasons"])
+                self.assertEqual(outbox["sandbox_execution_state"], execution_state)
+                self.assertFalse(outbox["live_execution_enabled"])
+                self.assertFalse(outbox["real_send_attempted"])
+
+    def test_stage8_sandbox_execution_bounce_failure_retry_and_stop_readback(self) -> None:
+        feedback = _feedback_mapping("INVALID_CONTACT")
+        _, outbox = self._stage8_with_outbox(
+            {
+                "response_status": "INVALID_CONTACT",
+                "bounce_state": "HARD_BOUNCE",
+            }
+        )
+
+        self.assertEqual(outbox["bounce_state"], "HARD_BOUNCE")
+        self.assertEqual(outbox["failure_state"]["state"], "FAILED")
+        self.assertEqual(outbox["failure_state"]["failure_class"], "BOUNCE")
+        self.assertFalse(outbox["failure_state"]["retryable"])
+        self.assertEqual(outbox["retry_state"]["state"], "SCHEDULED")
+        self.assertTrue(outbox["retry_state"]["sandbox_retry_plan_only"])
+        self.assertFalse(outbox["retry_state"]["sandbox_retry_execution_enabled"])
+        self.assertFalse(outbox["retry_state"]["real_retry_execution_enabled"])
+        self.assertEqual(outbox["stop_state"]["state"], "STOPPED")
+        self.assertEqual(outbox["stop_state"]["stop_reason_optional"], feedback["stop_reason_optional"])
+        self.assertFalse(outbox["stop_state"]["live_send_readiness_enabled"])
+        self.assertEqual(outbox["sandbox_execution_state"], "STOPPED")
+        self.assertIn("bounce_state:HARD_BOUNCE", outbox["blocked_reasons"])
+        self.assertIn("failure_taxonomy:BOUNCE", outbox["blocked_reasons"])
+
+    def test_stage8_provider_reliability_blocks_sandbox_execution_readiness(self) -> None:
+        scenarios = [
+            (
+                "unhealthy",
+                {"KAKA_SALES_OUTREACH_PROVIDER_HEALTH": "unhealthy"},
+                "provider_health_unhealthy_fail_closed",
+            ),
+            (
+                "rate_limited",
+                {"KAKA_SALES_OUTREACH_PROVIDER_RATE_LIMITED": "true"},
+                "provider_rate_limited_fail_closed",
+            ),
+            (
+                "timeout",
+                {"KAKA_SALES_OUTREACH_PROVIDER_TIMEOUT": "true"},
+                "provider_timeout_fail_closed",
+            ),
+            (
+                "circuit_open",
+                {"KAKA_SALES_OUTREACH_PROVIDER_CIRCUIT_OPEN": "true"},
+                "provider_circuit_open_fail_closed",
+            ),
+            (
+                "suspended_failure",
+                {"KAKA_SALES_OUTREACH_PROVIDER_FAILURE_CLASS": "SUSPENDED"},
+                "provider_failure_taxonomy_fail_closed",
+            ),
+        ]
+
+        for name, env, expected_reason in scenarios:
+            with self.subTest(name=name):
+                with patch.dict("os.environ", env, clear=False):
+                    stage8, outbox = self._stage8_with_outbox()
+                readiness = stage8.inputs["outbox_readiness_summary"]
+
+                self.assertEqual(outbox["provider_adapter_readiness"]["readiness_state"], "SUSPENDED")
+                self.assertTrue(outbox["provider_adapter_suspended"])
+                self.assertEqual(outbox["sandbox_execution_state"], "SUSPENDED")
+                self.assertEqual(readiness["sandbox_execution_readiness"], "SUSPENDED")
+                self.assertFalse(readiness["dry_run_ready"])
+                self.assertIn(expected_reason, outbox["blocked_reasons"])
+                self.assertIn("provider_adapter_suspended_fail_closed", outbox["blocked_reasons"])
+                self.assertFalse(outbox["live_execution_enabled"])
+                self.assertFalse(outbox["real_send_attempted"])
+
+    def test_stage8_live_send_request_still_only_records_sandbox_block(self) -> None:
+        stage8, outbox = self._stage8_with_outbox(
+            {
+                "run_mode": "REAL_RUN",
+                "approval_state": "PENDING",
+                "live_execution_enabled": True,
+                "vendor_connection_enabled": True,
+            }
+        )
+        readiness = stage8.inputs["outbox_readiness_summary"]
+
+        self.assertEqual(outbox["sandbox_execution_state"], "BLOCKED")
+        self.assertIn("live_execution_requested_but_blocked", outbox["blocked_reasons"])
+        self.assertIn("vendor_connection_enabled=false", outbox["blocked_reasons"])
+        self.assertFalse(outbox["live_execution_enabled"])
+        self.assertFalse(outbox["real_send_attempted"])
+        self.assertFalse(outbox["external_delivery_enabled"])
+        self.assertFalse(readiness["ready_for_real_send"])
+        self.assertFalse(readiness["real_provider_call_enabled"])
 
 
 if __name__ == "__main__":

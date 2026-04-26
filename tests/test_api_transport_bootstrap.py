@@ -660,6 +660,22 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(mounted_by_id["listContactTargets"]["stage_scope"], 8)
         self.assertEqual(mounted_by_id["listOrders"]["stage_scope"], 9)
         self.assertTrue(mounted_by_id["listContactTargets"]["blocked_by_default"])
+        self.assertTrue(
+            mounted_by_id["listContactTargets"]["stage8_execution_outbox_readiness"][
+                "sandbox_execution_record_enabled"
+            ]
+        )
+        self.assertEqual(
+            mounted_by_id["listContactTargets"]["stage8_execution_outbox_readiness"][
+                "sandbox_adapter_families"
+            ],
+            ["email", "sms", "phone_call", "wecom_im"],
+        )
+        self.assertTrue(
+            mounted_by_id["listContactTargets"]["stage8_execution_outbox_readiness"][
+                "execution_timeline_visible"
+            ]
+        )
         self.assertTrue(mounted_by_id["createOutreachPlan"]["blocked_by_default"])
         self.assertTrue(mounted_by_id["listOrders"]["blocked_by_default"])
         self.assertTrue(mounted_by_id["createOrder"]["blocked_by_default"])
@@ -1394,7 +1410,16 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(payload["blocked_by_default"])
         self.assertFalse(payload["live_execution_enabled"])
         self.assertEqual(payload[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]["mode"], "SANDBOX_DRY_RUN_READBACK")
+        self.assertTrue(payload["outreach_execution_outbox"]["execution_id"].startswith("EXEC-"))
+        self.assertEqual(payload["outreach_execution_outbox"]["adapter_family"], "email")
+        self.assertIn("execution_timeline", payload["outreach_execution_outbox"])
+        self.assertEqual(
+            payload["outbox_readiness_summary"]["execution_id"],
+            payload["outreach_execution_outbox"]["execution_id"],
+        )
         self.assertFalse(payload["outreach_execution_outbox"]["provider_adapter_readiness"]["real_provider_call_enabled"])
+        self.assertFalse(payload["outreach_execution_outbox"]["real_send_attempted"])
+        self.assertFalse(payload["outreach_execution_outbox"]["external_delivery_enabled"])
         self.assertEqual(payload["operational_context_status"], "persisted")
         self.assertEqual(payload["operator_loop_projection"]["context_key"], "persisted_operational_context")
         self.assertEqual(payload["operator_loop_projection"]["workbench_replay_source"], "repository_readback")

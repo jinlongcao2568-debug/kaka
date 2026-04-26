@@ -1488,6 +1488,19 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                 if isinstance(bundle.inputs.get("outbox_readiness_summary"), Mapping)
                 else outbox.get("outbox_readiness_summary", {})
             )
+            governed_context["sandbox_execution_record_summary"] = {
+                "execution_id": outbox.get("execution_id"),
+                "outbox_id": refs.get("outbox_id"),
+                "adapter_family": outbox.get("adapter_family"),
+                "sandbox_execution_state": outbox.get("sandbox_execution_state"),
+                "provider_family": outbox.get("provider_family"),
+                "provider_adapter_suspended": bool(outbox.get("provider_adapter_suspended", False)),
+                "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
+                "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
+                "external_delivery_enabled": bool(outbox.get("external_delivery_enabled", False)),
+                "replay_state": dict(outbox.get("replay_state", {})),
+            }
+            governed_context["sandbox_execution_timeline"] = list(outbox.get("execution_timeline", []))
             governed_context["outbox_id"] = refs.get("outbox_id")
             governed_context["governed_execution_mode"] = outbox.get("governed_execution_mode")
             governed_context["live_execution_enabled"] = bool(outbox.get("live_execution_enabled", False))

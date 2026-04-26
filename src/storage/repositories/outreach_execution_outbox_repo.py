@@ -65,13 +65,29 @@ class OutreachExecutionOutboxRepository:
 
     def _collect_governed_state(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         return {
+            "execution_id": payload.get("execution_id"),
             "governed_execution_mode": payload.get("governed_execution_mode"),
+            "adapter_family": payload.get("adapter_family"),
+            "provider_family": payload.get("provider_family"),
+            "sandbox_execution_state": payload.get("sandbox_execution_state"),
             "approval_state": payload.get("approval_state"),
             "audit_state": payload.get("audit_state"),
+            "template_approval_state": payload.get("template_approval_state"),
+            "contact_source_audit_state": payload.get("contact_source_audit_state"),
+            "frequency_control_state": payload.get("frequency_control_state"),
             "quiet_hours_state": payload.get("quiet_hours_state"),
+            "opt_out_state": payload.get("opt_out_state"),
+            "unsubscribe_state": payload.get("unsubscribe_state"),
+            "bounce_state": payload.get("bounce_state"),
+            "failure_state": dict(payload.get("failure_state", {})),
+            "retry_state": dict(payload.get("retry_state", {})),
+            "stop_state": dict(payload.get("stop_state", {})),
             "live_execution_enabled": bool(payload.get("live_execution_enabled", False)),
             "real_send_attempted": bool(payload.get("real_send_attempted", False)),
+            "external_delivery_enabled": bool(payload.get("external_delivery_enabled", False)),
             "blocked_reasons": list(payload.get("blocked_reasons", [])),
+            "execution_timeline": list(payload.get("execution_timeline", [])),
+            "replay_state": dict(payload.get("replay_state", {})),
             "outbox_readiness_summary": dict(payload.get("outbox_readiness_summary", {})),
         }
 

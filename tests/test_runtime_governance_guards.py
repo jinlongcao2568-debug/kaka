@@ -283,6 +283,9 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertEqual(workbench["owner_action_state"], "BLOCKED")
         self.assertEqual(workbench["quote_surface_state"], "BLOCKED")
         self.assertEqual(outbox["vendor_adapter_state"]["state"], "BLOCKED")
+        self.assertEqual(outbox["sandbox_execution_state"], "SUSPENDED")
+        self.assertEqual(stage8.inputs["outbox_readiness_summary"]["sandbox_execution_readiness"], "SUSPENDED")
+        self.assertFalse(stage8.inputs["outbox_readiness_summary"]["dry_run_ready"])
         self.assertEqual(ledger["payment_gateway_adapter_state"]["state"], "SUSPENDED")
         for carrier in (workbench, package, outbox, ledger):
             self.assertTrue(carrier["provider_adapter_suspended"])

@@ -1344,9 +1344,17 @@ class TestInternalChain(unittest.TestCase):
         self.assertEqual(outbox["contact_target_id"], contact_target.get("contact_target_id"))
         self.assertEqual(outbox["opportunity_id"], saleable_opportunity.get("opportunity_id"))
         self.assertEqual(outbox["governed_execution_mode"], "INTERNAL_GOVERNED")
+        self.assertTrue(outbox["execution_id"].startswith("EXEC-"))
+        self.assertEqual(outbox["adapter_family"], "email")
+        self.assertEqual(outbox["provider_family"], "sales_outreach")
+        self.assertIn(outbox["sandbox_execution_state"], {"SANDBOX_RECORDED", "HELD", "BLOCKED"})
+        self.assertTrue(outbox["execution_timeline"])
+        self.assertEqual(outbox["replay_state"]["state"], "REPLAYABLE")
         self.assertFalse(outbox["live_execution_enabled"])
         self.assertFalse(outbox["real_send_attempted"])
+        self.assertFalse(outbox["external_delivery_enabled"])
         self.assertEqual(stage8.inputs["outbox_readiness_summary"]["outbox_id"], outbox["outbox_id"])
+        self.assertEqual(stage8.inputs["outbox_readiness_summary"]["execution_id"], outbox["execution_id"])
 
     def test_stage8_failure_path_persists_writeback_fields(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
