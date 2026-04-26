@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 6)
+        self.assertEqual(len(non_completed), 5)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -215,6 +215,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_121b = self.tasks_by_id["PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund"]
         task_121c = self.tasks_by_id["PTL-I100-121C-production-slo-monitoring-incident-readiness"]
         task_118 = self.tasks_by_id["PTL-I100-118-full-product-operational-acceptance"]
+        task_122 = self.tasks_by_id["PTL-I100-122-approved-sales-outreach-provider-execution"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -389,9 +390,17 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_121c["runtime_change_in_packet"],
             "COMPLETED_121C_PRODUCTION_SLO_MONITORING_INCIDENT_READINESS",
         )
-        self.assertEqual(task_118["status"], "IN_PROGRESS")
-        self.assertEqual(task_118["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_118["status"], "COMPLETED")
+        self.assertEqual(task_118["planning_state"], "COMPLETED")
         self.assertEqual(task_118["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(task_118["completion_result"], "BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS")
+        self.assertEqual(task_118["closeout_recommendation"], "DO_NOT_CLOSEOUT")
+        self.assertEqual(task_122["status"], "IN_PROGRESS")
+        self.assertEqual(task_122["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(
+            task_122["runtime_change_in_packet"],
+            "IN_SCOPE_WHEN_ACTIVATED",
+        )
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]
         }

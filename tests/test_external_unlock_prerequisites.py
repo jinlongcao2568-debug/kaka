@@ -366,8 +366,8 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
                 "not an external unlock implementation",
                 "不改变 canonical readiness",
                 "不放开 external software release",
-                "不在 118 内实现或执行 Stage8 real execution；122 可在 dedicated current_task、provider config、sandbox、approval、audit、operator action、频控/退订/quiet-hours 和验收通过后受控开发 approved provider execution",
-                "不在 118 内实现或执行 Stage9 real payment/delivery/refund；123 可在 dedicated current_task、provider config、sandbox、approval、audit、finance review、artifact/download/settlement/reconciliation 和验收通过后受控开发 payment/delivery execution；自动退款仍 excluded",
+                "不无审批/无审计发送",
+                "不绕过 provider config / sandbox / approval / audit / operator action",
                 "不新增业务对象、枚举、gate、exception 语义",
             }.issubset(set(task_packet["non_goals"]))
         )

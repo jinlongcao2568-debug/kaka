@@ -1833,13 +1833,22 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_to_stage9, product_acceptance, governance_testing]
     task_type: product_operability_acceptance
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P22
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: MIXED_INTERNAL_SANDBOX_READY
     runtime_change_in_packet: OUT_OF_SCOPE
+    completed_commit: 866f9bf
+    completion_result: BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS
+    closeout_recommendation: DO_NOT_CLOSEOUT
+    followup_tasks_registered:
+      - PTL-I100-122-approved-sales-outreach-provider-execution
+      - PTL-I100-125-approved-crm-quote-provider-execution
+      - PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
+      - PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+      - PTL-I100-126-production-live-dependency-and-drill-approval
     activation_policy: "Activated by control/current_task.yaml after PTL-I100-121C completed via aaf903c. This is a product operational acceptance packet, not a runtime implementation packet: it must validate engineering regression, capability states, and evidence-pack business closure, then report remaining blockers with minimal follow-up tasks."
     hard_depends_on:
       - PTL-I100-111-live-provider-adapters-no-auto-refund
@@ -1879,8 +1888,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage8_outreach, provider_execution, sales_governance]
     task_type: approved_live_provider_execution
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P23
     existing_code_state: HEAVY_RUNTIME

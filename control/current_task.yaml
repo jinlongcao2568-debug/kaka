@@ -1,15 +1,15 @@
 version: 1
 templateState: "NAMED_ASSIGNED"
 single_operator_mode: true
-updated_at: "2026-04-26"
+updated_at: "2026-04-27"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_118_FULL_PRODUCT_OPERATIONAL_ACCEPTANCE"
+navigation_state: "PTL_I100_122_APPROVED_SALES_OUTREACH_PROVIDER_EXECUTION"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-121C production SLO monitoring incident readiness 已通过验收并本地提交 aaf903c；按 product_task_library final_product_closure_gate 激活 PTL-I100-118 full product operational acceptance。"
+activation_condition: "PTL-I100-118 full product operational acceptance 已完成并确认产品闭环 NOT_CLOSED；122-126 follow-up 已登记并按 97dfc59 调整为产品流顺序。按 product_task_library 激活 PTL-I100-122 approved sales outreach provider execution。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-118-full-product-operational-acceptance"
-  title: "I100-18 Full product operational acceptance"
+  task_id: "PTL-I100-122-approved-sales-outreach-provider-execution"
+  title: "I100-22 Approved sales outreach provider execution"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,10 +29,12 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
+    - "docs/D6_字段策略字典与客户交付字段规范.md"
+    - "docs/D7_对象级交付矩阵与外发治理规范.md"
+    - "docs/D9_联系对象与销售触达规范.md"
     - "docs/D11_测试验收与金标回归清单.md"
     - "docs/D12_部署发布与运行治理规范.md"
     - "docs/D13_公开可查边界能力清单.md"
-    - "docs/D14_AI模型治理规范.md"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
     - "control/product_acceptance_checklist.yaml"
@@ -40,8 +42,8 @@ currentTask:
     - "control/product_module_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-118-full-product-operational-acceptance"
-  objective: "按三层验收模型做产品运营验收：工程回归、能力状态、产品闭环。重点判断公开来源到证据包销售、LeadPack、触达、CRM/报价、支付交付、审计回放是否能被 owner 实际运营；测试全绿只是底线，不得替代产品闭环验收。"
+  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-122-approved-sales-outreach-provider-execution"
+  objective: "把 Stage8 从 approved live pilot readback 推进到可执行的 approved provider send path：仅在 provider config、sandbox pass、template approval、contact source audit、operator approval/action audit、frequency/quiet-hours/opt-out/complaint gates 全部满足时允许小范围 provider execution，并持久化 provider result、bounce/failure/complaint、retry/stop/suspension、execution timeline。开发和测试只能使用受控本地/fake provider，不得真实外发。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -61,60 +63,50 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-118-full-product-operational-acceptance"
-    subpacket_id: "PTL-I100-118-full-product-operational-acceptance"
-    backlog_packet_ref: "PTL-I100-118-full-product-operational-acceptance"
+    packet_id: "PTL-I100-122-approved-sales-outreach-provider-execution"
+    subpacket_id: "PTL-I100-122-approved-sales-outreach-provider-execution"
+    backlog_packet_ref: "PTL-I100-122-approved-sales-outreach-provider-execution"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "OUT_OF_SCOPE"
+    runtime_change_in_packet: "ACTIVE_122_APPROVED_SALES_OUTREACH_PROVIDER_EXECUTION"
     existing_code_state: "HEAVY_RUNTIME"
-    existing_runtime_state: "MIXED_INTERNAL_SANDBOX_APPROVAL_LIVE_PRODUCTION_READY"
-    title: "I100-18 Full product operational acceptance"
+    existing_runtime_state: "LIVE_READY_READBACK_ONLY"
+    title: "I100-22 Approved sales outreach provider execution"
     status: "ACTIVE"
-    objective: "验证当前已登记产品缺口是否真正闭合为 owner 可运营的 evidence-pack / leadpack 商业产品闭环；输出通过/不通过、能力状态、产品闭环证据、剩余阻断和最小补齐任务。"
+    objective: "在既有 Stage8 governed outbox、111B sandbox execution、111E provider reliability、121A live pilot readback 基础上，建立 approved provider send execution path。实现必须证明：通过审批链和审计链后，系统能执行受控 provider adapter 并回放 provider result；未审批、批量、误导、无联系人来源、退订/频控/quiet-hours/投诉/供应商异常场景必须 fail closed。"
     depends_on:
-      - "PTL-I100-111 live provider adapters no-auto-refund 已完成。"
-      - "PTL-I100-112 production platform infrastructure 已完成。"
-      - "PTL-I100-113 Stage1 scheduler production loop 已完成。"
-      - "PTL-I100-114 Stage2 public source adapters 114A-114I 已完成。"
-      - "PTL-I100-115 Stage3 parser/OCR/attachments 已完成。"
-      - "PTL-I100-116 Stage4 public verification adapters 已完成。"
-      - "PTL-I100-116A project manager active-conflict slice 已完成。"
-      - "PTL-I100-117 Stage5 rule factory expansion 已完成。"
-      - "PTL-I100-119A real challenger identification 已完成。"
-      - "PTL-I100-119 Stage6 product package hardening 已完成。"
-      - "PTL-I100-120 operator/customer access/go-live readiness 已完成。"
-      - "PTL-I100-121A sales outreach live pilot readback 已完成。"
-      - "PTL-I100-121B payment/delivery live pilot no-auto-refund readback 已完成。"
-      - "PTL-I100-121C production SLO monitoring incident readiness 已完成并本地提交 aaf903c。"
+      - "PTL-I100-118 full product operational acceptance 已完成并输出 blocker B118_STAGE8_REAL_SEND_NOT_EXECUTABLE。"
+      - "PTL-I100-111B sales outreach adapter execution 已完成并本地提交 5642cb4。"
+      - "PTL-I100-111E provider reliability and circuit breaker 已完成并本地提交 1a1233c。"
+      - "PTL-I100-121A sales outreach live pilot readback 已完成并本地提交 4fc8020。"
+      - "PTL-I100-120 operator/customer access and go-live readiness 已完成并本地提交 5bd558d。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-121C-production-slo-monitoring-incident-readiness"
-      target_active_packet: "PTL-I100-118-full-product-operational-acceptance"
+      previous_active_packet: "PTL-I100-118-full-product-operational-acceptance"
+      target_active_packet: "PTL-I100-122-approved-sales-outreach-provider-execution"
       parent_packet: "PTL-I100-internal-operable-productization"
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: "product_operational_acceptance"
+      active_packet_kind: "approved_sales_outreach_provider_execution"
       product_mainline_task: true
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
-      runtime_change: false
-      runtime_change_in_packet: "OUT_OF_SCOPE"
+      runtime_change: true
+      runtime_change_in_packet: "ACTIVE_122_APPROVED_SALES_OUTREACH_PROVIDER_EXECUTION"
       docs_change: false
       contracts_change: false
       handoff_change: false
       scripts_change: false
       tests_change: true
-      fixture_change: true
+      fixture_change: false
       control_change: true
-      product_operational_acceptance_change: true
-      capability_state_audit_change: true
-      live_execution_scope_change: false
+      product_operational_acceptance_change: false
+      live_execution_scope_change: true
       automated_refund_program_change: false
       new_business_object_enum_gate_exception_semantics: false
       new_formal_object_enum_gate_exception_semantics: false
@@ -125,30 +117,33 @@ currentTask:
       - "not an external unlock implementation"
       - "不改变 canonical readiness"
       - "不放开 external software release"
-      - "不在 118 内实现或执行 Stage8 real execution；122 可在 dedicated current_task、provider config、sandbox、approval、audit、operator action、频控/退订/quiet-hours 和验收通过后受控开发 approved provider execution"
-      - "不在 118 内实现或执行 Stage9 real payment/delivery/refund；123 可在 dedicated current_task、provider config、sandbox、approval、audit、finance review、artifact/download/settlement/reconciliation 和验收通过后受控开发 payment/delivery execution；自动退款仍 excluded"
       - "不新增业务对象、枚举、gate、exception 语义"
-      - "not a runtime implementation packet"
-      - "not a feature development packet"
-      - "not a simple test-green repeat"
-      - "not automatic release"
-      - "not automated refund"
-      - "not unapproved live provider execution"
-      - "not customer-visible delivery without approval/audit/field allowlist/masking"
-      - "not docs/contracts/handoff/scripts change"
-      - "not push"
+      - "不批量外发"
+      - "不无审批/无审计发送"
+      - "不绕过 provider config / sandbox / approval / audit / operator action"
+      - "不绕过退订、频控、quiet-hours、投诉、bounce/failure、provider reliability"
+      - "不发送未复核结论、误导性话术或明显无关对象"
+      - "不把 provider execution 结果直接污染 Stage6 formal facts"
+      - "不修改 Stage9 payment/delivery/refund"
+      - "不实现自动退款程序"
+      - "不 external software release"
+      - "不 push"
     affected_stages:
-      - "stage1_to_stage9"
-      - "product_acceptance"
-      - "capability_state_audit"
-      - "governance_testing"
-      - "operator_acceptance"
+      - "stage8_outreach"
+      - "provider_execution"
+      - "sales_governance"
+      - "api_transport"
+      - "storage_repository_boundary"
+      - "runtime_governance"
     risk_level: "CRITICAL"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "governance_release_core"
+      - "stage8_outreach_runtime"
       - "provider_vendor_source_policy_core"
+      - "governance_release_core"
+      - "storage_runtime_core"
+      - "api_transport_foundation"
       - "scripts_and_tests_general"
     reviews:
       - "architecture_owner"
@@ -162,43 +157,67 @@ currentTask:
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "control/product_operability_gap_matrix.yaml"
       - "control/product_module_registry.yaml"
-      - "fixtures/internal_acceptance_matrix.json"
-      - "fixtures/internal_acceptance_*.json"
-      - "tests/test_full_product_operational_acceptance.py"
-      - "tests/test_product_acceptance_checklist.py"
-      - "tests/test_product_operability_gap_matrix.py"
-      - "tests/test_internal_acceptance_matrix.py"
+      - "src/shared/provider_adapter_config.py"
+      - "src/stage8_outreach/**"
+      - "src/api/main.py"
+      - "src/api/projections.py"
+      - "src/api/routes/stage8.py"
+      - "src/api/schemas/stage8.py"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/repository_bundle_io.py"
+      - "src/storage/repositories/__init__.py"
+      - "src/storage/repositories/outreach_execution_outbox_repo.py"
+      - "src/storage/repositories/provider_adapter_config_repo.py"
+      - "tests/test_stage8_resolution_closure.py"
       - "tests/test_internal_chain.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/test_api_transport_bootstrap.py"
       - "tests/test_runtime_governance_guards.py"
-      - "tests/test_external_unlock_prerequisites.py"
       - "tests/test_product_module_registry.py"
+      - "tests/test_product_acceptance_checklist.py"
+      - "tests/test_external_unlock_prerequisites.py"
     allowed_modification_paths:
       - "control/current_task.yaml"
       - "control/repo_status.md"
       - "control/product_task_library.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "control/product_operability_gap_matrix.yaml"
       - "control/product_module_registry.yaml"
-      - "fixtures/internal_acceptance_matrix.json"
-      - "fixtures/internal_acceptance_*.json"
-      - "tests/test_full_product_operational_acceptance.py"
-      - "tests/test_product_acceptance_checklist.py"
-      - "tests/test_product_operability_gap_matrix.py"
-      - "tests/test_internal_acceptance_matrix.py"
+      - "src/shared/provider_adapter_config.py"
+      - "src/stage8_outreach/**"
+      - "src/api/main.py"
+      - "src/api/projections.py"
+      - "src/api/routes/stage8.py"
+      - "src/api/schemas/stage8.py"
+      - "src/storage/repository_boundary.py"
+      - "src/storage/repository_bundle_io.py"
+      - "src/storage/repositories/__init__.py"
+      - "src/storage/repositories/outreach_execution_outbox_repo.py"
+      - "src/storage/repositories/provider_adapter_config_repo.py"
+      - "tests/test_stage8_resolution_closure.py"
       - "tests/test_internal_chain.py"
+      - "tests/test_internal_repository_boundary.py"
       - "tests/test_api_transport_bootstrap.py"
       - "tests/test_runtime_governance_guards.py"
-      - "tests/test_external_unlock_prerequisites.py"
       - "tests/test_product_module_registry.py"
+      - "tests/test_product_acceptance_checklist.py"
+      - "tests/test_external_unlock_prerequisites.py"
     forbidden_modification_paths:
       - "docs/**"
       - "contracts/**"
       - "handoff/**"
       - "scripts/**"
-      - "src/**"
+      - "fixtures/**"
+      - "src/stage1_tasking/**"
+      - "src/stage2_ingestion/**"
+      - "src/stage3_parsing/**"
+      - "src/stage4_verification/**"
+      - "src/stage5_rules_evidence/**"
+      - "src/stage6_fact_review/**"
+      - "src/stage7_sales/**"
+      - "src/stage9_delivery/**"
+      - "src/storage/db.py"
+      - "src/storage/models/**"
       - "migrations/**"
       - "alembic.ini"
       - ".dockerignore"
@@ -210,7 +229,6 @@ currentTask:
         - "control/repo_status.md"
         - "control/product_task_library.yaml"
         - "control/product_acceptance_checklist.yaml"
-        - "control/product_operability_gap_matrix.yaml"
         - "control/product_module_registry.yaml"
       docs: []
       contracts: []
@@ -218,32 +236,35 @@ currentTask:
       scripts:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
-      runtime: []
-      fixtures:
-        - "fixtures/internal_acceptance_matrix.json"
-        - "fixtures/internal_acceptance_*.json"
+      runtime:
+        - "src/stage8_outreach/**"
+        - "src/shared/provider_adapter_config.py"
+        - "src/api/routes/stage8.py"
+        - "src/api/projections.py"
+        - "src/api/main.py"
+        - "src/storage/repository_boundary.py"
+        - "src/storage/repositories/outreach_execution_outbox_repo.py"
+      fixtures: []
       tests:
-        - "tests/test_full_product_operational_acceptance.py"
-        - "tests/test_product_acceptance_checklist.py"
-        - "tests/test_product_operability_gap_matrix.py"
-        - "tests/test_internal_acceptance_matrix.py"
+        - "tests/test_stage8_resolution_closure.py"
         - "tests/test_internal_chain.py"
+        - "tests/test_internal_repository_boundary.py"
         - "tests/test_api_transport_bootstrap.py"
         - "tests/test_runtime_governance_guards.py"
-        - "tests/test_external_unlock_prerequisites.py"
         - "tests/test_product_module_registry.py"
+        - "tests/test_product_acceptance_checklist.py"
+        - "tests/test_external_unlock_prerequisites.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_full_product_operational_acceptance -v"
-      - "python -m unittest tests.test_product_acceptance_checklist -v"
-      - "python -m unittest tests.test_product_operability_gap_matrix -v"
-      - "python -m unittest tests.test_internal_acceptance_matrix -v"
+      - "python -m unittest tests.test_stage8_resolution_closure -v"
       - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
+      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_api_transport_bootstrap -v"
       - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
-      - "python -m unittest tests.test_external_unlock_prerequisites -v"
       - "python -m unittest tests.test_product_module_registry -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''fixtures/internal_acceptance_matrix.json'',''fixtures/internal_acceptance_*.json'',''tests/test_full_product_operational_acceptance.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_internal_acceptance_matrix.py'',''tests/test_internal_chain.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_external_unlock_prerequisites.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "python -m unittest tests.test_product_acceptance_checklist -v"
+      - "python -m unittest tests.test_external_unlock_prerequisites -v"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage8_outreach/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage8.py'',''src/api/schemas/stage8.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/outreach_execution_outbox_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -251,16 +272,15 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_full_product_operational_acceptance -v": 300000
-      "python -m unittest tests.test_product_acceptance_checklist -v": 300000
-      "python -m unittest tests.test_product_operability_gap_matrix -v": 300000
-      "python -m unittest tests.test_internal_acceptance_matrix -v": 300000
+      "python -m unittest tests.test_stage8_resolution_closure -v": 300000
       "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
+      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_api_transport_bootstrap -v": 300000
       "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
-      "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
       "python -m unittest tests.test_product_module_registry -v": 300000
-      ? "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''fixtures/internal_acceptance_matrix.json'',''fixtures/internal_acceptance_*.json'',''tests/test_full_product_operational_acceptance.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_internal_acceptance_matrix.py'',''tests/test_internal_chain.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_external_unlock_prerequisites.py'',''tests/test_product_module_registry.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      "python -m unittest tests.test_product_acceptance_checklist -v": 300000
+      "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
+      ? "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage8_outreach/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage8.py'',''src/api/schemas/stage8.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/outreach_execution_outbox_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       : 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python tests/run_tests.py": 900000
@@ -271,23 +291,26 @@ currentTask:
       - "任一 targeted test 或 formal check 失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "实际改动命中 forbidden_modification_paths"
-      - "需要修改 docs、contracts、handoff、scripts 或 src runtime"
-      - "发现产品闭环缺口需要 runtime 实现时，停止并输出最小后续任务，不在 118 内顺手实现"
-      - "需要新增正式对象、schema、enum、release gate、exception 语义"
-      - "需要连接外部 provider、真实触达、真实扣款、真实交付、真实退款、自动退款、external release 或 push"
+      - "需要修改 docs、contracts、handoff、scripts、fixtures 或非 Stage8/允许 API/storage/provider config runtime"
+      - "需要新增正式业务对象、schema、enum、release gate、exception 语义"
+      - "需要真实外部 provider 网络调用、真实发送触达、批量发送、无审批发送、external release 或 push"
+      - "需要修改 Stage1-7 或 Stage9 runtime"
+      - "需要放开支付、交付、退款或自动退款"
     definition_of_done:
-      - "输出 full-chain acceptance matrix，逐项说明 Stage1-9 到 evidence-pack/leadpack 商业闭环的可用性。"
-      - "输出 capability state report，明确每个登记能力当前状态和证据，不把 readback/preview 冒充 live/production。"
-      - "输出 product closure report，验证 owner/operator 是否能实际运营销售证据包。"
-      - "输出 remaining blockers，且每个 blocker 都映射到最小补齐任务或明确不做边界。"
-      - "自动退款执行保持 absent/excluded，退款只保留 manual exception + approval/audit/governed review。"
-      - "targeted tests、验收清单测试与 formal checks 全部通过。"
+      - "approved provider execution carrier 能稳定表达 execution_id/outbox_id/touch_record/contact_target/opportunity/channel/adapter_family/provider_config_ref/sandbox_pass/approval/audit/operator_action/frequency/quiet-hours/opt-out/provider_result/bounce/failure/complaint/retry/stop/suspension/timeline。"
+      - "只有 provider config + sandbox pass + template approval + contact source audit + operator approval/action audit + frequency/quiet-hours/opt-out/complaint/provider reliability 全部满足时，approved small-sample provider execution path 才可进入 EXECUTED/PROVIDER_RESULT_RECORDED。"
+      - "未审批、批量、无模板、联系人来源缺失、退订、频控、quiet-hours、投诉阈值、provider unhealthy/rate-limited/timeout/circuit-open 均 fail closed。"
+      - "provider result、bounce/failure/complaint、retry/stop/suspension、execution timeline 可持久化、hydrate、API readback、repository readback。"
+      - "stale typed refs fail closed，不 broad fallback 到 opportunity_id。"
+      - "不产生真实外部网络/provider send side effect；测试只能使用受控 fake/local provider。"
+      - "external software release、Stage9 payment/delivery/refund、自动退款继续 blocked/excluded。"
+      - "targeted tests 与 formal checks 全部通过。"
     deliverables:
-      - "activated 118 current_task packet"
-      - "full-chain operational acceptance matrix/test"
-      - "capability state report/test"
-      - "product closure report/test"
-      - "remaining blocker map with minimal follow-up tasks"
+      - "activated 122 current_task packet"
+      - "approved Stage8 provider execution runtime path"
+      - "provider execution result/readback/replay"
+      - "governance fail-closed tests"
+      - "product acceptance checklist evidence"
     human_review_required: true
     owner_reviews_required:
       - "architecture_owner"
@@ -298,25 +321,26 @@ currentTask:
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_118_FULL_PRODUCT_OPERATIONAL_ACCEPTANCE"
-      signoff_meaning: "本批准只允许做产品运营验收、能力状态审计、验收矩阵和阻断清单；不批准新增 runtime 功能、真实外部执行、自动退款、external release 或 push。"
+      signoff_status: "APPROVED_FOR_122_APPROVED_SALES_OUTREACH_PROVIDER_EXECUTION_DEVELOPMENT"
+      signoff_meaning: "本批准只允许开发 approved/gated Stage8 provider execution path 和 readback；不批准无审批真实外发、批量外发、external software release、Stage9 支付交付退款或自动退款。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml is the only active execution source."
-      - "118 的验收本体是产品闭环，不是重复证明前序单包测试全绿。"
+      - "122 是产品闭环 blocker B118_STAGE8_REAL_SEND_NOT_EXECUTABLE 的最小实现包。"
       - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
   hardBlockers:
     - "external software release remains blocked"
-    - "unapproved real outreach, real payment capture, real delivery fulfillment, real refund, automated refund, and customer-visible external delivery remain blocked"
+    - "unapproved or bulk real outreach remains blocked"
+    - "payment, delivery, refund, and automated refund remain out of scope for 122"
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内做 118 产品运营验收资产和测试。"
+    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 approved Stage8 provider execution path。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
-    - "不得修改 docs、contracts、handoff、scripts 或 src runtime。"
+    - "不得修改 docs、contracts、handoff、scripts、fixtures 或非允许 runtime。"
     - "不得新增 schema/enum/gate/exception 语义。"
-    - "不得真实 provider call、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
+    - "不得真实外部 provider 网络调用、无审批真实触达、批量发送、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得 push。"
   nextActions:
-    - "118 已输出产品闭环 blocker，并已登记 PTL-I100-122 到 PTL-I100-126 作为最小后续实现任务。"
-    - "进入 122 前只允许同步会阻断后续开发的控制面/测试口径；runtime 实现必须等 dedicated current_task 激活。"
-  status_note: "PTL-I100-118 已完成产品运营验收并确认 NOT_CLOSED；122-126 是补齐真实触达、支付交付、客户可见交付、CRM/报价和生产依赖执行的后续任务。"
+    - "派发 122 实现窗口。"
+    - "新窗口完成后由总控验收 diff、补跑必要校验、提交或回调。"
+  status_note: "PTL-I100-122 已激活；当前目标是把 Stage8 approved live pilot readback 推进到 approved provider execution path，仍保持无审批/批量/真实外部副作用阻断。"
