@@ -1051,10 +1051,17 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
             "channel": outbox.get("channel"),
             "adapter_family": outbox.get("adapter_family"),
             "supported_adapter_families": list(
-                dict(outbox.get("live_pilot_readiness_summary", {})).get(
+                outbox.get("supported_adapter_families")
+                or dict(outbox.get("live_pilot_readiness_summary", {})).get(
                     "supported_adapter_families",
                     [],
                 )
+            ),
+            "provider_config_ref": outbox.get("provider_config_ref", {}),
+            "provider_config_state": outbox.get("provider_config_state"),
+            "provider_adapter_readiness_summary": outbox.get(
+                "provider_adapter_readiness_summary",
+                {},
             ),
             "pilot_id": outbox.get("pilot_id"),
             "pilot_scope": outbox.get("pilot_scope"),
@@ -1080,10 +1087,25 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
             "unsubscribe_state": outbox.get("unsubscribe_state"),
             "live_pilot_readiness_state": outbox.get("live_pilot_readiness_state"),
             "live_execution_requested": bool(outbox.get("live_execution_requested", False)),
+            "approved_provider_execution_requested": bool(
+                outbox.get("approved_provider_execution_requested", False)
+            ),
+            "approved_provider_execution_enabled": bool(
+                outbox.get("approved_provider_execution_enabled", False)
+            ),
+            "execution_request_state": outbox.get("execution_request_state"),
+            "provider_execution_state": outbox.get("provider_execution_state"),
+            "approved_provider_execution_summary": outbox.get(
+                "approved_provider_execution_summary",
+                {},
+            ),
             "bounce_state": outbox.get("bounce_state"),
             "failure_state": outbox.get("failure_state", {}),
             "failure_threshold_state": outbox.get("failure_threshold_state", {}),
+            "complaint_state": outbox.get("complaint_state"),
             "complaint_taxonomy": outbox.get("complaint_taxonomy", {}),
+            "bounce_taxonomy": outbox.get("bounce_taxonomy", {}),
+            "failure_taxonomy": outbox.get("failure_taxonomy", {}),
             "provider_result_readback": outbox.get("provider_result_readback", {}),
             "retry_policy": outbox.get("retry_policy", {}),
             "retry_state": outbox.get("retry_state", {}),
@@ -1094,6 +1116,10 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
             "dry_run_execution_state": outbox.get("dry_run_execution_state", {}),
             "live_execution_record": outbox.get("live_execution_record", {}),
             "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
+            "controlled_provider_adapter_scope": outbox.get("controlled_provider_adapter_scope"),
+            "controlled_provider_execution_executed": bool(
+                outbox.get("controlled_provider_execution_executed", False)
+            ),
             "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
             "external_delivery_enabled": bool(outbox.get("external_delivery_enabled", False)),
             "execution_timeline": list(outbox.get("execution_timeline", [])),
@@ -1125,6 +1151,17 @@ def build_stage8_preview_surface(payload: Any) -> dict[str, Any]:
     envelope["preview_projection"].pop("_raw_records", None)
     envelope["outreach_execution_outbox"] = preview_projection["outreach_execution_outbox_preview"]
     envelope["outbox_readiness_summary"] = outbox_summary
+    envelope["approved_provider_execution_summary"] = preview_projection[
+        "outreach_execution_outbox_preview"
+    ].get("approved_provider_execution_summary", {})
+    envelope["provider_result_readback"] = preview_projection["outreach_execution_outbox_preview"].get(
+        "provider_result_readback",
+        {},
+    )
+    envelope["execution_timeline"] = preview_projection["outreach_execution_outbox_preview"].get(
+        "execution_timeline",
+        [],
+    )
     return _attach_operational_context(envelope, bundle)
 
 

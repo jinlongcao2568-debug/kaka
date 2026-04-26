@@ -1543,18 +1543,46 @@ class TestApiTransportBootstrap(unittest.TestCase):
             for operation in app.state.transport_bootstrap["stage6_to_stage9_mounted_operations"]
         }
         live_pilot_metadata = mounted_by_id["listContactTargets"]["stage8_live_pilot_readiness"]
+        approved_provider_metadata = mounted_by_id["listContactTargets"][
+            "stage8_approved_provider_execution_readiness"
+        ]
         self.assertEqual(live_pilot_metadata["readiness_scope"], "gated_small_sample_live_pilot_readback")
+        self.assertEqual(
+            approved_provider_metadata["readiness_scope"],
+            "approved_small_sample_provider_execution_readback",
+        )
         self.assertEqual(
             set(live_pilot_metadata["supported_adapter_families"]),
             {"email", "sms", "phone_call", "wecom_im"},
         )
+        self.assertEqual(
+            set(approved_provider_metadata["supported_adapter_families"]),
+            {"email", "sms", "phone_call", "wecom_im"},
+        )
         self.assertFalse(live_pilot_metadata["batch_send_enabled"])
+        self.assertFalse(approved_provider_metadata["batch_send_enabled"])
+        self.assertFalse(approved_provider_metadata["bulk_send_enabled"])
+        self.assertTrue(approved_provider_metadata["requires_provider_config"])
+        self.assertTrue(approved_provider_metadata["requires_sandbox_pass"])
+        self.assertTrue(approved_provider_metadata["requires_operator_action_audit"])
         self.assertFalse(live_pilot_metadata["provider_call_enabled"])
         self.assertFalse(live_pilot_metadata["real_provider_call_enabled"])
+        self.assertFalse(approved_provider_metadata["provider_call_enabled"])
+        self.assertFalse(approved_provider_metadata["real_provider_call_enabled"])
+        self.assertEqual(
+            approved_provider_metadata["provider_adapter_scope"],
+            "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        )
         self.assertFalse(live_pilot_metadata["real_send_attempted"])
+        self.assertFalse(approved_provider_metadata["real_send_attempted"])
         self.assertFalse(live_pilot_metadata["stage9_payment_delivery_refund_enabled"])
         self.assertFalse(live_pilot_metadata["automated_refund_enabled"])
         self.assertFalse(app.state.transport_bootstrap["entry_strategy"]["stage8_live_pilot"]["real_send_attempted"])
+        self.assertFalse(
+            app.state.transport_bootstrap["entry_strategy"]["stage8_approved_provider_execution"][
+                "real_send_attempted"
+            ]
+        )
 
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
         stage8 = result["stage8"]
@@ -1575,6 +1603,12 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(payload["outreach_execution_outbox"]["pilot_scope"], "small_sample")
         self.assertFalse(payload["outreach_execution_outbox"]["batch_send_enabled"])
         self.assertEqual(payload["outreach_execution_outbox"]["live_pilot_readiness_state"], "BLOCKED")
+        self.assertFalse(payload["outreach_execution_outbox"]["approved_provider_execution_enabled"])
+        self.assertEqual(payload["outreach_execution_outbox"]["execution_request_state"], "BLOCKED")
+        self.assertIn("approved_provider_execution_summary", payload["outreach_execution_outbox"])
+        self.assertIn("approved_provider_execution_summary", payload)
+        self.assertIn("provider_result_readback", payload)
+        self.assertIn("execution_timeline", payload)
         self.assertFalse(payload["outreach_execution_outbox"]["provider_result_readback"]["provider_call_executed"])
         self.assertIn("execution_timeline", payload["outreach_execution_outbox"])
         self.assertEqual(

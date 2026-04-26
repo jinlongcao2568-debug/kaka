@@ -839,7 +839,13 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(outbox_entry.governed_state["adapter_family"], outbox["adapter_family"])
         self.assertEqual(outbox_entry.governed_state["execution_timeline"], outbox["execution_timeline"])
         self.assertEqual(outbox_entry.governed_state["replay_state"], outbox["replay_state"])
+        self.assertEqual(
+            outbox_entry.governed_state["approved_provider_execution_summary"],
+            outbox["approved_provider_execution_summary"],
+        )
+        self.assertEqual(outbox_entry.governed_state["provider_execution_state"], outbox["provider_execution_state"])
         self.assertFalse(outbox_entry.governed_state["live_execution_enabled"])
+        self.assertFalse(outbox_entry.governed_state["approved_provider_execution_enabled"])
         self.assertFalse(outbox_entry.governed_state["real_send_attempted"])
         self.assertFalse(outbox_entry.governed_state["external_delivery_enabled"])
 
@@ -886,6 +892,12 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             outbox.get("execution_timeline"),
         )
         self.assertEqual(
+            replay["preview_projection"]["outreach_execution_outbox_preview"][
+                "approved_provider_execution_summary"
+            ],
+            outbox.get("approved_provider_execution_summary"),
+        )
+        self.assertEqual(
             replay["outbox_readiness_summary"]["outbox_id"],
             outbox.get("outbox_id"),
         )
@@ -914,6 +926,12 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["persisted_operational_context"]["governed_context"]["sandbox_execution_timeline"],
             outbox.get("execution_timeline"),
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["governed_context"][
+                "approved_provider_execution_summary"
+            ],
+            outbox.get("approved_provider_execution_summary"),
         )
         self.assertTrue(replay["blocked_by_default"])
         hydrated = hydrate_stage_bundle(
@@ -955,6 +973,10 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             hydrated.inputs["outreach_execution_outbox_snapshot"],
             outbox_entry.payload,
+        )
+        self.assertEqual(
+            hydrated.inputs["outreach_execution_outbox_snapshot"]["approved_provider_execution_summary"],
+            outbox["approved_provider_execution_summary"],
         )
         self.assertEqual(
             hydrated.handoff["outbox_id_optional"],
@@ -1041,6 +1063,61 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             hydrated.inputs["human_handoff_reason_optional"],
             stage8.handoff.get("human_handoff_reason_optional"),
+        )
+
+    def test_stage8_repository_persists_approved_provider_execution_carrier(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "live_execution_requested": True,
+                "approved_provider_execution_requested": True,
+                "approval_state": "APPROVED",
+                "template_approval_state": "APPROVED",
+                "operator_approval_state": "APPROVED",
+                "operator_action_audit_refs": ["AUD-STAGE8-APPROVED-PERSIST-001"],
+                "approved_sample_size": 1,
+                "requested_sample_size": 1,
+                "provider_result_state": "SUCCESS",
+            }
+        )
+        stage8 = run_internal_chain(payload)["stage8"]
+        create_touch_record(stage8)
+
+        outbox = stage8.inputs["outreach_execution_outbox_snapshot"]
+        outbox_entry = OutreachExecutionOutboxRepository().get_by_id(outbox["outbox_id"])
+        replay = list_contact_targets(
+            {
+                "opportunity_id": stage8.record("contact_target").get("opportunity_id"),
+                "touch_record_id": stage8.record("touch_record").get("touch_record_id"),
+            }
+        )
+        hydrated = hydrate_stage_bundle(
+            "stage8",
+            {"opportunity_id": stage8.record("contact_target").get("opportunity_id")},
+        )
+
+        self.assertIsNotNone(outbox_entry)
+        self.assertTrue(outbox["approved_provider_execution_enabled"])
+        self.assertTrue(outbox_entry.payload["approved_provider_execution_enabled"])
+        self.assertTrue(outbox_entry.governed_state["approved_provider_execution_enabled"])
+        self.assertEqual(outbox_entry.governed_state["execution_request_state"], "APPROVED")
+        self.assertEqual(outbox_entry.governed_state["provider_execution_state"], "SUCCESS")
+        self.assertEqual(
+            replay["outreach_execution_outbox"]["approved_provider_execution_summary"],
+            outbox["approved_provider_execution_summary"],
+        )
+        self.assertEqual(
+            replay["provider_result_readback"]["result_state"],
+            "SUCCESS",
+        )
+        self.assertEqual(
+            replay["execution_timeline"],
+            outbox["execution_timeline"],
+        )
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.inputs["outreach_execution_outbox_snapshot"]["approved_provider_execution_summary"],
+            outbox["approved_provider_execution_summary"],
         )
 
     def test_stage9_repository_boundary_persists_internal_governed_writeback_loop(self) -> None:

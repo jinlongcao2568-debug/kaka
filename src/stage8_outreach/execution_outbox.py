@@ -430,6 +430,36 @@ def _sandbox_execution_state(
     return "SANDBOX_RECORDED"
 
 
+def _provider_config_readiness(
+    *,
+    authoritative_inputs: Mapping[str, Any],
+    provider_adapter_readiness_summary: Mapping[str, Any] | None,
+    provider_readiness: Mapping[str, Any],
+) -> tuple[str, dict[str, Any], list[str]]:
+    summary = dict(provider_adapter_readiness_summary or {})
+    explicit_missing = (
+        authoritative_inputs.get("provider_config_present") is False
+        or authoritative_inputs.get("provider_adapter_config_present") is False
+    )
+    provider_config_ref = {
+        "provider_family": provider_readiness.get("family", "sales_outreach"),
+        "provider_id": provider_readiness.get("provider_id"),
+        "provider_env": provider_readiness.get("provider_env"),
+        "config_source": summary.get("config_source"),
+        "config_source_ref": summary.get("config_source_ref"),
+        "mode": summary.get("mode") or provider_readiness.get("mode"),
+    }
+    configured = (
+        not explicit_missing
+        and bool(provider_readiness.get("provider_adapter_configured", False))
+        and bool(provider_config_ref["provider_id"])
+        and bool(provider_config_ref["config_source_ref"] or provider_config_ref["config_source"])
+    )
+    if configured:
+        return "CONFIGURED", provider_config_ref, []
+    return "MISSING", provider_config_ref, ["provider_config_missing"]
+
+
 def _blocking_stop_reason(value: Any) -> bool:
     reason = _state_token(value, default="")
     if reason in _NO_STOP_VALUES:
@@ -437,6 +467,90 @@ def _blocking_stop_reason(value: Any) -> bool:
     if "REVIEW_REQUIRED" in reason or "QUIET_HOURS" in reason or "FREQUENCY" in reason:
         return False
     return bool(reason)
+
+
+def _approved_provider_execution_requested(
+    authoritative_inputs: Mapping[str, Any],
+    *,
+    requested_live: bool,
+) -> bool:
+    return requested_live or any(
+        _truthy(authoritative_inputs.get(field_name))
+        for field_name in (
+            "approved_provider_execution_requested",
+            "approved_provider_send_requested",
+            "provider_execution_requested",
+            "controlled_provider_execution_requested",
+        )
+    )
+
+
+def _provider_result_state_from_inputs(authoritative_inputs: Mapping[str, Any]) -> str:
+    supplied = authoritative_inputs.get("provider_result_readback")
+    supplied_payload = dict(supplied) if isinstance(supplied, Mapping) else {}
+    return _state_token(
+        supplied_payload.get("result_state")
+        or supplied_payload.get("state")
+        or authoritative_inputs.get("provider_result_state")
+        or authoritative_inputs.get("controlled_provider_result_state"),
+        default="",
+    )
+
+
+def _approved_provider_result_state(
+    *,
+    authoritative_inputs: Mapping[str, Any],
+    enabled: bool,
+    live_pilot_readiness_state: str,
+    failure_state: Mapping[str, Any],
+    bounce_state: str,
+) -> str:
+    supplied_state = _provider_result_state_from_inputs(authoritative_inputs)
+    if supplied_state:
+        if "COMPLAINT" in supplied_state:
+            return "COMPLAINT"
+        if "BOUNCE" in supplied_state:
+            return "BOUNCE"
+        if supplied_state in {"RETRY", "RETRYABLE", "RETRY_SCHEDULED"}:
+            return "RETRY"
+        if supplied_state in {"STOP", "STOPPED"}:
+            return "STOPPED"
+        if supplied_state in {"SUSPEND", "SUSPENDED"}:
+            return "SUSPENDED"
+        if supplied_state in {"FAIL", "FAILED", "FAILURE", "ERROR", "TIMEOUT", "RATE_LIMITED"}:
+            return "FAILED"
+        if supplied_state in {"SUCCESS", "SENT", "ACCEPTED", "DELIVERED", "OK"}:
+            return "SUCCESS"
+        return supplied_state
+    if live_pilot_readiness_state == "SUSPENDED":
+        return "SUSPENDED"
+    if live_pilot_readiness_state == "STOPPED":
+        return "STOPPED"
+    if dict(failure_state).get("state") == "FAILED":
+        return "FAILED"
+    if bounce_state != "NONE":
+        return "BOUNCE"
+    if enabled:
+        return "SUCCESS"
+    return "NOT_DISPATCHED"
+
+
+def _complaint_state(
+    *,
+    authoritative_inputs: Mapping[str, Any],
+    complaint_taxonomy: Mapping[str, Any],
+    result_state: str,
+) -> str:
+    explicit_state = _state_token(
+        authoritative_inputs.get("complaint_state")
+        or authoritative_inputs.get("provider_complaint_state"),
+        default="",
+    )
+    if explicit_state:
+        return explicit_state
+    if result_state == "COMPLAINT":
+        return "COMPLAINT_RECORDED"
+    return _state_token(complaint_taxonomy.get("state"), default="NONE")
 
 
 def _execution_timeline(
@@ -496,6 +610,57 @@ def _execution_timeline(
     ]
 
 
+def _append_approved_provider_execution_timeline(
+    *,
+    timeline: list[dict[str, Any]],
+    now: str,
+    execution_request_state: str,
+    provider_execution_state: str,
+    provider_result_readback: Mapping[str, Any],
+    blocked_reasons: list[str],
+    suspension_reasons: list[str],
+) -> list[dict[str, Any]]:
+    result = list(timeline)
+    result.append(
+        {
+            "event": "approved_provider_execution_request_evaluated",
+            "at": now,
+            "state": execution_request_state,
+            "blocked_reasons": list(blocked_reasons),
+            "suspension_reasons": list(suspension_reasons),
+            "real_provider_call_enabled": False,
+            "real_send_attempted": False,
+        }
+    )
+    if execution_request_state == "APPROVED":
+        result.append(
+            {
+                "event": "controlled_provider_adapter_invoked",
+                "at": now,
+                "state": provider_execution_state,
+                "adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+                "provider_call_enabled": False,
+                "real_provider_call_enabled": False,
+                "real_send_attempted": False,
+            }
+        )
+    result.append(
+        {
+            "event": "provider_result_readback_recorded",
+            "at": now,
+            "state": provider_result_readback.get("result_state"),
+            "provider_execution_state": provider_execution_state,
+            "replayable": True,
+            "provider_call_executed": False,
+            "controlled_provider_execution_executed": bool(
+                provider_result_readback.get("controlled_provider_execution_executed", False)
+            ),
+            "real_send_attempted": False,
+        }
+    )
+    return result
+
+
 def _adapter_family_readiness(
     *,
     active_adapter_family: str,
@@ -535,14 +700,18 @@ def _provider_result_readback(
     complaint_taxonomy: Mapping[str, Any],
     live_pilot_readiness_state: str,
     live_execution_enabled: bool,
+    approved_provider_execution_enabled: bool = False,
+    execution_request_state: str = "NOT_REQUESTED",
+    provider_execution_state: str | None = None,
 ) -> dict[str, Any]:
     supplied = authoritative_inputs.get("provider_result_readback")
     supplied_payload = dict(supplied) if isinstance(supplied, Mapping) else {}
-    result_state = _state_token(
-        supplied_payload.get("result_state")
-        or supplied_payload.get("state")
-        or authoritative_inputs.get("provider_result_state"),
-        default="",
+    result_state = _approved_provider_result_state(
+        authoritative_inputs=authoritative_inputs,
+        enabled=approved_provider_execution_enabled,
+        live_pilot_readiness_state=live_pilot_readiness_state,
+        failure_state=failure_state,
+        bounce_state=bounce_state,
     )
     if not result_state:
         if live_pilot_readiness_state == "SUSPENDED":
@@ -555,21 +724,45 @@ def _provider_result_readback(
             result_state = "READY_FOR_OPERATOR_DISPATCH"
         else:
             result_state = "NOT_DISPATCHED"
+    effective_provider_execution_state = provider_execution_state or result_state
+    effective_bounce_state = "BOUNCE" if result_state == "BOUNCE" and bounce_state == "NONE" else bounce_state
+    effective_failure_state = dict(failure_state)
+    if result_state in {"FAILED", "RETRY"} and effective_failure_state.get("state") == "NONE":
+        effective_failure_state = {
+            **effective_failure_state,
+            "state": "FAILED" if result_state == "FAILED" else "RETRY",
+            "failure_class": "PROVIDER_RESULT",
+            "failure_reason": "provider_result_readback",
+            "retryable": result_state == "RETRY",
+        }
+    effective_complaint_taxonomy = dict(complaint_taxonomy)
+    if result_state == "COMPLAINT" and effective_complaint_taxonomy.get("state") in (None, "", "NONE"):
+        effective_complaint_taxonomy = {
+            **effective_complaint_taxonomy,
+            "state": "COMPLAINT",
+            "suspends_live_pilot": False,
+            "fail_closed": False,
+        }
     return {
         **supplied_payload,
         "result_state": result_state,
+        "execution_request_state": execution_request_state,
+        "provider_execution_state": effective_provider_execution_state,
         "adapter_family": adapter_family,
         "provider_family": provider_readiness.get("family", "sales_outreach"),
         "provider_id": provider_readiness.get("provider_id"),
         "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
         "bounce_taxonomy": {
-            "state": bounce_state,
-            "failure_class": "BOUNCE" if bounce_state != "NONE" else "NONE",
-            "retryable": bounce_state not in {"NONE", "HARD_BOUNCE", "INVALID_CONTACT_BOUNCE"},
+            "state": effective_bounce_state,
+            "failure_class": "BOUNCE" if effective_bounce_state != "NONE" else "NONE",
+            "retryable": effective_bounce_state not in {"NONE", "HARD_BOUNCE", "INVALID_CONTACT_BOUNCE"},
         },
-        "failure_taxonomy": dict(failure_state),
-        "complaint_taxonomy": dict(complaint_taxonomy),
+        "failure_taxonomy": effective_failure_state,
+        "complaint_taxonomy": effective_complaint_taxonomy,
         "readback_only": True,
+        "controlled_provider_adapter_enabled": bool(approved_provider_execution_enabled),
+        "controlled_provider_adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        "controlled_provider_execution_executed": bool(approved_provider_execution_enabled),
         "provider_call_enabled": False,
         "real_provider_call_enabled": False,
         "provider_call_executed": False,
@@ -808,6 +1001,162 @@ def _live_pilot_readiness(
     }
 
 
+def _approved_provider_execution_carrier(
+    *,
+    authoritative_inputs: Mapping[str, Any],
+    execution_id: str,
+    outbox_id: str,
+    touch_record_id: str,
+    contact_target: Mapping[str, Any],
+    adapter_family: str,
+    provider_config_state: str,
+    provider_config_ref: Mapping[str, Any],
+    provider_readiness: Mapping[str, Any],
+    live_pilot: Mapping[str, Any],
+    failure_state: Mapping[str, Any],
+    bounce_state: str,
+    now: str,
+) -> dict[str, Any]:
+    requested = _approved_provider_execution_requested(
+        authoritative_inputs,
+        requested_live=bool(live_pilot.get("live_execution_requested", False)),
+    )
+    blocked_reasons: list[str] = []
+    held_reasons = _clean_list(ensure_list(live_pilot.get("held_reasons")))
+    stopped_reasons = _clean_list(ensure_list(live_pilot.get("stopped_reasons")))
+    suspension_reasons = _clean_list(ensure_list(live_pilot.get("suspension_reasons")))
+
+    if not requested:
+        blocked_reasons.append("approved_provider_execution_not_requested")
+    if provider_config_state != "CONFIGURED":
+        blocked_reasons.append("provider_config_missing")
+    blocked_reasons.extend(ensure_list(live_pilot.get("blocked_reasons")))
+
+    live_pilot_state = str(live_pilot.get("live_pilot_readiness_state") or "BLOCKED")
+    if live_pilot_state == "SUSPENDED":
+        execution_request_state = "SUSPENDED"
+    elif live_pilot_state == "STOPPED":
+        execution_request_state = "STOPPED"
+    elif live_pilot_state == "HELD":
+        execution_request_state = "HELD"
+    elif blocked_reasons:
+        execution_request_state = "BLOCKED"
+    elif requested and live_pilot_state == "LIVE_READY":
+        execution_request_state = "APPROVED"
+    else:
+        execution_request_state = "BLOCKED"
+
+    enabled = execution_request_state == "APPROVED"
+    result_state = _approved_provider_result_state(
+        authoritative_inputs=authoritative_inputs,
+        enabled=enabled,
+        live_pilot_readiness_state=live_pilot_state,
+        failure_state=failure_state,
+        bounce_state=bounce_state,
+    )
+    provider_execution_state = result_state if enabled else execution_request_state
+    complaint_taxonomy = dict(live_pilot.get("complaint_taxonomy", {}))
+    complaint_state = _complaint_state(
+        authoritative_inputs=authoritative_inputs,
+        complaint_taxonomy=complaint_taxonomy,
+        result_state=result_state,
+    )
+    provider_result = _provider_result_readback(
+        authoritative_inputs=authoritative_inputs,
+        adapter_family=adapter_family,
+        provider_readiness=provider_readiness,
+        failure_state=failure_state,
+        bounce_state=bounce_state,
+        complaint_taxonomy=complaint_taxonomy,
+        live_pilot_readiness_state=live_pilot_state,
+        live_execution_enabled=bool(live_pilot.get("live_execution_enabled", False)),
+        approved_provider_execution_enabled=enabled,
+        execution_request_state=execution_request_state,
+        provider_execution_state=provider_execution_state,
+    )
+    provider_result["complaint_state"] = complaint_state
+    provider_result["controlled_provider_execution_requested"] = requested
+    complaint_taxonomy = dict(provider_result.get("complaint_taxonomy", complaint_taxonomy))
+
+    gate_states = {
+        "provider_config_state": provider_config_state,
+        "sandbox_pass_state": live_pilot.get("sandbox_pass_state"),
+        "template_approval_state": live_pilot.get("live_pilot_readiness_summary", {}).get(
+            "template_approval_state"
+        ),
+        "contact_source_audit_state": live_pilot.get("live_pilot_readiness_summary", {}).get(
+            "contact_source_audit_state"
+        ),
+        "operator_approval_state": live_pilot.get("operator_approval_state"),
+        "operator_action_audit_refs": list(live_pilot.get("operator_action_audit_refs", [])),
+        "frequency_control_state": live_pilot.get("live_pilot_readiness_summary", {}).get(
+            "frequency_control_state"
+        ),
+        "quiet_hours_state": live_pilot.get("live_pilot_readiness_summary", {}).get("quiet_hours_state"),
+        "opt_out_state": live_pilot.get("live_pilot_readiness_summary", {}).get("opt_out_state"),
+        "unsubscribe_state": live_pilot.get("live_pilot_readiness_summary", {}).get(
+            "unsubscribe_state"
+        ),
+        "complaint_state": complaint_state,
+        "bounce_state": bounce_state,
+        "failure_state": dict(failure_state),
+        "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
+        "provider_adapter_suspended": bool(provider_readiness.get("provider_adapter_suspended", False)),
+    }
+    replay_state = {
+        "state": "REPLAYABLE",
+        "repository_backed": True,
+        "approved_provider_execution_record_replayable": True,
+        "provider_result_readback_replayable": True,
+        "execution_timeline_replayable": True,
+        "provider_status_replayable": bool(
+            dict(provider_readiness.get("provider_status_readback", {})).get("replayable", True)
+        ),
+        "controlled_provider_execution_replayable": True,
+        "real_provider_call_executed": False,
+    }
+    summary = {
+        "execution_id": execution_id,
+        "outbox_id": outbox_id,
+        "touch_record_id": touch_record_id,
+        "contact_target_id": contact_target.get("contact_target_id"),
+        "opportunity_id": contact_target.get("opportunity_id"),
+        "adapter_family": adapter_family,
+        "supported_adapter_families": list(_ADAPTER_FAMILIES),
+        "provider_config_ref": dict(provider_config_ref),
+        "provider_adapter_readiness_summary": dict(provider_readiness),
+        "approved_provider_execution_requested": requested,
+        "approved_provider_execution_enabled": enabled,
+        "execution_request_state": execution_request_state,
+        "provider_execution_state": provider_execution_state,
+        "controlled_provider_adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        "controlled_provider_execution_executed": bool(
+            provider_result.get("controlled_provider_execution_executed", False)
+        ),
+        "batch_send_enabled": False,
+        "bulk_send_enabled": False,
+        "real_send_attempted": False,
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "gate_states": gate_states,
+        "provider_result_readback": provider_result,
+        "bounce_taxonomy": dict(provider_result.get("bounce_taxonomy", {})),
+        "failure_taxonomy": dict(provider_result.get("failure_taxonomy", {})),
+        "complaint_state": complaint_state,
+        "complaint_taxonomy": complaint_taxonomy,
+        "retry_state": "RETRY" if result_state == "RETRY" else "NOT_REQUESTED",
+        "stop_state": "STOPPED" if execution_request_state == "STOPPED" else "ACTIVE",
+        "suspension_state": dict(live_pilot.get("suspension_state", {})),
+        "blocked_reasons": _clean_list(blocked_reasons),
+        "held_reasons": held_reasons,
+        "stopped_reasons": stopped_reasons,
+        "suspension_reasons": suspension_reasons,
+        "replay_state": replay_state,
+        "decided_at": now,
+    }
+    return summary
+
+
 def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
     blocked_reasons = _clean_list(ensure_list(outbox.get("blocked_reasons")))
     vendor_state = dict(outbox.get("vendor_adapter_state", {}))
@@ -818,6 +1167,7 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
     retry_state = dict(outbox.get("retry_state", {}))
     stop_state = dict(outbox.get("stop_state", {}))
     live_pilot_summary = dict(outbox.get("live_pilot_readiness_summary", {}))
+    approved_provider_summary = dict(outbox.get("approved_provider_execution_summary", {}))
     sandbox_execution_state = str(outbox.get("sandbox_execution_state") or "BLOCKED")
     provider_suspended = bool(provider_readiness.get("provider_adapter_suspended", False)) or bool(
         outbox.get("provider_adapter_suspended", False)
@@ -859,6 +1209,22 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
         "live_pilot_execution_ready": bool(outbox.get("live_execution_enabled", False)),
         "live_execution_requested": bool(outbox.get("live_execution_requested", False)),
         "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
+        "approved_provider_execution_requested": bool(
+            outbox.get("approved_provider_execution_requested", False)
+        ),
+        "approved_provider_execution_enabled": bool(
+            outbox.get("approved_provider_execution_enabled", False)
+        ),
+        "approved_provider_execution_ready": bool(
+            outbox.get("approved_provider_execution_enabled", False)
+        ),
+        "execution_request_state": outbox.get("execution_request_state"),
+        "provider_execution_state": outbox.get("provider_execution_state"),
+        "provider_config_ref": dict(outbox.get("provider_config_ref", {})),
+        "provider_adapter_readiness_summary": dict(
+            outbox.get("provider_adapter_readiness_summary", {})
+        ),
+        "approved_provider_execution_summary": approved_provider_summary,
         "real_send_attempted": False,
         "external_delivery_enabled": False,
         "approval_state": outbox.get("approval_state"),
@@ -874,7 +1240,11 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
         "bounce_state": outbox.get("bounce_state"),
         "failure_state": dict(outbox.get("failure_state", {})),
         "provider_result_readback": dict(outbox.get("provider_result_readback", {})),
+        "provider_result_timeline": list(outbox.get("execution_timeline", [])),
+        "complaint_state": outbox.get("complaint_state"),
         "complaint_taxonomy": dict(outbox.get("complaint_taxonomy", {})),
+        "bounce_taxonomy": dict(outbox.get("bounce_taxonomy", {})),
+        "failure_taxonomy": dict(outbox.get("failure_taxonomy", {})),
         "failure_threshold_state": dict(outbox.get("failure_threshold_state", {})),
         "suspension_state": dict(outbox.get("suspension_state", {})),
         "retry_state": retry_state.get("state"),
@@ -894,6 +1264,10 @@ def build_outbox_readiness_summary(outbox: Mapping[str, Any]) -> dict[str, Any]:
         "provider_circuit_breaker_state": provider_circuit_breaker.get("state"),
         "provider_failure_class": provider_failure_taxonomy.get("failure_class"),
         "provider_status_replayable": bool(provider_status_readback.get("replayable", True)),
+        "controlled_provider_adapter_scope": outbox.get("controlled_provider_adapter_scope"),
+        "controlled_provider_execution_executed": bool(
+            outbox.get("controlled_provider_execution_executed", False)
+        ),
         "provider_call_enabled": False,
         "real_provider_call_enabled": False,
     }
@@ -916,6 +1290,11 @@ def build_outreach_execution_outbox_payload(
     provider_readiness = provider_readiness_for_family(
         provider_adapter_readiness_summary,
         "sales_outreach",
+    )
+    provider_config_state, provider_config_ref, provider_config_blocked_reasons = _provider_config_readiness(
+        authoritative_inputs=authoritative_inputs,
+        provider_adapter_readiness_summary=provider_adapter_readiness_summary,
+        provider_readiness=provider_readiness,
     )
     project_id = str(touch_record.get("project_id") or contact_target.get("project_id") or "")
     touch_record_id = str(touch_record.get("touch_record_id") or "")
@@ -1037,6 +1416,7 @@ def build_outreach_execution_outbox_payload(
         or audit_state == "MISSING"
         or template_approval_blocked
         or contact_source_audit_state == "MISSING"
+        or provider_config_state != "CONFIGURED"
     )
     sandbox_execution_state = _sandbox_execution_state(
         provider_suspended=provider_suspended,
@@ -1082,6 +1462,37 @@ def build_outreach_execution_outbox_payload(
         stop_state=stop_state,
         now=now,
     )
+    approved_provider_execution = _approved_provider_execution_carrier(
+        authoritative_inputs=authoritative_inputs,
+        execution_id=execution_id,
+        outbox_id=outbox_id,
+        touch_record_id=touch_record_id,
+        contact_target=contact_target,
+        adapter_family=adapter_family,
+        provider_config_state=provider_config_state,
+        provider_config_ref=provider_config_ref,
+        provider_readiness=provider_readiness,
+        live_pilot=live_pilot,
+        failure_state=failure_state,
+        bounce_state=bounce_state,
+        now=now,
+    )
+    live_pilot["provider_result_readback"] = approved_provider_execution["provider_result_readback"]
+    live_pilot["live_execution_record"]["provider_result_readback"] = approved_provider_execution[
+        "provider_result_readback"
+    ]
+    live_pilot["live_pilot_readiness_summary"]["provider_result_readback"] = approved_provider_execution[
+        "provider_result_readback"
+    ]
+    execution_timeline = _append_approved_provider_execution_timeline(
+        timeline=execution_timeline,
+        now=now,
+        execution_request_state=str(approved_provider_execution["execution_request_state"]),
+        provider_execution_state=str(approved_provider_execution["provider_execution_state"]),
+        provider_result_readback=approved_provider_execution["provider_result_readback"],
+        blocked_reasons=list(approved_provider_execution["blocked_reasons"]),
+        suspension_reasons=list(approved_provider_execution["suspension_reasons"]),
+    ) if approved_provider_execution["approved_provider_execution_requested"] else execution_timeline
 
     blocked_reasons = []
     blocked_reasons.extend(ensure_list(contact_target.get("blocking_reasons")))
@@ -1089,6 +1500,11 @@ def build_outreach_execution_outbox_payload(
     blocked_reasons.extend(ensure_list(runtime_state.permission_blocked_reasons))
     if requested_live and not live_pilot["live_execution_enabled"]:
         blocked_reasons.append("live_execution_requested_but_blocked")
+    if (
+        approved_provider_execution["approved_provider_execution_requested"]
+        and not approved_provider_execution["approved_provider_execution_enabled"]
+    ):
+        blocked_reasons.append("approved_provider_execution_requested_but_blocked")
     if vendor_connection_requested:
         blocked_reasons.append("vendor_connection_enabled=false")
     if execution_decision == "BLOCK":
@@ -1096,6 +1512,7 @@ def build_outreach_execution_outbox_payload(
             execution_vendor_trace.get("unresolved_reason_optional")
             or "execution_vendor_resolution_blocked"
         )
+    blocked_reasons.extend(provider_config_blocked_reasons)
     if approval_missing:
         blocked_reasons.append(f"approval_state={approval_state}")
     if audit_state == "MISSING":
@@ -1128,6 +1545,10 @@ def build_outreach_execution_outbox_payload(
     blocked_reasons.extend(live_pilot["held_reasons"])
     blocked_reasons.extend(live_pilot["stopped_reasons"])
     blocked_reasons.extend(live_pilot["suspension_reasons"])
+    blocked_reasons.extend(approved_provider_execution["blocked_reasons"])
+    blocked_reasons.extend(approved_provider_execution["held_reasons"])
+    blocked_reasons.extend(approved_provider_execution["stopped_reasons"])
+    blocked_reasons.extend(approved_provider_execution["suspension_reasons"])
     blocked_reasons.extend(
         [
             "internal_governed_outbox_only",
@@ -1151,6 +1572,10 @@ def build_outreach_execution_outbox_payload(
         "project_id": project_id,
         "channel": channel,
         "adapter_family": adapter_family,
+        "supported_adapter_families": list(_ADAPTER_FAMILIES),
+        "provider_config_ref": dict(provider_config_ref),
+        "provider_config_state": provider_config_state,
+        "provider_adapter_readiness_summary": dict(provider_readiness),
         "pilot_id": live_pilot["pilot_id"],
         "pilot_scope": live_pilot["pilot_scope"],
         "pilot_scope_details": live_pilot["pilot_scope_details"],
@@ -1172,8 +1597,11 @@ def build_outreach_execution_outbox_payload(
         "bounce_state": bounce_state,
         "failure_state": failure_state,
         "failure_threshold_state": live_pilot["failure_threshold_state"],
+        "complaint_state": approved_provider_execution["complaint_state"],
         "complaint_taxonomy": live_pilot["complaint_taxonomy"],
-        "provider_result_readback": live_pilot["provider_result_readback"],
+        "provider_result_readback": approved_provider_execution["provider_result_readback"],
+        "bounce_taxonomy": approved_provider_execution["bounce_taxonomy"],
+        "failure_taxonomy": approved_provider_execution["failure_taxonomy"],
         "suspension_state": live_pilot["suspension_state"],
         "retry_stop_suspension_state": live_pilot["retry_stop_suspension_state"],
         "vendor_adapter_state": {
@@ -1201,6 +1629,12 @@ def build_outreach_execution_outbox_payload(
             ).get("state"),
             "provider_call_enabled": False,
             "real_provider_call_enabled": False,
+            "approved_provider_execution_enabled": approved_provider_execution[
+                "approved_provider_execution_enabled"
+            ],
+            "execution_request_state": approved_provider_execution["execution_request_state"],
+            "provider_execution_state": approved_provider_execution["provider_execution_state"],
+            "controlled_provider_adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
             "adapter_family": adapter_family,
         },
         "approval_state": approval_state,
@@ -1263,6 +1697,21 @@ def build_outreach_execution_outbox_payload(
         "live_execution_record": live_pilot["live_execution_record"],
         "live_pilot_readiness_summary": live_pilot["live_pilot_readiness_summary"],
         "adapter_family_readiness": live_pilot["adapter_family_readiness"],
+        "approved_provider_execution_requested": approved_provider_execution[
+            "approved_provider_execution_requested"
+        ],
+        "approved_provider_execution_enabled": approved_provider_execution[
+            "approved_provider_execution_enabled"
+        ],
+        "execution_request_state": approved_provider_execution["execution_request_state"],
+        "provider_execution_state": approved_provider_execution["provider_execution_state"],
+        "approved_provider_execution_summary": approved_provider_execution,
+        "controlled_provider_adapter_scope": approved_provider_execution[
+            "controlled_provider_adapter_scope"
+        ],
+        "controlled_provider_execution_executed": approved_provider_execution[
+            "controlled_provider_execution_executed"
+        ],
         "real_send_attempted": False,
         "external_delivery_enabled": False,
         "execution_timeline": execution_timeline,
@@ -1284,8 +1733,10 @@ def build_outreach_execution_outbox_payload(
             "repository_backed": True,
             "sandbox_record_replayable": True,
             "live_pilot_record_replayable": True,
+            "approved_provider_execution_record_replayable": True,
             "execution_timeline_replayable": True,
             "provider_result_readback_replayable": True,
+            "controlled_provider_execution_replayable": True,
             "provider_status_replayable": bool(
                 dict(provider_readiness.get("provider_status_readback", {})).get("replayable", True)
             ),
@@ -1307,6 +1758,10 @@ def build_outreach_execution_outbox_payload(
             "provider_call_enabled": False,
             "real_provider_call_enabled": False,
             "allowed_adapter_scope": "INTERNAL_OUTBOX_CARRIER_ONLY",
+            "controlled_provider_adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+            "approved_provider_execution_enabled": approved_provider_execution[
+                "approved_provider_execution_enabled"
+            ],
             "pilot_scope": "small_sample",
             "batch_send_enabled": False,
         },

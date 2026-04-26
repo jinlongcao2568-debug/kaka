@@ -1535,6 +1535,10 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                 "provider_family": outbox.get("provider_family"),
                 "provider_adapter_suspended": bool(outbox.get("provider_adapter_suspended", False)),
                 "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
+                "approved_provider_execution_enabled": bool(
+                    outbox.get("approved_provider_execution_enabled", False)
+                ),
+                "provider_execution_state": outbox.get("provider_execution_state"),
                 "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
                 "external_delivery_enabled": bool(outbox.get("external_delivery_enabled", False)),
                 "replay_state": dict(outbox.get("replay_state", {})),
@@ -1559,10 +1563,20 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                 "provider_result_readback": dict(outbox.get("provider_result_readback", {})),
                 "suspension_state": dict(outbox.get("suspension_state", {})),
             }
+            governed_context["approved_provider_execution_summary"] = dict(
+                outbox.get("approved_provider_execution_summary", {})
+            )
+            governed_context["provider_execution_timeline"] = list(
+                outbox.get("execution_timeline", [])
+            )
             governed_context["sandbox_execution_timeline"] = list(outbox.get("execution_timeline", []))
             governed_context["outbox_id"] = refs.get("outbox_id")
             governed_context["governed_execution_mode"] = outbox.get("governed_execution_mode")
             governed_context["live_execution_enabled"] = bool(outbox.get("live_execution_enabled", False))
+            governed_context["approved_provider_execution_enabled"] = bool(
+                outbox.get("approved_provider_execution_enabled", False)
+            )
+            governed_context["provider_execution_state"] = outbox.get("provider_execution_state")
             governed_context["real_send_attempted"] = bool(outbox.get("real_send_attempted", False))
     if bundle.stage == 9:
         execution_ledger = bundle.inputs.get(STAGE9_EXECUTION_LEDGER_INPUT_KEY)

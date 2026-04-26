@@ -74,6 +74,11 @@ class OutreachExecutionOutboxRepository:
             "requested_sample_size": payload.get("requested_sample_size"),
             "batch_send_enabled": bool(payload.get("batch_send_enabled", False)),
             "provider_family": payload.get("provider_family"),
+            "provider_config_ref": dict(payload.get("provider_config_ref", {})),
+            "provider_config_state": payload.get("provider_config_state"),
+            "provider_adapter_readiness_summary": dict(
+                payload.get("provider_adapter_readiness_summary", {})
+            ),
             "sandbox_execution_state": payload.get("sandbox_execution_state"),
             "sandbox_pass_state": payload.get("sandbox_pass_state"),
             "approval_state": payload.get("approval_state"),
@@ -88,8 +93,22 @@ class OutreachExecutionOutboxRepository:
             "unsubscribe_state": payload.get("unsubscribe_state"),
             "live_pilot_readiness_state": payload.get("live_pilot_readiness_state"),
             "live_execution_requested": bool(payload.get("live_execution_requested", False)),
+            "approved_provider_execution_requested": bool(
+                payload.get("approved_provider_execution_requested", False)
+            ),
+            "approved_provider_execution_enabled": bool(
+                payload.get("approved_provider_execution_enabled", False)
+            ),
+            "execution_request_state": payload.get("execution_request_state"),
+            "provider_execution_state": payload.get("provider_execution_state"),
+            "approved_provider_execution_summary": dict(
+                payload.get("approved_provider_execution_summary", {})
+            ),
             "bounce_state": payload.get("bounce_state"),
             "failure_state": dict(payload.get("failure_state", {})),
+            "complaint_state": payload.get("complaint_state"),
+            "bounce_taxonomy": dict(payload.get("bounce_taxonomy", {})),
+            "failure_taxonomy": dict(payload.get("failure_taxonomy", {})),
             "failure_threshold_state": dict(payload.get("failure_threshold_state", {})),
             "complaint_taxonomy": dict(payload.get("complaint_taxonomy", {})),
             "provider_result_readback": dict(payload.get("provider_result_readback", {})),
@@ -98,6 +117,10 @@ class OutreachExecutionOutboxRepository:
             "suspension_state": dict(payload.get("suspension_state", {})),
             "live_pilot_readiness_summary": dict(payload.get("live_pilot_readiness_summary", {})),
             "live_execution_enabled": bool(payload.get("live_execution_enabled", False)),
+            "controlled_provider_adapter_scope": payload.get("controlled_provider_adapter_scope"),
+            "controlled_provider_execution_executed": bool(
+                payload.get("controlled_provider_execution_executed", False)
+            ),
             "real_send_attempted": bool(payload.get("real_send_attempted", False)),
             "external_delivery_enabled": bool(payload.get("external_delivery_enabled", False)),
             "blocked_reasons": list(payload.get("blocked_reasons", [])),

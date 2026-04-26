@@ -132,6 +132,9 @@ class Stage8Response(TypedDict, total=False):
     trace_refs: dict[str, Any]
     outreach_execution_outbox: dict[str, Any]
     outbox_readiness_summary: dict[str, Any]
+    approved_provider_execution_summary: dict[str, Any]
+    provider_result_readback: dict[str, Any]
+    execution_timeline: list[dict[str, Any]]
     provider_adapter_readiness_summary: dict[str, Any]
     provider_adapter_config_source: str
     provider_adapter_mode: str

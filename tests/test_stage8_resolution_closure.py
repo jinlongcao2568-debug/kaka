@@ -1101,6 +1101,9 @@ class TestStage8ResolutionClosure(unittest.TestCase):
             "opportunity_id",
             "channel",
             "adapter_family",
+            "supported_adapter_families",
+            "provider_config_ref",
+            "provider_adapter_readiness_summary",
             "pilot_id",
             "pilot_scope",
             "approved_sample_size",
@@ -1119,9 +1122,17 @@ class TestStage8ResolutionClosure(unittest.TestCase):
             "unsubscribe_state",
             "live_pilot_readiness_state",
             "live_execution_requested",
+            "approved_provider_execution_requested",
+            "approved_provider_execution_enabled",
+            "execution_request_state",
+            "provider_execution_state",
+            "approved_provider_execution_summary",
             "bounce_state",
             "failure_state",
             "provider_result_readback",
+            "bounce_taxonomy",
+            "failure_taxonomy",
+            "complaint_state",
             "complaint_taxonomy",
             "retry_policy",
             "retry_state",
@@ -1154,6 +1165,9 @@ class TestStage8ResolutionClosure(unittest.TestCase):
                     {"SANDBOX_RECORDED", "HELD", "BLOCKED", "STOPPED", "SUSPENDED"},
                 )
                 self.assertFalse(outbox["live_execution_enabled"])
+                self.assertFalse(outbox["approved_provider_execution_enabled"])
+                self.assertIn(outbox["execution_request_state"], {"BLOCKED", "HELD", "STOPPED", "SUSPENDED"})
+                self.assertEqual(outbox["provider_execution_state"], outbox["execution_request_state"])
                 self.assertFalse(outbox["real_send_attempted"])
                 self.assertFalse(outbox["external_delivery_enabled"])
                 self.assertEqual(outbox["governed_execution_mode"], "INTERNAL_GOVERNED")
@@ -1163,8 +1177,10 @@ class TestStage8ResolutionClosure(unittest.TestCase):
                 self.assertFalse(outbox["batch_send_enabled"])
                 self.assertFalse(outbox["live_execution_enabled"])
                 self.assertFalse(outbox["provider_result_readback"]["provider_call_executed"])
+                self.assertFalse(outbox["provider_result_readback"]["controlled_provider_execution_executed"])
                 self.assertTrue(outbox["replay_state"]["sandbox_record_replayable"])
                 self.assertTrue(outbox["replay_state"]["live_pilot_record_replayable"])
+                self.assertTrue(outbox["replay_state"]["approved_provider_execution_record_replayable"])
                 self.assertEqual(
                     outbox["execution_timeline"][-1]["event"],
                     "sandbox_execution_readiness_decided",
@@ -1174,6 +1190,7 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         stage8, outbox = self._stage8_with_outbox(
             {
                 "live_execution_requested": True,
+                "approved_provider_execution_requested": True,
                 "approval_state": "APPROVED",
                 "template_approval_state": "APPROVED",
                 "operator_approval_state": "APPROVED",
@@ -1203,16 +1220,79 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertEqual(set(summary["supported_adapter_families"]), {"email", "sms", "phone_call", "wecom_im"})
         self.assertTrue(readiness["live_pilot_execution_ready"])
         self.assertTrue(readiness["live_execution_enabled"])
+        self.assertTrue(outbox["approved_provider_execution_requested"])
+        self.assertTrue(outbox["approved_provider_execution_enabled"])
+        self.assertEqual(outbox["execution_request_state"], "APPROVED")
+        self.assertEqual(outbox["provider_execution_state"], "SUCCESS")
+        self.assertTrue(readiness["approved_provider_execution_ready"])
+        self.assertTrue(readiness["approved_provider_execution_enabled"])
         self.assertFalse(readiness["ready_for_real_send"])
         self.assertFalse(outbox["real_send_attempted"])
+        self.assertEqual(outbox["provider_result_readback"]["result_state"], "SUCCESS")
+        self.assertTrue(outbox["provider_result_readback"]["controlled_provider_execution_executed"])
         self.assertFalse(outbox["provider_result_readback"]["provider_call_executed"])
         self.assertFalse(outbox["provider_result_readback"]["real_provider_call_enabled"])
         self.assertFalse(outbox["live_execution_record"]["real_provider_call_enabled"])
+        self.assertEqual(
+            outbox["approved_provider_execution_summary"]["controlled_provider_adapter_scope"],
+            "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        )
+        self.assertEqual(
+            outbox["execution_timeline"][-1]["event"],
+            "provider_result_readback_recorded",
+        )
         self.assertTrue(outbox["replay_state"]["provider_result_readback_replayable"])
+        self.assertTrue(outbox["replay_state"]["controlled_provider_execution_replayable"])
+
+    def test_stage8_approved_provider_execution_replays_result_taxonomy_states(self) -> None:
+        base = {
+            "live_execution_requested": True,
+            "approved_provider_execution_requested": True,
+            "approval_state": "APPROVED",
+            "template_approval_state": "APPROVED",
+            "operator_approval_state": "APPROVED",
+            "operator_action_audit_refs": ["AUD-STAGE8-APPROVED-PROVIDER-001"],
+            "approved_sample_size": 1,
+            "requested_sample_size": 1,
+        }
+        scenarios = {
+            "SUCCESS": "SUCCESS",
+            "FAILED": "FAILED",
+            "BOUNCE": "BOUNCE",
+            "COMPLAINT": "COMPLAINT",
+            "RETRY": "RETRY",
+            "STOPPED": "STOPPED",
+            "SUSPENDED": "SUSPENDED",
+        }
+
+        for requested_state, expected_state in scenarios.items():
+            with self.subTest(provider_result_state=requested_state):
+                _, outbox = self._stage8_with_outbox({**base, "provider_result_state": requested_state})
+
+                self.assertTrue(outbox["approved_provider_execution_enabled"])
+                self.assertEqual(outbox["execution_request_state"], "APPROVED")
+                self.assertEqual(outbox["provider_execution_state"], expected_state)
+                self.assertEqual(outbox["provider_result_readback"]["result_state"], expected_state)
+                self.assertTrue(outbox["provider_result_readback"]["controlled_provider_execution_executed"])
+                self.assertFalse(outbox["provider_result_readback"]["provider_call_executed"])
+                self.assertFalse(outbox["provider_result_readback"]["real_provider_call_enabled"])
+                self.assertFalse(outbox["real_send_attempted"])
+                self.assertEqual(outbox["execution_timeline"][-1]["event"], "provider_result_readback_recorded")
+                self.assertTrue(outbox["replay_state"]["approved_provider_execution_record_replayable"])
+                if expected_state == "BOUNCE":
+                    self.assertEqual(outbox["provider_result_readback"]["bounce_taxonomy"]["state"], "BOUNCE")
+                if expected_state == "COMPLAINT":
+                    self.assertEqual(outbox["provider_result_readback"]["complaint_state"], "COMPLAINT_RECORDED")
+                if expected_state in {"FAILED", "RETRY"}:
+                    self.assertEqual(
+                        outbox["provider_result_readback"]["failure_taxonomy"]["failure_class"],
+                        "PROVIDER_RESULT",
+                    )
 
     def test_stage8_gated_live_pilot_fail_closed_gate_states(self) -> None:
         base = {
             "live_execution_requested": True,
+            "approved_provider_execution_requested": True,
             "approval_state": "APPROVED",
             "template_approval_state": "APPROVED",
             "operator_approval_state": "APPROVED",
@@ -1221,6 +1301,8 @@ class TestStage8ResolutionClosure(unittest.TestCase):
             "requested_sample_size": 1,
         }
         scenarios = [
+            ("missing_provider_config", {"provider_config_present": False}, "BLOCKED", "provider_config_missing"),
+            ("sandbox_not_passed", {"sandbox_pass_state": "FAILED"}, "BLOCKED", "sandbox_pass_state=BLOCKED"),
             ("missing_template", {"template_approval_state": "MISSING"}, "BLOCKED", "template_approval_missing"),
             ("missing_contact_audit", {"audit_trail_present": False}, "BLOCKED", "contact_source_audit_missing"),
             ("missing_operator_approval", {"operator_approval_state": "PENDING"}, "BLOCKED", "operator_approval_missing"),
@@ -1242,12 +1324,18 @@ class TestStage8ResolutionClosure(unittest.TestCase):
 
                 self.assertEqual(outbox["live_pilot_readiness_state"], expected_state)
                 self.assertFalse(outbox["live_execution_enabled"])
+                self.assertFalse(outbox["approved_provider_execution_enabled"])
+                self.assertNotEqual(outbox["execution_request_state"], "APPROVED")
                 self.assertFalse(outbox["real_send_attempted"])
                 all_reasons = (
                     summary["blocked_reasons"]
                     + summary["held_reasons"]
                     + summary["stopped_reasons"]
                     + summary["suspension_reasons"]
+                    + outbox["approved_provider_execution_summary"]["blocked_reasons"]
+                    + outbox["approved_provider_execution_summary"]["held_reasons"]
+                    + outbox["approved_provider_execution_summary"]["stopped_reasons"]
+                    + outbox["approved_provider_execution_summary"]["suspension_reasons"]
                 )
                 self.assertIn(expected_reason, all_reasons)
 
@@ -1334,6 +1422,9 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertEqual(outbox["stop_state"]["stop_reason_optional"], feedback["stop_reason_optional"])
         self.assertFalse(outbox["stop_state"]["live_send_readiness_enabled"])
         self.assertEqual(outbox["sandbox_execution_state"], "STOPPED")
+        self.assertEqual(outbox["provider_execution_state"], "STOPPED")
+        self.assertEqual(outbox["approved_provider_execution_summary"]["bounce_taxonomy"]["state"], "HARD_BOUNCE")
+        self.assertFalse(outbox["approved_provider_execution_enabled"])
         self.assertIn("bounce_state:HARD_BOUNCE", outbox["blocked_reasons"])
         self.assertIn("failure_taxonomy:BOUNCE", outbox["blocked_reasons"])
 
@@ -1377,6 +1468,8 @@ class TestStage8ResolutionClosure(unittest.TestCase):
                 self.assertEqual(outbox["sandbox_execution_state"], "SUSPENDED")
                 self.assertEqual(outbox["live_pilot_readiness_state"], "SUSPENDED")
                 self.assertEqual(outbox["suspension_state"]["state"], "SUSPENDED")
+                self.assertEqual(outbox["provider_execution_state"], "SUSPENDED")
+                self.assertFalse(outbox["approved_provider_execution_enabled"])
                 self.assertEqual(readiness["sandbox_execution_readiness"], "SUSPENDED")
                 self.assertFalse(readiness["dry_run_ready"])
                 self.assertIn(expected_reason, outbox["blocked_reasons"])
@@ -1399,6 +1492,9 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertIn("live_execution_requested_but_blocked", outbox["blocked_reasons"])
         self.assertIn("vendor_connection_enabled=false", outbox["blocked_reasons"])
         self.assertFalse(outbox["live_execution_enabled"])
+        self.assertTrue(outbox["approved_provider_execution_requested"])
+        self.assertFalse(outbox["approved_provider_execution_enabled"])
+        self.assertEqual(outbox["execution_request_state"], "BLOCKED")
         self.assertFalse(outbox["real_send_attempted"])
         self.assertFalse(outbox["external_delivery_enabled"])
         self.assertFalse(readiness["ready_for_real_send"])
