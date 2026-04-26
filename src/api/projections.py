@@ -2743,6 +2743,16 @@ def build_go_live_readiness_surface(
     incident_readiness = dict(storage_bootstrap.get("incident_readiness", {}))
     rollback_readiness = dict(storage_bootstrap.get("rollback_readiness", {}))
     backup_restore_readiness = dict(storage_bootstrap.get("backup_restore_readiness", {}))
+    production_slo_incident = dict(
+        storage_bootstrap.get("production_slo_incident_readiness", {})
+    )
+    production_slo = dict(storage_bootstrap.get("production_slo_readiness", {}))
+    production_dashboard = dict(storage_bootstrap.get("production_monitoring_dashboard", {}))
+    production_incident_runbook = dict(storage_bootstrap.get("production_incident_runbook", {}))
+    production_drill_evidence = dict(storage_bootstrap.get("production_drill_evidence", {}))
+    suspended_state_operation = dict(
+        storage_bootstrap.get("suspended_state_operation_readback", {})
+    )
     local_stack = dict(
         storage_bootstrap.get(
             "local_stack_readiness",
@@ -2805,6 +2815,17 @@ def build_go_live_readiness_surface(
             "monitoring_readiness_state": monitoring_readiness.get("readiness_state"),
             "alert_readiness_state": alert_readiness.get("readiness_state"),
             "incident_state": incident_readiness.get("incident_state"),
+            "production_slo_readiness_state": production_slo_incident.get("readiness_state"),
+            "production_slo_capability_state": production_slo_incident.get(
+                "target_capability_state"
+            ),
+            "production_slo_objective_count": production_slo.get("objective_count"),
+            "production_monitoring_dashboard_state": production_dashboard.get("dashboard_state"),
+            "production_incident_runbook_state": production_incident_runbook.get("runbook_state"),
+            "suspended_state": suspended_state_operation.get("suspension_state"),
+            "manual_resume_required": bool(
+                suspended_state_operation.get("manual_resume_required", True)
+            ),
             "rollback_state": rollback_readiness.get("rollback_state"),
             "rollback_point": rollback_readiness.get("rollback_point"),
             "backup_manifest_enabled": bool(backup_restore_readiness.get("backup_manifest_enabled", False)),
@@ -2812,6 +2833,8 @@ def build_go_live_readiness_surface(
             "rollback_execution_enabled": False,
             "destructive_restore_enabled": False,
             "monitoring_alerting_readiness": monitoring,
+            "production_slo_incident_readiness": production_slo_incident,
+            "production_drill_evidence": production_drill_evidence,
             "rollback_readiness": rollback_readiness,
         },
         "remaining_blockers": remaining_blockers,
@@ -2835,6 +2858,7 @@ def build_go_live_readiness_surface(
             "confirm_provider_status_readback",
             "confirm_scheduler_status_readback",
             "confirm_monitoring_and_rollback_refs",
+            "confirm_production_slo_incident_readback",
         ],
         "audit_readback": _audit_readback_summary(audit_entries),
         "redlines": {
@@ -2847,6 +2871,13 @@ def build_go_live_readiness_surface(
             "real_delivery_enabled": False,
             "real_refund_enabled": False,
             "automated_refund_enabled": False,
+            "notification_enabled": False,
+            "real_alert_dispatch_enabled": False,
+            "incident_automation_enabled": False,
+            "destructive_restore_enabled": False,
+            "restore_execution_enabled": False,
+            "rollback_execution_enabled": False,
+            "active_storage_mutation_enabled": False,
         },
     }
 

@@ -26,7 +26,11 @@ from storage.db import (
     PersistedWorkItem,
     build_persisted_at,
 )
-from storage.repositories import MonitoringAlertingRepository, WorkerQueueRepository
+from storage.repositories import (
+    MonitoringAlertingRepository,
+    ProductionSloIncidentRepository,
+    WorkerQueueRepository,
+)
 from storage.repositories.backup_restore_repo import BackupRestoreRepository
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 from storage.object_storage import ObjectStorageMissingError
@@ -273,6 +277,14 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertIn("alert_rule_catalog", payload)
         self.assertIn("alert_readiness", payload)
         self.assertIn("incident_readiness", payload)
+        self.assertIn("production_slo_incident_readiness", payload)
+        self.assertIn("production_slo_readiness", payload)
+        self.assertIn("production_monitoring_dashboard", payload)
+        self.assertIn("production_alert_rule_catalog", payload)
+        self.assertIn("simulated_alert_evaluation_readback", payload)
+        self.assertIn("production_incident_runbook", payload)
+        self.assertIn("production_drill_evidence", payload)
+        self.assertIn("suspended_state_operation_readback", payload)
         self.assertIn("platform_infra_readiness", payload)
 
         readiness = payload["platform_infra_readiness"]
@@ -433,8 +445,23 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertFalse(redlines["live_alert_dispatch_enabled"])
         self.assertFalse(redlines["real_alert_dispatch_enabled"])
         self.assertFalse(redlines["incident_automation_enabled"])
+        self.assertFalse(redlines["active_storage_mutation_enabled"])
         self.assertFalse(redlines["automated_refund_enabled"])
         self.assertFalse(redlines["external_software_release_enabled"])
+        production = readiness["production_slo_incident_readiness"]
+        self.assertEqual(production["target_capability_state"], "PRODUCTION_READY")
+        self.assertTrue(production["repository_backed_readback"])
+        self.assertTrue(production["validation"]["valid"])
+        self.assertTrue(
+            all(
+                evaluation["alert_fired"]
+                for evaluation in production["simulated_alert_evaluation_readback"]
+            )
+        )
+        self.assertFalse(production["redlines"]["real_alert_dispatch_enabled"])
+        self.assertFalse(production["redlines"]["incident_automation_enabled"])
+        self.assertFalse(production["redlines"]["destructive_restore_enabled"])
+        self.assertFalse(production["redlines"]["rollback_execution_enabled"])
 
     def test_monitoring_alerting_repository_persists_readback_and_replay_with_json_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -463,6 +490,39 @@ class TestStorageConcurrency(unittest.TestCase):
         self.assertTrue(replay["incident_readiness"]["manual_owner_action_required"])
         self.assertFalse(replay["incident_readiness"]["incident_automation_enabled"])
         self.assertFalse(replay["incident_readiness"]["external_paging_enabled"])
+
+    def test_production_slo_incident_repository_persists_readback_and_replay_with_json_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "production-slo-store.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+            session = DatabaseSession(settings=settings)
+            repo = ProductionSloIncidentRepository(session=session, settings=settings)
+
+            record = repo.save_current()
+            readback = repo.readback()
+            replay = repo.replay()
+
+        self.assertEqual(record.object_type, "production_slo_incident_readiness")
+        self.assertEqual(readback["readback_state"], "PRODUCTION_READY")
+        self.assertTrue(readback["payload_present"])
+        self.assertFalse(readback["fail_closed"])
+        self.assertTrue(replay["replayable"])
+        self.assertEqual(replay["replay_state"], "PRODUCTION_READY")
+        self.assertTrue(replay["slo_readiness_carrier"]["repository_backed_readback"])
+        self.assertTrue(
+            all(
+                evaluation["alert_fired"]
+                for evaluation in replay["simulated_alert_evaluation_readback"]
+            )
+        )
+        self.assertFalse(replay["real_alert_dispatch_enabled"])
+        self.assertFalse(replay["incident_automation_enabled"])
+        self.assertFalse(replay["destructive_restore_enabled"])
+        self.assertFalse(replay["rollback_execution_enabled"])
 
     def test_local_stack_definition_files_exist_without_real_secret_material(self) -> None:
         for relative_path in LOCAL_STACK_FILES:

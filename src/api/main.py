@@ -30,6 +30,7 @@ from api.routes.stage8 import register_stage8_routes
 from api.routes.stage9 import register_stage9_routes
 from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from storage.repositories.monitoring_alerting_repo import MonitoringAlertingRepository
+from storage.repositories.production_slo_incident_repo import ProductionSloIncidentRepository
 from storage.repositories.provider_adapter_config_repo import ProviderAdapterConfigRepository
 
 
@@ -297,6 +298,26 @@ def _build_transport_bootstrap(
     alert_readiness = dict(storage_bootstrap.get("alert_readiness", {}))
     alert_rule_catalog = list(storage_bootstrap.get("alert_rule_catalog", []))
     incident_readiness = dict(storage_bootstrap.get("incident_readiness", {}))
+    production_slo_incident_readiness = dict(
+        storage_bootstrap.get("production_slo_incident_readiness", {})
+    )
+    production_slo_readiness = dict(storage_bootstrap.get("production_slo_readiness", {}))
+    production_monitoring_dashboard = dict(
+        storage_bootstrap.get("production_monitoring_dashboard", {})
+    )
+    production_alert_rule_catalog = list(
+        storage_bootstrap.get("production_alert_rule_catalog", [])
+    )
+    simulated_alert_evaluation_readback = list(
+        storage_bootstrap.get("simulated_alert_evaluation_readback", [])
+    )
+    production_incident_runbook = dict(
+        storage_bootstrap.get("production_incident_runbook", {})
+    )
+    production_drill_evidence = dict(storage_bootstrap.get("production_drill_evidence", {}))
+    suspended_state_operation_readback = dict(
+        storage_bootstrap.get("suspended_state_operation_readback", {})
+    )
     local_stack_readiness = dict(
         storage_bootstrap.get(
             "local_stack_readiness",
@@ -320,6 +341,14 @@ def _build_transport_bootstrap(
         "alert_rule_catalog": alert_rule_catalog,
         "alert_readiness": alert_readiness,
         "incident_readiness": incident_readiness,
+        "production_slo_incident_readiness": production_slo_incident_readiness,
+        "production_slo_readiness": production_slo_readiness,
+        "production_monitoring_dashboard": production_monitoring_dashboard,
+        "production_alert_rule_catalog": production_alert_rule_catalog,
+        "simulated_alert_evaluation_readback": simulated_alert_evaluation_readback,
+        "production_incident_runbook": production_incident_runbook,
+        "production_drill_evidence": production_drill_evidence,
+        "suspended_state_operation_readback": suspended_state_operation_readback,
         "queue_worker_readiness": {
             "queue_backend": worker_queue_bootstrap.get("queue_backend"),
             "effective_queue_backend": worker_queue_bootstrap.get("effective_queue_backend"),
@@ -518,6 +547,50 @@ def _build_transport_bootstrap(
                 "incident_automation_enabled": False,
                 "manual_owner_action_required": True,
             },
+            "production_slo_incident_readiness": {
+                "current_entry": "121C production SLO, alert simulation, incident, drill, suspended-state readback",
+                "capability_state": production_slo_incident_readiness.get(
+                    "target_capability_state"
+                ),
+                "readiness_state": production_slo_incident_readiness.get("readiness_state"),
+                "repository_backed_readback": bool(
+                    production_slo_incident_readiness.get("repository_backed_readback", True)
+                ),
+                "replayable_readback": bool(
+                    production_slo_incident_readiness.get("replayable_readback", True)
+                ),
+                "slo_objective_count": production_slo_readiness.get("objective_count"),
+                "dashboard_panel_count": production_monitoring_dashboard.get("panel_count"),
+                "alert_rule_count": len(production_alert_rule_catalog),
+                "simulated_alert_count": len(simulated_alert_evaluation_readback),
+                "simulated_alerts_fire": all(
+                    bool(evaluation.get("alert_fired", False))
+                    for evaluation in simulated_alert_evaluation_readback
+                ),
+                "incident_runbook_state": production_incident_runbook.get("runbook_state"),
+                "backup_restore_drill_mode": dict(
+                    production_drill_evidence.get("backup_restore_drill_evidence", {})
+                ).get("drill_mode"),
+                "rollback_drill_mode": dict(
+                    production_drill_evidence.get("rollback_drill_evidence", {})
+                ).get("drill_mode"),
+                "suspension_state": suspended_state_operation_readback.get("suspension_state"),
+                "manual_resume_required": bool(
+                    suspended_state_operation_readback.get("manual_resume_required", True)
+                ),
+                "notification_enabled": False,
+                "live_dispatch_enabled": False,
+                "real_alert_dispatch_enabled": False,
+                "external_apm_enabled": False,
+                "external_paging_enabled": False,
+                "incident_automation_enabled": False,
+                "destructive_restore_enabled": False,
+                "restore_execution_enabled": False,
+                "rollback_execution_enabled": False,
+                "active_storage_mutation_enabled": False,
+                "external_release_enabled": False,
+                "go_live_enabled": False,
+            },
             "provider_adapter": {
                 "current_entry": "sandbox dry-run provider readiness and circuit breaker readback",
                 "provider_reliability_state": provider_adapter_bootstrap.get("provider_reliability_state"),
@@ -687,6 +760,7 @@ def _build_transport_bootstrap(
             "live_alert_dispatch_enabled": False,
             "real_alert_dispatch_enabled": False,
             "incident_automation_enabled": False,
+            "active_storage_mutation_enabled": False,
             "automated_refund_program_present": False,
             "automated_refund_program_enabled": False,
             "automated_refund_enabled": False,
@@ -715,6 +789,10 @@ def create_app() -> FastAPI:
         session=storage_session,
         settings=settings,
     ).save(app.state.storage_bootstrap["monitoring_alerting_readiness"])
+    app.state.production_slo_incident_readback = ProductionSloIncidentRepository(
+        session=storage_session,
+        settings=settings,
+    ).save(app.state.storage_bootstrap["production_slo_incident_readiness"])
     provider_adapter_readiness_summary = dict(
         app.state.provider_adapter_bootstrap[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY]
     )

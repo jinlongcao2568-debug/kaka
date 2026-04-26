@@ -169,10 +169,12 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "src/storage/backup_restore.py" in storage_boundary["current_files"]
     assert "src/storage/worker_queue.py" in storage_boundary["current_files"]
     assert "src/storage/monitoring_alerting.py" in storage_boundary["current_files"]
+    assert "src/storage/production_slo_incident_readiness.py" in storage_boundary["current_files"]
     assert "src/storage/repositories/object_storage_repo.py" in storage_boundary["current_files"]
     assert "src/storage/repositories/backup_restore_repo.py" in storage_boundary["current_files"]
     assert "src/storage/repositories/worker_queue_repo.py" in storage_boundary["current_files"]
     assert "src/storage/repositories/monitoring_alerting_repo.py" in storage_boundary["current_files"]
+    assert "src/storage/repositories/production_slo_incident_repo.py" in storage_boundary["current_files"]
     assert "src/storage/repository_bundle_io.py" in storage_boundary["current_files"]
     assert "src/storage/repository_context_projection.py" in storage_boundary["current_files"]
     assert "src/storage/operator_workbench_projection.py" in storage_boundary["current_files"]
@@ -187,8 +189,10 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "docker-compose.yml" in platform_stack["current_files"]
     assert "src/storage/backup_restore.py" in platform_stack["current_files"]
     assert "src/storage/monitoring_alerting.py" in platform_stack["current_files"]
+    assert "src/storage/production_slo_incident_readiness.py" in platform_stack["current_files"]
     assert "src/storage/repositories/backup_restore_repo.py" in platform_stack["current_files"]
     assert "src/storage/repositories/monitoring_alerting_repo.py" in platform_stack["current_files"]
+    assert "src/storage/repositories/production_slo_incident_repo.py" in platform_stack["current_files"]
     assert "backup_restore_readiness" in platform_stack["formal_objects"]
     assert "rollback_readiness" in platform_stack["formal_objects"]
     assert "monitoring_readiness" in platform_stack["formal_objects"]
@@ -401,8 +405,10 @@ def test_platform_local_stack_files_are_registered_on_deployment_surface_and_mod
         "src/storage/production_infra_readiness.py",
         "src/storage/backup_restore.py",
         "src/storage/monitoring_alerting.py",
+        "src/storage/production_slo_incident_readiness.py",
         "src/storage/repositories/backup_restore_repo.py",
         "src/storage/repositories/monitoring_alerting_repo.py",
+        "src/storage/repositories/production_slo_incident_repo.py",
         "src/api/deps.py",
         "src/api/main.py",
     }

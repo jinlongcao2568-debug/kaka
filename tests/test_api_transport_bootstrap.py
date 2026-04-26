@@ -256,6 +256,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertIn("alert_rule_catalog", storage_bootstrap)
         self.assertIn("alert_readiness", storage_bootstrap)
         self.assertIn("incident_readiness", storage_bootstrap)
+        self.assertIn("production_slo_incident_readiness", storage_bootstrap)
+        self.assertIn("production_slo_readiness", storage_bootstrap)
+        self.assertIn("production_monitoring_dashboard", storage_bootstrap)
+        self.assertIn("production_alert_rule_catalog", storage_bootstrap)
+        self.assertIn("simulated_alert_evaluation_readback", storage_bootstrap)
+        self.assertIn("production_incident_runbook", storage_bootstrap)
+        self.assertIn("production_drill_evidence", storage_bootstrap)
+        self.assertIn("suspended_state_operation_readback", storage_bootstrap)
         self.assertEqual(
             storage_bootstrap["monitoring_readiness"]["readiness_state"],
             "INTERNAL_READBACK_READY",
@@ -272,6 +280,20 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertTrue(storage_bootstrap["incident_readiness"]["manual_owner_action_required"])
         self.assertFalse(storage_bootstrap["incident_readiness"]["incident_automation_enabled"])
         self.assertFalse(storage_bootstrap["incident_readiness"]["external_paging_enabled"])
+        production = storage_bootstrap["production_slo_incident_readiness"]
+        self.assertEqual(production["target_capability_state"], "PRODUCTION_READY")
+        self.assertTrue(production["repository_backed_readback"])
+        self.assertTrue(production["validation"]["valid"])
+        self.assertTrue(
+            all(
+                evaluation["alert_fired"]
+                for evaluation in production["simulated_alert_evaluation_readback"]
+            )
+        )
+        self.assertFalse(production["redlines"]["real_alert_dispatch_enabled"])
+        self.assertFalse(production["redlines"]["incident_automation_enabled"])
+        self.assertFalse(production["redlines"]["destructive_restore_enabled"])
+        self.assertFalse(production["redlines"]["rollback_execution_enabled"])
         self.assertIn("platform_infra_readiness", storage_bootstrap)
         self.assertIn("provider_adapter_bootstrap", storage_bootstrap)
         provider_bootstrap = storage_bootstrap["provider_adapter_bootstrap"]
@@ -353,6 +375,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(readiness["alert_readiness"], storage_bootstrap["alert_readiness"])
         self.assertEqual(readiness["alert_rule_catalog"], storage_bootstrap["alert_rule_catalog"])
         self.assertEqual(readiness["incident_readiness"], storage_bootstrap["incident_readiness"])
+        self.assertEqual(
+            readiness["production_slo_incident_readiness"],
+            storage_bootstrap["production_slo_incident_readiness"],
+        )
+        self.assertEqual(
+            readiness["production_slo_readiness"],
+            storage_bootstrap["production_slo_readiness"],
+        )
         self.assertIn("local_stack_readiness", storage_bootstrap)
         self.assertEqual(storage_bootstrap["local_stack_readiness"], readiness["compose_readiness"])
         self.assertTrue(readiness["compose_readiness"]["dockerfile_present"])
@@ -882,6 +912,23 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(monitoring_entry["external_observability_provider_enabled"])
         self.assertFalse(monitoring_entry["external_paging_enabled"])
         self.assertFalse(monitoring_entry["incident_automation_enabled"])
+        production_entry = entry_strategy["production_slo_incident_readiness"]
+        self.assertEqual(production_entry["capability_state"], "PRODUCTION_READY")
+        self.assertEqual(production_entry["readiness_state"], "PRODUCTION_READY")
+        self.assertTrue(production_entry["repository_backed_readback"])
+        self.assertTrue(production_entry["replayable_readback"])
+        self.assertGreaterEqual(production_entry["slo_objective_count"], 10)
+        self.assertGreaterEqual(production_entry["alert_rule_count"], 7)
+        self.assertTrue(production_entry["simulated_alerts_fire"])
+        self.assertEqual(production_entry["incident_runbook_state"], "PRODUCTION_READY")
+        self.assertEqual(production_entry["backup_restore_drill_mode"], "DRY_RUN_ONLY")
+        self.assertEqual(production_entry["rollback_drill_mode"], "DRY_RUN_ONLY")
+        self.assertEqual(production_entry["suspension_state"], "SUSPENDED")
+        self.assertTrue(production_entry["manual_resume_required"])
+        self.assertFalse(production_entry["real_alert_dispatch_enabled"])
+        self.assertFalse(production_entry["incident_automation_enabled"])
+        self.assertFalse(production_entry["destructive_restore_enabled"])
+        self.assertFalse(production_entry["rollback_execution_enabled"])
 
         queue_worker = bootstrap["queue_worker_readiness"]
         self.assertEqual(queue_worker["effective_queue_backend"], "storage")
@@ -931,6 +978,7 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(redlines["live_alert_dispatch_enabled"])
         self.assertFalse(redlines["real_alert_dispatch_enabled"])
         self.assertFalse(redlines["incident_automation_enabled"])
+        self.assertFalse(redlines["active_storage_mutation_enabled"])
         self.assertFalse(redlines["automated_refund_program_present"])
         self.assertFalse(redlines["automated_refund_program_enabled"])
         self.assertFalse(redlines["automated_refund_enabled"])
@@ -988,6 +1036,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(
             app.state.monitoring_alerting_readback.payload["readiness_id"],
             "MONITORING_ALERTING_READINESS_CURRENT",
+        )
+        self.assertEqual(
+            app.state.production_slo_incident_readback.payload["readiness_id"],
+            "PRODUCTION_SLO_INCIDENT_READINESS_CURRENT",
+        )
+        self.assertEqual(
+            app.state.production_slo_incident_readback.payload,
+            app.state.storage_bootstrap["production_slo_incident_readiness"],
         )
 
     def test_provider_circuit_breaker_status_is_visible_in_api_bootstrap_and_route_readback(self) -> None:

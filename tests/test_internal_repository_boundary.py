@@ -48,6 +48,7 @@ from storage.repositories import (
     OutreachPlanRepository,
     PaymentRecordRepository,
     ProcurementDecisionActorProfileRepository,
+    ProductionSloIncidentRepository,
     ProjectFactRepository,
     ReportRecordRepository,
     ReviewQueueProfileRepository,
@@ -259,6 +260,41 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertFalse(stale_replay["live_dispatch_enabled"])
         self.assertFalse(stale_replay["incident_automation_enabled"])
         self.assertFalse(stale_replay["external_paging_enabled"])
+
+    def test_production_slo_incident_readback_fails_closed_for_stale_alert_refs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = Settings(
+                storage_backend="json-file",
+                storage_path_optional=str(Path(tmp_dir) / "production-slo-readback.json"),
+                storage_scope="shared",
+                storage_runtime_mode="explicit-path",
+            )
+            repo = ProductionSloIncidentRepository(
+                session=DatabaseSession(settings=settings),
+                settings=settings,
+            )
+            payload = settings.storage_bootstrap_payload()["production_slo_incident_readiness"]
+            repo.save(payload)
+            good_replay = repo.replay()
+
+            stale_payload = copy.deepcopy(payload)
+            stale_payload["source_refs"]["stage8_outreach_execution_outbox_ref"] = ""
+            stale_payload["simulated_alert_evaluation_readback"][0][
+                "alert_rule_id"
+            ] = "missing.production.alert.rule"
+            repo.save(stale_payload)
+            stale_replay = repo.replay()
+
+        self.assertEqual(good_replay["readback_state"], "PRODUCTION_READY")
+        self.assertTrue(good_replay["replayable"])
+        self.assertEqual(stale_replay["readback_state"], "FAIL_CLOSED_STALE_OR_MISSING_REFS")
+        self.assertFalse(stale_replay["replayable"])
+        self.assertTrue(stale_replay["fail_closed"])
+        self.assertTrue(stale_replay["no_broad_fallback"])
+        self.assertFalse(stale_replay["real_alert_dispatch_enabled"])
+        self.assertFalse(stale_replay["incident_automation_enabled"])
+        self.assertFalse(stale_replay["destructive_restore_enabled"])
+        self.assertFalse(stale_replay["rollback_execution_enabled"])
 
     def test_stage6_repository_boundary_persists_formal_objects_and_rehydrates_stage7_inputs(self) -> None:
         stage6 = self.result["stage6"]

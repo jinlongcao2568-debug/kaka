@@ -278,6 +278,26 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(provider["live_fallback_allowed"])
         refs = payload["monitoring_rollback_refs"]
         self.assertIn("monitoring_readiness_state", refs)
+        self.assertEqual(refs["production_slo_capability_state"], "PRODUCTION_READY")
+        self.assertEqual(refs["production_slo_readiness_state"], "PRODUCTION_READY")
+        self.assertEqual(refs["production_incident_runbook_state"], "PRODUCTION_READY")
+        self.assertEqual(refs["suspended_state"], "SUSPENDED")
+        self.assertTrue(refs["manual_resume_required"])
+        self.assertTrue(refs["production_slo_incident_readiness"]["repository_backed_readback"])
+        self.assertFalse(
+            refs["production_slo_incident_readiness"]["redlines"]["real_alert_dispatch_enabled"]
+        )
+        self.assertFalse(
+            refs["production_slo_incident_readiness"]["redlines"]["incident_automation_enabled"]
+        )
+        self.assertEqual(
+            refs["production_drill_evidence"]["backup_restore_drill_evidence"]["drill_mode"],
+            "DRY_RUN_ONLY",
+        )
+        self.assertEqual(
+            refs["production_drill_evidence"]["rollback_drill_evidence"]["drill_mode"],
+            "DRY_RUN_ONLY",
+        )
         self.assertIn("rollback_state", refs)
         self.assertFalse(refs["rollback_execution_enabled"])
         self.assertFalse(refs["destructive_restore_enabled"])
@@ -309,6 +329,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             "record_operator_action_before_customer_download_unlock",
             "confirm_provider_status_readback",
             "confirm_scheduler_status_readback",
+            "confirm_production_slo_incident_readback",
         ):
             self.assertIn(required, payload["required_operator_actions"])
         redlines = payload["redlines"]
@@ -321,6 +342,11 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(redlines["real_delivery_enabled"])
         self.assertFalse(redlines["real_refund_enabled"])
         self.assertFalse(redlines["automated_refund_enabled"])
+        self.assertFalse(redlines["real_alert_dispatch_enabled"])
+        self.assertFalse(redlines["incident_automation_enabled"])
+        self.assertFalse(redlines["destructive_restore_enabled"])
+        self.assertFalse(redlines["rollback_execution_enabled"])
+        self.assertFalse(redlines["active_storage_mutation_enabled"])
 
 
 if __name__ == "__main__":

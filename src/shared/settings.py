@@ -131,6 +131,9 @@ class Settings:
     def platform_infra_readiness(self) -> dict[str, Any]:
         from storage.production_infra_readiness import build_platform_infra_readiness
         from storage.monitoring_alerting import build_monitoring_alerting_readiness
+        from storage.production_slo_incident_readiness import (
+            build_production_slo_incident_readiness,
+        )
 
         readiness = build_platform_infra_readiness(
             storage_backend=self.storage_backend,
@@ -150,6 +153,38 @@ class Settings:
         readiness["alert_rule_catalog"] = monitoring_alerting_readiness["alert_rule_catalog"]
         readiness["alert_readiness"] = monitoring_alerting_readiness["alert_readiness"]
         readiness["incident_readiness"] = monitoring_alerting_readiness["incident_readiness"]
+        production_slo_incident_readiness = build_production_slo_incident_readiness(
+            platform_infra_readiness=readiness,
+            monitoring_alerting_readiness=monitoring_alerting_readiness,
+            provider_adapter_readiness=self.provider_adapter_readiness_summary(),
+        )
+        readiness["production_slo_incident_readiness"] = production_slo_incident_readiness
+        readiness["production_slo_readiness"] = production_slo_incident_readiness[
+            "slo_readiness_carrier"
+        ]
+        readiness["production_monitoring_dashboard"] = production_slo_incident_readiness[
+            "monitoring_dashboard_readback"
+        ]
+        readiness["production_alert_rule_catalog"] = production_slo_incident_readiness[
+            "alert_rule_catalog"
+        ]
+        readiness["simulated_alert_evaluation_readback"] = production_slo_incident_readiness[
+            "simulated_alert_evaluation_readback"
+        ]
+        readiness["production_incident_runbook"] = production_slo_incident_readiness[
+            "incident_runbook_carrier"
+        ]
+        readiness["production_drill_evidence"] = {
+            "backup_restore_drill_evidence": production_slo_incident_readiness[
+                "backup_restore_drill_evidence"
+            ],
+            "rollback_drill_evidence": production_slo_incident_readiness[
+                "rollback_drill_evidence"
+            ],
+        }
+        readiness["suspended_state_operation_readback"] = production_slo_incident_readiness[
+            "suspended_state_operation_readback"
+        ]
         readiness["redlines"].update(
             {
                 "external_observability_provider_enabled": False,
@@ -159,6 +194,9 @@ class Settings:
                 "live_alert_dispatch_enabled": False,
                 "real_alert_dispatch_enabled": False,
                 "incident_automation_enabled": False,
+                "active_storage_mutation_enabled": False,
+                "go_live_enabled": False,
+                "production_release_enabled": False,
             }
         )
         return readiness
@@ -191,6 +229,14 @@ class Settings:
             "alert_rule_catalog": readiness["alert_rule_catalog"],
             "alert_readiness": readiness["alert_readiness"],
             "incident_readiness": readiness["incident_readiness"],
+            "production_slo_incident_readiness": readiness["production_slo_incident_readiness"],
+            "production_slo_readiness": readiness["production_slo_readiness"],
+            "production_monitoring_dashboard": readiness["production_monitoring_dashboard"],
+            "production_alert_rule_catalog": readiness["production_alert_rule_catalog"],
+            "simulated_alert_evaluation_readback": readiness["simulated_alert_evaluation_readback"],
+            "production_incident_runbook": readiness["production_incident_runbook"],
+            "production_drill_evidence": readiness["production_drill_evidence"],
+            "suspended_state_operation_readback": readiness["suspended_state_operation_readback"],
             "local_stack_readiness": readiness["compose_readiness"],
             "platform_infra_readiness": readiness,
             "provider_adapter_bootstrap": self.provider_adapter_bootstrap_payload(),

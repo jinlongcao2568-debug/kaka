@@ -116,6 +116,30 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertFalse(monitoring["incident_readiness"]["incident_automation_enabled"])
         self.assertFalse(monitoring["incident_readiness"]["external_paging_enabled"])
         self.assertTrue(monitoring["validation"]["valid"])
+        production = readiness["production_slo_incident_readiness"]
+        self.assertEqual(production["target_capability_state"], "PRODUCTION_READY")
+        self.assertTrue(production["repository_backed_readback"])
+        self.assertTrue(production["validation"]["valid"])
+        self.assertTrue(
+            all(
+                evaluation["alert_fired"]
+                for evaluation in production["simulated_alert_evaluation_readback"]
+            )
+        )
+        self.assertFalse(production["redlines"]["notification_enabled"])
+        self.assertFalse(production["redlines"]["real_alert_dispatch_enabled"])
+        self.assertFalse(production["redlines"]["external_paging_enabled"])
+        self.assertFalse(production["redlines"]["incident_automation_enabled"])
+        self.assertFalse(production["redlines"]["destructive_restore_enabled"])
+        self.assertFalse(production["redlines"]["restore_execution_enabled"])
+        self.assertFalse(production["redlines"]["rollback_execution_enabled"])
+        self.assertFalse(production["redlines"]["active_storage_mutation_enabled"])
+        self.assertFalse(production["redlines"]["provider_call_enabled"])
+        self.assertFalse(production["redlines"]["real_provider_call_enabled"])
+        suspended = production["suspended_state_operation_readback"]
+        self.assertEqual(suspended["suspension_state"], "SUSPENDED")
+        self.assertTrue(suspended["manual_resume_required"])
+        self.assertTrue(suspended["fail_closed"])
 
     def test_stage8_high_restriction_field_requires_runtime_review(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
