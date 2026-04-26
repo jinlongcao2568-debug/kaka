@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-119-stage6-product-package-hardening (ACTIVE; Stage6 product package hardening. This packet may update Stage6 fact review runtime and narrow Stage6 persist/readback plumbing to express objection viability, evidence strength, review priority, sellable signal, delivery eligibility, external visibility, product package readiness, objection pack readiness, sales readiness, downgrade/block reasons, and replayable readback. It does not publish customer-visible materials, open Stage7/8/9 execution, call providers, perform real outreach, payment, charge, delivery, refund, automated refund execution, external release, or push)
+Current Workstream: PTL-I100-111E-provider-reliability-and-circuit-breaker (ACTIVE; provider reliability and circuit breaker hardening. This packet may update provider config/readiness, Settings/API bootstrap, Stage7/8/9 provider readiness consumption, and narrow repository readback for provider health, rate limit, timeout, retry, failure taxonomy, circuit breaker, credential redaction audit, fallback policy, SUSPENDED rollback, and replayable readback. It does not open true live provider calls, real outreach, CRM/quote provider execution, payment, charge, delivery, refund, automated refund execution, external release, or push)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -24,6 +24,7 @@ Current Blockers:
 - Stage4 verification remains public-source only and review-gated for weak, ambiguous, conflicting, or non-replayable evidence.
 - Project manager active-conflict judgement remains public-source only; same-name matches, missing completion status, missing contract time, or weak evidence must degrade to manual review.
 - Stage6 product package readiness remains internal; customer delivery eligibility requires evidence, public visibility, review state, field allowlist/masking, approval, and delivery governance.
+- Provider reliability/circuit breaker work remains gated; unhealthy, rate-limited, timeout, or circuit-open provider state must block or suspend execution and must not silently fallback to live.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -32,14 +33,15 @@ Product Open Capability Baseline:
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 - PTL-I100-118 full product operational acceptance is the closure gate for declaring the registered product gaps complete.
 
-Current 119 Scope:
-- Activate PTL-I100-119 as the Stage6 product package hardening packet after PTL-I100-119A completion.
-- Harden Stage6 product readiness: objection viability, evidence strength, review priority, sellable signal, delivery eligibility, external visibility, product package readiness, objection pack readiness, sales readiness, downgrade/block reasons, and audit/readback trace.
-- If persistence/hydration changes are required, keep them narrow to Stage6 product package carrier replay; do not add formal objects or storage models.
-- Target capability state is INTERNAL_READY/readback; do not modify Stage7/8/9 execution, customer-visible LeadPack/page/export, payment/delivery, or legal conclusions.
+Current 111E Scope:
+- Activate PTL-I100-111E as the provider reliability and circuit breaker packet after PTL-I100-119 completion.
+- Harden provider readiness: health, rate limit, timeout, retry, failure taxonomy, circuit breaker, credential presence/redaction, provider audit, fallback policy, SUSPENDED state, and readback/replay.
+- Stage7/8/9 may consume the same provider reliability readiness summary, but this packet must not execute real provider calls or live actions.
+- Target capability state is APPROVAL_READY/readback; do not open real outreach, CRM/quote provider execution, customer-visible publication, payment, delivery, refund, automated refund, or external release.
 - Keep private/gray source collection, non-public personnel privacy data, login/captcha/anti-bot bypass, uncontrolled live crawling, real provider calls, real outreach, real payment, real delivery, real refund, automated refund, and external release out of this slice.
 
 Recently Closed:
+- PTL-I100-119-stage6-product-package-hardening completed and committed locally: 54112c8. It added an internal additive Stage6 product package readiness carrier/readback with objection viability, evidence strength, review priority, sellable signal, customer delivery eligibility, external visibility, delivery/product/objection/sales readiness, downgrade/block reasons, delivery governance, and audit trace without customer-visible publication, Stage7/8/9 execution, provider calls, payment, delivery, refund, automated refund, external release, or push.
 - PTL-I100-119A-real-challenger-identification-hardening completed and committed locally: 56cd04e. It added Stage7 real challenger candidate/readback hardening, winning challenger consumption, buyer fit/motivation/capacity/contactability/sales-priority traces, and customer-visible/Stage8 outreach isolation.
 - PTL-I100-117-rule-factory-expansion-and-golden-cases completed and committed locally: c073440. It expanded Stage5 rule factory metadata, catalog-aware selection, execution/readback traces, evidence binding, coverage summary, and golden cases while preserving evidence/rule gates and no-fabrication boundaries.
 - PTL-I100-116A-project-manager-active-conflict-vertical-slice completed and committed locally: 7fba84a. It added a public-source project-manager active-conflict readback carrier, same-name disambiguation trace, time-window overlap judgement, evidence chain, manual review recommendation, and objection-value summary without new Stage2 source adapters, non-public personnel data, illegal identity lookup, same-name-as-fact, customer-visible legal conclusions, real providers, outreach, payment, delivery, refund, automated refund, external release, or push.
@@ -67,9 +69,9 @@ Recently Closed:
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5.
 
 Allowed Actions (current):
-- update src/stage6_fact_review/** and narrow Stage6 readback plumbing in src/storage/repository_bundle_io.py / src/storage/repository_boundary.py for the 119 Stage6 product package hardening only
-- update control/product_module_registry.yaml only if new Stage6/storage runtime/test files must be registered
-- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, and control/product_acceptance_checklist.yaml for 119 status
+- update provider config/readiness, Settings/API bootstrap, Stage7/8/9 provider readiness consumption, and provider config repository/readback only inside control/current_task.yaml allowed paths for 111E
+- update control/product_module_registry.yaml only if new provider/runtime/test files must be registered
+- update control/current_task.yaml, control/repo_status.md, control/product_task_library.yaml, and control/product_acceptance_checklist.yaml for 111E status
 - update targeted tests listed in control/current_task.yaml
 - run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet
 
@@ -79,14 +81,14 @@ Forbidden Actions (current):
 - Any handoff/** change
 - Any scripts/** change
 - Any fixtures/** change
-- Any Stage1, Stage2, Stage3, Stage4, Stage5, or Stage7-9 business runtime change
-- Any storage change outside src/storage/repository_bundle_io.py and src/storage/repository_boundary.py
+- Any Stage1, Stage2, Stage3, Stage4, Stage5, or Stage6 business runtime change
+- Any storage change outside src/storage/repository_boundary.py and src/storage/repositories/provider_adapter_config_repo.py / __init__.py
 - Any contracts file
 - Any src/storage/models/** change
 - Any docker compose up, container execution, live deployment, migration, or unauthorized production DB connection
 - Any private/gray source collection, login bypass, captcha bypass, anti-bot bypass, source allowlist bypass, uncontrolled live crawling, or new source collection
 - Any schema/enum/gate/exception semantic addition
-- Any product package readiness treated as customer-visible delivery or legal conclusion
+- Any provider readiness treated as approval to execute live
 - Any Stage7/Stage8/Stage9 execution bypass
 - Any true external/live provider call
 - Any real LeadPack external delivery or client-visible formal export/page release
@@ -102,7 +104,7 @@ State Semantics:
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - PTL-I100-112 is completed through 112A-112F; production/live pilots still require later dedicated packets.
-- PTL-I100-113, PTL-I100-114A through PTL-I100-114I, PTL-I100-115, PTL-I100-116, PTL-I100-116A, PTL-I100-117, and PTL-I100-119A are completed; PTL-I100-119 is active as the Stage6 product package hardening packet. PTL-I100-120 through PTL-I100-121 and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
+- PTL-I100-113, PTL-I100-114A through PTL-I100-114I, PTL-I100-115, PTL-I100-116, PTL-I100-116A, PTL-I100-117, PTL-I100-119A, and PTL-I100-119 are completed; PTL-I100-111E is active as the provider reliability and circuit breaker packet. PTL-I100-111B/111C/111D, PTL-I100-120 through PTL-I100-121, and PTL-I100-118 remain registered task-pool candidates. None is active until control/current_task.yaml explicitly activates it.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
@@ -110,15 +112,17 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_stage6_product_package_hardening -v
-- python -m unittest tests.test_stage56_evaluators -v
-- python -m unittest tests.test_stage12_extractors -v
+- python -m unittest tests.test_provider_adapter_config -v
+- python -m unittest tests.test_api_transport_bootstrap -v
+- python -m unittest tests.test_stage7_runtime_closure -v
+- python -m unittest tests.test_stage8_resolution_closure -v
+- python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v
 - python -m unittest tests.test_internal_chain.TestInternalChain -v
 - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage6_fact_review/**'',''src/storage/repository_bundle_io.py'',''src/storage/repository_boundary.py'',''tests/test_stage6_product_package_hardening.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/shared/provider_adapter_config.py'',''src/shared/settings.py'',''src/api/deps.py'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage7.py'',''src/api/routes/stage8.py'',''src/api/routes/stage9.py'',''src/api/schemas/stage7.py'',''src/api/schemas/stage8.py'',''src/api/schemas/stage9.py'',''src/stage7_sales/service.py'',''src/stage7_sales/crm_quote_workbench.py'',''src/stage7_sales/leadpack_delivery_package.py'',''src/stage8_outreach/service.py'',''src/stage8_outreach/execution_outbox.py'',''src/stage9_delivery/service.py'',''src/stage9_delivery/order_payment_delivery_execution.py'',''src/storage/repository_boundary.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_provider_adapter_config.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_stage7_runtime_closure.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_stage9_impact_executor.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1

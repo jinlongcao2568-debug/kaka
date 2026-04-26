@@ -5,11 +5,11 @@ updated_at: "2026-04-26"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_119_STAGE6_PRODUCT_PACKAGE_HARDENING"
+navigation_state: "PTL_I100_111E_PROVIDER_RELIABILITY_AND_CIRCUIT_BREAKER"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-119A real challenger identification hardening 已通过验收并本地提交 56cd04e；本窗口激活 PTL-I100-119 Stage6 product package hardening。"
+activation_condition: "PTL-I100-119 Stage6 product package hardening 已通过验收并本地提交 54112c8；按 product_task_library planned_sequence 激活 PTL-I100-111E provider reliability and circuit breaker。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-119-stage6-product-package-hardening"
-  title: "I100-119 Stage6 product package hardening"
+  task_id: "PTL-I100-111E-provider-reliability-and-circuit-breaker"
+  title: "I100-111E Provider reliability and circuit breaker"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -29,20 +29,18 @@ currentTask:
     - "docs/L0.md"
     - "docs/裁决总表.md"
     - "docs/D1_研发_Codex执行手册.md"
-    - "docs/D6_字段策略字典与客户交付字段规范.md"
-    - "docs/D7_对象级交付矩阵与外发治理规范.md"
-    - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
+    - "docs/D9_联系对象与销售触达规范.md"
+    - "docs/D10_订单支付交付与治理反馈规范.md"
     - "docs/D11_测试验收与金标回归清单.md"
+    - "docs/D12_部署发布与运行治理规范.md"
     - "control/current_task.yaml"
     - "control/product_task_library.yaml"
     - "control/product_acceptance_checklist.yaml"
-    - "control/product_operability_gap_matrix.yaml"
     - "control/product_module_registry.yaml"
-    - "control/source_blueprint_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-119-stage6-product-package-hardening"
-  objective: "把 Stage6 从内部 fact/review/readback 加固为证据包产品化判断层：输出 objection viability、evidence strength、review priority、sellable signal、delivery eligibility、external visibility、product package readiness、objection pack readiness、sales readiness、downgrade/block reasons 和可回放 readback。目标是 INTERNAL_READY；不把未复核推断当事实，不直接客户可见发布，不让销售反馈污染事实层。"
+  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-111E-provider-reliability-and-circuit-breaker"
+  objective: "补 provider reliability 共用底座：health check、failure handling、rate limit、timeout、retry、circuit breaker、credential presence/redaction、provider audit、fallback policy 和 SUSPENDED 回退。目标状态 APPROVAL_READY；不默认 live execution，不绕过 approval/audit，不实现自动退款程序。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -62,29 +60,29 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-119-stage6-product-package-hardening"
-    subpacket_id: "PTL-I100-119-stage6-product-package-hardening"
-    backlog_packet_ref: "PTL-I100-119-stage6-product-package-hardening"
+    packet_id: "PTL-I100-111E-provider-reliability-and-circuit-breaker"
+    subpacket_id: "PTL-I100-111E-provider-reliability-and-circuit-breaker"
+    backlog_packet_ref: "PTL-I100-111E-provider-reliability-and-circuit-breaker"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "ACTIVE_119_STAGE6_PRODUCT_PACKAGE_HARDENING"
-    existing_code_state: "HEAVY_RUNTIME"
-    existing_runtime_state: "INTERNAL_REVIEW_AND_PRODUCTIZATION_RUNTIME"
-    title: "I100-119 Stage6 product package hardening"
+    runtime_change_in_packet: "ACTIVE_111E_PROVIDER_RELIABILITY_AND_CIRCUIT_BREAKER"
+    existing_code_state: "PARTIAL_RUNTIME"
+    existing_runtime_state: "PROVIDER_CONFIG_SANDBOX_READBACK_ONLY"
+    title: "I100-111E Provider reliability and circuit breaker"
     status: "ACTIVE"
-    objective: "在现有 Stage6 ProjectFactAggregator / Stage6Service 上硬化产品包 readiness：异议价值、证据强度、复核优先级、可售信号、客户交付资格、外发可见性、delivery readiness、objection pack readiness、sales readiness、降级/阻断原因、audit/readback。"
+    objective: "在现有 provider_adapter_config / Settings / API bootstrap / Stage7-8-9 provider readiness consumption 基础上，补 health、rate limit、timeout、retry、failure taxonomy、circuit breaker、credential redaction audit、fallback policy、SUSPENDED 回退和 replayable readback。"
     depends_on:
-      - "PTL-I100-119A real challenger identification hardening 已完成并本地提交 56cd04e。"
-      - "PTL-I100-117 Stage5 rule factory expansion and golden cases 已完成并本地提交 c073440。"
-      - "现有 Stage6 已输出 project_fact、legal_action_recommendation、review_queue_profile、report_record、challenger_candidate_profile。"
-      - "119 必须硬化证据包产品化 readiness 和客户交付资格；不得直接发布客户可见材料或修改 Stage7/8/9 执行语义。"
+      - "PTL-I100-111A provider config and sandbox seam 已完成并本地提交 c279fd5。"
+      - "PTL-I100-112 production platform infrastructure 已完成到 112F 并本地提交 0fe9212。"
+      - "PTL-I100-119 Stage6 product package hardening 已完成并本地提交 54112c8。"
+      - "111E 必须先于 111B/111C/111D 的真实 provider/live pilot；只能形成 reliability/readback/gating，不允许默认 live。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-119A-real-challenger-identification-hardening"
-      target_active_packet: "PTL-I100-119-stage6-product-package-hardening"
-      parent_packet: "PTL-I100-119-stage6-product-package-hardening"
+      previous_active_packet: "PTL-I100-119-stage6-product-package-hardening"
+      target_active_packet: "PTL-I100-111E-provider-reliability-and-circuit-breaker"
+      parent_packet: "PTL-I100-111-live-provider-adapters-no-auto-refund"
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
@@ -95,7 +93,7 @@ currentTask:
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
       runtime_change: true
-      runtime_change_in_packet: "ACTIVE_119_STAGE6_PRODUCT_PACKAGE_HARDENING"
+      runtime_change_in_packet: "ACTIVE_111E_PROVIDER_RELIABILITY_AND_CIRCUIT_BREAKER"
       docs_change: false
       contracts_change: false
       handoff_change: false
@@ -103,74 +101,58 @@ currentTask:
       tests_change: true
       fixture_change: false
       control_change: true
-      stage2_source_adapter_change: false
-      stage3_parser_change: false
-      stage4_public_verification_change: false
-      stage5_rule_evidence_change: false
-      stage6_fact_review_change: true
-      object_storage_readback_change: false
-      api_change: false
-      automated_refund_program_change: false
-      external_release_change: false
+      provider_config_change: true
+      provider_reliability_change: true
+      stage7_provider_readback_change: true
+      stage8_provider_readback_change: true
+      stage9_provider_readback_change: true
       stage8_real_execution_change: false
       stage9_real_payment_delivery_refund_change: false
+      automated_refund_program_change: false
+      external_release_change: false
       new_business_object_enum_gate_exception_semantics: false
       new_formal_object_enum_gate_exception_semantics: false
       auto_next_candidate_selection: false
       current_mainline_next_candidate_change: false
       push_allowed: false
     non_goals:
-      - "not Stage2 source adapter expansion"
-      - "not Stage3 parser expansion"
-      - "not Stage4 verification expansion"
-      - "not Stage5 rule factory expansion"
-      - "not Stage7 sales execution hardening"
-      - "not private or gray source collection"
-      - "not non-public personnel privacy data"
-      - "not illegal identity lookup"
-      - "not same-name inference treated as verified fact"
-      - "not new formal schema object"
-      - "not new enum catalog value"
-      - "not new release gate or exception semantics"
-      - "not login/captcha/anti-bot bypass"
-      - "not uncontrolled live crawler execution"
-      - "not external provider execution"
-      - "not real sales outreach"
-      - "not real payment, charge, delivery, refund, or automated refund"
-      - "not CRM/quote provider execution"
-      - "not customer-visible LeadPack/page/export release"
-      - "not external software release"
       - "not an external unlock implementation"
       - "不改变 canonical readiness"
       - "不放开 external release"
       - "不放开 Stage8 real execution"
       - "不放开 Stage9 real payment/delivery/refund"
       - "不新增业务对象、枚举、gate、exception 语义"
-      - "not a docs/handoff/scripts/fixtures change"
-      - "not a contracts change outside the three allowed sales policy catalogs"
+      - "not live provider execution"
+      - "not real sales outreach"
+      - "not real CRM sync or external quote send"
+      - "not customer-visible publication or external delivery"
+      - "not real payment, charge, delivery, refund, or automated refund"
+      - "not provider credential plaintext output"
+      - "not external observability/APM/paging integration"
+      - "not docs/contracts/handoff/scripts/fixtures change"
       - "not push"
     affected_stages:
-      - "stage6_fact_review"
-      - "productization"
-      - "evidence_pack_readiness"
-      - "customer_delivery_eligibility"
-      - "product_package_readiness"
-      - "objection_pack_readiness"
-      - "sales_readiness"
+      - "provider_adapters"
+      - "external_live_governance"
+      - "observability"
+      - "stage7_sales"
+      - "stage8_outreach"
+      - "stage9_delivery"
+      - "api_transport"
+      - "storage_repository_boundary"
       - "governance_testing"
     risk_level: "CRITICAL"
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "stage6_fact_review_core"
-      - "storage_runtime_core"
+      - "provider_vendor_source_policy_core"
+      - "stage8_stage9_high_risk_execution"
       - "scripts_and_tests_general"
     reviews:
       - "automation_owner"
       - "architecture_owner"
-      - "stage6_owner"
-      - "storage_owner"
       - "governance_owner"
+      - "model_governance_owner"
       - "testing_owner"
     baseline_dirty_paths: []
     declared_changed_paths:
@@ -179,12 +161,32 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "src/stage6_fact_review/**"
-      - "src/storage/repository_bundle_io.py"
+      - "src/shared/provider_adapter_config.py"
+      - "src/shared/settings.py"
+      - "src/api/deps.py"
+      - "src/api/main.py"
+      - "src/api/projections.py"
+      - "src/api/routes/stage7.py"
+      - "src/api/routes/stage8.py"
+      - "src/api/routes/stage9.py"
+      - "src/api/schemas/stage7.py"
+      - "src/api/schemas/stage8.py"
+      - "src/api/schemas/stage9.py"
+      - "src/stage7_sales/service.py"
+      - "src/stage7_sales/crm_quote_workbench.py"
+      - "src/stage7_sales/leadpack_delivery_package.py"
+      - "src/stage8_outreach/service.py"
+      - "src/stage8_outreach/execution_outbox.py"
+      - "src/stage9_delivery/service.py"
+      - "src/stage9_delivery/order_payment_delivery_execution.py"
       - "src/storage/repository_boundary.py"
-      - "tests/test_stage6_product_package_hardening.py"
-      - "tests/test_stage56_evaluators.py"
-      - "tests/test_stage12_extractors.py"
+      - "src/storage/repositories/provider_adapter_config_repo.py"
+      - "src/storage/repositories/__init__.py"
+      - "tests/test_provider_adapter_config.py"
+      - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_stage7_runtime_closure.py"
+      - "tests/test_stage8_resolution_closure.py"
+      - "tests/test_stage9_impact_executor.py"
       - "tests/test_internal_chain.py"
       - "tests/test_internal_repository_boundary.py"
       - "tests/test_runtime_governance_guards.py"
@@ -196,12 +198,32 @@ currentTask:
       - "control/product_task_library.yaml"
       - "control/product_module_registry.yaml"
       - "control/product_acceptance_checklist.yaml"
-      - "src/stage6_fact_review/**"
-      - "src/storage/repository_bundle_io.py"
+      - "src/shared/provider_adapter_config.py"
+      - "src/shared/settings.py"
+      - "src/api/deps.py"
+      - "src/api/main.py"
+      - "src/api/projections.py"
+      - "src/api/routes/stage7.py"
+      - "src/api/routes/stage8.py"
+      - "src/api/routes/stage9.py"
+      - "src/api/schemas/stage7.py"
+      - "src/api/schemas/stage8.py"
+      - "src/api/schemas/stage9.py"
+      - "src/stage7_sales/service.py"
+      - "src/stage7_sales/crm_quote_workbench.py"
+      - "src/stage7_sales/leadpack_delivery_package.py"
+      - "src/stage8_outreach/service.py"
+      - "src/stage8_outreach/execution_outbox.py"
+      - "src/stage9_delivery/service.py"
+      - "src/stage9_delivery/order_payment_delivery_execution.py"
       - "src/storage/repository_boundary.py"
-      - "tests/test_stage6_product_package_hardening.py"
-      - "tests/test_stage56_evaluators.py"
-      - "tests/test_stage12_extractors.py"
+      - "src/storage/repositories/provider_adapter_config_repo.py"
+      - "src/storage/repositories/__init__.py"
+      - "tests/test_provider_adapter_config.py"
+      - "tests/test_api_transport_bootstrap.py"
+      - "tests/test_stage7_runtime_closure.py"
+      - "tests/test_stage8_resolution_closure.py"
+      - "tests/test_stage9_impact_executor.py"
       - "tests/test_internal_chain.py"
       - "tests/test_internal_repository_boundary.py"
       - "tests/test_runtime_governance_guards.py"
@@ -209,15 +231,7 @@ currentTask:
       - "tests/test_product_acceptance_checklist.py"
     forbidden_modification_paths:
       - "docs/**"
-      - "contracts/schemas/**"
-      - "contracts/enums/**"
-      - "contracts/gates/**"
-      - "contracts/governance/**"
-      - "contracts/release/**"
-      - "contracts/model/**"
-      - "contracts/exceptions/**"
-      - "contracts/rules/**"
-      - "contracts/sales/**"
+      - "contracts/**"
       - "handoff/**"
       - "scripts/**"
       - "fixtures/**"
@@ -226,15 +240,9 @@ currentTask:
       - "src/stage3_parsing/**"
       - "src/stage4_verification/**"
       - "src/stage5_rules_evidence/**"
-      - "src/stage7_sales/**"
-      - "src/stage8_outreach/**"
-      - "src/stage9_delivery/**"
-      - "src/shared/provider_adapter_config.py"
+      - "src/stage6_fact_review/**"
+      - "src/storage/db.py"
       - "src/storage/models/**"
-      - "control/source_blueprint_registry.yaml"
-      - "control/review_gate_matrix.yaml"
-      - "control/release_manifest.yaml"
-      - "control/model_release_manifest.yaml"
       - "migrations/**"
       - "alembic.ini"
       - ".dockerignore"
@@ -254,29 +262,51 @@ currentTask:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       tests:
-        - "tests/test_stage6_product_package_hardening.py"
-        - "tests/test_stage56_evaluators.py"
-        - "tests/test_stage12_extractors.py"
+        - "tests/test_provider_adapter_config.py"
+        - "tests/test_api_transport_bootstrap.py"
+        - "tests/test_stage7_runtime_closure.py"
+        - "tests/test_stage8_resolution_closure.py"
+        - "tests/test_stage9_impact_executor.py"
         - "tests/test_internal_chain.py"
         - "tests/test_internal_repository_boundary.py"
         - "tests/test_runtime_governance_guards.py"
         - "tests/test_product_module_registry.py"
         - "tests/test_product_acceptance_checklist.py"
       runtime:
-        - "src/stage6_fact_review/**"
-        - "src/storage/repository_bundle_io.py"
+        - "src/shared/provider_adapter_config.py"
+        - "src/shared/settings.py"
+        - "src/api/deps.py"
+        - "src/api/main.py"
+        - "src/api/projections.py"
+        - "src/api/routes/stage7.py"
+        - "src/api/routes/stage8.py"
+        - "src/api/routes/stage9.py"
+        - "src/api/schemas/stage7.py"
+        - "src/api/schemas/stage8.py"
+        - "src/api/schemas/stage9.py"
+        - "src/stage7_sales/service.py"
+        - "src/stage7_sales/crm_quote_workbench.py"
+        - "src/stage7_sales/leadpack_delivery_package.py"
+        - "src/stage8_outreach/service.py"
+        - "src/stage8_outreach/execution_outbox.py"
+        - "src/stage9_delivery/service.py"
+        - "src/stage9_delivery/order_payment_delivery_execution.py"
         - "src/storage/repository_boundary.py"
+        - "src/storage/repositories/provider_adapter_config_repo.py"
+        - "src/storage/repositories/__init__.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_stage6_product_package_hardening -v"
-      - "python -m unittest tests.test_stage56_evaluators -v"
-      - "python -m unittest tests.test_stage12_extractors -v"
+      - "python -m unittest tests.test_provider_adapter_config -v"
+      - "python -m unittest tests.test_api_transport_bootstrap -v"
+      - "python -m unittest tests.test_stage7_runtime_closure -v"
+      - "python -m unittest tests.test_stage8_resolution_closure -v"
+      - "python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v"
       - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
       - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
       - "python -m unittest tests.test_product_module_registry -v"
       - "python -m unittest tests.test_product_acceptance_checklist -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage6_fact_review/**'',''src/storage/repository_bundle_io.py'',''src/storage/repository_boundary.py'',''tests/test_stage6_product_package_hardening.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/shared/provider_adapter_config.py'',''src/shared/settings.py'',''src/api/deps.py'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage7.py'',''src/api/routes/stage8.py'',''src/api/routes/stage9.py'',''src/api/schemas/stage7.py'',''src/api/schemas/stage8.py'',''src/api/schemas/stage9.py'',''src/stage7_sales/service.py'',''src/stage7_sales/crm_quote_workbench.py'',''src/stage7_sales/leadpack_delivery_package.py'',''src/stage8_outreach/service.py'',''src/stage8_outreach/execution_outbox.py'',''src/stage9_delivery/service.py'',''src/stage9_delivery/order_payment_delivery_execution.py'',''src/storage/repository_boundary.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_provider_adapter_config.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_stage7_runtime_closure.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_stage9_impact_executor.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -284,15 +314,18 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_stage6_product_package_hardening -v": 300000
-      "python -m unittest tests.test_stage56_evaluators -v": 300000
-      "python -m unittest tests.test_stage12_extractors -v": 300000
+      "python -m unittest tests.test_provider_adapter_config -v": 300000
+      "python -m unittest tests.test_api_transport_bootstrap -v": 300000
+      "python -m unittest tests.test_stage7_runtime_closure -v": 300000
+      "python -m unittest tests.test_stage8_resolution_closure -v": 300000
+      "python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v": 300000
       "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
       "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
       "python -m unittest tests.test_product_module_registry -v": 300000
       "python -m unittest tests.test_product_acceptance_checklist -v": 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/stage6_fact_review/**'',''src/storage/repository_bundle_io.py'',''src/storage/repository_boundary.py'',''tests/test_stage6_product_package_hardening.py'',''tests/test_stage56_evaluators.py'',''tests/test_stage12_extractors.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      ? "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_module_registry.yaml'',''control/product_acceptance_checklist.yaml'',''src/shared/provider_adapter_config.py'',''src/shared/settings.py'',''src/api/deps.py'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage7.py'',''src/api/routes/stage8.py'',''src/api/routes/stage9.py'',''src/api/schemas/stage7.py'',''src/api/schemas/stage8.py'',''src/api/schemas/stage9.py'',''src/stage7_sales/service.py'',''src/stage7_sales/crm_quote_workbench.py'',''src/stage7_sales/leadpack_delivery_package.py'',''src/stage8_outreach/service.py'',''src/stage8_outreach/execution_outbox.py'',''src/stage9_delivery/service.py'',''src/stage9_delivery/order_payment_delivery_execution.py'',''src/storage/repository_boundary.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''src/storage/repositories/__init__.py'',''tests/test_provider_adapter_config.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_stage7_runtime_closure.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_stage9_impact_executor.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      : 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python tests/run_tests.py": 600000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
@@ -302,63 +335,58 @@ currentTask:
       - "任一 targeted test 或 formal check 失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "实际改动命中 forbidden_modification_paths"
-      - "需要修改 docs、handoff、scripts、fixtures"
-      - "需要修改 Stage1、Stage2、Stage3、Stage4、Stage5 或 Stage8-9 业务 runtime"
+      - "需要修改 docs、contracts、handoff、scripts、fixtures"
+      - "需要修改 Stage1、Stage2、Stage3、Stage4、Stage5 或 Stage6 runtime"
       - "需要新增正式业务对象、schema、enum、release gate、exception 语义"
-      - "需要修改任何 contracts 文件"
-      - "需要访问非公开接口、抓取新来源、连接未 allowlist 的真实网站、绕过登录、验证码或反爬"
-      - "需要真实 provider 调用、真实触达、真实支付、真实交付、真实退款或自动退款执行"
-      - "需要 push"
+      - "需要输出 provider plaintext credential"
+      - "需要真实 provider 调用、真实触达、真实 CRM sync、真实报价外发、真实支付、真实交付、真实退款或自动退款执行"
+      - "需要 external release 或 push"
     definition_of_done:
-      - "Stage6 能表达 objection viability、evidence strength、review priority、sellable signal、delivery eligibility、external visibility、product package readiness、objection pack readiness、sales readiness 和 downgrade/block reasons。"
-      - "客户交付资格由 evidence gate、public visibility、review state、field allowlist/masking 和 delivery governance 共同约束。"
-      - "Stage6 product package readiness 可在 persist/hydrate/readback 后稳定回放。"
-      - "sales/customer feedback 不污染 Stage6 formal facts。"
+      - "provider health / rate limit / timeout / retry / failure taxonomy / circuit breaker 可读、可审计、可回放。"
+      - "unhealthy / rate-limited / timeout / circuit-open provider 必须进入 BLOCKED 或 SUSPENDED readiness，不允许 silent fallback 到 live。"
+      - "credential 只暴露 presence/redacted metadata，不输出明文。"
+      - "Stage7/Stage8/Stage9 消费同一份 provider reliability readiness，且不触发真实 provider 调用。"
       - "targeted tests、验收清单测试与 formal checks 全部通过。"
     deliverables:
-      - "activated 119 current_task packet"
-      - "Stage6 product package readiness carrier"
-      - "delivery eligibility / objection viability / downgrade-block readback"
-      - "module registry update for any new Stage6/storage files if needed"
+      - "activated 111E current_task packet"
+      - "provider reliability / circuit breaker carrier and readback"
+      - "provider failure taxonomy and suspended fallback"
+      - "Stage7/8/9 provider reliability readiness consumption"
+      - "module registry update for any new provider/runtime/test files if needed"
     human_review_required: true
     owner_reviews_required:
       - "automation_owner"
       - "architecture_owner"
-      - "stage6_owner"
-      - "storage_owner"
       - "governance_owner"
+      - "model_governance_owner"
       - "testing_owner"
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_119_STAGE6_PRODUCT_PACKAGE_HARDENING_INTERNAL_READY"
-      signoff_meaning: "本批准只允许 Stage6 product package readiness 第一刀；不批准客户可见发布、真实外发、真实触达、CRM/quote provider 调用、真实支付/交付/退款、自动退款、external release、schema/enum/gate/exception 新语义或 push。"
+      signoff_status: "APPROVED_FOR_111E_PROVIDER_RELIABILITY_AND_CIRCUIT_BREAKER_APPROVAL_READY"
+      signoff_meaning: "本批准只允许 provider reliability/circuit breaker 第一刀；不批准真实 provider/live、真实触达、CRM/quote provider 执行、客户可见发布、真实支付/交付/退款、自动退款、external release、schema/enum/gate/exception 新语义或 push。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml is the only active execution source."
-      - "blocked-by-default 表示未满足 provider/source allowlist、sandbox、审批、审计和验收前不能 live，不表示不开发。"
+      - "blocked-by-default 表示未满足 provider config、sandbox、审批、审计、operator action 和验收前不能 live，不表示不开发。"
       - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
   hardBlockers:
     - "external software release remains blocked"
-    - "Stage6 product package readiness remains internal until field allowlist, review, approval, and delivery gates pass"
-    - "private or gray source collection remains forbidden"
-    - "login/captcha/anti-bot bypass remains forbidden"
-    - "uncontrolled live crawling remains blocked"
-    - "real provider call remains blocked"
-    - "real sales outreach remains blocked until Stage8 gated execution"
-    - "real payment / charge / delivery / refund remains blocked until gated"
+    - "real provider execution remains blocked until dedicated live approval"
+    - "Stage 8 real execution remains governed / approval-gated / blocked by default"
+    - "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default"
     - "automated refund execution is out of scope"
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 119 Stage6 product package hardening。"
+    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 111E provider reliability and circuit breaker。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
-    - "不得修改 docs、handoff、scripts、fixtures。"
-    - "不得修改 Stage1、Stage2、Stage3、Stage4、Stage5 或 Stage8-9 业务 runtime。"
-    - "不得访问非公开接口、新增采集来源、抓取非公开来源、未登记真实网站，或绕过登录、验证码、反爬。"
-    - "不得把未复核推断当事实，不得把内部 readiness 当客户可见交付，不得新增 schema/enum/gate/exception 语义。"
-    - "不得调用真实 provider API、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
+    - "不得修改 docs、contracts、handoff、scripts、fixtures。"
+    - "不得修改 Stage1、Stage2、Stage3、Stage4、Stage5 或 Stage6 runtime。"
+    - "不得新增 schema/enum/gate/exception 语义。"
+    - "不得输出 provider credential 明文。"
+    - "不得调用真实 provider API、真实触达、真实 CRM sync、真实报价外发、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得发布客户页面、真实外发 LeadPack、放开 external release。"
     - "不得 push。"
   nextActions:
-    - "119 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-120 operator/customer access and go-live readiness。"
-  status_note: "PTL-I100-119 已激活为 Stage6 product package hardening；当前目标是 INTERNAL_READY，不放开客户可见外发、真实触达、CRM/quote provider 或支付交付。"
+    - "111E 完成后由总控验收；若范围合法且校验通过，总控可提交并判断是否进入 PTL-I100-111B sales outreach adapter execution。"
+  status_note: "PTL-I100-111E 已激活为 provider reliability/circuit breaker packet；当前目标是 APPROVAL_READY，不默认放开真实 provider/live、真实触达、CRM/quote provider、支付交付或退款。"

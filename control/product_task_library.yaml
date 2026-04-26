@@ -855,7 +855,7 @@ tasks:
     stage_scope: [stage7_sales, stage8_outreach, stage9_delivery, page_export, external_live_governance]
     task_type: product_operability_implementation
     status: IN_PROGRESS
-    planning_state: 111A_COMPLETED_111B_CANDIDATE_NOT_ACTIVATED
+    planning_state: 111A_COMPLETED_111E_ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P5
     existing_code_state: HEAVY_RUNTIME
@@ -866,7 +866,7 @@ tasks:
         completed_commit: c279fd5
         capability_state_after: SANDBOX_READY
         product_closure_state: "provider seam complete; no real provider execution yet"
-    activation_policy: "111A completed via c279fd5. 111B/111C/111D remain candidate packets and require dedicated control/current_task.yaml activation before implementation. Automated refund execution remains excluded."
+    activation_policy: "111A completed via c279fd5. 111E is active by control/current_task.yaml after PTL-I100-119 completed via 54112c8. 111B/111C/111D remain candidate packets and require dedicated control/current_task.yaml activation before implementation. Automated refund execution remains excluded."
     hard_depends_on: [PTL-I100-110-platform-infra-and-external-live-prerequisite-decisions]
     soft_depends_on: [PTL-I100-110E-order-payment-delivery-no-auto-refund]
     objective: "把 110A-110E 已形成的 owner-operated workbench/readback 推进到真实运营所需 provider adapter seam：销售触达、CRM/报价、证据包页面/交付、订单支付收款记录与交付履约。退款只允许 manual exception record / governed review，不实现自动退款程序。"
@@ -876,6 +876,7 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-111-live-provider-adapters-no-auto-refund
     suggested_packet_refs:
       - PTL-I100-111A-provider-config-and-sandbox-seam
+      - PTL-I100-111E-provider-reliability-and-circuit-breaker
       - PTL-I100-111B-sales-outreach-adapter-execution
       - PTL-I100-111C-crm-quote-and-delivery-page-adapters
       - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
@@ -956,13 +957,13 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage8_outreach, provider_adapters, sales_governance]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P15
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: GOVERNED_OUTBOX_AND_PROVIDER_READINESS
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    runtime_change_in_packet: ACTIVE_111E_PROVIDER_RELIABILITY_AND_CIRCUIT_BREAKER
     activation_policy: "Requires dedicated current_task packet after real data chain, rules, and Stage6 product package hardening; must start at sandbox/dry-run/readback and may not send unapproved live outreach."
     hard_depends_on:
       - PTL-I100-111-live-provider-adapters-no-auto-refund
@@ -1102,14 +1103,14 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [provider_adapters, external_live_governance, observability]
     task_type: product_operability_implementation
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P14
     existing_code_state: PARTIAL_RUNTIME
     existing_runtime_state: PROVIDER_CONFIG_SANDBOX_READBACK_ONLY
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Requires dedicated current_task packet before any 111B/111C/111D live pilot. It must harden provider health, rate limit, timeout, retry, and circuit breaker behavior without enabling live execution by default."
+    runtime_change_in_packet: ACTIVE_111E_PROVIDER_RELIABILITY_AND_CIRCUIT_BREAKER
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-119 completed via 54112c8. Requires dedicated current_task packet before any 111B/111C/111D live pilot. It must harden provider health, rate limit, timeout, retry, and circuit breaker behavior without enabling live execution by default."
     hard_depends_on:
       - PTL-I100-111-live-provider-adapters-no-auto-refund
       - PTL-I100-112-production-platform-infrastructure
@@ -1589,14 +1590,17 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage6_fact_review, productization, evidence_pack_readiness]
     task_type: product_operability_implementation
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P12
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: INTERNAL_REVIEW_AND_PRODUCTIZATION_RUNTIME
-    runtime_change_in_packet: ACTIVE_119_STAGE6_PRODUCT_PACKAGE_HARDENING
-    activation_policy: "Activated by control/current_task.yaml after PTL-I100-119A completed via 56cd04e; target is INTERNAL_READY Stage6 product package readiness, delivery eligibility, and downgrade/block readback."
+    runtime_change_in_packet: COMPLETED_119_STAGE6_PRODUCT_PACKAGE_HARDENING
+    completed_commit: 54112c8
+    capability_state_after: INTERNAL_READY
+    product_closure_state: "Stage6 product package readiness carrier/readback completed; customer-visible publication, Stage7/8/9 execution, provider calls, payment, delivery, refund, automated refund, and external release remain gated."
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-119A completed via 56cd04e; completed via 54112c8. Target was INTERNAL_READY Stage6 product package readiness, delivery eligibility, and downgrade/block readback."
     hard_depends_on:
       - PTL-I100-115-stage3-real-parser-ocr-attachments
       - PTL-I100-116-stage4-public-verification-adapters
