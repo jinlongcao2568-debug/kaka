@@ -1888,8 +1888,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage8_outreach, provider_execution, sales_governance]
     task_type: approved_live_provider_execution
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P23
     existing_code_state: HEAVY_RUNTIME
@@ -1914,6 +1914,8 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-122-approved-sales-outreach-provider-execution
     suggested_packet_refs: [PTL-I100-122-approved-sales-outreach-provider-execution]
     risk_level: CRITICAL
+    completed_commit: f3cf7e5
+    completion_result: "COMPLETED_APPROVED_STAGE8_PROVIDER_EXECUTION_READBACK"
   - task_id: PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
     title: "I100-23 Approved payment and delivery provider execution no auto refund"
     program_ref: PTL-I100-internal-operable-productization
@@ -1988,8 +1990,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage7_sales, crm_provider, quote_provider, sales_governance]
     task_type: approved_crm_quote_provider_execution
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P24
     existing_code_state: HEAVY_RUNTIME

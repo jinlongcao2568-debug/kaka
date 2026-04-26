@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 5)
+        self.assertEqual(len(non_completed), 4)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -194,7 +194,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
             self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
 
-    def test_111d_is_closed_and_120_is_active(self) -> None:
+    def test_completed_packets_and_current_active_packet_are_aligned(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
         task_113 = self.tasks_by_id["PTL-I100-113-stage1-scheduler-production-loop"]
         task_114 = self.tasks_by_id["PTL-I100-114-stage2-real-public-source-adapters"]
@@ -216,6 +216,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_121c = self.tasks_by_id["PTL-I100-121C-production-slo-monitoring-incident-readiness"]
         task_118 = self.tasks_by_id["PTL-I100-118-full-product-operational-acceptance"]
         task_122 = self.tasks_by_id["PTL-I100-122-approved-sales-outreach-provider-execution"]
+        task_125 = self.tasks_by_id["PTL-I100-125-approved-crm-quote-provider-execution"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -395,10 +396,17 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertEqual(task_118["runtime_change_in_packet"], "OUT_OF_SCOPE")
         self.assertEqual(task_118["completion_result"], "BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS")
         self.assertEqual(task_118["closeout_recommendation"], "DO_NOT_CLOSEOUT")
-        self.assertEqual(task_122["status"], "IN_PROGRESS")
-        self.assertEqual(task_122["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_122["status"], "COMPLETED")
+        self.assertEqual(task_122["planning_state"], "COMPLETED")
+        self.assertEqual(task_122["completed_commit"], "f3cf7e5")
         self.assertEqual(
-            task_122["runtime_change_in_packet"],
+            task_122["completion_result"],
+            "COMPLETED_APPROVED_STAGE8_PROVIDER_EXECUTION_READBACK",
+        )
+        self.assertEqual(task_125["status"], "IN_PROGRESS")
+        self.assertEqual(task_125["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(
+            task_125["runtime_change_in_packet"],
             "IN_SCOPE_WHEN_ACTIVATED",
         )
         completed_114 = {

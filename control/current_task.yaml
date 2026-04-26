@@ -5,11 +5,11 @@ updated_at: "2026-04-27"
 currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
 currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
 current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_122_APPROVED_SALES_OUTREACH_PROVIDER_EXECUTION"
+navigation_state: "PTL_I100_125_APPROVED_CRM_QUOTE_PROVIDER_EXECUTION"
 responsible_role: "single_operator"
 responsible_person: "卡卡罗特"
 escalation_path: []
-activation_condition: "PTL-I100-118 full product operational acceptance 已完成并确认产品闭环 NOT_CLOSED；122-126 follow-up 已登记并按 97dfc59 调整为产品流顺序。按 product_task_library 激活 PTL-I100-122 approved sales outreach provider execution。"
+activation_condition: "PTL-I100-122 approved sales outreach provider execution 已完成并本地提交 f3cf7e5；按 product_task_library 产品流顺序激活 PTL-I100-125 approved CRM and quote provider execution。"
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-122-approved-sales-outreach-provider-execution"
-  title: "I100-22 Approved sales outreach provider execution"
+  task_id: "PTL-I100-125-approved-crm-quote-provider-execution"
+  title: "I100-25 Approved CRM and quote provider execution"
   owner_role: "single_operator"
   responsible_role: "single_operator"
   responsible_person: "卡卡罗特"
@@ -31,7 +31,8 @@ currentTask:
     - "docs/D1_研发_Codex执行手册.md"
     - "docs/D6_字段策略字典与客户交付字段规范.md"
     - "docs/D7_对象级交付矩阵与外发治理规范.md"
-    - "docs/D9_联系对象与销售触达规范.md"
+    - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
+    - "docs/D10_订单支付交付与治理反馈规范.md"
     - "docs/D11_测试验收与金标回归清单.md"
     - "docs/D12_部署发布与运行治理规范.md"
     - "docs/D13_公开可查边界能力清单.md"
@@ -42,8 +43,8 @@ currentTask:
     - "control/product_module_registry.yaml"
     - "control/repo_status.md"
   capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-122-approved-sales-outreach-provider-execution"
-  objective: "把 Stage8 从 approved live pilot readback 推进到可执行的 approved provider send path：仅在 provider config、sandbox pass、template approval、contact source audit、operator approval/action audit、frequency/quiet-hours/opt-out/complaint gates 全部满足时允许小范围 provider execution，并持久化 provider result、bounce/failure/complaint、retry/stop/suspension、execution timeline。开发和测试只能使用受控本地/fake provider，不得真实外发。"
+  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-125-approved-crm-quote-provider-execution"
+  objective: "把 CRM/quote 从 sandbox workbench/readback 推进到审批后 provider execution：CRM account/opportunity/activity sync、quote send、quote version/approval/expiration/discount audit、deal tracking、sales note/callback、provider result readback 都必须可追溯；external quote send 必须经过 provider config、sandbox pass、approval、audit、operator action 和 provider reliability gates。"
   operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
   operator_assignment_roster:
     stage7:
@@ -63,41 +64,40 @@ currentTask:
       reviewer: "卡卡罗特"
   task_packet:
     version: 1
-    packet_id: "PTL-I100-122-approved-sales-outreach-provider-execution"
-    subpacket_id: "PTL-I100-122-approved-sales-outreach-provider-execution"
-    backlog_packet_ref: "PTL-I100-122-approved-sales-outreach-provider-execution"
+    packet_id: "PTL-I100-125-approved-crm-quote-provider-execution"
+    subpacket_id: "PTL-I100-125-approved-crm-quote-provider-execution"
+    backlog_packet_ref: "PTL-I100-125-approved-crm-quote-provider-execution"
     packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
     execution_mode: "SCOPED_EXECUTION"
     source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "ACTIVE_122_APPROVED_SALES_OUTREACH_PROVIDER_EXECUTION"
+    runtime_change_in_packet: "ACTIVE_125_APPROVED_CRM_QUOTE_PROVIDER_EXECUTION"
     existing_code_state: "HEAVY_RUNTIME"
-    existing_runtime_state: "LIVE_READY_READBACK_ONLY"
-    title: "I100-22 Approved sales outreach provider execution"
+    existing_runtime_state: "SANDBOX_READY_READBACK_ONLY"
+    title: "I100-25 Approved CRM and quote provider execution"
     status: "ACTIVE"
-    objective: "在既有 Stage8 governed outbox、111B sandbox execution、111E provider reliability、121A live pilot readback 基础上，建立 approved provider send execution path。实现必须证明：通过审批链和审计链后，系统能执行受控 provider adapter 并回放 provider result；未审批、批量、误导、无联系人来源、退订/频控/quiet-hours/投诉/供应商异常场景必须 fail closed。"
+    objective: "在既有 Stage7 CRM/quote workbench、111C sandbox/readback、111E provider reliability、122 approved outreach execution 基础上，建立 approved CRM/quote provider execution path。实现必须证明：审批链、审计链、operator action、quote policy 和 provider reliability 全部满足后，系统能执行受控 provider adapter 并回放 CRM/quote provider result；未审批、供应商异常、报价版本/折扣/有效期不合规、operator action 缺失必须 fail closed。"
     depends_on:
-      - "PTL-I100-118 full product operational acceptance 已完成并输出 blocker B118_STAGE8_REAL_SEND_NOT_EXECUTABLE。"
-      - "PTL-I100-111B sales outreach adapter execution 已完成并本地提交 5642cb4。"
+      - "PTL-I100-118 full product operational acceptance 已完成并输出 blocker B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED。"
+      - "PTL-I100-111C CRM/quote and delivery page adapters 已完成并本地提交 7af8966。"
       - "PTL-I100-111E provider reliability and circuit breaker 已完成并本地提交 1a1233c。"
-      - "PTL-I100-121A sales outreach live pilot readback 已完成并本地提交 4fc8020。"
-      - "PTL-I100-120 operator/customer access and go-live readiness 已完成并本地提交 5bd558d。"
+      - "PTL-I100-122 approved sales outreach provider execution 已完成并本地提交 f3cf7e5。"
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-118-full-product-operational-acceptance"
-      target_active_packet: "PTL-I100-122-approved-sales-outreach-provider-execution"
+      previous_active_packet: "PTL-I100-122-approved-sales-outreach-provider-execution"
+      target_active_packet: "PTL-I100-125-approved-crm-quote-provider-execution"
       parent_packet: "PTL-I100-internal-operable-productization"
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: "approved_sales_outreach_provider_execution"
+      active_packet_kind: "approved_crm_quote_provider_execution"
       product_mainline_task: true
       source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
       execution_mode: "SCOPED_EXECUTION"
       runtime_change: true
-      runtime_change_in_packet: "ACTIVE_122_APPROVED_SALES_OUTREACH_PROVIDER_EXECUTION"
+      runtime_change_in_packet: "ACTIVE_125_APPROVED_CRM_QUOTE_PROVIDER_EXECUTION"
       docs_change: false
       contracts_change: false
       handoff_change: false
@@ -118,19 +118,23 @@ currentTask:
       - "不改变 canonical readiness"
       - "不放开 external software release"
       - "不新增业务对象、枚举、gate、exception 语义"
-      - "不批量外发"
+      - "不无审批同步 CRM"
+      - "不无审批发送报价"
       - "不无审批/无审计发送"
       - "不绕过 provider config / sandbox / approval / audit / operator action"
-      - "不绕过退订、频控、quiet-hours、投诉、bounce/failure、provider reliability"
-      - "不发送未复核结论、误导性话术或明显无关对象"
-      - "不把 provider execution 结果直接污染 Stage6 formal facts"
-      - "不修改 Stage9 payment/delivery/refund"
+      - "不绕过 quote version / expiration / discount approval / quote audit"
+      - "不绕过 provider reliability / circuit breaker"
+      - "不 silent fallback 到 live provider"
+      - "不触发 Stage8 真实触达"
+      - "不触发 Stage9 payment/delivery/refund"
       - "不实现自动退款程序"
+      - "不生成客户可见正式交付包"
       - "不 external software release"
       - "不 push"
     affected_stages:
-      - "stage8_outreach"
-      - "provider_execution"
+      - "stage7_sales"
+      - "crm_provider"
+      - "quote_provider"
       - "sales_governance"
       - "api_transport"
       - "storage_repository_boundary"
@@ -139,11 +143,8 @@ currentTask:
     change_class: "MANDATORY_HUMAN_REVIEW"
     change_domains:
       - "automation_control_core"
-      - "stage8_outreach_runtime"
       - "provider_vendor_source_policy_core"
       - "governance_release_core"
-      - "storage_runtime_core"
-      - "api_transport_foundation"
       - "scripts_and_tests_general"
     reviews:
       - "architecture_owner"
@@ -159,17 +160,17 @@ currentTask:
       - "control/product_acceptance_checklist.yaml"
       - "control/product_module_registry.yaml"
       - "src/shared/provider_adapter_config.py"
-      - "src/stage8_outreach/**"
+      - "src/stage7_sales/**"
       - "src/api/main.py"
       - "src/api/projections.py"
-      - "src/api/routes/stage8.py"
-      - "src/api/schemas/stage8.py"
+      - "src/api/routes/stage7.py"
+      - "src/api/schemas/stage7.py"
       - "src/storage/repository_boundary.py"
       - "src/storage/repository_bundle_io.py"
       - "src/storage/repositories/__init__.py"
-      - "src/storage/repositories/outreach_execution_outbox_repo.py"
+      - "src/storage/repositories/crm_quote_workbench_repo.py"
       - "src/storage/repositories/provider_adapter_config_repo.py"
-      - "tests/test_stage8_resolution_closure.py"
+      - "tests/test_stage7_runtime_closure.py"
       - "tests/test_internal_chain.py"
       - "tests/test_internal_repository_boundary.py"
       - "tests/test_api_transport_bootstrap.py"
@@ -184,17 +185,17 @@ currentTask:
       - "control/product_acceptance_checklist.yaml"
       - "control/product_module_registry.yaml"
       - "src/shared/provider_adapter_config.py"
-      - "src/stage8_outreach/**"
+      - "src/stage7_sales/**"
       - "src/api/main.py"
       - "src/api/projections.py"
-      - "src/api/routes/stage8.py"
-      - "src/api/schemas/stage8.py"
+      - "src/api/routes/stage7.py"
+      - "src/api/schemas/stage7.py"
       - "src/storage/repository_boundary.py"
       - "src/storage/repository_bundle_io.py"
       - "src/storage/repositories/__init__.py"
-      - "src/storage/repositories/outreach_execution_outbox_repo.py"
+      - "src/storage/repositories/crm_quote_workbench_repo.py"
       - "src/storage/repositories/provider_adapter_config_repo.py"
-      - "tests/test_stage8_resolution_closure.py"
+      - "tests/test_stage7_runtime_closure.py"
       - "tests/test_internal_chain.py"
       - "tests/test_internal_repository_boundary.py"
       - "tests/test_api_transport_bootstrap.py"
@@ -214,7 +215,7 @@ currentTask:
       - "src/stage4_verification/**"
       - "src/stage5_rules_evidence/**"
       - "src/stage6_fact_review/**"
-      - "src/stage7_sales/**"
+      - "src/stage8_outreach/**"
       - "src/stage9_delivery/**"
       - "src/storage/db.py"
       - "src/storage/models/**"
@@ -237,16 +238,16 @@ currentTask:
         - "scripts/check-task-packet.ps1"
         - "scripts/check-state-alignment.ps1"
       runtime:
-        - "src/stage8_outreach/**"
+        - "src/stage7_sales/**"
         - "src/shared/provider_adapter_config.py"
-        - "src/api/routes/stage8.py"
+        - "src/api/routes/stage7.py"
         - "src/api/projections.py"
         - "src/api/main.py"
         - "src/storage/repository_boundary.py"
-        - "src/storage/repositories/outreach_execution_outbox_repo.py"
+        - "src/storage/repositories/crm_quote_workbench_repo.py"
       fixtures: []
       tests:
-        - "tests/test_stage8_resolution_closure.py"
+        - "tests/test_stage7_runtime_closure.py"
         - "tests/test_internal_chain.py"
         - "tests/test_internal_repository_boundary.py"
         - "tests/test_api_transport_bootstrap.py"
@@ -256,7 +257,7 @@ currentTask:
         - "tests/test_external_unlock_prerequisites.py"
     required_scripts:
       - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_stage8_resolution_closure -v"
+      - "python -m unittest tests.test_stage7_runtime_closure -v"
       - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
       - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
       - "python -m unittest tests.test_api_transport_bootstrap -v"
@@ -264,7 +265,7 @@ currentTask:
       - "python -m unittest tests.test_product_module_registry -v"
       - "python -m unittest tests.test_product_acceptance_checklist -v"
       - "python -m unittest tests.test_external_unlock_prerequisites -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage8_outreach/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage8.py'',''src/api/schemas/stage8.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/outreach_execution_outbox_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage7_sales/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage7.py'',''src/api/schemas/stage7.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/crm_quote_workbench_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage7_runtime_closure.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
       - "python tests/run_tests.py"
       - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
@@ -272,7 +273,7 @@ currentTask:
       - "git status --short --untracked-files=all"
     script_timeouts:
       "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_stage8_resolution_closure -v": 300000
+      "python -m unittest tests.test_stage7_runtime_closure -v": 300000
       "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
       "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
       "python -m unittest tests.test_api_transport_bootstrap -v": 300000
@@ -280,7 +281,7 @@ currentTask:
       "python -m unittest tests.test_product_module_registry -v": 300000
       "python -m unittest tests.test_product_acceptance_checklist -v": 300000
       "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
-      ? "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage8_outreach/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage8.py'',''src/api/schemas/stage8.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/outreach_execution_outbox_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage8_resolution_closure.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      ? "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage7_sales/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage7.py'',''src/api/schemas/stage7.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/crm_quote_workbench_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage7_runtime_closure.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       : 300000
       "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
       "python tests/run_tests.py": 900000
@@ -291,25 +292,26 @@ currentTask:
       - "任一 targeted test 或 formal check 失败"
       - "实际改动超出 declared_changed_paths / allowed_modification_paths"
       - "实际改动命中 forbidden_modification_paths"
-      - "需要修改 docs、contracts、handoff、scripts、fixtures 或非 Stage8/允许 API/storage/provider config runtime"
+      - "需要修改 docs、contracts、handoff、scripts、fixtures 或非 Stage7/允许 API/storage/provider config runtime"
       - "需要新增正式业务对象、schema、enum、release gate、exception 语义"
-      - "需要真实外部 provider 网络调用、真实发送触达、批量发送、无审批发送、external release 或 push"
-      - "需要修改 Stage1-7 或 Stage9 runtime"
-      - "需要放开支付、交付、退款或自动退款"
+      - "需要真实外部 provider 网络调用、真实 CRM sync、真实 quote send、external release 或 push"
+      - "需要修改 Stage1-6、Stage8 或 Stage9 runtime"
+      - "需要放开客户可见正式交付、支付、交付、退款或自动退款"
     definition_of_done:
-      - "approved provider execution carrier 能稳定表达 execution_id/outbox_id/touch_record/contact_target/opportunity/channel/adapter_family/provider_config_ref/sandbox_pass/approval/audit/operator_action/frequency/quiet-hours/opt-out/provider_result/bounce/failure/complaint/retry/stop/suspension/timeline。"
-      - "只有 provider config + sandbox pass + template approval + contact source audit + operator approval/action audit + frequency/quiet-hours/opt-out/complaint/provider reliability 全部满足时，approved small-sample provider execution path 才可进入 EXECUTED/PROVIDER_RESULT_RECORDED。"
-      - "未审批、批量、无模板、联系人来源缺失、退订、频控、quiet-hours、投诉阈值、provider unhealthy/rate-limited/timeout/circuit-open 均 fail closed。"
-      - "provider result、bounce/failure/complaint、retry/stop/suspension、execution timeline 可持久化、hydrate、API readback、repository readback。"
-      - "stale typed refs fail closed，不 broad fallback 到 opportunity_id。"
-      - "不产生真实外部网络/provider send side effect；测试只能使用受控 fake/local provider。"
-      - "external software release、Stage9 payment/delivery/refund、自动退款继续 blocked/excluded。"
+      - "approved CRM/quote provider execution carrier 能稳定表达 crm_action_id、quote_draft_id、account/opportunity/activity sync、quote version/approval/expiration/discount audit、operator action、provider config/ref、provider result、deal tracking、sales notes、callbacks、timeline、replay state。"
+      - "只有 provider config + sandbox pass + CRM/quote approval + quote audit + operator action + provider reliability 全部满足时，CRM/quote provider execution path 才可进入 EXECUTED/PROVIDER_RESULT_RECORDED。"
+      - "未审批、缺 operator action、quote version/expiration/discount policy 不满足、provider unhealthy/rate-limited/timeout/circuit-open/SUSPENDED 均 fail closed。"
+      - "provider result、deal tracking、sales note/callback、quote audit、timeline 可持久化、hydrate、API readback、repository readback。"
+      - "stale typed refs fail closed，不 broad fallback 到 opportunity_id/project_id。"
+      - "测试只能使用受控 fake/local provider，不产生真实 CRM/quote provider 网络副作用。"
+      - "Stage8 outreach、Stage9 payment/delivery/refund、customer-visible LeadPack release、external software release、自动退款继续 blocked/excluded。"
       - "targeted tests 与 formal checks 全部通过。"
     deliverables:
-      - "activated 122 current_task packet"
-      - "approved Stage8 provider execution runtime path"
+      - "activated 125 current_task packet"
+      - "approved Stage7 CRM provider execution path"
+      - "approved Stage7 quote provider execution path"
       - "provider execution result/readback/replay"
-      - "governance fail-closed tests"
+      - "quote audit/version/discount/expiration fail-closed tests"
       - "product acceptance checklist evidence"
     human_review_required: true
     owner_reviews_required:
@@ -321,26 +323,26 @@ currentTask:
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_122_APPROVED_SALES_OUTREACH_PROVIDER_EXECUTION_DEVELOPMENT"
-      signoff_meaning: "本批准只允许开发 approved/gated Stage8 provider execution path 和 readback；不批准无审批真实外发、批量外发、external software release、Stage9 支付交付退款或自动退款。"
+      signoff_status: "APPROVED_FOR_125_APPROVED_CRM_QUOTE_PROVIDER_EXECUTION_DEVELOPMENT"
+      signoff_meaning: "本批准只允许开发 approved/gated Stage7 CRM/quote provider execution path 和 readback；不批准无审批 CRM sync、无审批报价外发、客户可见发布、Stage8 触达、Stage9 支付交付退款、external software release 或自动退款。"
     notes:
       - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
       - "control/current_task.yaml is the only active execution source."
-      - "122 是产品闭环 blocker B118_STAGE8_REAL_SEND_NOT_EXECUTABLE 的最小实现包。"
+      - "125 是产品闭环 blocker B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED 的最小实现包。"
       - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
   hardBlockers:
     - "external software release remains blocked"
-    - "unapproved or bulk real outreach remains blocked"
-    - "payment, delivery, refund, and automated refund remain out of scope for 122"
+    - "unapproved CRM sync and unapproved quote send remain blocked"
+    - "Stage8 outreach, Stage9 payment/delivery/refund, customer-visible LeadPack release, and automated refund remain out of scope for 125"
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 approved Stage8 provider execution path。"
+    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 approved Stage7 CRM/quote provider execution path。"
     - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
   forbidden_actions:
     - "不得修改 docs、contracts、handoff、scripts、fixtures 或非允许 runtime。"
     - "不得新增 schema/enum/gate/exception 语义。"
-    - "不得真实外部 provider 网络调用、无审批真实触达、批量发送、真实扣款、真实交付、真实退款或自动退款执行。"
+    - "不得真实外部 provider 网络调用、无审批 CRM sync、无审批报价外发、客户可见发布、真实触达、真实扣款、真实交付、真实退款或自动退款执行。"
     - "不得 push。"
   nextActions:
-    - "派发 122 实现窗口。"
+    - "派发 125 实现窗口。"
     - "新窗口完成后由总控验收 diff、补跑必要校验、提交或回调。"
-  status_note: "PTL-I100-122 已激活；当前目标是把 Stage8 approved live pilot readback 推进到 approved provider execution path，仍保持无审批/批量/真实外部副作用阻断。"
+  status_note: "PTL-I100-125 已激活；当前目标是把 Stage7 CRM/quote sandbox/readback 推进到 approved provider execution path，仍保持无审批/真实外部副作用阻断。"
