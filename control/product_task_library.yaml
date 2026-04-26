@@ -207,9 +207,9 @@ internal_operable_productization_program:
     - PTL-I100-121C-production-slo-monitoring-incident-readiness
     - PTL-I100-118-full-product-operational-acceptance
     - PTL-I100-122-approved-sales-outreach-provider-execution
-    - PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
-    - PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
     - PTL-I100-125-approved-crm-quote-provider-execution
+    - PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
+    - PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
     - PTL-I100-126-production-live-dependency-and-drill-approval
   redlines:
     external_software_release: BLOCKED
@@ -1914,7 +1914,7 @@ tasks:
     status: PLANNED
     planning_state: CANDIDATE_NOT_ACTIVATED
     is_current_mainline_next_candidate: false
-    priority: P24
+    priority: P26
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: LIVE_READY_READBACK_ONLY
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
@@ -1924,6 +1924,8 @@ tasks:
       - PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
       - PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
       - PTL-I100-111E-provider-reliability-and-circuit-breaker
+      - PTL-I100-125-approved-crm-quote-provider-execution
+      - PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
     objective: "把 Stage9 approved payment/delivery pilot readback 推进到可执行的 approved payment capture/charge and delivery fulfillment path：必须具备 sandbox pass、payment/delivery approval、finance review、operator action audit、provider reliability、callback verification、artifact version lock、download auth、settlement/reconciliation 和 rollback path；退款只保留人工异常记录/审批/审计。"
     capability_gaps_covered:
       - approved_payment_capture
@@ -1957,6 +1959,7 @@ tasks:
       - PTL-I100-118-full-product-operational-acceptance
       - PTL-I100-111C-crm-quote-and-delivery-page-adapters
       - PTL-I100-120-operator-customer-access-and-go-live-readiness
+      - PTL-I100-125-approved-crm-quote-provider-execution
     objective: "把 LeadPack/page/export 从 customer-visible candidate/readback 推进到审批后可见/可下载：必须执行字段白名单、黑名单、脱敏、水印、版本 hash、download auth、approval/audit、external visibility 和 replay，不暴露内部黑箱或未复核结论。"
     capability_gaps_covered:
       - customer_visible_leadpack_publication
@@ -1979,7 +1982,7 @@ tasks:
     status: PLANNED
     planning_state: CANDIDATE_NOT_ACTIVATED
     is_current_mainline_next_candidate: false
-    priority: P26
+    priority: P24
     existing_code_state: HEAVY_RUNTIME
     existing_runtime_state: SANDBOX_READY_READBACK_ONLY
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
@@ -1988,6 +1991,7 @@ tasks:
       - PTL-I100-118-full-product-operational-acceptance
       - PTL-I100-111C-crm-quote-and-delivery-page-adapters
       - PTL-I100-111E-provider-reliability-and-circuit-breaker
+      - PTL-I100-122-approved-sales-outreach-provider-execution
     objective: "把 CRM/quote 从 sandbox workbench/readback 推进到审批后 provider execution：CRM account/opportunity/activity sync、quote version/approval/expiration/discount audit 和 provider result readback 都必须可追溯；external quote send 必须经过 approval/audit/operator action。"
     capability_gaps_covered:
       - approved_crm_account_sync
