@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 3)
+        self.assertEqual(len(non_completed), 2)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -216,6 +216,9 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_121c = self.tasks_by_id["PTL-I100-121C-production-slo-monitoring-incident-readiness"]
         task_118 = self.tasks_by_id["PTL-I100-118-full-product-operational-acceptance"]
         task_122 = self.tasks_by_id["PTL-I100-122-approved-sales-outreach-provider-execution"]
+        task_123 = self.tasks_by_id[
+            "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
+        ]
         task_124 = self.tasks_by_id["PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock"]
         task_125 = self.tasks_by_id["PTL-I100-125-approved-crm-quote-provider-execution"]
 
@@ -411,10 +414,17 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_125["completion_result"],
             "COMPLETED_APPROVED_STAGE7_CRM_QUOTE_PROVIDER_EXECUTION_READBACK",
         )
-        self.assertEqual(task_124["status"], "IN_PROGRESS")
-        self.assertEqual(task_124["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_124["status"], "COMPLETED")
+        self.assertEqual(task_124["planning_state"], "COMPLETED")
+        self.assertEqual(task_124["completed_commit"], "f8c1182")
         self.assertEqual(
-            task_124["runtime_change_in_packet"],
+            task_124["completion_result"],
+            "COMPLETED_APPROVED_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_UNLOCK_READBACK",
+        )
+        self.assertEqual(task_123["status"], "IN_PROGRESS")
+        self.assertEqual(task_123["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(
+            task_123["runtime_change_in_packet"],
             "IN_SCOPE_WHEN_ACTIVATED",
         )
         completed_114 = {

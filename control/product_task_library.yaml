@@ -1922,8 +1922,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage9_delivery, payment_provider, delivery_provider, finance_governance]
     task_type: approved_live_payment_delivery_execution
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P26
     existing_code_state: HEAVY_RUNTIME
@@ -1958,8 +1958,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage7_sales, leadpack_delivery, customer_artifact_access]
     task_type: customer_visible_delivery_unlock
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P25
     existing_code_state: HEAVY_RUNTIME
@@ -1984,6 +1984,8 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
     suggested_packet_refs: [PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock]
     risk_level: CRITICAL
+    completed_commit: f8c1182
+    completion_result: "COMPLETED_APPROVED_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_UNLOCK_READBACK"
   - task_id: PTL-I100-125-approved-crm-quote-provider-execution
     title: "I100-25 Approved CRM and quote provider execution"
     program_ref: PTL-I100-internal-operable-productization
