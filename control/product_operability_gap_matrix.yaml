@@ -1,6 +1,6 @@
 matrix_id: PTL-I100-1100_PRODUCT_OPERABILITY_GAP_MATRIX
 task_id: PTL-I100-1100-product-operability-full-audit
-status: PTL_I100_118_ACCEPTANCE_BLOCKED_BY_OPERATIONAL_GAPS
+status: PTL_I100_118R_REACCEPTANCE_BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS
 updated_at: "2026-04-26"
 source_ledger: control/product_doc_runtime_coverage_ledger.yaml
 source_ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER
@@ -135,6 +135,13 @@ decision_summary:
     owner can operate the internal evidence/readback chain, but cannot yet
     close the full sales-to-customer-delivery loop without manual/external
     steps outside the governed product runtime.
+  post_122_126_reacceptance_summary: >
+    PTL-I100-122 through PTL-I100-126 closed the original 118 blockers as
+    controlled execution/readback paths, but the runtime still uses local
+    controlled fake providers and no productized frontend app is present. Final
+    real-world owner usability therefore still needs frontend, real-source field
+    validation, real provider binding including WeCom, governed LLM assistance,
+    and a controlled real-world e2e pilot.
 final_118_operational_acceptance:
   packet_ref: PTL-I100-118-full-product-operational-acceptance
   acceptance_result: BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS
@@ -191,6 +198,64 @@ final_118_operational_acceptance:
       evidence: "SLO, alert simulation, incident, backup, rollback, suspend/resume are replayable, but compose/container execution, external APM/paging, destructive restore, and real rollback remain disabled"
       minimum_followup_task_id: PTL-I100-126-production-live-dependency-and-drill-approval
       forbidden_in_118: true
+  redlines_preserved:
+    external_software_release: BLOCKED
+    unapproved_customer_delivery: BLOCKED
+    unapproved_live_provider_call: BLOCKED
+    real_refund_execution: BLOCKED
+    automated_refund_execution: EXCLUDED
+final_118R_operational_reacceptance:
+  packet_ref: PTL-I100-118R-final-product-operational-reacceptance
+  previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
+  acceptance_result: BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS
+  engineering_regression_result: PASS_REQUIRED_BY_CURRENT_WINDOW_CHECKS
+  capability_state_result: VERIFIED_CONTROLLED_EXECUTION_READBACK
+  product_closure_result: NOT_REAL_WORLD_CLOSED
+  owner_internal_loop_operable: true
+  owner_controlled_execution_loop_operable: true
+  owner_end_to_end_real_world_sales_delivery_operable: false
+  closeout_recommendation: DO_NOT_PRODUCTION_CLOSEOUT
+  resolved_118_blockers:
+    - B118_STAGE8_REAL_SEND_NOT_EXECUTABLE
+    - B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE
+    - B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED
+    - B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED
+    - B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY
+  controlled_operable_now:
+    - source_to_stage6_internal_evidence_chain
+    - real_challenger_buyer_fit_offer_readback
+    - approved_stage8_provider_execution_record_with_local_controlled_fake_provider
+    - approved_stage7_crm_quote_execution_record_with_local_controlled_fake_provider
+    - approved_customer_visible_leadpack_unlock_readback
+    - approved_stage9_payment_delivery_execution_record_with_local_controlled_fake_provider
+    - approved_production_dependency_drill_readback
+  real_world_gaps:
+    - gap_id: B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING
+      capability: owner_operator_frontend_and_customer_portal
+      current_state: APPROVAL_READY
+      evidence: "fd found no package.json / frontend app and no TSX/JSX/Vue/Svelte/CSS assets; operation is exposed mainly through FastAPI routes and tests."
+      minimum_followup_task_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
+    - gap_id: B118R_REAL_SOURCE_FIELD_VALIDATION_NOT_DONE
+      capability: real_public_source_field_validation
+      current_state: SANDBOX_READY
+      evidence: "Stage2 adapters support allowlisted/sandbox public prefixes, but preset websites are not proven against real public samples in this acceptance."
+      minimum_followup_task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+    - gap_id: B118R_REAL_PROVIDER_BINDING_NOT_DONE
+      capability: wecom_email_crm_quote_payment_delivery_provider_binding
+      current_state: LIVE_READY
+      evidence: "122/123/125 carriers report LOCAL_CONTROLLED_FAKE_PROVIDER, provider_call_enabled=false, real_provider_call_enabled=false, and no real provider call executed."
+      minimum_followup_task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+      refund_boundary: "manual exception/governed review only; no automated refund execution"
+    - gap_id: B118R_LLM_ASSIST_NOT_PRODUCTIZED
+      capability: llm_assisted_parsing_review_sales_governance
+      current_state: NOT_IMPLEMENTED
+      evidence: "Model governance boundaries exist, but no productized LLM assist workflow is connected for parser candidates, evidence summaries, review triage, or sales talk-track drafts."
+      minimum_followup_task_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+    - gap_id: B118R_REAL_WORLD_E2E_PILOT_NOT_DONE
+      capability: controlled_real_world_e2e_product_pilot
+      current_state: NOT_IMPLEMENTED
+      evidence: "No final controlled real-world pilot proves source -> customer artifact delivery -> outreach/quote/payment/delivery end to end after UI, real source validation, real provider binding, and LLM assist are complete."
+      minimum_followup_task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
   redlines_preserved:
     external_software_release: BLOCKED
     unapproved_customer_delivery: BLOCKED
@@ -442,6 +507,60 @@ production_gap_task_map:
       - capability_state_acceptance
       - evidence_pack_business_closure_acceptance
       - real_sample_acceptance
+  - gap_group: final_product_operational_reacceptance_after_122_126
+    packet_ref: PTL-I100-118R-final-product-operational-reacceptance
+    status: ACTIVE
+    target_capability_state: PRODUCTION_READY
+    covered_capabilities:
+      - post_122_126_capability_state_acceptance
+      - product_business_closure_reacceptance
+      - real_world_operability_gap_registration
+  - gap_group: owner_operator_frontend_and_customer_portal
+    packet_ref: PTL-I100-127-owner-operator-frontend-and-customer-portal
+    status: PLANNED
+    target_capability_state: PRODUCTION_READY
+    covered_capabilities:
+      - owner_operator_console_frontend
+      - customer_artifact_portal
+      - browser_level_operability
+  - gap_group: real_public_source_field_validation_and_coverage
+    packet_ref: PTL-I100-128-real-public-source-field-validation-and-coverage
+    status: PLANNED
+    target_capability_state: PRODUCTION_READY
+    covered_capabilities:
+      - real_public_site_sample_validation
+      - field_coverage_report
+      - parser_and_verification_quality_on_real_samples
+  - gap_group: real_provider_binding_wecom_email_crm_payment_delivery_no_auto_refund
+    packet_ref: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+    status: PLANNED
+    target_capability_state: PRODUCTION_READY
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    covered_capabilities:
+      - wecom_robot_provider_binding
+      - email_sms_phone_provider_binding
+      - crm_quote_provider_binding
+      - payment_delivery_provider_binding
+      - provider_webhook_callback_validation
+  - gap_group: llm_assisted_parsing_review_and_sales_governance
+    packet_ref: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+    status: PLANNED
+    target_capability_state: APPROVAL_READY
+    covered_capabilities:
+      - llm_assisted_field_extraction_candidate
+      - llm_assisted_evidence_summary
+      - llm_assisted_review_triage
+      - llm_assisted_sales_talk_track_draft
+  - gap_group: controlled_real_world_e2e_pilot_and_closeout
+    packet_ref: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+    status: PLANNED
+    target_capability_state: PRODUCTION_READY
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    covered_capabilities:
+      - real_world_source_to_customer_delivery_e2e
+      - owner_operator_workflow_e2e
+      - sales_outreach_crm_quote_payment_delivery_e2e
+      - audit_incident_rollback_e2e
 recommended_execution_order_after_reassessment:
   principle: >
     Build the evidence-pack product from source truth toward commercial

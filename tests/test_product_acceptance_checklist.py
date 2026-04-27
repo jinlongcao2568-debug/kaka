@@ -44,7 +44,16 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 0)
+        self.assertEqual(
+            {task["task_id"] for task in non_completed},
+            {
+                "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+                "PTL-I100-128-real-public-source-field-validation-and-coverage",
+                "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+                "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
+                "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+            },
+        )
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -88,6 +97,10 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_126 = self.tasks_by_id["PTL-I100-126-production-live-dependency-and-drill-approval"]
         self.assertIn("capability_state_PRODUCTION_READY", task_126["acceptance_checks"])
 
+        task_118r = self.tasks_by_id["PTL-I100-118R-final-product-operational-reacceptance"]
+        self.assertIn("capability_states_reverified", task_118r["acceptance_checks"])
+        self.assertIn("fake_provider_not_misclassified_as_real_provider", task_118r["acceptance_checks"])
+
         production_task = self.tasks_by_id["PTL-I100-121C-production-slo-monitoring-incident-readiness"]
         self.assertIn("capability_state_PRODUCTION_READY", production_task["acceptance_checks"])
         self.assertNotIn("capability_state_PRODUCTION_READY_CANDIDATE", production_task["acceptance_checks"])
@@ -128,6 +141,8 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund",
             "PTL-I100-118-full-product-operational-acceptance",
             "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund",
+            "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         }
         for task_id in refund_sensitive_ids:
             serialized = yaml.safe_dump(self.checklist["tasks"][task_id], allow_unicode=True)
@@ -215,6 +230,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_121b = self.tasks_by_id["PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund"]
         task_121c = self.tasks_by_id["PTL-I100-121C-production-slo-monitoring-incident-readiness"]
         task_118 = self.tasks_by_id["PTL-I100-118-full-product-operational-acceptance"]
+        task_118r = self.tasks_by_id["PTL-I100-118R-final-product-operational-reacceptance"]
         task_122 = self.tasks_by_id["PTL-I100-122-approved-sales-outreach-provider-execution"]
         task_123 = self.tasks_by_id[
             "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
@@ -400,6 +416,21 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertEqual(task_118["runtime_change_in_packet"], "OUT_OF_SCOPE")
         self.assertEqual(task_118["completion_result"], "BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS")
         self.assertEqual(task_118["closeout_recommendation"], "DO_NOT_CLOSEOUT")
+        self.assertEqual(task_118r["status"], "COMPLETED")
+        self.assertEqual(task_118r["planning_state"], "COMPLETED")
+        self.assertEqual(task_118r["runtime_change_in_packet"], "OUT_OF_SCOPE")
+        self.assertEqual(task_118r["completion_result"], "BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS")
+        self.assertEqual(task_118r["closeout_recommendation"], "DO_NOT_PRODUCTION_CLOSEOUT")
+        self.assertEqual(
+            task_118r["followup_tasks_registered"],
+            [
+                "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+                "PTL-I100-128-real-public-source-field-validation-and-coverage",
+                "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+                "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
+                "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+            ],
+        )
         self.assertEqual(task_122["status"], "COMPLETED")
         self.assertEqual(task_122["planning_state"], "COMPLETED")
         self.assertEqual(task_122["completed_commit"], "f3cf7e5")
@@ -522,6 +553,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
 
     def test_final_gate_requires_product_closure_not_just_tests(self) -> None:
         final_entry = self.checklist["tasks"]["PTL-I100-118-full-product-operational-acceptance"]
+        reacceptance_entry = self.checklist["tasks"]["PTL-I100-118R-final-product-operational-reacceptance"]
 
         self.assertTrue(final_entry["final_closure_gate"])
         serialized = yaml.safe_dump(final_entry, allow_unicode=True)
@@ -539,6 +571,31 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund",
             result["minimum_followup_task_refs"],
         )
+        self.assertTrue(reacceptance_entry["final_reacceptance_gate"])
+        serialized_reacceptance = yaml.safe_dump(reacceptance_entry, allow_unicode=True)
+        self.assertIn("LOCAL_CONTROLLED_FAKE_PROVIDER", serialized_reacceptance)
+        self.assertIn("自动退款", serialized_reacceptance)
+
+    def test_118r_registers_remaining_real_world_product_tasks(self) -> None:
+        expected = {
+            "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+            "PTL-I100-128-real-public-source-field-validation-and-coverage",
+            "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+            "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
+            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+        }
+        self.assertTrue(expected.issubset(self.tasks_by_id))
+        self.assertTrue(self.tasks_by_id["PTL-I100-127-owner-operator-frontend-and-customer-portal"]["is_current_mainline_next_candidate"])
+        for task_id in expected:
+            with self.subTest(task_id=task_id):
+                self.assertEqual(self.tasks_by_id[task_id]["status"], "PLANNED")
+                self.assertEqual(
+                    self.tasks_by_id[task_id]["acceptance_checklist_ref"],
+                    f"control/product_acceptance_checklist.yaml#tasks.{task_id}",
+                )
+                self.assertIn(task_id, self.checklist["tasks"])
+                self.assertTrue(self.checklist["tasks"][task_id]["completion_must_prove"])
+                self.assertTrue(self.checklist["tasks"][task_id]["redline_checks"])
 
 
 if __name__ == "__main__":

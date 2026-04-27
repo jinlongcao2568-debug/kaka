@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: null
-  packet_id: null
-  title: "产品主线 S12-S89 + INT 与后主线 P1-P8 已闭合；I100 内部产品化路线已登记但未自动激活"
-  planning_state: MAINLINE_COMPLETE
-  runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7/P8 均已 completed；PTL-I100 内部 100% 可运营产品化路线已登记为 PLANNED 任务池；current_mainline_next_candidate 继续保持 task_id=null / packet_id=null；现在没有自动 next candidate；后续进入内部运营验收、真实样本打磨或 external unlock 预研，都必须另开 dedicated current_task packet 并人工确认；后续激活 I100 任一任务也必须另开 dedicated current_task packet 并人工确认；执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代；PTL-I100 执行层管理使用 PTL-I100 task_id；external release / Stage8 / Stage9 红线不变。"
+  task_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
+  packet_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
+  title: "118R 复验后的下一候选：owner operator frontend and customer artifact portal"
+  planning_state: CANDIDATE_NOT_ACTIVATED
+  runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7/P8 均已 completed；PTL-I100 112-126 已完成；118R 复验发现的真实可运营缺口已登记为 127-131。current_mainline_next_candidate 指向 127 仅作候选提示，不自动激活；后续进入 127/128/129/130/131 任一任务都必须另开 dedicated current_task packet 并人工确认。执行层管理与汇报统一使用 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变；自动退款红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -134,7 +134,7 @@ post_mainline_execution_ladder:
   notes:
     - "This ladder is the explicit product-only post-mainline record for future AI windows."
     - "The full post-mainline ladder remains P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8; all product-only tasks in this ladder are now completed and no next task is auto-activated."
-    - "There is no remaining product-only manual-selection task inside PRODUCT_MAINLINE_TASK_LIBRARY."
+    - "118R may register new product-only manual-selection tasks after the 122-126 reacceptance; candidate pointers remain advisory only."
     - "Future work such as internal-operations acceptance, real-sample refinement, or external-unlock preresearch must run through dedicated current_task packets."
     - "Governance closeout / AX9S sync / future unlock prep remain outside PRODUCT_MAINLINE_TASK_LIBRARY and require dedicated control packets when needed."
     - "Direction-level recommendations may remain in control/product_module_registry.yaml, but product execution-level decomposition lives here."
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 53
+task_count: 59
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2056,3 +2056,282 @@ tasks:
     risk_level: CRITICAL
     completed_commit: fc52e19
     completion_result: "COMPLETED_APPROVED_PRODUCTION_LIVE_DEPENDENCY_AND_DRILL_READBACK"
+  - task_id: PTL-I100-118R-final-product-operational-reacceptance
+    title: "I100-18R Final product operational reacceptance after 122-126"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_to_stage9, product_acceptance, governance_testing, product_operability]
+    task_type: product_operability_reacceptance
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
+    priority: P28
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: POST_122_126_CONTROLLED_EXECUTION_READBACK
+    runtime_change_in_packet: OUT_OF_SCOPE
+    activation_policy: "Activated by control/current_task.yaml after PTL-I100-122/123/124/125/126 completed. This packet is a final reacceptance and task-registration packet, not a runtime implementation packet."
+    hard_depends_on:
+      - PTL-I100-122-approved-sales-outreach-provider-execution
+      - PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+      - PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
+      - PTL-I100-125-approved-crm-quote-provider-execution
+      - PTL-I100-126-production-live-dependency-and-drill-approval
+    objective: "重新验收 122-126 后 owner-operated evidence-pack / leadpack 产品是否真正可用，并把仍影响真实运营的缺口登记为 127+ 后续任务。"
+    capability_gaps_covered:
+      - final_engineering_regression_after_122_126
+      - post_122_126_capability_state_acceptance
+      - evidence_pack_business_closure_reacceptance
+      - real_world_operability_gap_registration
+      - frontend_operator_entry_assessment
+      - real_source_adapter_field_validation_assessment
+      - wecom_provider_and_llm_assist_assessment
+    non_goals:
+      - "不实现 runtime"
+      - "不接真实 provider"
+      - "不执行真实触达/CRM/报价/支付/交付/退款"
+      - "不实现自动退款程序"
+      - "不 external software release"
+    expected_outputs:
+      - "post-122/126 full product reacceptance fixture"
+      - "updated product operability gap matrix"
+      - "remaining real-world product tasks registered if needed"
+      - "targeted/formal validation result"
+    acceptance_checks:
+      - engineering_regression_pass
+      - capability_states_reverified
+      - evidence_pack_business_closure_reassessed
+      - fake_provider_not_misclassified_as_real_provider
+      - automated_refund_absent
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-118R-final-product-operational-reacceptance
+    suggested_packet_refs: [PTL-I100-118R-final-product-operational-reacceptance]
+    risk_level: CRITICAL
+    completion_result: "BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS"
+    closeout_recommendation: "DO_NOT_PRODUCTION_CLOSEOUT"
+    followup_tasks_registered:
+      - PTL-I100-127-owner-operator-frontend-and-customer-portal
+      - PTL-I100-128-real-public-source-field-validation-and-coverage
+      - PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+      - PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+      - PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+  - task_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
+    title: "I100-27 Owner operator frontend and customer artifact portal"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [api_transport, frontend, operator_workbench, customer_access]
+    task_type: product_operability_frontend
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: true
+    priority: P29
+    existing_code_state: API_ONLY_NO_FRONTEND_APP_DETECTED
+    existing_runtime_state: OPERATOR_ROUTES_AND_READBACK_ONLY
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created by 118R if final reacceptance confirms owner operation still lacks a productized UI. Requires dedicated current_task activation."
+    hard_depends_on:
+      - PTL-I100-118R-final-product-operational-reacceptance
+    objective: "补 owner 实际可用的操作台和客户 artifact 门户：任务创建、项目导入、全链路运行、Stage6/7/8/9 工作台、provider 状态、审批审计、客户下载授权与回放。"
+    capability_gaps_covered:
+      - owner_operator_console_frontend
+      - task_creation_project_import_ui
+      - full_chain_run_ui
+      - stage6_to_stage9_workbench_ui
+      - provider_status_and_audit_ui
+      - customer_artifact_portal
+    non_goals:
+      - "不 public software release"
+      - "不无审批客户可见发布"
+      - "不绕过 field allowlist/masking/download auth"
+    expected_outputs:
+      - "owner operator frontend"
+      - "customer artifact access UI"
+      - "operator workflow tests"
+      - "browser-level smoke test"
+    acceptance_checks:
+      - owner_can_operate_without_raw_api_calls
+      - customer_artifact_access_gated
+      - audit_and_approval_visible
+      - no_external_release_default
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-127-owner-operator-frontend-and-customer-portal
+    suggested_packet_refs: [PTL-I100-127-owner-operator-frontend-and-customer-portal]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+    title: "I100-28 Real public source field validation and coverage"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification]
+    task_type: real_sample_source_validation
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P30
+    existing_code_state: SANDBOX_AND_ALLOWLISTED_ADAPTERS
+    existing_runtime_state: SANDBOX_READY_NOT_REAL_SITE_VALIDATED
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created by 118R if source adapters are implemented but not validated against real public sites. Requires dedicated current_task activation and public-only source allowlist."
+    hard_depends_on:
+      - PTL-I100-118R-final-product-operational-reacceptance
+      - PTL-I100-114-stage2-real-public-source-adapters
+      - PTL-I100-115-stage3-real-parser-ocr-attachments
+      - PTL-I100-116-stage4-public-verification-adapters
+    objective: "用真实公开样本验证 114A-114I source adapters、Stage3 parser、Stage4 public verification 的字段覆盖、失败降级、hash/lineage 和人工复核路径。"
+    capability_gaps_covered:
+      - real_public_site_sample_validation
+      - field_coverage_report
+      - parser_quality_on_real_samples
+      - public_verification_replay_on_real_samples
+      - no_login_captcha_gray_boundary_evidence
+    non_goals:
+      - "不绕过登录"
+      - "不绕过验证码"
+      - "不破解反爬"
+      - "不采集 private/gray source"
+    expected_outputs:
+      - "real public sample matrix"
+      - "source coverage report"
+      - "field extraction quality report"
+      - "public verification replay evidence"
+    acceptance_checks:
+      - public_only_boundary_locked
+      - real_sample_fetch_or_controlled_manual_snapshot_validated
+      - field_coverage_report_complete
+      - weak_or_failed_sources_degrade_to_review
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-128-real-public-source-field-validation-and-coverage
+    suggested_packet_refs: [PTL-I100-128-real-public-source-field-validation-and-coverage]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+    title: "I100-29 Real provider binding for WeCom/email/CRM/payment/delivery no auto refund"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage7_sales, stage8_outreach, stage9_delivery, provider_execution]
+    task_type: real_provider_binding
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P31
+    existing_code_state: LOCAL_CONTROLLED_FAKE_PROVIDER
+    existing_runtime_state: CONTROLLED_PROVIDER_EXECUTION_READBACK_NO_REAL_PROVIDER_CALL
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created by 118R if 122-126 still use local controlled fake providers. Requires explicit provider selection, credentials handling, sandbox pass, approval/audit, and no automated refund."
+    hard_depends_on:
+      - PTL-I100-118R-final-product-operational-reacceptance
+      - PTL-I100-122-approved-sales-outreach-provider-execution
+      - PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+      - PTL-I100-125-approved-crm-quote-provider-execution
+    objective: "把 LOCAL_CONTROLLED_FAKE_PROVIDER 替换/扩展为可配置真实 provider sandbox/live binding：企业微信机器人、邮件、短信/电话、CRM、报价、支付、交付；退款仍只保留人工异常和治理复核。"
+    capability_gaps_covered:
+      - wecom_robot_provider_binding
+      - email_sms_phone_provider_binding
+      - crm_quote_provider_binding
+      - payment_gateway_provider_binding
+      - delivery_provider_binding
+      - credential_redaction_and_rotation
+      - provider_webhook_callback_validation
+      - no_auto_refund
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    non_goals:
+      - "不无审批 live"
+      - "不批量触达"
+      - "不自动退款"
+      - "不绕过 provider reliability/circuit breaker"
+    expected_outputs:
+      - "selected provider config"
+      - "sandbox provider call evidence"
+      - "webhook/callback validation"
+      - "provider result audit/replay"
+      - "live kill-switch and suspension path"
+    acceptance_checks:
+      - real_provider_sandbox_call_verified
+      - live_provider_requires_approval_audit
+      - wecom_robot_path_verified
+      - payment_delivery_callbacks_verified
+      - automated_refund_absent
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+    suggested_packet_refs: [PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+    title: "I100-30 LLM-assisted parsing review and sales governance"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, model_governance]
+    task_type: governed_model_assist
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P32
+    existing_code_state: MODEL_GOVERNANCE_BOUNDARY_PRESENT
+    existing_runtime_state: NO_PRODUCTIZED_LLM_ASSIST
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created by 118R if product operation still lacks model-assisted parsing/review/sales support. Requires model governance and human-review boundaries."
+    hard_depends_on:
+      - PTL-I100-118R-final-product-operational-reacceptance
+    objective: "接入受治理的大模型辅助能力：字段抽取候选、OCR/表格解析辅助、证据链摘要、人工复核提示、销售话术草稿；模型输出不得直接成为事实或客户结论。"
+    capability_gaps_covered:
+      - llm_assisted_field_extraction_candidate
+      - llm_assisted_evidence_summary
+      - llm_assisted_review_triage
+      - llm_assisted_sales_talk_track_draft
+      - model_output_audit_and_human_review
+    non_goals:
+      - "不让模型直接写 formal fact"
+      - "不让模型判断直接成为客户结论"
+      - "不绕过人工复核"
+      - "不把内部黑箱评分外发"
+    expected_outputs:
+      - "model assist provider config"
+      - "prompt/output audit"
+      - "human review required flags"
+      - "golden/eval cases"
+    acceptance_checks:
+      - model_output_not_final_fact
+      - human_review_required_for_customer_visible_claim
+      - prompt_and_output_audited
+      - no_private_data_to_model_without_policy
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+    suggested_packet_refs: [PTL-I100-130-llm-assisted-parsing-review-and-sales-governance]
+    risk_level: CRITICAL
+  - task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+    title: "I100-31 Controlled real-world end-to-end pilot and closeout"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_to_stage9, product_acceptance, live_pilot, governance_testing]
+    task_type: controlled_real_world_e2e_pilot
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P33
+    existing_code_state: POST_127_130_EXPECTED
+    existing_runtime_state: NOT_READY_UNTIL_127_130_COMPLETE
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created by 118R as the final closeout after UI, real source validation, real provider binding, and LLM assist tasks complete."
+    hard_depends_on:
+      - PTL-I100-127-owner-operator-frontend-and-customer-portal
+      - PTL-I100-128-real-public-source-field-validation-and-coverage
+      - PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+      - PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+    objective: "用受控真实样本完成 owner 从真实公开来源到客户可见 evidence pack / leadpack 销售、触达、报价、收款、交付、审计、回放的端到端试点；自动退款仍排除。"
+    capability_gaps_covered:
+      - real_world_source_to_customer_delivery_e2e
+      - owner_operator_workflow_e2e
+      - sales_outreach_crm_quote_payment_delivery_e2e
+      - customer_artifact_download_e2e
+      - audit_incident_rollback_e2e
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    non_goals:
+      - "不自动退款"
+      - "不 public software release"
+      - "不批量外发"
+      - "不绕过合规审计"
+    expected_outputs:
+      - "real-world e2e pilot report"
+      - "full product closeout decision"
+      - "go/no-go for owner operational use"
+      - "remaining production hardening list if any"
+    acceptance_checks:
+      - owner_can_complete_e2e_business_flow
+      - real_public_source_validated
+      - real_provider_paths_sandbox_or_approved_live_verified
+      - customer_artifact_delivery_audited
+      - automated_refund_absent
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+    suggested_packet_refs: [PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout]
+    risk_level: CRITICAL

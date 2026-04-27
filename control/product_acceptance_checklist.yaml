@@ -467,6 +467,108 @@ tasks:
       - live_dependency_requires_approval_audit
       - rollback_restore_drills_audited
       - external_release_still_gated
+  PTL-I100-118R-final-product-operational-reacceptance:
+    target_capability_state: PRODUCTION_READY
+    final_reacceptance_gate: true
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "122-126 后的能力状态必须重新验证，不能沿用旧 118 失败结论或把旧 blocker 当作仍未处理。"
+      - "LOCAL_CONTROLLED_FAKE_PROVIDER、readback、dry-run、sandbox、approved drill 必须与真实外部 provider / 真实客户操作严格区分。"
+      - "必须回答前端页面、操作入口、实站 source adapter 验证、企业微信机器人、LLM 辅助和预设网站抓取是否已达到 owner 可运营。"
+      - "如仍未达到真实可运营，必须登记最小 127+ 后续任务；自动退款仍保持 excluded。"
+    targeted_test_expectations:
+      - full_product_operational_reacceptance
+      - product_operability_gap_matrix
+      - internal_acceptance_matrix
+      - runtime_governance_guards
+    redline_checks:
+      - fake_provider_not_misclassified_as_real_provider
+      - no_unapproved_live_execution
+      - automated_refund_absent
+      - remaining_real_world_gaps_registered
+  PTL-I100-127-owner-operator-frontend-and-customer-portal:
+    target_capability_state: PRODUCTION_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "owner 可以通过前端操作台完成任务创建、项目导入、全链路运行、Stage6/7/8/9 工作台、provider 状态、审批审计和客户 artifact 授权，不需要直接调用 raw API。"
+      - "客户 artifact 门户必须执行访问控制、download auth、字段白名单/黑名单、脱敏、水印、版本 hash 和下载审计。"
+      - "前端不得把 internal blackbox score、未复核推断、private/gray 数据或未审批材料暴露给客户。"
+    targeted_test_expectations:
+      - frontend_operator_smoke
+      - customer_artifact_access_ui
+      - api_transport_bootstrap
+      - runtime_governance_guards
+    redline_checks:
+      - no_public_software_release_default
+      - customer_access_requires_approval_audit
+      - field_allowlist_and_masking_enforced
+  PTL-I100-128-real-public-source-field-validation-and-coverage:
+    target_capability_state: PRODUCTION_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "114A-114I source adapters 必须用真实公开样本或受控手工 snapshot 验证字段覆盖、hash/lineage、parser 输出、Stage4 核验与失败降级。"
+      - "不得访问 private/gray source，不得绕过登录、验证码、权限或反爬。"
+      - "必须输出 source coverage report，区分可抓、弱公开、失败、暂停和需人工复核。"
+    targeted_test_expectations:
+      - real_public_source_sample_matrix
+      - parser_field_coverage_report
+      - public_verification_replay
+      - public_boundary_guards
+    redline_checks:
+      - public_only_boundary_locked
+      - no_login_captcha_or_gray_source_bypass
+      - weak_or_failed_sources_degrade_to_review
+  PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund:
+    target_capability_state: PRODUCTION_READY
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "企业微信机器人、邮件、短信/电话、CRM、报价、支付、交付 provider 必须通过统一 provider config、credential redaction、sandbox pass、approval/audit、operator action、reliability/circuit breaker 接入。"
+      - "真实 provider sandbox/live 结果、webhook/callback、bounce/failure/complaint、settlement/reconciliation 和 delivery download audit 必须可持久化、可回放。"
+      - "自动退款程序保持 absent；退款只允许 manual exception / approval-audit / governed review。"
+    targeted_test_expectations:
+      - real_provider_config_binding
+      - wecom_robot_provider_path
+      - payment_delivery_provider_callback
+      - runtime_governance_guards
+    redline_checks:
+      - provider_live_requires_approval_audit
+      - no_silent_live_fallback
+      - automated_refund_absent
+  PTL-I100-130-llm-assisted-parsing-review-and-sales-governance:
+    target_capability_state: APPROVAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "LLM 只能作为字段抽取候选、OCR/表格解析辅助、证据摘要、人工复核提示和销售话术草稿辅助。"
+      - "模型输出不得直接写 formal fact，不得直接成为客户结论，不得绕过人工复核、来源定位、证据等级和模型治理审计。"
+      - "prompt/output/provider trace、评测 golden cases、隐私/公开数据边界和人工复核状态必须可回放。"
+    targeted_test_expectations:
+      - model_assist_governance
+      - parser_review_assist
+      - sales_talk_track_draft
+      - runtime_governance_guards
+    redline_checks:
+      - model_output_not_final_fact
+      - human_review_required_for_customer_visible_claim
+      - no_private_data_to_model_without_policy
+  PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout:
+    target_capability_state: PRODUCTION_READY
+    final_product_closeout_candidate: true
+    refund_boundary: "manual exception/governed review only; no automated refund execution"
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "owner 能用真实公开样本完成 source -> parser -> verification -> rules -> product package -> challenger -> CRM/quote -> outreach -> payment -> delivery -> audit/writeback 的受控端到端试点。"
+      - "客户可见 artifact 必须经过字段策略、脱敏、水印、approval/audit、download auth、版本 hash 和下载审计。"
+      - "真实 provider 路径必须至少通过 sandbox 或审批后小样本 live；自动退款保持 excluded。"
+    targeted_test_expectations:
+      - real_world_e2e_pilot
+      - customer_artifact_delivery_audit
+      - provider_paths_verified
+      - runtime_governance_guards
+    redline_checks:
+      - owner_can_complete_e2e_business_flow
+      - automated_refund_absent
+      - no_public_software_release_default
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

@@ -23,6 +23,7 @@ from shared.settings import Settings
 
 
 ACCEPTANCE_FIXTURE = ROOT / "fixtures" / "internal_acceptance_full_product_operational.json"
+REACCEPTANCE_FIXTURE = ROOT / "fixtures" / "internal_acceptance_full_product_operational_reacceptance.json"
 
 
 def read_json(relative_path: str) -> dict[str, Any]:
@@ -36,6 +37,7 @@ def read_yaml(relative_path: str) -> dict[str, Any]:
 class TestFullProductOperationalAcceptance(unittest.TestCase):
     def setUp(self) -> None:
         self.acceptance = json.loads(ACCEPTANCE_FIXTURE.read_text(encoding="utf-8"))
+        self.reacceptance = json.loads(REACCEPTANCE_FIXTURE.read_text(encoding="utf-8"))
         self.gap_matrix = read_yaml("control/product_operability_gap_matrix.yaml")
         self.checklist = read_yaml("control/product_acceptance_checklist.yaml")
         self.task_library = read_yaml("control/product_task_library.yaml")
@@ -261,6 +263,136 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
         self.assertFalse(redlines["destructive_restore_enabled"])
         self.assertFalse(redlines["rollback_execution_enabled"])
         self.assertFalse(readiness["redlines"]["real_provider_execution_enabled"])
+
+    def test_118r_reacceptance_records_post_122_126_real_world_gaps(self) -> None:
+        metadata = self.reacceptance["metadata"]
+        product_closure = self.reacceptance["four_layer_acceptance"]["product_closure"]
+        real_world = self.reacceptance["four_layer_acceptance"]["real_world_operability"]
+        final = self.gap_matrix["final_118R_operational_reacceptance"]
+        checklist = self.checklist["tasks"]["PTL-I100-118R-final-product-operational-reacceptance"]
+
+        self.assertEqual(metadata["packet_id"], "PTL-I100-118R-final-product-operational-reacceptance")
+        self.assertEqual(metadata["acceptance_result"], "BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS")
+        self.assertEqual(final["acceptance_result"], metadata["acceptance_result"])
+        self.assertEqual(product_closure["status"], "NOT_REAL_WORLD_CLOSED")
+        self.assertTrue(product_closure["owner_internal_loop_operable"])
+        self.assertTrue(product_closure["owner_controlled_execution_loop_operable"])
+        self.assertFalse(product_closure["owner_end_to_end_real_world_sales_delivery_operable"])
+        self.assertEqual(product_closure["closeout_recommendation"], "DO_NOT_PRODUCTION_CLOSEOUT")
+        self.assertTrue(checklist["final_reacceptance_gate"])
+        self.assertEqual(real_world["frontend_page_state"], "API_ONLY_NO_PRODUCTIZED_FRONTEND_DETECTED")
+        self.assertEqual(real_world["source_adapter_field_validation_state"], "SANDBOX_ALLOWLISTED_NOT_REAL_SITE_VALIDATED")
+        self.assertEqual(real_world["wecom_robot_integration_state"], "TARGET_TASK_REGISTERED_NOT_BOUND_TO_REAL_PROVIDER")
+        self.assertEqual(real_world["llm_assist_state"], "TARGET_TASK_REGISTERED_NOT_PRODUCTIZED")
+
+    def test_118r_capability_states_do_not_treat_fake_provider_as_real_provider(self) -> None:
+        capabilities = self.reacceptance["four_layer_acceptance"]["capability_state"]["capabilities"]
+        by_id = {entry["capability_id"]: entry for entry in capabilities}
+
+        for capability_id in (
+            "approved_sales_outreach_provider_execution",
+            "approved_crm_quote_provider_execution",
+            "approved_payment_delivery_provider_execution_no_auto_refund",
+        ):
+            with self.subTest(capability=capability_id):
+                entry = by_id[capability_id]
+                self.assertEqual(entry["execution_surface"], "LOCAL_CONTROLLED_FAKE_PROVIDER")
+                self.assertTrue(entry["controlled_execution_recorded"])
+                self.assertFalse(entry["real_provider_call_executed"])
+
+        self.assertFalse(by_id["approved_payment_delivery_provider_execution_no_auto_refund"]["automated_refund_execution"])
+        self.assertFalse(
+            by_id["approved_production_live_dependency_drill"]["real_external_dependency_execution"]
+        )
+
+    def test_118r_followup_tasks_are_registered_for_remaining_real_world_gaps(self) -> None:
+        gaps = self.reacceptance["remaining_real_world_gaps"]
+        matrix_gaps = self.gap_matrix["final_118R_operational_reacceptance"]["real_world_gaps"]
+        expected_task_ids = {
+            "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+            "PTL-I100-128-real-public-source-field-validation-and-coverage",
+            "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+            "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
+            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+        }
+        registered_task_ids = {row["task_id"] for row in self.task_library["tasks"]}
+
+        self.assertEqual({gap["minimum_followup_task_id"] for gap in gaps}, expected_task_ids)
+        self.assertEqual({gap["minimum_followup_task_id"] for gap in matrix_gaps}, expected_task_ids)
+        self.assertTrue(expected_task_ids.issubset(registered_task_ids))
+
+    def test_runtime_probe_confirms_controlled_provider_paths_are_not_real_calls(self) -> None:
+        stage8_payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        stage8_payload.update(
+            {
+                "approved_provider_execution_requested": True,
+                "live_execution_requested": True,
+                "approval_state": "APPROVED",
+                "template_approval_state": "APPROVED",
+                "operator_approval_state": "APPROVED",
+                "operator_action_audit_refs": ["AUD-STAGE8-APPROVED-001"],
+                "approved_sample_size": 1,
+                "requested_sample_size": 1,
+            }
+        )
+        stage8 = run_internal_chain(stage8_payload)["stage8"]
+        outbox = stage8.inputs["outreach_execution_outbox_snapshot"]
+
+        self.assertEqual(outbox["controlled_provider_adapter_scope"], "LOCAL_CONTROLLED_FAKE_PROVIDER")
+        self.assertTrue(outbox["controlled_provider_execution_executed"])
+        self.assertFalse(outbox["real_send_attempted"])
+        self.assertFalse(outbox["provider_result_readback"]["provider_call_executed"])
+
+        stage9_payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        stage9_payload.update(
+            {
+                "approved_payment_delivery_execution_requested": True,
+                "payment_delivery_live_pilot_requested": True,
+                "payment_status": "PAID",
+                "payment_proof_state": "PROVIDED",
+                "paid_at_optional": "2026-04-24T10:00:00Z",
+                "delivery_status": "READY",
+                "sandbox_payment_pass_state": "PASS",
+                "payment_approval_state": "APPROVED",
+                "delivery_approval_state": "APPROVED",
+                "finance_review_state": "APPROVED",
+                "operator_action_audit_refs": ["AUDIT-S9-APPROVED-001"],
+                "download_auth_state": "AUTHORIZED",
+                "approved_sample_size": 1,
+                "requested_sample_size": 1,
+            }
+        )
+        stage9 = run_internal_chain(stage9_payload)["stage9"]
+        carrier = stage9.inputs["approved_payment_delivery_execution"]
+
+        self.assertEqual(carrier["controlled_provider_adapter_scope"], "LOCAL_CONTROLLED_FAKE_PROVIDER")
+        self.assertTrue(carrier["controlled_provider_execution_executed"])
+        self.assertTrue(carrier["approved_payment_delivery_execution_enabled"])
+        self.assertFalse(carrier["provider_call_executed"])
+        self.assertFalse(carrier["real_payment_capture_attempted"])
+        self.assertFalse(carrier["real_charge_attempted"])
+        self.assertFalse(carrier["real_delivery_fulfillment_attempted"])
+        self.assertFalse(carrier["real_customer_download_attempted"])
+        self.assertFalse(carrier["automated_refund_program"]["present"])
+
+    def test_repository_has_no_productized_frontend_assets(self) -> None:
+        frontend_markers = [
+            "package.json",
+            "vite.config.ts",
+            "vite.config.js",
+            "next.config.js",
+            "next.config.ts",
+        ]
+        frontend_extensions = {".tsx", ".jsx", ".vue", ".svelte"}
+
+        self.assertFalse(any((ROOT / marker).exists() for marker in frontend_markers))
+        self.assertFalse(
+            any(
+                path.suffix in frontend_extensions
+                for path in ROOT.rglob("*")
+                if ".git" not in path.parts
+            )
+        )
 
 
 if __name__ == "__main__":

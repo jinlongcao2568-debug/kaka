@@ -251,15 +251,16 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(task_library["formal_active_task_source"], "control/current_task.yaml")
 
         candidate = task_library["current_mainline_next_candidate"]
-        if candidate["planning_state"] == "MAINLINE_COMPLETE":
-            self.assertIsNone(candidate["task_id"])
-            self.assertIsNone(candidate["packet_id"])
+        self.assertEqual(candidate["planning_state"], "CANDIDATE_NOT_ACTIVATED")
+        self.assertEqual(candidate["task_id"], "PTL-I100-127-owner-operator-frontend-and-customer-portal")
+        self.assertEqual(candidate["packet_id"], "PTL-I100-127-owner-operator-frontend-and-customer-portal")
 
-        self.assertIn("planning_state: MAINLINE_COMPLETE", task_library_text)
+        self.assertIn("planning_state: CANDIDATE_NOT_ACTIVATED", task_library_text)
         self.assertIn("当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7/P8 均已 completed", task_library_text)
-        self.assertIn("现在没有自动 next candidate", task_library_text)
-        self.assertIn("后续进入内部运营验收、真实样本打磨或 external unlock 预研，都必须另开 dedicated current_task packet 并人工确认", task_library_text)
-        self.assertIn("执行层管理与汇报统一使用 P1 -> P8 梯队和 task_id，不再用方向级标签替代", task_library_text)
+        self.assertIn("118R 复验发现的真实可运营缺口已登记为 127-131", task_library_text)
+        self.assertIn("仅作候选提示，不自动激活", task_library_text)
+        self.assertIn("后续进入 127/128/129/130/131 任一任务都必须另开 dedicated current_task packet 并人工确认", task_library_text)
+        self.assertIn("执行层管理与汇报统一使用 task_id，不再用方向级标签替代", task_library_text)
         self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
 
         completed_task_ids = (

@@ -207,6 +207,12 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund",
             "PTL-I100-121C-production-slo-monitoring-incident-readiness",
             "PTL-I100-118-full-product-operational-acceptance",
+            "PTL-I100-118R-final-product-operational-reacceptance",
+            "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+            "PTL-I100-128-real-public-source-field-validation-and-coverage",
+            "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+            "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
+            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -251,6 +257,12 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock",
             "PTL-I100-125-approved-crm-quote-provider-execution",
             "PTL-I100-126-production-live-dependency-and-drill-approval",
+            "PTL-I100-118R-final-product-operational-reacceptance",
+            "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+            "PTL-I100-128-real-public-source-field-validation-and-coverage",
+            "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+            "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
+            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         ):
             self.assertTrue(tasks_by_id[task_id]["capability_gaps_covered"], task_id)
 
@@ -386,6 +398,52 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(blockers["B118_STAGE8_REAL_SEND_NOT_EXECUTABLE"]["current_state"], "LIVE_READY")
         self.assertEqual(
             blockers["B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE"]["refund_boundary"],
+            "manual exception/governed review only; no automated refund execution",
+        )
+        self.assertEqual(final["redlines_preserved"]["automated_refund_execution"], "EXCLUDED")
+
+    def test_118r_reacceptance_records_remaining_real_world_operability_gaps(self) -> None:
+        final = self.matrix["final_118R_operational_reacceptance"]
+
+        self.assertEqual(final["packet_ref"], "PTL-I100-118R-final-product-operational-reacceptance")
+        self.assertEqual(final["previous_acceptance_ref"], "PTL-I100-118-full-product-operational-acceptance")
+        self.assertEqual(final["acceptance_result"], "BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS")
+        self.assertEqual(final["capability_state_result"], "VERIFIED_CONTROLLED_EXECUTION_READBACK")
+        self.assertEqual(final["product_closure_result"], "NOT_REAL_WORLD_CLOSED")
+        self.assertTrue(final["owner_internal_loop_operable"])
+        self.assertTrue(final["owner_controlled_execution_loop_operable"])
+        self.assertFalse(final["owner_end_to_end_real_world_sales_delivery_operable"])
+        self.assertEqual(final["closeout_recommendation"], "DO_NOT_PRODUCTION_CLOSEOUT")
+        self.assertEqual(
+            set(final["resolved_118_blockers"]),
+            {
+                "B118_STAGE8_REAL_SEND_NOT_EXECUTABLE",
+                "B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE",
+                "B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED",
+                "B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED",
+                "B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY",
+            },
+        )
+
+        gaps = {row["gap_id"]: row for row in final["real_world_gaps"]}
+        self.assertEqual(
+            set(gaps),
+            {
+                "B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING",
+                "B118R_REAL_SOURCE_FIELD_VALIDATION_NOT_DONE",
+                "B118R_REAL_PROVIDER_BINDING_NOT_DONE",
+                "B118R_LLM_ASSIST_NOT_PRODUCTIZED",
+                "B118R_REAL_WORLD_E2E_PILOT_NOT_DONE",
+            },
+        )
+        for gap in gaps.values():
+            self.assertIn(gap["minimum_followup_task_id"], self.task_library_task_ids())
+        self.assertEqual(
+            gaps["B118R_REAL_PROVIDER_BINDING_NOT_DONE"]["minimum_followup_task_id"],
+            "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+        )
+        self.assertEqual(
+            gaps["B118R_REAL_PROVIDER_BINDING_NOT_DONE"]["refund_boundary"],
             "manual exception/governed review only; no automated refund execution",
         )
         self.assertEqual(final["redlines_preserved"]["automated_refund_execution"], "EXCLUDED")

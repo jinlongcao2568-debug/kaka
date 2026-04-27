@@ -81,6 +81,11 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
             "fixtures/internal_acceptance_full_product_operational.json",
         )
         self.assertTrue((ROOT / self.matrix["metadata"]["full_product_operational_acceptance_ref"]).exists())
+        self.assertEqual(
+            self.matrix["metadata"]["full_product_operational_reacceptance_ref"],
+            "fixtures/internal_acceptance_full_product_operational_reacceptance.json",
+        )
+        self.assertTrue((ROOT / self.matrix["metadata"]["full_product_operational_reacceptance_ref"]).exists())
 
         required_scenario_fields = set(self.matrix["operator_readback_contract"]["required_fields"])
         for scenario in self.matrix["scenarios"]:

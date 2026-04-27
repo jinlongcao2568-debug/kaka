@@ -1,0 +1,123 @@
+{
+  "metadata": {
+    "fixture_id": "PTL-I100-118R-final-product-operational-reacceptance",
+    "version": 1,
+    "packet_id": "PTL-I100-118R-final-product-operational-reacceptance",
+    "previous_acceptance_packet_id": "PTL-I100-118-full-product-operational-acceptance",
+    "source_data_class": "sanitized_offline",
+    "acceptance_window": "post_122_126_full_product_operational_reacceptance",
+    "acceptance_result": "BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS",
+    "external_live_execution": false,
+    "external_release": "BLOCKED",
+    "automated_refund_execution": "EXCLUDED"
+  },
+  "four_layer_acceptance": {
+    "engineering_regression": {
+      "status": "PASS_REQUIRED_BY_CURRENT_WINDOW_CHECKS",
+      "required_targeted_tests": [
+        "tests.test_full_product_operational_acceptance",
+        "tests.test_product_acceptance_checklist",
+        "tests.test_product_operability_gap_matrix",
+        "tests.test_internal_acceptance_matrix",
+        "tests.test_api_transport_bootstrap",
+        "tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards",
+        "tests.test_external_unlock_prerequisites",
+        "tests.test_product_module_registry"
+      ]
+    },
+    "capability_state": {
+      "status": "VERIFIED_CONTROLLED_EXECUTION_READBACK",
+      "resolved_118_blockers": [
+        "B118_STAGE8_REAL_SEND_NOT_EXECUTABLE",
+        "B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE",
+        "B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED",
+        "B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED",
+        "B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY"
+      ],
+      "capabilities": [
+        {
+          "capability_id": "approved_sales_outreach_provider_execution",
+          "state": "LIVE_READY",
+          "execution_surface": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+          "controlled_execution_recorded": true,
+          "real_provider_call_executed": false
+        },
+        {
+          "capability_id": "approved_crm_quote_provider_execution",
+          "state": "LIVE_READY",
+          "execution_surface": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+          "controlled_execution_recorded": true,
+          "real_provider_call_executed": false
+        },
+        {
+          "capability_id": "approved_customer_visible_leadpack_delivery_unlock",
+          "state": "LIVE_READY",
+          "customer_visible_unlock_readback": true,
+          "public_software_release": false
+        },
+        {
+          "capability_id": "approved_payment_delivery_provider_execution_no_auto_refund",
+          "state": "LIVE_READY",
+          "execution_surface": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+          "controlled_execution_recorded": true,
+          "real_provider_call_executed": false,
+          "automated_refund_execution": false
+        },
+        {
+          "capability_id": "approved_production_live_dependency_drill",
+          "state": "PRODUCTION_READY",
+          "controlled_drill_recorded": true,
+          "real_external_dependency_execution": false
+        }
+      ]
+    },
+    "product_closure": {
+      "status": "NOT_REAL_WORLD_CLOSED",
+      "owner_internal_loop_operable": true,
+      "owner_controlled_execution_loop_operable": true,
+      "owner_end_to_end_real_world_sales_delivery_operable": false,
+      "sold_product": "evidence_pack_and_leadpack",
+      "software_product_external_release_required": false,
+      "closeout_recommendation": "DO_NOT_PRODUCTION_CLOSEOUT"
+    },
+    "real_world_operability": {
+      "frontend_page_state": "API_ONLY_NO_PRODUCTIZED_FRONTEND_DETECTED",
+      "operator_control_surface": "FastAPI operator/customer access routes and repository readback",
+      "source_adapter_field_validation_state": "SANDBOX_ALLOWLISTED_NOT_REAL_SITE_VALIDATED",
+      "wecom_robot_integration_state": "TARGET_TASK_REGISTERED_NOT_BOUND_TO_REAL_PROVIDER",
+      "llm_assist_state": "TARGET_TASK_REGISTERED_NOT_PRODUCTIZED",
+      "preset_website_capture_state": "SANDBOX_PREFIXES_AND_ALLOWLISTS_PRESENT_BUT_NOT_PROVEN_ON_REAL_PUBLIC_SITES"
+    }
+  },
+  "remaining_real_world_gaps": [
+    {
+      "gap_id": "B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING",
+      "minimum_followup_task_id": "PTL-I100-127-owner-operator-frontend-and-customer-portal"
+    },
+    {
+      "gap_id": "B118R_REAL_SOURCE_FIELD_VALIDATION_NOT_DONE",
+      "minimum_followup_task_id": "PTL-I100-128-real-public-source-field-validation-and-coverage"
+    },
+    {
+      "gap_id": "B118R_REAL_PROVIDER_BINDING_NOT_DONE",
+      "minimum_followup_task_id": "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund"
+    },
+    {
+      "gap_id": "B118R_LLM_ASSIST_NOT_PRODUCTIZED",
+      "minimum_followup_task_id": "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance"
+    },
+    {
+      "gap_id": "B118R_REAL_WORLD_E2E_PILOT_NOT_DONE",
+      "minimum_followup_task_id": "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout"
+    }
+  ],
+  "redlines_preserved": {
+    "public_only": true,
+    "private_or_gray_source_collection": false,
+    "unapproved_external_delivery": false,
+    "unapproved_live_provider_call": false,
+    "real_refund_execution": false,
+    "automated_refund_execution": false,
+    "external_software_release": false
+  }
+}

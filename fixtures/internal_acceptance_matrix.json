@@ -6,6 +6,7 @@
     "subpacket_id": "PTL-I100-107B-dedicated-refund-redline-fixture-readback",
     "purpose": "Offline sanitized internal acceptance matrix readback with dedicated refund/redline replay.",
     "full_product_operational_acceptance_ref": "fixtures/internal_acceptance_full_product_operational.json",
+    "full_product_operational_reacceptance_ref": "fixtures/internal_acceptance_full_product_operational_reacceptance.json",
     "source_data_class": "sanitized_offline",
     "external_live_execution": false,
     "stage8_real_execution": "BLOCKED",
