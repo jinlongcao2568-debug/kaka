@@ -402,6 +402,34 @@ def _build_transport_bootstrap(
         "provider_adapter_approval_audit_prerequisites": dict(
             provider_adapter_bootstrap.get("provider_adapter_approval_audit_prerequisites", {})
         ),
+        "model_assist_governance_bootstrap": {
+            "capability_state": "APPROVAL_READY",
+            "assist_mode": "GOVERNED_ASSIST_READBACK",
+            "provider_execution_surface": "LOCAL_DETERMINISTIC_ASSIST",
+            "real_model_provider_call_enabled": False,
+            "real_model_provider_call_executed": False,
+            "customer_visible_claim_enabled": False,
+            "formal_fact_write_enabled": False,
+            "human_review_required": True,
+            "policy_ref": "contracts/model/model_usage_policy.json#governed_model_assist",
+            "stage_scopes": [
+                "stage3_parser_field_extraction",
+                "stage4_public_verification_review",
+                "stage5_rule_review_triage",
+                "stage7_sales_talk_track",
+            ],
+            "golden_case_refs": [
+                "MODEL-GOLDEN-FIELD-EXTRACTION-CANDIDATE",
+                "MODEL-GOLDEN-EVIDENCE-SUMMARY-REVIEW",
+                "MODEL-GOLDEN-SALES-TALK-TRACK-DRAFT",
+            ],
+            "redlines": {
+                "model_output_not_final_fact": True,
+                "model_output_not_customer_conclusion": True,
+                "private_data_to_model_without_policy_blocked": True,
+                "credential_or_secret_to_model_blocked": True,
+            },
+        },
         PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: provider_adapter_readiness,
         "stage1_to_stage5_transport_state": _stage_transport_readback(disabled_stage_transports),
         "stage1_to_stage5_reserved_entry_plan": stage1_to_stage5_reserved_entry_plan,

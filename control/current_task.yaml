@@ -1,15 +1,17 @@
 version: 1
 templateState: NAMED_ASSIGNED
 single_operator_mode: true
-updated_at: "2026-04-27"
+updated_at: '2026-04-27'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_129_REAL_PROVIDER_BINDING
+navigation_state: PTL_I100_130_LLM_ASSISTED_GOVERNANCE
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: "PTL-I100-128 completed locally as 595cd1d; 129 is now activated to replace LOCAL_CONTROLLED_FAKE_PROVIDER-only readback with explicit provider binding, sandbox evidence, credential redaction, callback validation, and kill-switch readiness. current_task -> product_task_library -> repo_status remains the active-source priority."
+activation_condition: PTL-I100-129 completed locally as 5ddd321; 130 is now activated to productize governed LLM-assisted
+  parser candidates, evidence summaries, review triage, and sales talk-track drafts. current_task -> product_task_library
+  -> repo_status remains the active-source priority.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,26 +19,26 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
-  title: I100-29 Real provider binding for WeCom/email/CRM/payment/delivery no auto refund
+  task_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+  title: I100-30 LLM-assisted parsing review and sales governance
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
   linked_docs:
-    - AGENTS.md
-    - README.md
-    - ARCHITECTURE_NOTE.md
-    - docs/L0.md
-    - docs/AX9S_开发执行路由图.md
-    - control/current_task.yaml
-    - control/product_task_library.yaml
-    - control/product_acceptance_checklist.yaml
-    - control/product_operability_gap_matrix.yaml
-    - control/product_module_registry.yaml
-    - control/repo_status.md
+  - AGENTS.md
+  - README.md
+  - ARCHITECTURE_NOTE.md
+  - docs/L0.md
+  - docs/AX9S_开发执行路由图.md
+  - control/current_task.yaml
+  - control/product_task_library.yaml
+  - control/product_acceptance_checklist.yaml
+  - control/product_operability_gap_matrix.yaml
+  - control/product_module_registry.yaml
+  - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
-  objective: "建立企业微信机器人、邮件、短信/电话、CRM、报价、支付、交付的真实 provider binding 控制面与 sandbox/live-gated readback：支持显式 provider 选择、凭据红action/轮换元数据、sandbox evidence、webhook/callback validation、kill-switch/suspension、provider result audit/replay；自动退款仍排除。"
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+  objective: 接入受治理的大模型辅助 readback：字段抽取候选、OCR/表格解析辅助、证据摘要、人工复核提示、销售话术草稿；模型输出不得直接成为事实或客户结论，不调用真实模型 provider。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -56,36 +58,34 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
-    subpacket_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
-    backlog_packet_ref: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+    packet_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+    subpacket_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+    backlog_packet_ref: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    existing_code_state: LOCAL_CONTROLLED_FAKE_PROVIDER
-    existing_runtime_state: CONTROLLED_PROVIDER_EXECUTION_READBACK_NO_REAL_PROVIDER_CALL
-    title: I100-29 Real provider binding for WeCom/email/CRM/payment/delivery no auto refund
+    existing_code_state: MODEL_GOVERNANCE_BOUNDARY_PRESENT
+    existing_runtime_state: NO_PRODUCTIZED_LLM_ASSIST
+    title: I100-30 LLM-assisted parsing review and sales governance
     status: ACTIVE
-    objective: "把 Stage7/8/9 的 provider 执行面从 fake-provider-only readback 推进为 explicit real-provider binding readiness：真实 provider 可以被配置、红action、sandbox 验证、callback 校验和审计回放；但实际 live call 仍必须经过 approval/audit/operator action/reliability gates，不做自动退款。"
+    objective: 把模型能力做成受治理、可回放、必须人工复核的辅助 carrier，接入 Stage3/4/5/7 readback 面；不得调用真实外部模型，不得把模型输出写入 formal fact 或客户结论。
     depends_on:
-      - PTL-I100-127-owner-operator-frontend-and-customer-portal completed locally as ab1fd01.
-      - PTL-I100-128-real-public-source-field-validation-and-coverage completed locally as 595cd1d.
-      - PTL-I100-122 approved sales outreach provider execution readback exists.
-      - PTL-I100-123 payment/delivery provider execution readback exists.
-      - PTL-I100-125 CRM/quote provider execution readback exists.
-      - current_task -> product_task_library -> repo_status is the active-source priority.
+    - PTL-I100-127 completed locally as ab1fd01.
+    - PTL-I100-128 completed locally as 595cd1d.
+    - PTL-I100-129 completed locally as 5ddd321.
+    - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-128-real-public-source-field-validation-and-coverage
-      target_active_packet: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+      previous_active_packet: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+      target_active_packet: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
       parent_packet: PTL-I100-internal-operable-productization
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: real_provider_binding
+      active_packet_kind: governed_model_assist
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -107,181 +107,197 @@ currentTask:
       current_mainline_next_candidate_change: true
       push_allowed: false
     non_goals:
-      - not an external unlock implementation
-      - not an external software release
-      - not a bulk-send implementation
-      - 不改变 canonical readiness
-      - 不放开 external software release
-      - 不无审批 live provider call
-      - 不无审批/无审计发送
-      - 不在测试或默认路径调用真实外部网络
-      - 不绕过 provider config / sandbox / approval / audit / operator action
-      - 不绕过 provider reliability / circuit breaker / kill-switch
-      - 不把 credential 明文写入 payload、record、日志或测试输出
-      - 不 silent fallback 到 fake/live provider
-      - 不做自动退款程序
-      - 不改 D1-D14 正文
-      - 不修改 contracts、handoff、scripts、fixtures
-      - 不新增业务对象、枚举、gate、exception 语义
-      - 不新增正式业务对象、枚举、gate、exception 语义
-      - 不 push
+    - not an external unlock implementation
+    - not an external model provider implementation
+    - not an external software release
+    - 不改变 canonical readiness
+    - 不放开 external software release
+    - 不无审批/无审计发送
+    - 不绕过 provider config / sandbox / approval / audit / operator action
+    - 不调用真实模型 provider
+    - 不把模型输出写 formal fact
+    - 不把模型输出直接作为客户结论
+    - 不绕过人工复核、来源定位、证据等级和模型治理审计
+    - 不把 private/gray/non-public 数据送入模型
+    - 不暴露内部黑箱评分给客户
+    - 不改 D1-D14 正文
+    - 不修改 contracts、handoff、scripts、fixtures
+    - 不新增业务对象、枚举、gate、exception 语义
+    - 不新增正式业务对象、枚举、gate、exception 语义
+    - 不 push
     affected_stages:
-      - shared_provider_config
-      - stage7_sales
-      - stage8_outreach
-      - stage9_delivery
-      - api_bootstrap
-      - storage_readback
-      - product_acceptance
-      - governance_testing
+    - shared_model_governance
+    - stage3_parsing
+    - stage4_verification
+    - stage5_rules_evidence
+    - stage7_sales
+    - api_bootstrap
+    - product_acceptance
+    - governance_testing
     risk_level: CRITICAL
     change_class: MANDATORY_HUMAN_REVIEW
     human_review_required: true
     owner_reviews_required:
-      - architecture_owner
-      - governance_owner
-      - model_governance_owner
-      - testing_owner
-      - automation_owner
+    - architecture_owner
+    - governance_owner
+    - model_governance_owner
+    - testing_owner
+    - automation_owner
     change_domains:
-      - automation_control_core
-      - provider_vendor_source_policy_core
-      - governance_release_core
-      - stage7_sales_runtime
-      - stage8_outreach_runtime
-      - stage9_delivery_runtime
-      - api_transport_foundation
-      - storage_runtime_core
-      - scripts_and_tests_general
-      - machine_assets_general
+    - automation_control_core
+    - model_governance_core
+    - governance_release_core
+    - stage3_parser_runtime
+    - stage4_verification_runtime
+    - stage5_rules_runtime
+    - stage7_sales_runtime
+    - api_transport_foundation
+    - scripts_and_tests_general
+    - machine_assets_general
     reviews:
-      - architecture_owner
-      - governance_owner
-      - model_governance_owner
-      - testing_owner
-      - automation_owner
+    - architecture_owner
+    - governance_owner
+    - model_governance_owner
+    - testing_owner
+    - automation_owner
     baseline_dirty_paths: []
-    declared_changed_paths: &allowed_paths
+    declared_changed_paths:
+    - control/current_task.yaml
+    - control/repo_status.md
+    - control/product_task_library.yaml
+    - control/product_operability_gap_matrix.yaml
+    - control/product_acceptance_checklist.yaml
+    - control/product_module_registry.yaml
+    - docs/AX9S_开发执行路由图.md
+    - src/shared/model_assist_governance.py
+    - src/stage3_parsing/real_parser.py
+    - src/stage4_verification/verification.py
+    - src/stage5_rules_evidence/engine.py
+    - src/stage7_sales/service.py
+    - src/api/main.py
+    - tests/test_model_assist_governance.py
+    - tests/test_stage3_real_parser.py
+    - tests/test_stage4_public_verification_adapters.py
+    - tests/test_stage5_rule_factory_expansion.py
+    - tests/test_stage7_runtime_closure.py
+    - tests/test_internal_chain.py
+    - tests/test_api_transport_bootstrap.py
+    - tests/test_runtime_governance_guards.py
+    - tests/test_product_module_registry.py
+    - tests/test_product_acceptance_checklist.py
+    - tests/test_product_operability_gap_matrix.py
+    - tests/test_full_product_operational_acceptance.py
+    - tests/test_stage12_extractors.py
+    - tests/test_external_unlock_prerequisites.py
+    allowed_modification_paths:
+    - control/current_task.yaml
+    - control/repo_status.md
+    - control/product_task_library.yaml
+    - control/product_operability_gap_matrix.yaml
+    - control/product_acceptance_checklist.yaml
+    - control/product_module_registry.yaml
+    - docs/AX9S_开发执行路由图.md
+    - src/shared/model_assist_governance.py
+    - src/stage3_parsing/real_parser.py
+    - src/stage4_verification/verification.py
+    - src/stage5_rules_evidence/engine.py
+    - src/stage7_sales/service.py
+    - src/api/main.py
+    - tests/test_model_assist_governance.py
+    - tests/test_stage3_real_parser.py
+    - tests/test_stage4_public_verification_adapters.py
+    - tests/test_stage5_rule_factory_expansion.py
+    - tests/test_stage7_runtime_closure.py
+    - tests/test_internal_chain.py
+    - tests/test_api_transport_bootstrap.py
+    - tests/test_runtime_governance_guards.py
+    - tests/test_product_module_registry.py
+    - tests/test_product_acceptance_checklist.py
+    - tests/test_product_operability_gap_matrix.py
+    - tests/test_full_product_operational_acceptance.py
+    - tests/test_stage12_extractors.py
+    - tests/test_external_unlock_prerequisites.py
+    forbidden_modification_paths:
+    - docs/D*.md
+    - docs/L0.md
+    - docs/裁决总表.md
+    - contracts/**
+    - handoff/**
+    - scripts/**
+    - fixtures/**
+    - migrations/**
+    - alembic.ini
+    - .dockerignore
+    - Dockerfile
+    - docker-compose.yml
+    - src/stage1_tasking/**
+    - src/stage2_ingestion/**
+    - src/stage8_outreach/**
+    - src/stage9_delivery/**
+    impacted_assets:
+      docs:
+      - docs/AX9S_开发执行路由图.md
+      control:
       - control/current_task.yaml
       - control/repo_status.md
       - control/product_task_library.yaml
       - control/product_operability_gap_matrix.yaml
       - control/product_acceptance_checklist.yaml
       - control/product_module_registry.yaml
-      - docs/AX9S_开发执行路由图.md
-      - src/shared/provider_adapter_config.py
-      - src/shared/settings.py
-      - src/api/main.py
-      - src/api/projections.py
-      - src/api/routes/stage7.py
-      - src/api/routes/stage8.py
-      - src/api/routes/stage9.py
-      - src/api/schemas/stage7.py
-      - src/api/schemas/stage8.py
-      - src/api/schemas/stage9.py
-      - src/stage7_sales/crm_quote_workbench.py
-      - src/stage7_sales/leadpack_delivery_package.py
+      contracts: []
+      handoff: []
+      scripts: []
+      runtime:
+      - src/shared/model_assist_governance.py
+      - src/stage3_parsing/real_parser.py
+      - src/stage4_verification/verification.py
+      - src/stage5_rules_evidence/engine.py
       - src/stage7_sales/service.py
-      - src/stage8_outreach/execution_outbox.py
-      - src/stage9_delivery/order_payment_delivery_execution.py
-      - src/stage9_delivery/service.py
-      - src/storage/repositories/provider_adapter_config_repo.py
-      - tests/test_real_provider_binding.py
-      - tests/test_provider_adapter_config.py
+      - src/api/main.py
+      tests:
+      - tests/test_model_assist_governance.py
+      - tests/test_stage3_real_parser.py
+      - tests/test_stage4_public_verification_adapters.py
+      - tests/test_stage5_rule_factory_expansion.py
       - tests/test_stage7_runtime_closure.py
-      - tests/test_stage8_resolution_closure.py
-      - tests/test_stage9_impact_executor.py
-      - tests/test_internal_chain.py
-      - tests/test_internal_repository_boundary.py
       - tests/test_api_transport_bootstrap.py
-      - tests/test_runtime_governance_guards.py
       - tests/test_product_module_registry.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_full_product_operational_acceptance.py
       - tests/test_stage12_extractors.py
       - tests/test_external_unlock_prerequisites.py
-    allowed_modification_paths: *allowed_paths
-    forbidden_modification_paths:
-      - docs/D*.md
-      - docs/L0.md
-      - docs/裁决总表.md
-      - contracts/**
-      - handoff/**
-      - scripts/**
-      - fixtures/**
-      - migrations/**
-      - alembic.ini
-      - .dockerignore
-      - Dockerfile
-      - docker-compose.yml
-      - src/stage1_tasking/**
-      - src/stage2_ingestion/**
-      - src/stage3_parsing/**
-      - src/stage4_verification/**
-      - src/stage5_rules_evidence/**
-      - src/stage6_fact_review/**
-    impacted_assets:
-      docs:
-        - docs/AX9S_开发执行路由图.md
-      control:
-        - control/current_task.yaml
-        - control/repo_status.md
-        - control/product_task_library.yaml
-        - control/product_operability_gap_matrix.yaml
-        - control/product_acceptance_checklist.yaml
-        - control/product_module_registry.yaml
-      contracts: []
-      handoff: []
-      scripts: []
-      runtime:
-        - src/shared/provider_adapter_config.py
-        - src/stage7_sales/crm_quote_workbench.py
-        - src/stage7_sales/leadpack_delivery_package.py
-        - src/stage8_outreach/execution_outbox.py
-        - src/stage9_delivery/order_payment_delivery_execution.py
-        - src/storage/repositories/provider_adapter_config_repo.py
-      tests:
-        - tests/test_real_provider_binding.py
-        - tests/test_provider_adapter_config.py
-        - tests/test_stage7_runtime_closure.py
-        - tests/test_stage8_resolution_closure.py
-        - tests/test_stage9_impact_executor.py
-        - tests/test_api_transport_bootstrap.py
-        - tests/test_runtime_governance_guards.py
-        - tests/test_stage12_extractors.py
     required_scripts:
-      - git status --short --untracked-files=all
-      - python -m unittest tests.test_real_provider_binding -v
-      - python -m unittest tests.test_provider_adapter_config -v
-      - python -m unittest tests.test_stage7_runtime_closure -v
-      - python -m unittest tests.test_stage8_resolution_closure -v
-      - python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v
-      - python -m unittest tests.test_internal_chain.TestInternalChain -v
-      - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
-      - python -m unittest tests.test_api_transport_bootstrap -v
-      - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
-      - python -m unittest tests.test_product_module_registry -v
-      - python -m unittest tests.test_product_acceptance_checklist -v
-      - python -m unittest tests.test_product_operability_gap_matrix -v
-      - python -m unittest tests.test_full_product_operational_acceptance -v
-      - python -m unittest tests.test_stage12_extractors -v
-      - python -m unittest tests.test_external_unlock_prerequisites -v
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-      - python tests/run_tests.py
-      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
-      - git diff --check
-      - git status --short --untracked-files=all
+    - git status --short --untracked-files=all
+    - python -m unittest tests.test_model_assist_governance -v
+    - python -m unittest tests.test_stage3_real_parser -v
+    - python -m unittest tests.test_stage4_public_verification_adapters -v
+    - python -m unittest tests.test_stage5_rule_factory_expansion -v
+    - python -m unittest tests.test_stage7_runtime_closure -v
+    - python -m unittest tests.test_internal_chain.TestInternalChain -v
+    - python -m unittest tests.test_api_transport_bootstrap -v
+    - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+    - python -m unittest tests.test_product_module_registry -v
+    - python -m unittest tests.test_product_acceptance_checklist -v
+    - python -m unittest tests.test_product_operability_gap_matrix -v
+    - python -m unittest tests.test_full_product_operational_acceptance -v
+    - python -m unittest tests.test_stage12_extractors -v
+    - python -m unittest tests.test_external_unlock_prerequisites -v
+    - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others
+      --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+    - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+    - python tests/run_tests.py
+    - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
+    - git diff --check
+    - git status --short --untracked-files=all
     script_timeouts:
       git status --short --untracked-files=all: 120000
-      python -m unittest tests.test_real_provider_binding -v: 300000
-      python -m unittest tests.test_provider_adapter_config -v: 300000
+      python -m unittest tests.test_model_assist_governance -v: 300000
+      python -m unittest tests.test_stage3_real_parser -v: 600000
+      python -m unittest tests.test_stage4_public_verification_adapters -v: 600000
+      python -m unittest tests.test_stage5_rule_factory_expansion -v: 600000
       python -m unittest tests.test_stage7_runtime_closure -v: 600000
-      python -m unittest tests.test_stage8_resolution_closure -v: 600000
-      python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v: 600000
       python -m unittest tests.test_internal_chain.TestInternalChain -v: 600000
-      python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v: 600000
       python -m unittest tests.test_api_transport_bootstrap -v: 600000
       python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
       python -m unittest tests.test_product_module_registry -v: 300000
@@ -290,30 +306,30 @@ currentTask:
       python -m unittest tests.test_full_product_operational_acceptance -v: 300000
       python -m unittest tests.test_stage12_extractors -v: 300000
       python -m unittest tests.test_external_unlock_prerequisites -v: 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others
+        --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+      : 300000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1: 300000
       python tests/run_tests.py: 1800000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
       git diff --check: 300000
     stop_conditions:
-      - Any need to edit D1-D14正文, L0, contracts, handoff, scripts, fixtures, or Stage1-6 runtime.
-      - Any need to perform a real external network provider call in tests/default execution.
-      - Any need to enable live provider execution without provider config, sandbox evidence, approval, audit, operator action, reliability gates, and kill-switch.
-      - Any need to persist credential plaintext.
-      - Any need to implement automated refund execution.
-      - Any need to introduce a new formal business object, enum, gate, or exception semantic.
-      - Any targeted or formal check failure that cannot be fixed inside allowed paths.
+    - Any need to edit D1-D14正文, L0, contracts, handoff, scripts, fixtures, or Stage1/2/8/9 runtime.
+    - Any need to call a real external model provider or external network model API in tests/default execution.
+    - Any need to write model output into formal fact, gate decision, legal conclusion, or customer-visible conclusion.
+    - Any need to send private/non-public/gray data or credentials to a model.
+    - Any need to introduce a new formal business object, enum, gate, or exception semantic.
+    - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - provider_binding_matrix_covers_wecom_email_sms_phone_crm_quote_payment_delivery
-      - explicit_provider_selection_is_visible_and_sanitized
-      - credential_redaction_and_rotation_metadata_present_no_plaintext
-      - sandbox_provider_call_evidence_is_replayable_without_real_network_call
-      - webhook_callback_validation_readback_present_for_outreach_crm_quote_payment_delivery
-      - live_execution_requires_approval_audit_operator_action_and_reliability
-      - kill_switch_and_suspension_fail_closed_no_silent_fallback
-      - Stage7_Stage8_Stage9_consume_same_provider_binding_summary
-      - automated_refund_absent_manual_exception_only
-      - targeted_and_formal_checks_pass
+    - model_assist_governance_carrier_is_readback_only
+    - stage3_parser_outputs_field_extraction_candidates_without_fact_mutation
+    - stage4_public_verification_outputs_evidence_summary_without_legal_conclusion
+    - stage5_rule_factory_outputs_review_triage_without_gate_override
+    - stage7_outputs_sales_talk_track_draft_without_customer_send
+    - prompt_and_output_audit_refs_and_golden_cases_are_replayable
+    - no_private_data_to_model_without_policy
+    - targeted_and_formal_checks_pass
 notes:
-  - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet adds real-provider binding readiness and sandbox evidence. It does not perform external network calls or automated refunds.
+- current_task -> product_task_library -> repo_status remains the active-source priority.
+- This packet adds governed model-assist readback and deterministic internal drafts. It does not call external model providers
+  or create customer-visible conclusions.

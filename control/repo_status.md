@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund (ACTIVE; binds WeCom/email/SMS/phone/CRM/quote/payment/delivery provider targets through unified provider config, credential redaction, sandbox evidence, callback validation, and kill-switch/suspension readback. This does not execute real external provider calls in default tests and does not implement automated refunds.)
+Current Workstream: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance (ACTIVE; productizes governed model-assist readback for Stage3 parser candidates, Stage4 evidence summaries, Stage5 review triage, and Stage7 sales talk-track drafts. This does not call a real external model provider, does not write model output as formal fact, and does not create customer-visible model conclusions.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,23 +21,25 @@ Current Blockers:
 - PTL-I100-118R is completed and registered the remaining real-world product gaps as PTL-I100-127 through PTL-I100-131.
 - PTL-I100-127 has added owner/customer frontend surfaces.
 - PTL-I100-128 validates controlled manual public snapshots and must not weaken public-source boundary redlines.
-- PTL-I100-129 binds real provider targets but must not execute a real external provider call during default implementation/tests.
-- No private/gray source, login bypass, captcha bypass, anti-bot bypass, uncontrolled live crawler, unapproved real provider call, unapproved real outreach, unapproved real CRM sync, unapproved real quote send, unapproved real payment capture/charge, unapproved real delivery fulfillment, unapproved real customer download, real refund, or automated refund may run during 129.
+- PTL-I100-129 completed locally as 5ddd321 and binds real provider targets while keeping default real external provider calls gated.
+- PTL-I100-130 model assist must stay readback-only, deterministic in default tests, human-review-required, and unable to write formal fact/customer conclusions.
+- No private/gray source, login bypass, captcha bypass, anti-bot bypass, uncontrolled live crawler, unapproved real provider call, unapproved real outreach, unapproved real CRM sync, unapproved real quote send, unapproved real payment capture/charge, unapproved real delivery fulfillment, unapproved real customer download, real refund, automated refund, or real external model provider call may run during 130.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
 - Except automated refund execution and prohibited non-public/gray capabilities, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
-- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-129 is the active implementation packet for real provider binding after 127/128 completed.
+- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-130 is the active implementation packet for governed model-assist after 127/128/129 completed.
 
-Current 129 Scope:
-- Register and expose explicit provider bindings for WeCom robot, email, SMS/phone, CRM, quote, payment, and delivery.
-- Prove provider credentials are redacted, rotation metadata is visible, sandbox evidence and callback validation are replayable, and kill-switch/suspension fail closed.
-- Ensure Stage7/8/9 consume the same provider binding summary while keeping provider calls gated and automated refund absent.
-- Do not perform default real external provider network calls, bulk sends, real payment capture/charge, real delivery fulfillment, real refund, or automated refund.
+Current 130 Scope:
+- Add governed model-assist carrier/readback for parser field extraction candidates, OCR/table assist posture, public evidence summaries, review triage, and sales talk-track drafts.
+- Prove prompt/output audit refs, golden/eval refs, human-review-required flags, and privacy/public-data redlines are replayable.
+- Ensure model output cannot mutate formal facts, gate decisions, legal conclusions, customer-visible materials, or sales execution.
+- Do not call a real external model provider, send private/non-public data to a model, or expose internal blackbox scores to customers.
 
 Recently Closed:
+- PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund completed and committed locally: 5ddd321.
 - PTL-I100-128-real-public-source-field-validation-and-coverage completed and committed locally: 595cd1d.
 - PTL-I100-127-owner-operator-frontend-and-customer-portal completed and committed locally: ab1fd01.
 - PTL-I100-118S-route-map-post-118r-sync completed and committed locally: 87df294.
@@ -51,8 +53,8 @@ Recently Closed:
 - PTL-I100-112 through PTL-I100-121C and PTL-I100-111A/B/C/D/E, 113-117, 119/119A are completed as recorded in control/product_task_library.yaml.
 
 Allowed Actions (current):
-- Update only 129 provider binding/control/test paths declared in control/current_task.yaml.
-- Add provider binding matrix, credential redaction/rotation metadata, sandbox evidence, callback validation, kill-switch/suspension readback, and Stage7/8/9 carrier consumption.
+- Update only 130 model-assist/control/test paths declared in control/current_task.yaml.
+- Add governed model-assist readback, prompt/output audit, human review flags, parser/review/sales draft carriers, and related tests.
 - Run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet.
 
 Forbidden Actions (current):
@@ -60,11 +62,11 @@ Forbidden Actions (current):
 - Any contracts/** change.
 - Any handoff/** change.
 - Any scripts/** change.
-- Any src/** runtime change outside the 129 provider binding paths declared in control/current_task.yaml.
+- Any src/** runtime change outside the 130 model-assist paths declared in control/current_task.yaml.
 - Any private/gray source access, login bypass, captcha bypass, anti-bot bypass, or uncontrolled live crawler.
 - Any schema/enum/gate/exception semantic addition.
 - Any external software release.
-- Any unapproved real provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or automated refund during implementation/tests.
+- Any unapproved real provider call, real model provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or automated refund during implementation/tests.
 - Any push.
 
 State Semantics:
@@ -78,8 +80,10 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_real_provider_binding -v
-- python -m unittest tests.test_provider_adapter_config -v
+- python -m unittest tests.test_model_assist_governance -v
+- python -m unittest tests.test_stage3_real_parser -v
+- python -m unittest tests.test_stage4_public_verification_adapters -v
+- python -m unittest tests.test_stage5_rule_factory_expansion -v
 - python -m unittest tests.test_stage7_runtime_closure -v
 - python -m unittest tests.test_stage8_resolution_closure -v
 - python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v

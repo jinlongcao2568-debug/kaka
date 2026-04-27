@@ -618,6 +618,15 @@ class TestApiTransportBootstrap(unittest.TestCase):
             app.state.provider_adapter_config_readback.governed_state["provider_reliability_state"],
             "APPROVAL_READY",
         )
+        model_assist_bootstrap = bootstrap["model_assist_governance_bootstrap"]
+        self.assertEqual(model_assist_bootstrap["assist_mode"], "GOVERNED_ASSIST_READBACK")
+        self.assertEqual(model_assist_bootstrap["provider_execution_surface"], "LOCAL_DETERMINISTIC_ASSIST")
+        self.assertFalse(model_assist_bootstrap["real_model_provider_call_executed"])
+        self.assertFalse(model_assist_bootstrap["formal_fact_write_enabled"])
+        self.assertTrue(model_assist_bootstrap["human_review_required"])
+        self.assertTrue(
+            model_assist_bootstrap["redlines"]["model_output_not_customer_conclusion"]
+        )
 
         disabled_registry = bootstrap["stage1_to_stage5_transport_state"]
         self.assertEqual(disabled_registry, app.state.disabled_stage_transports)

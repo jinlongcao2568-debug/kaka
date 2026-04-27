@@ -49,6 +49,12 @@ from stage7_sales.scorecard import (
 )
 from shared.capability_runtime import CapabilityRuntime
 from shared.contracts_runtime import ContractStore, StageBundle
+from shared.model_assist_governance import (
+    MODEL_ASSIST_INPUT_KEY,
+    MODEL_ASSIST_SUMMARY_INPUT_KEY,
+    build_model_assist_summary,
+    build_sales_talk_track_model_assist,
+)
 from shared.provider_adapter_config import (
     PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY,
     provider_readiness_for_family,
@@ -799,9 +805,29 @@ class Stage7Service:
         leadpack_delivery_readiness_summary = build_leadpack_delivery_readiness_summary(
             leadpack_delivery_package
         )
+        sales_talk_track_model_assist = build_sales_talk_track_model_assist(
+            sales_lead=sales_lead,
+            saleable_opportunity=saleable_opportunity,
+            offer_recommendation=offer_recommendation,
+            source_refs={
+                "project_id": project_id,
+                "real_challenger_readback_id": real_challenger_readback.get("readback_id"),
+                "buyer_fit_id": buyer_fit.get("buyer_fit_id"),
+                "offer_recommendation_id": offer_recommendation.get("offer_recommendation_id"),
+            },
+        )
+        sales_talk_track_model_assist_summary = build_model_assist_summary(
+            sales_talk_track_model_assist
+        )
+        crm_quote_workbench[MODEL_ASSIST_INPUT_KEY] = sales_talk_track_model_assist
+        crm_quote_workbench[MODEL_ASSIST_SUMMARY_INPUT_KEY] = sales_talk_track_model_assist_summary
+        leadpack_delivery_package[MODEL_ASSIST_INPUT_KEY] = sales_talk_track_model_assist
+        leadpack_delivery_package[MODEL_ASSIST_SUMMARY_INPUT_KEY] = sales_talk_track_model_assist_summary
         stage7_resolution_trace["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
         stage7_resolution_trace[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary
         stage7_resolution_trace[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
+        stage7_resolution_trace[MODEL_ASSIST_INPUT_KEY] = sales_talk_track_model_assist
+        stage7_resolution_trace[MODEL_ASSIST_SUMMARY_INPUT_KEY] = sales_talk_track_model_assist_summary
         stage7_resolution_trace[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = {
             "package_id": leadpack_delivery_package.get("package_id"),
             "evidence_pack_id": leadpack_delivery_package.get("evidence_pack_id"),
@@ -841,9 +867,13 @@ class Stage7Service:
         inputs_out[LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY] = leadpack_delivery_package.get("evidence_pack_id")
         inputs_out[LEADPACK_PAGE_DRAFT_ID_INPUT_KEY] = leadpack_delivery_package.get("page_draft_id")
         inputs_out[LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY] = leadpack_delivery_package.get("artifact_manifest_id")
+        inputs_out[MODEL_ASSIST_INPUT_KEY] = sales_talk_track_model_assist
+        inputs_out[MODEL_ASSIST_SUMMARY_INPUT_KEY] = sales_talk_track_model_assist_summary
         handoff["crm_quote_prerequisite_readiness_optional"] = crm_quote_prerequisite_readiness
         handoff["provider_adapter_readiness_summary_optional"] = provider_adapter_readiness_summary
         handoff["crm_quote_workbench_optional"] = crm_quote_workbench
+        handoff["model_assist_governance_optional"] = sales_talk_track_model_assist
+        handoff["model_assist_governance_summary_optional"] = sales_talk_track_model_assist_summary
         handoff["provider_execution_id"] = crm_quote_workbench.get("provider_execution_id")
         handoff[CRM_ACTION_ID_INPUT_KEY] = crm_quote_workbench.get("crm_action_id")
         handoff[QUOTE_DRAFT_ID_INPUT_KEY] = crm_quote_workbench.get("quote_draft_id")

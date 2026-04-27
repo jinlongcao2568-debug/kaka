@@ -160,6 +160,7 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     shared_runtime = modules["SHARED-RUNTIME-POLICY-CHAIN"]
     assert "src/shared/policy_contract_helpers.py" in shared_runtime["current_files"]
     assert "src/shared/runtime_semantic_rules.py" in shared_runtime["current_files"]
+    assert "src/shared/model_assist_governance.py" in shared_runtime["current_files"]
     assert shared_runtime["completed_packets"] == ["PTL-INT-101-p3-policy-validator-boundary-split"]
     assert shared_runtime["pending_packets"] == []
     storage_boundary = modules["STORAGE-REPOSITORY-BOUNDARY"]

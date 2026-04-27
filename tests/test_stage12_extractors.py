@@ -252,16 +252,17 @@ class TestStage12Extractors(unittest.TestCase):
 
         candidate = task_library["current_mainline_next_candidate"]
         self.assertEqual(candidate["planning_state"], "CANDIDATE_NOT_ACTIVATED")
-        self.assertEqual(candidate["task_id"], "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance")
-        self.assertEqual(candidate["packet_id"], "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance")
+        self.assertEqual(candidate["task_id"], "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout")
+        self.assertEqual(candidate["packet_id"], "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout")
 
         self.assertIn("planning_state: CANDIDATE_NOT_ACTIVATED", task_library_text)
         self.assertIn("PTL-I100-128-real-public-source-field-validation-and-coverage", task_library_text)
         self.assertIn("COMPLETED_CONTROLLED_MANUAL_PUBLIC_SOURCE_FIELD_VALIDATION_AND_COVERAGE_REPORT", task_library_text)
         self.assertIn("PTL-I100-129 已补真实 provider binding readback", task_library_text)
-        self.assertIn("current_mainline_next_candidate 指向 130 仅作候选提示", task_library_text)
+        self.assertIn("PTL-I100-130 已补受治理 model-assist readback", task_library_text)
+        self.assertIn("current_mainline_next_candidate 指向 131 仅作候选提示", task_library_text)
         self.assertIn("仅作候选提示，不自动激活", task_library_text)
-        self.assertIn("进入 130/131 仍必须另开 dedicated current_task packet", task_library_text)
+        self.assertIn("进入 131 仍必须另开 dedicated current_task packet", task_library_text)
         self.assertIn("Execution-level management and reporting should use the P1 -> P8 ladder plus task_ids", task_library_text)
         self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
 

@@ -10,6 +10,11 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any, Mapping
 
+from shared.model_assist_governance import (
+    MODEL_ASSIST_INPUT_KEY,
+    build_model_assist_summary,
+    build_verification_model_assist,
+)
 from shared.utils import utc_now_iso
 from stage4_verification.evidence_grade import grade_public_verification_evidence
 from storage.repositories.object_storage_repo import ObjectStorageRepository
@@ -373,6 +378,7 @@ def build_public_verification_readback(carrier: Mapping[str, Any]) -> dict[str, 
     missing = [field_name for field_name in required_fields if carrier.get(field_name) in (None, "", [])]
     snapshot_refs = _list(carrier.get("snapshot_refs"))
     replayable = not missing and all(bool(_mapping(ref).get("replayable")) for ref in snapshot_refs)
+    model_assist = build_verification_model_assist(carrier)
     return {
         "readback_state": "READBACK_READY" if replayable else "FAIL_CLOSED_INCOMPLETE_OR_NON_REPLAYABLE",
         "replayable": replayable,
@@ -385,6 +391,8 @@ def build_public_verification_readback(carrier: Mapping[str, Any]) -> dict[str, 
         "verification_run_id": carrier.get("verification_run_id"),
         "verification_result": carrier.get("verification_result"),
         "review_required": bool(carrier.get("review_required")),
+        MODEL_ASSIST_INPUT_KEY: model_assist,
+        "model_assist_governance_summary": build_model_assist_summary(model_assist),
     }
 
 

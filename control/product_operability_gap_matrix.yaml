@@ -232,6 +232,7 @@ final_118R_operational_reacceptance:
     - owner_operator_frontend_and_customer_artifact_portal
     - real_public_source_field_validation_and_coverage_report
     - real_provider_binding_matrix_and_sandbox_callback_readback
+    - governed_model_assist_parser_review_sales_readback
   resolved_real_world_gaps:
     - gap_id: B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING
       capability: owner_operator_frontend_and_customer_portal
@@ -248,12 +249,12 @@ final_118R_operational_reacceptance:
       resolved_by_task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
       current_state: PRODUCTION_READY
       evidence: "Provider binding matrix now covers WeCom robot, email, SMS, phone, CRM, quote, payment, and delivery bindings with credential redaction/rotation metadata, sandbox call evidence, webhook/callback validation, kill-switch/suspension, and Stage7/8/9 shared readback; real calls still require gates and automated refund remains absent."
-  real_world_gaps:
     - gap_id: B118R_LLM_ASSIST_NOT_PRODUCTIZED
       capability: llm_assisted_parsing_review_sales_governance
-      current_state: NOT_IMPLEMENTED
-      evidence: "Model governance boundaries exist, but no productized LLM assist workflow is connected for parser candidates, evidence summaries, review triage, or sales talk-track drafts."
-      minimum_followup_task_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+      resolved_by_task_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+      current_state: APPROVAL_READY
+      evidence: "Governed deterministic model-assist readback now covers Stage3 parser field candidates, Stage4 evidence summary, Stage5 review triage, and Stage7 sales talk-track drafts; outputs are human-review-required, not formal facts, not customer conclusions, and no external model provider is called by default."
+  real_world_gaps:
     - gap_id: B118R_REAL_WORLD_E2E_PILOT_NOT_DONE
       capability: controlled_real_world_e2e_product_pilot
       current_state: NOT_IMPLEMENTED
@@ -547,13 +548,15 @@ production_gap_task_map:
       - provider_webhook_callback_validation
   - gap_group: llm_assisted_parsing_review_and_sales_governance
     packet_ref: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
-    status: PLANNED
+    status: COMPLETED
     target_capability_state: APPROVAL_READY
     covered_capabilities:
       - llm_assisted_field_extraction_candidate
       - llm_assisted_evidence_summary
       - llm_assisted_review_triage
       - llm_assisted_sales_talk_track_draft
+    completed_commit: pending
+    completion_result: "COMPLETED_GOVERNED_MODEL_ASSIST_READBACK_NO_EXTERNAL_MODEL_CALL"
   - gap_group: controlled_real_world_e2e_pilot_and_closeout
     packet_ref: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
     status: PLANNED

@@ -10,6 +10,11 @@ from typing import Any, Mapping
 from urllib.parse import urlparse
 from xml.etree import ElementTree
 
+from shared.model_assist_governance import (
+    MODEL_ASSIST_INPUT_KEY,
+    build_model_assist_summary,
+    build_parser_model_assist,
+)
 from shared.utils import utc_now_iso
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
@@ -81,6 +86,8 @@ class Stage3ParserCarrier:
     parser_audit: dict[str, Any]
     parse_error_taxonomy: list[str]
     review_required: bool
+    model_assist_governance: dict[str, Any]
+    model_assist_governance_summary: dict[str, Any]
 
     def as_payload(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -448,7 +455,7 @@ class Stage3RealParser:
         review_required = bool(taxonomy) or any(
             bool(field.get("review_required")) for field in parsed_fields
         )
-        return Stage3ParserCarrier(
+        carrier = Stage3ParserCarrier(
             parse_run_id=_parse_run_id(snapshot_id, input_sha256, attachment_type),
             snapshot_id=snapshot_id,
             source_url=source_url,
@@ -467,6 +474,16 @@ class Stage3RealParser:
             parser_audit=parser_audit,
             parse_error_taxonomy=taxonomy,
             review_required=review_required,
+            model_assist_governance={},
+            model_assist_governance_summary={},
+        )
+        model_assist = build_parser_model_assist(carrier.as_payload())
+        return Stage3ParserCarrier(
+            **{
+                **carrier.as_payload(),
+                MODEL_ASSIST_INPUT_KEY: model_assist,
+                "model_assist_governance_summary": build_model_assist_summary(model_assist),
+            }
         )
 
 

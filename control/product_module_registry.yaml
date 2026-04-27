@@ -1378,6 +1378,7 @@ modules:
       - src/shared/capability_runtime.py
       - src/shared/settings.py
       - src/shared/provider_adapter_config.py
+      - src/shared/model_assist_governance.py
       - src/shared/policy_executor.py
       - src/shared/policy_contract_helpers.py
       - src/shared/contracts_runtime.py
@@ -1399,6 +1400,7 @@ modules:
       - "P3 policy/validator boundary split completed in local commit 8c7eea3 and is now part of the formal shared runtime ledger."
       - "Shared runtime helper split completed, but future product packets may still depend on this chain; this ledger must not be interpreted as 'all follow-up work finished'."
       - "PTL-I100-129 extends src/shared/provider_adapter_config.py with real-provider binding matrix, credential redaction/rotation metadata, sandbox evidence, callback validation, and kill-switch/suspension readback for WeCom/email/SMS/phone/CRM/quote/payment/delivery; default provider calls remain gated."
+      - "PTL-I100-130 adds src/shared/model_assist_governance.py as the governed model-assist carrier/readback helper for parser candidates, evidence summaries, review triage, and sales talk-track drafts; default execution is deterministic/readback-only and does not call external model providers."
   - module_id: STORAGE-REPOSITORY-BOUNDARY
     stage_scope:
       - stage6_fact_review

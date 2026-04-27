@@ -8,6 +8,12 @@ from __future__ import annotations
 from typing import Any
 
 from shared.contracts_runtime import ContractStore, StageBundle
+from shared.model_assist_governance import (
+    MODEL_ASSIST_INPUT_KEY,
+    MODEL_ASSIST_SUMMARY_INPUT_KEY,
+    build_model_assist_summary,
+    build_rule_model_assist,
+)
 from stage5_rules_evidence.evidence_builder import EvidenceBuilder
 from stage5_rules_evidence.gate_evaluator import GateEvaluator
 from stage5_rules_evidence.rule_runner import RuleRunner
@@ -189,7 +195,7 @@ class RuleEvidenceEngine:
             rule_coverage_summary["review_target_object_type"] = gate_artifacts.review_target_object_type
             rule_coverage_summary["review_target_object_id"] = gate_artifacts.review_target_object_id
         inputs_out["stage5_rule_coverage_summary"] = rule_coverage_summary
-        inputs_out["stage5_rule_readback_summary"] = {
+        stage5_rule_readback_summary = {
             "catalog_id": rule_coverage_summary.get("catalog_id"),
             "catalog_version": rule_coverage_summary.get("catalog_version"),
             "factory_version": rule_coverage_summary.get("factory_version"),
@@ -207,6 +213,17 @@ class RuleEvidenceEngine:
             "review_request_id": rule_coverage_summary.get("review_request_id"),
             "evidence_refs": list(rule_coverage_summary.get("evidence_refs", [])),
         }
+        model_assist = build_rule_model_assist(
+            stage5_readback_summary=stage5_rule_readback_summary,
+            rule_execution_trace=stage5_rule_execution_trace,
+        )
+        stage5_rule_readback_summary[MODEL_ASSIST_INPUT_KEY] = model_assist
+        stage5_rule_readback_summary[MODEL_ASSIST_SUMMARY_INPUT_KEY] = build_model_assist_summary(
+            model_assist
+        )
+        inputs_out["stage5_rule_readback_summary"] = stage5_rule_readback_summary
+        inputs_out[MODEL_ASSIST_INPUT_KEY] = model_assist
+        inputs_out[MODEL_ASSIST_SUMMARY_INPUT_KEY] = build_model_assist_summary(model_assist)
         inputs_out["evidence_id"] = evidence_artifacts.evidence.get("evidence_id")
         inputs_out["rule_gate_decision_id"] = rule_artifacts.rule_gate_decision.get("gate_id")
         inputs_out["evidence_gate_decision_id"] = evidence_artifacts.evidence_gate_decision.get("gate_id")

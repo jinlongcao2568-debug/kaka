@@ -316,7 +316,6 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         }
         unresolved_after_129_task_ids = {
-            "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         }
         registered_task_ids = {row["task_id"] for row in self.task_library["tasks"]}
