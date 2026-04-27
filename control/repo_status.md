@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-125-approved-crm-quote-provider-execution (ACTIVE; approved Stage7 CRM/quote provider execution packet. This packet turns the 118 blocker B118_EXTERNAL_CRM_QUOTE_EXECUTION_LOCKED into a scoped implementation path: approved CRM account/opportunity/activity sync and approved quote provider execution may be developed only behind provider config, sandbox pass, CRM/quote approval, quote audit, operator action, quote version/expiration/discount policy, provider reliability, and repository/API readback. It must not enable unapproved CRM sync, unapproved quote send, customer-visible publication, Stage8 outreach, Stage9 payment/delivery/refund, automated refund, external software release, or uncontrolled provider calls in development/tests.)
+Current Workstream: PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock (ACTIVE; approved customer-visible LeadPack/page/export unlock packet. This packet turns the 118 blocker B118_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_LOCKED into a scoped implementation path: customer-visible artifact/page/download may be developed only behind approval, audit, customer access control, download auth, field allowlist/blacklist, masking, watermark, version hash, external visibility checks, and repository/API readback. It must not expose internal blackbox scoring, unreviewed inference, private/gray data, unapproved publication, Stage8 outreach, Stage9 payment/delivery/refund, automated refund, external software release, or uncontrolled provider calls in development/tests.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -23,9 +23,9 @@ Current Blockers:
 - Real external source fetch remains gated by dedicated Stage2 source adapter packets; 114A-114I only open allowlisted/sandbox public-source adapter readback, not uncontrolled live crawling
 - Stage3 parser output remains unverified until Stage4 verification; parser carriers must not be written as final facts or customer-visible conclusions
 - Stage4 verification remains public-source only and review-gated for weak, ambiguous, conflicting, or non-replayable evidence
-- Stage6 product package readiness remains internal; customer delivery eligibility requires evidence, public visibility, review state, field allowlist/masking, approval, and delivery governance
+- Stage6 product package readiness remains internal; customer delivery eligibility requires evidence, public visibility, review state, field allowlist/masking, approval, and delivery governance. PTL-I100-124 may implement the approved customer-visible LeadPack/page/export unlock path, but unapproved publication, internal blackbox score exposure, private/gray data exposure, and unreviewed inference exposure remain blocked
 - Provider reliability/circuit breaker work is completed as readback/gating; unhealthy, rate-limited, timeout, or circuit-open provider state must block or suspend execution and must not silently fallback to live
-- 125 may implement the approved/gated Stage7 CRM/quote provider execution path, but any unapproved CRM sync, unapproved quote send, quote policy violation, provider-suspended execution, Stage8 outreach, Stage9 payment/delivery, customer-visible release, or automated refund remains blocked
+- 124 may implement the approved/gated customer-visible LeadPack/page/export unlock path, but any unapproved customer publication, field-policy violation, missing download auth, internal blackbox score exposure, unreviewed inference exposure, private/gray data exposure, Stage8 outreach, Stage9 payment/delivery, or automated refund remains blocked
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -42,6 +42,7 @@ Current 118 Scope:
 - 118 must stop if it finds a product gap that requires runtime implementation; that gap must become a follow-up implementation packet instead of being patched inside 118.
 
 Recently Closed:
+- PTL-I100-125-approved-crm-quote-provider-execution completed and committed locally: 0809322. It added Stage7 approved CRM/quote provider execution carrier/readback, local controlled fake provider result, CRM account/opportunity/activity sync records, quote send/version/approval/expiration/discount audit, deal tracking, sales note/callback timeline, API/repository readback, and no-unapproved/no-real-provider/no-silent-live-fallback guards without real CRM sync, real quote send, Stage8 outreach, Stage9 payment/delivery/refund, customer-visible release, automated refund, external release, or push.
 - PTL-I100-122-approved-sales-outreach-provider-execution completed and committed locally: f3cf7e5. It added Stage8 approved provider execution carrier/readback, local controlled fake provider execution result, provider result/bounce/failure/complaint taxonomy, retry/stop/suspension/timeline replay, API/repository readback, and no-unapproved/no-bulk/no-real-provider guards without real external provider sends, Stage9 payment/delivery/refund, customer-visible release, automated refund, external release, or push.
 - PTL-I100-118-full-product-operational-acceptance completed product operational acceptance and recorded DO_NOT_CLOSEOUT / BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS via 866f9bf; follow-up tasks 122-126 were registered and ordered via 49852b4 and 97dfc59.
 - PTL-I100-121C-production-slo-monitoring-incident-readiness completed and committed locally: aaf903c. It added production SLO/monitoring/alert simulation/incident runbook/backup-restore drill/rollback drill/suspended-state readback and repository/API/bootstrap evidence, fixed the required_scripts/script_timeouts key drift, and did not send real alerts, connect external paging/APM, run incident automation, execute destructive restore or rollback, perform provider calls, real outreach, real payment/delivery/refund, automated refund, external release, or push.
@@ -64,8 +65,8 @@ Recently Closed:
 - PTL-I100-111A provider adapter config/sandbox/readback seam is completed via commit c279fd5.
 
 Allowed Actions (current):
-- implement approved Stage7 CRM/quote provider execution path only inside control/current_task.yaml allowed paths for 125
-- update Stage7 CRM/quote runtime, Stage7 API/readback, repository boundary/readback, provider readiness consumption, product module registry, and targeted tests inside the active packet scope
+- implement approved customer-visible LeadPack/page/export unlock path only inside control/current_task.yaml allowed paths for 124
+- update Stage7 LeadPack delivery package runtime, Stage7/operator-customer API readback, repository boundary/readback, provider readiness consumption, product module registry, and targeted tests inside the active packet scope
 - run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet
 
 Forbidden Actions (current):
@@ -73,15 +74,15 @@ Forbidden Actions (current):
 - Any contracts/** change
 - Any handoff/** change
 - Any scripts/** change
-- Any src/** runtime change outside the 125 allowed Stage7/API/storage/provider-config scope
+- Any src/** runtime change outside the 124 allowed Stage7/API/storage/provider-config scope
 - Any schema/enum/gate/exception semantic addition
 - Any external APM/paging/notification provider connection or real alert dispatch
 - Any incident automation, destructive restore, real rollback, migration, docker compose up, live deployment, or unauthorized production DB connection
 - Any private/gray source collection, login bypass, captcha bypass, anti-bot bypass, source allowlist bypass, uncontrolled live crawling, or new source collection
 - Any uncontrolled external/live provider call during implementation or tests
-- Any unapproved CRM sync, unapproved quote send, or uncontrolled CRM/quote provider call during implementation or tests
+- Any unapproved customer-visible publication, customer download, or uncontrolled LeadPack/page/export provider call during implementation or tests
 - Any real payment capture, live charge, payment callback execution, delivery fulfillment, customer download, refund, or automated refund during implementation or tests
-- Any real LeadPack external delivery, client-visible formal export/page release, or Stage8 outreach execution during 125 implementation or tests
+- Any real LeadPack external delivery without approval/audit, client-visible formal export/page release without field policy/download auth, or Stage8 outreach execution during 124 implementation or tests
 - Any automated refund program
 - Any push
 
@@ -92,15 +93,17 @@ State Semantics:
 - control/current_task.yaml is the only active execution source.
 - control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
-- PTL-I100-112 through PTL-I100-121C are completed; PTL-I100-118 completed final product operational acceptance with remaining blockers; PTL-I100-122 is completed; PTL-I100-125 is active as the next follow-up implementation packet.
+- PTL-I100-112 through PTL-I100-121C are completed; PTL-I100-118 completed final product operational acceptance with remaining blockers; PTL-I100-122 and PTL-I100-125 are completed; PTL-I100-124 is active as the next follow-up implementation packet.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 - Canonical readiness is unchanged by this activation.
 - External leadpack delivery remains gated by approval + audit chain.
-- External release remains blocked; Stage8 approved provider execution has a controlled implementation through PTL-I100-122 but unapproved/bulk sends remain blocked; Stage7 CRM/quote provider execution may only be developed through PTL-I100-125 dedicated gated approval; Stage9 payment/delivery may only be developed/executed through PTL-I100-123 dedicated gated approval. During 125, Stage8 outreach, Stage9 payment/delivery/refund, customer-visible LeadPack release, real refund, and automated refund remain out of scope.
+- External release remains blocked; Stage8 approved provider execution has a controlled implementation through PTL-I100-122 but unapproved/bulk sends remain blocked; Stage7 CRM/quote provider execution has a controlled implementation through PTL-I100-125 but unapproved CRM sync/quote send remain blocked; customer-visible LeadPack/page/export may only be developed through PTL-I100-124 dedicated gated approval; Stage9 payment/delivery may only be developed/executed through PTL-I100-123 dedicated gated approval. During 124, Stage8 outreach, Stage9 payment/delivery/refund, real refund, and automated refund remain out of scope.
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_stage7_runtime_closure -v
+- python -m unittest tests.test_leadpack_candidate_surface -v
+- python -m unittest tests.test_internal_surface_preview -v
+- python -m unittest tests.test_operator_customer_access -v
 - python -m unittest tests.test_internal_chain.TestInternalChain -v
 - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_api_transport_bootstrap -v
@@ -108,7 +111,7 @@ Current Scoped-Execution Required Checks:
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
 - python -m unittest tests.test_external_unlock_prerequisites -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage7_sales/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage7.py'',''src/api/schemas/stage7.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/crm_quote_workbench_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage7_runtime_closure.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage7_sales/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage7.py'',''src/api/routes/operator_customer_access.py'',''src/api/schemas/stage7.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/leadpack_delivery_package_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_leadpack_candidate_surface.py'',''tests/test_internal_surface_preview.py'',''tests/test_operator_customer_access.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1

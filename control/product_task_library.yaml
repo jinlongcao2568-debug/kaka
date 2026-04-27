@@ -1958,8 +1958,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage7_sales, leadpack_delivery, customer_artifact_access]
     task_type: customer_visible_delivery_unlock
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P25
     existing_code_state: HEAVY_RUNTIME
@@ -1990,8 +1990,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage7_sales, crm_provider, quote_provider, sales_governance]
     task_type: approved_crm_quote_provider_execution
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P24
     existing_code_state: HEAVY_RUNTIME
@@ -2016,6 +2016,8 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-125-approved-crm-quote-provider-execution
     suggested_packet_refs: [PTL-I100-125-approved-crm-quote-provider-execution]
     risk_level: CRITICAL
+    completed_commit: 0809322
+    completion_result: "COMPLETED_APPROVED_STAGE7_CRM_QUOTE_PROVIDER_EXECUTION_READBACK"
   - task_id: PTL-I100-126-production-live-dependency-and-drill-approval
     title: "I100-26 Production live dependency and drill approval"
     program_ref: PTL-I100-internal-operable-productization
