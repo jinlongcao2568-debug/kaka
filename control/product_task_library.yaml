@@ -1922,8 +1922,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage9_delivery, payment_provider, delivery_provider, finance_governance]
     task_type: approved_live_payment_delivery_execution
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P26
     existing_code_state: HEAVY_RUNTIME
@@ -1952,6 +1952,8 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
     suggested_packet_refs: [PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund]
     risk_level: CRITICAL
+    completed_commit: 7fb9e13
+    completion_result: "COMPLETED_APPROVED_STAGE9_PAYMENT_DELIVERY_PROVIDER_EXECUTION_READBACK_NO_AUTO_REFUND"
   - task_id: PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
     title: "I100-24 Customer-visible LeadPack delivery approval unlock"
     program_ref: PTL-I100-internal-operable-productization
@@ -2026,8 +2028,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [platform_infra, production_governance, deployment_readiness]
     task_type: production_live_dependency_approval
-    status: PLANNED
-    planning_state: CANDIDATE_NOT_ACTIVATED
+    status: IN_PROGRESS
+    planning_state: ACTIVE_BY_CURRENT_TASK
     is_current_mainline_next_candidate: false
     priority: P27
     existing_code_state: HEAVY_RUNTIME

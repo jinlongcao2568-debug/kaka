@@ -1,15 +1,16 @@
 version: 1
-templateState: "NAMED_ASSIGNED"
+templateState: NAMED_ASSIGNED
 single_operator_mode: true
-updated_at: "2026-04-27"
-currentPhase: "PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT"
-currentStatus: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-current_state: "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
-navigation_state: "PTL_I100_123_APPROVED_PAYMENT_DELIVERY_PROVIDER_EXECUTION_NO_AUTO_REFUND"
-responsible_role: "single_operator"
-responsible_person: "卡卡罗特"
+updated_at: '2026-04-27'
+currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
+currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
+current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
+navigation_state: PTL_I100_126_PRODUCTION_LIVE_DEPENDENCY_AND_DRILL_APPROVAL
+responsible_role: single_operator
+responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: "PTL-I100-124 customer-visible LeadPack delivery approval unlock 已完成并本地提交 f8c1182；按 product_task_library 产品流顺序激活 PTL-I100-123 approved payment/delivery provider execution no auto refund。"
+activation_condition: PTL-I100-123 approved payment/delivery provider execution no auto refund 已完成并本地提交 7fb9e13；按 product_task_library
+  产品流顺序激活 PTL-I100-126 production live dependency and drill approval。
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,89 +18,88 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
-  title: "I100-23 Approved payment and delivery provider execution no auto refund"
-  owner_role: "single_operator"
-  responsible_role: "single_operator"
-  responsible_person: "卡卡罗特"
+  task_id: PTL-I100-126-production-live-dependency-and-drill-approval
+  title: I100-26 Production live dependency and drill approval
+  owner_role: single_operator
+  responsible_role: single_operator
+  responsible_person: 卡卡罗特
   linked_docs:
-    - "AGENTS.md"
-    - "README.md"
-    - "ARCHITECTURE_NOTE.md"
-    - "docs/L0.md"
-    - "docs/裁决总表.md"
-    - "docs/D1_研发_Codex执行手册.md"
-    - "docs/D5_页面导出与人工复核规范.md"
-    - "docs/D6_字段策略字典与客户交付字段规范.md"
-    - "docs/D7_对象级交付矩阵与外发治理规范.md"
-    - "docs/D8_真实竞争者识别可售对象与销售推进规范.md"
-    - "docs/D10_订单支付交付与治理反馈规范.md"
-    - "docs/D11_测试验收与金标回归清单.md"
-    - "docs/D12_部署发布与运行治理规范.md"
-    - "docs/D13_公开可查边界能力清单.md"
-    - "control/current_task.yaml"
-    - "control/product_task_library.yaml"
-    - "control/product_acceptance_checklist.yaml"
-    - "control/product_operability_gap_matrix.yaml"
-    - "control/product_module_registry.yaml"
-    - "control/repo_status.md"
-  capability_adjudication_source: "control/product_task_library.yaml#open_capability_policy"
-  acceptance_checklist_ref: "control/product_acceptance_checklist.yaml#tasks.PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
-  objective: "把 Stage9 payment/delivery 从 live pilot/readback 推进到审批后 payment capture/charge 与 delivery fulfillment provider execution path：必须具备 sandbox pass、payment/delivery approval、finance review、operator action audit、provider reliability、callback verification、artifact version lock、download auth、settlement/reconciliation、rollback path；退款只保留 manual exception / governed review，不实现自动退款。"
-  operator_assignment_roster_source_ref: "control/operator_assignment_roster_defaults.yaml#defaults"
+  - AGENTS.md
+  - README.md
+  - ARCHITECTURE_NOTE.md
+  - docs/L0.md
+  - docs/裁决总表.md
+  - docs/D1_研发_Codex执行手册.md
+  - docs/D10_订单支付交付与治理反馈规范.md
+  - docs/D11_测试验收与金标回归清单.md
+  - docs/D12_部署发布与运行治理规范.md
+  - docs/D13_公开可查边界能力清单.md
+  - control/current_task.yaml
+  - control/product_task_library.yaml
+  - control/product_acceptance_checklist.yaml
+  - control/product_operability_gap_matrix.yaml
+  - control/product_module_registry.yaml
+  - control/repo_status.md
+  capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-126-production-live-dependency-and-drill-approval
+  objective: 把 production live dependency/readiness 从 readback 推进到审批后可执行演练：container/compose runbook、external APM/paging/notification
+    provider、backup restore drill、rollback drill、health/SLO/alert dispatch approval 和 incident manual execution 都必须有审计与回退；external
+    release 仍 gated，不做无审批破坏性动作。
+  operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
-      assigned_owner_role: "sales_user"
-      assigned_owner: "卡卡罗特"
-      reviewer_role: "sales_user"
-      reviewer: "卡卡罗特"
+      assigned_owner_role: sales_user
+      assigned_owner: 卡卡罗特
+      reviewer_role: sales_user
+      reviewer: 卡卡罗特
     stage8:
-      assigned_owner_role: "sales_user"
-      assigned_owner: "卡卡罗特"
-      reviewer_role: "delivery_governance_user"
-      reviewer: "卡卡罗特"
+      assigned_owner_role: sales_user
+      assigned_owner: 卡卡罗特
+      reviewer_role: delivery_governance_user
+      reviewer: 卡卡罗特
     stage9:
-      assigned_owner_role: "delivery_governance_user"
-      assigned_owner: "卡卡罗特"
-      reviewer_role: "delivery_governance_user"
-      reviewer: "卡卡罗特"
+      assigned_owner_role: delivery_governance_user
+      assigned_owner: 卡卡罗特
+      reviewer_role: delivery_governance_user
+      reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
-    subpacket_id: "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
-    backlog_packet_ref: "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
-    packet_kind: "EXECUTABLE_SCOPED_SUBPACKET"
-    execution_mode: "SCOPED_EXECUTION"
-    source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-    runtime_change_in_packet: "ACTIVE_123_APPROVED_PAYMENT_DELIVERY_PROVIDER_EXECUTION_NO_AUTO_REFUND"
-    existing_code_state: "HEAVY_RUNTIME"
-    existing_runtime_state: "LIVE_READY_READBACK_ONLY"
-    title: "I100-23 Approved payment and delivery provider execution no auto refund"
-    status: "ACTIVE"
-    objective: "在既有 Stage9 payment/delivery sandbox provider records、121B payment/delivery live pilot、124 customer-visible artifact unlock、125 CRM/quote execution 基础上，建立 approved payment capture/charge and delivery fulfillment execution path。实现必须证明：provider config、sandbox pass、payment approval、delivery approval、finance review、operator action audit、provider reliability、callback verification、artifact version lock、download auth、settlement/reconciliation、rollback path 全部满足后，payment/delivery 可进入 approved execution readback；退款只允许 manual exception / approval / audit / governed review，自动退款程序继续 absent/disabled。"
+    packet_id: PTL-I100-126-production-live-dependency-and-drill-approval
+    subpacket_id: PTL-I100-126-production-live-dependency-and-drill-approval
+    backlog_packet_ref: PTL-I100-126-production-live-dependency-and-drill-approval
+    packet_kind: EXECUTABLE_SCOPED_SUBPACKET
+    execution_mode: SCOPED_EXECUTION
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    runtime_change_in_packet: ACTIVE_126_PRODUCTION_LIVE_DEPENDENCY_AND_DRILL_APPROVAL
+    existing_code_state: HEAVY_RUNTIME
+    existing_runtime_state: PRODUCTION_READY_READBACK_ONLY
+    title: I100-26 Production live dependency and drill approval
+    status: ACTIVE
+    objective: 把 production live dependency/readiness 从 readback 推进到审批后可执行演练：container/compose runbook、external APM/paging/notification
+      provider、backup restore drill、rollback drill、health/SLO/alert dispatch approval 和 incident manual execution 都必须有审计与回退；external
+      release 仍 gated，不做无审批破坏性动作。
     depends_on:
-      - "PTL-I100-118 full product operational acceptance 已完成并输出 blocker B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE。"
-      - "PTL-I100-111D payment collection and delivery fulfillment adapters 已完成并本地提交 0ab2dba。"
-      - "PTL-I100-121B payment/delivery live pilot no auto refund 已完成并本地提交 c1515f5。"
-      - "PTL-I100-124 customer-visible LeadPack delivery approval unlock 已完成并本地提交 f8c1182。"
-      - "PTL-I100-125 approved CRM and quote provider execution 已完成并本地提交 0809322。"
-      - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
+    - PTL-I100-118 full product operational acceptance 已完成并输出 blocker B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY。
+    - PTL-I100-112 production platform infrastructure 已完成并本地提交 0fe9212。
+    - PTL-I100-121C production SLO / monitoring / incident readiness 已完成并本地提交 aaf903c。
+    - PTL-I100-123 approved payment/delivery provider execution no auto refund 已完成并本地提交 7fb9e13。
+    - current_task -> product_task_library -> repo_status 是当前 active source 优先级。
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: "PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock"
-      target_active_packet: "PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund"
-      parent_packet: "PTL-I100-internal-operable-productization"
+      previous_active_packet: PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
+      target_active_packet: PTL-I100-126-production-live-dependency-and-drill-approval
+      parent_packet: PTL-I100-internal-operable-productization
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: "approved_payment_delivery_provider_execution_no_auto_refund"
+      active_packet_kind: production_live_dependency_and_drill_approval
       product_mainline_task: true
-      source_blueprint_batch_id: "PTL-I100-ROADMAP-01"
-      execution_mode: "SCOPED_EXECUTION"
+      source_blueprint_batch_id: PTL-I100-ROADMAP-01
+      execution_mode: SCOPED_EXECUTION
       runtime_change: true
-      runtime_change_in_packet: "ACTIVE_123_APPROVED_PAYMENT_DELIVERY_PROVIDER_EXECUTION_NO_AUTO_REFUND"
+      runtime_change_in_packet: ACTIVE_126_PRODUCTION_LIVE_DEPENDENCY_AND_DRILL_APPROVAL
       docs_change: false
       contracts_change: false
       handoff_change: false
@@ -116,242 +116,222 @@ currentTask:
       current_mainline_next_candidate_change: false
       push_allowed: false
     non_goals:
-      - "not an external unlock implementation"
-      - "不改变 canonical readiness"
-      - "不放开 external software release"
-      - "不新增业务对象、枚举、gate、exception 语义"
-      - "不无审批扣款/charge"
-      - "不无审批/无审计交付"
-      - "不无审批/无审计发送"
-      - "不绕过 provider config / sandbox / approval / audit / operator action"
-      - "不触发 Stage8 真实触达"
-      - "不触发无审批 Stage9 payment/delivery/refund"
-      - "不实现自动退款程序"
-      - "不执行真实 refund"
-      - "不 external software release"
-      - "不 push"
+      - not an external software release
+      - not an external unlock implementation
+      - 不改变 canonical readiness
+      - 不放开 external software release
+      - 不新增业务对象、枚举、gate、exception 语义
+      - 不无审批/无审计发送
+      - 不绕过 provider config / sandbox / approval / audit / operator action
+      - 不无审批运行 docker compose up 或生产容器
+      - 不连接真实外部 APM/paging/notification provider
+      - 不发送真实告警或通知
+      - 不执行 destructive restore
+      - 不执行真实 rollback
+      - 不执行 incident automation
+      - 不触发真实 provider、触达、支付、交付或退款
+      - 不实现自动退款程序
+      - 不 push
     affected_stages:
-      - "stage9_delivery"
-      - "payment_delivery"
-      - "finance_governance"
-      - "api_transport"
-      - "storage_repository_boundary"
-      - "runtime_governance"
-    risk_level: "CRITICAL"
-    change_class: "MANDATORY_HUMAN_REVIEW"
+    - platform_infra
+    - production_governance
+    - deployment_readiness
+    - monitoring_alerting
+    - backup_restore
+    risk_level: CRITICAL
+    change_class: MANDATORY_HUMAN_REVIEW
     change_domains:
-      - "automation_control_core"
-      - "provider_vendor_source_policy_core"
-      - "governance_release_core"
-      - "scripts_and_tests_general"
+    - automation_control_core
+    - governance_release_core
+    - provider_vendor_source_policy_core
+    - scripts_and_tests_general
+    - machine_assets_general
     reviews:
-      - "architecture_owner"
-      - "governance_owner"
-      - "model_governance_owner"
-      - "testing_owner"
-      - "automation_owner"
+    - architecture_owner
+    - governance_owner
+    - model_governance_owner
+    - testing_owner
+    - automation_owner
     baseline_dirty_paths: []
-    declared_changed_paths:
-      - "control/current_task.yaml"
-      - "control/repo_status.md"
-      - "control/product_task_library.yaml"
-      - "control/product_acceptance_checklist.yaml"
-      - "control/product_module_registry.yaml"
-      - "src/shared/provider_adapter_config.py"
-      - "src/stage9_delivery/**"
-      - "src/api/main.py"
-      - "src/api/projections.py"
-      - "src/api/routes/stage9.py"
-      - "src/api/schemas/stage9.py"
-      - "src/storage/repository_boundary.py"
-      - "src/storage/repository_bundle_io.py"
-      - "src/storage/repositories/__init__.py"
-      - "src/storage/repositories/order_record_repo.py"
-      - "src/storage/repositories/payment_record_repo.py"
-      - "src/storage/repositories/delivery_record_repo.py"
-      - "src/storage/repositories/stage9_execution_ledger_repo.py"
-      - "src/storage/repositories/provider_adapter_config_repo.py"
-      - "tests/test_stage9_impact_executor.py"
-      - "tests/test_internal_chain.py"
-      - "tests/test_internal_repository_boundary.py"
-      - "tests/test_api_transport_bootstrap.py"
-      - "tests/test_runtime_governance_guards.py"
-      - "tests/test_product_module_registry.py"
-      - "tests/test_product_acceptance_checklist.py"
-      - "tests/test_external_unlock_prerequisites.py"
-    allowed_modification_paths:
-      - "control/current_task.yaml"
-      - "control/repo_status.md"
-      - "control/product_task_library.yaml"
-      - "control/product_acceptance_checklist.yaml"
-      - "control/product_module_registry.yaml"
-      - "src/shared/provider_adapter_config.py"
-      - "src/stage9_delivery/**"
-      - "src/api/main.py"
-      - "src/api/projections.py"
-      - "src/api/routes/stage9.py"
-      - "src/api/schemas/stage9.py"
-      - "src/storage/repository_boundary.py"
-      - "src/storage/repository_bundle_io.py"
-      - "src/storage/repositories/__init__.py"
-      - "src/storage/repositories/order_record_repo.py"
-      - "src/storage/repositories/payment_record_repo.py"
-      - "src/storage/repositories/delivery_record_repo.py"
-      - "src/storage/repositories/stage9_execution_ledger_repo.py"
-      - "src/storage/repositories/provider_adapter_config_repo.py"
-      - "tests/test_stage9_impact_executor.py"
-      - "tests/test_internal_chain.py"
-      - "tests/test_internal_repository_boundary.py"
-      - "tests/test_api_transport_bootstrap.py"
-      - "tests/test_runtime_governance_guards.py"
-      - "tests/test_product_module_registry.py"
-      - "tests/test_product_acceptance_checklist.py"
-      - "tests/test_external_unlock_prerequisites.py"
+    declared_changed_paths: &id001
+    - control/current_task.yaml
+    - control/repo_status.md
+    - control/product_task_library.yaml
+    - control/product_acceptance_checklist.yaml
+    - control/product_module_registry.yaml
+    - src/shared/settings.py
+    - src/api/deps.py
+    - src/api/main.py
+    - src/api/projections.py
+    - src/storage/production_infra_readiness.py
+    - src/storage/production_slo_incident_readiness.py
+    - src/storage/backup_restore.py
+    - src/storage/monitoring_alerting.py
+    - src/storage/repositories/__init__.py
+    - src/storage/repositories/backup_restore_repo.py
+    - src/storage/repositories/monitoring_alerting_repo.py
+    - src/storage/repositories/production_slo_incident_repo.py
+    - tests/test_production_slo_incident_readiness.py
+    - tests/test_storage_concurrency.py
+    - tests/test_api_transport_bootstrap.py
+    - tests/test_runtime_governance_guards.py
+    - tests/test_product_module_registry.py
+    - tests/test_product_acceptance_checklist.py
+    - tests/test_full_product_operational_acceptance.py
+    - tests/test_external_unlock_prerequisites.py
+    allowed_modification_paths: *id001
     forbidden_modification_paths:
-      - "docs/**"
-      - "contracts/**"
-      - "handoff/**"
-      - "scripts/**"
-      - "fixtures/**"
-      - "src/stage1_tasking/**"
-      - "src/stage2_ingestion/**"
-      - "src/stage3_parsing/**"
-      - "src/stage4_verification/**"
-      - "src/stage5_rules_evidence/**"
-      - "src/stage6_fact_review/**"
-      - "src/stage8_outreach/**"
-      - "src/stage7_sales/**"
-      - "src/storage/db.py"
-      - "src/storage/models/**"
-      - "migrations/**"
-      - "alembic.ini"
-      - ".dockerignore"
-      - "Dockerfile"
-      - "docker-compose.yml"
+    - docs/**
+    - contracts/**
+    - handoff/**
+    - scripts/**
+    - fixtures/**
+    - src/stage1_tasking/**
+    - src/stage2_ingestion/**
+    - src/stage3_parsing/**
+    - src/stage4_verification/**
+    - src/stage5_rules_evidence/**
+    - src/stage6_fact_review/**
+    - src/stage7_sales/**
+    - src/stage8_outreach/**
+    - src/stage9_delivery/**
+    - src/storage/db.py
+    - src/storage/models/**
+    - migrations/**
+    - alembic.ini
+    - .dockerignore
+    - Dockerfile
+    - docker-compose.yml
     impacted_assets:
       control:
-        - "control/current_task.yaml"
-        - "control/repo_status.md"
-        - "control/product_task_library.yaml"
-        - "control/product_acceptance_checklist.yaml"
-        - "control/product_module_registry.yaml"
+      - control/current_task.yaml
+      - control/repo_status.md
+      - control/product_task_library.yaml
+      - control/product_acceptance_checklist.yaml
+      - control/product_module_registry.yaml
       docs: []
       contracts: []
       handoff: []
       scripts:
-        - "scripts/check-task-packet.ps1"
-        - "scripts/check-state-alignment.ps1"
+      - scripts/check-task-packet.ps1
+      - scripts/check-state-alignment.ps1
       runtime:
-        - "src/shared/provider_adapter_config.py"
-        - "src/stage9_delivery/**"
-        - "src/api/routes/stage9.py"
-        - "src/api/schemas/stage9.py"
-        - "src/api/projections.py"
-        - "src/api/main.py"
-        - "src/storage/repository_boundary.py"
-        - "src/storage/repository_bundle_io.py"
-        - "src/storage/repositories/order_record_repo.py"
-        - "src/storage/repositories/payment_record_repo.py"
-        - "src/storage/repositories/delivery_record_repo.py"
-        - "src/storage/repositories/stage9_execution_ledger_repo.py"
-        - "src/storage/repositories/provider_adapter_config_repo.py"
+      - src/shared/settings.py
+      - src/api/deps.py
+      - src/api/main.py
+      - src/api/projections.py
+      - src/storage/production_infra_readiness.py
+      - src/storage/production_slo_incident_readiness.py
+      - src/storage/backup_restore.py
+      - src/storage/monitoring_alerting.py
+      - src/storage/repositories/backup_restore_repo.py
+      - src/storage/repositories/monitoring_alerting_repo.py
+      - src/storage/repositories/production_slo_incident_repo.py
       fixtures: []
       tests:
-        - "tests/test_stage9_impact_executor.py"
-        - "tests/test_internal_chain.py"
-        - "tests/test_internal_repository_boundary.py"
-        - "tests/test_api_transport_bootstrap.py"
-        - "tests/test_runtime_governance_guards.py"
-        - "tests/test_product_module_registry.py"
-        - "tests/test_product_acceptance_checklist.py"
-        - "tests/test_external_unlock_prerequisites.py"
+      - tests/test_production_slo_incident_readiness.py
+      - tests/test_storage_concurrency.py
+      - tests/test_api_transport_bootstrap.py
+      - tests/test_runtime_governance_guards.py
+      - tests/test_product_module_registry.py
+      - tests/test_product_acceptance_checklist.py
+      - tests/test_full_product_operational_acceptance.py
+      - tests/test_external_unlock_prerequisites.py
     required_scripts:
-      - "git status --short --untracked-files=all"
-      - "python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v"
-      - "python -m unittest tests.test_internal_chain.TestInternalChain -v"
-      - "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v"
-      - "python -m unittest tests.test_api_transport_bootstrap -v"
-      - "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v"
-      - "python -m unittest tests.test_product_module_registry -v"
-      - "python -m unittest tests.test_product_acceptance_checklist -v"
-      - "python -m unittest tests.test_external_unlock_prerequisites -v"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage9_delivery/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage9.py'',''src/api/schemas/stage9.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/order_record_repo.py'',''src/storage/repositories/payment_record_repo.py'',''src/storage/repositories/delivery_record_repo.py'',''src/storage/repositories/stage9_execution_ledger_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage9_impact_executor.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
-      - "python tests/run_tests.py"
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
-      - "git diff --check"
-      - "git status --short --untracked-files=all"
+    - git status --short --untracked-files=all
+    - python -m unittest tests.test_production_slo_incident_readiness -v
+    - python -m unittest tests.test_storage_concurrency -v
+    - python -m unittest tests.test_api_transport_bootstrap -v
+    - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+    - python -m unittest tests.test_product_module_registry -v
+    - python -m unittest tests.test_product_acceptance_checklist -v
+    - python -m unittest tests.test_full_product_operational_acceptance -v
+    - python -m unittest tests.test_external_unlock_prerequisites -v
+    - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/settings.py'',''src/api/deps.py'',''src/api/main.py'',''src/api/projections.py'',''src/storage/production_infra_readiness.py'',''src/storage/production_slo_incident_readiness.py'',''src/storage/backup_restore.py'',''src/storage/monitoring_alerting.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/backup_restore_repo.py'',''src/storage/repositories/monitoring_alerting_repo.py'',''src/storage/repositories/production_slo_incident_repo.py'',''tests/test_production_slo_incident_readiness.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_external_unlock_prerequisites.py'');
+      & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+    - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+    - python tests/run_tests.py
+    - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
+    - git diff --check
+    - git status --short --untracked-files=all
     script_timeouts:
-      "git status --short --untracked-files=all": 120000
-      "python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v": 300000
-      "python -m unittest tests.test_internal_chain.TestInternalChain -v": 300000
-      "python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v": 300000
-      "python -m unittest tests.test_api_transport_bootstrap -v": 300000
-      "python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v": 300000
-      "python -m unittest tests.test_product_module_registry -v": 300000
-      "python -m unittest tests.test_product_acceptance_checklist -v": 300000
-      "python -m unittest tests.test_external_unlock_prerequisites -v": 300000
-      ? "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/provider_adapter_config.py'',''src/stage9_delivery/**'',''src/api/main.py'',''src/api/projections.py'',''src/api/routes/stage9.py'',''src/api/schemas/stage9.py'',''src/storage/repository_boundary.py'',''src/storage/repository_bundle_io.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/order_record_repo.py'',''src/storage/repositories/payment_record_repo.py'',''src/storage/repositories/delivery_record_repo.py'',''src/storage/repositories/stage9_execution_ledger_repo.py'',''src/storage/repositories/provider_adapter_config_repo.py'',''tests/test_stage9_impact_executor.py'',''tests/test_internal_chain.py'',''tests/test_internal_repository_boundary.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_external_unlock_prerequisites.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      git status --short --untracked-files=all: 120000
+      python -m unittest tests.test_production_slo_incident_readiness -v: 300000
+      python -m unittest tests.test_storage_concurrency -v: 300000
+      python -m unittest tests.test_api_transport_bootstrap -v: 300000
+      python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
+      python -m unittest tests.test_product_module_registry -v: 300000
+      python -m unittest tests.test_product_acceptance_checklist -v: 300000
+      python -m unittest tests.test_full_product_operational_acceptance -v: 300000
+      python -m unittest tests.test_external_unlock_prerequisites -v: 300000
+      ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_acceptance_checklist.yaml'',''control/product_module_registry.yaml'',''src/shared/settings.py'',''src/api/deps.py'',''src/api/main.py'',''src/api/projections.py'',''src/storage/production_infra_readiness.py'',''src/storage/production_slo_incident_readiness.py'',''src/storage/backup_restore.py'',''src/storage/monitoring_alerting.py'',''src/storage/repositories/__init__.py'',''src/storage/repositories/backup_restore_repo.py'',''src/storage/repositories/monitoring_alerting_repo.py'',''src/storage/repositories/production_slo_incident_repo.py'',''tests/test_production_slo_incident_readiness.py'',''tests/test_storage_concurrency.py'',''tests/test_api_transport_bootstrap.py'',''tests/test_runtime_governance_guards.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_external_unlock_prerequisites.py'');
+        & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       : 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1": 300000
-      "python tests/run_tests.py": 900000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1": 300000
-      "git diff --check": 120000
+      pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1: 300000
+      python tests/run_tests.py: 900000
+      pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
+      git diff --check: 120000
     stop_conditions:
-      - "开始前 git status 非干净时立即停止汇报"
-      - "任一 targeted test 或 formal check 失败且不能在本包允许范围内小修"
-      - "实际改动超出 declared_changed_paths / allowed_modification_paths"
-      - "实际改动命中 forbidden_modification_paths"
-      - "需要修改 docs、contracts、handoff、scripts、fixtures 或非 Stage9/允许 API/storage/provider config runtime"
-      - "需要新增正式业务对象、schema、enum、release gate、exception 语义"
-      - "需要真实外部 provider 网络调用、无审批真实扣款、无审批交付、真实退款、external release 或 push"
-      - "需要修改 Stage1-8 runtime"
-      - "需要实现自动退款"
+    - 开始前 git status 非干净时立即停止汇报，但本控制激活提交自身除外
+    - 任一 targeted test 或 formal check 失败且不能在本包允许范围内小修
+    - 实际改动超出 declared_changed_paths / allowed_modification_paths
+    - 实际改动命中 forbidden_modification_paths
+    - 需要修改 docs、contracts、handoff、scripts、fixtures 或非允许 runtime
+    - 需要新增正式业务对象、schema、enum、release gate、exception 语义
+    - 需要真实外部 provider 网络调用、真实告警派发、无审批 docker/compose/container 运行、destructive restore、真实 rollback、incident automation、external
+      release 或 push
+    - 需要修改 Stage1-9 runtime
+    - 需要实现自动退款
     definition_of_done:
-      - "approved payment/delivery carrier 能稳定表达 order_id、payment_id、delivery_id、opportunity_id、provider config/ref、sandbox pass、payment approval、delivery approval、finance review、operator action audit、provider reliability、callback verification、artifact version lock、download auth、settlement/reconciliation、rollback、manual refund exception、replay state。"
-      - "只有 provider config + sandbox pass + payment approval + delivery approval + finance review + operator action audit + provider reliability + callback verification + artifact version lock + download auth + settlement/reconciliation + rollback path 全部满足时，approved payment capture/charge 与 approved delivery fulfillment 才可进入 approved readback。"
-      - "缺审批、缺 audit、sandbox 未通过、provider suspended、callback mismatch、artifact 未锁定、download auth 缺失、settlement/reconciliation mismatch、rollback 缺失均 fail closed。"
-      - "order/payment/delivery/settlement/reconciliation/download audit records 可持久化、hydrate、API readback、repository readback、replay。"
-      - "stale typed refs fail closed，不 broad fallback 到 opportunity_id/project_id/order_id。"
-      - "真实 refund 与自动退款继续 blocked/excluded；退款只允许 manual exception / approval / audit / governed review。"
-      - "targeted tests 与 formal checks 全部通过。"
+    - production live dependency approval carrier 能稳定表达 container/compose runbook、external APM/paging/notification provider、backup
+      restore drill、rollback drill、health/SLO/alert dispatch approval、incident manual execution、owner approval、audit refs、rollback/recovery
+      evidence。
+    - 只有 named owner approval + audit + provider config/readiness + dry-run/sandbox/drill pass + rollback plan + suspension/resume
+      path 全部满足时，相关 production drill 才可进入 approved readback。
+    - 缺审批、缺 audit、provider suspended、SLO/alert threshold 不满足、restore/rollback drill 不安全、incident owner action 缺失均 fail closed。
+    - external release 仍保持 gated；不默认生产上线、不真实派发外部告警、不执行 destructive restore/real rollback/incident automation。
+    - repository/API/bootstrap/readback/replay 均可解释 approved dependency/drill state。
+    - targeted tests 与 formal checks 全部通过。
     deliverables:
-      - "activated 123 current_task packet"
-      - "approved payment capture/charge execution readback path"
-      - "approved delivery fulfillment/download audit readback path"
-      - "callback/receipt/invoice/settlement/reconciliation/rollback readback"
-      - "manual refund exception only; automated refund absent/disabled"
-      - "product acceptance checklist evidence"
+    - activated 126 current_task packet
+    - approved production live dependency runbook/readback path
+    - approved alert dispatch/APM/paging readiness carrier
+    - approved restore/rollback drill readback path
+    - incident manual execution audit/readback
     human_review_required: true
     owner_reviews_required:
-      - "architecture_owner"
-      - "governance_owner"
-      - "model_governance_owner"
-      - "testing_owner"
-      - "automation_owner"
+    - architecture_owner
+    - governance_owner
+    - model_governance_owner
+    - testing_owner
+    - automation_owner
     review_evidence:
       declared: true
       signoff_required: true
-      signoff_status: "APPROVED_FOR_123_APPROVED_PAYMENT_DELIVERY_PROVIDER_EXECUTION_NO_AUTO_REFUND_DEVELOPMENT"
-      signoff_meaning: "本批准只允许开发 approved/gated Stage9 payment capture/charge and delivery fulfillment execution path 和 readback；不批准无审批扣款、无审计交付、真实退款、自动退款、external software release 或 push。"
+      signoff_status: APPROVED_FOR_126_PRODUCTION_LIVE_DEPENDENCY_AND_DRILL_APPROVAL_DEVELOPMENT
+      signoff_meaning: 本批准只允许开发 production live dependency / drill approval readback path；不批准 external release、无审批真实告警派发、destructive
+        restore、真实 rollback、incident automation、真实 provider、触达、支付、交付、退款或 push。
     notes:
-      - "current_task -> product_task_library -> repo_status 是当前 active source 优先级。"
-      - "control/current_task.yaml is the only active execution source."
-      - "123 是产品闭环 blocker B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE 的最小实现包。"
-      - "软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。"
+    - current_task -> product_task_library -> repo_status 是当前 active source 优先级。
+    - control/current_task.yaml is the only active execution source.
+    - 126 是产品闭环 blocker B118_PRODUCTION_LIVE_DEPENDENCIES_READBACK_ONLY 的最小实现包。
+    - 软件由 owner 内部使用；对外卖的是 evidence pack / leadpack，不是软件本体。
   hardBlockers:
-    - "external software release remains blocked"
-    - "unapproved payment capture, live charge, delivery fulfillment, customer download, real refund, and automated refund remain blocked"
-    - "Stage8 outreach and Stage7 customer-visible publication remain out of scope for 123"
+  - external software release remains gated/blocked
+  - unapproved container/compose run, external APM/paging/notification provider dispatch, destructive restore, real rollback,
+    incident automation, real provider call, real outreach, real payment/delivery/refund, and automated refund remain blocked
   allowed_actions:
-    - "允许在 declared_changed_paths / allowed_modification_paths 范围内实现 approved payment/delivery provider execution no-auto-refund path。"
-    - "允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。"
+  - 允许在 declared_changed_paths / allowed_modification_paths 范围内实现 approved production live dependency and drill approval readback
+    path。
+  - 允许 required checks 通过且实际改动仍在允许范围内时执行本地 commit。
   forbidden_actions:
-    - "不得修改 docs、contracts、handoff、scripts、fixtures 或非允许 runtime。"
-    - "不得新增 schema/enum/gate/exception 语义。"
-    - "不得无审批扣款/charge、不得无审计交付、不得真实 refund、不得自动退款执行、不得真实触达、不得 external release。"
-    - "不得 push。"
+  - 不得修改 docs、contracts、handoff、scripts、fixtures 或非允许 runtime。
+  - 不得新增 schema/enum/gate/exception 语义。
+  - 不得真实 external release、不得无审批运行容器/compose、不得真实派发外部告警、不得 destructive restore、不得真实 rollback、不得 incident automation。
+  - 不得真实 provider call、真实触达、真实支付、真实交付、真实退款或自动退款。
+  - 不得 push。
   nextActions:
-    - "当前窗口直接实现 123。"
-    - "完成后由当前窗口验收 diff、补跑必要校验、提交并继续下一包。"
-  status_note: "PTL-I100-123 已激活；当前目标是把 Stage9 payment/delivery live pilot/readback 推进到 approved payment capture/charge 与 delivery fulfillment execution path，退款只保留 manual exception/governed review，自动退款继续 absent/disabled。"
+  - 当前窗口直接实现 126。
+  - 完成后由当前窗口验收 diff、补跑必要校验、提交。
+  status_note: PTL-I100-126 已激活；当前目标是把 production live dependency/readiness 从 readback 推进到审批后可执行演练，external release 与所有真实高风险动作继续
+    gated/blocked。

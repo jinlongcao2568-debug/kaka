@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 2)
+        self.assertEqual(len(non_completed), 1)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -421,12 +421,20 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             task_124["completion_result"],
             "COMPLETED_APPROVED_CUSTOMER_VISIBLE_LEADPACK_DELIVERY_UNLOCK_READBACK",
         )
-        self.assertEqual(task_123["status"], "IN_PROGRESS")
-        self.assertEqual(task_123["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_123["status"], "COMPLETED")
+        self.assertEqual(task_123["planning_state"], "COMPLETED")
+        self.assertEqual(task_123["completed_commit"], "7fb9e13")
+        self.assertEqual(
+            task_123["completion_result"],
+            "COMPLETED_APPROVED_STAGE9_PAYMENT_DELIVERY_PROVIDER_EXECUTION_READBACK_NO_AUTO_REFUND",
+        )
         self.assertEqual(
             task_123["runtime_change_in_packet"],
             "IN_SCOPE_WHEN_ACTIVATED",
         )
+        task_126 = self.tasks_by_id["PTL-I100-126-production-live-dependency-and-drill-approval"]
+        self.assertEqual(task_126["status"], "IN_PROGRESS")
+        self.assertEqual(task_126["planning_state"], "ACTIVE_BY_CURRENT_TASK")
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]
         }
