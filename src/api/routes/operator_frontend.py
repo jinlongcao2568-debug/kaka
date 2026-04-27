@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi.responses import HTMLResponse
 
-from api.projections import register_route_table
+from api.projections import build_customer_artifact_access_candidate_surface, register_route_table
 
 
 OPERATOR_FRONTEND_ROUTE_METADATA = {
@@ -27,7 +27,11 @@ OPERATOR_FRONTEND_ROUTE_METADATA = {
     "stage9_real_payment_delivery_refund_enabled": False,
     "automated_refund_enabled": False,
     "owner_operable_frontend": True,
+    "productized_owner_workbench": True,
+    "stage1_to_stage9_operations_board": True,
+    "business_closure_dashboard": True,
     "customer_artifact_portal": True,
+    "customer_artifact_empty_state": True,
     "download_auth_required": True,
     "field_allowlist_masking_required": True,
     "approval_audit_readback_required": True,
@@ -41,6 +45,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
   <title>{escape(title)}</title>
   <style>
     :root {{
@@ -177,6 +182,47 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
     }}
     .pill.warn {{ background: #fff2df; color: var(--warn); }}
     .pill.danger {{ background: #fdecec; color: var(--danger); }}
+    .stage-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }}
+    .stage-card {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+      min-height: 108px;
+    }}
+    .stage-card strong {{
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }}
+    .stage-card p {{
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }}
+    .workflow {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }}
+    .workflow div {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+    }}
+    .empty-state {{
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 16px;
+      color: var(--muted);
+    }}
     pre {{
       overflow: auto;
       max-height: 260px;
@@ -199,7 +245,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
     @media (max-width: 840px) {{
       .layout {{ grid-template-columns: 1fr; }}
       nav {{ position: static; }}
-      .grid, .rail {{ grid-template-columns: 1fr; }}
+      .grid, .rail, .stage-grid, .workflow {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px; }}
       .topbar {{ display: block; }}
     }}
@@ -222,7 +268,9 @@ def render_operator_console(payload: Any) -> HTMLResponse:
 <div class="layout">
   <nav aria-label="Owner console navigation">
     <h1>AX9S Owner Console</h1>
+    <a href="#overview">Stage1-9 运营总览</a>
     <a href="#run">全链路运行</a>
+    <a href="#business">业务闭环</a>
     <a href="#workbench">Stage6-9 工作台</a>
     <a href="#providers">Provider 状态</a>
     <a href="#audit">审批审计</a>
@@ -232,7 +280,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <div class="topbar">
       <div>
         <h2>证据包运营操作台</h2>
-        <p>任务创建、项目导入、运行状态、客户授权与审计读回集中在同一入口。</p>
+        <p>任务创建、项目导入、Stage1-9 运营、销售闭环、客户交付、支付交付、审计回写集中在同一入口。</p>
       </div>
       <div class="status" id="summary">正在读取 bootstrap / readiness...</div>
     </div>
@@ -242,6 +290,29 @@ def render_operator_console(payload: Any) -> HTMLResponse:
       <div class="metric"><strong id="scheduler">--</strong><span>queue readiness</span></div>
     </div>
     <div class="grid">
+      <section class="wide" id="overview">
+        <h3>Stage1-9 运营总览</h3>
+        <div class="stage-grid" id="stageBoard">
+          <div class="stage-card"><strong>Stage1 调度</strong><p>任务、窗口、队列、暂停恢复。</p><span class="pill">internal</span></div>
+          <div class="stage-card"><strong>Stage2 公开源</strong><p>公开 source adapter、snapshot、hash、lineage。</p><span class="pill">public-only</span></div>
+          <div class="stage-card"><strong>Stage3 解析</strong><p>HTML/PDF/OCR/附件字段候选与复核。</p><span class="pill">unverified</span></div>
+          <div class="stage-card"><strong>Stage4 核验</strong><p>公开核验、证据等级、fail closed。</p><span class="pill">public verification</span></div>
+          <div class="stage-card"><strong>Stage5 规则</strong><p>规则目录、golden cases、证据绑定。</p><span class="pill">rule factory</span></div>
+          <div class="stage-card"><strong>Stage6 产品包</strong><p>异议价值、可售判断、交付 readiness。</p><span class="pill">product package</span></div>
+          <div class="stage-card"><strong>Stage7 销售</strong><p>真实竞争者、buyer fit、CRM/报价。</p><span class="pill">sales loop</span></div>
+          <div class="stage-card"><strong>Stage8 触达</strong><p>模板、频控、退订、provider execution readback。</p><span class="pill warn">gated</span></div>
+          <div class="stage-card"><strong>Stage9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">no auto refund</span></div>
+        </div>
+      </section>
+      <section class="wide" id="business">
+        <h3>业务闭环</h3>
+        <div class="workflow">
+          <div><strong>证据链</strong><p>source -> parser -> verification -> rules -> Stage6 package。</p></div>
+          <div><strong>销售闭环</strong><p>real challenger -> buyer fit -> CRM/quote -> outreach。</p></div>
+          <div><strong>客户交付</strong><p>allowlist、masking、水印、version hash、download auth、audit。</p></div>
+          <div><strong>支付交付</strong><p>order、payment、receipt、invoice、settlement、delivery、rollback。</p></div>
+        </div>
+      </section>
       <section id="run">
         <h3>任务创建</h3>
         <label for="taskId">Task ID</label>
@@ -261,6 +332,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
       <section id="workbench">
         <h3>Stage6-9 工作台</h3>
         <div id="workbenchStatus"></div>
+        <p>这里是后端 Stage6-9 readback 的工作台入口，不会直接执行 live provider。</p>
         <button id="refreshWorkbench">刷新工作台读回</button>
       </section>
       <section id="providers">
@@ -278,6 +350,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         <p>本页面不执行 public software release、真实触达、真实支付、真实交付、真实退款或自动退款。</p>
         <span class="pill danger">external release blocked</span>
         <span class="pill danger">auto refund excluded</span>
+        <span class="pill danger">real customer download blocked by default</span>
         <span class="pill warn">customer access gated</span>
       </section>
       <section class="wide">
@@ -406,9 +479,12 @@ const opportunityId = {opportunity_id!r};
 const out = (value) => {{ document.getElementById("output").textContent = JSON.stringify(value, null, 2); }};
 function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{text}}</span>`; }}
 async function loadPortal() {{
-  const response = await fetch(`/customer-artifact-access-candidates/${{encodeURIComponent(opportunityId)}}`);
+  const response = await fetch(`/customer-artifact-portal-readback/${{encodeURIComponent(opportunityId)}}`);
   const payload = await response.json();
-  if (!response.ok) {{ throw payload; }}
+  if (!response.ok || payload.empty_state) {{
+    renderMissingArtifact(payload);
+    return;
+  }}
   document.getElementById("portalSummary").textContent =
     payload.release_blocked ? "Artifact is gated by approval, account access, download auth, and audit." : "Approved customer-visible readback is available.";
   document.getElementById("artifactState").innerHTML = [
@@ -433,9 +509,51 @@ async function loadPortal() {{
   ].join("");
   out(payload);
 }}
-loadPortal().catch(out);
+function renderMissingArtifact(payload) {{
+  document.getElementById("portalSummary").textContent =
+    "暂无 artifact readback：请先在 Owner Console 完成项目导入、Stage7/LeadPack 生成和审批审计。";
+  document.getElementById("artifactState").innerHTML =
+    `<div class="empty-state"><strong>暂无客户 artifact</strong><p>当前 opportunity 还没有可回放的客户交付候选。系统保持 download auth、field allowlist、masking 和审批审计门禁关闭。</p></div>`;
+  document.getElementById("accessState").innerHTML = [
+    badge("account access required", "warn"),
+    badge("download auth required", "warn"),
+    badge("real download not executed", "warn")
+  ].join("");
+  document.getElementById("fieldState").innerHTML = [
+    badge("allowlist enforced"),
+    badge("masking required"),
+    badge("internal blackbox hidden")
+  ].join("");
+  document.getElementById("auditState").innerHTML = [
+    badge("approval required"),
+    badge("audit required"),
+    badge("customer-visible release blocked", "danger")
+  ].join("");
+  out({{ empty_state: true, opportunity_id: opportunityId, readback_error: payload }});
+}}
+loadPortal().catch(renderMissingArtifact);
 """
     return _page("AX9S Customer Artifact Portal", body, script)
+
+
+def render_customer_artifact_portal_readback(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return build_customer_artifact_access_candidate_surface(payload)
+    except (TypeError, ValueError) as exc:
+        return {
+            "empty_state": True,
+            "opportunity_id": str(payload.get("opportunity_id") or ""),
+            "readback_error": {"detail": str(exc)},
+            "customer_visible_export_enabled": False,
+            "external_release_enabled": False,
+            "download_auth": {"customer_download_enabled": False, "auth_required": True},
+            "field_allowlist_masking": {
+                "allowlist_enforced": True,
+                "masking_required": True,
+                "internal_blackbox_fields_exposed": False,
+            },
+            "blocked_reasons": ["stage7_artifact_readback_missing"],
+        }
 
 
 OPERATOR_FRONTEND_ROUTES = [
@@ -460,6 +578,16 @@ OPERATOR_FRONTEND_ROUTES = [
         "repository_backed_readback": True,
         **OPERATOR_FRONTEND_ROUTE_METADATA,
     },
+    {
+        "operationId": "renderCustomerArtifactPortalReadback",
+        "method": "GET",
+        "path": "/customer-artifact-portal-readback/{opportunity_id}",
+        "handler": render_customer_artifact_portal_readback,
+        "customer_artifact_portal_frontend_readback": True,
+        "customer_artifact_empty_state": True,
+        "repository_backed_readback": True,
+        **OPERATOR_FRONTEND_ROUTE_METADATA,
+    },
 ]
 
 
@@ -471,5 +599,6 @@ __all__ = [
     "OPERATOR_FRONTEND_ROUTES",
     "register_operator_frontend_routes",
     "render_customer_artifact_portal",
+    "render_customer_artifact_portal_readback",
     "render_operator_console",
 ]

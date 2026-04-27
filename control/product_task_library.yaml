@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
-  packet_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
-  title: "Product mainline controlled real-world e2e closeout completed"
+  task_id: PTL-I100-132-owner-operator-frontend-productization-workbench
+  packet_id: PTL-I100-132-owner-operator-frontend-productization-workbench
+  title: "Owner operator frontend productization workbench completed"
   planning_state: COMPLETED
-  runtime_change_in_packet: OUT_OF_SCOPE_AFTER_COMPLETION
-  runtime_notes: "PTL-I100-127 through PTL-I100-131 are completed. 131 closes the remaining B118R real-world e2e pilot gap for owner-operated controlled use; no public software release, no unapproved live provider execution, and no automated refund execution are enabled."
+  runtime_change_in_packet: IN_SCOPE_AFTER_COMPLETION
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 132 upgrades the owner/customer frontend into a productized workbench for controlled owner-operated use; no public software release, no unapproved live provider execution, and no automated refund execution are enabled."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 59
+task_count: 60
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2342,9 +2342,60 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
     suggested_packet_refs: [PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout]
     risk_level: CRITICAL
-    completed_commit: pending
+    completed_commit: 106c4a1
     completion_result: "COMPLETED_CONTROLLED_REAL_WORLD_E2E_CLOSEOUT_OWNER_OPERABLE_NO_AUTO_REFUND"
     completion_notes:
       - "131 adds a controlled real-world e2e pilot report and closeout tests over the existing 127-130 surfaces."
       - "The closeout is for owner-operated controlled use, not public software release or ungated provider live execution."
       - "Automated refund execution remains excluded; refund stays manual exception / governed review only."
+  - task_id: PTL-I100-132-owner-operator-frontend-productization-workbench
+    title: "I100-32 Owner operator frontend productization workbench"
+    program_ref: PTL-I100-internal-operable-productization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [api_transport, frontend, owner_operator_workbench, customer_access, product_acceptance]
+    task_type: frontend_productization_workbench
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
+    priority: P34
+    existing_code_state: BASIC_OWNER_CUSTOMER_FRONTEND_PRESENT
+    existing_runtime_state: BACKEND_PRODUCTIZATION_COMPLETE_OWNER_FRONTEND_NEEDS_WORKBENCH_HARDENING
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Created after 131 when frontend inspection showed basic entry pages existed but were not yet a productized owner workbench matching the backend product closure. Requires dedicated current_task activation; does not change Stage1-9 runtime."
+    hard_depends_on:
+      - PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+      - PTL-I100-127-owner-operator-frontend-and-customer-portal
+    objective: "把 127 的基础 Owner Console / Customer Artifact Portal 升级为产品化工作台：Stage1-9 运营总览、证据链、销售闭环、客户交付、支付交付、provider/scheduler/audit/readback、客户 portal 空状态和红线都可直接观察。"
+    capability_gaps_covered:
+      - owner_operator_frontend_productized_workbench
+      - stage1_to_stage9_operational_visibility_ui
+      - evidence_sales_delivery_payment_audit_dashboard
+      - customer_artifact_portal_empty_state
+      - provider_scheduler_audit_redline_visibility
+      - frontend_backend_readback_alignment
+    non_goals:
+      - "不新增第二套前端框架"
+      - "不 public software release"
+      - "不执行真实触达、真实 CRM sync、真实 quote send、真实支付、真实交付、真实下载、真实退款或自动退款"
+      - "不暴露 internal blackbox score、未复核推断、private/gray 数据或未审批材料"
+    expected_outputs:
+      - "productized owner workbench HTML"
+      - "stage1_to_stage9 operations board"
+      - "customer portal empty-state readback"
+      - "frontend smoke tests"
+    acceptance_checks:
+      - owner_console_shows_stage1_to_stage9_business_workbench
+      - customer_artifact_portal_has_gated_readback_and_empty_state
+      - provider_scheduler_audit_redlines_visible
+      - no_public_software_release_default
+      - no_live_provider_payment_delivery_refund_default
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-132-owner-operator-frontend-productization-workbench
+    suggested_packet_refs: [PTL-I100-132-owner-operator-frontend-productization-workbench]
+    risk_level: HIGH
+    completed_commit: 1996cdd
+    capability_state_after: PRODUCTION_READY
+    completion_result: "COMPLETED_OWNER_OPERATOR_FRONTEND_PRODUCTIZATION_WORKBENCH"
+    completion_notes:
+      - "132 productizes the existing FastAPI server-rendered frontend rather than adding a separate SPA framework."
+      - "The owner console now presents backend product closure as observable business workflow surfaces."
+      - "The customer portal must fail gracefully when no artifact readback exists, while keeping access/download/customer-visible redlines closed."

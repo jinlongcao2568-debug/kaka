@@ -578,6 +578,34 @@ tasks:
       closeout_recommendation: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
       report_ref: control/controlled_real_world_e2e_pilot_report.yaml
       remaining_product_blockers: []
+  PTL-I100-132-owner-operator-frontend-productization-workbench:
+    target_capability_state: PRODUCTION_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "owner console 必须展示 Stage1-9 运营总览、证据链、销售闭环、客户交付、支付交付、provider/scheduler/audit/readback 和红线，不要求 owner 直接记 raw API。"
+      - "customer artifact portal 在已有 artifact readback 时必须展示访问控制、字段策略、download auth、download audit；在无 readback 时必须显示可理解空状态而不是浏览器错误。"
+      - "前端不得把 internal blackbox score、未复核推断、private/gray 数据、未审批材料、真实下载链接或 live execution 表达成已开放。"
+    targeted_test_expectations:
+      - frontend_operator_productized_workbench
+      - customer_artifact_portal_empty_state
+      - api_transport_bootstrap
+      - runtime_governance_guards
+    redline_checks:
+      - no_public_software_release_default
+      - no_unapproved_live_provider_execution
+      - no_real_payment_delivery_refund_default
+      - customer_access_requires_approval_audit
+      - field_allowlist_and_masking_enforced
+    current_132_frontend_result:
+      acceptance_result: OWNER_FRONTEND_PRODUCTIZED
+      engineering_regression_result: PASS_REQUIRED_BY_132_CHECKS
+      capability_state_result: VERIFIED_OWNER_OPERABLE_FRONTEND_PRODUCTION_READY
+      product_closure_result: CONTROLLED_FRONTEND_ALIGNED_WITH_BACKEND
+      owner_console_productized: true
+      customer_portal_empty_state_supported: true
+      public_software_release_enabled: false
+      live_execution_enabled_by_frontend: false
+      automated_refund_execution_enabled: false
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

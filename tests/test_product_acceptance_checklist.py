@@ -231,6 +231,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         ]
         task_124 = self.tasks_by_id["PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock"]
         task_125 = self.tasks_by_id["PTL-I100-125-approved-crm-quote-provider-execution"]
+        task_132 = self.tasks_by_id["PTL-I100-132-owner-operator-frontend-productization-workbench"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -544,6 +545,19 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 "PTL-I100-112F-monitoring-alerting-readiness",
             ],
         )
+        self.assertEqual(task_132["status"], "COMPLETED")
+        self.assertEqual(task_132["planning_state"], "COMPLETED")
+        self.assertEqual(task_132["capability_state_after"], "PRODUCTION_READY")
+        self.assertEqual(
+            task_132["completion_result"],
+            "COMPLETED_OWNER_OPERATOR_FRONTEND_PRODUCTIZATION_WORKBENCH",
+        )
+        checklist_132 = self.checklist["tasks"][
+            "PTL-I100-132-owner-operator-frontend-productization-workbench"
+        ]
+        self.assertTrue(checklist_132["current_132_frontend_result"]["owner_console_productized"])
+        self.assertTrue(checklist_132["current_132_frontend_result"]["customer_portal_empty_state_supported"])
+        self.assertFalse(checklist_132["current_132_frontend_result"]["live_execution_enabled_by_frontend"])
 
     def test_final_gate_requires_product_closure_not_just_tests(self) -> None:
         final_entry = self.checklist["tasks"]["PTL-I100-118-full-product-operational-acceptance"]
@@ -577,6 +591,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+            "PTL-I100-132-owner-operator-frontend-productization-workbench",
         }
         self.assertTrue(expected.issubset(self.tasks_by_id))
         self.assertEqual(
@@ -597,6 +612,10 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         )
         self.assertEqual(
             self.tasks_by_id["PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout"]["status"],
+            "COMPLETED",
+        )
+        self.assertEqual(
+            self.tasks_by_id["PTL-I100-132-owner-operator-frontend-productization-workbench"]["status"],
             "COMPLETED",
         )
         self.assertFalse(
@@ -621,6 +640,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         )
         self.assertFalse(
             self.tasks_by_id["PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout"][
+                "is_current_mainline_next_candidate"
+            ]
+        )
+        self.assertFalse(
+            self.tasks_by_id["PTL-I100-132-owner-operator-frontend-productization-workbench"][
                 "is_current_mainline_next_candidate"
             ]
         )

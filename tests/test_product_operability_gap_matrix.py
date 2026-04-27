@@ -263,6 +263,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+            "PTL-I100-132-owner-operator-frontend-productization-workbench",
         ):
             self.assertTrue(tasks_by_id[task_id]["capability_gaps_covered"], task_id)
 
@@ -471,6 +472,19 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(
             self.matrix["final_131_controlled_real_world_e2e_closeout"]["remaining_product_blockers"],
             [],
+        )
+        final_132 = self.matrix["final_132_frontend_productization_workbench"]
+        self.assertEqual(
+            final_132["packet_ref"],
+            "PTL-I100-132-owner-operator-frontend-productization-workbench",
+        )
+        self.assertEqual(final_132["acceptance_result"], "OWNER_FRONTEND_PRODUCTIZED")
+        self.assertTrue(final_132["owner_can_observe_product_loop_without_raw_api_calls"])
+        self.assertTrue(final_132["customer_portal_handles_missing_artifact_readback"])
+        self.assertFalse(final_132["live_execution_enabled_by_frontend"])
+        self.assertIn(
+            "stage1_to_stage9_operations_board",
+            final_132["frontend_surfaces"],
         )
         self.assertNotIn("B118R_REAL_PROVIDER_BINDING_NOT_DONE", gaps)
         self.assertNotIn("B118R_LLM_ASSIST_NOT_PRODUCTIZED", gaps)

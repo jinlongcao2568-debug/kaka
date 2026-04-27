@@ -96,7 +96,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         )
 
-    def test_task_pool_marks_127_through_131_completed_without_auto_next(self) -> None:
+    def test_task_pool_marks_127_through_132_completed_without_auto_next(self) -> None:
         tasks = {entry["task_id"]: entry for entry in self.task_library["tasks"]}
         for task_id in (
             "PTL-I100-127-owner-operator-frontend-and-customer-portal",
@@ -104,6 +104,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
             "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+            "PTL-I100-132-owner-operator-frontend-productization-workbench",
         ):
             with self.subTest(task=task_id):
                 self.assertEqual(tasks[task_id]["status"], "COMPLETED")
@@ -111,7 +112,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
                 self.assertFalse(tasks[task_id]["is_current_mainline_next_candidate"])
 
         candidate = self.task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["task_id"], "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout")
+        self.assertEqual(candidate["task_id"], "PTL-I100-132-owner-operator-frontend-productization-workbench")
         self.assertEqual(candidate["planning_state"], "COMPLETED")
         self.assertIn("no unapproved live provider execution", candidate["runtime_notes"])
 

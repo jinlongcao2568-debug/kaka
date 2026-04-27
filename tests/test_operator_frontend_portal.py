@@ -17,6 +17,7 @@ for search_path in (SRC, TESTS):
 
 from api.deps import get_settings
 from api.main import create_app
+from api.routes.operator_frontend import OPERATOR_FRONTEND_ROUTES
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
 from storage import persist_stage_bundle, reset_default_storage
@@ -36,7 +37,24 @@ class TestOperatorFrontendPortal(unittest.TestCase):
 
         self.assertEqual(
             set(app.state.operator_frontend_operations),
-            {"renderOwnerOperatorConsole", "renderCustomerArtifactPortal"},
+            {
+                "renderOwnerOperatorConsole",
+                "renderCustomerArtifactPortal",
+                "renderCustomerArtifactPortalReadback",
+            },
+        )
+        route_metadata = {
+            route["operationId"]: route
+            for route in OPERATOR_FRONTEND_ROUTES
+        }
+        self.assertTrue(route_metadata["renderOwnerOperatorConsole"]["productized_owner_workbench"])
+        self.assertTrue(route_metadata["renderOwnerOperatorConsole"]["stage1_to_stage9_operations_board"])
+        self.assertTrue(route_metadata["renderOwnerOperatorConsole"]["business_closure_dashboard"])
+        self.assertTrue(route_metadata["renderCustomerArtifactPortal"]["customer_artifact_empty_state"])
+        self.assertTrue(
+            route_metadata["renderCustomerArtifactPortalReadback"][
+                "customer_artifact_portal_frontend_readback"
+            ]
         )
         bootstrap = app.state.transport_bootstrap
         frontend_ops = {
@@ -71,6 +89,21 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         for expected in (
             "AX9S Owner Console",
             "证据包运营操作台",
+            "Stage1-9 运营总览",
+            "Stage1 调度",
+            "Stage2 公开源",
+            "Stage3 解析",
+            "Stage4 核验",
+            "Stage5 规则",
+            "Stage6 产品包",
+            "Stage7 销售",
+            "Stage8 触达",
+            "Stage9 支付交付",
+            "业务闭环",
+            "证据链",
+            "销售闭环",
+            "客户交付",
+            "支付交付",
             "任务创建",
             "全链路运行入口",
             "Stage6-9 工作台",
@@ -83,6 +116,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "/go-live/readiness",
             "external release blocked",
             "auto refund excluded",
+            "real customer download blocked by default",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("public software release enabled", html)
@@ -135,9 +169,13 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "allowlist enforced",
             "masking required",
             "real download not executed",
+            "/customer-artifact-portal-readback/",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
+        self.assertIn("暂无 artifact readback", html)
+        self.assertIn("暂无客户 artifact", html)
+        self.assertIn("renderMissingArtifact", html)
 
         candidate_response = client.request(
             "GET",
@@ -152,6 +190,38 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertFalse(candidate["field_allowlist_masking"]["internal_blackbox_fields_exposed"])
         self.assertFalse(candidate["external_release_enabled"])
         self.assertFalse(candidate["public_software_release"])
+
+    def test_customer_artifact_portal_exposes_empty_state_for_missing_readback(self) -> None:
+        client = TestClient(create_app())
+        page_response = client.request("GET", "/customer-artifact-portal/OPP-MISSING-UI-001")
+
+        self.assertEqual(page_response.status_code, 200)
+        html = page_response.text
+        for expected in (
+            "暂无 artifact readback",
+            "暂无客户 artifact",
+            "请先在 Owner Console 完成项目导入",
+            "real download not executed",
+            "customer-visible release blocked",
+            "internal blackbox hidden",
+        ):
+            self.assertIn(expected, html)
+
+        candidate_response = client.request(
+            "GET",
+            "/customer-artifact-access-candidates/OPP-MISSING-UI-001",
+        )
+        self.assertEqual(candidate_response.status_code, 400)
+
+        portal_readback_response = client.request(
+            "GET",
+            "/customer-artifact-portal-readback/OPP-MISSING-UI-001",
+        )
+        self.assertEqual(portal_readback_response.status_code, 200)
+        portal_readback = portal_readback_response.json()
+        self.assertTrue(portal_readback["empty_state"])
+        self.assertFalse(portal_readback["external_release_enabled"])
+        self.assertFalse(portal_readback["download_auth"]["customer_download_enabled"])
 
 
 if __name__ == "__main__":

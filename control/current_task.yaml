@@ -1,16 +1,15 @@
 version: 1
 templateState: NAMED_ASSIGNED
 single_operator_mode: true
-updated_at: '2026-04-27'
+updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_131_CONTROLLED_REAL_WORLD_E2E_PILOT_CLOSEOUT
+navigation_state: PTL_I100_132_FRONTEND_PRODUCTIZATION_WORKBENCH
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-130 completed locally as 5c52cd0; 131 is now activated to close the remaining B118R controlled
-  real-world e2e pilot gap. current_task -> product_task_library -> repo_status remains the active-source priority.
+activation_condition: PTL-I100-131 completed locally as 106c4a1; user requested frontend productization before final practical validation.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -18,25 +17,25 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
-  title: I100-31 Controlled real-world end-to-end pilot and closeout
+  task_id: PTL-I100-132-owner-operator-frontend-productization-workbench
+  title: I100-32 Owner operator frontend productization workbench
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
   linked_docs:
-  - AGENTS.md
-  - README.md
-  - ARCHITECTURE_NOTE.md
-  - docs/L0.md
-  - docs/AX9S_开发执行路由图.md
-  - control/current_task.yaml
-  - control/product_task_library.yaml
-  - control/product_acceptance_checklist.yaml
-  - control/product_operability_gap_matrix.yaml
-  - control/repo_status.md
+    - AGENTS.md
+    - README.md
+    - ARCHITECTURE_NOTE.md
+    - docs/L0.md
+    - docs/AX9S_开发执行路由图.md
+    - control/current_task.yaml
+    - control/product_task_library.yaml
+    - control/product_acceptance_checklist.yaml
+    - control/product_operability_gap_matrix.yaml
+    - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
-  objective: 用受控真实样本和已完成的 127-130 能力完成 owner-operated 端到端试点 closeout：公开来源到客户 evidence/lead pack、CRM/报价、触达、支付交付、审计回写全链路可验；自动退款仍排除。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-132-owner-operator-frontend-productization-workbench
+  objective: 把 127 的基础前端入口升级为 owner 可观察、可操作、可解释的产品化工作台：Stage1-9 运营总览、业务闭环状态、provider/scheduler/audit/readback、客户门户空状态与红线都必须在页面中清楚呈现。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -56,41 +55,37 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
-    subpacket_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
-    backlog_packet_ref: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+    packet_id: PTL-I100-132-owner-operator-frontend-productization-workbench
+    subpacket_id: PTL-I100-132-owner-operator-frontend-productization-workbench
+    backlog_packet_ref: PTL-I100-132-owner-operator-frontend-productization-workbench
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
-    runtime_change_in_packet: OUT_OF_SCOPE
-    existing_code_state: POST_127_130_READY_FOR_CONTROLLED_E2E_CLOSEOUT
-    existing_runtime_state: RUNTIME_UNCHANGED_FOR_131
-    title: I100-31 Controlled real-world end-to-end pilot and closeout
+    runtime_change_in_packet: IN_SCOPE
+    existing_code_state: BASIC_OWNER_CUSTOMER_FRONTEND_PRESENT
+    existing_runtime_state: BACKEND_PRODUCTIZATION_COMPLETE_OWNER_FRONTEND_NEEDS_WORKBENCH_HARDENING
+    title: I100-32 Owner operator frontend productization workbench
     status: ACTIVE
-    objective: 生成并验收受控真实世界 e2e 试点报告，证明 127-130 后 owner 可完成 source -> parser -> verification -> rules -> product package ->
-      challenger -> CRM/quote -> outreach -> payment -> delivery -> audit/writeback 的闭环；不改 runtime，不放开 public release，不实现自动退款。
+    objective: 产品化现有 FastAPI server-rendered frontend，不新增第二套前端框架；让 owner console 清楚显示全链路运营、销售、客户交付、支付交付、provider、调度、审计与红线；客户 portal 在无 artifact readback 时必须显示可理解空状态而不是浏览器错误。
     depends_on:
-    - PTL-I100-127 completed locally as ab1fd01.
-    - PTL-I100-128 completed locally as 595cd1d.
-    - PTL-I100-129 completed locally as 5ddd321.
-    - PTL-I100-130 completed locally as 5c52cd0.
-    - current_task -> product_task_library -> repo_status is the active-source priority.
+      - PTL-I100-131 completed locally as 106c4a1.
+      - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
-      target_active_packet: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+      previous_active_packet: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+      target_active_packet: PTL-I100-132-owner-operator-frontend-productization-workbench
       parent_packet: PTL-I100-internal-operable-productization
       product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: governed_model_assist
+      active_packet_kind: frontend_productization
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
-      runtime_change: false
-      runtime_change_in_packet: OUT_OF_SCOPE
+      runtime_change: true
+      runtime_change_in_packet: IN_SCOPE
       docs_change: true
       contracts_change: false
       handoff_change: false
@@ -107,167 +102,154 @@ currentTask:
       current_mainline_next_candidate_change: true
       push_allowed: false
     non_goals:
-    - not an external unlock implementation
-    - not an external model provider implementation
-    - not an external software release
-    - 不改变 canonical readiness
-    - 不放开 external software release
-    - 不无审批/无审计发送
-    - 不绕过 provider config / sandbox / approval / audit / operator action
-    - 不调用真实模型 provider
-    - 不把模型输出写 formal fact
-    - 不把模型输出直接作为客户结论
-    - 不绕过人工复核、来源定位、证据等级和模型治理审计
-    - 不把 private/gray/non-public 数据送入模型
-    - 不暴露内部黑箱评分给客户
-    - 不改 D1-D14 正文
-    - 不修改 contracts、handoff、scripts、fixtures
-    - 不新增业务对象、枚举、gate、exception 语义
-    - 不新增正式业务对象、枚举、gate、exception 语义
-    - 不 push
+      - not an external unlock implementation
+      - 不改变 canonical readiness
+      - 不放开 external software release
+      - 不无审批/无审计发送
+      - 不绕过 provider config / sandbox / approval / audit / operator action
+      - 不新增业务对象、枚举、gate、exception 语义
+      - 不新增 React/Vue/Next 等第二套前端框架
+      - 不新增 public software release
+      - 不绕过 provider config / sandbox / approval / audit / operator action
+      - 不执行真实触达、真实 CRM sync、真实 quote send、真实支付、真实交付、真实客户下载、真实退款或自动退款
+      - 不把 internal blackbox score、未复核推断、private/gray 数据暴露给客户
+      - 不改 D1-D14 正文
+      - 不修改 contracts、handoff、scripts、fixtures
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - 不 push
     affected_stages:
-    - stage1_to_stage9
-    - product_acceptance
-    - owner_operator_workflow
-    - customer_artifact_delivery
-    - governance_testing
-    risk_level: CRITICAL
+      - api_transport
+      - owner_operator_frontend
+      - customer_artifact_portal
+      - product_acceptance
+    risk_level: HIGH
     change_class: MANDATORY_HUMAN_REVIEW
     human_review_required: true
     owner_reviews_required:
-    - architecture_owner
-    - governance_owner
-    - model_governance_owner
-    - testing_owner
-    - automation_owner
+      - architecture_owner
+      - governance_owner
+      - automation_owner
+      - product_owner
+      - testing_owner
     change_domains:
-    - automation_control_core
-    - product_acceptance_core
-    - governance_release_core
-    - scripts_and_tests_general
-    - machine_assets_general
+      - automation_control_core
+      - api_transport_foundation
+      - internal_preview
+      - product_acceptance_core
+      - scripts_and_tests_general
+      - machine_assets_general
     reviews:
-    - architecture_owner
-    - governance_owner
-    - testing_owner
-    - automation_owner
-    - product_owner
+      - architecture_owner
+      - governance_owner
+      - automation_owner
+      - product_owner
+      - testing_owner
     baseline_dirty_paths: []
     declared_changed_paths:
-    - control/current_task.yaml
-    - control/repo_status.md
-    - control/product_task_library.yaml
-    - control/product_operability_gap_matrix.yaml
-    - control/product_acceptance_checklist.yaml
-    - control/controlled_real_world_e2e_pilot_report.yaml
-    - docs/AX9S_开发执行路由图.md
-    - tests/test_controlled_real_world_e2e_closeout.py
-    - tests/test_product_acceptance_checklist.py
-    - tests/test_product_operability_gap_matrix.py
-    - tests/test_full_product_operational_acceptance.py
-    - tests/test_stage12_extractors.py
-    allowed_modification_paths:
-    - control/current_task.yaml
-    - control/repo_status.md
-    - control/product_task_library.yaml
-    - control/product_operability_gap_matrix.yaml
-    - control/product_acceptance_checklist.yaml
-    - control/controlled_real_world_e2e_pilot_report.yaml
-    - docs/AX9S_开发执行路由图.md
-    - tests/test_controlled_real_world_e2e_closeout.py
-    - tests/test_product_acceptance_checklist.py
-    - tests/test_product_operability_gap_matrix.py
-    - tests/test_full_product_operational_acceptance.py
-    - tests/test_stage12_extractors.py
-    forbidden_modification_paths:
-    - docs/D*.md
-    - docs/L0.md
-    - docs/裁决总表.md
-    - contracts/**
-    - handoff/**
-    - scripts/**
-    - fixtures/**
-    - migrations/**
-    - alembic.ini
-    - .dockerignore
-    - Dockerfile
-    - docker-compose.yml
-    - src/**
-    impacted_assets:
-      docs:
-      - docs/AX9S_开发执行路由图.md
-      control:
       - control/current_task.yaml
       - control/repo_status.md
       - control/product_task_library.yaml
       - control/product_operability_gap_matrix.yaml
       - control/product_acceptance_checklist.yaml
-      - control/controlled_real_world_e2e_pilot_report.yaml
+      - docs/AX9S_开发执行路由图.md
+      - src/api/routes/operator_frontend.py
+      - tests/test_operator_frontend_portal.py
+      - tests/test_product_acceptance_checklist.py
+      - tests/test_product_operability_gap_matrix.py
+      - tests/test_controlled_real_world_e2e_closeout.py
+      - tests/test_stage12_extractors.py
+    allowed_modification_paths:
+      - control/current_task.yaml
+      - control/repo_status.md
+      - control/product_task_library.yaml
+      - control/product_operability_gap_matrix.yaml
+      - control/product_acceptance_checklist.yaml
+      - docs/AX9S_开发执行路由图.md
+      - src/api/routes/operator_frontend.py
+      - tests/test_operator_frontend_portal.py
+      - tests/test_product_acceptance_checklist.py
+      - tests/test_product_operability_gap_matrix.py
+      - tests/test_controlled_real_world_e2e_closeout.py
+      - tests/test_stage12_extractors.py
+    forbidden_modification_paths:
+      - docs/D*.md
+      - docs/L0.md
+      - docs/裁决总表.md
+      - contracts/**
+      - handoff/**
+      - scripts/**
+      - fixtures/**
+      - migrations/**
+      - alembic.ini
+      - .dockerignore
+      - Dockerfile
+      - docker-compose.yml
+      - src/stage*
+      - src/storage/**
+      - src/shared/**
+    impacted_assets:
+      docs:
+        - docs/AX9S_开发执行路由图.md
+      control:
+        - control/current_task.yaml
+        - control/repo_status.md
+        - control/product_task_library.yaml
+        - control/product_operability_gap_matrix.yaml
+        - control/product_acceptance_checklist.yaml
       contracts: []
       handoff: []
       scripts: []
-      runtime: []
+      runtime:
+        - src/api/routes/operator_frontend.py
       tests:
-      - tests/test_controlled_real_world_e2e_closeout.py
-      - tests/test_product_acceptance_checklist.py
-      - tests/test_product_operability_gap_matrix.py
-      - tests/test_full_product_operational_acceptance.py
-      - tests/test_stage12_extractors.py
+        - tests/test_operator_frontend_portal.py
+        - tests/test_product_acceptance_checklist.py
+        - tests/test_product_operability_gap_matrix.py
+        - tests/test_controlled_real_world_e2e_closeout.py
+        - tests/test_stage12_extractors.py
     required_scripts:
-    - git status --short --untracked-files=all
-    - python -m unittest tests.test_controlled_real_world_e2e_closeout -v
-    - python -m unittest tests.test_full_product_operational_acceptance -v
-    - python -m unittest tests.test_product_acceptance_checklist -v
-    - python -m unittest tests.test_product_operability_gap_matrix -v
-    - python -m unittest tests.test_stage12_extractors -v
-    - python -m unittest tests.test_external_unlock_prerequisites -v
-    - python -m unittest tests.test_product_module_registry -v
-    - python -m unittest tests.test_api_transport_bootstrap -v
-    - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
-    - python -m unittest tests.test_internal_chain.TestInternalChain -v
-    - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others
-      --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
-    - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-    - python tests/run_tests.py
-    - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
-    - git diff --check
-    - git status --short --untracked-files=all
+      - git status --short --untracked-files=all
+      - python -m unittest tests.test_operator_frontend_portal -v
+      - python -m unittest tests.test_product_acceptance_checklist -v
+      - python -m unittest tests.test_product_operability_gap_matrix -v
+      - python -m unittest tests.test_controlled_real_world_e2e_closeout -v
+      - python -m unittest tests.test_stage12_extractors -v
+      - python -m unittest tests.test_api_transport_bootstrap -v
+      - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+      - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
+      - python tests/run_tests.py
+      - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
+      - git diff --check
+      - git status --short --untracked-files=all
     script_timeouts:
       git status --short --untracked-files=all: 120000
-      python -m unittest tests.test_controlled_real_world_e2e_closeout -v: 300000
-      python -m unittest tests.test_full_product_operational_acceptance -v: 300000
+      python -m unittest tests.test_operator_frontend_portal -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
+      python -m unittest tests.test_controlled_real_world_e2e_closeout -v: 300000
       python -m unittest tests.test_stage12_extractors -v: 300000
-      python -m unittest tests.test_external_unlock_prerequisites -v: 300000
-      python -m unittest tests.test_product_module_registry -v: 300000
       python -m unittest tests.test_api_transport_bootstrap -v: 600000
       python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
-      python -m unittest tests.test_internal_chain.TestInternalChain -v: 600000
-      ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others
-        --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+      ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       : 300000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1: 300000
       python tests/run_tests.py: 1800000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
       git diff --check: 300000
     stop_conditions:
-    - Any need to edit src/** runtime, contracts, handoff, scripts, fixtures, D1-D14正文, L0, Docker, compose, or migrations.
-    - Any need to execute real external provider calls, uncontrolled live crawling, real payment, real delivery, real customer
-      download, real refund, or automated refund.
-    - Any need to weaken public/private/gray source redlines or model-governance redlines.
-    - Any targeted or formal check failure that cannot be fixed inside allowed paths.
+      - Any need to modify Stage1-9 runtime, storage runtime, shared runtime, contracts, handoff, scripts, fixtures, D-doc正文, L0, Docker, compose, migrations, or formal schemas.
+      - Any need to execute real external provider calls, uncontrolled live crawling, real payment, real delivery, real customer download, real refund, or automated refund.
+      - Any need to weaken public/private/gray source redlines, field masking, download auth, provider gates, or model governance redlines.
+      - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-    - controlled_real_world_e2e_pilot_report_is_present
-    - owner_can_complete_source_to_customer_delivery_sales_payment_audit_loop
-    - 118r_real_world_gaps_are_resolved
-    - customer_artifact_delivery_is_approval_audit_download_auth_hash_watermark_guarded
-    - provider_paths_are_config_sandbox_approval_audit_operator_gated
-    - model_assist_outputs_remain_human_review_required
-    - automated_refund_absent
-    - no_public_software_release_default
-    - targeted_and_formal_checks_pass
+      - owner_console_shows_stage1_to_stage9_business_workbench
+      - owner_console_exposes_existing_internal_readback_apis_without_raw_api_dependency
+      - customer_artifact_portal_has_gated_readback_and_empty_state
+      - provider_scheduler_audit_redlines_visible
+      - no_public_software_release_default
+      - no_live_provider_payment_delivery_refund_default
+      - targeted_and_formal_checks_pass
 notes:
-- current_task -> product_task_library -> repo_status remains the active-source priority.
-- This packet closes the remaining controlled real-world e2e pilot gap with report/test evidence only; it does not modify
-  Stage runtime or call live providers.
+  - current_task -> product_task_library -> repo_status remains the active-source priority.
+  - This packet productizes the existing owner/customer frontend only; it does not implement a new runtime chain or external live action.
