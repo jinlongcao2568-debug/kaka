@@ -252,15 +252,17 @@ class TestStage12Extractors(unittest.TestCase):
 
         candidate = task_library["current_mainline_next_candidate"]
         self.assertEqual(candidate["planning_state"], "CANDIDATE_NOT_ACTIVATED")
-        self.assertEqual(candidate["task_id"], "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund")
-        self.assertEqual(candidate["packet_id"], "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund")
+        self.assertEqual(candidate["task_id"], "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance")
+        self.assertEqual(candidate["packet_id"], "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance")
 
         self.assertIn("planning_state: CANDIDATE_NOT_ACTIVATED", task_library_text)
-        self.assertIn("PTL-I100-128 已补 114A-114I controlled manual public snapshot field validation", task_library_text)
-        self.assertIn("current_mainline_next_candidate 指向 129 仅作候选提示", task_library_text)
+        self.assertIn("PTL-I100-128-real-public-source-field-validation-and-coverage", task_library_text)
+        self.assertIn("COMPLETED_CONTROLLED_MANUAL_PUBLIC_SOURCE_FIELD_VALIDATION_AND_COVERAGE_REPORT", task_library_text)
+        self.assertIn("PTL-I100-129 已补真实 provider binding readback", task_library_text)
+        self.assertIn("current_mainline_next_candidate 指向 130 仅作候选提示", task_library_text)
         self.assertIn("仅作候选提示，不自动激活", task_library_text)
-        self.assertIn("后续进入 129/130/131 任一任务都必须另开 dedicated current_task packet 并人工确认", task_library_text)
-        self.assertIn("执行层管理与汇报统一使用 task_id，不再用方向级标签替代", task_library_text)
+        self.assertIn("进入 130/131 仍必须另开 dedicated current_task packet", task_library_text)
+        self.assertIn("Execution-level management and reporting should use the P1 -> P8 ladder plus task_ids", task_library_text)
         self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
 
         completed_task_ids = (
@@ -398,7 +400,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("PTL-I100-129", route_map_text)
         self.assertIn("PTL-I100-130", route_map_text)
         self.assertIn("PTL-I100-131", route_map_text)
-        self.assertIn("129 -> 130 -> 131", route_map_text)
+        self.assertIn("130 -> 131", route_map_text)
         self.assertNotIn("当前 active packet：`PTL-I100-112A-production-platform-storage-seam`", route_map_text)
         self.assertNotIn("当前 112A 已激活", route_map_text)
 

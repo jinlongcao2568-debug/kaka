@@ -892,6 +892,7 @@ cross_cutting_surfaces:
       - tests/test_internal_surface_preview.py
       - tests/test_operator_customer_access.py
       - tests/test_operator_frontend_portal.py
+      - tests/test_real_provider_binding.py
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-104-p8-observability-operator-workbench
@@ -952,6 +953,7 @@ cross_cutting_surfaces:
       - tests/test_stage1_scheduler.py
       - tests/test_internal_repository_boundary.py
       - tests/test_storage_concurrency.py
+      - tests/test_real_provider_binding.py
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-102-p4-repository-boundary-hardening
@@ -1396,6 +1398,7 @@ modules:
     notes:
       - "P3 policy/validator boundary split completed in local commit 8c7eea3 and is now part of the formal shared runtime ledger."
       - "Shared runtime helper split completed, but future product packets may still depend on this chain; this ledger must not be interpreted as 'all follow-up work finished'."
+      - "PTL-I100-129 extends src/shared/provider_adapter_config.py with real-provider binding matrix, credential redaction/rotation metadata, sandbox evidence, callback validation, and kill-switch/suspension readback for WeCom/email/SMS/phone/CRM/quote/payment/delivery; default provider calls remain gated."
   - module_id: STORAGE-REPOSITORY-BOUNDARY
     stage_scope:
       - stage6_fact_review

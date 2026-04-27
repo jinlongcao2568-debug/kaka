@@ -24,20 +24,20 @@
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
 - Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；真实触达、真实支付、真实交付是目标能力，但 `external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked-by-default / governed / approval-gated，直到 dedicated task 与验收放行。
 - 自动退款执行不属于目标能力；退款只允许作为 manual exception record、manual approval/audit 与 governed review 处理。
-- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-128-real-public-source-field-validation-and-coverage`，只做受控公开样本字段覆盖验证，不新增 uncontrolled live crawler，不放开 external/live 执行。
+- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`，只做真实 provider binding/readback/sandbox/callback/kill-switch 控制面，不在默认测试里执行真实外部调用，不实现自动退款。
 - `PTL-I100-118R-final-product-operational-reacceptance` 已完成并本地提交：`f977b5b`；验收结论是工程回归通过、能力状态达到 controlled execution/readback，但产品真实世界运营闭环仍为 `DO_NOT_PRODUCTION_CLOSEOUT`。
-- 118R 已把剩余真实运营缺口登记为 127-131 五个完整任务；`PTL-I100-127-owner-operator-frontend-and-customer-portal` 已补 owner console / customer artifact portal，`PTL-I100-128-real-public-source-field-validation-and-coverage` 已补 114A-114I 受控手工公开样本字段覆盖报告；`control/product_task_library.yaml` 的 `current_mainline_next_candidate` 当前指向 `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`，状态为 `CANDIDATE_NOT_ACTIVATED`。
+- 118R 已把剩余真实运营缺口登记为 127-131 五个完整任务；`PTL-I100-127-owner-operator-frontend-and-customer-portal` 已补 owner console / customer artifact portal，`PTL-I100-128-real-public-source-field-validation-and-coverage` 已补 114A-114I 受控手工公开样本字段覆盖报告，`PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund` 已补真实 provider binding matrix / credential redaction / sandbox evidence / callback validation / kill-switch readback；`control/product_task_library.yaml` 的 `current_mainline_next_candidate` 当前指向 `PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`，状态为 `CANDIDATE_NOT_ACTIVATED`。
 - `PTL-I100-111F-open-capability-registry-route-doc-sync` 已完成并本地提交：`1c403c7`；它只同步开放能力基线到注册表、路线图、D1-D14 补表和测试，不再是 current active packet。
 - `PTL-INT-internal-preview-productization-strengthening` scoped-execution 已完成并提交：`f788a2b`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - Stage1-9 + INT 产品主线、`PTL-I100-112-production-platform-infrastructure` 至 126 的受控能力包，以及 `PTL-I100-127-owner-operator-frontend-and-customer-portal`、`PTL-I100-128-real-public-source-field-validation-and-coverage` 已完成；当前不是 `MAINLINE_COMPLETE` 产品 closeout，而是 118R 后的真实运营缺口推进阶段。
-- 当前没有自动 next candidate；后续进入 `129/130/131` 任一任务，都必须另开 dedicated `control/current_task.yaml` 包并人工确认。
+- 当前没有自动 next candidate；后续进入 `130/131` 任一任务，都必须另开 dedicated `control/current_task.yaml` 包并人工确认。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动放行任何 provider/live 执行。
 - `Stage7 模块边界重构` 对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交：`2601482`；该方向当前不再 recommended_now，且不是 current active packet。
-- 当前 128 已由 `control/current_task.yaml` 激活并完成实现；本导航图只同步近端提示，不决定后续 129 或任何 provider/live 执行顺序。
+- 当前 129 已由 `control/current_task.yaml` 激活并完成实现；本导航图只同步近端提示，不决定后续 130 或任何模型/provider/live 执行顺序。
 - `PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交：`209c4cd`；它不再是 current active packet，仅作为把 current_mainline_next_candidate 推进到 `PTL-INT` 的历史控制面参照。
 - `PTL-S89-outreach-writeback-delivery-governance` scoped-execution 已完成并提交：`c36dd9d`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
-- 本轮只做 `PTL-I100-128-real-public-source-field-validation-and-coverage` 的受控公开样本字段覆盖验证；不改 D1-D14 正文 / contracts / handoff / scripts / fixtures，不放开 external release、Stage8 live send、Stage9 live payment/delivery 或客户平台放行。
+- 本轮只做 `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund` 的真实 provider binding 控制面；不改 D1-D14 正文 / contracts / handoff / scripts / fixtures，不放开 external release、未审批 Stage8 live send、未审批 Stage9 live payment/delivery、真实退款或自动退款。
 - `PTL-S56-project-fact-review-report` scoped-execution 已完成并已提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S45-rule-evidence-dual-gate` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S34-object-lineage-verification-handoff` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -157,16 +157,16 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-I100-128-real-public-source-field-validation-and-coverage`；本轮补 114A-114I source adapters 的 Stage2 capture / Stage3 parser / Stage4 verification 字段覆盖报告，目标是明确哪些公开样本可用、弱公开、失败或暂停。
-- 当前候选池 next candidate：`PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`，状态 `CANDIDATE_NOT_ACTIVATED`；它只是候选提示，不自动激活。
+- 当前 active packet：`PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`；本轮补真实 provider binding matrix、credential redaction、sandbox evidence、callback validation、kill-switch/suspension readback，默认不执行真实外部调用。
+- 当前候选池 next candidate：`PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`，状态 `CANDIDATE_NOT_ACTIVATED`；它只是候选提示，不自动激活。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入 provider/live 执行。
 - `PTL-I100-127-owner-operator-frontend-and-customer-portal`：已补实际操作台、客户 artifact 门户、审批审计可视化和客户授权下载入口。
 - `PTL-I100-128-real-public-source-field-validation-and-coverage`：已用受控手工公开 snapshot 验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，不绕登录/验证码/反爬；真实站点实战仍留给 131 或后续按站点 dedicated packet。
-- `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`：接企业微信、邮件、CRM、报价、支付、交付真实 provider；自动退款仍不实现。
+- `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`：已接企业微信、邮件、短信/电话、CRM、报价、支付、交付 provider binding/readback；自动退款仍不实现，真实调用仍需审批/审计/operator action。
 - `PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`：接入受治理的大模型辅助解析、复核、证据摘要和销售话术草稿；模型输出不得直接成为事实或客户结论。
 - `PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout`：在 127-130 完成后跑真实世界端到端试点，作为下一次产品 closeout 门。
 - Stage7 模块边界重构：对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交 `2601482`；该方向当前不再 recommended_now，只作为已闭合近端历史参照。
-- 129-131 均需由 dedicated current_task 激活；剩余推荐顺序是 129 -> 130 -> 131。推荐理由：先接真实 provider，再接 LLM 辅助，最后做真实世界端到端验收。
+- 130-131 均需由 dedicated current_task 激活；剩余推荐顺序是 130 -> 131。推荐理由：先接 LLM 辅助，再做真实世界端到端验收。
 - Internal preview 产品化强化（`PTL-INT-internal-preview-productization-strengthening`）：已完成 scoped-execution 并提交 `f788a2b`；不再是 current active packet，也不再是 current_mainline_next_candidate，仅作为该方向的已闭合历史参照；不是 external release 或客户平台放行。
 - `PTL-S89-outreach-writeback-delivery-governance`：已完成 scoped-execution 并提交 `c36dd9d`；不再是 current_mainline_next_candidate，仅作为 Stage8-9 触达记录、回写、交付与治理反馈闭合的近端历史参照。
 - `PTL-S78-contact-candidate-compliance-preview`：已完成并提交；不再是 current_mainline_next_candidate，仅作为 Stage7-8 联系候选、合规判定与预览闭合的近端历史参照。

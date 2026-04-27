@@ -263,6 +263,11 @@ def _provider_result_readback(
         "provider_reliability_state": provider_readiness.get("provider_reliability_state"),
         "provider_adapter_suspended": _provider_is_suspended(provider_readiness),
         "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
+        "provider_binding_mode": provider_readiness.get("provider_binding_matrix", {}).get(
+            "binding_mode"
+        ),
+        "provider_binding_matrix": dict(provider_readiness.get("provider_binding_matrix", {})),
+        "selected_provider_bindings": list(provider_readiness.get("selected_provider_bindings", [])),
         "readiness_state": readiness_state,
         "live_pilot_record_enabled": live_enabled,
         "provider_call_enabled": False,

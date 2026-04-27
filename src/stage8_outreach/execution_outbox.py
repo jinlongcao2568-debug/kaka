@@ -752,6 +752,11 @@ def _provider_result_readback(
         "provider_family": provider_readiness.get("family", "sales_outreach"),
         "provider_id": provider_readiness.get("provider_id"),
         "provider_status_readback": dict(provider_readiness.get("provider_status_readback", {})),
+        "provider_binding_mode": provider_readiness.get("provider_binding_matrix", {}).get(
+            "binding_mode"
+        ),
+        "provider_binding_matrix": dict(provider_readiness.get("provider_binding_matrix", {})),
+        "selected_provider_bindings": list(provider_readiness.get("selected_provider_bindings", [])),
         "bounce_taxonomy": {
             "state": effective_bounce_state,
             "failure_class": "BOUNCE" if effective_bounce_state != "NONE" else "NONE",

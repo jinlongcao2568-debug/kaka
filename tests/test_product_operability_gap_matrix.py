@@ -429,7 +429,6 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(
             set(gaps),
             {
-                "B118R_REAL_PROVIDER_BINDING_NOT_DONE",
                 "B118R_LLM_ASSIST_NOT_PRODUCTIZED",
                 "B118R_REAL_WORLD_E2E_PILOT_NOT_DONE",
             },
@@ -451,16 +450,17 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "real_public_source_field_validation_and_coverage_report",
             final["controlled_operable_now"],
         )
-        for gap in gaps.values():
-            self.assertIn(gap["minimum_followup_task_id"], self.task_library_task_ids())
+        self.assertIn(
+            "real_provider_binding_matrix_and_sandbox_callback_readback",
+            final["controlled_operable_now"],
+        )
         self.assertEqual(
-            gaps["B118R_REAL_PROVIDER_BINDING_NOT_DONE"]["minimum_followup_task_id"],
+            resolved_gaps["B118R_REAL_PROVIDER_BINDING_NOT_DONE"]["resolved_by_task_id"],
             "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
         )
-        self.assertEqual(
-            gaps["B118R_REAL_PROVIDER_BINDING_NOT_DONE"]["refund_boundary"],
-            "manual exception/governed review only; no automated refund execution",
-        )
+        for gap in gaps.values():
+            self.assertIn(gap["minimum_followup_task_id"], self.task_library_task_ids())
+        self.assertNotIn("B118R_REAL_PROVIDER_BINDING_NOT_DONE", gaps)
         self.assertEqual(final["redlines_preserved"]["automated_refund_execution"], "EXCLUDED")
 
     def task_library_task_ids(self) -> set[str]:

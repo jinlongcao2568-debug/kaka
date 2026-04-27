@@ -231,6 +231,7 @@ final_118R_operational_reacceptance:
     - approved_production_dependency_drill_readback
     - owner_operator_frontend_and_customer_artifact_portal
     - real_public_source_field_validation_and_coverage_report
+    - real_provider_binding_matrix_and_sandbox_callback_readback
   resolved_real_world_gaps:
     - gap_id: B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING
       capability: owner_operator_frontend_and_customer_portal
@@ -242,13 +243,12 @@ final_118R_operational_reacceptance:
       resolved_by_task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
       current_state: PRODUCTION_READY
       evidence: "control/real_public_source_field_validation_report.yaml records 114A-114I controlled manual public snapshot validation across Stage2 capture, Stage3 parser field coverage, Stage4 public verification, weak/failing/suspended fail-closed paths, hash/lineage, and no private/gray/login/captcha/anti-bot bypass."
-  real_world_gaps:
     - gap_id: B118R_REAL_PROVIDER_BINDING_NOT_DONE
       capability: wecom_email_crm_quote_payment_delivery_provider_binding
-      current_state: LIVE_READY
-      evidence: "122/123/125 carriers report LOCAL_CONTROLLED_FAKE_PROVIDER, provider_call_enabled=false, real_provider_call_enabled=false, and no real provider call executed."
-      minimum_followup_task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
-      refund_boundary: "manual exception/governed review only; no automated refund execution"
+      resolved_by_task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
+      current_state: PRODUCTION_READY
+      evidence: "Provider binding matrix now covers WeCom robot, email, SMS, phone, CRM, quote, payment, and delivery bindings with credential redaction/rotation metadata, sandbox call evidence, webhook/callback validation, kill-switch/suspension, and Stage7/8/9 shared readback; real calls still require gates and automated refund remains absent."
+  real_world_gaps:
     - gap_id: B118R_LLM_ASSIST_NOT_PRODUCTIZED
       capability: llm_assisted_parsing_review_sales_governance
       current_state: NOT_IMPLEMENTED
@@ -536,7 +536,7 @@ production_gap_task_map:
       - parser_and_verification_quality_on_real_samples
   - gap_group: real_provider_binding_wecom_email_crm_payment_delivery_no_auto_refund
     packet_ref: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
-    status: PLANNED
+    status: COMPLETED
     target_capability_state: PRODUCTION_READY
     refund_boundary: "manual exception/governed review only; no automated refund execution"
     covered_capabilities:

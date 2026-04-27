@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
-  packet_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
-  title: "128 完成后的下一候选：real provider binding for WeCom/email/CRM/payment/delivery no auto refund"
+  task_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+  packet_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
+  title: "129 完成后的下一候选：LLM-assisted parsing review and sales governance"
   planning_state: CANDIDATE_NOT_ACTIVATED
   runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-  runtime_notes: "PTL-I100-128 已补 114A-114I controlled manual public snapshot field validation and coverage report。current_mainline_next_candidate 指向 129 仅作候选提示，不自动激活；后续进入 129/130/131 任一任务都必须另开 dedicated current_task packet 并人工确认。执行层管理与汇报统一使用 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变；自动退款红线不变。"
+  runtime_notes: "PTL-I100-129 已补真实 provider binding readback：企业微信、邮件、短信/电话、CRM、报价、支付、交付均通过统一 provider binding matrix、credential redaction/rotation、sandbox evidence、callback validation、kill-switch/suspension 表达。current_mainline_next_candidate 指向 130 仅作候选提示，不自动激活；进入 130/131 仍必须另开 dedicated current_task packet。external release / Stage8 / Stage9 红线不变；自动退款红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -2199,7 +2199,7 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-128-real-public-source-field-validation-and-coverage
     suggested_packet_refs: [PTL-I100-128-real-public-source-field-validation-and-coverage]
     risk_level: CRITICAL
-    completed_commit: 7e37e14
+    completed_commit: 595cd1d
     completion_result: "COMPLETED_CONTROLLED_MANUAL_PUBLIC_SOURCE_FIELD_VALIDATION_AND_COVERAGE_REPORT"
   - task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
     title: "I100-29 Real provider binding for WeCom/email/CRM/payment/delivery no auto refund"
@@ -2207,9 +2207,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage7_sales, stage8_outreach, stage9_delivery, provider_execution]
     task_type: real_provider_binding
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P31
     existing_code_state: LOCAL_CONTROLLED_FAKE_PROVIDER
     existing_runtime_state: CONTROLLED_PROVIDER_EXECUTION_READBACK_NO_REAL_PROVIDER_CALL
@@ -2251,6 +2251,8 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
     suggested_packet_refs: [PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund]
     risk_level: CRITICAL
+    completed_commit: pending
+    completion_result: "COMPLETED_REAL_PROVIDER_BINDING_READBACK_NO_AUTO_REFUND"
   - task_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
     title: "I100-30 LLM-assisted parsing review and sales governance"
     program_ref: PTL-I100-internal-operable-productization
@@ -2259,7 +2261,7 @@ tasks:
     task_type: governed_model_assist
     status: PLANNED
     planning_state: PLANNED
-    is_current_mainline_next_candidate: false
+    is_current_mainline_next_candidate: true
     priority: P32
     existing_code_state: MODEL_GOVERNANCE_BOUNDARY_PRESENT
     existing_runtime_state: NO_PRODUCTIZED_LLM_ASSIST

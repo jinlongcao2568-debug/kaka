@@ -47,7 +47,6 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertEqual(
             {task["task_id"] for task in non_completed},
             {
-                "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
                 "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
                 "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
             },
@@ -591,6 +590,10 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.tasks_by_id["PTL-I100-128-real-public-source-field-validation-and-coverage"]["status"],
             "COMPLETED",
         )
+        self.assertEqual(
+            self.tasks_by_id["PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund"]["status"],
+            "COMPLETED",
+        )
         self.assertFalse(
             self.tasks_by_id["PTL-I100-127-owner-operator-frontend-and-customer-portal"][
                 "is_current_mainline_next_candidate"
@@ -601,8 +604,13 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 "is_current_mainline_next_candidate"
             ]
         )
-        self.assertTrue(
+        self.assertFalse(
             self.tasks_by_id["PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund"][
+                "is_current_mainline_next_candidate"
+            ]
+        )
+        self.assertTrue(
+            self.tasks_by_id["PTL-I100-130-llm-assisted-parsing-review-and-sales-governance"][
                 "is_current_mainline_next_candidate"
             ]
         )
@@ -611,6 +619,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 if task_id not in {
                     "PTL-I100-127-owner-operator-frontend-and-customer-portal",
                     "PTL-I100-128-real-public-source-field-validation-and-coverage",
+                    "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
                 }:
                     self.assertEqual(self.tasks_by_id[task_id]["status"], "PLANNED")
                 self.assertEqual(

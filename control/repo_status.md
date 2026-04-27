@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-128-real-public-source-field-validation-and-coverage (ACTIVE; validates 114A-114I source adapters through controlled manual public snapshots, Stage3 parser field coverage, Stage4 public verification, and fail-closed weak/failing/suspended source readback. This is not uncontrolled live crawling and does not call real providers.)
+Current Workstream: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund (ACTIVE; binds WeCom/email/SMS/phone/CRM/quote/payment/delivery provider targets through unified provider config, credential redaction, sandbox evidence, callback validation, and kill-switch/suspension readback. This does not execute real external provider calls in default tests and does not implement automated refunds.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -21,22 +21,24 @@ Current Blockers:
 - PTL-I100-118R is completed and registered the remaining real-world product gaps as PTL-I100-127 through PTL-I100-131.
 - PTL-I100-127 has added owner/customer frontend surfaces.
 - PTL-I100-128 validates controlled manual public snapshots and must not weaken public-source boundary redlines.
-- No private/gray source, login bypass, captcha bypass, anti-bot bypass, uncontrolled live crawler, real provider call, real outreach, real CRM sync, real quote send, real payment capture/charge, real delivery fulfillment, real customer download, real refund, or automated refund may run during 128.
+- PTL-I100-129 binds real provider targets but must not execute a real external provider call during default implementation/tests.
+- No private/gray source, login bypass, captcha bypass, anti-bot bypass, uncontrolled live crawler, unapproved real provider call, unapproved real outreach, unapproved real CRM sync, unapproved real quote send, unapproved real payment capture/charge, unapproved real delivery fulfillment, unapproved real customer download, real refund, or automated refund may run during 129.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
 - Except automated refund execution and prohibited non-public/gray capabilities, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
-- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-128 is the active implementation packet for real public source field validation after 127 completed.
+- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-129 is the active implementation packet for real provider binding after 127/128 completed.
 
-Current 128 Scope:
-- Validate 114A-114I Stage2 source adapters with controlled manual public snapshots.
-- Prove Stage2 capture preserves hash/lineage/replay, Stage3 parser emits field coverage, and Stage4 public verification readback attaches to the same snapshot.
-- Distinguish supported, weak, failing, and suspended source samples in control/real_public_source_field_validation_report.yaml.
-- Do not access private/gray sources, bypass login/captcha/anti-bot, add uncontrolled live crawler, or call any real provider.
+Current 129 Scope:
+- Register and expose explicit provider bindings for WeCom robot, email, SMS/phone, CRM, quote, payment, and delivery.
+- Prove provider credentials are redacted, rotation metadata is visible, sandbox evidence and callback validation are replayable, and kill-switch/suspension fail closed.
+- Ensure Stage7/8/9 consume the same provider binding summary while keeping provider calls gated and automated refund absent.
+- Do not perform default real external provider network calls, bulk sends, real payment capture/charge, real delivery fulfillment, real refund, or automated refund.
 
 Recently Closed:
+- PTL-I100-128-real-public-source-field-validation-and-coverage completed and committed locally: 595cd1d.
 - PTL-I100-127-owner-operator-frontend-and-customer-portal completed and committed locally: ab1fd01.
 - PTL-I100-118S-route-map-post-118r-sync completed and committed locally: 87df294.
 - PTL-I100-118R-final-product-operational-reacceptance completed and committed locally: f977b5b; product closeout remains DO_NOT_PRODUCTION_CLOSEOUT and follow-up tasks PTL-I100-127 through PTL-I100-131 are registered.
@@ -49,8 +51,8 @@ Recently Closed:
 - PTL-I100-112 through PTL-I100-121C and PTL-I100-111A/B/C/D/E, 113-117, 119/119A are completed as recorded in control/product_task_library.yaml.
 
 Allowed Actions (current):
-- Update only 128 source validation/control/test paths declared in control/current_task.yaml.
-- Add controlled manual public snapshot validation harness/report and update task/gap/checklist state for 128 completion.
+- Update only 129 provider binding/control/test paths declared in control/current_task.yaml.
+- Add provider binding matrix, credential redaction/rotation metadata, sandbox evidence, callback validation, kill-switch/suspension readback, and Stage7/8/9 carrier consumption.
 - Run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet.
 
 Forbidden Actions (current):
@@ -58,11 +60,11 @@ Forbidden Actions (current):
 - Any contracts/** change.
 - Any handoff/** change.
 - Any scripts/** change.
-- Any src/** runtime change outside src/stage2_ingestion/source_validation.py and src/stage2_ingestion/__init__.py.
+- Any src/** runtime change outside the 129 provider binding paths declared in control/current_task.yaml.
 - Any private/gray source access, login bypass, captcha bypass, anti-bot bypass, or uncontrolled live crawler.
 - Any schema/enum/gate/exception semantic addition.
 - Any external software release.
-- Any real provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or automated refund during implementation/tests.
+- Any unapproved real provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or automated refund during implementation/tests.
 - Any push.
 
 State Semantics:
@@ -76,17 +78,22 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_real_public_source_field_validation -v
-- python -m unittest tests.test_stage2_public_source_adapters -v
-- python -m unittest tests.test_stage3_real_parser -v
-- python -m unittest tests.test_stage4_public_verification_adapters -v
+- python -m unittest tests.test_real_provider_binding -v
+- python -m unittest tests.test_provider_adapter_config -v
+- python -m unittest tests.test_stage7_runtime_closure -v
+- python -m unittest tests.test_stage8_resolution_closure -v
+- python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v
+- python -m unittest tests.test_internal_chain.TestInternalChain -v
+- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
+- python -m unittest tests.test_api_transport_bootstrap -v
+- python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
 - python -m unittest tests.test_product_operability_gap_matrix -v
 - python -m unittest tests.test_full_product_operational_acceptance -v
 - python -m unittest tests.test_stage12_extractors -v
 - python -m unittest tests.test_external_unlock_prerequisites -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''control/real_public_source_field_validation_report.yaml'',''docs/AX9S_开发执行路由图.md'',''src/stage2_ingestion/source_validation.py'',''src/stage2_ingestion/__init__.py'',''tests/test_real_public_source_field_validation.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1

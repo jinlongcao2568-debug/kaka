@@ -315,8 +315,7 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         }
-        unresolved_after_128_task_ids = {
-            "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+        unresolved_after_129_task_ids = {
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         }
@@ -325,7 +324,7 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
         self.assertEqual({gap["minimum_followup_task_id"] for gap in gaps}, original_118r_task_ids)
         self.assertEqual(
             {gap["minimum_followup_task_id"] for gap in matrix_gaps},
-            unresolved_after_128_task_ids,
+            unresolved_after_129_task_ids,
         )
         self.assertTrue(original_118r_task_ids.issubset(registered_task_ids))
 
