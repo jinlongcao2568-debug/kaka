@@ -2392,7 +2392,7 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-132-owner-operator-frontend-productization-workbench
     suggested_packet_refs: [PTL-I100-132-owner-operator-frontend-productization-workbench]
     risk_level: HIGH
-    completed_commit: 1996cdd
+    completed_commit: 83a5646
     capability_state_after: PRODUCTION_READY
     completion_result: "COMPLETED_OWNER_OPERATOR_FRONTEND_PRODUCTIZATION_WORKBENCH"
     completion_notes:
