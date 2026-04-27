@@ -251,20 +251,19 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(task_library["formal_active_task_source"], "control/current_task.yaml")
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["planning_state"], "CANDIDATE_NOT_ACTIVATED")
+        self.assertEqual(candidate["planning_state"], "COMPLETED")
         self.assertEqual(candidate["task_id"], "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout")
         self.assertEqual(candidate["packet_id"], "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout")
 
-        self.assertIn("planning_state: CANDIDATE_NOT_ACTIVATED", task_library_text)
+        self.assertIn("planning_state: COMPLETED", task_library_text)
         self.assertIn("PTL-I100-128-real-public-source-field-validation-and-coverage", task_library_text)
         self.assertIn("COMPLETED_CONTROLLED_MANUAL_PUBLIC_SOURCE_FIELD_VALIDATION_AND_COVERAGE_REPORT", task_library_text)
-        self.assertIn("PTL-I100-129 已补真实 provider binding readback", task_library_text)
-        self.assertIn("PTL-I100-130 已补受治理 model-assist readback", task_library_text)
-        self.assertIn("current_mainline_next_candidate 指向 131 仅作候选提示", task_library_text)
-        self.assertIn("仅作候选提示，不自动激活", task_library_text)
-        self.assertIn("进入 131 仍必须另开 dedicated current_task packet", task_library_text)
+        self.assertIn("PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund", task_library_text)
+        self.assertIn("PTL-I100-127 through PTL-I100-131 are completed", task_library_text)
+        self.assertIn("131 closes the remaining B118R real-world e2e pilot gap", task_library_text)
+        self.assertIn("no unapproved live provider execution", task_library_text)
         self.assertIn("Execution-level management and reporting should use the P1 -> P8 ladder plus task_ids", task_library_text)
-        self.assertIn("external release / Stage8 / Stage9 红线不变", task_library_text)
+        self.assertIn("no public software release", task_library_text)
 
         completed_task_ids = (
             "PTL-S12-source-route-clock-authority",
@@ -401,7 +400,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("PTL-I100-129", route_map_text)
         self.assertIn("PTL-I100-130", route_map_text)
         self.assertIn("PTL-I100-131", route_map_text)
-        self.assertIn("130 -> 131", route_map_text)
+        self.assertIn("131 已由 dedicated current_task 激活", route_map_text)
         self.assertNotIn("当前 active packet：`PTL-I100-112A-production-platform-storage-seam`", route_map_text)
         self.assertNotIn("当前 112A 已激活", route_map_text)
 

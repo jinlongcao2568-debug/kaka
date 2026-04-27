@@ -273,11 +273,14 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
 
         self.assertEqual(metadata["packet_id"], "PTL-I100-118R-final-product-operational-reacceptance")
         self.assertEqual(metadata["acceptance_result"], "BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS")
-        self.assertEqual(final["acceptance_result"], metadata["acceptance_result"])
+        self.assertEqual(final["acceptance_result"], "CONTROLLED_REAL_WORLD_E2E_ACCEPTED")
+        self.assertEqual(final["closeout_report_ref"], "control/controlled_real_world_e2e_pilot_report.yaml")
         self.assertEqual(product_closure["status"], "NOT_REAL_WORLD_CLOSED")
+        self.assertEqual(final["product_closure_result"], "CONTROLLED_REAL_WORLD_CLOSED")
         self.assertTrue(product_closure["owner_internal_loop_operable"])
         self.assertTrue(product_closure["owner_controlled_execution_loop_operable"])
         self.assertFalse(product_closure["owner_end_to_end_real_world_sales_delivery_operable"])
+        self.assertTrue(final["owner_end_to_end_real_world_sales_delivery_operable"])
         self.assertEqual(product_closure["closeout_recommendation"], "DO_NOT_PRODUCTION_CLOSEOUT")
         self.assertTrue(checklist["final_reacceptance_gate"])
         self.assertEqual(real_world["frontend_page_state"], "API_ONLY_NO_PRODUCTIZED_FRONTEND_DETECTED")
@@ -315,9 +318,7 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         }
-        unresolved_after_129_task_ids = {
-            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
-        }
+        unresolved_after_129_task_ids: set[str] = set()
         registered_task_ids = {row["task_id"] for row in self.task_library["tasks"]}
 
         self.assertEqual({gap["minimum_followup_task_id"] for gap in gaps}, original_118r_task_ids)

@@ -569,6 +569,15 @@ tasks:
       - owner_can_complete_e2e_business_flow
       - automated_refund_absent
       - no_public_software_release_default
+    current_131_closeout_result:
+      acceptance_result: CONTROLLED_REAL_WORLD_E2E_ACCEPTED
+      engineering_regression_result: PASS_REQUIRED_BY_131_CHECKS
+      capability_state_result: VERIFIED_CONTROLLED_OWNER_OPERABLE_PRODUCTION_READY
+      product_closure_result: CONTROLLED_REAL_WORLD_CLOSED
+      owner_end_to_end_real_world_sales_delivery_operable: true
+      closeout_recommendation: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
+      report_ref: control/controlled_real_world_e2e_pilot_report.yaml
+      remaining_product_blockers: []
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

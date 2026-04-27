@@ -1,0 +1,129 @@
+version: 1
+report_id: PTL-I100-131-CONTROLLED-REAL-WORLD-E2E-PILOT
+packet_ref: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+generated_at: '2026-04-27'
+acceptance_result: CONTROLLED_REAL_WORLD_E2E_ACCEPTED
+product_closure_result: CONTROLLED_REAL_WORLD_CLOSED
+owner_operational_use_state: OWNER_OPERABLE_CONTROLLED_PRODUCTION_READY
+owner_can_complete_e2e_business_flow: true
+closeout_recommendation: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
+scope_boundary:
+  public_software_release_enabled: false
+  unapproved_live_provider_call_enabled: false
+  uncontrolled_live_crawler_enabled: false
+  real_refund_execution_enabled: false
+  automated_refund_execution_enabled: false
+  refund_boundary: manual exception/governed review only; no automated refund execution
+source_of_truth_refs:
+  product_task_library: control/product_task_library.yaml
+  acceptance_checklist: control/product_acceptance_checklist.yaml
+  operability_gap_matrix: control/product_operability_gap_matrix.yaml
+  real_public_source_validation: control/real_public_source_field_validation_report.yaml
+  owner_operator_frontend_routes: src/api/routes/operator_frontend.py
+  operator_customer_access_routes: src/api/routes/operator_customer_access.py
+  provider_config: src/shared/provider_adapter_config.py
+  model_assist_governance: src/shared/model_assist_governance.py
+e2e_flow:
+- step_id: source_capture
+  stage: Stage2
+  state: PRODUCTION_READY
+  evidence_ref: control/real_public_source_field_validation_report.yaml
+  operator_action_required: true
+- step_id: parse
+  stage: Stage3
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_stage3_real_parser.py
+  customer_visible: false
+- step_id: public_verification
+  stage: Stage4
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_stage4_public_verification_adapters.py
+  public_only: true
+- step_id: rules
+  stage: Stage5
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_stage5_rule_factory_expansion.py
+  gate_override_allowed: false
+- step_id: product_package
+  stage: Stage6
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_stage6_product_package_hardening.py
+  customer_delivery_gated: true
+- step_id: real_challenger
+  stage: Stage7
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_real_challenger_identification.py
+  internal_sales_judgment_only: true
+- step_id: crm_quote
+  stage: Stage7
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_real_provider_binding.py
+  provider_gated: true
+- step_id: customer_artifact
+  stage: Stage7
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_operator_frontend_portal.py
+  approval_audit_download_auth_required: true
+- step_id: outreach
+  stage: Stage8
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_stage8_resolution_closure.py
+  provider_gated: true
+- step_id: payment_delivery
+  stage: Stage9
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_stage9_impact_executor.py
+  automated_refund_absent: true
+- step_id: writeback_audit
+  stage: Stage9
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_internal_repository_boundary.py
+  stage6_fact_mutation_allowed: false
+- step_id: slo_incident_rollback
+  stage: Platform
+  state: PRODUCTION_READY
+  evidence_ref: tests/test_production_slo_incident_readiness.py
+  destructive_restore_enabled: false
+twelve_dimension_acceptance:
+- dimension: task_pool_closure
+  result: PASS
+  evidence: 127-131 completed; final 118R real_world_gaps empty
+- dimension: product_doc_alignment
+  result: PASS
+  evidence: open capability baseline remains authoritative; automatic refund excluded
+- dimension: stage1_to_stage9_operational_loop
+  result: PASS
+  evidence: e2e_flow covers source through writeback/audit
+- dimension: sales_closure
+  result: PASS
+  evidence: real challenger, CRM/quote, sales notes/callback and outreach provider paths are gated and replayable
+- dimension: customer_delivery_closure
+  result: PASS
+  evidence: artifact allowlist/masking/watermark/hash/download auth/audit are required
+- dimension: payment_delivery_closure
+  result: PASS
+  evidence: order/payment/receipt/invoice/settlement/reconciliation/delivery/rollback/manual refund exception readback exists
+- dimension: external_execution_boundary
+  result: PASS
+  evidence: provider config, sandbox, approval, audit, operator action, reliability gates and no silent fallback
+- dimension: production_operations
+  result: PASS
+  evidence: storage, queue, object storage, backup/rollback dry-run, SLO/alert/incident readiness
+- dimension: frontend_operator_entry
+  result: PASS
+  evidence: owner console and customer artifact portal are mounted internal/customer surfaces
+- dimension: real_source_adapter_practicality
+  result: PASS_WITH_BOUNDARY
+  evidence: 114A-114I controlled manual public sample validation completed; uncontrolled crawling remains blocked
+- dimension: wecom_and_model_assist
+  result: PASS_WITH_BOUNDARY
+  evidence: WeCom binding and model assist governance are readback/gated; no default external calls
+- dimension: redline_review
+  result: PASS
+  evidence: automatic refund, non-public/gray sources, bypass, unreviewed conclusions, auto complaint/legal send, blackbox
+    exposure remain blocked
+remaining_product_blockers: []
+remaining_hardening_items:
+- Production-scale deployment and real provider credentials still require operator environment setup and gated approvals.
+- Additional public websites can be added as dedicated source blueprints without weakening D13 boundaries.
+- Public software release remains a separate explicit release-governance decision.

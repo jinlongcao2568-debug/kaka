@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance (ACTIVE; productizes governed model-assist readback for Stage3 parser candidates, Stage4 evidence summaries, Stage5 review triage, and Stage7 sales talk-track drafts. This does not call a real external model provider, does not write model output as formal fact, and does not create customer-visible model conclusions.)
+Current Workstream: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout (ACTIVE; closes the remaining B118R controlled real-world e2e pilot gap for owner-operated controlled use. This does not enable public software release, unapproved live provider calls, uncontrolled crawling, real refund, or automated refund execution.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -22,23 +22,25 @@ Current Blockers:
 - PTL-I100-127 has added owner/customer frontend surfaces.
 - PTL-I100-128 validates controlled manual public snapshots and must not weaken public-source boundary redlines.
 - PTL-I100-129 completed locally as 5ddd321 and binds real provider targets while keeping default real external provider calls gated.
-- PTL-I100-130 model assist must stay readback-only, deterministic in default tests, human-review-required, and unable to write formal fact/customer conclusions.
-- No private/gray source, login bypass, captcha bypass, anti-bot bypass, uncontrolled live crawler, unapproved real provider call, unapproved real outreach, unapproved real CRM sync, unapproved real quote send, unapproved real payment capture/charge, unapproved real delivery fulfillment, unapproved real customer download, real refund, automated refund, or real external model provider call may run during 130.
+- PTL-I100-130 model assist completed locally as 5c52cd0 and must stay readback-only, deterministic in default tests, human-review-required, and unable to write formal fact/customer conclusions.
+- PTL-I100-131 may only record controlled e2e closeout evidence over completed 127-130 surfaces; it must not modify Stage runtime or execute live external actions.
+- No private/gray source, login bypass, captcha bypass, anti-bot bypass, uncontrolled live crawler, unapproved real provider call, unapproved real outreach, unapproved real CRM sync, unapproved real quote send, unapproved real payment capture/charge, unapproved real delivery fulfillment, unapproved real customer download, real refund, automated refund, or real external model provider call may run during 131.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
 - Except automated refund execution and prohibited non-public/gray capabilities, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
-- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-130 is the active implementation packet for governed model-assist after 127/128/129 completed.
+- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-131 is the active closeout packet after 127/128/129/130 completed.
 
-Current 130 Scope:
-- Add governed model-assist carrier/readback for parser field extraction candidates, OCR/table assist posture, public evidence summaries, review triage, and sales talk-track drafts.
-- Prove prompt/output audit refs, golden/eval refs, human-review-required flags, and privacy/public-data redlines are replayable.
-- Ensure model output cannot mutate formal facts, gate decisions, legal conclusions, customer-visible materials, or sales execution.
-- Do not call a real external model provider, send private/non-public data to a model, or expose internal blackbox scores to customers.
+Current 131 Scope:
+- Add controlled real-world e2e pilot report/readback over completed 127-130 surfaces.
+- Prove owner-operated source -> parser -> verification -> rules -> product package -> challenger -> CRM/quote -> outreach -> payment -> delivery -> audit/writeback closeout.
+- Keep public software release, uncontrolled crawling, unapproved live provider execution, real refund, and automated refund excluded/blocked.
+- Do not modify Stage runtime, contracts, handoff, scripts, fixtures, D-doc正文, Docker/compose, or migrations.
 
 Recently Closed:
+- PTL-I100-130-llm-assisted-parsing-review-and-sales-governance completed and committed locally: 5c52cd0.
 - PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund completed and committed locally: 5ddd321.
 - PTL-I100-128-real-public-source-field-validation-and-coverage completed and committed locally: 595cd1d.
 - PTL-I100-127-owner-operator-frontend-and-customer-portal completed and committed locally: ab1fd01.
@@ -53,8 +55,8 @@ Recently Closed:
 - PTL-I100-112 through PTL-I100-121C and PTL-I100-111A/B/C/D/E, 113-117, 119/119A are completed as recorded in control/product_task_library.yaml.
 
 Allowed Actions (current):
-- Update only 130 model-assist/control/test paths declared in control/current_task.yaml.
-- Add governed model-assist readback, prompt/output audit, human review flags, parser/review/sales draft carriers, and related tests.
+- Update only 131 closeout/control/route-map/test paths declared in control/current_task.yaml.
+- Add controlled e2e closeout report, product operability gap resolution, and related tests.
 - Run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet.
 
 Forbidden Actions (current):
@@ -62,7 +64,7 @@ Forbidden Actions (current):
 - Any contracts/** change.
 - Any handoff/** change.
 - Any scripts/** change.
-- Any src/** runtime change outside the 130 model-assist paths declared in control/current_task.yaml.
+- Any src/** runtime change during 131.
 - Any private/gray source access, login bypass, captcha bypass, anti-bot bypass, or uncontrolled live crawler.
 - Any schema/enum/gate/exception semantic addition.
 - Any external software release.
@@ -80,23 +82,16 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_model_assist_governance -v
-- python -m unittest tests.test_stage3_real_parser -v
-- python -m unittest tests.test_stage4_public_verification_adapters -v
-- python -m unittest tests.test_stage5_rule_factory_expansion -v
-- python -m unittest tests.test_stage7_runtime_closure -v
-- python -m unittest tests.test_stage8_resolution_closure -v
-- python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v
-- python -m unittest tests.test_internal_chain.TestInternalChain -v
-- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
-- python -m unittest tests.test_api_transport_bootstrap -v
-- python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
-- python -m unittest tests.test_product_module_registry -v
+- python -m unittest tests.test_controlled_real_world_e2e_closeout -v
+- python -m unittest tests.test_full_product_operational_acceptance -v
 - python -m unittest tests.test_product_acceptance_checklist -v
 - python -m unittest tests.test_product_operability_gap_matrix -v
-- python -m unittest tests.test_full_product_operational_acceptance -v
 - python -m unittest tests.test_stage12_extractors -v
 - python -m unittest tests.test_external_unlock_prerequisites -v
+- python -m unittest tests.test_product_module_registry -v
+- python -m unittest tests.test_api_transport_bootstrap -v
+- python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+- python -m unittest tests.test_internal_chain.TestInternalChain -v
 - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py

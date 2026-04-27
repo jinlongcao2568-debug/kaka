@@ -118,10 +118,10 @@ planning_sync_implementation_registration:
 current_mainline_next_candidate:
   task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
   packet_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
-  title: "130 完成后的下一候选：Controlled real-world end-to-end pilot and closeout"
-  planning_state: CANDIDATE_NOT_ACTIVATED
-  runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-  runtime_notes: "PTL-I100-129 已补真实 provider binding readback；PTL-I100-130 已补受治理 model-assist readback：字段抽取候选、证据摘要、复核 triage、销售话术草稿均为 readback-only / human-review-required，不调用真实模型 provider，不写 formal fact，不生成客户结论。current_mainline_next_candidate 指向 131 仅作候选提示，不自动激活；进入 131 仍必须另开 dedicated current_task packet。external release / Stage8 / Stage9 红线不变；自动退款红线不变。"
+  title: "Product mainline controlled real-world e2e closeout completed"
+  planning_state: COMPLETED
+  runtime_change_in_packet: OUT_OF_SCOPE_AFTER_COMPLETION
+  runtime_notes: "PTL-I100-127 through PTL-I100-131 are completed. 131 closes the remaining B118R real-world e2e pilot gap for owner-operated controlled use; no public software release, no unapproved live provider execution, and no automated refund execution are enabled."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -2294,7 +2294,7 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
     suggested_packet_refs: [PTL-I100-130-llm-assisted-parsing-review-and-sales-governance]
     risk_level: CRITICAL
-    completed_commit: pending
+    completed_commit: 5c52cd0
     completion_result: "COMPLETED_GOVERNED_MODEL_ASSIST_READBACK_NO_EXTERNAL_MODEL_CALL"
   - task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
     title: "I100-31 Controlled real-world end-to-end pilot and closeout"
@@ -2302,13 +2302,13 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_to_stage9, product_acceptance, live_pilot, governance_testing]
     task_type: controlled_real_world_e2e_pilot
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P33
-    existing_code_state: POST_127_130_EXPECTED
-    existing_runtime_state: NOT_READY_UNTIL_127_130_COMPLETE
-    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    existing_code_state: POST_127_130_COMPLETE
+    existing_runtime_state: RUNTIME_UNCHANGED_FOR_131
+    runtime_change_in_packet: OUT_OF_SCOPE_RUNTIME_UNCHANGED
     activation_policy: "Created by 118R as the final closeout after UI, real source validation, real provider binding, and LLM assist tasks complete."
     hard_depends_on:
       - PTL-I100-127-owner-operator-frontend-and-customer-portal
@@ -2342,3 +2342,9 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
     suggested_packet_refs: [PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout]
     risk_level: CRITICAL
+    completed_commit: pending
+    completion_result: "COMPLETED_CONTROLLED_REAL_WORLD_E2E_CLOSEOUT_OWNER_OPERABLE_NO_AUTO_REFUND"
+    completion_notes:
+      - "131 adds a controlled real-world e2e pilot report and closeout tests over the existing 127-130 surfaces."
+      - "The closeout is for owner-operated controlled use, not public software release or ungated provider live execution."
+      - "Automated refund execution remains excluded; refund stays manual exception / governed review only."

@@ -46,9 +46,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
 
         self.assertEqual(
             {task["task_id"] for task in non_completed},
-            {
-                "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
-            },
+            set(),
         )
         for task in non_completed:
             task_id = task["task_id"]
@@ -597,6 +595,10 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.tasks_by_id["PTL-I100-130-llm-assisted-parsing-review-and-sales-governance"]["status"],
             "COMPLETED",
         )
+        self.assertEqual(
+            self.tasks_by_id["PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout"]["status"],
+            "COMPLETED",
+        )
         self.assertFalse(
             self.tasks_by_id["PTL-I100-127-owner-operator-frontend-and-customer-portal"][
                 "is_current_mainline_next_candidate"
@@ -617,20 +619,14 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 "is_current_mainline_next_candidate"
             ]
         )
-        self.assertTrue(
+        self.assertFalse(
             self.tasks_by_id["PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout"][
                 "is_current_mainline_next_candidate"
             ]
         )
         for task_id in expected:
             with self.subTest(task_id=task_id):
-                if task_id not in {
-                    "PTL-I100-127-owner-operator-frontend-and-customer-portal",
-                    "PTL-I100-128-real-public-source-field-validation-and-coverage",
-                    "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
-                    "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
-                }:
-                    self.assertEqual(self.tasks_by_id[task_id]["status"], "PLANNED")
+                self.assertEqual(self.tasks_by_id[task_id]["status"], "COMPLETED")
                 self.assertEqual(
                     self.tasks_by_id[task_id]["acceptance_checklist_ref"],
                     f"control/product_acceptance_checklist.yaml#tasks.{task_id}",
@@ -638,6 +634,12 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 self.assertIn(task_id, self.checklist["tasks"])
                 self.assertTrue(self.checklist["tasks"][task_id]["completion_must_prove"])
                 self.assertTrue(self.checklist["tasks"][task_id]["redline_checks"])
+
+        closeout_result = self.checklist["tasks"][
+            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout"
+        ]["current_131_closeout_result"]
+        self.assertEqual(closeout_result["product_closure_result"], "CONTROLLED_REAL_WORLD_CLOSED")
+        self.assertEqual(closeout_result["remaining_product_blockers"], [])
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 matrix_id: PTL-I100-1100_PRODUCT_OPERABILITY_GAP_MATRIX
 task_id: PTL-I100-1100-product-operability-full-audit
-status: PTL_I100_118R_REACCEPTANCE_BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS
+status: PTL_I100_131_CONTROLLED_REAL_WORLD_E2E_ACCEPTED
 updated_at: "2026-04-26"
 source_ledger: control/product_doc_runtime_coverage_ledger.yaml
 source_ledger_id: PTL-I100-107C_PRODUCT_DOC_RUNTIME_COVERAGE_LEDGER
@@ -204,17 +204,31 @@ final_118_operational_acceptance:
     unapproved_live_provider_call: BLOCKED
     real_refund_execution: BLOCKED
     automated_refund_execution: EXCLUDED
+final_131_controlled_real_world_e2e_closeout:
+  packet_ref: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+  acceptance_result: CONTROLLED_REAL_WORLD_E2E_ACCEPTED
+  product_closure_result: CONTROLLED_REAL_WORLD_CLOSED
+  owner_operational_use_state: OWNER_OPERABLE_CONTROLLED_PRODUCTION_READY
+  report_ref: control/controlled_real_world_e2e_pilot_report.yaml
+  remaining_product_blockers: []
+  redlines_preserved:
+    external_software_release: BLOCKED
+    unapproved_customer_delivery: BLOCKED
+    unapproved_live_provider_call: BLOCKED
+    real_refund_execution: BLOCKED
+    automated_refund_execution: EXCLUDED
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
-  acceptance_result: BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS
-  engineering_regression_result: PASS_REQUIRED_BY_CURRENT_WINDOW_CHECKS
-  capability_state_result: VERIFIED_CONTROLLED_EXECUTION_READBACK
-  product_closure_result: NOT_REAL_WORLD_CLOSED
+  acceptance_result: CONTROLLED_REAL_WORLD_E2E_ACCEPTED
+  engineering_regression_result: PASS_REQUIRED_BY_131_CHECKS
+  capability_state_result: VERIFIED_CONTROLLED_OWNER_OPERABLE_PRODUCTION_READY
+  product_closure_result: CONTROLLED_REAL_WORLD_CLOSED
   owner_internal_loop_operable: true
   owner_controlled_execution_loop_operable: true
-  owner_end_to_end_real_world_sales_delivery_operable: false
-  closeout_recommendation: DO_NOT_PRODUCTION_CLOSEOUT
+  owner_end_to_end_real_world_sales_delivery_operable: true
+  closeout_recommendation: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
+  closeout_report_ref: control/controlled_real_world_e2e_pilot_report.yaml
   resolved_118_blockers:
     - B118_STAGE8_REAL_SEND_NOT_EXECUTABLE
     - B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE
@@ -233,6 +247,8 @@ final_118R_operational_reacceptance:
     - real_public_source_field_validation_and_coverage_report
     - real_provider_binding_matrix_and_sandbox_callback_readback
     - governed_model_assist_parser_review_sales_readback
+    - controlled_real_world_e2e_pilot_closeout
+    - owner_operated_source_to_customer_delivery_sales_payment_audit_loop
   resolved_real_world_gaps:
     - gap_id: B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING
       capability: owner_operator_frontend_and_customer_portal
@@ -254,12 +270,12 @@ final_118R_operational_reacceptance:
       resolved_by_task_id: PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
       current_state: APPROVAL_READY
       evidence: "Governed deterministic model-assist readback now covers Stage3 parser field candidates, Stage4 evidence summary, Stage5 review triage, and Stage7 sales talk-track drafts; outputs are human-review-required, not formal facts, not customer conclusions, and no external model provider is called by default."
-  real_world_gaps:
     - gap_id: B118R_REAL_WORLD_E2E_PILOT_NOT_DONE
       capability: controlled_real_world_e2e_product_pilot
-      current_state: NOT_IMPLEMENTED
-      evidence: "No final controlled real-world pilot proves source -> customer artifact delivery -> outreach/quote/payment/delivery end to end after UI, real source validation, real provider binding, and LLM assist are complete."
-      minimum_followup_task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+      resolved_by_task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
+      current_state: PRODUCTION_READY
+      evidence: "control/controlled_real_world_e2e_pilot_report.yaml proves the owner-operated controlled flow across public source validation, parser/verification/rules, Stage6 product package, real challenger, CRM/quote, customer artifact, outreach, payment/delivery, audit/writeback, incident/rollback, model assist, and redline preservation."
+  real_world_gaps: []
   redlines_preserved:
     external_software_release: BLOCKED
     unapproved_customer_delivery: BLOCKED

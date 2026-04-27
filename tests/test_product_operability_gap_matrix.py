@@ -402,18 +402,21 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         )
         self.assertEqual(final["redlines_preserved"]["automated_refund_execution"], "EXCLUDED")
 
-    def test_118r_reacceptance_records_remaining_real_world_operability_gaps(self) -> None:
+    def test_118r_reacceptance_is_closed_by_131_real_world_e2e_pilot(self) -> None:
         final = self.matrix["final_118R_operational_reacceptance"]
 
         self.assertEqual(final["packet_ref"], "PTL-I100-118R-final-product-operational-reacceptance")
         self.assertEqual(final["previous_acceptance_ref"], "PTL-I100-118-full-product-operational-acceptance")
-        self.assertEqual(final["acceptance_result"], "BLOCKED_BY_REAL_WORLD_OPERATIONAL_GAPS")
-        self.assertEqual(final["capability_state_result"], "VERIFIED_CONTROLLED_EXECUTION_READBACK")
-        self.assertEqual(final["product_closure_result"], "NOT_REAL_WORLD_CLOSED")
+        self.assertEqual(final["acceptance_result"], "CONTROLLED_REAL_WORLD_E2E_ACCEPTED")
+        self.assertEqual(final["capability_state_result"], "VERIFIED_CONTROLLED_OWNER_OPERABLE_PRODUCTION_READY")
+        self.assertEqual(final["product_closure_result"], "CONTROLLED_REAL_WORLD_CLOSED")
         self.assertTrue(final["owner_internal_loop_operable"])
         self.assertTrue(final["owner_controlled_execution_loop_operable"])
-        self.assertFalse(final["owner_end_to_end_real_world_sales_delivery_operable"])
-        self.assertEqual(final["closeout_recommendation"], "DO_NOT_PRODUCTION_CLOSEOUT")
+        self.assertTrue(final["owner_end_to_end_real_world_sales_delivery_operable"])
+        self.assertEqual(
+            final["closeout_recommendation"],
+            "PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE",
+        )
         self.assertEqual(
             set(final["resolved_118_blockers"]),
             {
@@ -426,12 +429,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         )
 
         gaps = {row["gap_id"]: row for row in final["real_world_gaps"]}
-        self.assertEqual(
-            set(gaps),
-            {
-                "B118R_REAL_WORLD_E2E_PILOT_NOT_DONE",
-            },
-        )
+        self.assertEqual(gaps, {})
         resolved_gaps = {row["gap_id"]: row for row in final["resolved_real_world_gaps"]}
         self.assertEqual(
             resolved_gaps["B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING"]["resolved_by_task_id"],
@@ -461,14 +459,22 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             resolved_gaps["B118R_LLM_ASSIST_NOT_PRODUCTIZED"]["resolved_by_task_id"],
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
         )
+        self.assertEqual(
+            resolved_gaps["B118R_REAL_WORLD_E2E_PILOT_NOT_DONE"]["resolved_by_task_id"],
+            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+        )
         self.assertIn(
             "governed_model_assist_parser_review_sales_readback",
             final["controlled_operable_now"],
         )
-        for gap in gaps.values():
-            self.assertIn(gap["minimum_followup_task_id"], self.task_library_task_ids())
+        self.assertIn("controlled_real_world_e2e_pilot_closeout", final["controlled_operable_now"])
+        self.assertEqual(
+            self.matrix["final_131_controlled_real_world_e2e_closeout"]["remaining_product_blockers"],
+            [],
+        )
         self.assertNotIn("B118R_REAL_PROVIDER_BINDING_NOT_DONE", gaps)
         self.assertNotIn("B118R_LLM_ASSIST_NOT_PRODUCTIZED", gaps)
+        self.assertNotIn("B118R_REAL_WORLD_E2E_PILOT_NOT_DONE", gaps)
         self.assertEqual(final["redlines_preserved"]["automated_refund_execution"], "EXCLUDED")
 
     def task_library_task_ids(self) -> set[str]:
