@@ -22,6 +22,7 @@ from stage7_sales.leadpack_delivery_package import (
     leadpack_delivery_package_summary,
 )
 from stage9_delivery.order_payment_delivery_execution import (
+    APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
     DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
     MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
     PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY,
@@ -1635,6 +1636,41 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                     ),
                     "live_payment_enabled": bool(live_pilot_carrier.get("live_payment_enabled", False)),
                     "live_delivery_enabled": bool(live_pilot_carrier.get("live_delivery_enabled", False)),
+                    "real_charge_attempted": False,
+                    "real_delivery_fulfillment_attempted": False,
+                    "real_refund_attempted": False,
+                    "automated_refund_enabled": False,
+                }
+            approved_execution_carrier = execution_ledger.get(
+                APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY
+            )
+            if isinstance(approved_execution_carrier, Mapping):
+                governed_context[APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY] = dict(
+                    approved_execution_carrier
+                )
+                governed_context["approved_payment_delivery_execution_summary"] = {
+                    "execution_id": approved_execution_carrier.get("execution_id"),
+                    "approved_payment_delivery_execution_enabled": bool(
+                        approved_execution_carrier.get(
+                            "approved_payment_delivery_execution_enabled",
+                            False,
+                        )
+                    ),
+                    "approved_payment_capture_enabled": bool(
+                        approved_execution_carrier.get("approved_payment_capture_enabled", False)
+                    ),
+                    "approved_delivery_fulfillment_enabled": bool(
+                        approved_execution_carrier.get(
+                            "approved_delivery_fulfillment_enabled",
+                            False,
+                        )
+                    ),
+                    "provider_execution_state": approved_execution_carrier.get(
+                        "provider_execution_state"
+                    ),
+                    "controlled_provider_adapter_scope": approved_execution_carrier.get(
+                        "controlled_provider_adapter_scope"
+                    ),
                     "real_charge_attempted": False,
                     "real_delivery_fulfillment_attempted": False,
                     "real_refund_attempted": False,

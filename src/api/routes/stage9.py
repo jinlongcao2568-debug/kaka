@@ -31,7 +31,10 @@ from shared.provider_adapter_config import (
     provider_adapter_bootstrap_payload,
     provider_readiness_for_family,
 )
-from stage9_delivery.order_payment_delivery_execution import PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY
+from stage9_delivery.order_payment_delivery_execution import (
+    APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
+    PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY,
+)
 
 
 STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
@@ -128,6 +131,37 @@ STAGE9_EXECUTION_LEDGER_ROUTE_READINESS = {
         "real_refund_attempted": False,
         "automated_refund_program_present": False,
         "automated_refund_enabled": False,
+        "live_fallback_allowed": False,
+    },
+    APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY: {
+        "readiness_scope": "approved_payment_delivery_provider_execution_readback",
+        "repository_backed_readback": True,
+        "controlled_provider_adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        "requires_provider_config": True,
+        "requires_sandbox_pass": True,
+        "requires_payment_approval": True,
+        "requires_delivery_approval": True,
+        "requires_finance_review": True,
+        "requires_operator_action_audit": True,
+        "requires_callback_verification": True,
+        "requires_artifact_version_lock": True,
+        "requires_download_auth": True,
+        "requires_settlement_reconciliation": True,
+        "requires_rollback_path": True,
+        "provider_result_readback_visible": True,
+        "receipt_invoice_readback_visible": True,
+        "settlement_reconciliation_readback_visible": True,
+        "delivery_download_audit_readback_visible": True,
+        "manual_refund_exception_manual_approval_audit_required": True,
+        "automated_refund_program_present": False,
+        "automated_refund_enabled": False,
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "real_payment_capture_attempted": False,
+        "real_charge_attempted": False,
+        "real_delivery_fulfillment_attempted": False,
+        "real_customer_download_attempted": False,
+        "real_refund_attempted": False,
         "live_fallback_allowed": False,
     },
 }

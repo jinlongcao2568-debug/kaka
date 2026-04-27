@@ -86,6 +86,15 @@ class Stage9ExecutionLedgerRepository:
             "real_charge_attempted": bool(payload.get("real_charge_attempted", False)),
             "real_delivery_attempted": bool(payload.get("real_delivery_attempted", False)),
             "real_refund_attempted": bool(payload.get("real_refund_attempted", False)),
+            "approved_payment_delivery_execution_enabled": bool(
+                dict(payload.get("approved_payment_delivery_execution", {})).get(
+                    "approved_payment_delivery_execution_enabled",
+                    False,
+                )
+            ),
+            "approved_payment_delivery_execution_summary": dict(
+                payload.get("approved_payment_delivery_execution", {})
+            ),
             "readiness_summary": dict(payload.get("readiness_summary", {})),
         }
 

@@ -20,6 +20,7 @@ from stage9_delivery.feedback_writeback import (
 )
 from stage9_delivery.impact_executor import ImpactExecutor
 from stage9_delivery.order_payment_delivery_execution import (
+    APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
     DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
     MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
     PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY,
@@ -928,6 +929,9 @@ class Stage9Service:
         handoff[PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY] = execution_ledger.get(
             PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY
         )
+        handoff[APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY] = execution_ledger.get(
+            APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY
+        )
         inputs_out = build_feedback_inputs(
             runtime_inputs=runtime_inputs,
             projection=writeback_projection,
@@ -949,6 +953,9 @@ class Stage9Service:
         )
         inputs_out[PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY] = execution_ledger.get(
             PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY
+        )
+        inputs_out[APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY] = execution_ledger.get(
+            APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY
         )
 
         return StageBundle(

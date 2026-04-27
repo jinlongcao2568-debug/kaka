@@ -19,6 +19,7 @@ PAYMENT_SANDBOX_RECORDS_INPUT_KEY = "payment_sandbox_provider_records"
 DELIVERY_SANDBOX_RECORDS_INPUT_KEY = "delivery_sandbox_provider_records"
 MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY = "manual_refund_exception_record"
 PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY = "payment_delivery_live_pilot"
+APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY = "approved_payment_delivery_execution"
 
 _EMPTY_VALUES = {None, "", "UNKNOWN", "NOT_APPLICABLE"}
 _SUSPENDED_STATES = {"SUSPENDED"}
@@ -628,6 +629,224 @@ def _build_payment_delivery_live_pilot_carrier(
     }
 
 
+def _build_approved_payment_delivery_execution_carrier(
+    *,
+    project_id: str,
+    runtime_inputs: Mapping[str, Any],
+    order_id: str,
+    payment_id: str,
+    delivery_id: str,
+    opportunity_id: str,
+    live_pilot_carrier: Mapping[str, Any],
+    payment_provider_readiness: Mapping[str, Any],
+    delivery_provider_readiness: Mapping[str, Any],
+    now: str,
+) -> dict[str, Any]:
+    payment_requested = _requested_flag(
+        runtime_inputs,
+        "approved_payment_delivery_execution_requested",
+        "approved_payment_capture_requested",
+        "approved_charge_execution_requested",
+    )
+    delivery_requested = _requested_flag(
+        runtime_inputs,
+        "approved_payment_delivery_execution_requested",
+        "approved_delivery_fulfillment_requested",
+        "approved_customer_download_requested",
+    )
+    requested = payment_requested or delivery_requested
+    payment_provider_suspended = _provider_is_suspended(payment_provider_readiness)
+    delivery_provider_suspended = _provider_is_suspended(delivery_provider_readiness)
+    settlement_readback = dict(live_pilot_carrier.get("settlement_reconciliation_readback", {}))
+    callback_record = dict(live_pilot_carrier.get("callback_record", {}))
+    download_audit = dict(live_pilot_carrier.get("customer_download_audit_record", {}))
+    rollback_readiness = dict(live_pilot_carrier.get("rollback_readiness", {}))
+    manual_refund_record = dict(live_pilot_carrier.get(MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY, {}))
+    manual_refund_governance = dict(live_pilot_carrier.get("manual_refund_governance", {}))
+
+    payment_blocked: list[str] = []
+    delivery_blocked: list[str] = []
+    payment_suspended: list[str] = []
+    delivery_suspended: list[str] = []
+    if payment_requested and live_pilot_carrier.get("payment_live_pilot_readiness_state") != "LIVE_READY":
+        payment_blocked.append("payment_live_pilot_not_ready")
+    if delivery_requested and live_pilot_carrier.get("delivery_live_pilot_readiness_state") != "LIVE_READY":
+        delivery_blocked.append("delivery_live_pilot_not_ready")
+    if payment_requested and payment_provider_suspended:
+        payment_suspended.append("payment_provider_suspended_fail_closed")
+    if delivery_requested and delivery_provider_suspended:
+        delivery_suspended.append("delivery_provider_suspended_fail_closed")
+    if payment_requested and str(callback_record.get("callback_mismatch_state", "NO_MISMATCH")) != "NO_MISMATCH":
+        payment_blocked.append("callback_verification_not_clear")
+    if payment_requested and settlement_readback.get("readiness_state") != "LIVE_READY":
+        payment_blocked.append("settlement_reconciliation_not_matched")
+    if delivery_requested and not dict(live_pilot_carrier.get("delivery_artifact_version_lock", {})).get(
+        "version_locked",
+        False,
+    ):
+        delivery_blocked.append("artifact_version_not_locked")
+    if delivery_requested and not download_audit.get("customer_download_authorized", False):
+        delivery_blocked.append("download_auth_missing")
+    if delivery_requested and not rollback_readiness:
+        delivery_blocked.append("rollback_readiness_missing")
+
+    payment_enabled = bool(payment_requested and not payment_blocked and not payment_suspended)
+    delivery_enabled = bool(delivery_requested and not delivery_blocked and not delivery_suspended)
+    blocked_reasons = _clean_list(payment_blocked + delivery_blocked)
+    suspension_reasons = _clean_list(payment_suspended + delivery_suspended)
+    not_requested_reasons = _clean_list(
+        ([] if payment_requested else ["approved_payment_execution_not_requested"])
+        + ([] if delivery_requested else ["approved_delivery_execution_not_requested"])
+    )
+    request_state = (
+        "NOT_REQUESTED"
+        if not requested
+        else "SUSPENDED"
+        if suspension_reasons
+        else "BLOCKED"
+        if blocked_reasons
+        else "APPROVED"
+    )
+    provider_execution_state = (
+        "NOT_REQUESTED"
+        if not requested
+        else "SUSPENDED"
+        if suspension_reasons
+        else "BLOCKED"
+        if blocked_reasons
+        else "APPROVED_CONTROLLED_FAKE_PROVIDER_RECORDED"
+    )
+    controlled_execution_executed = bool(payment_enabled or delivery_enabled)
+    payment_capture_record = {
+        "payment_capture_execution_id": build_id("APAYCAP", project_id, payment_id),
+        "payment_id": payment_id,
+        "order_id": order_id,
+        "approved_payment_capture_requested": payment_requested,
+        "approved_payment_capture_enabled": payment_enabled,
+        "approved_charge_execution_enabled": payment_enabled,
+        "controlled_fake_payment_capture_recorded": payment_enabled,
+        "controlled_fake_charge_recorded": payment_enabled,
+        "provider_result_state": "CONTROLLED_FAKE_CAPTURE_RECORDED" if payment_enabled else provider_execution_state,
+        "provider_adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        "provider_family": "payment_collection",
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "provider_call_executed": False,
+        "real_payment_capture_attempted": False,
+        "real_charge_attempted": False,
+        "live_fallback_allowed": False,
+        "callback_verification": callback_record,
+        "receipt_record": dict(live_pilot_carrier.get("receipt_record", {})),
+        "invoice_record": dict(live_pilot_carrier.get("invoice_record", {})),
+        "settlement_reconciliation_readback": settlement_readback,
+        "audit_refs": list(live_pilot_carrier.get("operator_action_audit_refs", [])),
+        "recorded_at": now,
+    }
+    delivery_fulfillment_record = {
+        "delivery_fulfillment_execution_id": build_id("ADELIVER", project_id, delivery_id),
+        "delivery_id": delivery_id,
+        "order_id": order_id,
+        "payment_id": payment_id,
+        "approved_delivery_fulfillment_requested": delivery_requested,
+        "approved_delivery_fulfillment_enabled": delivery_enabled,
+        "approved_customer_download_enabled": delivery_enabled
+        and bool(download_audit.get("customer_download_authorized", False)),
+        "controlled_fake_delivery_fulfillment_recorded": delivery_enabled,
+        "controlled_fake_customer_download_recorded": delivery_enabled
+        and bool(download_audit.get("customer_download_authorized", False)),
+        "provider_result_state": "CONTROLLED_FAKE_DELIVERY_RECORDED" if delivery_enabled else provider_execution_state,
+        "provider_adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        "provider_family": "leadpack_page_delivery",
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "provider_call_executed": False,
+        "real_delivery_fulfillment_attempted": False,
+        "real_customer_download_attempted": False,
+        "live_fallback_allowed": False,
+        "delivery_artifact_version_lock": dict(live_pilot_carrier.get("delivery_artifact_version_lock", {})),
+        "delivery_hash_record": dict(live_pilot_carrier.get("delivery_hash_record", {})),
+        "customer_download_audit_record": download_audit,
+        "rollback_readiness": rollback_readiness,
+        "audit_refs": list(live_pilot_carrier.get("operator_action_audit_refs", [])),
+        "recorded_at": now,
+    }
+    timeline = [
+        {
+            "step": "provider_config_and_reliability_checked",
+            "state": "SUSPENDED" if payment_provider_suspended or delivery_provider_suspended else "SATISFIED",
+            "recorded_at": now,
+        },
+        {
+            "step": "sandbox_payment_and_approval_gates_checked",
+            "state": "SATISFIED" if live_pilot_carrier.get("overall_live_pilot_readiness_state") == "LIVE_READY" else "BLOCKED",
+            "recorded_at": now,
+        },
+        {
+            "step": "controlled_fake_provider_execution_recorded",
+            "state": "RECORDED" if controlled_execution_executed else provider_execution_state,
+            "recorded_at": now,
+        },
+    ]
+    return {
+        "execution_id": build_id(
+            "APAYDELIV",
+            f"{project_id}:{order_id}:{payment_id}:{delivery_id}",
+        ),
+        "order_id": order_id,
+        "payment_id": payment_id,
+        "delivery_id": delivery_id,
+        "opportunity_id": opportunity_id,
+        "approved_payment_delivery_execution_requested": requested,
+        "approved_payment_execution_requested": payment_requested,
+        "approved_delivery_execution_requested": delivery_requested,
+        "approved_payment_delivery_execution_enabled": bool(payment_enabled and delivery_enabled),
+        "approved_payment_capture_enabled": payment_enabled,
+        "approved_charge_execution_enabled": payment_enabled,
+        "approved_delivery_fulfillment_enabled": delivery_enabled,
+        "approved_customer_download_enabled": bool(delivery_fulfillment_record["approved_customer_download_enabled"]),
+        "execution_request_state": request_state,
+        "provider_execution_state": provider_execution_state,
+        "controlled_provider_adapter_scope": "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        "controlled_provider_execution_executed": controlled_execution_executed,
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "provider_call_executed": False,
+        "real_payment_capture_attempted": False,
+        "real_charge_attempted": False,
+        "real_delivery_fulfillment_attempted": False,
+        "real_customer_download_attempted": False,
+        "real_refund_attempted": False,
+        "automated_refund_program": {
+            "present": False,
+            "enabled": False,
+            "state": "ABSENT_BLOCKED",
+        },
+        "payment_provider_adapter_readiness": dict(payment_provider_readiness),
+        "delivery_provider_adapter_readiness": dict(delivery_provider_readiness),
+        "payment_capture_execution_record": payment_capture_record,
+        "delivery_fulfillment_execution_record": delivery_fulfillment_record,
+        "callback_verification": callback_record,
+        "settlement_reconciliation_readback": settlement_readback,
+        "manual_refund_exception_record": manual_refund_record,
+        "manual_refund_governance": {
+            **manual_refund_governance,
+            "automated_refund_enabled": False,
+            "real_refund_attempted": False,
+        },
+        "execution_timeline": timeline,
+        "blocked_reasons": blocked_reasons,
+        "suspension_reasons": suspension_reasons,
+        "not_requested_reasons": not_requested_reasons,
+        "replay_state": {
+            "state": "REPLAYABLE",
+            "repository_backed": True,
+            "controlled_fake_provider_execution_replayable": True,
+            "real_provider_call_executed": False,
+        },
+        "decided_at": now,
+    }
+
+
 def _provider_snapshot(
     provider_readiness: Mapping[str, Any],
     *,
@@ -1069,6 +1288,13 @@ def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -
     reconciliation_record = dict(ledger.get("finance_reconciliation_record", {}))
     manual_refund_record = dict(ledger.get(MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY, {}))
     live_pilot_carrier = dict(ledger.get(PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY, {}))
+    approved_execution_carrier = dict(
+        ledger.get(
+            APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
+            live_pilot_carrier.get("approved_payment_delivery_execution_summary", {}),
+        )
+        or {}
+    )
     return {
         "execution_ledger_id": ledger.get("execution_ledger_id"),
         "order_execution_id": ledger.get("order_execution_id"),
@@ -1135,6 +1361,25 @@ def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -
         "live_delivery_requested": bool(live_pilot_carrier.get("live_delivery_requested", False)),
         "live_payment_enabled": bool(live_pilot_carrier.get("live_payment_enabled", False)),
         "live_delivery_enabled": bool(live_pilot_carrier.get("live_delivery_enabled", False)),
+        APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY: approved_execution_carrier,
+        "approved_payment_delivery_execution_state": approved_execution_carrier.get(
+            "provider_execution_state"
+        ),
+        "approved_payment_delivery_execution_enabled": bool(
+            approved_execution_carrier.get("approved_payment_delivery_execution_enabled", False)
+        ),
+        "approved_payment_capture_enabled": bool(
+            approved_execution_carrier.get("approved_payment_capture_enabled", False)
+        ),
+        "approved_charge_execution_enabled": bool(
+            approved_execution_carrier.get("approved_charge_execution_enabled", False)
+        ),
+        "approved_delivery_fulfillment_enabled": bool(
+            approved_execution_carrier.get("approved_delivery_fulfillment_enabled", False)
+        ),
+        "approved_customer_download_enabled": bool(
+            approved_execution_carrier.get("approved_customer_download_enabled", False)
+        ),
         "real_payment_capture_attempted": False,
         "real_delivery_fulfillment_attempted": False,
         "real_customer_download_attempted": False,
@@ -1148,6 +1393,13 @@ def build_stage9_execution_ledger_readiness_summary(ledger: Mapping[str, Any]) -
 
 def stage9_execution_ledger_summary(ledger: Mapping[str, Any]) -> dict[str, Any]:
     live_pilot_carrier = dict(ledger.get(PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY, {}))
+    approved_execution_carrier = dict(
+        ledger.get(
+            APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
+            live_pilot_carrier.get("approved_payment_delivery_execution_summary", {}),
+        )
+        or {}
+    )
     return {
         "execution_ledger_id": ledger.get("execution_ledger_id"),
         "order_execution_id": ledger.get("order_execution_id"),
@@ -1194,6 +1446,16 @@ def stage9_execution_ledger_summary(ledger: Mapping[str, Any]) -> dict[str, Any]
         "overall_live_pilot_readiness_state": live_pilot_carrier.get("overall_live_pilot_readiness_state"),
         "live_payment_enabled": bool(live_pilot_carrier.get("live_payment_enabled", False)),
         "live_delivery_enabled": bool(live_pilot_carrier.get("live_delivery_enabled", False)),
+        APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY: approved_execution_carrier,
+        "approved_payment_delivery_execution_enabled": bool(
+            approved_execution_carrier.get("approved_payment_delivery_execution_enabled", False)
+        ),
+        "approved_payment_capture_enabled": bool(
+            approved_execution_carrier.get("approved_payment_capture_enabled", False)
+        ),
+        "approved_delivery_fulfillment_enabled": bool(
+            approved_execution_carrier.get("approved_delivery_fulfillment_enabled", False)
+        ),
     }
 
 
@@ -1363,9 +1625,28 @@ def build_stage9_execution_ledger(
         audit_state=audit_state,
         now=now,
     )
+    approved_execution_carrier = _build_approved_payment_delivery_execution_carrier(
+        project_id=project_id,
+        runtime_inputs=runtime_inputs,
+        order_id=order_id,
+        payment_id=payment_id,
+        delivery_id=delivery_id,
+        opportunity_id=opportunity_id,
+        live_pilot_carrier=live_pilot_carrier,
+        payment_provider_readiness=provider_readiness,
+        delivery_provider_readiness=delivery_provider_readiness,
+        now=now,
+    )
+    live_pilot_carrier["approved_payment_delivery_execution_summary"] = approved_execution_carrier
+    live_pilot_carrier["approved_payment_delivery_execution_enabled"] = bool(
+        approved_execution_carrier.get("approved_payment_delivery_execution_enabled", False)
+    )
     blocked_reasons.extend(live_pilot_carrier.get("blocked_reasons", []))
     blocked_reasons.extend(live_pilot_carrier.get("review_reasons", []))
     blocked_reasons.extend(live_pilot_carrier.get("suspension_reasons", []))
+    if approved_execution_carrier.get("approved_payment_delivery_execution_requested"):
+        blocked_reasons.extend(approved_execution_carrier.get("blocked_reasons", []))
+        blocked_reasons.extend(approved_execution_carrier.get("suspension_reasons", []))
 
     ledger = {
         "execution_ledger_id": ledger_id,
@@ -1432,6 +1713,25 @@ def build_stage9_execution_ledger(
         "delivery_audit_record": delivery_audit_record,
         DELIVERY_SANDBOX_RECORDS_INPUT_KEY: delivery_sandbox_records,
         PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY: live_pilot_carrier,
+        APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY: approved_execution_carrier,
+        "approved_payment_delivery_execution_enabled": bool(
+            approved_execution_carrier.get("approved_payment_delivery_execution_enabled", False)
+        ),
+        "approved_payment_capture_enabled": bool(
+            approved_execution_carrier.get("approved_payment_capture_enabled", False)
+        ),
+        "approved_charge_execution_enabled": bool(
+            approved_execution_carrier.get("approved_charge_execution_enabled", False)
+        ),
+        "approved_delivery_fulfillment_enabled": bool(
+            approved_execution_carrier.get("approved_delivery_fulfillment_enabled", False)
+        ),
+        "approved_customer_download_enabled": bool(
+            approved_execution_carrier.get("approved_customer_download_enabled", False)
+        ),
+        "approved_payment_delivery_execution_state": approved_execution_carrier.get(
+            "provider_execution_state"
+        ),
         "payment_gateway_adapter_state": {
             "state": _provider_sandbox_state(provider_readiness),
             "adapter_scope": "SANDBOX_DRY_RUN_READBACK_ONLY",
@@ -1497,6 +1797,7 @@ def build_stage9_execution_ledger(
 
 
 __all__ = [
+    "APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY",
     "DELIVERY_SANDBOX_RECORDS_INPUT_KEY",
     "MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY",
     "PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY",

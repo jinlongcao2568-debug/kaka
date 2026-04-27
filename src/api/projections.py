@@ -31,6 +31,7 @@ from stage8_outreach.execution_outbox import (
     build_outbox_readiness_summary,
 )
 from stage9_delivery.order_payment_delivery_execution import (
+    APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
     DELIVERY_SANDBOX_RECORDS_INPUT_KEY,
     MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY,
     PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY,
@@ -1247,6 +1248,20 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
         if isinstance(payment_delivery_live_pilot, Mapping)
         else dict(execution_ledger.get(PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY, {}))
     )
+    approved_payment_delivery_execution = bundle.inputs.get(
+        APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY
+    )
+    approved_payment_delivery_execution = (
+        dict(approved_payment_delivery_execution)
+        if isinstance(approved_payment_delivery_execution, Mapping)
+        else dict(
+            execution_ledger.get(
+                APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
+                payment_delivery_live_pilot.get("approved_payment_delivery_execution_summary", {}),
+            )
+            or {}
+        )
+    )
     formal_records = {
         "order_record": order,
         "payment_record": payment,
@@ -1318,6 +1333,7 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
         },
         "manual_refund_exception_preview": manual_refund_exception_record,
         "payment_delivery_live_pilot_preview": payment_delivery_live_pilot,
+        "approved_payment_delivery_execution_preview": approved_payment_delivery_execution,
         "_raw_records": [order, payment, delivery, outcome, governance],
     }
     envelope = _surface_envelope(
@@ -1340,6 +1356,7 @@ def build_stage9_preview_surface(payload: Any) -> dict[str, Any]:
     envelope[DELIVERY_SANDBOX_RECORDS_INPUT_KEY] = delivery_sandbox_records
     envelope[MANUAL_REFUND_EXCEPTION_RECORD_INPUT_KEY] = manual_refund_exception_record
     envelope[PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY] = payment_delivery_live_pilot
+    envelope[APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY] = approved_payment_delivery_execution
     return _attach_operational_context(envelope, bundle)
 
 

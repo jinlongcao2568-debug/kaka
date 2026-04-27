@@ -318,7 +318,10 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
                 self.assertIn(expected_reason, carrier["blocked_reasons"])
                 self.assertIn("provider_suspended_fail_closed_no_live_fallback", ledger["blocked_reasons"])
                 live_pilot = ledger["payment_delivery_live_pilot"]
+                approved_execution = ledger["approved_payment_delivery_execution"]
                 self.assertEqual(live_pilot["overall_live_pilot_readiness_state"], "SUSPENDED")
+                self.assertFalse(approved_execution["approved_payment_delivery_execution_enabled"])
+                self.assertEqual(approved_execution["provider_execution_state"], "NOT_REQUESTED")
                 self.assertFalse(live_pilot["payment_provider_result_readback"]["provider_call_executed"])
                 self.assertFalse(live_pilot["delivery_provider_result_readback"]["provider_call_executed"])
                 self.assertFalse(live_pilot["real_charge_attempted"])

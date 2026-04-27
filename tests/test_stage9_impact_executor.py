@@ -1224,6 +1224,105 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         self.assertFalse(ledger["real_charge_attempted"])
         self.assertFalse(ledger["real_delivery_attempted"])
 
+    def test_stage9_approved_payment_delivery_execution_uses_controlled_fake_provider(self) -> None:
+        stage9 = self._run_stage9(
+            {
+                "payment_status": "PAID",
+                "payment_proof_state": "PROVIDED",
+                "paid_at_optional": "2026-04-24T10:00:00Z",
+                "delivery_status": "READY",
+                "manual_settlement_note_optional": "owner marked bank transfer as received",
+                "payment_delivery_live_pilot_requested": True,
+                "approved_payment_delivery_execution_requested": True,
+                "approved_sample_size": 1,
+                "requested_sample_size": 1,
+                "payment_approval_state": "APPROVED",
+                "delivery_approval_state": "APPROVED",
+                "finance_review_state": "APPROVED",
+                "operator_action_audit_refs": ["AUDIT-S9-APPROVED-001"],
+                "download_auth_state": "AUTHORIZED",
+            }
+        )
+
+        carrier = stage9.inputs["approved_payment_delivery_execution"]
+        live_pilot = stage9.inputs["payment_delivery_live_pilot"]
+        ledger = stage9.inputs["stage9_execution_ledger"]
+
+        self.assertEqual(live_pilot["approved_payment_delivery_execution_summary"], carrier)
+        self.assertTrue(live_pilot["approved_payment_delivery_execution_enabled"])
+        self.assertTrue(carrier["approved_payment_delivery_execution_requested"])
+        self.assertTrue(carrier["approved_payment_delivery_execution_enabled"])
+        self.assertTrue(carrier["approved_payment_capture_enabled"])
+        self.assertTrue(carrier["approved_charge_execution_enabled"])
+        self.assertTrue(carrier["approved_delivery_fulfillment_enabled"])
+        self.assertTrue(carrier["approved_customer_download_enabled"])
+        self.assertEqual(carrier["execution_request_state"], "APPROVED")
+        self.assertEqual(
+            carrier["provider_execution_state"],
+            "APPROVED_CONTROLLED_FAKE_PROVIDER_RECORDED",
+        )
+        self.assertEqual(
+            carrier["controlled_provider_adapter_scope"],
+            "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        )
+        self.assertTrue(carrier["controlled_provider_execution_executed"])
+        self.assertTrue(
+            carrier["payment_capture_execution_record"][
+                "controlled_fake_payment_capture_recorded"
+            ]
+        )
+        self.assertTrue(
+            carrier["delivery_fulfillment_execution_record"][
+                "controlled_fake_delivery_fulfillment_recorded"
+            ]
+        )
+        self.assertFalse(carrier["provider_call_enabled"])
+        self.assertFalse(carrier["real_provider_call_enabled"])
+        self.assertFalse(carrier["provider_call_executed"])
+        self.assertFalse(carrier["real_payment_capture_attempted"])
+        self.assertFalse(carrier["real_charge_attempted"])
+        self.assertFalse(carrier["real_delivery_fulfillment_attempted"])
+        self.assertFalse(carrier["real_customer_download_attempted"])
+        self.assertFalse(carrier["real_refund_attempted"])
+        self.assertFalse(carrier["automated_refund_program"]["enabled"])
+        self.assertEqual(carrier["callback_verification"]["callback_mismatch_state"], "NO_MISMATCH")
+        self.assertEqual(carrier["settlement_reconciliation_readback"]["readiness_state"], "LIVE_READY")
+        self.assertEqual(carrier["manual_refund_governance"]["manual_approval_state"], "NOT_REQUIRED")
+        self.assertEqual(ledger["approved_payment_delivery_execution"], carrier)
+        self.assertTrue(ledger["approved_payment_delivery_execution_enabled"])
+        self.assertTrue(ledger["readiness_summary"]["approved_payment_delivery_execution_enabled"])
+
+    def test_stage9_approved_payment_delivery_execution_fails_closed_without_download_auth(self) -> None:
+        stage9 = self._run_stage9(
+            {
+                "payment_status": "PAID",
+                "payment_proof_state": "PROVIDED",
+                "paid_at_optional": "2026-04-24T10:00:00Z",
+                "delivery_status": "READY",
+                "manual_settlement_note_optional": "owner marked bank transfer as received",
+                "payment_delivery_live_pilot_requested": True,
+                "approved_payment_delivery_execution_requested": True,
+                "approved_sample_size": 1,
+                "requested_sample_size": 1,
+                "payment_approval_state": "APPROVED",
+                "delivery_approval_state": "APPROVED",
+                "finance_review_state": "APPROVED",
+                "operator_action_audit_refs": ["AUDIT-S9-APPROVED-002"],
+            }
+        )
+
+        carrier = stage9.inputs["approved_payment_delivery_execution"]
+
+        self.assertFalse(carrier["approved_payment_delivery_execution_enabled"])
+        self.assertTrue(carrier["approved_payment_capture_enabled"])
+        self.assertFalse(carrier["approved_delivery_fulfillment_enabled"])
+        self.assertEqual(carrier["provider_execution_state"], "BLOCKED")
+        self.assertIn("delivery_live_pilot_not_ready", carrier["blocked_reasons"])
+        self.assertIn("download_auth_missing", carrier["blocked_reasons"])
+        self.assertFalse(carrier["provider_call_executed"])
+        self.assertFalse(carrier["real_refund_attempted"])
+        self.assertFalse(carrier["automated_refund_program"]["enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()

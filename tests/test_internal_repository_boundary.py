@@ -1277,6 +1277,7 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         governance = stage9.record("governance_feedback_event")
         ledger = stage9.inputs["stage9_execution_ledger"]
         live_pilot = stage9.inputs["payment_delivery_live_pilot"]
+        approved_execution = stage9.inputs["approved_payment_delivery_execution"]
 
         order_entry = OrderRecordRepository().get_by_id(order.get("order_id"))
         payment_entry = PaymentRecordRepository().get_by_id(payment.get("payment_id"))
@@ -1351,6 +1352,14 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             ledger_entry.payload["payment_delivery_live_pilot"],
             live_pilot,
         )
+        self.assertEqual(
+            ledger_entry.payload["approved_payment_delivery_execution"],
+            approved_execution,
+        )
+        self.assertEqual(
+            ledger_entry.governed_state["approved_payment_delivery_execution_summary"],
+            approved_execution,
+        )
         self.assertFalse(ledger_entry.payload["payment_delivery_live_pilot"]["real_charge_attempted"])
         self.assertFalse(
             ledger_entry.payload["payment_delivery_live_pilot"]["real_delivery_fulfillment_attempted"]
@@ -1423,6 +1432,20 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         self.assertEqual(
             replay["preview_projection"]["payment_delivery_live_pilot_preview"],
             live_pilot,
+        )
+        self.assertEqual(
+            replay["approved_payment_delivery_execution"],
+            approved_execution,
+        )
+        self.assertEqual(
+            replay["preview_projection"]["approved_payment_delivery_execution_preview"],
+            approved_execution,
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["governed_context"][
+                "approved_payment_delivery_execution"
+            ],
+            approved_execution,
         )
         self.assertEqual(
             replay["preview_projection"]["settlement_reconciliation_preview"]["settlement_record"],

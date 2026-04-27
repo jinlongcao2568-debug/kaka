@@ -725,6 +725,25 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(live_pilot_metadata["real_delivery_fulfillment_attempted"])
         self.assertFalse(live_pilot_metadata["real_refund_attempted"])
         self.assertFalse(live_pilot_metadata["automated_refund_enabled"])
+        approved_execution_metadata = mounted_by_id["createPaymentRecord"][
+            "approved_payment_delivery_execution"
+        ]
+        self.assertEqual(
+            approved_execution_metadata["readiness_scope"],
+            "approved_payment_delivery_provider_execution_readback",
+        )
+        self.assertEqual(
+            approved_execution_metadata["controlled_provider_adapter_scope"],
+            "LOCAL_CONTROLLED_FAKE_PROVIDER",
+        )
+        self.assertTrue(approved_execution_metadata["requires_payment_approval"])
+        self.assertTrue(approved_execution_metadata["requires_delivery_approval"])
+        self.assertTrue(approved_execution_metadata["requires_callback_verification"])
+        self.assertTrue(approved_execution_metadata["requires_settlement_reconciliation"])
+        self.assertFalse(approved_execution_metadata["provider_call_enabled"])
+        self.assertFalse(approved_execution_metadata["real_provider_call_enabled"])
+        self.assertFalse(approved_execution_metadata["real_refund_attempted"])
+        self.assertFalse(approved_execution_metadata["automated_refund_enabled"])
         self.assertEqual(mounted_by_id["listOrders"]["stage_scope"], 9)
         self.assertTrue(mounted_by_id["listContactTargets"]["blocked_by_default"])
         self.assertTrue(
@@ -1756,6 +1775,24 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(
             payload["preview_projection"]["payment_delivery_live_pilot_preview"],
             stage9.inputs["payment_delivery_live_pilot"],
+        )
+        self.assertEqual(
+            payload["approved_payment_delivery_execution"],
+            stage9.inputs["approved_payment_delivery_execution"],
+        )
+        self.assertEqual(
+            payload["preview_projection"]["approved_payment_delivery_execution_preview"],
+            stage9.inputs["approved_payment_delivery_execution"],
+        )
+        self.assertFalse(
+            payload["approved_payment_delivery_execution"][
+                "approved_payment_delivery_execution_enabled"
+            ]
+        )
+        self.assertFalse(payload["approved_payment_delivery_execution"]["provider_call_executed"])
+        self.assertFalse(payload["approved_payment_delivery_execution"]["real_refund_attempted"])
+        self.assertFalse(
+            payload["approved_payment_delivery_execution"]["automated_refund_program"]["enabled"]
         )
         self.assertFalse(payload["payment_delivery_live_pilot"]["payment_provider_result_readback"]["provider_call_executed"])
         self.assertFalse(payload["payment_delivery_live_pilot"]["delivery_provider_result_readback"]["provider_call_executed"])

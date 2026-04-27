@@ -1811,8 +1811,16 @@ class TestInternalChain(unittest.TestCase):
             stage9.inputs.get("payment_delivery_live_pilot"),
         )
         self.assertEqual(
+            hydrated.inputs.get("approved_payment_delivery_execution"),
+            stage9.inputs.get("approved_payment_delivery_execution"),
+        )
+        self.assertEqual(
             hydrated.handoff.get("payment_delivery_live_pilot"),
             stage9.handoff.get("payment_delivery_live_pilot"),
+        )
+        self.assertEqual(
+            hydrated.handoff.get("approved_payment_delivery_execution"),
+            stage9.handoff.get("approved_payment_delivery_execution"),
         )
         self.assertEqual(
             hydrated.record("payment_record").get("payment_sandbox_provider_records"),

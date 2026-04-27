@@ -27,6 +27,7 @@ from stage8_outreach.execution_outbox import (
     build_outbox_readiness_summary,
 )
 from stage9_delivery.order_payment_delivery_execution import (
+    APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY,
     PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_ID_INPUT_KEY,
     STAGE9_EXECUTION_LEDGER_INPUT_KEY,
@@ -1239,6 +1240,10 @@ def _restore_stage9_execution_ledger_inputs(
     if isinstance(live_pilot_carrier, Mapping):
         stage_inputs[PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY] = dict(live_pilot_carrier)
         handoff[PAYMENT_DELIVERY_LIVE_PILOT_INPUT_KEY] = dict(live_pilot_carrier)
+    approved_execution_carrier = ledger_payload.get(APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY)
+    if isinstance(approved_execution_carrier, Mapping):
+        stage_inputs[APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY] = dict(approved_execution_carrier)
+        handoff[APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY] = dict(approved_execution_carrier)
     for field_name in ("order_execution_id", "payment_execution_id", "delivery_execution_id"):
         if ledger_payload.get(field_name) not in (None, "", "UNKNOWN"):
             stage_inputs[field_name] = str(ledger_payload[field_name])

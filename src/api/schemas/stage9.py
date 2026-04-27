@@ -39,6 +39,7 @@ class Stage9PreviewProjection(TypedDict, total=False):
     settlement_reconciliation_preview: dict[str, Any]
     manual_refund_exception_preview: dict[str, Any]
     payment_delivery_live_pilot_preview: dict[str, Any]
+    approved_payment_delivery_execution_preview: dict[str, Any]
 
 
 class OperationalAssignment(TypedDict, total=False):
@@ -143,6 +144,7 @@ class Stage9Response(TypedDict, total=False):
     delivery_sandbox_provider_records: dict[str, Any]
     manual_refund_exception_record: dict[str, Any]
     payment_delivery_live_pilot: dict[str, Any]
+    approved_payment_delivery_execution: dict[str, Any]
     provider_adapter_readiness_summary: dict[str, Any]
     provider_adapter_config_source: str
     provider_adapter_mode: str
