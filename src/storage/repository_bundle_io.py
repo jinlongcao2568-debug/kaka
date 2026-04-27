@@ -699,8 +699,18 @@ def _restore_stage7_leadpack_delivery_package(
             "package_state": package_payload.get("package_state"),
             "page_state": package_payload.get("page_state"),
             "delivery_state": package_payload.get("delivery_state"),
-            "customer_visible_enabled": False,
+            "customer_visible_enabled": bool(package_payload.get("customer_visible_enabled", False)),
+            "customer_visible_export_enabled": bool(
+                package_payload.get("customer_visible_export_enabled", False)
+            ),
+            "page_publication_enabled": bool(package_payload.get("page_publication_enabled", False)),
+            "export_artifact_generation_enabled": bool(
+                package_payload.get("export_artifact_generation_enabled", False)
+            ),
             "external_delivery_enabled": False,
+            "approved_customer_visible_unlock_summary": dict(
+                package_payload.get("approved_customer_visible_unlock_summary", {})
+            ),
         }
         stage_inputs["stage7_resolution_trace"] = resolution_trace_payload
 

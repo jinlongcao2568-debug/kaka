@@ -810,8 +810,22 @@ class Stage7Service:
             "package_state": leadpack_delivery_package.get("package_state"),
             "page_state": leadpack_delivery_package.get("page_state"),
             "delivery_state": leadpack_delivery_package.get("delivery_state"),
-            "customer_visible_enabled": False,
+            "customer_visible_enabled": bool(
+                leadpack_delivery_package.get("customer_visible_enabled", False)
+            ),
+            "customer_visible_export_enabled": bool(
+                leadpack_delivery_package.get("customer_visible_export_enabled", False)
+            ),
+            "page_publication_enabled": bool(
+                leadpack_delivery_package.get("page_publication_enabled", False)
+            ),
+            "export_artifact_generation_enabled": bool(
+                leadpack_delivery_package.get("export_artifact_generation_enabled", False)
+            ),
             "external_delivery_enabled": False,
+            "approved_customer_visible_unlock_summary": dict(
+                leadpack_delivery_package.get("approved_customer_visible_unlock_summary", {})
+            ),
         }
         inputs_out["stage7_resolution_trace"] = stage7_resolution_trace
         inputs_out[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary

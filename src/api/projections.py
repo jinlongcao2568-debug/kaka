@@ -2406,44 +2406,78 @@ def build_formal_client_export_page_layer_readiness_surface(
         ]
     )
 
-    disabled_capability_reasons = [
-        "customer_visible_export_enabled=false",
-        "client_page_release_enabled=false",
-        "external_release_enabled=false",
-        "external_delivery_enabled=false",
-        "direct_export_enabled=false",
-        "export_artifact_generation_enabled=false",
-        "page_publication_enabled=false",
-    ]
+    source_formal_object_types = sorted(candidate_surface.get("formal_object_refs", {}).keys())
+    leadpack_package = dict(candidate_surface.get("leadpack_delivery_package", {}))
+    leadpack_package_summary = (
+        leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {}
+    )
+    leadpack_delivery_summary = dict(candidate_surface.get("leadpack_delivery_readiness_summary", {}))
+    customer_visible_enabled = bool(leadpack_package_summary.get("customer_visible_enabled", False))
+    export_artifact_generation_enabled = bool(
+        leadpack_package_summary.get("export_artifact_generation_enabled", False)
+    )
+    page_publication_enabled = bool(leadpack_package_summary.get("page_publication_enabled", False))
+    client_page_release_enabled = bool(
+        leadpack_package_summary.get("client_page_release_enabled", False)
+    )
+    if customer_visible_enabled:
+        missing_prerequisites = []
+    disabled_capability_reasons = (
+        [
+            "external_release_enabled=false",
+            "external_delivery_enabled=false",
+            "direct_export_enabled=false",
+        ]
+        if customer_visible_enabled
+        else [
+            "customer_visible_export_enabled=false",
+            "client_page_release_enabled=false",
+            "external_release_enabled=false",
+            "external_delivery_enabled=false",
+            "direct_export_enabled=false",
+            "export_artifact_generation_enabled=false",
+            "page_publication_enabled=false",
+        ]
+    )
     blocked_reasons = _dedupe_preserve_order(
         list(candidate_surface.get("blocked_reasons", []))
         + list(activation_evidence.get("activation_blockers_remaining", []))
         + list(implementation_packet.get("blocking_conditions", []))
         + disabled_capability_reasons
         + [
-            "internal_preview_readiness_only",
+            (
+                "approved_customer_visible_readback_only"
+                if customer_visible_enabled
+                else "internal_preview_readiness_only"
+            ),
             "release_blocked_by_governance",
-            "implementation_decision_not_approved",
         ]
+        + ([] if customer_visible_enabled else ["implementation_decision_not_approved"])
     )
     why_not_live = _dedupe_preserve_order(
         list(candidate_surface.get("why_not_live", []))
         + disabled_capability_reasons
-        + [
-            "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER_RESERVED_NOT_LIVE",
-            "approval_audit_and_implementation_decision_required_before_live",
-        ]
+        + (
+            [
+                "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER_APPROVED_CUSTOMER_VISIBLE_READBACK",
+                "real_provider_delivery_not_executed",
+            ]
+            if customer_visible_enabled
+            else [
+                "FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER_RESERVED_NOT_LIVE",
+                "approval_audit_and_implementation_decision_required_before_live",
+            ]
+        )
     )
 
-    source_formal_object_types = sorted(candidate_surface.get("formal_object_refs", {}).keys())
-    leadpack_package = dict(candidate_surface.get("leadpack_delivery_package", {}))
-    leadpack_delivery_summary = dict(candidate_surface.get("leadpack_delivery_readiness_summary", {}))
     package_page_delivery_summary = {
-        "package": leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {},
+        "package": leadpack_package_summary,
         "readiness": leadpack_delivery_summary,
-        "customer_visible_enabled": False,
+        "customer_visible_enabled": customer_visible_enabled,
         "external_delivery_enabled": False,
-        "page_publication_enabled": False,
+        "page_publication_enabled": page_publication_enabled,
+        "export_artifact_generation_enabled": export_artifact_generation_enabled,
+        "client_page_release_enabled": client_page_release_enabled,
         "customer_visible_artifact_candidate": dict(
             leadpack_package.get("customer_visible_artifact_candidate", {})
         ),
@@ -2488,9 +2522,9 @@ def build_formal_client_export_page_layer_readiness_surface(
             "package_state": leadpack_package.get("package_state"),
             "page_state": leadpack_package.get("page_state"),
             "delivery_state": leadpack_package.get("delivery_state"),
-            "customer_visible_enabled": False,
+            "customer_visible_enabled": customer_visible_enabled,
             "external_delivery_enabled": False,
-            "delivery_ready": False,
+            "delivery_ready": bool(leadpack_package_summary.get("delivery_ready", False)),
         },
     }
     operator_readback_summary = {
@@ -2501,9 +2535,9 @@ def build_formal_client_export_page_layer_readiness_surface(
         "operator_can_direct_export": False,
         "operator_can_deliver_external": False,
         "operator_can_enable_external_release": False,
-        "operator_can_enable_customer_visible_export": False,
-        "operator_can_generate_export_artifact": False,
-        "operator_can_publish_customer_page": False,
+        "operator_can_enable_customer_visible_export": customer_visible_enabled,
+        "operator_can_generate_export_artifact": export_artifact_generation_enabled,
+        "operator_can_publish_customer_page": page_publication_enabled,
         "operator_can_read_delivery_package": bool(leadpack_package),
         "missing_prerequisite_count": len(missing_prerequisites),
         "blocked_reason_count": len(blocked_reasons),
@@ -2513,24 +2547,36 @@ def build_formal_client_export_page_layer_readiness_surface(
 
     return {
         "surface_id": "formal_client_export_page_layer_readiness",
-        "surface_state": "governed-hold",
-        "surface_mode": "preview-only",
+        "surface_state": (
+            "approved-customer-visible-readback" if customer_visible_enabled else "governed-hold"
+        ),
+        "surface_mode": (
+            "approved-readback" if customer_visible_enabled else "preview-only"
+        ),
         "surface_access": "internal-readable",
         "internal_only": True,
-        "readiness_only": True,
-        "projection_only": True,
-        "review_only": True,
+        "readiness_only": not customer_visible_enabled,
+        "projection_only": not customer_visible_enabled,
+        "review_only": not customer_visible_enabled,
         "non_live": True,
-        "release_blocked": True,
-        "customer_visible_export_enabled": False,
-        "client_page_release_enabled": False,
+        "release_blocked": not customer_visible_enabled,
+        "customer_visible_export_enabled": customer_visible_enabled,
+        "client_page_release_enabled": client_page_release_enabled,
         "external_release_enabled": False,
         "external_delivery_enabled": False,
         "direct_export_enabled": False,
-        "export_artifact_generation_enabled": False,
-        "page_publication_enabled": False,
-        "readiness_state": "RESERVED_NOT_LIVE",
-        "release_layer": "RESERVED_NOT_LIVE",
+        "export_artifact_generation_enabled": export_artifact_generation_enabled,
+        "page_publication_enabled": page_publication_enabled,
+        "readiness_state": (
+            "APPROVED_CUSTOMER_VISIBLE_READBACK"
+            if customer_visible_enabled
+            else "RESERVED_NOT_LIVE"
+        ),
+        "release_layer": (
+            "CUSTOMER_VISIBLE_APPROVED_READBACK"
+            if customer_visible_enabled
+            else "RESERVED_NOT_LIVE"
+        ),
         "blocked_reasons": blocked_reasons,
         "why_not_live": why_not_live,
         "missing_prerequisites": missing_prerequisites,
@@ -2584,33 +2630,64 @@ def _formal_client_export_page_layer_readiness_from_stage7_readback(payload: Any
     field_policy = dict(leadpack_package.get("field_policy", {}))
     field_masking_summary = dict(leadpack_package.get("field_masking_summary", {}))
     download_audit = dict(leadpack_package.get("download_audit", {}))
+    leadpack_package_summary = (
+        leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {}
+    )
+    customer_visible_enabled = bool(leadpack_package_summary.get("customer_visible_enabled", False))
+    export_artifact_generation_enabled = bool(
+        leadpack_package_summary.get("export_artifact_generation_enabled", False)
+    )
+    page_publication_enabled = bool(leadpack_package_summary.get("page_publication_enabled", False))
+    client_page_release_enabled = bool(
+        leadpack_package_summary.get("client_page_release_enabled", False)
+    )
     blocked_reasons = _dedupe_preserve_order(
         list(stage7_surface.get("blocked_reasons", []))
-        + [
-            "stage8_stage9_delivery_context_not_required_for_access_candidate_readback",
-            "customer_visible_export_enabled=false",
-            "client_page_release_enabled=false",
-            "external_release_enabled=false",
-            "external_delivery_enabled=false",
-            "direct_export_enabled=false",
-            "approval_audit_and_implementation_decision_required_before_live",
-        ]
+        + (
+            [
+                "stage8_stage9_delivery_context_not_required_for_access_candidate_readback",
+                "external_release_enabled=false",
+                "external_delivery_enabled=false",
+                "direct_export_enabled=false",
+                "approved_customer_visible_readback_only",
+            ]
+            if customer_visible_enabled
+            else [
+                "stage8_stage9_delivery_context_not_required_for_access_candidate_readback",
+                "customer_visible_export_enabled=false",
+                "client_page_release_enabled=false",
+                "external_release_enabled=false",
+                "external_delivery_enabled=false",
+                "direct_export_enabled=false",
+                "approval_audit_and_implementation_decision_required_before_live",
+            ]
+        )
     )
     why_not_live = _dedupe_preserve_order(
         list(stage7_surface.get("why_not_live", []))
-        + [
-            "stage7_repository_backed_customer_artifact_candidate_only",
-            "customer_visible_export_enabled=false",
-            "external_release_enabled=false",
-            "approval_audit_and_implementation_decision_required_before_live",
-        ]
+        + (
+            [
+                "stage7_repository_backed_customer_artifact_approved_readback",
+                "external_release_enabled=false",
+                "real_provider_delivery_not_executed",
+            ]
+            if customer_visible_enabled
+            else [
+                "stage7_repository_backed_customer_artifact_candidate_only",
+                "customer_visible_export_enabled=false",
+                "external_release_enabled=false",
+                "approval_audit_and_implementation_decision_required_before_live",
+            ]
+        )
     )
     package_page_delivery_summary = {
-        "package": leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {},
+        "package": leadpack_package_summary,
         "readiness": leadpack_delivery_summary,
-        "customer_visible_enabled": False,
+        "customer_visible_enabled": customer_visible_enabled,
         "external_delivery_enabled": False,
-        "page_publication_enabled": False,
+        "page_publication_enabled": page_publication_enabled,
+        "export_artifact_generation_enabled": export_artifact_generation_enabled,
+        "client_page_release_enabled": client_page_release_enabled,
         "customer_visible_artifact_candidate": dict(
             leadpack_package.get("customer_visible_artifact_candidate", {})
         ),
@@ -2620,27 +2697,41 @@ def _formal_client_export_page_layer_readiness_from_stage7_readback(payload: Any
     }
     return {
         "surface_id": "formal_client_export_page_layer_readiness",
-        "surface_state": "governed-hold",
-        "surface_mode": "preview-only",
+        "surface_state": (
+            "approved-customer-visible-readback" if customer_visible_enabled else "governed-hold"
+        ),
+        "surface_mode": (
+            "approved-readback" if customer_visible_enabled else "preview-only"
+        ),
         "surface_access": "internal-readable",
         "internal_only": True,
-        "readiness_only": True,
-        "projection_only": True,
-        "review_only": True,
+        "readiness_only": not customer_visible_enabled,
+        "projection_only": not customer_visible_enabled,
+        "review_only": not customer_visible_enabled,
         "non_live": True,
-        "release_blocked": True,
-        "customer_visible_export_enabled": False,
-        "client_page_release_enabled": False,
+        "release_blocked": not customer_visible_enabled,
+        "customer_visible_export_enabled": customer_visible_enabled,
+        "client_page_release_enabled": client_page_release_enabled,
         "external_release_enabled": False,
         "external_delivery_enabled": False,
         "direct_export_enabled": False,
-        "export_artifact_generation_enabled": False,
-        "page_publication_enabled": False,
-        "readiness_state": "RESERVED_NOT_LIVE",
-        "release_layer": "RESERVED_NOT_LIVE",
+        "export_artifact_generation_enabled": export_artifact_generation_enabled,
+        "page_publication_enabled": page_publication_enabled,
+        "readiness_state": (
+            "APPROVED_CUSTOMER_VISIBLE_READBACK"
+            if customer_visible_enabled
+            else "RESERVED_NOT_LIVE"
+        ),
+        "release_layer": (
+            "CUSTOMER_VISIBLE_APPROVED_READBACK"
+            if customer_visible_enabled
+            else "RESERVED_NOT_LIVE"
+        ),
         "blocked_reasons": blocked_reasons,
         "why_not_live": why_not_live,
-        "missing_prerequisites": [
+        "missing_prerequisites": []
+        if customer_visible_enabled
+        else [
             "approval:customer_artifact_access_approval",
             "audit_ref:customer_download_audit_ref",
             "implementation_decision_not_approved",
@@ -2655,9 +2746,9 @@ def _formal_client_export_page_layer_readiness_from_stage7_readback(payload: Any
                 "package_state": leadpack_package.get("package_state"),
                 "page_state": leadpack_package.get("page_state"),
                 "delivery_state": leadpack_package.get("delivery_state"),
-                "customer_visible_enabled": False,
+                "customer_visible_enabled": customer_visible_enabled,
                 "external_delivery_enabled": False,
-                "delivery_ready": False,
+                "delivery_ready": bool(leadpack_package_summary.get("delivery_ready", False)),
             },
             "stage7_repository_readback": {
                 "surface_id": stage7_surface.get("surface_id"),
@@ -2674,9 +2765,9 @@ def _formal_client_export_page_layer_readiness_from_stage7_readback(payload: Any
             "operator_can_direct_export": False,
             "operator_can_deliver_external": False,
             "operator_can_enable_external_release": False,
-            "operator_can_enable_customer_visible_export": False,
-            "operator_can_generate_export_artifact": False,
-            "operator_can_publish_customer_page": False,
+            "operator_can_enable_customer_visible_export": customer_visible_enabled,
+            "operator_can_generate_export_artifact": export_artifact_generation_enabled,
+            "operator_can_publish_customer_page": page_publication_enabled,
             "operator_can_read_delivery_package": bool(leadpack_package),
             "source_readiness_surfaces": ["delivery_package", "stage7_repository_readback"],
         },
@@ -2716,49 +2807,66 @@ def build_customer_artifact_access_candidate_surface(payload: Any) -> dict[str, 
     download_audit = dict(formal_readiness.get("download_audit", {}))
     leadpack_package = dict(formal_readiness.get("leadpack_delivery_package", {}))
     missing_prerequisites = list(formal_readiness.get("missing_prerequisites", []))
+    customer_visible_enabled = bool(formal_readiness.get("customer_visible_export_enabled", False))
+    page_publication_enabled = bool(formal_readiness.get("page_publication_enabled", False))
+    download_enabled = bool(download_audit.get("download_enabled", False))
     blocked_reasons = _dedupe_preserve_order(
         list(formal_readiness.get("blocked_reasons", []))
-        + [
-            "customer_account_access_control_required",
-            "download_auth_required",
-            "approval_audit_required_before_customer_download",
-            "public_software_release_not_approved",
-        ]
+        + (
+            ["public_software_release_not_approved"]
+            if customer_visible_enabled and download_enabled
+            else [
+                "customer_account_access_control_required",
+                "download_auth_required",
+                "approval_audit_required_before_customer_download",
+                "public_software_release_not_approved",
+            ]
+        )
     )
     return {
         "surface_id": "customer_artifact_access_candidate",
-        "surface_state": "governed-hold",
-        "surface_mode": "preview-only",
+        "surface_state": (
+            "approved-customer-artifact-access-readback"
+            if customer_visible_enabled and download_enabled
+            else "governed-hold"
+        ),
+        "surface_mode": (
+            "approved-readback" if customer_visible_enabled and download_enabled else "preview-only"
+        ),
         "surface_access": "internal-readable",
         "capability_state": "APPROVAL_READY",
         "internal_only": True,
-        "candidate_only": True,
-        "readiness_only": True,
-        "projection_only": True,
-        "review_only": True,
-        "release_blocked": True,
+        "candidate_only": not (customer_visible_enabled and download_enabled),
+        "readiness_only": not (customer_visible_enabled and download_enabled),
+        "projection_only": not (customer_visible_enabled and download_enabled),
+        "review_only": not (customer_visible_enabled and download_enabled),
+        "release_blocked": not (customer_visible_enabled and download_enabled),
         "public_software_release": False,
         "external_release_enabled": False,
-        "customer_visible_export_enabled": False,
-        "client_page_release_enabled": False,
+        "customer_visible_export_enabled": customer_visible_enabled,
+        "client_page_release_enabled": bool(formal_readiness.get("client_page_release_enabled", False)),
         "external_delivery_enabled": False,
         "direct_export_enabled": False,
-        "page_publication_enabled": False,
+        "page_publication_enabled": page_publication_enabled,
         "account_access_control": {
             "account_required": True,
-            "account_state": "ACCESS_CANDIDATE_HELD",
+            "account_state": (
+                "ACCESS_APPROVED_READBACK"
+                if customer_visible_enabled and download_enabled
+                else "ACCESS_CANDIDATE_HELD"
+            ),
             "account_creation_enabled": False,
             "public_signup_enabled": False,
             "access_scope": "single_artifact_candidate",
             "permission_check_required": True,
-            "allowed_after_approval": False,
+            "allowed_after_approval": customer_visible_enabled and download_enabled,
             "required_roles": ["customer_artifact_viewer"],
             "operator_can_grant_without_approval": False,
         },
         "download_auth": {
             "auth_required": True,
-            "download_enabled": False,
-            "customer_download_enabled": False,
+            "download_enabled": download_enabled,
+            "customer_download_enabled": bool(download_audit.get("customer_download_enabled", False)),
             "signed_download_url_enabled": False,
             "download_audit_required": True,
             "approval_required": True,
@@ -2794,11 +2902,15 @@ def build_customer_artifact_access_candidate_surface(payload: Any) -> dict[str, 
         "blocked_reasons": blocked_reasons,
         "why_not_live": _dedupe_preserve_order(
             list(formal_readiness.get("why_not_live", []))
-            + [
-                "customer_account_not_approved",
-                "download_auth_not_issued",
-                "external_release_blocked",
-            ]
+            + (
+                ["external_release_blocked", "signed_download_url_not_generated"]
+                if customer_visible_enabled and download_enabled
+                else [
+                    "customer_account_not_approved",
+                    "download_auth_not_issued",
+                    "external_release_blocked",
+                ]
+            )
         ),
         "source_formal_client_export_page_layer_readiness": formal_readiness,
     }

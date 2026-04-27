@@ -60,6 +60,28 @@ _CUSTOMER_VISIBLE_FIELD_BLACKLIST = [
     "governance_feedback_event",
     "provider_credential",
 ]
+_APPROVED_ACCESS_STATES = {
+    "APPROVED",
+    "AUTHORIZED",
+    "AUTH_GRANTED",
+    "GRANTED",
+    "PRESENT",
+    "PASSED",
+    "VALID",
+}
+_APPROVED_EXTERNAL_VISIBILITY_STATES = {
+    "APPROVED",
+    "CLIENT_VISIBLE_APPROVED",
+    "CUSTOMER_VISIBLE_APPROVED",
+    "PUBLIC_APPROVED",
+    "EXTERNAL_VISIBLE_APPROVED",
+}
+_APPROVED_REVIEW_GATE_STATES = {
+    "APPROVED",
+    "PASSED",
+    "CLOSED_APPROVED",
+    "REVIEWED",
+}
 
 
 def _truthy(value: Any) -> bool:
@@ -91,6 +113,186 @@ def _audit_state(inputs: Mapping[str, Any], stage7_resolution_trace: Mapping[str
         present_refs.add("trace_bundle_ref")
     missing_refs = [field_name for field_name in _REQUIRED_AUDIT_REFS if field_name not in present_refs]
     return ("MISSING" if missing_refs else "PRESENT"), missing_refs
+
+
+def _input_state(inputs: Mapping[str, Any], keys: list[str], *, default: str = "MISSING") -> str:
+    for key in keys:
+        value = inputs.get(key)
+        if value not in _EMPTY_VALUES:
+            return str(value).strip()
+    return default
+
+
+def _approved_state(value: str, allowed: set[str]) -> bool:
+    return str(value or "").strip().upper() in allowed
+
+
+def _approved_unlock_requested(inputs: Mapping[str, Any]) -> bool:
+    return any(
+        _truthy(inputs.get(key))
+        for key in (
+            "approved_customer_visible_unlock_requested",
+            "approved_customer_artifact_access_requested",
+            "approved_customer_page_publication_requested",
+            "approved_export_artifact_generation_requested",
+            "approved_customer_download_requested",
+            "customer_visible_export_enabled",
+            "client_page_release_enabled",
+            "export_artifact_generation_enabled",
+            "page_publication_enabled",
+            "customer_download_requested",
+            "download_requested",
+        )
+    )
+
+
+def _approved_customer_visible_unlock_summary(
+    *,
+    inputs: Mapping[str, Any],
+    approval_state: str,
+    audit_state: str,
+    missing_approvals: list[str],
+    missing_audit_refs: list[str],
+    provider_suspended: bool,
+) -> dict[str, Any]:
+    unlock_requested = _approved_unlock_requested(inputs)
+    customer_account_access_state = _input_state(
+        inputs,
+        [
+            "customer_account_access_state",
+            "customer_access_state",
+            "account_access_control_state",
+        ],
+    )
+    customer_artifact_access_state = _input_state(
+        inputs,
+        [
+            "customer_artifact_access_approval_state",
+            "customer_artifact_access_state",
+            "customer_visible_access_state",
+        ],
+    )
+    download_auth_state = _input_state(
+        inputs,
+        [
+            "customer_download_auth_state",
+            "download_auth_state",
+            "customer_artifact_download_auth_state",
+        ],
+    )
+    external_visibility_state = _input_state(
+        inputs,
+        [
+            "customer_external_visibility_state",
+            "external_visibility_state",
+            "client_visible_release_state",
+        ],
+    )
+    review_gate_states = {
+        gate: _input_state(inputs, [gate, f"{gate}_state"])
+        for gate in _REQUIRED_REVIEW_GATES
+    }
+    implementation_decision_state = _input_state(
+        inputs,
+        [
+            "implementation_decision_state",
+            "leadpack_implementation_decision_state",
+            "customer_artifact_implementation_decision_state",
+        ],
+    )
+    download_auth_audit_ref = _input_state(
+        inputs,
+        [
+            "download_auth_audit_ref",
+            "customer_download_audit_ref",
+            "customer_artifact_access_audit_ref",
+        ],
+    )
+    customer_access_audit_ref = _input_state(
+        inputs,
+        [
+            "customer_access_audit_ref",
+            "customer_artifact_access_audit_ref",
+            "operator_customer_access_audit_ref",
+        ],
+    )
+    field_policy_state = "ENFORCED"
+    masking_state = "ENFORCED"
+    watermark_state = "ENFORCED"
+    version_hash_state = "PRESENT"
+
+    blocking_reasons: list[str] = []
+    if not unlock_requested:
+        blocking_reasons.append("approved_customer_visible_unlock_not_requested")
+    if approval_state != "APPROVED":
+        blocking_reasons.append("approval_state_not_approved")
+    blocking_reasons.extend(f"missing_approval:{item}" for item in missing_approvals)
+    if audit_state != "PRESENT":
+        blocking_reasons.append("audit_state_not_present")
+    blocking_reasons.extend(f"missing_audit_ref:{item}" for item in missing_audit_refs)
+    if not _approved_state(customer_account_access_state, _APPROVED_ACCESS_STATES):
+        blocking_reasons.append("customer_account_access_not_approved")
+    if not _approved_state(customer_artifact_access_state, _APPROVED_ACCESS_STATES):
+        blocking_reasons.append("customer_artifact_access_not_approved")
+    if not _approved_state(download_auth_state, _APPROVED_ACCESS_STATES):
+        blocking_reasons.append("download_auth_not_approved")
+    if download_auth_audit_ref == "MISSING":
+        blocking_reasons.append("download_auth_audit_ref_missing")
+    if customer_access_audit_ref == "MISSING":
+        blocking_reasons.append("customer_access_audit_ref_missing")
+    if not _approved_state(external_visibility_state, _APPROVED_EXTERNAL_VISIBILITY_STATES):
+        blocking_reasons.append("external_visibility_not_approved")
+    for gate, state in review_gate_states.items():
+        if not _approved_state(state, _APPROVED_REVIEW_GATE_STATES):
+            blocking_reasons.append(f"review_gate_not_approved:{gate}")
+    if not _approved_state(implementation_decision_state, _APPROVED_REVIEW_GATE_STATES):
+        blocking_reasons.append("implementation_decision_not_approved")
+    if provider_suspended:
+        blocking_reasons.append("provider_adapter_suspended_fail_closed")
+    if _truthy(inputs.get("internal_blackbox_score_export_requested")) or _truthy(
+        inputs.get("internal_score_raw_customer_visible_requested")
+    ):
+        blocking_reasons.append("internal_blackbox_score_exposure_blocked")
+    if _truthy(inputs.get("unreviewed_inference_customer_visible_requested")) or _truthy(
+        inputs.get("unreviewed_inference_present")
+    ):
+        blocking_reasons.append("unreviewed_inference_customer_visible_blocked")
+    source_data_class = str(inputs.get("source_data_class", "") or "").strip().upper()
+    if source_data_class in {"PRIVATE", "GRAY", "D_TIER", "NON_PUBLIC"} or _truthy(
+        inputs.get("private_or_gray_data_present")
+    ):
+        blocking_reasons.append("private_or_gray_data_customer_visible_blocked")
+    if _truthy(inputs.get("formal_legal_document_auto_send_requested")) or _truthy(
+        inputs.get("legal_document_auto_send_requested")
+    ):
+        blocking_reasons.append("legal_document_auto_send_blocked")
+    if _truthy(inputs.get("direct_stage8_stage9_object_export_requested")):
+        blocking_reasons.append("direct_stage8_stage9_object_export_blocked")
+
+    enabled = unlock_requested and not blocking_reasons
+    return {
+        "unlock_requested": unlock_requested,
+        "approved_customer_visible_unlock_enabled": enabled,
+        "unlock_state": "APPROVED_CUSTOMER_VISIBLE_READBACK" if enabled else "BLOCKED",
+        "customer_account_access_state": customer_account_access_state,
+        "customer_artifact_access_state": customer_artifact_access_state,
+        "download_auth_state": download_auth_state,
+        "download_auth_audit_ref": download_auth_audit_ref,
+        "customer_access_audit_ref": customer_access_audit_ref,
+        "external_visibility_state": external_visibility_state,
+        "review_gate_states": review_gate_states,
+        "implementation_decision_state": implementation_decision_state,
+        "field_policy_state": field_policy_state,
+        "masking_state": masking_state,
+        "watermark_state": watermark_state,
+        "version_hash_state": version_hash_state,
+        "blocking_reasons": _clean_list(blocking_reasons),
+        "real_provider_call_enabled": False,
+        "real_customer_download_executed": False,
+        "stage8_execution_triggered": False,
+        "stage9_payment_delivery_triggered": False,
+        "external_software_release_enabled": False,
+    }
 
 
 def _package_state(*, approval_state: str, audit_state: str, saleability_status: Any, offer_state: Any) -> str:
@@ -154,9 +356,11 @@ def _artifact_candidate_controls(
     artifact_manifest_id: str,
     masking_state: str,
     provider_suspended: bool,
+    approved_unlock_summary: Mapping[str, Any],
     inputs: Mapping[str, Any],
     now: str,
 ) -> dict[str, Any]:
+    unlock_enabled = bool(approved_unlock_summary.get("approved_customer_visible_unlock_enabled", False))
     field_policy = {
         "field_allowlist": list(_CUSTOMER_VISIBLE_FIELD_ALLOWLIST),
         "field_blacklist": list(_CUSTOMER_VISIBLE_FIELD_BLACKLIST),
@@ -167,9 +371,13 @@ def _artifact_candidate_controls(
     }
     watermark = {
         "watermark_id": build_id("WATERMARK", project_id, opportunity_id),
-        "watermark_state": "APPLIED_TO_DRAFT",
-        "watermark_text": "INTERNAL DRAFT - NOT CUSTOMER RELEASED",
-        "applies_to": ["page_draft", "export_simulation"],
+        "watermark_state": "APPLIED_TO_APPROVED_ARTIFACT" if unlock_enabled else "APPLIED_TO_DRAFT",
+        "watermark_text": (
+            "CUSTOMER VISIBLE - APPROVED AUDITED COPY"
+            if unlock_enabled
+            else "INTERNAL DRAFT - NOT CUSTOMER RELEASED"
+        ),
+        "applies_to": ["page_draft", "export_simulation", "customer_visible_artifact"],
         "customer_removal_allowed": False,
     }
     hash_source = {
@@ -187,11 +395,17 @@ def _artifact_candidate_controls(
     )
     download_audit = {
         "download_audit_id": build_id("DLAUDIT", project_id, opportunity_id),
-        "download_audit_state": "SANDBOX_RECORDED" if download_requested else "READBACK_READY",
+        "download_audit_state": (
+            "APPROVED_DOWNLOAD_AUTH_RECORDED"
+            if unlock_enabled
+            else "SANDBOX_RECORDED" if download_requested else "READBACK_READY"
+        ),
         "download_requested": download_requested,
-        "download_enabled": False,
-        "customer_download_enabled": False,
+        "download_enabled": unlock_enabled,
+        "customer_download_enabled": unlock_enabled,
         "real_customer_download_executed": False,
+        "download_auth_state": approved_unlock_summary.get("download_auth_state"),
+        "download_auth_audit_ref": approved_unlock_summary.get("download_auth_audit_ref"),
         "audit_required": True,
         "audit_replayable": True,
         "created_at": now,
@@ -203,19 +417,28 @@ def _artifact_candidate_controls(
         "artifact_manifest_id": artifact_manifest_id,
         "artifact_version_hash": artifact_version_hash,
         "export_simulation_enabled": True,
+        "customer_visible_export_enabled": unlock_enabled,
         "external_delivery_enabled": False,
         "direct_export_enabled": False,
-        "page_publication_enabled": False,
+        "page_publication_enabled": unlock_enabled,
+        "customer_download_enabled": unlock_enabled,
         "real_provider_call_enabled": False,
         "live_fallback_allowed": False,
     }
     customer_visible_artifact_candidate = {
         "candidate_id": build_id("LPCAND", project_id, opportunity_id),
-        "candidate_state": "SUSPENDED" if provider_suspended else "SANDBOX_CANDIDATE_READY",
-        "candidate_only": True,
+        "candidate_state": (
+            "APPROVED_CUSTOMER_VISIBLE_READBACK"
+            if unlock_enabled
+            else "SUSPENDED" if provider_suspended else "SANDBOX_CANDIDATE_READY"
+        ),
+        "candidate_only": not unlock_enabled,
         "readback_only": True,
-        "customer_visible_enabled": False,
+        "customer_visible_enabled": unlock_enabled,
+        "customer_visible_export_enabled": unlock_enabled,
         "external_delivery_enabled": False,
+        "export_artifact_generation_enabled": unlock_enabled,
+        "page_publication_enabled": unlock_enabled,
         "field_policy": field_policy,
         "masking": {
             "masking_state": masking_state,
@@ -226,6 +449,7 @@ def _artifact_candidate_controls(
         "artifact_version_hash": artifact_version_hash,
         "download_audit": download_audit,
         "export_page_replay": export_page_replay,
+        "approved_customer_visible_unlock_summary": dict(approved_unlock_summary),
     }
     page_export_candidate = {
         "page_candidate_id": build_id("LPPAGECAND", project_id, opportunity_id),
@@ -237,10 +461,14 @@ def _artifact_candidate_controls(
         "watermark_id": watermark["watermark_id"],
         "download_audit_id": download_audit["download_audit_id"],
         "replay_id": export_page_replay["replay_id"],
-        "page_publication_enabled": False,
+        "page_publication_enabled": unlock_enabled,
         "direct_export_enabled": False,
-        "customer_visible_export_enabled": False,
+        "customer_visible_export_enabled": unlock_enabled,
+        "export_artifact_generation_enabled": unlock_enabled,
         "external_delivery_enabled": False,
+        "download_enabled": unlock_enabled,
+        "customer_download_enabled": unlock_enabled,
+        "approved_customer_visible_unlock_summary": dict(approved_unlock_summary),
     }
     return {
         "field_policy": field_policy,
@@ -263,6 +491,12 @@ def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dic
     page_export_candidate = dict(carrier.get("page_export_candidate", {}))
     download_audit = dict(carrier.get("download_audit", {}))
     export_page_replay = dict(carrier.get("export_page_replay", {}))
+    approved_unlock_summary = dict(carrier.get("approved_customer_visible_unlock_summary", {}))
+    customer_visible_enabled = bool(carrier.get("customer_visible_enabled", False))
+    export_artifact_generation_enabled = bool(
+        carrier.get("export_artifact_generation_enabled", False)
+    )
+    page_publication_enabled = bool(carrier.get("page_publication_enabled", False))
     return {
         "package_id": carrier.get("package_id"),
         "opportunity_id": carrier.get("opportunity_id"),
@@ -281,7 +515,7 @@ def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dic
             and carrier.get("page_draft_id")
             and carrier.get("artifact_manifest_id")
         ),
-        "delivery_ready": False,
+        "delivery_ready": bool(carrier.get("delivery_ready", customer_visible_enabled)),
         "customer_visible_artifact_candidate_state": customer_candidate.get("candidate_state"),
         "page_export_candidate_state": page_export_candidate.get("candidate_state"),
         "artifact_version_hash": carrier.get("artifact_version_hash"),
@@ -293,8 +527,24 @@ def build_leadpack_delivery_readiness_summary(carrier: Mapping[str, Any]) -> dic
         "export_page_replay_state": export_page_replay.get("replay_state"),
         "export_page_replay_id": export_page_replay.get("replay_id"),
         "page_export_replay_ready": export_page_replay.get("replay_state") == "REPLAY_READY",
-        "customer_visible_enabled": False,
+        "customer_visible_enabled": customer_visible_enabled,
+        "customer_visible_export_enabled": bool(
+            carrier.get("customer_visible_export_enabled", customer_visible_enabled)
+        ),
+        "client_page_release_enabled": bool(
+            carrier.get("client_page_release_enabled", customer_visible_enabled)
+        ),
+        "export_artifact_generation_enabled": export_artifact_generation_enabled,
+        "page_publication_enabled": page_publication_enabled,
+        "download_enabled": bool(download_audit.get("download_enabled", False)),
+        "customer_download_enabled": bool(download_audit.get("customer_download_enabled", False)),
         "external_delivery_enabled": False,
+        "external_release_enabled": False,
+        "approved_customer_visible_unlock_summary": approved_unlock_summary,
+        "approved_customer_visible_unlock_enabled": bool(
+            approved_unlock_summary.get("approved_customer_visible_unlock_enabled", False)
+        ),
+        "approved_customer_visible_unlock_state": approved_unlock_summary.get("unlock_state"),
         "blocked_reason_count": len(blocked_reasons),
         "blocked_reasons": blocked_reasons,
         "provider_adapter_config_source": carrier.get("provider_adapter_config_source"),
@@ -345,10 +595,31 @@ def build_leadpack_delivery_package_carrier(
         offer_state=offer_state,
     )
     provider_suspended = bool(provider_readiness.get("provider_adapter_suspended", False))
+    approved_unlock_summary = _approved_customer_visible_unlock_summary(
+        inputs=inputs,
+        approval_state=approval_state,
+        audit_state=audit_state,
+        missing_approvals=missing_approvals,
+        missing_audit_refs=missing_audit_refs,
+        provider_suspended=provider_suspended,
+    )
+    approved_unlock_enabled = bool(
+        approved_unlock_summary.get("approved_customer_visible_unlock_enabled", False)
+    )
     if provider_suspended:
         package_state = "PACKET_HELD"
-    page_state = "PAGE_DRAFT_ONLY"
-    delivery_state = _delivery_state(package_state=package_state)
+    if approved_unlock_enabled:
+        package_state = "PACKET_APPROVED_CUSTOMER_VISIBLE_READBACK"
+    page_state = (
+        "PAGE_APPROVED_CUSTOMER_VISIBLE_READBACK"
+        if approved_unlock_enabled
+        else "PAGE_DRAFT_ONLY"
+    )
+    delivery_state = (
+        "CUSTOMER_VISIBLE_DELIVERY_READBACK_READY"
+        if approved_unlock_enabled
+        else _delivery_state(package_state=package_state)
+    )
 
     evidence_items = [
         _evidence_item(
@@ -421,7 +692,7 @@ def build_leadpack_delivery_package_carrier(
     field_masking_summary = {
         "masking_state": masking_state,
         "masking_required": True,
-        "customer_visible_enabled": False,
+        "customer_visible_enabled": approved_unlock_enabled,
         "external_delivery_enabled": False,
         "field_allowlist": list(_CUSTOMER_VISIBLE_FIELD_ALLOWLIST),
         "field_blacklist": list(_CUSTOMER_VISIBLE_FIELD_BLACKLIST),
@@ -445,19 +716,27 @@ def build_leadpack_delivery_package_carrier(
             "governance_feedback_event",
         ],
         "policy_summary": [
-            "customer_visible_export_enabled=false",
-            "page_publication_enabled=false",
+            (
+                "customer_visible_export_enabled=true"
+                if approved_unlock_enabled
+                else "customer_visible_export_enabled=false"
+            ),
+            (
+                "page_publication_enabled=true"
+                if approved_unlock_enabled
+                else "page_publication_enabled=false"
+            ),
             "direct_stage8_stage9_object_export_blocked",
             "high_restriction_fields_masked_or_summary_only",
         ],
     }
     operator_review_summary = {
-        "manual_review_required": True,
-        "review_state": "REVIEW_REQUIRED",
+        "manual_review_required": not approved_unlock_enabled,
+        "review_state": "APPROVED" if approved_unlock_enabled else "REVIEW_REQUIRED",
         "required_review_gates": list(_REQUIRED_REVIEW_GATES),
-        "missing_review_gates": list(_REQUIRED_REVIEW_GATES),
+        "missing_review_gates": [] if approved_unlock_enabled else list(_REQUIRED_REVIEW_GATES),
         "operator_can_review_internal_package": True,
-        "operator_can_publish_customer_page": False,
+        "operator_can_publish_customer_page": approved_unlock_enabled,
         "operator_can_deliver_external": False,
     }
     approval_audit_prerequisites = {
@@ -465,24 +744,31 @@ def build_leadpack_delivery_package_carrier(
         "missing_approvals": missing_approvals,
         "approval_state": approval_state,
         "required_review_gates": list(_REQUIRED_REVIEW_GATES),
-        "missing_review_gates": list(_REQUIRED_REVIEW_GATES),
+        "missing_review_gates": [] if approved_unlock_enabled else list(_REQUIRED_REVIEW_GATES),
         "required_audit_refs": list(_REQUIRED_AUDIT_REFS),
         "missing_audit_refs": missing_audit_refs,
         "audit_state": audit_state,
+        "approved_customer_visible_unlock_summary": dict(approved_unlock_summary),
     }
     delivery_readiness_summary = {
-        "delivery_ready": False,
+        "delivery_ready": approved_unlock_enabled,
         "package_state": package_state,
         "page_state": page_state,
         "delivery_state": delivery_state,
-        "customer_visible_enabled": False,
+        "customer_visible_enabled": approved_unlock_enabled,
+        "customer_visible_export_enabled": approved_unlock_enabled,
+        "client_page_release_enabled": approved_unlock_enabled,
+        "export_artifact_generation_enabled": approved_unlock_enabled,
         "external_delivery_enabled": False,
         "external_release_enabled": False,
-        "page_publication_enabled": False,
-        "blocked_by_default": True,
+        "page_publication_enabled": approved_unlock_enabled,
+        "download_enabled": approved_unlock_enabled,
+        "customer_download_enabled": approved_unlock_enabled,
+        "blocked_by_default": not approved_unlock_enabled,
+        "approved_customer_visible_unlock_summary": dict(approved_unlock_summary),
         "missing_approvals": missing_approvals,
         "missing_audit_refs": missing_audit_refs,
-        "missing_review_gates": list(_REQUIRED_REVIEW_GATES),
+        "missing_review_gates": [] if approved_unlock_enabled else list(_REQUIRED_REVIEW_GATES),
     }
     artifact_controls = _artifact_candidate_controls(
         project_id=project_id,
@@ -493,6 +779,7 @@ def build_leadpack_delivery_package_carrier(
         artifact_manifest_id=artifact_manifest_id,
         masking_state=masking_state,
         provider_suspended=provider_suspended,
+        approved_unlock_summary=approved_unlock_summary,
         inputs=inputs,
         now=now,
     )
@@ -509,27 +796,54 @@ def build_leadpack_delivery_package_carrier(
             "export_page_replay_state": artifact_controls["export_page_replay"]["replay_state"],
         }
     )
-    blocked_reasons = [
-        "owner_operated_internal_package_workbench_only",
-        "customer_visible_enabled=false",
-        "external_delivery_enabled=false",
-        "external_release_enabled=false",
-        "page_publication_enabled=false",
-        "approval_and_audit_chain_required_before_external_delivery",
-        "manual_review_required_before_customer_visible_page",
-    ]
+    if approved_unlock_enabled:
+        blocked_reasons = [
+            "external_software_release_remains_blocked",
+            "real_provider_delivery_not_executed",
+            "stage8_stage9_execution_not_triggered",
+            "automated_refund_program_excluded",
+        ]
+    else:
+        blocked_reasons = [
+            "owner_operated_internal_package_workbench_only",
+            "customer_visible_enabled=false",
+            "external_delivery_enabled=false",
+            "external_release_enabled=false",
+            "page_publication_enabled=false",
+            "approval_and_audit_chain_required_before_external_delivery",
+            "manual_review_required_before_customer_visible_page",
+        ]
     blocked_reasons.extend(provider_readiness.get("blocked_reasons", []))
+    blocked_reasons.extend(approved_unlock_summary.get("blocking_reasons", []))
     if provider_suspended:
         blocked_reasons.append("provider_adapter_suspended_fail_closed")
-    if _truthy(inputs.get("customer_visible_enabled")) or _truthy(inputs.get("customer_visible_export_enabled")):
+    if (
+        not approved_unlock_enabled
+        and (
+            _truthy(inputs.get("customer_visible_enabled"))
+            or _truthy(inputs.get("customer_visible_export_enabled"))
+        )
+    ):
         blocked_reasons.append("customer_visible_request_blocked")
     if _truthy(inputs.get("external_delivery_enabled")) or _truthy(inputs.get("direct_export_enabled")):
         blocked_reasons.append("external_delivery_or_direct_export_request_blocked")
-    if _truthy(inputs.get("page_publication_enabled")) or _truthy(inputs.get("client_page_release_enabled")):
+    if (
+        not approved_unlock_enabled
+        and (
+            _truthy(inputs.get("page_publication_enabled"))
+            or _truthy(inputs.get("client_page_release_enabled"))
+        )
+    ):
         blocked_reasons.append("page_publication_request_blocked")
     if _truthy(inputs.get("external_release_enabled")) or _truthy(inputs.get("live_execution_enabled")):
         blocked_reasons.append("external_or_live_request_blocked")
-    if _truthy(inputs.get("download_requested")) or _truthy(inputs.get("customer_download_requested")):
+    if (
+        not approved_unlock_enabled
+        and (
+            _truthy(inputs.get("download_requested"))
+            or _truthy(inputs.get("customer_download_requested"))
+        )
+    ):
         blocked_reasons.append("customer_download_request_blocked")
     blocked_reasons.extend(f"missing_approval:{item}" for item in missing_approvals)
     blocked_reasons.extend(f"missing_audit_ref:{item}" for item in missing_audit_refs)
@@ -570,9 +884,9 @@ def build_leadpack_delivery_package_carrier(
         "page_draft_id": page_draft_id,
         "package_id": package_id,
         "page_state": page_state,
-        "draft_only": True,
-        "customer_visible_enabled": False,
-        "page_publication_enabled": False,
+        "draft_only": not approved_unlock_enabled,
+        "customer_visible_enabled": approved_unlock_enabled,
+        "page_publication_enabled": approved_unlock_enabled,
         "public_url": None,
         "watermark": artifact_controls["watermark"],
         "artifact_version_hash": artifact_controls["artifact_version_hash"],
@@ -623,10 +937,17 @@ def build_leadpack_delivery_package_carrier(
         "package_state": package_state,
         "page_state": page_state,
         "delivery_state": delivery_state,
-        "customer_visible_enabled": False,
+        "delivery_ready": approved_unlock_enabled,
+        "customer_visible_enabled": approved_unlock_enabled,
+        "customer_visible_export_enabled": approved_unlock_enabled,
+        "client_page_release_enabled": approved_unlock_enabled,
+        "export_artifact_generation_enabled": approved_unlock_enabled,
+        "download_enabled": approved_unlock_enabled,
+        "customer_download_enabled": approved_unlock_enabled,
         "external_delivery_enabled": False,
         "external_release_enabled": False,
-        "page_publication_enabled": False,
+        "page_publication_enabled": approved_unlock_enabled,
+        "approved_customer_visible_unlock_summary": dict(approved_unlock_summary),
         PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY: dict(provider_adapter_readiness_summary or {}),
         "provider_adapter_readiness": provider_readiness,
         "provider_adapter_config_source": dict(provider_adapter_readiness_summary or {}).get("config_source"),
@@ -651,21 +972,32 @@ def build_leadpack_delivery_package_carrier(
         "page_draft": page_draft,
         "approval_audit_prerequisites": approval_audit_prerequisites,
         "customer_visible_control_state": {
-            "customer_visible_enabled": False,
-            "customer_page_publication_enabled": False,
-            "customer_visible_export_enabled": False,
-            "client_page_release_enabled": False,
-            "control_state": "BLOCKED_BY_DEFAULT",
+            "customer_visible_enabled": approved_unlock_enabled,
+            "customer_page_publication_enabled": approved_unlock_enabled,
+            "customer_visible_export_enabled": approved_unlock_enabled,
+            "client_page_release_enabled": approved_unlock_enabled,
+            "download_enabled": approved_unlock_enabled,
+            "customer_download_enabled": approved_unlock_enabled,
+            "control_state": (
+                "APPROVED_CUSTOMER_VISIBLE_READBACK"
+                if approved_unlock_enabled
+                else "BLOCKED_BY_DEFAULT"
+            ),
+            "approved_customer_visible_unlock_summary": dict(approved_unlock_summary),
         },
         "delivery_readiness_summary": delivery_readiness_summary,
         "artifact_manifest": {
             "artifact_manifest_id": artifact_manifest_id,
-            "artifact_generation_enabled": False,
+            "artifact_generation_enabled": approved_unlock_enabled,
             "artifact_version_hash": artifact_controls["artifact_version_hash"],
             "watermark_id": artifact_controls["watermark"]["watermark_id"],
             "download_audit_id": artifact_controls["download_audit"]["download_audit_id"],
             "artifacts": [
-                {"artifact_id": evidence_pack_id, "artifact_type": "evidence_pack_manifest", "state": "DRAFT"},
+                {
+                    "artifact_id": evidence_pack_id,
+                    "artifact_type": "evidence_pack_manifest",
+                    "state": "APPROVED_READBACK" if approved_unlock_enabled else "DRAFT",
+                },
                 {"artifact_id": page_draft_id, "artifact_type": "page_draft", "state": page_state},
                 {"artifact_id": artifact_manifest_id, "artifact_type": "package_manifest", "state": package_state},
             ],
@@ -679,6 +1011,8 @@ def build_leadpack_delivery_package_carrier(
 
 
 def leadpack_delivery_package_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
+    download_audit = dict(carrier.get("download_audit", {}))
+    approved_unlock_summary = dict(carrier.get("approved_customer_visible_unlock_summary", {}))
     return {
         "package_id": carrier.get("package_id"),
         "opportunity_id": carrier.get("opportunity_id"),
@@ -691,15 +1025,29 @@ def leadpack_delivery_package_summary(carrier: Mapping[str, Any]) -> dict[str, A
         "package_state": carrier.get("package_state"),
         "page_state": carrier.get("page_state"),
         "delivery_state": carrier.get("delivery_state"),
-        "customer_visible_enabled": False,
+        "customer_visible_enabled": bool(carrier.get("customer_visible_enabled", False)),
+        "customer_visible_export_enabled": bool(
+            carrier.get("customer_visible_export_enabled", False)
+        ),
+        "client_page_release_enabled": bool(carrier.get("client_page_release_enabled", False)),
+        "export_artifact_generation_enabled": bool(
+            carrier.get("export_artifact_generation_enabled", False)
+        ),
+        "page_publication_enabled": bool(carrier.get("page_publication_enabled", False)),
+        "download_enabled": bool(download_audit.get("download_enabled", False)),
+        "customer_download_enabled": bool(download_audit.get("customer_download_enabled", False)),
         "external_delivery_enabled": False,
-        "delivery_ready": False,
+        "delivery_ready": bool(carrier.get("delivery_ready", False)),
+        "approved_customer_visible_unlock_enabled": bool(
+            approved_unlock_summary.get("approved_customer_visible_unlock_enabled", False)
+        ),
+        "approved_customer_visible_unlock_state": approved_unlock_summary.get("unlock_state"),
         "artifact_version_hash": carrier.get("artifact_version_hash"),
         "customer_visible_artifact_candidate_state": dict(
             carrier.get("customer_visible_artifact_candidate", {})
         ).get("candidate_state"),
         "page_export_candidate_state": dict(carrier.get("page_export_candidate", {})).get("candidate_state"),
-        "download_audit_id": dict(carrier.get("download_audit", {})).get("download_audit_id"),
+        "download_audit_id": download_audit.get("download_audit_id"),
         "export_page_replay_id": dict(carrier.get("export_page_replay", {})).get("replay_id"),
     }
 

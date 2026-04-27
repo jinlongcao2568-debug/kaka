@@ -110,9 +110,22 @@ class LeadpackDeliveryPackageRepository:
             "page_state": payload.get("page_state"),
             "delivery_state": payload.get("delivery_state"),
             "customer_visible_enabled": bool(payload.get("customer_visible_enabled", False)),
+            "customer_visible_export_enabled": bool(
+                payload.get("customer_visible_export_enabled", False)
+            ),
+            "client_page_release_enabled": bool(payload.get("client_page_release_enabled", False)),
+            "export_artifact_generation_enabled": bool(
+                payload.get("export_artifact_generation_enabled", False)
+            ),
+            "download_enabled": bool(payload.get("download_enabled", False)),
+            "customer_download_enabled": bool(payload.get("customer_download_enabled", False)),
+            "delivery_ready": bool(payload.get("delivery_ready", False)),
             "external_delivery_enabled": bool(payload.get("external_delivery_enabled", False)),
             "external_release_enabled": bool(payload.get("external_release_enabled", False)),
             "page_publication_enabled": bool(payload.get("page_publication_enabled", False)),
+            "approved_customer_visible_unlock_summary": dict(
+                payload.get("approved_customer_visible_unlock_summary", {})
+            ),
             "readiness_summary": dict(payload.get("readiness_summary", {})),
             "field_policy": dict(payload.get("field_policy", {})),
             "watermark": dict(payload.get("watermark", {})),

@@ -783,6 +783,63 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             package["artifact_version_hash"],
         )
 
+    def test_stage7_repository_replays_approved_customer_visible_leadpack_unlock(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "approved_customer_visible_unlock_requested": True,
+                "approved_customer_artifact_access_requested": True,
+                "approved_customer_page_publication_requested": True,
+                "approved_export_artifact_generation_requested": True,
+                "approved_customer_download_requested": True,
+                "customer_download_requested": True,
+                "approval_state": "APPROVED",
+                "project_fact_audit_ref": "AUD-PROJECT-FACT-001",
+                "candidate_projection_audit_ref": "AUD-CANDIDATE-001",
+                "approval_chain_audit_ref": "AUD-APPROVAL-001",
+                "customer_account_access_state": "APPROVED",
+                "customer_artifact_access_approval_state": "APPROVED",
+                "customer_download_auth_state": "AUTHORIZED",
+                "download_auth_audit_ref": "AUD-DOWNLOAD-AUTH-001",
+                "customer_access_audit_ref": "AUD-CUSTOMER-ACCESS-001",
+                "external_visibility_state": "CUSTOMER_VISIBLE_APPROVED",
+                "leadpack_candidate_review_gate": "APPROVED",
+                "leadpack_activation_prep_review_gate": "APPROVED",
+                "implementation_decision_state": "APPROVED",
+            }
+        )
+        stage7 = run_internal_chain(payload)["stage7"]
+        refresh_saleable_opportunity(stage7)
+
+        opportunity_id = stage7.record("saleable_opportunity").get("opportunity_id")
+        package = stage7.inputs["leadpack_delivery_package"]
+        package_entry = LeadpackDeliveryPackageRepository().get_by_id(package["package_id"])
+        replay = list_saleable_opportunities({"opportunity_id": opportunity_id})
+        hydrated = hydrate_stage_bundle("stage7", {"opportunity_id": opportunity_id})
+
+        self.assertIsNotNone(package_entry)
+        self.assertTrue(package_entry.payload["customer_visible_enabled"])
+        self.assertTrue(package_entry.governed_state["customer_visible_export_enabled"])
+        self.assertTrue(package_entry.governed_state["page_publication_enabled"])
+        self.assertTrue(package_entry.governed_state["download_enabled"])
+        self.assertFalse(package_entry.payload["external_delivery_enabled"])
+        self.assertFalse(package_entry.payload["real_provider_call_enabled"])
+        self.assertTrue(replay["leadpack_delivery_package"]["customer_visible_enabled"])
+        self.assertTrue(replay["leadpack_delivery_readiness_summary"]["delivery_ready"])
+        self.assertTrue(replay["package_page_delivery_summary"]["page_publication_enabled"])
+        self.assertFalse(replay["package_page_delivery_summary"]["external_delivery_enabled"])
+        self.assertIsNotNone(hydrated)
+        self.assertTrue(hydrated.inputs["leadpack_delivery_package"]["customer_visible_enabled"])
+        self.assertTrue(
+            hydrated.inputs["leadpack_delivery_package"]["download_audit"]["customer_download_enabled"]
+        )
+        self.assertEqual(
+            hydrated.inputs["leadpack_delivery_package"]["approved_customer_visible_unlock_summary"][
+                "unlock_state"
+            ],
+            "APPROVED_CUSTOMER_VISIBLE_READBACK",
+        )
+
     def test_stage7_repository_persists_approved_crm_quote_provider_execution_carrier(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(

@@ -375,12 +375,19 @@ def _attach_leadpack_delivery_package_readback(response: dict[str, Any], payload
         else build_leadpack_delivery_readiness_summary(carrier)
     )
     response[LEADPACK_DELIVERY_READINESS_INPUT_KEY] = readiness
+    package_summary = leadpack_delivery_package_summary(carrier)
     response["package_page_delivery_summary"] = {
-        "package": leadpack_delivery_package_summary(carrier),
+        "package": package_summary,
         "readiness": readiness,
-        "customer_visible_enabled": False,
+        "customer_visible_enabled": bool(package_summary.get("customer_visible_enabled", False)),
         "external_delivery_enabled": False,
-        "page_publication_enabled": False,
+        "page_publication_enabled": bool(package_summary.get("page_publication_enabled", False)),
+        "export_artifact_generation_enabled": bool(
+            package_summary.get("export_artifact_generation_enabled", False)
+        ),
+        "client_page_release_enabled": bool(
+            package_summary.get("client_page_release_enabled", False)
+        ),
         "customer_visible_artifact_candidate": dict(
             carrier_payload.get("customer_visible_artifact_candidate", {})
         ),

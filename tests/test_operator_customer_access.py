@@ -30,6 +30,33 @@ class TestOperatorCustomerAccess(unittest.TestCase):
     def tearDown(self) -> None:
         get_settings.cache_clear()
 
+    def _approved_customer_visible_payload(self) -> dict:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "approved_customer_visible_unlock_requested": True,
+                "approved_customer_artifact_access_requested": True,
+                "approved_customer_page_publication_requested": True,
+                "approved_export_artifact_generation_requested": True,
+                "approved_customer_download_requested": True,
+                "customer_download_requested": True,
+                "approval_state": "APPROVED",
+                "project_fact_audit_ref": "AUD-PROJECT-FACT-001",
+                "candidate_projection_audit_ref": "AUD-CANDIDATE-001",
+                "approval_chain_audit_ref": "AUD-APPROVAL-001",
+                "customer_account_access_state": "APPROVED",
+                "customer_artifact_access_approval_state": "APPROVED",
+                "customer_download_auth_state": "AUTHORIZED",
+                "download_auth_audit_ref": "AUD-DOWNLOAD-AUTH-001",
+                "customer_access_audit_ref": "AUD-CUSTOMER-ACCESS-001",
+                "external_visibility_state": "CUSTOMER_VISIBLE_APPROVED",
+                "leadpack_candidate_review_gate": "APPROVED",
+                "leadpack_activation_prep_review_gate": "APPROVED",
+                "implementation_decision_state": "APPROVED",
+            }
+        )
+        return payload
+
     def test_bootstrap_and_readiness_surface_expose_operator_customer_go_live_entries(self) -> None:
         app = create_app()
         bootstrap = app.state.transport_bootstrap
@@ -250,6 +277,39 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(source_readiness["customer_visible_export_enabled"])
         self.assertFalse(source_readiness["external_release_enabled"])
         self.assertFalse(source_readiness["download_audit"]["customer_download_enabled"])
+
+    def test_customer_artifact_access_candidate_can_read_back_approved_download_unlock(self) -> None:
+        result = run_internal_chain(self._approved_customer_visible_payload())
+        stage7 = result["stage7"]
+        persist_stage_bundle(stage7)
+        opportunity_id = stage7.record("saleable_opportunity").get("opportunity_id")
+
+        client = TestClient(create_app())
+        response = client.request("GET", f"/customer-artifact-access-candidates/{opportunity_id}")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["surface_state"], "approved-customer-artifact-access-readback")
+        self.assertFalse(payload["candidate_only"])
+        self.assertFalse(payload["readiness_only"])
+        self.assertFalse(payload["release_blocked"])
+        self.assertTrue(payload["customer_visible_export_enabled"])
+        self.assertTrue(payload["client_page_release_enabled"])
+        self.assertTrue(payload["page_publication_enabled"])
+        self.assertFalse(payload["external_release_enabled"])
+        self.assertEqual(payload["account_access_control"]["account_state"], "ACCESS_APPROVED_READBACK")
+        self.assertTrue(payload["account_access_control"]["allowed_after_approval"])
+        self.assertTrue(payload["download_auth"]["download_enabled"])
+        self.assertTrue(payload["download_auth"]["customer_download_enabled"])
+        self.assertFalse(payload["download_auth"]["signed_download_url_enabled"])
+        self.assertFalse(
+            payload["download_auth"]["download_audit_readback"]["real_customer_download_executed"]
+        )
+        self.assertFalse(payload["field_allowlist_masking"]["internal_blackbox_fields_exposed"])
+        self.assertEqual(payload["approval_audit_readback"]["missing_prerequisites"], [])
+        source_readiness = payload["source_formal_client_export_page_layer_readiness"]
+        self.assertEqual(source_readiness["readiness_state"], "APPROVED_CUSTOMER_VISIBLE_READBACK")
+        self.assertTrue(source_readiness["download_audit"]["customer_download_enabled"])
 
     def test_go_live_readiness_lists_blockers_approvals_audits_and_redlines(self) -> None:
         client = TestClient(create_app())

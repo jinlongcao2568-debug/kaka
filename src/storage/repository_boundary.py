@@ -1498,7 +1498,21 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                 "export_page_replay_id": dict(leadpack_package.get("export_page_replay", {})).get(
                     "replay_id"
                 ),
-                "customer_visible_enabled": False,
+                "customer_visible_enabled": bool(
+                    leadpack_package.get("customer_visible_enabled", False)
+                ),
+                "customer_visible_export_enabled": bool(
+                    leadpack_package.get("customer_visible_export_enabled", False)
+                ),
+                "page_publication_enabled": bool(
+                    leadpack_package.get("page_publication_enabled", False)
+                ),
+                "export_artifact_generation_enabled": bool(
+                    leadpack_package.get("export_artifact_generation_enabled", False)
+                ),
+                "approved_customer_visible_unlock_summary": dict(
+                    leadpack_package.get("approved_customer_visible_unlock_summary", {})
+                ),
                 "external_delivery_enabled": False,
             }
             readiness = bundle.inputs.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY)
