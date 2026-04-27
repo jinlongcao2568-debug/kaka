@@ -391,6 +391,16 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("不是状态源", route_map_text)
         self.assertIn("执行顺序源", route_map_text)
         self.assertIn("完整 backlog", route_map_text)
+        self.assertIn("PTL-I100-118S-route-map-post-118r-sync", route_map_text)
+        self.assertIn("PTL-I100-118R-final-product-operational-reacceptance", route_map_text)
+        self.assertIn("PTL-I100-127-owner-operator-frontend-and-customer-portal", route_map_text)
+        self.assertIn("PTL-I100-128", route_map_text)
+        self.assertIn("PTL-I100-129", route_map_text)
+        self.assertIn("PTL-I100-130", route_map_text)
+        self.assertIn("PTL-I100-131", route_map_text)
+        self.assertIn("127 -> 128 -> 129 -> 130 -> 131", route_map_text)
+        self.assertNotIn("当前 active packet：`PTL-I100-112A-production-platform-storage-seam`", route_map_text)
+        self.assertNotIn("当前 112A 已激活", route_map_text)
 
         redline_surface = "\n".join(
             (current_task_text, repo_status_text, route_map_text, json.dumps(active_packet, ensure_ascii=False))
