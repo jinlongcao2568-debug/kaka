@@ -376,6 +376,14 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertEqual(ledger["provider_adapter_readiness"]["readiness_state"], "SUSPENDED")
         self.assertEqual(workbench["owner_action_state"], "BLOCKED")
         self.assertEqual(workbench["quote_surface_state"], "BLOCKED")
+        self.assertEqual(workbench["execution_request_state"], "SUSPENDED")
+        self.assertEqual(workbench["provider_execution_state"], "SUSPENDED")
+        self.assertIn(
+            "provider_reliability_suspended_fail_closed",
+            workbench["suspension_reasons"],
+        )
+        self.assertFalse(workbench["provider_result_readback"]["provider_call_executed"])
+        self.assertFalse(workbench["provider_result_readback"]["real_provider_call_enabled"])
         self.assertEqual(outbox["vendor_adapter_state"]["state"], "BLOCKED")
         self.assertEqual(outbox["sandbox_execution_state"], "SUSPENDED")
         self.assertEqual(stage8.inputs["outbox_readiness_summary"]["sandbox_execution_readiness"], "SUSPENDED")
@@ -421,11 +429,20 @@ class TestRuntimeGovernanceGuards(unittest.TestCase):
         self.assertEqual(workbench["owner_action_state"], "BLOCKED")
         self.assertEqual(workbench["quote_surface_state"], "BLOCKED")
         self.assertFalse(workbench["live_execution_enabled"])
+        self.assertFalse(workbench["external_quote_sent"])
         self.assertFalse(workbench["real_external_quote_sent"])
         self.assertFalse(workbench["real_crm_receipt_generated"])
+        self.assertEqual(workbench["execution_request_state"], "BLOCKED")
+        self.assertFalse(workbench["approved_crm_quote_execution_enabled"])
+        self.assertFalse(workbench["provider_result_readback"]["provider_call_executed"])
+        self.assertFalse(workbench["quote_send_record"]["external_quote_sent"])
         self.assertIn("live_crm_request_blocked", workbench["blocked_reasons"])
         self.assertIn("external_quote_request_blocked", workbench["blocked_reasons"])
         self.assertIn("live_execution_requested_but_blocked", workbench["blocked_reasons"])
+        self.assertIn(
+            "external_quote_send_unapproved",
+            workbench["approved_crm_quote_execution_summary"]["blocked_reasons"],
+        )
 
     def test_leadpack_candidate_external_delivery_requests_remain_readback_only(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))

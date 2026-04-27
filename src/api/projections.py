@@ -938,9 +938,40 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
             "quote_surface_state": workbench.get("quote_surface_state"),
             "dry_run_state": workbench.get("dry_run_state"),
             "live_execution_enabled": bool(workbench.get("live_execution_enabled", False)),
+            "external_quote_sent": bool(workbench.get("external_quote_sent", False)),
             "real_external_quote_sent": bool(workbench.get("real_external_quote_sent", False)),
             "blocked_reasons": list(workbench.get("blocked_reasons", [])),
+            "suspension_reasons": list(workbench.get("suspension_reasons", [])),
             "governed_execution_mode": workbench.get("governed_execution_mode"),
+            "provider_execution_id": workbench.get("provider_execution_id"),
+            "execution_request_state": workbench.get("execution_request_state"),
+            "provider_execution_state": workbench.get("provider_execution_state"),
+            "approved_crm_quote_execution_requested": bool(
+                workbench.get("approved_crm_quote_execution_requested", False)
+            ),
+            "approved_crm_quote_execution_enabled": bool(
+                workbench.get("approved_crm_quote_execution_enabled", False)
+            ),
+            "controlled_provider_adapter_scope": workbench.get("controlled_provider_adapter_scope"),
+            "controlled_provider_execution_executed": bool(
+                workbench.get("controlled_provider_execution_executed", False)
+            ),
+            "provider_config_ref": dict(workbench.get("provider_config_ref", {})),
+            "provider_adapter_readiness_summary": dict(
+                workbench.get("provider_adapter_readiness_summary", {})
+            ),
+            "provider_result_readback": dict(workbench.get("provider_result_readback", {})),
+            "approved_crm_quote_execution_summary": dict(
+                workbench.get("approved_crm_quote_execution_summary", {})
+            ),
+            "deal_tracking_timeline": list(workbench.get("deal_tracking_timeline", [])),
+            "quote_send_record": dict(workbench.get("quote_send_record", {})),
+            "account_sync_record": dict(workbench.get("account_sync_record", {})),
+            "opportunity_sync_record": dict(workbench.get("opportunity_sync_record", {})),
+            "activity_sync_record": dict(workbench.get("activity_sync_record", {})),
+            "sales_note_record": dict(workbench.get("sales_note_record", {})),
+            "sales_callback_record": dict(workbench.get("sales_callback_record", {})),
+            "replay_state": dict(workbench.get("replay_state", {})),
             "crm_sandbox_sync_records": dict(workbench.get("crm_sandbox_sync_records", {})),
             "quote_sandbox_record": dict(workbench.get("quote_sandbox_record", {})),
             "deal_tracking_record": dict(workbench.get("deal_tracking_record", {})),
@@ -967,6 +998,12 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
     envelope["preview_projection"].pop("_raw_records", None)
     envelope[CRM_QUOTE_WORKBENCH_INPUT_KEY] = workbench or preview_projection["crm_quote_workbench_preview"]
     envelope[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = workbench_summary
+    envelope["approved_crm_quote_execution_summary"] = dict(
+        workbench.get("approved_crm_quote_execution_summary", {})
+    )
+    envelope["provider_result_readback"] = dict(workbench.get("provider_result_readback", {}))
+    envelope["deal_tracking_timeline"] = list(workbench.get("deal_tracking_timeline", []))
+    envelope["crm_quote_provider_execution_replay_state"] = dict(workbench.get("replay_state", {}))
     envelope[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = leadpack_package
     envelope[LEADPACK_DELIVERY_READINESS_INPUT_KEY] = leadpack_readiness_summary
     envelope["package_page_delivery_summary"] = {

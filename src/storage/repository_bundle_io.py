@@ -544,6 +544,13 @@ def _hydrate_stage7_crm_quote_workbench(
         work_item_refs,
         keys=("crm_action_id", CRM_ACTION_ID_INPUT_KEY),
     )
+    provider_execution_id = _resolve_typed_ref(
+        persisted_refs,
+        stage_inputs,
+        opportunity_refs,
+        work_item_refs,
+        keys=("provider_execution_id",),
+    )
     quote_draft_id = _resolve_typed_ref(
         persisted_refs,
         stage_inputs,
@@ -555,14 +562,20 @@ def _hydrate_stage7_crm_quote_workbench(
     record = repository.get_by_id(crm_action_id) if crm_action_id else None
     if record is None and quote_draft_id:
         record = repository.get_by_quote_draft_id(quote_draft_id)
+    if record is None and provider_execution_id:
+        record = repository.get_by_provider_execution_id(provider_execution_id)
     if record is None:
-        if crm_action_id or quote_draft_id:
+        if crm_action_id or quote_draft_id or provider_execution_id:
             return None, True
         snapshot = stage_inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY)
         return (dict(snapshot), False) if isinstance(snapshot, Mapping) else (None, False)
 
     payload = record.as_payload()
+    if crm_action_id and str(payload.get("crm_action_id", "")).strip() != crm_action_id:
+        return None, True
     if quote_draft_id and str(payload.get("quote_draft_id", "")).strip() != quote_draft_id:
+        return None, True
+    if provider_execution_id and str(payload.get("provider_execution_id", "")).strip() != provider_execution_id:
         return None, True
     return payload, False
 
@@ -579,9 +592,11 @@ def _restore_stage7_crm_quote_workbench(
     readiness_summary = build_crm_quote_workbench_readiness_summary(workbench_payload)
     stage_inputs[CRM_QUOTE_WORKBENCH_INPUT_KEY] = workbench_payload
     stage_inputs[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = readiness_summary
+    stage_inputs["provider_execution_id"] = str(workbench_payload.get("provider_execution_id"))
     stage_inputs[CRM_ACTION_ID_INPUT_KEY] = str(workbench_payload.get("crm_action_id"))
     stage_inputs[QUOTE_DRAFT_ID_INPUT_KEY] = str(workbench_payload.get("quote_draft_id"))
     handoff["crm_quote_workbench_optional"] = workbench_payload
+    handoff["provider_execution_id"] = str(workbench_payload.get("provider_execution_id"))
     handoff[CRM_ACTION_ID_INPUT_KEY] = str(workbench_payload.get("crm_action_id"))
     handoff[QUOTE_DRAFT_ID_INPUT_KEY] = str(workbench_payload.get("quote_draft_id"))
     resolution_trace = stage_inputs.get("stage7_resolution_trace")

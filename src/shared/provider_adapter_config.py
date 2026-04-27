@@ -18,6 +18,7 @@ PROVIDER_BLOCKED_REAL_CALL_REASON = "real_provider_call_blocked_readback_only"
 PROVIDER_BLOCKED_REFUND_REASON = "automated_refund_program_absent_blocked"
 PROVIDER_RELIABILITY_APPROVAL_READY = "APPROVAL_READY"
 PROVIDER_RELIABILITY_SUSPENDED = "SUSPENDED"
+LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER = "LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER"
 
 PROVIDER_FAMILIES: tuple[str, ...] = (
     "sales_outreach",
@@ -85,6 +86,8 @@ _ALLOWED_PROVIDER_IDS_BY_FAMILY = {
             "sandbox_crm_quote",
             "dry_run_crm_quote",
             "readback_only_crm_quote",
+            "local_controlled_fake_crm_quote_provider",
+            "local_controlled_fake_crm_quote",
             "hubspot_sandbox",
             "salesforce_sandbox",
         }
@@ -785,6 +788,7 @@ __all__ = [
     "PROVIDER_ADAPTER_CONFIG_RECORD_ID",
     "PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY",
     "PROVIDER_FAMILIES",
+    "LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER",
     "ProviderAdapterConfig",
     "ProviderAdapterFamilyConfig",
     "attach_provider_adapter_readiness",

@@ -23,6 +23,9 @@ class CRMQuoteWorkbenchRepository:
     def get_by_quote_draft_id(self, quote_draft_id: str) -> PersistedRecord | None:
         return self.find_one_by_field("quote_draft_id", quote_draft_id)
 
+    def get_by_provider_execution_id(self, provider_execution_id: str) -> PersistedRecord | None:
+        return self.find_one_by_field("provider_execution_id", provider_execution_id)
+
     def save(self, payload: Mapping[str, Any]) -> PersistedRecord:
         payload_dict = dict(payload)
         record_id = str(payload_dict[self.id_field])
@@ -60,9 +63,14 @@ class CRMQuoteWorkbenchRepository:
                         refs[key] = str(value)
         for nested_key in (
             "quote_sandbox_record",
+            "quote_send_record",
             "deal_tracking_record",
             "sales_followup_record",
+            "sales_note_record",
+            "sales_callback_record",
             "sandbox_adapter_execution",
+            "provider_result_readback",
+            "approved_crm_quote_execution_summary",
         ):
             nested = payload.get(nested_key)
             if isinstance(nested, Mapping):
@@ -102,13 +110,35 @@ class CRMQuoteWorkbenchRepository:
             "quote_surface_state": payload.get("quote_surface_state"),
             "dry_run_state": payload.get("dry_run_state"),
             "live_execution_enabled": bool(payload.get("live_execution_enabled", False)),
+            "external_quote_sent": bool(payload.get("external_quote_sent", False)),
             "real_external_quote_sent": bool(payload.get("real_external_quote_sent", False)),
+            "provider_execution_id": payload.get("provider_execution_id"),
+            "execution_request_state": payload.get("execution_request_state"),
+            "provider_execution_state": payload.get("provider_execution_state"),
+            "approved_crm_quote_execution_enabled": bool(
+                payload.get("approved_crm_quote_execution_enabled", False)
+            ),
+            "controlled_provider_adapter_scope": payload.get("controlled_provider_adapter_scope"),
+            "controlled_provider_execution_executed": bool(
+                payload.get("controlled_provider_execution_executed", False)
+            ),
             "blocked_reasons": list(payload.get("blocked_reasons", [])),
+            "suspension_reasons": list(payload.get("suspension_reasons", [])),
             "readiness_summary": dict(payload.get("readiness_summary", {})),
             "sandbox_adapter_execution": dict(payload.get("sandbox_adapter_execution", {})),
+            "provider_config_ref": dict(payload.get("provider_config_ref", {})),
+            "provider_result_readback": dict(payload.get("provider_result_readback", {})),
+            "approved_crm_quote_execution_summary": dict(
+                payload.get("approved_crm_quote_execution_summary", {})
+            ),
+            "deal_tracking_timeline": list(payload.get("deal_tracking_timeline", [])),
+            "replay_state": dict(payload.get("replay_state", {})),
+            "quote_send_record": dict(payload.get("quote_send_record", {})),
             "quote_sandbox_record": dict(payload.get("quote_sandbox_record", {})),
             "deal_tracking_record": dict(payload.get("deal_tracking_record", {})),
             "sales_followup_record": dict(payload.get("sales_followup_record", {})),
+            "sales_note_record": dict(payload.get("sales_note_record", {})),
+            "sales_callback_record": dict(payload.get("sales_callback_record", {})),
         }
 
     def _coerce_optional(self, value: Any) -> str | None:

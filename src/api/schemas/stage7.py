@@ -51,6 +51,7 @@ class Stage7CrmQuotePrerequisiteReadiness(TypedDict, total=False):
 
 
 class Stage7CrmQuoteWorkbenchCarrier(TypedDict, total=False):
+    provider_execution_id: str
     opportunity_id: str
     project_id: str
     crm_action_id: str
@@ -62,16 +63,39 @@ class Stage7CrmQuoteWorkbenchCarrier(TypedDict, total=False):
     quote_surface_state: str
     dry_run_state: str
     live_execution_enabled: bool
+    external_quote_sent: bool
     real_external_quote_sent: bool
     real_crm_receipt_generated: bool
     customer_visible_quote_generated: bool
     customer_visible_delivery_package_generated: bool
+    account_sync_record: dict[str, Any]
+    opportunity_sync_record: dict[str, Any]
+    activity_sync_record: dict[str, Any]
     crm_sandbox_sync_records: dict[str, Any]
+    quote_send_record: dict[str, Any]
     quote_sandbox_record: dict[str, Any]
+    quote_version_state: str
+    quote_approval_state: str
+    quote_expiration_state: str
+    discount_approval_state: str
+    quote_audit_state: str
+    operator_action_audit_refs: list[str]
+    provider_config_ref: dict[str, Any]
+    provider_adapter_readiness_summary: dict[str, Any]
+    provider_reliability_state: str
+    execution_request_state: str
+    provider_execution_state: str
+    provider_result_readback: dict[str, Any]
     deal_tracking_record: dict[str, Any]
+    deal_tracking_timeline: list[dict[str, Any]]
     sales_followup_record: dict[str, Any]
+    sales_note_record: dict[str, Any]
+    sales_callback_record: dict[str, Any]
     sandbox_adapter_execution: dict[str, Any]
     blocked_reasons: list[str]
+    suspension_reasons: list[str]
+    replay_state: dict[str, Any]
+    approved_crm_quote_execution_summary: dict[str, Any]
     governed_execution_mode: str
     readiness_summary: dict[str, Any]
 
@@ -209,6 +233,10 @@ class Stage7Response(TypedDict, total=False):
     crm_quote_prerequisite_readiness: Stage7CrmQuotePrerequisiteReadiness
     crm_quote_workbench: Stage7CrmQuoteWorkbenchCarrier
     crm_quote_workbench_readiness_summary: dict[str, Any]
+    approved_crm_quote_execution_summary: dict[str, Any]
+    provider_result_readback: dict[str, Any]
+    deal_tracking_timeline: list[dict[str, Any]]
+    crm_quote_provider_execution_replay_state: dict[str, Any]
     leadpack_delivery_package: LeadpackDeliveryPackageCarrier
     leadpack_delivery_readiness_summary: dict[str, Any]
     package_page_delivery_summary: dict[str, Any]

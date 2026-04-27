@@ -818,6 +818,7 @@ class Stage7Service:
         inputs_out["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
         inputs_out[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
         inputs_out[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = crm_quote_workbench_readiness_summary
+        inputs_out["provider_execution_id"] = crm_quote_workbench.get("provider_execution_id")
         inputs_out[CRM_ACTION_ID_INPUT_KEY] = crm_quote_workbench.get("crm_action_id")
         inputs_out[QUOTE_DRAFT_ID_INPUT_KEY] = crm_quote_workbench.get("quote_draft_id")
         inputs_out[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = leadpack_delivery_package
@@ -829,6 +830,7 @@ class Stage7Service:
         handoff["crm_quote_prerequisite_readiness_optional"] = crm_quote_prerequisite_readiness
         handoff["provider_adapter_readiness_summary_optional"] = provider_adapter_readiness_summary
         handoff["crm_quote_workbench_optional"] = crm_quote_workbench
+        handoff["provider_execution_id"] = crm_quote_workbench.get("provider_execution_id")
         handoff[CRM_ACTION_ID_INPUT_KEY] = crm_quote_workbench.get("crm_action_id")
         handoff[QUOTE_DRAFT_ID_INPUT_KEY] = crm_quote_workbench.get("quote_draft_id")
         handoff["leadpack_delivery_package_optional"] = leadpack_delivery_package

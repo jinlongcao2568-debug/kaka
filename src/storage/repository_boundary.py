@@ -95,6 +95,7 @@ STAGE_INPUT_FIELDS = {
         "crm_quote_prerequisite_readiness",
         CRM_QUOTE_WORKBENCH_INPUT_KEY,
         CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
+        "provider_execution_id",
         CRM_ACTION_ID_INPUT_KEY,
         QUOTE_DRAFT_ID_INPUT_KEY,
         LEADPACK_DELIVERY_PACKAGE_INPUT_KEY,
@@ -1268,6 +1269,7 @@ def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
             crm_action_id = workbench.get("crm_action_id") or bundle.inputs.get(CRM_ACTION_ID_INPUT_KEY)
             quote_draft_id = workbench.get("quote_draft_id") or bundle.inputs.get(QUOTE_DRAFT_ID_INPUT_KEY)
             for key, value in {
+                "provider_execution_id": workbench.get("provider_execution_id"),
                 "crm_action_id": crm_action_id,
                 CRM_ACTION_ID_INPUT_KEY: crm_action_id,
                 "quote_draft_id": quote_draft_id,
@@ -1439,9 +1441,28 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
                 "dry_run_state": workbench.get("dry_run_state"),
                 "live_execution_enabled": bool(workbench.get("live_execution_enabled", False)),
                 "real_external_quote_sent": bool(workbench.get("real_external_quote_sent", False)),
+                "external_quote_sent": bool(workbench.get("external_quote_sent", False)),
+                "provider_execution_id": workbench.get("provider_execution_id"),
+                "execution_request_state": workbench.get("execution_request_state"),
+                "provider_execution_state": workbench.get("provider_execution_state"),
+                "approved_crm_quote_execution_enabled": bool(
+                    workbench.get("approved_crm_quote_execution_enabled", False)
+                ),
+                "controlled_provider_adapter_scope": workbench.get("controlled_provider_adapter_scope"),
+                "controlled_provider_execution_executed": bool(
+                    workbench.get("controlled_provider_execution_executed", False)
+                ),
                 "governed_execution_mode": workbench.get("governed_execution_mode"),
                 "blocked_reasons": list(workbench.get("blocked_reasons", [])),
+                "suspension_reasons": list(workbench.get("suspension_reasons", [])),
                 "sandbox_adapter_execution": dict(workbench.get("sandbox_adapter_execution", {})),
+                "provider_config_ref": dict(workbench.get("provider_config_ref", {})),
+                "provider_result_readback": dict(workbench.get("provider_result_readback", {})),
+                "approved_crm_quote_execution_summary": dict(
+                    workbench.get("approved_crm_quote_execution_summary", {})
+                ),
+                "deal_tracking_timeline": list(workbench.get("deal_tracking_timeline", [])),
+                "replay_state": dict(workbench.get("replay_state", {})),
                 "crm_sandbox_sync_record_count": len(
                     dict(workbench.get("crm_sandbox_sync_records", {}))
                 ),

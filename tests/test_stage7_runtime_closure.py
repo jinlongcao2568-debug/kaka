@@ -849,6 +849,111 @@ class TestStage7RuntimeClosure(unittest.TestCase):
         self.assertEqual(package["export_page_replay"]["replay_state"], "SUSPENDED")
         self.assertIn("provider_adapter_suspended_fail_closed", package["blocked_reasons"])
 
+    def test_stage7_approved_crm_quote_provider_execution_uses_controlled_fake_carrier(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "approved_crm_quote_execution_requested": True,
+                "approved_crm_sync_requested": True,
+                "approved_quote_send_requested": True,
+                "crm_approval_state": "APPROVED",
+                "quote_approval_state": "APPROVED",
+                "quote_audit_state": "PRESENT",
+                "approval_state": "APPROVED",
+                "project_fact_audit_ref": "AUD-PROJECT-FACT-001",
+                "candidate_projection_audit_ref": "AUD-CANDIDATE-001",
+                "approval_chain_audit_ref": "AUD-APPROVAL-001",
+                "operator_action_audit_refs": ["AUD-OPERATOR-CRM-QUOTE-001"],
+                "quote_version_state": "APPROVED",
+                "quote_expires_at_optional": "2026-05-31T00:00:00Z",
+                "discount_requested": True,
+                "discount_approval_state": "APPROVED",
+                "crm_quote_provider_result_state": "SUCCESS",
+            }
+        )
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+        workbench = stage7.inputs["crm_quote_workbench"]
+        summary = workbench["approved_crm_quote_execution_summary"]
+        result = workbench["provider_result_readback"]
+
+        self.assertTrue(workbench["provider_execution_id"].startswith("CRMQUOTEEXEC-"))
+        self.assertEqual(workbench["provider_execution_id"], summary["provider_execution_id"])
+        self.assertTrue(workbench["approved_crm_quote_execution_requested"])
+        self.assertTrue(workbench["approved_crm_quote_execution_enabled"])
+        self.assertEqual(workbench["execution_request_state"], "APPROVED")
+        self.assertEqual(workbench["provider_execution_state"], "SUCCESS")
+        self.assertEqual(workbench["controlled_provider_adapter_scope"], "LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER")
+        self.assertTrue(workbench["controlled_provider_execution_executed"])
+        self.assertFalse(workbench["live_execution_enabled"])
+        self.assertFalse(workbench["external_quote_sent"])
+        self.assertFalse(workbench["real_external_quote_sent"])
+        self.assertFalse(result["provider_call_executed"])
+        self.assertFalse(result["real_provider_call_enabled"])
+        self.assertFalse(result["real_crm_sync_enabled"])
+        self.assertFalse(result["external_quote_sent"])
+        self.assertTrue(result["controlled_provider_execution_executed"])
+        self.assertTrue(result["controlled_crm_sync_recorded"])
+        self.assertTrue(result["controlled_quote_send_recorded"])
+
+        for key in ("account_sync_record", "opportunity_sync_record", "activity_sync_record"):
+            record = workbench[key]
+            self.assertEqual(record["provider_execution_id"], workbench["provider_execution_id"])
+            self.assertEqual(record["approved_provider_execution_state"], "APPROVED")
+            self.assertTrue(record["controlled_fake_crm_sync_recorded"])
+            self.assertFalse(record["real_crm_sync_enabled"])
+            self.assertFalse(record["provider_call_executed"])
+
+        self.assertEqual(workbench["quote_send_record"]["provider_execution_id"], workbench["provider_execution_id"])
+        self.assertEqual(workbench["quote_send_record"]["quote_send_state"], "CONTROLLED_FAKE_QUOTE_SEND_RECORDED")
+        self.assertFalse(workbench["quote_send_record"]["external_quote_sent"])
+        self.assertTrue(workbench["quote_send_record"]["controlled_fake_quote_send_recorded"])
+        self.assertEqual(workbench["quote_version_state"], "APPROVED")
+        self.assertEqual(workbench["quote_approval_state"], "APPROVED")
+        self.assertEqual(workbench["quote_expiration_state"], "DRAFT_VALIDITY_SET")
+        self.assertEqual(workbench["discount_approval_state"], "APPROVED")
+        self.assertEqual(workbench["quote_audit_state"], "PRESENT")
+        self.assertEqual(workbench["operator_action_audit_refs"], ["AUD-OPERATOR-CRM-QUOTE-001"])
+        self.assertEqual(workbench["provider_config_ref"]["provider_config_state"], "CONFIGURED")
+        self.assertEqual(workbench["provider_reliability_state"], "APPROVAL_READY")
+        self.assertEqual(workbench["deal_tracking_timeline"][-1]["event"], "crm_quote_provider_result_readback_recorded")
+        self.assertTrue(workbench["replay_state"]["provider_result_readback_replayable"])
+        self.assertTrue(workbench["replay_state"]["deal_tracking_timeline_replayable"])
+        self.assertEqual(stage7.inputs["provider_execution_id"], workbench["provider_execution_id"])
+        self.assertEqual(stage7.handoff["provider_execution_id"], workbench["provider_execution_id"])
+        self.assertEqual(stage7.inputs["crm_quote_workbench_readiness_summary"]["execution_request_state"], "APPROVED")
+        self.assertEqual(stage7.inputs["crm_quote_workbench_readiness_summary"]["provider_execution_state"], "SUCCESS")
+
+    def test_stage7_approved_crm_quote_provider_execution_fails_closed_when_gates_missing(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "approved_crm_quote_execution_requested": True,
+                "discount_requested": True,
+            }
+        )
+
+        stage7 = run_internal_chain_to_stage7(payload)["stage7"]
+        workbench = stage7.inputs["crm_quote_workbench"]
+        summary = workbench["approved_crm_quote_execution_summary"]
+        reasons = set(summary["blocked_reasons"])
+
+        self.assertFalse(workbench["approved_crm_quote_execution_enabled"])
+        self.assertEqual(workbench["execution_request_state"], "BLOCKED")
+        self.assertEqual(workbench["provider_execution_state"], "BLOCKED")
+        self.assertIn("crm_approval_missing", reasons)
+        self.assertIn("quote_approval_missing", reasons)
+        self.assertIn("quote_audit_missing", reasons)
+        self.assertIn("operator_action_audit_missing", reasons)
+        self.assertIn("quote_version_policy_not_satisfied", reasons)
+        self.assertIn("quote_expiration_policy_not_satisfied", reasons)
+        self.assertIn("discount_approval_missing", reasons)
+        self.assertFalse(workbench["provider_result_readback"]["controlled_provider_execution_executed"])
+        self.assertFalse(workbench["provider_result_readback"]["provider_call_executed"])
+        self.assertFalse(workbench["provider_result_readback"]["real_provider_call_enabled"])
+        self.assertFalse(workbench["quote_send_record"]["external_quote_sent"])
+        self.assertFalse(workbench["quote_send_record"]["controlled_fake_quote_send_recorded"])
+
 
 if __name__ == "__main__":
     unittest.main()

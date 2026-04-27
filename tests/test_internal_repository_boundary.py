@@ -783,6 +783,95 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
             package["artifact_version_hash"],
         )
 
+    def test_stage7_repository_persists_approved_crm_quote_provider_execution_carrier(self) -> None:
+        payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
+        payload.update(
+            {
+                "approved_crm_quote_execution_requested": True,
+                "approved_crm_sync_requested": True,
+                "approved_quote_send_requested": True,
+                "crm_approval_state": "APPROVED",
+                "quote_approval_state": "APPROVED",
+                "quote_audit_state": "PRESENT",
+                "approval_state": "APPROVED",
+                "project_fact_audit_ref": "AUD-PROJECT-FACT-001",
+                "candidate_projection_audit_ref": "AUD-CANDIDATE-001",
+                "approval_chain_audit_ref": "AUD-APPROVAL-001",
+                "operator_action_audit_refs": ["AUD-OPERATOR-CRM-QUOTE-001"],
+                "quote_version_state": "APPROVED",
+                "quote_expires_at_optional": "2026-05-31T00:00:00Z",
+                "discount_requested": True,
+                "discount_approval_state": "APPROVED",
+            }
+        )
+        stage7 = run_internal_chain(payload)["stage7"]
+        refresh_saleable_opportunity(stage7)
+
+        opportunity_id = stage7.record("saleable_opportunity").get("opportunity_id")
+        workbench = stage7.inputs["crm_quote_workbench"]
+        workbench_entry = CRMQuoteWorkbenchRepository().get_by_provider_execution_id(
+            workbench["provider_execution_id"]
+        )
+        self.assertIsNotNone(workbench_entry)
+        self.assertTrue(workbench_entry.payload["approved_crm_quote_execution_enabled"])
+        self.assertEqual(workbench_entry.governed_state["execution_request_state"], "APPROVED")
+        self.assertEqual(workbench_entry.governed_state["provider_execution_state"], "SUCCESS")
+        self.assertEqual(
+            workbench_entry.governed_state["approved_crm_quote_execution_summary"],
+            workbench["approved_crm_quote_execution_summary"],
+        )
+        self.assertEqual(
+            workbench_entry.governed_state["provider_result_readback"],
+            workbench["provider_result_readback"],
+        )
+        self.assertEqual(
+            workbench_entry.governed_state["deal_tracking_timeline"],
+            workbench["deal_tracking_timeline"],
+        )
+        self.assertFalse(workbench_entry.governed_state["external_quote_sent"])
+        self.assertFalse(workbench_entry.governed_state["real_external_quote_sent"])
+
+        replay = list_saleable_opportunities({"opportunity_id": opportunity_id})
+        self.assertEqual(
+            replay["approved_crm_quote_execution_summary"],
+            workbench["approved_crm_quote_execution_summary"],
+        )
+        self.assertEqual(
+            replay["provider_result_readback"]["provider_execution_id"],
+            workbench["provider_execution_id"],
+        )
+        self.assertEqual(
+            replay["deal_tracking_timeline"],
+            workbench["deal_tracking_timeline"],
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["governed_context"][
+                "crm_quote_workbench_summary"
+            ]["provider_execution_id"],
+            workbench["provider_execution_id"],
+        )
+        self.assertEqual(
+            replay["persisted_operational_context"]["governed_context"][
+                "crm_quote_workbench_summary"
+            ]["provider_execution_state"],
+            "SUCCESS",
+        )
+
+        hydrated = hydrate_stage_bundle("stage7", {"opportunity_id": opportunity_id})
+        self.assertIsNotNone(hydrated)
+        self.assertEqual(
+            hydrated.inputs["crm_quote_workbench"]["approved_crm_quote_execution_summary"],
+            workbench["approved_crm_quote_execution_summary"],
+        )
+        self.assertEqual(
+            hydrated.inputs["crm_quote_workbench"]["provider_result_readback"],
+            workbench["provider_result_readback"],
+        )
+        self.assertEqual(
+            hydrated.inputs["crm_quote_workbench"]["deal_tracking_timeline"],
+            workbench["deal_tracking_timeline"],
+        )
+
     def test_stage8_repository_boundary_keeps_governed_writeback_state(self) -> None:
         stage8 = self.result["stage8"]
         create_touch_record(stage8)
@@ -1398,6 +1487,7 @@ class TestInternalRepositoryBoundary(unittest.TestCase):
         stale_typed_refs = dict(stage_state.typed_object_refs)
         stale_typed_refs.update(
             {
+                "provider_execution_id": "CRMQUOTEEXEC-STALE-TYPED-REF-001",
                 "crm_action_id": "CRMACT-STALE-TYPED-REF-001",
                 "quote_draft_id": "QDRAFT-STALE-TYPED-REF-001",
             }

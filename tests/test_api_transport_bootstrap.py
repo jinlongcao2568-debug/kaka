@@ -1471,6 +1471,26 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertEqual(workbench_metadata["governed_execution_mode"], "INTERNAL_GOVERNED")
         self.assertFalse(workbench_metadata["live_execution_enabled"])
         self.assertFalse(workbench_metadata["real_external_quote_sent"])
+        approved_crm_quote_metadata = mounted_by_id["listSaleableOpportunities"][
+            "stage7_approved_crm_quote_provider_execution_readiness"
+        ]
+        self.assertEqual(
+            approved_crm_quote_metadata["readiness_scope"],
+            "approved_crm_quote_provider_execution_readback",
+        )
+        self.assertEqual(
+            approved_crm_quote_metadata["provider_adapter_scope"],
+            "LOCAL_CONTROLLED_FAKE_CRM_QUOTE_PROVIDER",
+        )
+        self.assertTrue(approved_crm_quote_metadata["requires_provider_config"])
+        self.assertTrue(approved_crm_quote_metadata["requires_sandbox_pass"])
+        self.assertTrue(approved_crm_quote_metadata["requires_operator_action_audit"])
+        self.assertTrue(approved_crm_quote_metadata["provider_result_readback_visible"])
+        self.assertTrue(approved_crm_quote_metadata["deal_tracking_timeline_visible"])
+        self.assertFalse(approved_crm_quote_metadata["provider_call_enabled"])
+        self.assertFalse(approved_crm_quote_metadata["real_provider_call_enabled"])
+        self.assertFalse(approved_crm_quote_metadata["real_crm_sync_enabled"])
+        self.assertFalse(approved_crm_quote_metadata["external_quote_sent"])
         package_metadata = mounted_by_id["listSaleableOpportunities"]["leadpack_delivery_package_readiness"]
         self.assertTrue(package_metadata["repository_backed_readback"])
         self.assertTrue(package_metadata["package_manifest_visible"])
@@ -1518,6 +1538,19 @@ class TestApiTransportBootstrap(unittest.TestCase):
         )
         self.assertFalse(body["crm_quote_workbench"]["live_execution_enabled"])
         self.assertFalse(body["crm_quote_workbench"]["real_external_quote_sent"])
+        self.assertIn("approved_crm_quote_execution_summary", body["crm_quote_workbench"])
+        self.assertIn("provider_result_readback", body["crm_quote_workbench"])
+        self.assertIn("deal_tracking_timeline", body["crm_quote_workbench"])
+        self.assertIn("approved_crm_quote_execution_summary", body)
+        self.assertIn("provider_result_readback", body)
+        self.assertIn("deal_tracking_timeline", body)
+        self.assertFalse(body["crm_quote_workbench"]["provider_result_readback"]["provider_call_executed"])
+        self.assertFalse(body["crm_quote_workbench"]["provider_result_readback"]["real_provider_call_enabled"])
+        self.assertFalse(body["crm_quote_workbench"]["quote_send_record"]["external_quote_sent"])
+        self.assertEqual(
+            body["crm_quote_workbench"]["provider_execution_id"],
+            stage7.inputs["crm_quote_workbench"]["provider_execution_id"],
+        )
         self.assertEqual(
             body["crm_quote_workbench_readiness_summary"]["quote_draft_id"],
             stage7.inputs["crm_quote_workbench"]["quote_draft_id"],
