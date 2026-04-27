@@ -26,14 +26,14 @@
 - 自动退款执行不属于目标能力；退款只允许作为 manual exception record、manual approval/audit 与 governed review 处理。
 - 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-118S-route-map-post-118r-sync`，只做路线图近端提示同步，不实现 runtime、不改变任务池登记、不放开 external/live 执行。
 - `PTL-I100-118R-final-product-operational-reacceptance` 已完成并本地提交：`f977b5b`；验收结论是工程回归通过、能力状态达到 controlled execution/readback，但产品真实世界运营闭环仍为 `DO_NOT_PRODUCTION_CLOSEOUT`。
-- 118R 已把剩余真实运营缺口登记为 127-131 五个完整任务；`control/product_task_library.yaml` 的 `current_mainline_next_candidate` 当前指向 `PTL-I100-127-owner-operator-frontend-and-customer-portal`，状态为 `CANDIDATE_NOT_ACTIVATED`。
+- 118R 已把剩余真实运营缺口登记为 127-131 五个完整任务；`PTL-I100-127-owner-operator-frontend-and-customer-portal` 已补 owner console / customer artifact portal，`control/product_task_library.yaml` 的 `current_mainline_next_candidate` 当前指向 `PTL-I100-128-real-public-source-field-validation-and-coverage`，状态为 `CANDIDATE_NOT_ACTIVATED`。
 - `PTL-I100-111F-open-capability-registry-route-doc-sync` 已完成并本地提交：`1c403c7`；它只同步开放能力基线到注册表、路线图、D1-D14 补表和测试，不再是 current active packet。
 - `PTL-INT-internal-preview-productization-strengthening` scoped-execution 已完成并提交：`f788a2b`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
-- Stage1-9 + INT 产品主线和 `PTL-I100-112-production-platform-infrastructure` 至 126 的受控能力包已完成；当前不是 `MAINLINE_COMPLETE` 产品 closeout，而是 118R 后的真实运营缺口推进阶段。
-- 当前没有自动 next candidate；后续进入 `127/128/129/130/131` 任一任务，都必须另开 dedicated `control/current_task.yaml` 包并人工确认。
+- Stage1-9 + INT 产品主线、`PTL-I100-112-production-platform-infrastructure` 至 126 的受控能力包，以及 `PTL-I100-127-owner-operator-frontend-and-customer-portal` 已完成；当前不是 `MAINLINE_COMPLETE` 产品 closeout，而是 118R 后的真实运营缺口推进阶段。
+- 当前没有自动 next candidate；后续进入 `128/129/130/131` 任一任务，都必须另开 dedicated `control/current_task.yaml` 包并人工确认。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动放行任何 provider/live 执行。
 - `Stage7 模块边界重构` 对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交：`2601482`；该方向当前不再 recommended_now，且不是 current active packet。
-- 当前 118S 已由 `control/current_task.yaml` 激活；本导航图只同步近端提示，不决定后续 127 或任何 provider/live 执行顺序。
+- 当前 127 已由 `control/current_task.yaml` 激活并完成实现；本导航图只同步近端提示，不决定后续 128 或任何 provider/live 执行顺序。
 - `PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交：`209c4cd`；它不再是 current active packet，仅作为把 current_mainline_next_candidate 推进到 `PTL-INT` 的历史控制面参照。
 - `PTL-S89-outreach-writeback-delivery-governance` scoped-execution 已完成并提交：`c36dd9d`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -157,16 +157,16 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-I100-118S-route-map-post-118r-sync`；本轮只同步路线图近端导航提示，目标是把旧 112A 提示更新为 118R 后的 127-131 产品真实运营缺口路线。
-- 当前候选池 next candidate：`PTL-I100-127-owner-operator-frontend-and-customer-portal`，状态 `CANDIDATE_NOT_ACTIVATED`；它只是候选提示，不自动激活。
+- 当前 active packet：`PTL-I100-127-owner-operator-frontend-and-customer-portal`；本轮补 owner 操作台与客户 artifact 门户，目标是让 owner 不再只能直接调用 raw API。
+- 当前候选池 next candidate：`PTL-I100-128-real-public-source-field-validation-and-coverage`，状态 `CANDIDATE_NOT_ACTIVATED`；它只是候选提示，不自动激活。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入 provider/live 执行。
-- `PTL-I100-127-owner-operator-frontend-and-customer-portal`：补实际操作台、客户 artifact 门户、审批审计可视化和客户授权下载入口。
+- `PTL-I100-127-owner-operator-frontend-and-customer-portal`：已补实际操作台、客户 artifact 门户、审批审计可视化和客户授权下载入口。
 - `PTL-I100-128-real-public-source-field-validation-and-coverage`：用真实公开样本验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，不绕登录/验证码/反爬。
 - `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`：接企业微信、邮件、CRM、报价、支付、交付真实 provider；自动退款仍不实现。
 - `PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`：接入受治理的大模型辅助解析、复核、证据摘要和销售话术草稿；模型输出不得直接成为事实或客户结论。
 - `PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout`：在 127-130 完成后跑真实世界端到端试点，作为下一次产品 closeout 门。
 - Stage7 模块边界重构：对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交 `2601482`；该方向当前不再 recommended_now，只作为已闭合近端历史参照。
-- 127-131 均需由 dedicated current_task 激活；推荐顺序是 127 -> 128 -> 129 -> 130 -> 131。推荐理由：先让 owner 有可操作前端，再验证真实公开源，再接真实 provider，再接 LLM 辅助，最后做真实世界端到端验收。
+- 128-131 均需由 dedicated current_task 激活；剩余推荐顺序是 128 -> 129 -> 130 -> 131。推荐理由：先验证真实公开源，再接真实 provider，再接 LLM 辅助，最后做真实世界端到端验收。
 - Internal preview 产品化强化（`PTL-INT-internal-preview-productization-strengthening`）：已完成 scoped-execution 并提交 `f788a2b`；不再是 current active packet，也不再是 current_mainline_next_candidate，仅作为该方向的已闭合历史参照；不是 external release 或客户平台放行。
 - `PTL-S89-outreach-writeback-delivery-governance`：已完成 scoped-execution 并提交 `c36dd9d`；不再是 current_mainline_next_candidate，仅作为 Stage8-9 触达记录、回写、交付与治理反馈闭合的近端历史参照。
 - `PTL-S78-contact-candidate-compliance-preview`：已完成并提交；不再是 current_mainline_next_candidate，仅作为 Stage7-8 联系候选、合规判定与预览闭合的近端历史参照。

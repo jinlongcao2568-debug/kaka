@@ -308,8 +308,14 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
     def test_118r_followup_tasks_are_registered_for_remaining_real_world_gaps(self) -> None:
         gaps = self.reacceptance["remaining_real_world_gaps"]
         matrix_gaps = self.gap_matrix["final_118R_operational_reacceptance"]["real_world_gaps"]
-        expected_task_ids = {
+        original_118r_task_ids = {
             "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+            "PTL-I100-128-real-public-source-field-validation-and-coverage",
+            "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+            "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
+            "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+        }
+        unresolved_after_127_task_ids = {
             "PTL-I100-128-real-public-source-field-validation-and-coverage",
             "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
@@ -317,9 +323,12 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
         }
         registered_task_ids = {row["task_id"] for row in self.task_library["tasks"]}
 
-        self.assertEqual({gap["minimum_followup_task_id"] for gap in gaps}, expected_task_ids)
-        self.assertEqual({gap["minimum_followup_task_id"] for gap in matrix_gaps}, expected_task_ids)
-        self.assertTrue(expected_task_ids.issubset(registered_task_ids))
+        self.assertEqual({gap["minimum_followup_task_id"] for gap in gaps}, original_118r_task_ids)
+        self.assertEqual(
+            {gap["minimum_followup_task_id"] for gap in matrix_gaps},
+            unresolved_after_127_task_ids,
+        )
+        self.assertTrue(original_118r_task_ids.issubset(registered_task_ids))
 
     def test_runtime_probe_confirms_controlled_provider_paths_are_not_real_calls(self) -> None:
         stage8_payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -375,7 +384,16 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
         self.assertFalse(carrier["real_customer_download_attempted"])
         self.assertFalse(carrier["automated_refund_program"]["present"])
 
-    def test_repository_has_no_productized_frontend_assets(self) -> None:
+    def test_127_adds_productized_internal_frontend_without_public_release_stack(self) -> None:
+        frontend_route = ROOT / "src/api/routes/operator_frontend.py"
+        self.assertTrue(frontend_route.exists())
+        route_text = frontend_route.read_text(encoding="utf-8")
+
+        self.assertIn("render_operator_console", route_text)
+        self.assertIn("render_customer_artifact_portal", route_text)
+        self.assertIn("external_release_enabled\": False", route_text)
+        self.assertIn("automated_refund_enabled\": False", route_text)
+
         frontend_markers = [
             "package.json",
             "vite.config.ts",
@@ -384,7 +402,6 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
             "next.config.ts",
         ]
         frontend_extensions = {".tsx", ".jsx", ".vue", ".svelte"}
-
         self.assertFalse(any((ROOT / marker).exists() for marker in frontend_markers))
         self.assertFalse(
             any(

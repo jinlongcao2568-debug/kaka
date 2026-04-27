@@ -5,11 +5,11 @@ updated_at: "2026-04-27"
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_118S_ROUTE_MAP_POST_118R_SYNC
+navigation_state: PTL_I100_127_OWNER_OPERATOR_FRONTEND_AND_CUSTOMER_PORTAL
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: "PTL-I100-118R 已完成并本地提交；路线图第 3 节仍停留在旧 112A 近端提示，需要同步为 118R 后的 127-131 候选路线。"
+activation_condition: "PTL-I100-118R registered remaining real-world product gaps; PTL-I100-118S synced the route map; 127 is the next candidate and is now activated to add owner/customer frontend surfaces."
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-118S-route-map-post-118r-sync
-  title: I100-18S Route map sync after 118R reacceptance
+  task_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
+  title: I100-27 Owner operator frontend and customer artifact portal
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -30,12 +30,13 @@ currentTask:
     - docs/AX9S_开发执行路由图.md
     - control/current_task.yaml
     - control/product_task_library.yaml
-    - control/product_operability_gap_matrix.yaml
     - control/product_acceptance_checklist.yaml
+    - control/product_operability_gap_matrix.yaml
+    - control/product_module_registry.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-118R-final-product-operational-reacceptance
-  objective: "把 AX9S 开发执行路由图的过期近端提示从 112A 同步到 118R 后的 127-131 真实运营缺口路线；只做 docs/control/test 同步，不改 runtime、不改 D1-D14 正文、不改变任务池登记。"
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-127-owner-operator-frontend-and-customer-portal
+  objective: "补 owner 实际可用的操作台和客户 artifact 门户：任务创建、项目导入、全链路运行入口、Stage6/7/8/9 工作台入口、provider 状态、调度状态、审批审计和客户 artifact 授权读回。保持 internal-only，不 public software release，不执行真实触达/支付/交付/退款。"
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,37 +56,38 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-118S-route-map-post-118r-sync
-    subpacket_id: PTL-I100-118S-route-map-post-118r-sync
-    backlog_packet_ref: PTL-I100-118S-route-map-post-118r-sync
+    packet_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
+    subpacket_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
+    backlog_packet_ref: PTL-I100-127-owner-operator-frontend-and-customer-portal
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
-    runtime_change_in_packet: OUT_OF_SCOPE
-    existing_code_state: CONTROL_AND_DOC_NAVIGATION_ONLY
-    existing_runtime_state: POST_118R_CONTROLLED_EXECUTION_READBACK_WITH_REAL_WORLD_GAPS
-    title: I100-18S Route map sync after 118R reacceptance
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    existing_code_state: API_ONLY_NO_FRONTEND_APP_DETECTED
+    existing_runtime_state: OPERATOR_ROUTES_AND_READBACK_ONLY
+    title: I100-27 Owner operator frontend and customer artifact portal
     status: ACTIVE
-    objective: "同步 docs/AX9S_开发执行路由图.md 第 1.1 和第 3 节，使其明确 118R 已完成、当前下一候选为 127、127-131 是剩余真实运营缺口路线；保持 route map 只是导航资产，不变成状态源或执行源。"
+    objective: "新增现有 FastAPI app 内部 HTML 前端入口，不引入独立 public frontend stack：/operator-console 供 owner 操作，/customer-artifact-portal/{opportunity_id} 供客户 artifact 授权读回；所有操作必须复用既有 internal/readback API 和治理门禁。"
     depends_on:
       - PTL-I100-118R-final-product-operational-reacceptance completed locally as f977b5b.
+      - PTL-I100-118S-route-map-post-118r-sync completed locally as 87df294.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-118R-final-product-operational-reacceptance
-      target_active_packet: PTL-I100-118S-route-map-post-118r-sync
+      previous_active_packet: PTL-I100-118S-route-map-post-118r-sync
+      target_active_packet: PTL-I100-127-owner-operator-frontend-and-customer-portal
       parent_packet: PTL-I100-internal-operable-productization
-      product_task_library_change: false
-      product_module_registry_change: false
+      product_task_library_change: true
+      product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: route_map_doc_control_sync
-      product_mainline_task: false
+      active_packet_kind: owner_operator_frontend_customer_portal
+      product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
-      runtime_change: false
-      runtime_change_in_packet: OUT_OF_SCOPE
+      runtime_change: true
+      runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
       docs_change: true
       contracts_change: false
       handoff_change: false
@@ -93,35 +95,39 @@ currentTask:
       tests_change: true
       fixture_change: false
       control_change: true
-      product_operational_acceptance_change: false
+      product_operational_acceptance_change: true
       live_execution_scope_change: false
       automated_refund_program_change: false
       new_business_object_enum_gate_exception_semantics: false
       new_formal_object_enum_gate_exception_semantics: false
       auto_next_candidate_selection: false
-      current_mainline_next_candidate_change: false
+      current_mainline_next_candidate_change: true
       push_allowed: false
     non_goals:
       - not an external software release
       - not an external unlock implementation
-      - not runtime implementation
-      - 不修改 D1-D14 正文
-      - 不修改 contracts、handoff、scripts、src、fixtures
-      - 不改变 product_task_library 任务登记
       - 不改变 canonical readiness
-      - 不放开 external software release
-      - 不无审批/无审计发送
-      - 不绕过 provider config / sandbox / approval / audit / operator action
+      - 不引入 public frontend release stack
+      - 不修改 D1-D14 正文
+      - 不修改 contracts、handoff、scripts、fixtures
       - 不新增业务对象、枚举、gate、exception 语义
+      - 不新增正式业务对象、枚举、gate、exception 语义
+      - 不放开 external software release
       - 不放开 Stage8 real execution
       - 不放开 Stage9 real payment/delivery/refund
+      - 不无审批/无审计发送
+      - 不绕过 provider config / sandbox / approval / audit / operator action
+      - 不真实 customer download
       - 不实现自动退款程序
       - 不 push
     affected_stages:
-      - product_navigation
+      - api_transport
+      - frontend
+      - operator_workbench
+      - customer_access
       - product_acceptance
       - governance_testing
-    risk_level: MEDIUM
+    risk_level: CRITICAL
     change_class: MANDATORY_HUMAN_REVIEW
     human_review_required: true
     owner_reviews_required:
@@ -143,7 +149,17 @@ currentTask:
     declared_changed_paths: &allowed_paths
       - control/current_task.yaml
       - control/repo_status.md
+      - control/product_task_library.yaml
+      - control/product_operability_gap_matrix.yaml
+      - control/product_module_registry.yaml
       - docs/AX9S_开发执行路由图.md
+      - src/api/main.py
+      - src/api/routes/operator_frontend.py
+      - tests/test_operator_frontend_portal.py
+      - tests/test_product_module_registry.py
+      - tests/test_product_acceptance_checklist.py
+      - tests/test_product_operability_gap_matrix.py
+      - tests/test_full_product_operational_acceptance.py
       - tests/test_stage12_extractors.py
     allowed_modification_paths: *allowed_paths
     forbidden_modification_paths:
@@ -153,12 +169,7 @@ currentTask:
       - contracts/**
       - handoff/**
       - scripts/**
-      - src/**
       - fixtures/**
-      - control/product_task_library.yaml
-      - control/product_acceptance_checklist.yaml
-      - control/product_operability_gap_matrix.yaml
-      - control/product_module_registry.yaml
       - migrations/**
       - alembic.ini
       - .dockerignore
@@ -170,20 +181,36 @@ currentTask:
       control:
         - control/current_task.yaml
         - control/repo_status.md
+        - control/product_task_library.yaml
+        - control/product_operability_gap_matrix.yaml
+        - control/product_module_registry.yaml
       contracts: []
       handoff: []
       scripts:
         - scripts/check-task-packet.ps1
         - scripts/check-state-alignment.ps1
-      runtime: []
+      runtime:
+        - src/api/main.py
+        - src/api/routes/operator_frontend.py
       tests:
+        - tests/test_operator_frontend_portal.py
+        - tests/test_product_module_registry.py
+        - tests/test_product_acceptance_checklist.py
+        - tests/test_product_operability_gap_matrix.py
+        - tests/test_full_product_operational_acceptance.py
         - tests/test_stage12_extractors.py
     required_scripts:
       - git status --short --untracked-files=all
+      - python -m unittest tests.test_operator_frontend_portal -v
+      - python -m unittest tests.test_operator_customer_access -v
+      - python -m unittest tests.test_api_transport_bootstrap -v
+      - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+      - python -m unittest tests.test_product_module_registry -v
+      - python -m unittest tests.test_product_acceptance_checklist -v
+      - python -m unittest tests.test_product_operability_gap_matrix -v
+      - python -m unittest tests.test_full_product_operational_acceptance -v
       - python -m unittest tests.test_stage12_extractors -v
-      - python -m unittest tests.test_review_gate_controls -v
-      - python -m unittest tests.test_post_repair_state_sync -v
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''docs/AX9S_开发执行路由图.md'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''docs/AX9S_开发执行路由图.md'',''src/api/main.py'',''src/api/routes/operator_frontend.py'',''tests/test_operator_frontend_portal.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
       - python tests/run_tests.py
       - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
@@ -191,26 +218,33 @@ currentTask:
       - git status --short --untracked-files=all
     script_timeouts:
       git status --short --untracked-files=all: 120000
+      python -m unittest tests.test_operator_frontend_portal -v: 300000
+      python -m unittest tests.test_operator_customer_access -v: 300000
+      python -m unittest tests.test_api_transport_bootstrap -v: 600000
+      python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
+      python -m unittest tests.test_product_module_registry -v: 300000
+      python -m unittest tests.test_product_acceptance_checklist -v: 300000
+      python -m unittest tests.test_product_operability_gap_matrix -v: 300000
+      python -m unittest tests.test_full_product_operational_acceptance -v: 300000
       python -m unittest tests.test_stage12_extractors -v: 300000
-      python -m unittest tests.test_review_gate_controls -v: 300000
-      python -m unittest tests.test_post_repair_state_sync -v: 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''docs/AX9S_开发执行路由图.md'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''docs/AX9S_开发执行路由图.md'',''src/api/main.py'',''src/api/routes/operator_frontend.py'',''tests/test_operator_frontend_portal.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1: 300000
       python tests/run_tests.py: 1800000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
       git diff --check: 300000
     stop_conditions:
-      - Any need to edit runtime src/**.
       - Any need to edit D1-D14正文, L0, contracts, handoff, scripts, or fixtures.
-      - Any need to change product_task_library task registration.
-      - Any real provider call, real outreach, CRM sync, quote send, payment, delivery, refund, customer download, or automated refund.
+      - Any need to add public software release, public signup, unaudited customer download, live provider call, real outreach, CRM sync, quote send, payment, delivery, refund, or automated refund.
+      - Any need to introduce a new business object, enum, gate, or exception semantic.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - route_map_no_longer_claims_112A_active
-      - route_map_points_to_127_131_as_post_118R_navigation
-      - route_map_remains_navigation_only_not_state_source
-      - external_release_stage8_stage9_and_automated_refund_redlines_preserved
+      - owner_console_frontend_mounted_at_/operator-console
+      - customer_artifact_portal_mounted_at_/customer-artifact-portal/{opportunity_id}
+      - owner_can_create_task_and_import_project_without_raw_api_calls
+      - stage6_to_stage9_workbench_provider_scheduler_audit_readback_visible
+      - customer_artifact_access_is_gated_by_account_download_auth_allowlist_masking_approval_audit
+      - no_public_software_release_no_real_provider_no_real_download_no_automated_refund
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet syncs stale route-map navigation text only; product task registration remains in control/product_task_library.yaml.
+  - This packet adds internal product UI surfaces inside the existing FastAPI app; it does not add a public frontend release stack.

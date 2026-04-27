@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
-  packet_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
-  title: "118R 复验后的下一候选：owner operator frontend and customer artifact portal"
+  task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+  packet_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+  title: "127 完成后的下一候选：real public source field validation and coverage"
   planning_state: CANDIDATE_NOT_ACTIVATED
   runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-  runtime_notes: "当前 product mainline pool 内 S12/S23/S34/S45/S56/S67/S7/S78/S89/INT 与后主线 P1/P2/P3/P4/P5/P6/P7/P8 均已 completed；PTL-I100 112-126 已完成；118R 复验发现的真实可运营缺口已登记为 127-131。current_mainline_next_candidate 指向 127 仅作候选提示，不自动激活；后续进入 127/128/129/130/131 任一任务都必须另开 dedicated current_task packet 并人工确认。执行层管理与汇报统一使用 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变；自动退款红线不变。"
+  runtime_notes: "PTL-I100-127 已补 owner operator frontend 和 customer artifact portal。current_mainline_next_candidate 指向 128 仅作候选提示，不自动激活；后续进入 128/129/130/131 任一任务都必须另开 dedicated current_task packet 并人工确认。执行层管理与汇报统一使用 task_id，不再用方向级标签替代；external release / Stage8 / Stage9 红线不变；自动退款红线不变。"
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -2119,12 +2119,12 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [api_transport, frontend, operator_workbench, customer_access]
     task_type: product_operability_frontend
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P29
-    existing_code_state: API_ONLY_NO_FRONTEND_APP_DETECTED
-    existing_runtime_state: OPERATOR_ROUTES_AND_READBACK_ONLY
+    existing_code_state: PRODUCTIZED_INTERNAL_FASTAPI_FRONTEND
+    existing_runtime_state: OWNER_OPERATOR_CONSOLE_AND_CUSTOMER_ARTIFACT_PORTAL_READY
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     activation_policy: "Created by 118R if final reacceptance confirms owner operation still lacks a productized UI. Requires dedicated current_task activation."
     hard_depends_on:
@@ -2154,6 +2154,7 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-127-owner-operator-frontend-and-customer-portal
     suggested_packet_refs: [PTL-I100-127-owner-operator-frontend-and-customer-portal]
     risk_level: CRITICAL
+    completion_result: "COMPLETED_OWNER_OPERATOR_FRONTEND_AND_CUSTOMER_ARTIFACT_PORTAL"
   - task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
     title: "I100-28 Real public source field validation and coverage"
     program_ref: PTL-I100-internal-operable-productization
@@ -2162,7 +2163,7 @@ tasks:
     task_type: real_sample_source_validation
     status: PLANNED
     planning_state: PLANNED
-    is_current_mainline_next_candidate: false
+    is_current_mainline_next_candidate: true
     priority: P30
     existing_code_state: SANDBOX_AND_ALLOWLISTED_ADAPTERS
     existing_runtime_state: SANDBOX_READY_NOT_REAL_SITE_VALIDATED

@@ -25,6 +25,7 @@ from api.routes.stage6 import (
     register_stage6_routes,
 )
 from api.routes.operator_customer_access import register_operator_customer_access_routes
+from api.routes.operator_frontend import register_operator_frontend_routes
 from api.routes.stage7 import register_stage7_routes
 from api.routes.stage8 import register_stage8_routes
 from api.routes.stage9 import register_stage9_routes
@@ -92,6 +93,8 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "real_refund_enabled",
     "automated_refund_enabled",
     "operator_console_readiness",
+    "owner_operator_console_frontend",
+    "customer_artifact_portal_frontend",
     "task_creation_entry",
     "task_readback_entry",
     "project_import_entry",
@@ -282,6 +285,7 @@ def _build_transport_bootstrap(
     disabled_stage_transports: dict[str, list[dict[str, Any]]],
     mounted_stage_routes: dict[str, list[dict[str, Any]]],
     operator_customer_access_routes: list[dict[str, Any]],
+    operator_frontend_routes: list[dict[str, Any]],
     provider_adapter_bootstrap: dict[str, Any],
     storage_bootstrap: dict[str, Any],
 ) -> dict[str, Any]:
@@ -289,6 +293,10 @@ def _build_transport_bootstrap(
     operator_customer_access_operation_ids = [
         route["operationId"]
         for route in operator_customer_access_routes
+    ]
+    operator_frontend_operation_ids = [
+        route["operationId"]
+        for route in operator_frontend_routes
     ]
     stage1_to_stage5_reserved_entry_plan = _reserved_entry_plan_readback(disabled_stage_transports)
     provider_adapter_readiness = dict(
@@ -401,6 +409,7 @@ def _build_transport_bootstrap(
         "operator_customer_access_mounted_operations": _operation_readback(
             operator_customer_access_routes
         ),
+        "operator_frontend_mounted_operations": _operation_readback(operator_frontend_routes),
         "operator_customer_access_bootstrap": {
             "capability_state": "APPROVAL_READY",
             "surface_mode": "internal-readback",
@@ -420,6 +429,9 @@ def _build_transport_bootstrap(
             "stage9_real_payment_delivery_refund_enabled": False,
             "automated_refund_enabled": False,
             "mounted_operations": operator_customer_access_operation_ids,
+            "frontend_operations": operator_frontend_operation_ids,
+            "owner_operator_frontend_path": "/operator-console",
+            "customer_artifact_portal_path": "/customer-artifact-portal/{opportunity_id}",
         },
         "entry_strategy": {
             "stage1_to_stage5": {
@@ -808,11 +820,24 @@ def _build_transport_bootstrap(
                 "external_release_enabled": False,
             },
             "operator_customer_access": {
-                "current_entry": "owner-operated internal console and gated customer artifact access readiness",
+                "current_entry": "owner-operated internal console, productized frontend, and gated customer artifact access",
                 "http_entry_enabled": True,
                 "surface_mode": "internal-readback",
                 "capability_state": "APPROVAL_READY",
                 "mounted_operations": operator_customer_access_operation_ids,
+                "frontend_operations": operator_frontend_operation_ids,
+                "owner_operator_frontend": {
+                    "path": "/operator-console",
+                    "task_creation_visible": True,
+                    "project_import_visible": True,
+                    "full_chain_run_entry_visible": True,
+                    "stage6_to_stage9_workbench_visible": True,
+                    "provider_status_visible": True,
+                    "scheduler_status_visible": True,
+                    "approval_audit_visible": True,
+                    "live_execution_enabled": False,
+                    "external_release_enabled": False,
+                },
                 "operator_console_entries": {
                     "task_creation": "/operator-console/tasks",
                     "project_import": "/operator-console/project-imports",
@@ -825,6 +850,7 @@ def _build_transport_bootstrap(
                 },
                 "customer_artifact_access": {
                     "candidate_path": "/customer-artifact-access-candidates/{opportunity_id}",
+                    "portal_path": "/customer-artifact-portal/{opportunity_id}",
                     "account_access_control_required": True,
                     "download_auth_required": True,
                     "field_allowlist_masking_required": True,
@@ -856,6 +882,7 @@ def _build_transport_bootstrap(
             "new_http_endpoint_added": False,
             "internal_stage1_to_stage6_http_endpoint_added": True,
             "operator_customer_access_http_endpoint_added": True,
+            "operator_frontend_http_endpoint_added": True,
             "operator_customer_access_external_or_live_endpoint_added": False,
             "customer_artifact_access_public_release_enabled": False,
             "customer_download_without_auth_enabled": False,
@@ -962,17 +989,24 @@ def create_app() -> FastAPI:
         for route in stage_routes
     ]
     operator_customer_access_routes = register_operator_customer_access_routes()
+    operator_frontend_routes = register_operator_frontend_routes()
     _mount_routes(app, mounted_routes)
     _mount_routes(app, operator_customer_access_routes)
+    _mount_routes(app, operator_frontend_routes)
     app.state.mounted_transport_operations = [route["operationId"] for route in mounted_routes]
     app.state.operator_customer_access_operations = [
         route["operationId"]
         for route in operator_customer_access_routes
     ]
+    app.state.operator_frontend_operations = [
+        route["operationId"]
+        for route in operator_frontend_routes
+    ]
     app.state.transport_bootstrap = _build_transport_bootstrap(
         app.state.disabled_stage_transports,
         mounted_stage_routes,
         operator_customer_access_routes,
+        operator_frontend_routes,
         app.state.provider_adapter_bootstrap,
         app.state.storage_bootstrap,
     )

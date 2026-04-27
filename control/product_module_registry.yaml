@@ -872,6 +872,7 @@ cross_cutting_surfaces:
       - src/api/routes/stage5.py
       - src/api/routes/stage6.py
       - src/api/routes/operator_customer_access.py
+      - src/api/routes/operator_frontend.py
       - src/api/routes/stage7.py
       - src/api/routes/stage8.py
       - src/api/routes/stage9.py
@@ -888,6 +889,7 @@ cross_cutting_surfaces:
       - tests/test_api_transport_bootstrap.py
       - tests/test_internal_surface_preview.py
       - tests/test_operator_customer_access.py
+      - tests/test_operator_frontend_portal.py
     completed_packets:
       - PTL-INT-internal-preview-surface-envelope
       - PTL-INT-104-p8-observability-operator-workbench
@@ -1331,6 +1333,7 @@ modules:
       - src/api/routes/stage5.py
       - src/api/routes/stage6.py
       - src/api/routes/operator_customer_access.py
+      - src/api/routes/operator_frontend.py
       - src/api/routes/stage7.py
       - src/api/routes/stage8.py
       - src/api/routes/stage9.py
@@ -1504,6 +1507,7 @@ modules:
       - src/api/deps.py
       - src/api/main.py
       - src/api/routes/operator_customer_access.py
+      - src/api/routes/operator_frontend.py
     current_runtime_state: PARTIAL_RUNTIME
     internal_governed_runtime_present: true
     target_packet_candidates:
@@ -1537,6 +1541,7 @@ modules:
       - src/api/projections.py
       - src/api/workbench_observability.py
       - src/api/routes/operator_customer_access.py
+      - src/api/routes/operator_frontend.py
       - src/api/routes/stage7.py
       - src/api/routes/stage8.py
       - src/api/routes/stage9.py

@@ -207,8 +207,11 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert platform_stack["live_execution_allowed"] is False
     internal_preview = modules["INTERNAL-PREVIEW-SURFACE"]
     assert "src/api/workbench_observability.py" in internal_preview["current_files"]
+    assert "src/api/routes/operator_frontend.py" in internal_preview["current_files"]
     assert "PTL-INT-104-p8-observability-operator-workbench" in internal_preview["completed_packets"]
     assert internal_preview["pending_packets"] == []
+    api_transport = modules["SURFACE-API-TRANSPORT"]
+    assert "src/api/routes/operator_frontend.py" in api_transport["current_files"]
     assert "src/stage9_delivery/typed_lifecycle.py" in stage9["current_files"]
     assert "src/stage9_delivery/feedback_writeback.py" in stage9["current_files"]
     assert stage9["pending_packets"] == []

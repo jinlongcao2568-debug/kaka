@@ -429,12 +429,20 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(
             set(gaps),
             {
-                "B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING",
                 "B118R_REAL_SOURCE_FIELD_VALIDATION_NOT_DONE",
                 "B118R_REAL_PROVIDER_BINDING_NOT_DONE",
                 "B118R_LLM_ASSIST_NOT_PRODUCTIZED",
                 "B118R_REAL_WORLD_E2E_PILOT_NOT_DONE",
             },
+        )
+        resolved_gaps = {row["gap_id"]: row for row in final["resolved_real_world_gaps"]}
+        self.assertEqual(
+            resolved_gaps["B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING"]["resolved_by_task_id"],
+            "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+        )
+        self.assertIn(
+            "owner_operator_frontend_and_customer_artifact_portal",
+            final["controlled_operable_now"],
         )
         for gap in gaps.values():
             self.assertIn(gap["minimum_followup_task_id"], self.task_library_task_ids())
