@@ -429,7 +429,6 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(
             set(gaps),
             {
-                "B118R_REAL_SOURCE_FIELD_VALIDATION_NOT_DONE",
                 "B118R_REAL_PROVIDER_BINDING_NOT_DONE",
                 "B118R_LLM_ASSIST_NOT_PRODUCTIZED",
                 "B118R_REAL_WORLD_E2E_PILOT_NOT_DONE",
@@ -440,8 +439,16 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             resolved_gaps["B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING"]["resolved_by_task_id"],
             "PTL-I100-127-owner-operator-frontend-and-customer-portal",
         )
+        self.assertEqual(
+            resolved_gaps["B118R_REAL_SOURCE_FIELD_VALIDATION_NOT_DONE"]["resolved_by_task_id"],
+            "PTL-I100-128-real-public-source-field-validation-and-coverage",
+        )
         self.assertIn(
             "owner_operator_frontend_and_customer_artifact_portal",
+            final["controlled_operable_now"],
+        )
+        self.assertIn(
+            "real_public_source_field_validation_and_coverage_report",
             final["controlled_operable_now"],
         )
         for gap in gaps.values():

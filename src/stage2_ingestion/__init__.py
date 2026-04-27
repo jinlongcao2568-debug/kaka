@@ -19,6 +19,17 @@ from stage2_ingestion.public_source_adapters import (
     provincial_bidding_platform_adapter_config,
     resolve_public_source_adapter_config,
 )
+from stage2_ingestion.source_validation import (
+    SOURCE_VALIDATION_SAMPLE_MATRIX,
+    PublicSourceValidationResult,
+    PublicSourceValidationSample,
+    build_blocked_validation_result,
+    build_degraded_validation_result,
+    build_source_coverage_report,
+    build_supported_validation_result,
+    build_validation_request,
+    source_validation_samples,
+)
 
 __all__ = [
     "LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID",
@@ -33,6 +44,15 @@ __all__ = [
     "PublicSourceTransportError",
     "PublicSourceTransportResponse",
     "StaticPublicSourceTransport",
+    "SOURCE_VALIDATION_SAMPLE_MATRIX",
+    "PublicSourceValidationResult",
+    "PublicSourceValidationSample",
+    "build_blocked_validation_result",
+    "build_degraded_validation_result",
+    "build_source_coverage_report",
+    "build_supported_validation_result",
+    "build_validation_request",
     "provincial_bidding_platform_adapter_config",
     "resolve_public_source_adapter_config",
+    "source_validation_samples",
 ]

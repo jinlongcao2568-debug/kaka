@@ -230,18 +230,19 @@ final_118R_operational_reacceptance:
     - approved_stage9_payment_delivery_execution_record_with_local_controlled_fake_provider
     - approved_production_dependency_drill_readback
     - owner_operator_frontend_and_customer_artifact_portal
+    - real_public_source_field_validation_and_coverage_report
   resolved_real_world_gaps:
     - gap_id: B118R_FRONTEND_OPERATOR_CUSTOMER_UI_MISSING
       capability: owner_operator_frontend_and_customer_portal
       resolved_by_task_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
       current_state: PRODUCTION_READY
       evidence: "FastAPI-mounted owner console and customer artifact portal now expose task creation, project import, Stage6-9 workbench links, provider/scheduler/audit readback, customer access control, download auth, field allowlist/masking, and customer artifact portal HTML surfaces without public software release."
-  real_world_gaps:
     - gap_id: B118R_REAL_SOURCE_FIELD_VALIDATION_NOT_DONE
       capability: real_public_source_field_validation
-      current_state: SANDBOX_READY
-      evidence: "Stage2 adapters support allowlisted/sandbox public prefixes, but preset websites are not proven against real public samples in this acceptance."
-      minimum_followup_task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+      resolved_by_task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+      current_state: PRODUCTION_READY
+      evidence: "control/real_public_source_field_validation_report.yaml records 114A-114I controlled manual public snapshot validation across Stage2 capture, Stage3 parser field coverage, Stage4 public verification, weak/failing/suspended fail-closed paths, hash/lineage, and no private/gray/login/captcha/anti-bot bypass."
+  real_world_gaps:
     - gap_id: B118R_REAL_PROVIDER_BINDING_NOT_DONE
       capability: wecom_email_crm_quote_payment_delivery_provider_binding
       current_state: LIVE_READY
@@ -527,7 +528,7 @@ production_gap_task_map:
       - browser_level_operability
   - gap_group: real_public_source_field_validation_and_coverage
     packet_ref: PTL-I100-128-real-public-source-field-validation-and-coverage
-    status: PLANNED
+    status: COMPLETED
     target_capability_state: PRODUCTION_READY
     covered_capabilities:
       - real_public_site_sample_validation

@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-127-owner-operator-frontend-and-customer-portal (ACTIVE; owner operator frontend and customer artifact portal. This mounts internal FastAPI HTML pages for owner operation and customer artifact readback; it is not public software release and does not enable real provider/live execution.)
+Current Workstream: PTL-I100-128-real-public-source-field-validation-and-coverage (ACTIVE; validates 114A-114I source adapters through controlled manual public snapshots, Stage3 parser field coverage, Stage4 public verification, and fail-closed weak/failing/suspended source readback. This is not uncontrolled live crawling and does not call real providers.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -19,23 +19,25 @@ Current Blockers:
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default; PTL-I100-123 only proves approved controlled-provider readback and keeps automated refund excluded.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
 - PTL-I100-118R is completed and registered the remaining real-world product gaps as PTL-I100-127 through PTL-I100-131.
-- PTL-I100-127 adds owner/customer frontend surfaces but must not weaken any live/provider/customer-download redline.
-- No real provider call, real outreach, real CRM sync, real quote send, real payment capture/charge, real delivery fulfillment, real customer download, real refund, or automated refund may run during 127.
+- PTL-I100-127 has added owner/customer frontend surfaces.
+- PTL-I100-128 validates controlled manual public snapshots and must not weaken public-source boundary redlines.
+- No private/gray source, login bypass, captcha bypass, anti-bot bypass, uncontrolled live crawler, real provider call, real outreach, real CRM sync, real quote send, real payment capture/charge, real delivery fulfillment, real customer download, real refund, or automated refund may run during 128.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
 - Except automated refund execution and prohibited non-public/gray capabilities, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
-- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-127 is the first implementation packet for the remaining real-world product gaps.
+- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-128 is the active implementation packet for real public source field validation after 127 completed.
 
-Current 127 Scope:
-- Add an owner operator console page and customer artifact portal page inside the existing FastAPI app.
-- Reuse existing operator/customer access APIs, provider/readiness readback, scheduler readback, approval/audit and customer artifact access candidates.
-- Keep customer-visible publication/download gated by account access, download auth, field allowlist/masking, approval and audit.
-- Do not introduce a public software release stack, external provider call, real outreach, real payment/delivery/refund, or automated refund.
+Current 128 Scope:
+- Validate 114A-114I Stage2 source adapters with controlled manual public snapshots.
+- Prove Stage2 capture preserves hash/lineage/replay, Stage3 parser emits field coverage, and Stage4 public verification readback attaches to the same snapshot.
+- Distinguish supported, weak, failing, and suspended source samples in control/real_public_source_field_validation_report.yaml.
+- Do not access private/gray sources, bypass login/captcha/anti-bot, add uncontrolled live crawler, or call any real provider.
 
 Recently Closed:
+- PTL-I100-127-owner-operator-frontend-and-customer-portal completed and committed locally: ab1fd01.
 - PTL-I100-118S-route-map-post-118r-sync completed and committed locally: 87df294.
 - PTL-I100-118R-final-product-operational-reacceptance completed and committed locally: f977b5b; product closeout remains DO_NOT_PRODUCTION_CLOSEOUT and follow-up tasks PTL-I100-127 through PTL-I100-131 are registered.
 - PTL-I100-126-production-live-dependency-and-drill-approval completed and committed locally: fc52e19; closeout committed locally: d8608ef.
@@ -47,8 +49,8 @@ Recently Closed:
 - PTL-I100-112 through PTL-I100-121C and PTL-I100-111A/B/C/D/E, 113-117, 119/119A are completed as recorded in control/product_task_library.yaml.
 
 Allowed Actions (current):
-- Update only 127 frontend/API/control/test paths declared in control/current_task.yaml.
-- Mount internal owner/customer frontend pages and update task/gap/checklist state for 127 completion.
+- Update only 128 source validation/control/test paths declared in control/current_task.yaml.
+- Add controlled manual public snapshot validation harness/report and update task/gap/checklist state for 128 completion.
 - Run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet.
 
 Forbidden Actions (current):
@@ -56,7 +58,8 @@ Forbidden Actions (current):
 - Any contracts/** change.
 - Any handoff/** change.
 - Any scripts/** change.
-- Any src/** runtime change.
+- Any src/** runtime change outside src/stage2_ingestion/source_validation.py and src/stage2_ingestion/__init__.py.
+- Any private/gray source access, login bypass, captcha bypass, anti-bot bypass, or uncontrolled live crawler.
 - Any schema/enum/gate/exception semantic addition.
 - Any external software release.
 - Any real provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or automated refund during implementation/tests.
@@ -73,16 +76,17 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_operator_frontend_portal -v
-- python -m unittest tests.test_operator_customer_access -v
-- python -m unittest tests.test_api_transport_bootstrap -v
-- python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+- python -m unittest tests.test_real_public_source_field_validation -v
+- python -m unittest tests.test_stage2_public_source_adapters -v
+- python -m unittest tests.test_stage3_real_parser -v
+- python -m unittest tests.test_stage4_public_verification_adapters -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_acceptance_checklist -v
 - python -m unittest tests.test_product_operability_gap_matrix -v
 - python -m unittest tests.test_full_product_operational_acceptance -v
 - python -m unittest tests.test_stage12_extractors -v
-- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''docs/AX9S_开发执行路由图.md'',''src/api/main.py'',''src/api/routes/operator_frontend.py'',''tests/test_operator_frontend_portal.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
+- python -m unittest tests.test_external_unlock_prerequisites -v
+- pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''control/real_public_source_field_validation_report.yaml'',''docs/AX9S_开发执行路由图.md'',''src/stage2_ingestion/source_validation.py'',''src/stage2_ingestion/__init__.py'',''tests/test_real_public_source_field_validation.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1

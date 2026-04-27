@@ -115,7 +115,9 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "contract-runtime first cut completed in local commit 2dbfb12" in " ".join(stage1["notes"])
     assert "src/stage2_ingestion/contract_runtime.py" in stage2["current_files"]
     assert "src/stage2_ingestion/public_source_adapters.py" in stage2["current_files"]
+    assert "src/stage2_ingestion/source_validation.py" in stage2["current_files"]
     assert "tests/test_stage2_public_source_adapters.py" in registry_text
+    assert "tests/test_real_public_source_field_validation.py" in registry_text
     assert "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion" in stage2["completed_packets"]
     assert stage2["pending_packets"] == []
     assert stage2["current_runtime_state"] == "PARTIAL_RUNTIME"
@@ -127,6 +129,7 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-I100-114G extends the same Stage2 public source adapter seam for tender agency public site" in " ".join(stage2["notes"])
     assert "PTL-I100-114H extends the same Stage2 public source adapter seam for tenderer/procurer/owner public notice pages" in " ".join(stage2["notes"])
     assert "PTL-I100-114I extends the same Stage2 public source adapter seam for industry authority filing pages" in " ".join(stage2["notes"])
+    assert "PTL-I100-128 registers src/stage2_ingestion/source_validation.py" in " ".join(stage2["notes"])
     assert "src/stage3_parsing/real_parser.py" in stage3["current_files"]
     assert (ROOT / "src/stage3_parsing/real_parser.py").exists()
     assert "PTL-S7-price-competitor-offer-resolution" in stage7["completed_packets"]

@@ -5,11 +5,11 @@ updated_at: "2026-04-27"
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_127_OWNER_OPERATOR_FRONTEND_AND_CUSTOMER_PORTAL
+navigation_state: PTL_I100_128_REAL_PUBLIC_SOURCE_FIELD_VALIDATION_AND_COVERAGE
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: "PTL-I100-118R registered remaining real-world product gaps; PTL-I100-118S synced the route map; 127 is the next candidate and is now activated to add owner/customer frontend surfaces."
+activation_condition: "PTL-I100-127 completed locally as ab1fd01; 128 is the next candidate and is now activated to validate Stage2-4 public-source field coverage through controlled public/manual snapshots."
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
-  title: I100-27 Owner operator frontend and customer artifact portal
+  task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+  title: I100-28 Real public source field validation and coverage
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -33,10 +33,11 @@ currentTask:
     - control/product_acceptance_checklist.yaml
     - control/product_operability_gap_matrix.yaml
     - control/product_module_registry.yaml
+    - control/real_public_source_field_validation_report.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-127-owner-operator-frontend-and-customer-portal
-  objective: "补 owner 实际可用的操作台和客户 artifact 门户：任务创建、项目导入、全链路运行入口、Stage6/7/8/9 工作台入口、provider 状态、调度状态、审批审计和客户 artifact 授权读回。保持 internal-only，不 public software release，不执行真实触达/支付/交付/退款。"
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-128-real-public-source-field-validation-and-coverage
+  objective: "用真实公开样本或受控手工 snapshot 验证 114A-114I source adapters、Stage3 parser、Stage4 public verification 的字段覆盖、失败降级、hash/lineage 和人工复核路径；输出 source coverage report。"
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -56,33 +57,35 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
-    subpacket_id: PTL-I100-127-owner-operator-frontend-and-customer-portal
-    backlog_packet_ref: PTL-I100-127-owner-operator-frontend-and-customer-portal
+    packet_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+    subpacket_id: PTL-I100-128-real-public-source-field-validation-and-coverage
+    backlog_packet_ref: PTL-I100-128-real-public-source-field-validation-and-coverage
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    existing_code_state: API_ONLY_NO_FRONTEND_APP_DETECTED
-    existing_runtime_state: OPERATOR_ROUTES_AND_READBACK_ONLY
-    title: I100-27 Owner operator frontend and customer artifact portal
+    existing_code_state: SANDBOX_AND_ALLOWLISTED_ADAPTERS
+    existing_runtime_state: SANDBOX_READY_NOT_REAL_SITE_VALIDATED
+    title: I100-28 Real public source field validation and coverage
     status: ACTIVE
-    objective: "新增现有 FastAPI app 内部 HTML 前端入口，不引入独立 public frontend stack：/operator-console 供 owner 操作，/customer-artifact-portal/{opportunity_id} 供客户 artifact 授权读回；所有操作必须复用既有 internal/readback API 和治理门禁。"
+    objective: "建立可回放的 Stage2-4 field validation harness 和控制面 coverage report：9 类 source family 均要证明 capture -> parse -> public verification readback，弱公开/失败/暂停源必须 fail closed 到 review，不得新增 uncontrolled live crawler。"
     depends_on:
-      - PTL-I100-118R-final-product-operational-reacceptance completed locally as f977b5b.
-      - PTL-I100-118S-route-map-post-118r-sync completed locally as 87df294.
+      - PTL-I100-127-owner-operator-frontend-and-customer-portal completed locally as ab1fd01.
+      - PTL-I100-114A through PTL-I100-114I source adapters completed.
+      - PTL-I100-115 Stage3 real parser completed.
+      - PTL-I100-116 Stage4 public verification adapters completed.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-118S-route-map-post-118r-sync
-      target_active_packet: PTL-I100-127-owner-operator-frontend-and-customer-portal
+      previous_active_packet: PTL-I100-127-owner-operator-frontend-and-customer-portal
+      target_active_packet: PTL-I100-128-real-public-source-field-validation-and-coverage
       parent_packet: PTL-I100-internal-operable-productization
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: owner_operator_frontend_customer_portal
+      active_packet_kind: real_public_source_field_validation
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -107,7 +110,12 @@ currentTask:
       - not an external software release
       - not an external unlock implementation
       - 不改变 canonical readiness
-      - 不引入 public frontend release stack
+      - 不访问 private/gray source
+      - 不绕过登录
+      - 不绕过验证码
+      - 不破解或绕过反爬
+      - 不新增 uncontrolled live crawler
+      - 不调用真实 provider
       - 不修改 D1-D14 正文
       - 不修改 contracts、handoff、scripts、fixtures
       - 不新增业务对象、枚举、gate、exception 语义
@@ -117,14 +125,12 @@ currentTask:
       - 不放开 Stage9 real payment/delivery/refund
       - 不无审批/无审计发送
       - 不绕过 provider config / sandbox / approval / audit / operator action
-      - 不真实 customer download
       - 不实现自动退款程序
       - 不 push
     affected_stages:
-      - api_transport
-      - frontend
-      - operator_workbench
-      - customer_access
+      - stage2_ingestion
+      - stage3_parsing
+      - stage4_verification
       - product_acceptance
       - governance_testing
     risk_level: CRITICAL
@@ -133,16 +139,19 @@ currentTask:
     owner_reviews_required:
       - architecture_owner
       - governance_owner
+      - model_governance_owner
       - testing_owner
       - automation_owner
     change_domains:
       - automation_control_core
+      - provider_vendor_source_policy_core
       - governance_release_core
       - scripts_and_tests_general
       - machine_assets_general
     reviews:
       - architecture_owner
       - governance_owner
+      - model_governance_owner
       - testing_owner
       - automation_owner
     baseline_dirty_paths: []
@@ -152,10 +161,11 @@ currentTask:
       - control/product_task_library.yaml
       - control/product_operability_gap_matrix.yaml
       - control/product_module_registry.yaml
+      - control/real_public_source_field_validation_report.yaml
       - docs/AX9S_开发执行路由图.md
-      - src/api/main.py
-      - src/api/routes/operator_frontend.py
-      - tests/test_operator_frontend_portal.py
+      - src/stage2_ingestion/source_validation.py
+      - src/stage2_ingestion/__init__.py
+      - tests/test_real_public_source_field_validation.py
       - tests/test_product_module_registry.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
@@ -175,6 +185,9 @@ currentTask:
       - .dockerignore
       - Dockerfile
       - docker-compose.yml
+      - src/stage2_ingestion/public_source_adapters.py
+      - src/stage3_parsing/real_parser.py
+      - src/stage4_verification/verification.py
     impacted_assets:
       docs:
         - docs/AX9S_开发执行路由图.md
@@ -184,16 +197,17 @@ currentTask:
         - control/product_task_library.yaml
         - control/product_operability_gap_matrix.yaml
         - control/product_module_registry.yaml
+        - control/real_public_source_field_validation_report.yaml
       contracts: []
       handoff: []
       scripts:
         - scripts/check-task-packet.ps1
         - scripts/check-state-alignment.ps1
       runtime:
-        - src/api/main.py
-        - src/api/routes/operator_frontend.py
+        - src/stage2_ingestion/source_validation.py
+        - src/stage2_ingestion/__init__.py
       tests:
-        - tests/test_operator_frontend_portal.py
+        - tests/test_real_public_source_field_validation.py
         - tests/test_product_module_registry.py
         - tests/test_product_acceptance_checklist.py
         - tests/test_product_operability_gap_matrix.py
@@ -201,16 +215,17 @@ currentTask:
         - tests/test_stage12_extractors.py
     required_scripts:
       - git status --short --untracked-files=all
-      - python -m unittest tests.test_operator_frontend_portal -v
-      - python -m unittest tests.test_operator_customer_access -v
-      - python -m unittest tests.test_api_transport_bootstrap -v
-      - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+      - python -m unittest tests.test_real_public_source_field_validation -v
+      - python -m unittest tests.test_stage2_public_source_adapters -v
+      - python -m unittest tests.test_stage3_real_parser -v
+      - python -m unittest tests.test_stage4_public_verification_adapters -v
       - python -m unittest tests.test_product_module_registry -v
       - python -m unittest tests.test_product_acceptance_checklist -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
       - python -m unittest tests.test_full_product_operational_acceptance -v
       - python -m unittest tests.test_stage12_extractors -v
-      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''docs/AX9S_开发执行路由图.md'',''src/api/main.py'',''src/api/routes/operator_frontend.py'',''tests/test_operator_frontend_portal.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
+      - python -m unittest tests.test_external_unlock_prerequisites -v
+      - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''control/real_public_source_field_validation_report.yaml'',''docs/AX9S_开发执行路由图.md'',''src/stage2_ingestion/source_validation.py'',''src/stage2_ingestion/__init__.py'',''tests/test_real_public_source_field_validation.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
       - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
       - python tests/run_tests.py
       - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
@@ -218,33 +233,37 @@ currentTask:
       - git status --short --untracked-files=all
     script_timeouts:
       git status --short --untracked-files=all: 120000
-      python -m unittest tests.test_operator_frontend_portal -v: 300000
-      python -m unittest tests.test_operator_customer_access -v: 300000
-      python -m unittest tests.test_api_transport_bootstrap -v: 600000
-      python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
+      python -m unittest tests.test_real_public_source_field_validation -v: 300000
+      python -m unittest tests.test_stage2_public_source_adapters -v: 600000
+      python -m unittest tests.test_stage3_real_parser -v: 300000
+      python -m unittest tests.test_stage4_public_verification_adapters -v: 300000
       python -m unittest tests.test_product_module_registry -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
       python -m unittest tests.test_full_product_operational_acceptance -v: 300000
       python -m unittest tests.test_stage12_extractors -v: 300000
-      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''docs/AX9S_开发执行路由图.md'',''src/api/main.py'',''src/api/routes/operator_frontend.py'',''tests/test_operator_frontend_portal.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
+      python -m unittest tests.test_external_unlock_prerequisites -v: 300000
+      "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(''control/current_task.yaml'',''control/repo_status.md'',''control/product_task_library.yaml'',''control/product_operability_gap_matrix.yaml'',''control/product_module_registry.yaml'',''control/real_public_source_field_validation_report.yaml'',''docs/AX9S_开发执行路由图.md'',''src/stage2_ingestion/source_validation.py'',''src/stage2_ingestion/__init__.py'',''tests/test_real_public_source_field_validation.py'',''tests/test_product_module_registry.py'',''tests/test_product_acceptance_checklist.py'',''tests/test_product_operability_gap_matrix.py'',''tests/test_full_product_operational_acceptance.py'',''tests/test_stage12_extractors.py''); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'": 300000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1: 300000
       python tests/run_tests.py: 1800000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
       git diff --check: 300000
     stop_conditions:
       - Any need to edit D1-D14正文, L0, contracts, handoff, scripts, or fixtures.
-      - Any need to add public software release, public signup, unaudited customer download, live provider call, real outreach, CRM sync, quote send, payment, delivery, refund, or automated refund.
+      - Any need to access private/gray source, bypass login/captcha/anti-bot, or call uncontrolled live crawler.
+      - Any need to call real provider, real outreach, CRM sync, quote send, payment, delivery, refund, or automated refund.
       - Any need to introduce a new business object, enum, gate, or exception semantic.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - owner_console_frontend_mounted_at_/operator-console
-      - customer_artifact_portal_mounted_at_/customer-artifact-portal/{opportunity_id}
-      - owner_can_create_task_and_import_project_without_raw_api_calls
-      - stage6_to_stage9_workbench_provider_scheduler_audit_readback_visible
-      - customer_artifact_access_is_gated_by_account_download_auth_allowlist_masking_approval_audit
-      - no_public_software_release_no_real_provider_no_real_download_no_automated_refund
+      - 114A_to_114I_source_families_have_validation_samples
+      - stage2_capture_persists_hash_lineage_and_replayable_snapshot
+      - stage3_parser_field_coverage_report_complete
+      - stage4_public_verification_replay_attached
+      - weak_failing_suspended_sources_degrade_to_manual_review_fail_closed
+      - source_coverage_report_distinguishes_supported_weak_failing_suspended_review
+      - no_private_gray_login_captcha_antibot_bypass
+      - no_uncontrolled_live_crawler_or_real_provider_call
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet adds internal product UI surfaces inside the existing FastAPI app; it does not add a public frontend release stack.
+  - This packet validates existing Stage2-4 public-source seams with controlled public/manual snapshots; it does not add a real crawler or external provider call.
