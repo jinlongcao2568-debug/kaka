@@ -44,7 +44,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             if task.get("status") != "COMPLETED"
         ]
 
-        self.assertEqual(len(non_completed), 1)
+        self.assertEqual(len(non_completed), 0)
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -433,8 +433,13 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "IN_SCOPE_WHEN_ACTIVATED",
         )
         task_126 = self.tasks_by_id["PTL-I100-126-production-live-dependency-and-drill-approval"]
-        self.assertEqual(task_126["status"], "IN_PROGRESS")
-        self.assertEqual(task_126["planning_state"], "ACTIVE_BY_CURRENT_TASK")
+        self.assertEqual(task_126["status"], "COMPLETED")
+        self.assertEqual(task_126["planning_state"], "COMPLETED")
+        self.assertEqual(task_126["completed_commit"], "fc52e19")
+        self.assertEqual(
+            task_126["completion_result"],
+            "COMPLETED_APPROVED_PRODUCTION_LIVE_DEPENDENCY_AND_DRILL_READBACK",
+        )
         completed_114 = {
             row["subpacket_id"]: row for row in task_114["completed_subpackets"]
         }

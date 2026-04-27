@@ -2028,8 +2028,8 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [platform_infra, production_governance, deployment_readiness]
     task_type: production_live_dependency_approval
-    status: IN_PROGRESS
-    planning_state: ACTIVE_BY_CURRENT_TASK
+    status: COMPLETED
+    planning_state: COMPLETED
     is_current_mainline_next_candidate: false
     priority: P27
     existing_code_state: HEAVY_RUNTIME
@@ -2054,3 +2054,5 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-126-production-live-dependency-and-drill-approval
     suggested_packet_refs: [PTL-I100-126-production-live-dependency-and-drill-approval]
     risk_level: CRITICAL
+    completed_commit: fc52e19
+    completion_result: "COMPLETED_APPROVED_PRODUCTION_LIVE_DEPENDENCY_AND_DRILL_READBACK"
