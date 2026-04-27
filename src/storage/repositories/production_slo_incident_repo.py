@@ -5,6 +5,7 @@ from typing import Any, Mapping
 from shared.settings import Settings
 from storage.db import DatabaseSession, PersistedRecord, build_persisted_at
 from storage.production_slo_incident_readiness import (
+    APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY,
     PRODUCTION_SLO_INCIDENT_READINESS_OBJECT_TYPE,
     PRODUCTION_SLO_INCIDENT_READINESS_RECORD_ID,
     build_production_slo_incident_readiness,
@@ -60,6 +61,9 @@ class ProductionSloIncidentRepository:
         backup_drill = dict(payload_dict.get("backup_restore_drill_evidence", {}))
         rollback_drill = dict(payload_dict.get("rollback_drill_evidence", {}))
         suspended_state = dict(payload_dict.get("suspended_state_operation_readback", {}))
+        approved_drill = dict(
+            payload_dict.get(APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY, {})
+        )
 
         return self.session.upsert_record(
             PersistedRecord(
@@ -74,6 +78,7 @@ class ProductionSloIncidentRepository:
                     "backup_restore_drill_id": str(backup_drill.get("drill_id", "")),
                     "rollback_drill_id": str(rollback_drill.get("drill_id", "")),
                     "suspension_id": str(suspended_state.get("suspension_id", "")),
+                    "approved_dependency_drill_id": str(approved_drill.get("drill_id", "")),
                 },
                 decision_states={
                     "target_capability_state": str(
@@ -83,6 +88,9 @@ class ProductionSloIncidentRepository:
                     "readback_state": str(validation["readback_state"]),
                     "incident_runbook_state": str(incident_runbook.get("runbook_state", "")),
                     "suspension_state": str(suspended_state.get("suspension_state", "")),
+                    "approved_dependency_drill_state": str(
+                        approved_drill.get("controlled_drill_state", "")
+                    ),
                 },
                 trace_refs={
                     "source": "storage.production_slo_incident_readiness",
@@ -109,6 +117,24 @@ class ProductionSloIncidentRepository:
                     "rollback_execution_enabled": False,
                     "active_storage_mutation_enabled": False,
                     "external_release_enabled": False,
+                    "approved_production_live_dependency_drill_enabled": bool(
+                        approved_drill.get(
+                            "approved_production_live_dependency_drill_enabled", False
+                        )
+                    ),
+                    "approved_production_live_dependency_drill_summary": {
+                        "drill_id": approved_drill.get("drill_id"),
+                        "controlled_drill_state": approved_drill.get("controlled_drill_state"),
+                        "controlled_execution_scope": approved_drill.get(
+                            "controlled_execution_scope"
+                        ),
+                        "container_execution_enabled": False,
+                        "real_alert_dispatch_enabled": False,
+                        "destructive_restore_enabled": False,
+                        "rollback_execution_enabled": False,
+                        "incident_automation_enabled": False,
+                        "external_release_enabled": False,
+                    },
                     "fail_closed": bool(validation["fail_closed"]),
                 },
                 writeback_state={
@@ -117,6 +143,9 @@ class ProductionSloIncidentRepository:
                     "restore_execution_state": "DISABLED_DRY_RUN_ONLY",
                     "rollback_execution_state": "DISABLED_DRY_RUN_ONLY",
                     "resume_state": "MANUAL_REVIEW_REQUIRED",
+                    "approved_dependency_drill_state": str(
+                        approved_drill.get("controlled_drill_state", "NOT_REQUESTED")
+                    ),
                 },
                 payload=payload_dict,
                 persisted_at=build_persisted_at(),
@@ -162,6 +191,9 @@ class ProductionSloIncidentRepository:
             "rollback_drill_evidence": dict(payload.get("rollback_drill_evidence", {})),
             "suspended_state_operation_readback": dict(
                 payload.get("suspended_state_operation_readback", {})
+            ),
+            APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY: dict(
+                payload.get(APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY, {})
             ),
             "redlines": dict(payload.get("redlines", {})),
             "replayable_readback": bool(payload.get("replayable_readback", True)),

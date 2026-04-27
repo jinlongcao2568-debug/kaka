@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,6 +36,26 @@ class TestProductionSloIncidentReadiness(unittest.TestCase):
             storage_scope="shared",
             storage_runtime_mode="explicit-path",
         )
+
+    def _approved_drill_inputs(self) -> dict[str, object]:
+        return {
+            "approved_production_live_dependency_drill_requested": True,
+            "approved_container_stack_drill_requested": True,
+            "approved_alert_dispatch_drill_requested": True,
+            "approved_backup_restore_drill_requested": True,
+            "approved_rollback_drill_requested": True,
+            "approved_incident_manual_execution_requested": True,
+            "owner_approval_state": "APPROVED",
+            "external_dependency_provider_approval_state": "APPROVED",
+            "alert_dispatch_approval_state": "APPROVED",
+            "restore_drill_approval_state": "APPROVED",
+            "rollback_drill_approval_state": "APPROVED",
+            "incident_owner_approval_state": "APPROVED",
+            "operator_action_audit_refs": [
+                "operator_action:approve-production-drill",
+                "audit:production-drill-approval",
+            ],
+        }
 
     def test_production_slo_carrier_covers_alerts_runbook_drills_and_suspended_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -157,6 +178,66 @@ class TestProductionSloIncidentReadiness(unittest.TestCase):
         self.assertFalse(replay["incident_automation_enabled"])
         self.assertFalse(replay["destructive_restore_enabled"])
         self.assertFalse(replay["rollback_execution_enabled"])
+
+    def test_approved_production_live_dependency_drill_records_controlled_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = replace(
+                self._settings(tmp_dir),
+                production_live_dependency_drill_inputs=self._approved_drill_inputs(),
+            )
+            payload = settings.storage_bootstrap_payload()["production_slo_incident_readiness"]
+            repo = ProductionSloIncidentRepository(
+                session=DatabaseSession(settings=settings),
+                settings=settings,
+            )
+            repo.save(payload)
+            replay = repo.replay()
+
+        carrier = payload["approved_production_live_dependency_drill"]
+        self.assertTrue(carrier["approved_production_live_dependency_drill_enabled"])
+        self.assertEqual(carrier["controlled_drill_state"], "APPROVED_CONTROLLED_DRILL_RECORDED")
+        self.assertEqual(carrier["controlled_execution_scope"], "LOCAL_CONTROLLED_DRILL_READBACK")
+        self.assertTrue(carrier["container_stack_drill_record"]["runbook_validation_recorded"])
+        self.assertFalse(carrier["container_stack_drill_record"]["docker_compose_up_executed"])
+        self.assertTrue(carrier["alert_dispatch_drill_record"]["controlled_dispatch_simulation_recorded"])
+        self.assertFalse(carrier["alert_dispatch_drill_record"]["real_alert_dispatch_enabled"])
+        self.assertTrue(carrier["backup_restore_drill_record"]["controlled_restore_dry_run_recorded"])
+        self.assertFalse(carrier["backup_restore_drill_record"]["destructive_restore_enabled"])
+        self.assertTrue(carrier["rollback_drill_record"]["controlled_rollback_dry_run_recorded"])
+        self.assertFalse(carrier["rollback_drill_record"]["rollback_execution_enabled"])
+        self.assertTrue(carrier["incident_manual_execution_record"]["manual_owner_action_recorded"])
+        self.assertFalse(carrier["incident_manual_execution_record"]["incident_automation_enabled"])
+        self.assertFalse(carrier["external_release_enabled"])
+        self.assertFalse(carrier["provider_call_enabled"])
+        self.assertFalse(carrier["real_provider_call_enabled"])
+        self.assertFalse(carrier["automated_refund_enabled"])
+        self.assertEqual(
+            replay["approved_production_live_dependency_drill"]["controlled_drill_state"],
+            "APPROVED_CONTROLLED_DRILL_RECORDED",
+        )
+        self.assertFalse(replay["real_alert_dispatch_enabled"])
+        self.assertFalse(replay["destructive_restore_enabled"])
+        self.assertFalse(replay["rollback_execution_enabled"])
+
+    def test_approved_production_live_dependency_drill_fails_closed_without_audit(self) -> None:
+        inputs = self._approved_drill_inputs()
+        inputs["operator_action_audit_refs"] = []
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings = replace(
+                self._settings(tmp_dir),
+                production_live_dependency_drill_inputs=inputs,
+            )
+            payload = settings.storage_bootstrap_payload()["production_slo_incident_readiness"]
+
+        carrier = payload["approved_production_live_dependency_drill"]
+        self.assertFalse(carrier["approved_production_live_dependency_drill_enabled"])
+        self.assertEqual(carrier["controlled_drill_state"], "BLOCKED")
+        self.assertIn("operator_action_audit_refs_missing", carrier["blocked_reasons"])
+        self.assertFalse(carrier["container_stack_drill_record"]["docker_compose_up_executed"])
+        self.assertFalse(carrier["alert_dispatch_drill_record"]["real_alert_dispatch_enabled"])
+        self.assertFalse(carrier["backup_restore_drill_record"]["destructive_restore_enabled"])
+        self.assertFalse(carrier["rollback_drill_record"]["rollback_execution_enabled"])
+        self.assertFalse(carrier["incident_manual_execution_record"]["incident_automation_enabled"])
 
     def test_stale_alert_or_missing_suspended_refs_fail_closed_without_broad_fallback(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

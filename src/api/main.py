@@ -306,6 +306,9 @@ def _build_transport_bootstrap(
     production_slo_incident_readiness = dict(
         storage_bootstrap.get("production_slo_incident_readiness", {})
     )
+    approved_production_live_dependency_drill = dict(
+        storage_bootstrap.get("approved_production_live_dependency_drill", {})
+    )
     production_slo_readiness = dict(storage_bootstrap.get("production_slo_readiness", {}))
     production_monitoring_dashboard = dict(
         storage_bootstrap.get("production_monitoring_dashboard", {})
@@ -347,6 +350,7 @@ def _build_transport_bootstrap(
         "alert_readiness": alert_readiness,
         "incident_readiness": incident_readiness,
         "production_slo_incident_readiness": production_slo_incident_readiness,
+        "approved_production_live_dependency_drill": approved_production_live_dependency_drill,
         "production_slo_readiness": production_slo_readiness,
         "production_monitoring_dashboard": production_monitoring_dashboard,
         "production_alert_rule_catalog": production_alert_rule_catalog,
@@ -595,6 +599,33 @@ def _build_transport_bootstrap(
                 "active_storage_mutation_enabled": False,
                 "external_release_enabled": False,
                 "go_live_enabled": False,
+            },
+            "approved_production_live_dependency_drill": {
+                "current_entry": "126 approved production live dependency and drill approval readback",
+                "drill_id": approved_production_live_dependency_drill.get("drill_id"),
+                "controlled_drill_state": approved_production_live_dependency_drill.get(
+                    "controlled_drill_state"
+                ),
+                "approved_production_live_dependency_drill_enabled": bool(
+                    approved_production_live_dependency_drill.get(
+                        "approved_production_live_dependency_drill_enabled", False
+                    )
+                ),
+                "controlled_execution_scope": approved_production_live_dependency_drill.get(
+                    "controlled_execution_scope"
+                ),
+                "container_execution_enabled": False,
+                "docker_compose_up_executed": False,
+                "notification_enabled": False,
+                "live_dispatch_enabled": False,
+                "real_alert_dispatch_enabled": False,
+                "external_apm_enabled": False,
+                "external_paging_enabled": False,
+                "destructive_restore_enabled": False,
+                "restore_execution_enabled": False,
+                "rollback_execution_enabled": False,
+                "incident_automation_enabled": False,
+                "external_release_enabled": False,
             },
             "provider_adapter": {
                 "current_entry": "sandbox dry-run provider readiness and circuit breaker readback",

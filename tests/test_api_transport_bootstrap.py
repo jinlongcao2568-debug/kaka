@@ -294,6 +294,14 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(production["redlines"]["incident_automation_enabled"])
         self.assertFalse(production["redlines"]["destructive_restore_enabled"])
         self.assertFalse(production["redlines"]["rollback_execution_enabled"])
+        approved_drill = storage_bootstrap["approved_production_live_dependency_drill"]
+        self.assertEqual(approved_drill["controlled_drill_state"], "NOT_REQUESTED")
+        self.assertFalse(approved_drill["approved_production_live_dependency_drill_enabled"])
+        self.assertFalse(approved_drill["container_stack_drill_record"]["docker_compose_up_executed"])
+        self.assertFalse(approved_drill["alert_dispatch_drill_record"]["real_alert_dispatch_enabled"])
+        self.assertFalse(approved_drill["backup_restore_drill_record"]["destructive_restore_enabled"])
+        self.assertFalse(approved_drill["rollback_drill_record"]["rollback_execution_enabled"])
+        self.assertFalse(approved_drill["incident_manual_execution_record"]["incident_automation_enabled"])
         self.assertIn("platform_infra_readiness", storage_bootstrap)
         self.assertIn("provider_adapter_bootstrap", storage_bootstrap)
         provider_bootstrap = storage_bootstrap["provider_adapter_bootstrap"]
@@ -948,6 +956,16 @@ class TestApiTransportBootstrap(unittest.TestCase):
         self.assertFalse(production_entry["incident_automation_enabled"])
         self.assertFalse(production_entry["destructive_restore_enabled"])
         self.assertFalse(production_entry["rollback_execution_enabled"])
+        approved_drill_entry = entry_strategy["approved_production_live_dependency_drill"]
+        self.assertEqual(approved_drill_entry["controlled_drill_state"], "NOT_REQUESTED")
+        self.assertFalse(
+            approved_drill_entry["approved_production_live_dependency_drill_enabled"]
+        )
+        self.assertFalse(approved_drill_entry["docker_compose_up_executed"])
+        self.assertFalse(approved_drill_entry["real_alert_dispatch_enabled"])
+        self.assertFalse(approved_drill_entry["destructive_restore_enabled"])
+        self.assertFalse(approved_drill_entry["rollback_execution_enabled"])
+        self.assertFalse(approved_drill_entry["incident_automation_enabled"])
 
         queue_worker = bootstrap["queue_worker_readiness"]
         self.assertEqual(queue_worker["effective_queue_backend"], "storage")

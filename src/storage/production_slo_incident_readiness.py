@@ -10,6 +10,7 @@ PRODUCTION_SLO_INCIDENT_SCHEMA_VERSION = 1
 PRODUCTION_READINESS_READY = "PRODUCTION_READY"
 PRODUCTION_READINESS_FAIL_CLOSED = "FAIL_CLOSED_STALE_OR_MISSING_REFS"
 PRODUCTION_READINESS_MISSING = "MISSING_READINESS"
+APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY = "approved_production_live_dependency_drill"
 
 _LIVE_OR_DESTRUCTIVE_FIELDS = frozenset(
     {
@@ -74,6 +75,7 @@ def build_production_slo_incident_readiness(
     monitoring_alerting_readiness: Mapping[str, Any],
     provider_adapter_readiness: Mapping[str, Any] | None = None,
     simulated_failures: list[Mapping[str, Any]] | None = None,
+    approved_dependency_drill_inputs: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     platform = dict(platform_infra_readiness)
     monitoring = dict(monitoring_alerting_readiness)
@@ -99,6 +101,16 @@ def build_production_slo_incident_readiness(
         backup_drill=backup_drill,
         rollback_drill=rollback_drill,
         suspended_state=suspended_state,
+    )
+    approved_drill = _build_approved_production_live_dependency_drill(
+        platform=platform,
+        provider=provider,
+        alert_evaluations=alert_evaluations,
+        backup_drill=backup_drill,
+        rollback_drill=rollback_drill,
+        incident_runbook=incident_runbook,
+        suspended_state=suspended_state,
+        approval_inputs=approved_dependency_drill_inputs,
     )
     slo_carrier = _build_slo_readiness_carrier(
         platform=platform,
@@ -141,6 +153,7 @@ def build_production_slo_incident_readiness(
         "backup_restore_drill_evidence": backup_drill,
         "rollback_drill_evidence": rollback_drill,
         "suspended_state_operation_readback": suspended_state,
+        APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY: approved_drill,
         "redlines": production_slo_incident_redlines(),
     }
     payload["validation"] = validate_production_slo_incident_readiness(payload)
@@ -410,6 +423,219 @@ def production_slo_incident_redlines() -> dict[str, bool]:
         "real_delivery_enabled": False,
         "real_refund_enabled": False,
         "automated_refund_enabled": False,
+    }
+
+
+def _build_approved_production_live_dependency_drill(
+    *,
+    platform: Mapping[str, Any],
+    provider: Mapping[str, Any],
+    alert_evaluations: list[Mapping[str, Any]],
+    backup_drill: Mapping[str, Any],
+    rollback_drill: Mapping[str, Any],
+    incident_runbook: Mapping[str, Any],
+    suspended_state: Mapping[str, Any],
+    approval_inputs: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    inputs = dict(approval_inputs or {})
+    request_flags = {
+        "approved_production_live_dependency_drill_requested": bool(
+            inputs.get("approved_production_live_dependency_drill_requested", False)
+        ),
+        "approved_container_stack_drill_requested": bool(
+            inputs.get("approved_container_stack_drill_requested", False)
+        ),
+        "approved_alert_dispatch_drill_requested": bool(
+            inputs.get("approved_alert_dispatch_drill_requested", False)
+        ),
+        "approved_backup_restore_drill_requested": bool(
+            inputs.get("approved_backup_restore_drill_requested", False)
+        ),
+        "approved_rollback_drill_requested": bool(
+            inputs.get("approved_rollback_drill_requested", False)
+        ),
+        "approved_incident_manual_execution_requested": bool(
+            inputs.get("approved_incident_manual_execution_requested", False)
+        ),
+    }
+    requested = any(request_flags.values())
+    owner_approval_state = str(inputs.get("owner_approval_state") or "MISSING")
+    dependency_provider_approval_state = str(
+        inputs.get("external_dependency_provider_approval_state") or "MISSING"
+    )
+    alert_dispatch_approval_state = str(
+        inputs.get("alert_dispatch_approval_state") or "MISSING"
+    )
+    restore_drill_approval_state = str(
+        inputs.get("restore_drill_approval_state") or "MISSING"
+    )
+    rollback_drill_approval_state = str(
+        inputs.get("rollback_drill_approval_state") or "MISSING"
+    )
+    incident_owner_approval_state = str(
+        inputs.get("incident_owner_approval_state") or "MISSING"
+    )
+    operator_action_audit_refs = [
+        str(ref)
+        for ref in list(inputs.get("operator_action_audit_refs", []))
+        if str(ref)
+    ]
+    compose = _mapping(platform.get("compose_readiness"))
+    local_stack_ready = all(
+        bool(compose.get(flag, False))
+        for flag in (
+            "dockerfile_present",
+            "compose_file_present",
+            "docker_compose_config_present",
+        )
+    )
+    provider_suspended = bool(provider.get("provider_adapter_suspended", False)) or str(
+        provider.get("provider_circuit_breaker_state") or ""
+    ).upper() == "OPEN"
+    backup_ready = (
+        str(backup_drill.get("drill_mode")) == "DRY_RUN_ONLY"
+        and bool(backup_drill.get("audit_refs"))
+        and not bool(backup_drill.get("destructive_restore_enabled", False))
+        and not bool(backup_drill.get("restore_execution_enabled", False))
+    )
+    rollback_ready = (
+        str(rollback_drill.get("drill_mode")) == "DRY_RUN_ONLY"
+        and bool(rollback_drill.get("audit_refs"))
+        and not bool(rollback_drill.get("rollback_execution_enabled", False))
+    )
+    alert_evaluations_ready = bool(alert_evaluations) and all(
+        bool(evaluation.get("alert_fired", False))
+        and not bool(evaluation.get("real_alert_dispatch_enabled", False))
+        for evaluation in alert_evaluations
+    )
+    incident_ready = (
+        str(incident_runbook.get("runbook_state")) == PRODUCTION_READINESS_READY
+        and bool(incident_runbook.get("audit_refs"))
+        and not bool(incident_runbook.get("incident_automation_enabled", False))
+    )
+    blocked_reasons: list[str] = []
+    if requested:
+        if owner_approval_state != "APPROVED":
+            blocked_reasons.append("owner_approval_missing")
+        if dependency_provider_approval_state != "APPROVED":
+            blocked_reasons.append("external_dependency_provider_approval_missing")
+        if alert_dispatch_approval_state != "APPROVED":
+            blocked_reasons.append("alert_dispatch_approval_missing")
+        if restore_drill_approval_state != "APPROVED":
+            blocked_reasons.append("restore_drill_approval_missing")
+        if rollback_drill_approval_state != "APPROVED":
+            blocked_reasons.append("rollback_drill_approval_missing")
+        if incident_owner_approval_state != "APPROVED":
+            blocked_reasons.append("incident_owner_approval_missing")
+        if not operator_action_audit_refs:
+            blocked_reasons.append("operator_action_audit_refs_missing")
+        if not local_stack_ready:
+            blocked_reasons.append("local_stack_runbook_not_ready")
+        if not backup_ready:
+            blocked_reasons.append("backup_restore_dry_run_not_ready")
+        if not rollback_ready:
+            blocked_reasons.append("rollback_dry_run_not_ready")
+        if not alert_evaluations_ready:
+            blocked_reasons.append("alert_simulation_readback_not_ready")
+        if not incident_ready:
+            blocked_reasons.append("incident_manual_runbook_not_ready")
+    suspension_reasons = ["provider_adapter_suspended"] if requested and provider_suspended else []
+    approved = requested and not blocked_reasons and not suspension_reasons
+    if not requested:
+        drill_state = "NOT_REQUESTED"
+    elif suspension_reasons:
+        drill_state = "SUSPENDED"
+    elif approved:
+        drill_state = "APPROVED_CONTROLLED_DRILL_RECORDED"
+    else:
+        drill_state = "BLOCKED"
+    return {
+        "drill_id": "PTL-I100-126-APPROVED-PRODUCTION-LIVE-DEPENDENCY-DRILL",
+        "task_packet": "PTL-I100-126-production-live-dependency-and-drill-approval",
+        **request_flags,
+        "approved_production_live_dependency_drill_enabled": approved,
+        "execution_request_state": "REQUESTED" if requested else "NOT_REQUESTED",
+        "controlled_drill_state": drill_state,
+        "owner_approval_state": owner_approval_state,
+        "external_dependency_provider_approval_state": dependency_provider_approval_state,
+        "alert_dispatch_approval_state": alert_dispatch_approval_state,
+        "restore_drill_approval_state": restore_drill_approval_state,
+        "rollback_drill_approval_state": rollback_drill_approval_state,
+        "incident_owner_approval_state": incident_owner_approval_state,
+        "operator_action_audit_refs": operator_action_audit_refs,
+        "provider_adapter_readiness_summary": dict(provider),
+        "controlled_execution_scope": "LOCAL_CONTROLLED_DRILL_READBACK",
+        "container_stack_drill_record": {
+            "runbook_validation_recorded": approved,
+            "dockerfile_present": bool(compose.get("dockerfile_present", False)),
+            "compose_file_present": bool(compose.get("compose_file_present", False)),
+            "docker_compose_config_present": bool(
+                compose.get("docker_compose_config_present", False)
+            ),
+            "container_execution_enabled": False,
+            "docker_compose_up_executed": False,
+            "migration_execution_enabled": False,
+            "external_service_connection_enabled": False,
+        },
+        "alert_dispatch_drill_record": {
+            "controlled_dispatch_simulation_recorded": approved,
+            "simulated_alert_count": len(alert_evaluations),
+            "alert_rule_ids": [
+                str(evaluation.get("alert_rule_id"))
+                for evaluation in alert_evaluations
+            ],
+            "notification_enabled": False,
+            "live_dispatch_enabled": False,
+            "real_alert_dispatch_enabled": False,
+            "external_apm_enabled": False,
+            "external_paging_enabled": False,
+        },
+        "backup_restore_drill_record": {
+            "controlled_restore_dry_run_recorded": approved,
+            "source_drill_id": backup_drill.get("drill_id"),
+            "drill_mode": backup_drill.get("drill_mode"),
+            "safe_to_restore": False,
+            "destructive_restore_enabled": False,
+            "restore_execution_enabled": False,
+            "active_storage_mutation_enabled": False,
+            "external_backup_service_enabled": False,
+        },
+        "rollback_drill_record": {
+            "controlled_rollback_dry_run_recorded": approved,
+            "source_drill_id": rollback_drill.get("drill_id"),
+            "drill_mode": rollback_drill.get("drill_mode"),
+            "rollback_execution_enabled": False,
+            "destructive_restore_enabled": False,
+            "active_storage_mutation_enabled": False,
+        },
+        "incident_manual_execution_record": {
+            "manual_owner_action_recorded": approved,
+            "source_runbook_id": incident_runbook.get("runbook_id"),
+            "suspended_state_ref": suspended_state.get("suspension_id"),
+            "owner_action_required": True,
+            "manual_resume_required": True,
+            "incident_automation_enabled": False,
+            "external_paging_enabled": False,
+        },
+        "external_release_enabled": False,
+        "production_release_enabled": False,
+        "go_live_enabled": False,
+        "provider_call_enabled": False,
+        "real_provider_call_enabled": False,
+        "real_sales_outreach_enabled": False,
+        "real_payment_enabled": False,
+        "real_charge_enabled": False,
+        "real_delivery_enabled": False,
+        "real_refund_enabled": False,
+        "automated_refund_enabled": False,
+        "blocked_reasons": blocked_reasons,
+        "suspension_reasons": suspension_reasons,
+        "replay_state": {
+            "state": "REPLAYABLE",
+            "repository_backed": True,
+            "controlled_drill_readback_replayable": True,
+            "no_broad_fallback": True,
+        },
     }
 
 
@@ -929,6 +1155,7 @@ def _live_redline_violations(value: Any, *, path: str = "$") -> list[dict[str, s
 
 
 __all__ = [
+    "APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY",
     "PRODUCTION_READINESS_FAIL_CLOSED",
     "PRODUCTION_READINESS_MISSING",
     "PRODUCTION_READINESS_READY",

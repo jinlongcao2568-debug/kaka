@@ -71,6 +71,7 @@ class Settings:
     object_storage_backend: str = _DEFAULT_OBJECT_STORAGE_BACKEND
     object_storage_path_optional: Optional[str] = None
     provider_adapter_config: ProviderAdapterConfig | None = None
+    production_live_dependency_drill_inputs: dict[str, Any] | None = None
 
     @classmethod
     def from_env(
@@ -157,8 +158,12 @@ class Settings:
             platform_infra_readiness=readiness,
             monitoring_alerting_readiness=monitoring_alerting_readiness,
             provider_adapter_readiness=self.provider_adapter_readiness_summary(),
+            approved_dependency_drill_inputs=self.production_live_dependency_drill_inputs,
         )
         readiness["production_slo_incident_readiness"] = production_slo_incident_readiness
+        readiness["approved_production_live_dependency_drill"] = production_slo_incident_readiness[
+            "approved_production_live_dependency_drill"
+        ]
         readiness["production_slo_readiness"] = production_slo_incident_readiness[
             "slo_readiness_carrier"
         ]
@@ -230,6 +235,9 @@ class Settings:
             "alert_readiness": readiness["alert_readiness"],
             "incident_readiness": readiness["incident_readiness"],
             "production_slo_incident_readiness": readiness["production_slo_incident_readiness"],
+            "approved_production_live_dependency_drill": readiness[
+                "approved_production_live_dependency_drill"
+            ],
             "production_slo_readiness": readiness["production_slo_readiness"],
             "production_monitoring_dashboard": readiness["production_monitoring_dashboard"],
             "production_alert_rule_catalog": readiness["production_alert_rule_catalog"],

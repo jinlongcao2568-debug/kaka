@@ -2949,6 +2949,9 @@ def build_go_live_readiness_surface(
     production_slo_incident = dict(
         storage_bootstrap.get("production_slo_incident_readiness", {})
     )
+    approved_production_live_dependency_drill = dict(
+        storage_bootstrap.get("approved_production_live_dependency_drill", {})
+    )
     production_slo = dict(storage_bootstrap.get("production_slo_readiness", {}))
     production_dashboard = dict(storage_bootstrap.get("production_monitoring_dashboard", {}))
     production_incident_runbook = dict(storage_bootstrap.get("production_incident_runbook", {}))
@@ -3037,6 +3040,7 @@ def build_go_live_readiness_surface(
             "destructive_restore_enabled": False,
             "monitoring_alerting_readiness": monitoring,
             "production_slo_incident_readiness": production_slo_incident,
+            "approved_production_live_dependency_drill": approved_production_live_dependency_drill,
             "production_drill_evidence": production_drill_evidence,
             "rollback_readiness": rollback_readiness,
         },
@@ -3063,6 +3067,7 @@ def build_go_live_readiness_surface(
             "confirm_monitoring_and_rollback_refs",
             "confirm_production_slo_incident_readback",
         ],
+        "approved_production_live_dependency_drill": approved_production_live_dependency_drill,
         "audit_readback": _audit_readback_summary(audit_entries),
         "redlines": {
             "external_software_release_enabled": False,
