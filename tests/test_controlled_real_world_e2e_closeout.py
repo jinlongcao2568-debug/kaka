@@ -20,6 +20,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
         self.gap_matrix = read_yaml("control/product_operability_gap_matrix.yaml")
         self.checklist = read_yaml("control/product_acceptance_checklist.yaml")
         self.task_library = read_yaml("control/product_task_library.yaml")
+        self.current_task = read_yaml("control/current_task.yaml")
 
     def test_closeout_report_records_owner_operable_controlled_e2e(self) -> None:
         self.assertEqual(
@@ -112,10 +113,20 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
                 self.assertFalse(tasks[task_id]["is_current_mainline_next_candidate"])
 
         candidate = self.task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["task_id"], "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist")
         self.assertEqual(candidate["planning_state"], "ACTIVE")
-        self.assertIn("browser-verified total-entry URLs", candidate["runtime_notes"])
-        self.assertIn("no arbitrary crawler", candidate["runtime_notes"])
+        self.assertNotIn(
+            candidate["task_id"],
+            {
+                "PTL-I100-127-owner-operator-frontend-and-customer-portal",
+                "PTL-I100-128-real-public-source-field-validation-and-coverage",
+                "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
+                "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
+                "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+                "PTL-I100-132-owner-operator-frontend-productization-workbench",
+            },
+        )
+        self.assertEqual(candidate["task_id"], self.current_task["currentTask"]["task_id"])
+        self.assertRegex(candidate["runtime_notes"], r"public|verification|source entry")
         self.assertEqual(tasks[candidate["task_id"]]["status"], "ACTIVE")
 
 

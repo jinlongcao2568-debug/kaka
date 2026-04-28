@@ -13,6 +13,7 @@ if str(SRC) not in sys.path:
 
 from shared.settings import Settings
 from stage2_ingestion.real_public_url_fetcher import (
+    NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
     REAL_PUBLIC_ENTRY_FETCH_MODE,
     REAL_PUBLIC_ENTRY_FETCHER_ID,
     REAL_PUBLIC_ENTRY_PROFILES,
@@ -28,6 +29,9 @@ from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 GGZY_ENTRY_URL = "https://www.ggzy.gov.cn/deal/dealList.html"
 CCGP_ENTRY_URL = "https://www.ccgp.gov.cn/cggg/zygg/"
+JZSC_HOME_URL = "https://jzsc.mohurd.gov.cn/home"
+CREDITCHINA_HOME_URL = "https://www.creditchina.gov.cn/"
+GSXT_HOME_URL = "https://www.gsxt.gov.cn/index.html"
 
 
 class FakeRealPublicFetchTransport:
@@ -198,12 +202,90 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
 
     def test_profiles_are_total_entry_urls_not_detail_pages(self) -> None:
         for profile in REAL_PUBLIC_ENTRY_PROFILES:
-            self.assertNotEqual(profile.url, profile.sample_detail_url, profile.profile_id)
+            if profile.profile_id not in NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS:
+                self.assertNotEqual(profile.url, profile.sample_detail_url, profile.profile_id)
             self.assertTrue(profile.url.startswith("https://"), profile.profile_id)
             self.assertNotIn("/information/deal/html/", profile.url, profile.profile_id)
-            if profile.profile_id != "GGZY-DEAL-LIST":
+            if profile.profile_id in {
+                "CCGP-CENTRAL-NOTICES",
+                "CCGP-CENTRAL-AWARD-LIST",
+            }:
                 self.assertTrue(profile.url.endswith("/"), profile.profile_id)
-            self.assertRegex(profile.sample_detail_url, r"\.(html|htm)$")
+            self.assertTrue(profile.sample_detail_url.startswith("https://"), profile.profile_id)
+
+    def test_national_verification_profiles_are_registered(self) -> None:
+        self.assertEqual(
+            NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
+            (
+                "JZSC-NATIONAL-HOME",
+                "JZSC-NATIONAL-COMPANY",
+                "JZSC-NATIONAL-PERSON",
+                "JZSC-NATIONAL-PROJECT",
+                "CREDITCHINA-HOME",
+                "GSXT-HOME",
+            ),
+        )
+        profiles_by_id = {profile.profile_id: profile for profile in REAL_PUBLIC_ENTRY_PROFILES}
+        self.assertEqual(profiles_by_id["JZSC-NATIONAL-HOME"].url, JZSC_HOME_URL)
+        self.assertEqual(profiles_by_id["CREDITCHINA-HOME"].url, CREDITCHINA_HOME_URL)
+        self.assertEqual(profiles_by_id["GSXT-HOME"].url, GSXT_HOME_URL)
+
+    def test_jzsc_verification_entries_degrade_when_raw_fetch_is_only_spa_shell(self) -> None:
+        shell_body = (
+            "<!DOCTYPE html><html><head><title>全国建筑市场监管公共服务平台（四库一平台）</title>"
+            "<script src='/js/app.js'></script></head><body><div id='app'></div></body></html>"
+        ).encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                JZSC_HOME_URL: RealPublicFetchResponse(
+                    url=JZSC_HOME_URL,
+                    status_code=200,
+                    content=shell_body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=JZSC_HOME_URL,
+                )
+            }
+        )
+
+        carrier = RealPublicEntryFetcher(transport=transport, repository=None).fetch_entry_url(
+            JZSC_HOME_URL,
+            profile_id="JZSC-NATIONAL-HOME",
+        )
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(carrier["source_family"], "national_construction_market_platform")
+        self.assertTrue(carrier["browser_verified"])
+        self.assertIn("visible_entry_markers_missing", carrier["degraded_reasons"])
+        self.assertEqual(carrier["snapshot_id_optional"], None)
+        self.assertEqual(carrier["same_site_detail_links"], [])
+
+    def test_national_verification_upstream_block_statuses_fail_closed(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                CREDITCHINA_HOME_URL: RuntimeError("Response status code does not indicate success: 412 (Precondition Failed)."),
+                GSXT_HOME_URL: RuntimeError("Response status code does not indicate success: 521 ()."),
+            }
+        )
+        fetcher = RealPublicEntryFetcher(transport=transport, repository=None)
+
+        credit = fetcher.fetch_entry_url(
+            CREDITCHINA_HOME_URL,
+            profile_id="CREDITCHINA-HOME",
+        )
+        gsxt = fetcher.fetch_entry_url(
+            GSXT_HOME_URL,
+            profile_id="GSXT-HOME",
+        )
+
+        self.assertEqual(credit["status"], "DEGRADED")
+        self.assertEqual(gsxt["status"], "DEGRADED")
+        self.assertEqual(credit["source_family"], "credit_china")
+        self.assertEqual(gsxt["source_family"], "national_enterprise_credit_publicity_system")
+        self.assertEqual(credit["degraded_reasons"], ["fetch_failed"])
+        self.assertEqual(gsxt["degraded_reasons"], ["fetch_failed"])
+        self.assertIn("412", credit["failure_detail_optional"])
+        self.assertIn("521", gsxt["failure_detail_optional"])
+        self.assertTrue(credit["fail_closed"])
+        self.assertTrue(gsxt["fail_closed"])
 
     def test_stage2_service_exposes_real_public_entry_fetcher(self) -> None:
         body = _ggzy_entry_html()

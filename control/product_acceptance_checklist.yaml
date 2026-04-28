@@ -628,6 +628,30 @@ tasks:
       - no_uncontrolled_crawler
       - no_real_provider_call
       - no_external_execution_side_effect
+  PTL-I100-133B-national-verification-source-entry-fetchers:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "国家核验入口只允许官方 URL allowlist：四库一平台 home/company/person/project，以及 Credit China / GSXT 官方入口。"
+      - "四库一平台 raw fetch 返回 200+SPA 壳时，必须稳定落到 fail-closed/readback，不得误判为已拿到可解析正文。"
+      - "Credit China 412、GSXT 521 必须作为真实运行时阻断结果记录下来，不得 fallback、不得伪装成成功入口。"
+      - "仍不做任意 crawler、登录/验证码/反爬绕过、真实 provider 调用、真实客户下载、真实退款或自动退款。"
+    targeted_test_expectations:
+      - stage2_real_public_url_fetcher
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - stage2_public_source_adapters_regression
+      - runtime_governance_guards
+    redline_checks:
+      - official_national_verification_entry_urls_registered
+      - jzsc_raw_shell_fail_closed
+      - creditchina_412_fail_closed
+      - gsxt_521_fail_closed
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

@@ -24,7 +24,7 @@
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
 - Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；真实触达、真实支付、真实交付是目标能力，但 `external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked-by-default / governed / approval-gated，直到 dedicated task 与验收放行。
 - 自动退款执行不属于目标能力；退款只允许作为 manual exception record、manual approval/audit 与 governed review 处理。
-- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist`，只做浏览器实测可用的真实公开总入口 URL fetcher 与 allowlist：入口页必须是列表/查询/总入口，不得用固定详情页冒充系统任务入口；不放开任意 crawler、登录/验证码/反爬绕过、public software release、未审批 live provider、真实下载、真实退款或自动退款。
+- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-133B-national-verification-source-entry-fetchers`，只做国家级公开核验入口的官方 URL fetch/readback：覆盖四库一平台 home/company/person/project，以及 Credit China / GSXT 这类真实但当前会返回 `412/521` 的入口；不放开任意 crawler、登录/验证码/反爬绕过、public software release、未审批 live provider、真实下载、真实退款或自动退款。
 - `PTL-I100-118R-final-product-operational-reacceptance` 已完成并本地提交：`f977b5b`；`PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout` 已完成并本地提交：`106c4a1`，受控真实世界 e2e closeout 已闭合。当前 132 处理前端实际可用性检查中发现的“只有入口、缺产品化工作台”问题。
 - 118R 已把剩余真实运营缺口登记为 127-131 五个完整任务并已完成；132 是后续前端产品化强化包，不重开 Stage1-9 runtime。`PTL-I100-127-owner-operator-frontend-and-customer-portal` 已补 owner console / customer artifact portal，`PTL-I100-128-real-public-source-field-validation-and-coverage` 已补 114A-114I 受控手工公开样本字段覆盖报告，`PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund` 已补 provider binding matrix / credential redaction / sandbox evidence / callback validation / kill-switch readback，`PTL-I100-130-llm-assisted-parsing-review-and-sales-governance` 已补受治理 model-assist readback，`PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout` 已补受控真实世界 e2e closeout。
 - `PTL-I100-111F-open-capability-registry-route-doc-sync` 已完成并本地提交：`1c403c7`；它只同步开放能力基线到注册表、路线图、D1-D14 补表和测试，不再是 current active packet。
@@ -37,7 +37,7 @@
 - `PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交：`209c4cd`；它不再是 current active packet，仅作为把 current_mainline_next_candidate 推进到 `PTL-INT` 的历史控制面参照。
 - `PTL-S89-outreach-writeback-delivery-governance` scoped-execution 已完成并提交：`c36dd9d`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
-- 本轮只做 `PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist` 的 Stage2 真实公开总入口 fetcher 与测试；不改 D1-D14 正文 / contracts / handoff / scripts / fixtures / Stage1/3/4/5/6/7/8/9 runtime / storage runtime / shared runtime，不放开 external release、未审批 Stage8 live send、未审批 Stage9 live payment/delivery、真实下载、真实退款、自动退款或真实外部模型调用。
+- 本轮只做 `PTL-I100-133B-national-verification-source-entry-fetchers` 的国家核验入口 fetch/readback 与测试；不改 D1-D14 正文 / contracts / handoff / scripts / fixtures / Stage1/3/4/5/6/7/8/9 runtime / storage runtime / shared runtime，不放开 external release、未审批 Stage8 live send、未审批 Stage9 live payment/delivery、真实下载、真实退款、自动退款或真实外部模型调用。
 - `PTL-S56-project-fact-review-report` scoped-execution 已完成并已提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S45-rule-evidence-dual-gate` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S34-object-lineage-verification-handoff` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -157,8 +157,8 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist`；本轮把真实公开来源验证从“受控 public.example.local/sandbox 样本”推进到“浏览器实测可用的真实总入口 URL fetch/readback”，默认不执行任意 crawler、未审批 live provider 调用或真实客户下载。
-- 当前候选池 next candidate：`PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist` 已进入 active；完成后候选池应指向 133B/133C/133D 或 134，但不自动激活。
+- 当前 active packet：`PTL-I100-133B-national-verification-source-entry-fetchers`；本轮把真实来源验证从“第一批公开公告总入口”推进到“国家级核验入口 fetch/readback 与 blocked-runtime 分类”，默认不执行任意 crawler、未审批 live provider 调用或真实客户下载。
+- 当前候选池 next candidate：`PTL-I100-133B-national-verification-source-entry-fetchers` 已进入 active；完成后候选池应指向 133C/133D 或 134，但不自动激活。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入 provider/live 执行。
 - `PTL-I100-127-owner-operator-frontend-and-customer-portal`：已补实际操作台、客户 artifact 门户、审批审计可视化和客户授权下载入口。
 - `PTL-I100-128-real-public-source-field-validation-and-coverage`：已用受控手工公开 snapshot 验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，不绕登录/验证码/反爬；真实站点实战仍留给 131 或后续按站点 dedicated packet。
@@ -166,7 +166,8 @@
 - `PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`：已接入受治理的大模型辅助解析、复核、证据摘要和销售话术草稿 readback；模型输出不得直接成为事实或客户结论，不调用真实外部模型 provider。
 - `PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout`：在 127-130 完成后跑受控真实世界端到端试点，已作为产品 closeout 门完成。
 - `PTL-I100-132-owner-operator-frontend-productization-workbench`：在前端实机检查后补产品化工作台、Stage1-9 运营总览、客户门户空状态和红线可视化。
-- `PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist`：以全国公共资源交易平台交易查询、中国政府采购网中央公告/中标公告等浏览器实测可用总入口为第一批，建立真实公开入口 URL fetcher、快照 hash、同站详情发现与 fail-closed 红线。
+- `PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist`：已完成第一批真实公开总入口 fetcher，覆盖全国公共资源交易平台交易查询、中国政府采购网中央公告/中标公告等总入口。
+- `PTL-I100-133B-national-verification-source-entry-fetchers`：继续接国家级核验入口，覆盖四库一平台 home/company/person/project 以及 Credit China / GSXT 官方入口，把 `200+SPA 壳`、`412`、`521` 等真实运行状态统一压到受控 readback/fail-closed。
 - Stage7 模块边界重构：对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交 `2601482`；该方向当前不再 recommended_now，只作为已闭合近端历史参照。
 - 132 已由 dedicated current_task 激活；本轮完成后不自动进入新任务。推荐理由：先让 owner 实际操作界面匹配已闭合的后端能力，再做更深的实战验证或 UI 迭代。
 - Internal preview 产品化强化（`PTL-INT-internal-preview-productization-strengthening`）：已完成 scoped-execution 并提交 `f788a2b`；不再是 current active packet，也不再是 current_mainline_next_candidate，仅作为该方向的已闭合历史参照；不是 external release 或客户平台放行。

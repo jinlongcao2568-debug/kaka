@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
-  packet_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
-  title: "Real public entry URL fetcher and allowlist"
+  task_id: PTL-I100-133B-national-verification-source-entry-fetchers
+  packet_id: PTL-I100-133B-national-verification-source-entry-fetchers
+  title: "National verification source entry fetchers"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 133A is the first post-frontend real public source operationalization packet: browser-verified total-entry URLs only, no arbitrary crawler, no login/captcha/anti-bot bypass, and no external provider action."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 133A is completed. 133B is now active for national verification source entry fetchers: official runtime-validated entry URLs only, no arbitrary crawler, no login/captcha/anti-bot bypass, and no external provider action."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 61
+task_count: 62
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2405,9 +2405,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, source_validation, product_acceptance]
     task_type: real_public_source_entry_fetcher
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P35
     existing_code_state: STAGE2_CONTROLLED_SANDBOX_ADAPTERS_ONLY
     existing_runtime_state: REAL_TOTAL_ENTRY_URL_FETCHER_NOT_IMPLEMENTED
@@ -2450,4 +2450,59 @@ tasks:
       - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
     suggested_packet_refs: [PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist]
+    risk_level: HIGH
+    completed_commit: bbfe88b
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_REAL_PUBLIC_ENTRY_URL_FETCHER_AND_ALLOWLIST"
+  - task_id: PTL-I100-133B-national-verification-source-entry-fetchers
+    title: "I100-33B National verification source entry fetchers"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, stage4_verification, source_validation, product_acceptance]
+    task_type: real_public_verification_entry_fetcher
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P36
+    existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133A_READY
+    existing_runtime_state: NATIONAL_VERIFICATION_ENTRY_FETCHERS_NOT_IMPLEMENTED
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Activated after 133A to cover official national verification entry URLs and explicit blocked runtime observations for Credit China / GSXT, without opening arbitrary crawling or provider execution."
+    hard_depends_on:
+      - PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+      - PTL-I100-114C-national-construction-market-platform
+      - PTL-I100-114D-credit-china-public-records
+      - PTL-I100-114E-national-enterprise-credit-publicity-system
+    objective: "实现国家级公开核验入口 fetcher：对四库一平台 home/company/person/project 以及 Credit China、GSXT 官方入口做 runtime-validated entry fetch/readback；200+SPA 壳、412、521 都必须被稳定分类为受控 readback/fail-closed。"
+    official_entry_url_observations:
+      - https://jzsc.mohurd.gov.cn/home
+      - https://jzsc.mohurd.gov.cn/data/company
+      - https://jzsc.mohurd.gov.cn/data/person
+      - https://jzsc.mohurd.gov.cn/data/project
+      - https://www.creditchina.gov.cn/
+      - https://www.gsxt.gov.cn/index.html
+    capability_gaps_covered:
+      - national_verification_entry_fetch
+      - official_runtime_block_status_observation
+      - jzsc_spa_shell_fail_closed_classification
+      - creditchina_412_fail_closed
+      - gsxt_521_fail_closed
+    non_goals:
+      - "不做任意 crawler"
+      - "不自动翻页深爬"
+      - "不绕过登录、验证码、人机校验、权限或反爬"
+      - "不采集 private/gray source"
+      - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
+    expected_outputs:
+      - "national verification entry allowlist"
+      - "official blocked-status readback"
+      - "jzsc raw-shell fail-closed carrier"
+      - "public boundary tests"
+    acceptance_checks:
+      - official_national_verification_entry_urls_registered
+      - jzsc_raw_shell_degrades_fail_closed
+      - creditchina_412_and_gsxt_521_are_recorded_without_fallback
+      - no_uncontrolled_crawler_or_provider_call
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133B-national-verification-source-entry-fetchers
+    suggested_packet_refs: [PTL-I100-133B-national-verification-source-entry-fetchers]
     risk_level: HIGH

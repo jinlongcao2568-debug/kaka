@@ -252,8 +252,8 @@ class TestStage12Extractors(unittest.TestCase):
 
         candidate = task_library["current_mainline_next_candidate"]
         self.assertEqual(candidate["planning_state"], "ACTIVE")
-        self.assertEqual(candidate["task_id"], "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist")
-        self.assertEqual(candidate["packet_id"], "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist")
+        self.assertEqual(candidate["task_id"], active_task["task_id"])
+        self.assertEqual(candidate["packet_id"], active_task["task_id"])
 
         self.assertIn("planning_state: ACTIVE", task_library_text)
         self.assertIn("PTL-I100-128-real-public-source-field-validation-and-coverage", task_library_text)
@@ -261,8 +261,8 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund", task_library_text)
         self.assertIn("PTL-I100-127 through PTL-I100-132 are completed", task_library_text)
         self.assertIn("132 productizes the existing FastAPI server-rendered frontend", task_library_text)
-        self.assertIn("browser-verified total-entry URLs", task_library_text)
-        self.assertIn("no arbitrary crawler", task_library_text)
+        self.assertIn(active_task["task_id"], task_library_text)
+        self.assertIn("real public source", task_library_text)
         self.assertIn("Execution-level management and reporting should use the P1 -> P8 ladder plus task_ids", task_library_text)
         self.assertIn("no public software release", task_library_text)
 

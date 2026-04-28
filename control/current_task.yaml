@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_133A_REAL_PUBLIC_ENTRY_FETCHER
+navigation_state: PTL_I100_133B_NATIONAL_VERIFICATION_ENTRY_FETCHERS
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-132 completed locally; owner requested real public source entry validation using browser-verified usable total-entry URLs, not fixed detail pages.
+activation_condition: PTL-I100-133A completed locally; owner requested national verification source official entry validation using real usable URLs and explicit blocked-runtime observations.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
-  title: I100-33A Real public entry URL fetcher and allowlist
+  task_id: PTL-I100-133B-national-verification-source-entry-fetchers
+  title: I100-33B National verification source entry fetchers
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -34,8 +34,8 @@ currentTask:
     - control/product_operability_gap_matrix.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
-  objective: 建立第一批真实公开站点总入口 fetcher：只允许浏览器实测可打开、能看到列表/查询入口、可发现同站详情链接的公开 URL；保存入口 HTML 快照、hash、标题、正文可见性、发现链接与红线判定，为后续真实站点解析和 UI 任务运行打基础。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133B-national-verification-source-entry-fetchers
+  objective: 建立国家级公开核验入口 fetcher：对四库一平台官方入口和 Credit China、GSXT 这类国家核验入口做真实 URL allowlist、raw fetch/readback、blocked-runtime 分类；不做任意 crawler，不绕过站点防护。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,32 +55,32 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
-    subpacket_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
-    backlog_packet_ref: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+    packet_id: PTL-I100-133B-national-verification-source-entry-fetchers
+    subpacket_id: PTL-I100-133B-national-verification-source-entry-fetchers
+    backlog_packet_ref: PTL-I100-133B-national-verification-source-entry-fetchers
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: STAGE2_CONTROLLED_SANDBOX_ADAPTERS_ONLY
-    existing_runtime_state: REAL_TOTAL_ENTRY_URL_FETCHER_NOT_IMPLEMENTED
-    title: I100-33A Real public entry URL fetcher and allowlist
+    existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133A_READY
+    existing_runtime_state: NATIONAL_VERIFICATION_ENTRY_FETCHERS_NOT_IMPLEMENTED
+    title: I100-33B National verification source entry fetchers
     status: ACTIVE
-    objective: 用浏览器实测过的真实公开总入口作为第一批 allowlist，新增受控 URL fetcher 与 readback carrier；入口必须可见列表/查询内容，详情页只能作为入口发现后的下一跳验证，不得用固定详情页冒充系统入口。
+    objective: 用真实官方国家核验入口 URL 作为第二批 allowlist：覆盖四库一平台 home/company/person/project，以及 Credit China / GSXT 入口；200+SPA 壳、412、521 都必须稳定落到受控 readback/fail-closed，不得误判为可执行抓取。
     depends_on:
-      - PTL-I100-132 completed locally.
+      - PTL-I100-133A completed locally.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-132-owner-operator-frontend-productization-workbench
-      target_active_packet: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+      previous_active_packet: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+      target_active_packet: PTL-I100-133B-national-verification-source-entry-fetchers
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: real_public_source_entry_fetcher
+      active_packet_kind: real_public_verification_entry_fetcher
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -101,22 +101,37 @@ currentTask:
       auto_next_candidate_selection: false
       current_mainline_next_candidate_change: true
       push_allowed: false
-    browser_verified_entry_urls:
-      - url: https://www.ggzy.gov.cn/deal/dealList.html
-        site_name: 全国公共资源交易平台
-        page_title: 全国公共资源交易平台
-        visible_entry_evidence: 交易查询、搜索、搜索记录数、公开交易记录列表
-        sample_detail_url: https://www.ggzy.gov.cn/information/deal/html/a/530000/0101/20260424/0053fb3c1c63347a4c988cc60249e8da1a91.html
-      - url: https://www.ccgp.gov.cn/cggg/zygg/
-        site_name: 中国政府采购网
-        page_title: 中央公告_中国政府采购网
-        visible_entry_evidence: 中央公告、采购头条、政采动态
-        sample_detail_url: https://www.ccgp.gov.cn/cggg/zygg/zbgg/202401/t20240112_21424937.htm
-      - url: https://www.ccgp.gov.cn/cggg/zygg/zbgg/
-        site_name: 中国政府采购网
-        page_title: 中标公告_中国政府采购网
-        visible_entry_evidence: 中标公告列表入口
-        sample_detail_url: https://www.ccgp.gov.cn/cggg/zygg/zbgg/202401/t20240112_21424937.htm
+    official_entry_url_observations:
+      - url: https://jzsc.mohurd.gov.cn/home
+        site_name: 全国建筑市场监管公共服务平台（四库一平台）
+        runtime_http_observation: 200
+        runtime_raw_observation: SPA_SHELL
+        notes: 官方首页真实可访问，但 raw fetch 只返回前端壳页。
+      - url: https://jzsc.mohurd.gov.cn/data/company
+        site_name: 全国建筑市场监管公共服务平台（四库一平台）
+        runtime_http_observation: 200
+        runtime_raw_observation: SPA_SHELL
+        notes: 企业入口真实可访问，但 raw fetch 只返回前端壳页。
+      - url: https://jzsc.mohurd.gov.cn/data/person
+        site_name: 全国建筑市场监管公共服务平台（四库一平台）
+        runtime_http_observation: 200
+        runtime_raw_observation: SPA_SHELL
+        notes: 人员入口真实可访问，但 raw fetch 只返回前端壳页。
+      - url: https://jzsc.mohurd.gov.cn/data/project
+        site_name: 全国建筑市场监管公共服务平台（四库一平台）
+        runtime_http_observation: 200
+        runtime_raw_observation: SPA_SHELL
+        notes: 项目入口真实可访问，但 raw fetch 只返回前端壳页。
+      - url: https://www.creditchina.gov.cn/
+        site_name: 信用中国
+        runtime_http_observation: 412
+        runtime_raw_observation: PRECONDITION_FAILED
+        notes: 官方入口真实存在，但当前 runtime 直连返回 412。
+      - url: https://www.gsxt.gov.cn/index.html
+        site_name: 国家企业信用信息公示系统
+        runtime_http_observation: 521
+        runtime_raw_observation: UPSTREAM_BLOCKED
+        notes: 官方入口真实存在，但当前 runtime 直连返回 521。
     non_goals:
       - 不做任意 crawler
       - 不自动翻页深爬

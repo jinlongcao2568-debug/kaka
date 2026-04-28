@@ -213,7 +213,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
-            "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist",
+            "PTL-I100-133B-national-verification-source-entry-fetchers",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -227,7 +227,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertIn(section["status"], {"ACTIVE", "COMPLETED"})
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertEqual(
             section["first_batch_entry_urls"],
@@ -241,6 +241,30 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertIn("total_entry_page_snapshot_not_detail_only", section["must_prove"])
         self.assertIn("same_site_detail_link_discovery", section["must_prove"])
         self.assertIn("no_uncontrolled_crawler", section["must_prove"])
+
+    def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:
+        section = self.matrix["national_verification_source_operationalization_after_133A"]
+
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-133B-national-verification-source-entry-fetchers",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertEqual(
+            section["official_entry_urls"],
+            [
+                "https://jzsc.mohurd.gov.cn/home",
+                "https://jzsc.mohurd.gov.cn/data/company",
+                "https://jzsc.mohurd.gov.cn/data/person",
+                "https://jzsc.mohurd.gov.cn/data/project",
+                "https://www.creditchina.gov.cn/",
+                "https://www.gsxt.gov.cn/index.html",
+            ],
+        )
+        self.assertIn("jzsc_raw_shell_fail_closed", section["must_prove"])
+        self.assertIn("creditchina_412_fail_closed", section["must_prove"])
+        self.assertIn("gsxt_521_fail_closed", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}

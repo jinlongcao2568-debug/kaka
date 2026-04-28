@@ -80,6 +80,72 @@ REAL_PUBLIC_ENTRY_PROFILES: tuple[RealPublicEntryProfile, ...] = (
         browser_verified_at="2026-04-28T09:08:17+08:00",
         browser_verified_evidence="浏览器可见中标公告列表入口。",
     ),
+    RealPublicEntryProfile(
+        profile_id="JZSC-NATIONAL-HOME",
+        url="https://jzsc.mohurd.gov.cn/home",
+        site_name="全国建筑市场监管公共服务平台（四库一平台）",
+        source_family="national_construction_market_platform",
+        expected_title_contains="全国建筑市场监管公共服务平台",
+        visible_entry_markers=("建设工程企业", "注册人员", "建设项目"),
+        sample_detail_url="https://jzsc.mohurd.gov.cn/data/company/detail?id=002105291239452167",
+        browser_verified_at="2026-04-28T15:10:00+08:00",
+        browser_verified_evidence="官方首页可打开；后续原始 HTML 抓取实际返回前端壳页，需要单独按 raw-shell/fail-closed 分类。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="JZSC-NATIONAL-COMPANY",
+        url="https://jzsc.mohurd.gov.cn/data/company",
+        site_name="全国建筑市场监管公共服务平台（四库一平台）",
+        source_family="national_construction_market_platform",
+        expected_title_contains="全国建筑市场监管公共服务平台",
+        visible_entry_markers=("建设工程企业",),
+        sample_detail_url="https://jzsc.mohurd.gov.cn/data/company/detail?id=002105291239452167",
+        browser_verified_at="2026-04-28T15:10:00+08:00",
+        browser_verified_evidence="企业入口 URL 可直接返回 200，但 raw 抓取仍是 SPA 壳页，需要后续浏览器渲染或专用 API 方案。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="JZSC-NATIONAL-PERSON",
+        url="https://jzsc.mohurd.gov.cn/data/person",
+        site_name="全国建筑市场监管公共服务平台（四库一平台）",
+        source_family="national_construction_market_platform",
+        expected_title_contains="全国建筑市场监管公共服务平台",
+        visible_entry_markers=("注册人员",),
+        sample_detail_url="https://jzsc.mohurd.gov.cn/data/person",
+        browser_verified_at="2026-04-28T15:10:00+08:00",
+        browser_verified_evidence="人员入口 URL 可直接返回 200，但 raw 抓取仍是 SPA 壳页，需要 fail-closed 处理。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="JZSC-NATIONAL-PROJECT",
+        url="https://jzsc.mohurd.gov.cn/data/project",
+        site_name="全国建筑市场监管公共服务平台（四库一平台）",
+        source_family="national_construction_market_platform",
+        expected_title_contains="全国建筑市场监管公共服务平台",
+        visible_entry_markers=("建设项目",),
+        sample_detail_url="https://jzsc.mohurd.gov.cn/data/project",
+        browser_verified_at="2026-04-28T15:10:00+08:00",
+        browser_verified_evidence="项目入口 URL 可直接返回 200，但 raw 抓取仍是 SPA 壳页，需要 fail-closed 处理。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="CREDITCHINA-HOME",
+        url="https://www.creditchina.gov.cn/",
+        site_name="信用中国",
+        source_family="credit_china",
+        expected_title_contains="信用中国",
+        visible_entry_markers=("信用信息", "统一社会信用代码", "站内文章"),
+        sample_detail_url="https://www.creditchina.gov.cn/",
+        browser_verified_at="2026-04-28T15:12:00+08:00",
+        browser_verified_evidence="官方总入口真实可解析为正式站点，但当前 runtime 直连返回 412，需要显式 fail-closed 记录。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="GSXT-HOME",
+        url="https://www.gsxt.gov.cn/index.html",
+        site_name="国家企业信用信息公示系统",
+        source_family="national_enterprise_credit_publicity_system",
+        expected_title_contains="国家企业信用信息公示系统",
+        visible_entry_markers=("企业信息填报", "信息公告", "统一社会信用代码"),
+        sample_detail_url="https://www.gsxt.gov.cn/index.html",
+        browser_verified_at="2026-04-28T15:12:00+08:00",
+        browser_verified_evidence="官方总入口真实存在，但当前 runtime 直连返回 521，需要显式 fail-closed 记录。",
+    ),
 )
 
 REAL_PUBLIC_ENTRY_PROFILE_BY_URL = {
@@ -88,6 +154,14 @@ REAL_PUBLIC_ENTRY_PROFILE_BY_URL = {
 REAL_PUBLIC_ENTRY_PROFILE_BY_ID = {
     profile.profile_id: profile for profile in REAL_PUBLIC_ENTRY_PROFILES
 }
+NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS = (
+    "JZSC-NATIONAL-HOME",
+    "JZSC-NATIONAL-COMPANY",
+    "JZSC-NATIONAL-PERSON",
+    "JZSC-NATIONAL-PROJECT",
+    "CREDITCHINA-HOME",
+    "GSXT-HOME",
+)
 
 _BLOCKED_BODY_PATTERNS = (
     "错误页面",
@@ -472,6 +546,7 @@ __all__ = [
     "REAL_PUBLIC_ENTRY_PROFILES",
     "REAL_PUBLIC_ENTRY_PROFILE_BY_ID",
     "REAL_PUBLIC_ENTRY_PROFILE_BY_URL",
+    "NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS",
     "RealPublicEntryFetcher",
     "RealPublicEntryProfile",
     "RealPublicFetchResponse",

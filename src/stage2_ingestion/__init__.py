@@ -20,6 +20,7 @@ from stage2_ingestion.public_source_adapters import (
     resolve_public_source_adapter_config,
 )
 from stage2_ingestion.real_public_url_fetcher import (
+    NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
     REAL_PUBLIC_ENTRY_FETCH_MODE,
     REAL_PUBLIC_ENTRY_FETCHER_ID,
     REAL_PUBLIC_ENTRY_PROFILES,
@@ -57,6 +58,7 @@ __all__ = [
     "SOURCE_VALIDATION_SAMPLE_MATRIX",
     "PublicSourceValidationResult",
     "PublicSourceValidationSample",
+    "NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS",
     "REAL_PUBLIC_ENTRY_FETCH_MODE",
     "REAL_PUBLIC_ENTRY_FETCHER_ID",
     "REAL_PUBLIC_ENTRY_PROFILES",
