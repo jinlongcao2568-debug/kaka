@@ -87,7 +87,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn("text/html", response.headers["content-type"])
         html = response.text
         for expected in (
-            "AX9S Owner Console",
+            "AX9S 运营操作台",
             "证据包运营操作台",
             "Stage1-9 运营总览",
             "Stage1 调度",
@@ -106,17 +106,22 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "支付交付",
             "任务创建",
             "全链路运行入口",
+            "运行受控样本到 Stage6",
+            "/internal/stage1-6/orchestrations",
+            "TASK-OWNER-SAMPLE-001",
+            "SANITIZED_OFFLINE_INTERNAL",
+            "真实执行已关闭",
             "Stage6-9 工作台",
-            "Provider 与调度状态",
+            "服务商与调度状态",
             "审批审计",
-            "客户 Artifact 门户",
+            "客户材料门户",
             "/operator-console/tasks",
             "/operator-console/project-imports",
             "/operator-console/readiness",
             "/go-live/readiness",
-            "external release blocked",
-            "auto refund excluded",
-            "real customer download blocked by default",
+            "对外发布已阻断",
+            "自动退款已排除",
+            "客户真实下载默认关闭",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("public software release enabled", html)
@@ -148,6 +153,31 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertFalse(scheduler["real_external_fetch_enabled"])
         self.assertFalse(scheduler["real_provider_execution_enabled"])
 
+        run_payload = load_fixture("internal_chain_happy.json")
+        run_payload.update(
+            {
+                "payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+                "source_mode": "OFFLINE_FIXTURE",
+                "run_mode": "DRY_RUN",
+                "live_execution_enabled": False,
+            }
+        )
+        run_response = client.request(
+            "POST",
+            "/internal/stage1-6/orchestrations",
+            json=run_payload,
+        )
+        self.assertEqual(run_response.status_code, 200)
+        run_result = run_response.json()
+        self.assertTrue(run_result["stage6_persisted"])
+        self.assertEqual(run_result["orchestration_scope"], "stage1_to_stage6")
+        self.assertFalse(run_result["live_execution_enabled"])
+        self.assertFalse(run_result["external_live_transport_enabled"])
+        self.assertEqual(
+            run_result["stage6_readback"]["operational_context_status"],
+            "persisted",
+        )
+
     def test_customer_artifact_portal_is_gated_and_uses_candidate_readback(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
         stage7 = result["stage7"]
@@ -161,20 +191,20 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn("text/html", page_response.headers["content-type"])
         html = page_response.text
         for expected in (
-            "AX9S Artifact Portal",
-            "客户 Artifact 门户",
+            "AX9S 客户材料门户",
+            "客户材料门户",
             "访问控制",
             "字段策略",
             "下载审计",
-            "allowlist enforced",
-            "masking required",
-            "real download not executed",
+            "字段白名单已执行",
+            "脱敏必需",
+            "未执行真实下载",
             "/customer-artifact-portal-readback/",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
-        self.assertIn("暂无 artifact readback", html)
-        self.assertIn("暂无客户 artifact", html)
+        self.assertIn("暂无材料读回", html)
+        self.assertIn("暂无客户材料", html)
         self.assertIn("renderMissingArtifact", html)
 
         candidate_response = client.request(
@@ -198,12 +228,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(page_response.status_code, 200)
         html = page_response.text
         for expected in (
-            "暂无 artifact readback",
-            "暂无客户 artifact",
-            "请先在 Owner Console 完成项目导入",
-            "real download not executed",
-            "customer-visible release blocked",
-            "internal blackbox hidden",
+            "暂无材料读回",
+            "暂无客户材料",
+            "请先在运营操作台完成项目导入",
+            "未执行真实下载",
+            "客户可见发布已阻断",
+            "内部黑箱已隐藏",
         ):
             self.assertIn(expected, html)
 
