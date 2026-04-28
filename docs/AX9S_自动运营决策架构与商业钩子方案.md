@@ -190,7 +190,7 @@ Stage6/Stage7 必须增加一个产品层概念：商业钩子线索。它不是
    做第一版执行大脑和机会发现：run controller、stage state machine、market scan decision planner，系统自动判断哪些公告值得分析。
 
 2. `PTL-I100-145-source-blueprint-orchestration-and-capture-plan`  
-   做公开源蓝图编排：系统自动选择公开源组合并生成 Stage2 采集计划。
+   做公开源蓝图编排：系统自动选择公开源组合并生成 Stage2 采集计划。全国聚合平台只作为一级发现、去重和补充查询面，不按全量实时源验收；首批商业试点不选北京，北京仅保留为技术回归/页面可达性样本。首批商业试点省份默认从四川、江苏、浙江、山东、广东、湖北开始，城市适配只按省级覆盖缺口、附件/详情缺失、监管投诉/备案证据、项目价值或 SPA 弱正文触发。
 
 3. `PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy`  
    做硬伤核验策略：系统自动决定查项目经理在建、资质、信用、业绩、许可、合同、履约等。

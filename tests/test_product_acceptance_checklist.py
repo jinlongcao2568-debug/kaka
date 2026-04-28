@@ -168,6 +168,24 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             self.assertIn("public", serialized, task_id)
             self.assertRegex(serialized, r"no_private|public_only|public_boundary", task_id)
 
+    def test_145_source_strategy_acceptance_excludes_beijing_first_commercial_pilot(self) -> None:
+        task = self.tasks_by_id["PTL-I100-145-source-blueprint-orchestration-and-capture-plan"]
+        checklist = self.checklist["tasks"]["PTL-I100-145-source-blueprint-orchestration-and-capture-plan"]
+        serialized_task = yaml.safe_dump(task, allow_unicode=True)
+        serialized_checklist = yaml.safe_dump(checklist, allow_unicode=True)
+
+        self.assertIn("national_aggregator_not_treated_as_complete_or_realtime", task["capability_gaps_covered"])
+        self.assertIn("beijing_not_first_batch_commercial_pilot", task["acceptance_checks"])
+        self.assertIn("city_adapters_are_triggered_by_coverage_gap_not_blanket_rollout", task["acceptance_checks"])
+        self.assertIn("NOT_FULL_COVERAGE_NOT_RELIABLY_REALTIME", serialized_task)
+        self.assertIn("TECHNICAL_REGRESSION_ONLY_NOT_FIRST_COMMERCIAL_PILOT", serialized_task)
+        for province in ("四川", "江苏", "浙江", "山东", "广东", "湖北"):
+            self.assertIn(province, serialized_task)
+
+        self.assertIn("全国聚合平台只能作为一级发现", serialized_checklist)
+        self.assertIn("北京不得进入首批商业线索试点", serialized_checklist)
+        self.assertIn("不得一次性全国城市铺开", serialized_checklist)
+
     def test_required_subpackets_have_dedicated_acceptance_entries(self) -> None:
         subpacket_acceptance = self.checklist["subpacket_acceptance"]
         task_111c = self.tasks_by_id["PTL-I100-111C-crm-quote-and-delivery-page-adapters"]

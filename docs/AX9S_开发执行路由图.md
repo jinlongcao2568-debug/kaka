@@ -181,7 +181,7 @@
 - `PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot`：已完成并提交 `82ca21f`；把真实公开 Stage7 sales / LeadPack readback 送入 Stage8 outreach outbox 和 Stage9 order / payment / delivery ledger readback，验证触达、订单、支付、交付和回写账本绑定真实公开证据链，review/weak 结果 fail-closed，不真实发送、不真实 provider call、不真实收款交付、不客户下载、不退款或自动退款。
 - `PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync`：当前 active；落地自动运营决策架构和商业钩子方案。系统主线不再是手工选择 URL，而是“市场扫描 -> 机会发现 -> source blueprint 编排 -> 硬伤核验 -> 异议价值 -> 真实买家 -> 商业钩子线索 -> 工作台复核/触达/交付治理”。Stage6/Stage7 必须遵守：卖前给价值感，不给可复现路径；付款/审批后才给完整客户可见证据包。143D 同步记录 Stage1-9 逐阶段优化评估、系统执行大脑契约和高维剩余缺口评估：当前已有 scheduler、worker queue、internal orchestration、operator action 等零件，但还没有产品级 autonomous run controller 自动推进 Stage1-9；后续任务必须补 run controller、stage state machine、transition guard、operator intervention gate、audit replay ledger、产品化机会队列和真实样本验收，避免只补局部 carrier。
 - `PTL-I100-144-market-scan-opportunity-discovery-engine`：计划中；实现第一版 autonomous run controller / stage state machine / market scan decision planner，并让系统自动判断哪些地区、工程类型、金额区间、公告阶段和异议窗口值得分析。
-- `PTL-I100-145-source-blueprint-orchestration-and-capture-plan`：计划中；实现系统根据机会结果自动选择公开源组合并生成 Stage2 capture plan。
+- `PTL-I100-145-source-blueprint-orchestration-and-capture-plan`：计划中；实现系统根据机会结果自动选择公开源组合并生成 Stage2 capture plan。全国聚合平台只能作为一级发现/去重/补充查询面，不能被视为全量实时线索源；北京不进入首批商业线索试点，既有北京 URL 仅作技术回归；首批商业试点省份按四川、江苏、浙江、山东、广东、湖北推进，城市适配按覆盖缺口和证据价值触发，不一次性铺全国城市。
 - `PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy`：计划中；实现项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵的自动核验策略。
 - `PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine`：计划中；实现异议价值、买家动机、购买能力、报价建议和商业钩子线索，控制泄露风险。
 - `PTL-I100-148-productized-autonomous-operator-workbench`：计划中；把机会队列、证据强度、买家排序、钩子话术、复核项和下一步动作产品化到操作台。

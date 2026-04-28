@@ -158,6 +158,26 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         self.assertIn("no_presale_full_evidence_leak", checks)
         self.assertIn("automated_refund_execution_excluded", checks)
 
+    def test_source_strategy_pilot_policy_excludes_beijing_commercial_pilot(self) -> None:
+        policy = self.architecture["source_strategy_pilot_policy"]
+        self.assertEqual(policy["packet_ref"], "PTL-I100-145-source-blueprint-orchestration-and-capture-plan")
+        self.assertEqual(policy["conclusion"], "NATIONAL_AGGREGATOR_IS_NECESSARY_BUT_NOT_SUFFICIENT")
+        self.assertIn("first_level_discovery", policy["national_aggregator_role"])
+        self.assertIn("full_coverage", policy["national_aggregator_not_assumed"])
+        self.assertIn("realtime_sync", policy["national_aggregator_not_assumed"])
+        self.assertEqual(
+            policy["beijing_policy"]["status"],
+            "EXCLUDED_FROM_FIRST_COMMERCIAL_PILOT",
+        )
+        self.assertEqual(
+            policy["beijing_policy"]["allowed_use"],
+            "technical_regression_and_public_page_reachability_only",
+        )
+        provinces = {row["province"] for row in policy["first_batch_commercial_pilot_provinces"]}
+        self.assertEqual(provinces, {"四川", "江苏", "浙江", "山东", "广东", "湖北"})
+        self.assertIn("province_platform_missing_detail_or_attachment", policy["city_adapter_trigger_policy"])
+        self.assertIn("blanket_all_city_adapter_rollout_before_pilot_evidence", policy["excluded_rollout_patterns"])
+
     def test_commercial_hook_lead_contract_prevents_presale_evidence_leakage(self) -> None:
         hook = self.architecture["commercial_hook_lead_contract"]
         self.assertEqual(hook["contract_id"], "COMMERCIAL_HOOK_LEAD_V1")
@@ -221,6 +241,8 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             "系统执行大脑",
             "高维剩余缺口评估",
             "卖前给价值感，不给可复现路径",
+            "全国聚合平台只作为一级发现",
+            "北京不进入首批商业线索试点",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
         ):

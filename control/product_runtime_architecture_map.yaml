@@ -557,12 +557,12 @@ remaining_product_readiness_gap_assessment:
       acceptance_question: "Can the system advance Stage1-9 by queue/state transitions without manual URL-by-URL steering?"
     market_and_source_strategy:
       current_state: real_public_fetchers_exist_but_source_strategy_is_not_productized
-      risk_if_ignored: owner_still_operates_as_manual_researcher
-      required_upgrade: opportunity_scoring_source_mix_reasoning_capture_plan_and_skip_reasons
+      risk_if_ignored: owner_still_operates_as_manual_researcher_or_overtrusts_national_aggregator_as_complete
+      required_upgrade: opportunity_scoring_source_mix_reasoning_capture_plan_pilot_province_portfolio_gap_driven_city_adapter_selection_and_skip_reasons
       primary_packets:
         - PTL-I100-144-market-scan-opportunity-discovery-engine
         - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-      acceptance_question: "Can the system decide which markets, notices, and public sources to scan first?"
+      acceptance_question: "Can the system decide which markets, notices, provinces, and public sources to scan first without assuming national aggregation is full or realtime?"
     evidence_quality_and_parser_verification:
       current_state: real_snapshot_parser_verification_pilots_exist
       risk_if_ignored: weak_or_partial_extraction_becomes_false_commercial_signal
@@ -709,6 +709,56 @@ llm_governance:
     - field_allowlist_filter_required
     - forbidden_claims_filter_required
     - human_review_required_for_customer_visible_or_high_risk_outputs
+source_strategy_pilot_policy:
+  policy_id: SOURCE_STRATEGY_PILOT_PORTFOLIO_V1
+  packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+  conclusion: NATIONAL_AGGREGATOR_IS_NECESSARY_BUT_NOT_SUFFICIENT
+  national_aggregator_role:
+    - first_level_discovery
+    - dedupe_cross_check
+    - supplemental_query_surface
+  national_aggregator_not_assumed:
+    - full_coverage
+    - realtime_sync
+    - complete_detail_and_attachment_surface
+    - sufficient_for_commercial_lead_generation
+  beijing_policy:
+    status: EXCLUDED_FROM_FIRST_COMMERCIAL_PILOT
+    allowed_use: technical_regression_and_public_page_reachability_only
+    reason: high_sensitivity_high_interpretation_cost_high_external_claim_risk
+    must_not_drive:
+      - first_batch_commercial_outreach
+      - sales_talk_track_examples
+      - customer_visible_claim_examples
+  first_batch_commercial_pilot_provinces:
+    - province: 四川
+      role: stable_public_platform_sample
+      reason: province_level_public_resource_platform_is_practical_for_source_mix_validation
+    - province: 江苏
+      role: high_value_project_density_sample
+      reason: construction_and_procurement_activity_supports_sellable_lead_validation
+    - province: 浙江
+      role: digital_government_structure_sample
+      reason: useful_for_structured_public_source_and_attachment_chain_validation
+    - province: 山东
+      role: credit_and_penalty_signal_sample
+      reason: useful_for_public_verification_and_hard_defect_risk_validation
+    - province: 广东
+      role: high_value_technical_hardening_sample
+      reason: high_value_market_with_portal_spa_weak_shell_risk_that_must_fail_closed_or_harden
+    - province: 湖北
+      role: central_region_comparison_sample
+      reason: balances_project_volume_and_sensitivity_for_first_batch_commercial_validation
+  city_adapter_trigger_policy:
+    - province_platform_missing_detail_or_attachment
+    - province_platform_update_lag_detected_against_national_or_city_source
+    - city_platform_contains_regulatory_complaint_filing_or_completion_evidence
+    - high_value_project_only_visible_on_city_agency_or_tenderer_site
+    - province_portal_is_spa_or_weak_shell_but_city_page_is_parseable
+  excluded_rollout_patterns:
+    - blanket_all_city_adapter_rollout_before_pilot_evidence
+    - manual_city_url_selection_as_primary_flow
+    - sensitive_region_commercial_pilot_without_specific_governance_review
 implementation_sequence:
   - packet_ref: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
     status: ACTIVE

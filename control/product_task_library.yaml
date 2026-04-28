@@ -3211,16 +3211,52 @@ tasks:
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
       - PTL-I100-144-market-scan-opportunity-discovery-engine
-    objective: "根据机会发现结果自动选择公开源组合并生成 Stage2 capture plan，覆盖交易平台、政采、四库一平台、信用、企信和主管备案；不做任意深爬。"
+    objective: "根据机会发现结果自动选择公开源组合并生成 Stage2 capture plan，覆盖交易平台、政采、四库一平台、信用、企信和主管备案；全国聚合入口只能作为一级发现源，不能假设全量实时；首批商业试点不选北京，北京仅保留为技术回归样本；城市级适配按省级覆盖缺口和证据价值触发；不做任意深爬。"
     capability_gaps_covered:
       - source_blueprint_auto_selection
       - stage2_capture_plan_generation
       - source_mix_reasoning
       - fetch_order_retry_budget
+      - national_aggregator_not_treated_as_complete_or_realtime
+      - pilot_province_source_portfolio_without_beijing
+      - gap_driven_city_adapter_selection
+      - beijing_existing_profiles_are_technical_regression_not_commercial_pilot
     acceptance_checks:
       - source_blueprint_auto_selection
       - stage2_capture_plan_generation
+      - national_aggregator_is_first_level_discovery_not_full_coverage_source
+      - beijing_not_first_batch_commercial_pilot
+      - pilot_province_portfolio_records_value_and_risk_rationale
+      - city_adapters_are_triggered_by_coverage_gap_not_blanket_rollout
       - no_arbitrary_crawler_or_login_bypass
+    pilot_source_portfolio_policy:
+      national_aggregator_role: FIRST_LEVEL_DISCOVERY_AND_DEDUPE_ONLY
+      national_aggregator_assumption: NOT_FULL_COVERAGE_NOT_RELIABLY_REALTIME
+      beijing_policy: TECHNICAL_REGRESSION_ONLY_NOT_FIRST_COMMERCIAL_PILOT
+      beijing_exclusion_reason: high_sensitivity_high_interpretation_cost_high_external_claim_risk
+      first_batch_commercial_pilot_provinces:
+        - province: 四川
+          rationale: "省级平台可读性较好，工程建设和政采样本丰富，适合验证 source mix 与省市补缺。"
+        - province: 江苏
+          rationale: "工程建设、政府采购和高价值项目密度高，适合验证商业线索价值。"
+        - province: 浙江
+          rationale: "数字政务成熟，适合验证公开源结构化与附件链路。"
+        - province: 山东
+          rationale: "项目量和处罚/信用线索密度较高，适合验证硬伤核验。"
+        - province: 广东
+          rationale: "高价值市场，但 portal/SPA 较多，作为技术硬化试点而非最容易样本。"
+        - province: 湖北
+          rationale: "中部工程与政采样本密度较高，适合作为非一线超高敏地区的补充试点。"
+      city_adapter_trigger_policy:
+        - province_platform_missing_detail_or_attachment
+        - province_platform_updates_lag_national_or_city_source
+        - city_platform_contains_regulatory_complaint_or_filing_evidence
+        - high_value_project_only_visible_on_city_or_agency_site
+        - province_portal_is_spa_or_weak_shell_but_city_page_is_parseable
+      not_to_do:
+        - blanket_all_city_adapter_rollout
+        - political_or_unverifiable_claims_as_source_strategy_reason
+        - unapproved_external_claims_about_sensitive_regions
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     suggested_packet_refs: [PTL-I100-145-source-blueprint-orchestration-and-capture-plan]
     risk_level: HIGH

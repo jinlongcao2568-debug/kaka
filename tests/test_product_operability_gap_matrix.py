@@ -239,6 +239,30 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         for row in task_map:
             self.assertTrue(row["covered_capabilities"], row["gap_group"])
 
+    def test_source_strategy_pilot_portfolio_records_national_and_beijing_policy(self) -> None:
+        section = self.matrix["source_strategy_pilot_portfolio_after_143D"]
+
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+        )
+        self.assertEqual(section["national_aggregator_assessment"], "NOT_FULL_COVERAGE_NOT_RELIABLY_REALTIME")
+        self.assertIn("first_level_discovery", section["national_aggregator_role"])
+        self.assertEqual(
+            section["beijing_policy"]["status"],
+            "EXCLUDED_FROM_FIRST_COMMERCIAL_PILOT",
+        )
+        self.assertEqual(
+            section["beijing_policy"]["allowed_use"],
+            "technical_regression_and_public_page_reachability_only",
+        )
+        self.assertEqual(
+            set(section["first_batch_commercial_pilot_provinces"]),
+            {"四川", "江苏", "浙江", "山东", "广东", "湖北"},
+        )
+        self.assertIn("province_platform_missing_detail_or_attachment", section["city_adapter_trigger_policy"])
+        self.assertIn("beijing_not_first_batch_commercial_pilot", section["must_prove"])
+
     def test_133a_real_public_entry_fetcher_records_total_entry_gap(self) -> None:
         section = self.matrix["real_public_source_operationalization_after_132"]
 

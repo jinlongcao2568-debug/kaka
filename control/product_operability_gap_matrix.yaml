@@ -502,6 +502,42 @@ autonomous_business_decision_architecture_after_143:
     - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
     - PTL-I100-148-productized-autonomous-operator-workbench
     - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+source_strategy_pilot_portfolio_after_143D:
+  packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+  status: PLANNED
+  trigger_reason: "Owner challenged whether national aggregated tender platforms are updated and comprehensive enough; real-world source strategy must treat national aggregation as discovery/dedupe only, then use pilot province and gap-driven city adapters."
+  target_capability_state: INTERNAL_READY
+  current_gap: "Current real public fetchers include national and representative local profiles, but the product has not yet selected a commercial pilot province portfolio or encoded when city adapters are necessary."
+  national_aggregator_assessment: NOT_FULL_COVERAGE_NOT_RELIABLY_REALTIME
+  national_aggregator_role:
+    - first_level_discovery
+    - dedupe_cross_check
+    - supplemental_query_surface
+  beijing_policy:
+    status: EXCLUDED_FROM_FIRST_COMMERCIAL_PILOT
+    allowed_use: technical_regression_and_public_page_reachability_only
+    reason: high_sensitivity_high_interpretation_cost_high_external_claim_risk
+  first_batch_commercial_pilot_provinces:
+    - 四川
+    - 江苏
+    - 浙江
+    - 山东
+    - 广东
+    - 湖北
+  city_adapter_trigger_policy:
+    - province_platform_missing_detail_or_attachment
+    - province_platform_update_lag_detected_against_national_or_city_source
+    - city_platform_contains_regulatory_complaint_filing_or_completion_evidence
+    - high_value_project_only_visible_on_city_agency_or_tenderer_site
+    - province_portal_is_spa_or_weak_shell_but_city_page_is_parseable
+  must_prove:
+    - national_aggregator_not_claimed_as_complete_or_realtime
+    - beijing_not_first_batch_commercial_pilot
+    - pilot_province_source_portfolio_records_value_and_risk_rationale
+    - city_adapters_are_gap_driven_not_blanket_rollout
+    - no_sensitive_region_commercial_claim_without_specific_governance_review
+  next_packets_if_completed:
+    - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
