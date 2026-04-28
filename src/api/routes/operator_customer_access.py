@@ -41,6 +41,20 @@ OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA = {
 }
 
 
+def _json_safe_snapshot_replay(replay: Mapping[str, Any]) -> dict[str, Any]:
+    safe = dict(replay)
+    raw_bytes = safe.pop("bytes", None)
+    if isinstance(raw_bytes, (bytes, bytearray)):
+        safe["bytes_present"] = True
+        safe["bytes_redacted_for_json"] = True
+        safe["byte_size_readback"] = len(raw_bytes)
+        safe["byte_preview_hex"] = bytes(raw_bytes[:16]).hex()
+    else:
+        safe["bytes_present"] = raw_bytes is not None
+        safe["bytes_redacted_for_json"] = False
+    return safe
+
+
 def _settings_bootstrap() -> tuple[dict[str, Any], dict[str, Any]]:
     settings = get_settings()
     return settings.storage_bootstrap_payload(), settings.provider_adapter_bootstrap_payload()
@@ -394,7 +408,7 @@ def read_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[st
     snapshot_id = str(payload.get("snapshot_id", "")).strip()
     if not snapshot_id:
         raise ValueError("snapshot_id is required")
-    replay = Stage2Service().replay_public_source_snapshot(snapshot_id)
+    replay = _json_safe_snapshot_replay(Stage2Service().replay_public_source_snapshot(snapshot_id))
     return {
         "surface_id": "operator_real_public_source_readback",
         "snapshot_id": snapshot_id,

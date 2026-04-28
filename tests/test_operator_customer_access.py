@@ -196,6 +196,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
                 "replayable": True,
                 "manifest_present": True,
                 "object_present": True,
+                "bytes": b"%PDF-1.4 fake attachment bytes",
             },
         ) as replay_snapshot:
             entry_response = client.request(
@@ -251,6 +252,10 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             self.assertEqual(readback["readback_state"], "READBACK_READY")
             self.assertTrue(readback["repository_backed_readback"])
             self.assertTrue(readback["replayable"])
+            self.assertTrue(readback["result"]["bytes_present"])
+            self.assertTrue(readback["result"]["bytes_redacted_for_json"])
+            self.assertEqual(readback["result"]["byte_size_readback"], 30)
+            self.assertNotIn("bytes", readback["result"])
             replay_snapshot.assert_called_once_with("REAL-ATTACH-BJ-001")
 
     def test_operator_task_and_project_import_use_stage1_scheduler_without_external_fetch(self) -> None:

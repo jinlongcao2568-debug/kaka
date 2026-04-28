@@ -746,6 +746,30 @@ tasks:
       - source_capture_readback_links_are_visible
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-136-real-public-url-fetcher-bulk-hardening:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "当前已登记的 14 个真实公开入口 profile 和 2 个公开附件 profile 必须一次性纳入 fetcher inventory 覆盖，不再按单站点挤牙膏。"
+      - "Python TLS 不兼容但 curl/系统栈可访问的公开站点，必须通过受控 fallback transport 生成成功 fetch/readback carrier；fallback 只能用于 allowlisted URL。"
+      - "成功 HTML/PDF profile 必须保存 content-type、byte_size、sha256、transport audit、snapshot manifest 和 repository-backed readback。"
+      - "四库一平台 SPA 壳、广东 SPA/弱正文、Credit China 412、GSXT 521 等必须明确 fail closed / review required，不得伪装成可解析正文。"
+      - "仍不做任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+    targeted_test_expectations:
+      - stage2_real_public_url_fetcher
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - registered_14_entry_and_2_attachment_profiles_are_bulk_hardened
+      - tls_incompatible_public_sites_use_controlled_fallback_transport
+      - success_profiles_generate_snapshot_readback
+      - blocked_or_spa_profiles_fail_closed_with_taxonomy
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

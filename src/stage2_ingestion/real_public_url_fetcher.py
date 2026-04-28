@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import re
+import shutil
+import subprocess
+import tempfile
 from dataclasses import dataclass
 from html import unescape
+from pathlib import Path
 from typing import Any, Mapping, Protocol
+from urllib.error import HTTPError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, urlopen
 
@@ -316,16 +321,147 @@ class UrlLibRealPublicFetchTransport:
         user_agent: str,
     ) -> RealPublicFetchResponse:
         request = Request(url, headers={"User-Agent": user_agent})
-        with urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310
+        try:
+            response_context = urlopen(request, timeout=timeout_seconds)  # noqa: S310
+        except HTTPError as exc:
+            content = exc.read()
+            headers = dict(exc.headers.items()) if exc.headers else {}
+            headers["x-ax9s-fetch-transport"] = "urllib"
+            return RealPublicFetchResponse(
+                url=url,
+                status_code=int(exc.code),
+                content=content,
+                content_type=headers.get("Content-Type", "text/html"),
+                final_url=exc.geturl(),
+                headers=headers,
+            )
+
+        with response_context as response:
             content = response.read()
             content_type = response.headers.get("Content-Type", "text/html")
+            headers = dict(response.headers.items())
+            headers["x-ax9s-fetch-transport"] = "urllib"
             return RealPublicFetchResponse(
                 url=url,
                 status_code=int(response.status),
                 content=content,
                 content_type=content_type,
                 final_url=response.geturl(),
-                headers=dict(response.headers.items()),
+                headers=headers,
+            )
+
+
+class CurlCommandRealPublicFetchTransport:
+    def __init__(self, *, curl_binary: str | None = None) -> None:
+        self.curl_binary = curl_binary or shutil.which("curl.exe") or shutil.which("curl")
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        if not self.curl_binary:
+            raise RuntimeError("curl transport unavailable")
+
+        timeout_value = max(1, int(timeout_seconds))
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            header_path = Path(tmp_dir) / "headers.txt"
+            body_path = Path(tmp_dir) / "body.bin"
+            command = [
+                self.curl_binary,
+                "--location",
+                "--silent",
+                "--show-error",
+                "--max-time",
+                str(timeout_value),
+                "--user-agent",
+                user_agent,
+                "--dump-header",
+                str(header_path),
+                "--output",
+                str(body_path),
+                "--write-out",
+                "\n%{http_code}\n%{url_effective}\n%{content_type}",
+                url,
+            ]
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=timeout_value + 5,
+                check=False,
+            )
+            if completed.returncode != 0:
+                detail = (completed.stderr or completed.stdout or "").strip()
+                raise RuntimeError(f"curl transport failed:{completed.returncode}:{detail}")
+
+            write_out = [line for line in completed.stdout.splitlines() if line.strip()]
+            if len(write_out) < 3:
+                raise RuntimeError("curl transport missing write-out metadata")
+
+            status_code = int(write_out[-3])
+            final_url = write_out[-2].strip() or url
+            content_type = write_out[-1].strip() or "application/octet-stream"
+            content = body_path.read_bytes() if body_path.exists() else b""
+            headers = _parse_curl_headers(
+                header_path.read_text(encoding="iso-8859-1", errors="replace")
+                if header_path.exists()
+                else ""
+            )
+            headers["x-ax9s-fetch-transport"] = "curl_command"
+            return RealPublicFetchResponse(
+                url=url,
+                status_code=status_code,
+                content=content,
+                content_type=content_type or headers.get("Content-Type", "application/octet-stream"),
+                final_url=final_url,
+                headers=headers,
+            )
+
+
+class HybridRealPublicFetchTransport:
+    def __init__(
+        self,
+        *,
+        primary: RealPublicFetchTransport | None = None,
+        fallback: RealPublicFetchTransport | None = None,
+    ) -> None:
+        self.primary = primary or UrlLibRealPublicFetchTransport()
+        self.fallback = fallback or CurlCommandRealPublicFetchTransport()
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        try:
+            return self.primary.fetch(
+                url,
+                timeout_seconds=timeout_seconds,
+                user_agent=user_agent,
+            )
+        except Exception as exc:
+            if not _should_try_fetch_fallback(exc):
+                raise
+            response = self.fallback.fetch(
+                url,
+                timeout_seconds=timeout_seconds,
+                user_agent=user_agent,
+            )
+            headers = dict(response.headers or {})
+            headers["x-ax9s-fetch-transport"] = headers.get("x-ax9s-fetch-transport", "fallback")
+            headers["x-ax9s-primary-transport-error"] = str(exc)
+            return RealPublicFetchResponse(
+                url=response.url,
+                status_code=response.status_code,
+                content=response.content,
+                content_type=response.content_type,
+                final_url=response.final_url,
+                headers=headers,
             )
 
 
@@ -345,7 +481,7 @@ class RealPublicEntryFetcher:
         timeout_seconds: float = 20.0,
         user_agent: str = REAL_PUBLIC_ENTRY_USER_AGENT,
     ) -> None:
-        self.transport = transport or UrlLibRealPublicFetchTransport()
+        self.transport = transport or HybridRealPublicFetchTransport()
         self.repository = repository
         self.timeout_seconds = timeout_seconds
         self.user_agent = user_agent
@@ -494,6 +630,14 @@ class RealPublicEntryFetcher:
         blocked_body_patterns = [
             marker for marker in _BLOCKED_BODY_PATTERNS if marker.lower() in text.lower()
         ]
+        strong_blocked_body_patterns = [
+            marker
+            for marker in blocked_body_patterns
+            if marker.lower() not in {"验证码", "captcha"}
+        ]
+        weak_blocked_body_patterns = [
+            marker for marker in blocked_body_patterns if marker not in strong_blocked_body_patterns
+        ]
         same_site_links = _discover_same_site_links(
             text,
             base_url=response.final_url or profile.url,
@@ -508,7 +652,7 @@ class RealPublicEntryFetcher:
             degraded_reasons.append("entry_body_too_small")
         if not markers_found:
             degraded_reasons.append("visible_entry_markers_missing")
-        if blocked_body_patterns:
+        if strong_blocked_body_patterns or (weak_blocked_body_patterns and not markers_found):
             degraded_reasons.append("blocked_body_pattern:" + ",".join(blocked_body_patterns))
         if profile.expected_title_contains and profile.expected_title_contains not in title:
             degraded_reasons.append("title_mismatch")
@@ -529,6 +673,8 @@ class RealPublicEntryFetcher:
             "real_provider_call_executed": False,
             "same_site_detail_link_discovery_enabled": True,
             "cross_site_discovery_enabled": False,
+            "transport": (response.headers or {}).get("x-ax9s-fetch-transport", "unknown"),
+            "primary_transport_error_optional": (response.headers or {}).get("x-ax9s-primary-transport-error"),
         }
         raw_metadata = {
             "entry_profile_id": profile.profile_id,
@@ -544,6 +690,7 @@ class RealPublicEntryFetcher:
             "browser_verified": True,
             "browser_verified_at": profile.browser_verified_at,
             "browser_verified_evidence": profile.browser_verified_evidence,
+            "blocked_body_patterns_observed": blocked_body_patterns,
             "degraded_reasons": degraded_reasons,
         }
         manifest_payload: dict[str, Any] | None = None
@@ -605,6 +752,7 @@ class RealPublicEntryFetcher:
             "fail_closed": bool(degraded_reasons),
             "no_broad_fallback": True,
             "fetch_audit": fetch_audit,
+            "transport": fetch_audit["transport"],
             "redlines": _redlines(),
         }
 
@@ -640,6 +788,7 @@ class RealPublicEntryFetcher:
                 "fetch_mode": REAL_PUBLIC_ENTRY_FETCH_MODE,
                 "fetch_attempted": fetch_attempted,
                 "fetched_at": now,
+                "failure_taxonomy": _fetch_failure_taxonomy(detail),
                 "uncontrolled_crawler_enabled": False,
                 "deep_crawl_enabled": False,
                 "real_provider_call_executed": False,
@@ -688,6 +837,8 @@ class RealPublicEntryFetcher:
             "uncontrolled_crawler_enabled": False,
             "deep_crawl_enabled": False,
             "real_provider_call_executed": False,
+            "transport": (response.headers or {}).get("x-ax9s-fetch-transport", "unknown"),
+            "primary_transport_error_optional": (response.headers or {}).get("x-ax9s-primary-transport-error"),
         }
         manifest_payload: dict[str, Any] | None = None
         if self.repository is not None and status == "FETCHED":
@@ -757,6 +908,7 @@ class RealPublicEntryFetcher:
             "fail_closed": bool(degraded_reasons),
             "no_broad_fallback": True,
             "fetch_audit": fetch_audit,
+            "transport": fetch_audit["transport"],
             "redlines": _redlines(),
         }
 
@@ -791,6 +943,7 @@ class RealPublicEntryFetcher:
                 "fetch_mode": REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
                 "fetch_attempted": fetch_attempted,
                 "fetched_at": now,
+                "failure_taxonomy": _fetch_failure_taxonomy(detail),
                 "uncontrolled_crawler_enabled": False,
                 "deep_crawl_enabled": False,
                 "real_provider_call_executed": False,
@@ -842,6 +995,59 @@ def _discover_same_site_links(text: str, *, base_url: str, host: str) -> list[st
     return links
 
 
+def _parse_curl_headers(header_text: str) -> dict[str, str]:
+    blocks = [
+        block
+        for block in header_text.replace("\r\n", "\n").split("\n\n")
+        if block.strip()
+    ]
+    if not blocks:
+        return {}
+    headers: dict[str, str] = {}
+    for line in blocks[-1].splitlines()[1:]:
+        if ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        headers[key.strip()] = value.strip()
+    return headers
+
+
+def _should_try_fetch_fallback(exc: Exception) -> bool:
+    detail = f"{type(exc).__name__}:{exc}".lower()
+    return any(
+        token in detail
+        for token in (
+            "ssl",
+            "tls",
+            "bad_ecpoint",
+            "handshake",
+            "certificate",
+            "eof occurred in violation",
+        )
+    )
+
+
+def _fetch_failure_taxonomy(detail: str) -> dict[str, Any]:
+    lowered = detail.lower()
+    if any(token in lowered for token in ("ssl", "tls", "bad_ecpoint", "handshake", "certificate")):
+        failure_class = "TLS_HANDSHAKE_FAILED"
+    elif "timed out" in lowered or "timeout" in lowered:
+        failure_class = "TIMEOUT"
+    elif "412" in lowered:
+        failure_class = "UPSTREAM_PRECONDITION_FAILED"
+    elif "521" in lowered:
+        failure_class = "UPSTREAM_WEB_SERVER_DOWN_OR_BLOCKED"
+    else:
+        failure_class = "FETCH_FAILED"
+    return {
+        "failure_class": failure_class,
+        "failure_detail": detail,
+        "retryable": failure_class in {"TLS_HANDSHAKE_FAILED", "TIMEOUT", "FETCH_FAILED"},
+        "fail_closed": True,
+        "no_broad_fallback": True,
+    }
+
+
 def _redlines() -> dict[str, bool]:
     return {
         "private_or_gray_source_used": False,
@@ -867,6 +1073,8 @@ __all__ = [
     "REAL_PUBLIC_ENTRY_PROFILES",
     "REAL_PUBLIC_ENTRY_PROFILE_BY_ID",
     "REAL_PUBLIC_ENTRY_PROFILE_BY_URL",
+    "CurlCommandRealPublicFetchTransport",
+    "HybridRealPublicFetchTransport",
     "NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS",
     "REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS",
     "RealPublicAttachmentProfile",

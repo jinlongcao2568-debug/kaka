@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_135_OWNER_REAL_SOURCE_TASK_WORKBENCH
+navigation_state: PTL_I100_136_REAL_PUBLIC_URL_FETCHER_BULK_HARDENING
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-134 completed locally; owner requested the owner console to become an operator task workbench with persisted real-source run history, status, and readback.
+activation_condition: PTL-I100-135 completed locally; owner requested all registered real public URL profiles to be hardened in one packet instead of one-off site fixes.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-135-owner-real-source-task-workbench
-  title: I100-35 Owner real source task workbench
+  task_id: PTL-I100-136-real-public-url-fetcher-bulk-hardening
+  title: I100-36 Real public URL fetcher bulk hardening
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -34,8 +34,8 @@ currentTask:
     - control/product_operability_gap_matrix.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-135-owner-real-source-task-workbench
-  objective: 把 owner console 从一次性真实源抓取按钮升级为任务工作台：真实公开源 run 必须进入 repository-backed 运行记录，页面可查看最近运行、状态、snapshot/readback 入口和失败关闭原因；不做任意 crawler，不绕过站点防护。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-136-real-public-url-fetcher-bulk-hardening
+  objective: 一次性硬化当前已登记的 14 个真实公开入口 profile 和 2 个公开附件 profile：修复 Python TLS/HTTP fetch 弱点，成功站点生成 snapshot/readback，弱正文/SPA/上游阻断按 taxonomy fail-closed；不做任意 crawler，不绕过站点防护。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,32 +55,32 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-135-owner-real-source-task-workbench
-    subpacket_id: PTL-I100-135-owner-real-source-task-workbench
-    backlog_packet_ref: PTL-I100-135-owner-real-source-task-workbench
+    packet_id: PTL-I100-136-real-public-url-fetcher-bulk-hardening
+    subpacket_id: PTL-I100-136-real-public-url-fetcher-bulk-hardening
+    backlog_packet_ref: PTL-I100-136-real-public-url-fetcher-bulk-hardening
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: OWNER_OPERATOR_FRONTEND_134_REAL_SOURCE_RUNNER_READY
-    existing_runtime_state: OWNER_CONSOLE_REAL_SOURCE_RUN_HISTORY_NOT_IMPLEMENTED
-    title: I100-35 Owner real source task workbench
+    existing_code_state: OWNER_REAL_SOURCE_TASK_WORKBENCH_135_READY
+    existing_runtime_state: REAL_PUBLIC_URL_FETCHER_BATCH_TLS_HTTP_HARDENING_REQUIRED
+    title: I100-36 Real public URL fetcher bulk hardening
     status: ACTIVE
-    objective: 让 owner console 真实公开源抓取具备任务工作台闭环：运行后保存 run record，页面能列出最近运行、状态、snapshot_id、readback 入口和失败关闭状态；不得引入任意 crawler、真实 provider 或客户下载。
+    objective: 对当前登记的真实公开源入口/附件 profile 做一次性批量实战硬化：成功路径必须保存 bytes/hash/snapshot/readback，TLS/HTTP/SPA/上游阻断必须有稳定 taxonomy 和 fail-closed，不得引入任意 crawler、真实 provider 或客户下载。
     depends_on:
       - PTL-I100-134 completed locally.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-134-owner-task-runner-real-source-ui
-      target_active_packet: PTL-I100-135-owner-real-source-task-workbench
+      previous_active_packet: PTL-I100-135-owner-real-source-task-workbench
+      target_active_packet: PTL-I100-136-real-public-url-fetcher-bulk-hardening
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: owner_real_source_task_workbench
+      active_packet_kind: real_public_url_fetcher_bulk_hardening
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -106,7 +106,17 @@ currentTask:
         - GGZY-DEAL-LIST
         - CCGP-CENTRAL-NOTICES
         - CCGP-CENTRAL-AWARD-LIST
+        - JZSC-NATIONAL-HOME
+        - JZSC-NATIONAL-COMPANY
+        - JZSC-NATIONAL-PERSON
+        - JZSC-NATIONAL-PROJECT
+        - CREDITCHINA-HOME
+        - GSXT-HOME
         - BEIJING-PLATFORM-HOME
+        - BEIJING-GCJS-LIST
+        - BEIJING-BDA-HOME
+        - GUANGDONG-PROVINCIAL-PORTAL
+        - GUANGDONG-YUNFU-PORTAL
       attachment_profiles:
         - BEIJING-STANDARD-BIDDING-PDF
         - BEIJING-TOOLING-PDF
@@ -163,11 +173,9 @@ currentTask:
       - control/product_operability_gap_matrix.yaml
       - docs/AX9S_开发执行路由图.md
       - src/api/routes/operator_customer_access.py
-      - src/api/routes/operator_frontend.py
-      - src/api/projections.py
-      - src/api/main.py
+      - src/stage2_ingestion/real_public_url_fetcher.py
       - tests/test_operator_customer_access.py
-      - tests/test_operator_frontend_portal.py
+      - tests/test_stage2_real_public_url_fetcher.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_controlled_real_world_e2e_closeout.py
@@ -180,11 +188,9 @@ currentTask:
       - control/product_operability_gap_matrix.yaml
       - docs/AX9S_开发执行路由图.md
       - src/api/routes/operator_customer_access.py
-      - src/api/routes/operator_frontend.py
-      - src/api/projections.py
-      - src/api/main.py
+      - src/stage2_ingestion/real_public_url_fetcher.py
       - tests/test_operator_customer_access.py
-      - tests/test_operator_frontend_portal.py
+      - tests/test_stage2_real_public_url_fetcher.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_controlled_real_world_e2e_closeout.py
@@ -228,12 +234,10 @@ currentTask:
       scripts: []
       runtime:
         - src/api/routes/operator_customer_access.py
-        - src/api/routes/operator_frontend.py
-        - src/api/projections.py
-        - src/api/main.py
+        - src/stage2_ingestion/real_public_url_fetcher.py
       tests:
         - tests/test_operator_customer_access.py
-        - tests/test_operator_frontend_portal.py
+        - tests/test_stage2_real_public_url_fetcher.py
         - tests/test_product_acceptance_checklist.py
         - tests/test_product_operability_gap_matrix.py
         - tests/test_controlled_real_world_e2e_closeout.py
@@ -242,7 +246,7 @@ currentTask:
     required_scripts:
       - git status --short --untracked-files=all
       - python -m unittest tests.test_operator_customer_access -v
-      - python -m unittest tests.test_operator_frontend_portal -v
+      - python -m unittest tests.test_stage2_real_public_url_fetcher -v
       - python -m unittest tests.test_product_acceptance_checklist -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
       - python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress -v
@@ -258,7 +262,7 @@ currentTask:
     script_timeouts:
       git status --short --untracked-files=all: 120000
       python -m unittest tests.test_operator_customer_access -v: 300000
-      python -m unittest tests.test_operator_frontend_portal -v: 300000
+      python -m unittest tests.test_stage2_real_public_url_fetcher -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
       python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress -v: 300000
@@ -278,11 +282,12 @@ currentTask:
       - Any need to add formal object/enum/gate/exception semantics.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - owner_console_lists_real_source_task_runs
-      - run_records_are_repository_backed_operator_actions
-      - source_capture_readback_links_are_visible_and_fail_closed
+      - registered_14_entry_and_2_attachment_profiles_are_bulk_hardened
+      - tls_incompatible_public_sites_use_controlled_fallback_transport
+      - success_profiles_generate_snapshot_readback
+      - blocked_or_spa_profiles_fail_closed_with_taxonomy
       - no_uncontrolled_crawler_or_provider_call
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet closes the owner-UI gap for the already-implemented real public source fetchers; it does not open arbitrary crawling or any external provider action.
+  - This packet hardens the already-registered real public URL fetcher inventory in bulk; it does not open arbitrary crawling or any external provider action.

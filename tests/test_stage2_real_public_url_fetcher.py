@@ -22,6 +22,7 @@ from stage2_ingestion.real_public_url_fetcher import (
     REAL_PUBLIC_ENTRY_PROFILES,
     REAL_PUBLIC_ENTRY_SNAPSHOT_KIND,
     REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS,
+    HybridRealPublicFetchTransport,
     RealPublicEntryFetcher,
     RealPublicFetchResponse,
     RealPublicUrlBoundaryError,
@@ -68,6 +69,22 @@ class FakeRealPublicFetchTransport:
         if isinstance(response, Exception):
             raise response
         return response
+
+
+class AlwaysFailTransport:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+        self.call_log: list[str] = []
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        self.call_log.append(url)
+        raise self.error
 
 
 def _repo(tmp_dir: str) -> ObjectStorageRepository:
@@ -150,6 +167,80 @@ def _pdf_like_bytes() -> bytes:
 
 
 class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
+    def test_registered_real_public_profile_inventory_is_bulk_hardened(self) -> None:
+        entry_profile_ids = {profile.profile_id for profile in REAL_PUBLIC_ENTRY_PROFILES}
+        attachment_profile_ids = set(PUBLIC_ATTACHMENT_PROFILE_IDS)
+
+        self.assertEqual(len(entry_profile_ids), 14)
+        self.assertEqual(len(attachment_profile_ids), 2)
+        self.assertIn("GGZY-DEAL-LIST", entry_profile_ids)
+        self.assertIn("CCGP-CENTRAL-NOTICES", entry_profile_ids)
+        self.assertIn("JZSC-NATIONAL-HOME", entry_profile_ids)
+        self.assertIn("CREDITCHINA-HOME", entry_profile_ids)
+        self.assertIn("GSXT-HOME", entry_profile_ids)
+        self.assertIn("BEIJING-PLATFORM-HOME", entry_profile_ids)
+        self.assertIn("GUANGDONG-PROVINCIAL-PORTAL", entry_profile_ids)
+        self.assertEqual(
+            attachment_profile_ids,
+            {"BEIJING-STANDARD-BIDDING-PDF", "BEIJING-TOOLING-PDF"},
+        )
+
+    def test_hybrid_transport_falls_back_for_tls_handshake_errors(self) -> None:
+        fallback_body = _beijing_platform_html()
+        fallback = FakeRealPublicFetchTransport(
+            {
+                BEIJING_HOME_URL: RealPublicFetchResponse(
+                    url=BEIJING_HOME_URL,
+                    status_code=200,
+                    content=fallback_body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=BEIJING_HOME_URL,
+                    headers={"x-ax9s-fetch-transport": "curl_command"},
+                )
+            }
+        )
+        primary = AlwaysFailTransport(RuntimeError("[SSL: BAD_ECPOINT] bad ecpoint"))
+        transport = HybridRealPublicFetchTransport(primary=primary, fallback=fallback)
+
+        response = transport.fetch(
+            BEIJING_HOME_URL,
+            timeout_seconds=3,
+            user_agent="AX9S-Test/0.1",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content, fallback_body)
+        self.assertEqual(response.headers["x-ax9s-fetch-transport"], "curl_command")
+        self.assertIn("BAD_ECPOINT", response.headers["x-ax9s-primary-transport-error"])
+        self.assertEqual(primary.call_log, [BEIJING_HOME_URL])
+        self.assertEqual(fallback.call_log[0]["url"], BEIJING_HOME_URL)
+
+    def test_visible_public_page_with_weak_captcha_token_is_not_misclassified(self) -> None:
+        body = _ggzy_entry_html().replace(
+            b"</body>",
+            b"<script>var captchaTokenName = 'captcha';</script></body>",
+        )
+        transport = FakeRealPublicFetchTransport(
+            {
+                GGZY_ENTRY_URL: RealPublicFetchResponse(
+                    url=GGZY_ENTRY_URL,
+                    status_code=200,
+                    content=body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=GGZY_ENTRY_URL,
+                )
+            }
+        )
+        carrier = RealPublicEntryFetcher(transport=transport, repository=None).fetch_entry_url(
+            GGZY_ENTRY_URL,
+            profile_id="GGZY-DEAL-LIST",
+        )
+
+        self.assertEqual(carrier["status"], "FETCHED")
+        self.assertFalse(
+            any(reason.startswith("blocked_body_pattern") for reason in carrier["degraded_reasons"])
+        )
+
     def test_fetches_browser_verified_total_entry_and_persists_snapshot(self) -> None:
         body = _ggzy_entry_html()
         transport = FakeRealPublicFetchTransport(

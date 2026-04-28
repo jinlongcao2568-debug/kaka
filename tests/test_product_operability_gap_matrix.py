@@ -218,6 +218,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-133D-public-attachment-original-link-fetching",
             "PTL-I100-134-owner-task-runner-real-source-ui",
             "PTL-I100-135-owner-real-source-task-workbench",
+            "PTL-I100-136-real-public-url-fetcher-bulk-hardening",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -331,11 +332,23 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-135-owner-real-source-task-workbench",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn("owner_console_lists_real_source_task_runs", section["must_prove"])
         self.assertIn("run_records_are_repository_backed_operator_actions", section["must_prove"])
         self.assertIn("source_capture_readback_links_are_visible_and_fail_closed", section["must_prove"])
+
+    def test_136_real_public_url_fetcher_bulk_hardening_records_batch_gap(self) -> None:
+        section = self.matrix["real_public_url_fetcher_bulk_hardening_after_135"]
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-136-real-public-url-fetcher-bulk-hardening",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn("registered_14_entry_and_2_attachment_profiles_are_bulk_hardened", section["must_prove"])
+        self.assertIn("tls_incompatible_public_sites_use_controlled_fallback_transport", section["must_prove"])
+        self.assertIn("blocked_or_spa_profiles_fail_closed_with_taxonomy", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}
