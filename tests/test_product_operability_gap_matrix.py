@@ -227,6 +227,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot",
             "PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot",
             "PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync",
+            "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
             "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
@@ -292,7 +293,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertEqual(section["architecture_map_ref"], "control/product_runtime_architecture_map.yaml")
         self.assertEqual(section["human_scheme_ref"], "docs/AX9S_自动运营决策架构与商业钩子方案.md")
@@ -303,6 +304,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(
             section["next_packets_if_143D_passes"],
             [
+                "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
                 "PTL-I100-144-market-scan-opportunity-discovery-engine",
                 "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
                 "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
@@ -318,7 +320,29 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "COMPLETED",
         )
         for packet_ref in section["next_packets_if_143D_passes"]:
-            self.assertEqual(task_map[packet_ref]["status"], "PLANNED")
+            expected_status = "ACTIVE" if packet_ref == "PTL-I100-143E-autonomous-source-strategy-d-doc-sync" else "PLANNED"
+            self.assertEqual(task_map[packet_ref]["status"], expected_status)
+
+    def test_143e_records_d_doc_sync_for_autonomous_source_strategy(self) -> None:
+        section = self.matrix["autonomous_source_strategy_d_doc_sync_after_143D"]
+
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn("docs/D13_公开可查边界能力清单.md", section["authority_docs_to_sync"])
+        self.assertIn("docs/D11_测试验收与金标回归清单.md", section["authority_docs_to_sync"])
+        self.assertIn("docs/D14_AI模型治理规范.md", section["cross_reference_docs_to_sync"])
+        self.assertIn("d13_records_national_aggregator_and_beijing_commercial_pilot_boundary", section["must_prove"])
+        self.assertEqual(
+            section["next_packets_if_143E_passes"],
+            [
+                "PTL-I100-144-market-scan-opportunity-discovery-engine",
+                "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+            ],
+        )
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:
         section = self.matrix["national_verification_source_operationalization_after_133A"]

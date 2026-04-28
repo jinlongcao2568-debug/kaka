@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_143D_BUSINESS_DECISION_ARCHITECTURE_AND_HOOK_LEAD_ROADMAP_SYNC
+navigation_state: PTL_I100_143E_AUTONOMOUS_SOURCE_STRATEGY_D_DOC_SYNC
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-143 completed locally at 82ca21f; owner clarified the product must autonomously decide opportunity value, source orchestration, evidence risk, buyer fit, and commercial hook disclosure before implementing 144-149.
+activation_condition: PTL-I100-143D completed locally through 440b49b; owner asked to synchronize the upgraded autonomous capability map, source strategy, Beijing exclusion, pilot province portfolio, city adapter trigger rules, commercial hook, and LLM boundaries into D-doc authority before implementing 144-149.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
-  title: I100-43D Business decision architecture and hook lead roadmap sync
+  task_id: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+  title: I100-43E Autonomous source strategy D-doc sync
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -29,6 +29,20 @@ currentTask:
     - docs/L0.md
     - docs/AX9S_开发执行路由图.md
     - docs/AX9S_自动运营决策架构与商业钩子方案.md
+    - docs/D1_研发_Codex执行手册.md
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D4_OpenAPI接口契约.md
+    - docs/D5_页面导出与人工复核规范.md
+    - docs/D6_字段策略字典与客户交付字段规范.md
+    - docs/D7_对象级交付矩阵与外发治理规范.md
+    - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+    - docs/D9_联系对象与销售触达规范.md
+    - docs/D10_订单支付交付与治理反馈规范.md
+    - docs/D11_测试验收与金标回归清单.md
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/D13_公开可查边界能力清单.md
+    - docs/D14_AI模型治理规范.md
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/product_acceptance_checklist.yaml
@@ -36,8 +50,8 @@ currentTask:
     - control/product_runtime_architecture_map.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
-  objective: 将最新敲定的自动化运营决策链落成正式路线图与机器可测方案：系统必须从市场扫描、机会发现、公开源编排、硬伤核验、商业价值、真实买家、商业钩子披露、销售/交付治理一路自主决策；必须明确当前已有 scheduler / worker_queue / internal orchestration / operator action 零件但缺产品级 autonomous run controller，并把 run controller、stage state machine、transition guard、operator gate、audit replay ledger 纳入 144-149；必须主动记录高维剩余缺口评估，覆盖执行大脑、市场/源策略、证据质量、商业转化、owner 操作性、外部执行/客户交付绑定和真实样本验收；Stage6/Stage7 必须明确“卖前给价值感、不泄露可复现证据链、付款/审批后交付完整证据包”的商业钩子边界；LLM 只做辅助抽取/摘要/话术草稿，不做事实裁判。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+  objective: 将 143D 已形成的自动化运营能力版图和 source strategy 同步进 D 文档补表：D1 承接 Codex/任务执行口径，D11 承接验收口径，D13 承接公开源与能力边界；D2-D14 保留 cross-reference 补表。必须明确全国聚合平台不是全量实时线索源，北京不进入首批商业试点，首批省份为四川/江苏/浙江/山东/广东/湖北，城市适配按覆盖缺口和证据价值触发；Stage6/Stage7 商业钩子仍是卖前给价值感、不泄露可复现证据链；LLM 只做辅助抽取/摘要/复核提示/话术草稿。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -57,32 +71,32 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
-    subpacket_id: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
-    backlog_packet_ref: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+    packet_id: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+    subpacket_id: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+    backlog_packet_ref: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: OUT_OF_SCOPE
-    existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_143_COMPLETED
-    existing_runtime_state: BUSINESS_DECISION_ARCHITECTURE_AND_HOOK_LEAD_ROADMAP_NOT_FORMALIZED
-    title: I100-43D Business decision architecture and hook lead roadmap sync
+    existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_AND_143D_CONTROL_SYNC_COMPLETED
+    existing_runtime_state: D_DOC_AUTHORITY_NOT_YET_SYNCED_FOR_AUTONOMOUS_SOURCE_STRATEGY
+    title: I100-43E Autonomous source strategy D-doc sync
     status: ACTIVE
-    objective: 落地产品运行架构图、自动决策矩阵、系统执行大脑契约、商业钩子披露边界和 144-149 实施路线；不改 runtime，不新增正式对象/枚举/gate/exception 语义，不放开真实 provider、客户下载、真实支付交付、退款或自动退款。
+    objective: 把自动运营能力版图、source strategy、全国聚合非全量实时、北京技术回归-only、首批省级试点、城市缺口适配、商业钩子和 LLM 边界同步进 D 文档补表；不改 runtime，不新增正式对象/枚举/gate/exception 语义，不放开真实 provider、客户下载、真实支付交付、退款或自动退款。
     depends_on:
-      - PTL-I100-143 completed locally at 82ca21f.
+      - PTL-I100-143D completed locally through 440b49b.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
-      target_active_packet: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+      previous_active_packet: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+      target_active_packet: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: business_decision_architecture_and_hook_lead_roadmap_sync
+      active_packet_kind: autonomous_source_strategy_d_doc_sync
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -114,7 +128,7 @@ currentTask:
       - 不新增任意 crawler、自动翻页深爬、登录/验证码/反爬绕过
       - 不新增正式对象、枚举、gate 或 exception 语义
       - 不执行真实 CRM/quote provider、Stage8 触达、Stage9 支付/交付、客户下载、退款或自动退款
-      - 不修改 D1-D14 正文、L0、contracts、handoff、scripts、fixtures、Docker、migration
+      - 不修改 D1-D14 正文语义，只允许追加补表/附录；不修改 L0、contracts、handoff、scripts、fixtures、Docker、migration
       - 不把 LLM 输出当事实、法律结论或客户可见确定结论
       - 不把商业钩子线索泄露为可复现完整证据链
       - 不 push
@@ -161,9 +175,24 @@ currentTask:
       - control/product_runtime_architecture_map.yaml
       - docs/AX9S_开发执行路由图.md
       - docs/AX9S_自动运营决策架构与商业钩子方案.md
+      - docs/D1_研发_Codex执行手册.md
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D3_正式规则码总表与判定说明书.md
+      - docs/D4_OpenAPI接口契约.md
+      - docs/D5_页面导出与人工复核规范.md
+      - docs/D6_字段策略字典与客户交付字段规范.md
+      - docs/D7_对象级交付矩阵与外发治理规范.md
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+      - docs/D9_联系对象与销售触达规范.md
+      - docs/D10_订单支付交付与治理反馈规范.md
+      - docs/D11_测试验收与金标回归清单.md
+      - docs/D12_部署发布与运行治理规范.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/D14_AI模型治理规范.md
       - tests/test_product_runtime_architecture_map.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_product_acceptance_checklist.py
+      - tests/test_open_capability_doc_sync.py
     allowed_modification_paths:
       - control/current_task.yaml
       - control/product_task_library.yaml
@@ -172,11 +201,25 @@ currentTask:
       - control/product_runtime_architecture_map.yaml
       - docs/AX9S_开发执行路由图.md
       - docs/AX9S_自动运营决策架构与商业钩子方案.md
+      - docs/D1_研发_Codex执行手册.md
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D3_正式规则码总表与判定说明书.md
+      - docs/D4_OpenAPI接口契约.md
+      - docs/D5_页面导出与人工复核规范.md
+      - docs/D6_字段策略字典与客户交付字段规范.md
+      - docs/D7_对象级交付矩阵与外发治理规范.md
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+      - docs/D9_联系对象与销售触达规范.md
+      - docs/D10_订单支付交付与治理反馈规范.md
+      - docs/D11_测试验收与金标回归清单.md
+      - docs/D12_部署发布与运行治理规范.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/D14_AI模型治理规范.md
       - tests/test_product_runtime_architecture_map.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_product_acceptance_checklist.py
+      - tests/test_open_capability_doc_sync.py
     forbidden_modification_paths:
-      - docs/D*.md
       - docs/L0.md
       - docs/裁决总表.md
       - contracts/**
@@ -193,6 +236,20 @@ currentTask:
       docs:
         - docs/AX9S_开发执行路由图.md
         - docs/AX9S_自动运营决策架构与商业钩子方案.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/D2_正式对象契约与字段字典.md
+        - docs/D3_正式规则码总表与判定说明书.md
+        - docs/D4_OpenAPI接口契约.md
+        - docs/D5_页面导出与人工复核规范.md
+        - docs/D6_字段策略字典与客户交付字段规范.md
+        - docs/D7_对象级交付矩阵与外发治理规范.md
+        - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+        - docs/D9_联系对象与销售触达规范.md
+        - docs/D10_订单支付交付与治理反馈规范.md
+        - docs/D11_测试验收与金标回归清单.md
+        - docs/D12_部署发布与运行治理规范.md
+        - docs/D13_公开可查边界能力清单.md
+        - docs/D14_AI模型治理规范.md
       control:
         - control/current_task.yaml
         - control/product_task_library.yaml
@@ -207,11 +264,13 @@ currentTask:
         - tests/test_product_runtime_architecture_map.py
         - tests/test_product_operability_gap_matrix.py
         - tests/test_product_acceptance_checklist.py
+        - tests/test_open_capability_doc_sync.py
     required_scripts:
       - git status --short --untracked-files=all
       - python -m unittest tests.test_product_runtime_architecture_map -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
       - python -m unittest tests.test_product_acceptance_checklist -v
+      - python -m unittest tests.test_open_capability_doc_sync -v
       - python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v
       - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
@@ -224,6 +283,7 @@ currentTask:
       python -m unittest tests.test_product_runtime_architecture_map -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
+      python -m unittest tests.test_open_capability_doc_sync -v: 300000
       python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v: 300000
       ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       : 300000
@@ -232,18 +292,17 @@ currentTask:
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
       git diff --check: 300000
     stop_conditions:
-      - Any need to modify forbidden paths.
+      - Any need to modify forbidden paths or D-doc正文语义 beyond append-only supplements.
       - Any need to implement runtime behavior in this roadmap sync packet.
       - Any need to add formal object/enum/gate/exception semantics.
       - Any need to call real provider, crawl arbitrary sites, bypass login/captcha/anti-bot, expose customer-visible evidence, execute payment/delivery/refund, or implement automated refund.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - product_runtime_architecture_map_records_autonomous_decision_flow
-      - autonomous_execution_brain_contract_records_existing_parts_and_missing_run_controller
-      - elevated_remaining_product_readiness_gap_assessment_records_next_product_risks
-      - stage6_stage7_commercial_hook_lead_disclosure_boundary_is_explicit
-      - llm_rules_compute_responsibilities_are_separated
-      - implementation_sequence_144_to_149_is_registered
+      - all_d_docs_reference_143e_policy_without_runtime_change
+      - d13_records_national_aggregator_and_beijing_commercial_pilot_boundary
+      - d11_records_145_source_strategy_acceptance
+      - d1_records_codex_must_not_revert_to_manual_url_picker
+      - commercial_hook_and_llm_boundary_docs_are_explicit
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.

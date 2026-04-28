@@ -79,6 +79,39 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
                 self.assertIn("manual exception", text)
                 self.assertIn("governed review", text)
 
+    def test_d_docs_all_reference_143e_autonomous_source_strategy_policy(self) -> None:
+        for doc_id, path in D_DOCS.items():
+            with self.subTest(doc_id=doc_id):
+                text = read_text(path)
+                self.assertIn("PTL-I100-143E", text)
+                self.assertIn("全国聚合", text)
+                self.assertIn("北京", text)
+                self.assertIn("四川", text)
+                self.assertIn("江苏", text)
+                self.assertIn("浙江", text)
+                self.assertIn("山东", text)
+                self.assertIn("广东", text)
+                self.assertIn("湖北", text)
+                self.assertIn("城市适配", text)
+                self.assertIn("商业钩子", text)
+                self.assertIn("LLM", text)
+
+    def test_143e_authority_docs_record_source_strategy_acceptance_and_boundary(self) -> None:
+        d1 = read_text(D_DOCS["D1"])
+        d11 = read_text(D_DOCS["D11"])
+        d13 = read_text(D_DOCS["D13"])
+
+        self.assertIn("D1-R-072", d1)
+        self.assertIn("手工 URL 选择作为主流程", d1)
+        self.assertIn("技术回归", d1 + d11 + d13)
+        self.assertIn("D11-R-054", d11)
+        self.assertIn("143E-DOC-002", d11)
+        self.assertIn("143E-DOC-007", d11)
+        self.assertIn("D13-R-075", d13)
+        self.assertIn("全量实时线索源", d13)
+        self.assertIn("北京不得用于", d13)
+        self.assertIn("城市级适配只在以下条件命中时进入任务池", d13)
+
     def test_stage8_stage9_leadpack_payment_delivery_are_target_capabilities_not_permanent_out_of_scope(self) -> None:
         registry_text = read_text("control/product_module_registry.yaml")
         route_map = read_text("docs/AX9S_开发执行路由图.md")

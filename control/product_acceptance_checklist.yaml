@@ -972,6 +972,30 @@ tasks:
       - llm_not_fact_or_legal_conclusion_source
       - implementation_sequence_144_to_149_registered
       - no_runtime_or_live_execution_change
+  PTL-I100-143E-autonomous-source-strategy-d-doc-sync:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "D 文档必须承接 143D/143E 的能力版图：系统主线不是手工 URL 选择，而是市场扫描、机会发现、公开源编排、证据风险、商业价值、买家识别、商业钩子和交付治理。"
+      - "D13 必须写明全国聚合平台只能作为一级发现、去重和补充查询面，不能作为全量实时线索源验收。"
+      - "D13/D11 必须写明北京不进入首批商业线索试点；既有北京 URL 只能作为技术回归/页面可达性样本。"
+      - "D13/D11 必须写明首批商业试点省份为四川、江苏、浙江、山东、广东、湖北；城市级适配按覆盖缺口和证据价值触发，不一次性全国铺开。"
+      - "D1/D11/D13 必须写明 Stage6/7 商业钩子：卖前给价值感，不泄露可复现完整证据链；LLM 只能辅助抽取、摘要、复核提示和话术草稿。"
+      - "不得改 runtime、contracts、handoff、scripts、fixtures，不得放开 crawler、provider、客户下载、真实支付交付、退款或自动退款。"
+    targeted_test_expectations:
+      - open_capability_doc_sync
+      - product_runtime_architecture_map
+      - product_operability_gap_matrix
+      - product_acceptance_checklist
+      - stage12_extractors
+    redline_checks:
+      - all_d_docs_reference_143e_policy
+      - national_aggregator_not_claimed_as_complete_or_realtime
+      - beijing_not_first_batch_commercial_pilot
+      - city_adapter_triggered_by_gap_not_blanket_rollout
+      - commercial_hook_lead_presale_disclosure_does_not_leak_reproducible_evidence_chain
+      - llm_not_fact_or_legal_conclusion_source
+      - no_runtime_or_live_execution_change
   PTL-I100-144-market-scan-opportunity-discovery-engine:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]

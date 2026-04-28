@@ -24,7 +24,7 @@
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
 - Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；真实触达、真实支付、真实交付是目标能力，但 `external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked-by-default / governed / approval-gated，直到 dedicated task 与验收放行。
 - 自动退款执行不属于目标能力；退款只允许作为 manual exception record、manual approval/audit 与 governed review 处理。
-- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync`，承接 143 已提交的真实公开 Stage7 -> Stage8/9 readback，正式落地“自动机会发现、公开源蓝图编排、证据风险、商业价值、买家识别、商业钩子披露、LLM/规则/算力边界、144-149 实施顺序”的控制面方案；本轮不改 runtime，不放开任意 crawler、登录/验证码/反爬绕过、provider execution、客户下载、真实支付交付、退款或自动退款。
+- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-143E-autonomous-source-strategy-d-doc-sync`，承接 143D 已完成的自动运营决策架构和 source pilot policy，把“全国聚合非全量实时、北京技术回归-only、首批省级商业试点、城市缺口适配、商业钩子和 LLM 边界”同步进 D 文档补表；本轮不改 runtime，不放开任意 crawler、登录/验证码/反爬绕过、provider execution、客户下载、真实支付交付、退款或自动退款。
 - `PTL-I100-118R-final-product-operational-reacceptance` 已完成并本地提交：`f977b5b`；`PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout` 已完成并本地提交：`106c4a1`，受控真实世界 e2e closeout 已闭合。当前 132 处理前端实际可用性检查中发现的“只有入口、缺产品化工作台”问题。
 - 118R 已把剩余真实运营缺口登记为 127-131 五个完整任务并已完成；132 是后续前端产品化强化包，不重开 Stage1-9 runtime。`PTL-I100-127-owner-operator-frontend-and-customer-portal` 已补 owner console / customer artifact portal，`PTL-I100-128-real-public-source-field-validation-and-coverage` 已补 114A-114I 受控手工公开样本字段覆盖报告，`PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund` 已补 provider binding matrix / credential redaction / sandbox evidence / callback validation / kill-switch readback，`PTL-I100-130-llm-assisted-parsing-review-and-sales-governance` 已补受治理 model-assist readback，`PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout` 已补受控真实世界 e2e closeout。
 - `PTL-I100-111F-open-capability-registry-route-doc-sync` 已完成并本地提交：`1c403c7`；它只同步开放能力基线到注册表、路线图、D1-D14 补表和测试，不再是 current active packet。
@@ -37,7 +37,7 @@
 - `PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交：`209c4cd`；它不再是 current active packet，仅作为把 current_mainline_next_candidate 推进到 `PTL-INT` 的历史控制面参照。
 - `PTL-S89-outreach-writeback-delivery-governance` scoped-execution 已完成并提交：`c36dd9d`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
-- 本轮只做 `PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync` 的路线图、控制面和测试同步；不改 D1-D14 正文 / contracts / handoff / scripts / fixtures / Stage1-9 runtime / storage runtime / shared runtime，不把商业钩子线索直接变客户可见证据包，不放开 external release、未审批 live provider、真实下载、真实退款、自动退款或真实外部模型调用。
+- 本轮只做 `PTL-I100-143E-autonomous-source-strategy-d-doc-sync` 的 D 文档补表、路线图、控制面和测试同步；不改 D1-D14 正文语义 / contracts / handoff / scripts / fixtures / Stage1-9 runtime / storage runtime / shared runtime，不把商业钩子线索直接变客户可见证据包，不放开 external release、未审批 live provider、真实下载、真实退款、自动退款或真实外部模型调用。
 - `PTL-S56-project-fact-review-report` scoped-execution 已完成并已提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S45-rule-evidence-dual-gate` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S34-object-lineage-verification-handoff` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -157,8 +157,8 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync`；本轮把最新业务判断落成正式方案，明确系统每天自动找工程项目里的可售硬伤，自动选择公开源组合，自动判断证据风险、异议价值、真实买家和商业钩子披露等级。默认不执行任意 crawler、未审批 live provider 调用、真实发送、真实支付、真实交付或真实客户下载。
-- 当前候选池 next candidate：`PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync` 已进入 active；完成后不自动激活下一包。
+- 当前 active packet：`PTL-I100-143E-autonomous-source-strategy-d-doc-sync`；本轮把 143D 已落成的自动运营能力版图、source strategy、全国聚合非全量实时、北京技术回归-only、首批省级试点、城市缺口适配、商业钩子和 LLM 边界同步进 D 文档补表。默认不执行任意 crawler、未审批 live provider 调用、真实发送、真实支付、真实交付或真实客户下载。
+- 当前候选池 next candidate：`PTL-I100-143E-autonomous-source-strategy-d-doc-sync` 已进入 active；完成后不自动激活下一包。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入 provider/live 执行。
 - `PTL-I100-127-owner-operator-frontend-and-customer-portal`：已补实际操作台、客户 artifact 门户、审批审计可视化和客户授权下载入口。
 - `PTL-I100-128-real-public-source-field-validation-and-coverage`：已用受控手工公开 snapshot 验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，不绕登录/验证码/反爬；真实站点实战仍留给 131 或后续按站点 dedicated packet。
@@ -179,7 +179,8 @@
 - `PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot`：已完成并提交 `bf0f1dd`；把真实公开 Stage5 rule/evidence bundle 送入 Stage6 product package readiness，验证产品包 carrier/readback 绑定 verification、snapshot、parse、rule/evidence gate refs，review/weak 结果 fail-closed 到 REVIEW_REQUIRED，不生成客户可见输出或下游执行。
 - `PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot`：已完成并提交 `bf3402a`；把真实公开 Stage6 product package readiness 送入 Stage7 sales / CRM quote / LeadPack readback，验证销售线索、报价草稿、LeadPack package 绑定 Stage6 真实公开证据链，review/weak 结果 fail-closed，不生成客户可见输出、provider execution 或 Stage8/9 执行。
 - `PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot`：已完成并提交 `82ca21f`；把真实公开 Stage7 sales / LeadPack readback 送入 Stage8 outreach outbox 和 Stage9 order / payment / delivery ledger readback，验证触达、订单、支付、交付和回写账本绑定真实公开证据链，review/weak 结果 fail-closed，不真实发送、不真实 provider call、不真实收款交付、不客户下载、不退款或自动退款。
-- `PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync`：当前 active；落地自动运营决策架构和商业钩子方案。系统主线不再是手工选择 URL，而是“市场扫描 -> 机会发现 -> source blueprint 编排 -> 硬伤核验 -> 异议价值 -> 真实买家 -> 商业钩子线索 -> 工作台复核/触达/交付治理”。Stage6/Stage7 必须遵守：卖前给价值感，不给可复现路径；付款/审批后才给完整客户可见证据包。143D 同步记录 Stage1-9 逐阶段优化评估、系统执行大脑契约和高维剩余缺口评估：当前已有 scheduler、worker queue、internal orchestration、operator action 等零件，但还没有产品级 autonomous run controller 自动推进 Stage1-9；后续任务必须补 run controller、stage state machine、transition guard、operator intervention gate、audit replay ledger、产品化机会队列和真实样本验收，避免只补局部 carrier。
+- `PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync`：已完成；落地自动运营决策架构和商业钩子方案。系统主线不再是手工选择 URL，而是“市场扫描 -> 机会发现 -> source blueprint 编排 -> 硬伤核验 -> 异议价值 -> 真实买家 -> 商业钩子线索 -> 工作台复核/触达/交付治理”。Stage6/Stage7 必须遵守：卖前给价值感，不给可复现路径；付款/审批后才给完整客户可见证据包。143D 同步记录 Stage1-9 逐阶段优化评估、系统执行大脑契约和高维剩余缺口评估。
+- `PTL-I100-143E-autonomous-source-strategy-d-doc-sync`：当前 active；把 143D 与 source pilot policy 同步进 D 文档补表，明确全国聚合不是全量实时源，北京不进入首批商业试点，四川/江苏/浙江/山东/广东/湖北作为首批省级商业试点，城市适配按覆盖缺口和证据价值触发，避免后续窗口只看控制面而忽略 D 文档权威。
 - `PTL-I100-144-market-scan-opportunity-discovery-engine`：计划中；实现第一版 autonomous run controller / stage state machine / market scan decision planner，并让系统自动判断哪些地区、工程类型、金额区间、公告阶段和异议窗口值得分析。
 - `PTL-I100-145-source-blueprint-orchestration-and-capture-plan`：计划中；实现系统根据机会结果自动选择公开源组合并生成 Stage2 capture plan。全国聚合平台只能作为一级发现/去重/补充查询面，不能被视为全量实时线索源；北京不进入首批商业线索试点，既有北京 URL 仅作技术回归；首批商业试点省份按四川、江苏、浙江、山东、广东、湖北推进，城市适配按覆盖缺口和证据价值触发，不一次性铺全国城市。
 - `PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy`：计划中；实现项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵的自动核验策略。

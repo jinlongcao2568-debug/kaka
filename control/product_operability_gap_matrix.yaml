@@ -479,7 +479,8 @@ real_public_stage7_to_stage8_stage9_controlled_execution_readback_pilot_after_14
     - PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
 autonomous_business_decision_architecture_after_143:
   packet_ref: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
-  status: ACTIVE
+  status: COMPLETED
+  completed_commit: 440b49b
   trigger_reason: "Owner clarified that the product must not be a manual URL picker: the system must autonomously decide market opportunity, source mix, hard-defect strategy, commercial value, buyer fit, and pre-sale hook disclosure before 144-149 runtime implementation."
   target_capability_state: INTERNAL_READY
   architecture_map_ref: control/product_runtime_architecture_map.yaml
@@ -496,12 +497,44 @@ autonomous_business_decision_architecture_after_143:
     - implementation_sequence_144_to_149_registered
     - no_runtime_or_live_execution_change
   next_packets_if_143D_passes:
+    - PTL-I100-143E-autonomous-source-strategy-d-doc-sync
     - PTL-I100-144-market-scan-opportunity-discovery-engine
     - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
     - PTL-I100-148-productized-autonomous-operator-workbench
     - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+autonomous_source_strategy_d_doc_sync_after_143D:
+  packet_ref: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+  status: ACTIVE
+  trigger_reason: "143D control/route sync exists, but owner asked whether the upgraded capability map and source strategy are also in D-doc authority; without D-doc supplements, later windows may treat national aggregation as complete, use Beijing as a commercial pilot, or revert to manual URL picking."
+  target_capability_state: INTERNAL_READY
+  current_gap: "D1-D14 contain open-capability and boundary supplements, but not the latest autonomous source strategy: national aggregation is discovery-only, Beijing is technical regression only, pilot province portfolio is explicit, and city adapters are gap-driven."
+  authority_docs_to_sync:
+    - docs/D1_研发_Codex执行手册.md
+    - docs/D11_测试验收与金标回归清单.md
+    - docs/D13_公开可查边界能力清单.md
+  cross_reference_docs_to_sync:
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D4_OpenAPI接口契约.md
+    - docs/D5_页面导出与人工复核规范.md
+    - docs/D6_字段策略字典与客户交付字段规范.md
+    - docs/D7_对象级交付矩阵与外发治理规范.md
+    - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+    - docs/D9_联系对象与销售触达规范.md
+    - docs/D10_订单支付交付与治理反馈规范.md
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/D14_AI模型治理规范.md
+  must_prove:
+    - d_docs_reference_autonomous_source_strategy_policy
+    - d13_records_national_aggregator_and_beijing_commercial_pilot_boundary
+    - d11_records_145_source_strategy_acceptance
+    - d1_records_codex_must_not_revert_to_manual_url_picker
+    - all_d_docs_reference_143e_policy_without_runtime_change
+  next_packets_if_143E_passes:
+    - PTL-I100-144-market-scan-opportunity-discovery-engine
+    - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
 source_strategy_pilot_portfolio_after_143D:
   packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
   status: PLANNED
@@ -822,7 +855,8 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: autonomous_business_decision_architecture_and_hook_lead_roadmap
     packet_ref: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
-    status: ACTIVE
+    status: COMPLETED
+    completed_commit: 440b49b
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - autonomous_opportunity_discovery_architecture
@@ -831,6 +865,18 @@ production_gap_task_map:
       - commercial_hook_lead_presale_disclosure_boundary
       - rules_compute_llm_responsibility_split
       - 144_to_149_sequence_registration
+  - gap_group: autonomous_source_strategy_d_doc_sync
+    packet_ref: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - d1_d11_d13_authority_source_strategy_sync
+      - d2_to_d10_d12_d14_cross_reference_sync
+      - national_aggregator_discovery_boundary
+      - beijing_technical_regression_only_boundary
+      - first_batch_commercial_pilot_province_policy
+      - city_adapter_gap_driven_trigger_policy
+      - commercial_hook_and_llm_boundary_sync
   - gap_group: market_scan_opportunity_discovery_engine
     packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
     status: PLANNED

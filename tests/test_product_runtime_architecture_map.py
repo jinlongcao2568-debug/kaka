@@ -211,6 +211,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         task_ids = {task["task_id"]: task for task in self.task_library["tasks"]}
         expected = [
             "PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync",
+            "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
             "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
@@ -222,12 +223,13 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             self.assertIn(task_id, task_ids)
             self.assertIn(task_id, self.checklist["tasks"])
 
-        self.assertEqual(task_ids[expected[0]]["status"], "ACTIVE")
-        for task_id in expected[1:]:
+        self.assertEqual(task_ids[expected[0]]["status"], "COMPLETED")
+        self.assertEqual(task_ids[expected[1]]["status"], "ACTIVE")
+        for task_id in expected[2:]:
             self.assertEqual(task_ids[task_id]["status"], "PLANNED")
         self.assertEqual(
             self.task_library["current_mainline_next_candidate"]["task_id"],
-            expected[0],
+            expected[1],
         )
 
         sequence = [item["packet_ref"] for item in self.architecture["implementation_sequence"]]
@@ -243,6 +245,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             "卖前给价值感，不给可复现路径",
             "全国聚合平台只作为一级发现",
             "北京不进入首批商业线索试点",
+            "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
         ):

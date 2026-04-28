@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
-  packet_id: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
-  title: "Business decision architecture and hook lead roadmap sync"
+  task_id: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+  packet_id: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+  title: "Autonomous source strategy D-doc sync"
   planning_state: ACTIVE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143 completed locally at 82ca21f. 143D is active to formalize autonomous opportunity discovery, source orchestration, evidence risk, commercial value, buyer fit, commercial hook lead disclosure, and LLM/rules/compute boundaries before implementing 144-149; no runtime behavior, provider execution, customer download, refund, automated refund, or public software release is opened."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143D completed locally through 440b49b. 143E is active to synchronize the autonomous opportunity/source strategy/commercial hook roadmap into D-doc authority supplements before implementing 144-149; no runtime behavior, provider execution, customer download, refund, automated refund, or public software release is opened."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 81
+task_count: 82
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -3133,9 +3133,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, product_acceptance]
     task_type: business_decision_architecture_and_hook_lead_roadmap_sync
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P49
     existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_143_COMPLETED
     existing_runtime_state: BUSINESS_DECISION_ARCHITECTURE_AND_HOOK_LEAD_ROADMAP_NOT_FORMALIZED
@@ -3169,6 +3169,54 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
     suggested_packet_refs: [PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync]
     risk_level: HIGH
+    completed_commit: 440b49b
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_BUSINESS_DECISION_ARCHITECTURE_AND_SOURCE_POLICY_CONTROL_SYNC"
+  - task_id: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+    title: "I100-43E Autonomous source strategy D-doc sync"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, stage6_fact_review, stage7_sales, product_acceptance]
+    task_type: autonomous_source_strategy_d_doc_sync
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P49A
+    existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_AND_143D_CONTROL_SYNC_COMPLETED
+    existing_runtime_state: D_DOC_AUTHORITY_NOT_YET_SYNCED_FOR_AUTONOMOUS_SOURCE_STRATEGY
+    runtime_change_in_packet: OUT_OF_SCOPE
+    activation_policy: "Activated after owner asked whether recent autonomous/source strategy upgrades were also written into D-doc authority; 143D control sync exists but D-doc supplements must stop future windows from reverting to manual URL picking or national-aggregator-as-complete assumptions."
+    hard_depends_on:
+      - PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+    objective: "把自动运营能力版图、source strategy、全国聚合非全量实时、北京不进首批商业试点、首批省级组合、城市按缺口补、Stage6/7 商业钩子披露边界和 LLM/规则/算力职责同步到 D 文档补表；不改 runtime。"
+    capability_gaps_covered:
+      - d_doc_authority_sync_for_autonomous_business_decision_architecture
+      - d_doc_source_strategy_policy_sync
+      - national_aggregator_not_full_or_realtime_doc_policy
+      - beijing_technical_regression_only_doc_policy
+      - pilot_province_portfolio_doc_policy
+      - city_adapter_gap_trigger_doc_policy
+      - commercial_hook_and_llm_boundary_doc_policy
+    non_goals:
+      - "不改 Stage1-9 runtime"
+      - "不改 D 文档正文语义，只追加补表/附录"
+      - "不新增正式对象、枚举、gate 或 exception 语义"
+      - "不放开任意 crawler、真实 provider、客户下载、真实支付交付、退款或自动退款"
+      - "不把 LLM 输出当事实、法律结论或客户可见确定结论"
+    expected_outputs:
+      - "D1/D11/D13 authority supplement"
+      - "D2-D14 cross-reference supplement"
+      - "143E D-doc sync tests"
+    acceptance_checks:
+      - d_docs_reference_autonomous_source_strategy_policy
+      - d13_records_national_aggregator_and_beijing_commercial_pilot_boundary
+      - d11_records_145_source_strategy_acceptance
+      - d1_records_codex_must_not_revert_to_manual_url_picker
+      - all_d_docs_reference_143e_policy_without_runtime_change
+      - no_runtime_or_live_execution_change
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+    suggested_packet_refs: [PTL-I100-143E-autonomous-source-strategy-d-doc-sync]
+    risk_level: HIGH
   - task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
     title: "I100-44 Market scan opportunity discovery engine"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
@@ -3181,7 +3229,7 @@ tasks:
     priority: P50
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
-      - PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+      - PTL-I100-143E-autonomous-source-strategy-d-doc-sync
     objective: "实现市场扫描与机会发现：根据地区、工程类型、金额区间、公告阶段、异议窗口和关键字段自动判断哪些公告值得进入分析，不再把手工 URL 选择作为主流程。"
     capability_gaps_covered:
       - autonomous_run_controller_first_slice
