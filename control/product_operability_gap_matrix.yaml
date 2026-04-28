@@ -387,7 +387,7 @@ degraded_real_public_site_hardening_after_136:
     - PTL-I100-138-real-public-snapshot-to-parser-pilot
 real_public_snapshot_to_parser_pilot_after_137:
   packet_ref: PTL-I100-138-real-public-snapshot-to-parser-pilot
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "137 produced additional compliant repository-backed public snapshots; the next product risk is whether real captured HTML/PDF artifacts can actually enter Stage3 parser readback without being promoted to verified or customer-visible output."
   target_capability_state: INTERNAL_READY
   current_gap: "Real public snapshots are now captured/readback by Stage2, but the Stage3 parser path must be proven against those persisted artifacts with source slices, confidence, parser audit, and fail-closed UNVERIFIED output."
@@ -398,7 +398,22 @@ real_public_snapshot_to_parser_pilot_after_137:
     - no_stage4_stage5_or_customer_visible_promotion
     - no_uncontrolled_crawler
     - no_real_provider_call
-  next_packets_if_138_passes: []
+  next_packets_if_138_passes:
+    - PTL-I100-139-real-public-parser-to-verification-pilot
+real_public_parser_to_verification_pilot_after_138:
+  packet_ref: PTL-I100-139-real-public-parser-to-verification-pilot
+  status: ACTIVE
+  trigger_reason: "138 proved real public snapshots can enter Stage3 parser readback; the next gap is validating those parsed fields against Stage4 public verification readback while keeping downstream promotion blocked."
+  target_capability_state: INTERNAL_READY
+  current_gap: "Stage4 public verification currently has adapter/readback tests, but must be proven against real public Stage2->Stage3 parsed carriers, including parsed field refs, snapshot refs, evidence grade, and fail-closed taxonomy."
+  must_prove:
+    - real_public_parsed_fields_enter_stage4_public_verification
+    - verification_carrier_binds_parsed_field_refs_and_replayable_snapshot_refs
+    - weak_or_missing_identifier_public_evidence_fails_closed
+    - no_stage5_stage6_or_customer_visible_promotion
+    - no_uncontrolled_crawler
+    - no_real_provider_call
+  next_packets_if_139_passes: []
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -618,7 +633,7 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_snapshot_to_parser_pilot
     packet_ref: PTL-I100-138-real-public-snapshot-to-parser-pilot
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - real_public_snapshot_to_stage3_parser_pilot
@@ -626,6 +641,17 @@ production_gap_task_map:
       - parsed_field_source_slice_confidence_audit
       - unverified_review_required_parser_boundary
       - no_stage4_stage5_or_customer_visible_promotion
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: real_public_parser_to_verification_pilot
+    packet_ref: PTL-I100-139-real-public-parser-to-verification-pilot
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - real_public_parsed_fields_to_stage4_public_verification
+      - parsed_field_refs_and_snapshot_refs_readback
+      - public_visibility_and_evidence_grade_readback
+      - weak_or_missing_identifier_fail_closed_taxonomy
+      - no_stage5_stage6_or_customer_visible_promotion
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters

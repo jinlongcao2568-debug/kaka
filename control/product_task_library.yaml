@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-138-real-public-snapshot-to-parser-pilot
-  packet_id: PTL-I100-138-real-public-snapshot-to-parser-pilot
-  title: "Real public snapshot to parser pilot"
+  task_id: PTL-I100-139-real-public-parser-to-verification-pilot
+  packet_id: PTL-I100-139-real-public-parser-to-verification-pilot
+  title: "Real public parser to verification pilot"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed; PTL-I100-137 completed at 36b242d. 138 is now active to validate repository-backed real public HTML/PDF snapshots through Stage3 parser readback; parser output remains UNVERIFIED/review-required and must not become Stage4 verified fact, Stage5 rule hit, customer-visible material, crawler, or provider action."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed; PTL-I100-138 completed at cb19fbf. 139 is now active to validate real public Stage3 parsed carriers through Stage4 public verification readback; verification readback must not become Stage5 rule hit, Stage6 fact, customer-visible material, crawler, or provider action."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 69
+task_count: 70
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2819,9 +2819,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, stage3_parsing, product_acceptance]
     task_type: real_public_snapshot_to_parser_pilot
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P43
     existing_code_state: REAL_PUBLIC_SOURCE_FETCHERS_137_READY
     existing_runtime_state: REAL_PUBLIC_SNAPSHOTS_NOT_YET_VALIDATED_THROUGH_STAGE3_PARSER
@@ -2871,4 +2871,62 @@ tasks:
       - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-138-real-public-snapshot-to-parser-pilot
     suggested_packet_refs: [PTL-I100-138-real-public-snapshot-to-parser-pilot]
+    risk_level: HIGH
+    completed_commit: cb19fbf
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_REAL_PUBLIC_SNAPSHOT_TO_PARSER_PILOT"
+  - task_id: PTL-I100-139-real-public-parser-to-verification-pilot
+    title: "I100-39 Real public parser to verification pilot"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, stage3_parsing, stage4_verification, product_acceptance]
+    task_type: real_public_parser_to_verification_pilot
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P44
+    existing_code_state: REAL_PUBLIC_STAGE3_PARSER_138_READY
+    existing_runtime_state: REAL_PUBLIC_PARSED_CARRIERS_NOT_YET_VALIDATED_THROUGH_STAGE4_PUBLIC_VERIFICATION
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Activated after 138 because real public snapshots now enter Stage3 parser readback; the next controlled product risk is whether parsed fields can bind to replayable public snapshots in Stage4 verification without becoming downstream facts or customer conclusions."
+    hard_depends_on:
+      - PTL-I100-138-real-public-snapshot-to-parser-pilot
+    objective: "选取 138 已验证的真实公开 HTML parsed carrier，跑 Stage4 verify_public_parsed_carrier/readback，证明 parsed field refs、source snapshot refs、public visibility、evidence grade、review/fail-closed taxonomy 可回放；不产生 Stage5 rule hit、Stage6 fact 或客户可见结论。"
+    verification_target_types:
+      - enterprise_public_record
+      - personnel_public_record
+      - enterprise_qualification
+      - credit_penalty_blacklist
+      - construction_permit
+      - contract_public_info
+      - completion_filing
+      - performance_public_record
+    capability_gaps_covered:
+      - real_public_parsed_fields_to_stage4_public_verification
+      - parsed_field_refs_and_snapshot_refs_readback
+      - public_visibility_and_evidence_grade_readback
+      - weak_or_missing_identifier_fail_closed_taxonomy
+      - no_stage5_stage6_or_customer_visible_promotion
+      - no_uncontrolled_crawler_or_provider_call
+    non_goals:
+      - "不新增任意 crawler"
+      - "不自动翻页深爬"
+      - "不绕过登录、验证码、人机校验、权限或反爬"
+      - "不把 Stage4 readback 自动写入 Stage5 rule hit 或 Stage6 fact"
+      - "不生成客户可见材料或法律结论"
+      - "不新增 source family、正式对象、枚举、gate 或 exception 语义"
+      - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
+    expected_outputs:
+      - "real public parsed carrier to Stage4 verification happy readback"
+      - "parsed field refs and replayable snapshot refs binding"
+      - "public visibility, evidence grade, confidence, review/fail-closed taxonomy"
+      - "negative proof that verification readback is not promoted downstream"
+    acceptance_checks:
+      - real_public_parsed_fields_enter_stage4_public_verification
+      - verification_carrier_binds_parsed_field_refs_and_replayable_snapshot_refs
+      - weak_or_missing_identifier_public_evidence_fails_closed
+      - no_stage5_stage6_or_customer_visible_promotion
+      - no_uncontrolled_crawler_or_provider_call
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-139-real-public-parser-to-verification-pilot
+    suggested_packet_refs: [PTL-I100-139-real-public-parser-to-verification-pilot]
     risk_level: HIGH

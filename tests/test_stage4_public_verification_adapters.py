@@ -12,7 +12,13 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from shared.settings import Settings
+from stage2_ingestion.real_public_url_fetcher import (
+    REAL_PUBLIC_ENTRY_PROFILE_BY_ID,
+    RealPublicFetchResponse,
+)
+from stage2_ingestion.service import Stage2Service
 from stage3_parsing.real_parser import UNVERIFIED_STATE
+from stage3_parsing.service import Stage3Service
 from stage4_verification.service import Stage4Service
 from stage4_verification.verification import (
     AMBIGUOUS_PUBLIC_MATCH,
@@ -194,6 +200,136 @@ class Stage4PublicVerificationAdapterTests(unittest.TestCase):
                     self.assertEqual(readback["readback_state"], "READBACK_READY")
                     self.assertTrue(readback["replayable"])
 
+    def test_real_public_stage3_parsed_carrier_enters_stage4_verification_readback(self) -> None:
+        profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID["GGZY-DEAL-LIST"]
+        html = _real_public_verification_html(
+            profile_id=profile.profile_id,
+            target_type="enterprise_public_record",
+            identifier="REAL-PUBLIC-VERIFY-001",
+        )
+        transport = _FakeRealPublicFetchTransport(
+            {
+                profile.url: RealPublicFetchResponse(
+                    url=profile.url,
+                    status_code=200,
+                    content=html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=profile.url,
+                    headers={"x-ax9s-fetch-transport": "unit_controlled_transport"},
+                )
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            stage2_carrier = Stage2Service().fetch_real_public_entry_url(
+                profile.url,
+                profile_id=profile.profile_id,
+                repository=repo,
+                transport=transport,
+                lineage_refs={
+                    "source_blueprint_batch_id": "PTL-I100-139",
+                    "entry_profile_id": profile.profile_id,
+                },
+            )
+            self.assertEqual(stage2_carrier["status"], "FETCHED")
+            snapshot_id = stage2_carrier["snapshot_id_optional"]
+            parsed = dict(Stage3Service().parse_raw_snapshot(snapshot_id, repository=repo))
+            self.assertEqual(parsed["verification_state"], UNVERIFIED_STATE)
+            self.assertFalse(parsed["customer_visible"])
+
+            result = dict(
+                Stage4Service().verify_public_parsed_carrier(
+                    parsed,
+                    target={
+                        "verification_target_id": "TARGET-REAL-PUBLIC-001",
+                        "verification_target_type": "enterprise_public_record",
+                        "target_identifier": "REAL-PUBLIC-VERIFY-001",
+                    },
+                    repository=repo,
+                )
+            )
+
+            self.assertEqual(result["verification_result"], MATCHED)
+            self.assertEqual(result["input_parse_run_id"], parsed["parse_run_id"])
+            self.assertEqual(result["source_snapshot_id"], snapshot_id)
+            self.assertEqual(result["source_url"], profile.url)
+            self.assertEqual(result["public_visibility_state"], "PUBLIC_VISIBLE")
+            self.assertEqual(result["evidence_grade"], "PUBLIC_SNAPSHOT_FIELD_MATCH")
+            self.assertGreaterEqual(result["confidence"], 0.8)
+            self.assertFalse(result["review_required"])
+            self.assertTrue(result["public_only"])
+            self.assertFalse(result["non_public_source_used"])
+            self.assertFalse(result["customer_visible"])
+            self.assertTrue(result["no_legal_conclusion"])
+            self.assertTrue(result["snapshot_refs"][0]["replayable"])
+            self.assertEqual(result["snapshot_refs"][0]["snapshot_id"], snapshot_id)
+            parsed_ref = result["parsed_field_refs"][0]
+            self.assertEqual(parsed_ref["field_value_optional"], "REAL-PUBLIC-VERIFY-001")
+            self.assertEqual(parsed_ref["parser_version"], parsed["parser_version"])
+            readback = Stage4Service().build_public_verification_readback(result)
+            self.assertEqual(readback["readback_state"], "READBACK_READY")
+            self.assertTrue(readback["replayable"])
+            self.assertFalse(readback["customer_visible"])
+            self.assertNotIn("rule_hit", result)
+            self.assertNotIn("stage6_project_fact", result)
+            self.assertNotIn("customer_material", result)
+
+    def test_real_public_stage4_verification_fails_closed_for_missing_identifier(self) -> None:
+        profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID["BEIJING-PLATFORM-HOME"]
+        html = _real_public_verification_html(
+            profile_id=profile.profile_id,
+            target_type="contract_public_info",
+            identifier="CONTRACT-PUBLIC-139",
+        )
+        transport = _FakeRealPublicFetchTransport(
+            {
+                profile.url: RealPublicFetchResponse(
+                    url=profile.url,
+                    status_code=200,
+                    content=html,
+                    content_type="text/html; charset=utf-8",
+                    final_url=profile.url,
+                    headers={"x-ax9s-fetch-transport": "unit_controlled_transport"},
+                )
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            stage2_carrier = Stage2Service().fetch_real_public_entry_url(
+                profile.url,
+                profile_id=profile.profile_id,
+                repository=repo,
+                transport=transport,
+                lineage_refs={"source_blueprint_batch_id": "PTL-I100-139"},
+            )
+            parsed = dict(
+                Stage3Service().parse_raw_snapshot(
+                    stage2_carrier["snapshot_id_optional"],
+                    repository=repo,
+                )
+            )
+            result = dict(
+                Stage4Service().verify_public_parsed_carrier(
+                    parsed,
+                    target={
+                        "verification_target_id": "TARGET-MISSING-ID",
+                        "verification_target_type": "contract_public_info",
+                        "target_identifier": "",
+                    },
+                    repository=repo,
+                )
+            )
+
+            self.assertEqual(result["failure_reason_optional"], TARGET_IDENTIFIER_MISSING)
+            self.assertEqual(result["verification_result"], "REVIEW_REQUIRED")
+            self.assertTrue(result["review_required"])
+            self.assertFalse(result["customer_visible"])
+            self.assertTrue(result["snapshot_refs"][0]["replayable"])
+            readback = Stage4Service().build_public_verification_readback(result)
+            self.assertEqual(readback["readback_state"], "READBACK_READY")
+
     def test_missing_snapshot_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo = self._repo(tmp_dir)
@@ -367,6 +503,67 @@ class Stage4PublicVerificationAdapterTests(unittest.TestCase):
             "stage9_delivery",
         ):
             self.assertNotIn(forbidden, combined)
+
+
+class _FakeRealPublicFetchTransport:
+    def __init__(self, responses: dict[str, RealPublicFetchResponse]) -> None:
+        self.responses = responses
+        self.call_log: list[dict[str, object]] = []
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        self.call_log.append(
+            {
+                "url": url,
+                "timeout_seconds": timeout_seconds,
+                "user_agent": user_agent,
+            }
+        )
+        return self.responses[url]
+
+
+def _real_public_verification_html(
+    *,
+    profile_id: str,
+    target_type: str,
+    identifier: str,
+) -> bytes:
+    profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id]
+    markers = profile.visible_entry_markers or profile.lightweight_public_entry_markers
+    if profile.lightweight_public_entry_markers and profile_id in {
+        "JZSC-NATIONAL-HOME",
+        "GUANGDONG-PROVINCIAL-PORTAL",
+        "GUANGDONG-YUNFU-PORTAL",
+    }:
+        markers = profile.lightweight_public_entry_markers
+    marker_text = " ".join(markers)
+    filler = "公开核验入口说明" * 80
+    html = f"""
+    <html>
+      <head>
+        <title>{profile.expected_title_contains} - {profile.site_name}</title>
+        <meta name="description" content="{marker_text}">
+      </head>
+      <body>
+        <h1>{profile.expected_title_contains}</h1>
+        <p>{marker_text}</p>
+        <p>{filler}</p>
+        <table>
+          <tr><th>项目名称</th><td>{identifier}</td></tr>
+          <tr><th>招标人</th><td>{profile.site_name} 测试主体</td></tr>
+          <tr><th>公告日期</th><td>2026-04-28</td></tr>
+          <tr><th>{target_type}</th><td>{identifier}</td></tr>
+        </table>
+        <a href="{profile.sample_detail_url}">公开详情样例</a>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
 
 
 if __name__ == "__main__":
