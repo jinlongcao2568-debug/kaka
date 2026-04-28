@@ -146,6 +146,61 @@ REAL_PUBLIC_ENTRY_PROFILES: tuple[RealPublicEntryProfile, ...] = (
         browser_verified_at="2026-04-28T15:12:00+08:00",
         browser_verified_evidence="官方总入口真实存在，但当前 runtime 直连返回 521，需要显式 fail-closed 记录。",
     ),
+    RealPublicEntryProfile(
+        profile_id="BEIJING-PLATFORM-HOME",
+        url="https://ggzyfw.beijing.gov.cn/",
+        site_name="北京市公共资源交易服务平台",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="北京市公共资源交易服务平台",
+        visible_entry_markers=("交易服务", "公告", "工程建设"),
+        sample_detail_url="https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html",
+        browser_verified_at="2026-04-28T15:35:00+08:00",
+        browser_verified_evidence="官方首页 runtime 直连返回 200，正文可见交易服务、公告和工程建设等入口词。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="BEIJING-GCJS-LIST",
+        url="https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html",
+        site_name="北京市公共资源交易服务平台",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="北京市公共资源交易服务平台",
+        visible_entry_markers=("交易服务", "公告", "工程建设"),
+        sample_detail_url="https://ggzyfw.beijing.gov.cn/",
+        browser_verified_at="2026-04-28T15:35:00+08:00",
+        browser_verified_evidence="工程建设入口 runtime 直连返回 200，原始 HTML 可见公告/交易服务类入口词。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="BEIJING-BDA-HOME",
+        url="https://ggzyjy.bda.gov.cn/",
+        site_name="全国公共资源交易平台(北京市经济技术开发区)北京市公共资源交易服务经济技术开发区分平台",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="全国公共资源交易平台",
+        visible_entry_markers=("交易服务", "公告", "搜索"),
+        sample_detail_url="https://ggzyjy.bda.gov.cn/",
+        browser_verified_at="2026-04-28T15:35:00+08:00",
+        browser_verified_evidence="经开区分平台 runtime 直连返回 200，正文可见交易服务、公告和搜索。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="GUANGDONG-PROVINCIAL-PORTAL",
+        url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index",
+        site_name="广东省公共资源交易平台",
+        source_family="provincial_bidding_platform",
+        expected_title_contains="广东省公共资源交易平台",
+        visible_entry_markers=("交易服务", "公告", "搜索"),
+        sample_detail_url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index",
+        browser_verified_at="2026-04-28T15:35:00+08:00",
+        browser_verified_evidence="省级总入口 runtime 直连返回 200，但原始 HTML 更接近前端壳页，需要按弱正文/fail-closed 分类。",
+    ),
+    RealPublicEntryProfile(
+        profile_id="GUANGDONG-YUNFU-PORTAL",
+        url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index",
+        site_name="广东省公共资源交易平台（云浮）",
+        source_family="provincial_bidding_platform",
+        expected_title_contains="广东省公共资源交易平台",
+        visible_entry_markers=("交易服务", "公告", "搜索"),
+        sample_detail_url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index",
+        browser_verified_at="2026-04-28T15:35:00+08:00",
+        browser_verified_evidence="云浮入口 runtime 直连返回 200，但原始 HTML 更接近前端壳页，需要按弱正文/fail-closed 分类。",
+    ),
 )
 
 REAL_PUBLIC_ENTRY_PROFILE_BY_URL = {
@@ -161,6 +216,13 @@ NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS = (
     "JZSC-NATIONAL-PROJECT",
     "CREDITCHINA-HOME",
     "GSXT-HOME",
+)
+REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS = (
+    "BEIJING-PLATFORM-HOME",
+    "BEIJING-GCJS-LIST",
+    "BEIJING-BDA-HOME",
+    "GUANGDONG-PROVINCIAL-PORTAL",
+    "GUANGDONG-YUNFU-PORTAL",
 )
 
 _BLOCKED_BODY_PATTERNS = (

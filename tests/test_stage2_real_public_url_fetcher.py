@@ -18,6 +18,7 @@ from stage2_ingestion.real_public_url_fetcher import (
     REAL_PUBLIC_ENTRY_FETCHER_ID,
     REAL_PUBLIC_ENTRY_PROFILES,
     REAL_PUBLIC_ENTRY_SNAPSHOT_KIND,
+    REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS,
     RealPublicEntryFetcher,
     RealPublicFetchResponse,
     RealPublicUrlBoundaryError,
@@ -32,6 +33,11 @@ CCGP_ENTRY_URL = "https://www.ccgp.gov.cn/cggg/zygg/"
 JZSC_HOME_URL = "https://jzsc.mohurd.gov.cn/home"
 CREDITCHINA_HOME_URL = "https://www.creditchina.gov.cn/"
 GSXT_HOME_URL = "https://www.gsxt.gov.cn/index.html"
+BEIJING_HOME_URL = "https://ggzyfw.beijing.gov.cn/"
+BEIJING_GCJS_URL = "https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html"
+BEIJING_BDA_URL = "https://ggzyjy.bda.gov.cn/"
+GD_PROV_URL = "https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index"
+GD_YUNFU_URL = "https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index"
 
 
 class FakeRealPublicFetchTransport:
@@ -91,6 +97,43 @@ def _ggzy_entry_html() -> bytes:
           <a href="https://example.com/not-public.html">跨站链接</a>
           <ul>{rows}</ul>
         </section>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _beijing_platform_html() -> bytes:
+    rows = "\n".join(
+        f"<li><a href='/notice/{idx}.html'>工程建设公告{idx}</a></li>"
+        for idx in range(30)
+    )
+    html = """
+    <html>
+      <head><title>北京市公共资源交易服务平台</title></head>
+      <body>
+        <header>交易服务</header>
+        <nav>
+          <a href="/tyrkgcjs/index.html">工程建设</a>
+          <a href="/wzdt.html">公告</a>
+        </nav>
+        <ul>
+    """ + rows + """
+        </ul>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _guangdong_shell_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东省公共资源交易平台</title></head>
+      <body>
+        <div id="app"></div>
+        <script src="/portal/app.js"></script>
+        <span>工程建设</span>
       </body>
     </html>
     """
@@ -202,7 +245,10 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
 
     def test_profiles_are_total_entry_urls_not_detail_pages(self) -> None:
         for profile in REAL_PUBLIC_ENTRY_PROFILES:
-            if profile.profile_id not in NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS:
+            if profile.profile_id not in (
+                *NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
+                *REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS,
+            ):
                 self.assertNotEqual(profile.url, profile.sample_detail_url, profile.profile_id)
             self.assertTrue(profile.url.startswith("https://"), profile.profile_id)
             self.assertNotIn("/information/deal/html/", profile.url, profile.profile_id)
@@ -229,6 +275,24 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(profiles_by_id["JZSC-NATIONAL-HOME"].url, JZSC_HOME_URL)
         self.assertEqual(profiles_by_id["CREDITCHINA-HOME"].url, CREDITCHINA_HOME_URL)
         self.assertEqual(profiles_by_id["GSXT-HOME"].url, GSXT_HOME_URL)
+
+    def test_representative_local_platform_profiles_are_registered(self) -> None:
+        self.assertEqual(
+            REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS,
+            (
+                "BEIJING-PLATFORM-HOME",
+                "BEIJING-GCJS-LIST",
+                "BEIJING-BDA-HOME",
+                "GUANGDONG-PROVINCIAL-PORTAL",
+                "GUANGDONG-YUNFU-PORTAL",
+            ),
+        )
+        profiles_by_id = {profile.profile_id: profile for profile in REAL_PUBLIC_ENTRY_PROFILES}
+        self.assertEqual(profiles_by_id["BEIJING-PLATFORM-HOME"].url, BEIJING_HOME_URL)
+        self.assertEqual(profiles_by_id["BEIJING-GCJS-LIST"].url, BEIJING_GCJS_URL)
+        self.assertEqual(profiles_by_id["BEIJING-BDA-HOME"].url, BEIJING_BDA_URL)
+        self.assertEqual(profiles_by_id["GUANGDONG-PROVINCIAL-PORTAL"].url, GD_PROV_URL)
+        self.assertEqual(profiles_by_id["GUANGDONG-YUNFU-PORTAL"].url, GD_YUNFU_URL)
 
     def test_jzsc_verification_entries_degrade_when_raw_fetch_is_only_spa_shell(self) -> None:
         shell_body = (
@@ -286,6 +350,48 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertIn("521", gsxt["failure_detail_optional"])
         self.assertTrue(credit["fail_closed"])
         self.assertTrue(gsxt["fail_closed"])
+
+    def test_representative_local_platform_entries_fetch_or_degrade_by_raw_body_strength(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                BEIJING_HOME_URL: RealPublicFetchResponse(
+                    url=BEIJING_HOME_URL,
+                    status_code=200,
+                    content=_beijing_platform_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=BEIJING_HOME_URL,
+                ),
+                GD_PROV_URL: RealPublicFetchResponse(
+                    url=GD_PROV_URL,
+                    status_code=200,
+                    content=_guangdong_shell_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=GD_PROV_URL,
+                ),
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            fetcher = RealPublicEntryFetcher(transport=transport, repository=repo)
+            beijing = fetcher.fetch_entry_url(
+                BEIJING_HOME_URL,
+                profile_id="BEIJING-PLATFORM-HOME",
+            )
+            guangdong = fetcher.fetch_entry_url(
+                GD_PROV_URL,
+                profile_id="GUANGDONG-PROVINCIAL-PORTAL",
+            )
+
+            self.assertEqual(beijing["status"], "FETCHED")
+            self.assertEqual(beijing["source_family"], "local_public_resource_trading_center")
+            self.assertTrue(beijing["snapshot_id_optional"])
+            self.assertEqual(repo.read_snapshot_bytes(beijing["snapshot_id_optional"]), _beijing_platform_html())
+
+            self.assertEqual(guangdong["status"], "DEGRADED")
+            self.assertEqual(guangdong["source_family"], "provincial_bidding_platform")
+            self.assertIn("visible_entry_markers_missing", guangdong["degraded_reasons"])
+            self.assertTrue(guangdong["fail_closed"])
+            self.assertIsNone(guangdong["snapshot_id_optional"])
 
     def test_stage2_service_exposes_real_public_entry_fetcher(self) -> None:
         body = _ggzy_entry_html()

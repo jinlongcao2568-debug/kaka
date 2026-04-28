@@ -261,7 +261,8 @@ real_public_source_operationalization_after_132:
     - PTL-I100-134-owner-task-runner-real-source-ui
 national_verification_source_operationalization_after_133A:
   packet_ref: PTL-I100-133B-national-verification-source-entry-fetchers
-  status: ACTIVE
+  status: COMPLETED
+  completed_commit: ec319dc
   trigger_reason: "133A completed. Real source operation now needs official national verification entry fetch/readback, including explicit blocked-runtime observations."
   target_capability_state: INTERNAL_READY
   current_gap: "System can fetch first-batch public notice entry URLs, but does not yet distinguish official national verification entry URLs that return 200+SPA shell, 412, or 521 at runtime."
@@ -281,6 +282,28 @@ national_verification_source_operationalization_after_133A:
     - no_uncontrolled_crawler
   next_packets_if_133B_passes:
     - PTL-I100-133C-representative-local-platform-entry-fetchers
+    - PTL-I100-133D-public-attachment-original-link-fetching
+    - PTL-I100-134-owner-task-runner-real-source-ui
+representative_local_platform_operationalization_after_133B:
+  packet_ref: PTL-I100-133C-representative-local-platform-entry-fetchers
+  status: ACTIVE
+  trigger_reason: "133B completed. Real source operation now needs representative local/provincial platform entry fetchers with direct HTML success-path and raw-shell classification."
+  target_capability_state: INTERNAL_READY
+  current_gap: "System can classify national verification entry URLs, but does not yet distinguish direct local HTML entry pages from provincial portal shell pages on representative real platforms."
+  official_entry_urls:
+    - https://ggzyfw.beijing.gov.cn/
+    - https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html
+    - https://ggzyjy.bda.gov.cn/
+    - https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index
+    - https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index
+  must_prove:
+    - representative_local_platform_urls
+    - beijing_local_platform_html_success_path
+    - beijing_bda_html_success_path
+    - guangdong_portal_raw_shell_fail_closed
+    - no_unregistered_url_fetch
+    - no_uncontrolled_crawler
+  next_packets_if_133C_passes:
     - PTL-I100-133D-public-attachment-original-link-fetching
     - PTL-I100-134-owner-task-runner-real-source-ui
 final_118R_operational_reacceptance:
@@ -433,13 +456,23 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_national_verification_entry_fetcher
     packet_ref: PTL-I100-133B-national-verification-source-entry-fetchers
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - official_national_verification_entry_urls
       - jzsc_raw_shell_fail_closed
       - creditchina_412_fail_closed
       - gsxt_521_fail_closed
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: stage2_representative_local_platform_entry_fetcher
+    packet_ref: PTL-I100-133C-representative-local-platform-entry-fetchers
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - representative_local_platform_urls
+      - beijing_local_platform_html_success_path
+      - beijing_bda_html_success_path
+      - guangdong_portal_raw_shell_fail_closed
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters

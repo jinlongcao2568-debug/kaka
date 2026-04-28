@@ -126,7 +126,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
             },
         )
         self.assertEqual(candidate["task_id"], self.current_task["currentTask"]["task_id"])
-        self.assertRegex(candidate["runtime_notes"], r"public|verification|source entry")
+        self.assertRegex(candidate["runtime_notes"], r"public|verification|entry")
         self.assertEqual(tasks[candidate["task_id"]]["status"], "ACTIVE")
 
 

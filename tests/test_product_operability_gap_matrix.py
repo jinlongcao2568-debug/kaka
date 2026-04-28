@@ -214,6 +214,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
             "PTL-I100-133B-national-verification-source-entry-fetchers",
+            "PTL-I100-133C-representative-local-platform-entry-fetchers",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -249,7 +250,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-133B-national-verification-source-entry-fetchers",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertIn(section["status"], {"ACTIVE", "COMPLETED"})
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertEqual(
             section["official_entry_urls"],
@@ -265,6 +266,29 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertIn("jzsc_raw_shell_fail_closed", section["must_prove"])
         self.assertIn("creditchina_412_fail_closed", section["must_prove"])
         self.assertIn("gsxt_521_fail_closed", section["must_prove"])
+
+    def test_133c_local_platform_entry_fetcher_records_success_and_shell_gap(self) -> None:
+        section = self.matrix["representative_local_platform_operationalization_after_133B"]
+
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-133C-representative-local-platform-entry-fetchers",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertEqual(
+            section["official_entry_urls"],
+            [
+                "https://ggzyfw.beijing.gov.cn/",
+                "https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html",
+                "https://ggzyjy.bda.gov.cn/",
+                "https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index",
+                "https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index",
+            ],
+        )
+        self.assertIn("beijing_local_platform_html_success_path", section["must_prove"])
+        self.assertIn("beijing_bda_html_success_path", section["must_prove"])
+        self.assertIn("guangdong_portal_raw_shell_fail_closed", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}
