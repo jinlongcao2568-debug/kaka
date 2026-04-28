@@ -38,6 +38,7 @@ class RealPublicEntryProfile:
     sample_detail_url: str
     browser_verified_at: str
     browser_verified_evidence: str
+    lightweight_public_entry_markers: tuple[str, ...] = ()
 
     @property
     def host(self) -> str:
@@ -112,6 +113,7 @@ REAL_PUBLIC_ENTRY_PROFILES: tuple[RealPublicEntryProfile, ...] = (
         sample_detail_url="https://jzsc.mohurd.gov.cn/data/company/detail?id=002105291239452167",
         browser_verified_at="2026-04-28T15:10:00+08:00",
         browser_verified_evidence="官方首页可打开；后续原始 HTML 抓取实际返回前端壳页，需要单独按 raw-shell/fail-closed 分类。",
+        lightweight_public_entry_markers=("全国建筑市场监管公共服务平台", "建筑与诚信信息发布平台"),
     ),
     RealPublicEntryProfile(
         profile_id="JZSC-NATIONAL-COMPANY",
@@ -211,6 +213,7 @@ REAL_PUBLIC_ENTRY_PROFILES: tuple[RealPublicEntryProfile, ...] = (
         sample_detail_url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index",
         browser_verified_at="2026-04-28T15:35:00+08:00",
         browser_verified_evidence="省级总入口 runtime 直连返回 200，但原始 HTML 更接近前端壳页，需要按弱正文/fail-closed 分类。",
+        lightweight_public_entry_markers=("广东省公共资源交易平台", "工程建设", "政府采购"),
     ),
     RealPublicEntryProfile(
         profile_id="GUANGDONG-YUNFU-PORTAL",
@@ -222,6 +225,7 @@ REAL_PUBLIC_ENTRY_PROFILES: tuple[RealPublicEntryProfile, ...] = (
         sample_detail_url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index",
         browser_verified_at="2026-04-28T15:35:00+08:00",
         browser_verified_evidence="云浮入口 runtime 直连返回 200，但原始 HTML 更接近前端壳页，需要按弱正文/fail-closed 分类。",
+        lightweight_public_entry_markers=("广东省公共资源交易平台", "工程建设", "政府采购"),
     ),
 )
 
@@ -249,6 +253,16 @@ REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS = (
 PUBLIC_ATTACHMENT_PROFILE_IDS = (
     "BEIJING-STANDARD-BIDDING-PDF",
     "BEIJING-TOOLING-PDF",
+)
+DEGRADED_ENTRY_PROFILE_IDS_AFTER_136 = (
+    "JZSC-NATIONAL-HOME",
+    "JZSC-NATIONAL-COMPANY",
+    "JZSC-NATIONAL-PERSON",
+    "JZSC-NATIONAL-PROJECT",
+    "CREDITCHINA-HOME",
+    "GSXT-HOME",
+    "GUANGDONG-PROVINCIAL-PORTAL",
+    "GUANGDONG-YUNFU-PORTAL",
 )
 REAL_PUBLIC_ATTACHMENT_PROFILES: tuple[RealPublicAttachmentProfile, ...] = (
     RealPublicAttachmentProfile(
@@ -627,6 +641,13 @@ class RealPublicEntryFetcher:
         missing_markers = [
             marker for marker in profile.visible_entry_markers if marker not in text
         ]
+        lightweight_markers_found = [
+            marker for marker in profile.lightweight_public_entry_markers if marker in text
+        ]
+        missing_lightweight_markers = [
+            marker for marker in profile.lightweight_public_entry_markers if marker not in text
+        ]
+        lightweight_markers_complete = bool(profile.lightweight_public_entry_markers) and not missing_lightweight_markers
         blocked_body_patterns = [
             marker for marker in _BLOCKED_BODY_PATTERNS if marker.lower() in text.lower()
         ]
@@ -650,14 +671,30 @@ class RealPublicEntryFetcher:
             degraded_reasons.append("non_html_content_type")
         if len(content) < 500:
             degraded_reasons.append("entry_body_too_small")
-        if not markers_found:
+        if not markers_found and not lightweight_markers_complete:
             degraded_reasons.append("visible_entry_markers_missing")
-        if strong_blocked_body_patterns or (weak_blocked_body_patterns and not markers_found):
+        if strong_blocked_body_patterns or (
+            weak_blocked_body_patterns and not markers_found and not lightweight_markers_complete
+        ):
             degraded_reasons.append("blocked_body_pattern:" + ",".join(blocked_body_patterns))
         if profile.expected_title_contains and profile.expected_title_contains not in title:
             degraded_reasons.append("title_mismatch")
 
         status = "DEGRADED" if degraded_reasons else "FETCHED"
+        validation_level = (
+            "VISIBLE_ENTRY_MARKERS"
+            if markers_found
+            else (
+                "LIGHTWEIGHT_PUBLIC_ENTRY"
+                if lightweight_markers_complete
+                else "FAIL_CLOSED_INSUFFICIENT_VISIBLE_ENTRY"
+            )
+        )
+        failure_taxonomy = _response_failure_taxonomy(
+            degraded_reasons,
+            http_status=response.status_code,
+            validation_level=validation_level,
+        )
         snapshot_id = f"REAL-ENTRY-{profile.profile_id}-{sha256[:12]}"
         fetch_audit = {
             "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
@@ -675,6 +712,8 @@ class RealPublicEntryFetcher:
             "cross_site_discovery_enabled": False,
             "transport": (response.headers or {}).get("x-ax9s-fetch-transport", "unknown"),
             "primary_transport_error_optional": (response.headers or {}).get("x-ax9s-primary-transport-error"),
+            "entry_validation_level": validation_level,
+            "failure_taxonomy": failure_taxonomy,
         }
         raw_metadata = {
             "entry_profile_id": profile.profile_id,
@@ -685,6 +724,9 @@ class RealPublicEntryFetcher:
             "title": title,
             "visible_entry_markers_found": markers_found,
             "missing_visible_entry_markers": missing_markers,
+            "lightweight_public_entry_markers_found": lightweight_markers_found,
+            "missing_lightweight_public_entry_markers": missing_lightweight_markers,
+            "entry_validation_level": validation_level,
             "same_site_detail_links": same_site_links,
             "sample_detail_url": profile.sample_detail_url,
             "browser_verified": True,
@@ -743,6 +785,9 @@ class RealPublicEntryFetcher:
             "browser_verified_evidence": profile.browser_verified_evidence,
             "visible_entry_markers_found": markers_found,
             "missing_visible_entry_markers": missing_markers,
+            "lightweight_public_entry_markers_found": lightweight_markers_found,
+            "missing_lightweight_public_entry_markers": missing_lightweight_markers,
+            "entry_validation_level": validation_level,
             "same_site_detail_links": same_site_links,
             "sample_detail_url": profile.sample_detail_url,
             "snapshot_id_optional": snapshot_id if manifest_payload else None,
@@ -752,6 +797,7 @@ class RealPublicEntryFetcher:
             "fail_closed": bool(degraded_reasons),
             "no_broad_fallback": True,
             "fetch_audit": fetch_audit,
+            "failure_taxonomy": failure_taxonomy,
             "transport": fetch_audit["transport"],
             "redlines": _redlines(),
         }
@@ -1048,6 +1094,40 @@ def _fetch_failure_taxonomy(detail: str) -> dict[str, Any]:
     }
 
 
+def _response_failure_taxonomy(
+    degraded_reasons: list[str],
+    *,
+    http_status: int,
+    validation_level: str,
+) -> dict[str, Any] | None:
+    if not degraded_reasons:
+        return None
+    if any(reason.startswith("http_status:412") for reason in degraded_reasons):
+        failure_class = "UPSTREAM_PRECONDITION_FAILED"
+    elif any(reason.startswith("http_status:521") for reason in degraded_reasons):
+        failure_class = "UPSTREAM_WEB_SERVER_DOWN_OR_BLOCKED"
+    elif any(reason.startswith("http_status:") for reason in degraded_reasons):
+        failure_class = "UPSTREAM_HTTP_STATUS_NOT_OK"
+    elif "visible_entry_markers_missing" in degraded_reasons and validation_level == "FAIL_CLOSED_INSUFFICIENT_VISIBLE_ENTRY":
+        failure_class = "PUBLIC_ENTRY_MARKERS_MISSING_OR_SPA_SHELL"
+    elif any(reason.startswith("blocked_body_pattern") for reason in degraded_reasons):
+        failure_class = "BLOCKED_BODY_PATTERN"
+    elif "title_mismatch" in degraded_reasons:
+        failure_class = "TITLE_MISMATCH"
+    else:
+        failure_class = "PUBLIC_ENTRY_DEGRADED"
+    return {
+        "failure_class": failure_class,
+        "http_status": http_status,
+        "degraded_reasons": degraded_reasons,
+        "entry_validation_level": validation_level,
+        "retryable": failure_class in {"UPSTREAM_HTTP_STATUS_NOT_OK", "PUBLIC_ENTRY_DEGRADED"},
+        "manual_review_required": True,
+        "fail_closed": True,
+        "no_broad_fallback": True,
+    }
+
+
 def _redlines() -> dict[str, bool]:
     return {
         "private_or_gray_source_used": False,
@@ -1062,6 +1142,7 @@ def _redlines() -> dict[str, bool]:
 
 
 __all__ = [
+    "DEGRADED_ENTRY_PROFILE_IDS_AFTER_136",
     "PUBLIC_ATTACHMENT_PROFILE_IDS",
     "REAL_PUBLIC_ATTACHMENT_FETCH_MODE",
     "REAL_PUBLIC_ATTACHMENT_PROFILES",

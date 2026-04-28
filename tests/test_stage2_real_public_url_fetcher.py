@@ -13,6 +13,7 @@ if str(SRC) not in sys.path:
 
 from shared.settings import Settings
 from stage2_ingestion.real_public_url_fetcher import (
+    DEGRADED_ENTRY_PROFILE_IDS_AFTER_136,
     NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
     PUBLIC_ATTACHMENT_PROFILE_IDS,
     REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
@@ -151,11 +152,18 @@ def _beijing_platform_html() -> bytes:
 def _guangdong_shell_html() -> bytes:
     html = """
     <html>
-      <head><title>广东省公共资源交易平台</title></head>
+      <head>
+        <title>广东省公共资源交易平台</title>
+        <meta name="keywords" content="广东省公共资源交易平台,工程建设,政府采购">
+      </head>
       <body>
         <div id="app"></div>
         <script src="/portal/app.js"></script>
         <span>工程建设</span>
+        <p>广东省公共资源交易平台公开入口用于公共资源交易信息公开、工程建设、政府采购、国有产权和土地矿业等公开交易事项展示。</p>
+        <p>本测试文本模拟真实入口页 meta/正文中的公开入口说明，不模拟详情页、翻页深爬或跨站抓取。</p>
+        <p>公共资源公开信息通过公开入口展示，后续项目详情仍必须由 allowlisted URL 或人工复核承接。</p>
+        <p>公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明。</p>
       </body>
     </html>
     """
@@ -167,6 +175,21 @@ def _pdf_like_bytes() -> bytes:
 
 
 class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
+    def test_degraded_profile_set_from_136_is_explicit_for_137(self) -> None:
+        self.assertEqual(
+            DEGRADED_ENTRY_PROFILE_IDS_AFTER_136,
+            (
+                "JZSC-NATIONAL-HOME",
+                "JZSC-NATIONAL-COMPANY",
+                "JZSC-NATIONAL-PERSON",
+                "JZSC-NATIONAL-PROJECT",
+                "CREDITCHINA-HOME",
+                "GSXT-HOME",
+                "GUANGDONG-PROVINCIAL-PORTAL",
+                "GUANGDONG-YUNFU-PORTAL",
+            ),
+        )
+
     def test_registered_real_public_profile_inventory_is_bulk_hardened(self) -> None:
         entry_profile_ids = {profile.profile_id for profile in REAL_PUBLIC_ENTRY_PROFILES}
         attachment_profile_ids = set(PUBLIC_ATTACHMENT_PROFILE_IDS)
@@ -419,8 +442,53 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(carrier["source_family"], "national_construction_market_platform")
         self.assertTrue(carrier["browser_verified"])
         self.assertIn("visible_entry_markers_missing", carrier["degraded_reasons"])
+        self.assertEqual(carrier["entry_validation_level"], "FAIL_CLOSED_INSUFFICIENT_VISIBLE_ENTRY")
+        self.assertEqual(
+            carrier["failure_taxonomy"]["failure_class"],
+            "PUBLIC_ENTRY_MARKERS_MISSING_OR_SPA_SHELL",
+        )
         self.assertEqual(carrier["snapshot_id_optional"], None)
         self.assertEqual(carrier["same_site_detail_links"], [])
+
+    def test_jzsc_home_lightweight_public_entry_snapshot_is_allowed_without_crawling(self) -> None:
+        public_home_body = (
+            "<!DOCTYPE html><html><head><title>全国建筑市场监管公共服务平台（四库一平台）</title>"
+            "<meta name='description' content='全国建筑市场监管公共服务平台（原全国建筑市场建筑与诚信信息发布平台）'>"
+            "</head><body><div id='app'></div><script src='/js/app.js'></script>"
+            "<p>全国建筑市场监管公共服务平台公开首页说明，用于建设市场公开信息服务入口展示；"
+            "本测试不模拟企业、人员或项目详情抓取，不绕过登录、验证码或反爬。</p>"
+            "<p>公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明。</p>"
+            "<p>公开首页说明公开首页说明公开首页说明公开首页说明公开首页说明公开首页说明公开首页说明公开首页说明。</p>"
+            "<p>公开数据边界公开数据边界公开数据边界公开数据边界公开数据边界公开数据边界公开数据边界公开数据边界。</p>"
+            "</body></html>"
+        ).encode("utf-8")
+        transport = FakeRealPublicFetchTransport(
+            {
+                JZSC_HOME_URL: RealPublicFetchResponse(
+                    url=JZSC_HOME_URL,
+                    status_code=200,
+                    content=public_home_body,
+                    content_type="text/html; charset=utf-8",
+                    final_url=JZSC_HOME_URL,
+                )
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            carrier = RealPublicEntryFetcher(transport=transport, repository=repo).fetch_entry_url(
+                JZSC_HOME_URL,
+                profile_id="JZSC-NATIONAL-HOME",
+            )
+
+            self.assertEqual(carrier["status"], "FETCHED")
+            self.assertEqual(carrier["entry_validation_level"], "LIGHTWEIGHT_PUBLIC_ENTRY")
+            self.assertEqual(
+                carrier["lightweight_public_entry_markers_found"],
+                ["全国建筑市场监管公共服务平台", "建筑与诚信信息发布平台"],
+            )
+            self.assertFalse(carrier["fail_closed"])
+            self.assertTrue(carrier["snapshot_id_optional"])
+            self.assertEqual(repo.read_snapshot_bytes(carrier["snapshot_id_optional"]), public_home_body)
 
     def test_national_verification_upstream_block_statuses_fail_closed(self) -> None:
         transport = FakeRealPublicFetchTransport(
@@ -451,7 +519,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertTrue(credit["fail_closed"])
         self.assertTrue(gsxt["fail_closed"])
 
-    def test_representative_local_platform_entries_fetch_or_degrade_by_raw_body_strength(self) -> None:
+    def test_representative_local_platform_entries_fetch_or_lightweight_public_entry(self) -> None:
         transport = FakeRealPublicFetchTransport(
             {
                 BEIJING_HOME_URL: RealPublicFetchResponse(
@@ -487,11 +555,15 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             self.assertTrue(beijing["snapshot_id_optional"])
             self.assertEqual(repo.read_snapshot_bytes(beijing["snapshot_id_optional"]), _beijing_platform_html())
 
-            self.assertEqual(guangdong["status"], "DEGRADED")
+            self.assertEqual(guangdong["status"], "FETCHED")
             self.assertEqual(guangdong["source_family"], "provincial_bidding_platform")
-            self.assertIn("visible_entry_markers_missing", guangdong["degraded_reasons"])
-            self.assertTrue(guangdong["fail_closed"])
-            self.assertIsNone(guangdong["snapshot_id_optional"])
+            self.assertEqual(guangdong["entry_validation_level"], "LIGHTWEIGHT_PUBLIC_ENTRY")
+            self.assertEqual(
+                guangdong["lightweight_public_entry_markers_found"],
+                ["广东省公共资源交易平台", "工程建设", "政府采购"],
+            )
+            self.assertFalse(guangdong["fail_closed"])
+            self.assertTrue(guangdong["snapshot_id_optional"])
 
     def test_public_attachment_profiles_are_registered(self) -> None:
         self.assertEqual(

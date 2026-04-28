@@ -357,7 +357,7 @@ owner_real_source_task_workbench_after_134:
     - PTL-I100-136-real-public-url-fetcher-bulk-hardening
 real_public_url_fetcher_bulk_hardening_after_135:
   packet_ref: PTL-I100-136-real-public-url-fetcher-bulk-hardening
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "135 made owner-console runs visible. Practical use showed several registered real public URLs were DEGRADED due TLS/HTTP/SPAs; the fetcher must be hardened in one batch across the full registered inventory."
   target_capability_state: INTERNAL_READY
   current_gap: "已登记的 14 个入口 profile 和 2 个附件 profile 还没有统一的实战 fetcher hardening：部分 URL 可成功、部分 URL 是 SPA/上游阻断、北京主站/PDF 在 Python TLS 上失败但系统 curl 可访问。"
@@ -368,7 +368,22 @@ real_public_url_fetcher_bulk_hardening_after_135:
     - blocked_or_spa_profiles_fail_closed_with_taxonomy
     - no_uncontrolled_crawler
     - no_real_provider_call
-  next_packets_if_136_passes: []
+  next_packets_if_136_passes:
+    - PTL-I100-137-degraded-real-public-site-hardening
+degraded_real_public_site_hardening_after_136:
+  packet_ref: PTL-I100-137-degraded-real-public-site-hardening
+  status: ACTIVE
+  trigger_reason: "136 hardened all registered profiles in one batch, but 8 profiles still returned SPA shells, weak bodies, or upstream protection; each needs site-level compliant path hardening or stable fail-closed classification."
+  target_capability_state: INTERNAL_READY
+  current_gap: "JZSC, CreditChina, GSXT, and Guangdong/Yunfu entries are still not proven as directly fetchable public content through the owner runtime; they must either be upgraded through compliant public static/lightweight entry paths or remain explicit fail-closed."
+  must_prove:
+    - degraded_profile_set_is_explicit_from_136_results
+    - site_level_public_paths_are_hardened_or_fail_closed
+    - static_or_lightweight_public_entry_success_generates_snapshot_readback
+    - spa_or_upstream_blocked_profiles_keep_taxonomy
+    - no_uncontrolled_crawler
+    - no_real_provider_call
+  next_packets_if_137_passes: []
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -567,7 +582,7 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_url_fetcher_bulk_hardening
     packet_ref: PTL-I100-136-real-public-url-fetcher-bulk-hardening
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - real_public_url_fetcher_tls_http_hardening
@@ -575,6 +590,16 @@ production_gap_task_map:
       - successful_public_html_snapshot_readback
       - successful_public_attachment_snapshot_readback
       - spa_or_upstream_blocked_fail_closed_taxonomy
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: degraded_real_public_site_hardening
+    packet_ref: PTL-I100-137-degraded-real-public-site-hardening
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - degraded_profile_set_from_136_results
+      - site_level_public_path_hardening
+      - static_or_lightweight_public_entry_snapshot_readback
+      - spa_shell_and_upstream_block_taxonomy
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters

@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-136-real-public-url-fetcher-bulk-hardening
-  packet_id: PTL-I100-136-real-public-url-fetcher-bulk-hardening
-  title: "Real public URL fetcher bulk hardening"
+  task_id: PTL-I100-137-degraded-real-public-site-hardening
+  packet_id: PTL-I100-137-degraded-real-public-site-hardening
+  title: "Degraded real public site hardening"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed; PTL-I100-133A through PTL-I100-135 are also completed. 136 is now active to harden all currently registered real public URL entry/attachment profiles in bulk: successful profiles must generate snapshot/readback, and TLS/HTTP/SPA/upstream-blocked profiles must fail closed with stable taxonomy; no arbitrary crawling or external provider action."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed; PTL-I100-136 completed at ee9f354. 137 is now active to harden the 8 degraded/fail-closed real public profiles from 136 using only compliant public static/lightweight entry paths or stable fail-closed taxonomy; no arbitrary crawling, login/captcha/anti-bot bypass, or external provider action."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 67
+task_count: 68
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2708,9 +2708,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, product_acceptance]
     task_type: real_public_url_fetcher_bulk_hardening
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P41
     existing_code_state: OWNER_REAL_SOURCE_TASK_WORKBENCH_135_READY
     existing_runtime_state: REAL_PUBLIC_URL_FETCHER_BATCH_TLS_HTTP_HARDENING_REQUIRED
@@ -2751,4 +2751,62 @@ tasks:
       - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-136-real-public-url-fetcher-bulk-hardening
     suggested_packet_refs: [PTL-I100-136-real-public-url-fetcher-bulk-hardening]
+    risk_level: HIGH
+    completed_commit: ee9f354
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_REAL_PUBLIC_URL_FETCHER_BULK_HARDENING"
+  - task_id: PTL-I100-137-degraded-real-public-site-hardening
+    title: "I100-37 Degraded real public site hardening"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, product_acceptance]
+    task_type: degraded_real_public_site_hardening
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P42
+    existing_code_state: REAL_PUBLIC_URL_FETCHER_136_BULK_HARDENED
+    existing_runtime_state: DEGRADED_REAL_PUBLIC_PROFILES_REQUIRE_SITE_LEVEL_HARDENING
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Activated after 136 because 8 registered real public profiles still degrade due SPA shells or upstream blocks; owner requested continued hardening instead of one-off fixes."
+    hard_depends_on:
+      - PTL-I100-136-real-public-url-fetcher-bulk-hardening
+    objective: "对 136 批量实战后仍 degraded 的 8 个真实公开站点 profile 做站点级合规硬化：优先找可直接读取的公开静态/轻量入口并生成 snapshot/readback；不能合规读取正文的继续 fail-closed 并稳定 taxonomy；不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过或真实 provider 调用。"
+    degraded_entry_profile_count: 8
+    degraded_entry_profiles:
+      - JZSC-NATIONAL-HOME
+      - JZSC-NATIONAL-COMPANY
+      - JZSC-NATIONAL-PERSON
+      - JZSC-NATIONAL-PROJECT
+      - CREDITCHINA-HOME
+      - GSXT-HOME
+      - GUANGDONG-PROVINCIAL-PORTAL
+      - GUANGDONG-YUNFU-PORTAL
+    success_baseline_profile_count: 8
+    capability_gaps_covered:
+      - degraded_profile_set_from_136_results
+      - site_level_public_path_hardening
+      - static_or_lightweight_public_entry_snapshot_readback
+      - spa_shell_and_upstream_block_taxonomy
+      - no_uncontrolled_crawler_or_provider_call
+    non_goals:
+      - "不新增任意 crawler"
+      - "不自动翻页深爬"
+      - "不绕过登录、验证码、人机校验、权限或反爬"
+      - "不把 SPA 空壳或防护页冒充成功正文"
+      - "不新增 source family 或正式对象/枚举/gate/exception 语义"
+      - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
+    expected_outputs:
+      - "degraded profile inventory trace from 136"
+      - "site-level public path resolver or explicit fail-closed taxonomy"
+      - "snapshot/readback success path for any compliant upgraded profile"
+      - "stable SPA/upstream-block taxonomy for profiles that cannot be legally fetched"
+    acceptance_checks:
+      - degraded_profile_set_is_explicit_from_136_results
+      - site_level_public_paths_are_hardened_or_fail_closed
+      - static_or_lightweight_public_entry_success_generates_snapshot_readback
+      - spa_or_upstream_blocked_profiles_keep_taxonomy
+      - no_uncontrolled_crawler_or_provider_call
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-137-degraded-real-public-site-hardening
+    suggested_packet_refs: [PTL-I100-137-degraded-real-public-site-hardening]
     risk_level: HIGH

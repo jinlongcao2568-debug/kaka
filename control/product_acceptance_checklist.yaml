@@ -770,6 +770,30 @@ tasks:
       - blocked_or_spa_profiles_fail_closed_with_taxonomy
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-137-degraded-real-public-site-hardening:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须从 136 的实战结果中明确承接 8 个 degraded/fail-closed profile，不得继续泛泛说所有网站都可抓。"
+      - "对每个 degraded profile 必须给出站点级处置：可合规读取的公开静态/轻量入口升级为 snapshot/readback；不可合规读取的保留 fail-closed taxonomy。"
+      - "任何升级成功的 profile 必须保存 content-type、byte_size、sha256、transport audit、snapshot manifest 和 repository-backed readback。"
+      - "JZSC/广东 SPA 壳、CreditChina/GSXT 上游防护若仍不能直接读取公开正文，必须明确 review required / fail closed，不得伪造成可解析事实。"
+      - "仍不做任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+    targeted_test_expectations:
+      - stage2_real_public_url_fetcher
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - degraded_profile_set_is_explicit_from_136_results
+      - site_level_public_paths_are_hardened_or_fail_closed
+      - static_or_lightweight_public_entry_success_generates_snapshot_readback
+      - spa_or_upstream_blocked_profiles_keep_taxonomy
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

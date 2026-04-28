@@ -219,6 +219,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-134-owner-task-runner-real-source-ui",
             "PTL-I100-135-owner-real-source-task-workbench",
             "PTL-I100-136-real-public-url-fetcher-bulk-hardening",
+            "PTL-I100-137-degraded-real-public-site-hardening",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -344,11 +345,27 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-136-real-public-url-fetcher-bulk-hardening",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn("registered_14_entry_and_2_attachment_profiles_are_bulk_hardened", section["must_prove"])
         self.assertIn("tls_incompatible_public_sites_use_controlled_fallback_transport", section["must_prove"])
         self.assertIn("blocked_or_spa_profiles_fail_closed_with_taxonomy", section["must_prove"])
+        self.assertEqual(
+            section["next_packets_if_136_passes"],
+            ["PTL-I100-137-degraded-real-public-site-hardening"],
+        )
+
+    def test_137_degraded_real_public_site_hardening_records_site_level_gap(self) -> None:
+        section = self.matrix["degraded_real_public_site_hardening_after_136"]
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-137-degraded-real-public-site-hardening",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn("degraded_profile_set_is_explicit_from_136_results", section["must_prove"])
+        self.assertIn("site_level_public_paths_are_hardened_or_fail_closed", section["must_prove"])
+        self.assertIn("spa_or_upstream_blocked_profiles_keep_taxonomy", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}
