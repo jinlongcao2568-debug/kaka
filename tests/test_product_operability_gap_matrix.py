@@ -220,6 +220,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-135-owner-real-source-task-workbench",
             "PTL-I100-136-real-public-url-fetcher-bulk-hardening",
             "PTL-I100-137-degraded-real-public-site-hardening",
+            "PTL-I100-138-real-public-snapshot-to-parser-pilot",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -361,11 +362,28 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-137-degraded-real-public-site-hardening",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn("degraded_profile_set_is_explicit_from_136_results", section["must_prove"])
         self.assertIn("site_level_public_paths_are_hardened_or_fail_closed", section["must_prove"])
         self.assertIn("spa_or_upstream_blocked_profiles_keep_taxonomy", section["must_prove"])
+        self.assertEqual(
+            section["next_packets_if_137_passes"],
+            ["PTL-I100-138-real-public-snapshot-to-parser-pilot"],
+        )
+
+    def test_138_real_public_snapshot_to_parser_pilot_records_parser_gap(self) -> None:
+        section = self.matrix["real_public_snapshot_to_parser_pilot_after_137"]
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-138-real-public-snapshot-to-parser-pilot",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn("real_public_html_and_attachment_snapshots_enter_stage3_parser", section["must_prove"])
+        self.assertIn("parsed_fields_keep_source_slice_confidence_and_parser_audit", section["must_prove"])
+        self.assertIn("parser_outputs_remain_unverified_and_review_required", section["must_prove"])
+        self.assertIn("no_stage4_stage5_or_customer_visible_promotion", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}

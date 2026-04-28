@@ -372,7 +372,7 @@ real_public_url_fetcher_bulk_hardening_after_135:
     - PTL-I100-137-degraded-real-public-site-hardening
 degraded_real_public_site_hardening_after_136:
   packet_ref: PTL-I100-137-degraded-real-public-site-hardening
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "136 hardened all registered profiles in one batch, but 8 profiles still returned SPA shells, weak bodies, or upstream protection; each needs site-level compliant path hardening or stable fail-closed classification."
   target_capability_state: INTERNAL_READY
   current_gap: "JZSC, CreditChina, GSXT, and Guangdong/Yunfu entries are still not proven as directly fetchable public content through the owner runtime; they must either be upgraded through compliant public static/lightweight entry paths or remain explicit fail-closed."
@@ -383,7 +383,22 @@ degraded_real_public_site_hardening_after_136:
     - spa_or_upstream_blocked_profiles_keep_taxonomy
     - no_uncontrolled_crawler
     - no_real_provider_call
-  next_packets_if_137_passes: []
+  next_packets_if_137_passes:
+    - PTL-I100-138-real-public-snapshot-to-parser-pilot
+real_public_snapshot_to_parser_pilot_after_137:
+  packet_ref: PTL-I100-138-real-public-snapshot-to-parser-pilot
+  status: ACTIVE
+  trigger_reason: "137 produced additional compliant repository-backed public snapshots; the next product risk is whether real captured HTML/PDF artifacts can actually enter Stage3 parser readback without being promoted to verified or customer-visible output."
+  target_capability_state: INTERNAL_READY
+  current_gap: "Real public snapshots are now captured/readback by Stage2, but the Stage3 parser path must be proven against those persisted artifacts with source slices, confidence, parser audit, and fail-closed UNVERIFIED output."
+  must_prove:
+    - real_public_html_and_attachment_snapshots_enter_stage3_parser
+    - parsed_fields_keep_source_slice_confidence_and_parser_audit
+    - parser_outputs_remain_unverified_and_review_required
+    - no_stage4_stage5_or_customer_visible_promotion
+    - no_uncontrolled_crawler
+    - no_real_provider_call
+  next_packets_if_138_passes: []
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -593,13 +608,24 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: degraded_real_public_site_hardening
     packet_ref: PTL-I100-137-degraded-real-public-site-hardening
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - degraded_profile_set_from_136_results
       - site_level_public_path_hardening
       - static_or_lightweight_public_entry_snapshot_readback
       - spa_shell_and_upstream_block_taxonomy
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: real_public_snapshot_to_parser_pilot
+    packet_ref: PTL-I100-138-real-public-snapshot-to-parser-pilot
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - real_public_snapshot_to_stage3_parser_pilot
+      - repository_backed_snapshot_parser_readback
+      - parsed_field_source_slice_confidence_audit
+      - unverified_review_required_parser_boundary
+      - no_stage4_stage5_or_customer_visible_promotion
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters

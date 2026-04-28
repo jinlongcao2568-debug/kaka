@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_137_DEGRADED_REAL_PUBLIC_SITE_HARDENING
+navigation_state: PTL_I100_138_REAL_PUBLIC_SNAPSHOT_TO_PARSER_PILOT
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-136 completed locally at ee9f354; 8 registered real public profiles remain degraded/fail-closed and need site-level public-path hardening without crawler or bypass.
+activation_condition: PTL-I100-137 completed locally at 36b242d; real public source fetchers now produce multiple repository-backed snapshots and must be validated through Stage3 parser readback.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-137-degraded-real-public-site-hardening
-  title: I100-37 Degraded real public site hardening
+  task_id: PTL-I100-138-real-public-snapshot-to-parser-pilot
+  title: I100-38 Real public snapshot to parser pilot
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -34,8 +34,8 @@ currentTask:
     - control/product_operability_gap_matrix.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-137-degraded-real-public-site-hardening
-  objective: 对 136 实测仍 degraded 的 8 个真实公开站点 profile 做站点级合规硬化：能通过公开静态入口或公开轻量入口读到有效公开正文的必须升级为 snapshot/readback；仍为 SPA 壳、上游阻断或需交互/防护的必须保留 fail-closed taxonomy，不做任意 crawler、翻页深爬、登录/验证码/反爬绕过。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-138-real-public-snapshot-to-parser-pilot
+  objective: 用 133A-137 已能生成的真实公开 snapshot 驱动 Stage3 parser pilot：HTML/PDF snapshot 必须进入 parser/readback，能提取的字段保留 source slice/confidence，不能解析的保持 UNVERIFIED/review-required；不伪造 verified fact，不进入客户可见结论。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,32 +55,32 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-137-degraded-real-public-site-hardening
-    subpacket_id: PTL-I100-137-degraded-real-public-site-hardening
-    backlog_packet_ref: PTL-I100-137-degraded-real-public-site-hardening
+    packet_id: PTL-I100-138-real-public-snapshot-to-parser-pilot
+    subpacket_id: PTL-I100-138-real-public-snapshot-to-parser-pilot
+    backlog_packet_ref: PTL-I100-138-real-public-snapshot-to-parser-pilot
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: REAL_PUBLIC_URL_FETCHER_136_BULK_HARDENED
-    existing_runtime_state: DEGRADED_REAL_PUBLIC_PROFILES_REQUIRE_SITE_LEVEL_HARDENING
-    title: I100-37 Degraded real public site hardening
+    existing_code_state: REAL_PUBLIC_SOURCE_FETCHERS_137_READY
+    existing_runtime_state: REAL_PUBLIC_SNAPSHOTS_NOT_YET_VALIDATED_THROUGH_STAGE3_PARSER
+    title: I100-38 Real public snapshot to parser pilot
     status: ACTIVE
-    objective: 对 136 批量实战后仍 degraded 的 JZSC、CreditChina、GSXT、广东省/云浮入口做站点级公开路径硬化：优先寻找并登记可直接读取的公开静态/轻量入口；不能合规读取正文的继续 fail-closed 并输出明确 taxonomy；不得绕过登录、验证码、人机校验、权限或反爬。
+    objective: 选取已能成功 snapshot/readback 的真实公开 HTML/PDF profile，跑 Stage3 parse_raw_snapshot/readback，证明真实抓取物能进入解析层；解析输出必须保持 UNVERIFIED、source slice、confidence、review_required，不产生 Stage4 verified fact、Stage5 rule hit 或客户可见结论。
     depends_on:
-      - PTL-I100-136 completed locally.
+      - PTL-I100-137 completed locally.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-136-real-public-url-fetcher-bulk-hardening
-      target_active_packet: PTL-I100-137-degraded-real-public-site-hardening
+      previous_active_packet: PTL-I100-137-degraded-real-public-site-hardening
+      target_active_packet: PTL-I100-138-real-public-snapshot-to-parser-pilot
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: degraded_real_public_site_hardening
+      active_packet_kind: real_public_snapshot_to_parser_pilot
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -101,29 +101,26 @@ currentTask:
       auto_next_candidate_selection: false
       current_mainline_next_candidate_change: true
       push_allowed: false
-    real_public_source_profiles_required:
-      degraded_entry_profiles:
-        - JZSC-NATIONAL-HOME
-        - JZSC-NATIONAL-COMPANY
-        - JZSC-NATIONAL-PERSON
-        - JZSC-NATIONAL-PROJECT
-        - CREDITCHINA-HOME
-        - GSXT-HOME
-        - GUANGDONG-PROVINCIAL-PORTAL
-        - GUANGDONG-YUNFU-PORTAL
-      success_baseline_profiles:
+    real_public_snapshot_profiles_required:
+      html_snapshot_profiles:
         - GGZY-DEAL-LIST
         - CCGP-CENTRAL-NOTICES
         - CCGP-CENTRAL-AWARD-LIST
         - BEIJING-PLATFORM-HOME
         - BEIJING-GCJS-LIST
         - BEIJING-BDA-HOME
+        - JZSC-NATIONAL-HOME
+        - GUANGDONG-PROVINCIAL-PORTAL
+        - GUANGDONG-YUNFU-PORTAL
+      attachment_snapshot_profiles:
         - BEIJING-STANDARD-BIDDING-PDF
         - BEIJING-TOOLING-PDF
     non_goals:
       - 不做任意 crawler
       - 不自动翻页深爬
       - 不引入浏览器自动化作为默认抓取 runtime
+      - 不把 parser 输出升格为 Stage4 verified fact
+      - 不把 UNVERIFIED 字段进入客户可见结论
       - not an external unlock implementation
       - 不改变 canonical readiness
       - 不绕过登录、验证码、人机校验、权限或反爬
@@ -140,6 +137,7 @@ currentTask:
       - 不 push
     affected_stages:
       - stage2_ingestion
+      - stage3_parsing
       - api_transport
       - operator_frontend
       - product_acceptance
@@ -155,6 +153,7 @@ currentTask:
     change_domains:
       - automation_control_core
       - stage2_ingestion_runtime
+      - stage3_parsing_runtime
       - api_transport_runtime
       - operator_frontend_runtime
       - source_public_boundary_core
@@ -175,7 +174,10 @@ currentTask:
       - control/product_operability_gap_matrix.yaml
       - docs/AX9S_开发执行路由图.md
       - src/stage2_ingestion/real_public_url_fetcher.py
+      - src/stage3_parsing/real_parser.py
+      - src/stage3_parsing/service.py
       - tests/test_stage2_real_public_url_fetcher.py
+      - tests/test_stage3_real_parser.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_controlled_real_world_e2e_closeout.py
@@ -188,7 +190,10 @@ currentTask:
       - control/product_operability_gap_matrix.yaml
       - docs/AX9S_开发执行路由图.md
       - src/stage2_ingestion/real_public_url_fetcher.py
+      - src/stage3_parsing/real_parser.py
+      - src/stage3_parsing/service.py
       - tests/test_stage2_real_public_url_fetcher.py
+      - tests/test_stage3_real_parser.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_controlled_real_world_e2e_closeout.py
@@ -208,7 +213,6 @@ currentTask:
       - Dockerfile
       - docker-compose.yml
       - src/stage1_tasking/**
-      - src/stage3_parsing/**
       - src/stage4_verification/**
       - src/stage5_rules_evidence/**
       - src/stage6_fact_review/**
@@ -232,8 +236,11 @@ currentTask:
       scripts: []
       runtime:
         - src/stage2_ingestion/real_public_url_fetcher.py
+        - src/stage3_parsing/real_parser.py
+        - src/stage3_parsing/service.py
       tests:
         - tests/test_stage2_real_public_url_fetcher.py
+        - tests/test_stage3_real_parser.py
         - tests/test_product_acceptance_checklist.py
         - tests/test_product_operability_gap_matrix.py
         - tests/test_controlled_real_world_e2e_closeout.py
@@ -242,6 +249,7 @@ currentTask:
     required_scripts:
       - git status --short --untracked-files=all
       - python -m unittest tests.test_stage2_real_public_url_fetcher -v
+      - python -m unittest tests.test_stage3_real_parser -v
       - python -m unittest tests.test_product_acceptance_checklist -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
       - python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress -v
@@ -257,6 +265,7 @@ currentTask:
     script_timeouts:
       git status --short --untracked-files=all: 120000
       python -m unittest tests.test_stage2_real_public_url_fetcher -v: 300000
+      python -m unittest tests.test_stage3_real_parser -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
       python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress -v: 300000
@@ -272,16 +281,17 @@ currentTask:
     stop_conditions:
       - Any need to modify forbidden paths.
       - Any need to implement arbitrary crawling, recursive deep crawl, login/captcha bypass, anti-bot bypass, private/gray source collection, or unreviewed external action.
+      - Any need to treat Stage3 parser output as verified fact or customer-visible conclusion.
       - Any need to call real provider for CRM, outreach, payment, delivery, customer download, refund, or automated refund.
       - Any need to add formal object/enum/gate/exception semantics.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - degraded_profile_set_is_explicit_from_136_results
-      - site_level_public_paths_are_hardened_or_fail_closed
-      - static_or_lightweight_public_entry_success_generates_snapshot_readback
-      - spa_or_upstream_blocked_profiles_keep_taxonomy
+      - real_public_html_and_attachment_snapshots_enter_stage3_parser
+      - parsed_fields_keep_source_slice_confidence_and_parser_audit
+      - parser_outputs_remain_unverified_and_review_required
+      - no_stage4_stage5_or_customer_visible_promotion
       - no_uncontrolled_crawler_or_provider_call
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet follows 136 and focuses only on the degraded real public profiles; it does not open arbitrary crawling, login/captcha/anti-bot bypass, or any external provider action.
+  - This packet follows 137 and validates real public snapshots through Stage3 parser readback only; it does not promote parsed data to verified fact, rule hit, customer material, crawler, or provider action.

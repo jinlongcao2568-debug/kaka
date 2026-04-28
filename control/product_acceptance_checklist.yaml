@@ -794,6 +794,31 @@ tasks:
       - spa_or_upstream_blocked_profiles_keep_taxonomy
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-138-real-public-snapshot-to-parser-pilot:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须把 133A-137 已能成功生成 repository-backed snapshot 的真实公开 HTML/PDF profile 送入 Stage3 parser readback，而不是只停在 Stage2 fetch/readback。"
+      - "HTML parser 输出必须保留 source slice、locator、confidence、parser version、parser audit 和 review_required。"
+      - "PDF/附件 snapshot 如果当前无法可靠解析，必须 fail closed / review required，不得伪造字段。"
+      - "所有 Stage3 输出必须保持 verification_state=UNVERIFIED、stage4_verification_required=true、customer_visible=false。"
+      - "不得产生 Stage4 verified fact、Stage5 rule hit、Stage6 project fact、客户可见材料、真实 provider 调用、任意 crawler、翻页深爬、登录/验证码/反爬绕过。"
+    targeted_test_expectations:
+      - stage2_real_public_url_fetcher
+      - stage3_real_parser
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - real_public_html_and_attachment_snapshots_enter_stage3_parser
+      - parsed_fields_keep_source_slice_confidence_and_parser_audit
+      - parser_outputs_remain_unverified_and_review_required
+      - no_stage4_stage5_or_customer_visible_promotion
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

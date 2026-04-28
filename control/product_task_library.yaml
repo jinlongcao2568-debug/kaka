@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-137-degraded-real-public-site-hardening
-  packet_id: PTL-I100-137-degraded-real-public-site-hardening
-  title: "Degraded real public site hardening"
+  task_id: PTL-I100-138-real-public-snapshot-to-parser-pilot
+  packet_id: PTL-I100-138-real-public-snapshot-to-parser-pilot
+  title: "Real public snapshot to parser pilot"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed; PTL-I100-136 completed at ee9f354. 137 is now active to harden the 8 degraded/fail-closed real public profiles from 136 using only compliant public static/lightweight entry paths or stable fail-closed taxonomy; no arbitrary crawling, login/captcha/anti-bot bypass, or external provider action."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed; PTL-I100-137 completed at 36b242d. 138 is now active to validate repository-backed real public HTML/PDF snapshots through Stage3 parser readback; parser output remains UNVERIFIED/review-required and must not become Stage4 verified fact, Stage5 rule hit, customer-visible material, crawler, or provider action."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 68
+task_count: 69
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2761,9 +2761,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, product_acceptance]
     task_type: degraded_real_public_site_hardening
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P42
     existing_code_state: REAL_PUBLIC_URL_FETCHER_136_BULK_HARDENED
     existing_runtime_state: DEGRADED_REAL_PUBLIC_PROFILES_REQUIRE_SITE_LEVEL_HARDENING
@@ -2809,4 +2809,66 @@ tasks:
       - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-137-degraded-real-public-site-hardening
     suggested_packet_refs: [PTL-I100-137-degraded-real-public-site-hardening]
+    risk_level: HIGH
+    completed_commit: 36b242d
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_DEGRADED_REAL_PUBLIC_SITE_HARDENING"
+  - task_id: PTL-I100-138-real-public-snapshot-to-parser-pilot
+    title: "I100-38 Real public snapshot to parser pilot"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, stage3_parsing, product_acceptance]
+    task_type: real_public_snapshot_to_parser_pilot
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P43
+    existing_code_state: REAL_PUBLIC_SOURCE_FETCHERS_137_READY
+    existing_runtime_state: REAL_PUBLIC_SNAPSHOTS_NOT_YET_VALIDATED_THROUGH_STAGE3_PARSER
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Activated after 137 because multiple real public profiles now produce repository-backed snapshots, and owner practical use must prove those snapshots can flow into Stage3 parser readback without promoting unverified parser output."
+    hard_depends_on:
+      - PTL-I100-137-degraded-real-public-site-hardening
+    objective: "选取已能成功 snapshot/readback 的真实公开 HTML/PDF profile，跑 Stage3 parse_raw_snapshot/readback，证明真实抓取物能进入解析层；解析输出必须保持 UNVERIFIED、source slice、confidence、review_required，不产生 Stage4 verified fact、Stage5 rule hit 或客户可见结论。"
+    html_snapshot_profiles:
+      - GGZY-DEAL-LIST
+      - CCGP-CENTRAL-NOTICES
+      - CCGP-CENTRAL-AWARD-LIST
+      - BEIJING-PLATFORM-HOME
+      - BEIJING-GCJS-LIST
+      - BEIJING-BDA-HOME
+      - JZSC-NATIONAL-HOME
+      - GUANGDONG-PROVINCIAL-PORTAL
+      - GUANGDONG-YUNFU-PORTAL
+    attachment_snapshot_profiles:
+      - BEIJING-STANDARD-BIDDING-PDF
+      - BEIJING-TOOLING-PDF
+    capability_gaps_covered:
+      - real_public_snapshot_to_stage3_parser_pilot
+      - repository_backed_snapshot_parser_readback
+      - parsed_field_source_slice_confidence_audit
+      - unverified_review_required_parser_boundary
+      - no_stage4_stage5_or_customer_visible_promotion
+      - no_uncontrolled_crawler_or_provider_call
+    non_goals:
+      - "不新增任意 crawler"
+      - "不自动翻页深爬"
+      - "不绕过登录、验证码、人机校验、权限或反爬"
+      - "不把 parser 输出升格为 Stage4 verified fact"
+      - "不生成 Stage5 rule hit、Stage6 fact 或客户可见材料"
+      - "不新增 source family、正式对象、枚举、gate 或 exception 语义"
+      - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
+    expected_outputs:
+      - "real public HTML snapshot parser pilot readback"
+      - "public attachment/PDF snapshot parser fail-closed or readback carrier"
+      - "parsed field source slices, locator, confidence, parser audit, and review flags"
+      - "negative proof that parser output remains UNVERIFIED and not customer visible"
+    acceptance_checks:
+      - real_public_html_and_attachment_snapshots_enter_stage3_parser
+      - parsed_fields_keep_source_slice_confidence_and_parser_audit
+      - parser_outputs_remain_unverified_and_review_required
+      - no_stage4_stage5_or_customer_visible_promotion
+      - no_uncontrolled_crawler_or_provider_call
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-138-real-public-snapshot-to-parser-pilot
+    suggested_packet_refs: [PTL-I100-138-real-public-snapshot-to-parser-pilot]
     risk_level: HIGH

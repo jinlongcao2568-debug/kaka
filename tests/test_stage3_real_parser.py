@@ -15,6 +15,13 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from shared.settings import Settings
+from stage2_ingestion.real_public_url_fetcher import (
+    PUBLIC_ATTACHMENT_PROFILE_IDS,
+    REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID,
+    REAL_PUBLIC_ENTRY_PROFILE_BY_ID,
+    RealPublicFetchResponse,
+)
+from stage2_ingestion.service import Stage2Service
 from stage3_parsing.real_parser import (
     ATTACHMENT_TYPE_UNKNOWN,
     OCR_LOW_CONFIDENCE,
@@ -33,6 +40,17 @@ DOCX_CONTENT_TYPE = (
 )
 XLSX_CONTENT_TYPE = (
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+REAL_PUBLIC_HTML_SNAPSHOT_PROFILE_IDS_FOR_138 = (
+    "GGZY-DEAL-LIST",
+    "CCGP-CENTRAL-NOTICES",
+    "CCGP-CENTRAL-AWARD-LIST",
+    "BEIJING-PLATFORM-HOME",
+    "BEIJING-GCJS-LIST",
+    "BEIJING-BDA-HOME",
+    "JZSC-NATIONAL-HOME",
+    "GUANGDONG-PROVINCIAL-PORTAL",
+    "GUANGDONG-YUNFU-PORTAL",
 )
 
 
@@ -104,6 +122,14 @@ class Stage3RealParserTests(unittest.TestCase):
         self.assertEqual(carrier["parser_mode"], "DETERMINISTIC_READBACK")
         self.assertEqual(carrier["source_registry_id"], "SRC-REG-PROC-NATIONAL-HTML")
 
+    def _assert_real_public_parser_boundary(self, carrier: dict) -> None:
+        self.assertEqual(carrier["verification_state"], UNVERIFIED_STATE)
+        self.assertTrue(carrier["stage4_verification_required"])
+        self.assertFalse(carrier["customer_visible"])
+        self.assertEqual(carrier["parser_mode"], "DETERMINISTIC_READBACK")
+        self.assertIn("parser_audit", carrier)
+        self.assertIn("model_assist_governance_summary", carrier)
+
     def test_html_parse_happy_path_fields_slice_locator_confidence_and_audit(self) -> None:
         html = """
         <html>
@@ -168,6 +194,114 @@ class Stage3RealParserTests(unittest.TestCase):
         self.assertTrue(audit["started_at"])
         self.assertTrue(audit["completed_at"])
         self.assertEqual(audit["parser_errors"], [])
+
+    def test_real_public_html_snapshot_profiles_enter_stage3_parser_readback(self) -> None:
+        responses = {
+            REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id].url: RealPublicFetchResponse(
+                url=REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id].url,
+                status_code=200,
+                content=_real_public_profile_html(profile_id),
+                content_type="text/html; charset=utf-8",
+                final_url=REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id].url,
+                headers={"x-ax9s-fetch-transport": "unit_controlled_transport"},
+            )
+            for profile_id in REAL_PUBLIC_HTML_SNAPSHOT_PROFILE_IDS_FOR_138
+        }
+        transport = _FakeRealPublicFetchTransport(responses)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            for profile_id in REAL_PUBLIC_HTML_SNAPSHOT_PROFILE_IDS_FOR_138:
+                profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id]
+                with self.subTest(profile_id=profile_id):
+                    stage2_carrier = Stage2Service().fetch_real_public_entry_url(
+                        profile.url,
+                        profile_id=profile_id,
+                        repository=repo,
+                        transport=transport,
+                        lineage_refs={
+                            "source_blueprint_batch_id": "PTL-I100-138",
+                            "entry_profile_id": profile_id,
+                        },
+                    )
+                    self.assertEqual(stage2_carrier["status"], "FETCHED")
+                    snapshot_id = stage2_carrier["snapshot_id_optional"]
+                    replay = repo.replay_snapshot(snapshot_id)
+                    self.assertTrue(replay["replayable"])
+
+                    carrier = dict(Stage3Service().parse_raw_snapshot(snapshot_id, repository=repo))
+                    self._assert_real_public_parser_boundary(carrier)
+                    self.assertEqual(carrier["snapshot_id"], snapshot_id)
+                    self.assertEqual(carrier["source_url"], profile.url)
+                    self.assertEqual(carrier["source_family"], profile.source_family)
+                    self.assertEqual(carrier["attachment_type"], "HTML")
+                    self.assertIn(carrier["parse_state"], {"PARSED", "PARSED_WITH_REVIEW"})
+
+                    fields = {field["field_name"]: field for field in carrier["parsed_fields"]}
+                    self.assertIn("project_name", fields)
+                    project_field = fields["project_name"]
+                    self.assertEqual(project_field["field_value_optional"], f"{profile_id} 测试项目")
+                    self.assertEqual(
+                        project_field["source_slice_sha256"],
+                        hashlib.sha256(project_field["source_slice"].encode("utf-8")).hexdigest(),
+                    )
+                    self.assertGreater(project_field["confidence"], 0)
+                    self.assertEqual(project_field["parser_version"], carrier["parser_version"])
+                    self.assertIn("locator", project_field)
+                    self.assertFalse(project_field["review_required"])
+                    self.assertIn("read_stage2_snapshot_readback", carrier["parser_audit"]["parser_steps"])
+                    self.assertIn("extract_html_text_and_tables", carrier["parser_audit"]["parser_steps"])
+                    self.assertNotIn("stage4_verified_fact", carrier)
+                    self.assertNotIn("rule_hit", carrier)
+                    self.assertNotIn("customer_material", carrier)
+
+    def test_real_public_pdf_attachment_snapshots_enter_stage3_as_review_required(self) -> None:
+        responses = {
+            REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID[profile_id].url: RealPublicFetchResponse(
+                url=REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID[profile_id].url,
+                status_code=200,
+                content=_pdf_like_attachment(profile_id),
+                content_type="application/pdf",
+                final_url=REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID[profile_id].url,
+                headers={"x-ax9s-fetch-transport": "unit_controlled_transport"},
+            )
+            for profile_id in PUBLIC_ATTACHMENT_PROFILE_IDS
+        }
+        transport = _FakeRealPublicFetchTransport(responses)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            for profile_id in PUBLIC_ATTACHMENT_PROFILE_IDS:
+                profile = REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID[profile_id]
+                with self.subTest(profile_id=profile_id):
+                    stage2_carrier = Stage2Service().fetch_real_public_attachment_url(
+                        profile.url,
+                        profile_id=profile_id,
+                        repository=repo,
+                        transport=transport,
+                        detail_page_url=profile.detail_page_url_optional,
+                        lineage_refs={
+                            "source_blueprint_batch_id": "PTL-I100-138",
+                            "attachment_profile_id": profile_id,
+                        },
+                    )
+                    self.assertEqual(stage2_carrier["status"], "FETCHED")
+                    snapshot_id = stage2_carrier["snapshot_id_optional"]
+
+                    carrier = dict(Stage3Service().parse_raw_snapshot(snapshot_id, repository=repo))
+                    self._assert_real_public_parser_boundary(carrier)
+                    self.assertEqual(carrier["snapshot_id"], snapshot_id)
+                    self.assertEqual(carrier["source_url"], profile.url)
+                    self.assertEqual(carrier["source_family"], profile.source_family)
+                    self.assertEqual(carrier["attachment_type"], "PDF")
+                    self.assertEqual(carrier["parse_state"], "REVIEW_REQUIRED")
+                    self.assertEqual(carrier["parsed_fields"], [])
+                    self.assertTrue(carrier["review_required"])
+                    self.assertIn(PDF_TEXT_UNAVAILABLE, carrier["parse_error_taxonomy"])
+                    self.assertIn(
+                        "degrade_to_review:pdf_text_unavailable",
+                        carrier["parser_audit"]["fallback_steps"],
+                    )
 
     def test_pdf_degrades_to_review_without_fabricated_fields(self) -> None:
         carrier = self._parse(
@@ -336,6 +470,65 @@ def _build_xlsx_bytes() -> bytes:
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("xl/worksheets/sheet1.xml", worksheet_xml)
     return buffer.getvalue()
+
+
+class _FakeRealPublicFetchTransport:
+    def __init__(self, responses: dict[str, RealPublicFetchResponse]) -> None:
+        self.responses = responses
+        self.call_log: list[dict[str, object]] = []
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        self.call_log.append(
+            {
+                "url": url,
+                "timeout_seconds": timeout_seconds,
+                "user_agent": user_agent,
+            }
+        )
+        return self.responses[url]
+
+
+def _real_public_profile_html(profile_id: str) -> bytes:
+    profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id]
+    markers = profile.visible_entry_markers or profile.lightweight_public_entry_markers
+    if profile.lightweight_public_entry_markers and profile_id in {
+        "JZSC-NATIONAL-HOME",
+        "GUANGDONG-PROVINCIAL-PORTAL",
+        "GUANGDONG-YUNFU-PORTAL",
+    }:
+        markers = profile.lightweight_public_entry_markers
+    marker_text = " ".join(markers)
+    filler = "公开入口说明" * 80
+    html = f"""
+    <html>
+      <head>
+        <title>{profile.expected_title_contains} - {profile.site_name}</title>
+        <meta name="description" content="{marker_text}">
+      </head>
+      <body>
+        <h1>{profile.expected_title_contains}</h1>
+        <p>{marker_text}</p>
+        <p>{filler}</p>
+        <table>
+          <tr><th>项目名称</th><td>{profile_id} 测试项目</td></tr>
+          <tr><th>招标人</th><td>{profile.site_name} 测试招标人</td></tr>
+          <tr><th>公告日期</th><td>2026-04-28</td></tr>
+        </table>
+        <a href="{profile.sample_detail_url}">公开详情样例</a>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _pdf_like_attachment(profile_id: str) -> bytes:
+    return b"%PDF-1.4\n" + (f"{profile_id} public attachment\n".encode("utf-8") * 60)
 
 
 if __name__ == "__main__":
