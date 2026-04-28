@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_142_REAL_PUBLIC_PRODUCT_PACKAGE_TO_STAGE7_SALES_LEADPACK_PILOT
+navigation_state: PTL_I100_143_REAL_PUBLIC_STAGE7_TO_STAGE8_STAGE9_CONTROLLED_EXECUTION_READBACK_PILOT
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-141 completed locally at bf0f1dd; real public Stage6 product package readiness now needs to enter Stage7 real challenger, CRM/quote readiness, and LeadPack package readback without customer-visible publication or provider execution.
+activation_condition: PTL-I100-142 completed locally at bf3402a; real public Stage7 sales/LeadPack readback now needs to enter Stage8 outreach outbox and Stage9 order/payment/delivery ledger readback without real provider execution, customer-visible delivery, refund, or automated refund.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
-  title: I100-42 Real public product package to Stage7 sales LeadPack pilot
+  task_id: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+  title: I100-43 Real public Stage7 to Stage8/9 controlled execution readback pilot
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -34,8 +34,8 @@ currentTask:
     - control/product_operability_gap_matrix.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
-  objective: 用 141 已验证的真实公开 Stage6 product package readiness 驱动 Stage7 real challenger、sales lead、offer、CRM/quote workbench 和 LeadPack package/readback；Stage7 必须保留 Stage6 真实公开证据链 refs，并保持 customer-visible、external delivery、CRM/quote provider execution、Stage8/9 执行关闭。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+  objective: 用 142 已验证的真实公开 Stage7 sales/LeadPack readback 驱动 Stage8 outreach outbox 与 Stage9 order/payment/delivery ledger readback；Stage8/9 必须保留 Stage7/Stage6 真实公开证据链 refs，并保持真实 provider call、真实发送、真实收款、真实交付、客户下载、退款和自动退款关闭。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,32 +55,32 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
-    subpacket_id: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
-    backlog_packet_ref: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
+    packet_id: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+    subpacket_id: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+    backlog_packet_ref: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: REAL_PUBLIC_STAGE6_PRODUCT_PACKAGE_141_READY
-    existing_runtime_state: REAL_PUBLIC_PRODUCT_PACKAGE_NOT_YET_VALIDATED_THROUGH_STAGE7_SALES_LEADPACK
-    title: I100-42 Real public product package to Stage7 sales LeadPack pilot
+    existing_code_state: REAL_PUBLIC_STAGE7_SALES_LEADPACK_142_READY
+    existing_runtime_state: REAL_PUBLIC_STAGE7_OUTPUT_NOT_YET_VALIDATED_THROUGH_STAGE8_STAGE9_READBACK
+    title: I100-43 Real public Stage7 to Stage8/9 controlled execution readback pilot
     status: ACTIVE
-    objective: 将真实公开 Stage6 product package readiness 送入 Stage7 销售/LeadPack readiness，证明 real challenger、sales lead、offer、CRM/quote workbench、LeadPack package 绑定真实公开证据链；不发布客户材料、不触发 provider 或 Stage8/9。
+    objective: 将真实公开 Stage7 sales/LeadPack readback 送入 Stage8 outreach outbox 和 Stage9 order/payment/delivery ledger readback，证明触达、订单、支付、交付、回写账本绑定真实公开证据链；不真实发送、不真实 provider call、不真实收款交付、不客户下载、不退款或自动退款。
     depends_on:
-      - PTL-I100-141 completed locally at bf0f1dd.
+      - PTL-I100-142 completed locally at bf3402a.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
-      target_active_packet: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
+      previous_active_packet: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
+      target_active_packet: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: real_public_product_package_to_stage7_sales_leadpack_pilot
+      active_packet_kind: real_public_stage7_to_stage8_stage9_controlled_execution_readback_pilot
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -123,6 +123,8 @@ currentTask:
       - stage5_rules_evidence
       - stage6_fact_review
       - stage7_sales
+      - stage8_outreach
+      - stage9_delivery
       - product_acceptance
     risk_level: HIGH
     change_class: MANDATORY_HUMAN_REVIEW
@@ -141,6 +143,8 @@ currentTask:
       - stage5_rules_evidence_runtime
       - stage6_fact_review_runtime
       - stage7_sales_runtime
+      - stage8_outreach_runtime
+      - stage9_delivery_runtime
       - source_public_boundary_core
       - product_acceptance_core
       - scripts_and_tests_general
@@ -158,8 +162,10 @@ currentTask:
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
       - docs/AX9S_开发执行路由图.md
-      - src/stage7_sales/service.py
-      - tests/test_real_challenger_identification.py
+      - src/stage8_outreach/service.py
+      - src/stage9_delivery/service.py
+      - tests/test_stage8_resolution_closure.py
+      - tests/test_stage9_impact_executor.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_controlled_real_world_e2e_closeout.py
@@ -171,8 +177,10 @@ currentTask:
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
       - docs/AX9S_开发执行路由图.md
-      - src/stage7_sales/service.py
-      - tests/test_real_challenger_identification.py
+      - src/stage8_outreach/service.py
+      - src/stage9_delivery/service.py
+      - tests/test_stage8_resolution_closure.py
+      - tests/test_stage9_impact_executor.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_controlled_real_world_e2e_closeout.py
@@ -197,8 +205,6 @@ currentTask:
       - src/stage4_verification/**
       - src/stage5_rules_evidence/**
       - src/stage6_fact_review/**
-      - src/stage8_outreach/**
-      - src/stage9_delivery/**
       - src/storage/**
       - src/shared/**
       - src/api/**
@@ -214,9 +220,11 @@ currentTask:
       handoff: []
       scripts: []
       runtime:
-        - src/stage7_sales/service.py
+        - src/stage8_outreach/service.py
+        - src/stage9_delivery/service.py
       tests:
-        - tests/test_real_challenger_identification.py
+        - tests/test_stage8_resolution_closure.py
+        - tests/test_stage9_impact_executor.py
         - tests/test_product_acceptance_checklist.py
         - tests/test_product_operability_gap_matrix.py
         - tests/test_controlled_real_world_e2e_closeout.py
@@ -224,9 +232,8 @@ currentTask:
         - tests/test_external_unlock_prerequisites.py
     required_scripts:
       - git status --short --untracked-files=all
-      - python -m unittest tests.test_real_challenger_identification -v
-      - python -m unittest tests.test_stage7_runtime_closure -v
-      - python -m unittest tests.test_leadpack_candidate_surface -v
+      - python -m unittest tests.test_stage8_resolution_closure -v
+      - python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v
       - python -m unittest tests.test_product_acceptance_checklist -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
       - python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress -v
@@ -241,9 +248,8 @@ currentTask:
       - git status --short --untracked-files=all
     script_timeouts:
       git status --short --untracked-files=all: 120000
-      python -m unittest tests.test_real_challenger_identification -v: 300000
-      python -m unittest tests.test_stage7_runtime_closure -v: 300000
-      python -m unittest tests.test_leadpack_candidate_surface -v: 300000
+      python -m unittest tests.test_stage8_resolution_closure -v: 300000
+      python -m unittest tests.test_stage9_impact_executor.TestStage9ImpactExecutor -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
       python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress -v: 300000
@@ -259,17 +265,17 @@ currentTask:
     stop_conditions:
       - Any need to modify forbidden paths.
       - Any need to implement arbitrary crawling, recursive deep crawl, login/captcha bypass, anti-bot bypass, private/gray source collection, or unreviewed external action.
-      - Any need to treat Stage7 LeadPack readiness as customer-visible publication, legal conclusion, provider execution, Stage8 outreach, or Stage9 payment/delivery.
+      - Any need to treat Stage7 LeadPack readiness, Stage8 outbox, or Stage9 ledger readback as customer-visible publication, legal conclusion, real provider execution, real outreach, real payment, real delivery, customer download, real refund, or automated refund.
       - Any need to call real provider for CRM, outreach, payment, delivery, customer download, refund, or automated refund.
       - Any need to add formal object/enum/gate/exception semantics.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - real_public_stage6_product_package_enters_stage7_sales_and_leadpack_readback
-      - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
-      - weak_or_review_stage6_package_fails_closed_before_customer_delivery
-      - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
+      - real_public_stage7_sales_leadpack_enters_stage8_outbox_readback
+      - real_public_stage8_outbox_enters_stage9_order_payment_delivery_ledger_readback
+      - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
+      - weak_or_review_stage7_package_fails_closed_before_real_execution
       - no_uncontrolled_crawler_or_provider_call
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet follows 141 and validates real public Stage6 product package readiness through Stage7 sales/LeadPack readback only; it does not publish customer material, execute provider calls, Stage8 outreach, Stage9 payment/delivery, crawler, or external release.
+  - This packet follows 142 and validates real public Stage7 sales/LeadPack readback through Stage8 outreach outbox and Stage9 order/payment/delivery ledger readback only; it does not publish customer material, execute provider calls, real sends, real payments, real deliveries, customer downloads, refunds, crawler, or external release.

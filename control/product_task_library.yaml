@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
-  packet_id: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
-  title: "Real public product package to Stage7 sales LeadPack pilot"
+  task_id: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+  packet_id: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+  title: "Real public Stage7 to Stage8/9 controlled execution readback pilot"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed; PTL-I100-141 completed at bf0f1dd. 142 is now active to validate real public Stage6 product package readiness through Stage7 sales/LeadPack readback; customer-visible publication, provider execution, Stage8 outreach, and Stage9 payment/delivery remain blocked."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-142 completed at bf3402a. 143 is now active to validate the same real public Stage7 sales/LeadPack readback through Stage8 outreach outbox and Stage9 order/payment/delivery ledger readback; real provider execution, real send, real payment, real delivery, customer download, refund, and automated refund remain blocked."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 73
+task_count: 74
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -3036,9 +3036,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, product_acceptance]
     task_type: real_public_product_package_to_stage7_sales_leadpack_pilot
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P47
     existing_code_state: REAL_PUBLIC_STAGE6_PRODUCT_PACKAGE_141_READY
     existing_runtime_state: REAL_PUBLIC_PRODUCT_PACKAGE_NOT_YET_VALIDATED_THROUGH_STAGE7_SALES_LEADPACK
@@ -3073,4 +3073,54 @@ tasks:
       - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
     suggested_packet_refs: [PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot]
+    risk_level: HIGH
+    completed_commit: bf3402a
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_REAL_PUBLIC_PRODUCT_PACKAGE_TO_STAGE7_SALES_LEADPACK_PILOT"
+  - task_id: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+    title: "I100-43 Real public Stage7 to Stage8/9 controlled execution readback pilot"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, product_acceptance]
+    task_type: real_public_stage7_to_stage8_stage9_controlled_execution_readback_pilot
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P48
+    existing_code_state: REAL_PUBLIC_STAGE7_SALES_LEADPACK_142_READY
+    existing_runtime_state: REAL_PUBLIC_STAGE7_OUTPUT_NOT_YET_VALIDATED_THROUGH_STAGE8_STAGE9_READBACK
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Activated after 142 because real public Stage7 sales/LeadPack readback exists; the next controlled product risk is whether that same evidence-backed sales package can flow through Stage8 outreach outbox and Stage9 order/payment/delivery ledger readback without becoming real provider execution."
+    hard_depends_on:
+      - PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
+    objective: "将真实公开 Stage7 sales/LeadPack readback 送入 Stage8 outreach outbox 和 Stage9 order/payment/delivery ledger readback，证明触达、订单、支付、交付、回写账本绑定 Stage7/Stage6 真实公开证据链；不真实发送、不真实 provider call、不真实收款交付、不客户下载、不退款或自动退款。"
+    capability_gaps_covered:
+      - real_public_stage7_sales_leadpack_to_stage8_outbox_readback
+      - real_public_stage8_outbox_to_stage9_order_payment_delivery_ledger_readback
+      - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
+      - weak_or_review_stage7_package_fails_closed_before_real_execution
+      - no_customer_visible_delivery_provider_execution_or_refund
+      - no_uncontrolled_crawler_or_provider_call
+    non_goals:
+      - "不新增任意 crawler"
+      - "不自动翻页深爬"
+      - "不绕过登录、验证码、人机校验、权限或反爬"
+      - "不新增正式对象、枚举、gate 或 exception 语义"
+      - "不把 Stage8 outbox 或 Stage9 ledger readback 当成真实外发、真实收款、真实交付或客户下载"
+      - "不执行真实 CRM/quote provider、真实 Stage8 触达、真实 Stage9 支付/交付、真实退款或自动退款"
+    expected_outputs:
+      - "Stage8Service real public sales package to outbox readback seam"
+      - "Stage9Service real public outbox to order/payment/delivery ledger readback seam"
+      - "Stage8/Stage9 source refs bound to Stage7 and Stage6 real public chain"
+      - "review/fail-closed Stage7 results prevent real execution while preserving readback"
+      - "negative proof that Stage8/Stage9 readback remains internal controlled execution evidence only"
+    acceptance_checks:
+      - real_public_stage7_sales_leadpack_enters_stage8_outbox_readback
+      - real_public_stage8_outbox_enters_stage9_order_payment_delivery_ledger_readback
+      - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
+      - weak_or_review_stage7_package_fails_closed_before_real_execution
+      - no_customer_visible_delivery_provider_execution_or_refund
+      - no_uncontrolled_crawler_or_provider_call
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+    suggested_packet_refs: [PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot]
     risk_level: HIGH

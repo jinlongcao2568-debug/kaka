@@ -24,7 +24,7 @@
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
 - Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；真实触达、真实支付、真实交付是目标能力，但 `external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked-by-default / governed / approval-gated，直到 dedicated task 与验收放行。
 - 自动退款执行不属于目标能力；退款只允许作为 manual exception record、manual approval/audit 与 governed review 处理。
-- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot`，承接 141 已能生成的真实公开 Stage6 product package readiness，验证其进入 Stage7 sales / CRM quote / LeadPack readback；Stage7 readback 不得自动成为客户可见材料、provider execution、Stage8/9 执行或法律结论，不放开任意 crawler、登录/验证码/反爬绕过、public software release、未审批 live provider、真实下载、真实退款或自动退款。
+- 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot`，承接 142 已能生成的真实公开 Stage7 sales / CRM quote / LeadPack readback，验证其进入 Stage8 outreach outbox 与 Stage9 order / payment / delivery ledger readback；Stage8/9 readback 不得自动成为真实 provider execution、真实发送、真实支付、真实交付、客户下载、退款或自动退款，不放开任意 crawler、登录/验证码/反爬绕过、public software release 或未审批 live provider。
 - `PTL-I100-118R-final-product-operational-reacceptance` 已完成并本地提交：`f977b5b`；`PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout` 已完成并本地提交：`106c4a1`，受控真实世界 e2e closeout 已闭合。当前 132 处理前端实际可用性检查中发现的“只有入口、缺产品化工作台”问题。
 - 118R 已把剩余真实运营缺口登记为 127-131 五个完整任务并已完成；132 是后续前端产品化强化包，不重开 Stage1-9 runtime。`PTL-I100-127-owner-operator-frontend-and-customer-portal` 已补 owner console / customer artifact portal，`PTL-I100-128-real-public-source-field-validation-and-coverage` 已补 114A-114I 受控手工公开样本字段覆盖报告，`PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund` 已补 provider binding matrix / credential redaction / sandbox evidence / callback validation / kill-switch readback，`PTL-I100-130-llm-assisted-parsing-review-and-sales-governance` 已补受治理 model-assist readback，`PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout` 已补受控真实世界 e2e closeout。
 - `PTL-I100-111F-open-capability-registry-route-doc-sync` 已完成并本地提交：`1c403c7`；它只同步开放能力基线到注册表、路线图、D1-D14 补表和测试，不再是 current active packet。
@@ -37,7 +37,7 @@
 - `PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交：`209c4cd`；它不再是 current active packet，仅作为把 current_mainline_next_candidate 推进到 `PTL-INT` 的历史控制面参照。
 - `PTL-S89-outreach-writeback-delivery-governance` scoped-execution 已完成并提交：`c36dd9d`；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S78-contact-candidate-compliance-preview` scoped-execution 已完成并提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
-- 本轮只做 `PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot` 的真实 Stage6 product package readiness 到 Stage7 sales / CRM quote / LeadPack readback 受控验证与对应控制面/测试同步；不改 D1-D14 正文 / contracts / handoff / scripts / fixtures / Stage1/2/3/4/5/6/8/9 runtime / storage runtime / shared runtime，不把 Stage7 readback 发布为客户可见材料、provider execution 或下游执行，不放开 external release、未审批 Stage8 live send、未审批 Stage9 live payment/delivery、真实下载、真实退款、自动退款或真实外部模型调用。
+- 本轮只做 `PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot` 的真实 Stage7 sales / LeadPack readback 到 Stage8 outbox 与 Stage9 ledger readback 受控验证与对应控制面/测试同步；不改 D1-D14 正文 / contracts / handoff / scripts / fixtures / Stage1/2/3/4/5/6/7 runtime / storage runtime / shared runtime，不把 Stage8/9 readback 发布为客户可见材料、真实 provider execution 或真实支付交付，不放开 external release、未审批 Stage8 live send、未审批 Stage9 live payment/delivery、真实下载、真实退款、自动退款或真实外部模型调用。
 - `PTL-S56-project-fact-review-report` scoped-execution 已完成并已提交；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S45-rule-evidence-dual-gate` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
 - `PTL-S34-object-lineage-verification-handoff` scoped-execution 已完成并 closeout；它不再是 current active packet，也不再是 current_mainline_next_candidate。
@@ -157,8 +157,8 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot`；本轮把真实来源验证从“Stage6 product package readiness pilot”推进到“Stage7 sales / CRM quote / LeadPack readback pilot”，默认不执行任意 crawler、未审批 live provider 调用或真实客户下载。
-- 当前候选池 next candidate：`PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot` 已进入 active；完成后不自动激活下一包。
+- 当前 active packet：`PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot`；本轮把真实来源验证从“Stage7 sales / LeadPack readback pilot”推进到“Stage8 outbox / Stage9 ledger readback pilot”，默认不执行任意 crawler、未审批 live provider 调用、真实发送、真实支付、真实交付或真实客户下载。
+- 当前候选池 next candidate：`PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot` 已进入 active；完成后不自动激活下一包。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入 provider/live 执行。
 - `PTL-I100-127-owner-operator-frontend-and-customer-portal`：已补实际操作台、客户 artifact 门户、审批审计可视化和客户授权下载入口。
 - `PTL-I100-128-real-public-source-field-validation-and-coverage`：已用受控手工公开 snapshot 验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，不绕登录/验证码/反爬；真实站点实战仍留给 131 或后续按站点 dedicated packet。
@@ -177,7 +177,8 @@
 - `PTL-I100-139-real-public-parser-to-verification-pilot`：已完成并提交 `b3ab9c6`；把真实公开 Stage3 parsed carrier 送入 Stage4 public verification/readback，验证 parsed field refs、snapshot refs、evidence grade 和 fail-closed taxonomy，不生成 Stage5/Stage6/客户可见输出。
 - `PTL-I100-140-real-public-verification-to-rule-evidence-pilot`：已完成并提交 `65baa08`；把真实公开 Stage4 public verification carrier 送入 Stage5 rule/evidence gate/readback，验证 rule_hit/evidence/readback 绑定 verification run、source snapshot 和 parsed field refs，review/weak 结果 fail-closed 到 REVIEW，不生成 Stage6 fact 或客户可见输出。
 - `PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot`：已完成并提交 `bf0f1dd`；把真实公开 Stage5 rule/evidence bundle 送入 Stage6 product package readiness，验证产品包 carrier/readback 绑定 verification、snapshot、parse、rule/evidence gate refs，review/weak 结果 fail-closed 到 REVIEW_REQUIRED，不生成客户可见输出或下游执行。
-- `PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot`：当前 active；把真实公开 Stage6 product package readiness 送入 Stage7 sales / CRM quote / LeadPack readback，验证销售线索、报价草稿、LeadPack package 绑定 Stage6 真实公开证据链，review/weak 结果 fail-closed，不生成客户可见输出、provider execution 或 Stage8/9 执行。
+- `PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot`：已完成并提交 `bf3402a`；把真实公开 Stage6 product package readiness 送入 Stage7 sales / CRM quote / LeadPack readback，验证销售线索、报价草稿、LeadPack package 绑定 Stage6 真实公开证据链，review/weak 结果 fail-closed，不生成客户可见输出、provider execution 或 Stage8/9 执行。
+- `PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot`：当前 active；把真实公开 Stage7 sales / LeadPack readback 送入 Stage8 outreach outbox 和 Stage9 order / payment / delivery ledger readback，验证触达、订单、支付、交付和回写账本绑定真实公开证据链，review/weak 结果 fail-closed，不真实发送、不真实 provider call、不真实收款交付、不客户下载、不退款或自动退款。
 - Stage7 模块边界重构：对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交 `2601482`；该方向当前不再 recommended_now，只作为已闭合近端历史参照。
 - 132 已由 dedicated current_task 激活；本轮完成后不自动进入新任务。推荐理由：先让 owner 实际操作界面匹配已闭合的后端能力，再做更深的实战验证或 UI 迭代。
 - Internal preview 产品化强化（`PTL-INT-internal-preview-productization-strengthening`）：已完成 scoped-execution 并提交 `f788a2b`；不再是 current active packet，也不再是 current_mainline_next_candidate，仅作为该方向的已闭合历史参照；不是 external release 或客户平台放行。

@@ -73,6 +73,8 @@ _STAGE8_STATIC_VALIDATION_ANCHORS = (
 
 class Stage8Service:
     H07_AUTHORITATIVE_FIELDS = STAGE8_H07_AUTHORITATIVE_FIELDS
+    REAL_PUBLIC_STAGE7_READBACK_INPUT_KEY = "stage7_real_public_product_package_readback_summary"
+    REAL_PUBLIC_STAGE8_READBACK_KEY = "stage8_real_public_sales_execution_readback_summary"
 
     def __init__(self, settings: Any | None = None) -> None:
         self.settings = settings or Settings.from_env()
@@ -772,6 +774,93 @@ class Stage8Service:
             trace_rules=trace_rules,
             inputs=inputs_out,
         )
+
+    def _build_real_public_stage8_readback_summary(self, result: StageBundle) -> dict[str, Any]:
+        stage7_summary = dict(result.inputs.get(self.REAL_PUBLIC_STAGE7_READBACK_INPUT_KEY, {}))
+        outbox = dict(result.inputs.get("outreach_execution_outbox_snapshot", {}))
+        outbox_readiness = dict(result.inputs.get("outbox_readiness_summary", {}))
+
+        fail_closed_reasons: list[str] = []
+        if not stage7_summary:
+            fail_closed_reasons.append("stage7_real_public_product_package_readback_missing")
+        if stage7_summary.get("real_public_sales_package_chain_state") != "INTERNAL_READY":
+            fail_closed_reasons.append(
+                f"stage7_real_public_sales_package_chain_state={stage7_summary.get('real_public_sales_package_chain_state', 'MISSING')}"
+            )
+        if stage7_summary.get("readback_state") != "READBACK_READY":
+            fail_closed_reasons.append(
+                f"stage7_readback_state={stage7_summary.get('readback_state', 'MISSING')}"
+            )
+        if not outbox.get("outbox_id"):
+            fail_closed_reasons.append("stage8_outbox_missing")
+        if outbox.get("real_send_attempted"):
+            fail_closed_reasons.append("stage8_real_send_attempted_forbidden")
+        if outbox.get("provider_result_readback", {}).get("provider_call_executed"):
+            fail_closed_reasons.append("stage8_real_provider_call_executed_forbidden")
+
+        chain_state = "INTERNAL_READY" if not fail_closed_reasons else "REVIEW_REQUIRED"
+        return {
+            "readback_state": "READBACK_READY" if not fail_closed_reasons else "REVIEW_REQUIRED",
+            "real_public_outreach_chain_state": chain_state,
+            "stage7_real_public_sales_package_chain_state": stage7_summary.get(
+                "real_public_sales_package_chain_state"
+            ),
+            "outbox_id": outbox.get("outbox_id"),
+            "execution_id": outbox.get("execution_id"),
+            "outreach_plan_id": outbox.get("outreach_plan_id"),
+            "touch_record_id": outbox.get("touch_record_id"),
+            "contact_target_id": outbox.get("contact_target_id"),
+            "opportunity_id": outbox.get("opportunity_id"),
+            "adapter_family": outbox.get("adapter_family"),
+            "sandbox_execution_state": outbox.get("sandbox_execution_state"),
+            "provider_execution_state": outbox.get("provider_execution_state"),
+            "approved_provider_execution_enabled": bool(
+                outbox.get("approved_provider_execution_enabled", False)
+            ),
+            "live_execution_enabled": bool(outbox.get("live_execution_enabled", False)),
+            "real_send_attempted": bool(outbox.get("real_send_attempted", False)),
+            "external_delivery_enabled": bool(outbox.get("external_delivery_enabled", False)),
+            "provider_call_executed": bool(
+                dict(outbox.get("provider_result_readback", {})).get("provider_call_executed", False)
+            ),
+            "real_provider_call_enabled": bool(
+                dict(outbox.get("provider_result_readback", {})).get(
+                    "real_provider_call_enabled",
+                    False,
+                )
+            ),
+            "source_refs": {
+                "stage7_real_public_product_package_readback": stage7_summary,
+                "stage7_source_refs": dict(stage7_summary.get("source_refs", {})),
+                "stage8_outbox_id": outbox.get("outbox_id"),
+                "stage8_execution_id": outbox.get("execution_id"),
+                "contact_target_id": outbox.get("contact_target_id"),
+                "outreach_plan_id": outbox.get("outreach_plan_id"),
+                "touch_record_id": outbox.get("touch_record_id"),
+                "saleable_opportunity_id": outbox.get("opportunity_id"),
+            },
+            "outbox_readiness_summary": outbox_readiness,
+            "fail_closed_reasons": fail_closed_reasons,
+            "customer_visible_material_generated": False,
+            "customer_visible_enabled": False,
+            "external_delivery_enabled": False,
+            "stage9_payment_delivery_triggered": False,
+            "real_send_or_provider_call_executed": False,
+            "legal_conclusion_generated": False,
+        }
+
+    def run_real_public_sales_execution_readback(
+        self,
+        payload: Mapping[str, Any] | StageBundle,
+    ) -> StageBundle:
+        result = self.run(payload)
+        summary = self._build_real_public_stage8_readback_summary(result)
+        result.inputs[self.REAL_PUBLIC_STAGE8_READBACK_KEY] = summary
+        result.handoff[self.REAL_PUBLIC_STAGE8_READBACK_KEY] = summary
+        trace = dict(result.inputs.get("stage8_resolution_trace", {}))
+        trace[self.REAL_PUBLIC_STAGE8_READBACK_KEY] = summary
+        result.inputs["stage8_resolution_trace"] = trace
+        return result
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff

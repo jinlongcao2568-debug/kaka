@@ -923,6 +923,32 @@ tasks:
       - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须把 142 产生的真实公开 Stage7 sales / LeadPack readback 送入 Stage8 outreach outbox readback。"
+      - "必须把同一 Stage8 outbox 送入 Stage9 order / payment / delivery ledger readback。"
+      - "Stage8/Stage9 readback 必须保留 Stage7/Stage6 真实公开证据链 refs，包括 verification、snapshot、parse、rule/evidence gate、product package、sales lead、LeadPack package、outbox 和 ledger refs。"
+      - "Stage7 REVIEW、弱证据或缺真实公开 refs 必须 fail closed / REVIEW_REQUIRED，不得伪造真实触达、真实支付或真实交付。"
+      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+    targeted_test_expectations:
+      - stage8_resolution_closure
+      - stage9_impact_executor
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - real_public_stage7_sales_leadpack_enters_stage8_outbox_readback
+      - real_public_stage8_outbox_enters_stage9_order_payment_delivery_ledger_readback
+      - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
+      - weak_or_review_stage7_package_fails_closed_before_real_execution
+      - no_customer_visible_delivery_provider_execution_or_refund
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

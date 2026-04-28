@@ -225,6 +225,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-140-real-public-verification-to-rule-evidence-pilot",
             "PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot",
             "PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot",
+            "PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -459,7 +460,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn(
             "real_public_stage6_product_package_enters_stage7_sales_and_leadpack_readback",
@@ -477,6 +478,27 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger",
             section["must_prove"],
         )
+
+    def test_143_real_public_stage7_to_stage8_stage9_records_execution_readback_gap(self) -> None:
+        section = self.matrix[
+            "real_public_stage7_to_stage8_stage9_controlled_execution_readback_pilot_after_142"
+        ]
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn(
+            "real_public_stage7_sales_leadpack_enters_stage8_outbox_readback",
+            section["must_prove"],
+        )
+        self.assertIn(
+            "real_public_stage8_outbox_enters_stage9_order_payment_delivery_ledger_readback",
+            section["must_prove"],
+        )
+        self.assertIn("stage8_stage9_refs_bind_stage7_stage6_real_public_chain", section["must_prove"])
+        self.assertIn("no_customer_visible_delivery_provider_execution_or_refund", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}

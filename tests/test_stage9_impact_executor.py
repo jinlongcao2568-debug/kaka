@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -18,7 +19,13 @@ from helpers import load_fixture
 from shared.contract_loader import load_contract
 from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.pipeline import run_internal_chain
+from stage5_rules_evidence.service import Stage5Service
+from stage6_fact_review.service import Stage6Service
+from stage7_sales.service import Stage7Service
+from stage8_outreach.service import Stage8Service
 from stage9_delivery.impact_executor import ImpactExecutor
+from stage9_delivery.service import Stage9Service
+from test_stage5_rule_factory_expansion import _real_public_stage4_verification
 
 
 class TestStage9ImpactExecutor(unittest.TestCase):
@@ -26,6 +33,26 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
         payload.update(overrides)
         return run_internal_chain(payload)["stage9"]
+
+    def _real_public_stage8_bundle(self, *, review: bool = False):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            verification = _real_public_stage4_verification(
+                tmp_dir=tmp_dir,
+                profile_id="BEIJING-PLATFORM-HOME" if review else "GGZY-DEAL-LIST",
+                target_type="contract_public_info" if review else "enterprise_public_record",
+                identifier="CONTRACT-PUBLIC-STAGE9-143" if review else "REAL-PUBLIC-STAGE9-143",
+                target_identifier="" if review else "REAL-PUBLIC-STAGE9-143",
+            )
+            base_stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+            stage5 = Stage5Service().run_public_verification_readback(
+                base_stage4,
+                verification,
+                requested_rule_codes=["DOC-001"],
+            )
+            stage6 = Stage6Service().run_real_public_rule_evidence_readback(stage5)
+            stage7 = Stage7Service().run_real_public_product_package_readback(stage6)
+            stage8 = Stage8Service().run_real_public_sales_execution_readback(stage7)
+        return stage8
 
     def test_m6_contact_failed_projects_only_formal_targets(self) -> None:
         payload = copy.deepcopy(load_fixture("internal_chain_happy.json"))
@@ -1322,6 +1349,53 @@ class TestStage9ImpactExecutor(unittest.TestCase):
         self.assertFalse(carrier["provider_call_executed"])
         self.assertFalse(carrier["real_refund_attempted"])
         self.assertFalse(carrier["automated_refund_program"]["enabled"])
+
+    def test_real_public_stage8_outbox_enters_stage9_order_payment_delivery_ledger_readback(self) -> None:
+        stage8 = self._real_public_stage8_bundle()
+        stage9 = Stage9Service().run_real_public_outreach_delivery_readback(stage8)
+        summary = stage9.inputs[Stage9Service.REAL_PUBLIC_STAGE9_READBACK_KEY]
+        ledger = stage9.inputs["stage9_execution_ledger"]
+
+        self.assertEqual(summary, stage9.handoff[Stage9Service.REAL_PUBLIC_STAGE9_READBACK_KEY])
+        self.assertEqual(summary["readback_state"], "READBACK_READY")
+        self.assertEqual(summary["real_public_order_payment_delivery_chain_state"], "INTERNAL_READY")
+        self.assertEqual(summary["stage8_real_public_outreach_chain_state"], "INTERNAL_READY")
+        self.assertEqual(summary["execution_ledger_id"], ledger["execution_ledger_id"])
+        self.assertEqual(summary["source_refs"]["stage9_execution_ledger_id"], ledger["execution_ledger_id"])
+        self.assertIn(
+            "stage7_real_public_product_package_readback",
+            summary["source_refs"]["stage8_source_refs"],
+        )
+        self.assertFalse(summary["real_payment_capture_attempted"])
+        self.assertFalse(summary["real_charge_attempted"])
+        self.assertFalse(summary["real_delivery_fulfillment_attempted"])
+        self.assertFalse(summary["real_customer_download_attempted"])
+        self.assertFalse(summary["real_refund_attempted"])
+        self.assertFalse(summary["automated_refund_enabled"])
+        self.assertFalse(summary["provider_call_enabled"])
+        self.assertFalse(summary["real_provider_call_enabled"])
+        self.assertFalse(summary["customer_visible_material_generated"])
+        self.assertEqual(summary["fail_closed_reasons"], [])
+
+    def test_real_public_stage8_review_chain_fails_closed_before_stage9_real_execution(self) -> None:
+        stage8 = self._real_public_stage8_bundle(review=True)
+        stage9 = Stage9Service().run_real_public_outreach_delivery_readback(stage8)
+        summary = stage9.inputs[Stage9Service.REAL_PUBLIC_STAGE9_READBACK_KEY]
+
+        self.assertEqual(summary["readback_state"], "REVIEW_REQUIRED")
+        self.assertEqual(
+            summary["real_public_order_payment_delivery_chain_state"],
+            "REVIEW_REQUIRED",
+        )
+        self.assertIn(
+            "stage8_real_public_outreach_chain_state=REVIEW_REQUIRED",
+            summary["fail_closed_reasons"],
+        )
+        self.assertFalse(summary["real_payment_capture_attempted"])
+        self.assertFalse(summary["real_delivery_fulfillment_attempted"])
+        self.assertFalse(summary["real_customer_download_attempted"])
+        self.assertFalse(summary["real_refund_attempted"])
+        self.assertFalse(summary["automated_refund_enabled"])
 
 
 if __name__ == "__main__":

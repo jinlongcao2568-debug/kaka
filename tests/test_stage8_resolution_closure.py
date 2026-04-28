@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -18,6 +19,11 @@ if str(TESTS) not in sys.path:
 from helpers import load_fixture, load_repo_json
 from shared.provider_adapter_config import PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY
 from shared.pipeline import run_internal_chain
+from stage5_rules_evidence.service import Stage5Service
+from stage6_fact_review.service import Stage6Service
+from stage7_sales.service import Stage7Service
+from stage8_outreach.service import Stage8Service
+from test_stage5_rule_factory_expansion import _real_public_stage4_verification
 
 
 def _outreach_cadence_policy() -> dict:
@@ -62,6 +68,26 @@ class TestStage8ResolutionClosure(unittest.TestCase):
             payload.update(payload_updates)
         stage8 = run_internal_chain(payload)["stage8"]
         return stage8, stage8.inputs["outreach_execution_outbox_snapshot"]
+
+    @staticmethod
+    def _real_public_stage7_bundle(*, review: bool = False):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            verification = _real_public_stage4_verification(
+                tmp_dir=tmp_dir,
+                profile_id="BEIJING-PLATFORM-HOME" if review else "GGZY-DEAL-LIST",
+                target_type="contract_public_info" if review else "enterprise_public_record",
+                identifier="CONTRACT-PUBLIC-STAGE8-143" if review else "REAL-PUBLIC-STAGE8-143",
+                target_identifier="" if review else "REAL-PUBLIC-STAGE8-143",
+            )
+            base_stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+            stage5 = Stage5Service().run_public_verification_readback(
+                base_stage4,
+                verification,
+                requested_rule_codes=["DOC-001"],
+            )
+            stage6 = Stage6Service().run_real_public_rule_evidence_readback(stage5)
+            stage7 = Stage7Service().run_real_public_product_package_readback(stage6)
+        return stage7
 
     def test_source_vendor_usage_policy_requires_carriers_and_blocks_live_override(self) -> None:
         policy = load_repo_json("contracts/sales/source_vendor_usage_policy.json")
@@ -1499,6 +1525,46 @@ class TestStage8ResolutionClosure(unittest.TestCase):
         self.assertFalse(outbox["external_delivery_enabled"])
         self.assertFalse(readiness["ready_for_real_send"])
         self.assertFalse(readiness["real_provider_call_enabled"])
+
+    def test_real_public_stage7_sales_leadpack_enters_stage8_outbox_readback(self) -> None:
+        stage7 = self._real_public_stage7_bundle()
+        stage8 = Stage8Service().run_real_public_sales_execution_readback(stage7)
+        summary = stage8.inputs[Stage8Service.REAL_PUBLIC_STAGE8_READBACK_KEY]
+        outbox = stage8.inputs["outreach_execution_outbox_snapshot"]
+
+        self.assertEqual(summary, stage8.handoff[Stage8Service.REAL_PUBLIC_STAGE8_READBACK_KEY])
+        self.assertEqual(summary["readback_state"], "READBACK_READY")
+        self.assertEqual(summary["real_public_outreach_chain_state"], "INTERNAL_READY")
+        self.assertEqual(summary["stage7_real_public_sales_package_chain_state"], "INTERNAL_READY")
+        self.assertEqual(summary["outbox_id"], outbox["outbox_id"])
+        self.assertEqual(summary["source_refs"]["stage8_outbox_id"], outbox["outbox_id"])
+        self.assertIn(
+            "stage6_real_public_rule_evidence_readback",
+            summary["source_refs"]["stage7_source_refs"],
+        )
+        self.assertFalse(summary["real_send_attempted"])
+        self.assertFalse(summary["provider_call_executed"])
+        self.assertFalse(summary["real_provider_call_enabled"])
+        self.assertFalse(summary["customer_visible_material_generated"])
+        self.assertFalse(summary["external_delivery_enabled"])
+        self.assertFalse(summary["stage9_payment_delivery_triggered"])
+        self.assertEqual(summary["fail_closed_reasons"], [])
+
+    def test_real_public_stage7_review_package_fails_closed_before_stage8_real_execution(self) -> None:
+        stage7 = self._real_public_stage7_bundle(review=True)
+        stage8 = Stage8Service().run_real_public_sales_execution_readback(stage7)
+        summary = stage8.inputs[Stage8Service.REAL_PUBLIC_STAGE8_READBACK_KEY]
+
+        self.assertEqual(summary["readback_state"], "REVIEW_REQUIRED")
+        self.assertEqual(summary["real_public_outreach_chain_state"], "REVIEW_REQUIRED")
+        self.assertIn(
+            "stage7_real_public_sales_package_chain_state=REVIEW_REQUIRED",
+            summary["fail_closed_reasons"],
+        )
+        self.assertFalse(summary["real_send_attempted"])
+        self.assertFalse(summary["provider_call_executed"])
+        self.assertFalse(summary["customer_visible_material_generated"])
+        self.assertFalse(summary["external_delivery_enabled"])
 
 
 if __name__ == "__main__":

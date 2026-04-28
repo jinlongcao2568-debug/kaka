@@ -32,6 +32,7 @@ from stage9_delivery.order_payment_delivery_execution import (
     attach_order_lifecycle_record,
     attach_payment_sandbox_records,
     build_stage9_execution_ledger,
+    stage9_execution_ledger_summary,
 )
 from stage9_delivery.typed_lifecycle import (
     apply_delivery_decision_projection,
@@ -76,6 +77,8 @@ from shared.utils import resolve_bundle, utc_now_iso
 
 
 class Stage9Service:
+    REAL_PUBLIC_STAGE8_READBACK_INPUT_KEY = "stage8_real_public_sales_execution_readback_summary"
+    REAL_PUBLIC_STAGE9_READBACK_KEY = "stage9_real_public_order_payment_delivery_ledger_readback_summary"
     POLICY_SEQUENCE = (
         "payment_exception",
         "delivery_exception",
@@ -975,6 +978,95 @@ class Stage9Service:
             ],
             inputs=inputs_out,
         )
+
+    def _build_real_public_stage9_readback_summary(self, result: StageBundle) -> dict[str, Any]:
+        stage8_summary = dict(result.inputs.get(self.REAL_PUBLIC_STAGE8_READBACK_INPUT_KEY, {}))
+        ledger = dict(result.inputs.get(STAGE9_EXECUTION_LEDGER_INPUT_KEY, {}))
+        ledger_readiness = dict(result.inputs.get(STAGE9_EXECUTION_LEDGER_READINESS_INPUT_KEY, {}))
+        ledger_summary = stage9_execution_ledger_summary(ledger) if ledger else {}
+
+        fail_closed_reasons: list[str] = []
+        if not stage8_summary:
+            fail_closed_reasons.append("stage8_real_public_outbox_readback_missing")
+        if stage8_summary.get("real_public_outreach_chain_state") != "INTERNAL_READY":
+            fail_closed_reasons.append(
+                f"stage8_real_public_outreach_chain_state={stage8_summary.get('real_public_outreach_chain_state', 'MISSING')}"
+            )
+        if stage8_summary.get("readback_state") != "READBACK_READY":
+            fail_closed_reasons.append(
+                f"stage8_readback_state={stage8_summary.get('readback_state', 'MISSING')}"
+            )
+        if not ledger.get("execution_ledger_id"):
+            fail_closed_reasons.append("stage9_execution_ledger_missing")
+        forbidden_flags = {
+            "real_payment_capture_attempted": bool(ledger.get("real_payment_capture_attempted", False)),
+            "real_charge_attempted": bool(ledger.get("real_charge_attempted", False)),
+            "real_delivery_attempted": bool(ledger.get("real_delivery_attempted", False)),
+            "real_customer_download_attempted": bool(
+                ledger.get("real_customer_download_attempted", False)
+            ),
+            "real_refund_attempted": bool(ledger.get("real_refund_attempted", False)),
+            "automated_refund_enabled": bool(ledger.get("automated_refund_enabled", False)),
+            "provider_call_enabled": bool(ledger.get("provider_call_enabled", False)),
+            "real_provider_call_enabled": bool(ledger.get("real_provider_call_enabled", False)),
+        }
+        for field_name, flag_value in forbidden_flags.items():
+            if flag_value:
+                fail_closed_reasons.append(f"{field_name}_forbidden")
+
+        chain_state = "INTERNAL_READY" if not fail_closed_reasons else "REVIEW_REQUIRED"
+        return {
+            "readback_state": "READBACK_READY" if not fail_closed_reasons else "REVIEW_REQUIRED",
+            "real_public_order_payment_delivery_chain_state": chain_state,
+            "stage8_real_public_outreach_chain_state": stage8_summary.get(
+                "real_public_outreach_chain_state"
+            ),
+            "execution_ledger_id": ledger.get("execution_ledger_id"),
+            "order_id": ledger.get("order_id"),
+            "payment_id": ledger.get("payment_id"),
+            "delivery_id": ledger.get("delivery_id"),
+            "opportunity_id": ledger.get("opportunity_id"),
+            "payment_collection_state": ledger.get("payment_collection_state"),
+            "delivery_fulfillment_state": ledger.get("delivery_fulfillment_state"),
+            "manual_settlement_state": ledger.get("manual_settlement_state"),
+            "refund_execution_state": ledger.get("refund_execution_state"),
+            "source_refs": {
+                "stage8_real_public_sales_execution_readback": stage8_summary,
+                "stage8_source_refs": dict(stage8_summary.get("source_refs", {})),
+                "stage9_execution_ledger_id": ledger.get("execution_ledger_id"),
+                "order_id": ledger.get("order_id"),
+                "payment_id": ledger.get("payment_id"),
+                "delivery_id": ledger.get("delivery_id"),
+                "order_execution_id": ledger.get("order_execution_id"),
+                "payment_execution_id": ledger.get("payment_execution_id"),
+                "delivery_execution_id": ledger.get("delivery_execution_id"),
+            },
+            "ledger_summary": ledger_summary,
+            "ledger_readiness_summary": ledger_readiness,
+            "fail_closed_reasons": fail_closed_reasons,
+            "customer_visible_material_generated": False,
+            "customer_download_enabled": False,
+            "real_payment_capture_attempted": False,
+            "real_charge_attempted": False,
+            "real_delivery_fulfillment_attempted": False,
+            "real_customer_download_attempted": False,
+            "real_refund_attempted": False,
+            "automated_refund_enabled": False,
+            "provider_call_enabled": False,
+            "real_provider_call_enabled": False,
+            "legal_conclusion_generated": False,
+        }
+
+    def run_real_public_outreach_delivery_readback(
+        self,
+        payload: Mapping[str, Any] | StageBundle,
+    ) -> StageBundle:
+        result = self.run(payload)
+        summary = self._build_real_public_stage9_readback_summary(result)
+        result.inputs[self.REAL_PUBLIC_STAGE9_READBACK_KEY] = summary
+        result.handoff[self.REAL_PUBLIC_STAGE9_READBACK_KEY] = summary
+        result.trace_rules.append("REAL_PUBLIC_STAGE8_TO_STAGE9_READBACK")
+        return result
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff
