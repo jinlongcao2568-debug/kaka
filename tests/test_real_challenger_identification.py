@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,11 @@ for search_path in (SRC, TESTS):
         sys.path.insert(0, str(search_path))
 
 from helpers import load_fixture, run_internal_chain_to_stage7
+from shared.pipeline import run_internal_chain
+from stage5_rules_evidence.service import Stage5Service
+from stage6_fact_review.service import Stage6Service
+from stage7_sales.service import Stage7Service
+from test_stage5_rule_factory_expansion import _real_public_stage4_verification
 
 
 def _real_challenger_payload() -> dict:
@@ -227,6 +233,78 @@ class RealChallengerIdentificationTests(unittest.TestCase):
         )
         self.assertIn("subject_eligibility_state=MISSING", joined_reasons)
         self.assertIn("purchase_capacity_score=MISSING", joined_reasons)
+
+    def test_real_public_stage6_product_package_enters_stage7_sales_and_leadpack_readback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            verification = _real_public_stage4_verification(tmp_dir=tmp_dir)
+            base_stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+            stage5 = Stage5Service().run_public_verification_readback(
+                base_stage4,
+                verification,
+                requested_rule_codes=["DOC-001"],
+            )
+            stage6 = Stage6Service().run_real_public_rule_evidence_readback(stage5)
+            stage7 = Stage7Service().run_real_public_product_package_readback(stage6)
+
+        summary = stage7.inputs[Stage7Service.REAL_PUBLIC_STAGE7_READBACK_KEY]
+        leadpack = stage7.inputs["leadpack_delivery_package"]
+        workbench = stage7.inputs["crm_quote_workbench"]
+
+        self.assertEqual(summary, stage7.handoff[Stage7Service.REAL_PUBLIC_STAGE7_READBACK_KEY])
+        self.assertEqual(summary["readback_state"], "READBACK_READY")
+        self.assertEqual(summary["real_public_sales_package_chain_state"], "INTERNAL_READY")
+        self.assertEqual(summary["stage6_product_package_readiness"], "INTERNAL_READY")
+        self.assertEqual(summary["real_challenger_decision_state"], "ALLOW")
+        self.assertEqual(
+            summary["source_refs"]["stage6_real_public_rule_evidence_readback"]["verification_run_id"],
+            verification["verification_run_id"],
+        )
+        self.assertEqual(
+            summary["source_refs"]["stage6_real_public_rule_evidence_readback"]["source_snapshot_id"],
+            verification["source_snapshot_id"],
+        )
+        self.assertEqual(summary["source_refs"]["leadpack_package_id"], leadpack["package_id"])
+        self.assertEqual(summary["source_refs"]["crm_action_id"], workbench["crm_action_id"])
+        self.assertEqual(summary["fail_closed_reasons"], [])
+        self.assertIn("real_public_stage6_product_package", leadpack["source_object_refs"])
+        self.assertFalse(summary["customer_visible_material_generated"])
+        self.assertFalse(summary["customer_visible_enabled"])
+        self.assertFalse(summary["external_delivery_enabled"])
+        self.assertFalse(summary["crm_quote_provider_execution_enabled"])
+        self.assertFalse(summary["stage8_stage9_execution_triggered"])
+        self.assertFalse(leadpack["customer_visible_enabled"])
+        self.assertFalse(leadpack["external_delivery_enabled"])
+        self.assertFalse(workbench["approved_crm_quote_execution_enabled"])
+
+    def test_real_public_stage6_review_package_fails_closed_before_stage7_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            verification = _real_public_stage4_verification(
+                tmp_dir=tmp_dir,
+                profile_id="BEIJING-PLATFORM-HOME",
+                target_type="contract_public_info",
+                identifier="CONTRACT-PUBLIC-STAGE7-142",
+                target_identifier="",
+            )
+            base_stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+            stage5 = Stage5Service().run_public_verification_readback(
+                base_stage4,
+                verification,
+                requested_rule_codes=["DOC-001"],
+            )
+            stage6 = Stage6Service().run_real_public_rule_evidence_readback(stage5)
+            stage7 = Stage7Service().run_real_public_product_package_readback(stage6)
+
+        summary = stage7.inputs[Stage7Service.REAL_PUBLIC_STAGE7_READBACK_KEY]
+        self.assertEqual(summary["readback_state"], "REVIEW_REQUIRED")
+        self.assertEqual(summary["real_public_sales_package_chain_state"], "REVIEW_REQUIRED")
+        self.assertIn(
+            "stage6_real_public_product_package_chain_state=REVIEW_REQUIRED",
+            summary["fail_closed_reasons"],
+        )
+        self.assertIn("stage6_product_package_readiness=REVIEW_REQUIRED", summary["fail_closed_reasons"])
+        self.assertFalse(summary["customer_visible_material_generated"])
+        self.assertFalse(summary["external_delivery_enabled"])
+        self.assertFalse(summary["crm_quote_provider_execution_enabled"])
 
 
 if __name__ == "__main__":

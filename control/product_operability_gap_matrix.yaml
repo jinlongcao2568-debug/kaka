@@ -432,7 +432,7 @@ real_public_verification_to_rule_evidence_pilot_after_139:
     - PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
 real_public_rule_evidence_to_stage6_product_package_pilot_after_140:
   packet_ref: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "140 proved real public Stage4 verification readback can drive Stage5 rule/evidence gates; the next gap is validating that Stage5 rule/evidence output can create Stage6 product package readiness with evidence-chain refs while staying internal-only."
   target_capability_state: INTERNAL_READY
   current_gap: "Stage6 product package readiness exists for internal chain, but must be proven against real public Stage5 rule/evidence bundles with verification run, source snapshot, parse, rule_hit/evidence, and gate refs preserved."
@@ -443,7 +443,22 @@ real_public_rule_evidence_to_stage6_product_package_pilot_after_140:
     - no_customer_visible_publication_or_downstream_execution
     - no_uncontrolled_crawler
     - no_real_provider_call
-  next_packets_if_141_passes: []
+  next_packets_if_141_passes:
+    - PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
+real_public_product_package_to_stage7_sales_leadpack_pilot_after_141:
+  packet_ref: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
+  status: ACTIVE
+  trigger_reason: "141 proved real public Stage5 rule/evidence output can create Stage6 product package readiness; the next gap is validating that product package through Stage7 sales, CRM/quote workbench, and LeadPack readback without customer publication or provider execution."
+  target_capability_state: INTERNAL_READY
+  current_gap: "Stage7 sales and LeadPack runtime exists for internal chain, but must be proven against real public Stage6 product package readiness with source refs preserved and downstream execution blocked."
+  must_prove:
+    - real_public_stage6_product_package_enters_stage7_sales_and_leadpack_readback
+    - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
+    - weak_or_review_stage6_package_fails_closed_before_customer_delivery
+    - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
+    - no_uncontrolled_crawler
+    - no_real_provider_call
+  next_packets_if_142_passes: []
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -696,13 +711,23 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_rule_evidence_to_stage6_product_package_pilot
     packet_ref: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - real_public_stage5_rule_evidence_to_stage6_product_package_readiness
       - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
       - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
       - no_customer_visible_publication_or_downstream_execution
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: real_public_product_package_to_stage7_sales_leadpack_pilot
+    packet_ref: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - real_public_stage6_product_package_to_stage7_sales_leadpack_readback
+      - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
+      - weak_or_review_stage6_package_fails_closed_before_customer_delivery
+      - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters

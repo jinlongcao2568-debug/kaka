@@ -65,6 +65,8 @@ from shared.utils import apply_rule, build_id, ensure_enum, ensure_list, resolve
 
 
 class Stage7Service:
+    REAL_PUBLIC_STAGE7_READBACK_KEY = "stage7_real_public_product_package_readback_summary"
+
     def __init__(self, settings: Any | None = None) -> None:
         self.settings = settings or Settings.from_env()
         self.store = ContractStore.default(self.settings)
@@ -941,6 +943,140 @@ class Stage7Service:
             trace_rules=trace_rules,
             inputs=inputs_out,
         )
+
+    def run_real_public_product_package_readback(
+        self,
+        payload: Mapping[str, Any] | StageBundle,
+    ) -> StageBundle:
+        stage6_bundle = resolve_bundle(payload)
+        result = self.run(stage6_bundle)
+        summary = self._build_real_public_product_package_readback_summary(
+            stage6_bundle=stage6_bundle,
+            stage7_bundle=result,
+        )
+        inputs = dict(result.inputs)
+        handoff = dict(result.handoff)
+        resolution_trace = dict(inputs.get("stage7_resolution_trace", {}) or {})
+        leadpack_package = dict(inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY, {}) or {})
+        if leadpack_package:
+            source_object_refs = dict(leadpack_package.get("source_object_refs", {}) or {})
+            source_object_refs["real_public_stage6_product_package"] = dict(summary.get("source_refs", {}))
+            leadpack_package["source_object_refs"] = source_object_refs
+            inputs[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = leadpack_package
+            handoff["leadpack_delivery_package_optional"] = leadpack_package
+            resolution_trace["leadpack_delivery_package"] = dict(
+                resolution_trace.get("leadpack_delivery_package", {})
+            )
+            resolution_trace["leadpack_delivery_package"]["real_public_stage6_product_package_refs"] = dict(
+                summary.get("source_refs", {})
+            )
+
+        inputs[self.REAL_PUBLIC_STAGE7_READBACK_KEY] = summary
+        handoff[self.REAL_PUBLIC_STAGE7_READBACK_KEY] = summary
+        resolution_trace[self.REAL_PUBLIC_STAGE7_READBACK_KEY] = summary
+        inputs["stage7_resolution_trace"] = resolution_trace
+        return StageBundle(
+            stage=result.stage,
+            records=dict(result.records),
+            handoff=handoff,
+            trace_rules=list(result.trace_rules),
+            inputs=inputs,
+        )
+
+    def _build_real_public_product_package_readback_summary(
+        self,
+        *,
+        stage6_bundle: StageBundle,
+        stage7_bundle: StageBundle,
+    ) -> dict[str, Any]:
+        stage6_summary = dict(
+            stage6_bundle.inputs.get("stage6_real_public_rule_evidence_readback_summary", {}) or {}
+        )
+        stage6_product_package = dict(stage6_bundle.inputs.get("stage6_product_package_readiness", {}) or {})
+        leadpack_package = dict(stage7_bundle.inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY, {}) or {})
+        crm_quote_workbench = dict(stage7_bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY, {}) or {})
+        real_challenger_readback = dict(stage7_bundle.inputs.get("real_challenger_readback", {}) or {})
+        real_challenger_state = str(stage7_bundle.inputs.get("real_challenger_decision_state", "UNKNOWN"))
+        fail_closed_reasons: list[str] = []
+
+        if not stage6_summary:
+            fail_closed_reasons.append("stage6_real_public_rule_evidence_readback_summary_missing")
+        elif stage6_summary.get("real_public_product_package_chain_state") != "INTERNAL_READY":
+            fail_closed_reasons.append(
+                "stage6_real_public_product_package_chain_state="
+                + str(stage6_summary.get("real_public_product_package_chain_state"))
+            )
+        if not stage6_product_package:
+            fail_closed_reasons.append("stage6_product_package_readiness_missing")
+        elif stage6_product_package.get("product_package_readiness") != "INTERNAL_READY":
+            fail_closed_reasons.append(
+                "stage6_product_package_readiness="
+                + str(stage6_product_package.get("product_package_readiness"))
+            )
+        if real_challenger_state == "BLOCK":
+            fail_closed_reasons.append("real_challenger_decision_state=BLOCK")
+        elif real_challenger_state not in {"ALLOW", "INTERNAL_READY"}:
+            fail_closed_reasons.append(f"real_challenger_decision_state={real_challenger_state}")
+        if not leadpack_package:
+            fail_closed_reasons.append("leadpack_delivery_package_missing")
+        if bool(leadpack_package.get("customer_visible_enabled", False)):
+            fail_closed_reasons.append("leadpack_customer_visible_enabled_unexpected")
+        if bool(leadpack_package.get("external_delivery_enabled", False)):
+            fail_closed_reasons.append("leadpack_external_delivery_enabled_unexpected")
+        if bool(crm_quote_workbench.get("approved_crm_quote_execution_enabled", False)):
+            fail_closed_reasons.append("crm_quote_execution_enabled_unexpected")
+        if bool(crm_quote_workbench.get("real_provider_call_enabled", False)):
+            fail_closed_reasons.append("crm_quote_real_provider_call_enabled_unexpected")
+
+        if any(reason.endswith("=BLOCK") for reason in fail_closed_reasons):
+            chain_state = "BLOCKED"
+        elif fail_closed_reasons:
+            chain_state = "REVIEW_REQUIRED"
+        else:
+            chain_state = "INTERNAL_READY"
+
+        return {
+            "readback_state": "READBACK_READY" if chain_state == "INTERNAL_READY" else "REVIEW_REQUIRED",
+            "real_public_sales_package_chain_state": chain_state,
+            "stage6_product_package_readiness": stage6_product_package.get("product_package_readiness"),
+            "real_challenger_decision_state": real_challenger_state,
+            "leadpack_package_state": leadpack_package.get("package_state"),
+            "leadpack_delivery_state": leadpack_package.get("delivery_state"),
+            "source_refs": {
+                "stage6_real_public_rule_evidence_readback": dict(stage6_summary.get("source_refs", {})),
+                "stage6_product_package_source_refs": dict(
+                    stage6_product_package.get("source_object_refs", {})
+                ),
+                "sales_lead_id": stage7_bundle.records["sales_lead"].get("lead_id"),
+                "saleable_opportunity_id": stage7_bundle.records["saleable_opportunity"].get("opportunity_id"),
+                "offer_recommendation_id": stage7_bundle.records["offer_recommendation"].get(
+                    "offer_recommendation_id"
+                ),
+                "buyer_fit_id": stage7_bundle.records["buyer_fit"].get("buyer_fit_id"),
+                "real_challenger_readback_id": real_challenger_readback.get("readback_id"),
+                "leadpack_package_id": leadpack_package.get("package_id"),
+                "evidence_pack_id": leadpack_package.get("evidence_pack_id"),
+                "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
+                "crm_action_id": crm_quote_workbench.get("crm_action_id"),
+                "quote_draft_id": crm_quote_workbench.get("quote_draft_id"),
+            },
+            "fail_closed_reasons": fail_closed_reasons,
+            "customer_visible_material_generated": False,
+            "customer_visible_enabled": False,
+            "external_delivery_enabled": False,
+            "crm_quote_provider_execution_enabled": False,
+            "stage8_stage9_execution_triggered": False,
+            "legal_conclusion_generated": False,
+            "audit_readback_summary": {
+                "source": "stage7_real_public_product_package_readback",
+                "replayable": True,
+                "stage_scope": 7,
+                "no_customer_visible_material_generated": True,
+                "no_external_delivery_enabled": True,
+                "no_crm_quote_provider_execution_enabled": True,
+                "no_stage8_stage9_execution_triggered": True,
+            },
+        }
 
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff

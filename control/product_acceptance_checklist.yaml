@@ -897,6 +897,32 @@ tasks:
       - no_customer_visible_publication_or_downstream_execution
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须把 141 产生的真实公开 Stage6 product package readiness 送入 Stage7 real challenger / sales lead / offer / CRM quote workbench / LeadPack package readback。"
+      - "Stage7 销售承接对象和 LeadPack package 必须保留 Stage6 真实公开证据链 refs，包括 verification、snapshot、parse、rule/evidence gate、product package refs。"
+      - "Stage6 REVIEW、弱证据或缺真实公开 refs 必须 fail closed / REVIEW_REQUIRED，不得伪造可售 LeadPack 或客户可见交付。"
+      - "Stage7 readback 仍不得生成客户可见材料、CRM/quote provider execution、Stage8 触达、Stage9 支付/交付执行。"
+      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+    targeted_test_expectations:
+      - real_challenger_identification
+      - stage7_runtime_closure
+      - leadpack_candidate_surface
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - real_public_stage6_product_package_enters_stage7_sales_and_leadpack_readback
+      - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
+      - weak_or_review_stage6_package_fails_closed_before_customer_delivery
+      - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

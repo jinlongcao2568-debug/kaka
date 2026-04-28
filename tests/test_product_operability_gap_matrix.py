@@ -224,6 +224,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-139-real-public-parser-to-verification-pilot",
             "PTL-I100-140-real-public-verification-to-rule-evidence-pilot",
             "PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot",
+            "PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -432,7 +433,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn(
             "real_public_stage5_rule_evidence_enters_stage6_product_package_readiness",
@@ -447,6 +448,35 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["must_prove"],
         )
         self.assertIn("no_customer_visible_publication_or_downstream_execution", section["must_prove"])
+        self.assertEqual(
+            section["next_packets_if_141_passes"],
+            ["PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot"],
+        )
+
+    def test_142_real_public_product_package_to_stage7_sales_leadpack_records_stage7_gap(self) -> None:
+        section = self.matrix["real_public_product_package_to_stage7_sales_leadpack_pilot_after_141"]
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn(
+            "real_public_stage6_product_package_enters_stage7_sales_and_leadpack_readback",
+            section["must_prove"],
+        )
+        self.assertIn(
+            "stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain",
+            section["must_prove"],
+        )
+        self.assertIn(
+            "weak_or_review_stage6_package_fails_closed_before_customer_delivery",
+            section["must_prove"],
+        )
+        self.assertIn(
+            "no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger",
+            section["must_prove"],
+        )
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}
