@@ -96,6 +96,25 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
                 self.assertIn("商业钩子", text)
                 self.assertIn("LLM", text)
 
+    def test_d_docs_all_reference_143g_public_web_capture_and_captcha_resume_policy(self) -> None:
+        for doc_id, path in D_DOCS.items():
+            with self.subTest(doc_id=doc_id):
+                text = read_text(path)
+                self.assertIn("PTL-I100-143G", text)
+                self.assertIn("公开网站抓取失败", text)
+                self.assertIn("自动诊断", text)
+                self.assertIn("验证码", text)
+                self.assertIn("挂起任务", text)
+                self.assertIn("operator console", text)
+                self.assertIn("输入后续跑", text)
+                self.assertIn("Stage2 public source adapter", text)
+                self.assertIn("Stage2Service", text)
+                self.assertIn("Stage3 parser", text)
+                self.assertIn("repository/readback surfaces", text)
+                self.assertIn("不得创建第二套重复链路", text)
+                self.assertIn("不得自动解验证码", text)
+                self.assertIn("144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149", text)
+
     def test_143e_authority_docs_record_source_strategy_acceptance_and_boundary(self) -> None:
         d1 = read_text(D_DOCS["D1"])
         d11 = read_text(D_DOCS["D11"])
@@ -111,6 +130,21 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
         self.assertIn("全量实时线索源", d13)
         self.assertIn("北京不得用于", d13)
         self.assertIn("城市级适配只在以下条件命中时进入任务池", d13)
+
+    def test_143g_authority_docs_record_capture_upgrade_acceptance_and_boundary(self) -> None:
+        d1 = read_text(D_DOCS["D1"])
+        d11 = read_text(D_DOCS["D11"])
+        d13 = read_text(D_DOCS["D13"])
+
+        self.assertIn("D1-R-073", d1)
+        self.assertIn("D11-R-055", d11)
+        self.assertIn("D13-R-076", d13)
+        self.assertIn("143G-DOC-001", d11)
+        self.assertIn("143G-DOC-005", d11)
+        self.assertIn("公开网站抓取失败", d1 + d11 + d13)
+        self.assertIn("operator console 输入后续跑", d1 + d11 + d13)
+        self.assertIn("不得自动解验证码", d1 + d11 + d13)
+        self.assertIn("144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149", d1 + d11 + d13)
 
     def test_stage8_stage9_leadpack_payment_delivery_are_target_capabilities_not_permanent_out_of_scope(self) -> None:
         registry_text = read_text("control/product_module_registry.yaml")

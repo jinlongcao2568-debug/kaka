@@ -213,6 +213,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             "PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync",
             "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
             "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
+            "PTL-I100-143G-public-web-capture-doc-sync-and-order-review",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
             "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation",
@@ -228,12 +229,13 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
 
         self.assertEqual(task_ids[expected[0]]["status"], "COMPLETED")
         self.assertEqual(task_ids[expected[1]]["status"], "COMPLETED")
-        self.assertEqual(task_ids[expected[2]]["status"], "ACTIVE")
-        for task_id in expected[3:]:
+        self.assertEqual(task_ids[expected[2]]["status"], "COMPLETED")
+        self.assertEqual(task_ids[expected[3]]["status"], "ACTIVE")
+        for task_id in expected[4:]:
             self.assertEqual(task_ids[task_id]["status"], "PLANNED")
         self.assertEqual(
             self.task_library["current_mainline_next_candidate"]["task_id"],
-            expected[2],
+            expected[3],
         )
 
         sequence = [item["packet_ref"] for item in self.architecture["implementation_sequence"]]
@@ -250,6 +252,10 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             "全国聚合平台只作为一级发现",
             "北京不进入首批商业线索试点",
             "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
+            "PTL-I100-143G-public-web-capture-doc-sync-and-order-review",
+            "公开网抓取失败优先自动升级",
+            "验证码检测挂起",
+            "144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
         ):

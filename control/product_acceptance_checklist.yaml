@@ -1014,6 +1014,25 @@ tasks:
       - task_pool_registers_captcha_resume_operator_path
       - reuse_existing_runtime_surfaces_first_policy_is_explicit
       - no_runtime_or_live_execution_change
+  PTL-I100-143G-public-web-capture-doc-sync-and-order-review:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "路线图、方案文档和 D1-D14 必须同步 143F 后的新口径：公开网抓取失败优先自动升级，验证码场景支持挂起、保留会话、操作台输入后续跑。"
+      - "文档必须明确后续实现顺序重新评估为 144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149。"
+      - "文档必须明确后续实现基于现有 Stage2/Stage3/operator console/repository surfaces 复用补强，不得再造第二套重复链路。"
+      - "不得改 runtime、contracts、handoff、scripts、fixtures，不得放开 provider、客户下载、真实支付交付、退款或自动退款。"
+    targeted_test_expectations:
+      - open_capability_doc_sync
+      - product_runtime_architecture_map
+      - product_operability_gap_matrix
+      - product_acceptance_checklist
+      - stage12_extractors
+    redline_checks:
+      - docs_reference_143g_public_web_capture_and_captcha_resume_policy
+      - implementation_order_records_144_145_150_151_before_146
+      - reuse_existing_runtime_surfaces_doc_policy_is_explicit
+      - no_runtime_or_live_execution_change
   PTL-I100-144-market-scan-opportunity-discovery-engine:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]

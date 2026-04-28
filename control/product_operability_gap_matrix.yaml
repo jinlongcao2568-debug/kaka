@@ -499,6 +499,7 @@ autonomous_business_decision_architecture_after_143:
   next_packets_if_143D_passes:
     - PTL-I100-143E-autonomous-source-strategy-d-doc-sync
     - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+    - PTL-I100-143G-public-web-capture-doc-sync-and-order-review
     - PTL-I100-144-market-scan-opportunity-discovery-engine
     - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
@@ -539,7 +540,7 @@ autonomous_source_strategy_d_doc_sync_after_143D:
     - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
 public_web_capture_and_captcha_task_pool_sync_after_143E:
   packet_ref: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "Owner required the remaining public-web capture escalation and captcha-resume requirements to be registered explicitly instead of staying implicit in discussion. Future implementation must extend existing seams rather than create duplicate pipelines."
   target_capability_state: INTERNAL_READY
   current_gap: "The roadmap already covers autonomous source strategy, evidence strategy, commercial hook, and operator workbench, but it does not yet register a dedicated task for adaptive public-web capture hardening or captcha challenge suspend/resume."
@@ -549,10 +550,28 @@ public_web_capture_and_captcha_task_pool_sync_after_143E:
     - future_runtime_packets_extend_existing_stage2_and_operator_surfaces
     - no_runtime_or_live_execution_change
   next_packets_if_143F_passes:
+    - PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+public_web_capture_doc_sync_and_order_review_after_143F:
+  packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+  status: ACTIVE
+  trigger_reason: "143F registered the tasks, but owner required all docs and the implementation ordering to be synchronized before runtime packets continue."
+  target_capability_state: INTERNAL_READY
+  current_gap: "Route map, scheme doc, and D1-D14 still contain the 143E-era active packet and do not yet state the 150/151 public-web capture and captcha-resume ordering."
+  must_prove:
+    - docs_reference_143g_public_web_capture_and_captcha_resume_policy
+    - implementation_order_records_144_145_150_151_before_146
+    - route_map_and_scheme_doc_reorder_144_145_150_151_146_147_148_149
+    - reuse_existing_runtime_surfaces_doc_policy_is_explicit
+    - no_runtime_or_live_execution_change
+  next_packets_if_143G_passes:
     - PTL-I100-144-market-scan-opportunity-discovery-engine
     - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     - PTL-I100-151-public-web-captcha-suspend-and-operator-resume
+    - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+    - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+    - PTL-I100-148-productized-autonomous-operator-workbench
+    - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
 source_strategy_pilot_portfolio_after_143D:
   packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
   status: PLANNED
@@ -897,12 +916,21 @@ production_gap_task_map:
       - commercial_hook_and_llm_boundary_sync
   - gap_group: public_web_capture_and_captcha_task_pool_sync
     packet_ref: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - public_web_capture_escalation_task_pool_registration
       - captcha_suspend_resume_task_pool_registration
       - reuse_existing_runtime_surfaces_first_policy
+  - gap_group: public_web_capture_doc_sync_and_order_review
+    packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - d_doc_sync_for_public_web_capture_hardening
+      - route_map_sync_for_captcha_resume
+      - implementation_order_reassessment_144_145_150_151_before_146
+      - reuse_existing_runtime_surfaces_doc_policy
   - gap_group: market_scan_opportunity_discovery_engine
     packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
     status: PLANNED

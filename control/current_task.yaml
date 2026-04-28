@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_143F_PUBLIC_WEB_CAPTURE_AND_CAPTCHA_TASK_POOL_SYNC
+navigation_state: PTL_I100_143G_PUBLIC_WEB_CAPTURE_DOC_SYNC_AND_ORDER_REVIEW
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-143E completed locally through fd6531a; owner asked to register the remaining public-web capture upgrade and captcha-resume requirements into the future task pool before runtime implementation resumes.
+activation_condition: PTL-I100-143F completed locally through 5f71320; owner asked to synchronize the new public-web capture and captcha-resume requirements into docs and re-evaluate implementation ordering before runtime implementation resumes.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-  title: I100-43F Public web capture and captcha task-pool sync
+  task_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+  title: I100-43G Public web capture doc sync and order review
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -27,6 +27,22 @@ currentTask:
     - README.md
     - ARCHITECTURE_NOTE.md
     - docs/L0.md
+    - docs/AX9S_开发执行路由图.md
+    - docs/AX9S_自动运营决策架构与商业钩子方案.md
+    - docs/D1_研发_Codex执行手册.md
+    - docs/D2_正式对象契约与字段字典.md
+    - docs/D3_正式规则码总表与判定说明书.md
+    - docs/D4_OpenAPI接口契约.md
+    - docs/D5_页面导出与人工复核规范.md
+    - docs/D6_字段策略字典与客户交付字段规范.md
+    - docs/D7_对象级交付矩阵与外发治理规范.md
+    - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+    - docs/D9_联系对象与销售触达规范.md
+    - docs/D10_订单支付交付与治理反馈规范.md
+    - docs/D11_测试验收与金标回归清单.md
+    - docs/D12_部署发布与运行治理规范.md
+    - docs/D13_公开可查边界能力清单.md
+    - docs/D14_AI模型治理规范.md
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/product_acceptance_checklist.yaml
@@ -34,8 +50,8 @@ currentTask:
     - control/product_runtime_architecture_map.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-  objective: 把 owner 新确认的公开网能力正式登记进后续任务池：抓取失败时优先自动升级合法采集/解析策略，不默认退回纯人工；公开站遇到验证码时支持检测、挂起、保留会话、操作台输入后续跑，而不是重启整条链路。同步 active packet、验收清单、gap matrix 和 runtime map，并明确后续实现必须优先复用现有 Stage2/Stage3/operator console seams，不得再造第二套重复链路。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+  objective: 把 143F 登记的公开网抓取升级、验证码挂起续跑、复用现有代码优先和 144/145/150/151 排序评估同步到路线图、方案文档和 D1-D14 补表；不改 runtime，不新增正式对象/枚举/gate/exception 语义。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,38 +71,38 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-    subpacket_id: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-    backlog_packet_ref: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+    packet_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+    subpacket_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+    backlog_packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: OUT_OF_SCOPE
     existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_AND_143D_CONTROL_SYNC_COMPLETED
-    existing_runtime_state: PUBLIC_WEB_CAPTURE_UPGRADE_AND_CAPTCHA_RESUME_TASKS_NOT_YET_REGISTERED
-    title: I100-43F Public web capture and captcha task-pool sync
+    existing_runtime_state: DOCS_NOT_YET_SYNCED_FOR_PUBLIC_WEB_CAPTURE_AND_CAPTCHA_RESUME_ORDER
+    title: I100-43G Public web capture doc sync and order review
     status: ACTIVE
-    objective: 只做任务池/验收/控制面登记：新增公开网抓取升级和验证码挂起续跑的后续任务，并锁定“实现必须基于现有 seams 复用补强，不得重造重复链路”的口径；不改 runtime，不改 docs，不放开真实 provider、客户下载、真实支付交付、退款或自动退款。
+    objective: 同步 docs/control/tests：把公开网抓取失败优先自动升级、验证码检测挂起与操作台输入续跑、实现必须复用现有 Stage2/Stage3/operator surfaces、以及推荐顺序 144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149 写进路线图和 D 文档补表。
     depends_on:
-      - PTL-I100-143E completed locally through fd6531a.
+      - PTL-I100-143F completed locally through 5f71320.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
-      target_active_packet: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+      previous_active_packet: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+      target_active_packet: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: public_web_capture_and_captcha_task_pool_sync
+      active_packet_kind: public_web_capture_doc_sync_and_order_review
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
       runtime_change: false
       runtime_change_in_packet: OUT_OF_SCOPE
-      docs_change: false
+      docs_change: true
       contracts_change: false
       handoff_change: false
       scripts_change: false
@@ -113,7 +129,7 @@ currentTask:
       - 不把验证码自动求解、自动识别并自动提交作为产品目标能力
       - 不新增正式对象、枚举、gate 或 exception 语义
       - 不执行真实 CRM/quote provider、Stage8 触达、Stage9 支付/交付、客户下载、退款或自动退款
-      - 不修改 docs、contracts、handoff、scripts、fixtures、Docker、migration
+      - 不修改 L0、裁决总表、contracts、handoff、scripts、fixtures、Docker、migration
       - 不把 LLM 输出当事实、法律结论或客户可见确定结论
       - 不把商业钩子线索泄露为可复现完整证据链
       - 不 push
@@ -152,20 +168,55 @@ currentTask:
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
       - control/product_runtime_architecture_map.yaml
+      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_自动运营决策架构与商业钩子方案.md
+      - docs/D1_研发_Codex执行手册.md
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D3_正式规则码总表与判定说明书.md
+      - docs/D4_OpenAPI接口契约.md
+      - docs/D5_页面导出与人工复核规范.md
+      - docs/D6_字段策略字典与客户交付字段规范.md
+      - docs/D7_对象级交付矩阵与外发治理规范.md
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+      - docs/D9_联系对象与销售触达规范.md
+      - docs/D10_订单支付交付与治理反馈规范.md
+      - docs/D11_测试验收与金标回归清单.md
+      - docs/D12_部署发布与运行治理规范.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/D14_AI模型治理规范.md
       - tests/test_product_runtime_architecture_map.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_product_acceptance_checklist.py
+      - tests/test_open_capability_doc_sync.py
     allowed_modification_paths:
       - control/current_task.yaml
       - control/product_task_library.yaml
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
       - control/product_runtime_architecture_map.yaml
+      - docs/AX9S_开发执行路由图.md
+      - docs/AX9S_自动运营决策架构与商业钩子方案.md
+      - docs/D1_研发_Codex执行手册.md
+      - docs/D2_正式对象契约与字段字典.md
+      - docs/D3_正式规则码总表与判定说明书.md
+      - docs/D4_OpenAPI接口契约.md
+      - docs/D5_页面导出与人工复核规范.md
+      - docs/D6_字段策略字典与客户交付字段规范.md
+      - docs/D7_对象级交付矩阵与外发治理规范.md
+      - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+      - docs/D9_联系对象与销售触达规范.md
+      - docs/D10_订单支付交付与治理反馈规范.md
+      - docs/D11_测试验收与金标回归清单.md
+      - docs/D12_部署发布与运行治理规范.md
+      - docs/D13_公开可查边界能力清单.md
+      - docs/D14_AI模型治理规范.md
       - tests/test_product_runtime_architecture_map.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_product_acceptance_checklist.py
+      - tests/test_open_capability_doc_sync.py
     forbidden_modification_paths:
-      - docs/**
+      - docs/L0.md
+      - docs/裁决总表.md
       - contracts/**
       - handoff/**
       - scripts/**
@@ -177,7 +228,23 @@ currentTask:
       - docker-compose.yml
       - src/**
     impacted_assets:
-      docs: []
+      docs:
+        - docs/AX9S_开发执行路由图.md
+        - docs/AX9S_自动运营决策架构与商业钩子方案.md
+        - docs/D1_研发_Codex执行手册.md
+        - docs/D2_正式对象契约与字段字典.md
+        - docs/D3_正式规则码总表与判定说明书.md
+        - docs/D4_OpenAPI接口契约.md
+        - docs/D5_页面导出与人工复核规范.md
+        - docs/D6_字段策略字典与客户交付字段规范.md
+        - docs/D7_对象级交付矩阵与外发治理规范.md
+        - docs/D8_真实竞争者识别可售对象与销售推进规范.md
+        - docs/D9_联系对象与销售触达规范.md
+        - docs/D10_订单支付交付与治理反馈规范.md
+        - docs/D11_测试验收与金标回归清单.md
+        - docs/D12_部署发布与运行治理规范.md
+        - docs/D13_公开可查边界能力清单.md
+        - docs/D14_AI模型治理规范.md
       control:
         - control/current_task.yaml
         - control/product_task_library.yaml
@@ -192,11 +259,13 @@ currentTask:
         - tests/test_product_runtime_architecture_map.py
         - tests/test_product_operability_gap_matrix.py
         - tests/test_product_acceptance_checklist.py
+        - tests/test_open_capability_doc_sync.py
     required_scripts:
       - git status --short --untracked-files=all
       - python -m unittest tests.test_product_runtime_architecture_map -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
       - python -m unittest tests.test_product_acceptance_checklist -v
+      - python -m unittest tests.test_open_capability_doc_sync -v
       - python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v
       - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
@@ -209,6 +278,7 @@ currentTask:
       python -m unittest tests.test_product_runtime_architecture_map -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
+      python -m unittest tests.test_open_capability_doc_sync -v: 300000
       python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v: 300000
       ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       : 300000
@@ -217,16 +287,16 @@ currentTask:
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
       git diff --check: 300000
     stop_conditions:
-      - Any need to modify docs, runtime, or any forbidden paths.
-      - Any need to implement runtime behavior in this task-pool sync packet.
+      - Any need to modify runtime or forbidden paths.
+      - Any need to implement runtime behavior in this doc-sync packet.
       - Any need to add formal object/enum/gate/exception semantics.
       - Any need to call real provider, crawl arbitrary sites, bypass login/captcha/anti-bot, auto-solve captcha, expose customer-visible evidence, execute payment/delivery/refund, or implement automated refund.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - task_pool_registers_public_web_capture_hardening
-      - task_pool_registers_captcha_resume_operator_path
-      - current_mainline_pointer_switched_to_143f
+      - docs_reference_143g_public_web_capture_and_captcha_resume_policy
+      - implementation_order_records_144_145_150_151_before_146
+      - current_mainline_pointer_switched_to_143g
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet records new future task-pool requirements only; it does not implement runtime behavior.
+  - This packet records documentation and ordering sync only; it does not implement runtime behavior.

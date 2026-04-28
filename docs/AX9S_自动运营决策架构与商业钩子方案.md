@@ -169,6 +169,8 @@ Stage6/Stage7 必须增加一个产品层概念：商业钩子线索。它不是
 |---|---|---|---|
 | 执行大脑 | 有 scheduler / queue / orchestration / operator action 零件，但不是自运行控制器 | 系统仍靠 Codex 或 owner 判断下一步 | `144` |
 | 市场与公开源策略 | 有真实公开 fetcher 和样本验证，但 source strategy 还没产品化 | owner 仍像人工研究员一样选站点和 URL | `144`、`145` |
+| 公开网抓取升级 | 有公开站点 fetcher、source health、degrade taxonomy，但还缺统一的失败诊断和自动升级闭环 | 抓取失败会被误解为只能人工重跑，真实样本覆盖会卡在站点结构变化、JS 壳、分页、附件、编码、超时和限频上 | `150` |
+| 验证码挂起续跑 | 现有边界能识别验证码/登录/反爬并 fail-closed，但还没有操作台输入后续跑的产品路径 | 公开网站正常出现验证码时，任务会中断而不是保留会话继续执行 | `151` |
 | 证据质量与解析核验 | 有真实快照、parser、verification pilot | 弱证据、同名、缺 source slice 可能变成错误商业信号 | `146`、`149` |
 | 商业价值与钩子转化 | 有 Stage6 package、Stage7 buyer fit/readback | 系统能发现问题，但不能稳定生成可销售且不泄密的钩子 | `147` |
 | owner 可操作性 | 有操作台入口和 readback | owner 仍要看 raw JSON 或找 Codex 判断 | `148` |
@@ -186,29 +188,35 @@ Stage6/Stage7 必须增加一个产品层概念：商业钩子线索。它不是
 
 ## 八、后续实施路线
 
-1. `PTL-I100-144-market-scan-opportunity-discovery-engine`  
+1. `PTL-I100-144-market-scan-opportunity-discovery-engine`
    做第一版执行大脑和机会发现：run controller、stage state machine、market scan decision planner，系统自动判断哪些公告值得分析。
 
-2. `PTL-I100-145-source-blueprint-orchestration-and-capture-plan`  
+2. `PTL-I100-145-source-blueprint-orchestration-and-capture-plan`
    做公开源蓝图编排：系统自动选择公开源组合并生成 Stage2 采集计划。全国聚合平台只作为一级发现、去重和补充查询面，不按全量实时源验收；首批商业试点不选北京，北京仅保留为技术回归/页面可达性样本。首批商业试点省份默认从四川、江苏、浙江、山东、广东、湖北开始，城市适配只按省级覆盖缺口、附件/详情缺失、监管投诉/备案证据、项目价值或 SPA 弱正文触发。
 
-3. `PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy`  
+3. `PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation`
+   做公开网抓取失败自动升级：系统先诊断 DOM/结构改版、JS 壳、分页/跳转、附件发现、编码、超时、限频、解析模板漂移和站点健康退化，再自动选择合法采集/解析升级策略，不把纯人工重跑作为默认失败路径。
+
+4. `PTL-I100-151-public-web-captcha-suspend-and-operator-resume`
+   做验证码挂起续跑：公开站出现验证码/校验页时，系统保留 URL、cookie、表单、任务上下文和 capture plan，在操作台输入验证码后从同一任务续跑；不做自动解验证码、第三方打码或绕过。
+
+5. `PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy`
    做硬伤核验策略：系统自动决定查项目经理在建、资质、信用、业绩、许可、合同、履约等。
 
-4. `PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine`  
+6. `PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine`
    做商业价值、买家识别和商业钩子：系统判断能不能卖、卖给谁、怎么不泄露地引流。
 
-5. `PTL-I100-148-productized-autonomous-operator-workbench`  
+7. `PTL-I100-148-productized-autonomous-operator-workbench`
    做产品化操作台：展示机会队列、证据强度、买家排序、钩子话术、复核项、下一步动作。
 
-6. `PTL-I100-149-real-sample-autonomous-opportunity-acceptance`  
+8. `PTL-I100-149-real-sample-autonomous-opportunity-acceptance`
    用真实公开样本验收：从市场扫描到可售钩子和交付候选，证明系统不是手工 URL 工具。
 
 ## 九、红线
 
 仍保持：
 
-- 不抓 private / gray / 登录后 / 验证码 / 反爬内容
+- 不抓 private / gray / 登录后内容；公开网遇到验证码/校验页时只能走检测、挂起、操作台输入、审计续跑，不做自动解验证码、第三方打码或绕过
 - 不把 LLM 输出当事实或法律结论
 - 不把未复核推断直接给客户
 - 不自动外发法律文书

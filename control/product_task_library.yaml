@@ -119,12 +119,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-  packet_id: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-  title: "Public web capture and captcha task-pool sync"
+  task_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+  packet_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+  title: "Public web capture doc sync and order review"
   planning_state: ACTIVE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143D completed locally through 440b49b and 143E completed locally through fd6531a. 143F is active to register remaining public-web capture-escalation and captcha-resume capabilities into the future task pool before implementing 144-151; no runtime behavior, provider execution, customer download, refund, automated refund, or public software release is opened."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143D completed locally through 440b49b, 143E through fd6531a, and 143F through 5f71320. 143G is active to synchronize public-web capture escalation, captcha resume, reuse-first implementation policy, and revised ordering into docs before implementing 144-151; no runtime behavior, provider execution, customer download, refund, automated refund, or public software release is opened."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -241,7 +241,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 85
+task_count: 86
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -3229,9 +3229,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, operator_frontend, product_acceptance]
     task_type: public_web_capture_and_captcha_task_pool_sync
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P49B
     existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_AND_143E_D_DOC_SYNC_COMPLETED
     existing_runtime_state: PUBLIC_WEB_CAPTURE_ESCALATION_AND_CAPTCHA_RESUME_NOT_YET_REGISTERED_IN_TASK_POOL
@@ -3262,6 +3262,49 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
     suggested_packet_refs: [PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync]
     risk_level: HIGH
+    completed_commit: 5f71320
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_PUBLIC_WEB_CAPTURE_AND_CAPTCHA_TASK_POOL_REGISTRATION"
+  - task_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+    title: "I100-43G Public web capture doc sync and order review"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, operator_frontend, product_acceptance]
+    task_type: public_web_capture_doc_sync_and_order_review
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P49C
+    existing_code_state: PUBLIC_WEB_CAPTURE_AND_CAPTCHA_TASK_POOL_SYNC_COMPLETED
+    existing_runtime_state: DOCS_AND_ROUTE_ORDER_NOT_YET_SYNCED_FOR_150_151
+    runtime_change_in_packet: OUT_OF_SCOPE
+    activation_policy: "Activated after owner pointed out that 143F task registration also needs documentation口径同步 and a fresh ordering assessment."
+    hard_depends_on:
+      - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+    objective: "把公开网抓取升级、验证码挂起续跑、复用现有代码优先和推荐顺序 144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149 同步进路线图、方案文档和 D1-D14 补表；不改 runtime。"
+    capability_gaps_covered:
+      - d_doc_sync_for_public_web_capture_hardening
+      - route_map_sync_for_captcha_resume
+      - implementation_order_reassessment_144_145_150_151_before_146
+      - reuse_existing_runtime_surfaces_doc_policy
+    non_goals:
+      - "不改 Stage1-9 runtime"
+      - "不新增正式对象、枚举、gate 或 exception 语义"
+      - "不把验证码自动求解、自动识别并自动提交作为产品目标能力"
+      - "不放开任意 crawler、登录/验证码/反爬绕过、真实 provider、客户下载、真实支付交付、退款或自动退款"
+    expected_outputs:
+      - "route map 143G sync"
+      - "D1-D14 143G supplement"
+      - "scheme doc revised ordering"
+      - "doc sync tests"
+    acceptance_checks:
+      - docs_reference_143g_public_web_capture_and_captcha_resume_policy
+      - implementation_order_records_144_145_150_151_before_146
+      - reuse_existing_runtime_surfaces_doc_policy_is_explicit
+      - no_runtime_or_live_execution_change
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+    suggested_packet_refs: [PTL-I100-143G-public-web-capture-doc-sync-and-order-review]
+    risk_level: HIGH
   - task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
     title: "I100-44 Market scan opportunity discovery engine"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
@@ -3274,7 +3317,7 @@ tasks:
     priority: P50
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
-      - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+      - PTL-I100-143G-public-web-capture-doc-sync-and-order-review
     objective: "实现市场扫描与机会发现：根据地区、工程类型、金额区间、公告阶段、异议窗口和关键字段自动判断哪些公告值得进入分析，不再把手工 URL 选择作为主流程。"
     capability_gaps_covered:
       - autonomous_run_controller_first_slice
@@ -3436,7 +3479,7 @@ tasks:
     priority: P52
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
-      - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+      - PTL-I100-151-public-web-captcha-suspend-and-operator-resume
     objective: "根据解析字段自动决定硬伤核验策略，重点覆盖项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵；弱证据必须复核或阻断。"
     capability_gaps_covered:
       - hard_defect_strategy_selection

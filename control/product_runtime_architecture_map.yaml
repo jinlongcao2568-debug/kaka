@@ -779,8 +779,11 @@ implementation_sequence:
     status: COMPLETED
     purpose: synchronize_autonomous_source_strategy_and_commercial_hook_boundaries_to_d_docs
   - packet_ref: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-    status: ACTIVE
+    status: COMPLETED
     purpose: register_public_web_capture_escalation_and_captcha_resume_tasks_without_runtime_change
+  - packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+    status: ACTIVE
+    purpose: synchronize_public_web_capture_captcha_resume_docs_and_reassess_implementation_order
   - packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
     status: PLANNED
     purpose: choose_which_projects_are_worth_analysis
