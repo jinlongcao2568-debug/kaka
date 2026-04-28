@@ -16,6 +16,10 @@ from stage2_ingestion.public_source_adapters import (
     PublicSourceTransport,
     resolve_public_source_adapter_config,
 )
+from stage2_ingestion.real_public_url_fetcher import (
+    RealPublicEntryFetcher,
+    RealPublicFetchTransport,
+)
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import apply_rule, build_id, ensure_enum, get_flag, resolve_bundle, utc_now_iso
 from storage.repositories.object_storage_repo import ObjectStorageRepository
@@ -223,3 +227,22 @@ class Stage2Service:
     ) -> Mapping[str, Any]:
         resolved_repository = repository or ObjectStorageRepository(settings=self.settings)
         return resolved_repository.replay_snapshot(snapshot_id)
+
+    def fetch_real_public_entry_url(
+        self,
+        url: str,
+        *,
+        profile_id: str | None = None,
+        repository: ObjectStorageRepository | None = None,
+        transport: RealPublicFetchTransport | None = None,
+        lineage_refs: Mapping[str, str] | None = None,
+    ) -> Mapping[str, Any]:
+        fetcher = RealPublicEntryFetcher(
+            repository=repository or ObjectStorageRepository(settings=self.settings),
+            transport=transport,
+        )
+        return fetcher.fetch_entry_url(
+            url,
+            profile_id=profile_id,
+            lineage_refs=lineage_refs,
+        )

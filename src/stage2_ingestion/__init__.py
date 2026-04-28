@@ -19,6 +19,16 @@ from stage2_ingestion.public_source_adapters import (
     provincial_bidding_platform_adapter_config,
     resolve_public_source_adapter_config,
 )
+from stage2_ingestion.real_public_url_fetcher import (
+    REAL_PUBLIC_ENTRY_FETCH_MODE,
+    REAL_PUBLIC_ENTRY_FETCHER_ID,
+    REAL_PUBLIC_ENTRY_PROFILES,
+    RealPublicEntryFetcher,
+    RealPublicEntryProfile,
+    RealPublicFetchResponse,
+    RealPublicUrlBoundaryError,
+    UrlLibRealPublicFetchTransport,
+)
 from stage2_ingestion.source_validation import (
     SOURCE_VALIDATION_SAMPLE_MATRIX,
     PublicSourceValidationResult,
@@ -47,6 +57,13 @@ __all__ = [
     "SOURCE_VALIDATION_SAMPLE_MATRIX",
     "PublicSourceValidationResult",
     "PublicSourceValidationSample",
+    "REAL_PUBLIC_ENTRY_FETCH_MODE",
+    "REAL_PUBLIC_ENTRY_FETCHER_ID",
+    "REAL_PUBLIC_ENTRY_PROFILES",
+    "RealPublicEntryFetcher",
+    "RealPublicEntryProfile",
+    "RealPublicFetchResponse",
+    "RealPublicUrlBoundaryError",
     "build_blocked_validation_result",
     "build_degraded_validation_result",
     "build_source_coverage_report",
@@ -55,4 +72,5 @@ __all__ = [
     "provincial_bidding_platform_adapter_config",
     "resolve_public_source_adapter_config",
     "source_validation_samples",
+    "UrlLibRealPublicFetchTransport",
 ]

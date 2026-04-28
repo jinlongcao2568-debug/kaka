@@ -46,7 +46,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
 
         self.assertEqual(
             {task["task_id"] for task in non_completed},
-            set(),
+            {"PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist"},
         )
         for task in non_completed:
             task_id = task["task_id"]
@@ -232,6 +232,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_124 = self.tasks_by_id["PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock"]
         task_125 = self.tasks_by_id["PTL-I100-125-approved-crm-quote-provider-execution"]
         task_132 = self.tasks_by_id["PTL-I100-132-owner-operator-frontend-productization-workbench"]
+        task_133a = self.tasks_by_id["PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist"]
 
         self.assertEqual(task_112["status"], "COMPLETED")
         self.assertEqual(task_112["planning_state"], "COMPLETED")
@@ -558,6 +559,20 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertTrue(checklist_132["current_132_frontend_result"]["owner_console_productized"])
         self.assertTrue(checklist_132["current_132_frontend_result"]["customer_portal_empty_state_supported"])
         self.assertFalse(checklist_132["current_132_frontend_result"]["live_execution_enabled_by_frontend"])
+        self.assertEqual(task_133a["status"], "ACTIVE")
+        self.assertEqual(task_133a["planning_state"], "ACTIVE")
+        self.assertTrue(task_133a["is_current_mainline_next_candidate"])
+        self.assertEqual(
+            task_133a["existing_runtime_state"],
+            "REAL_TOTAL_ENTRY_URL_FETCHER_NOT_IMPLEMENTED",
+        )
+        self.assertIn("real_public_total_entry_fetch", task_133a["capability_gaps_covered"])
+        checklist_133a = self.checklist["tasks"][
+            "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist"
+        ]
+        serialized_133a = yaml.safe_dump(checklist_133a, allow_unicode=True)
+        self.assertIn("浏览器实测可打开的总入口", serialized_133a)
+        self.assertIn("no_unregistered_url_fetch", checklist_133a["redline_checks"])
 
     def test_final_gate_requires_product_closure_not_just_tests(self) -> None:
         final_entry = self.checklist["tasks"]["PTL-I100-118-full-product-operational-acceptance"]

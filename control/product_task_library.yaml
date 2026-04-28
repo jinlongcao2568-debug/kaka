@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-132-owner-operator-frontend-productization-workbench
-  packet_id: PTL-I100-132-owner-operator-frontend-productization-workbench
-  title: "Owner operator frontend productization workbench completed"
-  planning_state: COMPLETED
-  runtime_change_in_packet: IN_SCOPE_AFTER_COMPLETION
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 132 upgrades the owner/customer frontend into a productized workbench for controlled owner-operated use; no public software release, no unapproved live provider execution, and no automated refund execution are enabled."
+  task_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+  packet_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+  title: "Real public entry URL fetcher and allowlist"
+  planning_state: ACTIVE
+  runtime_change_in_packet: IN_SCOPE
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 133A is the first post-frontend real public source operationalization packet: browser-verified total-entry URLs only, no arbitrary crawler, no login/captcha/anti-bot bypass, and no external provider action."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 60
+task_count: 61
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2399,3 +2399,55 @@ tasks:
       - "132 productizes the existing FastAPI server-rendered frontend rather than adding a separate SPA framework."
       - "The owner console now presents backend product closure as observable business workflow surfaces."
       - "The customer portal must fail gracefully when no artifact readback exists, while keeping access/download/customer-visible redlines closed."
+  - task_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+    title: "I100-33A Real public entry URL fetcher and allowlist"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, source_validation, product_acceptance]
+    task_type: real_public_source_entry_fetcher
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P35
+    existing_code_state: STAGE2_CONTROLLED_SANDBOX_ADAPTERS_ONLY
+    existing_runtime_state: REAL_TOTAL_ENTRY_URL_FETCHER_NOT_IMPLEMENTED
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Activated after owner corrected that detail pages are not total-entry URLs. Requires browser-verified public entry pages that can display list/search content and discover same-site detail links."
+    hard_depends_on:
+      - PTL-I100-132-owner-operator-frontend-productization-workbench
+      - PTL-I100-114-stage2-real-public-source-adapters
+      - PTL-I100-128-real-public-source-field-validation-and-coverage
+    objective: "实现第一批真实公开总入口 URL fetcher：只允许浏览器实测可打开、能看到列表/查询入口、可发现同站详情链接的公开 URL；保存入口 HTML 快照、hash、标题、正文可见性、发现链接与红线判定。"
+    browser_verified_entry_urls:
+      - https://www.ggzy.gov.cn/deal/dealList.html
+      - https://www.ccgp.gov.cn/cggg/zygg/
+      - https://www.ccgp.gov.cn/cggg/zygg/zbgg/
+    capability_gaps_covered:
+      - real_public_total_entry_fetch
+      - browser_verified_source_entry_allowlist
+      - same_site_detail_link_discovery
+      - entry_snapshot_hash_lineage_audit
+      - no_login_captcha_gray_boundary_evidence
+    non_goals:
+      - "不做任意 crawler"
+      - "不自动翻页深爬"
+      - "不绕过登录、验证码、人机校验、权限或反爬"
+      - "不采集 private/gray source"
+      - "不把固定详情页冒充总入口"
+      - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
+    expected_outputs:
+      - "real public entry allowlist"
+      - "entry URL fetcher carrier"
+      - "entry snapshot metadata and hash"
+      - "same-site detail link discovery summary"
+      - "public boundary tests"
+    acceptance_checks:
+      - browser_verified_total_entry_urls_recorded
+      - total_entry_fetch_not_detail_page_only
+      - allowlist_blocks_unregistered_url_before_fetch
+      - login_captcha_error_empty_or_js_shell_degrades_fail_closed
+      - same_site_detail_links_discovered_without_deep_crawl
+      - no_uncontrolled_crawler_or_provider_call
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+    suggested_packet_refs: [PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist]
+    risk_level: HIGH

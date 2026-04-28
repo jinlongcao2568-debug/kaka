@@ -236,6 +236,28 @@ final_132_frontend_productization_workbench:
     - customer_artifact_gated_portal
     - customer_artifact_empty_state
   remaining_frontend_blockers: []
+real_public_source_operationalization_after_132:
+  packet_ref: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+  status: ACTIVE
+  trigger_reason: "Owner corrected that detail pages are not sufficient; real source operation must start from usable total-entry/list/search pages."
+  target_capability_state: INTERNAL_READY
+  current_gap: "114/128 validated controlled public snapshots and browser-checked examples, but system does not yet have a dedicated real public total-entry URL fetcher for owner tasks."
+  first_batch_entry_urls:
+    - https://www.ggzy.gov.cn/deal/dealList.html
+    - https://www.ccgp.gov.cn/cggg/zygg/
+    - https://www.ccgp.gov.cn/cggg/zygg/zbgg/
+  must_prove:
+    - browser_verified_total_entry_urls
+    - total_entry_page_snapshot_not_detail_only
+    - same_site_detail_link_discovery
+    - no_unregistered_url_fetch
+    - no_login_captcha_antibot_bypass
+    - no_uncontrolled_crawler
+  next_packets_if_133A_passes:
+    - PTL-I100-133B-national-verification-source-entry-fetchers
+    - PTL-I100-133C-representative-local-platform-entry-fetchers
+    - PTL-I100-133D-public-attachment-original-link-fetching
+    - PTL-I100-134-owner-task-runner-real-source-ui
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -374,6 +396,16 @@ production_gap_task_map:
       - attachment_download
       - snapshot_hash_lineage
       - rate_limit_retry_timeout_health_audit
+  - gap_group: stage2_real_public_total_entry_fetcher
+    packet_ref: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - browser_verified_total_entry_urls
+      - allowlisted_public_entry_fetch
+      - entry_snapshot_hash_lineage_audit
+      - same_site_detail_link_discovery
+      - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters
     status: PLANNED

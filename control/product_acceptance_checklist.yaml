@@ -606,6 +606,28 @@ tasks:
       public_software_release_enabled: false
       live_execution_enabled_by_frontend: false
       automated_refund_execution_enabled: false
+  PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "真实公开入口样本必须是浏览器实测可打开的总入口/列表/查询页，不得只用固定详情页冒充系统任务入口。"
+      - "fetcher 只能访问显式 allowlist 的 public URL，保存 HTML 快照、title、content-type、byte_size、sha256、fetch audit、source lineage 和 browser verification evidence。"
+      - "入口页必须能发现同站详情链接；详情链接只作为下一跳验证摘要，不做任意 crawler、翻页深爬或跨站抓取。"
+      - "404、错误页、登录页、验证码、人机校验、JS 空壳、private/gray source 必须 fail closed / review required，不得绕过。"
+    targeted_test_expectations:
+      - stage2_real_public_url_fetcher
+      - product_module_registry
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - stage2_public_source_adapters_regression
+      - runtime_governance_guards
+    redline_checks:
+      - browser_verified_total_entry_urls_recorded
+      - no_unregistered_url_fetch
+      - no_login_captcha_or_anti_bot_bypass
+      - no_uncontrolled_crawler
+      - no_real_provider_call
+      - no_external_execution_side_effect
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

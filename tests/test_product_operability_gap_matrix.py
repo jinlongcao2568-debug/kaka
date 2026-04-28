@@ -213,11 +213,34 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund",
             "PTL-I100-130-llm-assisted-parsing-review-and-sales-governance",
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
+            "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
         for row in task_map:
             self.assertTrue(row["covered_capabilities"], row["gap_group"])
+
+    def test_133a_real_public_entry_fetcher_records_total_entry_gap(self) -> None:
+        section = self.matrix["real_public_source_operationalization_after_132"]
+
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertEqual(
+            section["first_batch_entry_urls"],
+            [
+                "https://www.ggzy.gov.cn/deal/dealList.html",
+                "https://www.ccgp.gov.cn/cggg/zygg/",
+                "https://www.ccgp.gov.cn/cggg/zygg/zbgg/",
+            ],
+        )
+        self.assertIn("browser_verified_total_entry_urls", section["must_prove"])
+        self.assertIn("total_entry_page_snapshot_not_detail_only", section["must_prove"])
+        self.assertIn("same_site_detail_link_discovery", section["must_prove"])
+        self.assertIn("no_uncontrolled_crawler", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}

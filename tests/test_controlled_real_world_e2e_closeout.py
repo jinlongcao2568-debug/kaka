@@ -96,7 +96,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         )
 
-    def test_task_pool_marks_127_through_132_completed_without_auto_next(self) -> None:
+    def test_task_pool_marks_127_through_132_completed_and_133a_active(self) -> None:
         tasks = {entry["task_id"]: entry for entry in self.task_library["tasks"]}
         for task_id in (
             "PTL-I100-127-owner-operator-frontend-and-customer-portal",
@@ -112,9 +112,11 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
                 self.assertFalse(tasks[task_id]["is_current_mainline_next_candidate"])
 
         candidate = self.task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["task_id"], "PTL-I100-132-owner-operator-frontend-productization-workbench")
-        self.assertEqual(candidate["planning_state"], "COMPLETED")
-        self.assertIn("no unapproved live provider execution", candidate["runtime_notes"])
+        self.assertEqual(candidate["task_id"], "PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist")
+        self.assertEqual(candidate["planning_state"], "ACTIVE")
+        self.assertIn("browser-verified total-entry URLs", candidate["runtime_notes"])
+        self.assertIn("no arbitrary crawler", candidate["runtime_notes"])
+        self.assertEqual(tasks[candidate["task_id"]]["status"], "ACTIVE")
 
 
 if __name__ == "__main__":
