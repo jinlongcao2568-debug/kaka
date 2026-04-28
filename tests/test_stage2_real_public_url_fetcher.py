@@ -14,6 +14,9 @@ if str(SRC) not in sys.path:
 from shared.settings import Settings
 from stage2_ingestion.real_public_url_fetcher import (
     NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS,
+    PUBLIC_ATTACHMENT_PROFILE_IDS,
+    REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
+    REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND,
     REAL_PUBLIC_ENTRY_FETCH_MODE,
     REAL_PUBLIC_ENTRY_FETCHER_ID,
     REAL_PUBLIC_ENTRY_PROFILES,
@@ -38,6 +41,8 @@ BEIJING_GCJS_URL = "https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html"
 BEIJING_BDA_URL = "https://ggzyjy.bda.gov.cn/"
 GD_PROV_URL = "https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index"
 GD_YUNFU_URL = "https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index"
+BEIJING_ATTACHMENT_PDF_URL = "https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202506/9426015154001.pdf"
+BEIJING_TOOLING_PDF_URL = "https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202410/25172947ch03.pdf"
 
 
 class FakeRealPublicFetchTransport:
@@ -138,6 +143,10 @@ def _guangdong_shell_html() -> bytes:
     </html>
     """
     return html.encode("utf-8")
+
+
+def _pdf_like_bytes() -> bytes:
+    return (b"%PDF-1.4\n" + (b"public attachment\n" * 80))
 
 
 class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
@@ -392,6 +401,104 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             self.assertIn("visible_entry_markers_missing", guangdong["degraded_reasons"])
             self.assertTrue(guangdong["fail_closed"])
             self.assertIsNone(guangdong["snapshot_id_optional"])
+
+    def test_public_attachment_profiles_are_registered(self) -> None:
+        self.assertEqual(
+            PUBLIC_ATTACHMENT_PROFILE_IDS,
+            (
+                "BEIJING-STANDARD-BIDDING-PDF",
+                "BEIJING-TOOLING-PDF",
+            ),
+        )
+
+    def test_public_attachment_original_link_fetch_persists_pdf_snapshot(self) -> None:
+        pdf_bytes = _pdf_like_bytes()
+        transport = FakeRealPublicFetchTransport(
+            {
+                BEIJING_ATTACHMENT_PDF_URL: RealPublicFetchResponse(
+                    url=BEIJING_ATTACHMENT_PDF_URL,
+                    status_code=200,
+                    content=pdf_bytes,
+                    content_type="application/pdf",
+                    final_url=BEIJING_ATTACHMENT_PDF_URL,
+                )
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            fetcher = RealPublicEntryFetcher(transport=transport, repository=repo)
+            carrier = fetcher.fetch_attachment_original_link(
+                BEIJING_ATTACHMENT_PDF_URL,
+                profile_id="BEIJING-STANDARD-BIDDING-PDF",
+                detail_page_url=BEIJING_HOME_URL,
+                lineage_refs={"owner_task_id": "TASK-133D"},
+            )
+
+            self.assertEqual(carrier["status"], "FETCHED")
+            self.assertEqual(carrier["attachment_profile_id"], "BEIJING-STANDARD-BIDDING-PDF")
+            self.assertEqual(carrier["content_type"], "application/pdf")
+            self.assertEqual(carrier["detail_page_url_optional"], BEIJING_HOME_URL)
+            self.assertTrue(carrier["snapshot_id_optional"])
+            self.assertEqual(repo.read_snapshot_bytes(carrier["snapshot_id_optional"]), pdf_bytes)
+            replay = repo.replay_snapshot(carrier["snapshot_id_optional"])
+            self.assertEqual(replay["manifest"]["snapshot_kind"], REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND)
+            self.assertEqual(replay["manifest"]["fetch_mode_optional"], REAL_PUBLIC_ATTACHMENT_FETCH_MODE)
+            self.assertEqual(replay["manifest"]["lineage_refs"]["owner_task_id"], "TASK-133D")
+
+    def test_public_attachment_fetch_blocks_unregistered_url_and_html_disguised_payload(self) -> None:
+        transport = FakeRealPublicFetchTransport(
+            {
+                BEIJING_TOOLING_PDF_URL: RealPublicFetchResponse(
+                    url=BEIJING_TOOLING_PDF_URL,
+                    status_code=200,
+                    content=b"<html><title>not attachment</title><body>download blocked</body></html>",
+                    content_type="text/html",
+                    final_url=BEIJING_TOOLING_PDF_URL,
+                )
+            }
+        )
+        fetcher = RealPublicEntryFetcher(transport=transport, repository=None)
+
+        with self.assertRaises(RealPublicUrlBoundaryError):
+            fetcher.fetch_attachment_original_link("https://ggzyfw.beijing.gov.cn/not-allowlisted.pdf")
+
+        carrier = fetcher.fetch_attachment_original_link(
+            BEIJING_TOOLING_PDF_URL,
+            profile_id="BEIJING-TOOLING-PDF",
+        )
+        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertIn("html_body_not_attachment", carrier["degraded_reasons"])
+        self.assertTrue(carrier["fail_closed"])
+
+    def test_stage2_service_exposes_real_public_attachment_fetcher(self) -> None:
+        pdf_bytes = _pdf_like_bytes()
+        transport = FakeRealPublicFetchTransport(
+            {
+                BEIJING_ATTACHMENT_PDF_URL: RealPublicFetchResponse(
+                    url=BEIJING_ATTACHMENT_PDF_URL,
+                    status_code=200,
+                    content=pdf_bytes,
+                    content_type="application/pdf",
+                    final_url=BEIJING_ATTACHMENT_PDF_URL,
+                )
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = _repo(tmp_dir)
+            carrier = Stage2Service().fetch_real_public_attachment_url(
+                BEIJING_ATTACHMENT_PDF_URL,
+                profile_id="BEIJING-STANDARD-BIDDING-PDF",
+                repository=repo,
+                transport=transport,
+                detail_page_url=BEIJING_HOME_URL,
+            )
+            self.assertEqual(carrier["status"], "FETCHED")
+            replay = repo.replay_snapshot(carrier["snapshot_id_optional"])
+            self.assertEqual(
+                replay["manifest"]["raw_snapshot_metadata"]["attachment_filename"],
+                "9426015154001.pdf",
+            )
 
     def test_stage2_service_exposes_real_public_entry_fetcher(self) -> None:
         body = _ggzy_entry_html()

@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-133C-representative-local-platform-entry-fetchers
-  packet_id: PTL-I100-133C-representative-local-platform-entry-fetchers
-  title: "Representative local platform entry fetchers"
+  task_id: PTL-I100-133D-public-attachment-original-link-fetching
+  packet_id: PTL-I100-133D-public-attachment-original-link-fetching
+  title: "Public attachment original link fetching"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 133A and 133B are completed. 133C is now active for representative local platform entry fetchers: direct local/provincial entry URLs only, with success-path and raw-shell fail-closed classification, no arbitrary crawler, no login/captcha/anti-bot bypass, and no external provider action."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 133A/133B/133C are completed. 133D is now active for public attachment original link fetching: allowlisted official binary attachment URLs only, no arbitrary crawler, no login/captcha/anti-bot bypass, and no external provider action."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 63
+task_count: 64
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2515,9 +2515,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, source_validation, product_acceptance]
     task_type: real_local_platform_entry_fetcher
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P37
     existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133B_READY
     existing_runtime_state: REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_FETCHERS_NOT_IMPLEMENTED
@@ -2557,4 +2557,52 @@ tasks:
       - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133C-representative-local-platform-entry-fetchers
     suggested_packet_refs: [PTL-I100-133C-representative-local-platform-entry-fetchers]
+    risk_level: HIGH
+    completed_commit: 07426ac
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_FETCHERS"
+  - task_id: PTL-I100-133D-public-attachment-original-link-fetching
+    title: "I100-33D Public attachment original link fetching"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, source_validation, product_acceptance]
+    task_type: public_attachment_original_link_fetcher
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P38
+    existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133C_READY
+    existing_runtime_state: PUBLIC_ATTACHMENT_ORIGINAL_LINK_FETCHING_NOT_IMPLEMENTED
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Activated after 133C to fetch allowlisted official binary attachment URLs directly and persist original bytes/hash/readback without arbitrary crawling."
+    hard_depends_on:
+      - PTL-I100-133C-representative-local-platform-entry-fetchers
+      - PTL-I100-114A-local-public-resource-trading-centers
+      - PTL-I100-114F-government-procurement-public-sites
+    objective: "实现真实公开附件原始链接 fetcher：对 allowlisted 官方 PDF/zip/doc 等原始 URL 做直接抓取、持久化、hash/readback，并对 HTML 伪装下载页、未登记 URL、空内容等情况 fail closed。"
+    official_attachment_urls:
+      - https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202506/9426015154001.pdf
+      - https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202410/25172947ch03.pdf
+    capability_gaps_covered:
+      - public_attachment_original_url_fetch
+      - binary_attachment_snapshot_hash_readback
+      - html_disguised_download_fail_closed
+      - no_uncontrolled_crawler_or_provider_call
+    non_goals:
+      - "不做任意 crawler"
+      - "不自动翻页深爬"
+      - "不绕过登录、验证码、人机校验、权限或反爬"
+      - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
+    expected_outputs:
+      - "allowlisted public attachment fetcher"
+      - "binary attachment readback carrier"
+      - "attachment hash/size/content-type persistence"
+      - "fail-closed attachment boundary tests"
+    acceptance_checks:
+      - public_attachment_urls_registered
+      - beijing_pdf_attachment_fetches_and_persists
+      - html_disguised_download_fails_closed
+      - no_uncontrolled_crawler_or_provider_call
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133D-public-attachment-original-link-fetching
+    suggested_packet_refs: [PTL-I100-133D-public-attachment-original-link-fetching]
     risk_level: HIGH

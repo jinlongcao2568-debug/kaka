@@ -14,7 +14,9 @@ from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 REAL_PUBLIC_ENTRY_FETCHER_ID = "stage2.real_public_entry_url_fetcher.v1"
 REAL_PUBLIC_ENTRY_FETCH_MODE = "REAL_PUBLIC_ENTRY_ALLOWLIST"
+REAL_PUBLIC_ATTACHMENT_FETCH_MODE = "REAL_PUBLIC_ATTACHMENT_ALLOWLIST"
 REAL_PUBLIC_ENTRY_SNAPSHOT_KIND = "real_public_entry_html_snapshot"
+REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND = "real_public_attachment_original_file"
 REAL_PUBLIC_ENTRY_USER_AGENT = (
     "AX9S-RealPublicEntryFetcher/0.1 (+public-readonly-validation)"
 )
@@ -29,6 +31,21 @@ class RealPublicEntryProfile:
     expected_title_contains: str
     visible_entry_markers: tuple[str, ...]
     sample_detail_url: str
+    browser_verified_at: str
+    browser_verified_evidence: str
+
+    @property
+    def host(self) -> str:
+        return urlsplit(self.url).netloc.lower()
+
+
+@dataclass(frozen=True)
+class RealPublicAttachmentProfile:
+    profile_id: str
+    url: str
+    site_name: str
+    source_family: str
+    detail_page_url_optional: str | None
     browser_verified_at: str
     browser_verified_evidence: str
 
@@ -224,6 +241,36 @@ REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS = (
     "GUANGDONG-PROVINCIAL-PORTAL",
     "GUANGDONG-YUNFU-PORTAL",
 )
+PUBLIC_ATTACHMENT_PROFILE_IDS = (
+    "BEIJING-STANDARD-BIDDING-PDF",
+    "BEIJING-TOOLING-PDF",
+)
+REAL_PUBLIC_ATTACHMENT_PROFILES: tuple[RealPublicAttachmentProfile, ...] = (
+    RealPublicAttachmentProfile(
+        profile_id="BEIJING-STANDARD-BIDDING-PDF",
+        url="https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202506/9426015154001.pdf",
+        site_name="北京市公共资源交易服务平台",
+        source_family="local_public_resource_trading_center",
+        detail_page_url_optional="https://ggzyfw.beijing.gov.cn/",
+        browser_verified_at="2026-04-28T16:10:00+08:00",
+        browser_verified_evidence="官方域名下真实 PDF 原始链接，runtime 直连返回 200 和 application/pdf。",
+    ),
+    RealPublicAttachmentProfile(
+        profile_id="BEIJING-TOOLING-PDF",
+        url="https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202410/25172947ch03.pdf",
+        site_name="北京市公共资源交易服务平台",
+        source_family="local_public_resource_trading_center",
+        detail_page_url_optional="https://ggzyfw.beijing.gov.cn/",
+        browser_verified_at="2026-04-28T16:10:00+08:00",
+        browser_verified_evidence="官方域名下真实 PDF 原始链接，runtime 直连返回 200 和 application/pdf。",
+    ),
+)
+REAL_PUBLIC_ATTACHMENT_PROFILE_BY_URL = {
+    profile.url: profile for profile in REAL_PUBLIC_ATTACHMENT_PROFILES
+}
+REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID = {
+    profile.profile_id: profile for profile in REAL_PUBLIC_ATTACHMENT_PROFILES
+}
 
 _BLOCKED_BODY_PATTERNS = (
     "错误页面",
@@ -335,6 +382,41 @@ class RealPublicEntryFetcher:
             lineage_refs=lineage_refs,
         )
 
+    def fetch_attachment_original_link(
+        self,
+        url: str,
+        *,
+        profile_id: str | None = None,
+        lineage_refs: Mapping[str, str] | None = None,
+        detail_page_url: str | None = None,
+    ) -> dict[str, Any]:
+        profile = self._resolve_attachment_profile(url, profile_id=profile_id)
+        now = utc_now_iso()
+        try:
+            response = self.transport.fetch(
+                profile.url,
+                timeout_seconds=self.timeout_seconds,
+                user_agent=self.user_agent,
+            )
+        except Exception as exc:  # pragma: no cover - concrete network exceptions vary
+            return self._degraded_attachment_carrier(
+                profile,
+                now=now,
+                reason="fetch_failed",
+                detail=str(exc),
+                lineage_refs=lineage_refs,
+                detail_page_url=detail_page_url,
+                fetch_attempted=True,
+            )
+
+        return self._attachment_carrier_from_response(
+            profile,
+            response,
+            now=now,
+            lineage_refs=lineage_refs,
+            detail_page_url=detail_page_url,
+        )
+
     def _resolve_profile(
         self,
         url: str,
@@ -370,6 +452,26 @@ class RealPublicEntryFetcher:
                 "real_provider_call_executed": False,
             },
         )
+
+    def _resolve_attachment_profile(
+        self,
+        url: str,
+        *,
+        profile_id: str | None,
+    ) -> RealPublicAttachmentProfile:
+        profile = REAL_PUBLIC_ATTACHMENT_PROFILE_BY_URL.get(str(url).strip())
+        if profile_id:
+            by_id = REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID.get(str(profile_id).strip())
+            if by_id is None:
+                raise self._boundary_error(url, f"unregistered_attachment_profile_id:{profile_id}")
+            if profile is not None and by_id.url != profile.url:
+                raise self._boundary_error(url, "attachment_profile_url_mismatch")
+            profile = by_id
+        if profile is None:
+            raise self._boundary_error(url, "attachment_url_not_in_allowlist")
+        if urlsplit(profile.url).scheme != "https":
+            raise self._boundary_error(url, "non_https_public_attachment_url")
+        return profile
 
     def _carrier_from_response(
         self,
@@ -545,6 +647,157 @@ class RealPublicEntryFetcher:
             "redlines": _redlines(),
         }
 
+    def _attachment_carrier_from_response(
+        self,
+        profile: RealPublicAttachmentProfile,
+        response: RealPublicFetchResponse,
+        *,
+        now: str,
+        lineage_refs: Mapping[str, str] | None,
+        detail_page_url: str | None,
+    ) -> dict[str, Any]:
+        content = response.content or b""
+        content_type = response.content_type or "application/octet-stream"
+        filename = (urlsplit(response.final_url or profile.url).path.rsplit("/", 1)[-1] or "attachment.bin")
+        sha256 = hashlib.sha256(content).hexdigest()
+        degraded_reasons: list[str] = []
+        if response.status_code != 200:
+            degraded_reasons.append(f"http_status:{response.status_code}")
+        if len(content) == 0:
+            degraded_reasons.append("attachment_body_empty")
+        lowered_content_type = content_type.lower()
+        if "html" in lowered_content_type:
+            degraded_reasons.append("html_body_not_attachment")
+        if not (
+            any(token in lowered_content_type for token in ("pdf", "zip", "msword", "officedocument", "excel", "octet-stream"))
+            or filename.lower().endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip"))
+        ):
+            degraded_reasons.append("unsupported_attachment_content_type")
+
+        status = "DEGRADED" if degraded_reasons else "FETCHED"
+        snapshot_id = f"REAL-ATTACH-{profile.profile_id}-{sha256[:12]}"
+        fetch_audit = {
+            "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
+            "fetch_mode": REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
+            "fetch_attempted": True,
+            "timeout_seconds": self.timeout_seconds,
+            "user_agent": self.user_agent,
+            "browser_verified": True,
+            "browser_verified_at": profile.browser_verified_at,
+            "browser_verified_evidence": profile.browser_verified_evidence,
+            "uncontrolled_crawler_enabled": False,
+            "deep_crawl_enabled": False,
+            "real_provider_call_executed": False,
+        }
+        manifest_payload: dict[str, Any] | None = None
+        if self.repository is not None and status == "FETCHED":
+            manifest = self.repository.save_snapshot(
+                content,
+                snapshot_id=snapshot_id,
+                snapshot_kind=REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND,
+                content_type=content_type,
+                source_url_optional=profile.url,
+                source_family_optional=profile.source_family,
+                lineage_refs={
+                    "attachment_profile_id": profile.profile_id,
+                    **(
+                        {"detail_page_url": detail_page_url}
+                        if detail_page_url
+                        else (
+                            {"detail_page_url": profile.detail_page_url_optional}
+                            if profile.detail_page_url_optional
+                            else {}
+                        )
+                    ),
+                    **{
+                        str(key): str(value)
+                        for key, value in dict(lineage_refs or {}).items()
+                        if value not in (None, "")
+                    },
+                },
+                adapter_id=REAL_PUBLIC_ENTRY_FETCHER_ID,
+                source_visibility_state="PUBLIC_VISIBLE",
+                snapshot_version="133D-attachment-v1",
+                fetched_at=now,
+                captured_at=now,
+                fetch_mode=REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
+                fetch_audit=fetch_audit,
+                raw_snapshot_metadata={
+                    "attachment_profile_id": profile.profile_id,
+                    "attachment_url": profile.url,
+                    "attachment_filename": filename,
+                    "detail_page_url_optional": detail_page_url or profile.detail_page_url_optional,
+                    "site_name": profile.site_name,
+                    "source_family": profile.source_family,
+                },
+                source_health={
+                    "state": "HEALTHY",
+                    "degraded_reasons": degraded_reasons,
+                    "manual_review_required": False,
+                },
+            )
+            manifest_payload = manifest.as_payload()
+
+        return {
+            "attachment_fetch_id": snapshot_id,
+            "status": status,
+            "attachment_profile_id": profile.profile_id,
+            "attachment_url": profile.url,
+            "site_name": profile.site_name,
+            "source_family": profile.source_family,
+            "content_type": content_type,
+            "attachment_filename": filename,
+            "byte_size": len(content),
+            "sha256": sha256,
+            "detail_page_url_optional": detail_page_url or profile.detail_page_url_optional,
+            "snapshot_id_optional": snapshot_id if manifest_payload else None,
+            "manifest_optional": manifest_payload,
+            "degraded_reasons": degraded_reasons,
+            "review_required": bool(degraded_reasons),
+            "fail_closed": bool(degraded_reasons),
+            "no_broad_fallback": True,
+            "fetch_audit": fetch_audit,
+            "redlines": _redlines(),
+        }
+
+    def _degraded_attachment_carrier(
+        self,
+        profile: RealPublicAttachmentProfile,
+        *,
+        now: str,
+        reason: str,
+        detail: str,
+        lineage_refs: Mapping[str, str] | None,
+        detail_page_url: str | None,
+        fetch_attempted: bool,
+    ) -> dict[str, Any]:
+        return {
+            "attachment_fetch_id": f"REAL-ATTACH-{profile.profile_id}-DEGRADED",
+            "status": "DEGRADED",
+            "attachment_profile_id": profile.profile_id,
+            "attachment_url": profile.url,
+            "site_name": profile.site_name,
+            "source_family": profile.source_family,
+            "detail_page_url_optional": detail_page_url or profile.detail_page_url_optional,
+            "snapshot_id_optional": None,
+            "degraded_reasons": [reason],
+            "failure_detail_optional": detail,
+            "review_required": True,
+            "fail_closed": True,
+            "no_broad_fallback": True,
+            "lineage_refs": dict(lineage_refs or {}),
+            "fetch_audit": {
+                "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
+                "fetch_mode": REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
+                "fetch_attempted": fetch_attempted,
+                "fetched_at": now,
+                "uncontrolled_crawler_enabled": False,
+                "deep_crawl_enabled": False,
+                "real_provider_call_executed": False,
+            },
+            "redlines": _redlines(),
+        }
+
 
 def _decode_html(content: bytes) -> str:
     for encoding in ("utf-8", "gb18030"):
@@ -603,12 +856,20 @@ def _redlines() -> dict[str, bool]:
 
 
 __all__ = [
+    "PUBLIC_ATTACHMENT_PROFILE_IDS",
+    "REAL_PUBLIC_ATTACHMENT_FETCH_MODE",
+    "REAL_PUBLIC_ATTACHMENT_PROFILES",
+    "REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID",
+    "REAL_PUBLIC_ATTACHMENT_PROFILE_BY_URL",
+    "REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND",
     "REAL_PUBLIC_ENTRY_FETCHER_ID",
     "REAL_PUBLIC_ENTRY_FETCH_MODE",
     "REAL_PUBLIC_ENTRY_PROFILES",
     "REAL_PUBLIC_ENTRY_PROFILE_BY_ID",
     "REAL_PUBLIC_ENTRY_PROFILE_BY_URL",
     "NATIONAL_VERIFICATION_ENTRY_PROFILE_IDS",
+    "REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS",
+    "RealPublicAttachmentProfile",
     "RealPublicEntryFetcher",
     "RealPublicEntryProfile",
     "RealPublicFetchResponse",

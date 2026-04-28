@@ -286,7 +286,8 @@ national_verification_source_operationalization_after_133A:
     - PTL-I100-134-owner-task-runner-real-source-ui
 representative_local_platform_operationalization_after_133B:
   packet_ref: PTL-I100-133C-representative-local-platform-entry-fetchers
-  status: ACTIVE
+  status: COMPLETED
+  completed_commit: 07426ac
   trigger_reason: "133B completed. Real source operation now needs representative local/provincial platform entry fetchers with direct HTML success-path and raw-shell classification."
   target_capability_state: INTERNAL_READY
   current_gap: "System can classify national verification entry URLs, but does not yet distinguish direct local HTML entry pages from provincial portal shell pages on representative real platforms."
@@ -305,6 +306,23 @@ representative_local_platform_operationalization_after_133B:
     - no_uncontrolled_crawler
   next_packets_if_133C_passes:
     - PTL-I100-133D-public-attachment-original-link-fetching
+    - PTL-I100-134-owner-task-runner-real-source-ui
+public_attachment_original_link_operationalization_after_133C:
+  packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
+  status: ACTIVE
+  trigger_reason: "133C completed. Real source operation now needs official binary attachment URL fetching without arbitrary crawling."
+  target_capability_state: INTERNAL_READY
+  current_gap: "System can classify entry pages, but does not yet fetch allowlisted original attachment URLs as binary snapshots with hash/readback and fail-closed HTML-disguised download handling."
+  official_attachment_urls:
+    - https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202506/9426015154001.pdf
+    - https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202410/25172947ch03.pdf
+  must_prove:
+    - public_attachment_original_url_fetch
+    - binary_attachment_snapshot_hash_readback
+    - html_disguised_download_fail_closed
+    - no_unregistered_url_fetch
+    - no_uncontrolled_crawler
+  next_packets_if_133D_passes:
     - PTL-I100-134-owner-task-runner-real-source-ui
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
@@ -466,13 +484,22 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_representative_local_platform_entry_fetcher
     packet_ref: PTL-I100-133C-representative-local-platform-entry-fetchers
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - representative_local_platform_urls
       - beijing_local_platform_html_success_path
       - beijing_bda_html_success_path
       - guangdong_portal_raw_shell_fail_closed
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: stage2_public_attachment_original_link_fetcher
+    packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - public_attachment_original_url_fetch
+      - binary_attachment_snapshot_hash_readback
+      - html_disguised_download_fail_closed
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters

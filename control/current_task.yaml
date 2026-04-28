@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_133C_REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_FETCHERS
+navigation_state: PTL_I100_133D_PUBLIC_ATTACHMENT_ORIGINAL_LINK_FETCHING
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-133B completed locally; owner requested representative local/provincial platform official entry validation using real usable URLs and raw-shell classification.
+activation_condition: PTL-I100-133C completed locally; owner requested official public attachment original-link fetching using real binary URLs and fail-closed HTML-disguised download classification.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-133C-representative-local-platform-entry-fetchers
-  title: I100-33C Representative local platform entry fetchers
+  task_id: PTL-I100-133D-public-attachment-original-link-fetching
+  title: I100-33D Public attachment original link fetching
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -34,8 +34,8 @@ currentTask:
     - control/product_operability_gap_matrix.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133C-representative-local-platform-entry-fetchers
-  objective: 建立代表性地方平台入口 fetcher：对北京市主平台、北京工程建设入口、北京经开区分平台、广东省 portal 等真实入口做 allowlist、raw fetch/readback、success-path 与 raw-shell 分类；不做任意 crawler，不绕过站点防护。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133D-public-attachment-original-link-fetching
+  objective: 建立公开附件原始链接 fetcher：对 allowlisted 官方 PDF 原始 URL 做直接二进制抓取、持久化、hash/readback，并对 HTML 伪装下载页、空内容和未登记 URL fail closed；不做任意 crawler，不绕过站点防护。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,32 +55,32 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-133C-representative-local-platform-entry-fetchers
-    subpacket_id: PTL-I100-133C-representative-local-platform-entry-fetchers
-    backlog_packet_ref: PTL-I100-133C-representative-local-platform-entry-fetchers
+    packet_id: PTL-I100-133D-public-attachment-original-link-fetching
+    subpacket_id: PTL-I100-133D-public-attachment-original-link-fetching
+    backlog_packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133B_READY
-    existing_runtime_state: REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_FETCHERS_NOT_IMPLEMENTED
-    title: I100-33C Representative local platform entry fetchers
+    existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133C_READY
+    existing_runtime_state: PUBLIC_ATTACHMENT_ORIGINAL_LINK_FETCHING_NOT_IMPLEMENTED
+    title: I100-33D Public attachment original link fetching
     status: ACTIVE
-    objective: 用真实地方平台官方入口 URL 作为第三批 allowlist：覆盖北京市主平台、北京工程建设入口、北京经开区分平台和广东省 portal；成功正文页要形成成功 carrier，raw-shell portal 要稳定落到 fail-closed，不得误判为可执行抓取。
+    objective: 用真实官方附件原始 URL 作为第四批 allowlist：先覆盖北京平台 PDF 原始链接；二进制内容必须形成成功 carrier 和 object snapshot，HTML 伪装下载页必须稳定落到 fail-closed，不得误判为成功附件。
     depends_on:
-      - PTL-I100-133B completed locally.
+      - PTL-I100-133C completed locally.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-133B-national-verification-source-entry-fetchers
-      target_active_packet: PTL-I100-133C-representative-local-platform-entry-fetchers
+      previous_active_packet: PTL-I100-133C-representative-local-platform-entry-fetchers
+      target_active_packet: PTL-I100-133D-public-attachment-original-link-fetching
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: real_local_platform_entry_fetcher
+      active_packet_kind: public_attachment_original_link_fetcher
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -101,32 +101,17 @@ currentTask:
       auto_next_candidate_selection: false
       current_mainline_next_candidate_change: true
       push_allowed: false
-    official_entry_url_observations:
-      - url: https://ggzyfw.beijing.gov.cn/
+    official_attachment_url_observations:
+      - url: https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202506/9426015154001.pdf
         site_name: 北京市公共资源交易服务平台
         runtime_http_observation: 200
-        runtime_raw_observation: HTML_WITH_VISIBLE_ENTRY_MARKERS
-        notes: 原始 HTML 可见交易服务、公告、工程建设等入口词。
-      - url: https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html
+        runtime_raw_observation: APPLICATION_PDF
+        notes: 原始 URL 直接返回 application/pdf 和二进制正文。
+      - url: https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202410/25172947ch03.pdf
         site_name: 北京市公共资源交易服务平台
         runtime_http_observation: 200
-        runtime_raw_observation: HTML_WITH_VISIBLE_ENTRY_MARKERS
-        notes: 工程建设入口原始 HTML 可见交易服务/公告类入口词。
-      - url: https://ggzyjy.bda.gov.cn/
-        site_name: 全国公共资源交易平台(北京市经济技术开发区)北京市公共资源交易服务经济技术开发区分平台
-        runtime_http_observation: 200
-        runtime_raw_observation: HTML_WITH_VISIBLE_ENTRY_MARKERS
-        notes: 原始 HTML 可见交易服务、公告和搜索。
-      - url: https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index
-        site_name: 广东省公共资源交易平台
-        runtime_http_observation: 200
-        runtime_raw_observation: SPA_SHELL_OR_WEAK_ENTRY
-        notes: 原始 HTML 标题正常，但正文更接近前端壳页。
-      - url: https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index
-        site_name: 广东省公共资源交易平台（云浮）
-        runtime_http_observation: 200
-        runtime_raw_observation: SPA_SHELL_OR_WEAK_ENTRY
-        notes: 原始 HTML 标题正常，但正文更接近前端壳页。
+        runtime_raw_observation: APPLICATION_PDF
+        notes: 原始 URL 直接返回 application/pdf 和二进制正文。
     non_goals:
       - 不做任意 crawler
       - 不自动翻页深爬

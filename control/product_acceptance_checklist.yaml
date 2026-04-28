@@ -675,6 +675,29 @@ tasks:
       - guangdong_portal_raw_shell_fail_closed
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-133D-public-attachment-original-link-fetching:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "真实公开附件原始链接只允许官方二进制 URL allowlist，不得为了附件去做额外 crawling。"
+      - "成功路径必须保存原始 bytes、content-type、byte_size、sha256、detail page lineage 和 readback。"
+      - "HTML 伪装下载页、未登记 URL、空文件或异常 content-type 必须 fail closed，不得伪装成附件成功。"
+      - "仍不做任意 crawler、登录/验证码/反爬绕过、真实 provider 调用、真实客户下载、真实退款或自动退款。"
+    targeted_test_expectations:
+      - stage2_real_public_url_fetcher
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - stage2_public_source_adapters_regression
+      - runtime_governance_guards
+    redline_checks:
+      - public_attachment_urls_registered
+      - beijing_pdf_attachment_fetches_and_persists
+      - html_disguised_download_fails_closed
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
