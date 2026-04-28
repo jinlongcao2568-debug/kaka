@@ -698,6 +698,30 @@ tasks:
       - html_disguised_download_fails_closed
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-134-owner-task-runner-real-source-ui:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "owner console 必须直接展示 allowlisted 真实公开入口 profile 和公开附件 profile，并默认中文可操作。"
+      - "operator/customer access API 必须提供 internal-only 的真实来源 profile catalog、capture 触发和 repository-backed readback。"
+      - "capture 只能复用 133A-133D 已有 Stage2 fetcher，不新增任意 crawler 或跨站深爬。"
+      - "页面必须能回显 capture 结果、snapshot_id、fetch/readback 状态；missing snapshot 或弱正文仍要 fail closed。"
+      - "仍不做真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+    targeted_test_expectations:
+      - operator_customer_access
+      - operator_frontend_portal
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - owner_console_lists_allowlisted_entry_and_attachment_profiles
+      - real_public_source_capture_is_internal_only
+      - source_capture_readback_is_repository_backed
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

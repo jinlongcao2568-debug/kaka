@@ -15,6 +15,11 @@ from api.projections import (
     register_route_table,
 )
 from api.routes.stage1 import create_stage1_scheduler_task, read_stage1_scheduler_task
+from stage2_ingestion import (
+    REAL_PUBLIC_ATTACHMENT_PROFILES,
+    REAL_PUBLIC_ENTRY_PROFILES,
+)
+from stage2_ingestion.service import Stage2Service
 from storage.repositories.operator_action_repo import OperatorActionRepository
 from storage.repositories.worker_queue_repo import WorkerQueueRepository
 
@@ -158,6 +163,140 @@ def _queue_status_counts() -> dict[str, int]:
     return counts
 
 
+def _entry_profiles_readback() -> list[dict[str, Any]]:
+    return [
+        {
+            "profile_id": profile.profile_id,
+            "url": profile.url,
+            "site_name": profile.site_name,
+            "source_family": profile.source_family,
+            "expected_title_contains": profile.expected_title_contains,
+            "sample_detail_url": profile.sample_detail_url,
+            "browser_verified_at": profile.browser_verified_at,
+            "browser_verified_evidence": profile.browser_verified_evidence,
+        }
+        for profile in REAL_PUBLIC_ENTRY_PROFILES
+    ]
+
+
+def _attachment_profiles_readback() -> list[dict[str, Any]]:
+    return [
+        {
+            "profile_id": profile.profile_id,
+            "url": profile.url,
+            "site_name": profile.site_name,
+            "source_family": profile.source_family,
+            "detail_page_url_optional": profile.detail_page_url_optional,
+            "browser_verified_at": profile.browser_verified_at,
+            "browser_verified_evidence": profile.browser_verified_evidence,
+        }
+        for profile in REAL_PUBLIC_ATTACHMENT_PROFILES
+    ]
+
+
+def list_real_public_source_profiles(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    del payload
+    return {
+        "surface_id": "operator_real_public_source_profiles",
+        "internal_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "repository_backed_readback": False,
+        "entry_profiles": _entry_profiles_readback(),
+        "attachment_profiles": _attachment_profiles_readback(),
+        "entry_profile_count": len(REAL_PUBLIC_ENTRY_PROFILES),
+        "attachment_profile_count": len(REAL_PUBLIC_ATTACHMENT_PROFILES),
+        "allowed_capture_kinds": ["entry", "attachment"],
+        "uncontrolled_crawler_enabled": False,
+        "real_provider_call_enabled": False,
+        "external_release_enabled": False,
+        "customer_download_enabled": False,
+    }
+
+
+def _lineage_refs_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
+    refs: dict[str, str] = {}
+    for source_key, target_key in (
+        ("task_id", "owner_task_id"),
+        ("project_id", "project_id"),
+        ("source_blueprint_batch_id", "source_blueprint_batch_id"),
+    ):
+        value = str(payload.get(source_key, "")).strip()
+        if value:
+            refs[target_key] = value
+    refs["operator_surface"] = "operator_console_real_source_runner"
+    return refs
+
+
+def run_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str, Any]:
+    capture_kind = str(payload.get("capture_kind", "")).strip().lower()
+    profile_id = str(payload.get("profile_id", "")).strip()
+    if not profile_id:
+        raise ValueError("profile_id is required")
+
+    service = Stage2Service()
+    lineage_refs = _lineage_refs_from_payload(payload)
+    if capture_kind == "entry":
+        profile = next((item for item in REAL_PUBLIC_ENTRY_PROFILES if item.profile_id == profile_id), None)
+        if profile is None:
+            raise ValueError(f"unregistered_entry_profile_id:{profile_id}")
+        result = service.fetch_real_public_entry_url(
+            profile.url,
+            profile_id=profile.profile_id,
+            lineage_refs=lineage_refs,
+        )
+    elif capture_kind == "attachment":
+        profile = next((item for item in REAL_PUBLIC_ATTACHMENT_PROFILES if item.profile_id == profile_id), None)
+        if profile is None:
+            raise ValueError(f"unregistered_attachment_profile_id:{profile_id}")
+        result = service.fetch_real_public_attachment_url(
+            profile.url,
+            profile_id=profile.profile_id,
+            lineage_refs=lineage_refs,
+            detail_page_url=profile.detail_page_url_optional,
+        )
+    else:
+        raise ValueError("capture_kind must be entry or attachment")
+
+    return {
+        "surface_id": "operator_real_public_source_run",
+        "capture_kind": capture_kind,
+        "profile_id": profile_id,
+        "snapshot_id_optional": result.get("snapshot_id_optional"),
+        "capture_status": result.get("status"),
+        "repository_backed_readback": True,
+        "readback_path_template": "/operator-console/real-source-runs/{snapshot_id}",
+        "result": result,
+        "internal_only": True,
+        "uncontrolled_crawler_enabled": False,
+        "real_provider_call_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_download_enabled": False,
+    }
+
+
+def read_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str, Any]:
+    snapshot_id = str(payload.get("snapshot_id", "")).strip()
+    if not snapshot_id:
+        raise ValueError("snapshot_id is required")
+    replay = Stage2Service().replay_public_source_snapshot(snapshot_id)
+    return {
+        "surface_id": "operator_real_public_source_readback",
+        "snapshot_id": snapshot_id,
+        "readback_state": replay.get("readback_state"),
+        "repository_backed_readback": True,
+        "replayable": bool(replay.get("replayable", False)),
+        "result": replay,
+        "internal_only": True,
+        "uncontrolled_crawler_enabled": False,
+        "real_provider_call_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_download_enabled": False,
+    }
+
+
 def preview_scheduler_status(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
     storage_bootstrap, _ = _settings_bootstrap()
     worker_queue = dict(storage_bootstrap.get("worker_queue_bootstrap", {}))
@@ -194,6 +333,33 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         "path": "/operator-console/tasks",
         "handler": create_operator_task,
         "task_creation_entry": True,
+        "repository_backed_readback": True,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "listRealPublicSourceProfiles",
+        "method": "GET",
+        "path": "/operator-console/real-source-profiles",
+        "handler": list_real_public_source_profiles,
+        "real_public_source_profile_catalog": True,
+        "repository_backed_readback": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "runOwnerRealPublicSourceCapture",
+        "method": "POST",
+        "path": "/operator-console/real-source-runs",
+        "handler": run_owner_real_public_source_capture,
+        "real_public_source_runner_entry": True,
+        "repository_backed_readback": True,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "readOwnerRealPublicSourceCapture",
+        "method": "GET",
+        "path": "/operator-console/real-source-runs/{snapshot_id}",
+        "handler": read_owner_real_public_source_capture,
+        "real_public_source_readback": True,
         "repository_backed_readback": True,
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
@@ -259,10 +425,13 @@ __all__ = [
     "OPERATOR_CUSTOMER_ACCESS_ROUTES",
     "create_operator_task",
     "import_operator_project",
+    "list_real_public_source_profiles",
     "preview_customer_artifact_access_candidate",
     "preview_go_live_readiness",
     "preview_operator_customer_access_readiness",
     "preview_scheduler_status",
+    "read_owner_real_public_source_capture",
     "read_operator_task",
     "register_operator_customer_access_routes",
+    "run_owner_real_public_source_capture",
 ]

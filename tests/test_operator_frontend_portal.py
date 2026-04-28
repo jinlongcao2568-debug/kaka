@@ -105,9 +105,16 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "客户交付",
             "支付交付",
             "任务创建",
+            "真实公开源验证",
+            "入口页 Profile",
+            "附件 Profile",
+            "执行入口页抓取",
+            "执行附件抓取",
             "全链路运行入口",
             "运行受控样本到 Stage6",
             "/internal/stage1-6/orchestrations",
+            "/operator-console/real-source-profiles",
+            "/operator-console/real-source-runs",
             "TASK-OWNER-SAMPLE-001",
             "SANITIZED_OFFLINE_INTERNAL",
             "真实执行已关闭",
@@ -177,6 +184,14 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             run_result["stage6_readback"]["operational_context_status"],
             "persisted",
         )
+
+    def test_owner_console_real_source_runner_uses_internal_only_routes(self) -> None:
+        client = TestClient(create_app())
+        html = client.request("GET", "/operator-console").text
+        self.assertIn('Promise.all([loadReadiness(), loadRealSourceProfiles()])', html)
+        self.assertIn('"/operator-console/real-source-profiles"', html)
+        self.assertIn('"/operator-console/real-source-runs"', html)
+        self.assertIn("请先执行入口页或附件抓取。", html)
 
     def test_customer_artifact_portal_is_gated_and_uses_candidate_readback(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

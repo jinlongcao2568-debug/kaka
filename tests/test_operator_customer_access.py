@@ -4,6 +4,7 @@ import copy
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -68,6 +69,9 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         expected_operations = {
             "previewOperatorCustomerAccessReadiness",
             "createOperatorTask",
+            "listRealPublicSourceProfiles",
+            "runOwnerRealPublicSourceCapture",
+            "readOwnerRealPublicSourceCapture",
             "readOperatorTask",
             "importOperatorProject",
             "previewCustomerArtifactAccessCandidate",
@@ -122,6 +126,12 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(payload["public_software_release"])
         self.assertTrue(payload["operator_console"]["task_creation_entry"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["project_import_entry"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_public_source_profile_catalog"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_public_source_runner_entry"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_public_source_runner_entry"]["entry_capture_enabled"])
+        self.assertTrue(payload["operator_console"]["real_public_source_runner_entry"]["attachment_capture_enabled"])
+        self.assertFalse(payload["operator_console"]["real_public_source_runner_entry"]["uncontrolled_crawler_enabled"])
+        self.assertFalse(payload["operator_console"]["real_public_source_runner_entry"]["real_provider_call_enabled"])
         self.assertTrue(payload["operator_console"]["full_chain_run_entry"]["entry_visible"])
         self.assertFalse(
             payload["operator_console"]["full_chain_run_entry"][
@@ -145,6 +155,84 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertEqual(payload["go_live_readiness"]["capability_state"], "APPROVAL_READY")
         self.assertFalse(payload["go_live_readiness"]["go_live_enabled"])
         self.assertFalse(payload["go_live_readiness"]["external_release_enabled"])
+
+        profiles_response = client.request("GET", "/operator-console/real-source-profiles")
+        self.assertEqual(profiles_response.status_code, 200)
+        profiles = profiles_response.json()
+        self.assertEqual(profiles["surface_id"], "operator_real_public_source_profiles")
+        self.assertGreaterEqual(profiles["entry_profile_count"], 1)
+        self.assertGreaterEqual(profiles["attachment_profile_count"], 1)
+        self.assertFalse(profiles["uncontrolled_crawler_enabled"])
+        self.assertFalse(profiles["real_provider_call_enabled"])
+        self.assertIn("GGZY-DEAL-LIST", {item["profile_id"] for item in profiles["entry_profiles"]})
+        self.assertIn("BEIJING-STANDARD-BIDDING-PDF", {item["profile_id"] for item in profiles["attachment_profiles"]})
+
+    def test_real_public_source_runner_uses_existing_stage2_fetchers_and_replay(self) -> None:
+        client = TestClient(create_app())
+        with patch(
+            "api.routes.operator_customer_access.Stage2Service.fetch_real_public_entry_url",
+            return_value={
+                "status": "FETCHED",
+                "entry_profile_id": "GGZY-DEAL-LIST",
+                "snapshot_id_optional": "REAL-ENTRY-GGZY-001",
+                "fail_closed": False,
+            },
+        ) as fetch_entry, patch(
+            "api.routes.operator_customer_access.Stage2Service.fetch_real_public_attachment_url",
+            return_value={
+                "status": "FETCHED",
+                "attachment_profile_id": "BEIJING-STANDARD-BIDDING-PDF",
+                "snapshot_id_optional": "REAL-ATTACH-BJ-001",
+                "fail_closed": False,
+            },
+        ) as fetch_attachment, patch(
+            "api.routes.operator_customer_access.Stage2Service.replay_public_source_snapshot",
+            return_value={
+                "snapshot_id": "REAL-ATTACH-BJ-001",
+                "readback_state": "READBACK_READY",
+                "replayable": True,
+                "manifest_present": True,
+                "object_present": True,
+            },
+        ) as replay_snapshot:
+            entry_response = client.request(
+                "POST",
+                "/operator-console/real-source-runs",
+                json={"capture_kind": "entry", "profile_id": "GGZY-DEAL-LIST", "task_id": "TASK-134-001"},
+            )
+            self.assertEqual(entry_response.status_code, 200)
+            entry_payload = entry_response.json()
+            self.assertEqual(entry_payload["surface_id"], "operator_real_public_source_run")
+            self.assertEqual(entry_payload["capture_kind"], "entry")
+            self.assertEqual(entry_payload["capture_status"], "FETCHED")
+            self.assertEqual(entry_payload["snapshot_id_optional"], "REAL-ENTRY-GGZY-001")
+            self.assertTrue(entry_payload["repository_backed_readback"])
+            self.assertFalse(entry_payload["uncontrolled_crawler_enabled"])
+            self.assertFalse(entry_payload["real_provider_call_enabled"])
+            fetch_entry.assert_called_once()
+
+            attachment_response = client.request(
+                "POST",
+                "/operator-console/real-source-runs",
+                json={"capture_kind": "attachment", "profile_id": "BEIJING-STANDARD-BIDDING-PDF", "project_id": "PROJ-134-001"},
+            )
+            self.assertEqual(attachment_response.status_code, 200)
+            attachment_payload = attachment_response.json()
+            self.assertEqual(attachment_payload["capture_kind"], "attachment")
+            self.assertEqual(attachment_payload["snapshot_id_optional"], "REAL-ATTACH-BJ-001")
+            fetch_attachment.assert_called_once()
+
+            readback_response = client.request(
+                "GET",
+                "/operator-console/real-source-runs/REAL-ATTACH-BJ-001",
+            )
+            self.assertEqual(readback_response.status_code, 200)
+            readback = readback_response.json()
+            self.assertEqual(readback["surface_id"], "operator_real_public_source_readback")
+            self.assertEqual(readback["readback_state"], "READBACK_READY")
+            self.assertTrue(readback["repository_backed_readback"])
+            self.assertTrue(readback["replayable"])
+            replay_snapshot.assert_called_once_with("REAL-ATTACH-BJ-001")
 
     def test_operator_task_and_project_import_use_stage1_scheduler_without_external_fetch(self) -> None:
         app = create_app()

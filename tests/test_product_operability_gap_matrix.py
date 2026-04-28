@@ -216,6 +216,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-133B-national-verification-source-entry-fetchers",
             "PTL-I100-133C-representative-local-platform-entry-fetchers",
             "PTL-I100-133D-public-attachment-original-link-fetching",
+            "PTL-I100-134-owner-task-runner-real-source-ui",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -298,7 +299,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-133D-public-attachment-original-link-fetching",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertIn(section["status"], {"ACTIVE", "COMPLETED"})
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertEqual(
             section["official_attachment_urls"],
@@ -310,6 +311,18 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertIn("public_attachment_original_url_fetch", section["must_prove"])
         self.assertIn("binary_attachment_snapshot_hash_readback", section["must_prove"])
         self.assertIn("html_disguised_download_fail_closed", section["must_prove"])
+
+    def test_134_owner_task_runner_real_source_ui_records_console_execution_gap(self) -> None:
+        section = self.matrix["owner_task_runner_real_source_ui_operationalization_after_133D"]
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-134-owner-task-runner-real-source-ui",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn("owner_console_runs_real_public_entry_capture", section["must_prove"])
+        self.assertIn("owner_console_runs_real_public_attachment_capture", section["must_prove"])
+        self.assertIn("source_capture_readback_is_repository_backed_and_fail_closed", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}

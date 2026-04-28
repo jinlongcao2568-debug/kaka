@@ -858,6 +858,7 @@ def _build_transport_bootstrap(
                     "path": "/operator-console",
                     "task_creation_visible": True,
                     "project_import_visible": True,
+                    "real_public_source_runner_visible": True,
                     "full_chain_run_entry_visible": True,
                     "stage6_to_stage9_workbench_visible": True,
                     "provider_status_visible": True,
@@ -869,6 +870,9 @@ def _build_transport_bootstrap(
                 "operator_console_entries": {
                     "task_creation": "/operator-console/tasks",
                     "project_import": "/operator-console/project-imports",
+                    "real_public_source_profiles": "/operator-console/real-source-profiles",
+                    "real_public_source_run": "/operator-console/real-source-runs",
+                    "real_public_source_readback": "/operator-console/real-source-runs/{snapshot_id}",
                     "full_chain_run": INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY[
                         "internal_orchestration_path"
                     ],

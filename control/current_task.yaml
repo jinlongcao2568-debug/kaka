@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_133D_PUBLIC_ATTACHMENT_ORIGINAL_LINK_FETCHING
+navigation_state: PTL_I100_134_OWNER_TASK_RUNNER_REAL_SOURCE_UI
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-133C completed locally; owner requested official public attachment original-link fetching using real binary URLs and fail-closed HTML-disguised download classification.
+activation_condition: PTL-I100-133D completed locally; owner requested the owner console to actually execute allowlisted real public source capture instead of only creating Stage1 intent or running offline samples.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-133D-public-attachment-original-link-fetching
-  title: I100-33D Public attachment original link fetching
+  task_id: PTL-I100-134-owner-task-runner-real-source-ui
+  title: I100-34 Owner task runner real source UI
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -34,8 +34,8 @@ currentTask:
     - control/product_operability_gap_matrix.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133D-public-attachment-original-link-fetching
-  objective: 建立公开附件原始链接 fetcher：对 allowlisted 官方 PDF 原始 URL 做直接二进制抓取、持久化、hash/readback，并对 HTML 伪装下载页、空内容和未登记 URL fail closed；不做任意 crawler，不绕过站点防护。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-134-owner-task-runner-real-source-ui
+  objective: 把现有 owner console 接到 133A-133D 已有 Stage2 fetcher：列出 allowlisted 真实公开入口/附件 profile，提供 internal-only capture 和 repository-backed readback，页面默认中文；不做任意 crawler，不绕过站点防护。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,32 +55,32 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-133D-public-attachment-original-link-fetching
-    subpacket_id: PTL-I100-133D-public-attachment-original-link-fetching
-    backlog_packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
+    packet_id: PTL-I100-134-owner-task-runner-real-source-ui
+    subpacket_id: PTL-I100-134-owner-task-runner-real-source-ui
+    backlog_packet_ref: PTL-I100-134-owner-task-runner-real-source-ui
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133C_READY
-    existing_runtime_state: PUBLIC_ATTACHMENT_ORIGINAL_LINK_FETCHING_NOT_IMPLEMENTED
-    title: I100-33D Public attachment original link fetching
+    existing_code_state: OWNER_OPERATOR_FRONTEND_132_READY_PLUS_REAL_PUBLIC_FETCHERS_133D_READY
+    existing_runtime_state: OWNER_CONSOLE_REAL_SOURCE_EXECUTION_NOT_IMPLEMENTED
+    title: I100-34 Owner task runner real source UI
     status: ACTIVE
-    objective: 用真实官方附件原始 URL 作为第四批 allowlist：先覆盖北京平台 PDF 原始链接；二进制内容必须形成成功 carrier 和 object snapshot，HTML 伪装下载页必须稳定落到 fail-closed，不得误判为成功附件。
+    objective: 用现有 owner console 直接执行 allowlisted 真实公开入口页/附件抓取：必须列出 profile catalog，运行后能回显 snapshot/readback；不得引入任意 crawler、真实 provider 或客户下载。
     depends_on:
-      - PTL-I100-133C completed locally.
+      - PTL-I100-133D completed locally.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-133C-representative-local-platform-entry-fetchers
-      target_active_packet: PTL-I100-133D-public-attachment-original-link-fetching
+      previous_active_packet: PTL-I100-133D-public-attachment-original-link-fetching
+      target_active_packet: PTL-I100-134-owner-task-runner-real-source-ui
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
-      product_module_registry_change: true
+      product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: public_attachment_original_link_fetcher
+      active_packet_kind: owner_task_runner_real_source_ui
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -101,17 +101,15 @@ currentTask:
       auto_next_candidate_selection: false
       current_mainline_next_candidate_change: true
       push_allowed: false
-    official_attachment_url_observations:
-      - url: https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202506/9426015154001.pdf
-        site_name: 北京市公共资源交易服务平台
-        runtime_http_observation: 200
-        runtime_raw_observation: APPLICATION_PDF
-        notes: 原始 URL 直接返回 application/pdf 和二进制正文。
-      - url: https://ggzyfw.beijing.gov.cn/cmsbj/u/cms/cn.gov.bjggzyfw.www/202410/25172947ch03.pdf
-        site_name: 北京市公共资源交易服务平台
-        runtime_http_observation: 200
-        runtime_raw_observation: APPLICATION_PDF
-        notes: 原始 URL 直接返回 application/pdf 和二进制正文。
+    real_public_source_profiles_required:
+      entry_profiles:
+        - GGZY-DEAL-LIST
+        - CCGP-CENTRAL-NOTICES
+        - CCGP-CENTRAL-AWARD-LIST
+        - BEIJING-PLATFORM-HOME
+      attachment_profiles:
+        - BEIJING-STANDARD-BIDDING-PDF
+        - BEIJING-TOOLING-PDF
     non_goals:
       - 不做任意 crawler
       - 不自动翻页深爬
@@ -130,7 +128,8 @@ currentTask:
       - 不 push
     affected_stages:
       - stage2_ingestion
-      - source_validation
+      - api_transport
+      - operator_frontend
       - product_acceptance
     risk_level: HIGH
     change_class: MANDATORY_HUMAN_REVIEW
@@ -144,6 +143,8 @@ currentTask:
     change_domains:
       - automation_control_core
       - stage2_ingestion_runtime
+      - api_transport_runtime
+      - operator_frontend_runtime
       - source_public_boundary_core
       - product_acceptance_core
       - scripts_and_tests_general
@@ -160,13 +161,13 @@ currentTask:
       - control/product_task_library.yaml
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
-      - control/product_module_registry.yaml
       - docs/AX9S_开发执行路由图.md
-      - src/stage2_ingestion/real_public_url_fetcher.py
-      - src/stage2_ingestion/__init__.py
-      - src/stage2_ingestion/service.py
-      - tests/test_stage2_real_public_url_fetcher.py
-      - tests/test_product_module_registry.py
+      - src/api/routes/operator_customer_access.py
+      - src/api/routes/operator_frontend.py
+      - src/api/projections.py
+      - src/api/main.py
+      - tests/test_operator_customer_access.py
+      - tests/test_operator_frontend_portal.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_controlled_real_world_e2e_closeout.py
@@ -177,13 +178,13 @@ currentTask:
       - control/product_task_library.yaml
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
-      - control/product_module_registry.yaml
       - docs/AX9S_开发执行路由图.md
-      - src/stage2_ingestion/real_public_url_fetcher.py
-      - src/stage2_ingestion/__init__.py
-      - src/stage2_ingestion/service.py
-      - tests/test_stage2_real_public_url_fetcher.py
-      - tests/test_product_module_registry.py
+      - src/api/routes/operator_customer_access.py
+      - src/api/routes/operator_frontend.py
+      - src/api/projections.py
+      - src/api/main.py
+      - tests/test_operator_customer_access.py
+      - tests/test_operator_frontend_portal.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_controlled_real_world_e2e_closeout.py
@@ -212,7 +213,8 @@ currentTask:
       - src/stage9_delivery/**
       - src/storage/**
       - src/shared/**
-      - src/api/**
+      - src/api/routes/stage*.py
+      - src/api/schemas/**
     impacted_assets:
       docs:
         - docs/AX9S_开发执行路由图.md
@@ -221,17 +223,17 @@ currentTask:
         - control/product_task_library.yaml
         - control/product_acceptance_checklist.yaml
         - control/product_operability_gap_matrix.yaml
-        - control/product_module_registry.yaml
       contracts: []
       handoff: []
       scripts: []
       runtime:
-        - src/stage2_ingestion/real_public_url_fetcher.py
-        - src/stage2_ingestion/__init__.py
-        - src/stage2_ingestion/service.py
+        - src/api/routes/operator_customer_access.py
+        - src/api/routes/operator_frontend.py
+        - src/api/projections.py
+        - src/api/main.py
       tests:
-        - tests/test_stage2_real_public_url_fetcher.py
-        - tests/test_product_module_registry.py
+        - tests/test_operator_customer_access.py
+        - tests/test_operator_frontend_portal.py
         - tests/test_product_acceptance_checklist.py
         - tests/test_product_operability_gap_matrix.py
         - tests/test_controlled_real_world_e2e_closeout.py
@@ -239,14 +241,13 @@ currentTask:
         - tests/test_external_unlock_prerequisites.py
     required_scripts:
       - git status --short --untracked-files=all
-      - python -m unittest tests.test_stage2_real_public_url_fetcher -v
-      - python -m unittest tests.test_product_module_registry -v
+      - python -m unittest tests.test_operator_customer_access -v
+      - python -m unittest tests.test_operator_frontend_portal -v
       - python -m unittest tests.test_product_acceptance_checklist -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
-      - python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_133a_active -v
+      - python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress -v
       - python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v
       - python -m unittest tests.test_external_unlock_prerequisites.TestExternalUnlockPrerequisites.test_review_gate_keeps_r6_assets_classified_after_post_r6_batches -v
-      - python -m unittest tests.test_stage2_public_source_adapters -v
       - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
       - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
@@ -256,14 +257,13 @@ currentTask:
       - git status --short --untracked-files=all
     script_timeouts:
       git status --short --untracked-files=all: 120000
-      python -m unittest tests.test_stage2_real_public_url_fetcher -v: 300000
-      python -m unittest tests.test_product_module_registry -v: 300000
+      python -m unittest tests.test_operator_customer_access -v: 300000
+      python -m unittest tests.test_operator_frontend_portal -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
-      python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_133a_active -v: 300000
+      python -m unittest tests.test_controlled_real_world_e2e_closeout.TestControlledRealWorldE2ECloseout.test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress -v: 300000
       python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v: 300000
       python -m unittest tests.test_external_unlock_prerequisites.TestExternalUnlockPrerequisites.test_review_gate_keeps_r6_assets_classified_after_post_r6_batches -v: 300000
-      python -m unittest tests.test_stage2_public_source_adapters -v: 600000
       python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
       ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       : 300000
@@ -278,14 +278,11 @@ currentTask:
       - Any need to add formal object/enum/gate/exception semantics.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - browser_verified_total_entry_urls_recorded
-      - total_entry_fetch_not_detail_page_only
-      - allowlist_blocks_unregistered_url_before_fetch
-      - login_captcha_error_empty_or_js_shell_degrades_fail_closed
-      - entry_snapshot_has_title_hash_size_content_type_lineage_fetch_audit
-      - same_site_detail_links_discovered_without_deep_crawl
+      - owner_console_lists_allowlisted_entry_and_attachment_profiles
+      - owner_console_runs_entry_and_attachment_capture_via_existing_stage2_fetchers
+      - source_capture_readback_is_repository_backed_and_fail_closed
       - no_uncontrolled_crawler_or_provider_call
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet starts real public source operationalization with browser-verified total-entry URLs only; it does not open arbitrary crawling or any external provider action.
+  - This packet closes the owner-UI gap for the already-implemented real public source fetchers; it does not open arbitrary crawling or any external provider action.

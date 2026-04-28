@@ -4,6 +4,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
 
+from stage2_ingestion import (
+    PUBLIC_ATTACHMENT_PROFILE_IDS,
+    REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
+    REAL_PUBLIC_ATTACHMENT_PROFILES,
+    REAL_PUBLIC_ENTRY_FETCH_MODE,
+    REAL_PUBLIC_ENTRY_PROFILES,
+)
+
 import yaml
 
 from api.workbench_observability import (
@@ -3135,6 +3143,32 @@ def build_operator_customer_access_readiness_surface(
                 "import_mode": "internal_scheduler_task_intent",
                 "repository_backed_readback": True,
                 "real_external_fetch_enabled": False,
+            },
+            "real_public_source_profile_catalog": {
+                "operation_id": "listRealPublicSourceProfiles",
+                "method": "GET",
+                "path": "/operator-console/real-source-profiles",
+                "entry_visible": True,
+                "entry_profile_count": len(REAL_PUBLIC_ENTRY_PROFILES),
+                "attachment_profile_count": len(REAL_PUBLIC_ATTACHMENT_PROFILES),
+                "uncontrolled_crawler_enabled": False,
+                "real_provider_call_enabled": False,
+            },
+            "real_public_source_runner_entry": {
+                "operation_id": "runOwnerRealPublicSourceCapture",
+                "method": "POST",
+                "path": "/operator-console/real-source-runs",
+                "readback_path_template": "/operator-console/real-source-runs/{snapshot_id}",
+                "entry_visible": True,
+                "entry_capture_enabled": True,
+                "attachment_capture_enabled": True,
+                "entry_profile_ids": [profile.profile_id for profile in REAL_PUBLIC_ENTRY_PROFILES],
+                "attachment_profile_ids": list(PUBLIC_ATTACHMENT_PROFILE_IDS),
+                "entry_fetch_mode": REAL_PUBLIC_ENTRY_FETCH_MODE,
+                "attachment_fetch_mode": REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
+                "repository_backed_readback": True,
+                "uncontrolled_crawler_enabled": False,
+                "real_provider_call_enabled": False,
             },
             "full_chain_run_entry": {
                 "operation_id": "runStage1ToStage6InternalOrchestration",

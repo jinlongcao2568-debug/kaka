@@ -177,7 +177,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       color: var(--muted);
       margin: 10px 0 6px;
     }}
-    input, textarea {{
+    input, textarea, select {{
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -372,6 +372,17 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         <button class="secondary" id="importProject">导入项目</button>
       </section>
       <section>
+        <h3>真实公开源验证</h3>
+        <p>只执行 allowlist 的真实公开入口页和附件原始链接；不做任意 crawler、翻页深爬、跨站抓取或真实 provider 调用。</p>
+        <label for="entryProfile">入口页 Profile</label>
+        <select id="entryProfile"></select>
+        <button id="runEntryCapture">执行入口页抓取</button>
+        <label for="attachmentProfile">附件 Profile</label>
+        <select id="attachmentProfile"></select>
+        <button class="secondary" id="runAttachmentCapture">执行附件抓取</button>
+        <button class="secondary" id="readLatestSourceCapture">读取最近一次抓取读回</button>
+      </section>
+      <section>
         <h3>全链路运行入口</h3>
         <p>只接受脱敏、离线、内部 payload；Stage1-5 外部 live transport 仍关闭。</p>
         <label for="payload">运行参数 JSON</label>
@@ -452,6 +463,23 @@ async function loadReadiness() {
   ].join("");
   out({ readiness, scheduler, goLive });
 }
+let lastRealSourceSnapshotId = "";
+function fillSelect(id, items, labelBuilder) {
+  const select = $(id);
+  select.innerHTML = "";
+  for (const item of items) {
+    const option = document.createElement("option");
+    option.value = item.profile_id;
+    option.textContent = labelBuilder(item);
+    select.appendChild(option);
+  }
+}
+async function loadRealSourceProfiles() {
+  const catalog = await json("GET", "/operator-console/real-source-profiles");
+  fillSelect("entryProfile", catalog.entry_profiles || [], (item) => `${item.profile_id} | ${item.site_name}`);
+  fillSelect("attachmentProfile", catalog.attachment_profiles || [], (item) => `${item.profile_id} | ${item.site_name}`);
+  return catalog;
+}
 async function createTask() {
   const payload = { task_id: $("taskId").value, project_id: $("projectId").value, now: new Date().toISOString() };
   out(await json("POST", "/operator-console/tasks", payload));
@@ -480,14 +508,44 @@ async function runControlledSample() {
   ].join("");
   out(result);
 }
+async function runEntryCapture() {
+  const result = await json("POST", "/operator-console/real-source-runs", {
+    capture_kind: "entry",
+    profile_id: $("entryProfile").value,
+    task_id: $("taskId").value,
+    project_id: $("projectId").value
+  });
+  lastRealSourceSnapshotId = result.snapshot_id_optional || "";
+  out(result);
+}
+async function runAttachmentCapture() {
+  const result = await json("POST", "/operator-console/real-source-runs", {
+    capture_kind: "attachment",
+    profile_id: $("attachmentProfile").value,
+    task_id: $("taskId").value,
+    project_id: $("projectId").value
+  });
+  lastRealSourceSnapshotId = result.snapshot_id_optional || "";
+  out(result);
+}
+async function readLatestSourceCapture() {
+  if (!lastRealSourceSnapshotId) {
+    out({ error: "missing_snapshot_id", detail: "请先执行入口页或附件抓取。" });
+    return;
+  }
+  out(await json("GET", `/operator-console/real-source-runs/${encodeURIComponent(lastRealSourceSnapshotId)}`));
+}
 $("createTask").addEventListener("click", createTask);
 $("importProject").addEventListener("click", importProject);
+$("runEntryCapture").addEventListener("click", runEntryCapture);
+$("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
+$("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
 $("previewRun").addEventListener("click", previewRun);
 $("runControlledSample").addEventListener("click", runControlledSample);
 $("refreshWorkbench").addEventListener("click", loadReadiness);
 $("refreshProvider").addEventListener("click", loadReadiness);
 $("refreshAudit").addEventListener("click", loadReadiness);
-loadReadiness().catch(out);
+Promise.all([loadReadiness(), loadRealSourceProfiles()]).catch(out);
 """
     return _page("AX9S 运营操作台", body, script)
 

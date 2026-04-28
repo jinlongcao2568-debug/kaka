@@ -97,7 +97,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout",
         )
 
-    def test_task_pool_marks_127_through_132_completed_and_133a_active(self) -> None:
+    def test_task_pool_marks_127_through_132_completed_and_post_132_real_source_packets_progress(self) -> None:
         tasks = {entry["task_id"]: entry for entry in self.task_library["tasks"]}
         for task_id in (
             "PTL-I100-127-owner-operator-frontend-and-customer-portal",

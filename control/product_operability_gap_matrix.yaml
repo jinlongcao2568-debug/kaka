@@ -309,7 +309,8 @@ representative_local_platform_operationalization_after_133B:
     - PTL-I100-134-owner-task-runner-real-source-ui
 public_attachment_original_link_operationalization_after_133C:
   packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
-  status: ACTIVE
+  status: COMPLETED
+  completed_commit: 5781ac8
   trigger_reason: "133C completed. Real source operation now needs official binary attachment URL fetching without arbitrary crawling."
   target_capability_state: INTERNAL_READY
   current_gap: "System can classify entry pages, but does not yet fetch allowlisted original attachment URLs as binary snapshots with hash/readback and fail-closed HTML-disguised download handling."
@@ -324,6 +325,20 @@ public_attachment_original_link_operationalization_after_133C:
     - no_uncontrolled_crawler
   next_packets_if_133D_passes:
     - PTL-I100-134-owner-task-runner-real-source-ui
+owner_task_runner_real_source_ui_operationalization_after_133D:
+  packet_ref: PTL-I100-134-owner-task-runner-real-source-ui
+  status: ACTIVE
+  trigger_reason: "133D completed. Owner console still cannot actually execute the real public source fetchers, so the operator surface must close that loop."
+  target_capability_state: INTERNAL_READY
+  current_gap: "已有 owner console 只能创建 Stage1 intent 和离线样本运行，不能直接执行 allowlisted 真实公开入口/附件抓取，也不能在页面内读回 Stage2 capture 结果。"
+  must_prove:
+    - owner_console_lists_allowlisted_entry_and_attachment_profiles
+    - owner_console_runs_real_public_entry_capture
+    - owner_console_runs_real_public_attachment_capture
+    - source_capture_readback_is_repository_backed_and_fail_closed
+    - no_uncontrolled_crawler
+    - no_real_provider_call
+  next_packets_if_134_passes: []
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -494,12 +509,21 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_attachment_original_link_fetcher
     packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - public_attachment_original_url_fetch
       - binary_attachment_snapshot_hash_readback
       - html_disguised_download_fail_closed
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: owner_task_runner_real_source_ui
+    packet_ref: PTL-I100-134-owner-task-runner-real-source-ui
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - owner_console_real_source_runner
+      - real_public_source_profile_catalog_ui
+      - real_public_source_capture_readback_ui
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters
