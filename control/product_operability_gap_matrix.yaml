@@ -417,7 +417,7 @@ real_public_parser_to_verification_pilot_after_138:
     - PTL-I100-140-real-public-verification-to-rule-evidence-pilot
 real_public_verification_to_rule_evidence_pilot_after_139:
   packet_ref: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "139 proved real public Stage3 parsed carriers can enter Stage4 public verification readback; the next gap is validating that verification readback can drive Stage5 rule/evidence gates without becoming Stage6 fact or customer-visible material."
   target_capability_state: INTERNAL_READY
   current_gap: "Stage5 rule factory has internal catalog/golden coverage, but must be proven against real public Stage4 verification carriers with verification run refs, replayable source snapshots, parsed field refs, evidence gate state, and fail-closed review behavior."
@@ -428,7 +428,22 @@ real_public_verification_to_rule_evidence_pilot_after_139:
     - no_stage6_or_customer_visible_promotion
     - no_uncontrolled_crawler
     - no_real_provider_call
-  next_packets_if_140_passes: []
+  next_packets_if_140_passes:
+    - PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
+real_public_rule_evidence_to_stage6_product_package_pilot_after_140:
+  packet_ref: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
+  status: ACTIVE
+  trigger_reason: "140 proved real public Stage4 verification readback can drive Stage5 rule/evidence gates; the next gap is validating that Stage5 rule/evidence output can create Stage6 product package readiness with evidence-chain refs while staying internal-only."
+  target_capability_state: INTERNAL_READY
+  current_gap: "Stage6 product package readiness exists for internal chain, but must be proven against real public Stage5 rule/evidence bundles with verification run, source snapshot, parse, rule_hit/evidence, and gate refs preserved."
+  must_prove:
+    - real_public_stage5_rule_evidence_enters_stage6_product_package_readiness
+    - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
+    - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
+    - no_customer_visible_publication_or_downstream_execution
+    - no_uncontrolled_crawler
+    - no_real_provider_call
+  next_packets_if_141_passes: []
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -670,7 +685,7 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_verification_to_rule_evidence_pilot
     packet_ref: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - real_public_verification_to_stage5_rule_evidence_gate
@@ -678,6 +693,16 @@ production_gap_task_map:
       - stage5_rule_readback_source_object_refs
       - weak_or_review_verification_fails_closed_to_review
       - no_stage6_or_customer_visible_promotion
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: real_public_rule_evidence_to_stage6_product_package_pilot
+    packet_ref: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - real_public_stage5_rule_evidence_to_stage6_product_package_readiness
+      - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
+      - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
+      - no_customer_visible_publication_or_downstream_execution
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters

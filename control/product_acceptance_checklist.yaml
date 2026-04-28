@@ -872,6 +872,31 @@ tasks:
       - no_stage6_or_customer_visible_promotion
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须把 140 产生的真实公开 Stage5 rule/evidence bundle 送入 Stage6 product package readiness，而不是只验证离线 fixture 或常规 internal chain。"
+      - "Stage6 product package carrier/readback 必须保留 verification_run_id、source_snapshot_id、input_parse_run_id、parsed field refs、rule_hit/evidence/gate refs。"
+      - "Stage5 REVIEW、弱证据、缺 verification refs 或非公开 carrier 必须 fail closed / REVIEW_REQUIRED，不得伪造可交付产品包。"
+      - "Stage6 product package readiness 仍不得生成客户可见材料、法律结论、Stage7 CRM/quote、Stage8 触达或 Stage9 支付/交付执行。"
+      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+    targeted_test_expectations:
+      - stage6_product_package_hardening
+      - stage5_rule_factory_expansion
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - real_public_stage5_rule_evidence_enters_stage6_product_package_readiness
+      - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
+      - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
+      - no_customer_visible_publication_or_downstream_execution
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

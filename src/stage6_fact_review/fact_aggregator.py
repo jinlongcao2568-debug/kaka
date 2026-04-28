@@ -165,6 +165,30 @@ class ProjectFactAggregator:
             "evidence_grade_profile_id": inputs.get("evidence_grade_profile_id"),
             "pseudo_competitor_signal_set_id": inputs.get("pseudo_competitor_signal_set_id"),
         }
+        stage4_public_verification = inputs.get("stage4_public_verification_carrier")
+        if isinstance(stage4_public_verification, Mapping):
+            refs.update(
+                {
+                    "stage4_public_verification_run_id_optional": stage4_public_verification.get("verification_run_id"),
+                    "stage4_public_verification_target_id_optional": stage4_public_verification.get(
+                        "verification_target_id"
+                    ),
+                    "stage4_public_verification_target_type_optional": stage4_public_verification.get(
+                        "verification_target_type"
+                    ),
+                    "stage4_public_verification_result_optional": stage4_public_verification.get(
+                        "verification_result"
+                    ),
+                    "source_snapshot_id_optional": stage4_public_verification.get("source_snapshot_id"),
+                    "input_parse_run_id_optional": stage4_public_verification.get("input_parse_run_id"),
+                    "parsed_field_refs_optional": stage4_public_verification.get("parsed_field_refs"),
+                }
+            )
+        stage5_rule_readback = inputs.get("stage5_rule_readback_summary")
+        if isinstance(stage5_rule_readback, Mapping):
+            refs["stage4_public_verification_refs_optional"] = stage5_rule_readback.get(
+                "stage4_public_verification_refs"
+            )
         return {
             key: value
             for key, value in refs.items()

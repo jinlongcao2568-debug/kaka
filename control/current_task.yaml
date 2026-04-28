@@ -5,11 +5,11 @@ updated_at: '2026-04-28'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_140_REAL_PUBLIC_VERIFICATION_TO_RULE_EVIDENCE_PILOT
+navigation_state: PTL_I100_141_REAL_PUBLIC_RULE_EVIDENCE_TO_STAGE6_PRODUCT_PACKAGE_PILOT
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-139 completed locally at b3ab9c6; real public Stage4 verification readback now needs to enter Stage5 rule/evidence gates through the existing rule factory without promotion to Stage6 fact or customer conclusions.
+activation_condition: PTL-I100-140 completed locally at 65baa08; real public Stage5 rule/evidence readback now needs to enter Stage6 product package readiness without customer-visible publication or downstream execution.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
-  title: I100-40 Real public verification to rule evidence pilot
+  task_id: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
+  title: I100-41 Real public rule evidence to Stage6 product package pilot
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -34,8 +34,8 @@ currentTask:
     - control/product_operability_gap_matrix.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-140-real-public-verification-to-rule-evidence-pilot
-  objective: 用 139 已验证的真实公开 Stage4 public verification carrier 驱动 Stage5 rule/evidence gate：规则命中必须绑定 verification_run_id、source_snapshot_id、parsed field refs 和 evidence gate/readback，弱证据或 review 结果必须 fail closed 到 REVIEW；不生成 Stage6 fact、客户可见材料或法律结论。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
+  objective: 用 140 已验证的真实公开 Stage5 rule/evidence bundle 驱动 Stage6 product package readiness：Stage6 carrier 必须保留 verification_run_id、source_snapshot_id、input_parse_run_id、parsed field refs、rule/evidence gate refs 和审计 readback；弱证据或 REVIEW 必须 fail closed 到产品包 review，不生成客户可见材料、不触发 Stage7/8/9。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -55,32 +55,32 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
-    subpacket_id: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
-    backlog_packet_ref: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
+    packet_id: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
+    subpacket_id: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
+    backlog_packet_ref: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: REAL_PUBLIC_STAGE4_VERIFICATION_139_READY
-    existing_runtime_state: REAL_PUBLIC_VERIFICATION_CARRIERS_NOT_YET_VALIDATED_THROUGH_STAGE5_RULE_EVIDENCE_GATE
-    title: I100-40 Real public verification to rule evidence pilot
+    existing_code_state: REAL_PUBLIC_STAGE5_RULE_EVIDENCE_140_READY
+    existing_runtime_state: REAL_PUBLIC_RULE_EVIDENCE_NOT_YET_VALIDATED_THROUGH_STAGE6_PRODUCT_PACKAGE
+    title: I100-41 Real public rule evidence to Stage6 product package pilot
     status: ACTIVE
-    objective: 选取 139 已验证的真实公开 Stage4 public verification carrier，跑 Stage5 rule/evidence gate/readback，证明 rule_hit/evidence/rule_gate/evidence_gate 绑定 verification_run_id、source_snapshot_id、parsed field refs 和 fail-closed taxonomy；不产生 Stage6 fact、客户可见材料或法律结论。
+    objective: 将真实公开 Stage5 rule/evidence bundle 送入 Stage6 product package readiness，证明产品包 carrier/readback 绑定 Stage4/5 证据链并保持 internal-only；不发布客户材料、不触发销售/触达/支付/交付。
     depends_on:
-      - PTL-I100-139 completed locally.
+      - PTL-I100-140 completed locally at 65baa08.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-139-real-public-parser-to-verification-pilot
-      target_active_packet: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
+      previous_active_packet: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
+      target_active_packet: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
       parent_packet: PTL-I100-real-public-source-operationalization
       product_task_library_change: true
       product_module_registry_change: false
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: real_public_verification_to_rule_evidence_pilot
+      active_packet_kind: real_public_rule_evidence_to_stage6_product_package_pilot
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -101,47 +101,28 @@ currentTask:
       auto_next_candidate_selection: false
       current_mainline_next_candidate_change: true
       push_allowed: false
-    real_public_rule_evidence_profiles_required:
-      html_snapshot_profiles:
-        - GGZY-DEAL-LIST
-        - CCGP-CENTRAL-NOTICES
-        - CCGP-CENTRAL-AWARD-LIST
-        - BEIJING-PLATFORM-HOME
-        - BEIJING-GCJS-LIST
-        - BEIJING-BDA-HOME
-        - JZSC-NATIONAL-HOME
-        - GUANGDONG-PROVINCIAL-PORTAL
-        - GUANGDONG-YUNFU-PORTAL
-      attachment_snapshot_profiles:
-        - BEIJING-STANDARD-BIDDING-PDF
-        - BEIJING-TOOLING-PDF
     non_goals:
-      - 不做任意 crawler
+      - 不新增任意 crawler
       - 不自动翻页深爬
-      - 不引入浏览器自动化作为默认抓取 runtime
-      - 不把 UNVERIFIED 字段进入客户可见结论
-      - 不把 Stage5 rule/evidence readback 自动写入 Stage6 fact
+      - 不绕过登录、验证码、人机校验、权限或反爬
+      - 不新增规则 catalog、正式对象、枚举、gate 或 exception 语义
+      - 不把 Stage6 product package readiness 发布为客户可见材料
+      - 不触发 Stage7 CRM/quote、Stage8 outreach、Stage9 payment/delivery/refund
       - not an external unlock implementation
       - 不改变 canonical readiness
-      - 不绕过登录、验证码、人机校验、权限或反爬
-      - 不采集 private/gray source
-      - 不把固定详情页冒充总入口
-      - 不把 SPA 空壳或上游防护页面冒充成功正文
       - 不放开 external software release
       - 不无审批/无审计发送
       - 不绕过 provider config / sandbox / approval / audit / operator action
-      - 不执行真实触达、CRM sync、quote send、支付、交付、客户下载、退款或自动退款
-      - 不修改 D1-D14 正文、L0、contracts、handoff、scripts、fixtures、Docker、migration
       - 不新增业务对象、枚举、gate、exception 语义
-      - 不新增正式业务对象、枚举、gate、exception 语义
+      - 不执行真实 provider、客户下载、支付、交付、退款或自动退款
+      - 不修改 D1-D14 正文、L0、contracts、handoff、scripts、fixtures、Docker、migration
       - 不 push
     affected_stages:
       - stage2_ingestion
       - stage3_parsing
       - stage4_verification
       - stage5_rules_evidence
-      - api_transport
-      - operator_frontend
+      - stage6_fact_review
       - product_acceptance
     risk_level: HIGH
     change_class: MANDATORY_HUMAN_REVIEW
@@ -158,8 +139,7 @@ currentTask:
       - stage3_parsing_runtime
       - stage4_verification_runtime
       - stage5_rules_evidence_runtime
-      - api_transport_runtime
-      - operator_frontend_runtime
+      - stage6_fact_review_runtime
       - source_public_boundary_core
       - product_acceptance_core
       - scripts_and_tests_general
@@ -177,11 +157,9 @@ currentTask:
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
       - docs/AX9S_开发执行路由图.md
-      - src/stage5_rules_evidence/service.py
-      - src/stage5_rules_evidence/engine.py
-      - tests/test_stage2_real_public_url_fetcher.py
-      - tests/test_stage3_real_parser.py
-      - tests/test_stage4_public_verification_adapters.py
+      - src/stage6_fact_review/service.py
+      - src/stage6_fact_review/fact_aggregator.py
+      - tests/test_stage6_product_package_hardening.py
       - tests/test_stage5_rule_factory_expansion.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
@@ -194,11 +172,9 @@ currentTask:
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
       - docs/AX9S_开发执行路由图.md
-      - src/stage5_rules_evidence/service.py
-      - src/stage5_rules_evidence/engine.py
-      - tests/test_stage2_real_public_url_fetcher.py
-      - tests/test_stage3_real_parser.py
-      - tests/test_stage4_public_verification_adapters.py
+      - src/stage6_fact_review/service.py
+      - src/stage6_fact_review/fact_aggregator.py
+      - tests/test_stage6_product_package_hardening.py
       - tests/test_stage5_rule_factory_expansion.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_operability_gap_matrix.py
@@ -222,14 +198,13 @@ currentTask:
       - src/stage2_ingestion/**
       - src/stage3_parsing/**
       - src/stage4_verification/**
-      - src/stage6_fact_review/**
+      - src/stage5_rules_evidence/**
       - src/stage7_sales/**
       - src/stage8_outreach/**
       - src/stage9_delivery/**
       - src/storage/**
       - src/shared/**
-      - src/api/routes/stage*.py
-      - src/api/schemas/**
+      - src/api/**
     impacted_assets:
       docs:
         - docs/AX9S_开发执行路由图.md
@@ -242,13 +217,10 @@ currentTask:
       handoff: []
       scripts: []
       runtime:
-        - src/stage5_rules_evidence/service.py
-        - src/stage5_rules_evidence/engine.py
+        - src/stage6_fact_review/service.py
+        - src/stage6_fact_review/fact_aggregator.py
       tests:
-        - tests/test_stage2_real_public_url_fetcher.py
-        - tests/test_stage3_real_parser.py
-        - tests/test_stage4_public_verification_adapters.py
-        - tests/test_stage5_rule_factory_expansion.py
+        - tests/test_stage6_product_package_hardening.py
         - tests/test_product_acceptance_checklist.py
         - tests/test_product_operability_gap_matrix.py
         - tests/test_controlled_real_world_e2e_closeout.py
@@ -256,9 +228,7 @@ currentTask:
         - tests/test_external_unlock_prerequisites.py
     required_scripts:
       - git status --short --untracked-files=all
-      - python -m unittest tests.test_stage2_real_public_url_fetcher -v
-      - python -m unittest tests.test_stage3_real_parser -v
-      - python -m unittest tests.test_stage4_public_verification_adapters -v
+      - python -m unittest tests.test_stage6_product_package_hardening -v
       - python -m unittest tests.test_stage5_rule_factory_expansion -v
       - python -m unittest tests.test_product_acceptance_checklist -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
@@ -274,9 +244,7 @@ currentTask:
       - git status --short --untracked-files=all
     script_timeouts:
       git status --short --untracked-files=all: 120000
-      python -m unittest tests.test_stage2_real_public_url_fetcher -v: 300000
-      python -m unittest tests.test_stage3_real_parser -v: 300000
-      python -m unittest tests.test_stage4_public_verification_adapters -v: 300000
+      python -m unittest tests.test_stage6_product_package_hardening -v: 300000
       python -m unittest tests.test_stage5_rule_factory_expansion -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
@@ -293,17 +261,17 @@ currentTask:
     stop_conditions:
       - Any need to modify forbidden paths.
       - Any need to implement arbitrary crawling, recursive deep crawl, login/captcha bypass, anti-bot bypass, private/gray source collection, or unreviewed external action.
-      - Any need to treat Stage5 rule/evidence readback as Stage6 fact, legal conclusion, or customer-visible conclusion.
+      - Any need to treat Stage6 product package readiness as customer-visible publication, legal conclusion, or downstream Stage7/8/9 execution.
       - Any need to call real provider for CRM, outreach, payment, delivery, customer download, refund, or automated refund.
       - Any need to add formal object/enum/gate/exception semantics.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - real_public_stage4_verification_readback_enters_stage5_rule_evidence_gate
-      - rule_hit_and_evidence_bind_verification_run_snapshot_and_parsed_field_refs
-      - weak_or_review_public_verification_fails_closed_to_stage5_review
-      - no_stage6_or_customer_visible_promotion
+      - real_public_stage5_rule_evidence_enters_stage6_product_package_readiness
+      - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
+      - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
+      - no_customer_visible_publication_or_downstream_execution
       - no_uncontrolled_crawler_or_provider_call
       - targeted_and_formal_checks_pass
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet follows 139 and validates real public Stage4 public verification readback through Stage5 rule/evidence gates only; it does not promote rule/evidence readback to Stage6 fact, customer material, crawler, or provider action.
+  - This packet follows 140 and validates real public Stage5 rule/evidence readback through Stage6 product package readiness only; it does not publish customer material, execute Stage7/8/9, crawler, or provider action.

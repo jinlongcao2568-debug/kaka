@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -19,9 +20,11 @@ from shared.contracts_runtime import StageBundle
 from shared.pipeline import run_internal_chain
 from stage6_fact_review.fact_aggregator import STAGE6_PRODUCT_PACKAGE_READINESS_KEY
 from stage6_fact_review.service import Stage6Service
+from stage5_rules_evidence.service import Stage5Service
 from storage import persist_stage_bundle, reset_default_storage
 from storage.repository_boundary import hydrate_stage_bundle
 from storage.repositories import WorkItemRepository
+from test_stage5_rule_factory_expansion import _real_public_stage4_verification
 
 
 class TestStage6ProductPackageHardening(unittest.TestCase):
@@ -227,6 +230,77 @@ class TestStage6ProductPackageHardening(unittest.TestCase):
             feedback_carrier["audit_readback_summary"]["stage9_feedback_writeback_policy"],
             "trace_only_not_stage6_formal_fact_input",
         )
+
+    def test_real_public_rule_evidence_readback_enters_stage6_product_package(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            verification = _real_public_stage4_verification(tmp_dir=tmp_dir)
+            base_stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+            stage5 = Stage5Service().run_public_verification_readback(
+                base_stage4,
+                verification,
+                requested_rule_codes=["DOC-001"],
+            )
+            stage6 = Stage6Service().run_real_public_rule_evidence_readback(stage5)
+
+        carrier = self._carrier(stage6)
+        source_refs = carrier["source_object_refs"]
+        self.assertEqual(carrier["product_package_readiness"], "INTERNAL_READY")
+        self.assertEqual(
+            source_refs["stage4_public_verification_run_id_optional"],
+            verification["verification_run_id"],
+        )
+        self.assertEqual(source_refs["source_snapshot_id_optional"], verification["source_snapshot_id"])
+        self.assertEqual(source_refs["input_parse_run_id_optional"], verification["input_parse_run_id"])
+        self.assertIn(
+            verification["verification_run_id"],
+            source_refs["stage4_public_verification_refs_optional"],
+        )
+
+        summary = stage6.inputs[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY]
+        self.assertEqual(summary, stage6.handoff[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY])
+        self.assertEqual(summary["readback_state"], "READBACK_READY")
+        self.assertEqual(summary["real_public_product_package_chain_state"], "INTERNAL_READY")
+        self.assertEqual(summary["stage5_rule_gate_status"], "PASS")
+        self.assertEqual(summary["stage5_evidence_gate_status"], "PASS")
+        self.assertEqual(summary["source_refs"]["verification_run_id"], verification["verification_run_id"])
+        self.assertEqual(summary["source_refs"]["source_snapshot_id"], verification["source_snapshot_id"])
+        self.assertEqual(summary["fail_closed_reasons"], [])
+        self.assertFalse(summary["customer_visible_material_generated"])
+        self.assertFalse(summary["external_release_enabled"])
+        self.assertFalse(summary["stage7_stage8_stage9_execution_triggered"])
+        self.assertFalse(summary["legal_conclusion_generated"])
+        self.assertNotIn("sales_lead", stage6.records)
+        self.assertNotIn("customer_material", stage6.inputs)
+
+    def test_real_public_rule_evidence_review_fails_closed_before_product_delivery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            verification = _real_public_stage4_verification(
+                tmp_dir=tmp_dir,
+                profile_id="BEIJING-PLATFORM-HOME",
+                target_type="contract_public_info",
+                identifier="CONTRACT-PUBLIC-STAGE6-141",
+                target_identifier="",
+            )
+            base_stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+            stage5 = Stage5Service().run_public_verification_readback(
+                base_stage4,
+                verification,
+                requested_rule_codes=["DOC-001"],
+            )
+            stage6 = Stage6Service().run_real_public_rule_evidence_readback(stage5)
+
+        carrier = self._carrier(stage6)
+        summary = stage6.inputs[Stage6Service.REAL_PUBLIC_STAGE6_READBACK_KEY]
+        self.assertEqual(verification["verification_result"], "REVIEW_REQUIRED")
+        self.assertEqual(carrier["product_package_readiness"], "REVIEW_REQUIRED")
+        self.assertEqual(summary["readback_state"], "REVIEW_REQUIRED")
+        self.assertEqual(summary["real_public_product_package_chain_state"], "REVIEW_REQUIRED")
+        self.assertIn("evidence_gate_status=REVIEW", summary["fail_closed_reasons"])
+        self.assertIn("rule_gate_status=REVIEW", summary["fail_closed_reasons"])
+        self.assertFalse(summary["customer_visible_material_generated"])
+        self.assertFalse(summary["external_release_enabled"])
+        self.assertFalse(summary["stage7_stage8_stage9_execution_triggered"])
+        self.assertNotIn("customer_material", stage6.inputs)
 
 
 if __name__ == "__main__":
