@@ -46,10 +46,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         ]
         active_task_id = self.current_task["currentTask"]["task_id"]
 
-        self.assertEqual(
-            {task["task_id"] for task in non_completed},
-            {active_task_id},
-        )
+        self.assertIn(active_task_id, {task["task_id"] for task in non_completed})
         for task in non_completed:
             task_id = task["task_id"]
             self.assertIn(task_id, checklist_tasks)
@@ -63,6 +60,9 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 ["engineering_regression", "capability_state", "product_closure"],
                 task_id,
             )
+            if task_id != active_task_id:
+                self.assertEqual(task.get("status"), "PLANNED", task_id)
+                self.assertFalse(task.get("is_current_mainline_next_candidate"), task_id)
 
     def test_task_target_states_are_from_open_capability_state_order(self) -> None:
         allowed_states = set(self.library["open_capability_policy"]["state_order"])

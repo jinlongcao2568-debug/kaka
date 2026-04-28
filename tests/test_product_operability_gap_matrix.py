@@ -226,6 +226,13 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot",
             "PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot",
             "PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot",
+            "PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync",
+            "PTL-I100-144-market-scan-opportunity-discovery-engine",
+            "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+            "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
+            "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine",
+            "PTL-I100-148-productized-autonomous-operator-workbench",
+            "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -253,6 +260,41 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertIn("total_entry_page_snapshot_not_detail_only", section["must_prove"])
         self.assertIn("same_site_detail_link_discovery", section["must_prove"])
         self.assertIn("no_uncontrolled_crawler", section["must_prove"])
+
+    def test_143d_records_autonomous_business_decision_architecture_and_followup_sequence(self) -> None:
+        section = self.matrix["autonomous_business_decision_architecture_after_143"]
+
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertEqual(section["architecture_map_ref"], "control/product_runtime_architecture_map.yaml")
+        self.assertEqual(section["human_scheme_ref"], "docs/AX9S_自动运营决策架构与商业钩子方案.md")
+        self.assertIn("autonomous_execution_brain_contract_records_existing_parts_and_missing_run_controller", section["must_prove"])
+        self.assertIn("elevated_remaining_product_readiness_gap_assessment_records_next_product_risks", section["must_prove"])
+        self.assertIn("stage1_to_stage9_improvement_assessment_with_decision_method_and_llm_boundary", section["must_prove"])
+        self.assertIn("commercial_hook_lead_presale_disclosure_does_not_leak_reproducible_evidence_chain", section["must_prove"])
+        self.assertEqual(
+            section["next_packets_if_143D_passes"],
+            [
+                "PTL-I100-144-market-scan-opportunity-discovery-engine",
+                "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+                "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
+                "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine",
+                "PTL-I100-148-productized-autonomous-operator-workbench",
+                "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
+            ],
+        )
+
+        task_map = {row["packet_ref"]: row for row in self.matrix["production_gap_task_map"]}
+        self.assertEqual(
+            task_map["PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot"]["status"],
+            "COMPLETED",
+        )
+        for packet_ref in section["next_packets_if_143D_passes"]:
+            self.assertEqual(task_map[packet_ref]["status"], "PLANNED")
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:
         section = self.matrix["national_verification_source_operationalization_after_133A"]
@@ -487,7 +529,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn(
             "real_public_stage7_sales_leadpack_enters_stage8_outbox_readback",

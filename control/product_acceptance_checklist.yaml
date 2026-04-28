@@ -949,6 +949,96 @@ tasks:
       - no_customer_visible_delivery_provider_execution_or_refund
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须落成 control/product_runtime_architecture_map.yaml，明确系统主流程不是手工 URL 选择，而是市场扫描、机会发现、公开源编排、证据风险、商业价值、买家识别、商业钩子和交付治理。"
+      - "必须明确 Stage6/Stage7 商业钩子线索：卖前给价值感，不泄露可复现完整证据链；付款/审批后才交付客户可见证据包。"
+      - "必须明确规则、算力、大模型的职责边界：LLM 只能辅助抽取、摘要、复核提示和话术草稿，不得作为事实、核验、法律结论或外发动作裁判。"
+      - "必须记录 Stage1-9 逐阶段优化评估：每个阶段的当前基础、仍需优化的自主决策、判断方式、LLM 边界、验收重点和 144-149 承接关系。"
+      - "必须记录系统执行大脑契约：当前已有 scheduler / worker_queue / internal orchestration / operator action 零件，但完整 autonomous run controller、stage state machine、transition guard、operator intervention gate 和 audit replay ledger 仍需由 144-149 承接。"
+      - "必须记录高维剩余缺口评估：执行大脑、市场与公开源策略、证据质量、商业钩子转化、owner 可操作性、外部执行/客户交付绑定、真实样本验收。"
+      - "必须登记 144-149 后续实施路线，且每个任务都有验收清单入口。"
+      - "不得改 runtime、contracts、handoff、scripts、fixtures，不得放开 crawler、provider、客户下载、真实支付交付、退款或自动退款。"
+    targeted_test_expectations:
+      - product_runtime_architecture_map
+      - product_operability_gap_matrix
+      - product_acceptance_checklist
+      - stage12_extractors
+    redline_checks:
+      - autonomous_decision_architecture_not_manual_url_picker
+      - commercial_hook_lead_presale_disclosure_does_not_leak_reproducible_evidence_chain
+      - llm_not_fact_or_legal_conclusion_source
+      - implementation_sequence_144_to_149_registered
+      - no_runtime_or_live_execution_change
+  PTL-I100-144-market-scan-opportunity-discovery-engine:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须实现第一版 autonomous run controller / stage state machine / next action readback，用于驱动 Stage1-9 后续执行，不能依赖 Codex 或 owner 手工决定每一步。"
+      - "系统必须根据地区、工程类型、金额区间、公告阶段、异议窗口、竞争者和关键字段自动判断哪些公告值得分析。"
+      - "必须输出 opportunity candidate、analysis priority、why_analyze、why_skip，不得让手工 URL 选择成为主流程。"
+      - "过期、金额过低、无竞争者、无关键字段必须降级或阻断。"
+    redline_checks:
+      - no_manual_url_picker_as_primary_flow
+      - no_uncontrolled_crawler
+      - no_customer_visible_claim
+  PTL-I100-145-source-blueprint-orchestration-and-capture-plan:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "系统必须根据 opportunity candidate 自动选择公开源组合，生成 Stage2 capture plan。"
+      - "capture plan 必须说明交易平台、政采、四库一平台、信用、企信、主管备案等源为什么被选择或跳过。"
+      - "不得引入任意 crawler、深爬、登录/验证码/反爬绕过。"
+    redline_checks:
+      - source_blueprint_selection_is_allowlisted
+      - no_arbitrary_crawler
+      - no_login_captcha_antibot_bypass
+  PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "系统必须根据解析字段自动选择项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵核验策略。"
+      - "弱证据、同名未消歧、字段冲突、缺 snapshot 或 source slice 必须 review/fail closed。"
+      - "LLM 不得替代公开核验或规则判定。"
+    redline_checks:
+      - public_verification_required
+      - no_llm_fact_adjudication
+      - weak_evidence_fails_closed
+  PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "系统必须计算异议价值、买家动机、购买能力、销售优先级和报价建议。"
+      - "必须生成商业钩子线索，并明确 disclosure_level、withheld_fields、allowed_sales_talking_points、forbidden_sales_claims、leakage_risk。"
+      - "销售前不得泄露 source URL、完整项目经理身份组合、冲突项目名称、完整时间重叠、原始快照/附件、完整核验路径或内部评分模型。"
+    redline_checks:
+      - presale_hook_does_not_leak_reproducible_evidence
+      - forbidden_sales_claims_filter_required
+      - manual_review_required_for_high_risk_hook
+  PTL-I100-148-productized-autonomous-operator-workbench:
+    target_capability_state: PRODUCTION_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "操作台必须展示机会队列、证据强度、硬伤类型、商业钩子、买家排序、复核项、触达建议、交付状态和下一步动作。"
+      - "owner 不应依赖原始 JSON 判断业务状态。"
+      - "客户门户仍必须遵守字段白名单、脱敏、下载授权和审计。"
+    redline_checks:
+      - owner_workbench_shows_autonomous_decision_state
+      - no_internal_blackbox_customer_exposure
+      - customer_download_still_gated
+  PTL-I100-149-real-sample-autonomous-opportunity-acceptance:
+    target_capability_state: PRODUCTION_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须用真实公开样本证明系统能从市场扫描到可售商业钩子和交付候选形成端到端可观察流程。"
+      - "必须在操作台可看懂成功、降级、复核和阻断原因。"
+      - "必须保留红线：不绕登录/验证码/反爬，不把 LLM 当事实，不无审批外发，不自动退款。"
+    redline_checks:
+      - real_sample_runs_through_autonomous_opportunity_flow
+      - owner_can_observe_and_review_without_raw_api
+      - redlines_preserved
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

@@ -1,0 +1,741 @@
+map_id: PTL-I100-143D_PRODUCT_RUNTIME_ARCHITECTURE_MAP
+packet_ref: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+status: ACTIVE
+updated_at: "2026-04-28"
+purpose: >
+  Machine-readable runtime architecture and decision contract for turning AX9S
+  from owner-operated readback surfaces into an autonomous evidence-pack /
+  leadpack opportunity system. This map prevents later packets from reducing the
+  product to manual URL picking or isolated carrier work.
+business_goal:
+  sold_product: evidence_pack_and_leadpack
+  owner_user: 卡卡罗特
+  product_thesis: >
+    The system must autonomously discover publicly-verifiable engineering
+    objection opportunities, judge whether they are commercially sellable,
+    identify the most likely buyer, generate a non-leaking commercial hook, and
+    only reveal full evidence after approval/payment/delivery governance.
+  must_not_be:
+    - generic_crawler
+    - manual_url_picker_as_primary_flow
+    - public_software_release
+    - unreviewed_legal_conclusion_generator
+    - automated_refund_program
+primary_operating_loop:
+  - step_id: market_scan_batch
+    owner_stage: stage1_tasking
+    autonomous_decision: choose_market_segments
+    decides:
+      - region_priority
+      - industry_or_project_category_priority
+      - value_band_priority
+      - notice_stage_priority
+      - objection_window_priority
+    method: rules_plus_compute
+    llm_allowed: false
+    output: market_scan_plan
+  - step_id: source_blueprint_orchestration
+    owner_stage: stage1_tasking
+    autonomous_decision: choose_public_source_mix
+    decides:
+      - transaction_platform_profiles
+      - government_procurement_profiles
+      - national_verification_profiles
+      - credit_and_enterprise_profiles
+      - industry_authority_filing_profiles
+      - fetch_order_and_retry_budget
+    method: rules
+    llm_allowed: false
+    output: stage2_capture_plan
+  - step_id: public_capture_and_snapshot
+    owner_stage: stage2_ingestion
+    autonomous_decision: capture_public_entries_details_and_attachments
+    decides:
+      - eligible_public_url
+      - detail_or_attachment_discovery
+      - dedupe_key
+      - fetch_degrade_reason
+      - snapshot_version
+    method: rules_plus_compute
+    llm_allowed: false
+    output: replayable_public_snapshot
+  - step_id: parser_candidate_extraction
+    owner_stage: stage3_parsing
+    autonomous_decision: extract_field_candidates_from_snapshot
+    decides:
+      - first_candidate
+      - runner_up_candidates
+      - rejected_bidders
+      - project_manager
+      - enterprise_names
+      - qualification_terms
+      - amount_and_time_window
+      - source_slices
+    method: parser_plus_llm_assist
+    llm_allowed: true
+    llm_boundary: candidate_extraction_only_not_fact
+    output: unverified_parsed_carrier
+  - step_id: public_verification_strategy
+    owner_stage: stage4_verification
+    autonomous_decision: choose_public_verification_targets
+    decides:
+      - enterprise_verification_required
+      - personnel_verification_required
+      - active_project_conflict_required
+      - qualification_verification_required
+      - credit_penalty_verification_required
+      - permit_contract_completion_performance_verification_required
+    method: rules
+    llm_allowed: false
+    output: public_verification_carrier
+  - step_id: evidence_risk_and_rule_hit
+    owner_stage: stage5_rules_evidence
+    autonomous_decision: determine_public_evidence_risk
+    decides:
+      - project_manager_active_conflict_candidate
+      - qualification_mismatch_candidate
+      - credit_penalty_candidate
+      - performance_or_filing_anomaly_candidate
+      - evidence_gate_decision
+      - review_or_block_reason
+    method: rules
+    llm_allowed: true
+    llm_boundary: explanation_draft_only_not_rule_decision
+    output: rule_evidence_bundle
+  - step_id: productization_and_hook_lead
+    owner_stage: stage6_fact_review
+    autonomous_decision: decide_sellability_and_hook_disclosure
+    decides:
+      - objection_viability
+      - evidence_strength
+      - sellable_signal
+      - review_priority
+      - customer_delivery_eligibility
+      - commercial_hook_eligibility
+      - disclosure_level
+      - withheld_fields
+      - leakage_risk
+    method: rules_plus_compute_with_llm_summary_assist
+    llm_allowed: true
+    llm_boundary: summary_and_review_prompt_only_not_fact_or_customer_conclusion
+    output: stage6_product_package_plus_commercial_hook_lead
+  - step_id: buyer_fit_and_offer
+    owner_stage: stage7_sales
+    autonomous_decision: choose_likeliest_buyer_and_offer
+    decides:
+      - real_challenger
+      - buyer_fit_score
+      - motivation_score
+      - purchase_capacity_score
+      - contactability_status
+      - recommended_offer
+      - sales_priority
+      - allowed_talking_points
+      - forbidden_sales_claims
+    method: compute_plus_rules_with_llm_talk_track_assist
+    llm_allowed: true
+    llm_boundary: sales_copy_draft_only_requires_policy_filter
+    output: sales_lead_offer_and_leadpack_readback
+  - step_id: governed_outreach
+    owner_stage: stage8_outreach
+    autonomous_decision: prepare_approved_touch_without_unapproved_send
+    decides:
+      - template_required
+      - contact_source_audit_required
+      - frequency_control
+      - quiet_hours_hold
+      - opt_out_or_unsubscribe_stop
+      - provider_reliability_block
+      - operator_approval_required
+    method: rules
+    llm_allowed: true
+    llm_boundary: outreach_copy_draft_only_no_auto_send
+    output: outreach_outbox_readback
+  - step_id: order_payment_delivery_governance
+    owner_stage: stage9_delivery
+    autonomous_decision: prepare_order_payment_delivery_without_auto_refund
+    decides:
+      - order_state
+      - payment_gate_state
+      - delivery_gate_state
+      - receipt_invoice_readiness
+      - settlement_reconciliation_readiness
+      - manual_refund_exception_required
+      - rollback_readiness
+    method: rules
+    llm_allowed: false
+    output: order_payment_delivery_ledger_readback
+  - step_id: operator_workbench_and_customer_portal
+    owner_stage: api_transport
+    autonomous_decision: expose_owner_next_actions_and_customer_gated_artifact
+    decides:
+      - owner_next_action
+      - missing_evidence_or_approval
+      - customer_visible_version
+      - download_auth_state
+      - audit_readback
+    method: rules_plus_readback
+    llm_allowed: false
+    output: owner_console_and_customer_portal_state
+decision_layers:
+  - layer_id: redline_filter
+    method: rules
+    blocks:
+      - private_or_non_public_data
+      - gray_source
+      - login_required
+      - captcha_or_antibot_bypass
+      - unreviewed_legal_conclusion
+      - automated_refund_execution
+  - layer_id: business_eligibility_filter
+    method: rules_plus_compute
+    downgrades:
+      - objection_window_expired
+      - value_band_too_low
+      - missing_competitor_or_project_manager
+      - weak_notice_stage
+  - layer_id: evidence_filter
+    method: rules
+    review_required:
+      - weak_public_source
+      - field_conflict
+      - same_name_not_disambiguated
+      - missing_snapshot_or_source_slice
+  - layer_id: rule_filter
+    method: rules
+    promotes_only_when:
+      - public_verification_bound
+      - evidence_gate_pass_or_review
+      - rule_catalog_dependency_ready
+  - layer_id: commercial_filter
+    method: compute_plus_rules
+    decides:
+      - objection_value_score
+      - buyer_fit_score
+      - leakage_risk_score
+      - conversion_priority
+  - layer_id: governance_filter
+    method: rules
+    blocks_until:
+      - approval_chain_passes
+      - audit_chain_present
+      - field_allowlist_and_masking_pass
+      - provider_config_sandbox_and_reliability_pass
+stage_1_to_9_improvement_assessment:
+  assessment_id: STAGE1_9_AUTONOMOUS_PRODUCTIZATION_UPGRADE_V1
+  conclusion: ALL_STAGES_HAVE_PRODUCTIZATION_OPTIMIZATION_SPACE
+  purpose: >
+    Record the concrete optimization space for each stage before executing
+    144-149. Existing 112-143 work is retained as the controlled execution and
+    readback foundation; the next work upgrades it into an autonomous product
+    operating loop.
+  stages:
+    stage1_tasking:
+      current_state: internal_scheduler_and_entry_readback_exists
+      optimization_spaces:
+        - market_segment_selection_is_not_yet_productized
+        - objection_window_and_value_band_priority_need_to_drive_scan_batches
+        - source_mix_selection_must_be_system_decided_not_owner_url_pick
+      autonomous_decisions_to_add:
+        - region_priority
+        - project_category_priority
+        - value_band_priority
+        - notice_stage_priority
+        - objection_window_priority
+        - source_blueprint_batch_selection
+      decision_method: rules_plus_compute
+      llm_role: none
+      next_packet_refs:
+        - PTL-I100-144-market-scan-opportunity-discovery-engine
+        - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+      acceptance_focus:
+        - no_manual_url_picker_as_primary_flow
+        - scan_candidate_has_priority_and_skip_reason
+    stage2_ingestion:
+      current_state: verified_public_fetchers_and_snapshot_readback_exist
+      optimization_spaces:
+        - source_profiles_need_auto_orchestration_from_market_scan
+        - entry_detail_attachment_discovery_needs_batch_capture_plan
+        - degraded_public_sites_need_consistent_fail_closed_taxonomy
+      autonomous_decisions_to_add:
+        - eligible_public_source_profile
+        - entry_detail_attachment_fetch_order
+        - dedupe_key
+        - retry_budget
+        - degrade_or_manual_review_reason
+      decision_method: rules_plus_compute
+      llm_role: none
+      next_packet_refs:
+        - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+        - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+      acceptance_focus:
+        - allowlisted_public_source_only
+        - replayable_snapshot_hash_and_lineage
+    stage3_parsing:
+      current_state: real_snapshot_to_parser_pilot_exists
+      optimization_spaces:
+        - parser_templates_need_to_handle_more_notice_and_attachment_layouts
+        - field_candidate_confidence_and_conflict_detection_need_to_drive_review
+        - llm_can_help_candidate_extraction_but_not_fact_confirmation
+      autonomous_decisions_to_add:
+        - parser_family_selection
+        - source_slice_quality_score
+        - field_conflict_taxonomy
+        - review_required_reason
+      decision_method: parser_plus_compute_with_llm_candidate_assist
+      llm_role: candidate_extraction_only_not_fact
+      next_packet_refs:
+        - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+        - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+      acceptance_focus:
+        - parsed_fields_remain_unverified
+        - source_slice_and_confidence_visible
+    stage4_verification:
+      current_state: public_verification_carriers_and_active_conflict_slice_exist
+      optimization_spaces:
+        - system_must_choose_which_public_verifications_to_run
+        - cross_source_conflict_and_same_name_disambiguation_need_to_drive_risk
+        - weak_or_missing_public_evidence_must_fail_closed
+      autonomous_decisions_to_add:
+        - verification_target_selection
+        - source_priority
+        - same_name_disambiguation_path
+        - public_evidence_strength
+        - fail_closed_reason
+      decision_method: rules
+      llm_role: none_for_verification_decision
+      next_packet_refs:
+        - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+      acceptance_focus:
+        - no_llm_fact_adjudication
+        - public_only_verification_bound_to_snapshot
+    stage5_rules_evidence:
+      current_state: catalog_aware_rule_factory_exists
+      optimization_spaces:
+        - rule_strategy_needs_to_prioritize_commercially_valuable_hard_defects
+        - rule_outputs_must_explain_review_block_or_promote_reasons
+        - evidence_gate_results_need_to_feed_stage6_value_scoring
+      autonomous_decisions_to_add:
+        - hard_defect_rule_priority
+        - evidence_gate_decision
+        - golden_case_coverage_risk
+        - review_or_block_reason
+      decision_method: rules_with_llm_explanation_draft_only
+      llm_role: explanation_draft_only_not_rule_decision
+      next_packet_refs:
+        - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+        - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+      acceptance_focus:
+        - rule_decision_comes_from_catalog_and_evidence
+        - weak_evidence_fails_closed
+    stage6_fact_review:
+      current_state: product_package_readiness_exists
+      optimization_spaces:
+        - sellability_needs_stronger_value_scoring_and_reasons
+        - commercial_hook_lead_must_create_interest_without_leaking_evidence_path
+        - disclosure_level_and_withheld_fields_need_to_be_first_class
+      autonomous_decisions_to_add:
+        - objection_value_score
+        - sellable_signal
+        - evidence_strength_label
+        - commercial_hook_eligibility
+        - disclosure_level
+        - leakage_risk
+        - withheld_fields
+      decision_method: rules_plus_compute_with_llm_summary_assist
+      llm_role: summary_and_review_prompt_only_not_fact_or_customer_conclusion
+      next_packet_refs:
+        - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+        - PTL-I100-148-productized-autonomous-operator-workbench
+      acceptance_focus:
+        - presale_hook_does_not_leak_reproducible_evidence
+        - full_evidence_chain_stays_gated_until_delivery
+    stage7_sales:
+      current_state: real_challenger_buyer_fit_offer_and_leadpack_readback_exist
+      optimization_spaces:
+        - buyer_fit_and_offer_need_to_consume_stage6_hook_lead
+        - sales_talking_points_need_allowed_and_forbidden_claim_filters
+        - crm_quote_execution_must_remain_provider_gated
+      autonomous_decisions_to_add:
+        - likeliest_buyer
+        - buyer_fit_score
+        - motivation_score
+        - purchase_capacity_score
+        - recommended_offer
+        - allowed_talking_points
+        - forbidden_sales_claims
+      decision_method: compute_plus_rules_with_llm_talk_track_assist
+      llm_role: sales_copy_draft_only_requires_policy_filter
+      next_packet_refs:
+        - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+        - PTL-I100-148-productized-autonomous-operator-workbench
+      acceptance_focus:
+        - internal_scores_not_customer_visible
+        - crm_quote_provider_execution_requires_gates
+    stage8_outreach:
+      current_state: approved_provider_execution_readback_exists
+      optimization_spaces:
+        - outreach_sequence_needs_to_consume_commercial_hook_and_contact_strategy
+        - templates_need_to_keep_value_teaser_without_full_evidence_leakage
+        - provider_send_must_remain_approval_audit_and_reliability_gated
+      autonomous_decisions_to_add:
+        - touch_template_selection
+        - contact_priority
+        - quiet_hours_hold
+        - frequency_control
+        - opt_out_stop
+        - provider_reliability_block
+      decision_method: rules_with_llm_outreach_copy_draft_only
+      llm_role: outreach_copy_draft_only_no_auto_send
+      next_packet_refs:
+        - PTL-I100-148-productized-autonomous-operator-workbench
+        - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+      acceptance_focus:
+        - no_unapproved_send
+        - hook_copy_filters_prevent_evidence_leakage
+    stage9_delivery:
+      current_state: order_payment_delivery_and_manual_refund_exception_readback_exist
+      optimization_spaces:
+        - customer_delivery_unlock_needs_to_consume_paid_or_approved_delivery_state
+        - download_audit_and_version_lock_need_to_be_owner_visible
+        - refund_must_stay_manual_exception_only
+      autonomous_decisions_to_add:
+        - payment_gate_state
+        - delivery_unlock_state
+        - customer_artifact_version
+        - download_auth_state
+        - reconciliation_review_reason
+        - manual_refund_exception_required
+      decision_method: rules
+      llm_role: none
+      next_packet_refs:
+        - PTL-I100-148-productized-autonomous-operator-workbench
+        - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+      acceptance_focus:
+        - automated_refund_excluded
+        - customer_download_requires_approval_payment_or_delivery_gate
+autonomous_execution_brain_contract:
+  contract_id: AUTONOMOUS_RUN_CONTROLLER_V1
+  current_assessment: >
+    The repository already has durable queue primitives, Stage1 scheduler task
+    carriers, Stage1-6 internal orchestration, operator actions, workbench
+    projections, and replayable readback. It does not yet have a product-grade
+    autonomous run controller that continuously advances Stage1 through Stage9
+    without the owner or Codex manually choosing each URL or next step.
+  existing_parts:
+    - component: stage1_scheduler
+      path: src/stage1_tasking/scheduler.py
+      capability: creates_internal_scheduler_task_and_stage2_intent
+      current_limit: stage1_scheduler_enabled_is_false_in_bootstrap
+    - component: durable_worker_queue
+      path: src/storage/worker_queue.py
+      capability: queue_lease_retry_timeout_suspend_resume_audit_replay
+      current_limit: storage_backed_queue_exists_but_no_stage_graph_dispatcher
+    - component: stage1_to_stage6_internal_orchestration
+      path: src/api/routes/stage6.py
+      capability: internal_sanitized_offline_chain_entry
+      current_limit: executes_existing_internal_chain_not_real_autonomous_orchestrator
+    - component: operator_action_and_workbench
+      path: src/storage/operator_loop_contracts.py
+      capability: operator_review_action_and_workbench_projection
+      current_limit: exposes_actions_but_does_not_decide_full_stage_progression
+  required_brain_components:
+    - component_id: run_controller
+      role: owns_run_id_stage_graph_and_global_state_machine
+      pushes_next_step_by: creating_next_stage_queue_items_after_transition_guard_passes
+    - component_id: stage_state_machine
+      role: defines_allowed_stage_states_and_transitions_from_stage1_to_stage9
+      pushes_next_step_by: reading_persisted_stage_result_and_emitting_NEXT_REVIEW_BLOCK_SUSPEND_OR_DONE
+    - component_id: decision_planner
+      role: chooses_market_scan_source_mix_hard_defect_strategy_commercial_hook_and_next_action
+      pushes_next_step_by: producing_decision_payload_for_next_stage_executor
+    - component_id: work_queue_dispatcher
+      role: leases_due_work_items_and_invokes_allowed_stage_executor
+      pushes_next_step_by: durable_queue_claim_execute_mark_succeeded_retry_suspend_or_dead_letter
+    - component_id: transition_guard
+      role: prevents_weak_evidence_unapproved_provider_or_customer_visible_leakage_from_advancing
+      pushes_next_step_by: fail_closed_review_block_or_operator_approval_required
+    - component_id: operator_intervention_gate
+      role: pauses_runs_when_human_review_approval_or_audit_is_required
+      pushes_next_step_by: resumes_only_after_repository_backed_operator_action
+    - component_id: audit_replay_ledger
+      role: records_every_decision_input_output_next_action_and_block_reason
+      pushes_next_step_by: making_runs_replayable_for_owner_workbench_and_acceptance
+  stage_progression_model:
+    - from: stage1_tasking
+      to: stage2_ingestion
+      trigger: market_scan_candidate_selected_and_source_capture_plan_created
+      executor: stage2_capture_executor
+      guard: public_source_allowlist_and_no_login_captcha_antibot
+    - from: stage2_ingestion
+      to: stage3_parsing
+      trigger: replayable_snapshot_or_attachment_manifest_saved
+      executor: stage3_parser_executor
+      guard: snapshot_hash_lineage_and_content_type_present
+    - from: stage3_parsing
+      to: stage4_verification
+      trigger: unverified_field_candidates_with_source_slices_ready
+      executor: stage4_public_verification_executor
+      guard: parsed_fields_are_unverified_and_public_source_refs_exist
+    - from: stage4_verification
+      to: stage5_rules_evidence
+      trigger: public_verification_carrier_saved_or_review_required
+      executor: stage5_rule_executor
+      guard: no_private_source_and_no_llm_fact_adjudication
+    - from: stage5_rules_evidence
+      to: stage6_fact_review
+      trigger: rule_evidence_gate_pass_or_review_bundle_ready
+      executor: stage6_productization_executor
+      guard: weak_or_missing_evidence_fails_closed
+    - from: stage6_fact_review
+      to: stage7_sales
+      trigger: product_package_and_commercial_hook_candidate_ready
+      executor: stage7_sales_executor
+      guard: presale_hook_does_not_leak_reproducible_evidence_chain
+    - from: stage7_sales
+      to: stage8_outreach
+      trigger: sales_lead_offer_and_allowed_talking_points_ready
+      executor: stage8_outreach_executor
+      guard: template_contact_source_frequency_optout_and_provider_gates
+    - from: stage7_sales
+      to: stage9_delivery
+      trigger: approved_order_or_delivery_candidate_ready
+      executor: stage9_order_delivery_executor
+      guard: payment_delivery_customer_download_approval_and_audit_gates
+    - from: stage8_outreach
+      to: stage9_delivery
+      trigger: outreach_feedback_or_conversion_readback
+      executor: stage9_order_delivery_executor
+      guard: no_unapproved_charge_delivery_or_refund
+  first_implementation_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
+  followup_packet_bindings:
+    PTL-I100-144-market-scan-opportunity-discovery-engine:
+      adds:
+        - run_controller_skeleton
+        - stage_state_machine_contract
+        - market_scan_decision_planner
+        - next_action_readback
+    PTL-I100-145-source-blueprint-orchestration-and-capture-plan:
+      adds:
+        - stage2_capture_plan_executor_binding
+        - source_blueprint_auto_selection
+    PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy:
+      adds:
+        - stage3_to_stage5_transition_guards
+        - hard_defect_strategy_executor_binding
+    PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine:
+      adds:
+        - stage6_stage7_commercial_filter_binding
+        - hook_lead_disclosure_guard
+    PTL-I100-148-productized-autonomous-operator-workbench:
+      adds:
+        - owner_visible_run_queue
+        - next_action_and_operator_intervention_ui
+    PTL-I100-149-real-sample-autonomous-opportunity-acceptance:
+      adds:
+        - real_sample_end_to_end_autonomous_run_acceptance
+        - replayable_run_ledger_closeout
+  must_not_depend_on:
+    - codex_or_human_manually_selecting_each_url
+    - llm_deciding_facts_or_public_verification
+    - live_provider_call_without_gates
+    - customer_download_without_payment_or_approval_gate
+    - automated_refund_execution
+remaining_product_readiness_gap_assessment:
+  assessment_id: PRODUCT_DELIVERY_GAP_ELEVATED_REVIEW_V1
+  conclusion: >
+    143D clarifies that the remaining work is not more isolated readback fields.
+    The product still needs an autonomous run controller, productized
+    opportunity decisions, real sample acceptance, and owner-facing operational
+    usability before it can be judged as a self-running evidence-pack product.
+  dimensions:
+    autonomous_execution_brain:
+      current_state: parts_exist_not_self_running
+      risk_if_ignored: system_depends_on_codex_or_owner_to_choose_next_step
+      required_upgrade: run_controller_stage_state_machine_transition_guard_and_audit_replay
+      primary_packets: [PTL-I100-144-market-scan-opportunity-discovery-engine]
+      acceptance_question: "Can the system advance Stage1-9 by queue/state transitions without manual URL-by-URL steering?"
+    market_and_source_strategy:
+      current_state: real_public_fetchers_exist_but_source_strategy_is_not_productized
+      risk_if_ignored: owner_still_operates_as_manual_researcher
+      required_upgrade: opportunity_scoring_source_mix_reasoning_capture_plan_and_skip_reasons
+      primary_packets:
+        - PTL-I100-144-market-scan-opportunity-discovery-engine
+        - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+      acceptance_question: "Can the system decide which markets, notices, and public sources to scan first?"
+    evidence_quality_and_parser_verification:
+      current_state: real_snapshot_parser_verification_pilots_exist
+      risk_if_ignored: weak_or_partial_extraction_becomes_false_commercial_signal
+      required_upgrade: parser_quality_taxonomy_public_verification_strategy_and_fail_closed_review
+      primary_packets:
+        - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+        - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+      acceptance_question: "Can weak evidence, same-name ambiguity, missing source slices, and conflict fields stop or review the run?"
+    business_value_and_hook_conversion:
+      current_state: stage6_package_and_stage7_buyer_fit_readback_exist
+      risk_if_ignored: system_finds_defects_but_does_not_create_sellable_commercial_hooks
+      required_upgrade: objection_value_buyer_fit_purchase_motivation_offer_and_non_leaking_hook_lead
+      primary_packets:
+        - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+      acceptance_question: "Can the system explain why this lead is worth selling without leaking the reproducible evidence path?"
+    owner_operability_and_ui:
+      current_state: operator_console_exists_but_autonomous_opportunity_queue_is_not_final_productized
+      risk_if_ignored: backend_outputs_exist_but_owner_still_reads_raw_json_or_needs_codex
+      required_upgrade: opportunity_queue_next_action_commercial_hook_review_and_customer_delivery_state_ui
+      primary_packets:
+        - PTL-I100-148-productized-autonomous-operator-workbench
+      acceptance_question: "Can the owner operate the pipeline from the workbench without inspecting raw API payloads?"
+    external_execution_and_customer_delivery:
+      current_state: provider_and_delivery_execution_are_gated_and_auditable
+      risk_if_ignored: sales_or_delivery_actions_become_unsafe_or_not_customer_ready
+      required_upgrade: keep_provider_payment_delivery_customer_download_gated_while_binding_to_autonomous_runs
+      primary_packets:
+        - PTL-I100-148-productized-autonomous-operator-workbench
+        - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+      acceptance_question: "Can approved sales, payment, and delivery readback bind to the same run without silent live fallback?"
+    real_world_sample_acceptance:
+      current_state: controlled_real_public_pilots_exist_but_autonomous_market_to_hook_sample_not_yet_closed
+      risk_if_ignored: tests_pass_but_product_value_is_not_proven_on_real_public_samples
+      required_upgrade: real_sample_market_scan_to_hook_lead_to_delivery_candidate_closeout
+      primary_packets:
+        - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+      acceptance_question: "Can a real public sample flow from market scan to sellable hook and gated delivery candidate with replayable evidence?"
+  non_negotiable_checks:
+    - no_manual_url_picker_as_primary_flow
+    - no_codex_required_for_next_step_decision
+    - no_llm_fact_or_legal_conclusion
+    - no_presale_full_evidence_leak
+    - no_unapproved_provider_payment_delivery_customer_download
+    - automated_refund_execution_excluded
+commercial_hook_lead_contract:
+  contract_id: COMMERCIAL_HOOK_LEAD_V1
+  role: sales_teaser_without_full_evidence_leakage
+  source_stage: stage6_fact_review
+  consumer_stages:
+    - stage7_sales
+    - stage8_outreach
+    - operator_workbench
+  required_fields:
+    - hook_lead_id
+    - source_product_package_id
+    - market_region
+    - project_category
+    - project_value_band
+    - notice_stage
+    - objection_window_state
+    - defect_category_public_label
+    - evidence_strength_label
+    - buyer_benefit_summary
+    - urgency_label
+    - teaser_copy
+    - redacted_claim_summary
+    - withheld_fields
+    - disclosure_level
+    - allowed_sales_talking_points
+    - forbidden_sales_claims
+    - conversion_risk
+    - leakage_risk
+    - requires_manual_review
+    - approval_state
+    - audit_refs
+  disclosure_levels:
+    L0_INTERNAL_FULL:
+      audience: internal_review
+      allowed: full_public_evidence_chain
+      external_use: false
+    L1_HOOK:
+      audience: cold_or_initial_sales_touch
+      allowed:
+        - region
+        - project_category
+        - value_band
+        - notice_stage
+        - defect_category_public_label
+        - evidence_strength_label
+        - urgency_label
+      withheld:
+        - source_url
+        - full_person_name_with_identifier
+        - conflicting_project_name
+        - exact_overlap_window
+        - complete_verification_path
+        - raw_snapshot_or_attachment
+        - internal_scores
+    L2_INTENT_REVIEW:
+      audience: qualified_buyer_before_payment
+      allowed:
+        - partially_redacted_evidence_summary
+        - risk_disclaimer
+        - public_verifiability_statement
+      withheld:
+        - complete_reproduction_path
+        - full_raw_evidence_bundle
+        - internal_blackbox_scores
+    L3_PAID_DELIVERY:
+      audience: approved_or_paid_customer
+      allowed: customer_visible_evidence_pack
+      still_withheld:
+        - internal_notes
+        - internal_blackbox_scores
+        - unreviewed_inferences
+  forbidden_pre_sale_disclosures:
+    - concrete_source_url_that_reveals_full_evidence_path
+    - complete_project_manager_identity_plus_registration_combination
+    - complete_conflicting_project_name_and_time_window
+    - raw_snapshot_or_attachment_copy
+    - full_public_verification_route
+    - internal_score_model_or_buyer_ranking_logic
+  must_prove_before_sales_touch:
+    - hook_eligibility_is_not_weaker_than_minimum_evidence_threshold
+    - leakage_risk_is_classified
+    - forbidden_claims_filter_passed
+    - manual_review_required_for_high_value_or_high_risk_hook
+llm_governance:
+  allowed_roles:
+    - stage3_field_candidate_extraction_assist
+    - rule_hit_explanation_draft
+    - evidence_pack_summary_draft
+    - sales_hook_copy_draft
+    - reviewer_attention_points
+  forbidden_roles:
+    - fact_adjudication
+    - public_verification_decision
+    - legal_conclusion
+    - customer_visible_unreviewed_claim
+    - automatic_outreach_send
+    - automatic_refund
+  required_controls:
+    - model_output_source_refs_required
+    - field_allowlist_filter_required
+    - forbidden_claims_filter_required
+    - human_review_required_for_customer_visible_or_high_risk_outputs
+implementation_sequence:
+  - packet_ref: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+    status: ACTIVE
+    purpose: formalize_architecture_and_decision_contract
+  - packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
+    status: PLANNED
+    purpose: choose_which_projects_are_worth_analysis
+  - packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+    status: PLANNED
+    purpose: choose_public_source_mix_and_generate_stage2_capture_plan
+  - packet_ref: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+    status: PLANNED
+    purpose: decide_which_hard_defects_and_public_verifications_to_run
+  - packet_ref: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+    status: PLANNED
+    purpose: score_objection_value_buyer_fit_and_generate_non_leaking_hook_lead
+  - packet_ref: PTL-I100-148-productized-autonomous-operator-workbench
+    status: PLANNED
+    purpose: expose_opportunity_queue_evidence_risk_hook_lead_buyer_fit_and_next_actions
+  - packet_ref: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+    status: PLANNED
+    purpose: prove_real_public_sample_can_flow_from_market_scan_to_sellable_hook_and_delivery_candidate
+redlines_preserved:
+  external_software_release: BLOCKED
+  arbitrary_crawler: BLOCKED
+  login_captcha_antibot_bypass: BLOCKED
+  unreviewed_customer_claim: BLOCKED
+  unapproved_provider_call: BLOCKED
+  real_refund_execution: BLOCKED
+  automated_refund_execution: EXCLUDED

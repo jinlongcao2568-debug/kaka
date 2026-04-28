@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
-  packet_id: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
-  title: "Real public Stage7 to Stage8/9 controlled execution readback pilot"
+  task_id: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+  packet_id: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+  title: "Business decision architecture and hook lead roadmap sync"
   planning_state: ACTIVE
-  runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-142 completed at bf3402a. 143 is now active to validate the same real public Stage7 sales/LeadPack readback through Stage8 outreach outbox and Stage9 order/payment/delivery ledger readback; real provider execution, real send, real payment, real delivery, customer download, refund, and automated refund remain blocked."
+  runtime_change_in_packet: OUT_OF_SCOPE
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143 completed locally at 82ca21f. 143D is active to formalize autonomous opportunity discovery, source orchestration, evidence risk, commercial value, buyer fit, commercial hook lead disclosure, and LLM/rules/compute boundaries before implementing 144-149; no runtime behavior, provider execution, customer download, refund, automated refund, or public software release is opened."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 74
+task_count: 81
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -3083,9 +3083,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, product_acceptance]
     task_type: real_public_stage7_to_stage8_stage9_controlled_execution_readback_pilot
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P48
     existing_code_state: REAL_PUBLIC_STAGE7_SALES_LEADPACK_142_READY
     existing_runtime_state: REAL_PUBLIC_STAGE7_OUTPUT_NOT_YET_VALIDATED_THROUGH_STAGE8_STAGE9_READBACK
@@ -3123,4 +3123,209 @@ tasks:
       - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
     suggested_packet_refs: [PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot]
+    risk_level: HIGH
+    completed_commit: 82ca21f
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_REAL_PUBLIC_STAGE7_TO_STAGE8_STAGE9_CONTROLLED_EXECUTION_READBACK_PILOT"
+  - task_id: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+    title: "I100-43D Business decision architecture and hook lead roadmap sync"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, product_acceptance]
+    task_type: business_decision_architecture_and_hook_lead_roadmap_sync
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P49
+    existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_143_COMPLETED
+    existing_runtime_state: BUSINESS_DECISION_ARCHITECTURE_AND_HOOK_LEAD_ROADMAP_NOT_FORMALIZED
+    runtime_change_in_packet: OUT_OF_SCOPE
+    activation_policy: "Activated after 143 because owner clarified the product must autonomously decide opportunity value, source orchestration, evidence risk, buyer fit, and commercial hook disclosure before implementing 144-149."
+    hard_depends_on:
+      - PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
+    objective: "将自动运营决策链、商业钩子线索、披露等级、LLM/规则/算力边界和 144-149 实施路线落成正式控制面与路线图；不改 runtime。"
+    capability_gaps_covered:
+      - autonomous_business_decision_architecture_formalized
+      - market_scan_to_source_orchestration_route_defined
+      - stage6_stage7_commercial_hook_lead_disclosure_boundary
+      - llm_rules_compute_responsibility_split
+      - 144_to_149_implementation_sequence_registered
+    non_goals:
+      - "不改 Stage1-9 runtime"
+      - "不新增正式对象、枚举、gate 或 exception 语义"
+      - "不放开任意 crawler、真实 provider、客户下载、真实支付交付、退款或自动退款"
+      - "不把 LLM 输出当事实、法律结论或客户可见确定结论"
+    expected_outputs:
+      - "control/product_runtime_architecture_map.yaml"
+      - "docs/AX9S_自动运营决策架构与商业钩子方案.md"
+      - "143D acceptance tests"
+      - "144-149 registered implementation sequence"
+    acceptance_checks:
+      - product_runtime_architecture_map_records_autonomous_decision_flow
+      - stage6_stage7_commercial_hook_lead_disclosure_boundary_is_explicit
+      - llm_rules_compute_responsibilities_are_separated
+      - implementation_sequence_144_to_149_is_registered
+      - no_runtime_or_live_execution_change
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+    suggested_packet_refs: [PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync]
+    risk_level: HIGH
+  - task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+    title: "I100-44 Market scan opportunity discovery engine"
+    program_ref: PTL-I100-autonomous-opportunity-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage6_fact_review, product_acceptance]
+    task_type: market_scan_opportunity_discovery_engine
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P50
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    hard_depends_on:
+      - PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
+    objective: "实现市场扫描与机会发现：根据地区、工程类型、金额区间、公告阶段、异议窗口和关键字段自动判断哪些公告值得进入分析，不再把手工 URL 选择作为主流程。"
+    capability_gaps_covered:
+      - autonomous_run_controller_first_slice
+      - stage_state_machine_contract
+      - autonomous_market_segment_selection
+      - objection_window_priority
+      - value_band_and_notice_stage_filter
+      - analysis_priority_and_skip_reason
+    acceptance_checks:
+      - autonomous_run_controller_and_stage_state_machine_visible
+      - autonomous_market_segment_selection
+      - opportunity_candidate_priority_and_skip_reason
+      - no_manual_url_picker_as_primary_flow
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-144-market-scan-opportunity-discovery-engine
+    suggested_packet_refs: [PTL-I100-144-market-scan-opportunity-discovery-engine]
+    risk_level: HIGH
+  - task_id: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+    title: "I100-45 Source blueprint orchestration and capture plan"
+    program_ref: PTL-I100-autonomous-opportunity-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, operator_frontend, product_acceptance]
+    task_type: source_blueprint_orchestration_and_capture_plan
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P51
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    hard_depends_on:
+      - PTL-I100-144-market-scan-opportunity-discovery-engine
+    objective: "根据机会发现结果自动选择公开源组合并生成 Stage2 capture plan，覆盖交易平台、政采、四库一平台、信用、企信和主管备案；不做任意深爬。"
+    capability_gaps_covered:
+      - source_blueprint_auto_selection
+      - stage2_capture_plan_generation
+      - source_mix_reasoning
+      - fetch_order_retry_budget
+    acceptance_checks:
+      - source_blueprint_auto_selection
+      - stage2_capture_plan_generation
+      - no_arbitrary_crawler_or_login_bypass
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+    suggested_packet_refs: [PTL-I100-145-source-blueprint-orchestration-and-capture-plan]
+    risk_level: HIGH
+  - task_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+    title: "I100-46 Evidence risk and hard defect verification strategy"
+    program_ref: PTL-I100-autonomous-opportunity-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage3_parsing, stage4_verification, stage5_rules_evidence, product_acceptance]
+    task_type: evidence_risk_and_hard_defect_verification_strategy
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P52
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    hard_depends_on:
+      - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+    objective: "根据解析字段自动决定硬伤核验策略，重点覆盖项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵；弱证据必须复核或阻断。"
+    capability_gaps_covered:
+      - hard_defect_strategy_selection
+      - project_manager_active_conflict_priority
+      - qualification_credit_performance_verification_choice
+      - evidence_risk_fail_closed_taxonomy
+    acceptance_checks:
+      - hard_defect_strategy_selection
+      - public_verification_required
+      - weak_evidence_fails_closed
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+    suggested_packet_refs: [PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy]
+    risk_level: HIGH
+  - task_id: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+    title: "I100-47 Commercial value, buyer fit, and hook lead engine"
+    program_ref: PTL-I100-autonomous-opportunity-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage6_fact_review, stage7_sales, product_acceptance]
+    task_type: commercial_value_buyer_fit_and_hook_lead_engine
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P53
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    hard_depends_on:
+      - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+    objective: "实现异议价值、买家动机、购买能力、销售优先级和商业钩子线索生成；卖前只给价值感和受控摘要，不泄露可复现完整证据链。"
+    capability_gaps_covered:
+      - objection_value_score
+      - buyer_fit_score
+      - commercial_hook_lead_generation
+      - leakage_risk_and_disclosure_level
+      - forbidden_sales_claims_filter
+    acceptance_checks:
+      - objection_value_and_buyer_fit_scoring
+      - commercial_hook_lead_generated
+      - presale_hook_does_not_leak_reproducible_evidence
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+    suggested_packet_refs: [PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine]
+    risk_level: HIGH
+  - task_id: PTL-I100-148-productized-autonomous-operator-workbench
+    title: "I100-48 Productized autonomous operator workbench"
+    program_ref: PTL-I100-autonomous-opportunity-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [api_transport, operator_frontend, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, product_acceptance]
+    task_type: productized_autonomous_operator_workbench
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P54
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    hard_depends_on:
+      - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+    objective: "把机会队列、证据强度、买家排序、商业钩子、复核项、触达建议、交付状态和下一步动作产品化到操作台；owner 不应依赖原始 JSON 判断。"
+    capability_gaps_covered:
+      - autonomous_opportunity_queue_ui
+      - commercial_hook_review_ui
+      - buyer_fit_and_sales_next_action_ui
+      - evidence_risk_and_delivery_state_ui
+    acceptance_checks:
+      - autonomous_opportunity_queue_visible
+      - commercial_hook_review_ui
+      - customer_download_still_gated
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-148-productized-autonomous-operator-workbench
+    suggested_packet_refs: [PTL-I100-148-productized-autonomous-operator-workbench]
+    risk_level: HIGH
+  - task_id: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+    title: "I100-49 Real sample autonomous opportunity acceptance"
+    program_ref: PTL-I100-autonomous-opportunity-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, operator_frontend, product_acceptance]
+    task_type: real_sample_autonomous_opportunity_acceptance
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P55
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    hard_depends_on:
+      - PTL-I100-148-productized-autonomous-operator-workbench
+    objective: "用真实公开样本验收：市场扫描到可售商业钩子和交付候选必须能在操作台跑通、观察、复核、回放；证明系统不是手工 URL 工具。"
+    capability_gaps_covered:
+      - real_sample_market_scan_to_hook_lead
+      - autonomous_source_to_evidence_to_sales_flow
+      - owner_operable_workbench_acceptance
+      - redlines_preserved_in_real_sample
+    acceptance_checks:
+      - real_sample_runs_through_autonomous_opportunity_flow
+      - owner_can_observe_and_review_without_raw_api
+      - redlines_preserved
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+    suggested_packet_refs: [PTL-I100-149-real-sample-autonomous-opportunity-acceptance]
     risk_level: HIGH
