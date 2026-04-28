@@ -498,15 +498,18 @@ autonomous_business_decision_architecture_after_143:
     - no_runtime_or_live_execution_change
   next_packets_if_143D_passes:
     - PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+    - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
     - PTL-I100-144-market-scan-opportunity-discovery-engine
     - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+    - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+    - PTL-I100-151-public-web-captcha-suspend-and-operator-resume
     - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
     - PTL-I100-148-productized-autonomous-operator-workbench
     - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
 autonomous_source_strategy_d_doc_sync_after_143D:
   packet_ref: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "143D control/route sync exists, but owner asked whether the upgraded capability map and source strategy are also in D-doc authority; without D-doc supplements, later windows may treat national aggregation as complete, use Beijing as a commercial pilot, or revert to manual URL picking."
   target_capability_state: INTERNAL_READY
   current_gap: "D1-D14 contain open-capability and boundary supplements, but not the latest autonomous source strategy: national aggregation is discovery-only, Beijing is technical regression only, pilot province portfolio is explicit, and city adapters are gap-driven."
@@ -533,8 +536,23 @@ autonomous_source_strategy_d_doc_sync_after_143D:
     - d1_records_codex_must_not_revert_to_manual_url_picker
     - all_d_docs_reference_143e_policy_without_runtime_change
   next_packets_if_143E_passes:
+    - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+public_web_capture_and_captcha_task_pool_sync_after_143E:
+  packet_ref: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+  status: ACTIVE
+  trigger_reason: "Owner required the remaining public-web capture escalation and captcha-resume requirements to be registered explicitly instead of staying implicit in discussion. Future implementation must extend existing seams rather than create duplicate pipelines."
+  target_capability_state: INTERNAL_READY
+  current_gap: "The roadmap already covers autonomous source strategy, evidence strategy, commercial hook, and operator workbench, but it does not yet register a dedicated task for adaptive public-web capture hardening or captcha challenge suspend/resume."
+  must_prove:
+    - task_pool_registers_public_web_capture_hardening
+    - task_pool_registers_captcha_resume_operator_path
+    - future_runtime_packets_extend_existing_stage2_and_operator_surfaces
+    - no_runtime_or_live_execution_change
+  next_packets_if_143F_passes:
     - PTL-I100-144-market-scan-opportunity-discovery-engine
     - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+    - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+    - PTL-I100-151-public-web-captcha-suspend-and-operator-resume
 source_strategy_pilot_portfolio_after_143D:
   packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
   status: PLANNED
@@ -867,7 +885,7 @@ production_gap_task_map:
       - 144_to_149_sequence_registration
   - gap_group: autonomous_source_strategy_d_doc_sync
     packet_ref: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - d1_d11_d13_authority_source_strategy_sync
@@ -877,6 +895,14 @@ production_gap_task_map:
       - first_batch_commercial_pilot_province_policy
       - city_adapter_gap_driven_trigger_policy
       - commercial_hook_and_llm_boundary_sync
+  - gap_group: public_web_capture_and_captcha_task_pool_sync
+    packet_ref: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - public_web_capture_escalation_task_pool_registration
+      - captcha_suspend_resume_task_pool_registration
+      - reuse_existing_runtime_surfaces_first_policy
   - gap_group: market_scan_opportunity_discovery_engine
     packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
     status: PLANNED
@@ -893,6 +919,24 @@ production_gap_task_map:
       - source_blueprint_auto_selection
       - stage2_capture_plan_generation
       - source_mix_reasoning
+  - gap_group: public_web_adaptive_capture_hardening
+    packet_ref: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+    status: PLANNED
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - public_web_failure_diagnosis
+      - adaptive_capture_strategy_upgrade
+      - source_health_and_auto_degrade
+      - no_manual_restart_as_primary_failure_mode
+  - gap_group: public_web_captcha_suspend_and_operator_resume
+    packet_ref: PTL-I100-151-public-web-captcha-suspend-and-operator-resume
+    status: PLANNED
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - captcha_challenge_detection
+      - session_suspend_and_resume
+      - operator_console_captcha_entry
+      - audited_resume_flow
   - gap_group: evidence_risk_and_hard_defect_verification_strategy
     packet_ref: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     status: PLANNED

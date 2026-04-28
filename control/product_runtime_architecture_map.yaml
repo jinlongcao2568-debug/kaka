@@ -519,6 +519,16 @@ autonomous_execution_brain_contract:
       adds:
         - stage2_capture_plan_executor_binding
         - source_blueprint_auto_selection
+    PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation:
+      adds:
+        - public_web_failure_diagnosis
+        - adaptive_capture_strategy_upgrade
+        - source_health_degrade_and_retry_policy
+    PTL-I100-151-public-web-captcha-suspend-and-operator-resume:
+      adds:
+        - captcha_challenge_detection
+        - session_suspend_resume_binding
+        - operator_console_resume_gate
     PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy:
       adds:
         - stage3_to_stage5_transition_guards
@@ -562,6 +572,8 @@ remaining_product_readiness_gap_assessment:
       primary_packets:
         - PTL-I100-144-market-scan-opportunity-discovery-engine
         - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+        - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+        - PTL-I100-151-public-web-captcha-suspend-and-operator-resume
       acceptance_question: "Can the system decide which markets, notices, provinces, and public sources to scan first without assuming national aggregation is full or realtime?"
     evidence_quality_and_parser_verification:
       current_state: real_snapshot_parser_verification_pilots_exist
@@ -764,14 +776,23 @@ implementation_sequence:
     status: COMPLETED
     purpose: formalize_architecture_and_decision_contract
   - packet_ref: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
-    status: ACTIVE
+    status: COMPLETED
     purpose: synchronize_autonomous_source_strategy_and_commercial_hook_boundaries_to_d_docs
+  - packet_ref: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+    status: ACTIVE
+    purpose: register_public_web_capture_escalation_and_captcha_resume_tasks_without_runtime_change
   - packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
     status: PLANNED
     purpose: choose_which_projects_are_worth_analysis
   - packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     status: PLANNED
     purpose: choose_public_source_mix_and_generate_stage2_capture_plan
+  - packet_ref: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+    status: PLANNED
+    purpose: automatically_upgrade_legal_capture_and_parse_strategy_before_defaulting_to_manual_restart
+  - packet_ref: PTL-I100-151-public-web-captcha-suspend-and-operator-resume
+    status: PLANNED
+    purpose: preserve_session_and_resume_capture_after_operator_captcha_input
   - packet_ref: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     status: PLANNED
     purpose: decide_which_hard_defects_and_public_verifications_to_run

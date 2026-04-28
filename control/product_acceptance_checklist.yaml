@@ -996,6 +996,24 @@ tasks:
       - commercial_hook_lead_presale_disclosure_does_not_leak_reproducible_evidence_chain
       - llm_not_fact_or_legal_conclusion_source
       - no_runtime_or_live_execution_change
+  PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须把公开网抓取失败优先自动升级、验证码检测挂起和操作台输入续跑正式登记进任务池与验收。"
+      - "必须明确后续实现基于现有 Stage2/Stage3/operator console/repository seams 复用补强，不得再造第二套重复链路。"
+      - "150/151 必须各自拥有 dedicated checklist entry 和 redline 检查。"
+      - "不得改 runtime、docs、contracts、handoff、scripts、fixtures，不得放开 crawler、provider、客户下载、真实支付交付、退款或自动退款。"
+    targeted_test_expectations:
+      - product_runtime_architecture_map
+      - product_operability_gap_matrix
+      - product_acceptance_checklist
+      - stage12_extractors
+    redline_checks:
+      - task_pool_registers_public_web_capture_hardening
+      - task_pool_registers_captcha_resume_operator_path
+      - reuse_existing_runtime_surfaces_first_policy_is_explicit
+      - no_runtime_or_live_execution_change
   PTL-I100-144-market-scan-opportunity-discovery-engine:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
@@ -1026,6 +1044,46 @@ tasks:
       - city_adapter_triggered_by_gap_not_blanket_rollout
       - no_arbitrary_crawler
       - no_login_captcha_antibot_bypass
+  PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "系统必须把公开网站抓取失败优先归因为结构改版、JS 壳、分页/跳转、附件发现、编码异常、超时、限频、解析模板漂移或站点健康退化，而不是默认人工重跑。"
+      - "系统必须优先自动升级合法采集/解析策略，并输出 why_retry、why_backoff、why_degrade、why_suspend。"
+      - "必须复用现有 Stage2 public source adapter seam、Stage2Service、object storage/readback、parser seam 和 source health surfaces，不得创建第二套重复链路。"
+      - "公开站访问控制或权限边界仍必须 fail closed，不得被包装成普通自动升级分支。"
+    targeted_test_expectations:
+      - source_adapter_contracts
+      - stage3_real_parser
+      - runtime_governance_guards
+      - product_operability_gap_matrix
+    redline_checks:
+      - automatic_failure_diagnosis_visible
+      - no_manual_restart_as_primary_failure_mode
+      - public_boundary_preserved
+      - no_login_captcha_antibot_bypass
+      - no_duplicate_stage2_pipeline_created
+  PTL-I100-151-public-web-captcha-suspend-and-operator-resume:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "系统必须检测验证码/校验页并在 parser/verification/customer surfaces 之前中断自动流转。"
+      - "系统必须保留 URL、cookie、表单状态、任务上下文和 capture plan，使 operator 输入后能够从同一任务续跑。"
+      - "操作台必须提供验证码输入续跑入口，并保留 who/when/which-site/which-task 的审计记录。"
+      - "必须复用现有 operator console、Stage2 runtime、task/state/readback seams，不得创建第二套浏览器或第二套 Stage2 路径。"
+      - "不得把自动解验证码、第三方打码或验证码绕过写成产品目标能力。"
+    targeted_test_expectations:
+      - operator_customer_access
+      - source_adapter_contracts
+      - runtime_governance_guards
+      - product_operability_gap_matrix
+    redline_checks:
+      - captcha_page_detected_before_parser
+      - session_context_preserved_for_resume
+      - operator_input_resumes_same_capture_plan
+      - captcha_resume_audit_record_visible
+      - no_auto_captcha_solving_or_bypass
+      - no_duplicate_operator_or_stage2_path_created
   PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]

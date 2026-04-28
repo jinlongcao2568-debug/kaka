@@ -228,8 +228,11 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot",
             "PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync",
             "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
+            "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+            "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation",
+            "PTL-I100-151-public-web-captcha-suspend-and-operator-resume",
             "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
             "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine",
             "PTL-I100-148-productized-autonomous-operator-workbench",
@@ -305,8 +308,11 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["next_packets_if_143D_passes"],
             [
                 "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
+                "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
                 "PTL-I100-144-market-scan-opportunity-discovery-engine",
                 "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+                "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation",
+                "PTL-I100-151-public-web-captcha-suspend-and-operator-resume",
                 "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
                 "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine",
                 "PTL-I100-148-productized-autonomous-operator-workbench",
@@ -320,7 +326,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "COMPLETED",
         )
         for packet_ref in section["next_packets_if_143D_passes"]:
-            expected_status = "ACTIVE" if packet_ref == "PTL-I100-143E-autonomous-source-strategy-d-doc-sync" else "PLANNED"
+            expected_status = "ACTIVE" if packet_ref == "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync" else "COMPLETED" if packet_ref == "PTL-I100-143E-autonomous-source-strategy-d-doc-sync" else "PLANNED"
             self.assertEqual(task_map[packet_ref]["status"], expected_status)
 
     def test_143e_records_d_doc_sync_for_autonomous_source_strategy(self) -> None:
@@ -330,7 +336,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn("docs/D13_公开可查边界能力清单.md", section["authority_docs_to_sync"])
         self.assertIn("docs/D11_测试验收与金标回归清单.md", section["authority_docs_to_sync"])
@@ -339,8 +345,28 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(
             section["next_packets_if_143E_passes"],
             [
+                "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
+            ],
+        )
+
+    def test_143f_registers_public_web_capture_and_captcha_resume_tasks(self) -> None:
+        section = self.matrix["public_web_capture_and_captcha_task_pool_sync_after_143E"]
+
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn("task_pool_registers_public_web_capture_hardening", section["must_prove"])
+        self.assertIn("task_pool_registers_captcha_resume_operator_path", section["must_prove"])
+        self.assertEqual(
+            section["next_packets_if_143F_passes"],
+            [
                 "PTL-I100-144-market-scan-opportunity-discovery-engine",
                 "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+                "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation",
+                "PTL-I100-151-public-web-captcha-suspend-and-operator-resume",
             ],
         )
 

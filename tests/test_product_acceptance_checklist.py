@@ -186,6 +186,24 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIn("北京不得进入首批商业线索试点", serialized_checklist)
         self.assertIn("不得一次性全国城市铺开", serialized_checklist)
 
+    def test_150_and_151_register_public_web_upgrade_and_captcha_resume(self) -> None:
+        task_150 = self.tasks_by_id["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
+        task_151 = self.tasks_by_id["PTL-I100-151-public-web-captcha-suspend-and-operator-resume"]
+        checklist_150 = self.checklist["tasks"]["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
+        checklist_151 = self.checklist["tasks"]["PTL-I100-151-public-web-captcha-suspend-and-operator-resume"]
+
+        self.assertEqual(task_150["status"], "PLANNED")
+        self.assertEqual(task_151["status"], "PLANNED")
+        self.assertIn("no_manual_restart_as_primary_failure_mode", task_150["capability_gaps_covered"])
+        self.assertIn("captcha_challenge_detection", task_151["capability_gaps_covered"])
+
+        serialized_150 = yaml.safe_dump(checklist_150, allow_unicode=True)
+        serialized_151 = yaml.safe_dump(checklist_151, allow_unicode=True)
+        self.assertIn("Stage2Service", serialized_150)
+        self.assertIn("第二套重复链路", serialized_150)
+        self.assertIn("操作台必须提供验证码输入续跑入口", serialized_151)
+        self.assertIn("不得把自动解验证码", serialized_151)
+
     def test_required_subpackets_have_dedicated_acceptance_entries(self) -> None:
         subpacket_acceptance = self.checklist["subpacket_acceptance"]
         task_111c = self.tasks_by_id["PTL-I100-111C-crm-quote-and-delivery-page-adapters"]

@@ -212,8 +212,11 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         expected = [
             "PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync",
             "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
+            "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+            "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation",
+            "PTL-I100-151-public-web-captcha-suspend-and-operator-resume",
             "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
             "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine",
             "PTL-I100-148-productized-autonomous-operator-workbench",
@@ -224,12 +227,13 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             self.assertIn(task_id, self.checklist["tasks"])
 
         self.assertEqual(task_ids[expected[0]]["status"], "COMPLETED")
-        self.assertEqual(task_ids[expected[1]]["status"], "ACTIVE")
-        for task_id in expected[2:]:
+        self.assertEqual(task_ids[expected[1]]["status"], "COMPLETED")
+        self.assertEqual(task_ids[expected[2]]["status"], "ACTIVE")
+        for task_id in expected[3:]:
             self.assertEqual(task_ids[task_id]["status"], "PLANNED")
         self.assertEqual(
             self.task_library["current_mainline_next_candidate"]["task_id"],
-            expected[1],
+            expected[2],
         )
 
         sequence = [item["packet_ref"] for item in self.architecture["implementation_sequence"]]

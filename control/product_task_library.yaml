@@ -1,6 +1,6 @@
 version: 1
 library_id: PRODUCT_MAINLINE_TASK_LIBRARY
-updated_at: "2026-04-25"
+updated_at: "2026-04-28"
 status: EFFECTIVE
 role: product_mainline_task_source
 library_role: product_mainline_task_source
@@ -29,6 +29,7 @@ rules:
   - "control/operator_assignment_roster_defaults.yaml is the stable roster source for stage7 / stage8 / stage9."
   - "docs/AX9S_开发执行路由图.md remains a product stage navigation map, not an active execution source, status source, or full backlog."
   - "repo readiness is not decided here; control/repo_status.md and control/milestone_status.yaml remain status truth sources."
+  - "Future capability packets must extend existing Stage1-9, Stage2 public-source, parser, operator-console, queue, and repository seams first; duplicate parallel implementations are not acceptable without explicit retirement or architecture approval."
 redlines:
   external_software_release: BLOCKED
   stage8_real_execution: "target capability for PTL-I100-122, but blocked by default until dedicated current_task, provider config, sandbox, approval, audit, operator action, frequency/opt-out/quiet-hours gates, and acceptance pass"
@@ -45,6 +46,8 @@ open_capability_policy:
   state_order: [NOT_IMPLEMENTED, INTERNAL_READY, SANDBOX_READY, APPROVAL_READY, LIVE_READY, PRODUCTION_READY, SUSPENDED]
   target_capabilities_to_open_under_control:
     - real_public_source_collection
+    - adaptive_public_web_capture_hardening
+    - captcha_challenge_suspend_and_resume
     - real_parser_ocr_attachment_extraction
     - public_verification_adapters
     - rule_factory_expansion
@@ -116,12 +119,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
-  packet_id: PTL-I100-143E-autonomous-source-strategy-d-doc-sync
-  title: "Autonomous source strategy D-doc sync"
+  task_id: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+  packet_id: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+  title: "Public web capture and captcha task-pool sync"
   planning_state: ACTIVE
   runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143D completed locally through 440b49b. 143E is active to synchronize the autonomous opportunity/source strategy/commercial hook roadmap into D-doc authority supplements before implementing 144-149; no runtime behavior, provider execution, customer download, refund, automated refund, or public software release is opened."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143D completed locally through 440b49b and 143E completed locally through fd6531a. 143F is active to register remaining public-web capture-escalation and captcha-resume capabilities into the future task pool before implementing 144-151; no runtime behavior, provider execution, customer download, refund, automated refund, or public software release is opened."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +241,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 82
+task_count: 85
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -3178,9 +3181,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, stage6_fact_review, stage7_sales, product_acceptance]
     task_type: autonomous_source_strategy_d_doc_sync
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P49A
     existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_AND_143D_CONTROL_SYNC_COMPLETED
     existing_runtime_state: D_DOC_AUTHORITY_NOT_YET_SYNCED_FOR_AUTONOMOUS_SOURCE_STRATEGY
@@ -3217,6 +3220,48 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143E-autonomous-source-strategy-d-doc-sync
     suggested_packet_refs: [PTL-I100-143E-autonomous-source-strategy-d-doc-sync]
     risk_level: HIGH
+    completed_commit: fd6531a
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_AUTONOMOUS_SOURCE_STRATEGY_D_DOC_AUTHORITY_SYNC"
+  - task_id: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+    title: "I100-43F Public web capture and captcha task-pool sync"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, operator_frontend, product_acceptance]
+    task_type: public_web_capture_and_captcha_task_pool_sync
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P49B
+    existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_AND_143E_D_DOC_SYNC_COMPLETED
+    existing_runtime_state: PUBLIC_WEB_CAPTURE_ESCALATION_AND_CAPTCHA_RESUME_NOT_YET_REGISTERED_IN_TASK_POOL
+    runtime_change_in_packet: OUT_OF_SCOPE
+    activation_policy: "Activated after owner required that public-web capture escalation and captcha handling be written into the future task pool. This packet only registers the work and locks the reuse-first implementation rule."
+    hard_depends_on:
+      - PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+    objective: "把公开网抓取失败优先自动升级、验证码检测挂起与操作台输入续跑、以及基于现有 Stage2/Stage3/operator seams 复用补强的开发规则正式写进任务池与验收，不改 runtime。"
+    capability_gaps_covered:
+      - public_web_capture_escalation_task_pool_registration
+      - captcha_challenge_suspend_resume_task_pool_registration
+      - reuse_existing_runtime_surfaces_first_policy
+    non_goals:
+      - "不改 Stage1-9 runtime"
+      - "不改 docs/contract/handoff/script/fixture"
+      - "不把验证码自动求解、自动识别并自动提交作为产品目标能力"
+      - "不放开任意 crawler、登录/验证码/反爬绕过、真实 provider、客户下载、真实支付交付、退款或自动退款"
+    expected_outputs:
+      - "150/151 task registration"
+      - "checklist entries for new public-web tasks"
+      - "gap matrix/runtime map alignment"
+      - "reuse-first implementation rule"
+    acceptance_checks:
+      - task_pool_registers_public_web_capture_hardening
+      - task_pool_registers_captcha_resume_operator_path
+      - reuse_existing_runtime_surfaces_first_policy_is_explicit
+      - no_runtime_or_live_execution_change
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
+    suggested_packet_refs: [PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync]
+    risk_level: HIGH
   - task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
     title: "I100-44 Market scan opportunity discovery engine"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
@@ -3229,7 +3274,7 @@ tasks:
     priority: P50
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
-      - PTL-I100-143E-autonomous-source-strategy-d-doc-sync
+      - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
     objective: "实现市场扫描与机会发现：根据地区、工程类型、金额区间、公告阶段、异议窗口和关键字段自动判断哪些公告值得进入分析，不再把手工 URL 选择作为主流程。"
     capability_gaps_covered:
       - autonomous_run_controller_first_slice
@@ -3307,6 +3352,77 @@ tasks:
         - unapproved_external_claims_about_sensitive_regions
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     suggested_packet_refs: [PTL-I100-145-source-blueprint-orchestration-and-capture-plan]
+    risk_level: HIGH
+  - task_id: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+    title: "I100-50 Public web adaptive capture hardening and failure escalation"
+    program_ref: PTL-I100-autonomous-opportunity-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, product_acceptance]
+    task_type: public_web_adaptive_capture_hardening
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P51A
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    hard_depends_on:
+      - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+    objective: "针对公开网站抓取失败，优先自动升级合法采集与解析策略：识别 DOM/结构改版、JS 壳、分页/跳转、附件发现、编码异常、超时、限频、解析模板漂移和站点健康退化；不把纯人工重跑作为默认失败路径。"
+    capability_gaps_covered:
+      - public_web_failure_diagnosis
+      - adaptive_capture_strategy_upgrade
+      - pagination_jump_and_attachment_discovery_hardening
+      - js_shell_and_encoding_recovery
+      - rate_limit_timeout_backoff_strategy
+      - parser_template_regression_recovery
+      - source_health_and_auto_degrade
+      - no_manual_restart_as_primary_failure_mode
+    non_goals:
+      - "不绕过登录、验证码、权限或反自动化限制"
+      - "不引入任意深爬或无 allowlist 站点抓取"
+      - "不创建第二套 Stage2 service / adapter / repository 链路"
+    acceptance_checks:
+      - automatic_failure_diagnosis_visible
+      - adaptive_capture_strategy_upgrade_visible
+      - timeout_rate_limit_and_structure_change_do_not_default_to_manual_restart
+      - public_boundary_preserved
+      - no_duplicate_stage2_pipeline_created
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+    suggested_packet_refs: [PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation]
+    risk_level: HIGH
+  - task_id: PTL-I100-151-public-web-captcha-suspend-and-operator-resume
+    title: "I100-51 Public web captcha suspend and operator resume"
+    program_ref: PTL-I100-autonomous-opportunity-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, api_transport, operator_frontend, product_acceptance]
+    task_type: public_web_captcha_suspend_and_operator_resume
+    status: PLANNED
+    planning_state: PLANNED
+    is_current_mainline_next_candidate: false
+    priority: P51B
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    hard_depends_on:
+      - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+    objective: "公开网站遇到验证码/校验页时，系统自动识别 challenge、保留 URL/cookie/表单/任务上下文、挂起任务、在操作台接收人工输入后从同一 capture plan 续跑；不要求重启整条链路，也不把自动解验证码作为目标能力。"
+    capability_gaps_covered:
+      - captcha_challenge_detection
+      - session_suspend_and_resume
+      - operator_console_captcha_entry
+      - task_context_preservation_across_challenge
+      - audited_resume_flow
+      - challenge_rate_tracking_and_site_policy_feedback
+    non_goals:
+      - "不做自动验证码求解"
+      - "不接第三方打码或验证码绕过服务"
+      - "不创建第二套 operator console / browser session / Stage2 runtime"
+    acceptance_checks:
+      - captcha_page_detected_before_parser
+      - session_context_preserved_for_resume
+      - operator_input_resumes_same_capture_plan
+      - captcha_resume_audit_record_visible
+      - no_auto_captcha_solving_or_bypass
+      - no_duplicate_operator_or_stage2_path_created
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-151-public-web-captcha-suspend-and-operator-resume
+    suggested_packet_refs: [PTL-I100-151-public-web-captcha-suspend-and-operator-resume]
     risk_level: HIGH
   - task_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     title: "I100-46 Evidence risk and hard defect verification strategy"
