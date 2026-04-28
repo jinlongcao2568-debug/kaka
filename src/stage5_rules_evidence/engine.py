@@ -212,6 +212,8 @@ class RuleEvidenceEngine:
             "evidence_gate_decision_id": evidence_artifacts.evidence_gate_decision.get("gate_id"),
             "review_request_id": rule_coverage_summary.get("review_request_id"),
             "evidence_refs": list(rule_coverage_summary.get("evidence_refs", [])),
+            "stage4_public_verification_refs": list(inputs.get("stage4_public_verification_refs", [])),
+            "source_object_refs": list(inputs.get("source_object_refs", [])),
         }
         model_assist = build_rule_model_assist(
             stage5_readback_summary=stage5_rule_readback_summary,

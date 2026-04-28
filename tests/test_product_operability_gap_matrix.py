@@ -222,6 +222,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-137-degraded-real-public-site-hardening",
             "PTL-I100-138-real-public-snapshot-to-parser-pilot",
             "PTL-I100-139-real-public-parser-to-verification-pilot",
+            "PTL-I100-140-real-public-verification-to-rule-evidence-pilot",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -396,12 +397,29 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-139-real-public-parser-to-verification-pilot",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn("real_public_parsed_fields_enter_stage4_public_verification", section["must_prove"])
         self.assertIn("verification_carrier_binds_parsed_field_refs_and_replayable_snapshot_refs", section["must_prove"])
         self.assertIn("weak_or_missing_identifier_public_evidence_fails_closed", section["must_prove"])
         self.assertIn("no_stage5_stage6_or_customer_visible_promotion", section["must_prove"])
+        self.assertEqual(
+            section["next_packets_if_139_passes"],
+            ["PTL-I100-140-real-public-verification-to-rule-evidence-pilot"],
+        )
+
+    def test_140_real_public_verification_to_rule_evidence_pilot_records_stage5_gap(self) -> None:
+        section = self.matrix["real_public_verification_to_rule_evidence_pilot_after_139"]
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-140-real-public-verification-to-rule-evidence-pilot",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn("real_public_stage4_verification_readback_enters_stage5_rule_evidence_gate", section["must_prove"])
+        self.assertIn("rule_hit_and_evidence_bind_verification_run_snapshot_and_parsed_field_refs", section["must_prove"])
+        self.assertIn("weak_or_review_public_verification_fails_closed_to_stage5_review", section["must_prove"])
+        self.assertIn("no_stage6_or_customer_visible_promotion", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}

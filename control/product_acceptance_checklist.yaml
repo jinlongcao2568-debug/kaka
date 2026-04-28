@@ -845,6 +845,33 @@ tasks:
       - no_stage5_stage6_or_customer_visible_promotion
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-140-real-public-verification-to-rule-evidence-pilot:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "必须把 139 产生的真实公开 Stage4 public verification carrier 送入 Stage5 rule/evidence gate，而不是只验证离线 fixture 或人工构造 Stage4 bundle。"
+      - "Stage5 rule_hit、evidence、rule_gate_decision、evidence_gate_decision 和 readback 必须绑定 verification_run_id、source_snapshot_id、input_parse_run_id、parsed field refs/source slice refs。"
+      - "弱证据、缺 target identifier、review_required 或非 replayable/non-public carrier 必须 fail closed / REVIEW，不得伪造 PASS 或 CONFIRMED。"
+      - "Stage5 rule/evidence readback 仍不得生成 Stage6 project fact、客户可见材料或法律结论。"
+      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+    targeted_test_expectations:
+      - stage2_real_public_url_fetcher
+      - stage3_real_parser
+      - stage4_public_verification_adapters
+      - stage5_rule_factory_expansion
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - real_public_stage4_verification_readback_enters_stage5_rule_evidence_gate
+      - rule_hit_and_evidence_bind_verification_run_snapshot_and_parsed_field_refs
+      - weak_or_review_public_verification_fails_closed_to_stage5_review
+      - no_stage6_or_customer_visible_promotion
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

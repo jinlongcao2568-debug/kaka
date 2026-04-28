@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,8 +15,18 @@ for search_path in (SRC, TESTS):
         sys.path.insert(0, str(search_path))
 
 from helpers import load_fixture
+from shared.settings import Settings
 from shared.contracts_runtime import StageBundle
 from shared.pipeline import run_internal_chain
+from stage2_ingestion.real_public_url_fetcher import (
+    REAL_PUBLIC_ENTRY_PROFILE_BY_ID,
+    RealPublicFetchResponse,
+)
+from stage2_ingestion.service import Stage2Service
+from stage3_parsing.service import Stage3Service
+from stage4_verification.service import Stage4Service
+from storage.db import DatabaseSession
+from storage.repositories.object_storage_repo import ObjectStorageRepository
 from stage5_rules_evidence.service import Stage5Service
 
 
@@ -31,6 +42,120 @@ def stage4_bundle_with_inputs(extra_inputs: dict[str, object]) -> StageBundle:
         handoff=dict(stage4.handoff),
         trace_rules=list(stage4.trace_rules),
         inputs={**stage4.inputs, **extra_inputs},
+    )
+
+
+class _FakeRealPublicFetchTransport:
+    def __init__(self, responses: dict[str, RealPublicFetchResponse]) -> None:
+        self.responses = responses
+        self.call_log: list[dict[str, object]] = []
+
+    def fetch(
+        self,
+        url: str,
+        *,
+        timeout_seconds: float,
+        user_agent: str,
+    ) -> RealPublicFetchResponse:
+        self.call_log.append(
+            {
+                "url": url,
+                "timeout_seconds": timeout_seconds,
+                "user_agent": user_agent,
+            }
+        )
+        return self.responses[url]
+
+
+def _real_public_rule_html(*, profile_id: str, target_type: str, identifier: str) -> bytes:
+    profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id]
+    marker_text = " ".join(profile.visible_entry_markers or profile.lightweight_public_entry_markers)
+    filler = "公开规则证据入口" * 80
+    html = f"""
+    <html>
+      <head>
+        <title>{profile.expected_title_contains} - {profile.site_name}</title>
+        <meta name="description" content="{marker_text}">
+      </head>
+      <body>
+        <h1>{profile.expected_title_contains}</h1>
+        <p>{marker_text}</p>
+        <p>{filler}</p>
+        <table>
+          <tr><th>项目名称</th><td>{identifier}</td></tr>
+          <tr><th>招标人</th><td>{profile.site_name} 测试主体</td></tr>
+          <tr><th>公告日期</th><td>2026-04-28</td></tr>
+          <tr><th>{target_type}</th><td>{identifier}</td></tr>
+        </table>
+        <a href="{profile.sample_detail_url}">公开详情样例</a>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _object_storage_repo(tmp_dir: str) -> ObjectStorageRepository:
+    settings = Settings(
+        storage_backend="json-file",
+        storage_path_optional=str(Path(tmp_dir) / "stage5-real-public-rule.json"),
+        storage_scope="shared",
+        storage_runtime_mode="explicit-path",
+        object_storage_path_optional=str(Path(tmp_dir) / "objects"),
+    )
+    return ObjectStorageRepository(
+        session=DatabaseSession(settings=settings),
+        settings=settings,
+    )
+
+
+def _real_public_stage4_verification(
+    *,
+    tmp_dir: str,
+    profile_id: str = "GGZY-DEAL-LIST",
+    target_type: str = "enterprise_public_record",
+    identifier: str = "REAL-PUBLIC-STAGE5-001",
+    target_identifier: str | None = None,
+) -> dict[str, object]:
+    profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID[profile_id]
+    html = _real_public_rule_html(
+        profile_id=profile.profile_id,
+        target_type=target_type,
+        identifier=identifier,
+    )
+    transport = _FakeRealPublicFetchTransport(
+        {
+            profile.url: RealPublicFetchResponse(
+                url=profile.url,
+                status_code=200,
+                content=html,
+                content_type="text/html; charset=utf-8",
+                final_url=profile.url,
+                headers={"x-ax9s-fetch-transport": "unit_controlled_transport"},
+            )
+        }
+    )
+    repo = _object_storage_repo(tmp_dir)
+    stage2_carrier = Stage2Service().fetch_real_public_entry_url(
+        profile.url,
+        profile_id=profile.profile_id,
+        repository=repo,
+        transport=transport,
+        lineage_refs={
+            "source_blueprint_batch_id": "PTL-I100-140",
+            "entry_profile_id": profile.profile_id,
+        },
+    )
+    parsed = dict(Stage3Service().parse_raw_snapshot(stage2_carrier["snapshot_id_optional"], repository=repo))
+    return dict(
+        Stage4Service().verify_public_parsed_carrier(
+            parsed,
+            target={
+                "verification_target_id": f"TARGET-{target_type}-140",
+                "verification_target_type": target_type,
+                "target_identifier": identifier if target_identifier is None else target_identifier,
+            },
+            repository=repo,
+        )
     )
 
 
@@ -199,6 +324,79 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertIn("review_request", stage5.records)
         self.assertTrue(any("version conflict expected" in reason for reason in proc_trace["blocking_reasons"]))
         self.assertGreaterEqual(coverage["version_conflict_count"], 1)
+
+    def test_real_public_stage4_verification_readback_enters_stage5_rule_evidence_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            verification = _real_public_stage4_verification(tmp_dir=tmp_dir)
+            base_stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+
+            stage5 = Stage5Service().run_public_verification_readback(
+                base_stage4,
+                verification,
+                requested_rule_codes=["DOC-001"],
+            )
+
+        self.assertEqual(verification["verification_result"], "MATCHED")
+        self.assertEqual(stage5.inputs["stage5_rule_codes"], ["DOC-001"])
+        self.assertEqual(stage5.record("evidence_gate_decision").get("evidence_gate_status"), "PASS")
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "PASS")
+        self.assertNotIn("review_request", stage5.records)
+        self.assertNotIn("project_fact", stage5.records)
+        self.assertNotIn("stage6_project_fact", stage5.records)
+        self.assertNotIn("customer_material", stage5.inputs)
+
+        rule_hit = stage5.record("rule_hit")
+        source_refs = set(rule_hit.get("source_object_refs"))
+        self.assertIn(verification["verification_run_id"], source_refs)
+        self.assertIn(verification["source_snapshot_id"], source_refs)
+        self.assertIn(verification["input_parse_run_id"], source_refs)
+        self.assertFalse(stage5.inputs["stage4_public_verification_carrier"]["customer_visible"])
+
+        readback = stage5.inputs["stage5_rule_readback_summary"]
+        self.assertIn(verification["verification_run_id"], readback["stage4_public_verification_refs"])
+        self.assertIn(verification["source_snapshot_id"], readback["stage4_public_verification_refs"])
+        self.assertEqual(
+            stage5.inputs["stage4_public_verification_readback_summary"]["readback_state"],
+            "READBACK_READY",
+        )
+        self.assertTrue(stage5.inputs["stage4_public_verification_readback_summary"]["replayable"])
+
+    def test_real_public_stage4_review_result_fails_closed_to_stage5_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            verification = _real_public_stage4_verification(
+                tmp_dir=tmp_dir,
+                profile_id="BEIJING-PLATFORM-HOME",
+                target_type="contract_public_info",
+                identifier="CONTRACT-PUBLIC-STAGE5-140",
+                target_identifier="",
+            )
+            base_stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]
+
+            stage5 = Stage5Service().run_public_verification_readback(
+                base_stage4,
+                verification,
+                requested_rule_codes=["DOC-001"],
+            )
+
+        self.assertEqual(verification["verification_result"], "REVIEW_REQUIRED")
+        self.assertTrue(verification["review_required"])
+        self.assertEqual(stage5.record("evidence_gate_decision").get("evidence_gate_status"), "REVIEW")
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertIn("review_request", stage5.records)
+        self.assertEqual(stage5.inputs["verification_state"], "REVIEW")
+        self.assertTrue(
+            any(
+                "verification review" in reason
+                for reason in stage5.inputs["stage5_rule_execution_trace"][0]["blocking_reasons"]
+            )
+        )
+        self.assertIn(
+            verification["verification_run_id"],
+            stage5.inputs["stage5_rule_readback_summary"]["stage4_public_verification_refs"],
+        )
+        self.assertNotIn("project_fact", stage5.records)
+        self.assertNotIn("stage6_project_fact", stage5.records)
+        self.assertNotIn("customer_material", stage5.inputs)
 
 
 if __name__ == "__main__":

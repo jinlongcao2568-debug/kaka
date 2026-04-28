@@ -402,7 +402,7 @@ real_public_snapshot_to_parser_pilot_after_137:
     - PTL-I100-139-real-public-parser-to-verification-pilot
 real_public_parser_to_verification_pilot_after_138:
   packet_ref: PTL-I100-139-real-public-parser-to-verification-pilot
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "138 proved real public snapshots can enter Stage3 parser readback; the next gap is validating those parsed fields against Stage4 public verification readback while keeping downstream promotion blocked."
   target_capability_state: INTERNAL_READY
   current_gap: "Stage4 public verification currently has adapter/readback tests, but must be proven against real public Stage2->Stage3 parsed carriers, including parsed field refs, snapshot refs, evidence grade, and fail-closed taxonomy."
@@ -413,7 +413,22 @@ real_public_parser_to_verification_pilot_after_138:
     - no_stage5_stage6_or_customer_visible_promotion
     - no_uncontrolled_crawler
     - no_real_provider_call
-  next_packets_if_139_passes: []
+  next_packets_if_139_passes:
+    - PTL-I100-140-real-public-verification-to-rule-evidence-pilot
+real_public_verification_to_rule_evidence_pilot_after_139:
+  packet_ref: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
+  status: ACTIVE
+  trigger_reason: "139 proved real public Stage3 parsed carriers can enter Stage4 public verification readback; the next gap is validating that verification readback can drive Stage5 rule/evidence gates without becoming Stage6 fact or customer-visible material."
+  target_capability_state: INTERNAL_READY
+  current_gap: "Stage5 rule factory has internal catalog/golden coverage, but must be proven against real public Stage4 verification carriers with verification run refs, replayable source snapshots, parsed field refs, evidence gate state, and fail-closed review behavior."
+  must_prove:
+    - real_public_stage4_verification_readback_enters_stage5_rule_evidence_gate
+    - rule_hit_and_evidence_bind_verification_run_snapshot_and_parsed_field_refs
+    - weak_or_review_public_verification_fails_closed_to_stage5_review
+    - no_stage6_or_customer_visible_promotion
+    - no_uncontrolled_crawler
+    - no_real_provider_call
+  next_packets_if_140_passes: []
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -644,7 +659,7 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_parser_to_verification_pilot
     packet_ref: PTL-I100-139-real-public-parser-to-verification-pilot
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - real_public_parsed_fields_to_stage4_public_verification
@@ -652,6 +667,17 @@ production_gap_task_map:
       - public_visibility_and_evidence_grade_readback
       - weak_or_missing_identifier_fail_closed_taxonomy
       - no_stage5_stage6_or_customer_visible_promotion
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: real_public_verification_to_rule_evidence_pilot
+    packet_ref: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - real_public_verification_to_stage5_rule_evidence_gate
+      - verification_run_snapshot_parsed_field_refs_bound_to_rule_hit
+      - stage5_rule_readback_source_object_refs
+      - weak_or_review_verification_fails_closed_to_review
+      - no_stage6_or_customer_visible_promotion
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters
