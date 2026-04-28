@@ -20,6 +20,7 @@ from stage2_ingestion import (
     REAL_PUBLIC_ENTRY_PROFILES,
 )
 from stage2_ingestion.service import Stage2Service
+from storage.db import PersistedOperatorAction, build_persisted_at
 from storage.repositories.operator_action_repo import OperatorActionRepository
 from storage.repositories.worker_queue_repo import WorkerQueueRepository
 
@@ -228,6 +229,113 @@ def _lineage_refs_from_payload(payload: Mapping[str, Any]) -> dict[str, str]:
     return refs
 
 
+def _real_source_run_work_item_id() -> str:
+    return "operator-real-public-source-task-runs"
+
+
+def _record_real_source_run(
+    *,
+    capture_kind: str,
+    profile_id: str,
+    result: Mapping[str, Any],
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    requested_at = build_persisted_at()
+    snapshot_id = str(result.get("snapshot_id_optional") or result.get("snapshot_id") or "").strip()
+    status = str(result.get("status") or result.get("readback_state") or "UNKNOWN")
+    fail_closed = bool(result.get("fail_closed", False))
+    action_state = "FAILED_CLOSED" if fail_closed else status
+    run_id = f"REAL-SOURCE-RUN-{snapshot_id or profile_id}-{requested_at}".replace(":", "").replace("+", "")
+    object_refs = {
+        "capture_kind": capture_kind,
+        "profile_id": profile_id,
+        "status": status,
+    }
+    if snapshot_id:
+        object_refs["snapshot_id"] = snapshot_id
+    for key in ("task_id", "project_id", "source_blueprint_batch_id"):
+        value = str(payload.get(key, "")).strip()
+        if value:
+            object_refs[key] = value
+    action = PersistedOperatorAction(
+        action_event_id=run_id,
+        work_item_id=_real_source_run_work_item_id(),
+        stage_scope=2,
+        action_id="real_public_source_capture",
+        button_flow_id="owner_console_real_source_runner",
+        action_state=action_state,
+        resulting_assignment_lifecycle_state=None,
+        requested_by_role="single_operator",
+        requested_by="卡卡罗特",
+        assigned_owner_role="single_operator",
+        assigned_owner="卡卡罗特",
+        reviewer_role="single_operator",
+        reviewer="卡卡罗特",
+        reason="owner_console_allowlisted_real_public_source_capture",
+        object_refs=object_refs,
+        trace_refs={
+            "operator_console_route": "/operator-console/real-source-runs",
+            "readback_path": f"/operator-console/real-source-runs/{snapshot_id}" if snapshot_id else "",
+        },
+        audit_refs={
+            "run_audit_ref": run_id,
+            "public_boundary": "allowlisted_public_source_only",
+        },
+        requested_at=requested_at,
+        completed_at=requested_at,
+    )
+    OperatorActionRepository().append(action)
+    return _real_source_run_action_payload(action)
+
+
+def _real_source_run_action_payload(action: PersistedOperatorAction) -> dict[str, Any]:
+    refs = dict(action.object_refs)
+    snapshot_id = refs.get("snapshot_id")
+    return {
+        "run_id": action.action_event_id,
+        "capture_kind": refs.get("capture_kind"),
+        "profile_id": refs.get("profile_id"),
+        "snapshot_id_optional": snapshot_id,
+        "status": refs.get("status") or action.action_state,
+        "action_state": action.action_state,
+        "task_id_optional": refs.get("task_id"),
+        "project_id_optional": refs.get("project_id"),
+        "requested_at": action.requested_at,
+        "completed_at": action.completed_at,
+        "readback_path_optional": f"/operator-console/real-source-runs/{snapshot_id}" if snapshot_id else None,
+        "repository_backed": True,
+        "internal_only": True,
+        "uncontrolled_crawler_enabled": False,
+        "real_provider_call_enabled": False,
+        "external_release_enabled": False,
+    }
+
+
+def list_owner_real_public_source_task_runs(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    del payload
+    actions = OperatorActionRepository().list(work_item_id=_real_source_run_work_item_id())
+    runs = [_real_source_run_action_payload(action) for action in actions]
+    runs.sort(key=lambda row: str(row.get("requested_at") or ""), reverse=True)
+    status_counts: dict[str, int] = {}
+    for row in runs:
+        status = str(row.get("status") or "UNKNOWN")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    return {
+        "surface_id": "operator_real_public_source_task_runs",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "run_count": len(runs),
+        "status_counts": status_counts,
+        "runs": runs,
+        "allowed_capture_kinds": ["entry", "attachment"],
+        "uncontrolled_crawler_enabled": False,
+        "real_provider_call_enabled": False,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "customer_download_enabled": False,
+    }
+
+
 def run_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str, Any]:
     capture_kind = str(payload.get("capture_kind", "")).strip().lower()
     profile_id = str(payload.get("profile_id", "")).strip()
@@ -264,6 +372,12 @@ def run_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[str
         "profile_id": profile_id,
         "snapshot_id_optional": result.get("snapshot_id_optional"),
         "capture_status": result.get("status"),
+        "run_record": _record_real_source_run(
+            capture_kind=capture_kind,
+            profile_id=profile_id,
+            result=result,
+            payload=payload,
+        ),
         "repository_backed_readback": True,
         "readback_path_template": "/operator-console/real-source-runs/{snapshot_id}",
         "result": result,
@@ -355,6 +469,15 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "listOwnerRealPublicSourceTaskRuns",
+        "method": "GET",
+        "path": "/operator-console/real-source-task-runs",
+        "handler": list_owner_real_public_source_task_runs,
+        "real_public_source_task_run_list": True,
+        "repository_backed_readback": True,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "readOwnerRealPublicSourceCapture",
         "method": "GET",
         "path": "/operator-console/real-source-runs/{snapshot_id}",
@@ -425,6 +548,7 @@ __all__ = [
     "OPERATOR_CUSTOMER_ACCESS_ROUTES",
     "create_operator_task",
     "import_operator_project",
+    "list_owner_real_public_source_task_runs",
     "list_real_public_source_profiles",
     "preview_customer_artifact_access_candidate",
     "preview_go_live_readiness",

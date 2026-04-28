@@ -381,6 +381,8 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         <select id="attachmentProfile"></select>
         <button class="secondary" id="runAttachmentCapture">执行附件抓取</button>
         <button class="secondary" id="readLatestSourceCapture">读取最近一次抓取读回</button>
+        <button class="secondary" id="refreshRealSourceRuns">刷新真实源任务列表</button>
+        <div id="realSourceRunList" class="empty-state">暂无真实源任务运行记录。</div>
       </section>
       <section>
         <h3>全链路运行入口</h3>
@@ -516,6 +518,7 @@ async function runEntryCapture() {
     project_id: $("projectId").value
   });
   lastRealSourceSnapshotId = result.snapshot_id_optional || "";
+  await loadRealSourceRuns();
   out(result);
 }
 async function runAttachmentCapture() {
@@ -526,6 +529,7 @@ async function runAttachmentCapture() {
     project_id: $("projectId").value
   });
   lastRealSourceSnapshotId = result.snapshot_id_optional || "";
+  await loadRealSourceRuns();
   out(result);
 }
 async function readLatestSourceCapture() {
@@ -535,17 +539,33 @@ async function readLatestSourceCapture() {
   }
   out(await json("GET", `/operator-console/real-source-runs/${encodeURIComponent(lastRealSourceSnapshotId)}`));
 }
+async function loadRealSourceRuns() {
+  const payload = await json("GET", "/operator-console/real-source-task-runs");
+  const runs = payload.runs || [];
+  if (!runs.length) {
+    $("realSourceRunList").className = "empty-state";
+    $("realSourceRunList").textContent = "暂无真实源任务运行记录。";
+    return payload;
+  }
+  $("realSourceRunList").className = "";
+  $("realSourceRunList").innerHTML = runs.slice(0, 8).map((run) => {
+    const snapshot = run.snapshot_id_optional || "--";
+    return `<div class="metric"><strong>${run.profile_id || "--"}</strong><span>${run.capture_kind || "--"} | ${run.status || "--"} | ${snapshot}</span></div>`;
+  }).join("");
+  return payload;
+}
 $("createTask").addEventListener("click", createTask);
 $("importProject").addEventListener("click", importProject);
 $("runEntryCapture").addEventListener("click", runEntryCapture);
 $("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
 $("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
+$("refreshRealSourceRuns").addEventListener("click", async () => out(await loadRealSourceRuns()));
 $("previewRun").addEventListener("click", previewRun);
 $("runControlledSample").addEventListener("click", runControlledSample);
 $("refreshWorkbench").addEventListener("click", loadReadiness);
 $("refreshProvider").addEventListener("click", loadReadiness);
 $("refreshAudit").addEventListener("click", loadReadiness);
-Promise.all([loadReadiness(), loadRealSourceProfiles()]).catch(out);
+Promise.all([loadReadiness(), loadRealSourceProfiles(), loadRealSourceRuns()]).catch(out);
 """
     return _page("AX9S 运营操作台", body, script)
 

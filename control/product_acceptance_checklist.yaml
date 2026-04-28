@@ -722,6 +722,30 @@ tasks:
       - source_capture_readback_is_repository_backed
       - no_uncontrolled_crawler
       - no_real_provider_call
+  PTL-I100-135-owner-real-source-task-workbench:
+    target_capability_state: INTERNAL_READY
+    required_acceptance_layers: [engineering_regression, capability_state, product_closure]
+    completion_must_prove:
+      - "owner console 必须展示 repository-backed 的真实公开源 run list，而不是只保留浏览器内存里的最近 snapshot。"
+      - "每次 entry/attachment capture 必须生成 operator-action backed run record，记录 profile、capture kind、状态、snapshot_id 和 readback path。"
+      - "页面必须能刷新最近运行、展示状态和 snapshot/readback 入口，失败关闭也必须可见。"
+      - "仍只能复用 133A-133D 已有 Stage2 fetcher，不新增任意 crawler、跨站深爬或真实 provider 调用。"
+      - "仍不做客户下载、真实支付交付、真实退款或自动退款。"
+    targeted_test_expectations:
+      - operator_customer_access
+      - operator_frontend_portal
+      - product_acceptance_checklist
+      - product_operability_gap_matrix
+      - controlled_real_world_e2e_closeout
+      - stage12_extractors
+      - external_unlock_prerequisites
+      - runtime_governance_guards
+    redline_checks:
+      - owner_console_lists_real_source_task_runs
+      - run_records_are_repository_backed_operator_actions
+      - source_capture_readback_links_are_visible
+      - no_uncontrolled_crawler
+      - no_real_provider_call
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters

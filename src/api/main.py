@@ -98,6 +98,10 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "task_creation_entry",
     "task_readback_entry",
     "project_import_entry",
+    "real_public_source_profile_catalog",
+    "real_public_source_runner_entry",
+    "real_public_source_task_run_list",
+    "real_public_source_readback",
     "scheduler_status_readback",
     "customer_artifact_access_readiness",
     "download_auth_required",
@@ -872,6 +876,7 @@ def _build_transport_bootstrap(
                     "project_import": "/operator-console/project-imports",
                     "real_public_source_profiles": "/operator-console/real-source-profiles",
                     "real_public_source_run": "/operator-console/real-source-runs",
+                    "real_public_source_task_runs": "/operator-console/real-source-task-runs",
                     "real_public_source_readback": "/operator-console/real-source-runs/{snapshot_id}",
                     "full_chain_run": INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY[
                         "internal_orchestration_path"

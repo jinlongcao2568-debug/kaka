@@ -116,12 +116,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-134-owner-task-runner-real-source-ui
-  packet_id: PTL-I100-134-owner-task-runner-real-source-ui
-  title: "Owner task runner real source UI"
+  task_id: PTL-I100-135-owner-real-source-task-workbench
+  packet_id: PTL-I100-135-owner-real-source-task-workbench
+  title: "Owner real source task workbench"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 133A/133B/133C/133D are completed. 134 is now active to make the owner console execute allowlisted real public source capture and readback without arbitrary crawling or external provider action."
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. 133A/133B/133C/133D and 134 are completed. 135 is now active to make owner console real public source capture operable as a task workbench with run history, status, snapshot readback links, and fail-closed visibility; no arbitrary crawling or external provider action."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -238,7 +238,7 @@ acceptance_checklist_policy:
   live_gate_rule: "Live or customer-visible execution requires provider config, sandbox pass, approval chain, audit chain, operator action, field allowlist/masking, and suspension/rollback evidence."
   final_product_closure_gate: PTL-I100-118-full-product-operational-acceptance
   refund_boundary: "automated refund execution remains excluded; only manual exception record, manual approval/audit, and governed review are allowed."
-task_count: 65
+task_count: 66
 tasks:
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
@@ -2615,9 +2615,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, api_transport, operator_frontend, product_acceptance]
     task_type: owner_task_runner_real_source_ui
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P39
     existing_code_state: OWNER_OPERATOR_FRONTEND_132_READY_PLUS_REAL_PUBLIC_FETCHERS_133D_READY
     existing_runtime_state: OWNER_CONSOLE_REAL_SOURCE_EXECUTION_NOT_IMPLEMENTED
@@ -2651,4 +2651,51 @@ tasks:
       - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-134-owner-task-runner-real-source-ui
     suggested_packet_refs: [PTL-I100-134-owner-task-runner-real-source-ui]
+    risk_level: HIGH
+    completed_commit: 30e8cd3
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_OWNER_TASK_RUNNER_REAL_SOURCE_UI"
+  - task_id: PTL-I100-135-owner-real-source-task-workbench
+    title: "I100-35 Owner real source task workbench"
+    program_ref: PTL-I100-real-public-source-operationalization
+    source_blueprint_batch_id: PTL-I100-ROADMAP-01
+    stage_scope: [stage2_ingestion, api_transport, operator_frontend, product_acceptance]
+    task_type: owner_real_source_task_workbench
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
+    priority: P40
+    existing_code_state: OWNER_OPERATOR_FRONTEND_134_REAL_SOURCE_RUNNER_READY
+    existing_runtime_state: OWNER_CONSOLE_REAL_SOURCE_RUN_HISTORY_NOT_IMPLEMENTED
+    runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
+    activation_policy: "Activated after 134 so owner-operated real public source capture has a persistent run list, status readback, snapshot links, and fail-closed visibility."
+    hard_depends_on:
+      - PTL-I100-134-owner-task-runner-real-source-ui
+      - PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
+      - PTL-I100-133D-public-attachment-original-link-fetching
+    objective: "把真实公开源执行面产品化成任务工作台：每次 entry/attachment capture 都记录 run record，UI 展示最近运行、状态、snapshot_id 和 readback 入口；不新增 storage model，不新增 crawler，不放开 external provider 或客户下载。"
+    capability_gaps_covered:
+      - owner_console_real_source_run_history
+      - real_public_source_task_status_ui
+      - real_public_source_snapshot_readback_links
+      - fail_closed_reason_visibility
+      - no_uncontrolled_crawler_or_provider_call
+    non_goals:
+      - "不新建 React/Vite/Next 前端栈"
+      - "不新增 storage schema 或 migration"
+      - "不做任意 crawler、翻页深爬或跨站抓取"
+      - "不绕过登录、验证码、人机校验、权限或反爬"
+      - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
+    expected_outputs:
+      - "repository-backed real source run list"
+      - "operator action backed run records"
+      - "owner console task list/status/readback links"
+      - "fail-closed run status visibility"
+    acceptance_checks:
+      - owner_console_lists_real_source_task_runs
+      - run_records_are_repository_backed_operator_actions
+      - source_capture_readback_links_are_visible_and_fail_closed
+      - no_uncontrolled_crawler_or_provider_call
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-135-owner-real-source-task-workbench
+    suggested_packet_refs: [PTL-I100-135-owner-real-source-task-workbench]
     risk_level: HIGH

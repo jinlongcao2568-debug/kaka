@@ -110,6 +110,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "附件 Profile",
             "执行入口页抓取",
             "执行附件抓取",
+            "刷新真实源任务列表",
+            "暂无真实源任务运行记录",
             "全链路运行入口",
             "运行受控样本到 Stage6",
             "/internal/stage1-6/orchestrations",
@@ -188,9 +190,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
     def test_owner_console_real_source_runner_uses_internal_only_routes(self) -> None:
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
-        self.assertIn('Promise.all([loadReadiness(), loadRealSourceProfiles()])', html)
+        self.assertIn('Promise.all([loadReadiness(), loadRealSourceProfiles(), loadRealSourceRuns()])', html)
         self.assertIn('"/operator-console/real-source-profiles"', html)
         self.assertIn('"/operator-console/real-source-runs"', html)
+        self.assertIn('"/operator-console/real-source-task-runs"', html)
         self.assertIn("请先执行入口页或附件抓取。", html)
 
     def test_customer_artifact_portal_is_gated_and_uses_candidate_readback(self) -> None:

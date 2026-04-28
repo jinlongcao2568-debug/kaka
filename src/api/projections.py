@@ -3170,6 +3170,16 @@ def build_operator_customer_access_readiness_surface(
                 "uncontrolled_crawler_enabled": False,
                 "real_provider_call_enabled": False,
             },
+            "real_public_source_task_run_list": {
+                "operation_id": "listOwnerRealPublicSourceTaskRuns",
+                "method": "GET",
+                "path": "/operator-console/real-source-task-runs",
+                "entry_visible": True,
+                "repository_backed_readback": True,
+                "source": "operator_action_log",
+                "uncontrolled_crawler_enabled": False,
+                "real_provider_call_enabled": False,
+            },
             "full_chain_run_entry": {
                 "operation_id": "runStage1ToStage6InternalOrchestration",
                 "method": "POST",

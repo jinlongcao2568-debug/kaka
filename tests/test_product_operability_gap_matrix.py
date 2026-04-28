@@ -217,6 +217,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             "PTL-I100-133C-representative-local-platform-entry-fetchers",
             "PTL-I100-133D-public-attachment-original-link-fetching",
             "PTL-I100-134-owner-task-runner-real-source-ui",
+            "PTL-I100-135-owner-real-source-task-workbench",
         }
 
         self.assertTrue(required_refs.issubset(mapped_refs))
@@ -318,11 +319,23 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-134-owner-task-runner-real-source-ui",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn("owner_console_runs_real_public_entry_capture", section["must_prove"])
         self.assertIn("owner_console_runs_real_public_attachment_capture", section["must_prove"])
         self.assertIn("source_capture_readback_is_repository_backed_and_fail_closed", section["must_prove"])
+
+    def test_135_owner_real_source_task_workbench_records_run_history_gap(self) -> None:
+        section = self.matrix["owner_real_source_task_workbench_after_134"]
+        self.assertEqual(
+            section["packet_ref"],
+            "PTL-I100-135-owner-real-source-task-workbench",
+        )
+        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
+        self.assertIn("owner_console_lists_real_source_task_runs", section["must_prove"])
+        self.assertIn("run_records_are_repository_backed_operator_actions", section["must_prove"])
+        self.assertIn("source_capture_readback_links_are_visible_and_fail_closed", section["must_prove"])
 
     def test_task_library_records_fine_grained_capability_gaps(self) -> None:
         tasks_by_id = {row["task_id"]: row for row in self.task_library["tasks"]}

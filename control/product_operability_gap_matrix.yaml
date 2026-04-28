@@ -327,7 +327,7 @@ public_attachment_original_link_operationalization_after_133C:
     - PTL-I100-134-owner-task-runner-real-source-ui
 owner_task_runner_real_source_ui_operationalization_after_133D:
   packet_ref: PTL-I100-134-owner-task-runner-real-source-ui
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "133D completed. Owner console still cannot actually execute the real public source fetchers, so the operator surface must close that loop."
   target_capability_state: INTERNAL_READY
   current_gap: "已有 owner console 只能创建 Stage1 intent 和离线样本运行，不能直接执行 allowlisted 真实公开入口/附件抓取，也不能在页面内读回 Stage2 capture 结果。"
@@ -338,7 +338,22 @@ owner_task_runner_real_source_ui_operationalization_after_133D:
     - source_capture_readback_is_repository_backed_and_fail_closed
     - no_uncontrolled_crawler
     - no_real_provider_call
-  next_packets_if_134_passes: []
+  next_packets_if_134_passes:
+    - PTL-I100-135-owner-real-source-task-workbench
+owner_real_source_task_workbench_after_134:
+  packet_ref: PTL-I100-135-owner-real-source-task-workbench
+  status: ACTIVE
+  trigger_reason: "134 completed the executable capture buttons, but the owner still needs a visible run list, statuses, snapshot links, and fail-closed reasons to operate repeated real-source validation."
+  target_capability_state: INTERNAL_READY
+  current_gap: "真实公开源抓取结果只靠按钮返回和最近 snapshot，不足以支撑 owner 持续验证多个来源任务。"
+  must_prove:
+    - owner_console_lists_real_source_task_runs
+    - run_records_are_repository_backed_operator_actions
+    - source_capture_readback_links_are_visible_and_fail_closed
+    - fail_closed_status_visible_to_operator
+    - no_uncontrolled_crawler
+    - no_real_provider_call
+  next_packets_if_135_passes: []
 final_118R_operational_reacceptance:
   packet_ref: PTL-I100-118R-final-product-operational-reacceptance
   previous_acceptance_ref: PTL-I100-118-full-product-operational-acceptance
@@ -518,12 +533,22 @@ production_gap_task_map:
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: owner_task_runner_real_source_ui
     packet_ref: PTL-I100-134-owner-task-runner-real-source-ui
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - owner_console_real_source_runner
       - real_public_source_profile_catalog_ui
       - real_public_source_capture_readback_ui
+      - no_uncontrolled_crawler_or_provider_call
+  - gap_group: owner_real_source_task_workbench
+    packet_ref: PTL-I100-135-owner-real-source-task-workbench
+    status: ACTIVE
+    target_capability_state: INTERNAL_READY
+    covered_capabilities:
+      - owner_console_real_source_run_history
+      - real_public_source_task_status_ui
+      - real_public_source_snapshot_readback_links
+      - fail_closed_reason_visibility
       - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters

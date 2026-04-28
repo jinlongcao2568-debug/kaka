@@ -71,6 +71,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             "createOperatorTask",
             "listRealPublicSourceProfiles",
             "runOwnerRealPublicSourceCapture",
+            "listOwnerRealPublicSourceTaskRuns",
             "readOwnerRealPublicSourceCapture",
             "readOperatorTask",
             "importOperatorProject",
@@ -132,6 +133,8 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(payload["operator_console"]["real_public_source_runner_entry"]["attachment_capture_enabled"])
         self.assertFalse(payload["operator_console"]["real_public_source_runner_entry"]["uncontrolled_crawler_enabled"])
         self.assertFalse(payload["operator_console"]["real_public_source_runner_entry"]["real_provider_call_enabled"])
+        self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["repository_backed_readback"])
         self.assertTrue(payload["operator_console"]["full_chain_run_entry"]["entry_visible"])
         self.assertFalse(
             payload["operator_console"]["full_chain_run_entry"][
@@ -206,6 +209,8 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             self.assertEqual(entry_payload["capture_kind"], "entry")
             self.assertEqual(entry_payload["capture_status"], "FETCHED")
             self.assertEqual(entry_payload["snapshot_id_optional"], "REAL-ENTRY-GGZY-001")
+            self.assertEqual(entry_payload["run_record"]["profile_id"], "GGZY-DEAL-LIST")
+            self.assertEqual(entry_payload["run_record"]["snapshot_id_optional"], "REAL-ENTRY-GGZY-001")
             self.assertTrue(entry_payload["repository_backed_readback"])
             self.assertFalse(entry_payload["uncontrolled_crawler_enabled"])
             self.assertFalse(entry_payload["real_provider_call_enabled"])
@@ -220,7 +225,21 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             attachment_payload = attachment_response.json()
             self.assertEqual(attachment_payload["capture_kind"], "attachment")
             self.assertEqual(attachment_payload["snapshot_id_optional"], "REAL-ATTACH-BJ-001")
+            self.assertEqual(attachment_payload["run_record"]["profile_id"], "BEIJING-STANDARD-BIDDING-PDF")
             fetch_attachment.assert_called_once()
+
+            runs_response = client.request("GET", "/operator-console/real-source-task-runs")
+            self.assertEqual(runs_response.status_code, 200)
+            runs = runs_response.json()
+            self.assertEqual(runs["surface_id"], "operator_real_public_source_task_runs")
+            self.assertEqual(runs["run_count"], 2)
+            self.assertTrue(runs["repository_backed_readback"])
+            self.assertFalse(runs["uncontrolled_crawler_enabled"])
+            self.assertFalse(runs["real_provider_call_enabled"])
+            self.assertEqual(
+                {run["profile_id"] for run in runs["runs"]},
+                {"GGZY-DEAL-LIST", "BEIJING-STANDARD-BIDDING-PDF"},
+            )
 
             readback_response = client.request(
                 "GET",
