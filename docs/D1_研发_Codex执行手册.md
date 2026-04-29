@@ -883,7 +883,7 @@ AI / Codex 一律不得：
 | OCR 识别 | 已属于 parser / attachment 目标能力；OCR 结果作为辅助证据，正式外发主证仍以原始可回链载体为准。 |
 | 滑块轨迹模拟 / 浏览器指纹伪装 / Cookie 复用 / 登录后页面抓取 | 可作为自有/明确授权/sandbox 场景下的受控采集能力设计与实现目标；真实外部执行必须保留 source policy、operator action、audit、session context 和停机条件。 |
 | 代理池绕限流 / 隐藏接口调用 | 可作为受控能力目标进入设计、测试或实现包；统一通过 provider config、source policy、审批、审计、频控、回滚和 operator action 管理。 |
-| 验证码突破器 / 风控绕过器 | 旧硬阻断语义不能永久排除；任何真实外部使用必须先进入 controlled-opening gate，并通过适用 task packet、release checklist、审批链、审计链和人工 operator action。 |
+| 验证码突破器 / 风控绕过器 | 旧硬阻断语义不能永久排除；任何真实外部使用必须先进入 controlled-opening gate，并通过适用 task packet、release checklist、审批链、审计链和 owner/operator action。 |
 
 
 

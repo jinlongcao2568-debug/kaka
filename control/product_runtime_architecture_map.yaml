@@ -530,7 +530,7 @@ autonomous_execution_brain_contract:
       adds:
         - captcha_challenge_detection
         - session_automated_resume_binding
-        - operator_console_resume_gate
+        - challenge_resume_audit_readback_surface
     PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy:
       adds:
         - stage3_to_stage5_transition_guards

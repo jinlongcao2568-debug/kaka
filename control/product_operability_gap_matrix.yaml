@@ -528,7 +528,7 @@ public_web_capture_and_captcha_task_pool_sync_after_143E:
   current_gap: "The roadmap already covers autonomous source strategy, evidence strategy, commercial hook, and operator workbench, but it does not yet register a dedicated task for adaptive public-web capture hardening or captcha automated challenge resolution/resume."
   must_prove:
     - task_pool_registers_public_web_capture_hardening
-    - task_pool_registers_captcha_resume_operator_path
+    - task_pool_registers_captcha_automated_resolution_path
     - future_runtime_packets_extend_existing_stage2_and_operator_surfaces
     - no_runtime_or_live_execution_change
   next_packets_if_143F_passes:
@@ -929,7 +929,7 @@ production_gap_task_map:
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - captcha_challenge_detection
-      - session_suspend_and_resume
+      - session_preservation_and_automated_resume
       - automated_captcha_or_challenge_resolution
       - audited_resume_flow
   - gap_group: evidence_risk_and_hard_defect_verification_strategy

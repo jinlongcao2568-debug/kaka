@@ -371,7 +371,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn("task_pool_registers_public_web_capture_hardening", section["must_prove"])
-        self.assertIn("task_pool_registers_captcha_resume_operator_path", section["must_prove"])
+        self.assertIn("task_pool_registers_captcha_automated_resolution_path", section["must_prove"])
         self.assertEqual(
             section["next_packets_if_143F_passes"],
             [

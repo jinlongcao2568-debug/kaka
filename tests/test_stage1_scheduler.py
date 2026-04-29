@@ -219,7 +219,7 @@ class TestStage1Scheduler(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "real_external_fetch_enabled"):
             Stage1Scheduler().create_task(live_payload)
 
-    def test_scheduler_suspends_login_captcha_antibot_sources_for_automated_resolution(self) -> None:
+    def test_scheduler_routes_login_captcha_antibot_sources_for_automated_resolution(self) -> None:
         payload = dict(self.payload)
         payload.update(
             {

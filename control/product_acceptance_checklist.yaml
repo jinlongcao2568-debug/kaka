@@ -995,7 +995,7 @@ tasks:
       - stage12_extractors
     controlled_opening_requirement_checks:
       - task_pool_registers_public_web_capture_hardening
-      - task_pool_registers_captcha_resume_operator_path
+      - task_pool_registers_captcha_automated_resolution_path
       - reuse_existing_runtime_surfaces_first_policy_is_explicit
       - no_runtime_or_live_execution_change
   PTL-I100-143G-public-web-capture-doc-sync-and-order-review:

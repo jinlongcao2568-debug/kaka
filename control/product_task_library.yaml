@@ -3217,7 +3217,7 @@ tasks:
       - "reuse-first implementation rule"
     acceptance_checks:
       - task_pool_registers_public_web_capture_hardening
-      - task_pool_registers_captcha_resume_operator_path
+      - task_pool_registers_captcha_automated_resolution_path
       - reuse_existing_runtime_surfaces_first_policy_is_explicit
       - no_runtime_or_live_execution_change
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
