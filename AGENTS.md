@@ -70,6 +70,7 @@
 
 **Current Execution Conventions**
 - direct-dev 窗口以人类当前指令与实际代码影响面为准，不要求读取或切换 `control/current_task.yaml`。
+- 机器门禁与 task packet 窗口必须保留 active-source priority：`current_task -> product_task_library -> repo_status`；该优先级用于受控/高风险/机器契约窗口，不取消普通开发的 direct-dev 默认。
 - 当人类明确要求进入 task packet / scoped subpacket，或改动本身属于高风险/live/机器契约大批量窗口时，才按 `control/current_task.yaml -> control/product_task_library.yaml -> control/repo_status.md` 读取执行源。
 - 若测试断言与当前人类目标或当前代码事实冲突，优先调整测试到正确口径，不为迁就旧断言而恢复过时语义。
 - 默认提交行为：
