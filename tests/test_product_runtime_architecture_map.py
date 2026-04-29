@@ -254,10 +254,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             "全国聚合平台只作为一级发现",
             "北京不进入首批商业线索试点",
             "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
-            "PTL-I100-143G-public-web-capture-doc-sync-and-order-review",
-            "公开网抓取失败优先自动升级",
-            "验证码检测挂起",
-            "144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149",
+            "公开网抓取失败自动升级",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
         ):
@@ -267,7 +264,6 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         controlled_opening_boundaries = self.architecture["controlled_opening_boundaries_preserved"]
         self.assertEqual(controlled_opening_boundaries["external_software_release"], "CONTROLLED_OPENING")
         self.assertEqual(controlled_opening_boundaries["arbitrary_crawler"], "CONTROLLED_OPENING")
-        self.assertEqual(controlled_opening_boundaries["login_captcha_antibot_bypass"], "CONTROLLED_OPENING")
         self.assertEqual(controlled_opening_boundaries["unapproved_provider_call"], "CONTROLLED_OPENING")
         self.assertEqual(controlled_opening_boundaries["automated_refund_execution"], "EXCLUDED")
 

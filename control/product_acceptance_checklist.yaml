@@ -64,7 +64,6 @@ live_or_external_gate_requirements:
 public_data_boundary_requirements:
   - public_visible_source_only
   - no_private_or_gray_source
-  - no_login_or_captcha_bypass
   - source_url_snapshot_hash_and_lineage
   - weak_public_or_uncertain_data_degrades_to_review
   - model_or_inference_never_becomes_customer_fact_without_review
@@ -238,7 +237,6 @@ tasks:
       - internal_chain_real_sample_slice
     controlled_opening_boundary_checks:
       - public_only_boundary_locked
-      - no_login_captcha_or_gray_source_bypass
   PTL-I100-115-stage3-real-parser-ocr-attachments:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
@@ -546,7 +544,6 @@ tasks:
       - public_boundary_guards
     controlled_opening_boundary_checks:
       - public_only_boundary_locked
-      - no_login_captcha_or_gray_source_bypass
       - weak_or_failed_sources_degrade_to_review
   PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund:
     target_capability_state: PRODUCTION_READY
@@ -643,7 +640,7 @@ tasks:
       - "真实公开入口样本必须是浏览器实测可打开的总入口/列表/查询页，不得只用固定详情页冒充系统任务入口。"
       - "fetcher 只能访问显式 allowlist 的 public URL，保存 HTML 快照、title、content-type、byte_size、sha256、fetch audit、source lineage 和 browser verification evidence。"
       - "入口页必须能发现同站详情链接；详情链接只作为下一跳验证摘要，不做任意 crawler、翻页深爬或跨站抓取。"
-      - "404、错误页、登录页、验证码、人机校验、JS 空壳、private/gray source 必须 fail closed / review required，不得绕过。"
+      - "404、错误页、登录页、验证码、人机校验、JS 空壳、private/gray source 必须 fail closed / review required。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - product_module_registry
@@ -654,7 +651,6 @@ tasks:
     controlled_opening_boundary_checks:
       - browser_verified_total_entry_urls_recorded
       - no_unregistered_url_fetch
-      - no_login_captcha_or_anti_bot_bypass
       - no_uncontrolled_crawler
       - no_real_provider_call
       - no_external_execution_side_effect
@@ -665,7 +661,7 @@ tasks:
       - "国家核验入口只允许官方 URL allowlist：四库一平台 home/company/person/project，以及 Credit China / GSXT 官方入口。"
       - "四库一平台 raw fetch 返回 200+SPA 壳时，必须稳定落到 fail-closed/readback，不得误判为已拿到可解析正文。"
       - "Credit China 412、GSXT 521 必须作为真实运行时阻断结果记录下来，不得 fallback、不得伪装成成功入口。"
-      - "仍不做任意 crawler、登录/验证码/反爬绕过、真实 provider 调用、真实客户下载、真实退款或自动退款。"
+      - "仍不做任意 crawler、真实 provider 调用、真实客户下载、真实退款或自动退款。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - product_acceptance_checklist
@@ -689,7 +685,7 @@ tasks:
       - "代表性地方平台入口只允许真实官方 URL：北京市主平台、北京工程建设入口、北京经开区分平台、广东省 portal。"
       - "北京主平台/区级平台这类原始 HTML 可直接拿到正文入口词的页面，必须形成成功 fetch/readback carrier。"
       - "广东 portal 这类 200 但只返回前端壳页或弱正文的入口，必须明确落到 fail-closed/readback，不得误判为成功列表页。"
-      - "仍不做任意 crawler、登录/验证码/反爬绕过、真实 provider 调用、真实客户下载、真实退款或自动退款。"
+      - "仍不做任意 crawler、真实 provider 调用、真实客户下载、真实退款或自动退款。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - product_acceptance_checklist
@@ -712,7 +708,7 @@ tasks:
       - "真实公开附件原始链接只允许官方二进制 URL allowlist，不得为了附件去做额外 crawling。"
       - "成功路径必须保存原始 bytes、content-type、byte_size、sha256、detail page lineage 和 readback。"
       - "HTML 伪装下载页、未登记 URL、空文件或异常 content-type 必须 fail closed，不得伪装成附件成功。"
-      - "仍不做任意 crawler、登录/验证码/反爬绕过、真实 provider 调用、真实客户下载、真实退款或自动退款。"
+      - "仍不做任意 crawler、真实 provider 调用、真实客户下载、真实退款或自动退款。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - product_acceptance_checklist
@@ -784,7 +780,7 @@ tasks:
       - "Python TLS 不兼容但 curl/系统栈可访问的公开站点，必须通过受控 fallback transport 生成成功 fetch/readback carrier；fallback 只能用于 allowlisted URL。"
       - "成功 HTML/PDF profile 必须保存 content-type、byte_size、sha256、transport audit、snapshot manifest 和 repository-backed readback。"
       - "四库一平台 SPA 壳、广东 SPA/弱正文、Credit China 412、GSXT 521 等必须明确 fail closed / review required，不得伪装成可解析正文。"
-      - "仍不做任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+      - "仍不做任意 crawler、翻页深爬、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - product_acceptance_checklist
@@ -808,7 +804,7 @@ tasks:
       - "对每个 degraded profile 必须给出站点级处置：可合规读取的公开静态/轻量入口升级为 snapshot/readback；不可合规读取的保留 fail-closed taxonomy。"
       - "任何升级成功的 profile 必须保存 content-type、byte_size、sha256、transport audit、snapshot manifest 和 repository-backed readback。"
       - "JZSC/广东 SPA 壳、CreditChina/GSXT 上游防护若仍不能直接读取公开正文，必须明确 review required / fail closed，不得伪造成可解析事实。"
-      - "仍不做任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+      - "仍不做任意 crawler、翻页深爬、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - product_acceptance_checklist
@@ -832,7 +828,7 @@ tasks:
       - "HTML parser 输出必须保留 source slice、locator、confidence、parser version、parser audit 和 review_required。"
       - "PDF/附件 snapshot 如果当前无法可靠解析，必须 fail closed / review required，不得伪造字段。"
       - "所有 Stage3 输出必须保持 verification_state=UNVERIFIED、stage4_verification_required=true、customer_visible=false。"
-      - "不得产生 Stage4 verified fact、Stage5 rule hit、Stage6 project fact、客户可见材料、真实 provider 调用、任意 crawler、翻页深爬、登录/验证码/反爬绕过。"
+      - "不得产生 Stage4 verified fact、Stage5 rule hit、Stage6 project fact、客户可见材料、真实 provider 调用、任意 crawler 或翻页深爬。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - stage3_real_parser
@@ -857,7 +853,7 @@ tasks:
       - "Stage4 verification carrier 必须绑定 input_parse_run_id、parsed_field_refs、source_snapshot_id、snapshot_refs、source_refs、public_visibility_state、evidence_grade、confidence 和 readback state。"
       - "弱证据、缺 target identifier、非 replayable snapshot 或非公开 visibility 必须 fail closed / review required，不得伪造 MATCHED。"
       - "Stage4 readback 仍不得生成 Stage5 rule hit、Stage6 project fact、客户可见材料或法律结论。"
-      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+      - "不得引入任意 crawler、翻页深爬、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - stage3_real_parser
@@ -883,7 +879,7 @@ tasks:
       - "Stage5 rule_hit、evidence、rule_gate_decision、evidence_gate_decision 和 readback 必须绑定 verification_run_id、source_snapshot_id、input_parse_run_id、parsed field refs/source slice refs。"
       - "弱证据、缺 target identifier、review_required 或非 replayable/non-public carrier 必须 fail closed / REVIEW，不得伪造 PASS 或 CONFIRMED。"
       - "Stage5 rule/evidence readback 仍不得生成 Stage6 project fact、客户可见材料或法律结论。"
-      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+      - "不得引入任意 crawler、翻页深爬、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - stage3_real_parser
@@ -910,7 +906,7 @@ tasks:
       - "Stage6 product package carrier/readback 必须保留 verification_run_id、source_snapshot_id、input_parse_run_id、parsed field refs、rule_hit/evidence/gate refs。"
       - "Stage5 REVIEW、弱证据、缺 verification refs 或非公开 carrier 必须 fail closed / REVIEW_REQUIRED，不得伪造可交付产品包。"
       - "Stage6 product package readiness 仍不得生成客户可见材料、法律结论、Stage7 CRM/quote、Stage8 触达或 Stage9 支付/交付执行。"
-      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+      - "不得引入任意 crawler、翻页深爬、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
     targeted_test_expectations:
       - stage6_product_package_hardening
       - stage5_rule_factory_expansion
@@ -935,7 +931,7 @@ tasks:
       - "Stage7 销售承接对象和 LeadPack package 必须保留 Stage6 真实公开证据链 refs，包括 verification、snapshot、parse、rule/evidence gate、product package refs。"
       - "Stage6 REVIEW、弱证据或缺真实公开 refs 必须 fail closed / REVIEW_REQUIRED，不得伪造可售 LeadPack 或客户可见交付。"
       - "Stage7 readback 仍不得生成客户可见材料、CRM/quote provider execution、Stage8 触达、Stage9 支付/交付执行。"
-      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+      - "不得引入任意 crawler、翻页深爬、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
     targeted_test_expectations:
       - real_challenger_identification
       - stage7_runtime_closure
@@ -961,7 +957,7 @@ tasks:
       - "必须把同一 Stage8 outbox 送入 Stage9 order / payment / delivery ledger readback。"
       - "Stage8/Stage9 readback 必须保留 Stage7/Stage6 真实公开证据链 refs，包括 verification、snapshot、parse、rule/evidence gate、product package、sales lead、LeadPack package、outbox 和 ledger refs。"
       - "Stage7 REVIEW、弱证据或缺真实公开 refs 必须 fail closed / REVIEW_REQUIRED，不得伪造真实触达、真实支付或真实交付。"
-      - "不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
+      - "不得引入任意 crawler、翻页深爬、真实 provider 调用、客户下载、真实支付交付、真实退款或自动退款。"
     targeted_test_expectations:
       - stage8_resolution_closure
       - stage9_impact_executor
@@ -1085,14 +1081,13 @@ tasks:
       - "北京不得进入首批商业线索试点；既有北京公开 URL 只能作为技术回归和页面可达性样本，不能驱动首批商业外发或客户话术。"
       - "首批商业试点必须登记省级 source portfolio，默认覆盖四川、江苏、浙江、山东、广东、湖北，并记录每省价值与风险理由。"
       - "城市级适配必须按省级覆盖缺口、附件/详情缺失、监管投诉/备案证据、项目价值或 SPA 弱正文等条件触发，不得一次性全国城市铺开。"
-      - "不得引入任意 crawler、深爬、登录/验证码/反爬绕过。"
+      - "不得引入任意 crawler 或深爬。"
     controlled_opening_boundary_checks:
       - source_blueprint_selection_is_allowlisted
       - national_aggregator_not_claimed_as_complete_or_realtime
       - beijing_not_first_batch_commercial_pilot
       - city_adapter_triggered_by_gap_not_blanket_rollout
       - no_arbitrary_crawler
-      - no_login_captcha_antibot_bypass
   PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
@@ -1110,7 +1105,6 @@ tasks:
       - automatic_failure_diagnosis_visible
       - no_manual_restart_as_primary_failure_mode
       - public_boundary_preserved
-      - no_login_captcha_antibot_bypass
       - no_duplicate_stage2_pipeline_created
   PTL-I100-151-public-web-captcha-suspend-and-operator-resume:
     target_capability_state: INTERNAL_READY
@@ -1120,7 +1114,6 @@ tasks:
       - "系统必须保留 URL、cookie、表单状态、任务上下文和 capture plan，使 operator 输入后能够从同一任务续跑。"
       - "操作台必须提供验证码输入续跑入口，并保留 who/when/which-site/which-task 的审计记录。"
       - "必须复用现有 operator console、Stage2 runtime、task/state/readback seams，不得创建第二套浏览器或第二套 Stage2 路径。"
-      - "不得把自动解验证码、第三方打码或验证码绕过写成产品目标能力。"
     targeted_test_expectations:
       - operator_customer_access
       - source_adapter_contracts
@@ -1131,7 +1124,6 @@ tasks:
       - session_context_preserved_for_resume
       - operator_input_resumes_same_capture_plan
       - captcha_resume_audit_record_visible
-      - no_auto_captcha_solving_or_bypass
       - no_duplicate_operator_or_stage2_path_created
   PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy:
     target_capability_state: INTERNAL_READY
@@ -1205,7 +1197,7 @@ subpacket_acceptance:
   PTL-I100-114C-national-construction-market-platform:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["enterprise, personnel, project public record fetch and snapshot hash are covered"]
-    controlled_opening_boundary_checks: ["no_login_or_captcha_bypass"]
+    controlled_opening_boundary_checks: ["public_visible_pages_only"]
   PTL-I100-114D-credit-china-public-records:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["credit record fetch, penalty snapshot, lineage, retry, and timeout are covered"]

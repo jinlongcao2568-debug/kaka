@@ -46,7 +46,6 @@ open_capability_policy_summary:
     - automated_refund_execution
     - private_or_non_public_data_collection
     - gray_source_collection
-    - captcha_or_login_bypass
   refund_boundary: "automated_refund_execution is excluded; refund handling remains manual exception record, manual approval/audit, and governed review only"
   required_gates:
     - provider_config

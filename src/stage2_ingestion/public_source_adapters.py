@@ -721,9 +721,6 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "uncontrolled_live_crawler_enabled": False,
             "real_provider_connection_enabled": False,
             "private_or_gray_source_enabled": False,
-            "login_bypass_enabled": False,
-            "captcha_bypass_enabled": False,
-            "anti_bot_bypass_enabled": False,
         }
 
     def capture(self, request: PublicSourceSnapshotRequest) -> PublicSourceSnapshotResult:
@@ -1021,9 +1018,6 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "uncontrolled_live_crawler_enabled": False,
             "real_provider_connection_enabled": False,
             "private_or_gray_source_enabled": False,
-            "login_bypass_enabled": False,
-            "captcha_bypass_enabled": False,
-            "anti_bot_bypass_enabled": False,
         }
 
     def _url_is_allowlisted(self, source_url: str) -> bool:

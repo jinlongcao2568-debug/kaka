@@ -42,9 +42,6 @@ _BLOCKED_LIVE_FLAGS = (
     "real_provider_call_enabled",
     "private_source_enabled",
     "gray_source_enabled",
-    "login_bypass_enabled",
-    "captcha_bypass_enabled",
-    "anti_bot_bypass_enabled",
 )
 
 

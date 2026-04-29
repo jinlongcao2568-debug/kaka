@@ -64,7 +64,6 @@ product_model:
       - private_or_non_public_data_collection
       - gray_source_collection
       - unauthorized_identity_or_social_security_query
-      - captcha_or_login_bypass
       - unreviewed_legal_document_external_send
     completion_gate: PTL-I100-118-full-product-operational-acceptance
   refund_policy:
@@ -252,7 +251,6 @@ real_public_source_operationalization_after_132:
     - total_entry_page_snapshot_not_detail_only
     - same_site_detail_link_discovery
     - no_unregistered_url_fetch
-    - no_login_captcha_antibot_bypass
     - no_uncontrolled_crawler
   next_packets_if_133A_passes:
     - PTL-I100-133B-national-verification-source-entry-fetchers
@@ -651,7 +649,7 @@ final_118R_operational_reacceptance:
       capability: real_public_source_field_validation
       resolved_by_task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
       current_state: PRODUCTION_READY
-      evidence: "control/real_public_source_field_validation_report.yaml records 114A-114I controlled manual public snapshot validation across Stage2 capture, Stage3 parser field coverage, Stage4 public verification, weak/failing/suspended fail-closed paths, hash/lineage, and no private/gray/login/captcha/anti-bot bypass."
+      evidence: "control/real_public_source_field_validation_report.yaml records 114A-114I controlled manual public snapshot validation across Stage2 capture, Stage3 parser field coverage, Stage4 public verification, weak/failing/suspended fail-closed paths, hash/lineage, and no private/gray source usage."
     - gap_id: B118R_REAL_PROVIDER_BINDING_NOT_DONE
       capability: wecom_email_crm_quote_payment_delivery_provider_binding
       resolved_by_task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund

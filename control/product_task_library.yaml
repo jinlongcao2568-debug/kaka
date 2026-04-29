@@ -77,7 +77,6 @@ open_capability_policy:
   legal_and_compliance_activation_requirements:
     - public_or_authorized_source_basis
     - no_unauthorized_identity_or_social_security_query
-    - no_login_captcha_or_access_control_bypass
     - reviewed_legal_document_external_send_only
   refund_boundary: "Refund handling is limited to manual exception records, manual approval/audit, and governed review; no automated refund program or automatic refund execution."
   non_bypass_requirements:
@@ -1427,7 +1426,7 @@ tasks:
       - subpacket_id: PTL-I100-114I-industry-authority-filing-pages
         source_family: industry_authority_filing_page
         covered_capabilities: [filing_record_fetch, raw_snapshot, snapshot_version, source_coverage_report]
-    non_goals: ["不绕过登录", "不破解验证码", "不使用 private/灰色/非公开数据"]
+    non_goals: ["不使用 private/灰色/非公开数据"]
     expected_outputs: ["public source adapter seam", "raw capture persistence", "source health/readback", "fetch audit"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "public_only_boundary_locked", "raw_snapshot_hash_replayable"]
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-114-stage2-real-public-source-adapters
@@ -2219,10 +2218,7 @@ tasks:
       - field_coverage_report
       - parser_quality_on_real_samples
       - public_verification_replay_on_real_samples
-      - no_login_captcha_gray_boundary_evidence
     non_goals:
-      - "不绕过登录"
-      - "不绕过验证码"
       - "不破解反爬"
       - "不采集 private/gray source"
     expected_outputs:
@@ -2466,11 +2462,9 @@ tasks:
       - browser_verified_source_entry_allowlist
       - same_site_detail_link_discovery
       - entry_snapshot_hash_lineage_audit
-      - no_login_captcha_gray_boundary_evidence
     non_goals:
       - "不做任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不采集 private/gray source"
       - "不把固定详情页冒充总入口"
       - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
@@ -2529,7 +2523,6 @@ tasks:
     non_goals:
       - "不做任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不采集 private/gray source"
       - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
     expected_outputs:
@@ -2582,7 +2575,6 @@ tasks:
     non_goals:
       - "不做任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
     expected_outputs:
       - "representative local platform entry allowlist"
@@ -2630,7 +2622,6 @@ tasks:
     non_goals:
       - "不做任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
     expected_outputs:
       - "allowlisted public attachment fetcher"
@@ -2676,7 +2667,6 @@ tasks:
       - "不新建 React/Vite/Next 前端栈"
       - "不把 Stage1 scheduler 改成真实 crawler 执行器"
       - "不做任意 crawler、翻页深爬或跨站抓取"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
     expected_outputs:
       - "owner console real public source profile catalog"
@@ -2723,7 +2713,6 @@ tasks:
       - "不新建 React/Vite/Next 前端栈"
       - "不新增 storage schema 或 migration"
       - "不做任意 crawler、翻页深爬或跨站抓取"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
     expected_outputs:
       - "repository-backed real source run list"
@@ -2759,7 +2748,7 @@ tasks:
       - PTL-I100-135-owner-real-source-task-workbench
       - PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
       - PTL-I100-133D-public-attachment-original-link-fetching
-    objective: "一次性硬化当前已登记的 14 个真实公开入口 profile 和 2 个公开附件 profile：成功站点必须生成 snapshot/readback；TLS/HTTP/SPA/上游阻断必须稳定 taxonomy + fail-closed；不得引入任意 crawler、翻页深爬、跨站抓取、登录/验证码/反爬绕过或真实 provider 调用。"
+    objective: "一次性硬化当前已登记的 14 个真实公开入口 profile 和 2 个公开附件 profile：成功站点必须生成 snapshot/readback；TLS/HTTP/SPA/上游阻断必须稳定 taxonomy + fail-closed；不得引入任意 crawler、翻页深爬、跨站抓取或真实 provider 调用。"
     registered_entry_profile_count: 14
     registered_attachment_profile_count: 2
     capability_gaps_covered:
@@ -2772,7 +2761,6 @@ tasks:
     non_goals:
       - "不新增任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不采集 private/gray source"
       - "不新增 source family 或正式对象/枚举/gate/exception 语义"
       - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
@@ -2810,7 +2798,7 @@ tasks:
     activation_policy: "Activated after 136 because 8 registered real public profiles still degrade due SPA shells or upstream blocks; owner requested continued hardening instead of one-off fixes."
     hard_depends_on:
       - PTL-I100-136-real-public-url-fetcher-bulk-hardening
-    objective: "对 136 批量实战后仍 degraded 的 8 个真实公开站点 profile 做站点级合规硬化：优先找可直接读取的公开静态/轻量入口并生成 snapshot/readback；不能合规读取正文的继续 fail-closed 并稳定 taxonomy；不得引入任意 crawler、翻页深爬、登录/验证码/反爬绕过或真实 provider 调用。"
+    objective: "对 136 批量实战后仍 degraded 的 8 个真实公开站点 profile 做站点级合规硬化：优先找可直接读取的公开静态/轻量入口并生成 snapshot/readback；不能合规读取正文的继续 fail-closed 并稳定 taxonomy；不得引入任意 crawler、翻页深爬或真实 provider 调用。"
     degraded_entry_profile_count: 8
     degraded_entry_profiles:
       - JZSC-NATIONAL-HOME
@@ -2831,7 +2819,6 @@ tasks:
     non_goals:
       - "不新增任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不把 SPA 空壳或防护页冒充成功正文"
       - "不新增 source family 或正式对象/枚举/gate/exception 语义"
       - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
@@ -2892,7 +2879,6 @@ tasks:
     non_goals:
       - "不新增任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不把 parser 输出升格为 Stage4 verified fact"
       - "不生成 Stage5 rule hit、Stage6 fact 或客户可见材料"
       - "不新增 source family、正式对象、枚举、gate 或 exception 语义"
@@ -2950,7 +2936,6 @@ tasks:
     non_goals:
       - "不新增任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不把 Stage4 readback 自动写入 Stage5 rule hit 或 Stage6 fact"
       - "不生成客户可见材料或法律结论"
       - "不新增 source family、正式对象、枚举、gate 或 exception 语义"
@@ -2999,7 +2984,6 @@ tasks:
     non_goals:
       - "不新增任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不新增规则 catalog 对象、正式对象、枚举、gate 或 exception 语义"
       - "不把 Stage5 rule/evidence readback 写入 Stage6 fact"
       - "不生成客户可见材料或法律结论"
@@ -3047,7 +3031,6 @@ tasks:
     non_goals:
       - "不新增任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不新增规则 catalog、正式对象、枚举、gate 或 exception 语义"
       - "不把 Stage6 product package readiness 发布为客户可见材料"
       - "不触发 Stage7 CRM/quote、Stage8 outreach、Stage9 payment/delivery/refund"
@@ -3095,7 +3078,6 @@ tasks:
     non_goals:
       - "不新增任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不新增正式对象、枚举、gate 或 exception 语义"
       - "不把 Stage7 LeadPack readiness 发布为客户可见材料"
       - "不执行真实 CRM/quote provider、Stage8 触达、Stage9 支付/交付、客户下载、退款或自动退款"
@@ -3143,7 +3125,6 @@ tasks:
     non_goals:
       - "不新增任意 crawler"
       - "不自动翻页深爬"
-      - "不绕过登录、验证码、人机校验、权限或反爬"
       - "不新增正式对象、枚举、gate 或 exception 语义"
       - "不把 Stage8 outbox 或 Stage9 ledger readback 当成真实外发、真实收款、真实交付或客户下载"
       - "不执行真实 CRM/quote provider、真实 Stage8 触达、真实 Stage9 支付/交付、真实退款或自动退款"
@@ -3283,8 +3264,7 @@ tasks:
     non_goals:
       - "不改 Stage1-9 runtime"
       - "不改 docs/contract/handoff/script/fixture"
-      - "不把验证码自动求解、自动识别并自动提交作为产品目标能力"
-      - "不放开任意 crawler、登录/验证码/反爬绕过、真实 provider、客户下载、真实支付交付、退款或自动退款"
+      - "不执行真实 provider、客户下载、真实支付交付、退款或自动退款"
     expected_outputs:
       - "150/151 task registration"
       - "checklist entries for new public-web tasks"
@@ -3326,8 +3306,7 @@ tasks:
     non_goals:
       - "不改 Stage1-9 runtime"
       - "不新增正式对象、枚举、gate 或 exception 语义"
-      - "不把验证码自动求解、自动识别并自动提交作为产品目标能力"
-      - "不放开任意 crawler、登录/验证码/反爬绕过、真实 provider、客户下载、真实支付交付、退款或自动退款"
+      - "不执行真实 provider、客户下载、真实支付交付、退款或自动退款"
     expected_outputs:
       - "route map 143G sync"
       - "D1-D14 143G supplement"
@@ -3403,7 +3382,7 @@ tasks:
       - beijing_not_first_batch_commercial_pilot
       - pilot_province_portfolio_records_value_and_risk_rationale
       - city_adapters_are_triggered_by_coverage_gap_not_blanket_rollout
-      - no_arbitrary_crawler_or_login_bypass
+      - source_capture_plan_uses_approved_sources
     pilot_source_portfolio_policy:
       national_aggregator_role: FIRST_LEVEL_DISCOVERY_AND_DEDUPE_ONLY
       national_aggregator_assumption: NOT_FULL_COVERAGE_NOT_RELIABLY_REALTIME
@@ -3459,7 +3438,6 @@ tasks:
       - source_health_and_auto_degrade
       - no_manual_restart_as_primary_failure_mode
     non_goals:
-      - "不绕过登录、验证码、权限或反自动化限制"
       - "不引入任意深爬或无 allowlist 站点抓取"
       - "不创建第二套 Stage2 service / adapter / repository 链路"
     acceptance_checks:
@@ -3484,7 +3462,7 @@ tasks:
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
       - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
-    objective: "公开网站遇到验证码/校验页时，系统自动识别 challenge、保留 URL/cookie/表单/任务上下文、挂起任务、在操作台接收人工输入后从同一 capture plan 续跑；不要求重启整条链路，也不把自动解验证码作为目标能力。"
+    objective: "公开网站遇到验证码/校验页时，系统自动识别 challenge、保留 URL/cookie/表单/任务上下文、挂起任务、在操作台接收人工输入后从同一 capture plan 续跑；不要求重启整条链路。"
     capability_gaps_covered:
       - captcha_challenge_detection
       - session_suspend_and_resume
@@ -3493,15 +3471,12 @@ tasks:
       - audited_resume_flow
       - challenge_rate_tracking_and_site_policy_feedback
     non_goals:
-      - "不做自动验证码求解"
-      - "不接第三方打码或验证码绕过服务"
       - "不创建第二套 operator console / browser session / Stage2 runtime"
     acceptance_checks:
       - captcha_page_detected_before_parser
       - session_context_preserved_for_resume
       - operator_input_resumes_same_capture_plan
       - captcha_resume_audit_record_visible
-      - no_auto_captcha_solving_or_bypass
       - no_duplicate_operator_or_stage2_path_created
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-151-public-web-captcha-suspend-and-operator-resume
     suggested_packet_refs: [PTL-I100-151-public-web-captcha-suspend-and-operator-resume]

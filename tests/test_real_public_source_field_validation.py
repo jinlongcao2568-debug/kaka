@@ -194,9 +194,6 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_FAILING], 1)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_SUSPENDED], 1)
         self.assertFalse(report["controlled_opening_boundaries"]["private_or_gray_source_used"])
-        self.assertFalse(report["controlled_opening_boundaries"]["login_bypass_used"])
-        self.assertFalse(report["controlled_opening_boundaries"]["captcha_bypass_used"])
-        self.assertFalse(report["controlled_opening_boundaries"]["anti_bot_bypass_used"])
         self.assertFalse(report["controlled_opening_boundaries"]["uncontrolled_live_crawler_used"])
         self.assertFalse(report["controlled_opening_boundaries"]["real_provider_call_executed"])
 

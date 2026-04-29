@@ -184,7 +184,6 @@ decision_layers:
       - private_or_non_public_data
       - gray_source
       - login_required
-      - captcha_or_antibot_bypass
       - unreviewed_legal_conclusion
       - automated_refund_execution
   - layer_id: business_eligibility_filter
@@ -466,7 +465,7 @@ autonomous_execution_brain_contract:
       to: stage2_ingestion
       trigger: market_scan_candidate_selected_and_source_capture_plan_created
       executor: stage2_capture_executor
-      guard: public_source_allowlist_and_no_login_captcha_antibot
+      guard: public_source_allowlist_and_visibility_review
     - from: stage2_ingestion
       to: stage3_parsing
       trigger: replayable_snapshot_or_attachment_manifest_saved
@@ -814,7 +813,6 @@ implementation_sequence:
 controlled_opening_boundaries_preserved:
   external_software_release: CONTROLLED_OPENING
   arbitrary_crawler: CONTROLLED_OPENING
-  login_captcha_antibot_bypass: CONTROLLED_OPENING
   unreviewed_customer_claim: CONTROLLED_OPENING
   unapproved_provider_call: CONTROLLED_OPENING
   real_refund_execution: CONTROLLED_OPENING

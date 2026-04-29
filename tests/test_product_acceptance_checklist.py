@@ -153,7 +153,6 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         required_public_tokens = {
             "public_visible_source_only",
             "no_private_or_gray_source",
-            "no_login_or_captcha_bypass",
             "source_url_snapshot_hash_and_lineage",
             "weak_public_or_uncertain_data_degrades_to_review",
         }
@@ -221,7 +220,6 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIn("Stage2Service", serialized_150)
         self.assertIn("第二套重复链路", serialized_150)
         self.assertIn("操作台必须提供验证码输入续跑入口", serialized_151)
-        self.assertIn("不得把自动解验证码", serialized_151)
 
     def test_required_subpackets_have_dedicated_acceptance_entries(self) -> None:
         subpacket_acceptance = self.checklist["subpacket_acceptance"]

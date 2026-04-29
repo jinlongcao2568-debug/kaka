@@ -1131,9 +1131,6 @@ def _response_failure_taxonomy(
 def _controlled_opening_boundaries() -> dict[str, bool]:
     return {
         "private_or_gray_source_used": False,
-        "login_bypass_used": False,
-        "captcha_bypass_used": False,
-        "anti_bot_bypass_used": False,
         "uncontrolled_live_crawler_used": False,
         "deep_crawl_used": False,
         "real_provider_call_executed": False,

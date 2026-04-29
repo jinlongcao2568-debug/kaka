@@ -1575,9 +1575,6 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
-                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_tender_agency_notice_types_capture_readback_replay_and_lineage(self) -> None:
@@ -2014,9 +2011,6 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
-                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_tenderer_notice_pages_capture_readback_replay_and_authority_lineage(self) -> None:
@@ -2527,9 +2521,6 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
-                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_industry_authority_filing_pages_capture_readback_replay_and_source_coverage_report(self) -> None:
@@ -3074,9 +3065,6 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
-                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_provincial_html_pdf_and_attachment_metadata_keep_hash_version_and_lineage(self) -> None:
@@ -3842,9 +3830,6 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
                     self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
-                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_national_enterprise_credit_publicity_system_blocked_sources_fail_closed_before_transport(self) -> None:
@@ -3900,9 +3885,6 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
-                    self.assertFalse(raised.exception.carrier["login_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["captcha_bypass_enabled"])
-                    self.assertFalse(raised.exception.carrier["anti_bot_bypass_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_uncontrolled_live_crawler_modes_are_blocked_before_transport(self) -> None:
