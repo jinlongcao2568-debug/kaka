@@ -18,7 +18,7 @@ coverage_buckets:
   supported: 9
   weak: 1
   failing: 1
-  suspended: 1
+  automated_challenge_resolution: 1
   review_required: 0
 source_families_validated:
   - PROCUREMENT_NOTICE
@@ -39,7 +39,7 @@ field_coverage:
   weak_or_review_required_samples: 1
 verification_coverage:
   supported_samples_verified_as_matched: 9
-  review_or_fail_closed_samples: 3
+  review_or_fail_closed_samples: 2
 failure_degrade_coverage:
   weak_public_structure: fail_closed_to_manual_review
   transport_failure: fail_closed_no_snapshot_persisted
@@ -51,4 +51,4 @@ controlled_opening_requirements:
 notes:
   - "This report records controlled manual public snapshots, not proof that every real-world website is capture-ready."
   - "真实公开站点实战抓取可按来源族或站点批次 direct-dev 推进；只有触发 live/external 执行、source-policy 语义变更或跨阶段机器契约时才需要受控 task packet。"
-  - "Weak/failing/suspended samples must stay review-only and fail closed; no broad fallback is allowed."
+  - "Weak/failing samples must stay review-only and fail closed; captcha challenge samples must route to automated challenge resolution before parser/verification/customer surfaces."

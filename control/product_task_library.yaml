@@ -47,7 +47,7 @@ open_capability_policy:
   target_capabilities_to_open_under_control:
     - real_public_source_collection
     - adaptive_public_web_capture_hardening
-    - captcha_challenge_suspend_and_resume
+    - captcha_challenge_automated_resolution_and_resume
     - real_parser_ocr_attachment_extraction
     - captcha_recognition
     - slider_trajectory_simulation
@@ -3204,7 +3204,7 @@ tasks:
     objective: "把公开网抓取失败优先自动升级、验证码检测与自动化续跑、以及基于现有 Stage2/Stage3/operator seams 复用补强的开发规则正式写进任务池与验收，不改 runtime。"
     capability_gaps_covered:
       - public_web_capture_escalation_task_pool_registration
-      - captcha_challenge_suspend_resume_task_pool_registration
+      - captcha_challenge_automated_resolution_task_pool_registration
       - reuse_existing_runtime_surfaces_first_policy
     non_goals:
       - "不改 Stage1-9 runtime"
@@ -3409,7 +3409,7 @@ tasks:
     objective: "公开网站遇到验证码/校验页时，系统自动识别 challenge，保留 URL/cookie/表单/任务上下文，优先通过自动化识别/OCR/session 续跑从同一 capture plan 恢复；不要求重启整条链路，默认走自动化处理路径。"
     capability_gaps_covered:
       - captcha_challenge_detection
-      - session_suspend_and_resume
+      - session_preservation_and_automated_resume
       - automated_captcha_or_challenge_resolution
       - task_context_preservation_across_challenge
       - audited_resume_flow

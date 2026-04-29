@@ -35,7 +35,7 @@ from stage2_ingestion.public_source_adapters import (
 VALIDATION_BUCKET_SUPPORTED = "supported"
 VALIDATION_BUCKET_WEAK = "weak"
 VALIDATION_BUCKET_FAILING = "failing"
-VALIDATION_BUCKET_SUSPENDED = "suspended"
+VALIDATION_BUCKET_AUTOMATED_CHALLENGE = "automated_challenge_resolution"
 VALIDATION_BUCKET_REVIEW_REQUIRED = "review_required"
 
 
@@ -172,7 +172,6 @@ def build_supported_validation_result(
         fail_closed=observed_bucket in {
             VALIDATION_BUCKET_WEAK,
             VALIDATION_BUCKET_FAILING,
-            VALIDATION_BUCKET_SUSPENDED,
             VALIDATION_BUCKET_REVIEW_REQUIRED,
         },
         no_broad_fallback=True,
@@ -186,6 +185,8 @@ def build_blocked_validation_result(
     blocked_carrier: Mapping[str, Any] | None = None,
 ) -> PublicSourceValidationResult:
     carrier = dict(blocked_carrier or {})
+    source_boundary = dict(carrier.get("source_boundary") or {})
+    automated_challenge = bool(source_boundary.get("automated_challenge_resolution_first"))
     return PublicSourceValidationResult(
         sample_id=sample.sample_id,
         packet_ref=sample.packet_ref,
@@ -195,7 +196,9 @@ def build_blocked_validation_result(
         source_url=sample.source_url,
         sample_mode=sample.sample_mode,
         expected_bucket=sample.expected_bucket,
-        observed_bucket=VALIDATION_BUCKET_SUSPENDED,
+        observed_bucket=VALIDATION_BUCKET_AUTOMATED_CHALLENGE
+        if automated_challenge
+        else VALIDATION_BUCKET_REVIEW_REQUIRED,
         capture_state=str(carrier.get("result_state") or "BLOCKED_BEFORE_TRANSPORT"),
         snapshot_id_optional=None,
         sha256_optional=None,
@@ -205,8 +208,8 @@ def build_blocked_validation_result(
         parsed_field_count=0,
         verification_result="NOT_RUN",
         evidence_grade="NOT_GRADED",
-        review_required=True,
-        fail_closed=True,
+        review_required=not automated_challenge,
+        fail_closed=not automated_challenge,
         no_broad_fallback=True,
         blocked_reason_optional=blocked_reason,
     )
@@ -264,7 +267,7 @@ def build_source_coverage_report(
         VALIDATION_BUCKET_SUPPORTED: 0,
         VALIDATION_BUCKET_WEAK: 0,
         VALIDATION_BUCKET_FAILING: 0,
-        VALIDATION_BUCKET_SUSPENDED: 0,
+        VALIDATION_BUCKET_AUTOMATED_CHALLENGE: 0,
         VALIDATION_BUCKET_REVIEW_REQUIRED: 0,
     }
     for payload in payloads:
@@ -326,7 +329,7 @@ def _observed_bucket(
     review_required: bool,
     parsed_field_count: int,
 ) -> str:
-    if expected_bucket in {VALIDATION_BUCKET_FAILING, VALIDATION_BUCKET_SUSPENDED}:
+    if expected_bucket in {VALIDATION_BUCKET_FAILING, VALIDATION_BUCKET_AUTOMATED_CHALLENGE}:
         return expected_bucket
     if parsed_field_count == 0 or parse_state == "REVIEW_REQUIRED":
         return VALIDATION_BUCKET_WEAK
@@ -546,18 +549,18 @@ SOURCE_VALIDATION_SAMPLE_MATRIX: tuple[PublicSourceValidationSample, ...] = (
         lineage_refs={"project_id": "P-128-FAIL", "stage1_handoff_intent_id": "HINT-128-FAIL"},
     ),
     PublicSourceValidationSample(
-        sample_id="S2-128-SUSPENDED-CAPTCHA",
+        sample_id="S2-128-AUTOMATED-CHALLENGE-CAPTCHA",
         packet_ref="PTL-I100-128-real-public-source-field-validation-and-coverage",
         adapter_id=CREDIT_CHINA_ADAPTER_ID,
         source_family=CREDIT_CHINA_SOURCE_FAMILY,
         source_registry_id="SRC-REG-CREDIT-CHINA-PUBLIC-RECORD",
         source_url="https://public.example.local/credit-china/128/captcha.html",
         source_visibility_state="CAPTCHA_REQUIRED",
-        expected_bucket=VALIDATION_BUCKET_SUSPENDED,
+        expected_bucket=VALIDATION_BUCKET_AUTOMATED_CHALLENGE,
         target_type="credit_penalty_blacklist",
-        target_identifier="Suspended Captcha Project",
+        target_identifier="Automated Challenge Captcha Project",
         record_kind=CREDIT_CHINA_CREDIT_PUBLIC_RECORD_KIND,
-        lineage_refs={"project_id": "P-128-SUSP", "stage1_handoff_intent_id": "HINT-128-SUSP"},
+        lineage_refs={"project_id": "P-128-AUTOCHALLENGE", "stage1_handoff_intent_id": "HINT-128-AUTOCHALLENGE"},
     ),
 )
 
@@ -566,10 +569,10 @@ __all__ = [
     "PublicSourceValidationResult",
     "PublicSourceValidationSample",
     "SOURCE_VALIDATION_SAMPLE_MATRIX",
+    "VALIDATION_BUCKET_AUTOMATED_CHALLENGE",
     "VALIDATION_BUCKET_FAILING",
     "VALIDATION_BUCKET_REVIEW_REQUIRED",
     "VALIDATION_BUCKET_SUPPORTED",
-    "VALIDATION_BUCKET_SUSPENDED",
     "VALIDATION_BUCKET_WEAK",
     "build_blocked_validation_result",
     "build_degraded_validation_result",

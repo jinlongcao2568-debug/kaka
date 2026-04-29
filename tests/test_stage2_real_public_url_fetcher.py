@@ -365,10 +365,10 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             profile_id="CCGP-CENTRAL-NOTICES",
         )
 
-        self.assertEqual(carrier["status"], "SUSPENDED")
-        self.assertTrue(carrier["review_required"])
+        self.assertEqual(carrier["status"], "AUTOMATED_CHALLENGE_RESOLUTION_PENDING")
+        self.assertFalse(carrier["review_required"])
         self.assertFalse(carrier["fail_closed"])
-        self.assertTrue(carrier["suspended_for_automated_resume"])
+        self.assertTrue(carrier["automated_challenge_resolution_pending"])
         self.assertTrue(carrier["automated_challenge_resolution_first"])
         self.assertFalse(carrier["resume_requires_human_input"])
         self.assertEqual(

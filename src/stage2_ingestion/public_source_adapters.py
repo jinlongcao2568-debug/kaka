@@ -959,7 +959,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         if visibility_state in BLOCKED_VISIBILITY_STATES:
             return self._boundary_block(request, f"blocked_visibility_state:{visibility_state}")
         if visibility_state in CONTROLLED_CHALLENGE_VISIBILITY_STATES:
-            return self._boundary_suspend(
+            return self._boundary_automated_challenge(
                 request,
                 f"controlled_challenge_visibility:{visibility_state}",
             )
@@ -967,7 +967,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             return self._boundary_block(request, f"unknown_visibility_state:{visibility_state}")
         for flag_name in CONTROLLED_CHALLENGE_FLAG_NAMES:
             if flags.get(flag_name):
-                return self._boundary_suspend(request, f"controlled_challenge_flag:{flag_name}")
+                return self._boundary_automated_challenge(request, f"controlled_challenge_flag:{flag_name}")
         if fetch_mode in BLOCKED_FETCH_MODES:
             return self._boundary_block(request, f"blocked_fetch_mode:{fetch_mode}")
         if fetch_mode not in self.config.allowed_fetch_modes:
@@ -1019,11 +1019,11 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "sandbox_local_mirror": False,
         }
 
-    def _boundary_suspend(self, request: PublicSourceSnapshotRequest, reason: str) -> dict[str, Any]:
+    def _boundary_automated_challenge(self, request: PublicSourceSnapshotRequest, reason: str) -> dict[str, Any]:
         boundary = self._boundary_block(request, reason)
-        boundary["boundary_action"] = "SUSPEND"
+        boundary["boundary_action"] = "ROUTE_TO_AUTOMATED_CHALLENGE_RESOLUTION"
         boundary["blocked_reason"] = None
-        boundary["suspend_reason"] = reason
+        boundary["challenge_resolution_reason"] = reason
         boundary["controlled_challenge"] = True
         boundary["automated_challenge_resolution_first"] = True
         boundary["resume_requires_human_input"] = False
@@ -1039,8 +1039,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         controlled_challenge = bool(boundary.get("controlled_challenge"))
         return {
             "adapter_id": self.config.adapter_id,
-            "status": "SUSPENDED" if controlled_challenge else "BLOCKED",
-            "result_state": "SUSPENDED_BEFORE_TRANSPORT"
+            "status": "AUTOMATED_CHALLENGE_RESOLUTION_PENDING" if controlled_challenge else "BLOCKED",
+            "result_state": "AUTOMATED_CHALLENGE_RESOLUTION_BEFORE_TRANSPORT"
             if controlled_challenge
             else "BLOCKED_BEFORE_TRANSPORT",
             "source_url": request.source_url,

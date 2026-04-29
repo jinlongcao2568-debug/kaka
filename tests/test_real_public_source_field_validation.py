@@ -23,9 +23,9 @@ from stage2_ingestion.public_source_adapters import (
 )
 from stage2_ingestion.service import Stage2Service
 from stage2_ingestion.source_validation import (
+    VALIDATION_BUCKET_AUTOMATED_CHALLENGE,
     VALIDATION_BUCKET_FAILING,
     VALIDATION_BUCKET_SUPPORTED,
-    VALIDATION_BUCKET_SUSPENDED,
     VALIDATION_BUCKET_WEAK,
     build_blocked_validation_result,
     build_degraded_validation_result,
@@ -143,7 +143,7 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_SUPPORTED], 9)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_WEAK], 1)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_FAILING], 1)
-        self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_SUSPENDED], 1)
+        self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_AUTOMATED_CHALLENGE], 1)
         self.assertEqual(
             report["field_coverage"]["supported_samples_with_required_fields"],
             9,
@@ -160,7 +160,7 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
                 self.assertEqual(result["parse_state"], "PARSED")
                 self.assertEqual(result["verification_result"], "MATCHED")
 
-    def test_128_weak_failing_and_suspended_sources_fail_closed_to_review(self) -> None:
+    def test_128_weak_failing_and_automated_challenge_sources_keep_safe_boundaries(self) -> None:
         report = self._run_sample_matrix()
         by_bucket = {}
         for result in report["results"]:
@@ -168,17 +168,22 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
 
         weak = by_bucket[VALIDATION_BUCKET_WEAK][0]
         failing = by_bucket[VALIDATION_BUCKET_FAILING][0]
-        suspended = by_bucket[VALIDATION_BUCKET_SUSPENDED][0]
+        automated_challenge = by_bucket[VALIDATION_BUCKET_AUTOMATED_CHALLENGE][0]
 
         self.assertTrue(weak["review_required"])
         self.assertTrue(weak["fail_closed"])
         self.assertEqual(weak["parse_state"], "REVIEW_REQUIRED")
         self.assertTrue(failing["fail_closed"])
         self.assertEqual(failing["blocked_reason_optional"], "fetch_failed")
-        self.assertTrue(suspended["fail_closed"])
+        self.assertFalse(automated_challenge["review_required"])
+        self.assertFalse(automated_challenge["fail_closed"])
+        self.assertEqual(
+            automated_challenge["capture_state"],
+            "AUTOMATED_CHALLENGE_RESOLUTION_BEFORE_TRANSPORT",
+        )
         self.assertIn(
             "controlled_challenge_visibility:CAPTCHA_REQUIRED",
-            suspended["blocked_reason_optional"],
+            automated_challenge["blocked_reason_optional"],
         )
         self.assertTrue(all(result["no_broad_fallback"] for result in report["results"]))
 
@@ -195,7 +200,7 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_SUPPORTED], 9)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_WEAK], 1)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_FAILING], 1)
-        self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_SUSPENDED], 1)
+        self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_AUTOMATED_CHALLENGE], 1)
         self.assertFalse(report["controlled_opening_requirements"]["unapproved_live_capture_used"])
         self.assertFalse(report["controlled_opening_requirements"]["real_provider_call_executed"])
 

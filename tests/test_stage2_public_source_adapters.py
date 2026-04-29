@@ -214,7 +214,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
         if visibility_state in CONTROLLED_CHALLENGE_VISIBILITY_STATES or any(
             boundary_flags.get(flag_name) for flag_name in CONTROLLED_CHALLENGE_FLAG_NAMES
         ):
-            return "SUSPENDED"
+            return "AUTOMATED_CHALLENGE_RESOLUTION_PENDING"
         return "BLOCKED"
 
     def _assert_boundary_status(
@@ -228,17 +228,18 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
         self.assertEqual(carrier["status"], expected_status)
         self.assertEqual(
             carrier["result_state"],
-            "SUSPENDED_BEFORE_TRANSPORT"
-            if expected_status == "SUSPENDED"
+            "AUTOMATED_CHALLENGE_RESOLUTION_BEFORE_TRANSPORT"
+            if expected_status == "AUTOMATED_CHALLENGE_RESOLUTION_PENDING"
             else "BLOCKED_BEFORE_TRANSPORT",
         )
         self.assertTrue(source_boundary["boundary_reason"])
-        if expected_status == "SUSPENDED":
-            self.assertEqual(source_boundary["boundary_action"], "SUSPEND")
+        if expected_status == "AUTOMATED_CHALLENGE_RESOLUTION_PENDING":
+            self.assertEqual(source_boundary["boundary_action"], "ROUTE_TO_AUTOMATED_CHALLENGE_RESOLUTION")
             self.assertIsNone(source_boundary["blocked_reason"])
             self.assertTrue(source_boundary["controlled_challenge"])
             self.assertTrue(source_boundary["automated_challenge_resolution_first"])
             self.assertFalse(source_boundary["resume_requires_human_input"])
+            self.assertTrue(source_boundary["challenge_resolution_reason"])
         else:
             self.assertEqual(source_boundary["boundary_action"], "BLOCK")
             self.assertTrue(source_boundary["blocked_reason"])
@@ -1559,7 +1560,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(repo.read_snapshot_bytes(first.snapshot_id), duplicate_body)
             self.assertEqual(repo.read_snapshot_bytes(second.snapshot_id), duplicate_body)
 
-    def test_government_procurement_boundary_sources_suspend_or_block_before_transport(self) -> None:
+    def test_government_procurement_boundary_sources_route_to_automated_challenge_or_block_before_transport(self) -> None:
         boundary_requests = [
             self._government_procurement_request(source_registry_id="SRC-REG-GOV-PROCUREMENT-UNKNOWN"),
             self._government_procurement_request(
@@ -1988,7 +1989,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             )
             self.assertEqual(len(transport.call_log), 1)
 
-    def test_tender_agency_boundary_sources_suspend_or_block_before_transport(self) -> None:
+    def test_tender_agency_boundary_sources_route_to_automated_challenge_or_block_before_transport(self) -> None:
         boundary_requests = [
             self._tender_agency_request(source_registry_id="SRC-REG-TENDER-AGENCY-UNKNOWN"),
             self._tender_agency_request(
@@ -2492,7 +2493,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(transport.call_log, [])
 
-    def test_tenderer_boundary_sources_suspend_or_block_before_transport(self) -> None:
+    def test_tenderer_boundary_sources_route_to_automated_challenge_or_block_before_transport(self) -> None:
         boundary_requests = [
             self._tenderer_request(source_registry_id="SRC-REG-TENDERER-UNKNOWN"),
             self._tenderer_request(
@@ -3028,7 +3029,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(transport.call_log, [])
 
-    def test_industry_authority_boundary_sources_suspend_or_block_before_transport(self) -> None:
+    def test_industry_authority_boundary_sources_route_to_automated_challenge_or_block_before_transport(self) -> None:
         boundary_requests = [
             self._industry_authority_request(
                 source_registry_id="SRC-REG-INDUSTRY-AUTHORITY-UNKNOWN"
@@ -3686,7 +3687,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             )
             self.assertEqual(len(transport.call_log), 1)
 
-    def test_source_visibility_review_login_captcha_antibot_suspend_and_unknown_sources_block(self) -> None:
+    def test_source_visibility_review_login_captcha_antibot_route_to_automated_challenge_and_unknown_sources_block(self) -> None:
         boundary_visibility_states = [
             "LOGIN_REQUIRED",
             "CAPTCHA_REQUIRED",
@@ -3741,7 +3742,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(raised.exception.reason, "source_url_not_allowlisted")
             self.assertEqual(transport.call_log, [])
 
-    def test_provincial_unknown_unlisted_source_visibility_review_login_captcha_antibot_suspend_before_transport(self) -> None:
+    def test_provincial_unknown_unlisted_source_visibility_review_login_captcha_antibot_route_to_automated_challenge_before_transport(self) -> None:
         boundary_requests = [
             self._provincial_request(source_registry_id="SRC-REG-PROV-BID-UNKNOWN"),
             self._provincial_request(source_url="https://unlisted.example.local/provincial/notice.html"),
@@ -3768,7 +3769,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_national_construction_market_unknown_unlisted_source_visibility_review_login_captcha_antibot_suspend_before_transport(self) -> None:
+    def test_national_construction_market_unknown_unlisted_source_visibility_review_login_captcha_antibot_route_to_automated_challenge_before_transport(self) -> None:
         boundary_requests = [
             self._national_request(source_registry_id="SRC-REG-NCMP-UNKNOWN"),
             self._national_request(source_url="https://unlisted.example.local/ncmp/enterprise.html"),
@@ -3797,7 +3798,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_credit_china_unknown_unlisted_source_visibility_review_login_captcha_antibot_suspend_before_transport(self) -> None:
+    def test_credit_china_unknown_unlisted_source_visibility_review_login_captcha_antibot_route_to_automated_challenge_before_transport(self) -> None:
         boundary_requests = [
             self._credit_china_request(source_registry_id="SRC-REG-CREDIT-CHINA-UNKNOWN"),
             self._credit_china_request(source_url="https://unlisted.example.local/credit-china/record.html"),
@@ -3832,7 +3833,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_national_enterprise_credit_publicity_system_boundary_sources_suspend_or_block_before_transport(self) -> None:
+    def test_national_enterprise_credit_publicity_system_boundary_sources_route_to_automated_challenge_or_block_before_transport(self) -> None:
         boundary_requests = [
             self._necps_request(source_registry_id="SRC-REG-NECPS-UNKNOWN"),
             self._necps_request(

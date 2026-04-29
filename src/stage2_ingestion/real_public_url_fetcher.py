@@ -693,9 +693,13 @@ class RealPublicEntryFetcher:
         if profile.expected_title_contains and profile.expected_title_contains not in title:
             degraded_reasons.append("title_mismatch")
 
-        status = "SUSPENDED" if controlled_challenge_detected else ("DEGRADED" if degraded_reasons else "FETCHED")
+        status = (
+            "AUTOMATED_CHALLENGE_RESOLUTION_PENDING"
+            if controlled_challenge_detected
+            else ("DEGRADED" if degraded_reasons else "FETCHED")
+        )
         validation_level = (
-            "CONTROLLED_CHALLENGE_OPERATOR_RESUME"
+            "CONTROLLED_CHALLENGE_AUTOMATED_RESUME"
             if controlled_challenge_detected
             else (
                 "VISIBLE_ENTRY_MARKERS"
@@ -811,8 +815,8 @@ class RealPublicEntryFetcher:
             "snapshot_id_optional": snapshot_id if manifest_payload else None,
             "manifest_optional": manifest_payload,
             "degraded_reasons": degraded_reasons,
-            "review_required": bool(degraded_reasons),
-            "suspended_for_automated_resume": controlled_challenge_detected,
+            "review_required": bool(degraded_reasons) and not controlled_challenge_detected,
+            "automated_challenge_resolution_pending": controlled_challenge_detected,
             "automated_challenge_resolution_first": controlled_challenge_detected,
             "resume_requires_human_input": False,
             "resume_policy": "preserve_url_cookie_form_context_and_capture_plan_for_automated_resume"
