@@ -14,7 +14,7 @@ C-group Enum Freeze: CONFIRMED
 Capability Adjudication Source: control/product_task_library.yaml#open_capability_policy and D13 能力总表与放行边界总表
 
 Current Controlled Opening Boundaries:
-- External software release is a controlled-opening capability: it requires a dedicated current_task packet, release checklist, approval chain, audit chain, operator action, rollback/suspension path, and passing regression before any live/public action.
+- External software release is a controlled-opening capability: it requires controlled-opening gate, release checklist, approval chain, audit chain, operator action, rollback/suspension path, and passing regression before any live/public action.
 - Stage 8 real execution is a controlled-opening capability: it requires provider config, sandbox pass, approval/audit, quiet-hours/frequency/opt-out enforcement, operator action, and acceptance before live execution.
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
@@ -25,7 +25,7 @@ Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
 - Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
-- "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
+- "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the controlled-opening gate pass; it does not mean the capability is permanently out of product scope.
 
 Current 144A Scope:
 - Remove non-refund hard boundary assertions from current formal assets and replace them with controlled-opening semantics.

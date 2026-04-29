@@ -405,7 +405,7 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIn("PTL-I100-130", route_map_text)
         self.assertIn("PTL-I100-131", route_map_text)
         self.assertIn("PTL-I100-132", route_map_text)
-        self.assertIn("132 已由 dedicated current_task 激活", route_map_text)
+        self.assertIn("132 已完成；后续 UI/工作台迭代不因历史受控任务记录而被强制小包", route_map_text)
         self.assertNotIn("当前 active packet：`PTL-I100-112A-production-platform-storage-seam`", route_map_text)
         self.assertNotIn("当前 112A 已激活", route_map_text)
 

@@ -19,7 +19,7 @@
 2. 再看 `docs/L0.md`、`docs/裁决总表.md` 与本次改动直接相关的 D 文档。
 3. 涉及对象、规则、字段、交付、发布、模型、公开边界时，再看对应 `contracts/`、`handoff/`、`control/`、`scripts/`。
 4. 普通内部开发默认按 `DIRECT_DEV_DEFAULT` 直接定位、实现、验证；`docs/正式业务代码开发开工裁决页.md` 只作为内部 LeadOps 开发 conditional-go 历史裁决面，不作为普通开发前置门槛。
-5. 触及对外/live、release gate、approval/audit 语义、schema/migration 或机器契约大批量治理时，才切回 dedicated task packet / scoped subpacket。
+5. 触及对外/live、release gate、approval/audit 语义、schema/migration 或机器契约大批量治理时，才切回 controlled task packet / scoped subpacket。
 
 ## 说明
 

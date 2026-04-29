@@ -54,7 +54,7 @@
 **Direct Development Default**
 - 普通代码修复、测试修复、文档小修、局部重构、非 live 的内部功能实现，默认不要求先建立或切换 `control/current_task.yaml`。
 - 普通开发默认按“定位影响面 -> 最小实现 -> 相关测试/脚本验证 -> 汇报或提交”执行。
-- 仅当改动涉及以下任一项时，才需要 dedicated task packet / scoped subpacket：对外软件 release、真实触达、真实支付、真实交付、真实退款、高限制字段放行、release gate、approval/audit 语义、schema/migration、跨阶段机器契约、批量生成 handoff/schema/control、或人类明确要求走小包。
+- 仅当改动涉及以下任一项时，才需要 controlled task packet / scoped subpacket：对外软件 release、真实触达、真实支付、真实交付、真实退款、高限制字段放行、release gate、approval/audit 语义、schema/migration、跨阶段机器契约、批量生成 handoff/schema/control、或人类明确要求走小包。
 - 人类明确说“不要小包 / 直接改 / 直接提交 / 不需要看范围”时，按 direct-dev 执行；但不得绕过对外/live、审批、审计、operator action 与自动退款禁令。
 
 **When To Pause**

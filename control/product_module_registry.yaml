@@ -718,7 +718,7 @@ stage_module_inventory:
         deferred_gaps: []
   - stage_id: stage8_outreach
     stage_name: "Stage8 联系对象与销售触达"
-    business_summary: "在 governed/internal 边界内形成 contact target、outreach plan、touch record 和 outbox；真实触达是目标能力，但 controlled-opening-required，必须通过 provider config、sandbox、审批、审计、模板、频控、退订和 dedicated current_task 后才能 live。"
+    business_summary: "在 governed/internal 边界内形成 contact target、outreach plan、touch record 和 outbox；真实触达是目标能力，但 controlled-opening-required，必须通过 provider config、sandbox、审批、审计、模板、频控、退订和 controlled-opening gate 后才能 live。"
     implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
     current_runtime_state: HEAVY_RUNTIME
     customer_visibility: INTERNAL_GOVERNED
@@ -1085,7 +1085,7 @@ modules:
     deferred_module_split: false
     notes:
       - "P7 Stage2 contract-runtime first cut completed in local commit 2dbfb12 and src/stage2_ingestion/contract_runtime.py is now part of the formal current-files ledger."
-      - "This ledger update closes the Stage2 contract-runtime first cut only; downstream Stage3-5 or later runtime work can still exist and must stay under future dedicated packets."
+      - "This ledger update closes the Stage2 contract-runtime first cut only; downstream Stage3-5 or later runtime work can still exist and may continue as ordinary direct-dev/runtime hardening unless it changes live/external, release, approval/audit, schema/migration, or cross-stage machine-contract semantics."
       - "PTL-I100-114A registers src/stage2_ingestion/public_source_adapters.py as the Stage2 local public source adapter seam; it is sandbox/readback only and does not open unapproved live capture."
       - "PTL-I100-114D extends the same Stage2 public source adapter seam for Credit China public credit, administrative penalty, and credit exception records; it remains allowlisted/sandbox/readback only and does not open unapproved live capture."
       - "PTL-I100-114E extends the same Stage2 public source adapter seam for national enterprise credit publicity system public enterprise, registration, and abnormal-operation records; it remains allowlisted/sandbox/readback only and does not open unapproved live capture."

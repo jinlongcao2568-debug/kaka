@@ -11,10 +11,10 @@
 
 ## 1. 导航口径
 
-- 本图承接 `PTL-I100-OPEN-CAPABILITY-BASELINE`：产品必需能力按 dedicated current_task 分包逐级开发；自动退款执行不实现。
+- 本图承接 `PTL-I100-OPEN-CAPABILITY-BASELINE`：普通产品能力可按 direct-dev 或较大 grouped work batch 推进；live/external/release/机器契约窗口再进入受控 task packet；自动退款执行不实现。
 - 本图只表达阶段 1-9 主链该如何理解、上下游怎么衔接、每阶段消费什么和产出什么。
 - 本图不表达当前 phase/readiness 数值快照，不替代 `control/repo_status.md`、`control/milestone_status.yaml`。
-- 本图中的 `controlled-opening-required` 表示未通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task 与验收前不能 live，不表示永久不做。
+- 本图中的 `controlled-opening-required` 表示未通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking、controlled-opening gate 与验收前不能 live，不表示永久不做。
 - 本图不放开 `external release`，不放开 `Stage 8 real execution`，不放开 `Stage 9 real payment / delivery / refund`；自动退款执行不实现，只保留 manual exception / approval-audit / governed review。
 - 各阶段保留 1 个最贴近的导航候选 `packet_id`；更集中的近端候选提示统一放在第 3 节。
 
@@ -132,7 +132,7 @@
 - 正式输出：`contact_candidate_collection`、`contact_selection_trace`、`contact_target`、`outreach_plan`、`touch_record`。
 - 上游 handoff：`handoff/stage7_to_stage8/contract.json`
 - 下游 handoff：`handoff/stage8_to_stage9/contract.json`
-- 正式边界：只允许在 governed internal 边界内形成 candidate、selection、plan 与 touch 记录；真实触达必须通过 provider config、sandbox、approval、audit、模板、频控、退订、operator action 与 dedicated current_task 验收后才能 live，不直接外发高限制字段。
+- 正式边界：只允许在 governed internal 边界内形成 candidate、selection、plan 与 touch 记录；真实触达必须通过 provider config、sandbox、approval、audit、模板、频控、退订、operator action 与 controlled-opening gate 验收后才能 live，不直接外发高限制字段。
 - 相关 contracts / tests：`contracts/sales/contact_compliance_matrix.json`；`contracts/sales/contact_source_policy_catalog.json`；`contracts/sales/outreach_cadence_catalog.json`；`contracts/schemas/contact_candidate_collection.schema.json`；`contracts/schemas/contact_selection_trace.schema.json`；`tests/test_stage8_resolution_closure.py`
 - 导航候选 `task_id`：`PTL-S78-contact-candidate-compliance-preview`
 
@@ -143,7 +143,7 @@
 - 正式输出：`order_record`、`payment_record`、`delivery_record`、`opportunity_outcome_event`、`governance_feedback_event`。
 - 上游 handoff：`handoff/stage8_to_stage9/contract.json`
 - 下游 handoff：无，主链终点。
-- 正式边界：只允许 internal preview / governed writeback；真实 payment / delivery 必须通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking 与 dedicated current_task 验收后才能 live；自动退款执行不实现，退款只保留 manual exception / approval-audit / governed review；不把 projected mutation 写成默认持久化执行。
+- 正式边界：只允许 internal preview / governed writeback；真实 payment / delivery 必须通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking 与 controlled-opening gate 验收后才能 live；自动退款执行不实现，退款只保留 manual exception / approval-audit / governed review；不把 projected mutation 写成默认持久化执行。
 - 相关 contracts / tests：`contracts/governance/writeback_impact_policy.json`；`contracts/sales/outcome_taxonomy_catalog.json`；`contracts/schemas/delivery_record.schema.json`；`tests/test_stage9_impact_executor.py`
 - 导航候选 `task_id`：`PTL-S89-outreach-writeback-delivery-governance`
 
@@ -159,7 +159,7 @@
 - 当前候选池 next candidate：`PTL-I100-143E-autonomous-source-strategy-d-doc-sync` 已进入 active；完成后不自动激活下一包。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入 provider/live 执行。
 - `PTL-I100-127-owner-operator-frontend-and-customer-portal`：已补实际操作台、客户 artifact 门户、审批审计可视化和客户授权下载入口。
-- `PTL-I100-128-real-public-source-field-validation-and-coverage`：已用受控手工公开 snapshot 验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，登录态、challenge 和 source policy 状态进入治理记录；真实站点实战仍留给 131 或后续按站点 dedicated packet。
+- `PTL-I100-128-real-public-source-field-validation-and-coverage`：已用受控手工公开 snapshot 验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，登录态、challenge 和 source policy 状态进入治理记录；真实站点实战可按来源族或站点批次 direct-dev 推进，触发 live/external 或 source-policy 语义变更时再进入受控 task packet。
 - `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`：已接企业微信、邮件、短信/电话、CRM、报价、支付、交付 provider binding/readback；自动退款仍不实现，真实调用仍需审批/审计/operator action。
 - `PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`：已接入受治理的大模型辅助解析、复核、证据摘要和销售话术草稿 readback；模型输出不得直接成为事实或客户结论，不调用真实外部模型 provider。
 - `PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout`：在 127-130 完成后跑受控真实世界端到端试点，已作为产品 closeout 门完成。
@@ -186,7 +186,7 @@
 - `PTL-I100-148-productized-autonomous-operator-workbench`：计划中；把机会队列、证据强度、买家排序、钩子话术、复核项和下一步动作产品化到操作台。
 - `PTL-I100-149-real-sample-autonomous-opportunity-acceptance`：计划中；用真实公开样本验证系统能从市场扫描到可售钩子和交付候选，不再只是手工 URL 工具。
 - Stage7 模块边界重构：对应的 scoped-execution 包 `PTL-S7-module-boundary-refactor` 已完成并提交 `2601482`；该方向当前不再 recommended_now，只作为已闭合近端历史参照。
-- 132 已由 dedicated current_task 激活；本轮完成后不自动进入新任务。推荐理由：先让 owner 实际操作界面匹配已闭合的后端能力，再做更深的实战验证或 UI 迭代。
+- 132 已完成；后续 UI/工作台迭代不因历史受控任务记录而被强制小包。推荐理由：先让 owner 实际操作界面匹配已闭合的后端能力，再做更深的实战验证或 UI 迭代。
 - Internal preview 产品化强化（`PTL-INT-internal-preview-productization-strengthening`）：已完成 scoped-execution 并提交 `f788a2b`；不再是 current active packet，也不再是 current_mainline_next_candidate，仅作为该方向的已闭合历史参照；不是 external release 或客户平台放行。
 - `PTL-S89-outreach-writeback-delivery-governance`：已完成 scoped-execution 并提交 `c36dd9d`；不再是 current_mainline_next_candidate，仅作为 Stage8-9 触达记录、回写、交付与治理反馈闭合的近端历史参照。
 - `PTL-S78-contact-candidate-compliance-preview`：已完成并提交；不再是 current_mainline_next_candidate，仅作为 Stage7-8 联系候选、合规判定与预览闭合的近端历史参照。

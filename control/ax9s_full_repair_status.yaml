@@ -10,7 +10,7 @@ next_batch_recommended: null
 current_execution_branch: main
 last_completed_subpacket: B10-S2-final-status-closeout
 next_subpacket_recommended: null
-current_task_yaml_semantics: "control/current_task.yaml remains the formal active task source; new windows must activate an executable scoped subpacket rather than a raw batch blueprint."
+current_task_yaml_semantics: "For historical full-repair windows, control/current_task.yaml remained the formal active task source and windows activated executable scoped subpackets rather than raw batch blueprints. Ordinary current development follows AGENTS DIRECT_DEV_DEFAULT."
 batch_order:
   - B0
   - B1
@@ -60,8 +60,8 @@ subpacket_states:
 next_window_start_files: []
 activation_requirements:
   - "Previous batch state must be DONE."
-  - "Selected batch blueprint must be converted into one executable scoped subpacket."
-  - "The executable scoped subpacket must be copied into control/current_task.yaml before code changes."
+  - "For historical full-repair windows only, selected batch blueprint must be converted into one executable scoped subpacket."
+  - "For historical full-repair windows only, the executable scoped subpacket must be copied into control/current_task.yaml before code changes."
   - "Batch branch/checkpoint must be declared."
   - "Required owner review roles must be present."
 batch_exit_requirements:
@@ -77,7 +77,7 @@ known_global_blockers:
 notes:
   - "This ledger is the machine-readable execution status for the full-repair sequence."
   - "B0 is treated as completed bootstrap preparation because the program control assets and templates have already been created in the repository."
-  - "Each new execution window must read this ledger before selecting a batch blueprint and deriving a scoped subpacket."
+  - "Each new historical full-repair execution window must read this ledger before selecting a batch blueprint and deriving a scoped subpacket; ordinary current development follows AGENTS DIRECT_DEV_DEFAULT."
   - "B2-S1-lineage-and-schema and B2-S2-stage3-runtime are complete; B2 is closed as DONE in this window."
   - "B3-S1-stage4-5-gate-and-evidence and B3-S2-stage6-review-report are both closed as DONE; B3 is fully closed in this window."
   - "B4-S1-value-buyer-fit is complete; B4 is closed as DONE in this window."

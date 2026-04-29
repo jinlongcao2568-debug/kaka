@@ -1,7 +1,7 @@
 version: 1
 plan_id: AX9S_FULL_REPAIR_EXECUTION_PLAN
 updated_at: "2026-04-17"
-status: READY_FOR_WINDOW_BOOTSTRAP
+status: HISTORICAL_FULL_REPAIR_COMPLETE_REFERENCE
 program_goal: "Execute the full high-priority AX9S repair program in a stable order without re-planning per window."
 program_scope: "Internal governed full-repair program for stage1-stage9 formal chain, capability opening strategy, and supporting control/runtime/test surfaces."
 not_status_source: true
@@ -25,14 +25,16 @@ required_read_order:
   - control/ax9s_review_escalation_matrix.yaml
   - control/task_packets
 execution_rules:
+  applies_to_historical_full_repair_windows_only: true
+  ordinary_current_dev_follows_AGENTS_DIRECT_DEV_DEFAULT: true
   one_window_one_batch: true
   one_primary_goal_per_window: true
   strict_order_enforced: true
   skip_batch_forbidden: true
   parallel_main_batches_forbidden: true
   next_batch_requires_previous_done: true
-  batch_blueprint_requires_scoped_subpacket: true
-  current_task_activation_required_before_code_change: true
+  batch_blueprint_requires_scoped_subpacket: HISTORICAL_FULL_REPAIR_WINDOWS_ONLY
+  current_task_activation_required_before_code_change: HISTORICAL_FULL_REPAIR_WINDOWS_ONLY
   current_task_must_point_to_active_batch: true
   current_task_yaml_is_not_auto_rewritten_by_plan: true
   stop_after_required_scripts: true
@@ -51,9 +53,9 @@ program_non_goals:
 activation_flow:
   - "Read ax9s_full_repair_status.yaml to find next batch."
   - "Read control/task_packets/<batch>.yaml as the program batch blueprint."
-  - "Derive one executable scoped subpacket from control/ax9s_scoped_task_packet_template.yaml within automation scope limits."
-  - "Copy the executable scoped subpacket into control/current_task.yaml#currentTask.task_packet only after confirming the previous batch is DONE."
-  - "Restrict edits to the packet allowed paths."
+  - "For historical full-repair windows only, derive one executable scoped subpacket from control/ax9s_scoped_task_packet_template.yaml within automation scope limits."
+  - "For historical full-repair windows only, copy the executable scoped subpacket into control/current_task.yaml#currentTask.task_packet after confirming the previous batch is DONE."
+  - "Restrict edits to the packet allowed paths only when an actual scoped subpacket window is active; ordinary current development follows AGENTS DIRECT_DEV_DEFAULT."
   - "Run the batch-specific required scripts."
   - "Stop and update closeout summary before any next-batch activation."
 automation_scope_constraints_ref: control/automation_task_packet_rules.yaml
@@ -101,5 +103,5 @@ global_required_scripts:
 notes:
   - "This plan is a control asset for stable execution ordering; it does not change current repo readiness by itself."
   - "B0-B10 under control/task_packets are batch blueprints, not direct current_task activation payloads."
-  - "New windows must read this plan together with the selected batch blueprint, the scoped subpacket template, and the status ledger."
+  - "New historical full-repair windows must read this plan together with the selected batch blueprint, the scoped subpacket template, and the status ledger; ordinary current development follows AGENTS DIRECT_DEV_DEFAULT."
 

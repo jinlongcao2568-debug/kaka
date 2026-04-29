@@ -491,7 +491,7 @@ AI / Codex 一律不得：
 
 ### [D1-R-044] 9.3 当前阶段禁止产物
 
-以下变更即使在 direct-dev 阶段也必须进入治理复核或 dedicated task packet：
+以下变更即使在 direct-dev 阶段也必须进入治理复核或 controlled-opening task packet：
 
 - 对外/live 的业务 API 实现；
 - 影响正式主链或跨阶段机器契约的 Worker / pipeline 实现；
@@ -860,7 +860,7 @@ AI / Codex 一律不得：
 | 条件开工 | `正式业务代码开发开工裁决页.md` 只负责 `READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT` 的 conditional-go |
 | 推进方式 | 普通开发按 `DIRECT_DEV_DEFAULT`；高风险/live/机器契约路线图片段必须先形成 `task packet`，再按 `change_class / review_gate / stop conditions` 执行 |
 | 高风险段 | 触及 shared runtime / governance / release / Stage 8-9 高风险执行 / automation control 的路线图片段，最低 `MANDATORY_HUMAN_REVIEW` |
-| 受控开放要求 | external release、Stage 8 real execution、Stage 9 real payment-delivery、高限制字段放行均可作为 dedicated task packet 下的受控开放能力推进；未满足 provider config、sandbox、approval、audit、operator action、field allowlist/masking、release checklist 和验收前不得 live |
+| 受控开放要求 | external release、Stage 8 real execution、Stage 9 real payment-delivery、高限制字段放行均可作为 controlled-opening task packet 下的受控开放能力推进；未满足 provider config、sandbox、approval、audit、operator action、field allowlist/masking、release checklist 和验收前不得 live |
 
 ## [D1-R-071] 附：PTL-I100-OPEN-CAPABILITY-BASELINE 能力开放基线补表
 
@@ -869,7 +869,7 @@ AI / Codex 一律不得：
 | 项 | D1 承接口径 |
 |---|---|
 | policy ref | `control/product_task_library.yaml#open_capability_policy` / `PTL-I100-OPEN-CAPABILITY-BASELINE` |
-| `controlled-opening-required` | 表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task 和验收未满足前不能 live，不表示永久不做。 |
+| `controlled-opening-required` | 表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、controlled-opening gate 和验收未满足前不能 live，不表示永久不做。 |
 | 三层验收 | 每个能力必须同时通过 engineering regression、capability state、product closure；最终闭环门为 `PTL-I100-118-full-product-operational-acceptance`。 |
 | 自动退款边界 | 自动退款执行 excluded；退款只保留 `manual exception` / 人工异常记录、manual approval/audit 和 governed review。 |
 
@@ -881,9 +881,9 @@ AI / Codex 一律不得：
 |---|---|
 | 验证码识别 / challenge 检测 | 可作为 Stage2/Operator 受控实现目标；遇到 challenge 时进入 suspend / resume / audit，并保留来源继续恢复路径。 |
 | OCR 识别 | 已属于 parser / attachment 目标能力；OCR 结果作为辅助证据，正式外发主证仍以原始可回链载体为准。 |
-| 滑块轨迹模拟 / 浏览器指纹伪装 / Cookie 复用 / 登录后页面抓取 | 可作为 dedicated task packet 下的受控采集能力设计与实现目标；必须保留 source policy、operator action、audit、session context 和停机条件。 |
+| 滑块轨迹模拟 / 浏览器指纹伪装 / Cookie 复用 / 登录后页面抓取 | 可作为自有/明确授权/sandbox 场景下的受控采集能力设计与实现目标；真实外部执行必须保留 source policy、operator action、audit、session context 和停机条件。 |
 | 代理池绕限流 / 隐藏接口调用 | 可作为受控能力目标进入设计、测试或实现包；统一通过 provider config、source policy、审批、审计、频控、回滚和 operator action 管理。 |
-| 验证码突破器 / 风控绕过器 | 旧硬阻断语义不能永久排除；任何真实使用必须先进入 dedicated task packet，并通过 current_task、release checklist、审批链、审计链和人工 operator action。 |
+| 验证码突破器 / 风控绕过器 | 旧硬阻断语义不能永久排除；任何真实外部使用必须先进入 controlled-opening gate，并通过适用 task packet、release checklist、审批链、审计链和人工 operator action。 |
 
 
 

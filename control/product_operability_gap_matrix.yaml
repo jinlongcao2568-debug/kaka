@@ -124,7 +124,7 @@ decision_summary:
     business capability needed to sell evidence packs and lead packs must be
     implemented through the task pool and moved stepwise through internal,
     sandbox, approval, live, and production readiness. Live execution remains
-    controlled opening required until the dedicated packet and acceptance gates pass.
+    controlled opening required until the controlled-opening gate and acceptance gates pass.
   implementation_progress_summary: >
     PTL-I100-112 through PTL-I100-121C are recorded as completed in
     control/current_task.yaml and control/repo_status.md. The current 118

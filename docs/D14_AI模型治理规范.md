@@ -669,7 +669,7 @@ AI / 模型治理一律不得：
 |---|---|
 | policy ref | `control/product_task_library.yaml#open_capability_policy` / `PTL-I100-OPEN-CAPABILITY-BASELINE` |
 | AI 作用边界 | AI 只能辅助解析、摘要、分类、draft、review assist 和运营提示；不得把模型判断直接变成客户结论、事实结论、触达结论或支付/交付结论。 |
-| `controlled-opening-required` | 模型/工具能力 controlled-opening-required 只表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task、模型评测和验收未满足前不能 live，不表示永久不做。 |
+| `controlled-opening-required` | 模型/工具能力 controlled-opening-required 只表示 provider config、sandbox、approval、audit、operator action、field allowlist/masking、controlled-opening gate、模型评测和验收未满足前不能 live，不表示永久不做。 |
 | 人工复核 | 涉及客户可见结论、外发、触达、支付、交付、高限制字段或法律动作建议时，模型输出必须经人工复核与审计链。 |
 | 自动退款边界 | 自动退款执行 excluded；模型不得触发退款，只能辅助 `manual exception` / 人工异常记录、manual approval/audit 和 governed review。 |
 

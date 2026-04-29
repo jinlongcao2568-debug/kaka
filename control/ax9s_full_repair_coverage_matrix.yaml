@@ -129,4 +129,4 @@ controlled_opening_requirement_coverage:
     coverage_status: COVERED_BY_GUARDRAIL_ONLY
 notes:
   - "This matrix proves planning coverage, not implementation completion."
-  - "Execution still requires one scoped subpacket per window."
+  - "Historical full-repair execution required one scoped subpacket per window; ordinary current development follows AGENTS DIRECT_DEV_DEFAULT."

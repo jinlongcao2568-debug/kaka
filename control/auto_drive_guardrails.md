@@ -28,7 +28,7 @@
    - If a required gate fails because it encodes old AGENTS-incompatible semantics, update the test or gate to the correct current口径 before re-running.
 
 7. Controlled/live transition:
-   - Use dedicated task packet / review gate.
+   - Use controlled-opening task packet / review gate.
    - Confirm release gates, exception policies, approval/audit chain, provider config, sandbox/live-pilot requirements, and operator action before any live external effect.
    - No D-tier leakage, no unresolved live/release blockers in control/repo_status.md.
 

@@ -11,6 +11,6 @@ escalation_path: []
 activation_condition: "release gate evaluation requested"
 blocking_reasons:
   - "leadpack external delivery requires approval + audit"
-  - "external software release requires dedicated task packet + release checklist + approval + audit + operator action before live"
+  - "external software release requires controlled-opening gate + release checklist + approval + audit + operator action before live"
 release_windows: []
 next_review_trigger: "after internal leadops development review"

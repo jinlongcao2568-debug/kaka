@@ -50,5 +50,5 @@ controlled_opening_requirements:
   external_release_enabled: false
 notes:
   - "This report records controlled manual public snapshots, not proof that every real-world website is capture-ready."
-  - "真实公开站点实战抓取仍需要 131 controlled real-world E2E pilot 或后续按站点开 dedicated packet。"
+  - "真实公开站点实战抓取可按来源族或站点批次 direct-dev 推进；只有触发 live/external 执行、source-policy 语义变更或跨阶段机器契约时才需要受控 task packet。"
   - "Weak/failing/suspended samples must stay review-only and fail closed; no broad fallback is allowed."

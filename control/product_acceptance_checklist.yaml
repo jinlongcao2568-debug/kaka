@@ -115,7 +115,7 @@ tasks:
     completion_must_prove:
       - "111B/111C/111D adapter paths share provider config/readiness and do not bypass it"
       - "sandbox/dry-run execution records are repository-backed and replayable"
-      - "live defaults remain blocked until dedicated live-pilot packets"
+      - "live defaults remain controlled-off until controlled-opening prerequisites and acceptance gates pass"
       - "automated refund program remains absent"
     targeted_test_expectations:
       - provider_adapter_config
@@ -199,7 +199,7 @@ tasks:
     completion_must_prove:
       - "Postgres/SQLAlchemy, migration path, queue/worker, object storage, Docker/Compose, health/readiness, audit persistence, backup, rollback, monitoring, and alerting are represented by executable or explicitly reserved seams"
       - "production backend misconfiguration fast-fails without silent fallback"
-      - "real provider/touch/payment/delivery/refund remains blocked until dedicated packets"
+      - "real provider/touch/payment/delivery/refund remains controlled-off until provider config, sandbox/live-pilot, approval, audit, operator action, and acceptance gates pass; automated refund remains excluded"
     targeted_test_expectations:
       - storage_concurrency
       - api_transport_bootstrap

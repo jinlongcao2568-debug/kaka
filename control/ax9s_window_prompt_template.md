@@ -2,6 +2,8 @@
 
 用法：新窗口只替换 `{{BATCH_ID}}`，其余文本保持不变。
 
+> 历史模板说明：本模板只用于 AX9S full-repair 历史/复开窗口。普通当前开发按仓库根 `AGENTS.md` 的 `DIRECT_DEV_DEFAULT` 执行，不因本模板强制小包。
+
 ---
 
 你现在执行 AX9S 全量修复批次：`{{BATCH_ID}}`。
@@ -29,7 +31,7 @@
 - 若 `control/ax9s_full_repair_status.yaml` 中 `next_batch_recommended` 不是 `{{BATCH_ID}}`，先停下汇报。
 - 先用 `control/ax9s_full_repair_coverage_matrix.yaml` 确认 `{{BATCH_ID}}` 覆盖的问题域，不得自行改批次目标。
 - `control/task_packets/{{BATCH_ID}}.yaml` 是 batch blueprint，不得直接复制进 `control/current_task.yaml`。
-- 在开始代码修改前，必须基于 `control/ax9s_scoped_task_packet_template.yaml` 从 `{{BATCH_ID}}` blueprint 派生一个 executable scoped subpacket。
+- 在开始 full-repair 窗口代码修改前，必须基于 `control/ax9s_scoped_task_packet_template.yaml` 从 `{{BATCH_ID}}` blueprint 派生一个 executable scoped subpacket。
 - 这个 scoped subpacket 必须满足 `control/automation_task_packet_rules.yaml` 的字段和 scope 限制。
 - 只有 executable scoped subpacket 才允许激活到 `control/current_task.yaml#currentTask.task_packet`。
 - 只允许修改 scoped subpacket 中的 `allowed_modification_paths`。
@@ -54,7 +56,7 @@
 
 说明：
 
-- `control/current_task.yaml` 是正式活动任务源。
+- `control/current_task.yaml` 是 full-repair/task packet 窗口的正式活动任务源；普通当前开发按 `AGENTS.md` direct-dev 默认执行。
 - `control/ax9s_full_repair_status.yaml` 是 full-repair 程序状态账本。
 - `control/task_packets/{{BATCH_ID}}.yaml` 是蓝图，不是直接执行包。
 - 不得用聊天总结代替状态账本、蓝图包或 scoped subpacket。

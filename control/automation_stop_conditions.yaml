@@ -65,6 +65,6 @@ consecutive_failure_rule:
   action: stop_and_handoff
 notes:
   - any P0 stop must transfer to human approval
-  - external release is controlled-opening and remains non-live until dedicated task packet, release checklist, approval, audit, operator action, rollback, and regression gates pass
+  - external release is controlled-opening and remains non-live until controlled-opening gate, release checklist, approval, audit, operator action, rollback, and regression gates pass
   - automated refund execution remains excluded
   - mandatory human review and stop/escalate classes must fail readiness/release checks when undeclared
