@@ -119,12 +119,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-  packet_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-  title: "Public web capture doc sync and order review"
+  task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+  packet_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+  title: "Market scan opportunity discovery engine"
   planning_state: ACTIVE
-  runtime_change_in_packet: OUT_OF_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143D completed locally through 440b49b, 143E through fd6531a, and 143F through 5f71320. 143G is active to synchronize public-web capture escalation, captcha resume, reuse-first implementation policy, and revised ordering into docs before implementing 144-151; no runtime behavior, provider execution, customer download, refund, automated refund, or public software release is opened."
+  runtime_change_in_packet: IN_SCOPE
+  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143D completed locally through 440b49b, 143E through fd6531a, 143F through 5f71320, and 143G through 64efed4. 144 is active to implement internal market scan opportunity discovery and readback before 145 capture plan orchestration; no real website fetch, arbitrary crawler, provider execution, customer download, refund, automated refund, or public software release is opened."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -3271,9 +3271,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, operator_frontend, product_acceptance]
     task_type: public_web_capture_doc_sync_and_order_review
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P49C
     existing_code_state: PUBLIC_WEB_CAPTURE_AND_CAPTCHA_TASK_POOL_SYNC_COMPLETED
     existing_runtime_state: DOCS_AND_ROUTE_ORDER_NOT_YET_SYNCED_FOR_150_151
@@ -3305,15 +3305,18 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143G-public-web-capture-doc-sync-and-order-review
     suggested_packet_refs: [PTL-I100-143G-public-web-capture-doc-sync-and-order-review]
     risk_level: HIGH
+    completed_commit: 64efed4
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_PUBLIC_WEB_CAPTURE_DOC_SYNC_AND_ORDER_REVIEW"
   - task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
     title: "I100-44 Market scan opportunity discovery engine"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage6_fact_review, product_acceptance]
     task_type: market_scan_opportunity_discovery_engine
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: false
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
     priority: P50
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:

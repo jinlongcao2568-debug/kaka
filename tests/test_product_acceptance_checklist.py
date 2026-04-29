@@ -188,16 +188,21 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
 
     def test_150_and_151_register_public_web_upgrade_and_captcha_resume(self) -> None:
         task_143g = self.tasks_by_id["PTL-I100-143G-public-web-capture-doc-sync-and-order-review"]
+        task_144 = self.tasks_by_id["PTL-I100-144-market-scan-opportunity-discovery-engine"]
         task_150 = self.tasks_by_id["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         task_151 = self.tasks_by_id["PTL-I100-151-public-web-captcha-suspend-and-operator-resume"]
         checklist_143g = self.checklist["tasks"]["PTL-I100-143G-public-web-capture-doc-sync-and-order-review"]
         checklist_150 = self.checklist["tasks"]["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         checklist_151 = self.checklist["tasks"]["PTL-I100-151-public-web-captcha-suspend-and-operator-resume"]
 
-        self.assertEqual(task_143g["status"], "ACTIVE")
+        self.assertEqual(task_143g["status"], "COMPLETED")
+        self.assertEqual(task_143g["completed_commit"], "64efed4")
+        self.assertEqual(task_144["status"], "ACTIVE")
+        self.assertTrue(task_144["is_current_mainline_next_candidate"])
         self.assertEqual(task_150["status"], "PLANNED")
         self.assertEqual(task_151["status"], "PLANNED")
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", task_143g["acceptance_checks"])
+        self.assertIn("autonomous_run_controller_and_stage_state_machine_visible", task_144["acceptance_checks"])
         self.assertIn(
             "PTL-I100-151-public-web-captcha-suspend-and-operator-resume",
             self.tasks_by_id["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]["hard_depends_on"],

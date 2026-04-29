@@ -109,10 +109,13 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     stage7 = modules["STAGE7-SALES-DERIVATION"]
     assert stage7["deferred_module_split"] is False
     assert "src/stage1_tasking/contract_runtime.py" in stage1["current_files"]
+    assert "src/stage1_tasking/market_scan.py" in stage1["current_files"]
+    assert "src/storage/repositories/stage1_market_scan_repo.py" in stage1["current_files"]
     assert "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion" in stage1["completed_packets"]
     assert stage1["pending_packets"] == []
     assert stage1["current_runtime_state"] == "PARTIAL_RUNTIME"
     assert "contract-runtime first cut completed in local commit 2dbfb12" in " ".join(stage1["notes"])
+    assert "tests/test_stage1_market_scan.py" in registry_text
     assert "src/stage2_ingestion/contract_runtime.py" in stage2["current_files"]
     assert "src/stage2_ingestion/public_source_adapters.py" in stage2["current_files"]
     assert "src/stage2_ingestion/source_validation.py" in stage2["current_files"]

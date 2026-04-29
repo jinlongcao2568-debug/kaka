@@ -553,7 +553,7 @@ public_web_capture_and_captcha_task_pool_sync_after_143E:
     - PTL-I100-143G-public-web-capture-doc-sync-and-order-review
 public_web_capture_doc_sync_and_order_review_after_143F:
   packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "143F registered the tasks, but owner required all docs and the implementation ordering to be synchronized before runtime packets continue."
   target_capability_state: INTERNAL_READY
   current_gap: "Route map, scheme doc, and D1-D14 still contain the 143E-era active packet and do not yet state the 150/151 public-web capture and captcha-resume ordering."
@@ -924,7 +924,7 @@ production_gap_task_map:
       - reuse_existing_runtime_surfaces_first_policy
   - gap_group: public_web_capture_doc_sync_and_order_review
     packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - d_doc_sync_for_public_web_capture_hardening
@@ -933,7 +933,7 @@ production_gap_task_map:
       - reuse_existing_runtime_surfaces_doc_policy
   - gap_group: market_scan_opportunity_discovery_engine
     packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
-    status: PLANNED
+    status: ACTIVE
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - autonomous_market_segment_selection

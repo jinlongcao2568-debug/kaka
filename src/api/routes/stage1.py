@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.scheduler import Stage1Scheduler
 from api.deps import build_transport_unavailable
 
@@ -45,9 +46,22 @@ def read_stage1_scheduler_task(payload: dict[str, Any]) -> dict[str, Any]:
     return Stage1Scheduler().readback(str(queue_item_id))
 
 
+def create_stage1_market_scan(payload: dict[str, Any]) -> dict[str, Any]:
+    return Stage1MarketScanEngine().run(payload)
+
+
+def read_stage1_market_scan(payload: dict[str, Any]) -> dict[str, Any]:
+    scan_run_id = payload.get("scan_run_id") or payload.get("market_scan_run_id")
+    if not scan_run_id:
+        raise ValueError("scan_run_id is required for stage1 market scan readback")
+    return Stage1MarketScanEngine().readback(str(scan_run_id))
+
+
 __all__ = [
     "STAGE1_TRANSPORT_UNAVAILABLE",
+    "create_stage1_market_scan",
     "create_stage1_scheduler_task",
+    "read_stage1_market_scan",
     "read_stage1_scheduler_task",
     "register_stage1_routes",
 ]

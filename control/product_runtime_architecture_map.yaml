@@ -782,10 +782,10 @@ implementation_sequence:
     status: COMPLETED
     purpose: register_public_web_capture_escalation_and_captcha_resume_tasks_without_runtime_change
   - packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-    status: ACTIVE
+    status: COMPLETED
     purpose: synchronize_public_web_capture_captcha_resume_docs_and_reassess_implementation_order
   - packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
-    status: PLANNED
+    status: ACTIVE
     purpose: choose_which_projects_are_worth_analysis
   - packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     status: PLANNED

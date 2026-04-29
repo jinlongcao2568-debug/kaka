@@ -262,6 +262,30 @@ stage_module_inventory:
         exit_criteria:
           - "source / route / clock 字段能够进入 Stage2，不由 Stage2 临时补造。"
         deferred_gaps: []
+      - slice_id: stage1.market_scan_opportunity_discovery
+        business_summary: "根据地区、工程类型、金额区间、公告阶段、异议窗口、竞争者信号和关键字段自动挑选值得分析的机会候选。"
+        implementation_state: INTERNAL_READY
+        current_files:
+          - src/stage1_tasking/market_scan.py
+        handoff_files:
+          - handoff/stage1_to_stage2/contract.json
+        api_surface_files:
+          - src/api/routes/stage1.py
+          - src/api/schemas/stage1.py
+        repository_files:
+          - src/storage/repositories/stage1_market_scan_repo.py
+        test_files:
+          - tests/test_stage1_market_scan.py
+        depends_on_slices:
+          - stage1.execution_context
+          - stage1.source_route_clock
+        target_packet_candidates:
+          - PTL-I100-144-market-scan-opportunity-discovery-engine
+        exit_criteria:
+          - "opportunity candidate、analysis priority、why_analyze / why_skip、run controller 和 state machine 可读回。"
+          - "手工 URL 选择不得成为主流程；本 slice 不执行 Stage2 fetch 或 crawler。"
+        deferred_gaps:
+          - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
   - stage_id: stage2_ingestion
     stage_name: "Stage2 公开链抓取与固定化"
     business_summary: "把公开来源、版本链、时钟链和固定化输入转成 Stage3 可解析的正式公开链。"
@@ -1012,8 +1036,10 @@ modules:
       - src/stage1_tasking/service.py
       - src/stage1_tasking/contract_runtime.py
       - src/stage1_tasking/extractors.py
+      - src/stage1_tasking/market_scan.py
       - src/stage1_tasking/models.py
       - src/stage1_tasking/scheduler.py
+      - src/storage/repositories/stage1_market_scan_repo.py
       - src/storage/repositories/stage1_scheduler_repo.py
       - src/storage/repositories/worker_queue_repo.py
       - handoff/stage1_to_stage2/contract.json
@@ -1029,6 +1055,7 @@ modules:
     notes:
       - "P7 Stage1 contract-runtime first cut completed in local commit 2dbfb12 and src/stage1_tasking/contract_runtime.py is now part of the formal current-files ledger."
       - "This ledger update closes the Stage1 contract-runtime first cut only; it must not be read as 'Stage1-5 no longer need any future follow-up work'."
+      - "PTL-I100-144 registers src/stage1_tasking/market_scan.py and src/storage/repositories/stage1_market_scan_repo.py as the internal market scan opportunity discovery/readback seam; it does not execute Stage2 fetch or crawler behavior."
   - module_id: STAGE2-PUBLIC-CHAIN-INGESTION
     stage_scope:
       - stage2_ingestion

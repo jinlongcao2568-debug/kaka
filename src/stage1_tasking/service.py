@@ -140,3 +140,13 @@ class Stage1Service:
 
         self.validate_input(payload)
         return Stage1Scheduler(settings=self.settings, store=self.store).create_task(payload)
+
+    def scan_market(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        from stage1_tasking.market_scan import Stage1MarketScanEngine
+
+        return Stage1MarketScanEngine().run(payload)
+
+    def read_market_scan(self, scan_run_id: str) -> Mapping[str, Any]:
+        from stage1_tasking.market_scan import Stage1MarketScanEngine
+
+        return Stage1MarketScanEngine().readback(scan_run_id)

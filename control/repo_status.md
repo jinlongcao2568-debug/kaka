@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-132-owner-operator-frontend-productization-workbench (ACTIVE; upgrades the owner/customer frontend from basic entry pages to a productized owner workbench aligned with the completed backend product loop. This does not enable public software release, unapproved live provider calls, uncontrolled crawling, real payment/delivery/download/refund, or automated refund execution.)
+Current Workstream: PTL-I100-144-market-scan-opportunity-discovery-engine (ACTIVE; implements the internal Stage1 market scan opportunity discovery engine and readback before Stage2 capture plan orchestration. This does not enable real website fetch, arbitrary crawler, provider execution, customer download, refund, automated refund, or public software release.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -18,56 +18,38 @@ Current Blockers:
 - Stage 8 real execution remains governed / approval-gated / blocked by default; PTL-I100-122 only proves approved controlled-provider readback and keeps real provider execution gated.
 - Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default; PTL-I100-123 only proves approved controlled-provider readback and keeps automated refund excluded.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
-- PTL-I100-118R is completed and registered the remaining real-world product gaps as PTL-I100-127 through PTL-I100-131.
-- PTL-I100-127 has added owner/customer frontend surfaces.
-- PTL-I100-128 validates controlled manual public snapshots and must not weaken public-source boundary redlines.
-- PTL-I100-129 completed locally as 5ddd321 and binds real provider targets while keeping default real external provider calls gated.
-- PTL-I100-130 model assist completed locally as 5c52cd0 and must stay readback-only, deterministic in default tests, human-review-required, and unable to write formal fact/customer conclusions.
-- PTL-I100-131 completed locally as 106c4a1 and closed the controlled real-world e2e pilot.
-- PTL-I100-132 may only productize the existing owner/customer frontend and related control/test surfaces; it must not modify Stage1-9 runtime, storage runtime, shared runtime, or execute live external actions.
-- No private/gray source, login bypass, captcha bypass, anti-bot bypass, uncontrolled live crawler, unapproved real provider call, unapproved real outreach, unapproved real CRM sync, unapproved real quote send, unapproved real payment capture/charge, unapproved real delivery fulfillment, unapproved real customer download, real refund, automated refund, or real external model provider call may run during 132.
+- PTL-I100-143G is completed and registered the public-web capture escalation, captcha suspend/resume, and implementation order before runtime packets continue.
+- PTL-I100-144 may only implement internal market scan opportunity discovery/readback; Stage2 fetch, crawler execution, captcha bypass, customer-visible claims, provider calls, payment/delivery/refund, and public release remain blocked.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
 - Except automated refund execution and prohibited non-public/gray capabilities, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
-- PTL-I100-118R is the completed post-122/126 reacceptance packet; PTL-I100-132 is the active frontend productization packet after 127/128/129/130/131 completed.
 
-Current 132 Scope:
-- Productize the existing FastAPI owner/customer frontend into a practical workbench over completed backend surfaces.
-- Show Stage1-9 operations, evidence/sales/customer-delivery/payment-delivery/audit loop, provider status, scheduler status, approval/audit, and redlines without requiring raw API calls.
-- Ensure the customer artifact portal has a controlled empty state when artifact readback is missing.
-- Keep public software release, uncontrolled crawling, unapproved live provider execution, real refund, and automated refund excluded/blocked.
-- Do not modify Stage runtime, storage runtime, shared runtime, contracts, handoff, scripts, fixtures, D-doc正文, Docker/compose, or migrations.
+Current 144 Scope:
+- Score and classify public notice candidates by region, project type, amount band, notice stage, objection window, competitor signal, and critical field completeness.
+- Emit opportunity candidates, analysis priority, why_analyze, why_skip, review reasons, run controller, stage state machine, and next action readback.
+- Persist and replay the market scan carrier through repository-backed readback.
+- Keep manual URL picking out of the primary flow.
+- Keep real public fetch, uncontrolled crawler, login/captcha/anti-bot bypass, customer-visible claims, and live external execution disabled.
 
 Recently Closed:
-- PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout completed and committed locally: 106c4a1.
-- PTL-I100-130-llm-assisted-parsing-review-and-sales-governance completed and committed locally: 5c52cd0.
-- PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund completed and committed locally: 5ddd321.
-- PTL-I100-128-real-public-source-field-validation-and-coverage completed and committed locally: 595cd1d.
-- PTL-I100-127-owner-operator-frontend-and-customer-portal completed and committed locally: ab1fd01.
-- PTL-I100-118S-route-map-post-118r-sync completed and committed locally: 87df294.
-- PTL-I100-118R-final-product-operational-reacceptance completed and committed locally: f977b5b; product closeout remains DO_NOT_PRODUCTION_CLOSEOUT and follow-up tasks PTL-I100-127 through PTL-I100-131 are registered.
-- PTL-I100-126-production-live-dependency-and-drill-approval completed and committed locally: fc52e19; closeout committed locally: d8608ef.
-- PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund completed and committed locally: 7fb9e13.
-- PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock completed and committed locally: f8c1182.
-- PTL-I100-125-approved-crm-quote-provider-execution completed and committed locally: 0809322.
-- PTL-I100-122-approved-sales-outreach-provider-execution completed and committed locally: f3cf7e5.
-- PTL-I100-118-full-product-operational-acceptance completed product operational acceptance and recorded DO_NOT_CLOSEOUT / BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS via 866f9bf; follow-up tasks 122-126 were registered and later completed.
-- PTL-I100-112 through PTL-I100-121C and PTL-I100-111A/B/C/D/E, 113-117, 119/119A are completed as recorded in control/product_task_library.yaml.
+- PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed and committed locally: 64efed4.
+- PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync completed and committed locally: 5f71320.
+- PTL-I100-132-owner-operator-frontend-productization-workbench completed and committed locally before the 143 series.
 
 Allowed Actions (current):
-- Update only 132 frontend/control/route-map/test paths declared in control/current_task.yaml.
-- Productize src/api/routes/operator_frontend.py and related tests/control assets.
+- Update only paths declared in control/current_task.yaml for PTL-I100-144.
+- Implement Stage1 market scan/readback and associated repository/API helper/test surfaces.
 - Run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet.
 
 Forbidden Actions (current):
-- Any docs/** change outside docs/AX9S_开发执行路由图.md.
+- Any docs/** change.
 - Any contracts/** change.
 - Any handoff/** change.
 - Any scripts/** change.
-- Any Stage1-9 runtime, storage runtime, or shared runtime change during 132.
+- Any Stage2-9 runtime, shared runtime, storage db schema, migrations, Docker/compose, or fixture change during 144.
 - Any private/gray source access, login bypass, captcha bypass, anti-bot bypass, or uncontrolled live crawler.
 - Any schema/enum/gate/exception semantic addition.
 - Any external software release.
@@ -85,13 +67,16 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_operator_frontend_portal -v
-- python -m unittest tests.test_product_acceptance_checklist -v
-- python -m unittest tests.test_product_operability_gap_matrix -v
-- python -m unittest tests.test_controlled_real_world_e2e_closeout -v
-- python -m unittest tests.test_stage12_extractors -v
+- python -m unittest tests.test_stage1_market_scan -v
+- python -m unittest tests.test_stage1_scheduler -v
 - python -m unittest tests.test_api_transport_bootstrap -v
+- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+- python -m unittest tests.test_product_module_registry -v
+- python -m unittest tests.test_product_runtime_architecture_map -v
+- python -m unittest tests.test_product_operability_gap_matrix -v
+- python -m unittest tests.test_product_acceptance_checklist -v
+- python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v
 - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
 - python tests/run_tests.py

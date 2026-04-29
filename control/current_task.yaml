@@ -1,15 +1,15 @@
 version: 1
 templateState: NAMED_ASSIGNED
 single_operator_mode: true
-updated_at: '2026-04-28'
+updated_at: '2026-04-29'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL_I100_143G_PUBLIC_WEB_CAPTURE_DOC_SYNC_AND_ORDER_REVIEW
+navigation_state: PTL_I100_144_MARKET_SCAN_OPPORTUNITY_DISCOVERY_ENGINE
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-143F completed locally through 5f71320; owner asked to synchronize the new public-web capture and captcha-resume requirements into docs and re-evaluate implementation ordering before runtime implementation resumes.
+activation_condition: PTL-I100-143G completed locally through 64efed4; owner asked to continue into the autonomous opportunity operationalization sequence, starting with market scan and opportunity discovery.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-  title: I100-43G Public web capture doc sync and order review
+  task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+  title: I100-44 Market scan opportunity discovery engine
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -31,27 +31,18 @@ currentTask:
     - docs/AX9S_自动运营决策架构与商业钩子方案.md
     - docs/D1_研发_Codex执行手册.md
     - docs/D2_正式对象契约与字段字典.md
-    - docs/D3_正式规则码总表与判定说明书.md
-    - docs/D4_OpenAPI接口契约.md
-    - docs/D5_页面导出与人工复核规范.md
-    - docs/D6_字段策略字典与客户交付字段规范.md
-    - docs/D7_对象级交付矩阵与外发治理规范.md
-    - docs/D8_真实竞争者识别可售对象与销售推进规范.md
-    - docs/D9_联系对象与销售触达规范.md
-    - docs/D10_订单支付交付与治理反馈规范.md
     - docs/D11_测试验收与金标回归清单.md
-    - docs/D12_部署发布与运行治理规范.md
     - docs/D13_公开可查边界能力清单.md
-    - docs/D14_AI模型治理规范.md
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/product_acceptance_checklist.yaml
     - control/product_operability_gap_matrix.yaml
     - control/product_runtime_architecture_map.yaml
+    - control/product_module_registry.yaml
     - control/repo_status.md
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-  objective: 把 143F 登记的公开网抓取升级、验证码挂起续跑、复用现有代码优先和 144/145/150/151 排序评估同步到路线图、方案文档和 D1-D14 补表；不改 runtime，不新增正式对象/枚举/gate/exception 语义。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-144-market-scan-opportunity-discovery-engine
+  objective: 实现 Stage1 市场扫描与机会发现第一刀：根据地区、工程类型、金额区间、公告阶段、异议窗口、竞争者信号和关键字段自动判断哪些公告值得进入分析，并输出 autonomous run controller、stage state machine、opportunity candidate、analysis priority、why_analyze/why_skip/readback；不把手工 URL 选择作为主流程。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -71,38 +62,38 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-    subpacket_id: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-    backlog_packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+    packet_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+    subpacket_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+    backlog_packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
-    runtime_change_in_packet: OUT_OF_SCOPE
-    existing_code_state: REAL_PUBLIC_STAGE7_TO_STAGE9_READBACK_AND_143D_CONTROL_SYNC_COMPLETED
-    existing_runtime_state: DOCS_NOT_YET_SYNCED_FOR_PUBLIC_WEB_CAPTURE_AND_CAPTCHA_RESUME_ORDER
-    title: I100-43G Public web capture doc sync and order review
+    runtime_change_in_packet: IN_SCOPE
+    existing_code_state: PTL-I100-143G_DOC_SYNC_COMPLETED
+    existing_runtime_state: STAGE1_SCHEDULER_EXISTS_MARKET_SCAN_DECISION_ENGINE_MISSING
+    title: I100-44 Market scan opportunity discovery engine
     status: ACTIVE
-    objective: 同步 docs/control/tests：把公开网抓取失败优先自动升级、验证码检测挂起与操作台输入续跑、实现必须复用现有 Stage2/Stage3/operator surfaces、以及推荐顺序 144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149 写进路线图和 D 文档补表。
+    objective: 实现内部 autonomous market scan / opportunity discovery readback，使系统能按市场段、金额、公告阶段、异议窗口、竞争者和关键字段自动挑选值得进入 145 capture plan 的候选项目。
     depends_on:
-      - PTL-I100-143F completed locally through 5f71320.
+      - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed locally through 64efed4.
       - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-      target_active_packet: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-      parent_packet: PTL-I100-real-public-source-operationalization
+      previous_active_packet: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
+      target_active_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
+      parent_packet: PTL-I100-autonomous-opportunity-operationalization
       product_task_library_change: true
-      product_module_registry_change: false
+      product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: public_web_capture_doc_sync_and_order_review
+      active_packet_kind: market_scan_opportunity_discovery_engine
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
-      runtime_change: false
-      runtime_change_in_packet: OUT_OF_SCOPE
-      docs_change: true
+      runtime_change: true
+      runtime_change_in_packet: IN_SCOPE
+      docs_change: false
       contracts_change: false
       handoff_change: false
       scripts_change: false
@@ -114,7 +105,7 @@ currentTask:
       automated_refund_program_change: false
       new_business_object_enum_gate_exception_semantics: false
       new_formal_object_enum_gate_exception_semantics: false
-      auto_next_candidate_selection: false
+      auto_next_candidate_selection: true
       current_mainline_next_candidate_change: true
       push_allowed: false
     non_goals:
@@ -124,20 +115,16 @@ currentTask:
       - 不无审批/无审计发送
       - 不绕过 provider config / sandbox / approval / audit / operator action
       - 不新增业务对象、枚举、gate、exception 语义
-      - 不改 Stage1-9 runtime
+      - 不执行真实网站抓取、真实 provider、触达、支付、交付、客户下载、退款或自动退款
       - 不新增任意 crawler、自动翻页深爬、登录/验证码/反爬绕过
       - 不把验证码自动求解、自动识别并自动提交作为产品目标能力
       - 不新增正式对象、枚举、gate 或 exception 语义
-      - 不执行真实 CRM/quote provider、Stage8 触达、Stage9 支付/交付、客户下载、退款或自动退款
-      - 不修改 L0、裁决总表、contracts、handoff、scripts、fixtures、Docker、migration
+      - 不改 contracts、handoff、scripts、fixtures、Docker、migration
       - 不把 LLM 输出当事实、法律结论或客户可见确定结论
-      - 不把商业钩子线索泄露为可复现完整证据链
       - 不 push
     affected_stages:
       - stage1_tasking
-      - stage2_ingestion
-      - stage3_parsing
-      - operator_frontend
+      - stage6_fact_review
       - product_acceptance
     risk_level: HIGH
     change_class: MANDATORY_HUMAN_REVIEW
@@ -150,8 +137,8 @@ currentTask:
       - testing_owner
     change_domains:
       - automation_control_core
+      - stage1_tasking_runtime
       - product_acceptance_core
-      - product_navigation_sync
       - source_public_boundary_core
       - scripts_and_tests_general
       - machine_assets_general
@@ -168,55 +155,42 @@ currentTask:
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
       - control/product_runtime_architecture_map.yaml
-      - docs/AX9S_开发执行路由图.md
-      - docs/AX9S_自动运营决策架构与商业钩子方案.md
-      - docs/D1_研发_Codex执行手册.md
-      - docs/D2_正式对象契约与字段字典.md
-      - docs/D3_正式规则码总表与判定说明书.md
-      - docs/D4_OpenAPI接口契约.md
-      - docs/D5_页面导出与人工复核规范.md
-      - docs/D6_字段策略字典与客户交付字段规范.md
-      - docs/D7_对象级交付矩阵与外发治理规范.md
-      - docs/D8_真实竞争者识别可售对象与销售推进规范.md
-      - docs/D9_联系对象与销售触达规范.md
-      - docs/D10_订单支付交付与治理反馈规范.md
-      - docs/D11_测试验收与金标回归清单.md
-      - docs/D12_部署发布与运行治理规范.md
-      - docs/D13_公开可查边界能力清单.md
-      - docs/D14_AI模型治理规范.md
+      - control/product_module_registry.yaml
+      - control/repo_status.md
+      - src/stage1_tasking/market_scan.py
+      - src/stage1_tasking/service.py
+      - src/api/routes/stage1.py
+      - src/api/schemas/stage1.py
+      - src/storage/repositories/stage1_market_scan_repo.py
+      - src/storage/repositories/__init__.py
+      - tests/test_stage1_market_scan.py
+      - tests/test_product_module_registry.py
       - tests/test_product_runtime_architecture_map.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_product_acceptance_checklist.py
-      - tests/test_open_capability_doc_sync.py
     allowed_modification_paths:
       - control/current_task.yaml
       - control/product_task_library.yaml
       - control/product_acceptance_checklist.yaml
       - control/product_operability_gap_matrix.yaml
       - control/product_runtime_architecture_map.yaml
-      - docs/AX9S_开发执行路由图.md
-      - docs/AX9S_自动运营决策架构与商业钩子方案.md
-      - docs/D1_研发_Codex执行手册.md
-      - docs/D2_正式对象契约与字段字典.md
-      - docs/D3_正式规则码总表与判定说明书.md
-      - docs/D4_OpenAPI接口契约.md
-      - docs/D5_页面导出与人工复核规范.md
-      - docs/D6_字段策略字典与客户交付字段规范.md
-      - docs/D7_对象级交付矩阵与外发治理规范.md
-      - docs/D8_真实竞争者识别可售对象与销售推进规范.md
-      - docs/D9_联系对象与销售触达规范.md
-      - docs/D10_订单支付交付与治理反馈规范.md
-      - docs/D11_测试验收与金标回归清单.md
-      - docs/D12_部署发布与运行治理规范.md
-      - docs/D13_公开可查边界能力清单.md
-      - docs/D14_AI模型治理规范.md
+      - control/product_module_registry.yaml
+      - control/repo_status.md
+      - src/stage1_tasking/market_scan.py
+      - src/stage1_tasking/service.py
+      - src/api/routes/stage1.py
+      - src/api/schemas/stage1.py
+      - src/storage/repositories/stage1_market_scan_repo.py
+      - src/storage/repositories/__init__.py
+      - tests/test_stage1_market_scan.py
+      - tests/test_product_module_registry.py
       - tests/test_product_runtime_architecture_map.py
       - tests/test_product_operability_gap_matrix.py
       - tests/test_product_acceptance_checklist.py
-      - tests/test_open_capability_doc_sync.py
     forbidden_modification_paths:
       - docs/L0.md
       - docs/裁决总表.md
+      - docs/**
       - contracts/**
       - handoff/**
       - scripts/**
@@ -226,46 +200,53 @@ currentTask:
       - .dockerignore
       - Dockerfile
       - docker-compose.yml
-      - src/**
+      - src/stage2_ingestion/**
+      - src/stage3_parsing/**
+      - src/stage4_verification/**
+      - src/stage5_rules_evidence/**
+      - src/stage6_fact_review/**
+      - src/stage7_sales/**
+      - src/stage8_outreach/**
+      - src/stage9_delivery/**
+      - src/storage/db.py
+      - src/shared/**
     impacted_assets:
-      docs:
-        - docs/AX9S_开发执行路由图.md
-        - docs/AX9S_自动运营决策架构与商业钩子方案.md
-        - docs/D1_研发_Codex执行手册.md
-        - docs/D2_正式对象契约与字段字典.md
-        - docs/D3_正式规则码总表与判定说明书.md
-        - docs/D4_OpenAPI接口契约.md
-        - docs/D5_页面导出与人工复核规范.md
-        - docs/D6_字段策略字典与客户交付字段规范.md
-        - docs/D7_对象级交付矩阵与外发治理规范.md
-        - docs/D8_真实竞争者识别可售对象与销售推进规范.md
-        - docs/D9_联系对象与销售触达规范.md
-        - docs/D10_订单支付交付与治理反馈规范.md
-        - docs/D11_测试验收与金标回归清单.md
-        - docs/D12_部署发布与运行治理规范.md
-        - docs/D13_公开可查边界能力清单.md
-        - docs/D14_AI模型治理规范.md
+      docs: []
       control:
         - control/current_task.yaml
         - control/product_task_library.yaml
         - control/product_acceptance_checklist.yaml
         - control/product_operability_gap_matrix.yaml
         - control/product_runtime_architecture_map.yaml
+        - control/product_module_registry.yaml
+        - control/repo_status.md
       contracts: []
       handoff: []
       scripts: []
-      runtime: []
+      runtime:
+        - src/stage1_tasking/market_scan.py
+        - src/stage1_tasking/service.py
+        - src/api/routes/stage1.py
+        - src/api/schemas/stage1.py
+        - src/storage/repositories/stage1_market_scan_repo.py
+        - src/storage/repositories/__init__.py
       tests:
+        - tests/test_stage1_market_scan.py
+        - tests/test_product_module_registry.py
         - tests/test_product_runtime_architecture_map.py
         - tests/test_product_operability_gap_matrix.py
         - tests/test_product_acceptance_checklist.py
-        - tests/test_open_capability_doc_sync.py
     required_scripts:
       - git status --short --untracked-files=all
+      - python -m unittest tests.test_stage1_market_scan -v
+      - python -m unittest tests.test_stage1_scheduler -v
+      - python -m unittest tests.test_api_transport_bootstrap -v
+      - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
+      - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+      - python -m unittest tests.test_product_module_registry -v
       - python -m unittest tests.test_product_runtime_architecture_map -v
       - python -m unittest tests.test_product_operability_gap_matrix -v
       - python -m unittest tests.test_product_acceptance_checklist -v
-      - python -m unittest tests.test_open_capability_doc_sync -v
       - python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v
       - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
@@ -275,10 +256,15 @@ currentTask:
       - git status --short --untracked-files=all
     script_timeouts:
       git status --short --untracked-files=all: 120000
+      python -m unittest tests.test_stage1_market_scan -v: 300000
+      python -m unittest tests.test_stage1_scheduler -v: 300000
+      python -m unittest tests.test_api_transport_bootstrap -v: 300000
+      python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v: 300000
+      python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
+      python -m unittest tests.test_product_module_registry -v: 300000
       python -m unittest tests.test_product_runtime_architecture_map -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
       python -m unittest tests.test_product_acceptance_checklist -v: 300000
-      python -m unittest tests.test_open_capability_doc_sync -v: 300000
       python -m unittest tests.test_stage12_extractors.TestStage12Extractors.test_planning_surfaces_keep_transition_safe_active_source_relationship -v: 300000
       ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       : 300000
@@ -287,16 +273,15 @@ currentTask:
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
       git diff --check: 300000
     stop_conditions:
-      - Any need to modify runtime or forbidden paths.
-      - Any need to implement runtime behavior in this doc-sync packet.
+      - Any need to implement Stage2 real fetch/crawl/captcha/anti-bot behavior.
       - Any need to add formal object/enum/gate/exception semantics.
       - Any need to call real provider, crawl arbitrary sites, bypass login/captcha/anti-bot, auto-solve captcha, expose customer-visible evidence, execute payment/delivery/refund, or implement automated refund.
       - Any targeted or formal check failure that cannot be fixed inside allowed paths.
     acceptance:
-      - docs_reference_143g_public_web_capture_and_captcha_resume_policy
-      - implementation_order_records_144_145_150_151_before_146
-      - current_mainline_pointer_switched_to_143g
-      - targeted_and_formal_checks_pass
+      - autonomous_run_controller_and_stage_state_machine_visible
+      - autonomous_market_segment_selection
+      - opportunity_candidate_priority_and_skip_reason
+      - no_manual_url_picker_as_primary_flow
 notes:
   - current_task -> product_task_library -> repo_status remains the active-source priority.
-  - This packet records documentation and ordering sync only; it does not implement runtime behavior.
+  - This packet implements internal Stage1 market scan decision/readback only; it does not fetch real websites, choose a source blueprint, or execute downstream Stage2-9 actions.

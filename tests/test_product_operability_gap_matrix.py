@@ -330,12 +330,13 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         for packet_ref in section["next_packets_if_143D_passes"]:
             expected_status = (
                 "ACTIVE"
-                if packet_ref == "PTL-I100-143G-public-web-capture-doc-sync-and-order-review"
+                if packet_ref == "PTL-I100-144-market-scan-opportunity-discovery-engine"
                 else "COMPLETED"
                 if packet_ref
                 in {
                     "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
                     "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
+                    "PTL-I100-143G-public-web-capture-doc-sync-and-order-review",
                 }
                 else "PLANNED"
             )
@@ -386,7 +387,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             section["packet_ref"],
             "PTL-I100-143G-public-web-capture-doc-sync-and-order-review",
         )
-        self.assertEqual(section["status"], "ACTIVE")
+        self.assertEqual(section["status"], "COMPLETED")
         self.assertEqual(section["target_capability_state"], "INTERNAL_READY")
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", section["must_prove"])
         self.assertIn("route_map_and_scheme_doc_reorder_144_145_150_151_146_147_148_149", section["must_prove"])
@@ -403,6 +404,13 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
                 "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
             ],
         )
+
+        active_gap = next(
+            item
+            for item in self.matrix["production_gap_task_map"]
+            if item["packet_ref"] == "PTL-I100-144-market-scan-opportunity-discovery-engine"
+        )
+        self.assertEqual(active_gap["status"], "ACTIVE")
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:
         section = self.matrix["national_verification_source_operationalization_after_133A"]
