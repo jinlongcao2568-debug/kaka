@@ -3077,7 +3077,7 @@ def build_go_live_readiness_surface(
         ],
         "approved_production_live_dependency_drill": approved_production_live_dependency_drill,
         "audit_readback": _audit_readback_summary(audit_entries),
-        "redlines": {
+        "controlled_opening_boundaries": {
             "external_software_release_enabled": False,
             "customer_visible_publication_enabled": False,
             "provider_live_execution_enabled": False,

@@ -282,7 +282,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       word-break: break-word;
     }}
     .wide {{ grid-column: 1 / -1; }}
-    .redline {{
+    .controlled_opening_boundary {{
       border-left: 4px solid var(--danger);
       background: #fff7f6;
       color: #5c1f1a;
@@ -408,8 +408,8 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         <div id="auditStatus"></div>
         <button id="refreshAudit">刷新审计读回</button>
       </section>
-      <section class="redline">
-        <h3>红线</h3>
+      <section class="controlled_opening_boundary">
+        <h3>受控开放边界</h3>
         <p>本页面不执行对外软件发布、真实触达、真实支付、真实交付、真实退款或自动退款。</p>
         <span class="pill danger">对外发布已阻断</span>
         <span class="pill danger">自动退款已排除</span>
@@ -606,8 +606,8 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
         <h3>下载审计</h3>
         <div id="auditState"></div>
       </section>
-      <section class="redline wide">
-        <h3>客户侧红线</h3>
+      <section class="controlled_opening_boundary wide">
+        <h3>客户侧受控开放边界</h3>
         <p>无授权不生成下载；内部黑箱评分、未复核推断、private/gray 数据不会展示。</p>
       </section>
       <section class="wide">

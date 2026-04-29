@@ -406,16 +406,16 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertNotIn("当前 active packet：`PTL-I100-112A-production-platform-storage-seam`", route_map_text)
         self.assertNotIn("当前 112A 已激活", route_map_text)
 
-        redline_surface = "\n".join(
+        controlled_opening_boundary_surface = "\n".join(
             (current_task_text, repo_status_text, route_map_text, json.dumps(active_packet, ensure_ascii=False))
         )
-        for redline_token in (
+        for controlled_opening_boundary_token in (
             "external release",
             "Stage 8 real execution",
             "Stage 9 real payment / delivery / refund",
             "blocked",
         ):
-            self.assertIn(redline_token, redline_surface)
+            self.assertIn(controlled_opening_boundary_token, controlled_opening_boundary_surface)
 
 
 if __name__ == "__main__":

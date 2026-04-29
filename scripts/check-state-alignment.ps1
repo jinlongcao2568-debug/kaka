@@ -121,12 +121,13 @@ if ($conditionalGo -ne 'READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT') {
 }
 
 foreach ($token in @(
-    'External software release remains blocked',
-    'Stage 8 real execution remains governed / approval-gated / blocked by default',
-    'Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default'
+    'External software release is a controlled-opening capability',
+    'Stage 8 real execution is a controlled-opening capability',
+    'Stage 9 real payment/delivery/refund is a controlled-opening capability',
+    'Automated refund execution remains excluded'
 )) {
     if (-not $repoStatusText.Contains($token)) {
-        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REDLINE_BOUNDARY_DRIFT' -Message "repo_status.md must keep token: $token" -Path 'control/repo_status.md'
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'CONTROLLED_OPENING_BOUNDARY_DRIFT' -Message "repo_status.md must keep token: $token" -Path 'control/repo_status.md'
     }
 }
 

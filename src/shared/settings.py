@@ -190,7 +190,7 @@ class Settings:
         readiness["suspended_state_operation_readback"] = production_slo_incident_readiness[
             "suspended_state_operation_readback"
         ]
-        readiness["redlines"].update(
+        readiness["controlled_opening_boundaries"].update(
             {
                 "external_observability_provider_enabled": False,
                 "external_apm_enabled": False,

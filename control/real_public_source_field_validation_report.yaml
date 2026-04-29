@@ -44,7 +44,7 @@ failure_degrade_coverage:
   weak_public_structure: fail_closed_to_manual_review
   transport_failure: fail_closed_no_snapshot_persisted
   captcha_required: blocked_before_transport
-redlines:
+controlled_opening_boundaries:
   private_or_gray_source_used: false
   login_bypass_used: false
   captcha_bypass_used: false

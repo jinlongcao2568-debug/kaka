@@ -118,7 +118,7 @@ twelve_dimension_acceptance:
 - dimension: wecom_and_model_assist
   result: PASS_WITH_BOUNDARY
   evidence: WeCom binding and model assist governance are readback/gated; no default external calls
-- dimension: redline_review
+- dimension: controlled_opening_boundary_review
   result: PASS
   evidence: automatic refund, non-public/gray sources, bypass, unreviewed conclusions, auto complaint/legal send, blackbox
     exposure remain blocked

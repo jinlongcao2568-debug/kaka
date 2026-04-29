@@ -61,7 +61,7 @@
         {
           "run_mode": "REAL_RUN",
           "default_plan_status": "APPROVAL_PENDING",
-          "projection_mode": "REAL_EXECUTION_BLOCKED_BY_DEFAULT",
+          "projection_mode": "REAL_EXECUTION_CONTROLLED_OPENING_REQUIRED",
           "approval_run_required": true,
           "writeback_required": true
         }

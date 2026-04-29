@@ -95,7 +95,7 @@ evidence_pack_templates:
       - "provider audit trace or human review not ready"
 domain_states:
   external_software_release:
-    unlock_tier: "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    unlock_tier: "EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET"
     current_default_status: "BLOCKED"
     decision_state: "DENY_BY_DEFAULT_CONTINUE"
     evidence_pack_template_ref: "external_release_core"
@@ -141,7 +141,7 @@ domain_states:
         - "activation_design_decision_audit_ref"
   stage8_live_execution:
     unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
-    current_default_status: "BLOCKED_BY_DEFAULT"
+    current_default_status: "CONTROLLED_OPENING_REQUIRED"
     decision_state: "DENY_BY_DEFAULT_CONTINUE"
     evidence_pack_template_ref: "external_release_core"
     evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
@@ -150,7 +150,7 @@ domain_states:
     denial_conditions_active: true
   stage9_live_payment_execution:
     unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
-    current_default_status: "BLOCKED_BY_DEFAULT"
+    current_default_status: "CONTROLLED_OPENING_REQUIRED"
     decision_state: "DENY_BY_DEFAULT_CONTINUE"
     evidence_pack_template_ref: "external_release_core"
     evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
@@ -159,7 +159,7 @@ domain_states:
     denial_conditions_active: true
   stage9_live_delivery_execution:
     unlock_tier: "APPROVAL_GATED_FUTURE_UNLOCK"
-    current_default_status: "BLOCKED_BY_DEFAULT"
+    current_default_status: "CONTROLLED_OPENING_REQUIRED"
     decision_state: "DENY_BY_DEFAULT_CONTINUE"
     evidence_pack_template_ref: "external_release_core"
     evidence_pack_status: "BASELINE_DEFINED_NOT_EXECUTED"
@@ -194,7 +194,7 @@ domain_states:
     shadow_or_canary_status: "NOT_REQUIRED"
     denial_conditions_active: true
   external_export_surface:
-    unlock_tier: "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    unlock_tier: "EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET"
     current_default_status: "BLOCKED"
     decision_state: "FUTURE_UNLOCK_CANDIDATE"
     evidence_pack_template_ref: "external_release_core"

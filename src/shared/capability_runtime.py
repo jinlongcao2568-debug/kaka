@@ -30,7 +30,7 @@ class CapabilityResolver:
         "DEV_ALLOWED": 0,
         "INTERNAL_OPERABLE": 1,
         "LEADPACK_DELIVERABLE": 2,
-        "EXTERNAL_BLOCKED": 3,
+        "EXTERNAL_CONTROLLED_OPENING": 3,
     }
     DEFAULT_ACTION = "PREVIEW_ONLY"
     DEFAULT_EFFECTIVE_MODE_SOURCE_ORDER = (
@@ -94,7 +94,7 @@ class CapabilityResolver:
             precedence_config.get("control_projection_sources_ignored_for_mode_resolution", [])
         )
         self.external_blocked_release_level = str(
-            precedence_config.get("release_layer_redline", "EXTERNAL_BLOCKED")
+            precedence_config.get("release_layer_controlled_opening_boundary", "EXTERNAL_CONTROLLED_OPENING")
         )
 
     def _load_json(self, relative_path: str) -> dict[str, Any]:
@@ -455,7 +455,7 @@ class CapabilityResolver:
         family_policy = self.family_policy_index.get(capability_family, {})
         if family_policy.get("release_layer_ceiling"):
             return str(family_policy["release_layer_ceiling"])
-        return "EXTERNAL_BLOCKED"
+        return "EXTERNAL_CONTROLLED_OPENING"
 
     def _decide(
         self,
@@ -486,7 +486,7 @@ class CapabilityResolver:
             return "BLOCK", False, f"{capability_family} permanently blocked", True
 
         if release_level == self.external_blocked_release_level and requested_action == "LIVE_EXECUTION":
-            return "BLOCK", False, "external release blocked redline", True
+            return "BLOCK", False, "external release blocked controlled_opening_boundary", True
         if self.RELEASE_LEVEL_RANK.get(release_level, 0) > self.RELEASE_LEVEL_RANK.get(release_ceiling, 3):
             return "BLOCK", False, f"{capability_family} release ceiling {release_ceiling}", False
 

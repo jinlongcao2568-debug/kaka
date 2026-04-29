@@ -49,7 +49,7 @@ def _semantic_outreach_plan(payload: Mapping[str, Any], context: Mapping[str, An
     if context.get("upstream_saleability_status") == "BLOCKED" and payload.get("plan_status") in ("APPROVED", "SCHEDULED"):
         decision = "BLOCK"
         reasons.append("Stage8 may not recompute blocked saleability into runnable outreach plan")
-    if payload.get("run_mode") == "DRY_RUN" and payload.get("projection_mode") == "REAL_EXECUTION_BLOCKED_BY_DEFAULT":
+    if payload.get("run_mode") == "DRY_RUN" and payload.get("projection_mode") == "REAL_EXECUTION_CONTROLLED_OPENING_REQUIRED":
         decision = "REVIEW"
         reasons.append("DRY_RUN plan should not project real execution mode")
     return decision, reasons, {"semantic_context_snapshot": context}

@@ -8,7 +8,7 @@ objective: "Unify buildable-but-off, shadow, dry-run, approval-required, interna
 why_now: "After core workflow semantics are stable, capability opening language must converge to prevent future drift and false blocking."
 depends_on: [B6]
 non_goals:
-  - "Do not weaken external blocked or approval/audit redlines."
+  - "Do not weaken external blocked or approval/audit controlled_opening_boundaries."
   - "Do not enable any live path."
   - "not an external unlock implementation"
 affected_stages:
@@ -120,7 +120,7 @@ required_scripts:
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
   - python tests/run_tests.py
 stop_conditions:
-  - "Any external redline is weakened."
+  - "Any external controlled_opening_boundary is weakened."
   - "A new capability mode vocabulary is introduced without approval."
   - "Any required script fails."
 definition_of_done:

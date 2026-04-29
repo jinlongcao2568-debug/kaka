@@ -30,8 +30,8 @@ open_capability_policy_id: PTL-I100-OPEN-CAPABILITY-BASELINE
 open_capability_policy_summary:
   sold_product: evidence_pack_and_leadpack
   software_role: owner_operated_tooling_and_customer_artifact_access
-  default_live_state: BLOCKED_BY_DEFAULT_UNTIL_GATED
-  target_capability_semantics: "blocked-by-default means gated target capability, not permanent out-of-scope"
+  default_live_state: CONTROLLED_OPENING_REQUIRED_UNTIL_GATED
+  target_capability_semantics: "controlled-opening-required means gated target capability, not permanent out-of-scope"
   target_capabilities:
     - real_public_source_collection
     - parsing_ocr_and_attachment_processing
@@ -134,7 +134,7 @@ post_mainline_selection:
         - PTL-S8-102-p2-plan-touch-productization
       remaining_task_ids: []
       last_completed_commit: 9d4662a
-      rationale: "P1/P2 已完成并分别记录 632c6ae / 9d4662a；Stage8 governed touch 方向的 candidate/compliance 与 plan/touch 产品化边界均已收口，但 external/live redline 不变，仍不触发 real execution。"
+      rationale: "P1/P2 已完成并分别记录 632c6ae / 9d4662a；Stage8 governed touch 方向的 candidate/compliance 与 plan/touch 产品化边界均已收口，但 external/live controlled_opening_boundary 不变，仍不触发 real execution。"
     - direction_label: "Stage9 governed delivery 深化"
       future_packet_id_suggestion: PTL-S9-governed-delivery-deepening
       related_modules:
@@ -191,7 +191,7 @@ ledger_schema:
     - INTERNAL_ONLY
     - INTERNAL_GOVERNED
     - LEADPACK_CANDIDATE_GATED
-    - EXTERNAL_BLOCKED
+    - EXTERNAL_CONTROLLED_OPENING
 stage_module_inventory:
   - stage_id: stage1_tasking
     stage_name: "Stage1 任务编排与时钟管理"
@@ -620,7 +620,7 @@ stage_module_inventory:
         deferred_gaps: []
   - stage_id: stage7_sales
     stage_name: "Stage7 商业承接与可售对象"
-    business_summary: "把 Stage6 formal outputs 转成 sales lead、buyer fit、offer recommendation、saleable opportunity、CRM/Quote workbench 与 LeadPack/Page/Export readiness；CRM/Quote 与客户可见包是目标能力，但 blocked-by-default，必须逐级 gated。"
+    business_summary: "把 Stage6 formal outputs 转成 sales lead、buyer fit、offer recommendation、saleable opportunity、CRM/Quote workbench 与 LeadPack/Page/Export readiness；CRM/Quote 与客户可见包是目标能力，但 controlled-opening-required，必须逐级 gated。"
     implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
     current_runtime_state: HEAVY_RUNTIME
     customer_visibility: LEADPACK_CANDIDATE_GATED
@@ -632,7 +632,7 @@ stage_module_inventory:
     current_blockers:
       - "Stage7 可售对象必须受 report/review/sale gate 约束。"
       - "Stage7 模块边界已拆分完成；本次仅为模块边界重构，不新增正式对象、枚举、gate 或 exception 语义。"
-      - "CRM/Quote、LeadPack/Page/Export 是目标能力但默认阻断；blocked-by-default 表示未满足受控开放条件前不能客户可见或 live，不表示永久 out of scope。"
+      - "CRM/Quote、LeadPack/Page/Export 是目标能力但默认阻断；controlled-opening-required 表示未满足受控开放条件前不能客户可见或 live，不表示永久 out of scope。"
     exit_criteria:
       - "saleable_opportunity 只消费 H-06 / Stage6 formal carriers。"
       - "sales_lead / buyer_fit / offer_recommendation 不能绕开 review/report/sale gate。"
@@ -721,7 +721,7 @@ stage_module_inventory:
         deferred_gaps: []
   - stage_id: stage8_outreach
     stage_name: "Stage8 联系对象与销售触达"
-    business_summary: "在 governed/internal 边界内形成 contact target、outreach plan、touch record 和 outbox；真实触达是目标能力，但 blocked-by-default，必须通过 provider config、sandbox、审批、审计、模板、频控、退订和 dedicated current_task 后才能 live。"
+    business_summary: "在 governed/internal 边界内形成 contact target、outreach plan、touch record 和 outbox；真实触达是目标能力，但 controlled-opening-required，必须通过 provider config、sandbox、审批、审计、模板、频控、退订和 dedicated current_task 后才能 live。"
     implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
     current_runtime_state: HEAVY_RUNTIME
     customer_visibility: INTERNAL_GOVERNED
@@ -737,9 +737,9 @@ stage_module_inventory:
       - PTL-S8-102-p2-plan-touch-productization
     pending_packets: []
     current_blockers:
-      - "Stage8 real execution 是目标能力但默认阻断；blocked-by-default 表示未满足受控开放条件前不能 live，不表示永久 out of scope。"
+      - "Stage8 real execution 是目标能力但默认阻断；controlled-opening-required 表示未满足受控开放条件前不能 live，不表示永久 out of scope。"
       - "contact enrichment / live outreach 需要 provider config、sandbox、approval、audit、模板、频控、退订和 operator action。"
-      - "Stage8 P1/P2 已完成，但 governed/internal-only redline 不变；后续 shared/runtime 与 Stage9 工作仍需人工选择，不得自动激活。"
+      - "Stage8 P1/P2 已完成，但 governed/internal-only controlled_opening_boundary 不变；后续 shared/runtime 与 Stage9 工作仍需人工选择，不得自动激活。"
     exit_criteria:
       - "contact_target 只能来自 saleable_opportunity、account context 和合法来源。"
       - "outreach_plan / touch_record 默认只允许 preview/dry-run/governed internal path；进入真实触达前必须完成 gated target capability 验收。"
@@ -810,7 +810,7 @@ stage_module_inventory:
         deferred_gaps: []
   - stage_id: stage9_delivery
     stage_name: "Stage9 订单支付交付与治理反馈"
-    business_summary: "在 governed/internal 边界内记录订单、支付、交付、结果回写和治理反馈；真实收款、扣款、交付、发票/收据和对账是目标能力但 blocked-by-default，自动退款执行 excluded/manual exception only。"
+    business_summary: "在 governed/internal 边界内记录订单、支付、交付、结果回写和治理反馈；真实收款、扣款、交付、发票/收据和对账是目标能力但 controlled-opening-required，自动退款执行 excluded/manual exception only。"
     implementation_state: GOVERNANCE_BLOCKED_LIVE_EXECUTION
     current_runtime_state: HEAVY_RUNTIME
     customer_visibility: INTERNAL_GOVERNED
@@ -820,7 +820,7 @@ stage_module_inventory:
       - PTL-S9-101-p5-typed-lifecycle-deepening
       - PTL-S9-102-p6-feedback-writeback-productization
     current_blockers:
-      - "Stage9 real payment / charge / delivery 是目标能力但默认阻断；blocked-by-default 表示未满足 provider config、sandbox、approval、audit、operator action、field allowlist/masking 和验收前不能 live。"
+      - "Stage9 real payment / charge / delivery 是目标能力但默认阻断；controlled-opening-required 表示未满足 provider config、sandbox、approval、audit、operator action、field allowlist/masking 和验收前不能 live。"
       - "自动退款执行不作为目标能力；退款只保留 manual exception record、manual approval/audit 和 governed review。"
     exit_criteria:
       - "order/payment/delivery/outcome/feedback 均保持 typed governed record。"
@@ -1264,7 +1264,7 @@ modules:
       - "Current S67 closure is complete through service.py plus shared runtime/policy chain."
       - "STAGE7-SALES-RUNTIME-SPLIT completed by PTL-S7-module-boundary-refactor as a module boundary refactor only."
       - "This split does not add formal object, enum, gate, or exception semantics."
-      - "PTL-I100-OPEN-CAPABILITY-BASELINE treats true challenger identification, CRM/Quote, LeadPack/Page/Export, and customer-visible package delivery as target capabilities with blocked-by-default gated opening."
+      - "PTL-I100-OPEN-CAPABILITY-BASELINE treats true challenger identification, CRM/Quote, LeadPack/Page/Export, and customer-visible package delivery as target capabilities with controlled-opening-required gated opening."
   - module_id: STAGE8-OUTREACH-GOVERNED
     stage_scope:
       - stage8_outreach
@@ -1301,8 +1301,8 @@ modules:
     notes:
       - "P1 candidate/compliance boundary refactor completed in commit 632c6ae."
       - "P2 plan/touch productization completed in commit 9d4662a."
-      - "Stage8 direction is functionally complete for P1/P2, but remains internal governed only; external/live execution redline does not change."
-      - "PTL-I100-OPEN-CAPABILITY-BASELINE treats sales outreach as a target capability with blocked-by-default gated opening, not permanent out-of-scope."
+      - "Stage8 direction is functionally complete for P1/P2, but remains internal governed only; external/live execution controlled_opening_boundary does not change."
+      - "PTL-I100-OPEN-CAPABILITY-BASELINE treats sales outreach as a target capability with controlled-opening-required gated opening, not permanent out-of-scope."
   - module_id: STAGE9-DELIVERY-GOVERNANCE
     stage_scope:
       - stage9_delivery

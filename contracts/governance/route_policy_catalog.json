@@ -15,7 +15,7 @@
     "mode": "PARTIAL_RUNTIME_ALIGNMENT_ONLY",
     "existing_runtime_state": "PARTIAL_RUNTIME",
     "runtime_change_in_packet": "CONTROLLED_STAGE1_2_RUNTIME_CLOSURE",
-    "external_live_enablement_gate": "BLOCKED_BY_DEFAULT",
+    "external_live_enablement_gate": "CONTROLLED_OPENING_REQUIRED",
     "stage8_stage9_unlock_state": "UNCHANGED_BLOCKED"
   },
   "policies": [
@@ -1093,6 +1093,6 @@
     "adapter_ready": true,
     "adapter_contract_state": "RESERVED_NOT_LIVE",
     "live_external_source_enabled": false,
-    "external_live_enablement_gate": "BLOCKED_BY_DEFAULT"
+    "external_live_enablement_gate": "CONTROLLED_OPENING_REQUIRED"
   }
 }

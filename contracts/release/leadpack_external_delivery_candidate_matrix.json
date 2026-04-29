@@ -281,8 +281,8 @@
   ],
   "why_not_live": [
     "external software release remains blocked",
-    "Stage 8 live execution remains governed and blocked by default",
-    "Stage 9 live payment/delivery/refund remains governed and blocked by default",
+    "Stage 8 live execution remains governed and controlled opening required",
+    "Stage 9 live payment/delivery/refund remains governed and controlled opening required",
     "candidate package is only an internal preview/export simulation contract"
   ],
   "why_not_now": [

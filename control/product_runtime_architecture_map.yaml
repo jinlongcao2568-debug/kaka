@@ -178,7 +178,7 @@ primary_operating_loop:
     llm_allowed: false
     output: owner_console_and_customer_portal_state
 decision_layers:
-  - layer_id: redline_filter
+  - layer_id: controlled_opening_boundary_filter
     method: rules
     blocks:
       - private_or_non_public_data
@@ -784,8 +784,11 @@ implementation_sequence:
   - packet_ref: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
     status: COMPLETED
     purpose: synchronize_public_web_capture_captcha_resume_docs_and_reassess_implementation_order
-  - packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
+  - packet_ref: PTL-I100-144A-controlled-opening-sync
     status: ACTIVE
+    purpose: synchronize_non_refund_boundaries_to_controlled_opening_semantics
+  - packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
+    status: PLANNED
     purpose: choose_which_projects_are_worth_analysis
   - packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     status: PLANNED
@@ -808,11 +811,11 @@ implementation_sequence:
   - packet_ref: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
     status: PLANNED
     purpose: prove_real_public_sample_can_flow_from_market_scan_to_sellable_hook_and_delivery_candidate
-redlines_preserved:
-  external_software_release: BLOCKED
-  arbitrary_crawler: BLOCKED
-  login_captcha_antibot_bypass: BLOCKED
-  unreviewed_customer_claim: BLOCKED
-  unapproved_provider_call: BLOCKED
-  real_refund_execution: BLOCKED
+controlled_opening_boundaries_preserved:
+  external_software_release: CONTROLLED_OPENING
+  arbitrary_crawler: CONTROLLED_OPENING
+  login_captcha_antibot_bypass: CONTROLLED_OPENING
+  unreviewed_customer_claim: CONTROLLED_OPENING
+  unapproved_provider_call: CONTROLLED_OPENING
+  real_refund_execution: CONTROLLED_OPENING
   automated_refund_execution: EXCLUDED

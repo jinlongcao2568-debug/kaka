@@ -290,7 +290,7 @@
       },
       "conditions": [
         "internal preview and draft only",
-        "live outreach execution remains blocked by default",
+        "live outreach execution remains controlled opening required",
         "high restriction fields remain redacted",
         "repository-backed governed retrieval only",
         "surface state must be consumed from semantic_envelope.surface_state",
@@ -313,7 +313,7 @@
       "conditions": [
         "internal governed queue only",
         "operator actions remain review/draft only",
-        "live outreach execution remains blocked by default"
+        "live outreach execution remains controlled opening required"
       ]
     },
     {
@@ -330,7 +330,7 @@
       },
       "conditions": [
         "internal governed preview and draft only",
-        "real payment or delivery execution remains blocked by default",
+        "real payment or delivery execution remains controlled opening required",
         "governance and audit traces must be visible before writeback",
         "repository-backed typed workflow retrieval only",
         "surface state must be consumed from semantic_envelope.surface_state",
@@ -352,7 +352,7 @@
       "conditions": [
         "internal governed queue only",
         "operator actions remain draft/writeback/review only",
-        "real payment or delivery execution remains blocked by default"
+        "real payment or delivery execution remains controlled opening required"
       ]
     },
     {

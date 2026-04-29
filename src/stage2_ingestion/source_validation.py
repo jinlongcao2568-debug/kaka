@@ -310,7 +310,7 @@ def build_source_coverage_report(
                 bool(payload.get("fail_closed")) for payload in payloads
             ),
         },
-        "redlines": {
+        "controlled_opening_boundaries": {
             "private_or_gray_source_used": False,
             "login_bypass_used": False,
             "captcha_bypass_used": False,

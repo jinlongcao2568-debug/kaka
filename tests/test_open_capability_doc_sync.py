@@ -58,7 +58,7 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
         self.assertIn(POLICY_ID, route_map)
         self.assertIn("PTL-I100-111F-open-capability-registry-route-doc-sync", route_map)
         self.assertIn("PTL-I100-112-production-platform-infrastructure", route_map)
-        self.assertIn("blocked-by-default", route_map)
+        self.assertIn("controlled-opening-required", route_map)
         self.assertIn("自动退款执行不实现", route_map)
         self.assertIn("candidate navigation asset", route_map)
         self.assertIn("候选导航资产", route_map)
@@ -73,7 +73,7 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
             with self.subTest(doc_id=doc_id):
                 text = read_text(path)
                 self.assertIn(POLICY_ID, text)
-                self.assertIn("blocked-by-default", text)
+                self.assertIn("controlled-opening-required", text)
                 self.assertIn("自动退款执行", text)
                 self.assertIn("excluded", text)
                 self.assertIn("manual exception", text)

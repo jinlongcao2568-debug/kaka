@@ -3,15 +3,15 @@
     "matrix_id": "PTL-I100-107B-internal-acceptance-matrix",
     "version": 2,
     "packet_id": "PTL-I100-107-real-sample-operational-acceptance",
-    "subpacket_id": "PTL-I100-107B-dedicated-refund-redline-fixture-readback",
-    "purpose": "Offline sanitized internal acceptance matrix readback with dedicated refund/redline replay.",
+    "subpacket_id": "PTL-I100-107B-dedicated-refund-controlled_opening_boundary-fixture-readback",
+    "purpose": "Offline sanitized internal acceptance matrix readback with dedicated refund/controlled_opening_boundary replay.",
     "full_product_operational_acceptance_ref": "fixtures/internal_acceptance_full_product_operational.json",
     "full_product_operational_reacceptance_ref": "fixtures/internal_acceptance_full_product_operational_reacceptance.json",
     "source_data_class": "sanitized_offline",
     "external_live_execution": false,
-    "stage8_real_execution": "BLOCKED",
-    "stage9_live_payment_delivery_refund": "BLOCKED",
-    "external_release": "BLOCKED"
+    "stage8_real_execution": "CONTROLLED_OPENING",
+    "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+    "external_release": "CONTROLLED_OPENING"
   },
   "required_scenario_taxonomy": [
     "happy",
@@ -24,28 +24,28 @@
     "source_conflict",
     "writeback"
   ],
-  "redlines": {
+  "controlled_opening_boundaries": {
     "external_release": {
-      "status": "BLOCKED",
+      "status": "CONTROLLED_OPENING",
       "live_execution_allowed": false
     },
     "stage8_real_execution": {
-      "status": "BLOCKED",
+      "status": "CONTROLLED_OPENING",
       "live_execution_allowed": false,
       "allowed_mode": "INTERNAL_GOVERNED_PREVIEW"
     },
     "stage9_live_payment_execution": {
-      "status": "BLOCKED",
+      "status": "CONTROLLED_OPENING",
       "live_execution_allowed": false,
       "allowed_mode": "INTERNAL_GOVERNED"
     },
     "stage9_live_delivery_execution": {
-      "status": "BLOCKED",
+      "status": "CONTROLLED_OPENING",
       "live_execution_allowed": false,
       "allowed_mode": "INTERNAL_GOVERNED"
     },
     "stage9_live_refund_execution": {
-      "status": "BLOCKED",
+      "status": "CONTROLLED_OPENING",
       "live_execution_allowed": false,
       "allowed_mode": "INTERNAL_GOVERNED"
     }
@@ -137,7 +137,7 @@
       "stage7",
       "stage8",
       "stage9",
-      "redlines"
+      "controlled_opening_boundaries"
     ],
     "audit_summary_required_fields": [
       "source_data_class",
@@ -208,15 +208,15 @@
           "stage7": "qualified_open",
           "stage8": "internal_governed_preview",
           "stage9": "pending_approval_not_live",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
@@ -279,15 +279,15 @@
           "stage7": "blocked_review",
           "stage8": "review_required_cancelled",
           "stage9": "on_hold_release_blocked",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
@@ -350,15 +350,15 @@
           "stage7": "review_hold",
           "stage8": "manual_review_required",
           "stage9": "on_hold",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
@@ -421,15 +421,15 @@
           "stage7": "qualified_but_contact_rejected",
           "stage8": "cancelled",
           "stage9": "on_hold_release_blocked",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
@@ -500,15 +500,15 @@
           "stage7": "qualified",
           "stage8": "reselect_contact",
           "stage9": "pending_approval_not_live",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
@@ -572,15 +572,15 @@
           "stage7": "qualified",
           "stage8": "scheduled_quiet_hours",
           "stage9": "pending_approval_not_live",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
@@ -646,15 +646,15 @@
           "stage7": "qualified",
           "stage8": "approval_review_required",
           "stage9": "on_hold_release_blocked",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
@@ -726,15 +726,15 @@
           "stage7": "source_conflict_review",
           "stage8": "review_required",
           "stage9": "evidence_insufficient",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
@@ -803,24 +803,24 @@
           "stage7": "qualified",
           "stage8": "review_stage6_7",
           "stage9": "projected_writeback_only",
-          "redlines": "all_blocked"
+          "controlled_opening_boundaries": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     },
     {
-      "scenario_id": "refund-live-redline",
-      "taxonomy": "stage9_refund_live_redline",
-      "title": "Refund live execution redline full-chain replay",
+      "scenario_id": "refund-live-controlled_opening_boundary",
+      "taxonomy": "stage9_refund_live_controlled_opening_boundary",
+      "title": "Refund live execution controlled_opening_boundary full-chain replay",
       "replay_status": "replayable",
       "replay_mode": "runtime_replay",
-      "fixture_ref": "fixtures/internal_acceptance_stage9_refund_redline.json",
+      "fixture_ref": "fixtures/internal_acceptance_stage9_refund_controlled_opening_boundary.json",
       "payload_overrides": {},
       "failure_taxonomy_refs": [
         "writeback_projection_only"
@@ -832,7 +832,7 @@
           "stage8",
           "stage9"
         ],
-        "operator_action": "refund_redline_readback_only"
+        "operator_action": "refund_controlled_opening_boundary_readback_only"
       },
       "expected": {
         "stage7": {
@@ -876,15 +876,15 @@
           "stage7": "qualified_open",
           "stage8": "internal_governed_preview",
           "stage9": "refund_requested_projection_only",
-          "redlines": "stage9_refund_payment_delivery_live_blocked"
+          "controlled_opening_boundaries": "stage9_refund_payment_delivery_live_controlled_opening"
         }
       },
       "audit_summary": {
         "source_data_class": "sanitized_offline",
         "external_live_execution": false,
-        "stage8_real_execution": "BLOCKED",
-        "stage9_live_payment_delivery_refund": "BLOCKED",
-        "external_release": "BLOCKED"
+        "stage8_real_execution": "CONTROLLED_OPENING",
+        "stage9_live_payment_delivery_refund": "CONTROLLED_OPENING",
+        "external_release": "CONTROLLED_OPENING"
       }
     }
   ]

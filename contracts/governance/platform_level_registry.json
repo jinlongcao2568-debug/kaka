@@ -143,6 +143,6 @@
     "adapter_ready": true,
     "adapter_contract_state": "RESERVED_NOT_LIVE",
     "live_external_source_enabled": false,
-    "external_live_enablement_gate": "BLOCKED_BY_DEFAULT"
+    "external_live_enablement_gate": "CONTROLLED_OPENING_REQUIRED"
   }
 }

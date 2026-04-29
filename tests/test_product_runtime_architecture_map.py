@@ -214,6 +214,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
             "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
             "PTL-I100-143G-public-web-capture-doc-sync-and-order-review",
+            "PTL-I100-144A-controlled-opening-sync",
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
             "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation",
@@ -262,13 +263,13 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         ):
             self.assertIn(phrase, self.route_map_text + self.scheme_text)
 
-    def test_redlines_stay_closed(self) -> None:
-        redlines = self.architecture["redlines_preserved"]
-        self.assertEqual(redlines["external_software_release"], "BLOCKED")
-        self.assertEqual(redlines["arbitrary_crawler"], "BLOCKED")
-        self.assertEqual(redlines["login_captcha_antibot_bypass"], "BLOCKED")
-        self.assertEqual(redlines["unapproved_provider_call"], "BLOCKED")
-        self.assertEqual(redlines["automated_refund_execution"], "EXCLUDED")
+    def test_controlled_opening_boundaries_stay_closed(self) -> None:
+        controlled_opening_boundaries = self.architecture["controlled_opening_boundaries_preserved"]
+        self.assertEqual(controlled_opening_boundaries["external_software_release"], "CONTROLLED_OPENING")
+        self.assertEqual(controlled_opening_boundaries["arbitrary_crawler"], "CONTROLLED_OPENING")
+        self.assertEqual(controlled_opening_boundaries["login_captcha_antibot_bypass"], "CONTROLLED_OPENING")
+        self.assertEqual(controlled_opening_boundaries["unapproved_provider_call"], "CONTROLLED_OPENING")
+        self.assertEqual(controlled_opening_boundaries["automated_refund_execution"], "EXCLUDED")
 
 
 if __name__ == "__main__":

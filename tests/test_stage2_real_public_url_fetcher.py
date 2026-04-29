@@ -317,8 +317,8 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 manifest["lineage_refs"]["owner_task_id"],
                 "TASK-133A",
             )
-            self.assertFalse(carrier["redlines"]["uncontrolled_live_crawler_used"])
-            self.assertFalse(carrier["redlines"]["real_provider_call_executed"])
+            self.assertFalse(carrier["controlled_opening_boundaries"]["uncontrolled_live_crawler_used"])
+            self.assertFalse(carrier["controlled_opening_boundaries"]["real_provider_call_executed"])
 
         self.assertEqual(len(transport.call_log), 1)
         self.assertEqual(transport.call_log[0]["url"], GGZY_ENTRY_URL)

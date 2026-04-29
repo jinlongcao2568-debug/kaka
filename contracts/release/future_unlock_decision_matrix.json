@@ -42,7 +42,7 @@
   "default_position_after_decision_vocabulary": [
     "APPROVAL_AND_AUDIT_GATED_CONTINUE",
     "BLOCKED_CONTINUE",
-    "BLOCKED_BY_DEFAULT_CONTINUE",
+    "CONTROLLED_OPENING_REQUIRED_CONTINUE",
     "INTERNAL_ONLY_CONTINUE",
     "OFF_BY_DEFAULT_CONTINUE",
     "SHADOW_ONLY_CONTINUE"
@@ -132,12 +132,12 @@
         "shadow/canary and rollback prerequisites are already machine-readable"
       ],
       "remaining_blockers": [
-        "Stage 8 live execution remains blocked by default",
+        "Stage 8 live execution remains controlled opening required",
         "no shadow lane, canary threshold or owner-operated runbook has been approved",
         "personal contact channels remain never-default-open"
       ],
       "future_unlock_sequence_order": 5,
-      "default_position_after_decision": "BLOCKED_BY_DEFAULT_CONTINUE",
+      "default_position_after_decision": "CONTROLLED_OPENING_REQUIRED_CONTINUE",
       "why_not_now": "它会直接放大触达合规和 owner 控制负担，不适合在 R6 后立即进入实现候选。",
       "never_default_open": false,
       "pre_discussion_lane_requirement": "SHADOW_THEN_CANARY_REQUIRED"
@@ -154,12 +154,12 @@
         "release checklist already blocks live payment by default"
       ],
       "remaining_blockers": [
-        "Stage 9 live payment execution remains blocked by default",
+        "Stage 9 live payment execution remains controlled opening required",
         "no reversible payment runbook has been approved",
         "refund and audit replay controls are not approved for live use"
       ],
       "future_unlock_sequence_order": 8,
-      "default_position_after_decision": "BLOCKED_BY_DEFAULT_CONTINUE",
+      "default_position_after_decision": "CONTROLLED_OPENING_REQUIRED_CONTINUE",
       "why_not_now": "资金链路对 owner 控制和责任链要求最高，近期不值得进入 implementation 候选。",
       "never_default_open": false,
       "pre_discussion_lane_requirement": "SHADOW_THEN_CANARY_REQUIRED"
@@ -176,12 +176,12 @@
         "release checklist already keeps direct Stage 9 delivery blocked"
       ],
       "remaining_blockers": [
-        "Stage 9 live delivery execution remains blocked by default",
+        "Stage 9 live delivery execution remains controlled opening required",
         "no reversible delivery acknowledgement runbook has been approved",
         "archive/retrieval/partial-redelivery controls are not approved for live use"
       ],
       "future_unlock_sequence_order": 7,
-      "default_position_after_decision": "BLOCKED_BY_DEFAULT_CONTINUE",
+      "default_position_after_decision": "CONTROLLED_OPENING_REQUIRED_CONTINUE",
       "why_not_now": "它会直接把 internal governed skeleton 推向真实履约责任，当前不应进入实现候选。",
       "never_default_open": false,
       "pre_discussion_lane_requirement": "SHADOW_THEN_CANARY_REQUIRED"

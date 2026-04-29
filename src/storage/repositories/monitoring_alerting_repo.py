@@ -39,7 +39,7 @@ class MonitoringAlertingRepository:
     def save(self, payload: Mapping[str, Any]) -> PersistedRecord:
         payload_dict = dict(payload)
         validation = validate_monitoring_alerting_readiness(payload_dict)
-        if validation["live_redline_violations"]:
+        if validation["live_controlled_opening_boundary_violations"]:
             raise ValueError("monitoring alerting readiness live dispatch flags must remain false")
         payload_dict["validation"] = validation
         readiness_id = str(payload_dict.get("readiness_id") or self.default_record_id)
@@ -119,7 +119,7 @@ class MonitoringAlertingRepository:
             "alert_readiness": dict(record.payload.get("alert_readiness", {})),
             "alert_rule_catalog": list(record.payload.get("alert_rule_catalog", [])),
             "incident_readiness": dict(record.payload.get("incident_readiness", {})),
-            "redlines": dict(record.payload.get("redlines", {})),
+            "controlled_opening_boundaries": dict(record.payload.get("controlled_opening_boundaries", {})),
             "replayable_readback": bool(record.payload.get("replayable_readback", True)),
             "notification_enabled": False,
             "live_dispatch_enabled": False,

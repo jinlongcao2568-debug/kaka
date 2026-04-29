@@ -799,7 +799,7 @@ class RealPublicEntryFetcher:
             "fetch_audit": fetch_audit,
             "failure_taxonomy": failure_taxonomy,
             "transport": fetch_audit["transport"],
-            "redlines": _redlines(),
+            "controlled_opening_boundaries": _controlled_opening_boundaries(),
         }
 
     def _degraded_carrier(
@@ -839,7 +839,7 @@ class RealPublicEntryFetcher:
                 "deep_crawl_enabled": False,
                 "real_provider_call_executed": False,
             },
-            "redlines": _redlines(),
+            "controlled_opening_boundaries": _controlled_opening_boundaries(),
         }
 
     def _attachment_carrier_from_response(
@@ -955,7 +955,7 @@ class RealPublicEntryFetcher:
             "no_broad_fallback": True,
             "fetch_audit": fetch_audit,
             "transport": fetch_audit["transport"],
-            "redlines": _redlines(),
+            "controlled_opening_boundaries": _controlled_opening_boundaries(),
         }
 
     def _degraded_attachment_carrier(
@@ -994,7 +994,7 @@ class RealPublicEntryFetcher:
                 "deep_crawl_enabled": False,
                 "real_provider_call_executed": False,
             },
-            "redlines": _redlines(),
+            "controlled_opening_boundaries": _controlled_opening_boundaries(),
         }
 
 
@@ -1128,7 +1128,7 @@ def _response_failure_taxonomy(
     }
 
 
-def _redlines() -> dict[str, bool]:
+def _controlled_opening_boundaries() -> dict[str, bool]:
     return {
         "private_or_gray_source_used": False,
         "login_bypass_used": False,

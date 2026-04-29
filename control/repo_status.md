@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-144-market-scan-opportunity-discovery-engine (ACTIVE; implements the internal Stage1 market scan opportunity discovery engine and readback before Stage2 capture plan orchestration. This does not enable real website fetch, arbitrary crawler, provider execution, customer download, refund, automated refund, or public software release.)
+Current Workstream: PTL-I100-144A-controlled-opening-sync (ACTIVE; migrates all non-refund hard boundary assertions to controlled-opening semantics across docs/control/contracts/scripts/runtime/tests. This sync does not execute real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -13,26 +13,25 @@ Mainline Selection Ready: true
 C-group Enum Freeze: CONFIRMED
 Capability Adjudication Source: control/product_task_library.yaml#open_capability_policy and D13 能力总表与放行边界总表
 
-Current Blockers:
-- External software release remains blocked.
-- Stage 8 real execution remains governed / approval-gated / blocked by default; PTL-I100-122 only proves approved controlled-provider readback and keeps real provider execution gated.
-- Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default; PTL-I100-123 only proves approved controlled-provider readback and keeps automated refund excluded.
+Current Controlled Opening Boundaries:
+- External software release is a controlled-opening capability: it requires a dedicated current_task packet, release checklist, approval chain, audit chain, operator action, rollback/suspension path, and passing regression before any live/public action.
+- Stage 8 real execution is a controlled-opening capability: it requires provider config, sandbox pass, approval/audit, quiet-hours/frequency/opt-out enforcement, operator action, and acceptance before live execution.
+- Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
 - PTL-I100-143G is completed and registered the public-web capture escalation, captcha suspend/resume, and implementation order before runtime packets continue.
-- PTL-I100-144 may only implement internal market scan opportunity discovery/readback; Stage2 fetch, crawler execution, captcha bypass, customer-visible claims, provider calls, payment/delivery/refund, and public release remain blocked.
+- PTL-I100-144A only synchronizes controlled-opening semantics; it does not execute provider calls, outreach, payment, delivery, refund, customer download, or public release.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
 - The sold product is evidence packs / lead packs; the software is owner-operated tooling and customer artifact access, not the sold software product itself.
-- Except automated refund execution and prohibited non-public/gray capabilities, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
-- "Blocked by default" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
+- Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
+- "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the dedicated current_task packet pass; it does not mean the capability is permanently out of product scope.
 
-Current 144 Scope:
-- Score and classify public notice candidates by region, project type, amount band, notice stage, objection window, competitor signal, and critical field completeness.
-- Emit opportunity candidates, analysis priority, why_analyze, why_skip, review reasons, run controller, stage state machine, and next action readback.
-- Persist and replay the market scan carrier through repository-backed readback.
-- Keep manual URL picking out of the primary flow.
-- Keep real public fetch, uncontrolled crawler, login/captcha/anti-bot bypass, customer-visible claims, and live external execution disabled.
+Current 144A Scope:
+- Remove non-refund hard boundary assertions from current formal assets and replace them with controlled-opening semantics.
+- Keep automated refund execution excluded in docs, control, contracts, runtime readback, scripts, and tests.
+- Keep real external actions unexecuted during this sync packet.
+- Preserve legal/compliance prerequisites as activation conditions rather than permanent product exclusions.
 
 Recently Closed:
 - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed and committed locally: 64efed4.
@@ -40,24 +39,19 @@ Recently Closed:
 - PTL-I100-132-owner-operator-frontend-productization-workbench completed and committed locally before the 143 series.
 
 Allowed Actions (current):
-- Update only paths declared in control/current_task.yaml for PTL-I100-144.
-- Implement Stage1 market scan/readback and associated repository/API helper/test surfaces.
+- Update only paths declared in control/current_task.yaml for PTL-I100-144A.
+- Synchronize docs/control/contracts/scripts/runtime/tests from hard-boundary language to controlled-opening semantics.
 - Run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet.
 
 Forbidden Actions (current):
-- Any docs/** change.
-- Any contracts/** change.
-- Any handoff/** change.
-- Any scripts/** change.
-- Any Stage2-9 runtime, shared runtime, storage db schema, migrations, Docker/compose, or fixture change during 144.
-- Any private/gray source access, login bypass, captcha bypass, anti-bot bypass, or uncontrolled live crawler.
+- Any path outside control/current_task.yaml declared scope.
+- Any automated refund implementation or automated refund enablement.
+- Any real provider call, real model provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or public release during this sync.
 - Any schema/enum/gate/exception semantic addition.
-- Any external software release.
-- Any unapproved real provider call, real model provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or automated refund during implementation/tests.
 - Any push.
 
 State Semantics:
-- READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself change external release, Stage8, or Stage9 boundaries.
+- READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself execute external release, Stage8, or Stage9 live actions.
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
 - current_task -> product_task_library -> repo_status is the only active-source priority.
 - control/current_task.yaml is the only active execution source.

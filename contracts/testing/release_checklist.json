@@ -163,7 +163,7 @@
         },
         {
           "itemId": "REL-025",
-          "text": "Release layers (DEV_ALLOWED/INTERNAL_OPERABLE/LEADPACK_DELIVERABLE/EXTERNAL_BLOCKED) are consistent across boundary registry, delivery matrix and release gates.",
+          "text": "Release layers (DEV_ALLOWED/INTERNAL_OPERABLE/LEADPACK_DELIVERABLE/EXTERNAL_CONTROLLED_OPENING) are consistent across boundary registry, delivery matrix and release gates.",
           "blocking": true,
           "sourceRefs": [
             "D13-R-067"
@@ -695,7 +695,7 @@
         },
         {
           "itemId": "REL-093",
-          "text": "REAL_RUN_READY remains subordinate to EXTERNAL_BLOCKED and never replaces release_level semantics.",
+          "text": "REAL_RUN_READY remains subordinate to EXTERNAL_CONTROLLED_OPENING and never replaces release_level semantics.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-052-A"
@@ -893,7 +893,7 @@
         },
         {
           "itemId": "REL-126",
-          "text": "Stage 8 live execution remains blocked by default and may only be discussed after shadow/canary, rollback and kill-switch prerequisites are machine-readable and satisfied.",
+          "text": "Stage 8 live execution remains controlled opening required and may only be discussed after shadow/canary, rollback and kill-switch prerequisites are machine-readable and satisfied.",
           "blocking": true,
           "sourceRefs": [
             "D12-R-030-A"
@@ -909,7 +909,7 @@
         },
         {
           "itemId": "REL-128",
-          "text": "Stage 9 live payment execution remains blocked by default and requires shadow/canary, rollback, emergency off and explicit owner signoff prerequisites.",
+          "text": "Stage 9 live payment execution remains controlled opening required and requires shadow/canary, rollback, emergency off and explicit owner signoff prerequisites.",
           "blocking": true,
           "sourceRefs": [
             "D12-R-030-A"
@@ -925,7 +925,7 @@
         },
         {
           "itemId": "REL-130",
-          "text": "Stage 9 live delivery execution remains blocked by default and requires shadow/canary, rollback, emergency off and explicit owner signoff prerequisites.",
+          "text": "Stage 9 live delivery execution remains controlled opening required and requires shadow/canary, rollback, emergency off and explicit owner signoff prerequisites.",
           "blocking": true,
           "sourceRefs": [
             "D12-R-030-A"
@@ -1260,7 +1260,7 @@
         },
         {
           "itemId": "REL-170",
-          "text": "Internal product operationalization keeps external software release and Stage 8/9 live execution blocked-by-default with no activation-prep or external unlock side effects.",
+          "text": "Internal product operationalization keeps external software release and Stage 8/9 live execution controlled-opening-required with no activation-prep or external unlock side effects.",
           "blocking": true,
           "sourceRefs": [
             "D12-R-041-B",
@@ -1451,7 +1451,7 @@
         },
         {
           "itemId": "REL-191",
-          "text": "contracts/release/runtime_policy_catalog.json remains the sole canonical source for capability mode, priority order, protected short-circuit and EXTERNAL_BLOCKED redline; runtime_inventory, model_release_manifest and release_manifest remain projection/mirror surfaces only.",
+          "text": "contracts/release/runtime_policy_catalog.json remains the sole canonical source for capability mode, priority order, protected short-circuit and EXTERNAL_CONTROLLED_OPENING controlled_opening_boundary; runtime_inventory, model_release_manifest and release_manifest remain projection/mirror surfaces only.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-AG",

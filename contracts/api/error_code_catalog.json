@@ -133,7 +133,7 @@
         {
           "code": "LIVE-423-EXECUTION_BLOCKED",
           "httpStatus": 423,
-          "message": "Live execution is blocked by default for this surface."
+          "message": "Live execution is controlled opening required for this surface."
         },
         {
           "code": "WORKITEM-404-NOT_FOUND",

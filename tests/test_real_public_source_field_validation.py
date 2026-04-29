@@ -179,7 +179,7 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
         self.assertIn("blocked_visibility_state:CAPTCHA_REQUIRED", suspended["blocked_reason_optional"])
         self.assertTrue(all(result["no_broad_fallback"] for result in report["results"]))
 
-    def test_128_report_and_redlines_are_recorded_in_control_surface(self) -> None:
+    def test_128_report_and_controlled_opening_boundaries_are_recorded_in_control_surface(self) -> None:
         report_path = ROOT / "control/real_public_source_field_validation_report.yaml"
         report = yaml.safe_load(report_path.read_text(encoding="utf-8"))
 
@@ -193,12 +193,12 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_WEAK], 1)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_FAILING], 1)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_SUSPENDED], 1)
-        self.assertFalse(report["redlines"]["private_or_gray_source_used"])
-        self.assertFalse(report["redlines"]["login_bypass_used"])
-        self.assertFalse(report["redlines"]["captcha_bypass_used"])
-        self.assertFalse(report["redlines"]["anti_bot_bypass_used"])
-        self.assertFalse(report["redlines"]["uncontrolled_live_crawler_used"])
-        self.assertFalse(report["redlines"]["real_provider_call_executed"])
+        self.assertFalse(report["controlled_opening_boundaries"]["private_or_gray_source_used"])
+        self.assertFalse(report["controlled_opening_boundaries"]["login_bypass_used"])
+        self.assertFalse(report["controlled_opening_boundaries"]["captcha_bypass_used"])
+        self.assertFalse(report["controlled_opening_boundaries"]["anti_bot_bypass_used"])
+        self.assertFalse(report["controlled_opening_boundaries"]["uncontrolled_live_crawler_used"])
+        self.assertFalse(report["controlled_opening_boundaries"]["real_provider_call_executed"])
 
     def test_128_timeout_degrades_without_live_retry_or_bypass(self) -> None:
         sample = next(

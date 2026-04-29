@@ -115,7 +115,7 @@ def build_model_assist_governance_summary(
         "customer_visible_claim_enabled": False,
         "no_private_data_to_model_without_policy": not private_data_requested,
         "no_internal_blackbox_customer_exposure": True,
-        "redlines": {
+        "controlled_opening_boundaries": {
             "model_output_not_final_fact": True,
             "model_output_not_customer_conclusion": True,
             "human_review_required_for_customer_visible_claim": True,
@@ -134,7 +134,7 @@ def build_model_assist_governance_summary(
 
 def build_model_assist_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
     output_trace = dict(carrier.get("output_trace", {}))
-    redlines = dict(carrier.get("redlines", {}))
+    controlled_opening_boundaries = dict(carrier.get("controlled_opening_boundaries", {}))
     return {
         "assist_id": carrier.get("assist_id"),
         "assist_scope": carrier.get("assist_scope"),
@@ -144,9 +144,9 @@ def build_model_assist_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
         "customer_visible": bool(carrier.get("customer_visible", False)),
         "formal_fact_write_enabled": bool(carrier.get("formal_fact_write_enabled", False)),
         "real_model_provider_call_executed": bool(carrier.get("real_model_provider_call_executed", False)),
-        "model_output_not_final_fact": bool(redlines.get("model_output_not_final_fact", True)),
+        "model_output_not_final_fact": bool(controlled_opening_boundaries.get("model_output_not_final_fact", True)),
         "model_output_not_customer_conclusion": bool(
-            redlines.get("model_output_not_customer_conclusion", True)
+            controlled_opening_boundaries.get("model_output_not_customer_conclusion", True)
         ),
         "no_private_data_to_model_without_policy": bool(
             carrier.get("no_private_data_to_model_without_policy", True)

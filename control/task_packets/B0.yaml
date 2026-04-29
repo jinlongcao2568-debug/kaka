@@ -9,7 +9,7 @@ why_now: "Without a stable semantic source and gate baseline, later batches will
 depends_on: []
 non_goals:
   - "Do not execute any downstream runtime/business repair in this batch."
-  - "Do not weaken blocked or governed redlines."
+  - "Do not weaken blocked or governed controlled_opening_boundaries."
   - "not an external unlock implementation"
 affected_stages:
   - control_plane
@@ -95,7 +95,7 @@ required_scripts:
   - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
 stop_conditions:
   - "A second formal status source is introduced."
-  - "Any full-repair asset weakens blocked/governed redlines."
+  - "Any full-repair asset weakens blocked/governed controlled_opening_boundaries."
   - "Any required script fails."
 definition_of_done:
   - "A new window can determine the next batch from the status ledger without re-planning."

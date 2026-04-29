@@ -101,7 +101,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIn("capability_state_PRODUCTION_READY", production_task["acceptance_checks"])
         self.assertNotIn("capability_state_PRODUCTION_READY_CANDIDATE", production_task["acceptance_checks"])
 
-    def test_live_and_external_tasks_keep_gate_and_redline_acceptance(self) -> None:
+    def test_live_and_external_tasks_keep_gate_and_controlled_opening_boundary_acceptance(self) -> None:
         required_gate_tokens = {
             "provider_config",
             "sandbox_pass",
@@ -125,7 +125,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             entry = self.checklist["tasks"][task_id]
             serialized = yaml.safe_dump(entry, allow_unicode=True)
             self.assertRegex(serialized, r"approval|audit|gated|blocked|no_unapproved", task_id)
-            self.assertTrue(entry["redline_checks"], task_id)
+            self.assertTrue(entry["controlled_opening_boundary_checks"], task_id)
 
     def test_refund_boundary_is_manual_exception_only_everywhere_it_matters(self) -> None:
         self.assertIn("automated refund execution is excluded", self.checklist["refund_boundary"])
@@ -188,6 +188,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
 
     def test_150_and_151_register_public_web_upgrade_and_captcha_resume(self) -> None:
         task_143g = self.tasks_by_id["PTL-I100-143G-public-web-capture-doc-sync-and-order-review"]
+        task_144a = self.tasks_by_id["PTL-I100-144A-controlled-opening-sync"]
         task_144 = self.tasks_by_id["PTL-I100-144-market-scan-opportunity-discovery-engine"]
         task_150 = self.tasks_by_id["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         task_151 = self.tasks_by_id["PTL-I100-151-public-web-captcha-suspend-and-operator-resume"]
@@ -197,8 +198,10 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
 
         self.assertEqual(task_143g["status"], "COMPLETED")
         self.assertEqual(task_143g["completed_commit"], "64efed4")
-        self.assertEqual(task_144["status"], "ACTIVE")
-        self.assertTrue(task_144["is_current_mainline_next_candidate"])
+        self.assertEqual(task_144a["status"], "ACTIVE")
+        self.assertTrue(task_144a["is_current_mainline_next_candidate"])
+        self.assertEqual(task_144["status"], "PLANNED")
+        self.assertFalse(task_144["is_current_mainline_next_candidate"])
         self.assertEqual(task_150["status"], "PLANNED")
         self.assertEqual(task_151["status"], "PLANNED")
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", task_143g["acceptance_checks"])
@@ -255,7 +258,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         for subpacket_id in package_subpacket_ids | source_subpacket_ids:
             self.assertIn(subpacket_id, subpacket_acceptance)
             self.assertTrue(subpacket_acceptance[subpacket_id]["completion_must_prove"], subpacket_id)
-            self.assertTrue(subpacket_acceptance[subpacket_id]["redline_checks"], subpacket_id)
+            self.assertTrue(subpacket_acceptance[subpacket_id]["controlled_opening_boundary_checks"], subpacket_id)
 
     def test_completed_packets_and_current_active_packet_are_aligned(self) -> None:
         task_112 = self.tasks_by_id["PTL-I100-112-production-platform-infrastructure"]
@@ -624,7 +627,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertTrue(active_task["capability_gaps_covered"])
         active_checklist = self.checklist["tasks"][active_task_id]
         self.assertTrue(active_checklist["completion_must_prove"])
-        self.assertTrue(active_checklist["redline_checks"])
+        self.assertTrue(active_checklist["controlled_opening_boundary_checks"])
 
     def test_final_gate_requires_product_closure_not_just_tests(self) -> None:
         final_entry = self.checklist["tasks"]["PTL-I100-118-full-product-operational-acceptance"]
@@ -724,7 +727,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
                 )
                 self.assertIn(task_id, self.checklist["tasks"])
                 self.assertTrue(self.checklist["tasks"][task_id]["completion_must_prove"])
-                self.assertTrue(self.checklist["tasks"][task_id]["redline_checks"])
+                self.assertTrue(self.checklist["tasks"][task_id]["controlled_opening_boundary_checks"])
 
         closeout_result = self.checklist["tasks"][
             "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout"

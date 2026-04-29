@@ -12,7 +12,7 @@ scope_coverage:
   - Stage8 contact/compliance/outreach preview
   - Stage9 order/payment/delivery/refund/writeback
   - storage/bootstrap/transport
-  - external/live redlines
+  - external/live controlled_opening_boundaries
 classification_vocabulary:
   - INTERNAL_IMPLEMENTED
   - TEST_COVERED
@@ -317,7 +317,7 @@ capabilities:
     recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
 
   - capability_id: STAGE8_REAL_OUTREACH_EXECUTION
-    scope_group: external/live redlines
+    scope_group: external/live controlled_opening_boundaries
     external_or_live_capability: true
     doc_refs:
       - docs/D7_对象级交付矩阵与外发治理规范.md#D7-R-062-A
@@ -337,7 +337,7 @@ capabilities:
       - TEST_COVERED
     evidence_summary: >
       Real outreach execution is intentionally blocked. Current runtime and
-      tests preserve dry-run/preview behavior and redline direct LeadPack or
+      tests preserve dry-run/preview behavior and controlled_opening_boundary direct LeadPack or
       external send paths.
     recommended_followup_packet: PTL-I100-110-external-live-execution-prerequisite-decision
 
@@ -381,14 +381,14 @@ capabilities:
     test_refs:
       - tests/test_internal_chain.py::test_stage9_payment_exception_matrix_sets_manual_review_and_writeback
       - tests/test_internal_chain.py::test_stage9_delivery_exception_blocks_outcome_and_records_governance_feedback
-      - tests/test_internal_acceptance_matrix.py::test_refund_live_redline_fixture_is_dedicated_and_replayed
+      - tests/test_internal_acceptance_matrix.py::test_refund_live_controlled_opening_boundary_fixture_is_dedicated_and_replayed
       - tests/test_stage9_impact_executor.py::test_refund_exception_runtime_contract_stays_internal_and_traceable
     classification:
       - INTERNAL_IMPLEMENTED
       - TEST_COVERED
     evidence_summary: >
       Internal exception and refund replay behavior is implemented as governed
-      records, including manual review, blocked outcome, feedback, and redline
+      records, including manual review, blocked outcome, feedback, and controlled_opening_boundary
       replay tests.
     recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
 
@@ -417,7 +417,7 @@ capabilities:
     recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
 
   - capability_id: STAGE9_LIVE_PAYMENT_DELIVERY_REFUND_EXECUTION
-    scope_group: external/live redlines
+    scope_group: external/live controlled_opening_boundaries
     external_or_live_capability: true
     doc_refs:
       - docs/D7_对象级交付矩阵与外发治理规范.md#D7-R-062-A
@@ -438,7 +438,7 @@ capabilities:
     evidence_summary: >
       Live payment, delivery, refund, and direct external writeback remain
       blocked. Current runtime is internal governed only and tests lock the
-      redline.
+      controlled_opening_boundary.
     recommended_followup_packet: PTL-I100-110-external-live-execution-prerequisite-decision
 
   - capability_id: STORAGE_BOOTSTRAP_JSON_FILE_INTERNAL_BACKBONE
@@ -548,7 +548,7 @@ capabilities:
     recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
 
   - capability_id: LEADPACK_EXTERNAL_DELIVERY_CANDIDATE_SURFACE
-    scope_group: external/live redlines
+    scope_group: external/live controlled_opening_boundaries
     external_or_live_capability: true
     doc_refs:
       - docs/D5_页面导出与人工复核规范.md#leadpack-candidate-preview
@@ -581,7 +581,7 @@ capabilities:
     recommended_followup_packet: PTL-I100-109-leadpack-client-export-and-page-layer-coverage
 
   - capability_id: EXTERNAL_SOFTWARE_RELEASE
-    scope_group: external/live redlines
+    scope_group: external/live controlled_opening_boundaries
     external_or_live_capability: true
     doc_refs:
       - docs/L0.md#external-release-blocked
@@ -599,12 +599,12 @@ capabilities:
       - RESERVED_NOT_LIVE
       - TEST_COVERED
     evidence_summary: >
-      External software release is a governance redline in current status and
+      External software release is a governance controlled_opening_boundary in current status and
       remains covered by prerequisite and acceptance-matrix tests.
     recommended_followup_packet: PTL-I100-110-external-release-prerequisite-decision
 
   - capability_id: FORMAL_CLIENT_EXPORT_AND_PAGE_LAYER
-    scope_group: external/live redlines
+    scope_group: external/live controlled_opening_boundaries
     external_or_live_capability: true
     doc_refs:
       - docs/D5_页面导出与人工复核规范.md#page-directory

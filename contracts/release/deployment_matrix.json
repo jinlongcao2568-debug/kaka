@@ -16,21 +16,21 @@
       "tier": "local",
       "mapped_envs": ["LOCAL_DEV"],
       "release_layer": "DEV_ALLOWED",
-      "external_status": "EXTERNAL_BLOCKED",
+      "external_status": "EXTERNAL_CONTROLLED_OPENING",
       "default_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "INTERNAL_ONLY", "SHADOW_MODE", "DRY_RUN"]
     },
     {
       "tier": "internal_pilot",
       "mapped_envs": ["INTEGRATION", "PRE_RELEASE", "PRODUCTION_INTERNAL"],
       "release_layer": "INTERNAL_OPERABLE",
-      "external_status": "EXTERNAL_BLOCKED",
+      "external_status": "EXTERNAL_CONTROLLED_OPENING",
       "default_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "INTERNAL_ONLY", "INTERNAL_GOVERNED", "SHADOW_MODE", "DRY_RUN", "APPROVAL_REQUIRED"]
     },
     {
       "tier": "future_external",
       "mapped_envs": ["PRODUCTION_CLIENT", "PRODUCTION_ACTION", "DR_STANDBY"],
       "release_layer": "LEADPACK_DELIVERABLE",
-      "external_status": "EXTERNAL_BLOCKED",
+      "external_status": "EXTERNAL_CONTROLLED_OPENING",
       "default_capability_modes": ["BUILDABLE_BUT_OFF_BY_DEFAULT", "INTERNAL_ONLY", "INTERNAL_GOVERNED", "SHADOW_MODE", "DRY_RUN", "APPROVAL_REQUIRED", "REAL_RUN_READY"]
     }
   ],
@@ -61,7 +61,7 @@
     }
   ],
   "notes": [
-    "External software release remains blocked.",
+    "External software release is a controlled-opening capability.",
     "Future external tier is reserved only and does not imply release approval.",
     "capability_mode is runtime-only and does not override release_layer."
   ]

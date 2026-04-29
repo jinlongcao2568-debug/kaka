@@ -24,7 +24,7 @@ mapping:
   external_api_release:
     semantic_name: "external_platform_release_blocked"
     meaning: "外部平台接口放行（默认阻断）"
-    release_level: "EXTERNAL_BLOCKED"
+    release_level: "EXTERNAL_CONTROLLED_OPENING"
   high_restriction_field_view:
     semantic_name: "restricted_field_view"
     meaning: "高限制字段查看审批"

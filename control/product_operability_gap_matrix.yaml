@@ -23,7 +23,7 @@ product_model:
   open_capability_policy:
     policy_id: PTL-I100-OPEN-CAPABILITY-BASELINE
     baseline_rule: "Except automated refund execution, every business capability required to sell evidence packs / lead packs is a target capability and must be moved through staged controlled opening."
-    live_default: BLOCKED
+    live_default: CONTROLLED_OPENING_REQUIRED
     state_order:
       - NOT_IMPLEMENTED
       - INTERNAL_READY
@@ -127,7 +127,7 @@ decision_summary:
     business capability needed to sell evidence packs and lead packs must be
     implemented through the task pool and moved stepwise through internal,
     sandbox, approval, live, and production readiness. Live execution remains
-    blocked by default until the dedicated packet and acceptance gates pass.
+    controlled opening required until the dedicated packet and acceptance gates pass.
   implementation_progress_summary: >
     PTL-I100-112 through PTL-I100-121C are recorded as completed in
     control/current_task.yaml and control/repo_status.md. The current 118
@@ -198,11 +198,11 @@ final_118_operational_acceptance:
       evidence: "SLO, alert simulation, incident, backup, rollback, suspend/resume are replayable, but compose/container execution, external APM/paging, destructive restore, and real rollback remain disabled"
       minimum_followup_task_id: PTL-I100-126-production-live-dependency-and-drill-approval
       forbidden_in_118: true
-  redlines_preserved:
-    external_software_release: BLOCKED
-    unapproved_customer_delivery: BLOCKED
-    unapproved_live_provider_call: BLOCKED
-    real_refund_execution: BLOCKED
+  controlled_opening_boundaries_preserved:
+    external_software_release: CONTROLLED_OPENING
+    unapproved_customer_delivery: CONTROLLED_OPENING
+    unapproved_live_provider_call: CONTROLLED_OPENING
+    real_refund_execution: CONTROLLED_OPENING
     automated_refund_execution: EXCLUDED
 final_131_controlled_real_world_e2e_closeout:
   packet_ref: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
@@ -211,11 +211,11 @@ final_131_controlled_real_world_e2e_closeout:
   owner_operational_use_state: OWNER_OPERABLE_CONTROLLED_PRODUCTION_READY
   report_ref: control/controlled_real_world_e2e_pilot_report.yaml
   remaining_product_blockers: []
-  redlines_preserved:
-    external_software_release: BLOCKED
-    unapproved_customer_delivery: BLOCKED
-    unapproved_live_provider_call: BLOCKED
-    real_refund_execution: BLOCKED
+  controlled_opening_boundaries_preserved:
+    external_software_release: CONTROLLED_OPENING
+    unapproved_customer_delivery: CONTROLLED_OPENING
+    unapproved_live_provider_call: CONTROLLED_OPENING
+    real_refund_execution: CONTROLLED_OPENING
     automated_refund_execution: EXCLUDED
 final_132_frontend_productization_workbench:
   packet_ref: PTL-I100-132-owner-operator-frontend-productization-workbench
@@ -666,13 +666,13 @@ final_118R_operational_reacceptance:
       capability: controlled_real_world_e2e_product_pilot
       resolved_by_task_id: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
       current_state: PRODUCTION_READY
-      evidence: "control/controlled_real_world_e2e_pilot_report.yaml proves the owner-operated controlled flow across public source validation, parser/verification/rules, Stage6 product package, real challenger, CRM/quote, customer artifact, outreach, payment/delivery, audit/writeback, incident/rollback, model assist, and redline preservation."
+      evidence: "control/controlled_real_world_e2e_pilot_report.yaml proves the owner-operated controlled flow across public source validation, parser/verification/rules, Stage6 product package, real challenger, CRM/quote, customer artifact, outreach, payment/delivery, audit/writeback, incident/rollback, model assist, and controlled_opening_boundary preservation."
   real_world_gaps: []
-  redlines_preserved:
-    external_software_release: BLOCKED
-    unapproved_customer_delivery: BLOCKED
-    unapproved_live_provider_call: BLOCKED
-    real_refund_execution: BLOCKED
+  controlled_opening_boundaries_preserved:
+    external_software_release: CONTROLLED_OPENING
+    unapproved_customer_delivery: CONTROLLED_OPENING
+    unapproved_live_provider_call: CONTROLLED_OPENING
+    real_refund_execution: CONTROLLED_OPENING
     automated_refund_execution: EXCLUDED
 production_gap_task_map:
   - gap_group: provider_config_sandbox_and_live_control

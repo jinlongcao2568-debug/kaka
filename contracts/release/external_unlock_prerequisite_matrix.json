@@ -23,7 +23,7 @@
     "SHADOW_ONLY",
     "APPROVAL_GATED_FUTURE_UNLOCK",
     "INTERNAL_ONLY",
-    "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    "EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET"
   ],
   "shadow_or_canary_state_vocabulary": [
     "NOT_REQUIRED",
@@ -46,7 +46,7 @@
       "capability_domain_id": "external_software_release",
       "current_default_status": "BLOCKED",
       "future_unlock_allowed": true,
-      "unlock_tier": "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET",
+      "unlock_tier": "EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET",
       "minimum_prerequisite_level": "FULL_EXTERNAL_DECISION_PACKET",
       "required_gates": [
         "external_api_release",
@@ -193,7 +193,7 @@
     },
     {
       "capability_domain_id": "stage8_live_execution",
-      "current_default_status": "BLOCKED_BY_DEFAULT",
+      "current_default_status": "CONTROLLED_OPENING_REQUIRED",
       "future_unlock_allowed": true,
       "unlock_tier": "APPROVAL_GATED_FUTURE_UNLOCK",
       "minimum_prerequisite_level": "SHADOW_CANARY_AND_SIGNOFF",
@@ -245,7 +245,7 @@
     },
     {
       "capability_domain_id": "stage9_live_payment_execution",
-      "current_default_status": "BLOCKED_BY_DEFAULT",
+      "current_default_status": "CONTROLLED_OPENING_REQUIRED",
       "future_unlock_allowed": true,
       "unlock_tier": "APPROVAL_GATED_FUTURE_UNLOCK",
       "minimum_prerequisite_level": "SHADOW_CANARY_AND_SIGNOFF",
@@ -295,7 +295,7 @@
     },
     {
       "capability_domain_id": "stage9_live_delivery_execution",
-      "current_default_status": "BLOCKED_BY_DEFAULT",
+      "current_default_status": "CONTROLLED_OPENING_REQUIRED",
       "future_unlock_allowed": true,
       "unlock_tier": "APPROVAL_GATED_FUTURE_UNLOCK",
       "minimum_prerequisite_level": "SHADOW_CANARY_AND_SIGNOFF",
@@ -484,7 +484,7 @@
       "capability_domain_id": "external_export_surface",
       "current_default_status": "BLOCKED",
       "future_unlock_allowed": true,
-      "unlock_tier": "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET",
+      "unlock_tier": "EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET",
       "minimum_prerequisite_level": "PROJECTION_BOUNDARY_AND_APPROVAL_READY",
       "required_gates": [
         "client_report_release",

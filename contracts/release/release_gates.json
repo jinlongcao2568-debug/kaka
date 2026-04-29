@@ -28,7 +28,7 @@
   "future_unlock_decision_matrix_ref": "contracts/release/future_unlock_decision_matrix.json",
   "capability_mode_rules": {
     "non_override_release_layer": true,
-    "external_block_redline_kept": true,
+    "external_block_controlled_opening_boundary_kept": true,
     "permanently_blocked_and_emergency_off_override_all": true,
     "real_run_ready_requires_gate_and_approval": true
   },
@@ -243,10 +243,10 @@
     {
       "releaseGateId": "external_api_release",
       "surface": "RESTRICTED_RELEASE",
-      "minimumReleaseLevel": "EXTERNAL_BLOCKED",
+      "minimumReleaseLevel": "EXTERNAL_CONTROLLED_OPENING",
       "requirements": [
         "external platform release remains blocked by current policy",
-        "approval mapping must retain EXTERNAL_BLOCKED semantics",
+        "approval mapping must retain EXTERNAL_CONTROLLED_OPENING semantics",
         "API surface may not expose governance-isolated or internal reasoning objects",
         "gate is retained only as a blocked semantic placeholder for future governance review",
         "stage9 direct objects remain blocked by policy"
@@ -482,6 +482,6 @@
     "DEV_ALLOWED",
     "INTERNAL_OPERABLE",
     "LEADPACK_DELIVERABLE",
-    "EXTERNAL_BLOCKED"
+    "EXTERNAL_CONTROLLED_OPENING"
   ]
 }

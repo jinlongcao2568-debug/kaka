@@ -119,7 +119,7 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
         )
         self.assertEqual(
             resolver.external_blocked_release_level,
-            runtime_policy["runtime_resolver_precedence"]["release_layer_redline"],
+            runtime_policy["runtime_resolver_precedence"]["release_layer_controlled_opening_boundary"],
         )
         self.assertEqual(
             resolver.control_projection_sources_ignored_for_mode_resolution,
@@ -305,7 +305,7 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
             project_id=opportunity.get("project_id"),
             records={"saleable_opportunity": opportunity},
             inputs={
-                "release_level": "EXTERNAL_BLOCKED",
+                "release_level": "EXTERNAL_CONTROLLED_OPENING",
                 "approval_state": "APPROVED",
                 "capability_mode_overrides": {
                     "execution_vendor": "REAL_RUN_READY",
@@ -322,13 +322,13 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
                     "target_id": "EXEC-EMAIL-SERVICE",
                     "target_type": "execution_vendor",
                     "target_role": "EXECUTION_VENDOR",
-                    "release_level": "EXTERNAL_BLOCKED",
+                    "release_level": "EXTERNAL_CONTROLLED_OPENING",
                     "approval_state": "APPROVED",
                 }
             ],
         )
         self.assertEqual(state.permission_decision_state, "BLOCK")
-        self.assertIn("external release blocked redline", " ".join(state.permission_blocked_reasons))
+        self.assertIn("external release blocked controlled_opening_boundary", " ".join(state.permission_blocked_reasons))
 
     def test_stage8_permission_trace_is_emitted_before_policy_load(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

@@ -310,7 +310,7 @@
         "surface responses distinguish formal_object_refs from preview_projection",
         "api routes consume typed objects and decision states without recomputing main judgment",
         "stage8/stage9 surfaces keep blocked_by_default and live_execution_enabled=false",
-        "stage8 persisted replay keeps draft-only/internal-governed/blocked-by-default surface semantics after create_touch_record",
+        "stage8 persisted replay keeps draft-only/internal-governed/controlled-opening-required surface semantics after create_touch_record",
         "stage8 persisted governed_context replays writeback and human handoff metadata without implying live execution",
         "page_surface_states/review_action_catalog/workbench/button flow/export template remain aligned",
         "internal preview contracts do not imply external-ready or live execution"
@@ -1023,7 +1023,7 @@
       "suite_id": "REG-RELEASE-LAYER",
       "title": "放行层对齐回归",
       "checks": [
-        "DEV_ALLOWED/INTERNAL_OPERABLE/LEADPACK_DELIVERABLE/EXTERNAL_BLOCKED present",
+        "DEV_ALLOWED/INTERNAL_OPERABLE/LEADPACK_DELIVERABLE/EXTERNAL_CONTROLLED_OPENING present",
         "delivery matrix and release gates use same release layers",
         "external release remains blocked",
         "legacy EXTERNAL_LEADPACK_DELIVERABLE token absent from formal docs/contracts/control export and approval surfaces"
@@ -1582,7 +1582,7 @@
         "stage8 risky path resolves source/execution/stage8_execution before policy execution",
         "stage9 risky path resolves stage9_execution before internal writeback",
         "EMERGENCY_OFF and PERMANENTLY_BLOCKED short-circuit before downstream policy execution",
-        "REAL_RUN_READY does not override EXTERNAL_BLOCKED",
+        "REAL_RUN_READY does not override EXTERNAL_CONTROLLED_OPENING",
         "permission_trace and additive governance data are emitted for stage8/stage9 runtime paths"
       ],
       "triggers": [
@@ -2373,10 +2373,10 @@
       "suite_id": "REG-FF17-S2-CAPABILITY-CANONICAL-SOURCE",
       "title": "FF-17-S2 capability canonical source regression",
       "checks": [
-        "runtime_policy_catalog remains the sole canonical source for capability_mode family state, priority order, protected short-circuit and EXTERNAL_BLOCKED redline",
+        "runtime_policy_catalog remains the sole canonical source for capability_mode family state, priority order, protected short-circuit and EXTERNAL_CONTROLLED_OPENING controlled_opening_boundary",
         "runtime_inventory, model_release_manifest and release_manifest remain projection or mirror surfaces and do not become semantics sources",
         "future unlock prerequisite or decision assets do not redefine current readiness, current capability unlock or external software release",
-        "REAL_RUN_READY remains subordinate to EXTERNAL_BLOCKED and cannot override blocked-by-default internal surfaces"
+        "REAL_RUN_READY remains subordinate to EXTERNAL_CONTROLLED_OPENING and cannot override controlled-opening-required internal surfaces"
       ],
       "triggers": [
         "contracts/release/runtime_policy_catalog.json change",

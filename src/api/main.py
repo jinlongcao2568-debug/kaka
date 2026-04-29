@@ -427,7 +427,7 @@ def _build_transport_bootstrap(
                 "MODEL-GOLDEN-EVIDENCE-SUMMARY-REVIEW",
                 "MODEL-GOLDEN-SALES-TALK-TRACK-DRAFT",
             ],
-            "redlines": {
+            "controlled_opening_boundaries": {
                 "model_output_not_final_fact": True,
                 "model_output_not_customer_conclusion": True,
                 "private_data_to_model_without_policy_blocked": True,
@@ -915,7 +915,7 @@ def _build_transport_bootstrap(
                 "automated_refund_enabled": False,
             },
         },
-        "redlines": {
+        "controlled_opening_boundaries": {
             "new_http_endpoint_added": False,
             "internal_stage1_to_stage6_http_endpoint_added": True,
             "operator_customer_access_http_endpoint_added": True,

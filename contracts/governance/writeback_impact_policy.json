@@ -998,6 +998,6 @@
     "upstream feedback targets are exposed separately and merged through resolved writeback contracts without folding into legacy outcome_writeback_targets or effective_writeback_targets.",
     "target_source_resolution_order, additive_sources_allowed_targets, silent_override_forbidden_pairs, and upstream_feedback_loop_contract are the canonical non-service-local target semantics for Stage9 writeback resolution.",
     "Outcome writeback targets remain authoritative; governance and exception targets are additive only and may not silently override outcome targets.",
-    "live payment/delivery/refund execution remains blocked by default."
+    "live payment/delivery/refund execution remains controlled opening required."
   ]
 }

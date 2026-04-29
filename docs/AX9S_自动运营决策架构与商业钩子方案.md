@@ -212,7 +212,7 @@ Stage6/Stage7 必须增加一个产品层概念：商业钩子线索。它不是
 8. `PTL-I100-149-real-sample-autonomous-opportunity-acceptance`
    用真实公开样本验收：从市场扫描到可售钩子和交付候选，证明系统不是手工 URL 工具。
 
-## 九、红线
+## 九、受控开放边界
 
 仍保持：
 

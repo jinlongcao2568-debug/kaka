@@ -42,7 +42,7 @@
     },
     "fallbackReadModelRule": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
     "fallbackReviewPathRule": "missing formal refs => review-required; unresolved approval/audit => governed-hold; explicit policy/release block => blocked",
-    "redlines": [
+    "controlled_opening_boundaries": [
       "internal preview and draft surfaces must not be described as external-ready",
       "Stage 8 and Stage 9 live_execution_enabled must remain false",
       "Stage 8 and Stage 9 blocked_by_default must remain true unless a later approved batch changes the authority"
@@ -391,7 +391,7 @@
         "onMissingFormalRefs": "review-required",
         "onExplicitPolicyBlock": "blocked"
       },
-      "redlines": [
+      "controlled_opening_boundaries": [
         "preview-only",
         "internal-only",
         "live_execution_enabled=false"
@@ -527,7 +527,7 @@
         "onApprovalOrAuditGap": "governed-hold",
         "onExplicitPolicyBlock": "blocked"
       },
-      "redlines": [
+      "controlled_opening_boundaries": [
         "draft-only",
         "blocked_by_default",
         "live_execution_enabled=false"
@@ -716,7 +716,7 @@
         "onApprovalOrAuditGap": "governed-hold",
         "onExplicitPolicyBlock": "blocked"
       },
-      "redlines": [
+      "controlled_opening_boundaries": [
         "draft-only",
         "internal-writeback-only",
         "blocked_by_default",
@@ -1292,7 +1292,7 @@
     "DEV_ALLOWED",
     "INTERNAL_OPERABLE",
     "LEADPACK_DELIVERABLE",
-    "EXTERNAL_BLOCKED"
+    "EXTERNAL_CONTROLLED_OPENING"
   ],
   "leadpack_sku_relation": "LeadPack SKU is commercial packaging, not capability tier"
 }

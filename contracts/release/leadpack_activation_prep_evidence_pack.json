@@ -152,7 +152,7 @@
     "actual activation remains out of scope",
     "external delivery remains approval-and-audit gated",
     "external software release remains blocked",
-    "stage8/stage9 live execution remains blocked by default"
+    "stage8/stage9 live execution remains controlled opening required"
   ],
   "activation_design_prep_handoff": {
     "source_go_no_go_decision": "GO",

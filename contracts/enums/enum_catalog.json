@@ -234,7 +234,7 @@
           "meaning": "Leadpack deliverable after gates and approvals"
         },
         {
-          "value": "EXTERNAL_BLOCKED",
+          "value": "EXTERNAL_CONTROLLED_OPENING",
           "meaning": "Externally blocked and may not be promised or released"
         }
       ],

@@ -964,7 +964,7 @@ class RuntimeValidator:
                 continue
             gate_decision = "ALLOW"
             minimum_level = str(gate.get("minimumReleaseLevel", "DEV_ALLOWED"))
-            if minimum_level == "EXTERNAL_BLOCKED":
+            if minimum_level == "EXTERNAL_CONTROLLED_OPENING":
                 gate_decision = "BLOCK"
                 reasons.append(f"{gate_id} is externally blocked")
             elif not self._release_level_allows(release_level, minimum_level):
@@ -973,7 +973,7 @@ class RuntimeValidator:
 
             if bool(gate.get("blockedByDefault")):
                 gate_decision = "BLOCK"
-                reasons.append(f"{gate_id} blocked by default")
+                reasons.append(f"{gate_id} controlled opening required")
 
             if gate_id == "high_restriction_contact_release" and approval_state != "APPROVED":
                 gate_decision = self._stricter_decision(gate_decision, "REVIEW" if action_intent != "LIVE_EXECUTION" else "BLOCK")
@@ -1036,9 +1036,9 @@ class RuntimeValidator:
         return left if order.get(left, 0) >= order.get(right, 0) else right
 
     def _release_level_allows(self, current_level: str, minimum_level: str) -> bool:
-        if minimum_level == "EXTERNAL_BLOCKED":
-            return current_level == "EXTERNAL_BLOCKED"
-        if current_level == "EXTERNAL_BLOCKED":
+        if minimum_level == "EXTERNAL_CONTROLLED_OPENING":
+            return current_level == "EXTERNAL_CONTROLLED_OPENING"
+        if current_level == "EXTERNAL_CONTROLLED_OPENING":
             return False
         return self.RELEASE_LEVEL_RANK.get(current_level, -1) >= self.RELEASE_LEVEL_RANK.get(minimum_level, -1)
 

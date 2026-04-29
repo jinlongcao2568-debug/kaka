@@ -59,7 +59,7 @@
       "modeCatalogRef": "surfaceModes",
       "accessCatalogRef": "surfaceAccessLevels"
     },
-    "redlines": [
+    "controlled_opening_boundaries": [
       "internal preview and draft surfaces must not be described as external-ready",
       "Stage 8 and Stage 9 live_execution_enabled must remain false",
       "Stage 8 and Stage 9 blocked_by_default must remain true unless a later approved batch changes the authority"
@@ -287,7 +287,7 @@
         "onMissingFormalRefs": "review-required",
         "onExplicitPolicyBlock": "blocked"
       },
-      "redlines": [
+      "controlled_opening_boundaries": [
         "preview-only",
         "internal-only",
         "live_execution_enabled=false"
@@ -357,7 +357,7 @@
         "onApprovalOrAuditGap": "governed-hold",
         "onExplicitPolicyBlock": "blocked"
       },
-      "redlines": [
+      "controlled_opening_boundaries": [
         "draft-only",
         "blocked_by_default",
         "live_execution_enabled=false"
@@ -392,7 +392,7 @@
         "onApprovalOrAuditGap": "governed-hold",
         "onExplicitPolicyBlock": "blocked"
       },
-      "redlines": [
+      "controlled_opening_boundaries": [
         "draft-only",
         "internal-writeback-only",
         "blocked_by_default",

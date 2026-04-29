@@ -590,7 +590,7 @@
       ]
     },
     {
-      "release_layer": "EXTERNAL_BLOCKED",
+      "release_layer": "EXTERNAL_CONTROLLED_OPENING",
       "requirements": [
         "external software release blocked by policy"
       ],
@@ -604,19 +604,19 @@
       "dev_release": "DEV_ALLOWED",
       "internal_release": "INTERNAL_OPERABLE",
       "leadpack_release": "LEADPACK_DELIVERABLE",
-      "external_release": "EXTERNAL_BLOCKED"
+      "external_release": "EXTERNAL_CONTROLLED_OPENING"
     },
     "8": {
       "dev_release": "DEV_ALLOWED",
       "internal_release": "INTERNAL_OPERABLE",
       "leadpack_release": "LEADPACK_DELIVERABLE",
-      "external_release": "EXTERNAL_BLOCKED"
+      "external_release": "EXTERNAL_CONTROLLED_OPENING"
     },
     "9": {
       "dev_release": "DEV_ALLOWED",
       "internal_release": "INTERNAL_OPERABLE",
       "leadpack_release": "LEADPACK_DELIVERABLE",
-      "external_release": "EXTERNAL_BLOCKED"
+      "external_release": "EXTERNAL_CONTROLLED_OPENING"
     }
   },
   "blockingConditions": [

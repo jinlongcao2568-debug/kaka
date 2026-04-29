@@ -27,14 +27,14 @@
   ],
   "capability_mode_rules": {
     "non_override_release_layer": true,
-    "external_block_redline_kept": true,
+    "external_block_controlled_opening_boundary_kept": true,
     "permanently_blocked_and_emergency_off_override_all": true,
     "real_run_ready_requires_release_gate_and_approval": true,
     "real_run_ready_does_not_override_external_blocked_release_layer": true,
     "capability_family_current_mode_canonical_here": true,
     "capability_mode_priority_order_canonical_here": true,
     "protected_short_circuit_modes_canonical_here": true,
-    "release_layer_redline_canonical_here": true,
+    "release_layer_controlled_opening_boundary_canonical_here": true,
     "control_projection_trace_only": true,
     "control_projection_cannot_override_runtime_policy": true
   },
@@ -45,7 +45,7 @@
     "capability_mode_priority_order",
     "runtime_resolver_precedence",
     "protected_short_circuit_modes",
-    "release_layer_redline_relation",
+    "release_layer_controlled_opening_boundary_relation",
     "action_intents",
     "decision_matrix",
     "capability_families"
@@ -63,7 +63,7 @@
       "control/model_release_manifest.yaml",
       "control/release_manifest.yaml"
     ],
-    "release_layer_redline": "EXTERNAL_BLOCKED",
+    "release_layer_controlled_opening_boundary": "EXTERNAL_CONTROLLED_OPENING",
     "protected_short_circuit_modes": [
       "EMERGENCY_OFF",
       "PERMANENTLY_BLOCKED"
@@ -227,7 +227,7 @@
       "family_id": "emergency_off",
       "current_capability_mode": "EMERGENCY_OFF",
       "allowed_capability_modes": ["EMERGENCY_OFF"],
-      "release_layer_ceiling": "EXTERNAL_BLOCKED"
+      "release_layer_ceiling": "EXTERNAL_CONTROLLED_OPENING"
     }
   ],
   "future_unlock_domains": [
@@ -349,7 +349,7 @@
         "external_release_blocked",
         "no_external_delivery_without_gate"
       ],
-      "notes": "External software release remains blocked in current phase."
+      "notes": "External software release is a controlled-opening capability in current phase."
     },
     {
       "policy_id": "RUNTIME-FUTURE-UNLOCK-PREREQS",

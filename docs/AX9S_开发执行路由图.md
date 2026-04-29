@@ -14,7 +14,7 @@
 - 本图只表达阶段 1-9 主链该如何理解、上下游怎么衔接、每阶段消费什么和产出什么。
 - 本图不表达当前 phase/readiness 数值快照，不替代 `control/repo_status.md`、`control/milestone_status.yaml`。
 - 本图承接 `PTL-I100-OPEN-CAPABILITY-BASELINE`：除自动退款执行和禁止的非公开 / 灰色能力外，产品必需能力都是目标能力，必须逐级受控开放。
-- 本图中的 `blocked-by-default` 表示未通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task 与验收前不能 live，不表示永久不做。
+- 本图中的 `controlled-opening-required` 表示未通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task 与验收前不能 live，不表示永久不做。
 - 本图不放开 `external release`，不放开 `Stage 8 real execution`，不放开 `Stage 9 real payment / delivery / refund`；自动退款执行不实现，只保留 manual exception / approval-audit / governed review。
 - 各阶段保留 1 个最贴近的导航候选 `packet_id`；更集中的近端候选提示统一放在第 3 节。
 
@@ -22,7 +22,7 @@
 
 - 本仓库当前不是“从零补 skeleton”的起点，而是已经存在 Stage1-9 的 internal governed runtime。
 - Stage1-5 当前代码现状统一按 `PARTIAL_RUNTIME` 理解；Stage6-9 当前代码现状统一按 `HEAVY_RUNTIME` 理解；`PTL-INT` 仍是 `PARTIAL_RUNTIME` 的内部消费封装。
-- Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；真实触达、真实支付、真实交付是目标能力，但 `external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 blocked-by-default / governed / approval-gated，直到 dedicated task 与验收放行。
+- Stage8 / Stage9 的现状是 internal governed runtime，不是 live execution；真实触达、真实支付、真实交付是目标能力，但 `external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 继续保持 controlled-opening-required / governed / approval-gated，直到 dedicated task 与验收放行。
 - 自动退款执行不属于目标能力；退款只允许作为 manual exception record、manual approval/audit 与 governed review 处理。
 - 当前 active packet 以 `control/current_task.yaml` 为准；本轮 active packet 为 `PTL-I100-143G-public-web-capture-doc-sync-and-order-review`，承接 143F 已完成的任务池登记，把“公开网抓取失败优先自动升级、验证码检测挂起与操作台输入续跑、复用现有 Stage2/Stage3/operator surfaces 优先、推荐顺序 144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149”同步进路线图和 D 文档补表；本轮不改 runtime，不放开任意 crawler、登录/验证码/反爬绕过、自动解验证码、provider execution、客户下载、真实支付交付、退款或自动退款。
 - `PTL-I100-118R-final-product-operational-reacceptance` 已完成并本地提交：`f977b5b`；`PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout` 已完成并本地提交：`106c4a1`，受控真实世界 e2e closeout 已闭合。当前 132 处理前端实际可用性检查中发现的“只有入口、缺产品化工作台”问题。
@@ -165,7 +165,7 @@
 - `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`：已接企业微信、邮件、短信/电话、CRM、报价、支付、交付 provider binding/readback；自动退款仍不实现，真实调用仍需审批/审计/operator action。
 - `PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`：已接入受治理的大模型辅助解析、复核、证据摘要和销售话术草稿 readback；模型输出不得直接成为事实或客户结论，不调用真实外部模型 provider。
 - `PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout`：在 127-130 完成后跑受控真实世界端到端试点，已作为产品 closeout 门完成。
-- `PTL-I100-132-owner-operator-frontend-productization-workbench`：在前端实机检查后补产品化工作台、Stage1-9 运营总览、客户门户空状态和红线可视化。
+- `PTL-I100-132-owner-operator-frontend-productization-workbench`：在前端实机检查后补产品化工作台、Stage1-9 运营总览、客户门户空状态和受控开放边界可视化。
 - `PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist`：已完成第一批真实公开总入口 fetcher，覆盖全国公共资源交易平台交易查询、中国政府采购网中央公告/中标公告等总入口。
 - `PTL-I100-133B-national-verification-source-entry-fetchers`：已完成国家级核验入口 fetch/readback，覆盖四库一平台 home/company/person/project 以及 Credit China / GSXT 官方入口，把 `200+SPA 壳`、`412`、`521` 等真实运行状态统一压到受控 readback/fail-closed。
 - `PTL-I100-133C-representative-local-platform-entry-fetchers`：已完成代表性地方平台入口 fetch/readback，覆盖北京市主平台、北京工程建设入口、北京经开区分平台和广东省 portal，区分“直接 HTML 成功入口”和“200 但只返回前端壳页的 portal”。
@@ -195,4 +195,4 @@
 
 历史控制面参照：`PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交 `209c4cd`，只用于说明 current_mainline_next_candidate 如何推进到 `PTL-INT`，不作为近端候选或当前执行顺序来源。
 
-主线闭合提示：本文件仍只提供近端导航提示；不提供状态源、执行顺序源、完整 backlog 或 release 放行。`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 红线不变；blocked-by-default 只表示受控开放条件未满足前不能 live，不表示真实触达、支付或交付永久不做。自动退款执行不实现。
+主线闭合提示：本文件仍只提供近端导航提示；不提供状态源、执行顺序源、完整 backlog 或 release 放行。`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 受控开放边界不变；controlled-opening-required 只表示受控开放条件未满足前不能 live，不表示真实触达、支付或交付永久不做。自动退款执行不实现。

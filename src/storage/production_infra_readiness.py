@@ -247,7 +247,7 @@ def build_platform_infra_readiness(
         "rollback_readiness": rollback_readiness,
         "compose_readiness": compose_readiness,
         "local_stack_readiness": compose_readiness,
-        "redlines": {
+        "controlled_opening_boundaries": {
             "no_live_provider_call": True,
             "no_real_sales_outreach": True,
             "no_real_payment": True,

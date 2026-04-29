@@ -12,7 +12,7 @@ READBACK_FAIL_CLOSED = "FAIL_CLOSED_STALE_OR_MISSING_REFS"
 READBACK_MISSING = "MISSING_READINESS"
 
 _HEALTHY_STATES = {"EXECUTABLE", "CONFIG_PRESENT_NOT_EXECUTED", "SANDBOX_DRY_RUN_READBACK"}
-_LIVE_REDLINE_FIELDS = (
+_LIVE_CONTROLLED_OPENING_BOUNDARY_FIELDS = (
     "notification_enabled",
     "live_dispatch_enabled",
     "live_alert_dispatch_enabled",
@@ -58,13 +58,13 @@ def build_monitoring_alerting_readiness(
             "rollback_refs": list(incident_readiness["rollback_refs"]),
             "runbook_refs": list(incident_readiness["runbook_refs"]),
         },
-        "redlines": monitoring_alerting_redlines(),
+        "controlled_opening_boundaries": monitoring_alerting_controlled_opening_boundaries(),
     }
     payload["validation"] = validate_monitoring_alerting_readiness(payload)
     return payload
 
 
-def monitoring_alerting_redlines() -> dict[str, bool]:
+def monitoring_alerting_controlled_opening_boundaries() -> dict[str, bool]:
     return {
         "external_observability_provider_enabled": False,
         "external_apm_enabled": False,
@@ -95,7 +95,7 @@ def validate_monitoring_alerting_readiness(payload: Mapping[str, Any]) -> dict[s
             "alert_rule_catalog",
             "alert_readiness",
             "incident_readiness",
-            "redlines",
+            "controlled_opening_boundaries",
         )
         if field_name not in payload
     ]
@@ -146,14 +146,14 @@ def validate_monitoring_alerting_readiness(payload: Mapping[str, Any]) -> dict[s
                 }
             )
 
-    live_redline_violations = _live_redline_violations(payload)
-    valid = not missing_fields and not stale_or_missing_refs and not live_redline_violations
+    live_controlled_opening_boundary_violations = _live_controlled_opening_boundary_violations(payload)
+    valid = not missing_fields and not stale_or_missing_refs and not live_controlled_opening_boundary_violations
     return {
         "valid": valid,
         "readback_state": READBACK_READY if valid else READBACK_FAIL_CLOSED,
         "missing_fields": missing_fields,
         "stale_or_missing_refs": stale_or_missing_refs,
-        "live_redline_violations": live_redline_violations,
+        "live_controlled_opening_boundary_violations": live_controlled_opening_boundary_violations,
         "no_broad_fallback": True,
         "fail_closed": not valid,
     }
@@ -264,8 +264,8 @@ def _build_monitoring_components(
             audit_refs={"compose_runtime_enabled": str(local_stack.get("compose_runtime_enabled", False))},
         ),
         _component(
-            component_id="provider.redline",
-            component_family="provider_redline",
+            component_id="provider.controlled_opening_boundary",
+            component_family="provider_controlled_opening_boundary",
             readiness_state=str(provider.get("mode", "SANDBOX_DRY_RUN_READBACK")),
             executable=True,
             signal_sources=["provider_adapter_readiness_summary", "provider_adapter_bootstrap"],
@@ -356,18 +356,18 @@ def _build_alert_rule_catalog() -> list[dict[str, Any]]:
             ["local_stack.compose_definition"],
         ),
         _alert_rule(
-            "provider_redline_violation",
+            "provider_controlled_opening_boundary_violation",
             "critical",
             "provider live execution, real provider call, payment, delivery, refund, or external release flag becomes true",
             "governance_owner",
-            ["provider.redline"],
+            ["provider.controlled_opening_boundary"],
         ),
         _alert_rule(
             "incident_manual_action_required",
             "high",
             "incident readiness requires manual owner action, approval, audit, backup, and rollback refs",
             "incident_owner",
-            ["backup_restore.local_manifest", "rollback.manual_review", "provider.redline"],
+            ["backup_restore.local_manifest", "rollback.manual_review", "provider.controlled_opening_boundary"],
         ),
     ]
 
@@ -390,7 +390,7 @@ def _build_alert_readiness(alert_rule_catalog: list[dict[str, Any]]) -> dict[str
         "readiness_only": True,
         "live_dispatch_blocking_reasons": [
             "external_observability_provider_not_configured_by_design",
-            "notification_dispatch_disabled_by_112F_redline",
+            "notification_dispatch_disabled_by_112F_controlled_opening_boundary",
             "approval_and_audit_required_before_any_live_alerting",
         ],
         "audit_refs": {
@@ -522,17 +522,17 @@ def _mapping(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}
 
 
-def _live_redline_violations(value: Any, *, path: str = "$") -> list[dict[str, str]]:
+def _live_controlled_opening_boundary_violations(value: Any, *, path: str = "$") -> list[dict[str, str]]:
     violations: list[dict[str, str]] = []
     if isinstance(value, Mapping):
         for key, child in value.items():
             child_path = f"{path}.{key}"
-            if key in _LIVE_REDLINE_FIELDS and bool(child):
+            if key in _LIVE_CONTROLLED_OPENING_BOUNDARY_FIELDS and bool(child):
                 violations.append({"path": child_path, "field": str(key)})
-            violations.extend(_live_redline_violations(child, path=child_path))
+            violations.extend(_live_controlled_opening_boundary_violations(child, path=child_path))
     elif isinstance(value, list):
         for index, child in enumerate(value):
-            violations.extend(_live_redline_violations(child, path=f"{path}[{index}]"))
+            violations.extend(_live_controlled_opening_boundary_violations(child, path=f"{path}[{index}]"))
     return violations
 
 
@@ -544,6 +544,6 @@ __all__ = [
     "READBACK_READY",
     "build_monitoring_alerting_readiness",
     "monitoring_alerting_readback_failure",
-    "monitoring_alerting_redlines",
+    "monitoring_alerting_controlled_opening_boundaries",
     "validate_monitoring_alerting_readiness",
 ]

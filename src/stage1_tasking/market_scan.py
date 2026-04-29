@@ -225,7 +225,7 @@ class Stage1MarketScanEngine:
                 "skipped_candidate_count": len(skipped),
                 "next_action": next_action,
             },
-            "redlines": {
+            "controlled_opening_boundaries": {
                 "uncontrolled_crawler_enabled": False,
                 "real_external_fetch_enabled": False,
                 "provider_call_enabled": False,

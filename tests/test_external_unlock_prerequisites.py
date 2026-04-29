@@ -94,7 +94,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         }
         self.assertEqual(set(domains.keys()), required_domains)
         self.assertIn("PERMANENTLY_BLOCKED", matrix["unlock_tier_vocabulary"])
-        self.assertIn("EXTERNAL_BLOCKED_UNTIL_PREREQS_MET", matrix["unlock_tier_vocabulary"])
+        self.assertIn("EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET", matrix["unlock_tier_vocabulary"])
 
         required_fields = {
             "current_default_status",
@@ -159,7 +159,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         )
         self.assertEqual(
             prerequisite_domains["external_export_surface"]["unlock_tier"],
-            "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET",
+            "EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET",
         )
         self.assertTrue(capability["external_or_live_capability"])
         self.assertIn("RESERVED_NOT_LIVE", capability["classification"])
@@ -365,7 +365,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
             {
                 "not an external unlock implementation",
                 "不改变 canonical readiness",
-                "不放开 external software release",
+                "不执行 public software release",
                 "不无审批/无审计发送",
                 "不绕过 provider config / sandbox / approval / audit / operator action",
                 "不新增业务对象、枚举、gate、exception 语义",
@@ -477,4 +477,3 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

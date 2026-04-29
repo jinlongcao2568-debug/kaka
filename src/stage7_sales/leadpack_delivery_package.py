@@ -981,7 +981,7 @@ def build_leadpack_delivery_package_carrier(
             "control_state": (
                 "APPROVED_CUSTOMER_VISIBLE_READBACK"
                 if approved_unlock_enabled
-                else "BLOCKED_BY_DEFAULT"
+                else "CONTROLLED_OPENING_REQUIRED"
             ),
             "approved_customer_visible_unlock_summary": dict(approved_unlock_summary),
         },

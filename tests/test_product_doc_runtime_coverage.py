@@ -33,7 +33,7 @@ REQUIRED_SCOPE_GROUPS = {
     "Stage8 contact/compliance/outreach preview",
     "Stage9 order/payment/delivery/refund/writeback",
     "storage/bootstrap/transport",
-    "external/live redlines",
+    "external/live controlled_opening_boundaries",
 }
 
 

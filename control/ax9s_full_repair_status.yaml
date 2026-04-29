@@ -70,9 +70,9 @@ batch_exit_requirements:
   - "Batch state updated to DONE, IN_PROGRESS, REVIEW_REQUIRED, or BLOCKED."
   - "No automatic activation of the next batch."
 known_global_blockers:
-  - "External software release remains blocked."
-  - "Stage 8 live execution remains governed / approval-gated / blocked by default."
-  - "Stage 9 live payment/delivery/refund remains governed / approval-gated / blocked by default."
+  - "External software release is a controlled-opening capability."
+  - "Stage 8 live execution remains governed / approval-gated / controlled opening required."
+  - "Stage 9 live payment/delivery/refund remains governed / approval-gated / controlled opening required."
   - "No future unlock implementation is authorized by this program."
 notes:
   - "This ledger is the machine-readable execution status for the full-repair sequence."

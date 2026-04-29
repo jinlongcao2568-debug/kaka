@@ -111,7 +111,7 @@
       "minimum_followup_task_id": "PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout"
     }
   ],
-  "redlines_preserved": {
+  "controlled_opening_boundaries_preserved": {
     "public_only": true,
     "private_or_gray_source_collection": false,
     "unapproved_external_delivery": false,

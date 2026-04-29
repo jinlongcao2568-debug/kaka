@@ -4,13 +4,13 @@ capability_mode_vocabulary_ref: "contracts/release/runtime_policy_catalog.json#c
 capability_family_current_mode_ref: "contracts/release/runtime_policy_catalog.json#capability_families"
 capability_mode_priority_order_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_priority_order"
 protected_short_circuit_modes_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.protected_short_circuit_modes"
-release_layer_redline_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.release_layer_redline"
+release_layer_controlled_opening_boundary_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.release_layer_controlled_opening_boundary"
 capability_projection_boundary:
   projection_only: true
   current_mode_semantics_source: false
   priority_order_semantics_source: false
   protected_short_circuit_semantics_source: false
-  release_layer_redline_semantics_source: false
+  release_layer_controlled_opening_boundary_semantics_source: false
 provider_vendor_policy_projection:
   projection_only: true
   trace_only_projection: true
@@ -88,7 +88,7 @@ environment_tiers:
       - "worker_service"
       - "postgres"
       - "object_storage"
-    external_status: "EXTERNAL_BLOCKED"
+    external_status: "EXTERNAL_CONTROLLED_OPENING"
     default_capability_modes:
       - "BUILDABLE_BUT_OFF_BY_DEFAULT"
       - "INTERNAL_ONLY"
@@ -102,7 +102,7 @@ environment_tiers:
       - "postgres"
       - "object_storage"
       - "audit_log"
-    external_status: "EXTERNAL_BLOCKED"
+    external_status: "EXTERNAL_CONTROLLED_OPENING"
     default_capability_modes:
       - "BUILDABLE_BUT_OFF_BY_DEFAULT"
       - "INTERNAL_ONLY"
@@ -119,7 +119,7 @@ environment_tiers:
       - "object_storage"
       - "audit_log"
       - "approval_chain"
-    external_status: "EXTERNAL_BLOCKED"
+    external_status: "EXTERNAL_CONTROLLED_OPENING"
     default_capability_modes:
       - "BUILDABLE_BUT_OFF_BY_DEFAULT"
       - "INTERNAL_ONLY"
@@ -176,7 +176,7 @@ capability_family_state_projection:
     projection_only: true
   emergency_off:
     projected_current_mode: "EMERGENCY_OFF"
-    projected_release_layer_ceiling: "EXTERNAL_BLOCKED"
+    projected_release_layer_ceiling: "EXTERNAL_CONTROLLED_OPENING"
     projected_from: "contracts/release/runtime_policy_catalog.json#capability_families[emergency_off]"
     projection_only: true
 future_unlock_tier_vocabulary:
@@ -189,7 +189,7 @@ future_unlock_decision_matrix_ref: "contracts/release/future_unlock_decision_mat
 future_unlock_decision_state_ref: "control/future_unlock_decision_state.yaml"
 future_unlock_domain_map:
   external_software_release:
-    projected_unlock_tier: "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    projected_unlock_tier: "EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET"
     projected_decision_status: "DENY_BY_DEFAULT_CONTINUE"
     projected_sequence_order: 6
     projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[external_software_release]"
@@ -237,7 +237,7 @@ future_unlock_domain_map:
     projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[source_vendor_externalized_usage]"
     projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[source_vendor_externalized_usage]"
   external_export_surface:
-    projected_unlock_tier: "EXTERNAL_BLOCKED_UNTIL_PREREQS_MET"
+    projected_unlock_tier: "EXTERNAL_CONTROLLED_OPENING_UNTIL_PREREQS_MET"
     projected_decision_status: "FUTURE_UNLOCK_CANDIDATE"
     projected_sequence_order: 3
     projected_from_prerequisite: "contracts/release/external_unlock_prerequisite_matrix.json#capability_domains[external_export_surface]"
@@ -249,9 +249,9 @@ never_default_open_capabilities:
 notes:
   - "Future external tier is reserved only and not released."
   - "control/runtime_inventory.yaml is a projection-only control surface for capability and future-unlock state."
-  - "family current mode / priority order / protected short-circuit / release_layer redline all project from contracts/release/runtime_policy_catalog.json."
+  - "family current mode / priority order / protected short-circuit / release_layer controlled_opening_boundary all project from contracts/release/runtime_policy_catalog.json."
   - "capability_mode is a runtime dimension and does not replace release_layer."
-  - "EXTERNAL_BLOCKED remains the external redline even when capability_mode becomes REAL_RUN_READY."
+  - "EXTERNAL_CONTROLLED_OPENING remains the external controlled_opening_boundary even when capability_mode becomes REAL_RUN_READY."
   - "future_unlock_tier is a prerequisite/deployment decision dimension and does not itself authorize unlock."
   - "future_unlock_decision_matrix adds strategic sequencing and candidate/deny/blocked classification without authorizing implementation."
 writeback_impact_executor:

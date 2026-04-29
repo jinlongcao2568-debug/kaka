@@ -106,7 +106,7 @@
         "governance_isolation_only"
       ],
       "commercial_promise_boundary": "May not be sold as formal public-chain capability",
-      "release_floor": "EXTERNAL_BLOCKED",
+      "release_floor": "EXTERNAL_CONTROLLED_OPENING",
       "requires_coverage_binding": false,
       "forbidden_statements": [
         "formal client conclusion",
@@ -117,7 +117,7 @@
       "source_refs": [
         "D13-R-010"
       ],
-      "release_layer_baseline": "EXTERNAL_BLOCKED",
+      "release_layer_baseline": "EXTERNAL_CONTROLLED_OPENING",
       "release_layer_notes": "release layer is a separate dimension from capability tier",
       "release_floor_notes": "release_floor aligned with D13 release layers"
     }
@@ -1541,7 +1541,7 @@
       "meaning": "eligible for leadpack delivery after gates, approvals and audit"
     },
     {
-      "layer": "EXTERNAL_BLOCKED",
+      "layer": "EXTERNAL_CONTROLLED_OPENING",
       "meaning": "external promise and external platform release blocked"
     }
   ],
@@ -1605,19 +1605,19 @@
       "dev_release": "DEV_ALLOWED",
       "internal_release": "INTERNAL_OPERABLE",
       "leadpack_release": "LEADPACK_DELIVERABLE",
-      "external_release": "EXTERNAL_BLOCKED"
+      "external_release": "EXTERNAL_CONTROLLED_OPENING"
     },
     "8": {
       "dev_release": "DEV_ALLOWED",
       "internal_release": "INTERNAL_OPERABLE",
       "leadpack_release": "LEADPACK_DELIVERABLE",
-      "external_release": "EXTERNAL_BLOCKED"
+      "external_release": "EXTERNAL_CONTROLLED_OPENING"
     },
     "9": {
       "dev_release": "DEV_ALLOWED",
       "internal_release": "INTERNAL_OPERABLE",
       "leadpack_release": "LEADPACK_DELIVERABLE",
-      "external_release": "EXTERNAL_BLOCKED"
+      "external_release": "EXTERNAL_CONTROLLED_OPENING"
     }
   }
 }

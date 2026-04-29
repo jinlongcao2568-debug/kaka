@@ -174,6 +174,6 @@
   "notes": [
     "capability_mode refines execution runtime state and does not replace execution_policy_state.",
     "REAL_RUN_READY is reserved and still requires approval plus release gates.",
-    "Stage 8 execution vendors remain blocked-by-default and only project into outreach_plan/touch_record."
+    "Stage 8 execution vendors remain controlled-opening-required and only project into outreach_plan/touch_record."
   ]
 }

@@ -20,7 +20,7 @@ from shared.pipeline import run_internal_chain
 
 
 MATRIX_PATH = ROOT / "fixtures" / "internal_acceptance_matrix.json"
-REFUND_REDLINE_FIXTURE_PATH = ROOT / "fixtures" / "internal_acceptance_stage9_refund_redline.json"
+REFUND_CONTROLLED_OPENING_BOUNDARY_FIXTURE_PATH = ROOT / "fixtures" / "internal_acceptance_stage9_refund_controlled_opening_boundary.json"
 REQUIRED_TAXONOMY = {
     "happy",
     "blocked",
@@ -67,7 +67,7 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
         required_top_level = {
             "metadata",
             "required_scenario_taxonomy",
-            "redlines",
+            "controlled_opening_boundaries",
             "failure_taxonomy",
             "operator_readback_contract",
             "scenarios",
@@ -75,7 +75,7 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
         self.assertTrue(required_top_level.issubset(self.matrix.keys()))
         self.assertEqual(self.matrix["metadata"]["source_data_class"], "sanitized_offline")
         self.assertFalse(self.matrix["metadata"]["external_live_execution"])
-        self.assertEqual(self.matrix["metadata"]["external_release"], "BLOCKED")
+        self.assertEqual(self.matrix["metadata"]["external_release"], "CONTROLLED_OPENING")
         self.assertEqual(
             self.matrix["metadata"]["full_product_operational_acceptance_ref"],
             "fixtures/internal_acceptance_full_product_operational.json",
@@ -202,11 +202,11 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
                     "INTERNAL_GOVERNED",
                 )
 
-    def test_refund_redline_dedicated_fixture_replays_through_full_chain(self) -> None:
-        scenario = self.scenarios["refund-live-redline"]
-        self.assertTrue(REFUND_REDLINE_FIXTURE_PATH.exists())
+    def test_refund_controlled_opening_boundary_dedicated_fixture_replays_through_full_chain(self) -> None:
+        scenario = self.scenarios["refund-live-controlled_opening_boundary"]
+        self.assertTrue(REFUND_CONTROLLED_OPENING_BOUNDARY_FIXTURE_PATH.exists())
 
-        fixture = json.loads(REFUND_REDLINE_FIXTURE_PATH.read_text(encoding="utf-8"))
+        fixture = json.loads(REFUND_CONTROLLED_OPENING_BOUNDARY_FIXTURE_PATH.read_text(encoding="utf-8"))
         self.assertEqual(fixture["source_data_class"], "sanitized_offline")
         self.assertFalse(fixture["external_live_execution"])
         self.assertEqual(fixture["payment_exception_family_optional"], "REFUND_REQUESTED")
@@ -214,7 +214,7 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
 
         self.assertEqual(scenario["replay_status"], "replayable")
         self.assertEqual(scenario["replay_mode"], "runtime_replay")
-        self.assertEqual(scenario["fixture_ref"], "fixtures/internal_acceptance_stage9_refund_redline.json")
+        self.assertEqual(scenario["fixture_ref"], "fixtures/internal_acceptance_stage9_refund_controlled_opening_boundary.json")
         self.assertEqual(scenario["operator_replay"]["entrypoint"], "run_internal_chain")
         self.assertEqual(scenario["readback"]["execution_state"], "executed_offline")
         self.assertNotIn("blocked_reason", scenario)
@@ -256,14 +256,14 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
         self.assertEqual(outcome_event.get("outcome_family"), "DELIVERY_ABANDONED")
         self.assertEqual(outcome_event.get("outcome_reason_tags"), ["SIGNED"])
 
-        self.assertEqual(self.matrix["metadata"]["external_release"], "BLOCKED")
-        self.assertEqual(self.matrix["metadata"]["stage8_real_execution"], "BLOCKED")
-        self.assertEqual(self.matrix["metadata"]["stage9_live_payment_delivery_refund"], "BLOCKED")
-        self.assertFalse(self.matrix["redlines"]["external_release"]["live_execution_allowed"])
-        self.assertFalse(self.matrix["redlines"]["stage8_real_execution"]["live_execution_allowed"])
-        self.assertFalse(self.matrix["redlines"]["stage9_live_payment_execution"]["live_execution_allowed"])
-        self.assertFalse(self.matrix["redlines"]["stage9_live_delivery_execution"]["live_execution_allowed"])
-        self.assertFalse(self.matrix["redlines"]["stage9_live_refund_execution"]["live_execution_allowed"])
+        self.assertEqual(self.matrix["metadata"]["external_release"], "CONTROLLED_OPENING")
+        self.assertEqual(self.matrix["metadata"]["stage8_real_execution"], "CONTROLLED_OPENING")
+        self.assertEqual(self.matrix["metadata"]["stage9_live_payment_delivery_refund"], "CONTROLLED_OPENING")
+        self.assertFalse(self.matrix["controlled_opening_boundaries"]["external_release"]["live_execution_allowed"])
+        self.assertFalse(self.matrix["controlled_opening_boundaries"]["stage8_real_execution"]["live_execution_allowed"])
+        self.assertFalse(self.matrix["controlled_opening_boundaries"]["stage9_live_payment_execution"]["live_execution_allowed"])
+        self.assertFalse(self.matrix["controlled_opening_boundaries"]["stage9_live_delivery_execution"]["live_execution_allowed"])
+        self.assertFalse(self.matrix["controlled_opening_boundaries"]["stage9_live_refund_execution"]["live_execution_allowed"])
 
     def test_planned_only_scenarios_are_not_live_or_executed(self) -> None:
         planned = [
@@ -280,7 +280,7 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
                 self.assertFalse(scenario["expected"]["stage9"]["live_execution_enabled"])
         self.assertFalse(
             any(
-                scenario["scenario_id"] == "refund-live-redline"
+                scenario["scenario_id"] == "refund-live-controlled_opening_boundary"
                 and scenario["replay_status"] == "blocked_by_missing_fixture"
                 for scenario in self.matrix["scenarios"]
             )
@@ -311,16 +311,16 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
                 self.assertTrue(required_summary.issubset(scenario["readback"]["summary"].keys()))
                 self.assertTrue(required_audit.issubset(scenario["audit_summary"].keys()))
 
-    def test_stage8_real_execution_remains_blocked(self) -> None:
-        redline = self.matrix["redlines"]["stage8_real_execution"]
-        self.assertEqual(redline["status"], "BLOCKED")
-        self.assertFalse(redline["live_execution_allowed"])
+    def test_stage8_real_execution_requires_controlled_opening(self) -> None:
+        controlled_opening_boundary = self.matrix["controlled_opening_boundaries"]["stage8_real_execution"]
+        self.assertEqual(controlled_opening_boundary["status"], "CONTROLLED_OPENING")
+        self.assertFalse(controlled_opening_boundary["live_execution_allowed"])
 
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
         stage8 = result["stage8"]
         outreach_plan = stage8.record("outreach_plan")
         self.assertEqual(outreach_plan.get("requested_delivery_surface"), "INTERNAL_OPERATIONS")
-        self.assertEqual(outreach_plan.get("projection_mode"), redline["allowed_mode"])
+        self.assertEqual(outreach_plan.get("projection_mode"), controlled_opening_boundary["allowed_mode"])
         permission_trace = outreach_plan.get("governed_metadata", {}).get("permission_trace", [])
         stage8_execution = [
             entry for entry in permission_trace if entry.get("capability_family") == "stage8_execution"
@@ -328,16 +328,16 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
         self.assertTrue(stage8_execution)
         self.assertEqual(stage8_execution[0].get("capability_mode"), "DRY_RUN")
 
-    def test_stage9_payment_delivery_refund_live_remains_blocked(self) -> None:
-        for redline_id in (
+    def test_stage9_payment_delivery_refund_live_requires_controlled_opening(self) -> None:
+        for controlled_opening_boundary_id in (
             "stage9_live_payment_execution",
             "stage9_live_delivery_execution",
             "stage9_live_refund_execution",
         ):
-            with self.subTest(redline=redline_id):
-                redline = self.matrix["redlines"][redline_id]
-                self.assertEqual(redline["status"], "BLOCKED")
-                self.assertFalse(redline["live_execution_allowed"])
+            with self.subTest(controlled_opening_boundary=controlled_opening_boundary_id):
+                controlled_opening_boundary = self.matrix["controlled_opening_boundaries"][controlled_opening_boundary_id]
+                self.assertEqual(controlled_opening_boundary["status"], "CONTROLLED_OPENING")
+                self.assertFalse(controlled_opening_boundary["live_execution_allowed"])
 
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
         stage9 = result["stage9"]
@@ -348,15 +348,15 @@ class TestInternalAcceptanceMatrix(unittest.TestCase):
                 self.assertFalse(record.get("governed_metadata", {}).get("live_execution_enabled"))
                 self.assertTrue(record.get("governed_metadata", {}).get("projection_only"))
 
-    def test_external_release_still_blocked(self) -> None:
-        redline = self.matrix["redlines"]["external_release"]
-        self.assertEqual(redline["status"], "BLOCKED")
-        self.assertFalse(redline["live_execution_allowed"])
+    def test_external_release_requires_controlled_opening(self) -> None:
+        controlled_opening_boundary = self.matrix["controlled_opening_boundaries"]["external_release"]
+        self.assertEqual(controlled_opening_boundary["status"], "CONTROLLED_OPENING")
+        self.assertFalse(controlled_opening_boundary["live_execution_allowed"])
 
         repo_status = read_text("control/repo_status.md")
-        self.assertIn("External software release remains blocked", repo_status)
+        self.assertIn("External software release is a controlled-opening capability", repo_status)
         self.assertIn(
-            "Stage 9 real payment/delivery/refund remains governed / approval-gated / blocked by default",
+            "Stage 9 real payment/delivery/refund is a controlled-opening capability",
             repo_status,
         )
 
