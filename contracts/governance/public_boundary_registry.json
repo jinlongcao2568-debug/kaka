@@ -1408,7 +1408,7 @@
     "leadpack_activation_prep_evidence_pack_ref": "contracts/release/leadpack_activation_prep_evidence_pack.json",
     "leadpack_activation_prep_transition_ref": "contracts/release/leadpack_activation_prep_transition_matrix.json",
     "leadpack_activation_design_implementation_prep_ref": "contracts/release/leadpack_activation_design_implementation_prep_matrix.json",
-    "external_release_remains_blocked_until_prereqs_met": true,
+    "external_release_controlled_opening_required_until_prereqs_met": true,
     "leadpack_external_delivery_requires_approval_and_audit": true,
     "leadpack_candidate_package_is_internal_only": true,
     "never_default_open_capabilities": [

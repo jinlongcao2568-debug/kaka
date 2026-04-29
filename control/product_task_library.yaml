@@ -30,7 +30,7 @@ rules:
   - "docs/AX9S_开发执行路由图.md remains a product stage navigation map, not an active execution source, status source, or full backlog."
   - "repo readiness is not decided here; control/repo_status.md and control/milestone_status.yaml remain status truth sources."
   - "Future capability packets must extend existing Stage1-9, Stage2 public-source, parser, operator-console, queue, and repository seams first; duplicate parallel implementations are not acceptable without explicit retirement or architecture approval."
-controlled_opening_boundaries:
+controlled_opening_requirements:
   external_software_release: CONTROLLED_OPENING
   stage8_real_execution: "target capability; live execution requires dedicated current_task, provider config, sandbox, approval, audit, operator action, frequency/opt-out/quiet-hours gates, and acceptance pass"
   stage9_real_payment_delivery_refund: "payment/delivery/real refund are target capabilities; live execution requires provider config, sandbox/live-pilot, approval, audit, operator action, reconciliation/writeback, and acceptance pass; automated refund remains excluded"
@@ -49,6 +49,14 @@ open_capability_policy:
     - adaptive_public_web_capture_hardening
     - captcha_challenge_suspend_and_resume
     - real_parser_ocr_attachment_extraction
+    - captcha_recognition
+    - slider_trajectory_simulation
+    - proxy_pool_rate_limit_bypass
+    - browser_fingerprint_masking
+    - cookie_session_reuse
+    - authenticated_page_capture
+    - hidden_interface_call
+    - captcha_breaker_risk_control_bypass
     - public_verification_adapters
     - rule_factory_expansion
     - stage6_product_package_hardening
@@ -213,8 +221,8 @@ internal_operable_productization_program:
     - PTL-I100-124-customer-visible-leadpack-delivery-approval-unlock
     - PTL-I100-123-approved-payment-delivery-provider-execution-no-auto-refund
     - PTL-I100-126-production-live-dependency-and-drill-approval
-  controlled_opening_boundaries:
-    external_software_release: BLOCKED
+  controlled_opening_requirements:
+    external_software_release: CONTROLLED_OPENING
     stage8_real_execution: "target capability for PTL-I100-122, blocked before dedicated gated activation"
     stage9_real_payment_delivery_refund: "payment/delivery target capability for PTL-I100-123; refund execution remains manual-exception-only and automated refund excluded"
     automated_refund_execution: EXCLUDED
@@ -497,7 +505,7 @@ tasks:
     hard_depends_on: []
     soft_depends_on: [PTL-S78-contact-candidate-compliance-preview, PTL-INT-internal-preview-surface-envelope]
     objective: "收敛 Stage8 contact candidate / compliance 的边界，降低 service 巨石耦合，为 plan/touch 和 internal preview 产品化做准备。"
-    non_goals: ["不执行真实触达", "不放开 Stage8 real execution", "不改变 external release", "不直接触碰 Stage9 live controlled_opening_boundary"]
+    non_goals: ["不执行真实触达", "不放开 Stage8 real execution", "不改变 external release", "不直接触碰 Stage9 live controlled_opening_requirement"]
     expected_outputs: ["Stage8 candidate/compliance 模块拆分", "candidate/selection/compliance 边界收口", "blocked_by_default / governed-hold 语义保持不变"]
     suggested_packet_refs: [PTL-S8-101-p1-candidate-compliance-boundary-refactor]
     risk_level: HIGH
@@ -537,7 +545,7 @@ tasks:
     hard_depends_on: [PTL-S8-102-p2-plan-touch-productization]
     soft_depends_on: [PTL-S7-price-competitor-offer-resolution, PTL-S89-outreach-writeback-delivery-governance]
     objective: "把 shared policy / validator 拆成更清晰的契约、语义、delivery/release 和 stage-specific policy 责任块，维持行为不变。"
-    non_goals: ["不新增 formal object/enum/gate 语义", "不改 release 受控开放边界", "不重写整条链路"]
+    non_goals: ["不新增 formal object/enum/gate 语义", "不改 release 受控开放要求", "不重写整条链路"]
     expected_outputs: ["shared policy/validator 责任拆分", "行为等价的 facade 保留", "Stage8/9 后续改动半径下降"]
     suggested_packet_refs: [PTL-INT-101-p3-policy-validator-boundary-split]
     risk_level: HIGH
@@ -557,7 +565,7 @@ tasks:
     hard_depends_on: [PTL-INT-101-p3-policy-validator-boundary-split]
     soft_depends_on: [PTL-S89-outreach-writeback-delivery-governance]
     objective: "把 storage boundary 收敛成更清晰的受控持久化边界，保证回放不重算上游事实、preview 不误导成 live mutation。"
-    non_goals: ["不放开 writeback live execution", "不改 Stage8/9 受控开放边界", "不引入新的状态源"]
+    non_goals: ["不放开 writeback live execution", "不改 Stage8/9 受控开放要求", "不引入新的状态源"]
     expected_outputs: ["repository boundary 责任分层", "Stage8/9 replay/persist 行为更清晰", "回放与正式事实边界更稳定"]
     suggested_packet_refs: [PTL-INT-102-p4-repository-boundary-hardening]
     risk_level: HIGH
@@ -573,7 +581,7 @@ tasks:
     planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
     completed_commit: 3d9fc74
-    runtime_notes: "P5 scoped implementation 已完成并在本地提交：3d9fc74；Stage9 order/payment/delivery typed lifecycle 第一刀行为等价拆分已完成，src/stage9_delivery/typed_lifecycle.py 已纳入正式登记；PTL-S9-101 不再是 current active packet，也不再是 current_mainline_next_candidate；P6 仍需 dedicated current_task packet 才能激活，external/live controlled_opening_boundary 不变。"
+    runtime_notes: "P5 scoped implementation 已完成并在本地提交：3d9fc74；Stage9 order/payment/delivery typed lifecycle 第一刀行为等价拆分已完成，src/stage9_delivery/typed_lifecycle.py 已纳入正式登记；PTL-S9-101 不再是 current active packet，也不再是 current_mainline_next_candidate；P6 仍需 dedicated current_task packet 才能激活，external/live controlled_opening_requirement 不变。"
     hard_depends_on: [PTL-INT-102-p4-repository-boundary-hardening]
     soft_depends_on: [PTL-S89-outreach-writeback-delivery-governance, PTL-INT-internal-preview-surface-envelope]
     objective: "强化 Stage9 order/payment/delivery 的 typed governed lifecycle，使其更可回放、可审计、可解释。"
@@ -593,11 +601,11 @@ tasks:
     planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
     completed_commit: edff5af
-    runtime_notes: "P6 scoped implementation 已完成并在本地提交：edff5af；Stage9 feedback/writeback/governance event 第一刀行为等价拆分已完成，src/stage9_delivery/feedback_writeback.py 已纳入正式登记；PTL-S9-102 不再是 current active packet，也不再是 current_mainline_next_candidate；P7 仍需 dedicated current_task packet 才能激活，Stage9 internal governed only / external-live controlled_opening_boundary 不变。"
+    runtime_notes: "P6 scoped implementation 已完成并在本地提交：edff5af；Stage9 feedback/writeback/governance event 第一刀行为等价拆分已完成，src/stage9_delivery/feedback_writeback.py 已纳入正式登记；PTL-S9-102 不再是 current active packet，也不再是 current_mainline_next_candidate；P7 仍需 dedicated current_task packet 才能激活，Stage9 internal governed only / external-live controlled_opening_requirement 不变。"
     hard_depends_on: [PTL-S9-101-p5-typed-lifecycle-deepening]
     soft_depends_on: [PTL-S8-102-p2-plan-touch-productization, PTL-INT-internal-preview-surface-envelope]
     objective: "把 Stage9 的反馈、回写、治理事件与 preview 面做成单一来源、可解释、可复核的内部运营闭环。"
-    non_goals: ["不执行真实 writeback live mutation", "不改变统一事实主来源", "不放开 Stage9 受控开放边界"]
+    non_goals: ["不执行真实 writeback live mutation", "不改变统一事实主来源", "不放开 Stage9 受控开放要求"]
     expected_outputs: ["Stage9 feedback/writeback 模块收口", "governance feedback / outcome taxonomy 单一来源", "internal preview 的结果回放更稳定"]
     suggested_packet_refs: [PTL-S9-102-p6-feedback-writeback-productization]
     risk_level: HIGH
@@ -637,7 +645,7 @@ tasks:
     hard_depends_on: [PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion]
     soft_depends_on: [PTL-S8-102-p2-plan-touch-productization, PTL-S9-102-p6-feedback-writeback-productization, PTL-INT-internal-preview-surface-envelope]
     objective: "把 internal preview / operator workbench 做到可解释、可诊断、可追溯，减少后续运营和 AI 窗口的定位成本。"
-    non_goals: ["不引入外部 release 能力", "不把 observability 误写成第二状态源", "不放开 execution controlled_opening_boundary"]
+    non_goals: ["不引入外部 release 能力", "不把 observability 误写成第二状态源", "不放开 execution controlled_opening_requirement"]
     expected_outputs: ["decision trace / blocked reasons / handoff correlation 强化", "operator workbench 可解释性提升", "internal preview 故障定位成本下降"]
     suggested_packet_refs: [PTL-INT-104-p8-observability-operator-workbench]
     risk_level: HIGH
@@ -808,7 +816,7 @@ tasks:
     acceptance_checks: ["real_sample_matrix_replayable", "failure_taxonomy_complete", "operator_replay_and_audit_report_visible"]
     suggested_packet_refs: [PTL-I100-107-real-sample-operational-acceptance]
     risk_level: HIGH
-    runtime_notes: "PTL-I100-107 已完成并在本地提交：389829e、10dfbf6、4bfeef9、e6d5124；本轮建立 offline/sanitized internal acceptance matrix，补 dedicated Stage9 refund controlled_opening_boundary runtime replay，建立 product-doc-to-runtime coverage ledger，并关闭 STAGE6_GOVERNED_SUPPLEMENT_IMPACT internal runtime/readback gap。剩余 MISSING_RUNTIME/MISSING_TEST 已分流到 PTL-I100-108、109、110；PTL-I100-107 不再是 current active implementation packet。"
+    runtime_notes: "PTL-I100-107 已完成并在本地提交：389829e、10dfbf6、4bfeef9、e6d5124；本轮建立 offline/sanitized internal acceptance matrix，补 dedicated Stage9 refund controlled_opening_requirement runtime replay，建立 product-doc-to-runtime coverage ledger，并关闭 STAGE6_GOVERNED_SUPPLEMENT_IMPACT internal runtime/readback gap。剩余 MISSING_RUNTIME/MISSING_TEST 已分流到 PTL-I100-108、109、110；PTL-I100-107 不再是 current active implementation packet。"
   - task_id: PTL-I100-108-stage1-7-internal-entry-and-crm-prereq
     title: "I100-8 Stage1-7 内部入口与 CRM 前置闭环"
     program_ref: PTL-I100-internal-operable-productization
@@ -855,7 +863,7 @@ tasks:
     objective: "补齐 107C ledger 中 LeadPack external delivery candidate surface 与 formal client export/page layer 的 internal readiness/readback/test coverage；不做真实外发。"
     non_goals: ["不执行外发", "不发布客户可用页面", "不放开 external release", "不绕过 approval/audit"]
     expected_outputs: ["LeadPack approval/audit readiness readback", "formal export/page layer internal preview", "client-visible export blockers", "coverage tests"]
-    acceptance_checks: ["leadpack_candidate_requires_approval_audit", "formal_export_layer_internal_preview_only", "external_release_remains_blocked"]
+    acceptance_checks: ["leadpack_candidate_requires_approval_audit", "formal_export_layer_internal_preview_only", "external_release_controlled_opening_required"]
     suggested_packet_refs:
       - PTL-I100-109A-leadpack-approval-audit-readiness
       - PTL-I100-109B-client-export-page-layer-coverage
@@ -1137,7 +1145,7 @@ tasks:
     runtime_change_in_packet: COMPLETED_111D_PAYMENT_COLLECTION_AND_DELIVERY_FULFILLMENT_ADAPTERS_NO_REFUND
     completed_commit: 0ab2dba
     capability_state_after: SANDBOX_READY
-    product_closure_state: "Stage9 payment/delivery sandbox provider records, receipt/invoice, settlement/reconciliation, manual refund exception approval/audit, repository/API readback, and live/refund controlled_opening_boundary guards completed."
+    product_closure_state: "Stage9 payment/delivery sandbox provider records, receipt/invoice, settlement/reconciliation, manual refund exception approval/audit, repository/API readback, and live/refund controlled_opening_requirement guards completed."
     activation_policy: "Activated by control/current_task.yaml after PTL-I100-111C completed via 7af8966; completed via 0ab2dba. Payment/delivery remain sandbox/readback until dedicated live pilot; automated refund execution remains excluded."
     hard_depends_on:
       - PTL-I100-111-live-provider-adapters-no-auto-refund
@@ -2397,13 +2405,13 @@ tasks:
     hard_depends_on:
       - PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
       - PTL-I100-127-owner-operator-frontend-and-customer-portal
-    objective: "把 127 的基础 Owner Console / Customer Artifact Portal 升级为产品化工作台：Stage1-9 运营总览、证据链、销售闭环、客户交付、支付交付、provider/scheduler/audit/readback、客户 portal 空状态和受控开放边界都可直接观察。"
+    objective: "把 127 的基础 Owner Console / Customer Artifact Portal 升级为产品化工作台：Stage1-9 运营总览、证据链、销售闭环、客户交付、支付交付、provider/scheduler/audit/readback、客户 portal 空状态和受控开放要求都可直接观察。"
     capability_gaps_covered:
       - owner_operator_frontend_productized_workbench
       - stage1_to_stage9_operational_visibility_ui
       - evidence_sales_delivery_payment_audit_dashboard
       - customer_artifact_portal_empty_state
-      - provider_scheduler_audit_controlled_opening_boundary_visibility
+      - provider_scheduler_audit_controlled_opening_requirement_visibility
       - frontend_backend_readback_alignment
     non_goals:
       - "不新增第二套前端框架"
@@ -2417,7 +2425,7 @@ tasks:
     acceptance_checks:
       - owner_console_shows_stage1_to_stage9_business_workbench
       - customer_artifact_portal_has_gated_readback_and_empty_state
-      - provider_scheduler_audit_controlled_opening_boundaries_visible
+      - provider_scheduler_audit_controlled_opening_requirements_visible
       - no_public_software_release_default
       - no_live_provider_payment_delivery_refund_default
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-132-owner-operator-frontend-productization-workbench
@@ -2429,7 +2437,7 @@ tasks:
     completion_notes:
       - "132 productizes the existing FastAPI server-rendered frontend rather than adding a separate SPA framework."
       - "The owner console now presents backend product closure as observable business workflow surfaces."
-      - "The customer portal must fail gracefully when no artifact readback exists, while keeping access/download/customer-visible controlled_opening_boundaries closed."
+      - "The customer portal must fail gracefully when no artifact readback exists, while keeping access/download/customer-visible controlled_opening_requirements closed."
   - task_id: PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
     title: "I100-33A Real public entry URL fetcher and allowlist"
     program_ref: PTL-I100-real-public-source-operationalization
@@ -2448,7 +2456,7 @@ tasks:
       - PTL-I100-132-owner-operator-frontend-productization-workbench
       - PTL-I100-114-stage2-real-public-source-adapters
       - PTL-I100-128-real-public-source-field-validation-and-coverage
-    objective: "实现第一批真实公开总入口 URL fetcher：只允许浏览器实测可打开、能看到列表/查询入口、可发现同站详情链接的公开 URL；保存入口 HTML 快照、hash、标题、正文可见性、发现链接与受控开放边界判定。"
+    objective: "实现第一批真实公开总入口 URL fetcher：只允许浏览器实测可打开、能看到列表/查询入口、可发现同站详情链接的公开 URL；保存入口 HTML 快照、hash、标题、正文可见性、发现链接与受控开放要求判定。"
     browser_verified_entry_urls:
       - https://www.ggzy.gov.cn/deal/dealList.html
       - https://www.ccgp.gov.cn/cggg/zygg/
@@ -2471,7 +2479,7 @@ tasks:
       - browser_verified_total_entry_urls_recorded
       - total_entry_fetch_not_detail_page_only
       - allowlist_blocks_unregistered_url_before_fetch
-      - login_captcha_error_empty_or_js_shell_degrades_fail_closed
+      - login_captcha_error_empty_or_js_shell_suspends_for_operator_resume
       - same_site_detail_links_discovered_with_capture_plan
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
     suggested_packet_refs: [PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist]
@@ -3514,11 +3522,11 @@ tasks:
       - real_sample_market_scan_to_hook_lead
       - autonomous_source_to_evidence_to_sales_flow
       - owner_operable_workbench_acceptance
-      - controlled_opening_boundaries_preserved_in_real_sample
+      - controlled_opening_requirements_preserved_in_real_sample
     acceptance_checks:
       - real_sample_runs_through_autonomous_opportunity_flow
       - owner_can_observe_and_review_without_raw_api
-      - controlled_opening_boundaries_preserved
+      - controlled_opening_requirements_preserved
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-149-real-sample-autonomous-opportunity-acceptance
     suggested_packet_refs: [PTL-I100-149-real-sample-autonomous-opportunity-acceptance]
     risk_level: HIGH

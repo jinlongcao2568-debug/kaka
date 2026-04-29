@@ -103,6 +103,6 @@
   "model_stage_signature_matrix_ref": "contracts/model/model_stage_signature_matrix.json",
   "notes": [
     "capability_mode is runtime-only and does not replace model release_state.",
-    "REAL_RUN_READY is reserved for future bound providers and does not weaken external blocked."
+    "REAL_RUN_READY is reserved for future bound providers and does not weaken external controlled-opening-required."
   ]
 }

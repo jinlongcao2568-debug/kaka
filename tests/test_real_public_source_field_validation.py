@@ -176,10 +176,13 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
         self.assertTrue(failing["fail_closed"])
         self.assertEqual(failing["blocked_reason_optional"], "fetch_failed")
         self.assertTrue(suspended["fail_closed"])
-        self.assertIn("blocked_visibility_state:CAPTCHA_REQUIRED", suspended["blocked_reason_optional"])
+        self.assertIn(
+            "controlled_challenge_visibility:CAPTCHA_REQUIRED",
+            suspended["blocked_reason_optional"],
+        )
         self.assertTrue(all(result["no_broad_fallback"] for result in report["results"]))
 
-    def test_128_report_and_controlled_opening_boundaries_are_recorded_in_control_surface(self) -> None:
+    def test_128_report_and_controlled_opening_requirements_are_recorded_in_control_surface(self) -> None:
         report_path = ROOT / "control/real_public_source_field_validation_report.yaml"
         report = yaml.safe_load(report_path.read_text(encoding="utf-8"))
 
@@ -193,8 +196,8 @@ class RealPublicSourceFieldValidationTests(unittest.TestCase):
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_WEAK], 1)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_FAILING], 1)
         self.assertEqual(report["coverage_buckets"][VALIDATION_BUCKET_SUSPENDED], 1)
-        self.assertFalse(report["controlled_opening_boundaries"]["unapproved_live_capture_used"])
-        self.assertFalse(report["controlled_opening_boundaries"]["real_provider_call_executed"])
+        self.assertFalse(report["controlled_opening_requirements"]["unapproved_live_capture_used"])
+        self.assertFalse(report["controlled_opening_requirements"]["real_provider_call_executed"])
 
     def test_128_timeout_degrades_without_live_retry_or_bypass(self) -> None:
         sample = next(

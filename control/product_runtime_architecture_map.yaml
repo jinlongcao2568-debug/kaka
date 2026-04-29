@@ -178,12 +178,17 @@ primary_operating_loop:
     llm_allowed: false
     output: owner_console_and_customer_portal_state
 decision_layers:
-  - layer_id: controlled_opening_boundary_filter
+  - layer_id: controlled_opening_requirement_filter
     method: rules
     blocks:
-      - login_required
       - unreviewed_legal_conclusion
       - automated_refund_execution
+    suspends_for_operator_resume:
+      - login_required
+      - captcha_required
+      - anti_bot_restricted
+      - browser_fingerprint_challenge
+      - cookie_session_required
   - layer_id: business_eligibility_filter
     method: rules_plus_compute
     downgrades:
@@ -808,7 +813,7 @@ implementation_sequence:
   - packet_ref: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
     status: PLANNED
     purpose: prove_real_public_sample_can_flow_from_market_scan_to_sellable_hook_and_delivery_candidate
-controlled_opening_boundaries_preserved:
+controlled_opening_requirements_preserved:
   external_software_release: CONTROLLED_OPENING
   unregistered_capture_path: CONTROLLED_OPENING
   unreviewed_customer_claim: CONTROLLED_OPENING

@@ -106,13 +106,13 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(access_bootstrap["stage9_real_payment_delivery_refund_enabled"])
         self.assertFalse(access_bootstrap["automated_refund_enabled"])
 
-        controlled_opening_boundaries = bootstrap["controlled_opening_boundaries"]
-        self.assertTrue(controlled_opening_boundaries["operator_customer_access_http_endpoint_added"])
-        self.assertFalse(controlled_opening_boundaries["operator_customer_access_external_or_live_endpoint_added"])
-        self.assertFalse(controlled_opening_boundaries["customer_artifact_access_public_release_enabled"])
-        self.assertFalse(controlled_opening_boundaries["customer_download_without_auth_enabled"])
-        self.assertFalse(controlled_opening_boundaries["customer_artifact_download_enabled"])
-        self.assertFalse(controlled_opening_boundaries["external_software_release_enabled"])
+        controlled_opening_requirements = bootstrap["controlled_opening_requirements"]
+        self.assertTrue(controlled_opening_requirements["operator_customer_access_http_endpoint_added"])
+        self.assertFalse(controlled_opening_requirements["operator_customer_access_external_or_live_endpoint_added"])
+        self.assertFalse(controlled_opening_requirements["customer_artifact_access_public_release_enabled"])
+        self.assertFalse(controlled_opening_requirements["customer_download_without_auth_enabled"])
+        self.assertFalse(controlled_opening_requirements["customer_artifact_download_enabled"])
+        self.assertFalse(controlled_opening_requirements["external_software_release_enabled"])
 
         client = TestClient(app)
         response = client.request("GET", "/operator-console/readiness")
@@ -423,7 +423,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertEqual(source_readiness["readiness_state"], "APPROVED_CUSTOMER_VISIBLE_READBACK")
         self.assertTrue(source_readiness["download_audit"]["customer_download_enabled"])
 
-    def test_go_live_readiness_lists_blockers_approvals_audits_and_controlled_opening_boundaries(self) -> None:
+    def test_go_live_readiness_lists_blockers_approvals_audits_and_controlled_opening_requirements(self) -> None:
         client = TestClient(create_app())
         response = client.request("GET", "/go-live/readiness")
 
@@ -457,10 +457,10 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(refs["manual_resume_required"])
         self.assertTrue(refs["production_slo_incident_readiness"]["repository_backed_readback"])
         self.assertFalse(
-            refs["production_slo_incident_readiness"]["controlled_opening_boundaries"]["real_alert_dispatch_enabled"]
+            refs["production_slo_incident_readiness"]["controlled_opening_requirements"]["real_alert_dispatch_enabled"]
         )
         self.assertFalse(
-            refs["production_slo_incident_readiness"]["controlled_opening_boundaries"]["incident_automation_enabled"]
+            refs["production_slo_incident_readiness"]["controlled_opening_requirements"]["incident_automation_enabled"]
         )
         self.assertEqual(
             refs["production_drill_evidence"]["backup_restore_drill_evidence"]["drill_mode"],
@@ -504,21 +504,21 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             "confirm_production_slo_incident_readback",
         ):
             self.assertIn(required, payload["required_operator_actions"])
-        controlled_opening_boundaries = payload["controlled_opening_boundaries"]
-        self.assertFalse(controlled_opening_boundaries["external_software_release_enabled"])
-        self.assertFalse(controlled_opening_boundaries["customer_visible_publication_enabled"])
-        self.assertFalse(controlled_opening_boundaries["provider_live_execution_enabled"])
-        self.assertFalse(controlled_opening_boundaries["stage8_real_execution_enabled"])
-        self.assertFalse(controlled_opening_boundaries["stage9_real_payment_delivery_refund_enabled"])
-        self.assertFalse(controlled_opening_boundaries["real_payment_enabled"])
-        self.assertFalse(controlled_opening_boundaries["real_delivery_enabled"])
-        self.assertFalse(controlled_opening_boundaries["real_refund_enabled"])
-        self.assertFalse(controlled_opening_boundaries["automated_refund_enabled"])
-        self.assertFalse(controlled_opening_boundaries["real_alert_dispatch_enabled"])
-        self.assertFalse(controlled_opening_boundaries["incident_automation_enabled"])
-        self.assertFalse(controlled_opening_boundaries["destructive_restore_enabled"])
-        self.assertFalse(controlled_opening_boundaries["rollback_execution_enabled"])
-        self.assertFalse(controlled_opening_boundaries["active_storage_mutation_enabled"])
+        controlled_opening_requirements = payload["controlled_opening_requirements"]
+        self.assertFalse(controlled_opening_requirements["external_software_release_enabled"])
+        self.assertFalse(controlled_opening_requirements["customer_visible_publication_enabled"])
+        self.assertFalse(controlled_opening_requirements["provider_live_execution_enabled"])
+        self.assertFalse(controlled_opening_requirements["stage8_real_execution_enabled"])
+        self.assertFalse(controlled_opening_requirements["stage9_real_payment_delivery_refund_enabled"])
+        self.assertFalse(controlled_opening_requirements["real_payment_enabled"])
+        self.assertFalse(controlled_opening_requirements["real_delivery_enabled"])
+        self.assertFalse(controlled_opening_requirements["real_refund_enabled"])
+        self.assertFalse(controlled_opening_requirements["automated_refund_enabled"])
+        self.assertFalse(controlled_opening_requirements["real_alert_dispatch_enabled"])
+        self.assertFalse(controlled_opening_requirements["incident_automation_enabled"])
+        self.assertFalse(controlled_opening_requirements["destructive_restore_enabled"])
+        self.assertFalse(controlled_opening_requirements["rollback_execution_enabled"])
+        self.assertFalse(controlled_opening_requirements["active_storage_mutation_enabled"])
 
 
 if __name__ == "__main__":

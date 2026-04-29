@@ -13,6 +13,8 @@ if str(SRC) not in sys.path:
 
 from shared.settings import Settings
 from stage2_ingestion.public_source_adapters import (
+    CONTROLLED_CHALLENGE_FLAG_NAMES,
+    CONTROLLED_CHALLENGE_VISIBILITY_STATES,
     CREDIT_CHINA_ADAPTER_ID,
     CREDIT_CHINA_ADMINISTRATIVE_PENALTY_RECORD_KIND,
     CREDIT_CHINA_CREDIT_EXCEPTION_RECORD_KIND,
@@ -206,6 +208,41 @@ INDUSTRY_AUTHORITY_PERFORMANCE_FILING_REGISTRY_ID = (
 
 
 class Stage2PublicSourceAdapterTests(unittest.TestCase):
+    def _expected_boundary_status(self, request: PublicSourceSnapshotRequest) -> str:
+        visibility_state = str(request.source_visibility_state or "").strip()
+        boundary_flags = {str(key): bool(value) for key, value in request.boundary_flags.items()}
+        if visibility_state in CONTROLLED_CHALLENGE_VISIBILITY_STATES or any(
+            boundary_flags.get(flag_name) for flag_name in CONTROLLED_CHALLENGE_FLAG_NAMES
+        ):
+            return "SUSPENDED"
+        return "BLOCKED"
+
+    def _assert_boundary_status(
+        self,
+        raised: unittest.case._AssertRaisesContext[PublicSourceBoundaryError],
+        request: PublicSourceSnapshotRequest,
+    ) -> None:
+        expected_status = self._expected_boundary_status(request)
+        carrier = raised.exception.carrier
+        source_boundary = carrier["source_boundary"]
+        self.assertEqual(carrier["status"], expected_status)
+        self.assertEqual(
+            carrier["result_state"],
+            "SUSPENDED_BEFORE_TRANSPORT"
+            if expected_status == "SUSPENDED"
+            else "BLOCKED_BEFORE_TRANSPORT",
+        )
+        self.assertTrue(source_boundary["boundary_reason"])
+        if expected_status == "SUSPENDED":
+            self.assertEqual(source_boundary["boundary_action"], "SUSPEND")
+            self.assertIsNone(source_boundary["blocked_reason"])
+            self.assertTrue(source_boundary["controlled_challenge"])
+            self.assertTrue(source_boundary["resume_requires_operator_action"])
+        else:
+            self.assertEqual(source_boundary["boundary_action"], "BLOCK")
+            self.assertTrue(source_boundary["blocked_reason"])
+            self.assertFalse(source_boundary.get("controlled_challenge", False))
+
     def _repo(self, tmp_dir: str) -> ObjectStorageRepository:
         settings = Settings(
             storage_backend="json-file",
@@ -1521,8 +1558,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(repo.read_snapshot_bytes(first.snapshot_id), duplicate_body)
             self.assertEqual(repo.read_snapshot_bytes(second.snapshot_id), duplicate_body)
 
-    def test_government_procurement_blocked_sources_fail_closed_before_transport(self) -> None:
-        blocked_requests = [
+    def test_government_procurement_boundary_sources_suspend_or_block_before_transport(self) -> None:
+        boundary_requests = [
             self._government_procurement_request(source_registry_id="SRC-REG-GOV-PROCUREMENT-UNKNOWN"),
             self._government_procurement_request(
                 source_family="unknown_source_family",
@@ -1546,7 +1583,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self._government_procurement_request(fetch_mode="real_provider"),
         ]
 
-        for request in blocked_requests:
+        for request in boundary_requests:
             with self.subTest(
                 source_url=request.source_url,
                 state=request.source_visibility_state,
@@ -1561,13 +1598,13 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
-                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self._assert_boundary_status(raised, request)
                     self.assertEqual(
                         raised.exception.carrier["adapter_id"],
                         GOVERNMENT_PROCUREMENT_PUBLIC_SITE_ADAPTER_ID,
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertEqual(transport.call_log, [])
@@ -1950,8 +1987,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             )
             self.assertEqual(len(transport.call_log), 1)
 
-    def test_tender_agency_blocked_sources_fail_closed_before_transport(self) -> None:
-        blocked_requests = [
+    def test_tender_agency_boundary_sources_suspend_or_block_before_transport(self) -> None:
+        boundary_requests = [
             self._tender_agency_request(source_registry_id="SRC-REG-TENDER-AGENCY-UNKNOWN"),
             self._tender_agency_request(
                 source_family="unknown_source_family",
@@ -1975,7 +2012,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self._tender_agency_request(fetch_mode="real_provider"),
         ]
 
-        for request in blocked_requests:
+        for request in boundary_requests:
             with self.subTest(
                 source_url=request.source_url,
                 state=request.source_visibility_state,
@@ -1991,13 +2028,13 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
-                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self._assert_boundary_status(raised, request)
                     self.assertEqual(
                         raised.exception.carrier["adapter_id"],
                         TENDER_AGENCY_PUBLIC_SITE_ADAPTER_ID,
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertEqual(transport.call_log, [])
@@ -2454,8 +2491,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(transport.call_log, [])
 
-    def test_tenderer_blocked_sources_fail_closed_before_transport(self) -> None:
-        blocked_requests = [
+    def test_tenderer_boundary_sources_suspend_or_block_before_transport(self) -> None:
+        boundary_requests = [
             self._tenderer_request(source_registry_id="SRC-REG-TENDERER-UNKNOWN"),
             self._tenderer_request(
                 source_family="unknown_source_family",
@@ -2479,7 +2516,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self._tenderer_request(fetch_mode="real_provider"),
         ]
 
-        for request in blocked_requests:
+        for request in boundary_requests:
             with self.subTest(
                 source_url=request.source_url,
                 state=request.source_visibility_state,
@@ -2495,13 +2532,13 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
-                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self._assert_boundary_status(raised, request)
                     self.assertEqual(
                         raised.exception.carrier["adapter_id"],
                         TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID,
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertEqual(transport.call_log, [])
@@ -2990,8 +3027,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(transport.call_log, [])
 
-    def test_industry_authority_blocked_sources_fail_closed_before_transport(self) -> None:
-        blocked_requests = [
+    def test_industry_authority_boundary_sources_suspend_or_block_before_transport(self) -> None:
+        boundary_requests = [
             self._industry_authority_request(
                 source_registry_id="SRC-REG-INDUSTRY-AUTHORITY-UNKNOWN"
             ),
@@ -3017,7 +3054,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self._industry_authority_request(fetch_mode="real_provider"),
         ]
 
-        for request in blocked_requests:
+        for request in boundary_requests:
             with self.subTest(
                 source_url=request.source_url,
                 state=request.source_visibility_state,
@@ -3033,13 +3070,13 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
-                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self._assert_boundary_status(raised, request)
                     self.assertEqual(
                         raised.exception.carrier["adapter_id"],
                         INDUSTRY_AUTHORITY_FILING_PAGE_ADAPTER_ID,
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertEqual(transport.call_log, [])
@@ -3648,38 +3685,39 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             )
             self.assertEqual(len(transport.call_log), 1)
 
-    def test_source_visibility_review_login_captcha_antibot_and_unknown_sources_are_rejected(self) -> None:
-        blocked_visibility_states = [
+    def test_source_visibility_review_login_captcha_antibot_suspend_and_unknown_sources_block(self) -> None:
+        boundary_visibility_states = [
             "LOGIN_REQUIRED",
             "CAPTCHA_REQUIRED",
             "ANTI_BOT_RESTRICTED",
             "UNKNOWN",
         ]
-        for visibility_state in blocked_visibility_states:
+        for visibility_state in boundary_visibility_states:
             with self.subTest(visibility_state=visibility_state):
                 transport = StaticPublicSourceTransport({})
                 with tempfile.TemporaryDirectory() as tmp_dir:
                     adapter = self._adapter(self._repo(tmp_dir), transport)
+                    request = self._request(source_visibility_state=visibility_state)
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
-                        adapter.capture(
-                            self._request(source_visibility_state=visibility_state)
-                        )
-                    self.assertIn("blocked", raised.exception.carrier["status"].lower())
+                        adapter.capture(request)
+                    self._assert_boundary_status(raised, request)
                     self.assertEqual(transport.call_log, [])
 
-        blocked_flag_sets = [
+        challenge_flag_sets = [
             {"login_required": True},
             {"captcha_required": True},
             {"anti_bot_restricted": True},
         ]
-        for flags in blocked_flag_sets:
+        for flags in challenge_flag_sets:
             with self.subTest(flags=flags):
                 transport = StaticPublicSourceTransport({})
                 with tempfile.TemporaryDirectory() as tmp_dir:
                     adapter = self._adapter(self._repo(tmp_dir), transport)
+                    request = self._request(boundary_flags=flags)
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
-                        adapter.capture(self._request(boundary_flags=flags))
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                        adapter.capture(request)
+                    self._assert_boundary_status(raised, request)
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertEqual(transport.call_log, [])
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -3702,8 +3740,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(raised.exception.reason, "source_url_not_allowlisted")
             self.assertEqual(transport.call_log, [])
 
-    def test_provincial_unknown_unlisted_source_visibility_review_login_captcha_antibot_are_blocked_before_transport(self) -> None:
-        blocked_requests = [
+    def test_provincial_unknown_unlisted_source_visibility_review_login_captcha_antibot_suspend_before_transport(self) -> None:
+        boundary_requests = [
             self._provincial_request(source_registry_id="SRC-REG-PROV-BID-UNKNOWN"),
             self._provincial_request(source_url="https://unlisted.example.local/provincial/notice.html"),
             self._provincial_request(source_visibility_state="LOGIN_REQUIRED"),
@@ -3714,7 +3752,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self._provincial_request(boundary_flags={"anti_bot_restricted": True}),
         ]
 
-        for request in blocked_requests:
+        for request in boundary_requests:
             with self.subTest(source_url=request.source_url, state=request.source_visibility_state):
                 transport = StaticPublicSourceTransport({})
                 with tempfile.TemporaryDirectory() as tmp_dir:
@@ -3725,12 +3763,12 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
-                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self._assert_boundary_status(raised, request)
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_national_construction_market_unknown_unlisted_source_visibility_review_login_captcha_antibot_are_blocked_before_transport(self) -> None:
-        blocked_requests = [
+    def test_national_construction_market_unknown_unlisted_source_visibility_review_login_captcha_antibot_suspend_before_transport(self) -> None:
+        boundary_requests = [
             self._national_request(source_registry_id="SRC-REG-NCMP-UNKNOWN"),
             self._national_request(source_url="https://unlisted.example.local/ncmp/enterprise.html"),
             self._national_request(record_kind="unknown_public_record"),
@@ -3742,7 +3780,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self._national_request(boundary_flags={"anti_bot_restricted": True}),
         ]
 
-        for request in blocked_requests:
+        for request in boundary_requests:
             with self.subTest(source_url=request.source_url, state=request.source_visibility_state):
                 transport = StaticPublicSourceTransport({})
                 with tempfile.TemporaryDirectory() as tmp_dir:
@@ -3753,13 +3791,13 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
-                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self._assert_boundary_status(raised, request)
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_credit_china_unknown_unlisted_source_visibility_review_login_captcha_antibot_are_blocked_before_transport(self) -> None:
-        blocked_requests = [
+    def test_credit_china_unknown_unlisted_source_visibility_review_login_captcha_antibot_suspend_before_transport(self) -> None:
+        boundary_requests = [
             self._credit_china_request(source_registry_id="SRC-REG-CREDIT-CHINA-UNKNOWN"),
             self._credit_china_request(source_url="https://unlisted.example.local/credit-china/record.html"),
             self._credit_china_request(record_kind="unknown_credit_record"),
@@ -3774,7 +3812,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self._credit_china_request(fetch_mode="real_provider"),
         ]
 
-        for request in blocked_requests:
+        for request in boundary_requests:
             with self.subTest(source_url=request.source_url, state=request.source_visibility_state, mode=request.fetch_mode):
                 transport = StaticPublicSourceTransport({})
                 with tempfile.TemporaryDirectory() as tmp_dir:
@@ -3785,16 +3823,16 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
-                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self._assert_boundary_status(raised, request)
                     self.assertEqual(raised.exception.carrier["adapter_id"], CREDIT_CHINA_ADAPTER_ID)
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_national_enterprise_credit_publicity_system_blocked_sources_fail_closed_before_transport(self) -> None:
-        blocked_requests = [
+    def test_national_enterprise_credit_publicity_system_boundary_sources_suspend_or_block_before_transport(self) -> None:
+        boundary_requests = [
             self._necps_request(source_registry_id="SRC-REG-NECPS-UNKNOWN"),
             self._necps_request(
                 source_family="unknown_source_family",
@@ -3817,7 +3855,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self._necps_request(fetch_mode="real_provider"),
         ]
 
-        for request in blocked_requests:
+        for request in boundary_requests:
             with self.subTest(
                 source_url=request.source_url,
                 state=request.source_visibility_state,
@@ -3832,13 +3870,13 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     with self.assertRaises(PublicSourceBoundaryError) as raised:
                         adapter.capture(request)
-                    self.assertEqual(raised.exception.carrier["status"], "BLOCKED")
+                    self._assert_boundary_status(raised, request)
                     self.assertEqual(
                         raised.exception.carrier["adapter_id"],
                         NATIONAL_ENTERPRISE_CREDIT_PUBLICITY_SYSTEM_ADAPTER_ID,
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
-                    self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
+                    self.assertTrue(raised.exception.carrier["source_boundary"]["boundary_reason"])
                     self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertEqual(transport.call_log, [])

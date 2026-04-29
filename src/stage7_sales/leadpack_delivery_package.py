@@ -793,7 +793,7 @@ def build_leadpack_delivery_package_carrier(
     )
     if approved_unlock_enabled:
         blocked_reasons = [
-            "external_software_release_remains_blocked",
+            "external_software_release_controlled_opening_required",
             "real_provider_delivery_not_executed",
             "stage8_stage9_execution_not_triggered",
             "automated_refund_program_excluded",

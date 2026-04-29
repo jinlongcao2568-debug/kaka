@@ -1,8 +1,8 @@
 version: 1
 timezone: "Asia/Shanghai"
 updated_at: "2026-04-14"
-current_release_state: "BLOCKED"
-current_state: "BLOCKED"
+current_release_state: "CONTROLLED_OPENING_REQUIRED"
+current_state: "CONTROLLED_OPENING_REQUIRED"
 internal_release_state: "READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT"
 single_operator_mode: true
 responsible_role: "governance_owner"
@@ -11,6 +11,6 @@ escalation_path: []
 activation_condition: "release gate evaluation requested"
 blocking_reasons:
   - "leadpack external delivery requires approval + audit"
-  - "external software release remains blocked"
+  - "external software release requires dedicated task packet + release checklist + approval + audit + operator action before live"
 release_windows: []
 next_review_trigger: "after internal leadops development review"

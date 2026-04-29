@@ -10,7 +10,7 @@
 - **配套依据**：`D2_正式对象契约与字段字典.md`、`D3_正式规则码总表与判定说明书.md`、`D13_公开可查边界能力清单.md`
 - **机器承接**：`contracts/api/api_catalog.json`、`contracts/api/error_code_catalog.json`、`contracts/api/permission_matrix.json`
 - **目标读者**：产品、架构、后端、前端、测试、人工复核、交付、治理、AI / Codex 执行代理
-- **生效说明**：本文只展开正式接口消费面，不改写 L0 对九阶段主链、正式对象、统一事实中枢、公开边界、双闸门、字段治理、交付矩阵与对外交付受控开放边界的定义
+- **生效说明**：本文只展开正式接口消费面，不改写 L0 对九阶段主链、正式对象、统一事实中枢、公开边界、双闸门、字段治理、交付矩阵与对外交付受控开放要求的定义
 
 ---
 
@@ -64,7 +64,7 @@
 
 | 优先级 | 文档或资产 | 裁决范围 |
 |---|---|---|
-| P1 | L0 权威总文档 | 主链、对象、统一事实中枢、公开边界、对外受控开放边界 |
+| P1 | L0 权威总文档 | 主链、对象、统一事实中枢、公开边界、对外受控开放要求 |
 | P2 | D2 / D3 / D13 | 正式对象、结果语义、双闸门、公开边界 |
 | P3 | 本文 D4 | 接口目录、路径、方法、封套、权限、错误码、保留态接口 |
 | P4 | D5 / D6 / D7 / D11 | 页面消费、字段策略、交付矩阵、测试验收 |
@@ -905,7 +905,7 @@ GET /v1/contact-targets
 
 ### [D4-R-073-E] 14.8 M7 transport bootstrap 补表（本轮新增）
 
-本补表用于收口 M7 transport bootstrap 完成后的接口状态；不改写既有 OpenAPI 目录、正式对象边界或 internal-only / controlled-opening-required 受控开放边界。
+本补表用于收口 M7 transport bootstrap 完成后的接口状态；不改写既有 OpenAPI 目录、正式对象边界或 internal-only / controlled-opening-required 受控开放要求。
 
 | transport 面 | 当前真实状态 | 当前代码落点 | 正式含义 | 明确禁止 |
 |---|---|---|---|---|
@@ -951,7 +951,7 @@ GET /v1/contact-targets
 补充说明：
 - `contracts/api/api_catalog.json` 只负责 Stage7-9 资源、`operationId`、禁止事项与 envelope binding；`surface_state / surface_mode / surface_access / capability_envelope / governance_envelope / semantic_envelope` 的字段语义统一回指 `contracts/ui/page_surface_states.json`；
 - `governance_envelope.action_availability[operationId]` 的 sole owner 固定为 `contracts/ui/review_action_catalog.json#actionAvailabilityAuthority`；API 只做引用，不再定义第二套 action availability 口径；
-- Stage 8 / Stage 9 的 controlled_opening_boundary 固定为：`internal_only=true`、`live_execution_enabled=false`、`blocked_by_default=true`，且继续 `external blocked`。
+- Stage 8 / Stage 9 的 controlled_opening_requirement 固定为：`internal_only=true`、`live_execution_enabled=false`、`blocked_by_default=true`，且继续 `external controlled-opening-required`。
 
 ## 附：PTL-I100-OPEN-CAPABILITY-BASELINE 能力开放基线补表
 

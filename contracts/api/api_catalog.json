@@ -42,7 +42,7 @@
     },
     "fallbackReadModelRule": "persisted_typed_refs_then_formal_object_refs_then_operator_loop_fallback",
     "fallbackReviewPathRule": "missing formal refs => review-required; unresolved approval/audit => governed-hold; explicit policy/release block => blocked",
-    "controlled_opening_boundaries": [
+    "controlled_opening_requirements": [
       "internal preview and draft surfaces must not be described as external-ready",
       "Stage 8 and Stage 9 live_execution_enabled must remain false",
       "Stage 8 and Stage 9 blocked_by_default must remain true unless a later approved batch changes the authority"
@@ -391,7 +391,7 @@
         "onMissingFormalRefs": "review-required",
         "onExplicitPolicyBlock": "blocked"
       },
-      "controlled_opening_boundaries": [
+      "controlled_opening_requirements": [
         "preview-only",
         "internal-only",
         "live_execution_enabled=false"
@@ -527,7 +527,7 @@
         "onApprovalOrAuditGap": "governed-hold",
         "onExplicitPolicyBlock": "blocked"
       },
-      "controlled_opening_boundaries": [
+      "controlled_opening_requirements": [
         "draft-only",
         "blocked_by_default",
         "live_execution_enabled=false"
@@ -716,7 +716,7 @@
         "onApprovalOrAuditGap": "governed-hold",
         "onExplicitPolicyBlock": "blocked"
       },
-      "controlled_opening_boundaries": [
+      "controlled_opening_requirements": [
         "draft-only",
         "internal-writeback-only",
         "blocked_by_default",
@@ -889,7 +889,7 @@
             "written_back_at missing",
             "audit trail missing"
           ],
-          "notes": "内部回写入口；需审计链；external blocked。"
+          "notes": "内部回写入口；需审计链；external controlled-opening-required。"
         }
       ],
       "business_chain_stage": "商务交付与反馈链",
@@ -1225,7 +1225,7 @@
             "action_taken missing",
             "audit trail missing"
           ],
-          "notes": "内部治理反馈写入；external blocked。"
+          "notes": "内部治理反馈写入；external controlled-opening-required。"
         },
         {
           "operationId": "listStage9WorkItems",

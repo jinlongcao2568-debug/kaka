@@ -18,7 +18,7 @@
     ],
     "notes": [
       "release layers aligned with D13",
-      "stage 7-9 internal operable, external blocked unless leadpack deliverable",
+      "stage 7-9 internal operable, external controlled-opening-required unless leadpack deliverable",
       "stage 9 direct objects tightened to internal governed and projection-only for customer summaries",
       "leadpack external delivery candidate package boundary is defined separately and remains internal-only candidate work",
       "activation design / implementation prep remains design-prep only and cannot override object surface policy"
@@ -925,7 +925,7 @@
         "exceptionTargetsAdditiveOnly": true
       },
       "notes": [
-        "仅内部草案/审批/阻断承接；direct object 不入 LeadPack；external blocked。"
+        "仅内部草案/审批/阻断承接；direct object 不入 LeadPack；external controlled-opening-required。"
       ]
     },
     {
@@ -961,7 +961,7 @@
         "exceptionTargetsAdditiveOnly": true
       },
       "notes": [
-        "仅内部支付草案与异常回写；direct object 不入 LeadPack；external blocked。"
+        "仅内部支付草案与异常回写；direct object 不入 LeadPack；external controlled-opening-required。"
       ]
     },
     {
@@ -1068,7 +1068,7 @@
         "exceptionTargetsAdditiveOnly": true
       },
       "notes": [
-        "仅内部治理对象；external blocked。"
+        "仅内部治理对象；external controlled-opening-required。"
       ]
     },
     {

@@ -839,7 +839,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             blockers["B118_STAGE9_REAL_PAYMENT_DELIVERY_NOT_EXECUTABLE"]["refund_boundary"],
             "manual exception/governed review only; no automated refund execution",
         )
-        self.assertEqual(final["controlled_opening_boundaries_preserved"]["automated_refund_execution"], "EXCLUDED")
+        self.assertEqual(final["controlled_opening_requirements_preserved"]["automated_refund_execution"], "EXCLUDED")
 
     def test_118r_reacceptance_is_closed_by_131_real_world_e2e_pilot(self) -> None:
         final = self.matrix["final_118R_operational_reacceptance"]
@@ -927,7 +927,7 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertNotIn("B118R_REAL_PROVIDER_BINDING_NOT_DONE", gaps)
         self.assertNotIn("B118R_LLM_ASSIST_NOT_PRODUCTIZED", gaps)
         self.assertNotIn("B118R_REAL_WORLD_E2E_PILOT_NOT_DONE", gaps)
-        self.assertEqual(final["controlled_opening_boundaries_preserved"]["automated_refund_execution"], "EXCLUDED")
+        self.assertEqual(final["controlled_opening_requirements_preserved"]["automated_refund_execution"], "EXCLUDED")
 
     def task_library_task_ids(self) -> set[str]:
         return {row["task_id"] for row in self.task_library["tasks"]}

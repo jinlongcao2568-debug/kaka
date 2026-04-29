@@ -291,10 +291,13 @@ REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID = {
     profile.profile_id: profile for profile in REAL_PUBLIC_ATTACHMENT_PROFILES
 }
 
-_BLOCKED_BODY_PATTERNS = (
+_ENTRY_UNAVAILABLE_BODY_PATTERNS = (
     "错误页面",
     "页面不存在",
     "404 Not Found",
+)
+
+_CONTROLLED_CHALLENGE_BODY_PATTERNS = (
     "请先登录",
     "请登录",
     "用户登录",
@@ -648,16 +651,15 @@ class RealPublicEntryFetcher:
             marker for marker in profile.lightweight_public_entry_markers if marker not in text
         ]
         lightweight_markers_complete = bool(profile.lightweight_public_entry_markers) and not missing_lightweight_markers
-        blocked_body_patterns = [
-            marker for marker in _BLOCKED_BODY_PATTERNS if marker.lower() in text.lower()
-        ]
-        strong_blocked_body_patterns = [
+        entry_unavailable_body_patterns = [
             marker
-            for marker in blocked_body_patterns
-            if marker.lower() not in {"验证码", "captcha"}
+            for marker in _ENTRY_UNAVAILABLE_BODY_PATTERNS
+            if marker.lower() in text.lower()
         ]
-        weak_blocked_body_patterns = [
-            marker for marker in blocked_body_patterns if marker not in strong_blocked_body_patterns
+        controlled_challenge_body_patterns = [
+            marker
+            for marker in _CONTROLLED_CHALLENGE_BODY_PATTERNS
+            if marker.lower() in text.lower()
         ]
         same_site_links = _discover_same_site_links(
             text,
@@ -673,21 +675,36 @@ class RealPublicEntryFetcher:
             degraded_reasons.append("entry_body_too_small")
         if not markers_found and not lightweight_markers_complete:
             degraded_reasons.append("visible_entry_markers_missing")
-        if strong_blocked_body_patterns or (
-            weak_blocked_body_patterns and not markers_found and not lightweight_markers_complete
-        ):
-            degraded_reasons.append("blocked_body_pattern:" + ",".join(blocked_body_patterns))
+        controlled_challenge_detected = bool(
+            controlled_challenge_body_patterns
+            and not markers_found
+            and not lightweight_markers_complete
+        )
+        if controlled_challenge_detected:
+            degraded_reasons.append(
+                "controlled_challenge_body_pattern:"
+                + ",".join(controlled_challenge_body_patterns)
+            )
+        elif entry_unavailable_body_patterns:
+            degraded_reasons.append(
+                "entry_unavailable_body_pattern:"
+                + ",".join(entry_unavailable_body_patterns)
+            )
         if profile.expected_title_contains and profile.expected_title_contains not in title:
             degraded_reasons.append("title_mismatch")
 
-        status = "DEGRADED" if degraded_reasons else "FETCHED"
+        status = "SUSPENDED" if controlled_challenge_detected else ("DEGRADED" if degraded_reasons else "FETCHED")
         validation_level = (
-            "VISIBLE_ENTRY_MARKERS"
-            if markers_found
+            "CONTROLLED_CHALLENGE_OPERATOR_RESUME"
+            if controlled_challenge_detected
             else (
-                "LIGHTWEIGHT_PUBLIC_ENTRY"
-                if lightweight_markers_complete
-                else "FAIL_CLOSED_INSUFFICIENT_VISIBLE_ENTRY"
+                "VISIBLE_ENTRY_MARKERS"
+                if markers_found
+                else (
+                    "LIGHTWEIGHT_PUBLIC_ENTRY"
+                    if lightweight_markers_complete
+                    else "FAIL_CLOSED_INSUFFICIENT_VISIBLE_ENTRY"
+                )
             )
         )
         failure_taxonomy = _response_failure_taxonomy(
@@ -732,7 +749,8 @@ class RealPublicEntryFetcher:
             "browser_verified": True,
             "browser_verified_at": profile.browser_verified_at,
             "browser_verified_evidence": profile.browser_verified_evidence,
-            "blocked_body_patterns_observed": blocked_body_patterns,
+            "entry_unavailable_body_patterns_observed": entry_unavailable_body_patterns,
+            "controlled_challenge_body_patterns_observed": controlled_challenge_body_patterns,
             "degraded_reasons": degraded_reasons,
         }
         manifest_payload: dict[str, Any] | None = None
@@ -794,12 +812,17 @@ class RealPublicEntryFetcher:
             "manifest_optional": manifest_payload,
             "degraded_reasons": degraded_reasons,
             "review_required": bool(degraded_reasons),
-            "fail_closed": bool(degraded_reasons),
+            "suspended_for_operator_resume": controlled_challenge_detected,
+            "resume_requires_operator_action": controlled_challenge_detected,
+            "resume_policy": "preserve_url_cookie_form_context_and_capture_plan"
+            if controlled_challenge_detected
+            else None,
+            "fail_closed": bool(degraded_reasons) and not controlled_challenge_detected,
             "no_broad_fallback": True,
             "fetch_audit": fetch_audit,
             "failure_taxonomy": failure_taxonomy,
             "transport": fetch_audit["transport"],
-            "controlled_opening_boundaries": _controlled_opening_boundaries(),
+            "controlled_opening_requirements": _controlled_opening_requirements(),
         }
 
     def _degraded_carrier(
@@ -839,7 +862,7 @@ class RealPublicEntryFetcher:
                 "deep_capture_enabled": False,
                 "real_provider_call_executed": False,
             },
-            "controlled_opening_boundaries": _controlled_opening_boundaries(),
+            "controlled_opening_requirements": _controlled_opening_requirements(),
         }
 
     def _attachment_carrier_from_response(
@@ -955,7 +978,7 @@ class RealPublicEntryFetcher:
             "no_broad_fallback": True,
             "fetch_audit": fetch_audit,
             "transport": fetch_audit["transport"],
-            "controlled_opening_boundaries": _controlled_opening_boundaries(),
+            "controlled_opening_requirements": _controlled_opening_requirements(),
         }
 
     def _degraded_attachment_carrier(
@@ -994,7 +1017,7 @@ class RealPublicEntryFetcher:
                 "deep_capture_enabled": False,
                 "real_provider_call_executed": False,
             },
-            "controlled_opening_boundaries": _controlled_opening_boundaries(),
+            "controlled_opening_requirements": _controlled_opening_requirements(),
         }
 
 
@@ -1102,7 +1125,9 @@ def _response_failure_taxonomy(
 ) -> dict[str, Any] | None:
     if not degraded_reasons:
         return None
-    if any(reason.startswith("http_status:412") for reason in degraded_reasons):
+    if any(reason.startswith("controlled_challenge_body_pattern") for reason in degraded_reasons):
+        failure_class = "CONTROLLED_CHALLENGE_BODY_PATTERN"
+    elif any(reason.startswith("http_status:412") for reason in degraded_reasons):
         failure_class = "UPSTREAM_PRECONDITION_FAILED"
     elif any(reason.startswith("http_status:521") for reason in degraded_reasons):
         failure_class = "UPSTREAM_WEB_SERVER_DOWN_OR_BLOCKED"
@@ -1110,8 +1135,8 @@ def _response_failure_taxonomy(
         failure_class = "UPSTREAM_HTTP_STATUS_NOT_OK"
     elif "visible_entry_markers_missing" in degraded_reasons and validation_level == "FAIL_CLOSED_INSUFFICIENT_VISIBLE_ENTRY":
         failure_class = "PUBLIC_ENTRY_MARKERS_MISSING_OR_SPA_SHELL"
-    elif any(reason.startswith("blocked_body_pattern") for reason in degraded_reasons):
-        failure_class = "BLOCKED_BODY_PATTERN"
+    elif any(reason.startswith("entry_unavailable_body_pattern") for reason in degraded_reasons):
+        failure_class = "ENTRY_UNAVAILABLE_BODY_PATTERN"
     elif "title_mismatch" in degraded_reasons:
         failure_class = "TITLE_MISMATCH"
     else:
@@ -1123,12 +1148,13 @@ def _response_failure_taxonomy(
         "entry_validation_level": validation_level,
         "retryable": failure_class in {"UPSTREAM_HTTP_STATUS_NOT_OK", "PUBLIC_ENTRY_DEGRADED"},
         "manual_review_required": True,
-        "fail_closed": True,
+        "resume_requires_operator_action": failure_class == "CONTROLLED_CHALLENGE_BODY_PATTERN",
+        "fail_closed": failure_class != "CONTROLLED_CHALLENGE_BODY_PATTERN",
         "no_broad_fallback": True,
     }
 
 
-def _controlled_opening_boundaries() -> dict[str, bool]:
+def _controlled_opening_requirements() -> dict[str, bool]:
     return {
         "unapproved_live_capture_used": False,
         "deep_capture_used": False,

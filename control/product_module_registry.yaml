@@ -131,7 +131,7 @@ post_mainline_selection:
         - PTL-S8-102-p2-plan-touch-productization
       remaining_task_ids: []
       last_completed_commit: 9d4662a
-      rationale: "P1/P2 已完成并分别记录 632c6ae / 9d4662a；Stage8 governed touch 方向的 candidate/compliance 与 plan/touch 产品化边界均已收口，但 external/live controlled_opening_boundary 不变，仍不触发 real execution。"
+      rationale: "P1/P2 已完成并分别记录 632c6ae / 9d4662a；Stage8 governed touch 方向的 candidate/compliance 与 plan/touch 产品化边界均已收口，但 external/live controlled_opening_requirement 不变，仍不触发 real execution。"
     - direction_label: "Stage9 governed delivery 深化"
       future_packet_id_suggestion: PTL-S9-governed-delivery-deepening
       related_modules:
@@ -736,7 +736,7 @@ stage_module_inventory:
     current_blockers:
       - "Stage8 real execution 是目标能力但默认阻断；controlled-opening-required 表示未满足受控开放条件前不能 live，不表示永久 out of scope。"
       - "contact enrichment / live outreach 需要 provider config、sandbox、approval、audit、模板、频控、退订和 operator action。"
-      - "Stage8 P1/P2 已完成，但 governed/internal-only controlled_opening_boundary 不变；后续 shared/runtime 与 Stage9 工作仍需人工选择，不得自动激活。"
+      - "Stage8 P1/P2 已完成，但 governed/internal-only controlled_opening_requirement 不变；后续 shared/runtime 与 Stage9 工作仍需人工选择，不得自动激活。"
     exit_criteria:
       - "contact_target 只能来自 saleable_opportunity、account context 和合法来源。"
       - "outreach_plan / touch_record 默认只允许 preview/dry-run/governed internal path；进入真实触达前必须完成 gated target capability 验收。"
@@ -1297,7 +1297,7 @@ modules:
     notes:
       - "P1 candidate/compliance boundary refactor completed in commit 632c6ae."
       - "P2 plan/touch productization completed in commit 9d4662a."
-      - "Stage8 direction is functionally complete for P1/P2, but remains internal governed only; external/live execution controlled_opening_boundary does not change."
+      - "Stage8 direction is functionally complete for P1/P2, but remains internal governed only; external/live execution controlled_opening_requirement does not change."
       - "PTL-I100-OPEN-CAPABILITY-BASELINE treats sales outreach as a target capability with controlled-opening-required gated opening, not permanent out-of-scope."
   - module_id: STAGE9-DELIVERY-GOVERNANCE
     stage_scope:

@@ -48,7 +48,7 @@ _BLOCKED_LIVE_FLAGS = (
     "customer_visible_enabled",
     "manual_url_picker_primary_flow",
 )
-_BLOCKED_SOURCE_TOKENS = ("LOGIN", "CAPTCHA", "ANTI_BOT")
+_CONTROLLED_CHALLENGE_SOURCE_TOKENS = ("LOGIN", "CAPTCHA", "ANTI_BOT")
 
 
 def _truthy(value: Any) -> bool:
@@ -124,7 +124,7 @@ def _key_fields(candidate: Mapping[str, Any]) -> set[str]:
     return fields
 
 
-def _public_boundary_blockers(candidate: Mapping[str, Any]) -> list[str]:
+def _controlled_challenge_review_reasons(candidate: Mapping[str, Any]) -> list[str]:
     source_markers = " ".join(
         str(candidate.get(field, ""))
         for field in (
@@ -136,8 +136,12 @@ def _public_boundary_blockers(candidate: Mapping[str, Any]) -> list[str]:
             "source_visibility_state",
         )
     ).upper()
-    blockers = [token.lower() for token in _BLOCKED_SOURCE_TOKENS if token in source_markers]
-    return [f"blocked_source_marker_{token}" for token in blockers]
+    markers = [
+        token.lower()
+        for token in _CONTROLLED_CHALLENGE_SOURCE_TOKENS
+        if token in source_markers
+    ]
+    return [f"controlled_challenge_marker_{token}" for token in markers]
 
 
 class Stage1MarketScanEngine:
@@ -225,7 +229,7 @@ class Stage1MarketScanEngine:
                 "skipped_candidate_count": len(skipped),
                 "next_action": next_action,
             },
-            "controlled_opening_boundaries": {
+            "controlled_opening_requirements": {
                 "unapproved_capture_enabled": False,
                 "real_external_fetch_enabled": False,
                 "provider_call_enabled": False,
@@ -305,7 +309,7 @@ class Stage1MarketScanEngine:
             or candidate.get("challenge_deadline_at")
         )
 
-        why_skip.extend(_public_boundary_blockers(candidate))
+        review_reasons.extend(_controlled_challenge_review_reasons(candidate))
         if amount and amount < minimum_amount:
             why_skip.append("amount_below_minimum")
         if deadline is not None and deadline < effective_now:

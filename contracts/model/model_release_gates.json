@@ -2,7 +2,7 @@
   "registry_id": "model-release-gates",
   "version": "0.1.1",
   "status": "DRAFT",
-  "external_release_blocked": true,
+  "external_release_controlled_opening_required": true,
   "capability_mode_vocabulary_ref": "control/runtime_inventory.yaml#capability_mode_vocabulary",
   "capability_mode_rules": {
     "model_provider_default": "BUILDABLE_BUT_OFF_BY_DEFAULT",

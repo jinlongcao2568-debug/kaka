@@ -163,7 +163,7 @@
 - `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`：已接企业微信、邮件、短信/电话、CRM、报价、支付、交付 provider binding/readback；自动退款仍不实现，真实调用仍需审批/审计/operator action。
 - `PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`：已接入受治理的大模型辅助解析、复核、证据摘要和销售话术草稿 readback；模型输出不得直接成为事实或客户结论，不调用真实外部模型 provider。
 - `PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout`：在 127-130 完成后跑受控真实世界端到端试点，已作为产品 closeout 门完成。
-- `PTL-I100-132-owner-operator-frontend-productization-workbench`：在前端实机检查后补产品化工作台、Stage1-9 运营总览、客户门户空状态和受控开放边界可视化。
+- `PTL-I100-132-owner-operator-frontend-productization-workbench`：在前端实机检查后补产品化工作台、Stage1-9 运营总览、客户门户空状态和受控开放要求可视化。
 - `PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist`：已完成第一批真实公开总入口 fetcher，覆盖全国公共资源交易平台交易查询、中国政府采购网中央公告/中标公告等总入口。
 - `PTL-I100-133B-national-verification-source-entry-fetchers`：已完成国家级核验入口 fetch/readback，覆盖四库一平台 home/company/person/project 以及 Credit China / GSXT 官方入口，把 `200+SPA 壳`、`412`、`521` 等真实运行状态统一压到受控 readback/fail-closed。
 - `PTL-I100-133C-representative-local-platform-entry-fetchers`：已完成代表性地方平台入口 fetch/readback，覆盖北京市主平台、北京工程建设入口、北京经开区分平台和广东省 portal，区分“直接 HTML 成功入口”和“200 但只返回前端壳页的 portal”。
@@ -193,4 +193,4 @@
 
 历史控制面参照：`PTL-GOV-116-mainline-candidate-shift-to-INT` 已完成并提交 `209c4cd`，只用于说明 current_mainline_next_candidate 如何推进到 `PTL-INT`，不作为近端候选或当前执行顺序来源。
 
-主线闭合提示：本文件仍只提供近端导航提示；不提供状态源、执行顺序源、完整 backlog 或 release 放行。`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 受控开放边界不变；controlled-opening-required 只表示受控开放条件未满足前不能 live，不表示真实触达、支付或交付永久不做。自动退款执行不实现。
+主线闭合提示：本文件仍只提供近端导航提示；不提供状态源、执行顺序源、完整 backlog 或 release 放行。`external release`、`Stage 8 real execution`、`Stage 9 real payment / delivery / refund` 受控开放要求不变；controlled-opening-required 只表示受控开放条件未满足前不能 live，不表示真实触达、支付或交付永久不做。自动退款执行不实现。

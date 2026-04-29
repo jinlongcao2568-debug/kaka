@@ -25,11 +25,14 @@ script_failures:
 risk_triggers:
   - trigger: external_facing_change
     severity: P0
-    action: stop_and_handoff
+    action: require_dedicated_task_packet_and_handoff
   - trigger: payment_or_delivery_execution
     severity: P0
-    action: stop_and_handoff
+    action: require_dedicated_task_packet_and_handoff
   - trigger: outreach_execution
+    severity: P0
+    action: require_dedicated_task_packet_and_handoff
+  - trigger: automated_refund_execution
     severity: P0
     action: stop_and_handoff
   - trigger: high_restriction_field_release
@@ -62,5 +65,6 @@ consecutive_failure_rule:
   action: stop_and_handoff
 notes:
   - any P0 stop must transfer to human approval
-  - external release remains blocked
+  - external release is controlled-opening and remains non-live until dedicated task packet, release checklist, approval, audit, operator action, rollback, and regression gates pass
+  - automated refund execution remains excluded
   - mandatory human review and stop/escalate classes must fail readiness/release checks when undeclared

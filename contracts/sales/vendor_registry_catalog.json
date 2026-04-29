@@ -208,7 +208,7 @@
     }
   ],
   "notes": [
-    "capability_mode is runtime-only and does not weaken current_status or release controlled_opening_boundaries.",
+    "capability_mode is runtime-only and does not weaken current_status or release controlled_opening_requirements.",
     "execution vendors may be buildable-but-off without being externally released.",
     "Stage 8 source-side data must first materialize into formal carriers before final contact/outreach objects consume it."
   ]

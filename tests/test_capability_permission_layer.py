@@ -118,8 +118,8 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
             tuple(runtime_policy["runtime_resolver_precedence"]["protected_short_circuit_modes"]),
         )
         self.assertEqual(
-            resolver.external_blocked_release_level,
-            runtime_policy["runtime_resolver_precedence"]["release_layer_controlled_opening_boundary"],
+            resolver.external_controlled_opening_release_level,
+            runtime_policy["runtime_resolver_precedence"]["release_layer_controlled_opening_requirement"],
         )
         self.assertEqual(
             resolver.control_projection_sources_ignored_for_mode_resolution,
@@ -185,7 +185,7 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
         )
 
         self.assertEqual(resolution.capability_mode, "DRY_RUN")
-        self.assertEqual(resolution.decision, "BLOCK")
+        self.assertEqual(resolution.decision, "REVIEW")
         control_projection = resolution.trace_fields["control_projection"]
         self.assertEqual(
             control_projection["resolution_role"],
@@ -295,7 +295,7 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
         self.assertTrue(blocked_state.permission_short_circuit)
         self.assertIn("permanently blocked", " ".join(blocked_state.permission_blocked_reasons))
 
-    def test_real_run_ready_does_not_override_external_blocked(self) -> None:
+    def test_real_run_ready_requires_controlled_opening_prerequisites(self) -> None:
         stage7 = run_internal_chain_to_stage7(load_fixture("internal_chain_happy.json"))["stage7"]
         opportunity = stage7.record("saleable_opportunity")
         runtime = CapabilityRuntime()
@@ -327,8 +327,33 @@ class TestCapabilityPermissionLayer(unittest.TestCase):
                 }
             ],
         )
-        self.assertEqual(state.permission_decision_state, "BLOCK")
-        self.assertIn("external release blocked controlled_opening_boundary", " ".join(state.permission_blocked_reasons))
+        self.assertEqual(state.permission_decision_state, "REVIEW")
+        self.assertFalse(state.permission_short_circuit)
+        self.assertIn("controlled opening requires policy unlock", " ".join(state.permission_review_reasons))
+
+        approved_state = runtime.resolve_permissions(
+            context,
+            [
+                {
+                    "capability_family": "execution_vendor",
+                    "requested_action": "LIVE_EXECUTION",
+                    "target_id": "EXEC-EMAIL-SERVICE",
+                    "target_type": "execution_vendor",
+                    "target_role": "EXECUTION_VENDOR",
+                    "release_level": "EXTERNAL_CONTROLLED_OPENING",
+                    "approval_state": "APPROVED",
+                    "metadata": {
+                        "provider_config_ready": True,
+                        "sandbox_passed": True,
+                        "approval_chain_ready": True,
+                        "audit_chain_ready": True,
+                        "operator_action_recorded": True,
+                        "rollback_path_ready": True,
+                    },
+                }
+            ],
+        )
+        self.assertEqual(approved_state.permission_decision_state, "ALLOW")
 
     def test_stage8_permission_trace_is_emitted_before_policy_load(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))

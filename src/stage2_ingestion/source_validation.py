@@ -310,7 +310,7 @@ def build_source_coverage_report(
                 bool(payload.get("fail_closed")) for payload in payloads
             ),
         },
-        "controlled_opening_boundaries": {
+        "controlled_opening_requirements": {
             "unapproved_live_capture_used": False,
             "real_provider_call_executed": False,
         },

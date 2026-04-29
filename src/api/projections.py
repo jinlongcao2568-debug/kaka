@@ -2928,12 +2928,12 @@ def build_customer_artifact_access_candidate_surface(payload: Any) -> dict[str, 
         "why_not_live": _dedupe_preserve_order(
             list(formal_readiness.get("why_not_live", []))
             + (
-                ["external_release_blocked", "signed_download_url_not_generated"]
+                ["external_release_controlled_opening_required", "signed_download_url_not_generated"]
                 if customer_visible_enabled and download_enabled
                 else [
                     "customer_account_not_approved",
                     "download_auth_not_issued",
-                    "external_release_blocked",
+                    "external_release_controlled_opening_required",
                 ]
             )
         ),
@@ -3077,7 +3077,7 @@ def build_go_live_readiness_surface(
         ],
         "approved_production_live_dependency_drill": approved_production_live_dependency_drill,
         "audit_readback": _audit_readback_summary(audit_entries),
-        "controlled_opening_boundaries": {
+        "controlled_opening_requirements": {
             "external_software_release_enabled": False,
             "customer_visible_publication_enabled": False,
             "provider_live_execution_enabled": False,

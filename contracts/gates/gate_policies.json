@@ -574,10 +574,10 @@
     {
       "release_layer": "EXTERNAL_CONTROLLED_OPENING",
       "requirements": [
-        "external software release blocked by policy"
+        "external software release requires controlled opening policy"
       ],
       "notes": [
-        "external promise remains blocked"
+        "external promise requires controlled opening prerequisites"
       ]
     }
   ],

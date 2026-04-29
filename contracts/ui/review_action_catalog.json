@@ -67,7 +67,7 @@
         "reviewPath": "unresolved reviewer chain or audit gap => governed-hold; explicit release/policy block => blocked"
       }
     ],
-    "controlled_opening_boundaries": [
+    "controlled_opening_requirements": [
       "Stage7-9 review actions remain internal_only=true",
       "Stage8-9 actions must not imply live execution",
       "button flow must not bypass approval or audit requirements declared here"

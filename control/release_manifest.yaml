@@ -2,7 +2,7 @@ version: 1
 updated_at: "2026-04-19"
 release_status: "INTERNAL_OPERABLE"
 internal_leadops_status: "READY"
-external_release_status: "BLOCKED"
+external_release_status: "CONTROLLED_OPENING_REQUIRED"
 full_repair_program:
   status: "FULL_REPAIR_COMPLETE_REVIEW_READY"
   status_semantics: "Program control closeout only; FF-18-S1 records final state-source alignment and is not a repo readiness source."
@@ -20,14 +20,14 @@ capability_runtime_projection:
   runtime_policy_ref: "contracts/release/runtime_policy_catalog.json#capability_families"
   capability_mode_priority_order_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_priority_order"
   protected_short_circuit_modes_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.protected_short_circuit_modes"
-  release_layer_controlled_opening_boundary_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.release_layer_controlled_opening_boundary"
+  release_layer_controlled_opening_requirement_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.release_layer_controlled_opening_requirement"
   runtime_inventory_ref: "control/runtime_inventory.yaml#capability_family_state_projection"
   runtime_resolver_precedence_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence"
   current_mode_projection_ref: "control/runtime_inventory.yaml#capability_family_state_projection"
   release_layer_ceiling_projection_ref: "control/runtime_inventory.yaml#capability_family_state_projection"
   mode_resolution_source: false
   release_layer_semantics_source: false
-  external_blocked_controlled_opening_boundary_retained: true
+  external_controlled_opening_requirement_retained: true
 future_external_unlock_prerequisites:
   projection_only: true
   matrix_ref: "contracts/release/external_unlock_prerequisite_matrix.json"
@@ -69,7 +69,7 @@ notes:
   - "AX9S full-repair program is closed as FULL_REPAIR_COMPLETE_REVIEW_READY; repo readiness remains READY_FOR_POST-REPAIR_MAINLINE_SELECTION."
   - "Release bundles must reference contracts/testing/governance snapshots."
   - "control/release_manifest.yaml is a projection-only release/status mirror and not a capability semantic source."
-  - "capability family current mode / priority order / protected short-circuit / release_layer controlled_opening_boundary all project from contracts/release/runtime_policy_catalog.json."
+  - "capability family current mode / priority order / protected short-circuit / release_layer controlled_opening_requirement all project from contracts/release/runtime_policy_catalog.json."
   - "Future unlock prerequisite baseline is defined and R6 decision is now recorded separately from any implementation approval."
   - "R6 decision is complete, but no unlock implementation is approved."
   - "Current repo readiness is READY_FOR_POST-REPAIR_MAINLINE_SELECTION; R6-path tokens remain decision-time history only."

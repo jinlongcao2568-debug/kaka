@@ -3,8 +3,8 @@
     "matrix_id": "PTL-I100-107B-internal-acceptance-matrix",
     "version": 2,
     "packet_id": "PTL-I100-107-real-sample-operational-acceptance",
-    "subpacket_id": "PTL-I100-107B-dedicated-refund-controlled_opening_boundary-fixture-readback",
-    "purpose": "Offline sanitized internal acceptance matrix readback with dedicated refund/controlled_opening_boundary replay.",
+    "subpacket_id": "PTL-I100-107B-dedicated-refund-controlled_opening_requirement-fixture-readback",
+    "purpose": "Offline sanitized internal acceptance matrix readback with dedicated refund/controlled_opening_requirement replay.",
     "full_product_operational_acceptance_ref": "fixtures/internal_acceptance_full_product_operational.json",
     "full_product_operational_reacceptance_ref": "fixtures/internal_acceptance_full_product_operational_reacceptance.json",
     "source_data_class": "sanitized_offline",
@@ -24,7 +24,7 @@
     "source_conflict",
     "writeback"
   ],
-  "controlled_opening_boundaries": {
+  "controlled_opening_requirements": {
     "external_release": {
       "status": "CONTROLLED_OPENING",
       "live_execution_allowed": false
@@ -137,7 +137,7 @@
       "stage7",
       "stage8",
       "stage9",
-      "controlled_opening_boundaries"
+      "controlled_opening_requirements"
     ],
     "audit_summary_required_fields": [
       "source_data_class",
@@ -208,7 +208,7 @@
           "stage7": "qualified_open",
           "stage8": "internal_governed_preview",
           "stage9": "pending_approval_not_live",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -279,7 +279,7 @@
           "stage7": "blocked_review",
           "stage8": "review_required_cancelled",
           "stage9": "on_hold_release_blocked",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -350,7 +350,7 @@
           "stage7": "review_hold",
           "stage8": "manual_review_required",
           "stage9": "on_hold",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -421,7 +421,7 @@
           "stage7": "qualified_but_contact_rejected",
           "stage8": "cancelled",
           "stage9": "on_hold_release_blocked",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -500,7 +500,7 @@
           "stage7": "qualified",
           "stage8": "reselect_contact",
           "stage9": "pending_approval_not_live",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -572,7 +572,7 @@
           "stage7": "qualified",
           "stage8": "scheduled_quiet_hours",
           "stage9": "pending_approval_not_live",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -646,7 +646,7 @@
           "stage7": "qualified",
           "stage8": "approval_review_required",
           "stage9": "on_hold_release_blocked",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -726,7 +726,7 @@
           "stage7": "source_conflict_review",
           "stage8": "review_required",
           "stage9": "evidence_insufficient",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -803,7 +803,7 @@
           "stage7": "qualified",
           "stage8": "review_stage6_7",
           "stage9": "projected_writeback_only",
-          "controlled_opening_boundaries": "all_controlled_opening_required"
+          "controlled_opening_requirements": "all_controlled_opening_required"
         }
       },
       "audit_summary": {
@@ -815,12 +815,12 @@
       }
     },
     {
-      "scenario_id": "refund-live-controlled_opening_boundary",
-      "taxonomy": "stage9_refund_live_controlled_opening_boundary",
-      "title": "Refund live execution controlled_opening_boundary full-chain replay",
+      "scenario_id": "refund-live-controlled_opening_requirement",
+      "taxonomy": "stage9_refund_live_controlled_opening_requirement",
+      "title": "Refund live execution controlled_opening_requirement full-chain replay",
       "replay_status": "replayable",
       "replay_mode": "runtime_replay",
-      "fixture_ref": "fixtures/internal_acceptance_stage9_refund_controlled_opening_boundary.json",
+      "fixture_ref": "fixtures/internal_acceptance_stage9_refund_controlled_opening_requirement.json",
       "payload_overrides": {},
       "failure_taxonomy_refs": [
         "writeback_projection_only"
@@ -832,7 +832,7 @@
           "stage8",
           "stage9"
         ],
-        "operator_action": "refund_controlled_opening_boundary_readback_only"
+        "operator_action": "refund_controlled_opening_requirement_readback_only"
       },
       "expected": {
         "stage7": {
@@ -876,7 +876,7 @@
           "stage7": "qualified_open",
           "stage8": "internal_governed_preview",
           "stage9": "refund_requested_projection_only",
-          "controlled_opening_boundaries": "stage9_refund_payment_delivery_live_controlled_opening"
+          "controlled_opening_requirements": "stage9_refund_payment_delivery_live_controlled_opening"
         }
       },
       "audit_summary": {

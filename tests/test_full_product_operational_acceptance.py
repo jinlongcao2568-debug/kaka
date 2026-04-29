@@ -243,7 +243,7 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
             storage_database_url_optional="sqlite:///:memory:",
         ).platform_infra_readiness()
         production = readiness["production_slo_incident_readiness"]
-        controlled_opening_boundaries = production["controlled_opening_boundaries"]
+        controlled_opening_requirements = production["controlled_opening_requirements"]
 
         self.assertEqual(production["target_capability_state"], "PRODUCTION_READY")
         self.assertTrue(production["repository_backed_readback"])
@@ -258,11 +258,11 @@ class TestFullProductOperationalAcceptance(unittest.TestCase):
             production["suspended_state_operation_readback"]["suspension_state"],
             "SUSPENDED",
         )
-        self.assertFalse(controlled_opening_boundaries["real_alert_dispatch_enabled"])
-        self.assertFalse(controlled_opening_boundaries["incident_automation_enabled"])
-        self.assertFalse(controlled_opening_boundaries["destructive_restore_enabled"])
-        self.assertFalse(controlled_opening_boundaries["rollback_execution_enabled"])
-        self.assertFalse(readiness["controlled_opening_boundaries"]["real_provider_execution_enabled"])
+        self.assertFalse(controlled_opening_requirements["real_alert_dispatch_enabled"])
+        self.assertFalse(controlled_opening_requirements["incident_automation_enabled"])
+        self.assertFalse(controlled_opening_requirements["destructive_restore_enabled"])
+        self.assertFalse(controlled_opening_requirements["rollback_execution_enabled"])
+        self.assertFalse(readiness["controlled_opening_requirements"]["real_provider_execution_enabled"])
 
     def test_118r_reacceptance_records_post_122_126_real_world_gaps(self) -> None:
         metadata = self.reacceptance["metadata"]

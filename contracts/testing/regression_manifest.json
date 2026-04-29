@@ -1006,7 +1006,7 @@
       "title": "P2 治理与保护能力覆盖",
       "checks": [
         "P2 capability blocking samples exist",
-        "external blocked rules enforced"
+        "external controlled-opening-required rules enforced"
       ],
       "triggers": [
         "public boundary registry change",
@@ -1182,7 +1182,7 @@
         "stage9 rule codes present (ORD-901/902, PAY-901/902/903/904/905, DEL-901/902/903/904/905, OUT-901/902, GOV-901/902)",
         "stage9 field policy coverage for payment/delivery/outcome/governance fields",
         "api/ui stage9 surfaces are internal preview or internal writeback only",
-        "delivery matrix keeps stage9 direct objects internal governed and external blocked",
+        "delivery matrix keeps stage9 direct objects internal governed and external controlled-opening-required",
         "release gates require stage9 outcome/governance writeback and projection-only delivery policy",
         "blocked/review/archived/retrieval assertions remain active"
       ],
@@ -1827,7 +1827,7 @@
       "checks": [
         "external unlock prerequisite matrix exists and covers required capability domains",
         "unlock tier vocabulary distinguishes permanently blocked, deny-by-default, shadow-only and future unlockable domains",
-        "release/control/model manifests reference the prerequisite matrix and keep external release blocked"
+        "release/control/model manifests reference the prerequisite matrix and keep external release controlled-opening required"
       ],
       "triggers": [
         "contracts/release/external_unlock_prerequisite_matrix.json change",
@@ -2373,7 +2373,7 @@
       "suite_id": "REG-FF17-S2-CAPABILITY-CANONICAL-SOURCE",
       "title": "FF-17-S2 capability canonical source regression",
       "checks": [
-        "runtime_policy_catalog remains the sole canonical source for capability_mode family state, priority order, protected short-circuit and EXTERNAL_CONTROLLED_OPENING controlled_opening_boundary",
+        "runtime_policy_catalog remains the sole canonical source for capability_mode family state, priority order, protected short-circuit and EXTERNAL_CONTROLLED_OPENING controlled_opening_requirement",
         "runtime_inventory, model_release_manifest and release_manifest remain projection or mirror surfaces and do not become semantics sources",
         "future unlock prerequisite or decision assets do not redefine current readiness, current capability unlock or external software release",
         "REAL_RUN_READY remains subordinate to EXTERNAL_CONTROLLED_OPENING and cannot override controlled-opening-required internal surfaces"

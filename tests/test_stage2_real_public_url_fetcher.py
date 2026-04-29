@@ -261,7 +261,16 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
 
         self.assertEqual(carrier["status"], "FETCHED")
         self.assertFalse(
-            any(reason.startswith("blocked_body_pattern") for reason in carrier["degraded_reasons"])
+            any(
+                reason.startswith("controlled_challenge_body_pattern")
+                for reason in carrier["degraded_reasons"]
+            )
+        )
+        self.assertFalse(
+            any(
+                reason.startswith("entry_unavailable_body_pattern")
+                for reason in carrier["degraded_reasons"]
+            )
         )
 
     def test_fetches_browser_verified_total_entry_and_persists_snapshot(self) -> None:
@@ -317,8 +326,8 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 manifest["lineage_refs"]["owner_task_id"],
                 "TASK-133A",
             )
-            self.assertFalse(carrier["controlled_opening_boundaries"]["unapproved_live_capture_used"])
-            self.assertFalse(carrier["controlled_opening_boundaries"]["real_provider_call_executed"])
+            self.assertFalse(carrier["controlled_opening_requirements"]["unapproved_live_capture_used"])
+            self.assertFalse(carrier["controlled_opening_requirements"]["real_provider_call_executed"])
 
         self.assertEqual(len(transport.call_log), 1)
         self.assertEqual(transport.call_log[0]["url"], GGZY_ENTRY_URL)
@@ -335,8 +344,8 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertTrue(raised.exception.carrier["fail_closed"])
         self.assertEqual(transport.call_log, [])
 
-    def test_error_login_captcha_or_empty_shell_degrades_fail_closed(self) -> None:
-        blocked_body = (
+    def test_error_login_captcha_or_empty_shell_suspends_for_operator_resume(self) -> None:
+        challenge_body = (
             "<html><head><title>错误页面</title></head>"
             "<body>请先登录，验证码，人机验证</body></html>"
         ).encode("utf-8")
@@ -345,7 +354,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 CCGP_ENTRY_URL: RealPublicFetchResponse(
                     url=CCGP_ENTRY_URL,
                     status_code=200,
-                    content=blocked_body,
+                    content=challenge_body,
                     content_type="text/html",
                     final_url=CCGP_ENTRY_URL,
                 )
@@ -356,14 +365,27 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
             profile_id="CCGP-CENTRAL-NOTICES",
         )
 
-        self.assertEqual(carrier["status"], "DEGRADED")
+        self.assertEqual(carrier["status"], "SUSPENDED")
         self.assertTrue(carrier["review_required"])
-        self.assertTrue(carrier["fail_closed"])
+        self.assertFalse(carrier["fail_closed"])
+        self.assertTrue(carrier["suspended_for_operator_resume"])
+        self.assertTrue(carrier["resume_requires_operator_action"])
+        self.assertEqual(
+            carrier["resume_policy"],
+            "preserve_url_cookie_form_context_and_capture_plan",
+        )
         self.assertIsNone(carrier["snapshot_id_optional"])
         self.assertIn("entry_body_too_small", carrier["degraded_reasons"])
         self.assertIn("visible_entry_markers_missing", carrier["degraded_reasons"])
         self.assertTrue(
-            any(reason.startswith("blocked_body_pattern:") for reason in carrier["degraded_reasons"])
+            any(
+                reason.startswith("controlled_challenge_body_pattern:")
+                for reason in carrier["degraded_reasons"]
+            )
+        )
+        self.assertEqual(
+            carrier["failure_taxonomy"]["failure_class"],
+            "CONTROLLED_CHALLENGE_BODY_PATTERN",
         )
 
     def test_profiles_are_total_entry_urls_not_detail_pages(self) -> None:

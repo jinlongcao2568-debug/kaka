@@ -455,7 +455,7 @@ def test_platform_local_stack_files_are_registered_on_deployment_surface_and_mod
     assert_paths_exist(sorted(expected_files))
 
 
-def test_stage7_deferred_split_and_stage8_stage9_controlled_opening_boundaries_remain_locked() -> None:
+def test_stage7_deferred_split_and_stage8_stage9_controlled_opening_requirements_remain_locked() -> None:
     registry = read_yaml("control/product_module_registry.yaml")
     stages = {stage["stage_id"]: stage for stage in registry["stage_module_inventory"]}
 
@@ -517,7 +517,7 @@ def load_tests(
         test_api_and_repository_surfaces_are_not_lost_from_module_ledger,
         test_internal_preview_packet_is_not_left_pending_in_registry,
         test_platform_local_stack_files_are_registered_on_deployment_surface_and_module,
-        test_stage7_deferred_split_and_stage8_stage9_controlled_opening_boundaries_remain_locked,
+        test_stage7_deferred_split_and_stage8_stage9_controlled_opening_requirements_remain_locked,
     ):
         suite.addTest(unittest.FunctionTestCase(test))
     return suite

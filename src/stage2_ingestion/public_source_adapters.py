@@ -301,11 +301,22 @@ PUBLIC_VISIBLE_STATE = "PUBLIC_VISIBLE"
 SANDBOX_LOCAL_MIRROR_STATE = "SANDBOX_LOCAL_MIRROR"
 CONTROLLED_TEST_TRANSPORT_STATE = "CONTROLLED_TEST_TRANSPORT"
 
-BLOCKED_VISIBILITY_STATES = frozenset(
+CONTROLLED_CHALLENGE_VISIBILITY_STATES = frozenset(
     {
         "LOGIN_REQUIRED",
         "CAPTCHA_REQUIRED",
         "ANTI_BOT_RESTRICTED",
+    }
+)
+
+CONTROLLED_CHALLENGE_FLAG_NAMES = (
+    "login_required",
+    "captcha_required",
+    "anti_bot_restricted",
+)
+
+BLOCKED_VISIBILITY_STATES = frozenset(
+    {
         "UNKNOWN",
     }
 )
@@ -725,7 +736,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         boundary = self._public_boundary(request)
         if not boundary["allowed"]:
             raise PublicSourceBoundaryError(
-                str(boundary["blocked_reason"]),
+                str(boundary.get("boundary_reason") or boundary.get("blocked_reason")),
                 carrier=self._blocked_carrier(request, boundary=boundary),
             )
 
@@ -774,6 +785,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
                     request,
                     boundary={
                         "allowed": False,
+                        "boundary_action": "BLOCK",
+                        "boundary_reason": "controlled_transport_required",
                         "blocked_reason": "controlled_transport_required",
                         "source_visibility_state": request.source_visibility_state,
                     },
@@ -945,11 +958,16 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         flags = {str(key): bool(value) for key, value in request.boundary_flags.items()}
         if visibility_state in BLOCKED_VISIBILITY_STATES:
             return self._boundary_block(request, f"blocked_visibility_state:{visibility_state}")
+        if visibility_state in CONTROLLED_CHALLENGE_VISIBILITY_STATES:
+            return self._boundary_suspend(
+                request,
+                f"controlled_challenge_visibility:{visibility_state}",
+            )
         if visibility_state not in ALLOWED_VISIBILITY_STATES:
             return self._boundary_block(request, f"unknown_visibility_state:{visibility_state}")
-        for flag_name in ("login_required", "captcha_required", "anti_bot_restricted"):
+        for flag_name in CONTROLLED_CHALLENGE_FLAG_NAMES:
             if flags.get(flag_name):
-                return self._boundary_block(request, flag_name)
+                return self._boundary_suspend(request, f"controlled_challenge_flag:{flag_name}")
         if fetch_mode in BLOCKED_FETCH_MODES:
             return self._boundary_block(request, f"blocked_fetch_mode:{fetch_mode}")
         if fetch_mode not in self.config.allowed_fetch_modes:
@@ -976,6 +994,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             return self._boundary_block(request, "source_url_not_allowlisted")
         return {
             "allowed": True,
+            "boundary_action": "ALLOW",
+            "boundary_reason": None,
             "blocked_reason": None,
             "source_visibility_state": visibility_state,
             "source_registry_id": request.source_registry_id,
@@ -988,6 +1008,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
     def _boundary_block(self, request: PublicSourceSnapshotRequest, reason: str) -> dict[str, Any]:
         return {
             "allowed": False,
+            "boundary_action": "BLOCK",
+            "boundary_reason": reason,
             "blocked_reason": reason,
             "source_visibility_state": request.source_visibility_state,
             "source_registry_id": request.source_registry_id,
@@ -997,15 +1019,29 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "sandbox_local_mirror": False,
         }
 
+    def _boundary_suspend(self, request: PublicSourceSnapshotRequest, reason: str) -> dict[str, Any]:
+        boundary = self._boundary_block(request, reason)
+        boundary["boundary_action"] = "SUSPEND"
+        boundary["blocked_reason"] = None
+        boundary["suspend_reason"] = reason
+        boundary["controlled_challenge"] = True
+        boundary["resume_requires_operator_action"] = True
+        boundary["resume_policy"] = "preserve_url_cookie_form_context_and_capture_plan"
+        return boundary
+
     def _blocked_carrier(
         self,
         request: PublicSourceSnapshotRequest,
         *,
         boundary: Mapping[str, Any],
     ) -> dict[str, Any]:
+        controlled_challenge = bool(boundary.get("controlled_challenge"))
         return {
             "adapter_id": self.config.adapter_id,
-            "status": "BLOCKED",
+            "status": "SUSPENDED" if controlled_challenge else "BLOCKED",
+            "result_state": "SUSPENDED_BEFORE_TRANSPORT"
+            if controlled_challenge
+            else "BLOCKED_BEFORE_TRANSPORT",
             "source_url": request.source_url,
             "source_family": request.source_family,
             "source_registry_id": request.source_registry_id,
@@ -1194,6 +1230,13 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         self,
         request: PublicSourceSnapshotRequest,
     ) -> str | None:
+        visibility_state = str(request.source_visibility_state or "").strip()
+        if visibility_state in CONTROLLED_CHALLENGE_VISIBILITY_STATES:
+            return f"controlled_challenge_visibility:{visibility_state}"
+        flags = {str(key): bool(value) for key, value in request.boundary_flags.items()}
+        for flag_name in CONTROLLED_CHALLENGE_FLAG_NAMES:
+            if flags.get(flag_name):
+                return f"controlled_challenge_flag:{flag_name}"
         if self.config.adapter_id == TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID:
             flags = {
                 str(key): bool(value) for key, value in request.boundary_flags.items()
@@ -1311,6 +1354,8 @@ __all__ = [
     "ALLOWED_VISIBILITY_STATES",
     "BLOCKED_FETCH_MODES",
     "BLOCKED_VISIBILITY_STATES",
+    "CONTROLLED_CHALLENGE_FLAG_NAMES",
+    "CONTROLLED_CHALLENGE_VISIBILITY_STATES",
     "CONTROLLED_TEST_TRANSPORT_STATE",
     "CREDIT_CHINA_ADAPTER_ID",
     "CREDIT_CHINA_ADMINISTRATIVE_PENALTY_RECORD_KIND",

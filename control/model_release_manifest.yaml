@@ -1,12 +1,12 @@
 version: 1
 updated_at: "2026-04-19"
 model_release_state: "INTERNAL_ONLY"
-external_release_status: "BLOCKED"
+external_release_status: "CONTROLLED_OPENING_REQUIRED"
 capability_mode_vocabulary_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary"
 capability_family_current_mode_ref: "contracts/release/runtime_policy_catalog.json#capability_families"
 capability_mode_priority_order_ref: "contracts/release/runtime_policy_catalog.json#capability_mode_priority_order"
 protected_short_circuit_modes_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.protected_short_circuit_modes"
-release_layer_controlled_opening_boundary_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.release_layer_controlled_opening_boundary"
+release_layer_controlled_opening_requirement_ref: "contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence.release_layer_controlled_opening_requirement"
 provider_vendor_release_projection:
   projection_only: true
   trace_only_projection: true
@@ -40,7 +40,7 @@ runtime_permission_layer:
   stage9_action_intent: "INTERNAL_WRITEBACK"
   capability_family_policy_ref: "contracts/release/runtime_policy_catalog.json#capability_families"
   decision_matrix_ref: "contracts/release/runtime_policy_catalog.json#decision_matrix"
-  release_layer_controlled_opening_boundary: "EXTERNAL_CONTROLLED_OPENING"
+  release_layer_controlled_opening_requirement: "EXTERNAL_CONTROLLED_OPENING"
   provider_action_intents:
     model_provider:
       - "PREVIEW_ONLY"
@@ -113,12 +113,12 @@ future_externalization_decision:
   model_provider_externalized_usage: "DENY_BY_DEFAULT_CONTINUE"
   tool_provider_externalized_usage: "LONG_TERM_BLOCKED_OR_NEVER_DEFAULT_OPEN"
 notes:
-  - "FF-18-S1 only closes final state-source alignment; it does not change provider/runtime policy, externalization policy, or blocked controlled_opening_boundaries."
+  - "FF-18-S1 only closes final state-source alignment; it does not change provider/runtime policy, externalization policy, or controlled opening requirements."
   - "Model outputs must remain internal assist or review assist."
   - "No model output may directly enter formal external delivery."
   - "control/model_release_manifest.yaml is a projection-only control surface for provider/runtime capability state."
-  - "provider/runtime current mode, priority order, protected short-circuit and release_layer controlled_opening_boundary all project from contracts/release/runtime_policy_catalog.json."
-  - "capability_mode does not weaken external blocked or release_layer."
+  - "provider/runtime current mode, priority order, protected short-circuit and release_layer controlled_opening_requirement all project from contracts/release/runtime_policy_catalog.json."
+  - "capability_mode does not bypass controlled opening prerequisites or release_layer."
   - "Future provider externalization requires the dedicated prerequisite matrix and signoff pack."
   - "R6 decision keeps model provider externalization deny-by-default and tool provider externalization long-term blocked from default-open paths."
   - "Current repo readiness is READY_FOR_POST-REPAIR_MAINLINE_SELECTION; R6-path tokens remain decision-time history only."

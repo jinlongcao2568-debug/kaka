@@ -6,7 +6,7 @@ purpose: "Prove that the B0-B10 full-repair blueprints cover the requested high-
 overall_judgment: COVERED_BY_BLUEPRINT_SEQUENCE
 coverage_semantics:
   COVERED_BY_BLUEPRINT_SEQUENCE: "The issue is intentionally assigned to one or more ordered repair batches."
-  COVERED_BY_GUARDRAIL_ONLY: "The issue is intentionally controlled as a controlled_opening_boundary or non-goal, not implemented as a live capability."
+  COVERED_BY_GUARDRAIL_ONLY: "The issue is intentionally controlled as a controlled_opening_requirement or non-goal, not implemented as a live capability."
 priority_rationale:
   - "B0 fixes execution governance before any business repair."
   - "B1-B3 repair upstream producer and truth/fact layers before downstream commercial and execution layers."
@@ -102,7 +102,7 @@ issue_coverage:
   - issue_id: EXTERNAL_SOURCE_VENDOR_PROVIDER
     user_problem: "外部 source/vendor/provider 接入不要被写死，但不能默认开放"
     target_batches: [B7, B9]
-    expected_repair: "Preserve controlled_opening_boundaries while making adapter and shadow/dry-run lanes buildable."
+    expected_repair: "Preserve controlled_opening_requirements while making adapter and shadow/dry-run lanes buildable."
     priority: P1
   - issue_id: PERSISTENCE_API_WORKBENCH_SURFACE
     user_problem: "API、workbench、repository、preview surface 不形成第二套语义"
@@ -114,17 +114,17 @@ issue_coverage:
     target_batches: [B10]
     expected_repair: "Final hardening, full regression, and status closeout after B0-B9."
     priority: P0
-controlled_opening_boundary_coverage:
-  - controlled_opening_boundary: "External software release is a controlled-opening capability."
+controlled_opening_requirement_coverage:
+  - controlled_opening_requirement: "External software release is a controlled-opening capability."
     enforced_by: [B0, B7, B10]
     coverage_status: COVERED_BY_GUARDRAIL_ONLY
-  - controlled_opening_boundary: "Stage 8 live outreach is a controlled-opening capability."
+  - controlled_opening_requirement: "Stage 8 live outreach is a controlled-opening capability."
     enforced_by: [B5, B7, B9]
     coverage_status: COVERED_BY_GUARDRAIL_ONLY
-  - controlled_opening_boundary: "Stage 9 live payment/delivery/refund is a controlled-opening capability."
+  - controlled_opening_requirement: "Stage 9 live payment/delivery/refund is a controlled-opening capability."
     enforced_by: [B6, B7, B10]
     coverage_status: COVERED_BY_GUARDRAIL_ONLY
-  - controlled_opening_boundary: "Direct Stage8/Stage9 object export remains blocked."
+  - controlled_opening_requirement: "Direct Stage8/Stage9 object export remains blocked."
     enforced_by: [B7, B8, B10]
     coverage_status: COVERED_BY_GUARDRAIL_ONLY
 notes:

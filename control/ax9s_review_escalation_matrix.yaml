@@ -39,7 +39,7 @@ batches:
   B7:
     default_change_class: MANDATORY_HUMAN_REVIEW
     required_owner_reviews: [architecture_owner, governance_owner, testing_owner, model_governance_owner, automation_owner]
-    escalate_on: [capability_mode_vocabulary_change, external_controlled_opening_boundary_weakening, unlock_decision_semantics_change]
+    escalate_on: [capability_mode_vocabulary_change, external_controlled_opening_requirement_weakening, unlock_decision_semantics_change]
   B8:
     default_change_class: DRAFT_WITH_REVIEW
     required_owner_reviews: [architecture_owner, testing_owner, automation_owner]

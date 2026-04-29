@@ -487,7 +487,7 @@ AI / 模型治理一律不得：
 - 使用未登记模型、未登记提示词、未登记评测集进入正式链路；
 - 绕开人工复核直接进入客户版、外发包或正式触达；
 - 在运行层偷偷放宽模型边界；
-- 以“模型效果更好”为由突破 L0、D13、D6、D7、D11、D12 已冻结受控开放边界。
+- 以“模型效果更好”为由突破 L0、D13、D6、D7、D11、D12 已冻结受控开放要求。
 
 
 ## 枚举冻结补表补充稿（C组）
@@ -611,24 +611,24 @@ AI / 模型治理一律不得：
 
 - model/tool/provider 的 `capability_mode` 不得只停留在 registry 或 release manifest；任何进入正式链路的 provider/tool 路由前，必须先经统一 resolver 判定。
 - resolver 对 provider/tool 至少必须输出：`capability_mode / decision / review_required / blocked_reason / provider trace metadata`。
-- `MODEL_PROVIDER` / `TOOL_PROVIDER` 即使未来进入 `REAL_RUN_READY`，也不得覆盖 `EXTERNAL_CONTROLLED_OPENING` 或人工复核受控开放边界。
+- `MODEL_PROVIDER` / `TOOL_PROVIDER` 即使未来进入 `REAL_RUN_READY`，也不得覆盖 `EXTERNAL_CONTROLLED_OPENING` 或人工复核受控开放要求。
 - `EMERGENCY_OFF / PERMANENTLY_BLOCKED` 一旦命中 model/tool/provider family，必须短路，不得继续进入下游 assist / query / writeback path。
 
 ## [D14-R-056-F] 附：model/tool capability canonical source 补表（本轮新增）
 
-本补表用于明确 model/tool/provider 的 capability 词表与 family current mode 来源；不改写既有 `M0~M4` 或 provider externalization 受控开放边界。
+本补表用于明确 model/tool/provider 的 capability 词表与 family current mode 来源；不改写既有 `M0~M4` 或 provider externalization 受控开放要求。
 
 | 语义项 | 当前唯一正式来源 | projection-only 面 |
 |---|---|---|
 | model/tool `capability_mode` 词表 | `contracts/release/runtime_policy_catalog.json#capability_mode_vocabulary` | `control/model_release_manifest.yaml` |
 | `MODEL_PROVIDER` / `TOOL_PROVIDER` family current mode | `contracts/release/runtime_policy_catalog.json#capability_families` | `control/model_release_manifest.yaml` 只允许 projected state |
-| capability priority order / protected short-circuit / `EXTERNAL_CONTROLLED_OPENING` controlled_opening_boundary relation | `contracts/release/runtime_policy_catalog.json#capability_mode_priority_order`、`contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence` | `control/model_release_manifest.yaml`、`control/release_manifest.yaml` 只允许 projected refs/status |
+| capability priority order / protected short-circuit / `EXTERNAL_CONTROLLED_OPENING` controlled_opening_requirement relation | `contracts/release/runtime_policy_catalog.json#capability_mode_priority_order`、`contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence` | `control/model_release_manifest.yaml`、`control/release_manifest.yaml` 只允许 projected refs/status |
 | provider externalization prerequisite / decision | `contracts/release/external_unlock_prerequisite_matrix.json`、`contracts/release/future_unlock_decision_matrix.json` | `control/model_release_manifest.yaml`、`control/future_unlock_decision_state.yaml` |
 
 补充约束：
 - `control/model_release_manifest.yaml` 只能投影 provider/runtime current state、repo readiness 与 signoff 状态，不得再成为 provider capability mode 的判定义源；
 - model/tool/provider runtime resolver precedence 一律以 `contracts/release/runtime_policy_catalog.json#runtime_resolver_precedence` 为准：`runtime_override -> target_policy_current_capability_mode -> target_registry_current_capability_mode -> family_current_capability_mode`。
-- `EMERGENCY_OFF`、`PERMANENTLY_BLOCKED` 的 protected short-circuit 与 `REAL_RUN_READY` 不得覆盖 `EXTERNAL_CONTROLLED_OPENING` controlled_opening_boundary，均以 `runtime_policy_catalog.json` 为准。
+- `EMERGENCY_OFF`、`PERMANENTLY_BLOCKED` 的 protected short-circuit 与 `REAL_RUN_READY` 不得覆盖 `EXTERNAL_CONTROLLED_OPENING` controlled_opening_requirement，均以 `runtime_policy_catalog.json` 为准。
 
 ### [D14-R-044-A] future externalization prerequisite 补表（本轮新增）
 
@@ -646,7 +646,7 @@ AI / 模型治理一律不得：
 
 ## 附：B9 model/tool provider registry and usage policy 补表（本轮新增）
 
-本补表用于冻结 B9-S1 model/tool provider registry 与 usage policy 的 adapter-ready 边界；不改写既有 `M0~M4`、人工复核、release gate 或 externalization 受控开放边界。
+本补表用于冻结 B9-S1 model/tool provider registry 与 usage policy 的 adapter-ready 边界；不改写既有 `M0~M4`、人工复核、release gate 或 externalization 受控开放要求。
 
 | 资产 | 当前冻结内容 | 当前允许 | 当前禁止 |
 |---|---|---|---|

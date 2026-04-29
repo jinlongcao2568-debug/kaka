@@ -175,7 +175,7 @@
       "minimum_followup_task_id": "PTL-I100-126-production-live-dependency-and-drill-approval"
     }
   ],
-  "controlled_opening_boundaries_preserved": {
+  "controlled_opening_requirements_preserved": {
     "public_only": true,
     "private_or_gray_source_collection": false,
     "unapproved_external_delivery": false,

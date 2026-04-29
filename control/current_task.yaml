@@ -18,7 +18,7 @@ state_dimensions:
   mainline_selection_ready: true
 currentTask:
   task_id: PTL-I100-144A-controlled-opening-sync
-  title: I100-44A Controlled opening controlled_opening_boundary removal sync
+  title: I100-44A Controlled opening controlled_opening_requirement removal sync
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -57,7 +57,7 @@ currentTask:
   - scripts/check-state-alignment.ps1
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
   acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-144A-controlled-opening-sync
-  objective: 将除 automated_refund_execution 以外的既有 controlled_opening_boundary/受控开放边界语义迁移为 controlled opening / 受控开放口径，并同步 docs、control、contracts、scripts、runtime readback 与 tests；本包不执行真实外部动作。
+  objective: 将除 automated_refund_execution 以外的既有 controlled_opening_requirement/受控开放要求语义迁移为 controlled opening / 受控开放口径，并同步 docs、control、contracts、scripts、runtime readback 与 tests；本包不执行真实外部动作。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -86,9 +86,9 @@ currentTask:
     runtime_change_in_packet: IN_SCOPE
     existing_code_state: PTL-I100-144_ACTIVE_BEFORE_CONTROLLED_OPENING_BOUNDARY_SYNC
     existing_runtime_state: CONTROLLED_OPENING_BOUNDARY_BOUNDARY_ASSERTIONS_PRESENT
-    title: I100-44A Controlled opening controlled_opening_boundary removal sync
+    title: I100-44A Controlled opening controlled_opening_requirement removal sync
     status: ACTIVE
-    objective: 同步移除除自动退款外的硬受控开放边界语义：external release、Stage8 real execution、Stage9 payment/delivery/refund、provider/customer-facing/live paths 改为 controlled opening，自动退款继续 EXCLUDED。
+    objective: 同步移除除自动退款外的硬受控开放要求语义：external release、Stage8 real execution、Stage9 payment/delivery/refund、provider/customer-facing/live paths 改为 controlled opening，自动退款继续 EXCLUDED。
     depends_on:
     - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed locally through 64efed4.
     - current_task -> product_task_library -> repo_status is the active-source priority.
@@ -131,7 +131,7 @@ currentTask:
     - 不绕过 provider config / sandbox / approval / audit / operator action
     - 不新增业务对象、枚举、gate、exception 语义
     - 不实现或启用自动退款，automated_refund_execution 继续 EXCLUDED
-    - 本包只同步受控开放边界语义到 controlled opening，不执行真实 provider、真实触达、真实支付、真实交付、真实退款、客户下载或 public release
+    - 本包只同步受控开放要求语义到 controlled opening，不执行真实 provider、真实触达、真实支付、真实交付、真实退款、客户下载或 public release
     - 不新增正式对象、枚举、gate 或 exception 语义
     - 不 push
     affected_stages:
@@ -252,11 +252,11 @@ currentTask:
     - Any change executes a real provider call, real outreach, real payment, real delivery, real refund, customer download, push, or public release during this sync.
     - Any required script failure that cannot be fixed inside the declared paths.
     acceptance:
-    - all_non_refund_controlled_opening_boundaries_migrated_to_controlled_opening_semantics
+    - all_non_refund_controlled_opening_requirements_migrated_to_controlled_opening_semantics
     - automated_refund_execution_remains_excluded
     - docs_control_contracts_scripts_runtime_tests_aligned
     - no_real_external_action_executed
 notes:
 - current_task -> product_task_library -> repo_status remains the active-source priority.
-- This packet migrates non-refund hard controlled_opening_boundaries to controlled opening semantics; automated refund execution remains excluded.
+- This packet migrates non-refund hard controlled_opening_requirements to controlled opening semantics; automated refund execution remains excluded.
 - No real external execution is performed by this sync packet.

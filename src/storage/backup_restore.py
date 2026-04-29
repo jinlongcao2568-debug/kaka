@@ -36,7 +36,7 @@ REQUIRED_MANIFEST_FIELDS = (
     "record_counts",
     "storage_record_refs",
     "object_refs_summary",
-    "controlled_opening_boundaries",
+    "controlled_opening_requirements",
     "approval_required",
     "audit_required",
     "external_service_connection_enabled",
@@ -109,7 +109,7 @@ def build_backup_manifest(
             worker_queue_items=worker_queue_items,
             worker_queue_events=worker_queue_events,
         ),
-        "controlled_opening_boundaries": backup_restore_controlled_opening_boundaries(),
+        "controlled_opening_requirements": backup_restore_controlled_opening_requirements(),
         "approval_required": True,
         "audit_required": True,
         "external_service_connection_enabled": False,
@@ -210,7 +210,7 @@ def build_restore_dry_run(
         "migration_execution_enabled": False,
         "blocking_reasons": blocking_reasons,
         "review_required_reasons": review_required_reasons,
-        "controlled_opening_boundaries": backup_restore_controlled_opening_boundaries(),
+        "controlled_opening_requirements": backup_restore_controlled_opening_requirements(),
     }
 
 
@@ -252,11 +252,11 @@ def build_rollback_readiness(
         "real_payment_delivery_enabled": False,
         "automated_refund_enabled": False,
         "external_release_enabled": False,
-        "controlled_opening_boundaries": backup_restore_controlled_opening_boundaries(),
+        "controlled_opening_requirements": backup_restore_controlled_opening_requirements(),
     }
 
 
-def backup_restore_controlled_opening_boundaries() -> dict[str, bool]:
+def backup_restore_controlled_opening_requirements() -> dict[str, bool]:
     return {
         "external_backup_service_enabled": False,
         "external_service_connection_enabled": False,
@@ -470,7 +470,7 @@ __all__ = [
     "BACKUP_MANIFEST_OBJECT_TYPE",
     "DEFAULT_CONFLICT_POLICY",
     "INCLUDED_BACKUP_SCOPES",
-    "backup_restore_controlled_opening_boundaries",
+    "backup_restore_controlled_opening_requirements",
     "build_backup_manifest",
     "build_restore_dry_run",
     "build_rollback_readiness",

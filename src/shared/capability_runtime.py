@@ -93,8 +93,11 @@ class CapabilityResolver:
         self.control_projection_sources_ignored_for_mode_resolution = tuple(
             precedence_config.get("control_projection_sources_ignored_for_mode_resolution", [])
         )
-        self.external_blocked_release_level = str(
-            precedence_config.get("release_layer_controlled_opening_boundary", "EXTERNAL_CONTROLLED_OPENING")
+        self.external_controlled_opening_release_level = str(
+            precedence_config.get(
+                "release_layer_controlled_opening_requirement",
+                "EXTERNAL_CONTROLLED_OPENING",
+            )
         )
 
     def _load_json(self, relative_path: str) -> dict[str, Any]:
@@ -190,6 +193,7 @@ class CapabilityResolver:
             approval_state=approval_state,
             current_status=current_status,
             policy_state=policy_state,
+            metadata=metadata_map,
             allowed_action_intents=allowed_action_intents,
             blocked_action_intents=blocked_action_intents,
         )
@@ -468,6 +472,7 @@ class CapabilityResolver:
         approval_state: str,
         current_status: str | None,
         policy_state: str | None,
+        metadata: Mapping[str, Any],
         allowed_action_intents: list[str],
         blocked_action_intents: list[str],
     ) -> tuple[str, bool, str | None, bool]:
@@ -485,18 +490,43 @@ class CapabilityResolver:
         if capability_mode == "PERMANENTLY_BLOCKED":
             return "BLOCK", False, f"{capability_family} permanently blocked", True
 
-        if release_level == self.external_blocked_release_level and requested_action == "LIVE_EXECUTION":
-            return "BLOCK", False, "external release blocked controlled_opening_boundary", True
-        if self.RELEASE_LEVEL_RANK.get(release_level, 0) > self.RELEASE_LEVEL_RANK.get(release_ceiling, 3):
+        controlled_opening_live = (
+            release_level == self.external_controlled_opening_release_level
+            and requested_action == "LIVE_EXECUTION"
+        )
+        if self.RELEASE_LEVEL_RANK.get(release_level, 0) > self.RELEASE_LEVEL_RANK.get(release_ceiling, 3) and not controlled_opening_live:
             return "BLOCK", False, f"{capability_family} release ceiling {release_ceiling}", False
 
         if blocked_action_intents and requested_action in blocked_action_intents:
-            return "BLOCK", False, f"{capability_family} blocked for {requested_action}", False
+            if controlled_opening_live:
+                missing_requirements = self._missing_controlled_opening_requirements(metadata)
+                if (
+                    capability_mode != "REAL_RUN_READY"
+                    or approval_state != "APPROVED"
+                    or missing_requirements
+                ):
+                    return "REVIEW", True, f"{capability_family} controlled opening requires policy unlock for {requested_action}", False
+            else:
+                return "BLOCK", False, f"{capability_family} blocked for {requested_action}", False
         if allowed_action_intents and requested_action not in allowed_action_intents:
             blocked_reason = f"{capability_family} action {requested_action} not permitted"
             if requested_action == "LIVE_EXECUTION":
-                return "BLOCK", False, blocked_reason, False
-            return "REVIEW", True, blocked_reason, False
+                if controlled_opening_live:
+                    missing_requirements = self._missing_controlled_opening_requirements(metadata)
+                    if (
+                        capability_mode == "REAL_RUN_READY"
+                        and approval_state == "APPROVED"
+                        and not missing_requirements
+                    ):
+                        blocked_reason = None
+                    else:
+                        return "REVIEW", True, blocked_reason, False
+                if blocked_reason is None:
+                    pass
+                else:
+                    return "BLOCK", False, blocked_reason, False
+            else:
+                return "REVIEW", True, blocked_reason, False
 
         if current_status == "BLOCKED" and requested_action in ("APPROVAL_EXECUTION", "LIVE_EXECUTION"):
             return "BLOCK", False, f"{capability_family} target status blocked", False
@@ -508,9 +538,18 @@ class CapabilityResolver:
 
         if requested_action == "LIVE_EXECUTION":
             if capability_mode != "REAL_RUN_READY":
-                return "BLOCK", False, f"{capability_family} requires REAL_RUN_READY for live execution", False
+                return "REVIEW", True, f"{capability_family} requires REAL_RUN_READY for live execution", False
             if approval_state != "APPROVED":
                 return "REVIEW", True, f"{capability_family} requires approval before live execution", False
+            if controlled_opening_live:
+                missing_requirements = self._missing_controlled_opening_requirements(metadata)
+                if missing_requirements:
+                    return (
+                        "REVIEW",
+                        True,
+                        f"external release controlled_opening_required:{','.join(missing_requirements)}",
+                        False,
+                    )
             return "ALLOW", False, None, False
 
         if requested_action == "APPROVAL_EXECUTION":
@@ -530,6 +569,23 @@ class CapabilityResolver:
         if capability_mode in ("APPROVAL_REQUIRED", "SHADOW_MODE", "BUILDABLE_BUT_OFF_BY_DEFAULT"):
             return "REVIEW", True, f"{capability_family} requires governed execution for {requested_action}", False
         return "ALLOW", False, None, False
+
+    def _missing_controlled_opening_requirements(self, metadata: Mapping[str, Any]) -> list[str]:
+        if metadata.get("controlled_opening_ready") is True:
+            return []
+        requirement_keys = {
+            "provider_config": ("provider_config_ready", "provider_config_present"),
+            "sandbox_pass": ("sandbox_passed", "sandbox_pass"),
+            "approval_chain": ("approval_chain_ready", "approval_chain_present"),
+            "audit_chain": ("audit_chain_ready", "audit_chain_present"),
+            "operator_action_record": ("operator_action_recorded", "operator_action_present"),
+            "rollback_path": ("rollback_path_ready", "suspension_and_rollback_ready"),
+        }
+        missing: list[str] = []
+        for requirement, keys in requirement_keys.items():
+            if not any(metadata.get(key) is True for key in keys):
+                missing.append(requirement)
+        return missing
 
     def _stage_matches(self, stage: int, stage_range: str) -> bool:
         if not stage_range:

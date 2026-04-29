@@ -270,7 +270,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         coverage = read_json("contracts/governance/coverage_registry.json")
         never_default_open = set(boundary["future_unlock_guardrails"]["never_default_open_capabilities"])
 
-        self.assertTrue(boundary["future_unlock_guardrails"]["external_release_remains_blocked_until_prereqs_met"])
+        self.assertTrue(boundary["future_unlock_guardrails"]["external_release_controlled_opening_required_until_prereqs_met"])
         self.assertTrue(coverage["future_unlock_constraints"]["coverage_never_sufficient_alone"])
         self.assertEqual(
             boundary["future_unlock_guardrails"]["leadpack_candidate_matrix_ref"],

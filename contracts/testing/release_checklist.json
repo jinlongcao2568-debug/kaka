@@ -507,7 +507,7 @@
         },
         {
           "itemId": "REL-078",
-          "text": "Stage 9 delivery matrix and release gates agree on projection-only customer summaries and keep external software release blocked.",
+          "text": "Stage 9 delivery matrix and release gates agree on projection-only customer summaries and keep external software release controlled-opening required.",
           "blocking": true,
           "sourceRefs": [
             "D7-R-062-A",
@@ -860,7 +860,7 @@
         },
         {
           "itemId": "REL-122",
-          "text": "Release/control/model manifests reference the prerequisite matrix and keep external release blocked until a separate future unlock decision batch passes all prerequisites.",
+          "text": "Release/control/model manifests reference the prerequisite matrix and keep external release controlled-opening required until a separate future unlock decision batch passes all prerequisites.",
           "blocking": true,
           "sourceRefs": [
             "D12-R-030-A",
@@ -1451,7 +1451,7 @@
         },
         {
           "itemId": "REL-191",
-          "text": "contracts/release/runtime_policy_catalog.json remains the sole canonical source for capability mode, priority order, protected short-circuit and EXTERNAL_CONTROLLED_OPENING controlled_opening_boundary; runtime_inventory, model_release_manifest and release_manifest remain projection/mirror surfaces only.",
+          "text": "contracts/release/runtime_policy_catalog.json remains the sole canonical source for capability mode, priority order, protected short-circuit and EXTERNAL_CONTROLLED_OPENING controlled_opening_requirement; runtime_inventory, model_release_manifest and release_manifest remain projection/mirror surfaces only.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-AG",

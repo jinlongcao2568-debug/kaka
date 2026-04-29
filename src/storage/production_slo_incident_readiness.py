@@ -154,7 +154,7 @@ def build_production_slo_incident_readiness(
         "rollback_drill_evidence": rollback_drill,
         "suspended_state_operation_readback": suspended_state,
         APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY: approved_drill,
-        "controlled_opening_boundaries": production_slo_incident_controlled_opening_boundaries(),
+        "controlled_opening_requirements": production_slo_incident_controlled_opening_requirements(),
     }
     payload["validation"] = validate_production_slo_incident_readiness(payload)
     return payload
@@ -232,7 +232,7 @@ def validate_production_slo_incident_readiness(payload: Mapping[str, Any]) -> di
             "backup_restore_drill_evidence",
             "rollback_drill_evidence",
             "suspended_state_operation_readback",
-            "controlled_opening_boundaries",
+            "controlled_opening_requirements",
         )
         if field_name not in payload
     ]
@@ -356,20 +356,20 @@ def validate_production_slo_incident_readiness(payload: Mapping[str, Any]) -> di
             if bool(drill.get(flag_name, False)):
                 stale_or_missing_refs.append(
                     {
-                        "ref_type": "drill_controlled_opening_boundary",
+                        "ref_type": "drill_controlled_opening_requirement",
                         "drill": drill_name,
                         "flag": flag_name,
                     }
                 )
 
-    live_controlled_opening_boundary_violations = _live_controlled_opening_boundary_violations(payload)
-    valid = not missing_fields and not stale_or_missing_refs and not live_controlled_opening_boundary_violations
+    live_controlled_opening_requirement_violations = _live_controlled_opening_requirement_violations(payload)
+    valid = not missing_fields and not stale_or_missing_refs and not live_controlled_opening_requirement_violations
     return {
         "valid": valid,
         "readback_state": PRODUCTION_READINESS_READY if valid else PRODUCTION_READINESS_FAIL_CLOSED,
         "missing_fields": missing_fields,
         "stale_or_missing_refs": stale_or_missing_refs,
-        "live_controlled_opening_boundary_violations": live_controlled_opening_boundary_violations,
+        "live_controlled_opening_requirement_violations": live_controlled_opening_requirement_violations,
         "fail_closed": not valid,
         "no_broad_fallback": True,
     }
@@ -397,7 +397,7 @@ def production_slo_incident_readback_failure(readiness_id: str) -> dict[str, Any
     }
 
 
-def production_slo_incident_controlled_opening_boundaries() -> dict[str, bool]:
+def production_slo_incident_controlled_opening_requirements() -> dict[str, bool]:
     return {
         "external_software_release_enabled": False,
         "production_release_enabled": False,
@@ -722,7 +722,7 @@ def _build_monitoring_dashboard_readback(
         ),
         _dashboard_panel(
             "provider_reliability",
-            ["provider.controlled_opening_boundary"],
+            ["provider.controlled_opening_requirement"],
             simulated_failure_count,
             suspended_state,
             component_by_id=component_by_id,
@@ -833,7 +833,7 @@ def _build_alert_rule_catalog(monitoring: Mapping[str, Any]) -> list[dict[str, A
             "critical",
             "provider health unhealthy, rate limit, timeout, failure taxonomy, or circuit open",
             "provider_owner",
-            ["provider_adapter_readiness_summary", "provider.controlled_opening_boundary"],
+            ["provider_adapter_readiness_summary", "provider.controlled_opening_requirement"],
             base_rule_ids,
         ),
         _alert_rule(
@@ -1140,17 +1140,17 @@ def _mapping(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else {}
 
 
-def _live_controlled_opening_boundary_violations(value: Any, *, path: str = "$") -> list[dict[str, str]]:
+def _live_controlled_opening_requirement_violations(value: Any, *, path: str = "$") -> list[dict[str, str]]:
     violations: list[dict[str, str]] = []
     if isinstance(value, Mapping):
         for key, child in value.items():
             child_path = f"{path}.{key}"
             if key in _LIVE_OR_DESTRUCTIVE_FIELDS and bool(child):
                 violations.append({"path": child_path, "field": str(key)})
-            violations.extend(_live_controlled_opening_boundary_violations(child, path=child_path))
+            violations.extend(_live_controlled_opening_requirement_violations(child, path=child_path))
     elif isinstance(value, list):
         for index, child in enumerate(value):
-            violations.extend(_live_controlled_opening_boundary_violations(child, path=f"{path}[{index}]"))
+            violations.extend(_live_controlled_opening_requirement_violations(child, path=f"{path}[{index}]"))
     return violations
 
 
@@ -1164,6 +1164,6 @@ __all__ = [
     "build_production_slo_incident_readiness",
     "evaluate_production_alert_rules",
     "production_slo_incident_readback_failure",
-    "production_slo_incident_controlled_opening_boundaries",
+    "production_slo_incident_controlled_opening_requirements",
     "validate_production_slo_incident_readiness",
 ]

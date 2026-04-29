@@ -46,7 +46,7 @@ program_non_goals:
   - "Do not auto-open any external software release path."
   - "Do not auto-open any Stage 8 live execution path."
   - "Do not auto-open any Stage 9 live payment, delivery, refund, or export path."
-  - "Do not weaken external blocked, approval chain, audit chain, or emergency off semantics."
+  - "Do not weaken external controlled-opening-required, approval chain, audit chain, or emergency off semantics."
   - "Do not create a second source of truth for objects, rules, states, capability modes, or release gates."
 activation_flow:
   - "Read ax9s_full_repair_status.yaml to find next batch."

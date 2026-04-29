@@ -260,12 +260,12 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         ):
             self.assertIn(phrase, self.route_map_text + self.scheme_text)
 
-    def test_controlled_opening_boundaries_stay_closed(self) -> None:
-        controlled_opening_boundaries = self.architecture["controlled_opening_boundaries_preserved"]
-        self.assertEqual(controlled_opening_boundaries["external_software_release"], "CONTROLLED_OPENING")
-        self.assertEqual(controlled_opening_boundaries["unregistered_capture_path"], "CONTROLLED_OPENING")
-        self.assertEqual(controlled_opening_boundaries["unapproved_provider_call"], "CONTROLLED_OPENING")
-        self.assertEqual(controlled_opening_boundaries["automated_refund_execution"], "EXCLUDED")
+    def test_controlled_opening_requirements_stay_closed(self) -> None:
+        controlled_opening_requirements = self.architecture["controlled_opening_requirements_preserved"]
+        self.assertEqual(controlled_opening_requirements["external_software_release"], "CONTROLLED_OPENING")
+        self.assertEqual(controlled_opening_requirements["unregistered_capture_path"], "CONTROLLED_OPENING")
+        self.assertEqual(controlled_opening_requirements["unapproved_provider_call"], "CONTROLLED_OPENING")
+        self.assertEqual(controlled_opening_requirements["automated_refund_execution"], "EXCLUDED")
 
 
 if __name__ == "__main__":

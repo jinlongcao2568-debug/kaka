@@ -46,7 +46,7 @@ class ProductionSloIncidentRepository:
     def save(self, payload: Mapping[str, Any]) -> PersistedRecord:
         payload_dict = dict(payload)
         validation = validate_production_slo_incident_readiness(payload_dict)
-        if validation["live_controlled_opening_boundary_violations"]:
+        if validation["live_controlled_opening_requirement_violations"]:
             raise ValueError(
                 "production SLO incident readiness live dispatch, automation, restore, or rollback flags must remain false"
             )
@@ -195,7 +195,7 @@ class ProductionSloIncidentRepository:
             APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY: dict(
                 payload.get(APPROVED_PRODUCTION_LIVE_DEPENDENCY_DRILL_KEY, {})
             ),
-            "controlled_opening_boundaries": dict(payload.get("controlled_opening_boundaries", {})),
+            "controlled_opening_requirements": dict(payload.get("controlled_opening_requirements", {})),
             "replayable_readback": bool(payload.get("replayable_readback", True)),
             "notification_enabled": False,
             "live_dispatch_enabled": False,

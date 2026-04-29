@@ -32,7 +32,7 @@ global_acceptance_layers:
       - "before_state"
       - "after_state"
       - "why state movement is justified"
-      - "controlled-opening-required/live controlled_opening_boundaries preserved until gates pass"
+      - "controlled-opening-required/live controlled_opening_requirements preserved until gates pass"
       - "rollback or suspension path for APPROVAL_READY and above"
   product_closure:
     required: true
@@ -95,7 +95,7 @@ tasks:
       - runtime_governance_guards
       - state_alignment
       - task_packet
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - controlled_opening_semantics_synced
       - non_refund_hard_boundaries_removed
       - automated_refund_execution_excluded
@@ -123,7 +123,7 @@ tasks:
       - stage8_outreach_readback
       - stage9_payment_delivery_readback
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_unapproved_live_provider_call
       - no_automated_refund_execution
   PTL-I100-111B-sales-outreach-adapter-execution:
@@ -138,7 +138,7 @@ tasks:
       - internal_repository_boundary
       - api_transport_bootstrap
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_unapproved_live_send
   PTL-I100-111C-crm-quote-and-delivery-page-adapters:
     target_capability_state: SANDBOX_READY
@@ -153,7 +153,7 @@ tasks:
       - internal_surface_preview
       - api_transport_bootstrap
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_unapproved_customer_visible_publication
       - no_internal_blackbox_score_customer_exposure
   PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund:
@@ -168,7 +168,7 @@ tasks:
       - internal_repository_boundary
       - api_transport_bootstrap
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_unapproved_charge
       - no_unapproved_delivery
       - automated_refund_absent
@@ -183,7 +183,7 @@ tasks:
       - provider_adapter_config
       - runtime_governance_guards
       - api_transport_bootstrap
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_live_default
       - circuit_breaker_blocks_unhealthy_provider
   PTL-I100-112-production-platform-infrastructure:
@@ -206,7 +206,7 @@ tasks:
       - internal_repository_boundary
       - runtime_governance_guards
       - product_module_registry
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_live_execution_unlocked
       - no_unauthorized_production_db_migration
   PTL-I100-113-stage1-scheduler-production-loop:
@@ -219,7 +219,7 @@ tasks:
       - stage12_extractors
       - internal_chain
       - scheduler_repository_readback
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_external_fetch_without_source_allowlist
   PTL-I100-114-stage2-real-public-source-adapters:
     target_capability_state: SANDBOX_READY
@@ -232,7 +232,7 @@ tasks:
       - source_adapter_contracts
       - public_boundary_guards
       - internal_chain_real_sample_slice
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - public_only_boundary_locked
   PTL-I100-115-stage3-real-parser-ocr-attachments:
     target_capability_state: INTERNAL_READY
@@ -245,7 +245,7 @@ tasks:
       - parser_golden_cases
       - semantic_runtime_validator
       - internal_chain_real_sample_slice
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_unlocated_customer_fact
       - no_model_output_as_final_fact
   PTL-I100-116-stage4-public-verification-adapters:
@@ -259,7 +259,7 @@ tasks:
       - verification_adapter_contracts
       - public_boundary_guards
       - stage4_to_stage5_rule_inputs
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - public_boundary_locked
       - identity_and_social_security_source_governance_review
   PTL-I100-116A-project-manager-active-conflict-vertical-slice:
@@ -273,7 +273,7 @@ tasks:
       - active_conflict_vertical_slice
       - public_boundary_guards
       - rule_evidence_binding
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - same_name_disambiguation_visible
       - identity_source_governance_review
   PTL-I100-117-rule-factory-expansion-and-golden-cases:
@@ -287,7 +287,7 @@ tasks:
       - stage56_evaluators
       - rule_factory_golden_cases
       - semantic_runtime_validator
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_rule_without_evidence_binding
       - no_inference_as_fact
   PTL-I100-119A-real-challenger-identification-hardening:
@@ -301,7 +301,7 @@ tasks:
       - stage7_runtime_closure
       - internal_chain
       - internal_surface_preview
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - customer_visible_fields_gated
       - sales_judgment_not_legal_conclusion
   PTL-I100-119-stage6-product-package-hardening:
@@ -315,7 +315,7 @@ tasks:
       - stage56_evaluators
       - internal_chain
       - internal_repository_boundary
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - customer_visible_fields_gated
       - stage9_feedback_does_not_pollute_fact_layer
   PTL-I100-120-operator-customer-access-and-go-live-readiness:
@@ -330,7 +330,7 @@ tasks:
       - internal_surface_preview
       - runtime_governance_guards
       - product_operability_gap_matrix
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - external_release_still_explicitly_gated
       - customer_access_is_gated
   PTL-I100-121A-sales-outreach-live-pilot:
@@ -346,7 +346,7 @@ tasks:
       - provider_reliability
       - runtime_governance_guards
       - live_pilot_audit_readback
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - approval_audit_required
       - opt_out_and_frequency_control_work
       - suspension_path_works
@@ -363,7 +363,7 @@ tasks:
       - live_payment_delivery_audit
       - runtime_governance_guards
       - settlement_reconciliation
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - payment_delivery_audit_persistent
       - automated_refund_absent
       - rollback_path_works
@@ -378,7 +378,7 @@ tasks:
       - observability_readiness
       - incident_response_readiness
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - alerts_fire_on_failures
       - rollback_drill_recorded
       - suspended_state_works
@@ -395,7 +395,7 @@ tasks:
       - real_sample_matrix
       - product_operability_gap_matrix
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - engineering_regression_pass
       - capability_states_verified
       - evidence_pack_business_closure_verified
@@ -426,7 +426,7 @@ tasks:
       - stage8_provider_execution
       - outreach_provider_result_readback
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - provider_send_requires_approval_audit
       - opt_out_and_frequency_control_work
       - no_unapproved_bulk_send
@@ -443,7 +443,7 @@ tasks:
       - payment_delivery_audit
       - settlement_reconciliation
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - payment_delivery_requires_approval_audit
       - automated_refund_absent
       - rollback_path_works
@@ -458,7 +458,7 @@ tasks:
       - leadpack_customer_visible_delivery
       - field_policy_and_masking
       - customer_download_audit
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - customer_visible_requires_approval_audit
       - no_internal_blackbox_or_unreviewed_inference_customer_exposure
       - download_audit_visible
@@ -473,7 +473,7 @@ tasks:
       - crm_quote_provider_execution
       - quote_audit_and_versioning
       - provider_reliability_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - crm_quote_requires_approval_audit
       - provider_result_readback
       - no_silent_live_fallback
@@ -488,7 +488,7 @@ tasks:
       - production_live_dependency_approval
       - alert_dispatch_approval
       - restore_rollback_drill_audit
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - live_dependency_requires_approval_audit
       - rollback_restore_drills_audited
       - external_release_still_gated
@@ -506,7 +506,7 @@ tasks:
       - product_operability_gap_matrix
       - internal_acceptance_matrix
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - fake_provider_not_misclassified_as_real_provider
       - no_unapproved_live_execution
       - automated_refund_absent
@@ -522,7 +522,7 @@ tasks:
       - customer_artifact_access_ui
       - api_transport_bootstrap
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_public_software_release_default
       - customer_access_requires_approval_audit
       - field_allowlist_and_masking_enforced
@@ -537,7 +537,7 @@ tasks:
       - parser_field_coverage_report
       - public_verification_replay
       - public_boundary_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - public_only_boundary_locked
       - weak_or_failed_sources_degrade_to_review
   PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund:
@@ -553,7 +553,7 @@ tasks:
       - wecom_robot_provider_path
       - payment_delivery_provider_callback
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - provider_live_requires_approval_audit
       - no_silent_live_fallback
       - automated_refund_absent
@@ -569,7 +569,7 @@ tasks:
       - parser_review_assist
       - sales_talk_track_draft
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - model_output_not_final_fact
       - human_review_required_for_customer_visible_claim
       - model_input_governance_policy_enforced
@@ -587,7 +587,7 @@ tasks:
       - customer_artifact_delivery_audit
       - provider_paths_verified
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - owner_can_complete_e2e_business_flow
       - automated_refund_absent
       - no_public_software_release_default
@@ -604,14 +604,14 @@ tasks:
     target_capability_state: PRODUCTION_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
     completion_must_prove:
-      - "owner console 必须展示 Stage1-9 运营总览、证据链、销售闭环、客户交付、支付交付、provider/scheduler/audit/readback 和受控开放边界，不要求 owner 直接记 raw API。"
+      - "owner console 必须展示 Stage1-9 运营总览、证据链、销售闭环、客户交付、支付交付、provider/scheduler/audit/readback 和受控开放要求，不要求 owner 直接记 raw API。"
       - "customer artifact portal 在已有 artifact readback 时必须展示访问控制、字段策略、download auth、download audit；在无 readback 时必须显示可理解空状态而不是浏览器错误。"
     targeted_test_expectations:
       - frontend_operator_productized_workbench
       - customer_artifact_portal_empty_state
       - api_transport_bootstrap
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_public_software_release_default
       - no_unapproved_live_provider_execution
       - no_real_payment_delivery_refund_default
@@ -640,7 +640,7 @@ tasks:
       - product_operability_gap_matrix
       - stage2_public_source_adapters_regression
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - browser_verified_total_entry_urls_recorded
       - no_unregistered_url_fetch
       - no_real_provider_call
@@ -661,7 +661,7 @@ tasks:
       - external_unlock_prerequisites
       - stage2_public_source_adapters_regression
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - official_national_verification_entry_urls_registered
       - jzsc_raw_shell_fail_closed
       - creditchina_412_fail_closed
@@ -683,7 +683,7 @@ tasks:
       - external_unlock_prerequisites
       - stage2_public_source_adapters_regression
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - representative_local_platform_urls_registered
       - beijing_local_platform_html_success_path
       - guangdong_portal_raw_shell_fail_closed
@@ -703,7 +703,7 @@ tasks:
       - external_unlock_prerequisites
       - stage2_public_source_adapters_regression
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - public_attachment_urls_registered
       - beijing_pdf_attachment_fetches_and_persists
       - html_disguised_download_fails_closed
@@ -725,7 +725,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - owner_console_lists_allowlisted_entry_and_attachment_profiles
       - real_public_source_capture_is_internal_only
       - source_capture_readback_is_repository_backed
@@ -747,7 +747,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - owner_console_lists_real_source_task_runs
       - run_records_are_repository_backed_operator_actions
       - source_capture_readback_links_are_visible
@@ -768,7 +768,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - registered_14_entry_and_2_attachment_profiles_are_bulk_hardened
       - tls_incompatible_public_sites_use_controlled_fallback_transport
       - success_profiles_generate_snapshot_readback
@@ -790,7 +790,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - degraded_profile_set_is_explicit_from_136_results
       - site_level_public_paths_are_hardened_or_fail_closed
       - static_or_lightweight_public_entry_success_generates_snapshot_readback
@@ -813,7 +813,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - real_public_html_and_attachment_snapshots_enter_stage3_parser
       - parsed_fields_keep_source_slice_confidence_and_parser_audit
       - parser_outputs_remain_unverified_and_review_required
@@ -836,7 +836,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - real_public_parsed_fields_enter_stage4_public_verification
       - verification_carrier_binds_parsed_field_refs_and_replayable_snapshot_refs
       - weak_or_missing_identifier_public_evidence_fails_closed
@@ -860,7 +860,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - real_public_stage4_verification_readback_enters_stage5_rule_evidence_gate
       - rule_hit_and_evidence_bind_verification_run_snapshot_and_parsed_field_refs
       - weak_or_review_public_verification_fails_closed_to_stage5_review
@@ -882,7 +882,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - real_public_stage5_rule_evidence_enters_stage6_product_package_readiness
       - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
       - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
@@ -906,7 +906,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - real_public_stage6_product_package_enters_stage7_sales_and_leadpack_readback
       - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
       - weak_or_review_stage6_package_fails_closed_before_customer_delivery
@@ -929,7 +929,7 @@ tasks:
       - stage12_extractors
       - external_unlock_prerequisites
       - runtime_governance_guards
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - real_public_stage7_sales_leadpack_enters_stage8_outbox_readback
       - real_public_stage8_outbox_enters_stage9_order_payment_delivery_ledger_readback
       - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
@@ -952,7 +952,7 @@ tasks:
       - product_operability_gap_matrix
       - product_acceptance_checklist
       - stage12_extractors
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - autonomous_decision_architecture_not_manual_url_picker
       - commercial_hook_lead_presale_disclosure_does_not_leak_reproducible_evidence_chain
       - llm_not_fact_or_legal_conclusion_source
@@ -973,7 +973,7 @@ tasks:
       - product_operability_gap_matrix
       - product_acceptance_checklist
       - stage12_extractors
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - all_d_docs_reference_143e_policy
       - national_aggregator_not_claimed_as_complete_or_realtime
       - beijing_not_first_batch_commercial_pilot
@@ -987,13 +987,13 @@ tasks:
     completion_must_prove:
       - "必须把公开网抓取失败优先自动升级、验证码检测挂起和操作台输入续跑正式登记进任务池与验收。"
       - "必须明确后续实现基于现有 Stage2/Stage3/operator console/repository seams 复用补强，不得再造第二套重复链路。"
-      - "150/151 必须各自拥有 dedicated checklist entry 和 controlled_opening_boundary 检查。"
+      - "150/151 必须各自拥有 dedicated checklist entry 和 controlled_opening_requirement 检查。"
     targeted_test_expectations:
       - product_runtime_architecture_map
       - product_operability_gap_matrix
       - product_acceptance_checklist
       - stage12_extractors
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - task_pool_registers_public_web_capture_hardening
       - task_pool_registers_captcha_resume_operator_path
       - reuse_existing_runtime_surfaces_first_policy_is_explicit
@@ -1012,7 +1012,7 @@ tasks:
       - product_operability_gap_matrix
       - product_acceptance_checklist
       - stage12_extractors
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - docs_reference_143g_public_web_capture_and_captcha_resume_policy
       - implementation_order_records_144_145_150_151_before_146
       - reuse_existing_runtime_surfaces_doc_policy_is_explicit
@@ -1025,7 +1025,7 @@ tasks:
       - "系统必须根据地区、工程类型、金额区间、公告阶段、异议窗口、竞争者和关键字段自动判断哪些公告值得分析。"
       - "必须输出 opportunity candidate、analysis priority、why_analyze、why_skip，不得让手工 URL 选择成为主流程。"
       - "过期、金额过低、无竞争者、无关键字段必须降级或阻断。"
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - no_manual_url_picker_as_primary_flow
       - no_customer_visible_claim
   PTL-I100-145-source-blueprint-orchestration-and-capture-plan:
@@ -1038,7 +1038,7 @@ tasks:
       - "北京不得进入首批商业线索试点；既有北京公开 URL 只能作为技术回归和页面可达性样本，不能驱动首批商业外发或客户话术。"
       - "首批商业试点必须登记省级 source portfolio，默认覆盖四川、江苏、浙江、山东、广东、湖北，并记录每省价值与风险理由。"
       - "城市级适配必须按省级覆盖缺口、附件/详情缺失、监管投诉/备案证据、项目价值或 SPA 弱正文等条件触发，不得一次性全国城市铺开。"
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - source_blueprint_selection_is_allowlisted
       - national_aggregator_not_claimed_as_complete_or_realtime
       - beijing_not_first_batch_commercial_pilot
@@ -1056,7 +1056,7 @@ tasks:
       - stage3_real_parser
       - runtime_governance_guards
       - product_operability_gap_matrix
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - automatic_failure_diagnosis_visible
       - no_manual_restart_as_primary_failure_mode
       - public_boundary_preserved
@@ -1074,7 +1074,7 @@ tasks:
       - source_adapter_contracts
       - runtime_governance_guards
       - product_operability_gap_matrix
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - captcha_page_detected_before_parser
       - session_context_preserved_for_resume
       - operator_input_resumes_same_capture_plan
@@ -1087,7 +1087,7 @@ tasks:
       - "系统必须根据解析字段自动选择项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵核验策略。"
       - "弱证据、同名未消歧、字段冲突、缺 snapshot 或 source slice 必须 review/fail closed。"
       - "LLM 不得替代公开核验或规则判定。"
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - public_verification_required
       - no_llm_fact_adjudication
       - weak_evidence_fails_closed
@@ -1098,7 +1098,7 @@ tasks:
       - "系统必须计算异议价值、买家动机、购买能力、销售优先级和报价建议。"
       - "必须生成商业钩子线索，并明确 disclosure_level、withheld_fields、allowed_sales_talking_points、forbidden_sales_claims、leakage_risk。"
       - "销售前不得泄露 source URL、完整项目经理身份组合、冲突项目名称、完整时间重叠、原始快照/附件、完整核验路径或内部评分模型。"
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - presale_hook_does_not_leak_reproducible_evidence
       - forbidden_sales_claims_filter_required
       - manual_review_required_for_high_risk_hook
@@ -1109,7 +1109,7 @@ tasks:
       - "操作台必须展示机会队列、证据强度、硬伤类型、商业钩子、买家排序、复核项、触达建议、交付状态和下一步动作。"
       - "owner 不应依赖原始 JSON 判断业务状态。"
       - "客户门户仍必须遵守字段白名单、脱敏、下载授权和审计。"
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - owner_workbench_shows_autonomous_decision_state
       - no_internal_blackbox_customer_exposure
       - customer_download_still_gated
@@ -1119,60 +1119,60 @@ tasks:
     completion_must_prove:
       - "必须用真实公开样本证明系统能从市场扫描到可售商业钩子和交付候选形成端到端可观察流程。"
       - "必须在操作台可看懂成功、降级、复核和阻断原因。"
-    controlled_opening_boundary_checks:
+    controlled_opening_requirement_checks:
       - real_sample_runs_through_autonomous_opportunity_flow
       - owner_can_observe_and_review_without_raw_api
-      - controlled_opening_boundaries_preserved
+      - controlled_opening_requirements_preserved
 subpacket_acceptance:
   PTL-I100-111C1-internal-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
     completion_must_prove: ["internal notes, full evidence summary, sales recommendation, review state, and internal risk labels are visible only to internal operators"]
-    controlled_opening_boundary_checks: ["not_customer_visible_without_export_gate"]
+    controlled_opening_requirement_checks: ["not_customer_visible_without_export_gate"]
   PTL-I100-111C2-customer-visible-leadpack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
     completion_must_prove: ["customer field whitelist, masking, watermark, version hash, and download audit are enforced"]
-    controlled_opening_boundary_checks: ["no_internal_blackbox_or_unreviewed_inference_customer_exposure"]
+    controlled_opening_requirement_checks: ["no_internal_blackbox_or_unreviewed_inference_customer_exposure"]
   PTL-I100-111C3-formal-objection-pack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
     completion_must_prove: ["formal claim structure, public evidence refs, visibility status, approval record, and export replay are present"]
-    controlled_opening_boundary_checks: ["no_auto_external_legal_document_send"]
+    controlled_opening_requirement_checks: ["no_auto_external_legal_document_send"]
   PTL-I100-111C4-sales-talk-track-pack:
     parent_task_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
     completion_must_prove: ["talking points, risk disclaimers, quote alignment, and non-misleading copy review are present"]
-    controlled_opening_boundary_checks: ["no_misleading_outreach_copy"]
+    controlled_opening_requirement_checks: ["no_misleading_outreach_copy"]
   PTL-I100-114A-local-public-resource-trading-centers:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["notice fetch, attachment download, raw snapshot, source lineage, and rate limit are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]
   PTL-I100-114B-provincial-bidding-platforms:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["notice fetch, attachment download, raw snapshot, lineage, and source health are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]
   PTL-I100-114C-national-construction-market-platform:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["enterprise, personnel, project public record fetch and snapshot hash are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]
   PTL-I100-114D-credit-china-public-records:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["credit record fetch, penalty snapshot, lineage, retry, and timeout are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]
   PTL-I100-114E-national-enterprise-credit-publicity-system:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["enterprise public record fetch, raw snapshot, and public access metadata are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]
   PTL-I100-114F-government-procurement-public-sites:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["notice fetch, attachment download, dedupe, and fetch audit are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]
   PTL-I100-114G-tender-agency-public-sites:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["notice fetch, raw HTML capture, source health, and failure degrade are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]
   PTL-I100-114H-tenderer-public-notice-pages:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["notice fetch, raw HTML capture, lineage, and public access boundary are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]
   PTL-I100-114I-industry-authority-filing-pages:
     parent_task_id: PTL-I100-114-stage2-real-public-source-adapters
     completion_must_prove: ["filing record fetch, raw snapshot, snapshot version, and coverage report are covered"]
-    controlled_opening_boundary_checks: ["public_visible_pages_only"]
+    controlled_opening_requirement_checks: ["public_visible_pages_only"]

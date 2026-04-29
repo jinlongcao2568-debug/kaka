@@ -144,6 +144,29 @@ class TestStage1MarketScan(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     Stage1MarketScanEngine().run({**self.payload, "scan_run_id": "MKTSCAN-BLOCK", **extra})
 
+    def test_market_scan_routes_login_captcha_antibot_markers_to_review_not_skip(self) -> None:
+        payload = {
+            **self.payload,
+            "scan_run_id": "MKTSCAN-CHALLENGE-001",
+            "notice_candidates": [
+                {
+                    **self.payload["notice_candidates"][0],
+                    "notice_id": "NOTICE-CAPTCHA-001",
+                    "source_url": "https://public.example.local/provincial-bidding-platforms/captcha/notice",
+                    "source_visibility_state": "CAPTCHA_REQUIRED",
+                }
+            ],
+        }
+
+        scan = Stage1MarketScanEngine().run(payload)
+
+        self.assertEqual(scan["selected_candidate_count"], 0)
+        self.assertEqual(scan["review_candidate_count"], 1)
+        candidate = scan["review_candidates"][0]
+        self.assertEqual(candidate["analysis_decision"], "REVIEW")
+        self.assertIn("controlled_challenge_marker_captcha", candidate["review_reasons"])
+        self.assertEqual(candidate["why_skip"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -28,7 +28,7 @@
   "future_unlock_decision_matrix_ref": "contracts/release/future_unlock_decision_matrix.json",
   "capability_mode_rules": {
     "non_override_release_layer": true,
-    "external_block_controlled_opening_boundary_kept": true,
+    "external_controlled_opening_requirement_kept": true,
     "permanently_blocked_and_emergency_off_override_all": true,
     "real_run_ready_requires_gate_and_approval": true
   },

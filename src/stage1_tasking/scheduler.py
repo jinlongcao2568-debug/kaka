@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from shared.contracts_runtime import ContractStore
 from shared.utils import build_id, utc_now_iso
@@ -31,7 +31,7 @@ H01_CONSUMER_MUST_NOT_RECOMPUTE = [
 ]
 STAGE1_SCHEDULER_QUEUE_NAME = "stage1_scheduler_queue"
 STAGE2_HANDOFF_INTENT_STATE = "INTENT_ONLY_NO_FETCH"
-_BLOCKED_SOURCE_TOKENS = ("LOGIN", "CAPTCHA", "ANTI_BOT")
+_CONTROLLED_CHALLENGE_SOURCE_TOKENS = ("LOGIN", "CAPTCHA", "ANTI_BOT")
 _BLOCKED_LIVE_FLAGS = (
     "live_execution_enabled",
     "external_fetch_enabled",
@@ -65,6 +65,18 @@ def _conflict_state(extracted: Stage1Extraction) -> str:
     return "CONSISTENT"
 
 
+def _controlled_challenge_markers(payload: Mapping[str, Any]) -> list[str]:
+    source_markers = " ".join(
+        str(payload.get(field, ""))
+        for field in ("source_mode", "source_family", "source_registry_id", "source_url")
+    ).upper()
+    return [
+        token.lower()
+        for token in _CONTROLLED_CHALLENGE_SOURCE_TOKENS
+        if token in source_markers
+    ]
+
+
 class Stage1Scheduler:
     def __init__(
         self,
@@ -86,6 +98,7 @@ class Stage1Scheduler:
     def create_task(self, context: Any) -> Stage1SchedulerTask:
         payload = self._payload_from_context(context)
         self._assert_internal_scheduler_boundary(payload)
+        challenge_markers = _controlled_challenge_markers(payload)
         now = str(payload.get("now") or utc_now_iso())
         extracted = extract_stage1(payload, self.store, now=now)
         window = self._build_window(payload=payload, extracted=extracted, now=now)
@@ -109,6 +122,10 @@ class Stage1Scheduler:
         conflict_reasons = [
             *extracted.mismatch_reasons,
             *extracted.fallback_reasons,
+            *[
+                f"controlled_source_challenge:{marker}"
+                for marker in challenge_markers
+            ],
         ]
         task = Stage1SchedulerTask(
             task_id=str(payload["task_id"]),
@@ -143,13 +160,13 @@ class Stage1Scheduler:
                 handoff_payload=handoff_payload,
                 consumer_must_not_recompute_fields=list(H01_CONSUMER_MUST_NOT_RECOMPUTE),
             ),
-            requires_manual_review=extracted.requires_manual_review,
-            conflict_state=_conflict_state(extracted),
+            requires_manual_review=extracted.requires_manual_review or bool(challenge_markers),
+            conflict_state="REVIEW_REQUIRED" if challenge_markers else _conflict_state(extracted),
             conflict_reasons=conflict_reasons,
             created_at=now,
             updated_at=now,
         )
-        return self.repository.enqueue_task(
+        enqueued = self.repository.enqueue_task(
             task,
             queue_name=STAGE1_SCHEDULER_QUEUE_NAME,
             queue_payload={
@@ -165,6 +182,14 @@ class Stage1Scheduler:
             next_run_at=window.window_start_at,
             now=now,
         )
+        if challenge_markers:
+            return self.repository.pause(
+                enqueued.queue_item_id,
+                paused_by="stage1_scheduler",
+                reason="controlled_source_challenge:" + ",".join(challenge_markers),
+                now=now,
+            )
+        return enqueued
 
     def readback(self, queue_item_id: str) -> dict[str, Any]:
         return self.repository.readback(queue_item_id)
@@ -282,16 +307,6 @@ class Stage1Scheduler:
             raise ValueError(
                 "stage1 scheduler is internal intent/readback only; blocked live/fetch flags: "
                 + ", ".join(requested_live_flags)
-            )
-        source_markers = " ".join(
-            str(payload.get(field, ""))
-            for field in ("source_mode", "source_family", "source_registry_id", "source_url")
-        ).upper()
-        blocked_markers = [token for token in _BLOCKED_SOURCE_TOKENS if token in source_markers]
-        if blocked_markers:
-            raise ValueError(
-                "stage1 scheduler only accepts public/source-blueprint governed sources; blocked markers: "
-                + ", ".join(blocked_markers)
             )
 
 

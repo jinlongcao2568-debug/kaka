@@ -165,7 +165,7 @@ class TestLeadpackCandidateSurface(unittest.TestCase):
         self.assertIn("internal_score_raw", package["field_policy"]["field_blacklist"])
         self.assertEqual(package["watermark"]["watermark_state"], "APPLIED_TO_APPROVED_ARTIFACT")
         self.assertTrue(package["artifact_version_hash"].startswith("sha256:"))
-        self.assertIn("external_software_release_remains_blocked", package["blocked_reasons"])
+        self.assertIn("external_software_release_controlled_opening_required", package["blocked_reasons"])
         self.assertNotIn("customer_visible_request_blocked", package["blocked_reasons"])
 
         readiness = preview_formal_client_export_page_layer_readiness(result)

@@ -1372,7 +1372,7 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "MOST_RESTRICTIVE_BY_PRIORITY_ORDER",
         )
         self.assertEqual(
-            runtime_policy["runtime_resolver_precedence"]["release_layer_controlled_opening_boundary"],
+            runtime_policy["runtime_resolver_precedence"]["release_layer_controlled_opening_requirement"],
             "EXTERNAL_CONTROLLED_OPENING",
         )
 
@@ -1434,7 +1434,7 @@ class TestArchitectureAntiDrift(unittest.TestCase):
         self.assertTrue(release_projection["projection_only"])
         self.assertFalse(release_projection["mode_resolution_source"])
         self.assertFalse(release_projection["release_layer_semantics_source"])
-        self.assertTrue(release_projection["external_blocked_controlled_opening_boundary_retained"])
+        self.assertTrue(release_projection["external_controlled_opening_requirement_retained"])
         self.assertEqual(
             release_projection["runtime_policy_ref"],
             "contracts/release/runtime_policy_catalog.json#capability_families",

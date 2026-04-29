@@ -4,8 +4,9 @@ owner_docs:
   - D1
   - 自动化开发动作门禁表
 notes:
-  - external-facing changes default blocked
-  - payment/delivery/outreach/high-restriction require manual approval
+  - external-facing changes are controlled-opening targets, not permanent development exclusions
+  - payment/delivery/outreach/high-restriction require manual approval, audit, operator action, and release/checklist gates before live use
+  - automated refund execution remains blocked and must stop/escalate
 review_gate_matrix: control/review_gate_matrix.yaml
 task_packet_source: control/current_task.yaml#currentTask.task_packet
 action_classes:
@@ -46,12 +47,15 @@ actions:
     action_class: MANUAL_APPROVAL_REQUIRED
   - action_id: EXTERNAL_RELEASE
     scope: external release, external delivery, external integrations
-    action_class: BLOCKED
+    action_class: MANUAL_APPROVAL_REQUIRED
   - action_id: OUTREACH_EXECUTION
     scope: stage8 outreach real sending
-    action_class: BLOCKED
+    action_class: MANUAL_APPROVAL_REQUIRED
   - action_id: PAYMENT_DELIVERY_EXECUTION
-    scope: stage9 payment/delivery/refund execution
+    scope: stage9 payment/delivery execution
+    action_class: MANUAL_APPROVAL_REQUIRED
+  - action_id: AUTOMATED_REFUND_EXECUTION
+    scope: stage9 automated refund execution
     action_class: BLOCKED
   - action_id: HIGH_RESTRICTION_FIELDS
     scope: natural person high restriction or governed supplement externalization

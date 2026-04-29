@@ -63,9 +63,9 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
         self.assertEqual(len(dimensions), 12)
         self.assertEqual(dimensions["real_source_adapter_practicality"]["result"], "PASS_WITH_BOUNDARY")
         self.assertEqual(dimensions["wecom_and_model_assist"]["result"], "PASS_WITH_BOUNDARY")
-        self.assertEqual(dimensions["controlled_opening_boundary_review"]["result"], "PASS")
+        self.assertEqual(dimensions["controlled_opening_requirement_review"]["result"], "PASS")
 
-    def test_controlled_opening_boundaries_remain_closed_after_product_closeout(self) -> None:
+    def test_controlled_opening_requirements_remain_closed_after_product_closeout(self) -> None:
         boundary = self.report["scope_boundary"]
         self.assertFalse(boundary["public_software_release_enabled"])
         self.assertFalse(boundary["unapproved_live_provider_call_enabled"])
