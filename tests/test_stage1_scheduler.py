@@ -219,7 +219,7 @@ class TestStage1Scheduler(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "real_external_fetch_enabled"):
             Stage1Scheduler().create_task(live_payload)
 
-    def test_scheduler_suspends_login_captcha_antibot_sources_for_operator_resume(self) -> None:
+    def test_scheduler_suspends_login_captcha_antibot_sources_for_automated_resolution(self) -> None:
         payload = dict(self.payload)
         payload.update(
             {
@@ -234,10 +234,10 @@ class TestStage1Scheduler(unittest.TestCase):
         self.assertEqual(task.status, "suspended")
         self.assertTrue(task.pause_state.is_paused)
         self.assertEqual(task.pause_state.paused_by, "stage1_scheduler")
-        self.assertIn("controlled_source_challenge:captcha", task.pause_state.reason)
-        self.assertTrue(task.requires_manual_review)
-        self.assertEqual(task.conflict_state, "REVIEW_REQUIRED")
-        self.assertIn("controlled_source_challenge:captcha", task.conflict_reasons)
+        self.assertIn("controlled_source_challenge_auto_resolution:captcha", task.pause_state.reason)
+        self.assertFalse(task.requires_manual_review)
+        self.assertEqual(task.conflict_state, "CONSISTENT")
+        self.assertIn("controlled_source_challenge_auto_resolution:captcha", task.conflict_reasons)
         self.assertFalse(readback["fetch_execution"]["stage2_fetch_enabled"])
 
 

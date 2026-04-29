@@ -237,7 +237,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(source_boundary["boundary_action"], "SUSPEND")
             self.assertIsNone(source_boundary["blocked_reason"])
             self.assertTrue(source_boundary["controlled_challenge"])
-            self.assertTrue(source_boundary["resume_requires_operator_action"])
+            self.assertTrue(source_boundary["automated_challenge_resolution_first"])
+            self.assertFalse(source_boundary["resume_requires_human_input"])
         else:
             self.assertEqual(source_boundary["boundary_action"], "BLOCK")
             self.assertTrue(source_boundary["blocked_reason"])

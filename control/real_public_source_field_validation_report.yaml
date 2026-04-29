@@ -43,7 +43,7 @@ verification_coverage:
 failure_degrade_coverage:
   weak_public_structure: fail_closed_to_manual_review
   transport_failure: fail_closed_no_snapshot_persisted
-  captcha_required: suspended_before_transport_for_operator_resume
+  captcha_required: automated_challenge_resolution_before_transport_resume
 controlled_opening_requirements:
   unapproved_live_capture_used: false
   real_provider_call_executed: false

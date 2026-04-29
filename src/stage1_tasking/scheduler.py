@@ -122,10 +122,10 @@ class Stage1Scheduler:
         conflict_reasons = [
             *extracted.mismatch_reasons,
             *extracted.fallback_reasons,
-            *[
-                f"controlled_source_challenge:{marker}"
-                for marker in challenge_markers
-            ],
+        ]
+        challenge_pause_reasons = [
+            f"controlled_source_challenge_auto_resolution:{marker}"
+            for marker in challenge_markers
         ]
         task = Stage1SchedulerTask(
             task_id=str(payload["task_id"]),
@@ -160,9 +160,9 @@ class Stage1Scheduler:
                 handoff_payload=handoff_payload,
                 consumer_must_not_recompute_fields=list(H01_CONSUMER_MUST_NOT_RECOMPUTE),
             ),
-            requires_manual_review=extracted.requires_manual_review or bool(challenge_markers),
-            conflict_state="REVIEW_REQUIRED" if challenge_markers else _conflict_state(extracted),
-            conflict_reasons=conflict_reasons,
+            requires_manual_review=extracted.requires_manual_review,
+            conflict_state=_conflict_state(extracted),
+            conflict_reasons=[*conflict_reasons, *challenge_pause_reasons],
             created_at=now,
             updated_at=now,
         )
@@ -186,7 +186,7 @@ class Stage1Scheduler:
             return self.repository.pause(
                 enqueued.queue_item_id,
                 paused_by="stage1_scheduler",
-                reason="controlled_source_challenge:" + ",".join(challenge_markers),
+                reason="controlled_source_challenge_auto_resolution:" + ",".join(challenge_markers),
                 now=now,
             )
         return enqueued

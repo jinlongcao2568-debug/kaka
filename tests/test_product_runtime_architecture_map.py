@@ -218,7 +218,7 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
             "PTL-I100-144-market-scan-opportunity-discovery-engine",
             "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
             "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation",
-            "PTL-I100-151-public-web-captcha-suspend-and-operator-resume",
+            "PTL-I100-151-public-web-captcha-automated-resolution-and-resume",
             "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
             "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine",
             "PTL-I100-148-productized-autonomous-operator-workbench",

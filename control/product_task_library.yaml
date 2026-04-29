@@ -2479,7 +2479,7 @@ tasks:
       - browser_verified_total_entry_urls_recorded
       - total_entry_fetch_not_detail_page_only
       - allowlist_blocks_unregistered_url_before_fetch
-      - login_captcha_error_empty_or_js_shell_suspends_for_operator_resume
+      - login_captcha_error_empty_or_js_shell_routes_to_automated_challenge_resolution
       - same_site_detail_links_discovered_with_capture_plan
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
     suggested_packet_refs: [PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist]
@@ -3201,7 +3201,7 @@ tasks:
     activation_policy: "Activated after owner required that public-web capture escalation and captcha handling be written into the future task pool. This packet only registers the work and locks the reuse-first implementation rule."
     hard_depends_on:
       - PTL-I100-143E-autonomous-source-strategy-d-doc-sync
-    objective: "把公开网抓取失败优先自动升级、验证码检测挂起与操作台输入续跑、以及基于现有 Stage2/Stage3/operator seams 复用补强的开发规则正式写进任务池与验收，不改 runtime。"
+    objective: "把公开网抓取失败优先自动升级、验证码检测与自动化续跑、以及基于现有 Stage2/Stage3/operator seams 复用补强的开发规则正式写进任务池与验收，不改 runtime。"
     capability_gaps_covered:
       - public_web_capture_escalation_task_pool_registration
       - captcha_challenge_suspend_resume_task_pool_registration
@@ -3242,7 +3242,7 @@ tasks:
     activation_policy: "Activated after owner pointed out that 143F task registration also needs documentation口径同步 and a fresh ordering assessment."
     hard_depends_on:
       - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync
-    objective: "把公开网抓取升级、验证码挂起续跑、复用现有代码优先和推荐顺序 144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149 同步进路线图、方案文档和 D1-D14 补表；不改 runtime。"
+    objective: "把公开网抓取升级、验证码自动化识别续跑、复用现有代码优先和推荐顺序 144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149 同步进路线图、方案文档和 D1-D14 补表；不改 runtime。"
     capability_gaps_covered:
       - d_doc_sync_for_public_web_capture_hardening
       - route_map_sync_for_captcha_resume
@@ -3393,12 +3393,12 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     suggested_packet_refs: [PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation]
     risk_level: HIGH
-  - task_id: PTL-I100-151-public-web-captcha-suspend-and-operator-resume
-    title: "I100-51 Public web captcha suspend and operator resume"
+  - task_id: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
+    title: "I100-51 Public web captcha automated resolution and resume"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, api_transport, operator_frontend, product_acceptance]
-    task_type: public_web_captcha_suspend_and_operator_resume
+    task_type: public_web_captcha_automated_resolution_and_resume
     status: PLANNED
     planning_state: PLANNED
     is_current_mainline_next_candidate: false
@@ -3406,11 +3406,11 @@ tasks:
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
       - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
-    objective: "公开网站遇到验证码/校验页时，系统自动识别 challenge、保留 URL/cookie/表单/任务上下文、挂起任务、在操作台接收人工输入后从同一 capture plan 续跑；不要求重启整条链路。"
+    objective: "公开网站遇到验证码/校验页时，系统自动识别 challenge，保留 URL/cookie/表单/任务上下文，优先通过自动化识别/OCR/session 续跑从同一 capture plan 恢复；不要求重启整条链路，默认走自动化处理路径。"
     capability_gaps_covered:
       - captcha_challenge_detection
       - session_suspend_and_resume
-      - operator_console_captcha_entry
+      - automated_captcha_or_challenge_resolution
       - task_context_preservation_across_challenge
       - audited_resume_flow
       - challenge_rate_tracking_and_site_policy_feedback
@@ -3419,11 +3419,11 @@ tasks:
     acceptance_checks:
       - captcha_page_detected_before_parser
       - session_context_preserved_for_resume
-      - operator_input_resumes_same_capture_plan
+      - automated_challenge_resume_uses_same_capture_plan
       - captcha_resume_audit_record_visible
       - no_duplicate_operator_or_stage2_path_created
-    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-151-public-web-captcha-suspend-and-operator-resume
-    suggested_packet_refs: [PTL-I100-151-public-web-captcha-suspend-and-operator-resume]
+    acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-151-public-web-captcha-automated-resolution-and-resume
+    suggested_packet_refs: [PTL-I100-151-public-web-captcha-automated-resolution-and-resume]
     risk_level: HIGH
   - task_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     title: "I100-46 Evidence risk and hard defect verification strategy"
@@ -3437,7 +3437,7 @@ tasks:
     priority: P52
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
-      - PTL-I100-151-public-web-captcha-suspend-and-operator-resume
+      - PTL-I100-151-public-web-captcha-automated-resolution-and-resume
     objective: "根据解析字段自动决定硬伤核验策略，重点覆盖项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵；弱证据必须复核或阻断。"
     capability_gaps_covered:
       - hard_defect_strategy_selection

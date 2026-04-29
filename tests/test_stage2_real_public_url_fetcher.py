@@ -344,7 +344,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertTrue(raised.exception.carrier["fail_closed"])
         self.assertEqual(transport.call_log, [])
 
-    def test_error_login_captcha_or_empty_shell_suspends_for_operator_resume(self) -> None:
+    def test_error_login_captcha_or_empty_shell_prepares_automated_resume(self) -> None:
         challenge_body = (
             "<html><head><title>错误页面</title></head>"
             "<body>请先登录，验证码，人机验证</body></html>"
@@ -368,11 +368,12 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(carrier["status"], "SUSPENDED")
         self.assertTrue(carrier["review_required"])
         self.assertFalse(carrier["fail_closed"])
-        self.assertTrue(carrier["suspended_for_operator_resume"])
-        self.assertTrue(carrier["resume_requires_operator_action"])
+        self.assertTrue(carrier["suspended_for_automated_resume"])
+        self.assertTrue(carrier["automated_challenge_resolution_first"])
+        self.assertFalse(carrier["resume_requires_human_input"])
         self.assertEqual(
             carrier["resume_policy"],
-            "preserve_url_cookie_form_context_and_capture_plan",
+            "preserve_url_cookie_form_context_and_capture_plan_for_automated_resume",
         )
         self.assertIsNone(carrier["snapshot_id_optional"])
         self.assertIn("entry_body_too_small", carrier["degraded_reasons"])

@@ -18,7 +18,7 @@ Current Controlled Opening Boundaries:
 - Stage 8 real execution is a controlled-opening capability: it requires provider config, sandbox pass, approval/audit, quiet-hours/frequency/opt-out enforcement, operator action, and acceptance before live execution.
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
-- PTL-I100-143G is completed and registered the public-web capture escalation, captcha suspend/resume, and implementation order before runtime packets continue.
+- PTL-I100-143G is completed and registered the public-web capture escalation, captcha automated challenge resolution/resume, and implementation order before runtime packets continue.
 - PTL-I100-144A only synchronizes controlled-opening semantics; it does not execute provider calls, outreach, payment, delivery, refund, customer download, or public release.
 
 Product Open Capability Baseline:

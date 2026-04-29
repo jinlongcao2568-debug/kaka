@@ -1025,8 +1025,9 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         boundary["blocked_reason"] = None
         boundary["suspend_reason"] = reason
         boundary["controlled_challenge"] = True
-        boundary["resume_requires_operator_action"] = True
-        boundary["resume_policy"] = "preserve_url_cookie_form_context_and_capture_plan"
+        boundary["automated_challenge_resolution_first"] = True
+        boundary["resume_requires_human_input"] = False
+        boundary["resume_policy"] = "preserve_url_cookie_form_context_and_capture_plan_for_automated_resume"
         return boundary
 
     def _blocked_carrier(

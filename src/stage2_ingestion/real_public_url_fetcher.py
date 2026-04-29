@@ -812,9 +812,10 @@ class RealPublicEntryFetcher:
             "manifest_optional": manifest_payload,
             "degraded_reasons": degraded_reasons,
             "review_required": bool(degraded_reasons),
-            "suspended_for_operator_resume": controlled_challenge_detected,
-            "resume_requires_operator_action": controlled_challenge_detected,
-            "resume_policy": "preserve_url_cookie_form_context_and_capture_plan"
+            "suspended_for_automated_resume": controlled_challenge_detected,
+            "automated_challenge_resolution_first": controlled_challenge_detected,
+            "resume_requires_human_input": False,
+            "resume_policy": "preserve_url_cookie_form_context_and_capture_plan_for_automated_resume"
             if controlled_challenge_detected
             else None,
             "fail_closed": bool(degraded_reasons) and not controlled_challenge_detected,
@@ -1147,8 +1148,9 @@ def _response_failure_taxonomy(
         "degraded_reasons": degraded_reasons,
         "entry_validation_level": validation_level,
         "retryable": failure_class in {"UPSTREAM_HTTP_STATUS_NOT_OK", "PUBLIC_ENTRY_DEGRADED"},
-        "manual_review_required": True,
-        "resume_requires_operator_action": failure_class == "CONTROLLED_CHALLENGE_BODY_PATTERN",
+        "manual_review_required": failure_class != "CONTROLLED_CHALLENGE_BODY_PATTERN",
+        "automated_challenge_resolution_first": failure_class == "CONTROLLED_CHALLENGE_BODY_PATTERN",
+        "resume_requires_human_input": False,
         "fail_closed": failure_class != "CONTROLLED_CHALLENGE_BODY_PATTERN",
         "no_broad_fallback": True,
     }

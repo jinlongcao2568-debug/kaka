@@ -985,7 +985,7 @@ tasks:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
     completion_must_prove:
-      - "必须把公开网抓取失败优先自动升级、验证码检测挂起和操作台输入续跑正式登记进任务池与验收。"
+      - "必须把公开网抓取失败优先自动升级、验证码检测与自动化续跑正式登记进任务池与验收。"
       - "必须明确后续实现基于现有 Stage2/Stage3/operator console/repository seams 复用补强，不得再造第二套重复链路。"
       - "150/151 必须各自拥有 dedicated checklist entry 和 controlled_opening_requirement 检查。"
     targeted_test_expectations:
@@ -1002,7 +1002,7 @@ tasks:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
     completion_must_prove:
-      - "路线图、方案文档和 D1-D14 必须同步 143F 后的新口径：公开网抓取失败优先自动升级，验证码场景支持挂起、保留会话、操作台输入后续跑。"
+      - "路线图、方案文档和 D1-D14 必须同步 143F 后的新口径：公开网抓取失败优先自动升级，验证码场景支持自动识别、保留会话、自动化续跑。"
       - "文档必须明确后续实现顺序重新评估为 144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149。"
       - "文档必须明确后续实现基于现有 Stage2/Stage3/operator console/repository surfaces 复用补强，不得再造第二套重复链路。"
       - "不得改 runtime、contracts、handoff、scripts、fixtures，不得放开 provider、客户下载、真实支付交付、退款或自动退款。"
@@ -1061,13 +1061,13 @@ tasks:
       - no_manual_restart_as_primary_failure_mode
       - public_boundary_preserved
       - no_duplicate_stage2_pipeline_created
-  PTL-I100-151-public-web-captcha-suspend-and-operator-resume:
+  PTL-I100-151-public-web-captcha-automated-resolution-and-resume:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
     completion_must_prove:
-      - "系统必须检测验证码/校验页并在 parser/verification/customer surfaces 之前中断自动流转。"
-      - "系统必须保留 URL、cookie、表单状态、任务上下文和 capture plan，使 operator 输入后能够从同一任务续跑。"
-      - "操作台必须提供验证码输入续跑入口，并保留 who/when/which-site/which-task 的审计记录。"
+      - "系统必须检测验证码/校验页并在 parser/verification/customer surfaces 之前进入自动化 challenge 处理队列。"
+      - "系统必须保留 URL、cookie、表单状态、任务上下文和 capture plan，使自动化识别/OCR/session 续跑能够从同一任务恢复。"
+      - "操作台必须展示自动化 challenge 处理状态、结果和 who/when/which-site/which-task 的审计记录，默认走自动化续跑路径。"
       - "必须复用现有 operator console、Stage2 runtime、task/state/readback seams，不得创建第二套浏览器或第二套 Stage2 路径。"
     targeted_test_expectations:
       - operator_customer_access
@@ -1077,7 +1077,7 @@ tasks:
     controlled_opening_requirement_checks:
       - captcha_page_detected_before_parser
       - session_context_preserved_for_resume
-      - operator_input_resumes_same_capture_plan
+      - automated_challenge_resume_uses_same_capture_plan
       - captcha_resume_audit_record_visible
       - no_duplicate_operator_or_stage2_path_created
   PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy:

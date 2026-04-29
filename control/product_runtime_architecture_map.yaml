@@ -183,7 +183,7 @@ decision_layers:
     blocks:
       - unreviewed_legal_conclusion
       - automated_refund_execution
-    suspends_for_operator_resume:
+    routes_to_automated_challenge_resolution:
       - login_required
       - captcha_required
       - anti_bot_restricted
@@ -526,10 +526,10 @@ autonomous_execution_brain_contract:
         - public_web_failure_diagnosis
         - adaptive_capture_strategy_upgrade
         - source_health_degrade_and_retry_policy
-    PTL-I100-151-public-web-captcha-suspend-and-operator-resume:
+    PTL-I100-151-public-web-captcha-automated-resolution-and-resume:
       adds:
         - captcha_challenge_detection
-        - session_suspend_resume_binding
+        - session_automated_resume_binding
         - operator_console_resume_gate
     PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy:
       adds:
@@ -575,7 +575,7 @@ remaining_product_readiness_gap_assessment:
         - PTL-I100-144-market-scan-opportunity-discovery-engine
         - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
         - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
-        - PTL-I100-151-public-web-captcha-suspend-and-operator-resume
+        - PTL-I100-151-public-web-captcha-automated-resolution-and-resume
       acceptance_question: "Can the system decide which markets, notices, provinces, and public sources to scan first without assuming national aggregation is full or realtime?"
     evidence_quality_and_parser_verification:
       current_state: real_snapshot_parser_verification_pilots_exist
@@ -798,9 +798,9 @@ implementation_sequence:
   - packet_ref: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     status: PLANNED
     purpose: automatically_upgrade_legal_capture_and_parse_strategy_before_defaulting_to_manual_restart
-  - packet_ref: PTL-I100-151-public-web-captcha-suspend-and-operator-resume
+  - packet_ref: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
     status: PLANNED
-    purpose: preserve_session_and_resume_capture_after_operator_captcha_input
+    purpose: preserve_session_and_resume_capture_after_automated_challenge_resolution
   - packet_ref: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     status: PLANNED
     purpose: decide_which_hard_defects_and_public_verifications_to_run
