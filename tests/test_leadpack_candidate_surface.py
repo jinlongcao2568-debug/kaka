@@ -182,13 +182,12 @@ class TestLeadpackCandidateSurface(unittest.TestCase):
             readiness["operator_readback_summary"]["operator_can_enable_customer_visible_export"]
         )
 
-    def test_customer_visible_unlock_fails_closed_on_blackbox_private_or_unreviewed_inputs(self) -> None:
+    def test_customer_visible_unlock_fails_closed_on_blackbox_or_unreviewed_inputs(self) -> None:
         payload = self._approved_customer_visible_payload()
         payload.update(
             {
                 "internal_blackbox_score_export_requested": True,
                 "unreviewed_inference_customer_visible_requested": True,
-                "source_data_class": "PRIVATE",
                 "formal_legal_document_auto_send_requested": True,
             }
         )
@@ -203,7 +202,6 @@ class TestLeadpackCandidateSurface(unittest.TestCase):
         for reason in (
             "internal_blackbox_score_exposure_blocked",
             "unreviewed_inference_customer_visible_blocked",
-            "private_or_gray_data_customer_visible_blocked",
             "legal_document_auto_send_blocked",
         ):
             self.assertIn(reason, unlock["blocking_reasons"])

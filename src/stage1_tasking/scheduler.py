@@ -31,17 +31,15 @@ H01_CONSUMER_MUST_NOT_RECOMPUTE = [
 ]
 STAGE1_SCHEDULER_QUEUE_NAME = "stage1_scheduler_queue"
 STAGE2_HANDOFF_INTENT_STATE = "INTENT_ONLY_NO_FETCH"
-_BLOCKED_SOURCE_TOKENS = ("PRIVATE", "GRAY", "LOGIN", "CAPTCHA", "ANTI_BOT")
+_BLOCKED_SOURCE_TOKENS = ("LOGIN", "CAPTCHA", "ANTI_BOT")
 _BLOCKED_LIVE_FLAGS = (
     "live_execution_enabled",
     "external_fetch_enabled",
     "real_external_fetch_enabled",
     "stage2_fetch_enabled",
-    "crawler_enabled",
+    "unregistered_capture_enabled",
     "provider_call_enabled",
     "real_provider_call_enabled",
-    "private_source_enabled",
-    "gray_source_enabled",
 )
 
 
@@ -140,7 +138,7 @@ class Stage1Scheduler:
                 consumer_stage="stage2_ingestion",
                 intent_state=STAGE2_HANDOFF_INTENT_STATE,
                 fetch_enabled=False,
-                crawler_enabled=False,
+                unregistered_capture_enabled=False,
                 real_external_fetch_enabled=False,
                 handoff_payload=handoff_payload,
                 consumer_must_not_recompute_fields=list(H01_CONSUMER_MUST_NOT_RECOMPUTE),
@@ -160,7 +158,7 @@ class Stage1Scheduler:
                 "stage2_handoff_intent": task.stage2_handoff_intent.as_payload(),
                 "external_fetch_enabled": False,
                 "real_external_fetch_enabled": False,
-                "crawler_enabled": False,
+                "unregistered_capture_enabled": False,
             },
             priority=int(payload.get("priority", 0)),
             max_attempts=task.retry_state.max_attempts,

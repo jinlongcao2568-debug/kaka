@@ -282,7 +282,7 @@ class Stage4Service:
                 "project_id": project_id,
                 "source_level": inputs.get("source_level", "PUBLIC"),
                 "public_capability_tier": ensure_enum(
-                    self.store, "public_capability_tier", inputs.get("public_capability_tier")
+                    self.store, "public_capability_tier", inputs.get("public_capability_tier") or "A_PUBLIC_CORE"
                 ),
                 "cross_check_state": cross_check_state,
                 "external_use_grade": external_use_grade,

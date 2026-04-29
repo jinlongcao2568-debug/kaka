@@ -373,7 +373,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
       </section>
       <section>
         <h3>真实公开源验证</h3>
-        <p>只执行 allowlist 的真实公开入口页和附件原始链接；不做任意 crawler、翻页深爬、跨站抓取或真实 provider 调用。</p>
+        <p>只执行 allowlist 的真实公开入口页和附件原始链接；采集按 approved capture plan、source profile、同站证据链与 provider gate 执行。</p>
         <label for="entryProfile">入口页 Profile</label>
         <select id="entryProfile"></select>
         <button id="runEntryCapture">执行入口页抓取</button>
@@ -608,7 +608,7 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
       </section>
       <section class="controlled_opening_boundary wide">
         <h3>客户侧受控开放边界</h3>
-        <p>无授权不生成下载；内部黑箱评分、未复核推断、private/gray 数据不会展示。</p>
+        <p>无授权不生成下载；内部黑箱评分、未复核推断或未审批材料不会展示。</p>
       </section>
       <section class="wide">
         <h3>Readback</h3>

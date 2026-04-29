@@ -170,7 +170,7 @@ Stage6/Stage7 必须增加一个产品层概念：商业钩子线索。它不是
 | 执行大脑 | 有 scheduler / queue / orchestration / operator action 零件，但不是自运行控制器 | 系统仍靠 Codex 或 owner 判断下一步 | `144` |
 | 市场与公开源策略 | 有真实公开 fetcher 和样本验证，但 source strategy 还没产品化 | owner 仍像人工研究员一样选站点和 URL | `144`、`145` |
 | 公开网抓取升级 | 有公开站点 fetcher、source health、degrade taxonomy，但还缺统一的失败诊断和自动升级闭环 | 抓取失败会被误解为只能人工重跑，真实样本覆盖会卡在站点结构变化、JS 壳、分页、附件、编码、超时和限频上 | `150` |
-| 验证码挂起续跑 | 现有边界能识别验证码/登录/反爬并 fail-closed，但还没有操作台输入后续跑的产品路径 | 公开网站正常出现验证码时，任务会中断而不是保留会话继续执行 | `151` |
+| 验证码挂起续跑 | 现有边界能识别challenge / 登录态 / source policy并 fail-closed，但还没有操作台输入后续跑的产品路径 | 公开网站正常出现验证码时，任务会中断而不是保留会话继续执行 | `151` |
 | 证据质量与解析核验 | 有真实快照、parser、verification pilot | 弱证据、同名、缺 source slice 可能变成错误商业信号 | `146`、`149` |
 | 商业价值与钩子转化 | 有 Stage6 package、Stage7 buyer fit/readback | 系统能发现问题，但不能稳定生成可销售且不泄密的钩子 | `147` |
 | owner 可操作性 | 有操作台入口和 readback | owner 仍要看 raw JSON 或找 Codex 判断 | `148` |

@@ -75,7 +75,7 @@ class Stage1SchedulerRepository:
             "stage2_handoff_intent": task.stage2_handoff_intent.as_payload(),
             "fetch_execution": {
                 "stage2_fetch_enabled": False,
-                "crawler_enabled": False,
+                "unregistered_capture_enabled": False,
                 "real_external_fetch_enabled": False,
             },
             "audit_refs": dict(task.audit_refs),
@@ -87,7 +87,7 @@ class Stage1SchedulerRepository:
             {
                 "scheduler_readback": self.readback(queue_item_id),
                 "stage2_fetch_executed": False,
-                "crawler_executed": False,
+                "unregistered_capture_executed": False,
                 "real_external_fetch_executed": False,
             }
         )

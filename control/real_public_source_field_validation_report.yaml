@@ -45,11 +45,10 @@ failure_degrade_coverage:
   transport_failure: fail_closed_no_snapshot_persisted
   captcha_required: blocked_before_transport
 controlled_opening_boundaries:
-  private_or_gray_source_used: false
-  uncontrolled_live_crawler_used: false
+  unapproved_live_capture_used: false
   real_provider_call_executed: false
   external_release_enabled: false
 notes:
-  - "This report records controlled manual public snapshots, not proof that every real-world website is crawlable."
+  - "This report records controlled manual public snapshots, not proof that every real-world website is capture-ready."
   - "真实公开站点实战抓取仍需要 131 controlled real-world E2E pilot 或后续按站点开 dedicated packet。"
   - "Weak/failing/suspended samples must stay review-only and fail closed; no broad fallback is allowed."

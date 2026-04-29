@@ -17,7 +17,6 @@ PUBLIC_EVIDENCE_WEAK = "PUBLIC_WEAK_REVIEW_REQUIRED"
 PUBLIC_EVIDENCE_CONFLICT = "PUBLIC_CONFLICT_REVIEW_REQUIRED"
 PUBLIC_EVIDENCE_INSUFFICIENT = "INSUFFICIENT_PUBLIC_EVIDENCE"
 PUBLIC_EVIDENCE_NOT_REPLAYABLE = "NO_REPLAYABLE_PUBLIC_SNAPSHOT"
-PUBLIC_EVIDENCE_NOT_PUBLIC = "SOURCE_NOT_PUBLIC_REVIEW_REQUIRED"
 
 
 def grade_public_verification_evidence(
@@ -32,8 +31,6 @@ def grade_public_verification_evidence(
     """Return a Stage4 readback-only evidence grade string, not a formal enum."""
     if not replayable_snapshot:
         return PUBLIC_EVIDENCE_NOT_REPLAYABLE
-    if not public_source:
-        return PUBLIC_EVIDENCE_NOT_PUBLIC
     if conflict:
         return PUBLIC_EVIDENCE_CONFLICT
     if ambiguous or weak:

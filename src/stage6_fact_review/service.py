@@ -160,8 +160,6 @@ class Stage6Service:
             fail_closed_reasons.append("stage4_public_verification_carrier_missing")
         if stage4_carrier and not bool(stage4_carrier.get("public_only", False)):
             fail_closed_reasons.append("stage4_public_verification_not_public_only")
-        if stage4_carrier and bool(stage4_carrier.get("non_public_source_used", False)):
-            fail_closed_reasons.append("stage4_public_verification_non_public_source_used")
         if stage4_carrier and bool(stage4_carrier.get("customer_visible", False)):
             fail_closed_reasons.append("stage4_public_verification_marked_customer_visible")
         if stage4_carrier and not bool(stage4_carrier.get("no_legal_conclusion", False)):

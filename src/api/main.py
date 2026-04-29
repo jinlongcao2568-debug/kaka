@@ -430,7 +430,7 @@ def _build_transport_bootstrap(
             "controlled_opening_boundaries": {
                 "model_output_not_final_fact": True,
                 "model_output_not_customer_conclusion": True,
-                "private_data_to_model_without_policy_blocked": True,
+                "model_input_without_policy_blocked": True,
                 "credential_or_secret_to_model_blocked": True,
             },
         },

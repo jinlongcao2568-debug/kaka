@@ -133,30 +133,30 @@ capabilities:
       and operator workbench loop are implemented for internal governed use.
     recommended_followup_packet: PTL-I100-107C_NO_FOLLOWUP_LEDGER_BASELINE
 
-  - capability_id: STAGE6_PRIVATE_SUPPLEMENT_IMPACT
+  - capability_id: STAGE6_GOVERNED_SUPPLEMENT_IMPACT
     scope_group: Stage6 review/workbench
     external_or_live_capability: false
     doc_refs:
-      - docs/L0.md#private-supplement-boundary
-      - docs/D2_正式对象契约与字段字典.md#private_supplement_record
+      - docs/L0.md#governed-supplement-boundary
+      - docs/D2_正式对象契约与字段字典.md#governed_supplement_record
       - docs/D11_测试验收与金标回归清单.md#D11-R-053-AH
     runtime_refs:
       - src/stage6_fact_review/service.py
       - src/stage6_fact_review/fact_aggregator.py
       - src/storage/repository_bundle_io.py
       - src/storage/repository_boundary.py
-      - contracts/schemas/schema_catalog.json#private_supplement_record
+      - contracts/schemas/schema_catalog.json#governed_supplement_record
     test_refs:
       - tests/test_stage56_evaluators.py::test_stage6_supplement_trace_is_machine_readable_and_isolated
       - tests/test_internal_chain.py::test_stage6_supplement_reference_stays_out_of_stage7_formal_surface
-      - tests/test_internal_repository_boundary.py::test_stage6_private_supplement_carrier_persists_and_hydrates
-      - tests/test_internal_repository_boundary.py::test_stage6_private_supplement_readback_does_not_broad_fallback_when_typed_ref_is_stale
+      - tests/test_internal_repository_boundary.py::test_stage6_governed_supplement_carrier_persists_and_hydrates
+      - tests/test_internal_repository_boundary.py::test_stage6_governed_supplement_readback_does_not_broad_fallback_when_typed_ref_is_stale
     classification:
       - INTERNAL_IMPLEMENTED
       - RESERVED_NOT_LIVE
       - TEST_COVERED
     evidence_summary: >
-      Stage6 private supplement impact now has internal governed runtime/readback
+      Stage6 governed supplement impact now has internal governed runtime/readback
       carrier coverage: supplement record summary, impact trace, repository
       persistence, hydrate readback, stale typed-ref fail-closed behavior, and
       Stage7 formal-surface isolation are covered. It remains reserved-not-live

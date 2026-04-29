@@ -61,8 +61,6 @@ product_model:
       - delivery_fulfillment
     excluded_capabilities:
       - automated_refund_execution
-      - private_or_non_public_data_collection
-      - gray_source_collection
       - unauthorized_identity_or_social_security_query
       - unreviewed_legal_document_external_send
     completion_gate: PTL-I100-118-full-product-operational-acceptance
@@ -122,7 +120,7 @@ decision_summary:
     software release remains not required for the evidence-pack business model.
   open_capability_summary: >
     The target product posture is not permanent internal preview. Except for
-    automated refund execution and prohibited non-public/gray capabilities, every
+    automated refund execution and prohibited source visibility review capabilities, every
     business capability needed to sell evidence packs and lead packs must be
     implemented through the task pool and moved stepwise through internal,
     sandbox, approval, live, and production readiness. Live execution remains
@@ -251,7 +249,6 @@ real_public_source_operationalization_after_132:
     - total_entry_page_snapshot_not_detail_only
     - same_site_detail_link_discovery
     - no_unregistered_url_fetch
-    - no_uncontrolled_crawler
   next_packets_if_133A_passes:
     - PTL-I100-133B-national-verification-source-entry-fetchers
     - PTL-I100-133C-representative-local-platform-entry-fetchers
@@ -277,7 +274,6 @@ national_verification_source_operationalization_after_133A:
     - creditchina_412_fail_closed
     - gsxt_521_fail_closed
     - no_unregistered_url_fetch
-    - no_uncontrolled_crawler
   next_packets_if_133B_passes:
     - PTL-I100-133C-representative-local-platform-entry-fetchers
     - PTL-I100-133D-public-attachment-original-link-fetching
@@ -301,7 +297,6 @@ representative_local_platform_operationalization_after_133B:
     - beijing_bda_html_success_path
     - guangdong_portal_raw_shell_fail_closed
     - no_unregistered_url_fetch
-    - no_uncontrolled_crawler
   next_packets_if_133C_passes:
     - PTL-I100-133D-public-attachment-original-link-fetching
     - PTL-I100-134-owner-task-runner-real-source-ui
@@ -309,7 +304,7 @@ public_attachment_original_link_operationalization_after_133C:
   packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
   status: COMPLETED
   completed_commit: 5781ac8
-  trigger_reason: "133C completed. Real source operation now needs official binary attachment URL fetching without arbitrary crawling."
+  trigger_reason: "133C completed. Real source operation now needs official binary attachment URL fetching without unregistered capture."
   target_capability_state: INTERNAL_READY
   current_gap: "System can classify entry pages, but does not yet fetch allowlisted original attachment URLs as binary snapshots with hash/readback and fail-closed HTML-disguised download handling."
   official_attachment_urls:
@@ -320,7 +315,6 @@ public_attachment_original_link_operationalization_after_133C:
     - binary_attachment_snapshot_hash_readback
     - html_disguised_download_fail_closed
     - no_unregistered_url_fetch
-    - no_uncontrolled_crawler
   next_packets_if_133D_passes:
     - PTL-I100-134-owner-task-runner-real-source-ui
 owner_task_runner_real_source_ui_operationalization_after_133D:
@@ -334,7 +328,6 @@ owner_task_runner_real_source_ui_operationalization_after_133D:
     - owner_console_runs_real_public_entry_capture
     - owner_console_runs_real_public_attachment_capture
     - source_capture_readback_is_repository_backed_and_fail_closed
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_134_passes:
     - PTL-I100-135-owner-real-source-task-workbench
@@ -349,7 +342,6 @@ owner_real_source_task_workbench_after_134:
     - run_records_are_repository_backed_operator_actions
     - source_capture_readback_links_are_visible_and_fail_closed
     - fail_closed_status_visible_to_operator
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_135_passes:
     - PTL-I100-136-real-public-url-fetcher-bulk-hardening
@@ -364,7 +356,6 @@ real_public_url_fetcher_bulk_hardening_after_135:
     - tls_incompatible_public_sites_use_controlled_fallback_transport
     - success_profiles_generate_snapshot_readback
     - blocked_or_spa_profiles_fail_closed_with_taxonomy
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_136_passes:
     - PTL-I100-137-degraded-real-public-site-hardening
@@ -379,7 +370,6 @@ degraded_real_public_site_hardening_after_136:
     - site_level_public_paths_are_hardened_or_fail_closed
     - static_or_lightweight_public_entry_success_generates_snapshot_readback
     - spa_or_upstream_blocked_profiles_keep_taxonomy
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_137_passes:
     - PTL-I100-138-real-public-snapshot-to-parser-pilot
@@ -394,7 +384,6 @@ real_public_snapshot_to_parser_pilot_after_137:
     - parsed_fields_keep_source_slice_confidence_and_parser_audit
     - parser_outputs_remain_unverified_and_review_required
     - no_stage4_stage5_or_customer_visible_promotion
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_138_passes:
     - PTL-I100-139-real-public-parser-to-verification-pilot
@@ -409,7 +398,6 @@ real_public_parser_to_verification_pilot_after_138:
     - verification_carrier_binds_parsed_field_refs_and_replayable_snapshot_refs
     - weak_or_missing_identifier_public_evidence_fails_closed
     - no_stage5_stage6_or_customer_visible_promotion
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_139_passes:
     - PTL-I100-140-real-public-verification-to-rule-evidence-pilot
@@ -424,7 +412,6 @@ real_public_verification_to_rule_evidence_pilot_after_139:
     - rule_hit_and_evidence_bind_verification_run_snapshot_and_parsed_field_refs
     - weak_or_review_public_verification_fails_closed_to_stage5_review
     - no_stage6_or_customer_visible_promotion
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_140_passes:
     - PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
@@ -439,7 +426,6 @@ real_public_rule_evidence_to_stage6_product_package_pilot_after_140:
     - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
     - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
     - no_customer_visible_publication_or_downstream_execution
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_141_passes:
     - PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
@@ -454,7 +440,6 @@ real_public_product_package_to_stage7_sales_leadpack_pilot_after_141:
     - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
     - weak_or_review_stage6_package_fails_closed_before_customer_delivery
     - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_142_passes:
     - PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
@@ -471,7 +456,6 @@ real_public_stage7_to_stage8_stage9_controlled_execution_readback_pilot_after_14
     - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
     - weak_or_review_stage7_package_fails_closed_before_real_execution
     - no_customer_visible_delivery_provider_execution_or_refund
-    - no_uncontrolled_crawler
     - no_real_provider_call
   next_packets_if_143_passes:
     - PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
@@ -649,7 +633,6 @@ final_118R_operational_reacceptance:
       capability: real_public_source_field_validation
       resolved_by_task_id: PTL-I100-128-real-public-source-field-validation-and-coverage
       current_state: PRODUCTION_READY
-      evidence: "control/real_public_source_field_validation_report.yaml records 114A-114I controlled manual public snapshot validation across Stage2 capture, Stage3 parser field coverage, Stage4 public verification, weak/failing/suspended fail-closed paths, hash/lineage, and no private/gray source usage."
     - gap_id: B118R_REAL_PROVIDER_BINDING_NOT_DONE
       capability: wecom_email_crm_quote_payment_delivery_provider_binding
       resolved_by_task_id: PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund
@@ -753,7 +736,6 @@ production_gap_task_map:
       - allowlisted_public_entry_fetch
       - entry_snapshot_hash_lineage_audit
       - same_site_detail_link_discovery
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_national_verification_entry_fetcher
     packet_ref: PTL-I100-133B-national-verification-source-entry-fetchers
     status: COMPLETED
@@ -763,7 +745,6 @@ production_gap_task_map:
       - jzsc_raw_shell_fail_closed
       - creditchina_412_fail_closed
       - gsxt_521_fail_closed
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_representative_local_platform_entry_fetcher
     packet_ref: PTL-I100-133C-representative-local-platform-entry-fetchers
     status: COMPLETED
@@ -773,7 +754,6 @@ production_gap_task_map:
       - beijing_local_platform_html_success_path
       - beijing_bda_html_success_path
       - guangdong_portal_raw_shell_fail_closed
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: stage2_public_attachment_original_link_fetcher
     packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
     status: COMPLETED
@@ -782,7 +762,6 @@ production_gap_task_map:
       - public_attachment_original_url_fetch
       - binary_attachment_snapshot_hash_readback
       - html_disguised_download_fail_closed
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: owner_task_runner_real_source_ui
     packet_ref: PTL-I100-134-owner-task-runner-real-source-ui
     status: COMPLETED
@@ -791,7 +770,6 @@ production_gap_task_map:
       - owner_console_real_source_runner
       - real_public_source_profile_catalog_ui
       - real_public_source_capture_readback_ui
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: owner_real_source_task_workbench
     packet_ref: PTL-I100-135-owner-real-source-task-workbench
     status: COMPLETED
@@ -801,7 +779,6 @@ production_gap_task_map:
       - real_public_source_task_status_ui
       - real_public_source_snapshot_readback_links
       - fail_closed_reason_visibility
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_url_fetcher_bulk_hardening
     packet_ref: PTL-I100-136-real-public-url-fetcher-bulk-hardening
     status: COMPLETED
@@ -812,7 +789,6 @@ production_gap_task_map:
       - successful_public_html_snapshot_readback
       - successful_public_attachment_snapshot_readback
       - spa_or_upstream_blocked_fail_closed_taxonomy
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: degraded_real_public_site_hardening
     packet_ref: PTL-I100-137-degraded-real-public-site-hardening
     status: COMPLETED
@@ -822,7 +798,6 @@ production_gap_task_map:
       - site_level_public_path_hardening
       - static_or_lightweight_public_entry_snapshot_readback
       - spa_shell_and_upstream_block_taxonomy
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_snapshot_to_parser_pilot
     packet_ref: PTL-I100-138-real-public-snapshot-to-parser-pilot
     status: COMPLETED
@@ -833,7 +808,6 @@ production_gap_task_map:
       - parsed_field_source_slice_confidence_audit
       - unverified_review_required_parser_boundary
       - no_stage4_stage5_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_parser_to_verification_pilot
     packet_ref: PTL-I100-139-real-public-parser-to-verification-pilot
     status: COMPLETED
@@ -844,7 +818,6 @@ production_gap_task_map:
       - public_visibility_and_evidence_grade_readback
       - weak_or_missing_identifier_fail_closed_taxonomy
       - no_stage5_stage6_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_verification_to_rule_evidence_pilot
     packet_ref: PTL-I100-140-real-public-verification-to-rule-evidence-pilot
     status: COMPLETED
@@ -855,7 +828,6 @@ production_gap_task_map:
       - stage5_rule_readback_source_object_refs
       - weak_or_review_verification_fails_closed_to_review
       - no_stage6_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_rule_evidence_to_stage6_product_package_pilot
     packet_ref: PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
     status: COMPLETED
@@ -865,7 +837,6 @@ production_gap_task_map:
       - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
       - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
       - no_customer_visible_publication_or_downstream_execution
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_product_package_to_stage7_sales_leadpack_pilot
     packet_ref: PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
     status: COMPLETED
@@ -875,7 +846,6 @@ production_gap_task_map:
       - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
       - weak_or_review_stage6_package_fails_closed_before_customer_delivery
       - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: real_public_stage7_to_stage8_stage9_controlled_execution_readback_pilot
     packet_ref: PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
     status: COMPLETED
@@ -887,7 +857,6 @@ production_gap_task_map:
       - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
       - weak_or_review_stage7_package_fails_closed_before_real_execution
       - no_customer_visible_delivery_provider_execution_or_refund
-      - no_uncontrolled_crawler_or_provider_call
   - gap_group: autonomous_business_decision_architecture_and_hook_lead_roadmap
     packet_ref: PTL-I100-143D-business-decision-architecture-and-hook-lead-roadmap-sync
     status: COMPLETED
@@ -1294,7 +1263,7 @@ next_implementation_sequence:
       - sales_email_phone_sms_wecom_execution_path
     non_goals:
       - "no unapproved send"
-      - "no personal/private channel bypass"
+      - "no personal/governed channel bypass"
       - "no LeadPack delivery bypass"
   - packet_ref: PTL-I100-110C-stage7-crm-quote-sales-workbench
     priority: 3
@@ -1388,7 +1357,7 @@ next_implementation_sequence:
     target_capability_state: SANDBOX_READY
     non_goals:
       - "no unapproved live send"
-      - "no private or gray contact source"
+      - "no source visibility reviewed contact source"
       - "no refund program"
   - packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
     priority: 18
@@ -1463,7 +1432,7 @@ capability_assessments:
     product_gap: "Internal review/workbench readback is usable, but production evidence-pack selling still needs Stage6 product package hardening for delivery eligibility, sales readiness, and downgrade/block reasons."
     next_packet_ref: PTL-I100-119-stage6-product-package-hardening
     ready_for_live_execution: false
-  - capability_id: STAGE6_PRIVATE_SUPPLEMENT_IMPACT
+  - capability_id: STAGE6_GOVERNED_SUPPLEMENT_IMPACT
     operability_state: PREVIEW_OR_REVIEW_ONLY
     owner_usable_now: "partial"
     product_gap: "Private supplement impact exists as internal governed carrier; production package hardening must decide whether and how it affects delivery eligibility and sales readiness."

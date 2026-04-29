@@ -1072,7 +1072,7 @@
       ]
     },
     {
-      "object": "private_supplement_record",
+      "object": "governed_supplement_record",
       "surface_policy": {
         "INTERNAL_OPERATIONS": "ALLOW_METADATA",
         "SALES_CONSUMABLE": "BLOCK",

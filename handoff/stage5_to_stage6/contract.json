@@ -69,7 +69,7 @@
     "Stage6 must consume Stage5 dual-gate outputs and review_request as the authoritative gate conclusion inputs for project_fact, review_queue_profile, and report_record.",
     "Stage6 may project Stage5 dual-gate results into sale_gate_status, review queue, and report status, but must not recompute rule_gate_status or evidence_gate_status from raw evidence or Stage4 inputs.",
     "BLOCK and REVIEW dispositions must follow Stage5 gate authority and review_request semantics, not free-form Stage6 heuristics.",
-    "Any private supplement loop created in Stage6 must stay linked to review_request and remain isolated from the public formal chain."
+    "Any governed supplement loop created in Stage6 must stay linked to review_request and remain isolated from the public formal chain."
   ],
   "consumer_must_not_recompute_fields": [
     "rule_hit_state",

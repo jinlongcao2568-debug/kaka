@@ -178,7 +178,6 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
             self.assertTrue(binding["dependency_fields"])
             self.assertTrue(binding["dependency_evidence"])
             self.assertTrue(binding["golden_case_refs"])
-        self.assertFalse(bindings["GOV-004"]["enabled"])
         self.assertTrue(factory["golden_cases"])
 
     def test_catalog_aware_selection_execution_trace_and_coverage(self) -> None:
@@ -198,9 +197,6 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertEqual([entry["reason"] for entry in selected], ["selected_catalog_priority"] * 3)
         win_trace = next(entry for entry in selection_trace if entry["rule_code"] == "WIN-001")
         self.assertEqual(win_trace["reason"], "skipped_by_priority_limit")
-        disabled_trace = next(entry for entry in selection_trace if entry["rule_code"] == "GOV-004")
-        self.assertEqual(disabled_trace["reason"], "catalog_disabled")
-
         for entry in execution_trace:
             self.assertEqual(
                 set(

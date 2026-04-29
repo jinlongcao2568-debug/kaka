@@ -66,7 +66,7 @@
       ]
     },
     {
-      "fieldClass": "PRIVATE_SUPPLEMENT_ISOLATED",
+      "fieldClass": "GOVERNED_SUPPLEMENT_ISOLATED",
       "defaultVisibility": "ISOLATED_ONLY",
       "defaultMaskRule": "METADATA_ONLY",
       "sourceRefs": [
@@ -495,14 +495,14 @@
       ]
     },
     {
-      "fieldPath": "private_supplement_record.content",
-      "fieldClass": "PRIVATE_SUPPLEMENT_ISOLATED",
+      "fieldPath": "governed_supplement_record.content",
+      "fieldClass": "GOVERNED_SUPPLEMENT_ISOLATED",
       "maskRule": "FULL_BLOCK",
       "allowedSurfaces": [
         "ISOLATED_ONLY"
       ],
       "requiredApprovalChains": [
-        "private_supplement_release"
+        "governed_supplement_release"
       ],
       "requiredReleaseLevel": "INTERNAL_OPERABLE",
       "sourceRefs": [
@@ -1783,9 +1783,9 @@
       }
     },
     "exception_scope": {
-      "PRIVATE_SUPPLEMENT_IMPACT": {
+      "GOVERNED_SUPPLEMENT_IMPACT": {
         "maskRuleOverride": "METADATA_ONLY",
-        "requiredApprovalChain": "private_supplement_release"
+        "requiredApprovalChain": "governed_supplement_release"
       },
       "DELIVERY_RELEASE": {
         "requiredApprovalChain": "boundary_exception"

@@ -35,7 +35,7 @@ def create_stage1_scheduler_task(payload: dict[str, Any]) -> dict[str, Any]:
         "scheduler_task": task.as_payload(),
         "stage2_handoff_intent": task.stage2_handoff_intent.as_payload(),
         "real_external_fetch_enabled": False,
-        "crawler_enabled": False,
+        "unregistered_capture_enabled": False,
     }
 
 

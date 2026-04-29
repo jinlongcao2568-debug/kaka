@@ -54,7 +54,7 @@ actions:
     scope: stage9 payment/delivery/refund execution
     action_class: BLOCKED
   - action_id: HIGH_RESTRICTION_FIELDS
-    scope: natural person high restriction or private supplement externalization
+    scope: natural person high restriction or governed supplement externalization
     action_class: BLOCKED
 enforcement_rules:
   - rule: all formal batches must declare change_class via review_gate_matrix

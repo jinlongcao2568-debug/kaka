@@ -1255,9 +1255,9 @@ def _bundle_object_refs(bundle: StageBundle) -> dict[str, str]:
             "challenger_candidate_profile_id": challenger_candidate_profile.get("challenger_profile_id"),
             "action_id": legal_action_recommendation.get("action_id"),
         }
-        supplement = bundle.inputs.get("private_supplement_record_optional")
+        supplement = bundle.inputs.get("governed_supplement_record_optional")
         if isinstance(supplement, Mapping):
-            refs["private_supplement_record_id_optional"] = supplement.get("supplement_id")
+            refs["governed_supplement_record_id_optional"] = supplement.get("supplement_id")
         return {
             key: str(value)
             for key, value in refs.items()
@@ -1423,9 +1423,9 @@ def _bundle_governed_context(bundle: StageBundle) -> dict[str, Any]:
         )
         governed_context["provider_adapter_real_provider_call_enabled"] = False
     if bundle.stage == 6:
-        supplement_summary = bundle.inputs.get("private_supplement_carrier_summary")
+        supplement_summary = bundle.inputs.get("governed_supplement_carrier_summary")
         if isinstance(supplement_summary, Mapping):
-            governed_context["private_supplement_carrier_summary"] = dict(supplement_summary)
+            governed_context["governed_supplement_carrier_summary"] = dict(supplement_summary)
         product_package_readiness = bundle.inputs.get(STAGE6_PRODUCT_PACKAGE_READINESS_KEY)
         if isinstance(product_package_readiness, Mapping):
             governed_context[STAGE6_PRODUCT_PACKAGE_READINESS_KEY] = dict(product_package_readiness)

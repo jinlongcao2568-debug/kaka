@@ -70,7 +70,7 @@ class Stage1MarketScanResponse(TypedDict, total=False):
     internal_only: bool
     customer_visible: bool
     real_external_fetch_enabled: bool
-    crawler_enabled: bool
+    unregistered_capture_enabled: bool
     manual_url_picker_primary_flow: bool
     opportunity_candidates: list[Stage1OpportunityCandidate]
     review_candidates: list[Stage1OpportunityCandidate]

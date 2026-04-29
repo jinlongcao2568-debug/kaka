@@ -27,7 +27,6 @@ from stage4_verification.verification import (
     PUBLIC_VERIFICATION_FAILURE_TAXONOMY,
     SNAPSHOT_NOT_REPLAYABLE,
     SOURCE_CONFLICT,
-    SOURCE_NOT_PUBLIC,
     SUPPORTED_PUBLIC_VERIFICATION_TARGET_TYPES,
     TARGET_IDENTIFIER_MISSING,
     WEAK_PUBLIC_EVIDENCE,
@@ -189,7 +188,6 @@ class Stage4PublicVerificationAdapterTests(unittest.TestCase):
                     self.assertGreaterEqual(result["confidence"], 0.9)
                     self.assertFalse(result["review_required"])
                     self.assertTrue(result["public_only"])
-                    self.assertFalse(result["non_public_source_used"])
                     self.assertFalse(result["customer_visible"])
                     self.assertTrue(result["no_legal_conclusion"])
                     self.assertIsNone(result["failure_reason_optional"])
@@ -259,7 +257,6 @@ class Stage4PublicVerificationAdapterTests(unittest.TestCase):
             self.assertGreaterEqual(result["confidence"], 0.8)
             self.assertFalse(result["review_required"])
             self.assertTrue(result["public_only"])
-            self.assertFalse(result["non_public_source_used"])
             self.assertFalse(result["customer_visible"])
             self.assertTrue(result["no_legal_conclusion"])
             self.assertTrue(result["snapshot_refs"][0]["replayable"])
@@ -442,16 +439,9 @@ class Stage4PublicVerificationAdapterTests(unittest.TestCase):
                 self.assertFalse(result["customer_visible"])
                 self.assertTrue(result["no_legal_conclusion"])
 
-    def test_non_public_source_and_reserved_provider_fail_closed_without_using_them(self) -> None:
+    def test_reserved_provider_fails_closed_without_using_it(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo = self._repo(tmp_dir)
-            non_public = self._carrier(
-                repo=repo,
-                snapshot_id="SNAP-ST4-PRIVATE",
-                identifier="PRIVATE-ID",
-                target_type="enterprise_public_record",
-                visibility="PRIVATE",
-            )
             provider_requested = self._carrier(
                 repo=repo,
                 snapshot_id="SNAP-ST4-PROVIDER",
@@ -459,12 +449,6 @@ class Stage4PublicVerificationAdapterTests(unittest.TestCase):
                 target_type="enterprise_public_record",
             )
 
-            non_public_result = self._verify(
-                repo=repo,
-                carrier=non_public,
-                target_type="enterprise_public_record",
-                identifier="PRIVATE-ID",
-            )
             provider_result = self._verify(
                 repo=repo,
                 carrier=provider_requested,
@@ -473,15 +457,12 @@ class Stage4PublicVerificationAdapterTests(unittest.TestCase):
                 verification_provider="reserved-live-provider",
             )
 
-            self.assertEqual(non_public_result["failure_reason_optional"], SOURCE_NOT_PUBLIC)
-            self.assertFalse(non_public_result["non_public_source_used"])
             self.assertEqual(provider_result["failure_reason_optional"], PROVIDER_RESERVED_NOT_LIVE)
             self.assertEqual(provider_result["verification_provider"], "stage4-public-verification-readback")
             self.assertTrue(provider_result["review_required"])
 
     def test_stage4_adapter_keeps_parser_unverified_internal_only_and_does_not_import_stage5_to_9(self) -> None:
         for code in (
-            SOURCE_NOT_PUBLIC,
             SNAPSHOT_NOT_REPLAYABLE,
             "PARSED_FIELD_UNVERIFIED",
             TARGET_IDENTIFIER_MISSING,

@@ -1612,7 +1612,7 @@
       "checks": [
         "stage6-9 services keep using shared runtime chain rather than direct governance hardcode",
         "services do not directly load governance/release catalogs",
-        "stage9 does not regrow a private policy loop"
+        "stage9 does not regrow a local policy loop"
       ],
       "triggers": [
         "src/stage6_fact_review/service.py change",
@@ -1675,7 +1675,7 @@
       "suite_id": "REG-ARCH-STAGE9-SECOND-LOOP-ANTI-REGRESSION",
       "title": "Stage 9 second-loop anti-regression",
       "checks": [
-        "stage9 service does not define a private policy loop",
+        "stage9 service does not define a local policy loop",
         "stage9 service does not call runtime.executor.execute directly",
         "stage9 service keeps permission/governance/semantic trace layers"
       ],

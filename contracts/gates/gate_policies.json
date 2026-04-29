@@ -87,9 +87,9 @@
         "effect": "allow scoped delivery only after approval; other gates remain enforced",
         "approvalChainId": "boundary_exception"
       },
-      "PRIVATE_SUPPLEMENT_IMPACT": {
+      "GOVERNED_SUPPLEMENT_IMPACT": {
         "effect": "restrict usable_scope and field visibility to metadata/summary",
-        "approvalChainId": "private_supplement_release"
+        "approvalChainId": "governed_supplement_release"
       },
       "CONTACT_RESTRICTION": {
         "effect": "enforce restricted contact gate and audit requirements",
@@ -179,23 +179,6 @@
       "notes": [
         "C tier cannot be normalized into AUTO_HIT"
       ]
-    },
-    {
-      "when": {
-        "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
-        "rule_gate": null,
-        "evidence_gate": null,
-        "minimum_external_use_grade": null,
-        "high_priority_blockers": null,
-        "coverage_sellable_state": null
-      },
-      "allow_result": [
-        "REVIEW_REQUEST",
-        "governance_isolation_only"
-      ],
-      "notes": [
-        "forbidden from the formal public chain"
-      ]
     }
   ],
   "degrade_matrix": [
@@ -230,7 +213,6 @@
     }
   ],
   "block_conditions": [
-    "any D_NON_PUBLIC_OR_FORENSIC input attempts to enter the formal public chain",
     "project identity is unresolved",
     "core version or clock conflict is unresolved",
     "either dual gate is BLOCK",

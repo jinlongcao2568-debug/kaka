@@ -16,7 +16,7 @@ business_goal:
     identify the most likely buyer, generate a non-leaking commercial hook, and
     only reveal full evidence after approval/payment/delivery governance.
   must_not_be:
-    - generic_crawler
+    - generic_capture_adapter
     - manual_url_picker_as_primary_flow
     - public_software_release
     - unreviewed_legal_conclusion_generator
@@ -181,8 +181,6 @@ decision_layers:
   - layer_id: controlled_opening_boundary_filter
     method: rules
     blocks:
-      - private_or_non_public_data
-      - gray_source
       - login_required
       - unreviewed_legal_conclusion
       - automated_refund_execution
@@ -480,7 +478,7 @@ autonomous_execution_brain_contract:
       to: stage5_rules_evidence
       trigger: public_verification_carrier_saved_or_review_required
       executor: stage5_rule_executor
-      guard: no_private_source_and_no_llm_fact_adjudication
+      guard: no_source_visibility_and_no_llm_fact_adjudication
     - from: stage5_rules_evidence
       to: stage6_fact_review
       trigger: rule_evidence_gate_pass_or_review_bundle_ready
@@ -812,7 +810,7 @@ implementation_sequence:
     purpose: prove_real_public_sample_can_flow_from_market_scan_to_sellable_hook_and_delivery_candidate
 controlled_opening_boundaries_preserved:
   external_software_release: CONTROLLED_OPENING
-  arbitrary_crawler: CONTROLLED_OPENING
+  unregistered_capture_path: CONTROLLED_OPENING
   unreviewed_customer_claim: CONTROLLED_OPENING
   unapproved_provider_call: CONTROLLED_OPENING
   real_refund_execution: CONTROLLED_OPENING

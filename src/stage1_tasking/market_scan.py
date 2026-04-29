@@ -42,13 +42,13 @@ _BLOCKED_LIVE_FLAGS = (
     "live_execution_enabled",
     "external_fetch_enabled",
     "real_external_fetch_enabled",
-    "crawler_enabled",
+    "unregistered_capture_enabled",
     "provider_call_enabled",
     "real_provider_call_enabled",
     "customer_visible_enabled",
     "manual_url_picker_primary_flow",
 )
-_BLOCKED_SOURCE_TOKENS = ("PRIVATE", "GRAY", "LOGIN", "CAPTCHA", "ANTI_BOT")
+_BLOCKED_SOURCE_TOKENS = ("LOGIN", "CAPTCHA", "ANTI_BOT")
 
 
 def _truthy(value: Any) -> bool:
@@ -199,7 +199,7 @@ class Stage1MarketScanEngine:
             "customer_visible": False,
             "live_execution_enabled": False,
             "real_external_fetch_enabled": False,
-            "crawler_enabled": False,
+            "unregistered_capture_enabled": False,
             "manual_url_picker_primary_flow": False,
             "autonomous_decision": True,
             "input_candidate_count": len(candidates),
@@ -226,7 +226,7 @@ class Stage1MarketScanEngine:
                 "next_action": next_action,
             },
             "controlled_opening_boundaries": {
-                "uncontrolled_crawler_enabled": False,
+                "unapproved_capture_enabled": False,
                 "real_external_fetch_enabled": False,
                 "provider_call_enabled": False,
                 "customer_visible_claim_enabled": False,

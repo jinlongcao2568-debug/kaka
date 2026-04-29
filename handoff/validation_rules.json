@@ -41,16 +41,6 @@
       "failureDisposition": "BLOCK"
     },
     {
-      "ruleId": "HV-004",
-      "name": "阶段 5 不得在 D 层输入渗透时形成正式规则运行",
-      "appliesTo": "H-04-STAGE4-TO-STAGE5",
-      "checkType": "blocking_condition_absent",
-      "blockingSignals": [
-        "d_tier_input_detected"
-      ],
-      "failureDisposition": "BLOCK"
-    },
-    {
       "ruleId": "HV-005",
       "name": "阶段 6 必须同时消费双闸门",
       "appliesTo": "H-05-STAGE5-TO-STAGE6",

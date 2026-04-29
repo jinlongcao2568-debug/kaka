@@ -14,12 +14,12 @@
       "D7_对象级交付矩阵与外发治理规范.md",
       "D11_测试验收与金标回归清单.md"
     ],
-      "notes": [
-        "This is the first machine-readable core package for pre-code readiness.",
-        "The package freezes minimum stable contracts and is intended to be extended in later rounds rather than replaced.",
-        "Any implementation must consume these catalogs without creating a second vocabulary.",
-        "Shared state families are allowed only when semantic ownership remains explicit and single-sourced."
-      ],
+    "notes": [
+      "This is the first machine-readable core package for pre-code readiness.",
+      "The package freezes minimum stable contracts and is intended to be extended in later rounds rather than replaced.",
+      "Any implementation must consume these catalogs without creating a second vocabulary.",
+      "Shared state families are allowed only when semantic ownership remains explicit and single-sourced."
+    ],
     "machine_path": "contracts/enums/enum_catalog.json",
     "scope": "minimum stable enums required by schema/rule/gate catalogs"
   },
@@ -71,10 +71,6 @@
         {
           "value": "C_PUBLIC_CONDITIONAL",
           "meaning": "Conditional public clue capability"
-        },
-        {
-          "value": "D_NON_PUBLIC_OR_FORENSIC",
-          "meaning": "Non-public, forensic, or regulatory capability forbidden in formal public chain"
         }
       ],
       "status": "CONFIRMED_FROM_CONTRACTS",
@@ -308,7 +304,7 @@
           "meaning": "Natural-person high restriction field"
         },
         {
-          "value": "PRIVATE_SUPPLEMENT_ISOLATED",
+          "value": "GOVERNED_SUPPLEMENT_ISOLATED",
           "meaning": "Private supplement or isolated field"
         },
         {
@@ -2220,7 +2216,7 @@
           "meaning": "Delivery release exception"
         },
         {
-          "value": "PRIVATE_SUPPLEMENT_IMPACT",
+          "value": "GOVERNED_SUPPLEMENT_IMPACT",
           "meaning": "Private supplement impact exception"
         },
         {
@@ -2250,7 +2246,7 @@
       "mapping_notes": [
         "COVERAGE_HOLD -> approval_chain: boundary_exception; affects coverage_registry and coverage_promotion_release gate.",
         "DELIVERY_RELEASE -> approval_chain: boundary_exception; affects delivery_matrix/release_gates only within approved scope.",
-        "PRIVATE_SUPPLEMENT_IMPACT -> approval_chain: private_supplement_release; affects private_supplement_record usable_scope/release_state.",
+        "GOVERNED_SUPPLEMENT_IMPACT -> approval_chain: governed_supplement_release; affects governed_supplement_record usable_scope/release_state.",
         "CONTACT_RESTRICTION -> approval_chain: high_restriction_contact_release; affects contact_target/outreach_plan; does not change field_class.",
         "OTHER -> requires explicit scope, duration and rollback_plan; cannot be used as a blanket bypass."
       ],
@@ -2271,10 +2267,10 @@
         },
         {
           "case_id": "EXC-SCOPE-03",
-          "scope": "PRIVATE_SUPPLEMENT_IMPACT",
-          "scenario": "private supplement reviewed for impact eligibility",
+          "scope": "GOVERNED_SUPPLEMENT_IMPACT",
+          "scenario": "governed supplement reviewed for impact eligibility",
           "decision": "usable_scope set to REVIEW_ONLY; no external exposure",
-          "expected_effect": "private supplement content stays isolated; delivery uses metadata only"
+          "expected_effect": "governed supplement content stays isolated; delivery uses metadata only"
         }
       ]
     },
@@ -4280,9 +4276,9 @@
       "requires_manual_confirmation": false,
       "semantic_group": "scope",
       "owning_objects": [
-        "private_supplement_record"
+        "governed_supplement_record"
       ],
-      "semantic_notes": "C-group frozen enum; constrains who may consume private supplement content; does not change release_status or release_layer by itself.",
+      "semantic_notes": "C-group frozen enum; constrains who may consume governed supplement content; does not change release_status or release_layer by itself.",
       "decision_rules": [
         "usable_scope only narrows consumption; it never expands release_layer or approval requirements.",
         "DELIVERY_REFERENCE requires field policy and delivery matrix alignment before any leadpack use.",
@@ -4298,7 +4294,7 @@
         {
           "case_id": "USABLE-SCOPE-01",
           "scope": "REVIEW_ONLY",
-          "scenario": "private supplement evidence under governance review",
+          "scenario": "governed supplement evidence under governance review",
           "decision": "restrict to internal review and audit",
           "expected_effect": "no sales/leadpack exposure"
         },

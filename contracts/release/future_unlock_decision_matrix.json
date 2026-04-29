@@ -232,18 +232,18 @@
     {
       "capability_domain_id": "source_vendor_externalized_usage",
       "decision_status": "FUTURE_UNLOCK_CANDIDATE",
-      "decision_rationale": "在不触碰 live execution 的前提下，扩展 source/vendor externalized usage 有明确商业价值，且更符合 internal-governed 先行模式；因此可进入候选序列，但只讨论受审计、可回放、非个人/非私有渠道。",
+      "decision_rationale": "在不触碰 live execution 的前提下，扩展 source/vendor externalized usage 有明确商业价值，且更符合 internal-governed 先行模式；因此可进入候选序列，但只讨论受审计、可回放、非个人/非治理侧渠道。",
       "recommended_next_phase": "CANDIDATE_DECISION_TO_DESIGN_GAP",
       "minimum_next_batch_type": "SOURCE_VENDOR_INTERNAL_GOVERNED_GAP_BATCH",
       "required_preconditions_already_met": [
         "source/vendor/provider boundary catalogs are already frozen",
         "trace and audit reservation fields are already present",
-        "contact/source policy already blocks personal, private and unauthorized channels"
+        "contact/source policy already blocks personal, governed and unauthorized channels"
       ],
       "remaining_blockers": [
         "R6 only promotes it to candidate and does not authorize implementation",
         "candidate surface and query trace contract still need a design gap batch",
-        "personal/private/unauthorized channels remain denied"
+        "personal/governed/unauthorized channels remain denied"
       ],
       "future_unlock_sequence_order": 2,
       "default_position_after_decision": "INTERNAL_ONLY_CONTINUE",

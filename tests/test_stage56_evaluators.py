@@ -577,8 +577,8 @@ class TestStage56Evaluators(unittest.TestCase):
 
         result = run_internal_chain(payload)
         stage6 = result["stage6"]
-        supplement = stage6.inputs.get("private_supplement_record_optional")
-        supplement_summary = stage6.inputs.get("private_supplement_carrier_summary")
+        supplement = stage6.inputs.get("governed_supplement_record_optional")
+        supplement_summary = stage6.inputs.get("governed_supplement_carrier_summary")
         supplement_trace = stage6.inputs.get("stage6_review_report_trace", {}).get("supplement_trace", {})
 
         self.assertIsNotNone(supplement)
@@ -610,19 +610,19 @@ class TestStage56Evaluators(unittest.TestCase):
             False,
         )
         self.assertEqual(
-            supplement_trace.get("private_supplement_carrier_summary"),
+            supplement_trace.get("governed_supplement_carrier_summary"),
             supplement_summary,
         )
-        self.assertNotIn("private_supplement_record", stage6.records)
+        self.assertNotIn("governed_supplement_record", stage6.records)
         self.assertEqual(
-            stage6.handoff.get("private_supplement_record_id_optional"),
+            stage6.handoff.get("governed_supplement_record_id_optional"),
             supplement.get("supplement_id"),
         )
         self.assertEqual(
-            stage6.handoff.get("private_supplement_carrier_summary"),
+            stage6.handoff.get("governed_supplement_carrier_summary"),
             supplement_summary,
         )
-        self.assertNotIn("private_supplement_record_id_optional", result["stage7"].handoff)
+        self.assertNotIn("governed_supplement_record_id_optional", result["stage7"].handoff)
 
     def test_stage5_prefers_stage4_formal_outputs_over_conflicting_inputs(self) -> None:
         stage4 = run_internal_chain(load_fixture("internal_chain_happy.json"))["stage4"]

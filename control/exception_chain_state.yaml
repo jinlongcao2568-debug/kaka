@@ -31,7 +31,7 @@ exceptionFamilies:
     current_blockers: []
     current_open_records: 0
     open_records: 0
-  private_supplement_impact_exception:
+  governed_supplement_impact_exception:
     enabled: true
     responsible_role: "exception_reviewer"
     responsible_person: "卡卡罗特"
@@ -40,7 +40,7 @@ exceptionFamilies:
     state_level: "NAMED_ASSIGNED"
     required_role: "governance"
     escalation_path: []
-    activation_condition: "private supplement impact exception requested"
+    activation_condition: "governed supplement impact exception requested"
     current_blockers: []
     current_open_records: 0
     open_records: 0
@@ -61,4 +61,4 @@ hardForbidden:
   - "promote D tier to public main chain"
   - "bypass dual gate"
   - "bypass approval chain"
-  - "expose private supplement body to client/API/export"
+  - "expose governed supplement body to client/API/export"

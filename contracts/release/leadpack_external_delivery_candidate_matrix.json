@@ -275,7 +275,7 @@
     "required audit refs missing",
     "delivery matrix or field policy still blocks requested component",
     "candidate package still contains direct Stage 8 or Stage 9 objects",
-    "restricted fields, private inputs or personal contact channels remain exposed",
+    "restricted fields, governed inputs or personal contact channels remain exposed",
     "attempt to enable live external delivery or external platform release",
     "candidate package not built from repository-backed formal objects and preview projections"
   ],

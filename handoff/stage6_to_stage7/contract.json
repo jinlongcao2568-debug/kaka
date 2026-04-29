@@ -82,10 +82,10 @@
     "minimum_release_level",
     "linked_review_request_id_optional",
     "missing_condition_family_optional",
-    "private_supplement_record_id_optional",
-    "private_supplement_release_state_optional",
-    "private_supplement_usable_scope_optional",
-    "private_supplement_written_back_policy_optional",
+    "governed_supplement_record_id_optional",
+    "governed_supplement_release_state_optional",
+    "governed_supplement_usable_scope_optional",
+    "governed_supplement_written_back_policy_optional",
     "project_value_score_optional",
     "normalized_price_amount_optional",
     "price_conflict_gate_status_optional",
@@ -127,9 +127,9 @@
   ],
   "consumer_obligations": [
     "Stage7 must consume H-06 required/minimum producer fields as authoritative inputs for producer object ids, sale_gate_status, saleability_status, competitor_quality_grade, window_status, report_status, review_task_status, review_lane, action_family, challenger profile seeds, and actor/buyer seeds.",
-    "Stage7 must not recompute Stage6 unified fact decisions from Stage5 gate inputs, review_queue internals, or private supplement content.",
+    "Stage7 must not recompute Stage6 unified fact decisions from Stage5 gate inputs, review_queue internals, or governed supplement content.",
     "Stage7 sales_lead, buyer_fit, offer_recommendation, and saleable_opportunity must be constrained when H-06 carries linked_review_request_id_optional or missing_condition_family_optional.",
-    "Stage7 may only observe private supplement references/release states; it must not consume supplement body content as a commercial input."
+    "Stage7 may only observe governed supplement references/release states; it must not consume supplement body content as a commercial input."
   ],
   "consumer_must_not_recompute_fields": [
     "project_fact_id",

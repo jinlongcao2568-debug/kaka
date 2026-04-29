@@ -1,5 +1,5 @@
 {
-  "policy_id": "private-supplement-release-policy",
+  "policy_id": "governed-supplement-release-policy",
   "version": "0.1.0",
   "status": "DRAFT",
   "source_refs": [
@@ -33,7 +33,7 @@
     "create_public_auto_hit_without_dual_gate"
   ],
   "notes": [
-    "Subset policy for private_supplement_record release scope.",
+    "Subset policy for governed_supplement_record release scope.",
     "Must remain isolated unless approval chain and governance checks pass."
   ]
 }

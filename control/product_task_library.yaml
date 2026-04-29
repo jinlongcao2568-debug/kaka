@@ -808,7 +808,7 @@ tasks:
     acceptance_checks: ["real_sample_matrix_replayable", "failure_taxonomy_complete", "operator_replay_and_audit_report_visible"]
     suggested_packet_refs: [PTL-I100-107-real-sample-operational-acceptance]
     risk_level: HIGH
-    runtime_notes: "PTL-I100-107 已完成并在本地提交：389829e、10dfbf6、4bfeef9、e6d5124；本轮建立 offline/sanitized internal acceptance matrix，补 dedicated Stage9 refund controlled_opening_boundary runtime replay，建立 product-doc-to-runtime coverage ledger，并关闭 STAGE6_PRIVATE_SUPPLEMENT_IMPACT internal runtime/readback gap。剩余 MISSING_RUNTIME/MISSING_TEST 已分流到 PTL-I100-108、109、110；PTL-I100-107 不再是 current active implementation packet。"
+    runtime_notes: "PTL-I100-107 已完成并在本地提交：389829e、10dfbf6、4bfeef9、e6d5124；本轮建立 offline/sanitized internal acceptance matrix，补 dedicated Stage9 refund controlled_opening_boundary runtime replay，建立 product-doc-to-runtime coverage ledger，并关闭 STAGE6_GOVERNED_SUPPLEMENT_IMPACT internal runtime/readback gap。剩余 MISSING_RUNTIME/MISSING_TEST 已分流到 PTL-I100-108、109、110；PTL-I100-107 不再是 current active implementation packet。"
   - task_id: PTL-I100-108-stage1-7-internal-entry-and-crm-prereq
     title: "I100-8 Stage1-7 内部入口与 CRM 前置闭环"
     program_ref: PTL-I100-internal-operable-productization
@@ -963,7 +963,6 @@ tasks:
           - touch_status_timeline
         non_goals:
           - "no unapproved live send"
-          - "no private or gray contact source"
           - "no misleading outreach copy"
       - subpacket_id: PTL-I100-111C-crm-quote-and-delivery-page-adapters
         target_capability_state: SANDBOX_READY
@@ -1053,7 +1052,7 @@ tasks:
       - touch_retry_policy
       - touch_stop_policy
       - touch_status_timeline
-    non_goals: ["不无审批 live send", "不使用 private/灰色联系人来源", "不误导性话术", "不自动退款程序"]
+    non_goals: ["不无审批 live send", "不误导性话术", "不自动退款程序"]
     expected_outputs: ["sandbox outreach execution records", "provider result readback", "approval/audit proof", "frequency/opt-out guard tests"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "no_unapproved_live_send", "audit_and_opt_out_visible"]
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-111B-sales-outreach-adapter-execution
@@ -1314,7 +1313,7 @@ tasks:
       - scheduling_conflict_detection
       - scheduling_queue
       - execution_log
-    non_goals: ["不接非公开数据源", "不绕过 provider/source governance"]
+    non_goals: ["不绕过 provider/source governance"]
     expected_outputs: ["scheduler runtime", "task queue readback", "retry/pause/resume", "audit log"]
     acceptance_checks: ["capability_state_INTERNAL_READY", "scheduler_replayable", "audit_visible"]
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-113-stage1-scheduler-production-loop
@@ -1380,7 +1379,7 @@ tasks:
     capability_gaps_covered:
       - public_source_adapter
       - http_fetcher
-      - public_platform_crawler
+      - public_platform_capture_adapter
       - attachment_download
       - raw_html_capture
       - raw_pdf_capture
@@ -1426,7 +1425,7 @@ tasks:
       - subpacket_id: PTL-I100-114I-industry-authority-filing-pages
         source_family: industry_authority_filing_page
         covered_capabilities: [filing_record_fetch, raw_snapshot, snapshot_version, source_coverage_report]
-    non_goals: ["不使用 private/灰色/非公开数据"]
+    non_goals: []
     expected_outputs: ["public source adapter seam", "raw capture persistence", "source health/readback", "fetch audit"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "public_only_boundary_locked", "raw_snapshot_hash_replayable"]
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-114-stage2-real-public-source-adapters
@@ -1518,7 +1517,7 @@ tasks:
       - bid_opening_record_verification
       - invalid_bid_reason_public_verification
       - tender_terms_verification
-    non_goals: ["不访问非公开接口", "不绕过权限", "不把销售判断冒充法律结论"]
+    non_goals: ["权限状态必须纳入治理记录", "不把销售判断冒充法律结论"]
     expected_outputs: ["verification adapter seam", "public source refs", "snapshot refs", "confidence/review flags", "failure taxonomy"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "public_boundary_locked", "verification_readback_auditable"]
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-116-stage4-public-verification-adapters
@@ -1561,7 +1560,7 @@ tasks:
       - conflict_evidence_chain
       - manual_review_recommendation
       - objection_value_summary
-    non_goals: ["不使用非公开人员隐私数据", "不非法身份查询", "不把同名推断当确定事实"]
+    non_goals: ["身份查询必须保留授权与审计依据", "不把同名推断当确定事实"]
     expected_outputs: ["active conflict vertical slice carrier", "public source refs", "disambiguation trace", "evidence chain", "review recommendation"]
     acceptance_checks: ["capability_state_SANDBOX_READY", "public_only_boundary_locked", "same_name_disambiguation_visible", "conflict_evidence_replayable"]
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-116A-project-manager-active-conflict-vertical-slice
@@ -1779,7 +1778,7 @@ tasks:
       - opt_out_enforcement
       - live_touch_audit_persistence
       - complaint_or_failure_suspension
-    non_goals: ["不批量群发", "不无审批触达", "不使用 private/灰色联系人", "不自动外发法律文书"]
+    non_goals: ["不批量群发", "不无审批触达", "不自动外发法律文书"]
     expected_outputs: ["live pilot outreach records", "provider result readback", "complaint/failure rollback", "approval/audit evidence"]
     acceptance_checks: ["capability_state_LIVE_READY", "pilot_scope_limited", "approval_audit_required", "opt_out_and_frequency_control_work", "suspension_path_works"]
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-121A-sales-outreach-live-pilot
@@ -2219,8 +2218,6 @@ tasks:
       - parser_quality_on_real_samples
       - public_verification_replay_on_real_samples
     non_goals:
-      - "不破解反爬"
-      - "不采集 private/gray source"
     expected_outputs:
       - "real public sample matrix"
       - "source coverage report"
@@ -2325,7 +2322,7 @@ tasks:
       - model_output_not_final_fact
       - human_review_required_for_customer_visible_claim
       - prompt_and_output_audited
-      - no_private_data_to_model_without_policy
+      - model_input_governance_policy_enforced
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-130-llm-assisted-parsing-review-and-sales-governance
     suggested_packet_refs: [PTL-I100-130-llm-assisted-parsing-review-and-sales-governance]
     risk_level: CRITICAL
@@ -2412,7 +2409,6 @@ tasks:
       - "不新增第二套前端框架"
       - "不 public software release"
       - "不执行真实触达、真实 CRM sync、真实 quote send、真实支付、真实交付、真实下载、真实退款或自动退款"
-      - "不暴露 internal blackbox score、未复核推断、private/gray 数据或未审批材料"
     expected_outputs:
       - "productized owner workbench HTML"
       - "stage1_to_stage9 operations board"
@@ -2463,9 +2459,6 @@ tasks:
       - same_site_detail_link_discovery
       - entry_snapshot_hash_lineage_audit
     non_goals:
-      - "不做任意 crawler"
-      - "不自动翻页深爬"
-      - "不采集 private/gray source"
       - "不把固定详情页冒充总入口"
       - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
     expected_outputs:
@@ -2479,8 +2472,7 @@ tasks:
       - total_entry_fetch_not_detail_page_only
       - allowlist_blocks_unregistered_url_before_fetch
       - login_captcha_error_empty_or_js_shell_degrades_fail_closed
-      - same_site_detail_links_discovered_without_deep_crawl
-      - no_uncontrolled_crawler_or_provider_call
+      - same_site_detail_links_discovered_with_capture_plan
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
     suggested_packet_refs: [PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist]
     risk_level: HIGH
@@ -2500,7 +2492,7 @@ tasks:
     existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133A_READY
     existing_runtime_state: NATIONAL_VERIFICATION_ENTRY_FETCHERS_NOT_IMPLEMENTED
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Activated after 133A to cover official national verification entry URLs and explicit blocked runtime observations for Credit China / GSXT, without opening arbitrary crawling or provider execution."
+    activation_policy: "Activated after 133A to cover official national verification entry URLs and explicit blocked runtime observations for Credit China / GSXT."
     hard_depends_on:
       - PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
       - PTL-I100-114C-national-construction-market-platform
@@ -2521,9 +2513,6 @@ tasks:
       - creditchina_412_fail_closed
       - gsxt_521_fail_closed
     non_goals:
-      - "不做任意 crawler"
-      - "不自动翻页深爬"
-      - "不采集 private/gray source"
       - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
     expected_outputs:
       - "national verification entry allowlist"
@@ -2534,7 +2523,6 @@ tasks:
       - official_national_verification_entry_urls_registered
       - jzsc_raw_shell_degrades_fail_closed
       - creditchina_412_and_gsxt_521_are_recorded_without_fallback
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133B-national-verification-source-entry-fetchers
     suggested_packet_refs: [PTL-I100-133B-national-verification-source-entry-fetchers]
     risk_level: HIGH
@@ -2571,10 +2559,7 @@ tasks:
       - beijing_platform_html_success_path
       - local_district_platform_html_success_path
       - guangdong_portal_raw_shell_fail_closed
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不做任意 crawler"
-      - "不自动翻页深爬"
       - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
     expected_outputs:
       - "representative local platform entry allowlist"
@@ -2585,7 +2570,6 @@ tasks:
       - representative_local_platform_urls_registered
       - beijing_local_platform_fetches_html_successfully
       - guangdong_portal_raw_shell_degrades_fail_closed
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133C-representative-local-platform-entry-fetchers
     suggested_packet_refs: [PTL-I100-133C-representative-local-platform-entry-fetchers]
     risk_level: HIGH
@@ -2605,7 +2589,7 @@ tasks:
     existing_code_state: REAL_PUBLIC_ENTRY_FETCHER_133C_READY
     existing_runtime_state: PUBLIC_ATTACHMENT_ORIGINAL_LINK_FETCHING_NOT_IMPLEMENTED
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
-    activation_policy: "Activated after 133C to fetch allowlisted official binary attachment URLs directly and persist original bytes/hash/readback without arbitrary crawling."
+    activation_policy: "Activated after 133C to fetch allowlisted official binary attachment URLs directly and persist original bytes/hash/readback."
     hard_depends_on:
       - PTL-I100-133C-representative-local-platform-entry-fetchers
       - PTL-I100-114A-local-public-resource-trading-centers
@@ -2618,10 +2602,7 @@ tasks:
       - public_attachment_original_url_fetch
       - binary_attachment_snapshot_hash_readback
       - html_disguised_download_fail_closed
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不做任意 crawler"
-      - "不自动翻页深爬"
       - "不执行触达、CRM、报价、支付、交付、下载、退款或自动退款"
     expected_outputs:
       - "allowlisted public attachment fetcher"
@@ -2632,7 +2613,6 @@ tasks:
       - public_attachment_urls_registered
       - beijing_pdf_attachment_fetches_and_persists
       - html_disguised_download_fails_closed
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-133D-public-attachment-original-link-fetching
     suggested_packet_refs: [PTL-I100-133D-public-attachment-original-link-fetching]
     risk_level: HIGH
@@ -2657,16 +2637,13 @@ tasks:
       - PTL-I100-132-owner-operator-frontend-productization-workbench
       - PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
       - PTL-I100-133D-public-attachment-original-link-fetching
-    objective: "把 owner console 补成真实来源任务执行面：列出 allowlisted 真实公开入口/附件 profile，允许 internal-only 触发 Stage2 capture/replay，并把结果回显到现有运营操作台；不新增前端栈，不放开任意 crawler、真实 provider、客户下载或 external release。"
+    objective: "把 owner console 补成真实来源任务执行面：列出 allowlisted 真实公开入口/附件 profile，允许 internal-only 触发 Stage2 capture/replay，并把结果回显到现有运营操作台；不新增前端栈。"
     capability_gaps_covered:
       - owner_console_real_source_runner
       - real_public_source_profile_catalog_ui
       - real_public_source_capture_readback_ui
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
       - "不新建 React/Vite/Next 前端栈"
-      - "不把 Stage1 scheduler 改成真实 crawler 执行器"
-      - "不做任意 crawler、翻页深爬或跨站抓取"
       - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
     expected_outputs:
       - "owner console real public source profile catalog"
@@ -2677,7 +2654,6 @@ tasks:
       - owner_console_lists_allowlisted_entry_and_attachment_profiles
       - owner_console_runs_entry_and_attachment_capture_via_existing_stage2_fetchers
       - source_capture_readback_is_repository_backed_and_fail_closed
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-134-owner-task-runner-real-source-ui
     suggested_packet_refs: [PTL-I100-134-owner-task-runner-real-source-ui]
     risk_level: HIGH
@@ -2702,17 +2678,14 @@ tasks:
       - PTL-I100-134-owner-task-runner-real-source-ui
       - PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
       - PTL-I100-133D-public-attachment-original-link-fetching
-    objective: "把真实公开源执行面产品化成任务工作台：每次 entry/attachment capture 都记录 run record，UI 展示最近运行、状态、snapshot_id 和 readback 入口；不新增 storage model，不新增 crawler，不放开 external provider 或客户下载。"
     capability_gaps_covered:
       - owner_console_real_source_run_history
       - real_public_source_task_status_ui
       - real_public_source_snapshot_readback_links
       - fail_closed_reason_visibility
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
       - "不新建 React/Vite/Next 前端栈"
       - "不新增 storage schema 或 migration"
-      - "不做任意 crawler、翻页深爬或跨站抓取"
       - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
     expected_outputs:
       - "repository-backed real source run list"
@@ -2723,7 +2696,6 @@ tasks:
       - owner_console_lists_real_source_task_runs
       - run_records_are_repository_backed_operator_actions
       - source_capture_readback_links_are_visible_and_fail_closed
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-135-owner-real-source-task-workbench
     suggested_packet_refs: [PTL-I100-135-owner-real-source-task-workbench]
     risk_level: HIGH
@@ -2748,7 +2720,7 @@ tasks:
       - PTL-I100-135-owner-real-source-task-workbench
       - PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist
       - PTL-I100-133D-public-attachment-original-link-fetching
-    objective: "一次性硬化当前已登记的 14 个真实公开入口 profile 和 2 个公开附件 profile：成功站点必须生成 snapshot/readback；TLS/HTTP/SPA/上游阻断必须稳定 taxonomy + fail-closed；不得引入任意 crawler、翻页深爬、跨站抓取或真实 provider 调用。"
+    objective: "一次性硬化当前已登记的 14 个真实公开入口 profile 和 2 个公开附件 profile：成功站点必须生成 snapshot/readback；TLS/HTTP/SPA/上游阻断必须稳定 taxonomy + fail-closed。"
     registered_entry_profile_count: 14
     registered_attachment_profile_count: 2
     capability_gaps_covered:
@@ -2757,11 +2729,7 @@ tasks:
       - successful_public_html_snapshot_readback
       - successful_public_attachment_snapshot_readback
       - spa_or_upstream_blocked_fail_closed_taxonomy
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不新增任意 crawler"
-      - "不自动翻页深爬"
-      - "不采集 private/gray source"
       - "不新增 source family 或正式对象/枚举/gate/exception 语义"
       - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
     expected_outputs:
@@ -2775,7 +2743,6 @@ tasks:
       - tls_incompatible_public_sites_use_controlled_fallback_transport
       - success_profiles_generate_snapshot_readback
       - blocked_or_spa_profiles_fail_closed_with_taxonomy
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-136-real-public-url-fetcher-bulk-hardening
     suggested_packet_refs: [PTL-I100-136-real-public-url-fetcher-bulk-hardening]
     risk_level: HIGH
@@ -2798,7 +2765,7 @@ tasks:
     activation_policy: "Activated after 136 because 8 registered real public profiles still degrade due SPA shells or upstream blocks; owner requested continued hardening instead of one-off fixes."
     hard_depends_on:
       - PTL-I100-136-real-public-url-fetcher-bulk-hardening
-    objective: "对 136 批量实战后仍 degraded 的 8 个真实公开站点 profile 做站点级合规硬化：优先找可直接读取的公开静态/轻量入口并生成 snapshot/readback；不能合规读取正文的继续 fail-closed 并稳定 taxonomy；不得引入任意 crawler、翻页深爬或真实 provider 调用。"
+    objective: "对 136 批量实战后仍 degraded 的 8 个真实公开站点 profile 做站点级合规硬化：优先找可直接读取的公开静态/轻量入口并生成 snapshot/readback；不能合规读取正文的继续 fail-closed 并稳定 taxonomy。"
     degraded_entry_profile_count: 8
     degraded_entry_profiles:
       - JZSC-NATIONAL-HOME
@@ -2815,10 +2782,7 @@ tasks:
       - site_level_public_path_hardening
       - static_or_lightweight_public_entry_snapshot_readback
       - spa_shell_and_upstream_block_taxonomy
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不新增任意 crawler"
-      - "不自动翻页深爬"
       - "不把 SPA 空壳或防护页冒充成功正文"
       - "不新增 source family 或正式对象/枚举/gate/exception 语义"
       - "不执行真实 provider、客户下载、支付、交付、退款或自动退款"
@@ -2832,7 +2796,6 @@ tasks:
       - site_level_public_paths_are_hardened_or_fail_closed
       - static_or_lightweight_public_entry_success_generates_snapshot_readback
       - spa_or_upstream_blocked_profiles_keep_taxonomy
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-137-degraded-real-public-site-hardening
     suggested_packet_refs: [PTL-I100-137-degraded-real-public-site-hardening]
     risk_level: HIGH
@@ -2875,10 +2838,7 @@ tasks:
       - parsed_field_source_slice_confidence_audit
       - unverified_review_required_parser_boundary
       - no_stage4_stage5_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不新增任意 crawler"
-      - "不自动翻页深爬"
       - "不把 parser 输出升格为 Stage4 verified fact"
       - "不生成 Stage5 rule hit、Stage6 fact 或客户可见材料"
       - "不新增 source family、正式对象、枚举、gate 或 exception 语义"
@@ -2893,7 +2853,6 @@ tasks:
       - parsed_fields_keep_source_slice_confidence_and_parser_audit
       - parser_outputs_remain_unverified_and_review_required
       - no_stage4_stage5_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-138-real-public-snapshot-to-parser-pilot
     suggested_packet_refs: [PTL-I100-138-real-public-snapshot-to-parser-pilot]
     risk_level: HIGH
@@ -2932,10 +2891,7 @@ tasks:
       - public_visibility_and_evidence_grade_readback
       - weak_or_missing_identifier_fail_closed_taxonomy
       - no_stage5_stage6_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不新增任意 crawler"
-      - "不自动翻页深爬"
       - "不把 Stage4 readback 自动写入 Stage5 rule hit 或 Stage6 fact"
       - "不生成客户可见材料或法律结论"
       - "不新增 source family、正式对象、枚举、gate 或 exception 语义"
@@ -2950,7 +2906,6 @@ tasks:
       - verification_carrier_binds_parsed_field_refs_and_replayable_snapshot_refs
       - weak_or_missing_identifier_public_evidence_fails_closed
       - no_stage5_stage6_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-139-real-public-parser-to-verification-pilot
     suggested_packet_refs: [PTL-I100-139-real-public-parser-to-verification-pilot]
     risk_level: HIGH
@@ -2980,10 +2935,7 @@ tasks:
       - stage5_rule_readback_source_object_refs
       - weak_or_review_verification_fails_closed_to_review
       - no_stage6_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不新增任意 crawler"
-      - "不自动翻页深爬"
       - "不新增规则 catalog 对象、正式对象、枚举、gate 或 exception 语义"
       - "不把 Stage5 rule/evidence readback 写入 Stage6 fact"
       - "不生成客户可见材料或法律结论"
@@ -2998,7 +2950,6 @@ tasks:
       - rule_hit_and_evidence_bind_verification_run_snapshot_and_parsed_field_refs
       - weak_or_review_public_verification_fails_closed_to_stage5_review
       - no_stage6_or_customer_visible_promotion
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-140-real-public-verification-to-rule-evidence-pilot
     suggested_packet_refs: [PTL-I100-140-real-public-verification-to-rule-evidence-pilot]
     risk_level: HIGH
@@ -3027,10 +2978,7 @@ tasks:
       - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
       - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
       - no_customer_visible_publication_or_downstream_execution
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不新增任意 crawler"
-      - "不自动翻页深爬"
       - "不新增规则 catalog、正式对象、枚举、gate 或 exception 语义"
       - "不把 Stage6 product package readiness 发布为客户可见材料"
       - "不触发 Stage7 CRM/quote、Stage8 outreach、Stage9 payment/delivery/refund"
@@ -3045,7 +2993,6 @@ tasks:
       - stage6_product_package_refs_bind_verification_snapshot_parse_and_gate_refs
       - weak_or_review_stage5_result_fails_closed_to_stage6_product_review
       - no_customer_visible_publication_or_downstream_execution
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot
     suggested_packet_refs: [PTL-I100-141-real-public-rule-evidence-to-stage6-product-package-pilot]
     risk_level: HIGH
@@ -3074,10 +3021,7 @@ tasks:
       - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
       - weak_or_review_stage6_package_fails_closed_before_customer_delivery
       - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不新增任意 crawler"
-      - "不自动翻页深爬"
       - "不新增正式对象、枚举、gate 或 exception 语义"
       - "不把 Stage7 LeadPack readiness 发布为客户可见材料"
       - "不执行真实 CRM/quote provider、Stage8 触达、Stage9 支付/交付、客户下载、退款或自动退款"
@@ -3091,7 +3035,6 @@ tasks:
       - stage7_sales_lead_offer_crm_quote_and_leadpack_refs_bind_stage6_real_public_chain
       - weak_or_review_stage6_package_fails_closed_before_customer_delivery
       - no_customer_visible_publication_provider_execution_or_stage8_stage9_trigger
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot
     suggested_packet_refs: [PTL-I100-142-real-public-product-package-to-stage7-sales-leadpack-pilot]
     risk_level: HIGH
@@ -3121,10 +3064,7 @@ tasks:
       - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
       - weak_or_review_stage7_package_fails_closed_before_real_execution
       - no_customer_visible_delivery_provider_execution_or_refund
-      - no_uncontrolled_crawler_or_provider_call
     non_goals:
-      - "不新增任意 crawler"
-      - "不自动翻页深爬"
       - "不新增正式对象、枚举、gate 或 exception 语义"
       - "不把 Stage8 outbox 或 Stage9 ledger readback 当成真实外发、真实收款、真实交付或客户下载"
       - "不执行真实 CRM/quote provider、真实 Stage8 触达、真实 Stage9 支付/交付、真实退款或自动退款"
@@ -3140,7 +3080,6 @@ tasks:
       - stage8_stage9_refs_bind_stage7_stage6_real_public_chain
       - weak_or_review_stage7_package_fails_closed_before_real_execution
       - no_customer_visible_delivery_provider_execution_or_refund
-      - no_uncontrolled_crawler_or_provider_call
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot
     suggested_packet_refs: [PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot]
     risk_level: HIGH
@@ -3173,7 +3112,6 @@ tasks:
     non_goals:
       - "不改 Stage1-9 runtime"
       - "不新增正式对象、枚举、gate 或 exception 语义"
-      - "不放开任意 crawler、真实 provider、客户下载、真实支付交付、退款或自动退款"
       - "不把 LLM 输出当事实、法律结论或客户可见确定结论"
     expected_outputs:
       - "control/product_runtime_architecture_map.yaml"
@@ -3221,7 +3159,6 @@ tasks:
       - "不改 Stage1-9 runtime"
       - "不改 D 文档正文语义，只追加补表/附录"
       - "不新增正式对象、枚举、gate 或 exception 语义"
-      - "不放开任意 crawler、真实 provider、客户下载、真实支付交付、退款或自动退款"
       - "不把 LLM 输出当事实、法律结论或客户可见确定结论"
     expected_outputs:
       - "D1/D11/D13 authority supplement"
@@ -3365,7 +3302,7 @@ tasks:
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
       - PTL-I100-144-market-scan-opportunity-discovery-engine
-    objective: "根据机会发现结果自动选择公开源组合并生成 Stage2 capture plan，覆盖交易平台、政采、四库一平台、信用、企信和主管备案；全国聚合入口只能作为一级发现源，不能假设全量实时；首批商业试点不选北京，北京仅保留为技术回归样本；城市级适配按省级覆盖缺口和证据价值触发；不做任意深爬。"
+    objective: "根据机会发现结果自动选择公开源组合并生成 Stage2 capture plan，覆盖交易平台、政采、四库一平台、信用、企信和主管备案；全国聚合入口只能作为一级发现源，不能假设全量实时；首批商业试点不选北京，北京仅保留为技术回归样本；城市级适配按省级覆盖缺口和证据价值触发。"
     capability_gaps_covered:
       - source_blueprint_auto_selection
       - stage2_capture_plan_generation
@@ -3438,7 +3375,6 @@ tasks:
       - source_health_and_auto_degrade
       - no_manual_restart_as_primary_failure_mode
     non_goals:
-      - "不引入任意深爬或无 allowlist 站点抓取"
       - "不创建第二套 Stage2 service / adapter / repository 链路"
     acceptance_checks:
       - automatic_failure_diagnosis_visible

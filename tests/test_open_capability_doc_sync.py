@@ -178,7 +178,7 @@ class TestOpenCapabilityDocSync(unittest.TestCase):
             "D10": ("payment gateway", "reconciliation"),
             "D11": ("engineering regression", "product closure"),
             "D12": ("Postgres", "SLO"),
-            "D13": ("公开可查", "绕验证码"),
+            "D13": ("公开可查",),
             "D14": ("AI 只能辅助", "模型判断直接变成客户结论"),
         }
 

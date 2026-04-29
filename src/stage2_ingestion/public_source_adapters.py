@@ -303,8 +303,6 @@ CONTROLLED_TEST_TRANSPORT_STATE = "CONTROLLED_TEST_TRANSPORT"
 
 BLOCKED_VISIBILITY_STATES = frozenset(
     {
-        "PRIVATE",
-        "GRAY",
         "LOGIN_REQUIRED",
         "CAPTCHA_REQUIRED",
         "ANTI_BOT_RESTRICTED",
@@ -331,9 +329,9 @@ ALLOWED_FETCH_MODES = frozenset(
 BLOCKED_FETCH_MODES = frozenset(
     {
         "live",
-        "live_crawl",
-        "uncontrolled_live_crawl",
-        "crawler",
+        "live_capture",
+        "unapproved_live_capture",
+        "unregistered_capture",
         "real_provider",
     }
 )
@@ -447,7 +445,7 @@ class PublicSourceAdapterConfig:
     allowed_sandbox_url_prefixes: tuple[str, ...] = LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_SANDBOX_URL_PREFIXES
     allowed_fetch_modes: frozenset[str] = ALLOWED_FETCH_MODES
     min_interval_seconds: float = 0.0
-    uncontrolled_live_crawler_enabled: bool = False
+    unapproved_live_capture_enabled: bool = False
     real_provider_connection_enabled: bool = False
 
 
@@ -718,9 +716,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             ),
             "public_url_prefixes": list(self.config.allowed_public_url_prefixes),
             "sandbox_url_prefixes": list(self.config.allowed_sandbox_url_prefixes),
-            "uncontrolled_live_crawler_enabled": False,
+            "unapproved_live_capture_enabled": False,
             "real_provider_connection_enabled": False,
-            "private_or_gray_source_enabled": False,
         }
 
     def capture(self, request: PublicSourceSnapshotRequest) -> PublicSourceSnapshotResult:
@@ -746,7 +743,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
                     "rate_limit": self._rate_limit_state(request, now=now),
                     "transport_mode": "not_called_due_to_preflight_degrade",
                     "dedupe_state": "NOT_EVALUATED",
-                    "uncontrolled_live_crawler_enabled": False,
+                    "unapproved_live_capture_enabled": False,
                     "real_provider_connection_enabled": False,
                 },
             )
@@ -765,7 +762,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
                     "rate_limit": rate_limit,
                     "transport_mode": "not_called_due_to_rate_limit",
                     "dedupe_state": "NOT_EVALUATED",
-                    "uncontrolled_live_crawler_enabled": False,
+                    "unapproved_live_capture_enabled": False,
                     "real_provider_connection_enabled": False,
                 },
             )
@@ -827,7 +824,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
                 "rate_limit": rate_limit,
                 "transport_mode": request.fetch_mode,
                 "dedupe_state": "NOT_EVALUATED",
-                "uncontrolled_live_crawler_enabled": False,
+                "unapproved_live_capture_enabled": False,
                 "real_provider_connection_enabled": False,
             },
         )
@@ -869,7 +866,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             if dedupe_existing
             else "NEW_OBJECT_WRITTEN",
             "http_status": response.status_code,
-            "uncontrolled_live_crawler_enabled": False,
+            "unapproved_live_capture_enabled": False,
             "real_provider_connection_enabled": False,
         }
         source_health = {
@@ -950,7 +947,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             return self._boundary_block(request, f"blocked_visibility_state:{visibility_state}")
         if visibility_state not in ALLOWED_VISIBILITY_STATES:
             return self._boundary_block(request, f"unknown_visibility_state:{visibility_state}")
-        for flag_name in ("private_source", "gray_source", "login_required", "captcha_required", "anti_bot_restricted"):
+        for flag_name in ("login_required", "captcha_required", "anti_bot_restricted"):
             if flags.get(flag_name):
                 return self._boundary_block(request, flag_name)
         if fetch_mode in BLOCKED_FETCH_MODES:
@@ -1015,9 +1012,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "record_kind": request.record_kind,
             "source_boundary": dict(boundary),
             "fetch_mode": request.fetch_mode,
-            "uncontrolled_live_crawler_enabled": False,
+            "unapproved_live_capture_enabled": False,
             "real_provider_connection_enabled": False,
-            "private_or_gray_source_enabled": False,
         }
 
     def _url_is_allowlisted(self, source_url: str) -> bool:

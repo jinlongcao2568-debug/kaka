@@ -101,7 +101,7 @@
       }
     },
     {
-      "resourceId": "private_supplement_record_metadata",
+      "resourceId": "governed_supplement_record_metadata",
       "actions": {
         "read": [
           "delivery_governance_user",

@@ -69,7 +69,7 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
         boundary = self.report["scope_boundary"]
         self.assertFalse(boundary["public_software_release_enabled"])
         self.assertFalse(boundary["unapproved_live_provider_call_enabled"])
-        self.assertFalse(boundary["uncontrolled_live_crawler_enabled"])
+        self.assertFalse(boundary["unapproved_live_capture_enabled"])
         self.assertFalse(boundary["real_refund_execution_enabled"])
         self.assertFalse(boundary["automated_refund_execution_enabled"])
         self.assertIn("no automated refund execution", boundary["refund_boundary"])

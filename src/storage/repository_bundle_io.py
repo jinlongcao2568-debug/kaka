@@ -84,7 +84,7 @@ _STAGE6_TYPED_REF_KEYS = (
     "review_queue_profile_id",
     "challenger_candidate_profile_id",
     "action_id",
-    "private_supplement_record_id_optional",
+    "governed_supplement_record_id_optional",
 )
 _STAGE7_HANDOFF_SNAPSHOT_KEY = "_stage7_handoff_snapshot"
 _STAGE7_TRACE_RULES_SNAPSHOT_KEY = "_stage7_trace_rules_snapshot"
@@ -116,23 +116,23 @@ def _stage6_typed_object_refs(bundle: StageBundle) -> dict[str, str]:
         ),
         "action_id": str(bundle.record("legal_action_recommendation").get("action_id")),
     }
-    supplement = _stage6_private_supplement_payload(bundle.inputs)
+    supplement = _stage6_governed_supplement_payload(bundle.inputs)
     if supplement:
-        refs["private_supplement_record_id_optional"] = str(supplement["supplement_id"])
+        refs["governed_supplement_record_id_optional"] = str(supplement["supplement_id"])
     return refs
 
 
-def _stage6_private_supplement_payload(inputs: Mapping[str, Any]) -> dict[str, Any]:
-    supplement = inputs.get("private_supplement_record_optional")
+def _stage6_governed_supplement_payload(inputs: Mapping[str, Any]) -> dict[str, Any]:
+    supplement = inputs.get("governed_supplement_record_optional")
     return dict(supplement) if isinstance(supplement, Mapping) else {}
 
 
-def _stage6_private_supplement_summary(
+def _stage6_governed_supplement_summary(
     supplement: Mapping[str, Any],
     *,
     stage_inputs: Mapping[str, Any],
 ) -> dict[str, Any]:
-    existing = stage_inputs.get("private_supplement_carrier_summary")
+    existing = stage_inputs.get("governed_supplement_carrier_summary")
     if isinstance(existing, Mapping) and existing.get("supplement_id") == supplement.get("supplement_id"):
         return dict(existing)
     release_state = str(supplement.get("release_state", "ISOLATED"))
@@ -149,7 +149,7 @@ def _stage6_private_supplement_summary(
         "supplement_loop_state": stage_inputs.get("supplement_loop_state", "REQUESTED"),
         "impact_readiness_state": release_state,
         "impact_decision_trace": {
-            "source": "stage6_private_supplement_record",
+            "source": "stage6_governed_supplement_record",
             "stage6_internal_runtime_allowed": stage6_internal_runtime_allowed,
             "stage6_internal_impact_allowed": release_state == "IMPACT_ELIGIBLE" and stage6_internal_runtime_allowed,
             "stage7_formal_surface_allowed": False,
@@ -159,28 +159,28 @@ def _stage6_private_supplement_summary(
     }
 
 
-def _hydrate_stage6_private_supplement(
+def _hydrate_stage6_governed_supplement(
     *,
     stage_inputs: Mapping[str, Any],
     persisted_refs: Mapping[str, Any],
 ) -> tuple[dict[str, Any] | None, bool]:
     supplement_id = _resolve_typed_ref(
         persisted_refs,
-        keys=("private_supplement_record_id_optional", "private_supplement_record_id"),
+        keys=("governed_supplement_record_id_optional", "governed_supplement_record_id"),
     )
     if supplement_id:
-        record = DatabaseSession.default().get_record("private_supplement_record", supplement_id)
+        record = DatabaseSession.default().get_record("governed_supplement_record", supplement_id)
         if record is None:
             return None, True
         return record.as_payload(), False
 
-    snapshot = stage_inputs.get("private_supplement_record_optional")
+    snapshot = stage_inputs.get("governed_supplement_record_optional")
     if isinstance(snapshot, Mapping):
         return dict(snapshot), False
     return None, False
 
 
-def _restore_stage6_private_supplement_carrier(
+def _restore_stage6_governed_supplement_carrier(
     *,
     stage_inputs: dict[str, Any],
     handoff: dict[str, Any],
@@ -189,23 +189,23 @@ def _restore_stage6_private_supplement_carrier(
     if supplement is None:
         return
     supplement_payload = dict(supplement)
-    summary = _stage6_private_supplement_summary(supplement_payload, stage_inputs=stage_inputs)
-    stage_inputs["private_supplement_record_optional"] = supplement_payload
-    stage_inputs["private_supplement_carrier_summary"] = summary
+    summary = _stage6_governed_supplement_summary(supplement_payload, stage_inputs=stage_inputs)
+    stage_inputs["governed_supplement_record_optional"] = supplement_payload
+    stage_inputs["governed_supplement_carrier_summary"] = summary
     review_trace = stage_inputs.get("stage6_review_report_trace")
     if isinstance(review_trace, Mapping):
         review_trace_payload = dict(review_trace)
         supplement_trace = dict(review_trace_payload.get("supplement_trace", {}))
-        supplement_trace["private_supplement_carrier_summary"] = summary
+        supplement_trace["governed_supplement_carrier_summary"] = summary
         supplement_trace["impact_readiness_state"] = summary["impact_readiness_state"]
         supplement_trace["impact_decision_trace"] = summary["impact_decision_trace"]
         review_trace_payload["supplement_trace"] = supplement_trace
         stage_inputs["stage6_review_report_trace"] = review_trace_payload
-    handoff["private_supplement_record_id_optional"] = str(summary["supplement_id"])
-    handoff["private_supplement_release_state_optional"] = str(summary["release_state"])
-    handoff["private_supplement_usable_scope_optional"] = str(summary["usable_scope"])
-    handoff["private_supplement_written_back_policy_optional"] = str(summary["written_back_policy"])
-    handoff["private_supplement_carrier_summary"] = summary
+    handoff["governed_supplement_record_id_optional"] = str(summary["supplement_id"])
+    handoff["governed_supplement_release_state_optional"] = str(summary["release_state"])
+    handoff["governed_supplement_usable_scope_optional"] = str(summary["usable_scope"])
+    handoff["governed_supplement_written_back_policy_optional"] = str(summary["written_back_policy"])
+    handoff["governed_supplement_carrier_summary"] = summary
 
 
 def _restore_stage6_product_package_readiness(
@@ -327,11 +327,11 @@ def _build_stage6_handoff(
         "confidence_score_optional",
         "linked_review_request_id_optional",
         "missing_condition_family_optional",
-        "private_supplement_record_id_optional",
-        "private_supplement_release_state_optional",
-        "private_supplement_usable_scope_optional",
-        "private_supplement_written_back_policy_optional",
-        "private_supplement_carrier_summary",
+        "governed_supplement_record_id_optional",
+        "governed_supplement_release_state_optional",
+        "governed_supplement_usable_scope_optional",
+        "governed_supplement_written_back_policy_optional",
+        "governed_supplement_carrier_summary",
         _STAGE6_PRODUCT_PACKAGE_READINESS_KEY,
         "legal_action_actor_org_name_seed",
         "procurement_decision_actor_org_name_seed",
@@ -352,15 +352,15 @@ def persist_stage6_bundle(bundle: StageBundle) -> StageBundle:
     legal_action_recommendation = LegalActionRecommendationRepository().save(
         bundle.record("legal_action_recommendation").data
     )
-    private_supplement = _stage6_private_supplement_payload(bundle.inputs)
-    private_supplement_record = (
+    governed_supplement = _stage6_governed_supplement_payload(bundle.inputs)
+    governed_supplement_record = (
         _persist_auxiliary_record(
-            object_type="private_supplement_record",
+            object_type="governed_supplement_record",
             id_field="supplement_id",
             stage_scope=6,
-            payload=private_supplement,
+            payload=governed_supplement,
         )
-        if private_supplement
+        if governed_supplement
         else None
     )
     typed_object_refs = {
@@ -371,9 +371,9 @@ def persist_stage6_bundle(bundle: StageBundle) -> StageBundle:
         "challenger_candidate_profile_id": str(challenger_candidate_profile.record_id),
         "action_id": str(legal_action_recommendation.record_id),
     }
-    if private_supplement_record is not None:
-        typed_object_refs["private_supplement_record_id_optional"] = str(
-            private_supplement_record.record_id
+    if governed_supplement_record is not None:
+        typed_object_refs["governed_supplement_record_id_optional"] = str(
+            governed_supplement_record.record_id
         )
     DatabaseSession.default().upsert_stage_state(
         PersistedStageState(
@@ -897,11 +897,11 @@ def hydrate_stage6_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
 
     persisted_refs = stage_state.typed_object_refs
     stage_inputs = dict(stage_state.inputs)
-    private_supplement, private_supplement_stale = _hydrate_stage6_private_supplement(
+    governed_supplement, governed_supplement_stale = _hydrate_stage6_governed_supplement(
         stage_inputs=stage_inputs,
         persisted_refs=persisted_refs,
     )
-    if private_supplement_stale:
+    if governed_supplement_stale:
         return None
     project_id = str(stage_state.project_id or "").strip()
     project_fact = _record_from_persisted_refs(
@@ -980,10 +980,10 @@ def hydrate_stage6_bundle(payload: Mapping[str, Any]) -> StageBundle | None:
             inputs=stage_inputs,
         )
     )
-    _restore_stage6_private_supplement_carrier(
+    _restore_stage6_governed_supplement_carrier(
         stage_inputs=stage_inputs,
         handoff=handoff,
-        supplement=private_supplement,
+        supplement=governed_supplement,
     )
     _restore_stage6_product_package_readiness(
         stage_inputs=stage_inputs,

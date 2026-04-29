@@ -129,8 +129,8 @@
       ]
     },
     {
-      "approvalChainId": "private_supplement_release",
-      "purpose": "Move private supplement toward impact-eligible release within isolated scope",
+      "approvalChainId": "governed_supplement_release",
+      "purpose": "Move governed supplement toward impact-eligible release within isolated scope",
       "minimumApproverRoles": [
         "human_reviewer",
         "delivery_governance_user"
@@ -173,7 +173,7 @@
     },
     {
       "ruleId": "SOD-002",
-      "rule": "Creator, approver and releaser of private supplement or controlled exception may not collapse into one role chain",
+      "rule": "Creator, approver and releaser of governed supplement or controlled exception may not collapse into one role chain",
       "sourceRefs": [
         "D7-R-020"
       ]

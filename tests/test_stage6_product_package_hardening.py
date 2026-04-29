@@ -120,7 +120,7 @@ class TestStage6ProductPackageHardening(unittest.TestCase):
         self.assertIn("evidence_gate_status=REVIEW", carrier["downgrade_reasons"])
         self.assertIn("linked_review_request_id_present", carrier["downgrade_reasons"])
         self.assertIn(
-            "private_supplement_unavailable_for_review_request",
+            "governed_supplement_unavailable_for_review_request",
             carrier["downgrade_reasons"],
         )
 

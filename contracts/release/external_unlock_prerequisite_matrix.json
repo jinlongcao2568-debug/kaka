@@ -474,10 +474,10 @@
       "unlock_denial_conditions": [
         "source legality or auditability is unclear",
         "coverage or public boundary still marks the source family restricted",
-        "personal, private, or unauthorized channels are requested"
+        "personal, governed, or unauthorized channels are requested"
       ],
       "never_default_open_conditions": [
-        "personal channels, private sources, and D-tier adjacent sources remain permanently blocked from default externalization"
+        "personal channels, source visibility review sources, and D-tier adjacent sources remain permanently blocked from default externalization"
       ]
     },
     {
@@ -536,9 +536,9 @@
       "reason": "personal phone/email/social/IM channels must never become default-open"
     },
     {
-      "capability_id": "d_tier_or_private_inputs_to_external_surfaces",
+      "capability_id": "d_tier_or_governed_inputs_to_external_surfaces",
       "default_tier": "PERMANENTLY_BLOCKED",
-      "reason": "D-tier, private supplement, or non-public evidence must never enter default external surfaces"
+      "reason": "D-tier, governed supplement, or visibility-reviewed evidence must never enter default external surfaces"
     },
     {
       "capability_id": "direct_stage8_stage9_object_export",

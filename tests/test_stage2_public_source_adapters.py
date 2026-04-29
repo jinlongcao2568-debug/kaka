@@ -592,7 +592,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(metadata["captured_at"], NOW)
             self.assertEqual(metadata["fetch_mode"], "controlled_test_transport")
             self.assertEqual(metadata["replay_state"], "READBACK_READY")
-            self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
             self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
             self.assertEqual(result.readback["readback_state"], "READBACK_READY")
             self.assertEqual(result.readback["manifest"]["raw_snapshot_metadata"]["sha256"], metadata["sha256"])
@@ -635,7 +635,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(metadata["captured_at"], NOW)
             self.assertEqual(metadata["fetch_audit"]["transport_mode"], "controlled_test_transport")
             self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
-            self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
             self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
             self.assertTrue(result.snapshot_id.startswith("SNAP-S2-114B-"))
             self.assertEqual(result.readback["readback_state"], "READBACK_READY")
@@ -730,7 +730,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 self.assertEqual(metadata["fetch_audit"]["record_kind"], record_kind)
                 self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
                 self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
-                self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
                 self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
                 self.assertEqual(result.readback["snapshot_kind"], kind)
                 self.assertEqual(result.readback["readback_state"], "READBACK_READY")
@@ -831,7 +831,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 self.assertEqual(metadata["fetch_audit"]["source_family"], CREDIT_CHINA_SOURCE_FAMILY)
                 self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
                 self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
-                self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
                 self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
                 self.assertEqual(result.readback["snapshot_kind"], kind)
                 self.assertEqual(result.readback["readback_state"], "READBACK_READY")
@@ -862,7 +862,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertIn(CREDIT_CHINA_PUBLIC_REGISTRY_ID, policy["allowlisted_source_registry_ids"])
             self.assertEqual(policy["public_url_prefixes"], ["https://public.example.local/credit-china/"])
             self.assertEqual(policy["sandbox_url_prefixes"], ["sandbox://credit-china/"])
-            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["unapproved_live_capture_enabled"])
             self.assertFalse(policy["real_provider_connection_enabled"])
 
     def test_national_enterprise_credit_publicity_system_records_capture_readback_and_replay(self) -> None:
@@ -992,7 +992,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 )
                 self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
                 self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
-                self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
                 self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
                 self.assertEqual(result.readback["snapshot_kind"], kind)
                 self.assertEqual(result.readback["readback_state"], "READBACK_READY")
@@ -1039,7 +1039,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 policy["sandbox_url_prefixes"],
                 ["sandbox://national-enterprise-credit-publicity-system/"],
             )
-            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["unapproved_live_capture_enabled"])
             self.assertFalse(policy["real_provider_connection_enabled"])
 
             resolver_cases = [
@@ -1228,7 +1228,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 )
                 self.assertEqual(metadata["source_health"]["source_health_state"], "HEALTHY")
                 self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
-                self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
                 self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
                 self.assertEqual(capture.readback["snapshot_kind"], kind)
                 self.assertEqual(capture.readback["readback_state"], "READBACK_READY")
@@ -1287,7 +1287,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 policy["sandbox_url_prefixes"],
                 ["sandbox://government-procurement-public-sites/"],
             )
-            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["unapproved_live_capture_enabled"])
             self.assertFalse(policy["real_provider_connection_enabled"])
 
         resolver_cases = [
@@ -1532,21 +1532,17 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 source_url="https://unlisted.example.local/government/notice.html"
             ),
             self._government_procurement_request(record_kind="unknown_government_record"),
-            self._government_procurement_request(source_visibility_state="PRIVATE"),
-            self._government_procurement_request(source_visibility_state="GRAY"),
             self._government_procurement_request(source_visibility_state="LOGIN_REQUIRED"),
             self._government_procurement_request(source_visibility_state="CAPTCHA_REQUIRED"),
             self._government_procurement_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
             self._government_procurement_request(source_visibility_state="UNKNOWN"),
-            self._government_procurement_request(boundary_flags={"private_source": True}),
-            self._government_procurement_request(boundary_flags={"gray_source": True}),
             self._government_procurement_request(boundary_flags={"login_required": True}),
             self._government_procurement_request(boundary_flags={"captcha_required": True}),
             self._government_procurement_request(boundary_flags={"anti_bot_restricted": True}),
             self._government_procurement_request(fetch_mode="live"),
-            self._government_procurement_request(fetch_mode="live_crawl"),
-            self._government_procurement_request(fetch_mode="uncontrolled_live_crawl"),
-            self._government_procurement_request(fetch_mode="crawler"),
+            self._government_procurement_request(fetch_mode="live_capture"),
+            self._government_procurement_request(fetch_mode="unapproved_live_capture"),
+            self._government_procurement_request(fetch_mode="unregistered_capture"),
             self._government_procurement_request(fetch_mode="real_provider"),
         ]
 
@@ -1572,9 +1568,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
-                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
-                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_tender_agency_notice_types_capture_readback_replay_and_lineage(self) -> None:
@@ -1730,7 +1725,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertEqual(metadata["source_health"]["record_kind"], record_kind)
                     self.assertEqual(metadata["source_health"]["notice_type"], notice_type)
                     self.assertFalse(metadata["source_health"]["manual_review_required"])
-                    self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
                     self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
                     self.assertEqual(capture.readback["snapshot_kind"], "raw_html")
                     self.assertEqual(capture.readback["readback_state"], "READBACK_READY")
@@ -1785,9 +1780,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 policy["sandbox_url_prefixes"],
                 ["sandbox://tender-agency-public-sites/"],
             )
-            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["unapproved_live_capture_enabled"])
             self.assertFalse(policy["real_provider_connection_enabled"])
-            self.assertFalse(policy["private_or_gray_source_enabled"])
 
         resolver_cases = [
             self._tender_agency_request(),
@@ -1967,21 +1961,17 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 source_url="https://unlisted.example.local/tender-agency/notice.html"
             ),
             self._tender_agency_request(record_kind="unknown_tender_agency_record"),
-            self._tender_agency_request(source_visibility_state="PRIVATE"),
-            self._tender_agency_request(source_visibility_state="GRAY"),
             self._tender_agency_request(source_visibility_state="LOGIN_REQUIRED"),
             self._tender_agency_request(source_visibility_state="CAPTCHA_REQUIRED"),
             self._tender_agency_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
             self._tender_agency_request(source_visibility_state="UNKNOWN"),
-            self._tender_agency_request(boundary_flags={"private_source": True}),
-            self._tender_agency_request(boundary_flags={"gray_source": True}),
             self._tender_agency_request(boundary_flags={"login_required": True}),
             self._tender_agency_request(boundary_flags={"captcha_required": True}),
             self._tender_agency_request(boundary_flags={"anti_bot_restricted": True}),
             self._tender_agency_request(fetch_mode="live"),
-            self._tender_agency_request(fetch_mode="live_crawl"),
-            self._tender_agency_request(fetch_mode="uncontrolled_live_crawl"),
-            self._tender_agency_request(fetch_mode="crawler"),
+            self._tender_agency_request(fetch_mode="live_capture"),
+            self._tender_agency_request(fetch_mode="unapproved_live_capture"),
+            self._tender_agency_request(fetch_mode="unregistered_capture"),
             self._tender_agency_request(fetch_mode="real_provider"),
         ]
 
@@ -2008,9 +1998,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
-                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
-                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_tenderer_notice_pages_capture_readback_replay_and_authority_lineage(self) -> None:
@@ -2181,7 +2170,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                         authority_role,
                     )
                     self.assertFalse(metadata["source_health"]["manual_review_required"])
-                    self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
                     self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
                     self.assertEqual(capture.readback["snapshot_kind"], "raw_html")
                     self.assertEqual(capture.readback["readback_state"], "READBACK_READY")
@@ -2240,9 +2229,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 policy["sandbox_url_prefixes"],
                 ["sandbox://tenderer-public-notice-pages/"],
             )
-            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["unapproved_live_capture_enabled"])
             self.assertFalse(policy["real_provider_connection_enabled"])
-            self.assertFalse(policy["private_or_gray_source_enabled"])
 
         resolver_cases = [
             self._tenderer_request(),
@@ -2477,21 +2465,17 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 source_url="https://unlisted.example.local/tenderer/notice.html"
             ),
             self._tenderer_request(record_kind="unknown_tenderer_notice_record"),
-            self._tenderer_request(source_visibility_state="PRIVATE"),
-            self._tenderer_request(source_visibility_state="GRAY"),
             self._tenderer_request(source_visibility_state="LOGIN_REQUIRED"),
             self._tenderer_request(source_visibility_state="CAPTCHA_REQUIRED"),
             self._tenderer_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
             self._tenderer_request(source_visibility_state="UNKNOWN"),
-            self._tenderer_request(boundary_flags={"private_source": True}),
-            self._tenderer_request(boundary_flags={"gray_source": True}),
             self._tenderer_request(boundary_flags={"login_required": True}),
             self._tenderer_request(boundary_flags={"captcha_required": True}),
             self._tenderer_request(boundary_flags={"anti_bot_restricted": True}),
             self._tenderer_request(fetch_mode="live"),
-            self._tenderer_request(fetch_mode="live_crawl"),
-            self._tenderer_request(fetch_mode="uncontrolled_live_crawl"),
-            self._tenderer_request(fetch_mode="crawler"),
+            self._tenderer_request(fetch_mode="live_capture"),
+            self._tenderer_request(fetch_mode="unapproved_live_capture"),
+            self._tenderer_request(fetch_mode="unregistered_capture"),
             self._tenderer_request(fetch_mode="real_provider"),
         ]
 
@@ -2518,9 +2502,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
-                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
-                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_industry_authority_filing_pages_capture_readback_replay_and_source_coverage_report(self) -> None:
@@ -2698,7 +2681,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                         coverage_report,
                     )
                     self.assertFalse(metadata["source_health"]["manual_review_required"])
-                    self.assertFalse(metadata["fetch_audit"]["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(metadata["fetch_audit"]["unapproved_live_capture_enabled"])
                     self.assertFalse(metadata["fetch_audit"]["real_provider_connection_enabled"])
                     self.assertEqual(capture.readback["snapshot_kind"], "raw_html")
                     self.assertEqual(capture.readback["readback_state"], "READBACK_READY")
@@ -2753,9 +2736,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 policy["sandbox_url_prefixes"],
                 ["sandbox://industry-authority-filing-pages/"],
             )
-            self.assertFalse(policy["uncontrolled_live_crawler_enabled"])
+            self.assertFalse(policy["unapproved_live_capture_enabled"])
             self.assertFalse(policy["real_provider_connection_enabled"])
-            self.assertFalse(policy["private_or_gray_source_enabled"])
 
         resolver_cases = [
             self._industry_authority_request(),
@@ -3021,21 +3003,17 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 source_url="https://unlisted.example.local/industry-authority/filing.html"
             ),
             self._industry_authority_request(record_kind="unknown_industry_authority_record"),
-            self._industry_authority_request(source_visibility_state="PRIVATE"),
-            self._industry_authority_request(source_visibility_state="GRAY"),
             self._industry_authority_request(source_visibility_state="LOGIN_REQUIRED"),
             self._industry_authority_request(source_visibility_state="CAPTCHA_REQUIRED"),
             self._industry_authority_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
             self._industry_authority_request(source_visibility_state="UNKNOWN"),
-            self._industry_authority_request(boundary_flags={"private_source": True}),
-            self._industry_authority_request(boundary_flags={"gray_source": True}),
             self._industry_authority_request(boundary_flags={"login_required": True}),
             self._industry_authority_request(boundary_flags={"captcha_required": True}),
             self._industry_authority_request(boundary_flags={"anti_bot_restricted": True}),
             self._industry_authority_request(fetch_mode="live"),
-            self._industry_authority_request(fetch_mode="live_crawl"),
-            self._industry_authority_request(fetch_mode="uncontrolled_live_crawl"),
-            self._industry_authority_request(fetch_mode="crawler"),
+            self._industry_authority_request(fetch_mode="live_capture"),
+            self._industry_authority_request(fetch_mode="unapproved_live_capture"),
+            self._industry_authority_request(fetch_mode="unregistered_capture"),
             self._industry_authority_request(fetch_mode="real_provider"),
         ]
 
@@ -3062,9 +3040,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
-                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
-                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
                     self.assertEqual(transport.call_log, [])
 
     def test_provincial_html_pdf_and_attachment_metadata_keep_hash_version_and_lineage(self) -> None:
@@ -3671,10 +3648,8 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             )
             self.assertEqual(len(transport.call_log), 1)
 
-    def test_private_gray_login_captcha_antibot_and_unknown_sources_are_rejected(self) -> None:
+    def test_source_visibility_review_login_captcha_antibot_and_unknown_sources_are_rejected(self) -> None:
         blocked_visibility_states = [
-            "PRIVATE",
-            "GRAY",
             "LOGIN_REQUIRED",
             "CAPTCHA_REQUIRED",
             "ANTI_BOT_RESTRICTED",
@@ -3693,8 +3668,6 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertEqual(transport.call_log, [])
 
         blocked_flag_sets = [
-            {"private_source": True},
-            {"gray_source": True},
             {"login_required": True},
             {"captcha_required": True},
             {"anti_bot_restricted": True},
@@ -3729,17 +3702,13 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertEqual(raised.exception.reason, "source_url_not_allowlisted")
             self.assertEqual(transport.call_log, [])
 
-    def test_provincial_unknown_unlisted_private_gray_login_captcha_antibot_are_blocked_before_transport(self) -> None:
+    def test_provincial_unknown_unlisted_source_visibility_review_login_captcha_antibot_are_blocked_before_transport(self) -> None:
         blocked_requests = [
             self._provincial_request(source_registry_id="SRC-REG-PROV-BID-UNKNOWN"),
             self._provincial_request(source_url="https://unlisted.example.local/provincial/notice.html"),
-            self._provincial_request(source_visibility_state="PRIVATE"),
-            self._provincial_request(source_visibility_state="GRAY"),
             self._provincial_request(source_visibility_state="LOGIN_REQUIRED"),
             self._provincial_request(source_visibility_state="CAPTCHA_REQUIRED"),
             self._provincial_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
-            self._provincial_request(boundary_flags={"private_source": True}),
-            self._provincial_request(boundary_flags={"gray_source": True}),
             self._provincial_request(boundary_flags={"login_required": True}),
             self._provincial_request(boundary_flags={"captcha_required": True}),
             self._provincial_request(boundary_flags={"anti_bot_restricted": True}),
@@ -3760,18 +3729,14 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_national_construction_market_unknown_unlisted_private_gray_login_captcha_antibot_are_blocked_before_transport(self) -> None:
+    def test_national_construction_market_unknown_unlisted_source_visibility_review_login_captcha_antibot_are_blocked_before_transport(self) -> None:
         blocked_requests = [
             self._national_request(source_registry_id="SRC-REG-NCMP-UNKNOWN"),
             self._national_request(source_url="https://unlisted.example.local/ncmp/enterprise.html"),
             self._national_request(record_kind="unknown_public_record"),
-            self._national_request(source_visibility_state="PRIVATE"),
-            self._national_request(source_visibility_state="GRAY"),
             self._national_request(source_visibility_state="LOGIN_REQUIRED"),
             self._national_request(source_visibility_state="CAPTCHA_REQUIRED"),
             self._national_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
-            self._national_request(boundary_flags={"private_source": True}),
-            self._national_request(boundary_flags={"gray_source": True}),
             self._national_request(boundary_flags={"login_required": True}),
             self._national_request(boundary_flags={"captcha_required": True}),
             self._national_request(boundary_flags={"anti_bot_restricted": True}),
@@ -3793,23 +3758,19 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_credit_china_unknown_unlisted_private_gray_login_captcha_antibot_are_blocked_before_transport(self) -> None:
+    def test_credit_china_unknown_unlisted_source_visibility_review_login_captcha_antibot_are_blocked_before_transport(self) -> None:
         blocked_requests = [
             self._credit_china_request(source_registry_id="SRC-REG-CREDIT-CHINA-UNKNOWN"),
             self._credit_china_request(source_url="https://unlisted.example.local/credit-china/record.html"),
             self._credit_china_request(record_kind="unknown_credit_record"),
-            self._credit_china_request(source_visibility_state="PRIVATE"),
-            self._credit_china_request(source_visibility_state="GRAY"),
             self._credit_china_request(source_visibility_state="LOGIN_REQUIRED"),
             self._credit_china_request(source_visibility_state="CAPTCHA_REQUIRED"),
             self._credit_china_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
-            self._credit_china_request(boundary_flags={"private_source": True}),
-            self._credit_china_request(boundary_flags={"gray_source": True}),
             self._credit_china_request(boundary_flags={"login_required": True}),
             self._credit_china_request(boundary_flags={"captcha_required": True}),
             self._credit_china_request(boundary_flags={"anti_bot_restricted": True}),
-            self._credit_china_request(fetch_mode="live_crawl"),
-            self._credit_china_request(fetch_mode="uncontrolled_live_crawl"),
+            self._credit_china_request(fetch_mode="live_capture"),
+            self._credit_china_request(fetch_mode="unapproved_live_capture"),
             self._credit_china_request(fetch_mode="real_provider"),
         ]
 
@@ -3828,7 +3789,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     self.assertEqual(raised.exception.carrier["adapter_id"], CREDIT_CHINA_ADAPTER_ID)
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
-                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
                     self.assertEqual(transport.call_log, [])
 
@@ -3843,20 +3804,16 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                 source_url="https://unlisted.example.local/necps/record.html"
             ),
             self._necps_request(record_kind="unknown_enterprise_record"),
-            self._necps_request(source_visibility_state="PRIVATE"),
-            self._necps_request(source_visibility_state="GRAY"),
             self._necps_request(source_visibility_state="LOGIN_REQUIRED"),
             self._necps_request(source_visibility_state="CAPTCHA_REQUIRED"),
             self._necps_request(source_visibility_state="ANTI_BOT_RESTRICTED"),
             self._necps_request(source_visibility_state="UNKNOWN"),
-            self._necps_request(boundary_flags={"private_source": True}),
-            self._necps_request(boundary_flags={"gray_source": True}),
             self._necps_request(boundary_flags={"login_required": True}),
             self._necps_request(boundary_flags={"captcha_required": True}),
             self._necps_request(boundary_flags={"anti_bot_restricted": True}),
             self._necps_request(fetch_mode="live"),
-            self._necps_request(fetch_mode="live_crawl"),
-            self._necps_request(fetch_mode="uncontrolled_live_crawl"),
+            self._necps_request(fetch_mode="live_capture"),
+            self._necps_request(fetch_mode="unapproved_live_capture"),
             self._necps_request(fetch_mode="real_provider"),
         ]
 
@@ -3882,13 +3839,12 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                     )
                     self.assertEqual(raised.exception.carrier["record_kind"], request.record_kind)
                     self.assertTrue(raised.exception.carrier["source_boundary"]["blocked_reason"])
-                    self.assertFalse(raised.exception.carrier["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(raised.exception.carrier["unapproved_live_capture_enabled"])
                     self.assertFalse(raised.exception.carrier["real_provider_connection_enabled"])
-                    self.assertFalse(raised.exception.carrier["private_or_gray_source_enabled"])
                     self.assertEqual(transport.call_log, [])
 
-    def test_uncontrolled_live_crawler_modes_are_blocked_before_transport(self) -> None:
-        for fetch_mode in ("live_crawl", "uncontrolled_live_crawl", "real_provider"):
+    def test_uncontrolled_live_capture_adapter_modes_are_blocked_before_transport(self) -> None:
+        for fetch_mode in ("live_capture", "unapproved_live_capture", "real_provider"):
             with self.subTest(fetch_mode=fetch_mode):
                 transport = StaticPublicSourceTransport({})
                 with tempfile.TemporaryDirectory() as tmp_dir:
@@ -3897,7 +3853,7 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
                         adapter.capture(self._request(fetch_mode=fetch_mode))
                     self.assertIn("blocked_fetch_mode", raised.exception.reason)
                     self.assertEqual(transport.call_log, [])
-                    self.assertFalse(adapter.runtime_policy()["uncontrolled_live_crawler_enabled"])
+                    self.assertFalse(adapter.runtime_policy()["unapproved_live_capture_enabled"])
                     self.assertFalse(adapter.runtime_policy()["real_provider_connection_enabled"])
 
     def test_stage2_service_exposes_adapter_without_polluting_stage1_or_stage3_to_stage9(self) -> None:

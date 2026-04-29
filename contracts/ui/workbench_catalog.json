@@ -132,7 +132,7 @@
         "report_record",
         "review_queue_profile",
         "legal_action_recommendation",
-        "private_supplement_record"
+        "governed_supplement_record"
       ],
       "sections": [
         "queue",

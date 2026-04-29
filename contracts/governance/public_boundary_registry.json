@@ -97,29 +97,6 @@
       "release_layer_baseline": "INTERNAL_OPERABLE",
       "release_layer_notes": "release layer is a separate dimension from capability tier",
       "release_floor_notes": "release_floor aligned with D13 release layers"
-    },
-    {
-      "tier": "D_NON_PUBLIC_OR_FORENSIC",
-      "formal_definition": "Non-public, forensic, regulatory, or otherwise forbidden capability for the formal public chain",
-      "default_results": [
-        "REVIEW_REQUEST",
-        "governance_isolation_only"
-      ],
-      "commercial_promise_boundary": "May not be sold as formal public-chain capability",
-      "release_floor": "EXTERNAL_CONTROLLED_OPENING",
-      "requires_coverage_binding": false,
-      "forbidden_statements": [
-        "formal client conclusion",
-        "formal external primary evidence",
-        "formal legal action basis",
-        "formal public model input"
-      ],
-      "source_refs": [
-        "D13-R-010"
-      ],
-      "release_layer_baseline": "EXTERNAL_CONTROLLED_OPENING",
-      "release_layer_notes": "release layer is a separate dimension from capability tier",
-      "release_floor_notes": "release_floor aligned with D13 release layers"
     }
   ],
   "capabilities": [
@@ -843,78 +820,6 @@
       "value_priority": "P1"
     },
     {
-      "capability_id": "B-02",
-      "name": "项目经理注册信息与在建冲突核验",
-      "tier": "B_PUBLIC_ENHANCED",
-      "default_results": [
-        "CLUE",
-        "REVIEW_REQUEST"
-      ],
-      "requires_coverage": true,
-      "requires_dual_gate": true,
-      "stage_refs": [
-        4,
-        5
-      ],
-      "input_objects": [
-        "project_base",
-        "project_manager",
-        "focus_bidder_verification_profile",
-        "field_lineage_record"
-      ],
-      "output_objects": [
-        "focus_bidder_verification_profile",
-        "rule_hit",
-        "evidence",
-        "review_request"
-      ],
-      "upgrade_conditions": [
-        "coverage已放行",
-        "公开单位链可回链",
-        "时间窗口一致",
-        "双闸门允许"
-      ],
-      "downgrade_conditions": [
-        "弱公开页面",
-        "主体匹配不稳定",
-        "颗粒度不足"
-      ],
-      "blocking_conditions": [
-        "依赖非公开社保/人事材料",
-        "coverage未放行",
-        "对象对齐失败"
-      ],
-      "governance_requirements": [
-        "受coverage_registry约束",
-        "不得以弱匹配升级为正式命中"
-      ],
-      "test_refs": [
-        "D11-R-053",
-        "D11-R-024"
-      ],
-      "source_refs": [
-        "D13-R-028"
-      ],
-      "rule_refs": [
-        "PM-001",
-        "PM-002"
-      ],
-      "non_rule_capability": false,
-      "business_chain_stage": "高价值线索发现链",
-      "consumer_objects": [
-        "focus_bidder_verification_profile",
-        "rule_hit",
-        "evidence",
-        "review_request"
-      ],
-      "consumer_surfaces": [
-        "INTERNAL_ANALYSIS",
-        "SALES_USAGE"
-      ],
-      "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
-    },
-    {
       "capability_id": "B-03",
       "name": "施工许可、竣工备案、合同订立公开核验",
       "tier": "B_PUBLIC_ENHANCED",
@@ -1333,70 +1238,6 @@
       "value_priority": "P1"
     },
     {
-      "capability_id": "C-03",
-      "name": "关键人员配置一致性线索识别",
-      "tier": "C_PUBLIC_CONDITIONAL",
-      "default_results": [
-        "CLUE",
-        "REVIEW_REQUEST"
-      ],
-      "requires_coverage": true,
-      "requires_dual_gate": true,
-      "stage_refs": [
-        4,
-        5,
-        6
-      ],
-      "input_objects": [
-        "project_manager",
-        "field_lineage_record",
-        "focus_bidder_verification_profile"
-      ],
-      "output_objects": [
-        "rule_hit",
-        "review_request",
-        "project_fact"
-      ],
-      "upgrade_conditions": [
-        "公开不一致可回链",
-        "身份对齐可靠",
-        "请求核查前提明确"
-      ],
-      "downgrade_conditions": [
-        "仅弱披露或颗粒度不足"
-      ],
-      "blocking_conditions": [
-        "需要非公开社保/人事材料才能成立"
-      ],
-      "governance_requirements": [
-        "受coverage_registry约束",
-        "仅支持请求核查"
-      ],
-      "test_refs": [
-        "D11-R-053",
-        "D11-R-024"
-      ],
-      "source_refs": [
-        "D13-R-037"
-      ],
-      "rule_refs": [
-        "PERSONNEL-001"
-      ],
-      "non_rule_capability": false,
-      "business_chain_stage": "高价值线索发现链",
-      "consumer_objects": [
-        "rule_hit",
-        "review_request",
-        "project_fact"
-      ],
-      "consumer_surfaces": [
-        "INTERNAL_ANALYSIS",
-        "SALES_USAGE"
-      ],
-      "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P1"
-    },
-    {
       "capability_id": "C-04",
       "name": "履约异常、合同变更与后评估观察",
       "tier": "C_PUBLIC_CONDITIONAL",
@@ -1480,7 +1321,7 @@
     },
     {
       "capability_id": "D-03",
-      "name": "私有 XML 与私有投标技术指纹",
+      "name": "source policy 未复核 XML 与治理侧投标技术指纹",
       "formal_handling": "forbidden_from_formal_public_chain",
       "source_refs": [
         "D13-R-039"
@@ -1503,25 +1344,9 @@
       ]
     },
     {
-      "capability_id": "D-06",
-      "name": "非公开社保、人事档案与内部履历核验",
-      "formal_handling": "forbidden_from_formal_public_chain",
-      "source_refs": [
-        "D13-R-039"
-      ]
-    },
-    {
       "capability_id": "D-07",
       "name": "内部合同、内部履约、客户底稿直接核查",
       "formal_handling": "not_formal_public_primary_evidence",
-      "source_refs": [
-        "D13-R-039"
-      ]
-    },
-    {
-      "capability_id": "D-08",
-      "name": "非法、灰色或不可审计联系人获取",
-      "formal_handling": "forbidden",
       "source_refs": [
         "D13-R-039"
       ]
@@ -1588,7 +1413,7 @@
     "leadpack_candidate_package_is_internal_only": true,
     "never_default_open_capabilities": [
       "personal_contact_channels",
-      "d_tier_or_private_inputs_to_external_surfaces",
+      "d_tier_or_governed_inputs_to_external_surfaces",
       "direct_stage8_stage9_object_export"
     ],
     "notes": [

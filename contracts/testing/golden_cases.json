@@ -87,31 +87,6 @@
       ]
     },
     {
-      "case_id": "GC-A-01-BLOCK-001",
-      "title": "A-01 阻断样本",
-      "capability_id": "A-01",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 2,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-013",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-A-02-POS-001",
       "title": "A-02 正向成立样本",
       "capability_id": "A-02",
@@ -184,31 +159,6 @@
       "source_refs": [
         "D13-R-014",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-A-02-BLOCK-001",
-      "title": "A-02 阻断样本",
-      "capability_id": "A-02",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 1,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-014",
-        "D11-R-025"
       ]
     },
     {
@@ -287,31 +237,6 @@
       ]
     },
     {
-      "case_id": "GC-A-03-BLOCK-001",
-      "title": "A-03 阻断样本",
-      "capability_id": "A-03",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 3,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-015",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-A-04-POS-001",
       "title": "A-04 正向成立样本",
       "capability_id": "A-04",
@@ -384,31 +309,6 @@
       "source_refs": [
         "D13-R-016",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-A-04-BLOCK-001",
-      "title": "A-04 阻断样本",
-      "capability_id": "A-04",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-016",
-        "D11-R-025"
       ]
     },
     {
@@ -487,31 +387,6 @@
       ]
     },
     {
-      "case_id": "GC-A-05-BLOCK-001",
-      "title": "A-05 阻断样本",
-      "capability_id": "A-05",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 2,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-017",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-A-06-POS-001",
       "title": "A-06 正向成立样本",
       "capability_id": "A-06",
@@ -584,31 +459,6 @@
       "source_refs": [
         "D13-R-018",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-A-06-BLOCK-001",
-      "title": "A-06 阻断样本",
-      "capability_id": "A-06",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-018",
-        "D11-R-025"
       ]
     },
     {
@@ -687,31 +537,6 @@
       ]
     },
     {
-      "case_id": "GC-A-07-BLOCK-001",
-      "title": "A-07 阻断样本",
-      "capability_id": "A-07",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-019",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-A-08-POS-001",
       "title": "A-08 正向成立样本",
       "capability_id": "A-08",
@@ -784,31 +609,6 @@
       "source_refs": [
         "D13-R-020",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-A-08-BLOCK-001",
-      "title": "A-08 阻断样本",
-      "capability_id": "A-08",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 6,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-020",
-        "D11-R-025"
       ]
     },
     {
@@ -887,31 +687,6 @@
       ]
     },
     {
-      "case_id": "GC-A-09-BLOCK-001",
-      "title": "A-09 阻断样本",
-      "capability_id": "A-09",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 6,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-021",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-A-10-POS-001",
       "title": "A-10 正向成立样本",
       "capability_id": "A-10",
@@ -984,31 +759,6 @@
       "source_refs": [
         "D13-R-022",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-A-10-BLOCK-001",
-      "title": "A-10 阻断样本",
-      "capability_id": "A-10",
-      "capability_tier": "A_PUBLIC_CORE",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-022",
-        "D11-R-025"
       ]
     },
     {
@@ -1087,31 +837,6 @@
       ]
     },
     {
-      "case_id": "GC-B-01-BLOCK-001",
-      "title": "B-01 阻断样本",
-      "capability_id": "B-01",
-      "capability_tier": "B_PUBLIC_ENHANCED",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-027",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-B-02-POS-001",
       "title": "B-02 正向成立样本",
       "capability_id": "B-02",
@@ -1184,31 +909,6 @@
       "source_refs": [
         "D13-R-028",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-B-02-BLOCK-001",
-      "title": "B-02 阻断样本",
-      "capability_id": "B-02",
-      "capability_tier": "B_PUBLIC_ENHANCED",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-028",
-        "D11-R-025"
       ]
     },
     {
@@ -1287,31 +987,6 @@
       ]
     },
     {
-      "case_id": "GC-B-03-BLOCK-001",
-      "title": "B-03 阻断样本",
-      "capability_id": "B-03",
-      "capability_tier": "B_PUBLIC_ENHANCED",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-029",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-B-04-POS-001",
       "title": "B-04 正向成立样本",
       "capability_id": "B-04",
@@ -1384,31 +1059,6 @@
       "source_refs": [
         "D13-R-030",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-B-04-BLOCK-001",
-      "title": "B-04 阻断样本",
-      "capability_id": "B-04",
-      "capability_tier": "B_PUBLIC_ENHANCED",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-030",
-        "D11-R-025"
       ]
     },
     {
@@ -1487,31 +1137,6 @@
       ]
     },
     {
-      "case_id": "GC-BC-01-BLOCK-001",
-      "title": "BC-01 阻断样本",
-      "capability_id": "BC-01",
-      "capability_tier": "B_PUBLIC_ENHANCED",
-      "target_stage": 1,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-032",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-BC-02-POS-001",
       "title": "BC-02 正向成立样本",
       "capability_id": "BC-02",
@@ -1584,31 +1209,6 @@
       "source_refs": [
         "D13-R-033",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-BC-02-BLOCK-001",
-      "title": "BC-02 阻断样本",
-      "capability_id": "BC-02",
-      "capability_tier": "B_PUBLIC_ENHANCED",
-      "target_stage": 2,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-033",
-        "D11-R-025"
       ]
     },
     {
@@ -1687,31 +1287,6 @@
       ]
     },
     {
-      "case_id": "GC-C-01-BLOCK-001",
-      "title": "C-01 阻断样本",
-      "capability_id": "C-01",
-      "capability_tier": "C_PUBLIC_CONDITIONAL",
-      "target_stage": 2,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-035",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-C-02-POS-001",
       "title": "C-02 正向成立样本",
       "capability_id": "C-02",
@@ -1784,31 +1359,6 @@
       "source_refs": [
         "D13-R-036",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-C-02-BLOCK-001",
-      "title": "C-02 阻断样本",
-      "capability_id": "C-02",
-      "capability_tier": "C_PUBLIC_CONDITIONAL",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-036",
-        "D11-R-025"
       ]
     },
     {
@@ -1887,31 +1437,6 @@
       ]
     },
     {
-      "case_id": "GC-C-03-BLOCK-001",
-      "title": "C-03 阻断样本",
-      "capability_id": "C-03",
-      "capability_tier": "C_PUBLIC_CONDITIONAL",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-037",
-        "D11-R-025"
-      ]
-    },
-    {
       "case_id": "GC-C-04-POS-001",
       "title": "C-04 正向成立样本",
       "capability_id": "C-04",
@@ -1984,31 +1509,6 @@
       "source_refs": [
         "D13-R-038",
         "D11-R-024"
-      ]
-    },
-    {
-      "case_id": "GC-C-04-BLOCK-001",
-      "title": "C-04 阻断样本",
-      "capability_id": "C-04",
-      "capability_tier": "C_PUBLIC_CONDITIONAL",
-      "target_stage": 4,
-      "input_profile": {
-        "scenario": "block",
-        "coverage_state": "SUSPENDED",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "boundary_state": "D_NON_PUBLIC_OR_FORENSIC"
-      },
-      "expected": {
-        "result_type": "BLOCK",
-        "rule_gate_status": "BLOCK",
-        "evidence_gate_status": "BLOCK",
-        "release_gate": "internal_review_release",
-        "release_decision": "BLOCK"
-      },
-      "source_refs": [
-        "D13-R-038",
-        "D11-R-025"
       ]
     },
     {

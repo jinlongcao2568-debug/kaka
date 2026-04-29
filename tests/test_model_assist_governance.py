@@ -77,7 +77,7 @@ class ModelAssistGovernanceTests(unittest.TestCase):
         self.assertFalse(assist["formal_fact_write_enabled"])
         self.assertFalse(assist["customer_visible"])
         self.assertTrue(summary["model_output_not_final_fact"])
-        self.assertTrue(summary["no_private_data_to_model_without_policy"])
+        self.assertTrue(summary["model_input_governance_policy_enforced"])
         self.assertTrue(summary["golden_case_refs"])
 
     def test_stage4_verification_readback_carries_evidence_summary_assist(self) -> None:

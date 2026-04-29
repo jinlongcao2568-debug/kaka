@@ -84,7 +84,7 @@
     },
     {
       "actionId": "review_request_more_material",
-      "appliesToObjects": ["review_queue_profile", "private_supplement_record_metadata"],
+      "appliesToObjects": ["review_queue_profile", "governed_supplement_record_metadata"],
       "surfaceModes": ["preview-only"],
       "requiresApprovalChain": false,
       "requiresAuditTrace": true,

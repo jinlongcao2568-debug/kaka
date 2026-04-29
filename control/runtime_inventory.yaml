@@ -244,7 +244,7 @@ future_unlock_domain_map:
     projected_from_decision: "contracts/release/future_unlock_decision_matrix.json#capability_domains[external_export_surface]"
 never_default_open_capabilities:
   - "personal contact channels"
-  - "D-tier or private inputs on external surfaces"
+  - "D-tier or governed inputs on external surfaces"
   - "direct stage8/stage9 object export"
 notes:
   - "Future external tier is reserved only and not released."

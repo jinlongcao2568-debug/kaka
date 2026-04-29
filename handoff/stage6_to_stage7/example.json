@@ -4,7 +4,7 @@
   "authority_closure_checks": [
     "required_payload_fields_are_minimum_producer_fields",
     "stage7_consumes_authoritative_fields_without_recomputing_stage6_decisions",
-    "private_supplement_content_is_not_in_required_payload"
+    "governed_supplement_content_is_not_in_required_payload"
   ],
   "payload": {
     "project_id": "PRJ-001",
@@ -28,10 +28,10 @@
     "minimum_release_level": "INTERNAL_OPERABLE",
     "linked_review_request_id_optional": "RR-PRJ-001",
     "missing_condition_family_optional": "MISSING_EVIDENCE",
-    "private_supplement_record_id_optional": "SUP-PRJ-001",
-    "private_supplement_release_state_optional": "REVIEW_ELIGIBLE",
-    "private_supplement_usable_scope_optional": "REVIEW_ONLY",
-    "private_supplement_written_back_policy_optional": "GOVERNANCE_SINK_ONLY",
+    "governed_supplement_record_id_optional": "SUP-PRJ-001",
+    "governed_supplement_release_state_optional": "REVIEW_ELIGIBLE",
+    "governed_supplement_usable_scope_optional": "REVIEW_ONLY",
+    "governed_supplement_written_back_policy_optional": "GOVERNANCE_SINK_ONLY",
     "action_family": "REVIEW_ONLY",
     "challenger_profile_id": "CH-PRJ-001",
     "focus_bidder_id": "BID-PRJ-001-01",

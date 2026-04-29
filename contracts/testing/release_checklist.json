@@ -396,7 +396,7 @@
         },
         {
           "itemId": "REL-069B",
-          "text": "Stage 7 consumes Stage 6 formal inputs and blocks/reviews when H-06 critical payload fields are missing instead of privately补造关键主输入。",
+          "text": "Stage 7 consumes Stage 6 formal inputs and blocks/reviews when H-06 critical payload fields are missing instead of 私下补造关键主输入。",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-D"
@@ -709,7 +709,7 @@
       "items": [
         {
           "itemId": "REL-100",
-          "text": "service hardcode anti-regression is active: stage6-9 services still route through shared runtime and do not regrow private governance loops.",
+          "text": "service hardcode anti-regression is active: stage6-9 services still route through shared runtime and do not regrow local governance loops.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-052-B"
@@ -733,7 +733,7 @@
         },
         {
           "itemId": "REL-103",
-          "text": "Stage 9 second loop anti-regression is active: no private _run_policy_chain, no direct runtime.executor.execute, and permission/governance/semantic traces remain present.",
+          "text": "Stage 9 second loop anti-regression is active: no local _run_policy_chain, no direct runtime.executor.execute, and permission/governance/semantic traces remain present.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-052-B"
@@ -757,7 +757,7 @@
         },
         {
           "itemId": "REL-106",
-          "text": "service hardcode / resolver bypass / second loop guard is active: stage7-9 services do not instantiate private runtime chains or bypass the unified spine.",
+          "text": "service hardcode / resolver bypass / second loop guard is active: stage7-9 services do not instantiate local runtime chains or bypass the unified spine.",
           "blocking": true,
           "sourceRefs": [
             "D11-R-053-P"
@@ -965,7 +965,7 @@
         },
         {
           "itemId": "REL-135",
-          "text": "Source/vendor externalized usage remains denied for personal, private or unauthorized channels even when future unlock prerequisites are otherwise discussed.",
+          "text": "Source/vendor externalized usage remains denied for personal, governed or unauthorized channels even when future unlock prerequisites are otherwise discussed.",
           "blocking": true,
           "sourceRefs": [
             "D13-R-073-A"

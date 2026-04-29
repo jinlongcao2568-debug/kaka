@@ -131,7 +131,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(payload["operator_console"]["real_public_source_runner_entry"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_public_source_runner_entry"]["entry_capture_enabled"])
         self.assertTrue(payload["operator_console"]["real_public_source_runner_entry"]["attachment_capture_enabled"])
-        self.assertFalse(payload["operator_console"]["real_public_source_runner_entry"]["uncontrolled_crawler_enabled"])
+        self.assertFalse(payload["operator_console"]["real_public_source_runner_entry"]["unapproved_capture_enabled"])
         self.assertFalse(payload["operator_console"]["real_public_source_runner_entry"]["real_provider_call_enabled"])
         self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["repository_backed_readback"])
@@ -165,7 +165,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertEqual(profiles["surface_id"], "operator_real_public_source_profiles")
         self.assertGreaterEqual(profiles["entry_profile_count"], 1)
         self.assertGreaterEqual(profiles["attachment_profile_count"], 1)
-        self.assertFalse(profiles["uncontrolled_crawler_enabled"])
+        self.assertFalse(profiles["unapproved_capture_enabled"])
         self.assertFalse(profiles["real_provider_call_enabled"])
         self.assertIn("GGZY-DEAL-LIST", {item["profile_id"] for item in profiles["entry_profiles"]})
         self.assertIn("BEIJING-STANDARD-BIDDING-PDF", {item["profile_id"] for item in profiles["attachment_profiles"]})
@@ -213,7 +213,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             self.assertEqual(entry_payload["run_record"]["profile_id"], "GGZY-DEAL-LIST")
             self.assertEqual(entry_payload["run_record"]["snapshot_id_optional"], "REAL-ENTRY-GGZY-001")
             self.assertTrue(entry_payload["repository_backed_readback"])
-            self.assertFalse(entry_payload["uncontrolled_crawler_enabled"])
+            self.assertFalse(entry_payload["unapproved_capture_enabled"])
             self.assertFalse(entry_payload["real_provider_call_enabled"])
             fetch_entry.assert_called_once()
 
@@ -235,7 +235,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             self.assertEqual(runs["surface_id"], "operator_real_public_source_task_runs")
             self.assertEqual(runs["run_count"], 2)
             self.assertTrue(runs["repository_backed_readback"])
-            self.assertFalse(runs["uncontrolled_crawler_enabled"])
+            self.assertFalse(runs["unapproved_capture_enabled"])
             self.assertFalse(runs["real_provider_call_enabled"])
             self.assertEqual(
                 {run["profile_id"] for run in runs["runs"]},
@@ -280,7 +280,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(created["repository_backed_readback"])
         self.assertFalse(created["stage2_fetch_enabled"])
         self.assertFalse(created["real_external_fetch_enabled"])
-        self.assertFalse(created["crawler_enabled"])
+        self.assertFalse(created["unregistered_capture_enabled"])
         self.assertFalse(created["live_execution_enabled"])
         self.assertFalse(created["stage2_handoff_intent"]["fetch_enabled"])
         queue_item_id = created["scheduler_task"]["queue_item_id"]
@@ -293,7 +293,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(readback["repository_backed"])
         self.assertTrue(readback["replayable"])
         self.assertFalse(readback["fetch_execution"]["stage2_fetch_enabled"])
-        self.assertFalse(readback["fetch_execution"]["crawler_enabled"])
+        self.assertFalse(readback["fetch_execution"]["unregistered_capture_enabled"])
         self.assertFalse(readback["fetch_execution"]["real_external_fetch_enabled"])
         self.assertFalse(readback["live_execution_enabled"])
 
@@ -319,7 +319,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertEqual(imported["scheduler_task"]["task_id"], "IMPORT-PROJ-OPERATOR-IMPORT-001")
         self.assertFalse(imported["stage2_fetch_enabled"])
         self.assertFalse(imported["real_external_fetch_enabled"])
-        self.assertFalse(imported["crawler_enabled"])
+        self.assertFalse(imported["unregistered_capture_enabled"])
         self.assertFalse(imported["live_execution_enabled"])
 
         scheduler_response = client.request("GET", "/operator-console/scheduler-status")
@@ -331,7 +331,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(scheduler_status["repository_backed"])
         self.assertEqual(scheduler_status["queue_status_counts"]["queued"], 2)
         self.assertFalse(scheduler_status["stage2_fetch_enabled"])
-        self.assertFalse(scheduler_status["crawler_enabled"])
+        self.assertFalse(scheduler_status["unregistered_capture_enabled"])
         self.assertFalse(scheduler_status["real_external_fetch_enabled"])
         self.assertFalse(scheduler_status["external_queue_connection_enabled"])
 

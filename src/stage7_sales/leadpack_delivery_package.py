@@ -257,11 +257,6 @@ def _approved_customer_visible_unlock_summary(
         inputs.get("unreviewed_inference_present")
     ):
         blocking_reasons.append("unreviewed_inference_customer_visible_blocked")
-    source_data_class = str(inputs.get("source_data_class", "") or "").strip().upper()
-    if source_data_class in {"PRIVATE", "GRAY", "D_TIER", "NON_PUBLIC"} or _truthy(
-        inputs.get("private_or_gray_data_present")
-    ):
-        blocking_reasons.append("private_or_gray_data_customer_visible_blocked")
     if _truthy(inputs.get("formal_legal_document_auto_send_requested")) or _truthy(
         inputs.get("legal_document_auto_send_requested")
     ):

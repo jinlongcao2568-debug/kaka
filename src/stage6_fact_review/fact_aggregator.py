@@ -92,7 +92,7 @@ def _governance_guard_summary(result: Any) -> dict[str, Any]:
     }
 
 
-def _private_supplement_carrier_summary(
+def _governed_supplement_carrier_summary(
     supplement: Mapping[str, Any],
     *,
     supplement_loop_state: str,
@@ -112,7 +112,7 @@ def _private_supplement_carrier_summary(
         "supplement_loop_state": supplement_loop_state,
         "impact_readiness_state": release_state,
         "impact_decision_trace": {
-            "source": "stage6_private_supplement_record",
+            "source": "stage6_governed_supplement_record",
             "stage6_internal_runtime_allowed": stage6_internal_runtime_allowed,
             "stage6_internal_impact_allowed": release_state == "IMPACT_ELIGIBLE" and stage6_internal_runtime_allowed,
             "stage7_formal_surface_allowed": False,
@@ -139,7 +139,7 @@ class ProjectFactAggregator:
         evidence: Mapping[str, Any],
         rule_gate: Mapping[str, Any],
         evidence_gate: Mapping[str, Any],
-        private_supplement_carrier_summary: Mapping[str, Any] | None,
+        governed_supplement_carrier_summary: Mapping[str, Any] | None,
     ) -> dict[str, Any]:
         refs = {
             "project_id": project_fact.get("project_id"),
@@ -153,9 +153,9 @@ class ProjectFactAggregator:
             "rule_gate_decision_id": rule_gate.get("gate_id") or inputs.get("rule_gate_decision_id"),
             "evidence_gate_decision_id": evidence_gate.get("gate_id") or inputs.get("evidence_gate_decision_id"),
             "review_request_id": inputs.get("linked_review_request_id_optional") or inputs.get("review_request_id"),
-            "private_supplement_record_id_optional": (
-                private_supplement_carrier_summary.get("supplement_id")
-                if isinstance(private_supplement_carrier_summary, Mapping)
+            "governed_supplement_record_id_optional": (
+                governed_supplement_carrier_summary.get("supplement_id")
+                if isinstance(governed_supplement_carrier_summary, Mapping)
                 else None
             ),
             "source_document_ref": inputs.get("source_document_ref"),
@@ -286,7 +286,7 @@ class ProjectFactAggregator:
         rule_gate: Mapping[str, Any],
         evidence_gate: Mapping[str, Any],
         semantic_state: StatePacket,
-        private_supplement_carrier_summary: Mapping[str, Any] | None,
+        governed_supplement_carrier_summary: Mapping[str, Any] | None,
         now: str,
     ) -> dict[str, Any]:
         rule_gate_status = str(project_fact.get("rule_gate_status"))
@@ -324,7 +324,7 @@ class ProjectFactAggregator:
             evidence=evidence,
             rule_gate=rule_gate,
             evidence_gate=evidence_gate,
-            private_supplement_carrier_summary=private_supplement_carrier_summary,
+            governed_supplement_carrier_summary=governed_supplement_carrier_summary,
         )
         required_source_ref_keys = (
             "project_fact_id",
@@ -410,14 +410,14 @@ class ProjectFactAggregator:
         if missing_source_refs:
             block_reasons.append("source_object_refs_missing:" + ",".join(missing_source_refs))
 
-        if linked_review_request_id and not private_supplement_carrier_summary:
-            downgrade_reasons.append("private_supplement_unavailable_for_review_request")
-        elif private_supplement_carrier_summary:
-            supplement_trace = private_supplement_carrier_summary.get("impact_decision_trace", {})
+        if linked_review_request_id and not governed_supplement_carrier_summary:
+            downgrade_reasons.append("governed_supplement_unavailable_for_review_request")
+        elif governed_supplement_carrier_summary:
+            supplement_trace = governed_supplement_carrier_summary.get("impact_decision_trace", {})
             if not supplement_trace.get("stage6_internal_runtime_allowed", False):
-                block_reasons.append("private_supplement_internal_runtime_blocked")
+                block_reasons.append("governed_supplement_internal_runtime_blocked")
             if not supplement_trace.get("stage6_internal_impact_allowed", False):
-                downgrade_reasons.append("private_supplement_not_impact_ready")
+                downgrade_reasons.append("governed_supplement_not_impact_ready")
 
         if semantic_state.semantic_decision_state == "BLOCK":
             block_reasons.append("semantic_decision_state=BLOCK")
@@ -776,15 +776,15 @@ class ProjectFactAggregator:
             "linked_review_request_id_optional": review_request_id,
             "missing_condition_family_optional": missing_condition_family,
             "impact_decision_trace": {
-                "source": "stage6_private_supplement_record",
+                "source": "stage6_governed_supplement_record",
                 "stage6_internal_runtime_allowed": False,
                 "stage6_internal_impact_allowed": False,
                 "stage7_formal_surface_allowed": False,
                 "external_or_live_allowed": False,
             },
         }
-        private_supplement_record_optional: Mapping[str, Any] | None = None
-        private_supplement_carrier_summary: dict[str, Any] | None = None
+        governed_supplement_record_optional: Mapping[str, Any] | None = None
+        governed_supplement_carrier_summary: dict[str, Any] | None = None
         supplement_requested = bool(
             review_request_id
             and (
@@ -804,8 +804,8 @@ class ProjectFactAggregator:
             elif get_flag(flags, "supplement_ready_for_impact"):
                 supplement_release_state = "IMPACT_ELIGIBLE"
                 supplement_loop_state = "IMPACT_READY"
-            private_supplement_record_optional = self.store.build_record(
-                "private_supplement_record",
+            governed_supplement_record_optional = self.store.build_record(
+                "governed_supplement_record",
                 {
                     "supplement_id": inputs.get("supplement_id", build_id("SUP", project_id)),
                     "project_id": project_id,
@@ -825,8 +825,8 @@ class ProjectFactAggregator:
                     ),
                 },
             ).data
-            private_supplement_carrier_summary = _private_supplement_carrier_summary(
-                private_supplement_record_optional,
+            governed_supplement_carrier_summary = _governed_supplement_carrier_summary(
+                governed_supplement_record_optional,
                 supplement_loop_state=supplement_loop_state,
                 missing_condition_family=missing_condition_family,
             )
@@ -834,13 +834,13 @@ class ProjectFactAggregator:
                 "supplement_loop_state": supplement_loop_state,
                 "linked_review_request_id_optional": review_request_id,
                 "missing_condition_family_optional": missing_condition_family,
-                "private_supplement_record_id_optional": private_supplement_record_optional.get("supplement_id"),
-                "private_supplement_release_state_optional": private_supplement_record_optional.get("release_state"),
-                "private_supplement_usable_scope_optional": private_supplement_record_optional.get("usable_scope"),
-                "private_supplement_written_back_policy_optional": private_supplement_record_optional.get("written_back_policy"),
-                "impact_readiness_state": private_supplement_carrier_summary.get("impact_readiness_state"),
-                "impact_decision_trace": private_supplement_carrier_summary.get("impact_decision_trace"),
-                "private_supplement_carrier_summary": private_supplement_carrier_summary,
+                "governed_supplement_record_id_optional": governed_supplement_record_optional.get("supplement_id"),
+                "governed_supplement_release_state_optional": governed_supplement_record_optional.get("release_state"),
+                "governed_supplement_usable_scope_optional": governed_supplement_record_optional.get("usable_scope"),
+                "governed_supplement_written_back_policy_optional": governed_supplement_record_optional.get("written_back_policy"),
+                "impact_readiness_state": governed_supplement_carrier_summary.get("impact_readiness_state"),
+                "impact_decision_trace": governed_supplement_carrier_summary.get("impact_decision_trace"),
+                "governed_supplement_carrier_summary": governed_supplement_carrier_summary,
             }
 
         report_payload = {
@@ -1169,7 +1169,7 @@ class ProjectFactAggregator:
             rule_gate=rule_gate,
             evidence_gate=evidence_gate,
             semantic_state=semantic_state,
-            private_supplement_carrier_summary=private_supplement_carrier_summary,
+            governed_supplement_carrier_summary=governed_supplement_carrier_summary,
             now=now,
         )
 
@@ -1206,13 +1206,13 @@ class ProjectFactAggregator:
         if review_request_id:
             handoff["linked_review_request_id_optional"] = review_request_id
             handoff["missing_condition_family_optional"] = missing_condition_family
-        if private_supplement_record_optional:
-            handoff["private_supplement_record_id_optional"] = private_supplement_record_optional.get("supplement_id")
-            handoff["private_supplement_release_state_optional"] = private_supplement_record_optional.get("release_state")
-            handoff["private_supplement_usable_scope_optional"] = private_supplement_record_optional.get("usable_scope")
-            handoff["private_supplement_written_back_policy_optional"] = private_supplement_record_optional.get("written_back_policy")
-        if private_supplement_carrier_summary:
-            handoff["private_supplement_carrier_summary"] = private_supplement_carrier_summary
+        if governed_supplement_record_optional:
+            handoff["governed_supplement_record_id_optional"] = governed_supplement_record_optional.get("supplement_id")
+            handoff["governed_supplement_release_state_optional"] = governed_supplement_record_optional.get("release_state")
+            handoff["governed_supplement_usable_scope_optional"] = governed_supplement_record_optional.get("usable_scope")
+            handoff["governed_supplement_written_back_policy_optional"] = governed_supplement_record_optional.get("written_back_policy")
+        if governed_supplement_carrier_summary:
+            handoff["governed_supplement_carrier_summary"] = governed_supplement_carrier_summary
         handoff[STAGE6_PRODUCT_PACKAGE_READINESS_KEY] = product_package_readiness
 
         inputs_out = dict(inputs)
@@ -1270,9 +1270,9 @@ class ProjectFactAggregator:
             "product_package_readiness": product_package_readiness,
         }
         inputs_out[STAGE6_PRODUCT_PACKAGE_READINESS_KEY] = product_package_readiness
-        inputs_out["private_supplement_record_optional"] = private_supplement_record_optional
-        if private_supplement_carrier_summary:
-            inputs_out["private_supplement_carrier_summary"] = private_supplement_carrier_summary
+        inputs_out["governed_supplement_record_optional"] = governed_supplement_record_optional
+        if governed_supplement_carrier_summary:
+            inputs_out["governed_supplement_carrier_summary"] = governed_supplement_carrier_summary
         inputs_out["stage6_review_queue_policy_trace"] = queue_policy_state.trace
         inputs_out["stage6_competitor_confidence_trace"] = competitor_policy_state.trace
         inputs_out["stage6_legal_action_resolution_trace"] = legal_action_resolution_state.trace

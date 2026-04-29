@@ -19,7 +19,7 @@ declared_changed_paths:
   - contracts/rules/rule_catalog.json
   - contracts/schemas/review_queue_profile.schema.json
   - contracts/schemas/report_record.schema.json
-  - contracts/schemas/private_supplement_record.schema.json
+  - contracts/schemas/governed_supplement_record.schema.json
   - handoff/stage4_to_stage5/**
   - handoff/stage5_to_stage6/**
   - handoff/stage6_to_stage7/**
@@ -38,7 +38,7 @@ impacted_assets:
     - contracts/rules/rule_catalog.json
     - contracts/schemas/review_queue_profile.schema.json
     - contracts/schemas/report_record.schema.json
-    - contracts/schemas/private_supplement_record.schema.json
+    - contracts/schemas/governed_supplement_record.schema.json
   handoff:
     - handoff/stage4_to_stage5
     - handoff/stage5_to_stage6
@@ -69,7 +69,7 @@ source_of_truth_refs:
     - contracts/rules/rule_catalog.json
     - contracts/schemas/review_queue_profile.schema.json
     - contracts/schemas/report_record.schema.json
-    - contracts/schemas/private_supplement_record.schema.json
+    - contracts/schemas/governed_supplement_record.schema.json
   handoff:
     - handoff/stage4_to_stage5/contract.json
     - handoff/stage5_to_stage6/contract.json
@@ -82,7 +82,7 @@ allowed_modification_paths:
   - contracts/rules/rule_catalog.json
   - contracts/schemas/review_queue_profile.schema.json
   - contracts/schemas/report_record.schema.json
-  - contracts/schemas/private_supplement_record.schema.json
+  - contracts/schemas/governed_supplement_record.schema.json
   - handoff/stage4_to_stage5/**
   - handoff/stage5_to_stage6/**
   - handoff/stage6_to_stage7/**

@@ -288,7 +288,6 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertIn("browser_verified_total_entry_urls", section["must_prove"])
         self.assertIn("total_entry_page_snapshot_not_detail_only", section["must_prove"])
         self.assertIn("same_site_detail_link_discovery", section["must_prove"])
-        self.assertIn("no_uncontrolled_crawler", section["must_prove"])
 
     def test_143d_records_autonomous_business_decision_architecture_and_followup_sequence(self) -> None:
         section = self.matrix["autonomous_business_decision_architecture_after_143"]

@@ -3151,7 +3151,7 @@ def build_operator_customer_access_readiness_surface(
                 "entry_visible": True,
                 "entry_profile_count": len(REAL_PUBLIC_ENTRY_PROFILES),
                 "attachment_profile_count": len(REAL_PUBLIC_ATTACHMENT_PROFILES),
-                "uncontrolled_crawler_enabled": False,
+                "unapproved_capture_enabled": False,
                 "real_provider_call_enabled": False,
             },
             "real_public_source_runner_entry": {
@@ -3167,7 +3167,7 @@ def build_operator_customer_access_readiness_surface(
                 "entry_fetch_mode": REAL_PUBLIC_ENTRY_FETCH_MODE,
                 "attachment_fetch_mode": REAL_PUBLIC_ATTACHMENT_FETCH_MODE,
                 "repository_backed_readback": True,
-                "uncontrolled_crawler_enabled": False,
+                "unapproved_capture_enabled": False,
                 "real_provider_call_enabled": False,
             },
             "real_public_source_task_run_list": {
@@ -3177,7 +3177,7 @@ def build_operator_customer_access_readiness_surface(
                 "entry_visible": True,
                 "repository_backed_readback": True,
                 "source": "operator_action_log",
-                "uncontrolled_crawler_enabled": False,
+                "unapproved_capture_enabled": False,
                 "real_provider_call_enabled": False,
             },
             "full_chain_run_entry": {

@@ -71,7 +71,7 @@ class Stage2HandoffIntent:
     consumer_stage: str
     intent_state: str
     fetch_enabled: bool
-    crawler_enabled: bool
+    unregistered_capture_enabled: bool
     real_external_fetch_enabled: bool
     handoff_payload: dict[str, Any]
     consumer_must_not_recompute_fields: list[str]

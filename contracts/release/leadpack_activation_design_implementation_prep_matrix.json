@@ -229,7 +229,7 @@
           "direct Stage 8/9 object export appears",
           "external delivery or live execution is requested",
           "approval or audit chain is bypassed",
-          "D-tier or private input leakage is detected"
+          "D-tier or governed input leakage is detected"
         ],
         "resulting_state": "ACTIVATION_DESIGN_PREP_EMERGENCY_OFF",
         "authority_roles": [

@@ -11,9 +11,9 @@
 
 ## 1. 导航口径
 
+- 本图承接 `PTL-I100-OPEN-CAPABILITY-BASELINE`：产品必需能力按 dedicated current_task 分包逐级开发；自动退款执行不实现。
 - 本图只表达阶段 1-9 主链该如何理解、上下游怎么衔接、每阶段消费什么和产出什么。
 - 本图不表达当前 phase/readiness 数值快照，不替代 `control/repo_status.md`、`control/milestone_status.yaml`。
-- 本图承接 `PTL-I100-OPEN-CAPABILITY-BASELINE`：除自动退款执行和禁止的非公开 / 灰色能力外，产品必需能力都是目标能力，必须逐级受控开放。
 - 本图中的 `controlled-opening-required` 表示未通过 provider config、sandbox、approval、audit、operator action、field allowlist/masking、dedicated current_task 与验收前不能 live，不表示永久不做。
 - 本图不放开 `external release`，不放开 `Stage 8 real execution`，不放开 `Stage 9 real payment / delivery / refund`；自动退款执行不实现，只保留 manual exception / approval-audit / governed review。
 - 各阶段保留 1 个最贴近的导航候选 `packet_id`；更集中的近端候选提示统一放在第 3 节。
@@ -155,11 +155,11 @@
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。
 
-- 当前 active packet：`PTL-I100-143E-autonomous-source-strategy-d-doc-sync`；本轮把 143D 已落成的自动运营能力版图、source strategy、全国聚合非全量实时、北京技术回归-only、首批省级试点、城市缺口适配、商业钩子和 LLM 边界同步进 D 文档补表。默认不执行任意 crawler、未审批 live provider 调用、真实发送、真实支付、真实交付或真实客户下载。
+- 当前 active packet：`PTL-I100-143E-autonomous-source-strategy-d-doc-sync`；本轮把 143D 已落成的自动运营能力版图、source strategy、全国聚合非全量实时、北京技术回归-only、首批省级试点、城市缺口适配、商业钩子和 LLM 边界同步进 D 文档补表。capture、live provider 调用、真实发送、真实支付、真实交付或真实客户下载必须按受控开放 gate 处理。
 - 当前候选池 next candidate：`PTL-I100-143E-autonomous-source-strategy-d-doc-sync` 已进入 active；完成后不自动激活下一包。
 - post-118R 方向选择当前只作导航提示，不自动决定执行顺序，也不自动进入 provider/live 执行。
 - `PTL-I100-127-owner-operator-frontend-and-customer-portal`：已补实际操作台、客户 artifact 门户、审批审计可视化和客户授权下载入口。
-- `PTL-I100-128-real-public-source-field-validation-and-coverage`：已用受控手工公开 snapshot 验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，不绕登录/验证码/反爬；真实站点实战仍留给 131 或后续按站点 dedicated packet。
+- `PTL-I100-128-real-public-source-field-validation-and-coverage`：已用受控手工公开 snapshot 验证 114A-114I source adapters、Stage3 parser 和 Stage4 public verification，登录态、challenge 和 source policy 状态进入治理记录；真实站点实战仍留给 131 或后续按站点 dedicated packet。
 - `PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund`：已接企业微信、邮件、短信/电话、CRM、报价、支付、交付 provider binding/readback；自动退款仍不实现，真实调用仍需审批/审计/operator action。
 - `PTL-I100-130-llm-assisted-parsing-review-and-sales-governance`：已接入受治理的大模型辅助解析、复核、证据摘要和销售话术草稿 readback；模型输出不得直接成为事实或客户结论，不调用真实外部模型 provider。
 - `PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout`：在 127-130 完成后跑受控真实世界端到端试点，已作为产品 closeout 门完成。

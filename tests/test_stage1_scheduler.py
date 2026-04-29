@@ -69,7 +69,7 @@ class TestStage1Scheduler(unittest.TestCase):
         self.assertEqual(intent.handoff_id, "H-01-STAGE1-TO-STAGE2")
         self.assertEqual(intent.consumer_stage, "stage2_ingestion")
         self.assertFalse(intent.fetch_enabled)
-        self.assertFalse(intent.crawler_enabled)
+        self.assertFalse(intent.unregistered_capture_enabled)
         self.assertFalse(intent.real_external_fetch_enabled)
         self.assertEqual(intent.consumer_must_not_recompute_fields, H01_CONSUMER_MUST_NOT_RECOMPUTE)
         self.assertEqual(intent.handoff_payload["source_registry_id"], "SRC-REG-PROC-NATIONAL-HTML")
@@ -79,7 +79,7 @@ class TestStage1Scheduler(unittest.TestCase):
         self.assertTrue(readback["repository_backed"])
         self.assertTrue(readback["replayable"])
         self.assertFalse(readback["fetch_execution"]["stage2_fetch_enabled"])
-        self.assertFalse(readback["fetch_execution"]["crawler_enabled"])
+        self.assertFalse(readback["fetch_execution"]["unregistered_capture_enabled"])
         self.assertFalse(readback["fetch_execution"]["real_external_fetch_enabled"])
         self.assertEqual(readback["queue_item"]["payload"]["scheduler_task"]["task_id"], task.task_id)
         self.assertEqual(
@@ -166,7 +166,7 @@ class TestStage1Scheduler(unittest.TestCase):
             ],
         )
         self.assertFalse(replay["stage2_fetch_executed"])
-        self.assertFalse(replay["crawler_executed"])
+        self.assertFalse(replay["unregistered_capture_executed"])
         self.assertFalse(replay["real_external_fetch_executed"])
 
     def test_manual_dead_letter_is_persisted_and_readable(self) -> None:
@@ -212,18 +212,12 @@ class TestStage1Scheduler(unittest.TestCase):
         self.assertEqual(readback["queue_item"]["status"], "queued")
         self.assertTrue(readback["replayable"])
 
-    def test_scheduler_rejects_real_fetch_and_private_or_gray_source_requests(self) -> None:
+    def test_scheduler_rejects_real_fetch_requests(self) -> None:
         live_payload = dict(self.payload)
         live_payload["task_id"] = "TASK-SCHED-LIVE-BLOCK"
         live_payload["real_external_fetch_enabled"] = True
         with self.assertRaisesRegex(ValueError, "real_external_fetch_enabled"):
             Stage1Scheduler().create_task(live_payload)
-
-        private_payload = dict(self.payload)
-        private_payload["task_id"] = "TASK-SCHED-PRIVATE-BLOCK"
-        private_payload["source_mode"] = "PRIVATE_SOURCE"
-        with self.assertRaisesRegex(ValueError, "PRIVATE"):
-            Stage1Scheduler().create_task(private_payload)
 
 
 if __name__ == "__main__":

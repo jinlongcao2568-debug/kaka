@@ -80,7 +80,6 @@
 - `rule_gate_decision` 与 `evidence_gate_decision` 缺一不可；
 - `saleable_opportunity` 不得由单条规则、单页公告或销售备注直接生成；
 - `contact_target` 只能来源于合规联系来源；
-- D 层输入不得进入正式公开主模型；
 - 字段级外发、脱敏与审批必须受 D6 / D7 限制，接口层不得擅自放宽。
 
 ---
@@ -95,7 +94,7 @@
 → `rule_gate_decision / evidence_gate_decision / review_request`
 → `field_lineage_record / notice_version_chain / clock_chain_profile`
 → `project_base / public_chain / 核验画像对象`
-→ `private_supplement_record / controlled_exception_record / 备注与说明对象`
+→ `governed_supplement_record / controlled_exception_record / 备注与说明对象`
 
 因此：
 
@@ -182,7 +181,7 @@
 | 项目与统一事实接口组 | `project_base`、`project_fact`、`legal_action_recommendation` | 项目列表、项目详情、统一事实、动作建议 | internal_only |
 | 公开链与追溯接口组 | `public_chain`、`clock_chain_profile`、`notice_version_chain`、`field_lineage_record` | 公开链核验、版本链、时钟链、字段追溯 | internal_only |
 | 规则与证据接口组 | `rule_hit`、`evidence`、`rule_gate_decision`、`evidence_gate_decision`、`review_request` | 规则解释、证据与复核入口 | internal_only |
-| 报告与复核接口组 | `report_record`、`review_queue_profile`、`private_supplement_record` | 报告、复核、补证、导出申请 | internal_only |
+| 报告与复核接口组 | `report_record`、`review_queue_profile`、`governed_supplement_record` | 报告、复核、补证、导出申请 | internal_only |
 | 内部销售接口组 | `challenger_candidate_profile`、`legal_action_actor_profile`、`procurement_decision_actor_profile`、`saleable_opportunity` | 竞争驱动机会与 actor 资源 | external_delivery_blocked |
 | 内部触达接口组 | `contact_target`、`outreach_plan`、`touch_record` | 合规触达准备与触达留痕 | external_delivery_blocked |
 | 线索包交付与回写接口组 | `order_record`、`payment_record`、`delivery_record`、`opportunity_outcome_event` | 内部交付预览、支付草案、交付回写与结果写回 | external_delivery_blocked |
@@ -236,7 +235,7 @@
 |---|---|---|---|
 | `GET` | `/projects/{project_id}/report-record` | `getReportRecord` | 查询报告记录 |
 | `GET` | `/projects/{project_id}/review-queue` | `getReviewQueueProfile` | 查询复核队列 |
-| `GET` | `/projects/{project_id}/private-supplements` | `listPrivateSupplementMetadata` | 只返回元数据，不返回正文 |
+| `GET` | `/projects/{project_id}/governed-supplements` | `listGovernedSupplementMetadata` | 只返回元数据，不返回正文 |
 | `POST` | `/reports/{report_id}/export` | `requestReportExport` | 发起导出申请 |
 | `POST` | `/reports/{report_id}/submit-review` | `submitReportForReview` | 提交复核 |
 
@@ -421,13 +420,12 @@
 - `sales_user` 默认不得直接查看 `field_lineage_record`、`rule_gate_decision`、`evidence_gate_decision`、`review_queue_profile` 原文；
 - `client_readonly` 只能消费经过 D6 / D7 放行的线索包摘要；
 - `delivery_governance_user` 可以查看治理对象元数据，但高限制正文仍需专项审批；
-- 任何角色都不得因为接口存在就默认可见 D 层输入。
 
 ### [D4-R-039] 6.3 高限制对象接口规则
 
 以下对象属于高限制对象，必须按角色、审批链与 release gate 额外裁剪：
 
-- `private_supplement_record`
+- `governed_supplement_record`
 - `controlled_exception_record`
 - `legal_action_actor_profile`
 - `procurement_decision_actor_profile`
@@ -438,7 +436,7 @@
 
 | 对象 | 默认对谁可见 | 返回强度 |
 |---|---|---|
-| `private_supplement_record` | `verification_analyst`、`human_reviewer`、`delivery_governance_user` | 默认只返元数据 |
+| `governed_supplement_record` | `verification_analyst`、`human_reviewer`、`delivery_governance_user` | 默认只返元数据 |
 | `controlled_exception_record` | `delivery_governance_user`、部分 `product_admin` | 默认只返元数据 |
 | `legal_action_actor_profile` | `verification_analyst`、`sales_user`（摘要）、`delivery_governance_user` | 摘要化 |
 | `procurement_decision_actor_profile` | `sales_user`（摘要）、`delivery_governance_user` | 摘要化 |
@@ -468,7 +466,6 @@
 
 1. 请求试图消费未冻结字段或未冻结对象；
 2. 请求路径对应保留态接口但被当作正式执行面调用；
-3. 请求试图穿透 D 层输入形成正式主结论；
 4. 导出、线索包外发或外部交付请求未满足审批链与 release gate；
 5. 触达请求未满足 lawful basis、频控、quiet hours 或 contact policy；
 6. 项目归一、版本链、时钟链或双闸门处于不可接受冲突状态。
@@ -517,7 +514,7 @@
 ### [D4-R-049] 8.5 报告与复核接口组
 
 - 报告接口必须消费 `report_record`，不得导出页面截图或内部 JSON 代替正式交付物；
-- `private_supplement_record` 默认只返元数据；
+- `governed_supplement_record` 默认只返元数据；
 - 任何导出申请必须明确模板、最低 release level 与审批链要求；
 - 报告提交复核后，接口层不得绕过复核直接放行线索包外发导出。
 
@@ -583,7 +580,6 @@
 
 - 直接改写 `project_fact`；
 - 直接把 `review_request` 改成 `AUTO_HIT`；
-- 直接放行 D 层输入进入正式公开主链。
 
 ### [D4-R-057] 9.3 release gate 接口要求
 
@@ -748,7 +744,6 @@ GET /v1/contact-targets
 5. **字段治理测试**：高限制字段不得被未授权角色看到；
 6. **保留态接口测试**：D8 / D9 / D10 未生效时接口统一阻断；
 7. **导出审批测试**：导出申请未满足 release gate 时必须阻断；
-8. **D 层渗透测试**：D 层输入不得通过接口成为正式公开主结论；
 9. **错误码回归测试**：所有正式错误码都能映射到机器目录与阻断语义；
 10. **版本兼容测试**：无破坏性变更混入未升版本发布。
 
@@ -760,8 +755,7 @@ GET /v1/contact-targets
 
 - 从 `rule_hit`、原始公告、CRM 备注或前端状态重算项目主结论；
 - 暴露未冻结字段、未冻结对象或未冻结枚举；
-- 把 D 层输入包装成正式主结论、正式线索包主证或正式动作建议依据；
-- 把 `private_supplement_record`、`controlled_exception_record` 正文默认透给普通角色；
+- 把 `governed_supplement_record`、`controlled_exception_record` 正文默认透给普通角色；
 - 因路径已存在就放行 D8 / D9 / D10 的正式执行面；
 - 让导出接口绕过模板、审批链、字段策略与交付矩阵；
 - 把高限制自然人信息直接返回给销售、外部接收方或未授权角色；

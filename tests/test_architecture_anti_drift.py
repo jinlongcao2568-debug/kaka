@@ -680,7 +680,7 @@ class TestArchitectureAntiDrift(unittest.TestCase):
             "stage9 runtime spine",
         )
 
-    def test_stage9_must_not_regrow_private_policy_loop(self) -> None:
+    def test_stage9_must_not_regrow_governed_policy_loop(self) -> None:
         stage9 = read("src/stage9_delivery/service.py")
         self.assertNotIn("def _run_policy_chain", stage9)
         self.assertNotIn("runtime.executor.execute(", stage9)

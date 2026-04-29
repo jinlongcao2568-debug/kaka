@@ -102,31 +102,6 @@
       "external_promise_note": "coverage state does not grant external software capability"
     },
     {
-      "coverage_id": "CN-D-BLOCK",
-      "scope_type": "forbidden",
-      "region_code": "CN",
-      "source_family": "non_public_or_forensic",
-      "platform_name": "forbidden_or_isolated_sources",
-      "capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
-      "coverage_sellable_state": "SUSPENDED",
-      "public_granularity_state": "UNKNOWN",
-      "fixation_readiness_state": "UNREADY",
-      "retrieval_stability_state": "UNKNOWN",
-      "activation_rules": [
-        "D tier may not activate into formal public chain under any sellable state"
-      ],
-      "source_refs": [
-        "D13-R-039"
-      ],
-      "release_layer_constraints": {
-        "dev_allowed": false,
-        "internal_operable": true,
-        "leadpack_deliverable": false,
-        "external_blocked": true
-      },
-      "external_promise_note": "coverage state does not grant external software capability"
-    },
-    {
       "coverage_id": "CN-A-01-DEFAULT",
       "capability_id": "A-01",
       "capability_tier": "A_PUBLIC_CORE",

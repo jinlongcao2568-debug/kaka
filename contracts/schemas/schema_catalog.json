@@ -491,7 +491,7 @@
         "project_manager_conflict_clue_status"
       ],
       "hard_constraints": [
-        "only public consistency information may be consumed; non-public social insurance data is forbidden in formal public chain"
+        "only public consistency information may be consumed; visibility-review social insurance data is forbidden in formal public chain"
       ]
     },
     {
@@ -750,7 +750,7 @@
       ],
       "downstream_consumers": [
         "review_queue_profile",
-        "private_supplement_record"
+        "governed_supplement_record"
       ],
       "enum_refs": [
         "review_lane",
@@ -1953,7 +1953,7 @@
       ]
     },
     {
-      "object": "private_supplement_record",
+      "object": "governed_supplement_record",
       "stage": "cross_stage",
       "layer": "governance_isolation",
       "required": [

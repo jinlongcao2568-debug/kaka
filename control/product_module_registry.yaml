@@ -44,8 +44,6 @@ open_capability_policy_summary:
     - receipt_invoice_and_settlement
   excluded_capabilities:
     - automated_refund_execution
-    - private_or_non_public_data_collection
-    - gray_source_collection
   refund_boundary: "automated_refund_execution is excluded; refund handling remains manual exception record, manual approval/audit, and governed review only"
   required_gates:
     - provider_config
@@ -282,7 +280,7 @@ stage_module_inventory:
           - PTL-I100-144-market-scan-opportunity-discovery-engine
         exit_criteria:
           - "opportunity candidate、analysis priority、why_analyze / why_skip、run controller 和 state machine 可读回。"
-          - "手工 URL 选择不得成为主流程；本 slice 不执行 Stage2 fetch 或 crawler。"
+          - "手工 URL 选择不得成为主流程；本 slice 不执行 Stage2 fetch 或 capture_adapter。"
         deferred_gaps:
           - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
   - stage_id: stage2_ingestion
@@ -773,7 +771,6 @@ stage_module_inventory:
           - PTL-S8-101-p1-candidate-compliance-boundary-refactor
         pending_packets: []
         exit_criteria:
-          - "不得从灰色来源或未经授权自然人联系方式直接生成正式 contact_target。"
           - "candidate/compliance helper 边界已由 P1 完成，但不得因此放开 Stage8 real execution；真实触达仍是 gated target capability。"
         deferred_gaps: []
       - slice_id: stage8.outreach_plan_touch_record
@@ -1054,7 +1051,7 @@ modules:
     notes:
       - "P7 Stage1 contract-runtime first cut completed in local commit 2dbfb12 and src/stage1_tasking/contract_runtime.py is now part of the formal current-files ledger."
       - "This ledger update closes the Stage1 contract-runtime first cut only; it must not be read as 'Stage1-5 no longer need any future follow-up work'."
-      - "PTL-I100-144 registers src/stage1_tasking/market_scan.py and src/storage/repositories/stage1_market_scan_repo.py as the internal market scan opportunity discovery/readback seam; it does not execute Stage2 fetch or crawler behavior."
+      - "PTL-I100-144 registers src/stage1_tasking/market_scan.py and src/storage/repositories/stage1_market_scan_repo.py as the internal market scan opportunity discovery/readback seam; it does not execute Stage2 fetch or capture execution behavior."
   - module_id: STAGE2-PUBLIC-CHAIN-INGESTION
     stage_scope:
       - stage2_ingestion
@@ -1089,15 +1086,15 @@ modules:
     notes:
       - "P7 Stage2 contract-runtime first cut completed in local commit 2dbfb12 and src/stage2_ingestion/contract_runtime.py is now part of the formal current-files ledger."
       - "This ledger update closes the Stage2 contract-runtime first cut only; downstream Stage3-5 or later runtime work can still exist and must stay under future dedicated packets."
-      - "PTL-I100-114A registers src/stage2_ingestion/public_source_adapters.py as the Stage2 local public source adapter seam; it is sandbox/readback only and does not open uncontrolled live crawling."
-      - "PTL-I100-114D extends the same Stage2 public source adapter seam for Credit China public credit, administrative penalty, and credit exception records; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
-      - "PTL-I100-114E extends the same Stage2 public source adapter seam for national enterprise credit publicity system public enterprise, registration, and abnormal-operation records; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
-      - "PTL-I100-114F extends the same Stage2 public source adapter seam for government procurement public site notice, result, and attachment carriers; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
-      - "PTL-I100-114G extends the same Stage2 public source adapter seam for tender agency public site tender, correction, candidate, and award-result notice carriers; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
-      - "PTL-I100-114H extends the same Stage2 public source adapter seam for tenderer/procurer/owner public notice pages owner, correction, candidate, and award-result notice carriers; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
-      - "PTL-I100-114I extends the same Stage2 public source adapter seam for industry authority filing pages construction permit, contract filing, completion acceptance, and performance filing carriers; it remains allowlisted/sandbox/readback only and does not open uncontrolled live crawling."
-      - "PTL-I100-128 registers src/stage2_ingestion/source_validation.py and control/real_public_source_field_validation_report.yaml as the Stage2-4 field validation coverage seam; it uses controlled manual public snapshots and does not open uncontrolled live crawling."
-      - "PTL-I100-133A registers src/stage2_ingestion/real_public_url_fetcher.py as the first browser-verified real public total-entry URL fetcher; it only allows explicit entry-page allowlists, does not use fixed detail pages as task entry, and does not open uncontrolled crawling."
+      - "PTL-I100-114A registers src/stage2_ingestion/public_source_adapters.py as the Stage2 local public source adapter seam; it is sandbox/readback only and does not open unapproved live capture."
+      - "PTL-I100-114D extends the same Stage2 public source adapter seam for Credit China public credit, administrative penalty, and credit exception records; it remains allowlisted/sandbox/readback only and does not open unapproved live capture."
+      - "PTL-I100-114E extends the same Stage2 public source adapter seam for national enterprise credit publicity system public enterprise, registration, and abnormal-operation records; it remains allowlisted/sandbox/readback only and does not open unapproved live capture."
+      - "PTL-I100-114F extends the same Stage2 public source adapter seam for government procurement public site notice, result, and attachment carriers; it remains allowlisted/sandbox/readback only and does not open unapproved live capture."
+      - "PTL-I100-114G extends the same Stage2 public source adapter seam for tender agency public site tender, correction, candidate, and award-result notice carriers; it remains allowlisted/sandbox/readback only and does not open unapproved live capture."
+      - "PTL-I100-114H extends the same Stage2 public source adapter seam for tenderer/procurer/owner public notice pages owner, correction, candidate, and award-result notice carriers; it remains allowlisted/sandbox/readback only and does not open unapproved live capture."
+      - "PTL-I100-114I extends the same Stage2 public source adapter seam for industry authority filing pages construction permit, contract filing, completion acceptance, and performance filing carriers; it remains allowlisted/sandbox/readback only and does not open unapproved live capture."
+      - "PTL-I100-128 registers src/stage2_ingestion/source_validation.py and control/real_public_source_field_validation_report.yaml as the Stage2-4 field validation coverage seam; it uses controlled manual public snapshots and does not open unapproved live capture."
+      - "PTL-I100-133A registers src/stage2_ingestion/real_public_url_fetcher.py as the first browser-verified real public total-entry URL fetcher; it only allows explicit entry-page allowlists, does not use fixed detail pages as task entry, and does not open unapproved capture."
   - module_id: STAGE3-PARSED-TRUTH-LAYER
     stage_scope:
       - stage3_parsing

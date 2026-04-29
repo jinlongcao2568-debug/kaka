@@ -292,7 +292,7 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
             never_default_open,
             {
                 "personal_contact_channels",
-                "d_tier_or_private_inputs_to_external_surfaces",
+                "d_tier_or_governed_inputs_to_external_surfaces",
                 "direct_stage8_stage9_object_export",
             },
         )

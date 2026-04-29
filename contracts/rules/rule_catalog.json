@@ -602,7 +602,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-01",
       "upstream_objects": [
         "public_chain",
@@ -617,11 +616,9 @@
         "D13-R-013"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -638,7 +635,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-05",
       "upstream_objects": [
         "notice_version_chain",
@@ -653,11 +649,9 @@
         "D13-R-017"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -674,7 +668,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-02",
       "upstream_objects": [
         "clock_chain_profile",
@@ -689,11 +682,9 @@
         "D13-R-014"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -710,7 +701,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-06",
       "upstream_objects": [
         "project_base",
@@ -725,11 +715,9 @@
         "D13-R-018"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -746,7 +734,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-05",
       "upstream_objects": [
         "notice_version_chain",
@@ -761,11 +748,9 @@
         "D13-R-017"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -782,7 +767,6 @@
       "stage": 5,
       "default_result": "AUTO_HIT",
       "minimum_external_use_grade": "E4_EXTERNAL_ACTION_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-07",
       "upstream_objects": [
         "focus_bidder_verification_profile",
@@ -797,11 +781,9 @@
         "D13-R-019"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -818,7 +800,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-04",
       "upstream_objects": [
         "public_attack_surface",
@@ -833,11 +814,9 @@
         "D13-R-016"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -854,7 +833,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
-      "public_capability_tier": "B_PUBLIC_ENHANCED",
       "capability_id": "B-02",
       "upstream_objects": [
         "project_manager",
@@ -869,11 +847,9 @@
         "D13-R-028"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -890,7 +866,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "B_PUBLIC_ENHANCED",
       "capability_id": "B-02",
       "upstream_objects": [
         "project_manager",
@@ -905,11 +880,9 @@
         "D13-R-028"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -926,7 +899,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
-      "public_capability_tier": "B_PUBLIC_ENHANCED",
       "capability_id": "B-04",
       "upstream_objects": [
         "project_base",
@@ -941,11 +913,9 @@
         "D13-R-030"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -962,7 +932,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "B_PUBLIC_ENHANCED",
       "capability_id": "B-03",
       "upstream_objects": [
         "focus_bidder_verification_profile",
@@ -977,11 +946,9 @@
         "D13-R-029"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -998,7 +965,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "B_PUBLIC_ENHANCED",
       "capability_id": "B-04",
       "upstream_objects": [
         "focus_bidder_verification_profile",
@@ -1013,11 +979,9 @@
         "D13-R-030"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -1034,7 +998,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
       "capability_id": "C-01",
       "upstream_objects": [
         "field_lineage_record"
@@ -1048,11 +1011,9 @@
         "D13-R-035"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -1069,7 +1030,6 @@
       "stage": 5,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
       "capability_id": "C-02",
       "upstream_objects": [
         "evidence_grade_profile"
@@ -1082,11 +1042,9 @@
         "D13-R-036"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -1103,7 +1061,6 @@
       "stage": 5,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
       "capability_id": "C-03",
       "upstream_objects": [
         "field_lineage_record"
@@ -1117,11 +1074,9 @@
         "D13-R-037"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -1138,7 +1093,6 @@
       "stage": 5,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
       "capability_id": "C-04",
       "upstream_objects": [
         "coverage_registry"
@@ -1151,11 +1105,9 @@
         "D13-R-038"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -1172,7 +1124,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "any_object"
@@ -1186,11 +1137,9 @@
         "D13-R-022"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -1207,7 +1156,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "any_object"
@@ -1221,11 +1169,9 @@
         "D13-R-022"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -1242,7 +1188,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "evidence",
@@ -1257,46 +1202,9 @@
         "D13-R-022"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "unresolved version or clock conflict",
         "missing unified project identity"
       ],
-      "notes": [],
-      "business_chain_stage": "高价值线索发现链",
-      "consumer_surfaces": [
-        "INTERNAL_ANALYSIS",
-        "SALES_USAGE"
-      ],
-      "release_layer": "INTERNAL_OPERABLE",
-      "value_priority": "P2"
-    },
-    {
-      "rule_code": "GOV-004",
-      "name": "非法或灰色联系人获取阻断",
-      "topic": "GOV",
-      "status": "DRAFT",
-      "stage": 5,
-      "default_result": "REVIEW_REQUEST",
-      "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
-      "capability_id": "A-10",
-      "upstream_objects": [
-        "contact_target"
-      ],
-      "downstream_objects": [
-        "rule_hit",
-        "review_request"
-      ],
-      "source_refs": [
-        "D3-R-031",
-        "D13-R-022"
-      ],
-      "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
-        "unresolved version or clock conflict",
-        "missing unified project identity"
-      ],
-      "notes": [],
       "business_chain_stage": "高价值线索发现链",
       "consumer_surfaces": [
         "INTERNAL_ANALYSIS",
@@ -1313,7 +1221,6 @@
       "stage": 1,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-01",
       "upstream_objects": [
         "execution_context",
@@ -1328,7 +1235,6 @@
         "D13-R-013"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "missing unified project identity"
       ],
       "notes": [
@@ -1350,7 +1256,6 @@
       "stage": 2,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-01",
       "upstream_objects": [
         "public_chain",
@@ -1365,7 +1270,6 @@
         "D13-R-013"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "missing unified project identity"
       ],
       "notes": [
@@ -1387,7 +1291,6 @@
       "stage": 2,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-01",
       "upstream_objects": [
         "public_chain"
@@ -1401,7 +1304,6 @@
         "D13-R-013"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "missing unified project identity"
       ],
       "notes": [
@@ -1423,7 +1325,6 @@
       "stage": 2,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "C_PUBLIC_CONDITIONAL",
       "capability_id": "C-01",
       "upstream_objects": [
         "notice_version_chain",
@@ -1438,7 +1339,6 @@
         "D13-R-035"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "missing unified project identity"
       ],
       "notes": [
@@ -1460,7 +1360,6 @@
       "stage": 2,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-05",
       "upstream_objects": [
         "notice_version_chain",
@@ -1475,7 +1374,6 @@
         "D13-R-017"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "missing unified project identity"
       ],
       "notes": [
@@ -1497,7 +1395,6 @@
       "stage": 7,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-08",
       "upstream_objects": [
         "sales_lead",
@@ -1534,7 +1431,6 @@
       "stage": 7,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-08",
       "upstream_objects": [
         "saleable_opportunity",
@@ -1573,7 +1469,6 @@
       "stage": 7,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-08",
       "upstream_objects": [
         "offer_recommendation",
@@ -1611,7 +1506,6 @@
       "stage": 8,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "contact_target"
@@ -1651,7 +1545,6 @@
       "stage": 8,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "outreach_plan"
@@ -1686,7 +1579,6 @@
       "stage": 8,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "touch_record",
@@ -1722,7 +1614,6 @@
       "stage": 8,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "contact_target"
@@ -1762,7 +1653,6 @@
       "stage": 3,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "field_lineage_record",
@@ -1799,7 +1689,6 @@
       "stage": 3,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "field_lineage_record"
@@ -1835,7 +1724,6 @@
       "stage": 3,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "field_lineage_record",
@@ -1872,7 +1760,6 @@
       "stage": 4,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "public_attack_surface",
@@ -1909,7 +1796,6 @@
       "stage": 4,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "public_attack_surface",
@@ -1923,7 +1809,6 @@
         "D11-R-047"
       ],
       "blocked_by": [
-        "D_NON_PUBLIC_OR_FORENSIC inputs",
         "identity mismatch"
       ],
       "notes": [
@@ -1945,7 +1830,6 @@
       "stage": 4,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "public_attack_surface",
@@ -1983,7 +1867,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "evidence",
@@ -2020,7 +1903,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "evidence",
@@ -2057,7 +1939,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "rule_hit",
@@ -2094,7 +1975,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "rule_hit",
@@ -2108,8 +1988,7 @@
         "D11-R-047"
       ],
       "blocked_by": [
-        "rule_gate_status=BLOCK",
-        "D_NON_PUBLIC_OR_FORENSIC inputs"
+        "rule_gate_status=BLOCK"
       ],
       "notes": [
         "transition: rule_hit_state -> BLOCKED"
@@ -2130,7 +2009,6 @@
       "stage": 5,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "evidence",
@@ -2168,7 +2046,6 @@
       "stage": 5,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "rule_hit",
@@ -2207,7 +2084,6 @@
       "stage": 5,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "rule_hit",
@@ -2245,7 +2121,6 @@
       "stage": 5,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "rule_hit",
@@ -2280,7 +2155,6 @@
       "stage": 6,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "report_record",
@@ -2318,7 +2192,6 @@
       "stage": 6,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "report_record",
@@ -2356,7 +2229,6 @@
       "stage": 6,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "report_record",
@@ -2394,7 +2266,6 @@
       "stage": 6,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "report_record",
@@ -2431,7 +2302,6 @@
       "stage": 6,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "review_queue_profile"
@@ -2509,7 +2379,6 @@
       "stage": 9,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "saleable_opportunity",
@@ -2550,7 +2419,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "order_record"
@@ -2585,7 +2453,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "payment_record",
@@ -2623,7 +2490,6 @@
       "stage": 9,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "payment_record"
@@ -2658,7 +2524,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "payment_record",
@@ -2697,7 +2562,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "payment_record"
@@ -2735,7 +2599,6 @@
       "stage": 9,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "payment_record",
@@ -2772,7 +2635,6 @@
       "stage": 9,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "delivery_record",
@@ -2813,7 +2675,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "delivery_record"
@@ -2850,7 +2711,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "delivery_record"
@@ -2886,7 +2746,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "delivery_record"
@@ -2923,7 +2782,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "delivery_record"
@@ -2959,7 +2817,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "opportunity_outcome_event",
@@ -2997,7 +2854,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "opportunity_outcome_event"
@@ -3034,7 +2890,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "governance_feedback_event",
@@ -3074,7 +2929,6 @@
       "stage": 9,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "governance_feedback_event"
@@ -3111,7 +2965,6 @@
       "stage": 5,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-02",
       "upstream_objects": [
         "clock_chain_profile",
@@ -3148,7 +3001,6 @@
       "stage": 8,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "contact_target",
@@ -3189,7 +3041,6 @@
       "stage": 8,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "contact_target"
@@ -3225,7 +3076,6 @@
       "stage": 8,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "outreach_plan",
@@ -3264,7 +3114,6 @@
       "stage": 8,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "touch_record",
@@ -3302,7 +3151,6 @@
       "stage": 8,
       "default_result": "BLOCK",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "contact_target",
@@ -3341,7 +3189,6 @@
       "stage": 8,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "touch_record",
@@ -3379,7 +3226,6 @@
       "stage": 5,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E2_REVIEW_READY",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-02",
       "upstream_objects": [
         "clock_chain_profile",
@@ -3416,7 +3262,6 @@
       "stage": 6,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "project_fact",
@@ -3456,7 +3301,6 @@
       "stage": 6,
       "default_result": "REVIEW_REQUEST",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "bidder_candidate",
@@ -3493,7 +3337,6 @@
       "stage": 6,
       "default_result": "CLUE",
       "minimum_external_use_grade": "E3_CLIENT_VISIBLE",
-      "public_capability_tier": "A_PUBLIC_CORE",
       "capability_id": "A-08",
       "upstream_objects": [
         "challenger_candidate_profile",
@@ -3531,7 +3374,6 @@
       "stage": 7,
       "default_result": "OBSERVATION",
       "minimum_external_use_grade": "E1_INTERNAL_ONLY",
-      "public_capability_tier": "D_NON_PUBLIC_OR_FORENSIC",
       "capability_id": "A-10",
       "upstream_objects": [
         "saleable_opportunity",

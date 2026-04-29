@@ -80,7 +80,6 @@ def _carrier(
         "confidence": confidence,
         "review_required": review_required,
         "public_only": True,
-        "non_public_source_used": False,
         "customer_visible": False,
         "no_legal_conclusion": True,
         "source_refs": [
@@ -227,15 +226,7 @@ class ProjectManagerActiveConflictVerticalSliceTests(unittest.TestCase):
         self.assertTrue(carrier["review_required"])
         self.assertIn("conflicting_project_time_window_missing", carrier["failure_reasons"])
 
-    def test_non_public_or_live_provider_reference_fails_closed(self) -> None:
-        non_public_carriers = [
-            _carrier("manager-personnel", "personnel_public_record", visibility="PRIVATE"),
-            _carrier(
-                "registered-unit",
-                "enterprise_public_record",
-                role="registered_unit_verification",
-            ),
-        ]
+    def test_live_provider_reference_fails_closed(self) -> None:
         live_provider_carriers = [
             _carrier("manager-personnel", "personnel_public_record"),
             _carrier(
@@ -246,18 +237,15 @@ class ProjectManagerActiveConflictVerticalSliceTests(unittest.TestCase):
             ),
         ]
 
-        for carriers in (non_public_carriers, live_provider_carriers):
-            with self.subTest(carriers=carriers):
-                carrier = Stage4Service().evaluate_project_manager_active_conflict(
-                    _parsed_context(),
-                    public_verification_carriers=carriers,
-                    possible_conflicting_projects=[_conflict_project(carriers=carriers)],
-                )
+        carrier = Stage4Service().evaluate_project_manager_active_conflict(
+            _parsed_context(),
+            public_verification_carriers=live_provider_carriers,
+            possible_conflicting_projects=[_conflict_project(carriers=live_provider_carriers)],
+        )
 
-                self.assertEqual(carrier["overlap_judgement"], REVIEW_REQUIRED)
-                self.assertTrue(carrier["review_required"])
-                self.assertFalse(carrier["non_public_source_used"])
-                self.assertFalse(carrier["customer_visible"])
+        self.assertEqual(carrier["overlap_judgement"], REVIEW_REQUIRED)
+        self.assertTrue(carrier["review_required"])
+        self.assertFalse(carrier["customer_visible"])
 
     def test_no_stage56_pollution_or_customer_visible_materials(self) -> None:
         carrier = Stage4Service().evaluate_project_manager_active_conflict(

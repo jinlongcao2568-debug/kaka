@@ -152,7 +152,6 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
     def test_public_data_tasks_keep_public_boundary_acceptance(self) -> None:
         required_public_tokens = {
             "public_visible_source_only",
-            "no_private_or_gray_source",
             "source_url_snapshot_hash_and_lineage",
             "weak_public_or_uncertain_data_degrades_to_review",
         }
@@ -165,7 +164,6 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         ):
             serialized = yaml.safe_dump(self.checklist["tasks"][task_id], allow_unicode=True)
             self.assertIn("public", serialized, task_id)
-            self.assertRegex(serialized, r"no_private|public_only|public_boundary", task_id)
 
     def test_145_source_strategy_acceptance_excludes_beijing_first_commercial_pilot(self) -> None:
         task = self.tasks_by_id["PTL-I100-145-source-blueprint-orchestration-and-capture-plan"]

@@ -161,7 +161,7 @@ def _guangdong_shell_html() -> bytes:
         <script src="/portal/app.js"></script>
         <span>工程建设</span>
         <p>广东省公共资源交易平台公开入口用于公共资源交易信息公开、工程建设、政府采购、国有产权和土地矿业等公开交易事项展示。</p>
-        <p>本测试文本模拟真实入口页 meta/正文中的公开入口说明，不模拟详情页、翻页深爬或跨站抓取。</p>
+        <p>本测试文本模拟真实入口页 meta/正文中的公开入口说明，不模拟详情页或未登记采集扩展。</p>
         <p>公共资源公开信息通过公开入口展示，后续项目详情仍必须由 allowlisted URL 或人工复核承接。</p>
         <p>公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明公开入口说明。</p>
       </body>
@@ -317,7 +317,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
                 manifest["lineage_refs"]["owner_task_id"],
                 "TASK-133A",
             )
-            self.assertFalse(carrier["controlled_opening_boundaries"]["uncontrolled_live_crawler_used"])
+            self.assertFalse(carrier["controlled_opening_boundaries"]["unapproved_live_capture_used"])
             self.assertFalse(carrier["controlled_opening_boundaries"]["real_provider_call_executed"])
 
         self.assertEqual(len(transport.call_log), 1)
@@ -450,7 +450,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertEqual(carrier["snapshot_id_optional"], None)
         self.assertEqual(carrier["same_site_detail_links"], [])
 
-    def test_jzsc_home_lightweight_public_entry_snapshot_is_allowed_without_crawling(self) -> None:
+    def test_jzsc_home_lightweight_public_entry_snapshot_is_allowed_without_unregistered_capture(self) -> None:
         public_home_body = (
             "<!DOCTYPE html><html><head><title>全国建筑市场监管公共服务平台（四库一平台）</title>"
             "<meta name='description' content='全国建筑市场监管公共服务平台（原全国建筑市场建筑与诚信信息发布平台）'>"

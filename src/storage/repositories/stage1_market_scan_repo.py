@@ -55,7 +55,7 @@ class Stage1MarketScanRepository:
                     "customer_visible": bool(payload.get("customer_visible", False)),
                     "live_execution_enabled": bool(payload.get("live_execution_enabled", False)),
                     "real_external_fetch_enabled": bool(payload.get("real_external_fetch_enabled", False)),
-                    "crawler_enabled": bool(payload.get("crawler_enabled", False)),
+                    "unregistered_capture_enabled": bool(payload.get("unregistered_capture_enabled", False)),
                     "manual_url_picker_primary_flow": bool(
                         payload.get("manual_url_picker_primary_flow", False)
                     ),
@@ -102,7 +102,7 @@ class Stage1MarketScanRepository:
             "scan_run_id": scan_run_id,
             "market_scan_readback": readback,
             "stage2_fetch_executed": False,
-            "crawler_executed": False,
+            "unregistered_capture_executed": False,
             "customer_visible_claim_generated": False,
         }
 

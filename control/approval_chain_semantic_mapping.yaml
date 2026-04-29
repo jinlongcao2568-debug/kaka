@@ -41,9 +41,9 @@ mapping:
     semantic_name: "delivery_matrix_change"
     meaning: "交付矩阵变更审批"
     release_level: "INTERNAL_OPERABLE"
-  private_supplement_release:
-    semantic_name: "private_supplement_release"
-    meaning: "私有补证影响释放审批"
+  governed_supplement_release:
+    semantic_name: "governed_supplement_release"
+    meaning: "治理补证影响释放审批"
     release_level: "INTERNAL_OPERABLE"
   boundary_exception:
     semantic_name: "boundary_exception"

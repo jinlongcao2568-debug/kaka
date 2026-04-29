@@ -15,7 +15,7 @@
   "exception_families": [
     {
       "family_id": "coverage_hold_exception",
-      "title": "coverage \u6682\u7f13\u4f8b\u5916",
+      "title": "coverage 暂缓例外",
       "allowed_purpose": [
         "temporary hold",
         "validation buffer",
@@ -37,7 +37,7 @@
     },
     {
       "family_id": "delivery_release_exception",
-      "title": "\u4ea4\u4ed8\u653e\u884c\u4f8b\u5916",
+      "title": "交付放行例外",
       "allowed_purpose": [
         "delivery hold",
         "manual governance hold",
@@ -56,8 +56,8 @@
       "sod_required": true
     },
     {
-      "family_id": "private_supplement_impact_exception",
-      "title": "\u79c1\u6709\u8865\u8bc1\u5f71\u54cd\u8303\u56f4\u4f8b\u5916",
+      "family_id": "governed_supplement_impact_exception",
+      "title": "私有补证影响范围例外",
       "allowed_purpose": [
         "review enrichment",
         "governance review",
@@ -72,13 +72,13 @@
         "WRITE_TO_TRUTH_LAYER",
         "PROMOTE_TO_PUBLIC_MAIN_CHAIN"
       ],
-      "requires_approval_chain": "private_supplement_release",
+      "requires_approval_chain": "governed_supplement_release",
       "default_duration_days": 10,
       "sod_required": true
     },
     {
       "family_id": "contact_restriction_exception",
-      "title": "\u9ad8\u9650\u5236\u8054\u7cfb\u5bf9\u8c61\u4f8b\u5916",
+      "title": "高限制联系对象例外",
       "allowed_purpose": [
         "manual outreach review",
         "channel override review"
@@ -98,7 +98,7 @@
       "sod_required": true
     }
   ],
-  "private_supplement_policy": {
+  "governed_supplement_policy": {
     "default_release_state": "ISOLATED",
     "allowed_transitions": {
       "isolated": [
@@ -151,10 +151,9 @@
       "audit_ref"
     ],
     "hard_forbidden_targets": [
-      "D_NON_PUBLIC_OR_FORENSIC public promotion",
       "project_fact override against higher priority gate",
       "external release without approval chain",
-      "client-visible exposure of private supplement body"
+      "client-visible exposure of governed supplement body"
     ]
   },
   "notes": [

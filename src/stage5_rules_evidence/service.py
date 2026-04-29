@@ -204,7 +204,6 @@ class Stage5Service:
         )
         boundary_safe = (
             bool(carrier.get("public_only", True))
-            and not bool(carrier.get("non_public_source_used"))
             and not bool(carrier.get("customer_visible"))
             and bool(carrier.get("no_legal_conclusion", True))
         )

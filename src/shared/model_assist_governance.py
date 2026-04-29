@@ -29,7 +29,7 @@ def build_model_assist_governance_summary(
     field_candidates: list[Mapping[str, Any]] | None = None,
     evidence_refs: list[Any] | None = None,
     sales_context_refs: Mapping[str, Any] | None = None,
-    private_data_requested: bool = False,
+    restricted_input_requested: bool = False,
     customer_visible_requested: bool = False,
 ) -> dict[str, Any]:
     """Build a deterministic model-assist carrier.
@@ -48,22 +48,22 @@ def build_model_assist_governance_summary(
         "prompt_trace_id": _stable_id("MA-PROMPT", assist_scope, prompt_purpose, normalized_source_refs),
         "prompt_purpose": prompt_purpose,
         "input_boundary": "PUBLIC_OR_INTERNAL_SANITIZED_ONLY",
-        "private_data_requested": bool(private_data_requested),
+        "restricted_input_requested": bool(restricted_input_requested),
         "customer_visible_requested": bool(customer_visible_requested),
         "prompt_template_ref": "contracts/model/model_usage_policy.json#prompt_templates.governed_assist",
         "source_refs": normalized_source_refs,
         "evidence_refs": list(normalized_evidence_refs),
         "sales_context_refs": normalized_sales_refs,
         "redaction_policy": {
-            "private_data_to_model_allowed": False,
+            "governed_input_to_model_allowed": False,
             "credential_or_secret_to_model_allowed": False,
             "customer_personal_data_to_model_allowed": False,
-            "raw_private_document_to_model_allowed": False,
+            "raw_governed_document_to_model_allowed": False,
         },
     }
     blocked_reasons: list[str] = []
-    if private_data_requested:
-        blocked_reasons.append("private_data_to_model_without_policy")
+    if restricted_input_requested:
+        blocked_reasons.append("model_input_without_policy")
     if customer_visible_requested:
         blocked_reasons.append("customer_visible_model_output_requires_human_review")
     output_trace = {
@@ -113,13 +113,13 @@ def build_model_assist_governance_summary(
         "formal_fact_write_enabled": False,
         "stage_fact_mutation_enabled": False,
         "customer_visible_claim_enabled": False,
-        "no_private_data_to_model_without_policy": not private_data_requested,
+        "model_input_governance_policy_enforced": not restricted_input_requested,
         "no_internal_blackbox_customer_exposure": True,
         "controlled_opening_boundaries": {
             "model_output_not_final_fact": True,
             "model_output_not_customer_conclusion": True,
             "human_review_required_for_customer_visible_claim": True,
-            "private_data_to_model_without_policy_blocked": True,
+            "model_input_without_policy_blocked": True,
             "credential_or_secret_to_model_blocked": True,
         },
         "blocked_reasons": blocked_reasons,
@@ -148,8 +148,8 @@ def build_model_assist_summary(carrier: Mapping[str, Any]) -> dict[str, Any]:
         "model_output_not_customer_conclusion": bool(
             controlled_opening_boundaries.get("model_output_not_customer_conclusion", True)
         ),
-        "no_private_data_to_model_without_policy": bool(
-            carrier.get("no_private_data_to_model_without_policy", True)
+        "model_input_governance_policy_enforced": bool(
+            carrier.get("model_input_governance_policy_enforced", True)
         ),
         "golden_case_refs": list(dict(carrier.get("audit_refs", {})).get("golden_case_refs", [])),
         "replayable": bool(dict(carrier.get("replay_state", {})).get("replayable", False)),
@@ -187,7 +187,7 @@ def build_parser_model_assist(
         output_kind="llm_assisted_field_extraction_candidate",
         field_candidates=fields,
         evidence_refs=[parser_carrier.get("snapshot_id"), parser_carrier.get("parse_run_id")],
-        private_data_requested=False,
+        restricted_input_requested=False,
         customer_visible_requested=customer_visible_requested,
     )
 
@@ -213,7 +213,7 @@ def build_verification_model_assist(
         evidence_refs=ensure_list(verification_carrier.get("snapshot_refs"))
         + ensure_list(verification_carrier.get("source_refs"))
         + [verification_carrier.get("verification_run_id")],
-        private_data_requested=not bool(verification_carrier.get("public_only", True)),
+        restricted_input_requested=not bool(verification_carrier.get("public_only", True)),
         customer_visible_requested=customer_visible_requested,
     )
 
@@ -242,7 +242,7 @@ def build_rule_model_assist(
             "block_count": stage5_readback_summary.get("block_count"),
             "trace_count": len(rule_execution_trace or []),
         },
-        private_data_requested=False,
+        restricted_input_requested=False,
         customer_visible_requested=False,
     )
 
@@ -270,7 +270,7 @@ def build_sales_talk_track_model_assist(
         output_kind="llm_assisted_sales_talk_track_draft",
         sales_context_refs=sales_refs,
         evidence_refs=[value for value in sales_refs.values() if not _is_empty(value)],
-        private_data_requested=False,
+        restricted_input_requested=False,
         customer_visible_requested=True,
     )
 

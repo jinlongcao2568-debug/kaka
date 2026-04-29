@@ -10,7 +10,7 @@ closeout_recommendation: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED
 scope_boundary:
   public_software_release_enabled: false
   unapproved_live_provider_call_enabled: false
-  uncontrolled_live_crawler_enabled: false
+  unapproved_live_capture_enabled: false
   real_refund_execution_enabled: false
   automated_refund_execution_enabled: false
   refund_boundary: manual exception/governed review only; no automated refund execution
@@ -114,13 +114,13 @@ twelve_dimension_acceptance:
   evidence: owner console and customer artifact portal are mounted internal/customer surfaces
 - dimension: real_source_adapter_practicality
   result: PASS_WITH_BOUNDARY
-  evidence: 114A-114I controlled manual public sample validation completed; uncontrolled crawling remains blocked
+  evidence: 114A-114I controlled manual public sample validation completed; unapproved capture remains gated
 - dimension: wecom_and_model_assist
   result: PASS_WITH_BOUNDARY
   evidence: WeCom binding and model assist governance are readback/gated; no default external calls
 - dimension: controlled_opening_boundary_review
   result: PASS
-  evidence: automatic refund, non-public/gray sources, bypass, unreviewed conclusions, auto complaint/legal send, blackbox
+  evidence: automatic refund, source visibility review sources, bypass, unreviewed conclusions, auto complaint/legal send, blackbox
     exposure remain blocked
 remaining_product_blockers: []
 remaining_hardening_items:

@@ -68,7 +68,6 @@ class ProjectManagerActiveConflictCarrier:
     failure_reasons: list[str]
     review_required: bool
     public_only: bool = True
-    non_public_source_used: bool = False
     customer_visible: bool = False
     no_legal_conclusion: bool = True
 
@@ -148,7 +147,7 @@ def evaluate_project_manager_active_conflict(
         failure_reasons.append("registered_unit_verification_missing_or_unmatched")
     for carrier in carriers:
         if not _carrier_is_public(carrier):
-            failure_reasons.append("non_public_or_non_replayable_verification_ref")
+            failure_reasons.append("visibility_or_non_replayable_verification_ref")
             break
 
     project_summaries: list[dict[str, Any]] = []
@@ -267,7 +266,6 @@ def build_project_manager_active_conflict_readback(carrier: Mapping[str, Any]) -
         not missing
         and public_refs
         and bool(carrier.get("public_only", True))
-        and not bool(carrier.get("non_public_source_used", False))
         and not bool(carrier.get("customer_visible", False))
         and bool(carrier.get("no_legal_conclusion", True))
     )
@@ -528,7 +526,7 @@ def _overlap_judgement(
 ) -> str:
     boundary_failures = {
         "provider_reserved_not_live",
-        "non_public_or_non_replayable_verification_ref",
+        "visibility_or_non_replayable_verification_ref",
         "current_project_time_window_missing",
     }
     if any(reason in boundary_failures for reason in failure_reasons):
@@ -700,7 +698,6 @@ def _carrier_is_public(carrier: Mapping[str, Any]) -> bool:
     ref = _evidence_ref(carrier)
     return (
         bool(carrier.get("public_only", True))
-        and not bool(carrier.get("non_public_source_used", False))
         and ref.get("public_visibility_state") in PUBLIC_VISIBLE_STATES
         and carrier.get("verification_provider", PUBLIC_VERIFICATION_PROVIDER) == PUBLIC_VERIFICATION_PROVIDER
     )

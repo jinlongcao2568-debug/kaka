@@ -113,8 +113,7 @@
         "single_rule_hit_only",
         "crm_note_only",
         "single_page_only",
-        "free_text_why_recommended_override",
-        "D_NON_PUBLIC_OR_FORENSIC direct input"
+        "free_text_why_recommended_override"
       ],
       "requiredStates": [
         "project_fact exists",

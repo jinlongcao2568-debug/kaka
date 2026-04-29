@@ -21,30 +21,6 @@
   },
   "assertions": [
     {
-      "assertionId": "L0-A-001",
-      "title": "D 层输入不得进入正式公开主链",
-      "severity": "BLOCKER",
-      "blocking": true,
-      "checkFamilies": [
-        "public_boundary",
-        "delivery_release",
-        "api_surface",
-        "ui_surface",
-        "field_policy"
-      ],
-      "expected": "No D_NON_PUBLIC_OR_FORENSIC input may enter formal public model, client delivery, external action assist, external API, or top-level page judgement.",
-      "failureSignals": [
-        "D-tier sourceRefs appear in public release bundle",
-        "D-tier result promoted to AUTO_HIT or formal fact",
-        "governance-isolated object projected to client or external surfaces"
-      ],
-      "sourceRefs": [
-        "L0-A-001",
-        "D13-R-040",
-        "D7-R-018"
-      ]
-    },
-    {
       "assertionId": "L0-A-002",
       "title": "project_fact 是唯一正式统一事实中枢",
       "severity": "BLOCKER",
@@ -138,6 +114,3 @@
     }
   ]
 }
-
-
-

@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "private_supplement_record",
+  "title": "governed_supplement_record",
   "type": "object",
-  "description": "Schema skeleton for private_supplement_record.",
+  "description": "Schema skeleton for governed_supplement_record.",
   "source_refs": [
     "D2-R-017",
     "D13-R-047",

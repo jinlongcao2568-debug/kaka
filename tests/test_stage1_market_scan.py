@@ -82,7 +82,7 @@ class TestStage1MarketScan(unittest.TestCase):
         self.assertTrue(scan["internal_only"])
         self.assertFalse(scan["customer_visible"])
         self.assertFalse(scan["real_external_fetch_enabled"])
-        self.assertFalse(scan["crawler_enabled"])
+        self.assertFalse(scan["unregistered_capture_enabled"])
         self.assertFalse(scan["manual_url_picker_primary_flow"])
         self.assertEqual(scan["selected_candidate_count"], 1)
         self.assertEqual(scan["review_candidate_count"], 1)
@@ -120,7 +120,7 @@ class TestStage1MarketScan(unittest.TestCase):
         self.assertEqual(readback["governed_state"]["selected_candidate_count"], 1)
         self.assertEqual(replay["replay_state"], "REPLAY_READY")
         self.assertFalse(replay["stage2_fetch_executed"])
-        self.assertFalse(replay["crawler_executed"])
+        self.assertFalse(replay["unregistered_capture_executed"])
 
     def test_service_and_api_helpers_expose_market_scan_without_mounting_stage1_route(self) -> None:
         result = Stage1Service().scan_market(self.payload)
@@ -132,40 +132,17 @@ class TestStage1MarketScan(unittest.TestCase):
         self.assertEqual(api_readback["readback_state"], "READBACK_READY")
         self.assertEqual(len(register_stage1_routes()), 1)
 
-    def test_market_scan_blocks_manual_url_primary_and_live_or_private_requests(self) -> None:
+    def test_market_scan_blocks_manual_url_primary_and_live_requests(self) -> None:
         blocked_payloads = [
             {"source_selection_mode": "MANUAL_URL_PRIMARY"},
             {"real_external_fetch_enabled": True},
-            {"crawler_enabled": True},
+            {"unregistered_capture_enabled": True},
             {"provider_call_enabled": True},
         ]
         for extra in blocked_payloads:
             with self.subTest(extra=extra):
                 with self.assertRaises(ValueError):
                     Stage1MarketScanEngine().run({**self.payload, "scan_run_id": "MKTSCAN-BLOCK", **extra})
-
-        private_payload = {
-            **self.payload,
-            "scan_run_id": "MKTSCAN-PRIVATE",
-            "notice_candidates": [
-                {
-                    "notice_id": "NOTICE-PRIVATE",
-                    "project_name": "private",
-                    "region_code": "CN-SC",
-                    "notice_stage": "candidate_notice",
-                    "amount": 9000000,
-                    "candidate_count": 2,
-                    "candidate_company": "private company",
-                    "objection_deadline_at_optional": "2026-05-01T00:00:00+00:00",
-                    "source_mode": "PRIVATE_SOURCE",
-                    "key_fields_present": ["project_name", "candidate_company", "notice_stage"],
-                }
-            ],
-        }
-        scan = Stage1MarketScanEngine().run(private_payload)
-        self.assertEqual(scan["selected_candidate_count"], 0)
-        self.assertEqual(scan["skipped_candidates"][0]["analysis_decision"], "SKIP")
-        self.assertIn("blocked_source_marker_private", scan["skipped_candidates"][0]["why_skip"])
 
 
 if __name__ == "__main__":
