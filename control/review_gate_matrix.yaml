@@ -4,8 +4,8 @@ owner_docs:
   - D1
   - D11
   - 自动化开发动作门禁表
-purpose: "Classify formal changes by touched assets and enforce review/stop gates before automation or release checks pass."
-task_packet_required: true
+purpose: "Classify controlled-window and high-risk changes by touched assets and enforce review/stop gates before automation or release checks pass."
+task_packet_required: controlled_windows_only
 match_strategy: highest_rank_wins
 change_classes:
   - id: LOW_RISK_DIRECT
@@ -13,7 +13,7 @@ change_classes:
     automation_action: DIRECT_EDIT
     human_review_required: false
     signoff_required: false
-    description: "Low-risk append-only doc/control sync that does not touch runtime, governance, release, provider/vendor, Stage 8/9 execution, or automation gate semantics."
+    description: "Low-risk direct-dev change that does not touch live execution, governance/release semantics, provider/vendor opening, Stage 8/9 high-risk execution, schema/migration, or automation gate semantics."
   - id: DRAFT_WITH_REVIEW
     rank: 1
     automation_action: DRAFT_ONLY
@@ -184,22 +184,19 @@ domains:
       - "governance_owner"
       - "testing_owner"
   - domain_id: scripts_and_tests_general
-    change_class: DRAFT_WITH_REVIEW
-    description: "General scripts/tests changes still require human review even when they do not hit a higher-risk domain."
+    change_class: LOW_RISK_DIRECT
+    description: "General scripts/tests changes may use direct-dev when they do not hit a higher-risk domain."
     file_globs:
       - "scripts/**"
       - "tests/**"
-    required_owner_reviews:
-      - "automation_owner"
-      - "testing_owner"
+    required_owner_reviews: []
   - domain_id: machine_assets_general
-    change_class: DRAFT_WITH_REVIEW
-    description: "General contracts/handoff/testing machine assets require draft + review."
+    change_class: LOW_RISK_DIRECT
+    description: "General contracts/handoff/testing machine asset consistency sync may use direct-dev when it does not alter release, governance, approval/audit, schema/migration, or live semantics."
     file_globs:
       - "contracts/**"
       - "handoff/**"
-    required_owner_reviews:
-      - "testing_owner"
+    required_owner_reviews: []
   - domain_id: low_risk_docs_control_sync
     change_class: LOW_RISK_DIRECT
     description: "Low-risk docs/control synchronization outside high-risk domains."
@@ -214,5 +211,5 @@ validation_rules:
   fail_if_forbidden_path_declared_or_changed: true
   fail_if_stop_and_escalate_domain_present: true
 notes:
-  - "This matrix does not relax any existing blocked line; it only hardens review/change entry gating."
-  - "Task packet source is control/current_task.yaml -> currentTask.task_packet."
+  - "This matrix keeps blocked/live lines intact while allowing ordinary direct-dev changes without task-packet prework."
+  - "Task packet source is control/current_task.yaml -> currentTask.task_packet for controlled windows."

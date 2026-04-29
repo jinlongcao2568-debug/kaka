@@ -39,12 +39,13 @@ Recently Closed:
 - PTL-I100-132-owner-operator-frontend-productization-workbench completed and committed locally before the 143 series.
 
 Allowed Actions (current):
-- Update only paths declared in control/current_task.yaml for PTL-I100-144A.
+- Ordinary internal direct-dev may update paths required by the current human goal after impact localization.
+- Task packet / scoped subpacket windows must update only paths declared in control/current_task.yaml for the active packet.
 - Synchronize docs/control/contracts/scripts/runtime/tests from hard-boundary language to controlled-opening semantics.
-- Run required checks and commit locally if all checks pass and the actual diff remains inside the current task packet.
+- Run relevant checks and commit locally when human requested or when the scoped verification is complete; direct-dev is not blocked by missing full final gate, but unverified items must be reported.
 
 Forbidden Actions (current):
-- Any path outside control/current_task.yaml declared scope.
+- Any path outside control/current_task.yaml declared scope when a task packet / scoped subpacket window is active.
 - Any automated refund implementation or automated refund enablement.
 - Any real provider call, real model provider call, real outreach, real CRM sync, real quote send, real payment/delivery/refund, real customer download, or public release during this sync.
 - Any schema/enum/gate/exception semantic addition.
@@ -53,9 +54,10 @@ Forbidden Actions (current):
 State Semantics:
 - READY_FOR_POST-REPAIR_MAINLINE_SELECTION means the repo can enter formal mainline selection; it does not by itself execute external release, Stage8, or Stage9 live actions.
 - READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT remains the scoped conditional-go for internal LeadOps development.
-- current_task -> product_task_library -> repo_status is the only active-source priority.
-- control/current_task.yaml is the only active execution source.
-- control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml as the active execution source.
+- current_task -> product_task_library -> repo_status is the active-source priority for task packet / scoped subpacket windows.
+- DIRECT_DEV_DEFAULT is the default for ordinary internal development and does not require switching control/current_task.yaml before work.
+- control/current_task.yaml is the active execution source only when a task packet / scoped subpacket window is active.
+- control/product_task_library.yaml remains the product mainline task pool and candidate source; it does not replace control/current_task.yaml inside task packet windows and does not block ordinary direct-dev.
 - docs/AX9S_开发执行路由图.md is a pure route-map candidate navigation asset; it does not act as current task source, state source, execution log, full backlog, or execution-order authority.
 - Execution-level management and reporting should use the P1 -> P8 ladder in control/product_task_library.yaml rather than direction labels such as Stage8 governed touch 深化 / Stage9 governed delivery 深化.
 

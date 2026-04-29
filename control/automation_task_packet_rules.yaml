@@ -64,18 +64,13 @@ field_rules:
   human_review_required: boolean
   owner_reviews_required: array
 requires_task_packet_for:
-  - "src/**"
-  - "tests/**"
-  - "scripts/**"
-  - "control/automation_*.yaml"
-  - "control/review_gate_matrix.yaml"
-  - "contracts/governance/**"
-  - "contracts/release/**"
-  - "contracts/testing/regression_manifest.json"
-  - "contracts/testing/release_checklist.json"
-  - "contracts/model/**"
-  - "contracts/sales/source_vendor_usage_policy.json"
-  - "contracts/sales/channel_vendor_execution_policy.json"
+  - "external release or live external execution"
+  - "real outreach, real payment, real delivery, real refund, or high-restriction field release"
+  - "approval/audit semantics changes"
+  - "release gate or readiness gate semantic changes"
+  - "schema/migration or cross-stage machine contract changes"
+  - "large-batch docs/contracts/handoff/control generation"
+  - "human explicitly requests task packet / scoped subpacket"
 fail_conditions:
   - source_blueprint_batch_id_not_registered
   - missing_required_fields
@@ -104,7 +99,7 @@ notes:
   - there is no single repository-wide max_files, max_docs, max_control, or max_machine_assets hard cap
   - whether a task should split is decided by single_focus, declared/allowed/forbidden paths, review gate, and stop conditions
   - high-risk domains must be isolated in their own batch
-  - task packet cannot be replaced by conversational summary; control/current_task.yaml is the formal machine-readable packet source
+  - task packet cannot be replaced by conversational summary inside controlled windows; control/current_task.yaml is the formal machine-readable packet source for those windows
   - source_blueprint_batch_id is validated against control/source_blueprint_registry.yaml
   - stage7/stage8/stage9 roster defaults come from control/operator_assignment_roster_defaults.yaml
   - generated Python cache artifacts under __pycache__ and .pytest_cache are not treated as business-scope actual changed paths by task-packet validation

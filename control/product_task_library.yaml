@@ -22,7 +22,7 @@ source_priority:
     - control/repo_status.md
     - control/milestone_status.yaml
 rules:
-  - "control/current_task.yaml remains the only active execution source."
+  - "control/current_task.yaml remains the active execution source for task packet / scoped subpacket windows; ordinary internal development may use DIRECT_DEV_DEFAULT without switching current_task."
   - "control/product_task_library.yaml only lists product mainline tasks for future selection and scoped packet derivation."
   - "current_mainline_next_candidate is a candidate-pool pointer only; it does not auto-activate as the current execution packet."
   - "control/source_blueprint_registry.yaml is the only source-blueprint allowlist."
@@ -42,7 +42,7 @@ open_capability_policy:
   scope: "owner-operated evidence-pack / leadpack commercial product"
   baseline_rule: "Except automated refund execution, product-required capabilities are target capabilities and must be implemented through staged controlled opening, not left permanently as preview/readiness."
   live_default: CONTROLLED_OPENING_REQUIRED
-  activation_rule: "Every capability must be activated by a dedicated control/current_task.yaml packet; task-pool registration alone never opens live execution."
+  activation_rule: "Every live or controlled-opening capability must be activated by a dedicated control/current_task.yaml packet; task-pool registration alone never opens live execution. Ordinary internal direct-dev remains allowed outside live/controlled windows."
   state_order: [NOT_IMPLEMENTED, INTERNAL_READY, SANDBOX_READY, APPROVAL_READY, LIVE_READY, PRODUCTION_READY, SUSPENDED]
   target_capabilities_to_open_under_control:
     - real_public_source_collection
@@ -145,12 +145,12 @@ post_mainline_execution_ladder:
     - "This ladder is the explicit product-only post-mainline record for future AI windows."
     - "The full post-mainline ladder remains P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8; all product-only tasks in this ladder are now completed and no next task is auto-activated."
     - "118R may register new product-only manual-selection tasks after the 122-126 reacceptance; candidate pointers remain advisory only."
-    - "Future work such as internal-operations acceptance, real-sample refinement, or external-unlock preresearch must run through dedicated current_task packets."
+    - "Controlled future work such as external-unlock preresearch or live/provider execution must run through dedicated current_task packets; ordinary internal direct-dev is not blocked by this ladder."
     - "Governance closeout / AX9S sync / future unlock prep remain outside PRODUCT_MAINLINE_TASK_LIBRARY and require dedicated control packets when needed."
     - "Direction-level recommendations may remain in control/product_module_registry.yaml, but product execution-level decomposition lives here."
     - "Execution-level management and reporting should use the P1 -> P8 ladder plus task_ids defined here."
     - "Direction-level labels in control/product_module_registry.yaml remain navigation-only and must not replace P1-P8 task_ids in execution-level communication."
-    - "The ladder is advisory ordering only; actual activation still requires a dedicated current_task packet."
+    - "The ladder is advisory ordering only; controlled-window activation still requires a dedicated current_task packet."
   priority_bands:
     - band_label: FIRST_PRIORITY
       sequence_labels: [P1, P2]
@@ -181,7 +181,7 @@ internal_operable_productization_program:
   current_execution_source: control/current_task.yaml
   route_goal: "把现有内部 governed 主链做实、做稳、做成可运营证据包/线索包产品；除自动退款执行外，产品所需能力按任务池逐级推进到受控可用，不把 preview/readiness 当作最终完成，也不在未通过 sandbox/approval/audit/live-pilot 前默认打开 external/live。"
   acceptance_model:
-    packet_boundary: "每个任务必须先成为 control/current_task.yaml 的 dedicated scoped packet。"
+    packet_boundary: "受控/live/机器契约任务必须先成为 control/current_task.yaml 的 dedicated scoped packet；普通内部 direct-dev 不受此项前置阻断。"
     consistency: "docs/contracts/runtime/tests 必须同批同步，不允许字段或对象双口径。"
     functional_closure: "按单任务 definition_of_done 验收，不能只以测试通过替代产品闭环。"
     gates: "每包至少运行 check-task-packet、check-state-alignment 与对应 targeted tests；触及 contracts/governance/release 时追加正式门禁脚本。"
@@ -3165,7 +3165,7 @@ tasks:
       - commercial_hook_and_llm_boundary_doc_policy
     non_goals:
       - "不改 Stage1-9 runtime"
-      - "不改 D 文档正文语义，只追加补表/附录"
+      - "不改 Stage1-9 runtime；D 文档按 143E 任务范围只做引用同步，不作为仓库级只补表规则"
       - "不新增正式对象、枚举、gate 或 exception 语义"
       - "不把 LLM 输出当事实、法律结论或客户可见确定结论"
     expected_outputs:

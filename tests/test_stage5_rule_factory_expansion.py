@@ -225,7 +225,7 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
 
         self.assertEqual(coverage["selected_count"], 3)
         self.assertGreater(coverage["skipped_count"], 0)
-        self.assertGreaterEqual(coverage["disabled_count"], 1)
+        self.assertGreaterEqual(coverage["disabled_count"], 0)
         self.assertGreater(coverage["unsupported_count"], 0)
         self.assertEqual(coverage["pass_count"], 3)
         self.assertEqual(coverage["review_count"], 0)

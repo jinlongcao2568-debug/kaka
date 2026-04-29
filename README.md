@@ -15,11 +15,11 @@
 
 ## 使用顺序
 
-1. 先看 `docs/L0.md`
-2. 再看 `docs/裁决总表.md`
-3. 再看 `docs/D13_公开可查边界能力清单.md`、`docs/D2_正式对象契约与字段字典.md`、`docs/D3_正式规则码总表与判定说明书.md`
-4. 然后看 `contracts/`、`handoff/`、`scripts/`
-5. 最后根据 `docs/正式业务代码开发开工裁决页.md` 判定是否可以正式写代码
+1. 先看根目录 `AGENTS.md`，确认当前执行方式与人类最新指令。
+2. 再看 `docs/L0.md`、`docs/裁决总表.md` 与本次改动直接相关的 D 文档。
+3. 涉及对象、规则、字段、交付、发布、模型、公开边界时，再看对应 `contracts/`、`handoff/`、`control/`、`scripts/`。
+4. 普通内部开发默认按 `DIRECT_DEV_DEFAULT` 直接定位、实现、验证；`docs/正式业务代码开发开工裁决页.md` 只作为内部 LeadOps 开发 conditional-go 历史裁决面，不作为普通开发前置门槛。
+5. 触及对外/live、release gate、approval/audit 语义、schema/migration 或机器契约大批量治理时，才切回 dedicated task packet / scoped subpacket。
 
 ## 说明
 

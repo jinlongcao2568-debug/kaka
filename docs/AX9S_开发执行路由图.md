@@ -2,9 +2,9 @@
 
 > 本文件是**纯导航图**，也是**候选导航资产**（candidate navigation asset），只负责阶段 1-9 的导航摘要。  
 > 本文件**非当前任务源**、**非状态源**、**非执行日志**、**非完整 backlog**。  
-> `control/current_task.yaml` 负责唯一**当前 active 执行任务**，是唯一 active task source。  
+> `control/current_task.yaml` 负责 task packet / scoped subpacket 窗口的唯一**当前 active 执行任务**；普通 direct-dev 不要求先切换当前包。
 > `control/product_task_library.yaml` 只负责下一候选来源。  
-> 本文件中的近端候选只作导航提示，不决定执行顺序。实际 active 包以 `control/current_task.yaml` 为准；候选池参考 `control/product_task_library.yaml`。  
+> 本文件中的近端候选只作导航提示，不决定执行顺序。受控窗口的实际 active 包以 `control/current_task.yaml` 为准；候选池参考 `control/product_task_library.yaml`。
 > `scripts/check-state-alignment.ps1` 只会对本文件第 3 节与 `product_task_library` 的近端偏移做轻机制提示；若明显落后，只给 `WARNING`，不阻断。  
 > 当 `product_task_completed`、`product_task_blocked`、`product_task_inserted_or_reordered`、`route_map_changed`、`L0_or_D_doc_semantic_change`、`release_or_regression_gap_confirmed`、`every_3_product_tasks_completed`、`manual_planning_review` 这些事件发生时，应主动运行 `scripts/check-state-alignment.ps1` 复核是否需要更新本文件第 3 节的近端导航提示。  
 > 本文件不改写 `L0.md`、`裁决总表.md`、`D1-D14`、`contracts/*`、`handoff/*` 的正式语义。
@@ -150,7 +150,7 @@
 ## 3. 近端导航提示
 
 > 下列候选仅作“下一步可能去哪里看”的导航提示。  
-> 它们不是当前任务源，不决定执行顺序，也不代表完整 backlog。实际选包以 `control/current_task.yaml`、`control/product_task_library.yaml` 为准。  
+> 它们不是当前任务源，不决定执行顺序，也不代表完整 backlog。受控窗口实际选包以 `control/current_task.yaml`、`control/product_task_library.yaml` 为准；普通 direct-dev 按 AGENTS 执行。
 > 近端提示应同时结合 `product_task_library` 的任务顺序、`current_task` 当前窗口与对应任务的 `existing_code_state`。  
 > `scripts/check-state-alignment.ps1` 会把本节近端候选与 `control/product_task_library.yaml` 当前任务池做轻量对照；若明显落后，只给 `WARNING` 提示，不阻断。
 > 同步触发采用 suggestion-only：脚本只提示“应复核近端候选”，不自动修改路线图正文，也不让 `check-final-gate` 因近端候选滞后而失败。

@@ -243,7 +243,10 @@ class TestStage12Extractors(unittest.TestCase):
         else:
             self.assertEqual(active_packet["runtime_change_in_packet"], "OUT_OF_SCOPE")
 
-        self.assertIn("control/current_task.yaml remains the only active execution source.", task_library_text)
+        self.assertIn(
+            "control/current_task.yaml remains the active execution source for task packet / scoped subpacket windows",
+            task_library_text,
+        )
         self.assertIn(
             "current_mainline_next_candidate is a candidate-pool pointer only; it does not auto-activate",
             task_library_text,

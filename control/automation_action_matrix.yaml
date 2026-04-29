@@ -12,7 +12,7 @@ task_packet_source: control/current_task.yaml#currentTask.task_packet
 action_classes:
   - id: DIRECT_EDIT
     allow: direct_edit
-    description: low-risk append-only or control updates
+    description: low-risk direct-dev updates across docs, control, code, tests, scripts, or local machine assets
   - id: DRAFT_ONLY
     allow: draft_only
     description: medium-risk changes require manual review
@@ -28,23 +28,25 @@ change_class_to_action_class:
   MANDATORY_HUMAN_REVIEW: MANUAL_APPROVAL_REQUIRED
   STOP_AND_ESCALATE: BLOCKED
 actions:
-  - action_id: DOC_APPEND_ONLY
-    scope: docs/D1-D14 append-only and docs/自动化开发动作门禁表.md
+  - action_id: DOC_SYNC
+    scope: docs/D1-D14 and docs/自动化开发动作门禁表.md
     action_class: DIRECT_EDIT
-    notes: append tables only; no正文 rewrite
+    notes: may update正文 or supplements when aligning with AGENTS, human current instructions, or code facts; do not create a second formal semantics source
   - action_id: CONTROL_UPDATE
     scope: control/current_task.yaml, control/repo_status.md, control/automation_*.yaml
     action_class: DIRECT_EDIT
   - action_id: MACHINE_ASSET_UPDATE
     scope: contracts/**, handoff/**, testing/**, governance/**
-    action_class: DRAFT_ONLY
-    requires_manual_review: true
+    action_class: DIRECT_EDIT
+    notes: ordinary consistency sync may use direct-dev; release, governance, approval/audit, schema/migration, or live semantics still escalate through review_gate_matrix
   - action_id: SCRIPT_CHANGE
     scope: scripts/**
-    action_class: MANUAL_APPROVAL_REQUIRED
+    action_class: DIRECT_EDIT
+    notes: ordinary script fixes may use direct-dev; release/readiness/gate scripts still escalate through review_gate_matrix
   - action_id: CODE_CHANGE
     scope: src/**, tests/**, fixtures/**
-    action_class: MANUAL_APPROVAL_REQUIRED
+    action_class: DIRECT_EDIT
+    notes: ordinary internal code/test fixes may use direct-dev; live, release, schema/migration, or Stage8/9 high-risk execution still escalate through review_gate_matrix
   - action_id: EXTERNAL_RELEASE
     scope: external release, external delivery, external integrations
     action_class: MANUAL_APPROVAL_REQUIRED
