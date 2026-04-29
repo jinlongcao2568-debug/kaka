@@ -112,12 +112,14 @@ decision_summary:
     sandbox readiness, live-pilot readback, and SLO readiness do not by
     themselves prove customer-visible delivery or real provider execution.
   main_gap_summary: >
-    PTL-I100-112 through PTL-I100-121C closed the registered engineering and
-    readiness packets, but 118 acceptance does not pass full product closeout:
-    sales outreach, external quote/CRM handoff, customer-visible LeadPack
-    publication/download, and payment/delivery remain gated readback or live
-    pilot carriers rather than actual provider/customer execution. External
-    software release remains not required for the evidence-pack business model.
+    Historical 118 acceptance blocked on sales outreach, external quote/CRM
+    handoff, customer-visible LeadPack publication/download, and
+    payment/delivery. Those 118 blockers were later resolved by the 122-131
+    controlled-real-world sequence and recorded by final_118R/final_131. The
+    current product gap is no longer the 118 blocker set; it is the 144-149
+    autonomous evidence-pack productization sequence, with 150/151 public-web
+    capture and automated challenge resolution inserted before hard-defect and
+    commercial-hook implementation.
   open_capability_summary: >
     The target product posture is not permanent internal preview. Except for
     automated refund execution and prohibited source visibility review capabilities, every
@@ -126,19 +128,19 @@ decision_summary:
     sandbox, approval, live, and production readiness. Live execution remains
     controlled opening required until the controlled-opening gate and acceptance gates pass.
   implementation_progress_summary: >
-    PTL-I100-112 through PTL-I100-121C are recorded as completed in
-    control/current_task.yaml and control/repo_status.md. The current 118
-    result is a product acceptance block, not an engineering regression block:
-    owner can operate the internal evidence/readback chain, but cannot yet
-    close the full sales-to-customer-delivery loop without manual/external
-    steps outside the governed product runtime.
+    PTL-I100-112 through PTL-I100-143G are closed in the product task library.
+    PTL-I100-118R and PTL-I100-131 record controlled owner-operated production
+    readiness with no remaining product blockers for the controlled E2E pilot.
+    control/current_task.yaml currently points to PTL-I100-144A, which is a
+    state/semantics sync packet; runtime PTL-I100-144 remains PLANNED until
+    144A is closed.
   post_122_126_reacceptance_summary: >
-    PTL-I100-122 through PTL-I100-126 closed the original 118 blockers as
-    controlled execution/readback paths, but the runtime still uses local
-    controlled fake providers and no productized frontend app is present. Final
-    real-world owner usability therefore still needs frontend, real-source field
-    validation, real provider binding including WeCom, governed LLM assistance,
-    and a controlled real-world e2e pilot.
+    PTL-I100-122 through PTL-I100-131 closed the original 118 blockers as
+    controlled execution/readback and controlled-real-world E2E paths.
+    PTL-I100-132 added the productized owner workbench/customer artifact
+    portal, and PTL-I100-133A through 143G advanced real public source and
+    autonomous decision architecture readiness. Remaining planned work is the
+    autonomous productization sequence registered in current_gap_sync_2026_04_29.
 final_118_operational_acceptance:
   packet_ref: PTL-I100-118-full-product-operational-acceptance
   acceptance_result: BLOCKED_BY_PRODUCT_OPERATIONAL_GAPS
@@ -655,6 +657,35 @@ final_118R_operational_reacceptance:
     unapproved_live_provider_call: CONTROLLED_OPENING
     real_refund_execution: CONTROLLED_OPENING
     automated_refund_execution: EXCLUDED
+current_gap_sync_2026_04_29:
+  purpose: >
+    Align this gap matrix with the current task-library status source so
+    historical 111B-121C/118/118R/131 planned entries do not look like active
+    product blockers after the controlled-real-world closeout.
+  authority_order:
+    - control/current_task.yaml
+    - control/product_task_library.yaml
+    - control/repo_status.md
+  current_active_packet: PTL-I100-144A-controlled-opening-sync
+  current_active_packet_scope: state_and_controlled_opening_semantics_sync_only
+  not_current_active_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
+  owner_operated_controlled_business_state: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
+  remaining_product_blockers_for_controlled_owner_e2e: []
+  current_remaining_runtime_productization_packets:
+    - PTL-I100-144-market-scan-opportunity-discovery-engine
+    - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+    - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+    - PTL-I100-151-public-web-captcha-automated-resolution-and-resume
+    - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+    - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+    - PTL-I100-148-productized-autonomous-operator-workbench
+    - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+  preserved_live_boundaries:
+    external_software_release: CONTROLLED_OPENING
+    live_provider_call: CONTROLLED_OPENING
+    real_customer_delivery: CONTROLLED_OPENING
+    real_payment_or_refund: CONTROLLED_OPENING
+    automated_refund_execution: EXCLUDED
 production_gap_task_map:
   - gap_group: provider_config_sandbox_and_live_control
     packet_ref: PTL-I100-111A-provider-config-and-sandbox-seam
@@ -668,7 +699,8 @@ production_gap_task_map:
       - stage7_stage8_stage9_provider_readiness_consumption
   - gap_group: sales_outreach_execution
     packet_ref: PTL-I100-111B-sales-outreach-adapter-execution
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 5642cb4
     target_capability_state: SANDBOX_READY
     covered_capabilities:
       - email_sms_phone_wecom_provider_adapters
@@ -677,7 +709,8 @@ production_gap_task_map:
       - opt_out_bounce_status_timeline
   - gap_group: crm_quote_page_and_export
     packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 7af8966
     target_capability_state: SANDBOX_READY
     covered_capabilities:
       - crm_account_opportunity_activity_sync
@@ -687,7 +720,8 @@ production_gap_task_map:
       - masking_watermark_version_hash_download_audit
   - gap_group: payment_collection_and_delivery_fulfillment
     packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 0ab2dba
     target_capability_state: SANDBOX_READY
     refund_boundary: "manual exception/governed review only; no automated refund execution"
     covered_capabilities:
@@ -698,7 +732,8 @@ production_gap_task_map:
       - manual_refund_exception_record
   - gap_group: production_platform_infrastructure
     packet_ref: PTL-I100-112-production-platform-infrastructure
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 0fe9212
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - postgres_sqlalchemy_alembic
@@ -709,7 +744,8 @@ production_gap_task_map:
       - audit_persistence
   - gap_group: stage1_scheduler
     packet_ref: PTL-I100-113-stage1-scheduler-production-loop
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: ce733ba
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - scheduling_windows
@@ -719,7 +755,8 @@ production_gap_task_map:
       - scheduler_audit
   - gap_group: stage2_real_public_source_collection
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: af13a96
     target_capability_state: SANDBOX_READY
     covered_capabilities:
       - public_source_adapter
@@ -900,7 +937,7 @@ production_gap_task_map:
       - reuse_existing_runtime_surfaces_doc_policy
   - gap_group: market_scan_opportunity_discovery_engine
     packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
-    status: ACTIVE
+    status: PLANNED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - autonomous_market_segment_selection
@@ -967,7 +1004,8 @@ production_gap_task_map:
       - owner_operable_workbench_acceptance
   - gap_group: stage2_public_source_family_breakdown
     packet_ref: PTL-I100-114-stage2-real-public-source-adapters
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: af13a96
     target_capability_state: SANDBOX_READY
     subpacket_refs:
       - PTL-I100-114A-local-public-resource-trading-centers
@@ -991,7 +1029,8 @@ production_gap_task_map:
       - industry_authority_filing_page
   - gap_group: stage3_real_parser_ocr_attachments
     packet_ref: PTL-I100-115-stage3-real-parser-ocr-attachments
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 4eca3f3
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - html_pdf_ocr_word_excel_parsers
@@ -1001,7 +1040,8 @@ production_gap_task_map:
       - human_review_entry
   - gap_group: stage4_public_verification
     packet_ref: PTL-I100-116-stage4-public-verification-adapters
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 511cd30
     target_capability_state: SANDBOX_READY
     covered_capabilities:
       - four_database_one_platform_verification
@@ -1011,7 +1051,8 @@ production_gap_task_map:
       - bid_opening_invalid_bid_tender_terms
   - gap_group: project_manager_active_conflict_vertical_slice
     packet_ref: PTL-I100-116A-project-manager-active-conflict-vertical-slice
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 7fba84a
     target_capability_state: SANDBOX_READY
     covered_capabilities:
       - project_manager_extraction
@@ -1023,7 +1064,8 @@ production_gap_task_map:
       - objection_value_summary
   - gap_group: stage5_rule_factory_expansion
     packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: c073440
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - rule_registration_versioning
@@ -1033,7 +1075,8 @@ production_gap_task_map:
       - document_terms_mapping
   - gap_group: real_challenger_identification
     packet_ref: PTL-I100-119A-real-challenger-identification-hardening
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 56cd04e
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - second_rank_candidate
@@ -1048,7 +1091,8 @@ production_gap_task_map:
       - sales_priority
   - gap_group: stage6_product_package_hardening
     packet_ref: PTL-I100-119-stage6-product-package-hardening
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 54112c8
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - objection_viability
@@ -1059,7 +1103,8 @@ production_gap_task_map:
       - downgrade_and_block_reasons
   - gap_group: leadpack_package_type_breakdown
     packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 7af8966
     target_capability_state: SANDBOX_READY
     subpacket_refs:
       - PTL-I100-111C1-internal-leadpack
@@ -1073,7 +1118,8 @@ production_gap_task_map:
       - sales_talk_track_pack
   - gap_group: provider_reliability_and_circuit_breaker
     packet_ref: PTL-I100-111E-provider-reliability-and-circuit-breaker
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 1a1233c
     target_capability_state: APPROVAL_READY
     covered_capabilities:
       - provider_health_check
@@ -1084,7 +1130,8 @@ production_gap_task_map:
       - provider_status_readback
   - gap_group: operator_customer_access_and_go_live_readiness
     packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 5bd558d
     target_capability_state: APPROVAL_READY
     covered_capabilities:
       - internal_operator_console
@@ -1096,7 +1143,8 @@ production_gap_task_map:
       - rollback_runbook
   - gap_group: sales_outreach_live_pilot
     packet_ref: PTL-I100-121A-sales-outreach-live-pilot
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 4fc8020
     target_capability_state: LIVE_READY
     covered_capabilities:
       - approved_live_email_sms_phone_wecom
@@ -1106,7 +1154,8 @@ production_gap_task_map:
       - complaint_failure_suspension
   - gap_group: payment_delivery_live_pilot_no_auto_refund
     packet_ref: PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: c1515f5
     target_capability_state: LIVE_READY
     refund_boundary: "manual exception/governed review only; no automated refund execution"
     covered_capabilities:
@@ -1119,7 +1168,8 @@ production_gap_task_map:
       - manual_refund_exception
   - gap_group: production_slo_monitoring_incident_readiness
     packet_ref: PTL-I100-121C-production-slo-monitoring-incident-readiness
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: aaf903c
     target_capability_state: PRODUCTION_READY
     covered_capabilities:
       - production_slo
@@ -1131,7 +1181,8 @@ production_gap_task_map:
       - suspended_state_operational_runbook
   - gap_group: full_product_operational_acceptance
     packet_ref: PTL-I100-118-full-product-operational-acceptance
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 866f9bf
     target_capability_state: APPROVAL_READY
     covered_capabilities:
       - engineering_regression_acceptance
@@ -1140,7 +1191,7 @@ production_gap_task_map:
       - real_sample_acceptance
   - gap_group: final_product_operational_reacceptance_after_122_126
     packet_ref: PTL-I100-118R-final-product-operational-reacceptance
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: PRODUCTION_READY
     covered_capabilities:
       - post_122_126_capability_state_acceptance
@@ -1186,7 +1237,8 @@ production_gap_task_map:
     completion_result: "COMPLETED_GOVERNED_MODEL_ASSIST_READBACK_NO_EXTERNAL_MODEL_CALL"
   - gap_group: controlled_real_world_e2e_pilot_and_closeout
     packet_ref: PTL-I100-131-controlled-real-world-e2e-pilot-and-closeout
-    status: PLANNED
+    status: COMPLETED
+    completed_commit: 106c4a1
     target_capability_state: PRODUCTION_READY
     refund_boundary: "manual exception/governed review only; no automated refund execution"
     covered_capabilities:
@@ -1195,11 +1247,13 @@ production_gap_task_map:
       - sales_outreach_crm_quote_payment_delivery_e2e
       - audit_incident_rollback_e2e
 recommended_execution_order_after_reassessment:
+  status: HISTORICAL_CLOSED_THROUGH_131
+  current_sequence_ref: current_gap_sync_2026_04_29.current_remaining_runtime_productization_packets
   principle: >
-    Build the evidence-pack product from source truth toward commercial
-    execution. Provider/live adapters remain necessary, but they should not be
-    the next implementation before durable infra and the real public data chain
-    exist, otherwise sales/payment work would only automate preview data.
+    Historical reassessment order used before the 112-131 closeout. It is kept
+    for audit context only. Current remaining implementation should follow
+    current_gap_sync_2026_04_29 and control/product_runtime_architecture_map.yaml,
+    with PTL-I100-144A active before runtime PTL-I100-144 resumes.
   sequence:
     - packet_ref: PTL-I100-112-production-platform-infrastructure
       reason: "Production durability, queue/worker, object storage, audit persistence, and health checks are prerequisites for real source ingestion and provider execution."
@@ -1237,6 +1291,8 @@ recommended_execution_order_after_reassessment:
       reason: "Production SLO, alerting, incident, backup, and rollback readiness are required before production-ready acceptance."
     - packet_ref: PTL-I100-118-full-product-operational-acceptance
       reason: "Final acceptance verifies engineering regression, capability states, and evidence-pack business closure."
+next_implementation_sequence_status: HISTORICAL_CLOSED_THROUGH_118
+next_implementation_sequence_current_replacement_ref: current_gap_sync_2026_04_29.current_remaining_runtime_productization_packets
 next_implementation_sequence:
   - packet_ref: PTL-I100-110A-platform-backend-operability-foundation
     priority: 1
@@ -1302,57 +1358,68 @@ next_implementation_sequence:
       - "no automated refund program"
   - packet_ref: PTL-I100-112-production-platform-infrastructure
     priority: 7
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 0fe9212
     objective: "Implement production infrastructure for durable operations: Postgres, migrations, queue/worker, object storage, Docker compose, health/readiness, backup, rollback, audit persistence, and monitoring foundations."
     target_capability_state: INTERNAL_READY
   - packet_ref: PTL-I100-113-stage1-scheduler-production-loop
     priority: 8
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: ce733ba
     objective: "Replace Stage1 scheduler skeleton with real task scheduling, windows, retry/pause/resume, queue readback, conflict detection, and audit logs."
     target_capability_state: INTERNAL_READY
   - packet_ref: PTL-I100-114-stage2-real-public-source-adapters
     priority: 9
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: af13a96
     objective: "Implement compliant public-source fetch adapters, raw capture, snapshot hash, retry/timeout, rate limiting, source health, and audit for allowed public sources only."
     target_capability_state: SANDBOX_READY
   - packet_ref: PTL-I100-115-stage3-real-parser-ocr-attachments
     priority: 10
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 4eca3f3
     objective: "Implement HTML/PDF/OCR/Word/Excel/attachment parsing with field slices, confidence, source coordinates, parser audit, and failure fallback."
     target_capability_state: INTERNAL_READY
   - packet_ref: PTL-I100-116-stage4-public-verification-adapters
     priority: 11
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 511cd30
     objective: "Implement public verification adapters for enterprise, personnel, permit, contract, completion, credit, blacklist, and project-manager conflict checks, using public sources only."
     target_capability_state: SANDBOX_READY
   - packet_ref: PTL-I100-116A-project-manager-active-conflict-vertical-slice
     priority: 12
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 7fba84a
     objective: "Run the project-manager active conflict vertical slice across extraction, public verification, time overlap judgement, evidence chain, and objection value."
     target_capability_state: SANDBOX_READY
   - packet_ref: PTL-I100-117-rule-factory-expansion-and-golden-cases
     priority: 13
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: c073440
     objective: "Expand Stage5 rule catalog execution, rule versioning, evidence binding, conflict handling, audit, coverage reporting, and golden cases."
     target_capability_state: INTERNAL_READY
   - packet_ref: PTL-I100-119A-real-challenger-identification-hardening
     priority: 14
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 56cd04e
     objective: "Harden real challenger identification, buyer fit, purchase capacity, challenge motivation, contactability, and sales priority."
     target_capability_state: INTERNAL_READY
   - packet_ref: PTL-I100-119-stage6-product-package-hardening
     priority: 15
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 54112c8
     objective: "Harden Stage6 product package readiness: objection viability, evidence strength, customer delivery eligibility, sales readiness, and downgrade/block reasons."
     target_capability_state: INTERNAL_READY
   - packet_ref: PTL-I100-111E-provider-reliability-and-circuit-breaker
     priority: 16
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 1a1233c
     objective: "Harden provider health, failure handling, rate limit, timeout, retry, circuit breaker, and suspended fallback before provider execution expands."
     target_capability_state: APPROVAL_READY
   - packet_ref: PTL-I100-111B-sales-outreach-adapter-execution
     priority: 17
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 5642cb4
     objective: "Move Stage8 from internal outbox/readback to approved sandbox provider execution records for sales outreach, with templates, audit, frequency/quiet-hours controls, retry/stop, and opt-out/readback."
     target_capability_state: SANDBOX_READY
     non_goals:
@@ -1361,7 +1428,8 @@ next_implementation_sequence:
       - "no refund program"
   - packet_ref: PTL-I100-111C-crm-quote-and-delivery-page-adapters
     priority: 18
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 7af8966
     objective: "Move Stage7 CRM/quote and LeadPack/page delivery from workbench/readiness to sandbox adapter execution records and customer-visible artifact candidate controls."
     target_capability_state: SANDBOX_READY
     non_goals:
@@ -1370,34 +1438,40 @@ next_implementation_sequence:
       - "no external delivery without audit"
   - packet_ref: PTL-I100-111D-payment-collection-and-delivery-fulfillment-adapters-no-refund
     priority: 19
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 0ab2dba
     objective: "Move Stage9 payment collection and delivery fulfillment from internal ledger to sandbox provider execution records and fulfillment readback, while keeping refund manual-exception only."
     target_capability_state: SANDBOX_READY
     refund_boundary: "no automated refund execution"
   - packet_ref: PTL-I100-120-operator-customer-access-and-go-live-readiness
     priority: 20
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 5bd558d
     objective: "Implement operator/customer access, permission surfaces, go-live checks, monitoring/readback, and rollback readiness for governed product operation."
     target_capability_state: APPROVAL_READY
   - packet_ref: PTL-I100-121A-sales-outreach-live-pilot
     priority: 21
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 4fc8020
     objective: "Run approved small-sample sales outreach live pilot with template approval, contact source trace, opt-out, frequency control, audit, and suspension."
     target_capability_state: LIVE_READY
   - packet_ref: PTL-I100-121B-payment-delivery-live-pilot-no-auto-refund
     priority: 22
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: c1515f5
     objective: "Run approved payment and delivery live pilot with payment callback, receipt/invoice, delivery unlock, download audit, settlement reconciliation, and manual refund exception only."
     target_capability_state: LIVE_READY
     refund_boundary: "no automated refund execution"
   - packet_ref: PTL-I100-121C-production-slo-monitoring-incident-readiness
     priority: 23
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: aaf903c
     objective: "Harden production SLO, monitoring, alerting, incident runbook, backup/restore, rollback drill, and suspended-state operations."
     target_capability_state: PRODUCTION_READY
   - packet_ref: PTL-I100-118-full-product-operational-acceptance
     priority: 24
-    implementation_status: PLANNED
+    implementation_status: COMPLETED
+    completed_commit: 866f9bf
     objective: "Run full product acceptance against the three-layer validation model: engineering regression, capability state transition, and evidence-pack business closure."
     target_capability_state: APPROVAL_READY
 capability_assessments:

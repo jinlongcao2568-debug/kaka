@@ -9,7 +9,7 @@ navigation_state: PTL-I100-144A-controlled-opening-sync
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-143G completed locally through 64efed4; owner asked to continue into the autonomous opportunity operationalization sequence, starting with market scan and opportunity discovery.
+activation_condition: PTL-I100-143G completed locally through 64efed4; owner inserted PTL-I100-144A as the active controlled-opening semantics sync before runtime packet PTL-I100-144 begins.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -84,7 +84,7 @@ currentTask:
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: PTL-I100-144_ACTIVE_BEFORE_CONTROLLED_OPENING_BOUNDARY_SYNC
+    existing_code_state: PTL-I100-144A_ACTIVE_CONTROLLED_OPENING_BOUNDARY_SYNC
     existing_runtime_state: CONTROLLED_OPENING_BOUNDARY_BOUNDARY_ASSERTIONS_PRESENT
     title: I100-44A Controlled opening controlled_opening_requirement removal sync
     status: ACTIVE
@@ -102,7 +102,7 @@ currentTask:
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: market_scan_opportunity_discovery_engine
+      active_packet_kind: controlled_opening_semantics_sync
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION

@@ -244,6 +244,21 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         for row in task_map:
             self.assertTrue(row["covered_capabilities"], row["gap_group"])
 
+    def test_gap_matrix_task_statuses_match_product_task_library(self) -> None:
+        task_statuses = {row["task_id"]: row["status"] for row in self.task_library["tasks"]}
+        sections = (
+            ("production_gap_task_map", "status"),
+            ("next_implementation_sequence", "implementation_status"),
+        )
+
+        for section_name, status_key in sections:
+            with self.subTest(section=section_name):
+                for row in self.matrix[section_name]:
+                    packet_ref = row["packet_ref"]
+                    if packet_ref not in task_statuses:
+                        continue
+                    self.assertEqual(row[status_key], task_statuses[packet_ref], packet_ref)
+
     def test_source_strategy_pilot_portfolio_records_national_and_beijing_policy(self) -> None:
         section = self.matrix["source_strategy_pilot_portfolio_after_143D"]
 
@@ -322,24 +337,13 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         )
 
         task_map = {row["packet_ref"]: row for row in self.matrix["production_gap_task_map"]}
+        task_statuses = {row["task_id"]: row["status"] for row in self.task_library["tasks"]}
         self.assertEqual(
             task_map["PTL-I100-143-real-public-stage7-to-stage8-stage9-controlled-execution-readback-pilot"]["status"],
             "COMPLETED",
         )
         for packet_ref in section["next_packets_if_143D_passes"]:
-            expected_status = (
-                "ACTIVE"
-                if packet_ref == "PTL-I100-144-market-scan-opportunity-discovery-engine"
-                else "COMPLETED"
-                if packet_ref
-                in {
-                    "PTL-I100-143E-autonomous-source-strategy-d-doc-sync",
-                    "PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync",
-                    "PTL-I100-143G-public-web-capture-doc-sync-and-order-review",
-                }
-                else "PLANNED"
-            )
-            self.assertEqual(task_map[packet_ref]["status"], expected_status)
+            self.assertEqual(task_map[packet_ref]["status"], task_statuses[packet_ref])
 
     def test_143e_records_d_doc_sync_for_autonomous_source_strategy(self) -> None:
         section = self.matrix["autonomous_source_strategy_d_doc_sync_after_143D"]
@@ -404,12 +408,16 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             ],
         )
 
-        active_gap = next(
+        market_gap = next(
             item
             for item in self.matrix["production_gap_task_map"]
             if item["packet_ref"] == "PTL-I100-144-market-scan-opportunity-discovery-engine"
         )
-        self.assertEqual(active_gap["status"], "ACTIVE")
+        self.assertEqual(market_gap["status"], "PLANNED")
+        self.assertEqual(
+            self.matrix["current_gap_sync_2026_04_29"]["current_active_packet"],
+            "PTL-I100-144A-controlled-opening-sync",
+        )
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:
         section = self.matrix["national_verification_source_operationalization_after_133A"]
