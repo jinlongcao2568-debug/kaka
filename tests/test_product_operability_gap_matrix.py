@@ -433,14 +433,20 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             for item in self.matrix["production_gap_task_map"]
             if item["packet_ref"] == "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"
         )
+        commercial_hook_gap = next(
+            item
+            for item in self.matrix["production_gap_task_map"]
+            if item["packet_ref"] == "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine"
+        )
         self.assertEqual(market_gap["status"], "COMPLETED")
         self.assertEqual(source_blueprint_gap["status"], "COMPLETED")
         self.assertEqual(public_web_gap["status"], "COMPLETED")
         self.assertEqual(captcha_resume_gap["status"], "COMPLETED")
-        self.assertEqual(evidence_risk_gap["status"], "ACTIVE")
+        self.assertEqual(evidence_risk_gap["status"], "COMPLETED")
+        self.assertEqual(commercial_hook_gap["status"], "ACTIVE")
         self.assertEqual(
             self.matrix["current_gap_sync_2026_04_29"]["current_active_packet"],
-            "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
+            "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine",
         )
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:

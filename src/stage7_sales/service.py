@@ -7,6 +7,12 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from stage7_sales.commercial_hook import (
+    COMMERCIAL_HOOK_LEAD_INPUT_KEY,
+    COMMERCIAL_HOOK_READINESS_INPUT_KEY,
+    build_commercial_hook_lead_carrier,
+    build_commercial_hook_readiness_summary,
+)
 from stage7_sales.crm_quote_workbench import (
     CRM_ACTION_ID_INPUT_KEY,
     CRM_QUOTE_WORKBENCH_INPUT_KEY,
@@ -821,15 +827,38 @@ class Stage7Service:
         sales_talk_track_model_assist_summary = build_model_assist_summary(
             sales_talk_track_model_assist
         )
+        commercial_hook_lead = build_commercial_hook_lead_carrier(
+            sales_lead=sales_lead,
+            saleable_opportunity=saleable_opportunity,
+            offer_recommendation=offer_recommendation,
+            buyer_fit=buyer_fit,
+            challenger_buyer_fit=challenger_buyer_fit,
+            legal_action_actor_profile=legal_action_actor_profile,
+            procurement_decision_actor_profile=procurement_decision_actor_profile,
+            stage6_product_package=dict(inputs.get("stage6_product_package_readiness", {}) or {}),
+            stage7_resolution_trace=stage7_resolution_trace,
+            leadpack_delivery_package=leadpack_delivery_package,
+            model_assist_summary=sales_talk_track_model_assist_summary,
+            now=now,
+        )
+        commercial_hook_readiness_summary = build_commercial_hook_readiness_summary(
+            commercial_hook_lead
+        )
         crm_quote_workbench[MODEL_ASSIST_INPUT_KEY] = sales_talk_track_model_assist
         crm_quote_workbench[MODEL_ASSIST_SUMMARY_INPUT_KEY] = sales_talk_track_model_assist_summary
+        crm_quote_workbench[COMMERCIAL_HOOK_LEAD_INPUT_KEY] = commercial_hook_lead
+        crm_quote_workbench[COMMERCIAL_HOOK_READINESS_INPUT_KEY] = commercial_hook_readiness_summary
         leadpack_delivery_package[MODEL_ASSIST_INPUT_KEY] = sales_talk_track_model_assist
         leadpack_delivery_package[MODEL_ASSIST_SUMMARY_INPUT_KEY] = sales_talk_track_model_assist_summary
+        leadpack_delivery_package[COMMERCIAL_HOOK_LEAD_INPUT_KEY] = commercial_hook_lead
+        leadpack_delivery_package[COMMERCIAL_HOOK_READINESS_INPUT_KEY] = commercial_hook_readiness_summary
         stage7_resolution_trace["crm_quote_prerequisite_readiness"] = crm_quote_prerequisite_readiness
         stage7_resolution_trace[PROVIDER_ADAPTER_READINESS_SUMMARY_INPUT_KEY] = provider_adapter_readiness_summary
         stage7_resolution_trace[CRM_QUOTE_WORKBENCH_INPUT_KEY] = crm_quote_workbench
         stage7_resolution_trace[MODEL_ASSIST_INPUT_KEY] = sales_talk_track_model_assist
         stage7_resolution_trace[MODEL_ASSIST_SUMMARY_INPUT_KEY] = sales_talk_track_model_assist_summary
+        stage7_resolution_trace[COMMERCIAL_HOOK_LEAD_INPUT_KEY] = commercial_hook_lead
+        stage7_resolution_trace[COMMERCIAL_HOOK_READINESS_INPUT_KEY] = commercial_hook_readiness_summary
         stage7_resolution_trace[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = {
             "package_id": leadpack_delivery_package.get("package_id"),
             "evidence_pack_id": leadpack_delivery_package.get("evidence_pack_id"),
@@ -871,11 +900,15 @@ class Stage7Service:
         inputs_out[LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY] = leadpack_delivery_package.get("artifact_manifest_id")
         inputs_out[MODEL_ASSIST_INPUT_KEY] = sales_talk_track_model_assist
         inputs_out[MODEL_ASSIST_SUMMARY_INPUT_KEY] = sales_talk_track_model_assist_summary
+        inputs_out[COMMERCIAL_HOOK_LEAD_INPUT_KEY] = commercial_hook_lead
+        inputs_out[COMMERCIAL_HOOK_READINESS_INPUT_KEY] = commercial_hook_readiness_summary
         handoff["crm_quote_prerequisite_readiness_optional"] = crm_quote_prerequisite_readiness
         handoff["provider_adapter_readiness_summary_optional"] = provider_adapter_readiness_summary
         handoff["crm_quote_workbench_optional"] = crm_quote_workbench
         handoff["model_assist_governance_optional"] = sales_talk_track_model_assist
         handoff["model_assist_governance_summary_optional"] = sales_talk_track_model_assist_summary
+        handoff["commercial_hook_lead_optional"] = commercial_hook_lead
+        handoff["commercial_hook_readiness_summary_optional"] = commercial_hook_readiness_summary
         handoff["provider_execution_id"] = crm_quote_workbench.get("provider_execution_id")
         handoff[CRM_ACTION_ID_INPUT_KEY] = crm_quote_workbench.get("crm_action_id")
         handoff[QUOTE_DRAFT_ID_INPUT_KEY] = crm_quote_workbench.get("quote_draft_id")
@@ -925,6 +958,8 @@ class Stage7Service:
         semantic_additions[CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY] = crm_quote_workbench_readiness_summary
         semantic_additions[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = leadpack_delivery_package
         semantic_additions[LEADPACK_DELIVERY_READINESS_INPUT_KEY] = leadpack_delivery_readiness_summary
+        semantic_additions[COMMERCIAL_HOOK_LEAD_INPUT_KEY] = commercial_hook_lead
+        semantic_additions[COMMERCIAL_HOOK_READINESS_INPUT_KEY] = commercial_hook_readiness_summary
         inputs_out["semantic_additions"] = semantic_additions
 
         return StageBundle(
@@ -994,6 +1029,8 @@ class Stage7Service:
         )
         stage6_product_package = dict(stage6_bundle.inputs.get("stage6_product_package_readiness", {}) or {})
         leadpack_package = dict(stage7_bundle.inputs.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY, {}) or {})
+        commercial_hook = dict(stage7_bundle.inputs.get(COMMERCIAL_HOOK_LEAD_INPUT_KEY, {}) or {})
+        commercial_hook_summary = dict(stage7_bundle.inputs.get(COMMERCIAL_HOOK_READINESS_INPUT_KEY, {}) or {})
         crm_quote_workbench = dict(stage7_bundle.inputs.get(CRM_QUOTE_WORKBENCH_INPUT_KEY, {}) or {})
         real_challenger_readback = dict(stage7_bundle.inputs.get("real_challenger_readback", {}) or {})
         real_challenger_state = str(stage7_bundle.inputs.get("real_challenger_decision_state", "UNKNOWN"))
@@ -1019,6 +1056,14 @@ class Stage7Service:
             fail_closed_reasons.append(f"real_challenger_decision_state={real_challenger_state}")
         if not leadpack_package:
             fail_closed_reasons.append("leadpack_delivery_package_missing")
+        if not commercial_hook:
+            fail_closed_reasons.append("commercial_hook_lead_missing")
+        if bool(commercial_hook.get("customer_visible_enabled", False)):
+            fail_closed_reasons.append("commercial_hook_customer_visible_enabled_unexpected")
+        if bool(commercial_hook.get("external_send_enabled", False)):
+            fail_closed_reasons.append("commercial_hook_external_send_enabled_unexpected")
+        if not bool(commercial_hook.get("no_full_evidence_leakage", False)):
+            fail_closed_reasons.append("commercial_hook_full_evidence_leakage_guard_failed")
         if bool(leadpack_package.get("customer_visible_enabled", False)):
             fail_closed_reasons.append("leadpack_customer_visible_enabled_unexpected")
         if bool(leadpack_package.get("external_delivery_enabled", False)):
@@ -1042,6 +1087,9 @@ class Stage7Service:
             "real_challenger_decision_state": real_challenger_state,
             "leadpack_package_state": leadpack_package.get("package_state"),
             "leadpack_delivery_state": leadpack_package.get("delivery_state"),
+            "commercial_hook_eligibility_state": commercial_hook.get("hook_eligibility_state"),
+            "commercial_hook_disclosure_level": commercial_hook.get("disclosure_level"),
+            "commercial_hook_leakage_risk_level": commercial_hook_summary.get("leakage_risk_level"),
             "source_refs": {
                 "stage6_real_public_rule_evidence_readback": dict(stage6_summary.get("source_refs", {})),
                 "stage6_product_package_source_refs": dict(
@@ -1055,6 +1103,7 @@ class Stage7Service:
                 "buyer_fit_id": stage7_bundle.records["buyer_fit"].get("buyer_fit_id"),
                 "real_challenger_readback_id": real_challenger_readback.get("readback_id"),
                 "leadpack_package_id": leadpack_package.get("package_id"),
+                "commercial_hook_lead_id": commercial_hook.get("hook_lead_id"),
                 "evidence_pack_id": leadpack_package.get("evidence_pack_id"),
                 "artifact_manifest_id": leadpack_package.get("artifact_manifest_id"),
                 "crm_action_id": crm_quote_workbench.get("crm_action_id"),

@@ -168,6 +168,7 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-S7-module-boundary-refactor" in stage7["completed_packets"]
     assert stage7["pending_packets"] == []
     assert stage7["current_runtime_state"] == "HEAVY_RUNTIME"
+    assert "src/stage7_sales/commercial_hook.py" in stage7["current_files"]
     split_files = {
         "src/stage7_sales/runtime.py",
         "src/stage7_sales/scorecard.py",
@@ -177,6 +178,20 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert split_files.issubset(set(stage7["current_files"]))
     assert set(stage7["completed_split_files"]) == split_files
     assert_paths_exist(sorted(split_files))
+    stage7_inventory = next(
+        stage for stage in registry["stage_module_inventory"]
+        if stage["stage_id"] == "stage7_sales"
+    )
+    stage7_slices = {module_slice["slice_id"]: module_slice for module_slice in stage7_inventory["module_slices"]}
+    commercial_hook_slice = stage7_slices["stage7.commercial_hook_lead"]
+    assert commercial_hook_slice["implementation_state"] == "INTERNAL_READY_CANDIDATE"
+    assert "src/stage7_sales/commercial_hook.py" in commercial_hook_slice["current_files"]
+    assert "tests/test_stage7_commercial_hook_lead.py" in commercial_hook_slice["test_files"]
+    assert (
+        "PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine"
+        in commercial_hook_slice["target_packet_candidates"]
+    )
+    assert "tests/test_stage7_commercial_hook_lead.py" in registry_text
 
     stage8 = modules["STAGE8-OUTREACH-GOVERNED"]
     stage9 = modules["STAGE9-DELIVERY-GOVERNANCE"]

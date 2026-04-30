@@ -191,10 +191,12 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_150 = self.tasks_by_id["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         task_151 = self.tasks_by_id["PTL-I100-151-public-web-captcha-automated-resolution-and-resume"]
         task_146 = self.tasks_by_id["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]
+        task_147 = self.tasks_by_id["PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine"]
         checklist_143g = self.checklist["tasks"]["PTL-I100-143G-public-web-capture-doc-sync-and-order-review"]
         checklist_150 = self.checklist["tasks"]["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         checklist_151 = self.checklist["tasks"]["PTL-I100-151-public-web-captcha-automated-resolution-and-resume"]
         checklist_146 = self.checklist["tasks"]["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]
+        checklist_147 = self.checklist["tasks"]["PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine"]
 
         self.assertEqual(task_143g["status"], "COMPLETED")
         self.assertEqual(task_143g["completed_commit"], "64efed4")
@@ -209,8 +211,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertEqual(task_151["status"], "COMPLETED")
         self.assertEqual(task_151["completed_commit"], "5ffdc49")
         self.assertFalse(task_151["is_current_mainline_next_candidate"])
-        self.assertEqual(task_146["status"], "ACTIVE")
-        self.assertTrue(task_146["is_current_mainline_next_candidate"])
+        self.assertEqual(task_146["status"], "COMPLETED")
+        self.assertEqual(task_146["completed_commit"], "b782b49")
+        self.assertFalse(task_146["is_current_mainline_next_candidate"])
+        self.assertEqual(task_147["status"], "ACTIVE")
+        self.assertTrue(task_147["is_current_mainline_next_candidate"])
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", task_143g["acceptance_checks"])
         self.assertIn("autonomous_run_controller_and_stage_state_machine_visible", task_144["acceptance_checks"])
         self.assertIn("stage2_capture_plan_generation", task_145["acceptance_checks"])
@@ -225,14 +230,23 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
             "PTL-I100-151-public-web-captcha-automated-resolution-and-resume",
             task_146["hard_depends_on"],
         )
+        self.assertIn("objection_value_and_buyer_fit_scoring", task_147["acceptance_checks"])
+        self.assertIn("commercial_hook_lead_generated", task_147["acceptance_checks"])
+        self.assertIn("presale_hook_does_not_leak_reproducible_evidence", task_147["acceptance_checks"])
+        self.assertIn(
+            "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy",
+            task_147["hard_depends_on"],
+        )
         self.assertIn("no_manual_restart_as_primary_failure_mode", task_150["capability_gaps_covered"])
         self.assertIn("captcha_challenge_detection", task_151["capability_gaps_covered"])
         self.assertIn("project_manager_active_conflict_priority", task_146["capability_gaps_covered"])
+        self.assertIn("commercial_hook_lead_generation", task_147["capability_gaps_covered"])
 
         serialized_143g = yaml.safe_dump(checklist_143g, allow_unicode=True)
         serialized_150 = yaml.safe_dump(checklist_150, allow_unicode=True)
         serialized_151 = yaml.safe_dump(checklist_151, allow_unicode=True)
         serialized_146 = yaml.safe_dump(checklist_146, allow_unicode=True)
+        serialized_147 = yaml.safe_dump(checklist_147, allow_unicode=True)
         self.assertIn("144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149", serialized_143g)
         self.assertIn("D1-D14", serialized_143g)
         self.assertIn("Stage2Service", serialized_150)
@@ -240,6 +254,9 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIn("默认走自动化续跑路径", serialized_151)
         self.assertIn("弱证据", serialized_146)
         self.assertIn("LLM 不得替代公开核验或规则判定", serialized_146)
+        self.assertIn("商业钩子线索", serialized_147)
+        self.assertIn("不得泄露 source URL", serialized_147)
+        self.assertIn("stage7_commercial_hook_lead", checklist_147["targeted_test_expectations"])
 
     def test_required_subpackets_have_dedicated_acceptance_entries(self) -> None:
         subpacket_acceptance = self.checklist["subpacket_acceptance"]

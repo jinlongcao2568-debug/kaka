@@ -1103,6 +1103,11 @@ tasks:
       - "系统必须计算异议价值、买家动机、购买能力、销售优先级和报价建议。"
       - "必须生成商业钩子线索，并明确 disclosure_level、withheld_fields、allowed_sales_talking_points、forbidden_sales_claims、leakage_risk。"
       - "销售前不得泄露 source URL、完整项目经理身份组合、冲突项目名称、完整时间重叠、原始快照/附件、完整核验路径或内部评分模型。"
+    targeted_test_expectations:
+      - stage7_commercial_hook_lead
+      - stage7_runtime_closure
+      - real_challenger_identification
+      - product_operability_gap_matrix
     controlled_opening_requirement_checks:
       - presale_hook_does_not_leak_reproducible_evidence
       - forbidden_sales_claims_filter_required

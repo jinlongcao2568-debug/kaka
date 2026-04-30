@@ -805,10 +805,10 @@ implementation_sequence:
     status: COMPLETED
     purpose: preserve_session_and_resume_capture_after_automated_challenge_resolution
   - packet_ref: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
-    status: ACTIVE
+    status: COMPLETED
     purpose: decide_which_hard_defects_and_public_verifications_to_run
   - packet_ref: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
-    status: PLANNED
+    status: ACTIVE
     purpose: score_objection_value_buyer_fit_and_generate_non_leaking_hook_lead
   - packet_ref: PTL-I100-148-productized-autonomous-operator-workbench
     status: PLANNED

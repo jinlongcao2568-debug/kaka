@@ -725,6 +725,7 @@ stage_module_inventory:
     target_packet_candidates:
       - PTL-S67-saleable-opportunity-derivation
       - PTL-S7-price-competitor-offer-resolution
+      - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
     current_blockers:
       - "Stage7 可售对象必须受 report/review/sale gate 约束。"
       - "Stage7 模块边界已拆分完成；本次仅为模块边界重构，不新增正式对象、枚举、gate 或 exception 语义。"
@@ -750,6 +751,7 @@ stage_module_inventory:
           - src/stage7_sales/buyer_fit.py
           - src/stage7_sales/offer.py
           - src/stage7_sales/opportunity.py
+          - src/stage7_sales/commercial_hook.py
           - src/stage7_sales/models.py
         handoff_files:
           - handoff/stage7_to_stage8/contract.json
@@ -765,12 +767,14 @@ stage_module_inventory:
         test_files:
           - tests/test_real_challenger_identification.py
           - tests/test_stage7_runtime_closure.py
+          - tests/test_stage7_commercial_hook_lead.py
           - tests/test_internal_chain.py
         depends_on_slices:
           - stage6.review_report_challenger
         target_packet_candidates:
           - PTL-S67-saleable-opportunity-derivation
           - PTL-S7-price-competitor-offer-resolution
+          - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
         exit_criteria:
           - "report_status 非 ready/issued 时不得无条件 qualified。"
           - "review request 或 missing condition 存在时 opportunity 必须受限。"
@@ -788,6 +792,34 @@ stage_module_inventory:
               - PTL-S7-module-boundary-refactor
             not_current_blocker: false
             completion_note: "模块边界重构完成；未新增正式对象、枚举、gate、exception 语义。"
+      - slice_id: stage7.commercial_hook_lead
+        business_summary: "生成卖前商业钩子、商业价值摘要、买家适配摘要、披露级别、禁语过滤和泄露风险 readback。"
+        implementation_state: INTERNAL_READY_CANDIDATE
+        current_files:
+          - src/stage7_sales/commercial_hook.py
+          - src/stage7_sales/service.py
+          - src/stage7_sales/__init__.py
+        handoff_files:
+          - handoff/stage7_to_stage8/contract.json
+        api_surface_files:
+          - src/api/routes/stage7.py
+          - src/api/schemas/stage7.py
+        repository_files:
+          - src/storage/repositories/leadpack_delivery_package_repo.py
+          - src/storage/repositories/crm_quote_workbench_repo.py
+        test_files:
+          - tests/test_stage7_commercial_hook_lead.py
+          - tests/test_stage7_runtime_closure.py
+          - tests/test_real_challenger_identification.py
+        depends_on_slices:
+          - stage7.sales_derivation
+        target_packet_candidates:
+          - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+        exit_criteria:
+          - "commercial_hook_lead 必须生成 objection value、buyer fit、conversion priority、withheld fields、forbidden claims 和 leakage risk。"
+          - "卖前钩子不得泄露 source URL、raw snapshot、完整核验路径或内部评分模型。"
+          - "commercial hook 只进入内部 readback，不直接启用 customer_visible、external_send 或 provider_call。"
+        deferred_gaps: []
       - slice_id: stage7.actor_offer_resolution
         business_summary: "维护挑战者、法律动作 actor、采购决策 actor、价格/竞争者/推荐方案 resolution。"
         implementation_state: HEAVY_RUNTIME_INTERNAL_GOVERNED
@@ -1339,6 +1371,7 @@ modules:
       - src/stage7_sales/buyer_fit.py
       - src/stage7_sales/offer.py
       - src/stage7_sales/opportunity.py
+      - src/stage7_sales/commercial_hook.py
       - src/stage7_sales/models.py
     completed_split_files:
       - src/stage7_sales/runtime.py
@@ -1359,6 +1392,7 @@ modules:
       - "Current S67 closure is complete through service.py plus shared runtime/policy chain."
       - "STAGE7-SALES-RUNTIME-SPLIT completed by PTL-S7-module-boundary-refactor as a module boundary refactor only."
       - "This split does not add formal object, enum, gate, or exception semantics."
+      - "PTL-I100-147 registers src/stage7_sales/commercial_hook.py as an internal hook lead carrier/readback without customer-visible send or provider execution."
       - "PTL-I100-OPEN-CAPABILITY-BASELINE treats true challenger identification, CRM/Quote, LeadPack/Page/Export, and customer-visible package delivery as target capabilities with controlled-opening-required gated opening."
   - module_id: STAGE8-OUTREACH-GOVERNED
     stage_scope:
