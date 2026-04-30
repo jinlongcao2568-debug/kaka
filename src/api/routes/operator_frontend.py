@@ -825,6 +825,12 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             </section>
             <section>
               <h3>地区适配器状态</h3>
+              <div class="rail" id="regionCoverageSummary">
+                <div class="metric"><strong>--</strong><span>可搜索地区</span></div>
+                <div class="metric"><strong>--</strong><span>本地专用入口</span></div>
+                <div class="metric"><strong>--</strong><span>待补地区</span></div>
+              </div>
+              <p class="muted-text" id="regionCoverageNarrative">地区覆盖缺口待读取：正在读取全国兜底、本地入口和商业试点缺口。</p>
               <div id="regionAdapterSummary" class="empty-state">正在读取地区适配器...</div>
             </section>
             <section class="wide">
@@ -901,11 +907,15 @@ def render_operator_console(payload: Any) -> HTMLResponse:
           <section>
             <h3>服务商与调度状态</h3>
             <div id="providerStatus"></div>
+            <h3>真实服务商放行矩阵</h3>
+            <div id="providerExecutionMatrix" class="compact-card-grid"></div>
             <button id="refreshSystemRelease">刷新系统与放行</button>
           </section>
           <section>
             <h3>审批审计</h3>
             <div id="auditStatus"></div>
+            <h3>真实外部动作门禁矩阵</h3>
+            <div id="liveActionGateMatrix" class="compact-card-grid"></div>
           </section>
           <section class="controlled_opening_requirement">
             <h3>内部测试放行状态</h3>
@@ -1050,6 +1060,38 @@ const stateLabels = {
   "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR": "持久保存，直到 owner 显式清空",
   "local_repository_operator_action_log": "本地仓库操作日志",
   "OperatorActionRepository": "操作动作仓库",
+  "BLOCKED": "已拦截",
+  "LOW": "低风险",
+  "STANDARD": "常规",
+  "CUSTOM": "自定义报价",
+  "NOT_REQUIRED": "当前不需要",
+  "MISSING": "缺失",
+  "PAGE_DRAFT_ONLY": "仅页面草稿",
+  "ELIGIBLE_FOR_INTERNAL_HOOK_REVIEW": "可内部复核钩子",
+  "source_url": "完整来源网址",
+  "full_person_name_with_identifier": "完整人员身份组合",
+  "conflicting_project_name": "冲突项目名称",
+  "exact_overlap_window": "精确重叠窗口",
+  "complete_verification_path": "完整核验路径",
+  "raw_snapshot_or_attachment": "原始快照或附件",
+  "internal_scores": "内部评分",
+  "leadpack_delivery_gate_not_ready": "线索包交付门未就绪",
+  "crm_quote_live_execution_blocked": "CRM/报价真实执行未放行",
+  "BUYER_FIT_SCORECARD": "买家匹配评分卡",
+  "SALE_GATE_OPEN": "销售门已打开",
+  "REPORT_ISSUED": "报告已生成",
+  "WINDOW_ACTIONABLE": "窗口可行动",
+  "GRADE_B": "B级机会",
+  "CRM_OWNER_UNASSIGNED": "CRM负责人未分配",
+  "sales_outreach": "销售触达服务商",
+  "crm_quote": "CRM/报价服务商",
+  "leadpack_page_delivery": "线索包页面交付服务商",
+  "payment_collection": "收款服务商",
+  "real_provider_call_blocked_readback_only": "真实服务商调用当前仅读回",
+  "provider_adapters_readback_only": "服务商适配器只读回",
+  "approval_and_audit_required_before_any_live_provider_use": "真实服务商使用前需要审批和审计",
+  "automated_refund_program_absent_blocked": "自动退款程序未开放",
+  "province_platform_missing_detail_or_attachment": "省级平台详情或附件入口待补",
 };
 const projectTypeLabels = {
   "construction": "房建工程",
@@ -1135,6 +1177,12 @@ function listText(items) {
   const rows = Array.isArray(items) ? items.filter(Boolean) : [];
   return rows.length ? rows.map(labelOf).join(" / ") : "--";
 }
+function renderInlineList(items, emptyText="暂无") {
+  const rows = Array.isArray(items) ? items.filter(Boolean) : [];
+  return rows.length
+    ? rows.map((item) => `<li>${safeText(labelOf(item))}</li>`).join("")
+    : `<li>${safeText(emptyText)}</li>`;
+}
 function candidateRange(candidate) {
   return {
     minimum: candidate?.amount_min ?? candidate?.amount,
@@ -1162,9 +1210,68 @@ function renderCandidateCards(candidates, activeOpportunityId="", selectedProjec
       ${badge(candidate.analysis_priority || "--")}
       ${badge(candidate.analysis_score ? `评分 ${candidate.analysis_score}` : "评分 --")}
       <p>${candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回"}</p>
+      <p><strong>${candidate.selected_for_capture_plan ? "入选理由" : "未入选原因"}</strong> ${candidateDecisionReason(candidate, selectedProjectId)}</p>
       ${activeOpportunityId && candidate.project_id === selectedProjectId ? opportunityActions(activeOpportunityId) : ""}
     </div>
   `).join("")}</div>`;
+}
+function candidateDecisionReason(candidate, selectedProjectId="") {
+  if (candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId) {
+    return `匹配地区、项目类型和金额区间，评分 ${candidate.analysis_score ?? "--"}，进入来源蓝图和闭环生成。`;
+  }
+  if (!candidate.source_url && !candidate.source_profile_id) {
+    return "公开来源入口缺失，进入来源补齐队列。";
+  }
+  if (candidate.analysis_priority === "LOW") {
+    return "商业优先级偏低，暂不进入当前闭环。";
+  }
+  return `${labelOf(candidate.analysis_decision || "需要复核")}，等待批量复盘。`;
+}
+function candidateFailureCategory(candidate, selectedProjectId="") {
+  if (candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId) {
+    return "未淘汰，进入闭环";
+  }
+  if (!candidate.source_url && !candidate.source_profile_id) {
+    return "来源缺口";
+  }
+  if (candidate.analysis_priority === "LOW") {
+    return "商业优先级低";
+  }
+  return "待复核";
+}
+function renderCandidateBatchReview(run) {
+  const rows = Array.isArray(run?.candidate_options) ? run.candidate_options : [];
+  if (!rows.length) {
+    return `<div class="empty-state">暂无批量候选复盘。</div>`;
+  }
+  const selectedProjectId = run.search_scope?.selected_project_id || run.project_id || "";
+  const selected = rows.filter((candidate) => candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId);
+  const fallbackCount = rows.filter((candidate) => String(candidate.source_profile_id || "").includes("GGZY-DEAL-LIST")).length;
+  const localCount = rows.length - fallbackCount;
+  const categories = {};
+  rows.forEach((candidate) => {
+    const category = candidateFailureCategory(candidate, selectedProjectId);
+    categories[category] = (categories[category] || 0) + 1;
+  });
+  const categoryText = Object.entries(categories).map(([name, count]) => `${name} ${count}`).join(" / ");
+  return `
+    <div class="rail">
+      <div class="metric"><strong>${rows.length}</strong><span>候选对象</span></div>
+      <div class="metric"><strong>${selected.length}</strong><span>进入闭环</span></div>
+      <div class="metric"><strong>${fallbackCount}</strong><span>全国兜底来源</span></div>
+    </div>
+    <p class="muted-text">失败分类：${safeText(categoryText || "暂无失败分类")}；本地入口 ${localCount} 条，全国兜底 ${fallbackCount} 条。</p>
+    <div class="compact-card-grid">${rows.map((candidate) => `
+      <div class="stage-card">
+        <strong>${safeText(candidate.project_name || candidate.project_id || "--")}</strong>
+        <p>${safeText(candidate.region_name || candidate.region_code || "--")} · ${safeText(labelOf(candidate.project_type || "--"))} · ${safeText(amountRangeText(candidateRange(candidate)))}</p>
+        ${badge(candidateFailureCategory(candidate, selectedProjectId), candidate.selected_for_capture_plan ? "" : "warn")}
+        ${badge(candidate.source_profile_id || "来源待补", candidate.source_profile_id ? "" : "warn")}
+        <p><strong>判断</strong> ${safeText(candidateDecisionReason(candidate, selectedProjectId))}</p>
+        <p><strong>来源</strong> ${candidate.source_url ? `<a href="${safeText(candidate.source_url)}">${safeText(candidate.source_site_name || candidate.source_url)}</a>` : "来源网址待补"}</p>
+      </div>
+    `).join("")}</div>
+  `;
 }
 function renderSearchResultFromRun(run) {
   if (!run) {
@@ -1187,7 +1294,59 @@ function renderSearchResultFromRun(run) {
     </div>
     <h3>候选对象明细</h3>
     ${renderCandidateCards(run.candidate_options || [], run.opportunity_id || "", scope.selected_project_id || run.project_id || "")}
+    <h3>批量候选复盘与失败分类</h3>
+    ${renderCandidateBatchReview(run)}
   `;
+}
+function renderCommercialBoundary(hook, buyer, next, delivery, safeDisplay) {
+  const buyerRows = Array.isArray(buyer.buyer_rankings) ? buyer.buyer_rankings : [];
+  const topBuyer = buyerRows[0] || {};
+  const forbidden = [
+    ...(hook.withheld_fields || []),
+    ...(hook.forbidden_sales_claims || [])
+  ];
+  const deliveryAfterPay = [
+    delivery.package_id ? `证据包：${delivery.package_id}` : "",
+    delivery.page_draft_id ? `页面草稿：${delivery.page_draft_id}` : "",
+    "完整证据路径需审批/成交/交付后开放",
+    safeDisplay?.source_url_visible ? "来源网址可见" : "完整来源网址卖前隐藏",
+    safeDisplay?.raw_snapshot_visible ? "原始快照可见" : "原始快照卖前隐藏"
+  ].filter(Boolean);
+  return `<div class="stage-grid">
+    <div class="stage-card">
+      <strong>卖前价值摘要</strong>
+      <p>${hook.redacted_claim_summary || hook.teaser_copy || "--"}</p>
+      ${badge(hook.hook_eligibility_state || "--")}
+      ${badge(hook.disclosure_level || "--")}
+      ${badge(hook.leakage_risk_level || "--", hook.leakage_risk_level === "LOW" ? "" : "warn")}
+    </div>
+    <div class="stage-card">
+      <strong>卖前可讲</strong>
+      <ul>${renderInlineList((hook.allowed_sales_talking_points || []).slice(0, 8), "暂无可讲卖点")}</ul>
+    </div>
+    <div class="stage-card">
+      <strong>卖前不可讲</strong>
+      <ul>${renderInlineList(forbidden, "暂无暂不外泄字段")}</ul>
+      ${badge(`暂不外泄 ${hook.withheld_field_count ?? forbidden.length}`, "warn")}
+    </div>
+    <div class="stage-card">
+      <strong>交付后可见</strong>
+      <ul>${renderInlineList(deliveryAfterPay, "等待交付候选")}</ul>
+      ${badge(delivery.delivery_ready ? "交付就绪" : "交付待放行", delivery.delivery_ready ? "" : "warn")}
+    </div>
+    <div class="stage-card">
+      <strong>买家与报价支撑</strong>
+      <p>${labelOf(topBuyer.buyer_type || "--")} · 买家匹配 ${buyer.buyer_fit_score || topBuyer.buyer_fit_score || "--"} · 报价 ${next.quote_draft_id || "--"}</p>
+      ${badge(next.quote_surface_state || "--")}
+      ${badge(next.provider_execution_state || "--", next.provider_execution_state === "BLOCKED" ? "warn" : "")}
+    </div>
+    <div class="stage-card">
+      <strong>真实外发状态</strong>
+      <p>当前为内部复核和拟发送包预览；真实邮件/电话/CRM 发送需要服务商、审批、审计和 operator action。</p>
+      ${badge(hook.customer_visible_enabled ? "客户可见" : "客户不可见", hook.customer_visible_enabled ? "" : "warn")}
+      ${badge(hook.external_send_enabled ? "真实外发已开" : "真实外发未开", hook.external_send_enabled ? "" : "warn")}
+    </div>
+  </div>`;
 }
 function renderOpportunityDetail(first, panels) {
   const hook = panels.commercial_hook_panel || {};
@@ -1195,6 +1354,7 @@ function renderOpportunityDetail(first, panels) {
   const delivery = panels.delivery_state_panel || {};
   const next = panels.sales_next_action_panel || {};
   const risk = panels.evidence_risk_panel || {};
+  const safeDisplay = panels.safe_display_contract || {};
   $("opportunityDetail").className = "";
   $("opportunityDetail").innerHTML = `
     <h3>机会详情</h3>
@@ -1215,6 +1375,8 @@ function renderOpportunityDetail(first, panels) {
       ["证据包", delivery.package_id],
       ["页面草稿", delivery.page_draft_id],
     ])}
+    <h3>卖前/交付后边界</h3>
+    ${renderCommercialBoundary(hook, buyer, next, delivery, safeDisplay)}
     <div class="stage-grid">
       <div class="stage-card"><strong>商业钩子</strong><p>${hook.teaser_copy || first.commercial_hook_teaser || "--"}</p>${badge(hook.disclosure_level || "--")}${badge(hook.leakage_risk_level || "--")}</div>
       <div class="stage-card"><strong>可讲卖点</strong><p>${listText(hook.allowed_sales_talking_points || [])}</p></div>
@@ -1353,6 +1515,48 @@ function renderCapabilityExposure(readiness, scheduler, goLive) {
     const warn = state.includes("未接入") || state.includes("待接") || state.includes("待补");
     return `<div class="stage-card"><strong>${name}</strong><p>${detail}</p>${badge(state, warn ? "warn" : "")}</div>`;
   }).join("");
+}
+function renderProviderExecutionMatrix(readiness, scheduler, goLive) {
+  const provider = goLive?.provider_config_readiness || {};
+  const controlled = goLive?.controlled_opening_requirements || {};
+  const families = provider.credential_redaction_audit?.families || {};
+  const providerRows = [
+    ["sales_outreach", "真实邮件/电话触达", controlled.stage8_real_execution_enabled, "拟外发、触达频控、退订和外发审计"],
+    ["crm_quote", "CRM/报价", controlled.provider_live_execution_enabled, "报价草稿、CRM动作和报价发送回写"],
+    ["leadpack_page_delivery", "线索包页面交付", controlled.real_delivery_enabled, "证据包页面、下载授权和交付审计"],
+    ["payment_collection", "收款/支付", controlled.real_payment_enabled, "收款、支付记录和交付联动"]
+  ];
+  $("providerExecutionMatrix").innerHTML = providerRows.map(([family, title, liveEnabled, purpose]) => {
+    const credential = families[family] || {};
+    const credentialState = credential.credential_present ? "凭证已配置" : "凭证未配置";
+    return `<div class="stage-card">
+      <strong>${title}</strong>
+      <p>${purpose}</p>
+      ${badge(provider.mode || "--", provider.readback_only ? "warn" : "")}
+      ${badge(credentialState, credential.credential_present ? "" : "warn")}
+      ${badge(liveEnabled ? "真实执行已开" : "真实执行未开", liveEnabled ? "" : "warn")}
+      <p><strong>下一步</strong> 接入 sandbox 凭证、健康检查、审批链、审计链和 operator action 后再做 live pilot。</p>
+    </div>`;
+  }).join("");
+  const blocked = provider.summary?.blocked_reasons || [];
+  const gateRows = [
+    ["真实触达", controlled.stage8_real_execution_enabled, "provider sandbox + 审批 + 审计 + operator action"],
+    ["真实支付", controlled.real_payment_enabled, "支付 sandbox + 订单记录 + 审批 + 审计"],
+    ["真实交付", controlled.real_delivery_enabled, "下载授权 + 交付审计 + 客户账号控制"],
+    ["真实退款异常", controlled.real_refund_enabled, "人工退款异常队列；自动退款继续排除"],
+    ["自动退款执行", controlled.automated_refund_enabled, "保持排除，不作为自动程序开放"]
+  ];
+  $("liveActionGateMatrix").innerHTML = `
+    <div class="stage-card">
+      <strong>当前阻断原因</strong>
+      <ul>${renderInlineList(blocked, "暂无阻断原因")}</ul>
+    </div>
+    ${gateRows.map(([name, enabled, prerequisite]) => `<div class="stage-card">
+      <strong>${name}</strong>
+      <p>${prerequisite}</p>
+      ${badge(enabled ? "已放行" : "未放行", enabled ? "" : "warn")}
+    </div>`).join("")}
+  `;
 }
 function renderUserAcceptanceContract(contract) {
   const product = contract?.productDefinition || {};
@@ -1509,6 +1713,7 @@ async function loadReadiness(writeOutput = true) {
     badge("真实外发审计未接入", "warn")
   ].join("");
   renderCapabilityExposure(readiness, scheduler, goLive);
+  renderProviderExecutionMatrix(readiness, scheduler, goLive);
   if (writeOutput) { out({ readiness, scheduler, goLive }); }
 }
 let selectedAutonomousOpportunityId = "";
@@ -1550,6 +1755,7 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
     </div>`;
   }).join("");
   const panels = payload.panels || {};
+  panels.safe_display_contract = payload.safe_display_contract || payload.productized_operator_workbench?.safe_display_contract || {};
   renderOpportunityDetail(first, panels);
   $("autonomousDetailPanels").innerHTML = [
     `<div class="stage-card"><strong>证据风险</strong><p>${labelOf(panels.evidence_risk_panel?.evidence_strength_label || "--")} / ${labelOf(panels.evidence_risk_panel?.hard_defect_public_label || "--")}</p>${badge((panels.evidence_risk_panel?.review_items || []).length + " 项复核")}</div>`,
@@ -1573,9 +1779,10 @@ function fillSelect(id, items, labelBuilder) {
 }
 async function loadRegionAdapters() {
   const catalog = await json("GET", "/operator-console/region-adapters");
+  const adapters = catalog.region_adapters || [];
   const select = $("searchRegion");
   select.innerHTML = "";
-  for (const adapter of catalog.region_adapters || []) {
+  for (const adapter of adapters) {
     const option = document.createElement("option");
     option.value = adapter.region_code;
     option.textContent = `${adapter.region_code} | ${adapter.region_name} | ${labelOf(adapter.adapter_state)}`;
@@ -1586,13 +1793,30 @@ async function loadRegionAdapters() {
     select.options[0].selected = true;
   }
   renderSelectChoices("searchRegion", "searchRegionChoices");
-  const rows = (catalog.region_adapters || []).slice(0, 8).map((adapter) => {
+  const searchableCount = (catalog.searchable_region_codes || []).length;
+  const dedicatedCount = (catalog.dedicated_local_profile_region_codes || []).length;
+  const localGap = adapters.filter((adapter) => !adapter.dedicated_local_profiles && adapter.commercial_pilot_region);
+  $("regionCoverageSummary").innerHTML = [
+    `<div class="metric"><strong>${searchableCount}</strong><span>可搜索地区</span></div>`,
+    `<div class="metric"><strong>${dedicatedCount}</strong><span>本地专用入口</span></div>`,
+    `<div class="metric"><strong>${localGap.length}</strong><span>商业试点待补</span></div>`
+  ].join("");
+  $("regionCoverageNarrative").textContent = `登记 ${adapters.length} 个地区；商业试点 ${catalog.commercial_pilot_region_codes?.length || 0} 个；${localGap.length} 个商业试点仍依赖全国兜底，本地专用入口需要继续补。`;
+  const rows = adapters.slice(0, 8).map((adapter) => {
+    const gaps = Array.isArray(adapter.coverage_gap_signals) ? adapter.coverage_gap_signals : [];
     const flags = [
       badge(adapter.dedicated_local_profiles ? "本地入口" : "全国兜底", adapter.dedicated_local_profiles ? "" : "warn"),
       badge(adapter.commercial_pilot_region ? "商业试点" : "非试点"),
-      badge(adapter.onboarding_required ? "待补本地配置" : "配置就绪", adapter.onboarding_required ? "warn" : "")
+      badge(adapter.onboarding_required ? "待补本地配置" : "配置就绪", adapter.onboarding_required ? "warn" : ""),
+      badge(gaps.length ? `覆盖缺口 ${gaps.length}` : "无覆盖缺口", gaps.length ? "warn" : "")
     ].join("");
-    return `<div class="stage-card"><strong>${adapter.region_code} ${adapter.region_name}</strong><p>${adapter.primary_entry_profile_id || "--"}</p>${flags}</div>`;
+    return `<div class="stage-card">
+      <strong>${adapter.region_code} ${adapter.region_name}</strong>
+      <p>主入口：${adapter.primary_entry_profile_id || "--"}；兜底：${(adapter.fallback_entry_profile_ids || []).join(" / ") || "无"}</p>
+      ${flags}
+      <p><strong>失败分类</strong> ${gaps.length ? gaps.map(labelOf).join(" / ") : "当前无登记缺口"}</p>
+      <p><strong>下一步</strong> ${adapter.onboarding_required ? "补本地 profile、详情页和附件入口，再跑公开源诊断。" : "保持回归验证和公开源诊断。"}</p>
+    </div>`;
   }).join("");
   $("regionAdapterSummary").className = rows ? "compact-card-grid" : "empty-state";
   $("regionAdapterSummary").innerHTML = rows || "暂无地区适配器。";

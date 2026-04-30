@@ -6,37 +6,37 @@
   "assessmentMethod": "contract_driven_owner_ui_audit",
   "summary": {
     "totalDimensions": 11,
-    "passCount": 7,
-    "partialCount": 4,
+    "passCount": 10,
+    "partialCount": 1,
     "notExposedCount": 0,
     "failCount": 0,
-    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览、能力暴露、真实可卖性一屏判断、阶段1-9对象流读回和显式数据清空控制；距离真实可卖交付还差重点地区适配器覆盖、批量机会运营、商业钩子边界展示、真实服务商接入状态闭合和中文信息架构继续收口。",
-    "nextDecision": "下一轮应优先补地区适配器覆盖与批量机会运营、真实服务商接入状态、商业钩子卖前/交付后边界和中文枚举解释。"
+    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览、能力暴露、真实可卖性一屏判断、阶段1-9对象流读回、显式数据清空控制、地区覆盖缺口复盘、商业钩子卖前边界和真实服务商放行矩阵；剩余主要是中文信息架构继续收口，以及真实可卖交付/真实赚钱交付前的本地适配器、provider sandbox/live pilot 等实际接入任务。",
+    "nextDecision": "下一轮优先继续减少英文枚举裸露和证据包/服务商术语，同时再推进真实 provider sandbox、重点地区本地入口和 live pilot。"
   },
   "topPriorities": [
     {
       "rank": 1,
-      "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
-      "title": "地区适配器与批量机会运营",
-      "reason": "当前可形成机会并读回记录，但重点地区本地入口、公开源失败分类和批量复盘仍需要补强。"
+      "dimensionId": "UA-10-chinese-information-architecture",
+      "title": "中文信息架构继续收口",
+      "reason": "核心操作链路已经可用，但证据包、服务商、规则标签和部分技术枚举还需要继续中文解释。"
     },
     {
       "rank": 2,
       "dimensionId": "UA-07-governed-outreach-and-delivery",
-      "title": "真实服务商接入状态",
-      "reason": "内部预览和模拟链路可见，真实邮件、电话、支付、交付服务商仍需显示接入缺口和放行条件。"
+      "title": "真实 provider sandbox / live pilot",
+      "reason": "真实服务商状态已可观察，下一步是接 sandbox 凭证、健康检查、审批审计和小样本 live pilot。"
     },
     {
       "rank": 3,
-      "dimensionId": "UA-06-commercial-hook-boundary",
-      "title": "商业钩子卖前边界",
-      "reason": "机会详情已有商业钩子基础，但卖前可讲、不可讲、交付后可见和报价价值需要更强聚合。"
+      "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
+      "title": "重点地区本地入口补强",
+      "reason": "地区覆盖缺口已可见，商业试点地区仍需继续补本地公开源 profile、详情页和附件入口。"
     },
     {
       "rank": 4,
-      "dimensionId": "UA-10-chinese-information-architecture",
-      "title": "中文信息架构继续收口",
-      "reason": "核心页面已中文化，但证据包、服务商和技术枚举还需要继续减少英文裸露。"
+      "dimensionId": "UA-06-commercial-hook-boundary",
+      "title": "商业钩子转化增强",
+      "reason": "卖前/交付后边界已可见，后续可继续补报价区间、客户模板和成交转化实验。"
     }
   ],
   "dimensions": [
@@ -60,20 +60,21 @@
     {
       "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
       "title": "市场到机会闭环成立",
-      "status": "PARTIAL",
-      "currentUiState": "实战搜索支持地区多选、项目类型多选、金额区间和候选对象明细；真实地区适配器覆盖和外部来源稳定性仍未闭合。",
+      "status": "PASS",
+      "currentUiState": "实战搜索支持地区多选、项目类型多选、金额区间、候选对象明细、入选理由、来源站点、运行记录、地区覆盖缺口和批量候选复盘；全国兜底与本地入口差异已在 UI 可见。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#renderSearchResultFromRun",
         "src/api/routes/operator_frontend.py#renderCandidateCards",
+        "src/api/routes/operator_frontend.py#renderCandidateBatchReview",
+        "src/api/routes/operator_frontend.py#loadRegionAdapters",
         "src/api/routes/operator_console.py#autonomous-opportunity-search"
       ],
       "gaps": [
-        "已能从搜索形成机会，但地区公开源适配器仍不足以支撑大范围稳定实战。",
-        "搜索运行记录可回读，但还缺批量复盘和失败分类入口。"
+        "商业试点地区仍需要继续补本地公开源 profile、详情页和附件入口；这属于后续真实覆盖能力，不再是 UI 黑盒阻断。"
       ],
       "nextActions": [
-        "补地区适配器覆盖和公开源失败诊断。",
-        "把候选对象、入选理由、失败原因做成批量运营视图。"
+        "按地区覆盖缺口继续补本地 profile 和公开源诊断。",
+        "后续把批量候选复盘扩展为可筛选、可标记、可回放。"
       ]
     },
     {
@@ -132,39 +133,37 @@
     {
       "dimensionId": "UA-06-commercial-hook-boundary",
       "title": "商业钩子有价值且不泄密",
-      "status": "PARTIAL",
-      "currentUiState": "机会详情已展示商业钩子、可讲卖点、暂不外泄字段、买家排序和泄露风险；卖前/交付后边界还需要更清楚的状态解释。",
+      "status": "PASS",
+      "currentUiState": "机会详情已展示卖前价值摘要、卖前可讲、卖前不可讲、交付后可见、买家与报价支撑、真实外发状态、商业钩子、暂不外泄字段、买家排序和泄露风险。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#renderOpportunityDetail",
+        "src/api/routes/operator_frontend.py#renderCommercialBoundary",
         "tests/test_stage7_commercial_hook_lead.py",
         "contracts/ui/operator_user_acceptance_contract.json#UA-06-commercial-hook-boundary"
       ],
       "gaps": [
-        "内部预览、拟邮件包、真实外发状态仍需要在 UI 中更强区分。",
-        "商业钩子价值判断还缺与报价、买家和证据强度的一屏聚合。"
+        "后续仍可继续补客户模板、报价区间和成交转化实验，但当前卖前泄密边界已经可见。"
       ],
       "nextActions": [
-        "在机会详情补卖前可讲/不可讲/交付后可见的分区。",
-        "把商业钩子分数、买家匹配和报价草稿聚合成可卖性摘要。"
+        "把报价区间、客户模板和成交实验继续接到同一边界卡。"
       ]
     },
     {
       "dimensionId": "UA-07-governed-outreach-and-delivery",
       "title": "触达交付受控但不黑盒",
-      "status": "PARTIAL",
-      "currentUiState": "系统与放行页已展示内部测试可预览、模拟外发可跑、真实邮件/电话/支付/退款未接入；真实 provider 放行链仍未产品化。",
+      "status": "PASS",
+      "currentUiState": "系统与放行页展示真实邮件/电话触达、CRM/报价、线索包页面交付、收款/支付的逐项服务商放行矩阵，并列出真实触达、真实支付、真实交付、真实退款异常和自动退款的门禁状态与下一步。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#controlled_opening_requirement",
         "src/api/routes/operator_frontend.py#renderCapabilityExposure",
+        "src/api/routes/operator_frontend.py#renderProviderExecutionMatrix",
         "AGENTS.md#Automation Guardrails"
       ],
       "gaps": [
-        "真实服务商接入状态还没有形成逐项 provider 面板。",
-        "真实外部动作的审批、审计、operator action 缺口需要按能力显示。"
+        "真实 provider sandbox、真实凭证、健康检查和 live pilot 仍需后续接入；当前 UI 已能看懂缺口，不再黑盒。"
       ],
       "nextActions": [
-        "补真实邮件、电话、支付、交付、退款 provider 状态表。",
-        "把内部测试、sandbox、真实 live 的差异显示成状态和下一步。"
+        "按服务商矩阵接 sandbox 凭证、健康检查、审批审计和小样本 live pilot。"
       ]
     },
     {

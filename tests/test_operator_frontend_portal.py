@@ -135,6 +135,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "实战搜索",
             "实战项目搜索",
             "地区适配器",
+            "地区覆盖缺口",
             "房建工程",
             "市政工程",
             "金额区间（万元）",
@@ -144,7 +145,11 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "数据来源待读取",
             "清空测试搜索记录",
             "刷新搜索记录",
+            "批量候选复盘与失败分类",
             "买家排序",
+            "卖前/交付后边界",
+            "卖前价值摘要",
+            "卖前不可讲",
             "交付状态",
             "下一步动作",
             "/operator-console/region-adapters",
@@ -178,6 +183,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "真实执行已关闭",
             "阶段6-9读回",
             "服务商与调度状态",
+            "真实服务商放行矩阵",
+            "真实外部动作门禁矩阵",
             "审批审计",
             "证据包预览",
             "/operator-console/tasks",
@@ -232,8 +239,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "id=\"autonomousSearchPersistence\"",
             "id=\"clearAutonomousSearchRuns\"",
             "id=\"searchRegionChoices\"",
+            "id=\"regionCoverageSummary\"",
+            "id=\"regionCoverageNarrative\"",
             "id=\"searchProjectTypeChoices\"",
             "id=\"opportunityDetail\"",
+            "id=\"providerExecutionMatrix\"",
+            "id=\"liveActionGateMatrix\"",
             "id=\"capabilityExposure\"",
             "id=\"acceptanceContractSummary\"",
             "id=\"acceptanceGapSummary\"",
@@ -342,6 +353,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn('id="selectAllProjectTypes"', html)
         self.assertIn('id="clearAutonomousSearchRuns"', html)
         self.assertIn("持久保存，直到 owner 显式清空", html)
+        self.assertIn("renderCandidateBatchReview", html)
+        self.assertIn("renderProviderExecutionMatrix", html)
+        self.assertIn("renderCommercialBoundary", html)
+        self.assertIn("真实邮件/电话触达", html)
         self.assertIn('renderCandidateCards', html)
         self.assertIn('renderSearchResultFromRun', html)
         self.assertIn('"/customer-artifact-portal/', html)
@@ -408,8 +423,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(matrix["contractRef"], "contracts/ui/operator_user_acceptance_contract.json")
         self.assertEqual(matrix["status"], "ACTIVE")
         self.assertEqual(matrix["summary"]["totalDimensions"], 11)
-        self.assertEqual(matrix["summary"]["passCount"], 7)
-        self.assertEqual(matrix["summary"]["partialCount"], 4)
+        self.assertEqual(matrix["summary"]["passCount"], 10)
+        self.assertEqual(matrix["summary"]["partialCount"], 1)
         self.assertEqual(matrix["summary"]["notExposedCount"], 0)
         self.assertEqual(matrix["summary"]["failCount"], 0)
         self.assertIn("真实可卖交付", matrix["summary"]["operatorConclusion"])
@@ -463,8 +478,24 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             dimensions["UA-09-data-persistence-and-operator-control"]["status"],
             "PASS",
         )
+        self.assertEqual(
+            dimensions["UA-02-autonomous-market-to-opportunity-loop"]["status"],
+            "PASS",
+        )
+        self.assertEqual(
+            dimensions["UA-06-commercial-hook-boundary"]["status"],
+            "PASS",
+        )
+        self.assertEqual(
+            dimensions["UA-07-governed-outreach-and-delivery"]["status"],
+            "PASS",
+        )
+        self.assertEqual(
+            dimensions["UA-10-chinese-information-architecture"]["status"],
+            "PARTIAL",
+        )
         self.assertIn(
-            "地区适配器与批量机会运营",
+            "中文信息架构继续收口",
             [item["title"] for item in matrix["topPriorities"]],
         )
 
