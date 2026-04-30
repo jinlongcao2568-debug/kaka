@@ -150,15 +150,16 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "阶段6-9读回",
             "服务商与调度状态",
             "审批审计",
-            "客户材料门户",
+            "证据包预览",
             "/operator-console/tasks",
             "/operator-console/project-imports",
             "/operator-console/readiness",
             "/go-live/readiness",
-            "内部测试链路可完整跑通",
-            "对外发布需审批",
-            "自动退款不执行",
-            "客户真实下载需授权",
+            "内部测试放行状态",
+            "内部测试发布模拟已打开",
+            "客户账号不作为内部测试前置",
+            "真实邮件/电话未接入",
+            "真实退款未接入，仅可模拟",
         ):
             self.assertIn(expected, html)
         for expected in (
@@ -169,6 +170,9 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "function formatOperatorSummary(value)",
             "function renderStageOverviewTelemetry(telemetry)",
             "function showView(view)",
+            "id=\"searchRegionChoices\"",
+            "id=\"searchProjectTypeChoices\"",
+            "id=\"opportunityDetail\"",
         ):
             self.assertIn(expected, html)
         for removed_duplicate in (
@@ -287,26 +291,30 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn("text/html", page_response.headers["content-type"])
         html = page_response.text
         for expected in (
-            "AX9S 客户材料门户",
-            "客户材料门户",
-            "访问控制",
+            "AX9S 内部证据包预览",
+            "内部证据包预览 / 交付材料验收",
+            "测试访问状态",
             "字段策略",
             "下载审计",
+            "证据包内容",
+            "拟邮件发送包",
             "内部预览验收",
             "字段白名单已执行",
             "脱敏必需",
-            "未执行真实下载",
+            "真实下载未执行",
             "读回摘要",
             "renderReadbackSummary",
             "blockedReasonLabel",
             "/customer-artifact-portal-readback/",
             "内部验收可用",
+            "renderEvidencePackage",
+            "邮件发送包预览",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
         self.assertNotIn("JSON.stringify(value, null, 2)", html)
-        self.assertIn("暂无材料读回", html)
-        self.assertIn("暂无客户材料", html)
+        self.assertIn("暂无证据包读回", html)
+        self.assertIn("暂无证据包", html)
         self.assertIn("renderMissingArtifact", html)
 
         candidate_response = client.request(
@@ -330,13 +338,14 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(page_response.status_code, 200)
         html = page_response.text
         for expected in (
-            "暂无材料读回",
-            "暂无客户材料",
-            "请先在运营操作台完成项目导入",
-            "未执行真实下载",
-            "客户可见发布待审批",
+            "暂无证据包读回",
+            "暂无证据包",
+            "请先在运营操作台完成实战搜索",
+            "真实下载未执行",
+            "客户自助发布不是当前路径",
             "内部黑箱已隐藏",
             "内部预览未形成",
+            "还没有可预览的拟邮件证据包",
         ):
             self.assertIn(expected, html)
 

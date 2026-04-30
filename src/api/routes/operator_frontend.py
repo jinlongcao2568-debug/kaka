@@ -401,6 +401,54 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
     select[multiple] {{
       min-height: 132px;
     }}
+    .select-fallback {{
+      display: none;
+    }}
+    .check-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }}
+    .check-option {{
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fbfcfe;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.35;
+    }}
+    .check-option input {{
+      width: auto;
+      margin-top: 2px;
+    }}
+    .detail-table {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 10px 0;
+    }}
+    .detail-row {{
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px 10px;
+      background: #fbfcfe;
+      min-width: 0;
+    }}
+    .detail-row strong {{
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }}
+    .detail-row span {{
+      word-break: break-word;
+      font-size: 14px;
+    }}
     .timeline {{
       display: grid;
       gap: 8px;
@@ -477,7 +525,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       .workspace {{ display: block; }}
       .panelStack {{ overflow: visible; padding-right: 0; }}
       .resultPane pre {{ max-height: 260px; }}
-      .grid, .rail, .stage-grid, .workflow, .compact-card-grid {{ grid-template-columns: 1fr; }}
+      .grid, .rail, .stage-grid, .workflow, .compact-card-grid, .check-grid, .detail-table {{ grid-template-columns: 1fr; }}
       .view-grid {{ grid-template-columns: 1fr; }}
       .field-row {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px; }}
@@ -511,7 +559,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">机会工作台</button>
     <button class="nav-link" type="button" data-view="run" aria-current="false">采集运行</button>
     <button class="nav-link" type="button" data-view="systemRelease" aria-current="false">系统与放行</button>
-    <a class="external" id="customerPortalLink" href="/customer-artifact-portal/OPP-HAPPY-001">客户材料门户 · 样例</a>
+    <a class="external" id="customerPortalLink" href="/customer-artifact-portal/OPP-HAPPY-001">证据包预览 · 样例</a>
   </nav>
   <main>
     <div class="topbar">
@@ -531,7 +579,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         <div class="view-panel active" id="overview" data-view-panel="overview">
           <section>
             <h3>阶段1-9 运营总览</h3>
-            <p class="muted-text" id="stageDirection">系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 客户材料候选。运行实战搜索后显示每阶段产出。</p>
+            <p class="muted-text" id="stageDirection">系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 证据包预览。运行实战搜索后显示每阶段产出。</p>
             <div class="rail" id="stageMetrics">
               <div class="metric"><strong>9</strong><span>阶段数</span></div>
               <div class="metric"><strong>0</strong><span>产出对象</span></div>
@@ -567,21 +615,23 @@ def render_operator_console(payload: Any) -> HTMLResponse:
           <div class="view-grid">
             <section>
               <h3>实战项目搜索</h3>
-              <label for="searchRegion">地区适配器</label>
-              <select id="searchRegion" multiple size="5"></select>
+              <label for="searchRegion">地区适配器（可多选）</label>
+              <select id="searchRegion" class="select-fallback" multiple size="5"></select>
+              <div id="searchRegionChoices" class="check-grid"></div>
               <div class="field-actions">
                 <button class="secondary" type="button" id="selectAllRegions">全选地区</button>
                 <button class="secondary" type="button" id="clearRegions">清空地区</button>
               </div>
               <label for="searchKeyword">关键词</label>
               <input id="searchKeyword" value="公共建筑工程" />
-              <label for="searchProjectType">项目类型</label>
-              <select id="searchProjectType" multiple size="4">
+              <label for="searchProjectType">项目类型（可多选）</label>
+              <select id="searchProjectType" class="select-fallback" multiple size="4">
                 <option value="construction" selected>房建工程</option>
                 <option value="municipal">市政工程</option>
                 <option value="highway">公路交通</option>
                 <option value="water_conservancy">水利工程</option>
               </select>
+              <div id="searchProjectTypeChoices" class="check-grid"></div>
               <div class="field-actions">
                 <button class="secondary" type="button" id="selectAllProjectTypes">全选类型</button>
                 <button class="secondary" type="button" id="clearProjectTypes">清空类型</button>
@@ -618,6 +668,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div class="metric"><strong>--</strong><span>下一步动作</span></div>
             </div>
             <div id="autonomousQueue" class="empty-state">暂无已持久化机会队列。</div>
+            <div id="opportunityDetail" class="empty-state">点击机会后显示等级、评分、证据强度、报价和证据包明细。</div>
             <div id="autonomousDetailPanels" class="stage-grid"></div>
             <button id="refreshAutonomousWorkbench">刷新机会工作台</button>
           </section>
@@ -673,12 +724,13 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div id="auditStatus"></div>
           </section>
           <section class="controlled_opening_requirement">
-            <h3>真实对外交付放行要求</h3>
-            <p>内部测试链路可完整跑通；真实发布、触达、支付、交付、退款需要审批、审计和操作员确认。</p>
-            <span class="pill warn">对外发布需审批</span>
-            <span class="pill danger">自动退款不执行</span>
-            <span class="pill warn">客户真实下载需授权</span>
-            <span class="pill warn">客户访问需账号控制</span>
+            <h3>内部测试放行状态</h3>
+            <p>测试阶段内部预览、证据包生成、模拟下载、模拟外发链路可以打开；当前没有邮件、电话、支付、退款服务商接入，所以不会真实触达外部。</p>
+            <span class="pill">内部测试发布模拟已打开</span>
+            <span class="pill">证据包预览可打开</span>
+            <span class="pill">客户账号不作为内部测试前置</span>
+            <span class="pill warn">真实邮件/电话未接入</span>
+            <span class="pill warn">真实退款未接入，仅可模拟</span>
           </section>
         </div>
       </div>
@@ -719,12 +771,12 @@ function updateCustomerPortalLink(opportunityId) {
   if (!link) { return; }
   if (opportunityId) {
     link.href = `/customer-artifact-portal/${encodeURIComponent(opportunityId)}`;
-    link.textContent = "客户材料门户 · 当前商机";
+    link.textContent = "证据包预览 · 当前商机";
     link.title = opportunityId;
     return;
   }
   link.href = "/customer-artifact-portal/OPP-HAPPY-001";
-  link.textContent = "客户材料门户 · 样例";
+  link.textContent = "证据包预览 · 样例";
   link.title = "OPP-HAPPY-001";
 }
 function showView(view) {
@@ -802,6 +854,10 @@ function amountRangeText(range) {
   return `${moneyWanText(range.minimum)} - ${moneyWanText(range.maximum)}`;
 }
 function selectedValues(id) {
+  const checks = Array.from(document.querySelectorAll(`[data-select-target="${id}"]`));
+  if (checks.length) {
+    return checks.filter((item) => item.checked).map((item) => item.value).filter(Boolean);
+  }
   const select = $(id);
   return Array.from(select?.selectedOptions || []).map((option) => option.value).filter(Boolean);
 }
@@ -809,6 +865,44 @@ function setAllSelected(id, selected) {
   const select = $(id);
   if (!select) { return; }
   Array.from(select.options).forEach((option) => { option.selected = selected; });
+  document.querySelectorAll(`[data-select-target="${id}"]`).forEach((item) => { item.checked = selected; });
+}
+function syncSelectFromChecks(id) {
+  const select = $(id);
+  if (!select) { return; }
+  const checkedValues = new Set(selectedValues(id));
+  Array.from(select.options).forEach((option) => { option.selected = checkedValues.has(option.value); });
+}
+function renderSelectChoices(selectId, containerId) {
+  const select = $(selectId);
+  const container = $(containerId);
+  if (!select || !container) { return; }
+  container.replaceChildren();
+  Array.from(select.options).forEach((option) => {
+    const label = document.createElement("label");
+    label.className = "check-option";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = option.value;
+    input.checked = option.selected;
+    input.dataset.selectTarget = selectId;
+    input.addEventListener("change", () => syncSelectFromChecks(selectId));
+    const text = document.createElement("span");
+    text.textContent = option.textContent || option.value;
+    label.append(input, text);
+    container.appendChild(label);
+  });
+  syncSelectFromChecks(selectId);
+}
+function renderRows(rows) {
+  return `<div class="detail-table">${rows
+    .filter(([, value]) => value !== undefined && value !== null && String(value).length)
+    .map(([label, value]) => `<div class="detail-row"><strong>${label}</strong><span>${labelOf(value)}</span></div>`)
+    .join("")}</div>`;
+}
+function listText(items) {
+  const rows = Array.isArray(items) ? items.filter(Boolean) : [];
+  return rows.length ? rows.map(labelOf).join(" / ") : "--";
 }
 function candidateRange(candidate) {
   return {
@@ -863,6 +957,43 @@ function renderSearchResultFromRun(run) {
     ${renderCandidateCards(run.candidate_options || [], run.opportunity_id || "", scope.selected_project_id || run.project_id || "")}
   `;
 }
+function renderOpportunityDetail(first, panels) {
+  const hook = panels.commercial_hook_panel || {};
+  const buyer = panels.buyer_ranking_panel || {};
+  const delivery = panels.delivery_state_panel || {};
+  const next = panels.sales_next_action_panel || {};
+  const risk = panels.evidence_risk_panel || {};
+  $("opportunityDetail").className = "";
+  $("opportunityDetail").innerHTML = `
+    <h3>机会详情</h3>
+    ${renderRows([
+      ["机会编号", first.opportunity_id],
+      ["机会级别", first.opportunity_grade],
+      ["可售状态", first.saleability_status],
+      ["推荐 SKU", first.recommended_sku],
+      ["转化优先级", first.conversion_priority],
+      ["异议价值分", first.objection_value_score],
+      ["买家匹配分", first.buyer_fit_score || buyer.buyer_fit_score],
+      ["购买动机分", buyer.buyer_motivation_score],
+      ["购买能力分", buyer.purchase_capacity_score],
+      ["证据强度", first.evidence_strength_label || risk.evidence_strength_label],
+      ["公开硬伤信号", first.hard_defect_public_label || risk.hard_defect_public_label],
+      ["交付状态", delivery.delivery_state || first.delivery_state],
+      ["报价草稿", next.quote_draft_id],
+      ["证据包", delivery.package_id],
+      ["页面草稿", delivery.page_draft_id],
+    ])}
+    <div class="stage-grid">
+      <div class="stage-card"><strong>商业钩子</strong><p>${hook.teaser_copy || first.commercial_hook_teaser || "--"}</p>${badge(hook.disclosure_level || "--")}${badge(hook.leakage_risk_level || "--")}</div>
+      <div class="stage-card"><strong>可讲卖点</strong><p>${listText(hook.allowed_sales_talking_points || [])}</p></div>
+      <div class="stage-card"><strong>暂不外泄字段</strong><p>${listText(hook.withheld_fields || [])}</p>${badge(`数量 ${hook.withheld_field_count ?? 0}`, "warn")}</div>
+      <div class="stage-card"><strong>复核项</strong><p>${listText(risk.review_items || first.review_items || [])}</p></div>
+      <div class="stage-card"><strong>买家排序</strong><p>${(buyer.buyer_rankings || first.buyer_rankings || []).map((row) => `${row.rank}.${labelOf(row.buyer_type || "--")} ${row.buyer_fit_score || row.actionability_state || row.reachable_state || ""}`).join(" / ") || "--"}</p></div>
+      <div class="stage-card"><strong>下一步</strong><p>${labelOf(next.next_action || first.next_action || "--")}</p>${badge(next.provider_execution_state || "--", next.provider_execution_state === "BLOCKED" ? "warn" : "")}</div>
+    </div>
+    ${opportunityActions(first.opportunity_id || "")}
+  `;
+}
 function renderStageOverviewTelemetry(telemetry) {
   const defaultStages = [
     "市场扫描 / 机会发现", "来源蓝图 / 采集计划", "解析规范化", "证据风险核验", "规则证据门",
@@ -885,7 +1016,7 @@ function renderStageOverviewTelemetry(telemetry) {
   };
   $("stageDirection").textContent = telemetry?.direction
     ? `${telemetry.direction}。内部测试链路可跑；真实对外交付门禁保留。`
-    : "系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 客户材料候选。运行后显示每阶段产出。";
+    : "系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 证据包预览。运行后显示每阶段产出。";
   $("stageMetrics").innerHTML = [
     `<div class="metric"><strong>${totals.stage_count || stages.length}</strong><span>阶段数</span></div>`,
     `<div class="metric"><strong>${totals.produced_count || 0}</strong><span>产出对象</span></div>`,
@@ -910,23 +1041,24 @@ async function loadReadiness(writeOutput = true) {
   $("capability").textContent = readiness.capability_state || "--";
   $("provider").textContent = readiness.provider_status?.mode ? "读回模式" : "读回";
   $("scheduler").textContent = scheduler.readiness_state || "--";
-  $("summary").textContent = "运营操作台已就绪。内部测试链路可跑；真实对外交付需审批、授权和审计。";
+  $("summary").textContent = "运营操作台已就绪。内部测试链路、证据包预览和模拟外发可跑；真实邮件/电话/支付/退款服务商未接入。";
   $("workbenchStatus").innerHTML = [
     badge("阶段6 产品包"),
     badge("阶段7 客户关系/报价"),
     badge("阶段8 销售触达"),
     badge("阶段9 支付交付"),
-    badge(`真实上线 ${goLive.go_live_enabled ? "已开放" : "需审批"}`, goLive.go_live_enabled ? "" : "warn")
+    badge(`测试上线模拟 ${goLive.go_live_enabled ? "已开放" : "可预览"}`)
   ].join("");
   $("providerStatus").innerHTML = [
     badge(`服务商 ${readiness.provider_status?.mode ? "读回模式" : "读回"}`),
     badge(`调度 ${labelOf(scheduler.readiness_state || "未知")}`),
-    badge("真实服务商调用需单独放行", "warn")
+    badge("内部服务商模拟读回可用"),
+    badge("真实邮件/电话未接入", "warn")
   ].join("");
   $("auditStatus").innerHTML = [
-    badge("审批可见"),
-    badge("审计可见"),
-    badge("下载授权必需", "warn")
+    badge("内部测试不等客户账号"),
+    badge("证据包预览可打开"),
+    badge("真实外发审计未接入", "warn")
   ].join("");
   if (writeOutput) { out({ readiness, scheduler, goLive }); }
 }
@@ -947,6 +1079,8 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
   if (!queue.length) {
     $("autonomousQueue").className = "empty-state";
     $("autonomousQueue").textContent = "暂无已持久化机会队列。";
+    $("opportunityDetail").className = "empty-state";
+    $("opportunityDetail").textContent = "点击机会后显示等级、评分、证据强度、报价和证据包明细。";
     $("autonomousDetailPanels").innerHTML = "";
     return payload;
   }
@@ -967,6 +1101,7 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
     </div>`;
   }).join("");
   const panels = payload.panels || {};
+  renderOpportunityDetail(first, panels);
   $("autonomousDetailPanels").innerHTML = [
     `<div class="stage-card"><strong>证据风险</strong><p>${labelOf(panels.evidence_risk_panel?.evidence_strength_label || "--")} / ${labelOf(panels.evidence_risk_panel?.hard_defect_public_label || "--")}</p>${badge((panels.evidence_risk_panel?.review_items || []).length + " 项复核")}</div>`,
     `<div class="stage-card"><strong>商业钩子</strong><p>${panels.commercial_hook_panel?.teaser_copy || first.commercial_hook_teaser || "--"}</p>${badge(panels.commercial_hook_panel?.disclosure_level || "--")}</div>`,
@@ -1001,6 +1136,7 @@ async function loadRegionAdapters() {
   if (!selectedValues("searchRegion").length && select.options.length) {
     select.options[0].selected = true;
   }
+  renderSelectChoices("searchRegion", "searchRegionChoices");
   const rows = (catalog.region_adapters || []).slice(0, 8).map((adapter) => {
     const flags = [
       badge(adapter.dedicated_local_profiles ? "本地入口" : "全国兜底", adapter.dedicated_local_profiles ? "" : "warn"),
@@ -1038,7 +1174,7 @@ async function loadAutonomousSearchRuns() {
   $("autonomousSearchRuns").innerHTML = runs.slice(0, 8).map((run) => {
     const links = [
       run.opportunity_id ? `<a href="#autonomousWorkbench" data-workbench-opportunity="${run.opportunity_id}">工作台</a>` : "",
-      run.opportunity_id ? `<a href="/customer-artifact-portal/${encodeURIComponent(run.opportunity_id)}">材料门户</a>` : ""
+      run.opportunity_id ? `<a href="/customer-artifact-portal/${encodeURIComponent(run.opportunity_id)}">证据包预览</a>` : ""
     ].filter(Boolean).join(" · ");
     return `<div class="stage-card">
       <strong>${run.opportunity_id || "--"}</strong>
@@ -1239,6 +1375,7 @@ document.querySelectorAll("[data-view]").forEach((item) => {
 window.addEventListener("hashchange", () => showView((window.location.hash || "#overview").slice(1)));
 showView((window.location.hash || "#overview").slice(1));
 renderStageOverviewTelemetry();
+renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
 Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
@@ -1250,28 +1387,33 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
     opportunity_id = escape(str(payload.get("opportunity_id") or ""))
     body = f"""
 <div class="layout">
-  <nav aria-label="客户门户导航">
-    <h1>AX9S 客户材料门户</h1>
+  <nav aria-label="证据包预览导航">
+    <h1>AX9S 内部证据包预览</h1>
     <a href="/operator-console">运营操作台</a>
-    <a href="#artifact">交付材料</a>
+    <a href="#artifact">证据包</a>
+    <a href="#mail">拟邮件包</a>
     <a href="#access">访问控制</a>
     <a href="#audit">下载审计</a>
   </nav>
   <main>
     <div class="topbar">
       <div>
-        <h2>客户材料门户</h2>
+        <h2>内部证据包预览 / 交付材料验收</h2>
         <p>商机 <strong id="opportunity">{opportunity_id}</strong></p>
       </div>
-      <div class="status" id="portalSummary">正在读取客户材料访问候选...</div>
+      <div class="status" id="portalSummary">正在读取证据包候选...</div>
     </div>
     <div class="grid">
       <section id="artifact">
-        <h3>客户可见材料</h3>
+        <h3>证据包状态</h3>
         <div id="artifactState"></div>
       </section>
+      <section id="mail">
+        <h3>拟邮件发送包</h3>
+        <div id="mailPackagePreview"></div>
+      </section>
       <section id="access">
-        <h3>访问控制</h3>
+        <h3>测试访问状态</h3>
         <div id="accessState"></div>
       </section>
       <section>
@@ -1283,12 +1425,16 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
         <div id="auditState"></div>
       </section>
       <section class="wide">
+        <h3>证据包内容</h3>
+        <div id="evidencePackagePreview"></div>
+      </section>
+      <section class="wide">
         <h3>内部预览验收</h3>
         <div id="previewState"></div>
       </section>
       <section class="controlled_opening_requirement wide">
-        <h3>客户侧受控开放要求</h3>
-        <p>无授权不生成下载；内部黑箱评分、未复核推断或未审批材料不会展示。</p>
+        <h3>测试阶段说明</h3>
+        <p>客户未来不使用工作台；成交付款后由系统生成证据包，通过邮件发送。当前页面只给运营方验收证据包内容，不会真实发邮件、打电话、扣款或退款。</p>
       </section>
       <section class="wide">
         <h3>读回摘要</h3>
@@ -1301,20 +1447,82 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
     script = f"""
 const opportunityId = {opportunity_id!r};
 function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{text}}</span>`; }}
+function valueText(value) {{
+  if (Array.isArray(value)) {{ return value.length ? value.join(" / ") : "--"; }}
+  if (value && typeof value === "object") {{ return JSON.stringify(value); }}
+  return value === undefined || value === null || value === "" ? "--" : String(value);
+}}
+function rowsHtml(rows) {{
+  return `<div class="detail-table">${{rows
+    .filter(([, value]) => value !== undefined && value !== null && String(value).length)
+    .map(([label, value]) => `<div class="detail-row"><strong>${{label}}</strong><span>${{valueText(value)}}</span></div>`)
+    .join("")}}</div>`;
+}}
+function evidenceItemsHtml(items) {{
+  const rows = Array.isArray(items) ? items : [];
+  if (!rows.length) {{ return `<div class="empty-state">暂无证据项读回。</div>`; }}
+  return `<div class="compact-card-grid">${{rows.map((item) => `
+    <div class="stage-card">
+      <strong>${{item.item_id || item.source_object || "--"}}</strong>
+      <p>${{item.source_object || "--"}} · ${{item.source_id || "--"}}</p>
+      ${{badge(item.manifest_state || item.status || "--", item.present === false ? "warn" : "")}}
+      ${{badge(item.masking_policy || "--")}}
+      <p>${{valueText(item.source_refs)}}</p>
+    </div>
+  `).join("")}}</div>`;
+}}
+function renderEvidencePackage(payload, missing=false) {{
+  const formal = payload?.source_formal_client_export_page_layer_readiness || {{}};
+  const readback = payload?.customer_artifact_readback || {{}};
+  const manifest = formal.package_manifest || {{}};
+  const pageDraft = formal.page_draft || {{}};
+  const evidenceItems = manifest.evidence_items || [];
+  const watermark = readback.watermark || formal.watermark || {{}};
+  const hash = readback.artifact_version_hash || formal.artifact_version_hash || "--";
+  if (missing) {{
+    document.getElementById("mailPackagePreview").innerHTML = `<div class="empty-state">还没有可预览的拟邮件证据包。</div>`;
+    document.getElementById("evidencePackagePreview").innerHTML = `<div class="empty-state">还没有证据项清单。</div>`;
+    return;
+  }}
+  document.getElementById("artifactState").innerHTML = rowsHtml([
+    ["证据包", readback.evidence_pack_id],
+    ["交付包", readback.package_id],
+    ["清单", readback.artifact_manifest_id],
+    ["版本哈希", hash],
+    ["水印", watermark.watermark_text || "INTERNAL DRAFT"],
+    ["页面草稿", pageDraft.page_draft_id],
+  ]);
+  document.getElementById("mailPackagePreview").innerHTML = `
+    <div class="stage-card">
+      <strong>邮件发送包预览</strong>
+      <p>主题：证据包交付 - ${{opportunityId}}</p>
+      ${{badge("仅内部预览")}}
+      ${{badge("真实邮件未接入", "warn")}}
+      ${{badge("付款后发送")}}
+    </div>
+    ${{rowsHtml([
+      ["附件1", readback.evidence_pack_id || "证据包清单"],
+      ["附件2", readback.artifact_manifest_id || "交付清单"],
+      ["页面草稿", pageDraft.page_draft_id],
+      ["版本哈希", hash],
+    ])}}
+  `;
+  document.getElementById("evidencePackagePreview").innerHTML = evidenceItemsHtml(evidenceItems);
+}}
 function blockedReasonLabel(reason) {{
   const labels = {{
-    "stage7_artifact_readback_missing": "阶段7 客户材料尚未生成",
-    "stage8_stage9_delivery_context_not_required_for_access_candidate_readback": "阶段8/9 交付上下文未进入客户开放面",
-    "customer_visible_export_enabled=false": "客户可见导出未开启",
-    "client_page_release_enabled=false": "客户页面未发布",
-    "external_release_enabled=false": "对外发布未批准",
-    "external_delivery_enabled=false": "对外交付未开启",
-    "direct_export_enabled=false": "直接导出未开启",
-    "approval_audit_and_implementation_decision_required_before_live": "需要审批、审计和实施决策",
-    "customer_account_access_control_required": "需要配置客户账号访问",
-    "download_auth_required": "需要下载授权",
-    "approval_audit_required_before_customer_download": "客户下载前需要审批审计",
-    "public_software_release_not_approved": "公开软件发布未批准",
+    "stage7_artifact_readback_missing": "阶段7证据包尚未生成",
+    "stage8_stage9_delivery_context_not_required_for_access_candidate_readback": "阶段8/9真实交付上下文未进入内部预览",
+    "customer_visible_export_enabled=false": "客户自助页面未开放；内部预览不受影响",
+    "client_page_release_enabled=false": "客户自助页面未发布；未来改邮件发送",
+    "external_release_enabled=false": "真实外发未接入；内部测试不阻塞",
+    "external_delivery_enabled=false": "真实交付未接入；内部测试不阻塞",
+    "direct_export_enabled=false": "直接导出未接入；内部预览可看",
+    "approval_audit_and_implementation_decision_required_before_live": "真实外发前再做审批审计",
+    "customer_account_access_control_required": "客户账号不作为当前内部测试前置",
+    "download_auth_required": "客户下载不是当前交付路径；未来走邮件发送",
+    "approval_audit_required_before_customer_download": "客户下载不是当前交付路径",
+    "public_software_release_not_approved": "不做客户软件发布；内部预览不阻塞",
   }};
   const key = String(reason || "").trim();
   return labels[key] || "待运营复核：" + key.replaceAll("_", " ");
@@ -1330,11 +1538,13 @@ function renderReadbackSummary(payload, missing=false) {{
   const rows = [
     ["商机", opportunityId],
     ["读回状态", missing ? "暂无可交付读回" : "已读取客户候选"],
-    ["客户可见", payload?.customer_visible_export_enabled ? "已批准" : "未开放"],
-    ["对外交付", payload?.external_release_enabled ? "已开放" : "未开放"],
-    ["下载授权", downloadAuth.customer_download_enabled ? "已授权" : "未授权"],
+    ["内部预览", missing ? "未形成" : "可查看"],
+    ["真实邮件", "未接入，不会触达客户"],
+    ["真实下载", "不是当前交付路径"],
+    ["客户账号", "不作为内部测试前置"],
+    ["模拟下载", downloadAuth.download_enabled ? "可读回" : "可预览读回"],
     ["字段策略", fieldPolicy.allowlist_enforced === false ? "白名单未确认" : "白名单已执行"],
-    ["放行要求", blockedReasons],
+    ["测试说明", blockedReasons],
   ];
   if (detail) {{ rows.push(["读回说明", detail]); }}
   output.className = missing ? "empty-state summary-list" : "summary-list";
@@ -1358,16 +1568,12 @@ async function loadPortal() {{
     return;
   }}
   document.getElementById("portalSummary").textContent =
-    payload.release_blocked ? "材料仍受审批、账号访问、下载授权和审计门禁控制。" : "已存在审批后的客户可见读回。";
-  document.getElementById("artifactState").innerHTML = [
-    badge(payload.capability_state || "APPROVAL_READY"),
-    badge(payload.customer_visible_export_enabled ? "客户可见已批准" : "客户可见待审批", payload.customer_visible_export_enabled ? "" : "warn"),
-    badge(payload.external_release_enabled ? "对外交付已开放" : "对外交付待审批", payload.external_release_enabled ? "" : "danger")
-  ].join("");
+    "内部证据包预览已读取；真实邮件、电话、支付、退款服务商未接入，不会触达外部。";
+  renderEvidencePackage(payload, false);
   document.getElementById("accessState").innerHTML = [
-    badge("账号访问控制必需", "warn"),
-    badge("下载授权必需", "warn"),
-    badge(payload.download_auth?.customer_download_enabled ? "下载读回已批准" : "下载待授权", payload.download_auth?.customer_download_enabled ? "" : "warn")
+    badge("内部预览可打开"),
+    badge("客户账号不作为测试前置"),
+    badge("真实邮件未接入", "warn")
   ].join("");
   document.getElementById("fieldState").innerHTML = [
     badge("字段白名单已执行"),
@@ -1375,23 +1581,24 @@ async function loadPortal() {{
     badge("内部黑箱已隐藏")
   ].join("");
   document.getElementById("auditState").innerHTML = [
-    badge("审批必需"),
-    badge("审计必需"),
-    badge("未执行真实下载", "warn")
+    badge("内部读回可审计"),
+    badge("模拟下载读回可见"),
+    badge("真实下载未执行", "warn")
   ].join("");
   document.getElementById("previewState").innerHTML =
-    `<div class="stage-card"><strong>内部验收可用</strong><p>可验收字段白名单、脱敏、水印、版本哈希、下载授权状态和审计读回；真实下载仍等待账号访问、审批和操作员确认。</p>${{badge("内部预览")}} ${{badge("真实下载待授权", "warn")}} ${{badge("审计读回可见")}}</div>`;
+    `<div class="stage-card"><strong>内部验收可用</strong><p>可验收证据项清单、字段白名单、脱敏、水印、版本哈希、拟邮件附件和审计读回；真实发送能力等邮件服务商接入后再验收。</p>${{badge("内部预览")}} ${{badge("拟邮件包可看")}} ${{badge("真实邮件未接入", "warn")}}</div>`;
   renderReadbackSummary(payload, false);
 }}
 function renderMissingArtifact(payload) {{
   document.getElementById("portalSummary").textContent =
-    "暂无材料读回：请先在运营操作台完成项目导入、阶段7线索包生成和审批审计。";
+    "暂无证据包读回：请先在运营操作台完成实战搜索并生成机会闭环。";
   document.getElementById("artifactState").innerHTML =
-    `<div class="empty-state"><strong>暂无客户材料</strong><p>当前商机还没有可回放的客户交付候选。系统保持下载授权、字段白名单、脱敏和审批审计门禁关闭。</p></div>`;
+    `<div class="empty-state"><strong>暂无证据包</strong><p>当前商机还没有可回放的证据包候选。先运行实战搜索生成机会闭环。</p></div>`;
+  renderEvidencePackage(payload || {{}}, true);
   document.getElementById("accessState").innerHTML = [
-    badge("账号访问必需", "warn"),
-    badge("下载授权必需", "warn"),
-    badge("未执行真实下载", "warn")
+    badge("内部预览待生成", "warn"),
+    badge("客户账号不作为测试前置"),
+    badge("真实邮件未接入", "warn")
   ].join("");
   document.getElementById("fieldState").innerHTML = [
     badge("字段白名单已执行"),
@@ -1399,17 +1606,17 @@ function renderMissingArtifact(payload) {{
     badge("内部黑箱已隐藏")
   ].join("");
   document.getElementById("auditState").innerHTML = [
-    badge("审批必需"),
-    badge("审计必需"),
-    badge("客户可见发布待审批", "danger")
+    badge("内部读回待生成", "warn"),
+    badge("真实下载未执行", "warn"),
+    badge("客户自助发布不是当前路径")
   ].join("");
   document.getElementById("previewState").innerHTML =
-    `<div class="empty-state"><strong>内部预览未形成</strong><p>当前商机缺少阶段7客户材料读回。先从实战搜索生成机会闭环，再回到本页验收材料候选、字段白名单和下载审计状态。</p></div>`;
+    `<div class="empty-state"><strong>内部预览未形成</strong><p>当前商机缺少阶段7证据包读回。先从实战搜索生成机会闭环，再回到本页验收证据包、字段白名单和模拟下载审计状态。</p></div>`;
   renderReadbackSummary(payload || {{}}, true);
 }}
 loadPortal().catch(renderMissingArtifact);
 """
-    return _page("AX9S 客户材料门户", body, script)
+    return _page("AX9S 内部证据包预览", body, script)
 
 
 def render_customer_artifact_portal_readback(payload: dict[str, Any]) -> dict[str, Any]:
