@@ -118,10 +118,20 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       display: grid;
       grid-template-columns: 248px minmax(0, 1fr);
     }}
+    .operator-shell {{
+      height: 100vh;
+      overflow: hidden;
+    }}
     nav {{
       background: var(--nav);
       color: #eef5f2;
       padding: 24px 18px;
+    }}
+    .operator-shell nav {{
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
     }}
     nav h1 {{
       margin: 0 0 18px;
@@ -129,21 +139,48 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       line-height: 1.2;
       letter-spacing: 0;
     }}
-    nav a {{
+    nav a,
+    nav button.nav-link {{
       display: block;
+      width: 100%;
       color: #d7e6e1;
       text-decoration: none;
       padding: 10px 0;
       border-bottom: 1px solid rgba(255,255,255,.12);
       font-size: 14px;
+      text-align: left;
+      background: transparent;
+      border-left: 0;
+      border-right: 0;
+      border-top: 0;
+      border-radius: 0;
+      cursor: pointer;
+      margin: 0;
+    }}
+    nav a:hover,
+    nav button.nav-link:hover,
+    nav button.nav-link.active {{
+      color: #fff;
+      background: rgba(255,255,255,.08);
     }}
     main {{ padding: 28px; }}
+    .operator-shell main {{
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }}
     .topbar {{
       display: flex;
       justify-content: space-between;
       gap: 16px;
       align-items: flex-start;
       margin-bottom: 20px;
+    }}
+    .operator-shell .topbar {{
+      flex: 0 0 auto;
+      margin-bottom: 0;
     }}
     h2 {{ margin: 0; font-size: 26px; letter-spacing: 0; }}
     .status {{
@@ -155,6 +192,33 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       max-width: 520px;
     }}
     .grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }}
+    .workspace {{
+      flex: 1 1 auto;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+      gap: 16px;
+    }}
+    .panelStack {{
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }}
+    .view-panel {{
+      display: none;
+    }}
+    .view-panel.active {{
+      display: block;
+    }}
+    .view-panel > section,
+    .view-panel > .view-grid {{
+      margin-bottom: 16px;
+    }}
+    .view-grid {{
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
@@ -196,6 +260,20 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       cursor: pointer;
       margin-top: 10px;
     }}
+    nav button.nav-link {{
+      color: #d7e6e1;
+      background: transparent;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      border-radius: 0;
+      padding: 10px 0;
+      margin-top: 0;
+      font-weight: 400;
+    }}
+    nav button.nav-link:hover,
+    nav button.nav-link.active {{
+      color: #fff;
+      background: rgba(255,255,255,.08);
+    }}
     button.secondary {{ background: #31546b; }}
     button:focus, input:focus, textarea:focus, a:focus {{
       outline: 3px solid rgba(15,123,104,.24);
@@ -206,6 +284,10 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
       margin: 14px 0;
+    }}
+    .operator-shell .rail {{
+      flex: 0 0 auto;
+      margin: 0;
     }}
     .metric {{
       border: 1px solid var(--line);
@@ -281,6 +363,17 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       white-space: pre-wrap;
       word-break: break-word;
     }}
+    .resultPane {{
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }}
+    .resultPane pre {{
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      margin: 0;
+    }}
     .wide {{ grid-column: 1 / -1; }}
     .controlled_opening_requirement {{
       border-left: 4px solid var(--danger);
@@ -290,7 +383,14 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
     @media (max-width: 840px) {{
       .layout {{ grid-template-columns: 1fr; }}
       nav {{ position: static; }}
+      .operator-shell {{ height: auto; overflow: visible; }}
+      .operator-shell nav {{ height: auto; }}
+      .operator-shell main {{ height: auto; overflow: visible; display: block; }}
+      .workspace {{ display: block; }}
+      .panelStack {{ overflow: visible; padding-right: 0; }}
+      .resultPane pre {{ max-height: 260px; }}
       .grid, .rail, .stage-grid, .workflow {{ grid-template-columns: 1fr; }}
+      .view-grid {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px; }}
       .topbar {{ display: block; }}
     }}
@@ -314,17 +414,17 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         quote=False,
     )
     body = """
-<div class="layout">
+<div class="layout operator-shell">
   <nav aria-label="运营操作台导航">
     <h1>AX9S 运营操作台</h1>
-    <a href="#overview">Stage1-9 运营总览</a>
-    <a href="#run">全链路运行</a>
-    <a href="#business">业务闭环</a>
-    <a href="#autonomousWorkbench">自主机会工作台</a>
-    <a href="#workbench">Stage6-9 工作台</a>
-    <a href="#providers">服务商状态</a>
-    <a href="#audit">审批审计</a>
-    <a href="/customer-artifact-portal/OPP-HAPPY-001">客户材料门户</a>
+    <button class="nav-link active" type="button" data-view="overview" aria-current="page">Stage1-9 运营总览</button>
+    <button class="nav-link" type="button" data-view="run" aria-current="false">全链路运行</button>
+    <button class="nav-link" type="button" data-view="business" aria-current="false">业务闭环</button>
+    <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">自主机会工作台</button>
+    <button class="nav-link" type="button" data-view="workbench" aria-current="false">Stage6-9 工作台</button>
+    <button class="nav-link" type="button" data-view="providers" aria-current="false">服务商状态</button>
+    <button class="nav-link" type="button" data-view="audit" aria-current="false">审批审计</button>
+    <a class="external" href="/customer-artifact-portal/OPP-HAPPY-001">客户材料门户</a>
   </nav>
   <main>
     <div class="topbar">
@@ -339,95 +439,113 @@ def render_operator_console(payload: Any) -> HTMLResponse:
       <div class="metric"><strong id="provider">--</strong><span>服务商模式</span></div>
       <div class="metric"><strong id="scheduler">--</strong><span>队列就绪状态</span></div>
     </div>
-    <div class="grid">
-      <section class="wide" id="overview">
-        <h3>Stage1-9 运营总览</h3>
-        <div class="stage-grid" id="stageBoard">
-          <div class="stage-card"><strong>Stage1 调度</strong><p>任务、窗口、队列、暂停恢复。</p><span class="pill">内部执行</span></div>
-          <div class="stage-card"><strong>Stage2 公开源</strong><p>公开源适配器、快照、哈希、来源链。</p><span class="pill">仅公开来源</span></div>
-          <div class="stage-card"><strong>Stage3 解析</strong><p>HTML/PDF/OCR/附件字段候选与复核。</p><span class="pill">待核验</span></div>
-          <div class="stage-card"><strong>Stage4 核验</strong><p>公开核验、证据等级、失败关闭。</p><span class="pill">公开核验</span></div>
-          <div class="stage-card"><strong>Stage5 规则</strong><p>规则目录、金标用例、证据绑定。</p><span class="pill">规则工厂</span></div>
-          <div class="stage-card"><strong>Stage6 产品包</strong><p>异议价值、可售判断、交付就绪。</p><span class="pill">产品包</span></div>
-          <div class="stage-card"><strong>Stage7 销售</strong><p>真实竞争者、买家匹配、CRM/报价。</p><span class="pill">销售闭环</span></div>
-          <div class="stage-card"><strong>Stage8 触达</strong><p>模板、频控、退订、服务商执行读回。</p><span class="pill warn">门禁控制</span></div>
-          <div class="stage-card"><strong>Stage9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">无自动退款</span></div>
+    <div class="workspace">
+      <div class="panelStack" aria-live="polite">
+        <div class="view-panel active" id="overview" data-view-panel="overview">
+          <section>
+            <h3>Stage1-9 运营总览</h3>
+            <div class="stage-grid" id="stageBoard">
+              <div class="stage-card"><strong>Stage1 调度</strong><p>任务、窗口、队列、暂停恢复。</p><span class="pill">内部执行</span></div>
+              <div class="stage-card"><strong>Stage2 公开源</strong><p>公开源适配器、快照、哈希、来源链。</p><span class="pill">仅公开来源</span></div>
+              <div class="stage-card"><strong>Stage3 解析</strong><p>HTML/PDF/OCR/附件字段候选与复核。</p><span class="pill">待核验</span></div>
+              <div class="stage-card"><strong>Stage4 核验</strong><p>公开核验、证据等级、失败关闭。</p><span class="pill">公开核验</span></div>
+              <div class="stage-card"><strong>Stage5 规则</strong><p>规则目录、金标用例、证据绑定。</p><span class="pill">规则工厂</span></div>
+              <div class="stage-card"><strong>Stage6 产品包</strong><p>异议价值、可售判断、交付就绪。</p><span class="pill">产品包</span></div>
+              <div class="stage-card"><strong>Stage7 销售</strong><p>真实竞争者、买家匹配、CRM/报价。</p><span class="pill">销售闭环</span></div>
+              <div class="stage-card"><strong>Stage8 触达</strong><p>模板、频控、退订、服务商执行读回。</p><span class="pill warn">门禁控制</span></div>
+              <div class="stage-card"><strong>Stage9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">无自动退款</span></div>
+            </div>
+          </section>
         </div>
-      </section>
-      <section class="wide" id="business">
-        <h3>业务闭环</h3>
-        <div class="workflow">
-          <div><strong>证据链</strong><p>公开来源 -> 解析 -> 核验 -> 规则 -> Stage6 产品包。</p></div>
-          <div><strong>销售闭环</strong><p>真实竞争者 -> 买家匹配 -> CRM/报价 -> 触达。</p></div>
-          <div><strong>客户交付</strong><p>字段白名单、脱敏、水印、版本哈希、下载授权、审计。</p></div>
-          <div><strong>支付交付</strong><p>订单、支付、收据、发票、结算、交付、回滚。</p></div>
+        <div class="view-panel" id="business" data-view-panel="business">
+          <section>
+            <h3>业务闭环</h3>
+            <div class="workflow">
+              <div><strong>证据链</strong><p>公开来源 -> 解析 -> 核验 -> 规则 -> Stage6 产品包。</p></div>
+              <div><strong>销售闭环</strong><p>真实竞争者 -> 买家匹配 -> CRM/报价 -> 触达。</p></div>
+              <div><strong>客户交付</strong><p>字段白名单、脱敏、水印、版本哈希、下载授权、审计。</p></div>
+              <div><strong>支付交付</strong><p>订单、支付、收据、发票、结算、交付、回滚。</p></div>
+            </div>
+          </section>
         </div>
-      </section>
-      <section class="wide" id="autonomousWorkbench">
-        <h3>自主机会工作台</h3>
-        <div class="rail" id="autonomousMetrics">
-          <div class="metric"><strong>--</strong><span>机会队列</span></div>
-          <div class="metric"><strong>--</strong><span>商业钩子</span></div>
-          <div class="metric"><strong>--</strong><span>下一步动作</span></div>
+        <div class="view-panel" id="autonomousWorkbench" data-view-panel="autonomousWorkbench">
+          <section>
+            <h3>自主机会工作台</h3>
+            <div class="rail" id="autonomousMetrics">
+              <div class="metric"><strong>--</strong><span>机会队列</span></div>
+              <div class="metric"><strong>--</strong><span>商业钩子</span></div>
+              <div class="metric"><strong>--</strong><span>下一步动作</span></div>
+            </div>
+            <div id="autonomousQueue" class="empty-state">暂无已持久化机会队列。</div>
+            <button id="refreshAutonomousWorkbench">刷新自主机会工作台</button>
+          </section>
         </div>
-        <div id="autonomousQueue" class="empty-state">暂无已持久化机会队列。</div>
-        <button id="refreshAutonomousWorkbench">刷新自主机会工作台</button>
-      </section>
-      <section id="run">
-        <h3>任务创建</h3>
-        <label for="taskId">任务 ID</label>
-        <input id="taskId" value="TASK-OWNER-127-001" />
-        <label for="projectId">项目 ID</label>
-        <input id="projectId" value="PROJ-OWNER-127-001" />
-        <button id="createTask">创建内部任务</button>
-        <button class="secondary" id="importProject">导入项目</button>
-      </section>
-      <section>
-        <h3>真实公开源验证</h3>
-        <p>只执行 allowlist 的真实公开入口页和附件原始链接；采集按 approved capture plan、source profile、同站证据链与 provider gate 执行。</p>
-        <label for="entryProfile">入口页 Profile</label>
-        <select id="entryProfile"></select>
-        <button id="runEntryCapture">执行入口页抓取</button>
-        <label for="attachmentProfile">附件 Profile</label>
-        <select id="attachmentProfile"></select>
-        <button class="secondary" id="runAttachmentCapture">执行附件抓取</button>
-        <button class="secondary" id="readLatestSourceCapture">读取最近一次抓取读回</button>
-        <button class="secondary" id="refreshRealSourceRuns">刷新真实源任务列表</button>
-        <div id="realSourceRunList" class="empty-state">暂无真实源任务运行记录。</div>
-      </section>
-      <section>
-        <h3>全链路运行入口</h3>
-        <p>只接受脱敏、离线、内部 payload；Stage1-5 外部 live transport 仍关闭。</p>
-        <label for="payload">运行参数 JSON</label>
-        <textarea id="payload">__CONTROLLED_SAMPLE_PAYLOAD__</textarea>
-        <button id="runControlledSample">运行受控样本到 Stage6</button>
-        <button class="secondary" id="previewRun">只检查运行入口</button>
-      </section>
-      <section id="workbench">
-        <h3>Stage6-9 工作台</h3>
-        <div id="workbenchStatus"></div>
-        <p>这里是后端 Stage6-9 读回的工作台入口，不会直接执行真实服务商。</p>
-        <button id="refreshWorkbench">刷新工作台读回</button>
-      </section>
-      <section id="providers">
-        <h3>服务商与调度状态</h3>
-        <div id="providerStatus"></div>
-        <button id="refreshProvider">刷新服务商 / 调度</button>
-      </section>
-      <section id="audit">
-        <h3>审批审计</h3>
-        <div id="auditStatus"></div>
-        <button id="refreshAudit">刷新审计读回</button>
-      </section>
-      <section class="controlled_opening_requirement">
-        <h3>受控开放要求</h3>
-        <p>本页面不执行对外软件发布、真实触达、真实支付、真实交付、真实退款或自动退款。</p>
-        <span class="pill danger">对外发布已阻断</span>
-        <span class="pill danger">自动退款已排除</span>
-        <span class="pill danger">客户真实下载默认关闭</span>
-        <span class="pill warn">客户访问受门禁控制</span>
-      </section>
-      <section class="wide">
+        <div class="view-panel" id="run" data-view-panel="run">
+          <div class="view-grid">
+            <section>
+              <h3>任务创建</h3>
+              <label for="taskId">任务 ID</label>
+              <input id="taskId" value="TASK-OWNER-127-001" />
+              <label for="projectId">项目 ID</label>
+              <input id="projectId" value="PROJ-OWNER-127-001" />
+              <button id="createTask">创建内部任务</button>
+              <button class="secondary" id="importProject">导入项目</button>
+            </section>
+            <section>
+              <h3>真实公开源验证</h3>
+              <p>只执行 allowlist 的真实公开入口页和附件原始链接；采集按 approved capture plan、source profile、同站证据链与 provider gate 执行。</p>
+              <label for="entryProfile">入口页 Profile</label>
+              <select id="entryProfile"></select>
+              <button id="runEntryCapture">执行入口页抓取</button>
+              <label for="attachmentProfile">附件 Profile</label>
+              <select id="attachmentProfile"></select>
+              <button class="secondary" id="runAttachmentCapture">执行附件抓取</button>
+              <button class="secondary" id="readLatestSourceCapture">读取最近一次抓取读回</button>
+              <button class="secondary" id="refreshRealSourceRuns">刷新真实源任务列表</button>
+              <div id="realSourceRunList" class="empty-state">暂无真实源任务运行记录。</div>
+            </section>
+            <section class="wide">
+              <h3>全链路运行入口</h3>
+              <p>只接受脱敏、离线、内部 payload；Stage1-5 外部 live transport 仍关闭。</p>
+              <label for="payload">运行参数 JSON</label>
+              <textarea id="payload">__CONTROLLED_SAMPLE_PAYLOAD__</textarea>
+              <button id="runControlledSample">运行受控样本到 Stage6</button>
+              <button class="secondary" id="previewRun">只检查运行入口</button>
+            </section>
+          </div>
+        </div>
+        <div class="view-panel" id="workbench" data-view-panel="workbench">
+          <section>
+            <h3>Stage6-9 工作台</h3>
+            <div id="workbenchStatus"></div>
+            <p>这里是后端 Stage6-9 读回的工作台入口，不会直接执行真实服务商。</p>
+            <button id="refreshWorkbench">刷新工作台读回</button>
+          </section>
+        </div>
+        <div class="view-panel" id="providers" data-view-panel="providers">
+          <section>
+            <h3>服务商与调度状态</h3>
+            <div id="providerStatus"></div>
+            <button id="refreshProvider">刷新服务商 / 调度</button>
+          </section>
+        </div>
+        <div class="view-panel" id="audit" data-view-panel="audit">
+          <section>
+            <h3>审批审计</h3>
+            <div id="auditStatus"></div>
+            <button id="refreshAudit">刷新审计读回</button>
+          </section>
+          <section class="controlled_opening_requirement">
+            <h3>受控开放要求</h3>
+            <p>本页面不执行对外软件发布、真实触达、真实支付、真实交付、真实退款或自动退款。</p>
+            <span class="pill danger">对外发布已阻断</span>
+            <span class="pill danger">自动退款已排除</span>
+            <span class="pill danger">客户真实下载默认关闭</span>
+            <span class="pill warn">客户访问受门禁控制</span>
+          </section>
+        </div>
+      </div>
+      <section class="resultPane" aria-label="操作结果">
         <h3>操作结果</h3>
         <pre id="output">等待操作...</pre>
       </section>
@@ -438,6 +556,20 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     script = """
 const $ = (id) => document.getElementById(id);
 const out = (value) => { $("output").textContent = JSON.stringify(value, null, 2); };
+const views = new Set(Array.from(document.querySelectorAll("[data-view-panel]")).map((panel) => panel.dataset.viewPanel));
+function showView(view) {
+  const selected = views.has(view) ? view : "overview";
+  document.querySelectorAll("[data-view-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.viewPanel === selected);
+  });
+  document.querySelectorAll("[data-view]").forEach((item) => {
+    const active = item.dataset.view === selected;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-current", active ? "page" : "false");
+  });
+  const stack = document.querySelector(".panelStack");
+  if (stack) { stack.scrollTop = 0; }
+}
 async function json(method, url, body) {
   const options = { method, headers: { "accept": "application/json" } };
   if (body) { options.headers["content-type"] = "application/json"; options.body = JSON.stringify(body); }
@@ -603,6 +735,16 @@ $("refreshWorkbench").addEventListener("click", loadReadiness);
 $("refreshAutonomousWorkbench").addEventListener("click", async () => out(await loadAutonomousWorkbench()));
 $("refreshProvider").addEventListener("click", loadReadiness);
 $("refreshAudit").addEventListener("click", loadReadiness);
+document.querySelectorAll("[data-view]").forEach((item) => {
+  item.addEventListener("click", (event) => {
+    event.preventDefault();
+    const view = item.dataset.view;
+    showView(view);
+    history.replaceState(null, "", `#${view}`);
+  });
+});
+window.addEventListener("hashchange", () => showView((window.location.hash || "#overview").slice(1)));
+showView((window.location.hash || "#overview").slice(1));
 Promise.all([loadReadiness(), loadAutonomousWorkbench(), loadRealSourceProfiles(), loadRealSourceRuns()]).catch(out);
 """
     return _page("AX9S 运营操作台", body, script)

@@ -133,6 +133,15 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "客户真实下载默认关闭",
         ):
             self.assertIn(expected, html)
+        for expected in (
+            'class="layout operator-shell"',
+            'data-view="audit"',
+            'data-view-panel="audit"',
+            'class="resultPane"',
+            "function showView(view)",
+        ):
+            self.assertIn(expected, html)
+        self.assertNotIn('href="#audit"', html)
         self.assertNotIn("public software release enabled", html)
 
     def test_owner_console_visible_controls_call_existing_internal_readback_apis(self) -> None:
