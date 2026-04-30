@@ -332,6 +332,12 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       font-size: 13px;
       line-height: 1.35;
     }}
+    .muted-text {{
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }}
     .compact-card-grid {{
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -455,7 +461,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <button class="nav-link" type="button" data-view="workbench" aria-current="false">Stage6-9 工作台</button>
     <button class="nav-link" type="button" data-view="providers" aria-current="false">服务商状态</button>
     <button class="nav-link" type="button" data-view="audit" aria-current="false">审批审计</button>
-    <a class="external" href="/customer-artifact-portal/OPP-HAPPY-001">客户材料门户</a>
+    <a class="external" id="customerPortalLink" href="/customer-artifact-portal/OPP-HAPPY-001">客户材料门户 · 样例</a>
   </nav>
   <main>
     <div class="topbar">
@@ -528,6 +534,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             </section>
             <section class="wide">
               <h3>搜索运行记录</h3>
+              <p class="muted-text" id="autonomousSearchRunMeta">待读取最新搜索记录。</p>
               <div id="autonomousSearchRuns" class="empty-state">暂无实战搜索运行记录。</div>
               <button id="refreshAutonomousSearchRuns">刷新搜索记录</button>
             </section>
@@ -642,6 +649,19 @@ const out = (value) => {
   $("output").textContent = summary || JSON.stringify(value, null, 2);
 };
 const views = new Set(Array.from(document.querySelectorAll("[data-view-panel]")).map((panel) => panel.dataset.viewPanel));
+function updateCustomerPortalLink(opportunityId) {
+  const link = $("customerPortalLink");
+  if (!link) { return; }
+  if (opportunityId) {
+    link.href = `/customer-artifact-portal/${encodeURIComponent(opportunityId)}`;
+    link.textContent = "客户材料门户 · 当前商机";
+    link.title = opportunityId;
+    return;
+  }
+  link.href = "/customer-artifact-portal/OPP-HAPPY-001";
+  link.textContent = "客户材料门户 · 样例";
+  link.title = "OPP-HAPPY-001";
+}
 function showView(view) {
   const selected = views.has(view) ? view : "overview";
   document.querySelectorAll("[data-view-panel]").forEach((panel) => {
@@ -769,6 +789,11 @@ async function loadRegionAdapters() {
 async function loadAutonomousSearchRuns() {
   const payload = await json("GET", "/operator-console/autonomous-search-runs");
   const runs = payload.runs || [];
+  updateCustomerPortalLink(payload.latest_opportunity_id || runs[0]?.opportunity_id || "");
+  const collapsed = Number(payload.duplicate_collapsed_count || 0);
+  $("autonomousSearchRunMeta").textContent = collapsed
+    ? `展示最新 ${runs.length} 个商机，已合并 ${collapsed} 条重复运行记录。`
+    : `展示最新 ${runs.length} 个商机。`;
   if (!runs.length) {
     $("autonomousSearchRuns").className = "empty-state";
     $("autonomousSearchRuns").textContent = "暂无实战搜索运行记录。";
@@ -806,6 +831,7 @@ async function importProject() {
   out(await json("POST", "/operator-console/project-imports", payload));
 }
 async function runAutonomousSearch() {
+  const button = $("runAutonomousSearch");
   const payload = {
     region_code: $("searchRegion").value,
     query: $("searchKeyword").value,
@@ -814,33 +840,48 @@ async function runAutonomousSearch() {
     candidate_count: 3,
     now: new Date().toISOString()
   };
-  const result = await json("POST", "/operator-console/autonomous-opportunity-search", payload);
-  selectedAutonomousOpportunityId = result.opportunity_id || "";
-  const accepted = result.search_state === "AUTONOMOUS_SEARCH_ACCEPTED";
-  $("searchResult").className = "";
-  $("searchResult").innerHTML = `
-    <div class="stage-card">
-      <strong>${result.opportunity_id || "--"}</strong>
-      <p>${result.candidate?.project_name || "--"}</p>
-      ${badge(result.search_state || "--", accepted ? "" : "warn")}
-      ${badge(result.acceptance?.acceptance_state || "--", accepted ? "" : "warn")}
-      ${badge(result.region_adapter?.region_code || "--")}
-      ${badge(result.search_run_id || "--")}
-      <p>${result.acceptance?.owner_workbench_acceptance?.queue_item?.commercial_hook_teaser || "商业钩子待生成"}</p>
-    </div>`;
-  out({
-    search_state: result.search_state,
-    opportunity_id: result.opportunity_id,
-    search_run_id: result.search_run_id,
-    region_code: result.region_adapter?.region_code,
-    entry_profile_id: result.entry_profile?.profile_id,
-    workbench: result.operator_workbench_readback_path,
-    customer_artifact_candidate: result.customer_artifact_candidate_path,
-    raw_json_required: false
-  });
-  await loadAutonomousSearchRuns();
-  await loadAutonomousWorkbench(selectedAutonomousOpportunityId);
-  return result;
+  button.disabled = true;
+  button.textContent = "搜索运行中...";
+  $("searchResult").className = "empty-state";
+  $("searchResult").textContent = "正在生成机会、工作台和客户材料候选...";
+  try {
+    const result = await json("POST", "/operator-console/autonomous-opportunity-search", payload);
+    selectedAutonomousOpportunityId = result.opportunity_id || "";
+    updateCustomerPortalLink(selectedAutonomousOpportunityId);
+    const accepted = result.search_state === "AUTONOMOUS_SEARCH_ACCEPTED";
+    $("searchResult").className = "";
+    $("searchResult").innerHTML = `
+      <div class="stage-card">
+        <strong>${result.opportunity_id || "--"}</strong>
+        <p>${result.candidate?.project_name || "--"}</p>
+        ${badge(result.search_state || "--", accepted ? "" : "warn")}
+        ${badge(result.acceptance?.acceptance_state || "--", accepted ? "" : "warn")}
+        ${badge(result.region_adapter?.region_code || "--")}
+        ${badge(result.search_run_id || "--")}
+        <p>${result.acceptance?.owner_workbench_acceptance?.queue_item?.commercial_hook_teaser || "商业钩子待生成"}</p>
+      </div>`;
+    out({
+      search_state: result.search_state,
+      opportunity_id: result.opportunity_id,
+      search_run_id: result.search_run_id,
+      region_code: result.region_adapter?.region_code,
+      entry_profile_id: result.entry_profile?.profile_id,
+      workbench: result.operator_workbench_readback_path,
+      customer_artifact_candidate: result.customer_artifact_candidate_path,
+      raw_json_required: false
+    });
+    await loadAutonomousSearchRuns();
+    await loadAutonomousWorkbench(selectedAutonomousOpportunityId);
+    return result;
+  } catch (err) {
+    $("searchResult").className = "empty-state";
+    $("searchResult").textContent = "搜索失败，请查看操作结果。";
+    out(err);
+    throw err;
+  } finally {
+    button.disabled = false;
+    button.textContent = "搜索并生成机会闭环";
+  }
 }
 async function previewRun() {
   let payload = {};
@@ -997,11 +1038,31 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
     script = f"""
 const opportunityId = {opportunity_id!r};
 function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{text}}</span>`; }}
+function blockedReasonLabel(reason) {{
+  const labels = {{
+    "stage7_artifact_readback_missing": "Stage7 客户材料尚未生成",
+    "stage8_stage9_delivery_context_not_required_for_access_candidate_readback": "Stage8/Stage9 交付上下文未进入客户开放面",
+    "customer_visible_export_enabled=false": "客户可见导出未开启",
+    "client_page_release_enabled=false": "客户页面未发布",
+    "external_release_enabled=false": "对外发布未批准",
+    "external_delivery_enabled=false": "对外交付未开启",
+    "direct_export_enabled=false": "直接导出未开启",
+    "approval_audit_and_implementation_decision_required_before_live": "需要审批、审计和实施决策",
+    "customer_account_access_control_required": "需要配置客户账号访问",
+    "download_auth_required": "需要下载授权",
+    "approval_audit_required_before_customer_download": "客户下载前需要审批审计",
+    "public_software_release_not_approved": "公开软件发布未批准",
+  }};
+  const key = String(reason || "").trim();
+  return labels[key] || "待运营复核：" + key.replaceAll("_", " ");
+}}
 function renderReadbackSummary(payload, missing=false) {{
   const output = document.getElementById("output");
   const downloadAuth = payload?.download_auth || {{}};
   const fieldPolicy = payload?.field_allowlist_masking || {{}};
-  const blockedReasons = Array.isArray(payload?.blocked_reasons) ? payload.blocked_reasons.join(", ") : "无";
+  const blockedReasons = Array.isArray(payload?.blocked_reasons)
+    ? Array.from(new Set(payload.blocked_reasons.map(blockedReasonLabel))).join("；")
+    : "无";
   const detail = payload?.detail || payload?.readback_error?.detail || "";
   const rows = [
     ["商机", opportunityId],

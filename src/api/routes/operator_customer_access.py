@@ -663,18 +663,32 @@ def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[s
 def list_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
     del payload
     actions = OperatorActionRepository().list(work_item_id=_autonomous_search_work_item_id())
-    runs = [_autonomous_search_action_payload(action) for action in actions]
-    runs.sort(key=lambda row: str(row.get("requested_at") or ""), reverse=True)
+    raw_runs = [_autonomous_search_action_payload(action) for action in actions]
+    raw_runs.sort(key=lambda row: str(row.get("requested_at") or ""), reverse=True)
+    latest_by_opportunity: dict[str, dict[str, Any]] = {}
+    for row in raw_runs:
+        dedupe_key = str(row.get("opportunity_id") or row.get("run_id") or "").strip()
+        if not dedupe_key or dedupe_key in latest_by_opportunity:
+            continue
+        latest_by_opportunity[dedupe_key] = row
+    runs = list(latest_by_opportunity.values())
     status_counts: dict[str, int] = {}
     for row in runs:
         status = str(row.get("search_state") or "UNKNOWN")
         status_counts[status] = status_counts.get(status, 0) + 1
+    latest_opportunity_id = str(runs[0].get("opportunity_id") or "") if runs else ""
     return {
         "surface_id": "operator_autonomous_search_runs",
         "internal_only": True,
         "repository_backed_readback": True,
         "autonomous_search_run_list": True,
         "run_count": len(runs),
+        "raw_run_count": len(raw_runs),
+        "duplicate_collapsed_count": max(len(raw_runs) - len(runs), 0),
+        "latest_opportunity_id": latest_opportunity_id,
+        "latest_customer_artifact_portal_path": f"/customer-artifact-portal/{latest_opportunity_id}"
+        if latest_opportunity_id
+        else "",
         "status_counts": status_counts,
         "runs": runs,
         "raw_json_required": False,

@@ -110,6 +110,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "地区适配器",
             "搜索并生成机会闭环",
             "搜索运行记录",
+            "待读取最新搜索记录",
             "刷新搜索记录",
             "买家排序",
             "交付状态",
@@ -118,7 +119,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "/operator-console/autonomous-opportunity-search",
             "/operator-console/autonomous-search-runs",
             "/customer-artifact-portal/",
+            "customerPortalLink",
             "data-workbench-opportunity",
+            "updateCustomerPortalLink",
+            "搜索运行中",
             "任务创建",
             "真实公开源验证",
             "入口页 Profile",
@@ -259,6 +263,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "未执行真实下载",
             "读回摘要",
             "renderReadbackSummary",
+            "blockedReasonLabel",
             "/customer-artifact-portal-readback/",
         ):
             self.assertIn(expected, html)

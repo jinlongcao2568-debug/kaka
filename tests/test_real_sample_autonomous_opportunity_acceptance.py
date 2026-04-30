@@ -260,6 +260,45 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertFalse(workbench["raw_json_required"])
         self.assertFalse(workbench["safe_display_contract"]["customer_download_enabled"])
 
+    def test_operator_autonomous_search_runs_collapse_duplicate_opportunities(self) -> None:
+        client = TestClient(create_app())
+        search_payload = {
+            "region_code": "CN-GD",
+            "query": "市政工程",
+            "project_type": "municipal",
+            "amount": 18000000,
+            "candidate_count": 3,
+            "now": "2026-04-30T00:00:00+00:00",
+        }
+
+        first_response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json=search_payload,
+        )
+        second_response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json=search_payload,
+        )
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        opportunity_id = second_response.json()["opportunity_id"]
+
+        runs_response = client.request("GET", "/operator-console/autonomous-search-runs")
+        self.assertEqual(runs_response.status_code, 200)
+        runs = runs_response.json()
+        self.assertEqual(runs["run_count"], 1)
+        self.assertEqual(runs["raw_run_count"], 2)
+        self.assertEqual(runs["duplicate_collapsed_count"], 1)
+        self.assertEqual(runs["latest_opportunity_id"], opportunity_id)
+        self.assertEqual(
+            runs["latest_customer_artifact_portal_path"],
+            f"/customer-artifact-portal/{opportunity_id}",
+        )
+        self.assertEqual(runs["runs"][0]["opportunity_id"], opportunity_id)
+
 
 if __name__ == "__main__":
     unittest.main()
