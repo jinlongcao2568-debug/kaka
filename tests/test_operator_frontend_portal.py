@@ -124,8 +124,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "证据链",
             "证据风险",
             "销售闭环",
-            "客户交付",
+            "证据包交付候选",
             "支付交付",
+            "内部线索运营平台 / 情报生产平台 / 销售作战平台",
+            "客户不使用工作台",
+            "真实可卖性判断",
+            "当前能卖到哪一步",
             "实战搜索",
             "实战项目搜索",
             "地区适配器",
@@ -175,6 +179,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "/operator-console/project-imports",
             "/operator-console/readiness",
             "/go-live/readiness",
+            "/operator-console/real-world-sellability",
             "内部测试放行状态",
             "内部测试发布模拟已打开",
             "客户账号不作为内部测试前置",
@@ -209,7 +214,13 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "async function loadUserAcceptanceContract()",
             "function renderAcceptanceGapMatrix(matrix)",
             "async function loadAcceptanceGapMatrix()",
+            "function renderRealWorldSellability(surface)",
+            "async function loadRealWorldSellability()",
             "function showView(view)",
+            "id=\"sellabilityDecision\"",
+            "id=\"sellabilityMetrics\"",
+            "id=\"sellabilityBoundary\"",
+            "id=\"sellabilityLaneList\"",
             "id=\"searchRegionChoices\"",
             "id=\"searchProjectTypeChoices\"",
             "id=\"opportunityDetail\"",
@@ -305,7 +316,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
         self.assertIn(
-            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix()])',
+            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability()])',
             html,
         )
         self.assertIn('"/operator-console/region-adapters"', html)
@@ -313,6 +324,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
         self.assertIn('"/operator-console/user-acceptance-contract"', html)
         self.assertIn('"/operator-console/user-acceptance-gap-matrix"', html)
+        self.assertIn('"/operator-console/real-world-sellability"', html)
         self.assertIn('href="#autonomousWorkbench"', html)
         self.assertIn('data-workbench-opportunity', html)
         self.assertIn('id="selectAllRegions"', html)
@@ -383,9 +395,9 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(matrix["contractRef"], "contracts/ui/operator_user_acceptance_contract.json")
         self.assertEqual(matrix["status"], "ACTIVE")
         self.assertEqual(matrix["summary"]["totalDimensions"], 11)
-        self.assertEqual(matrix["summary"]["passCount"], 3)
-        self.assertEqual(matrix["summary"]["partialCount"], 7)
-        self.assertEqual(matrix["summary"]["notExposedCount"], 1)
+        self.assertEqual(matrix["summary"]["passCount"], 5)
+        self.assertEqual(matrix["summary"]["partialCount"], 6)
+        self.assertEqual(matrix["summary"]["notExposedCount"], 0)
         self.assertEqual(matrix["summary"]["failCount"], 0)
         self.assertIn("真实可卖交付", matrix["summary"]["operatorConclusion"])
         dimensions = {
@@ -424,10 +436,14 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         )
         self.assertEqual(
             dimensions["UA-11-real-world-sellability"]["status"],
-            "NOT_EXPOSED",
+            "PASS",
+        )
+        self.assertEqual(
+            dimensions["UA-01-product-definition-alignment"]["status"],
+            "PASS",
         )
         self.assertIn(
-            "真实可卖性一屏判断",
+            "阶段1-9运行读回深度",
             [item["title"] for item in matrix["topPriorities"]],
         )
 

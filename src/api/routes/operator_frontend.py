@@ -731,7 +731,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <div class="topbar">
       <div>
         <h2>证据包运营操作台</h2>
-        <p>任务创建、项目导入、阶段1-9运营、销售闭环、客户交付、支付交付、审计回写集中在同一入口。</p>
+        <p>内部线索运营平台 / 情报生产平台 / 销售作战平台：从市场扫描到证据包、机会包和销售推进结果，客户不使用工作台。</p>
       </div>
       <div class="status" id="summary">正在读取启动状态和就绪状态...</div>
     </div>
@@ -743,6 +743,17 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <div class="workspace">
       <div class="panelStack" aria-live="polite">
         <div class="view-panel active" id="overview" data-view-panel="overview">
+          <section>
+            <h3>真实可卖性判断</h3>
+            <p class="muted-text" id="sellabilityDecision">正在读取当前能卖到哪一步、还差哪些接入。</p>
+            <div class="rail" id="sellabilityMetrics">
+              <div class="metric"><strong>--</strong><span>可卖性等级</span></div>
+              <div class="metric"><strong>--</strong><span>最新商机</span></div>
+              <div class="metric"><strong>--</strong><span>真实外部动作</span></div>
+            </div>
+            <div id="sellabilityBoundary"></div>
+            <div id="sellabilityLaneList" class="compact-card-grid"></div>
+          </section>
           <section>
             <h3>阶段1-9 运营总览</h3>
             <p class="muted-text" id="stageDirection">系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 证据包预览。运行实战搜索后显示每阶段产出。</p>
@@ -772,7 +783,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div class="workflow">
               <div><strong>证据链</strong><p>公开来源 -> 解析 -> 核验 -> 规则 -> 阶段6产品包。</p></div>
               <div><strong>销售闭环</strong><p>真实竞争者 -> 买家匹配 -> 客户关系和报价 -> 触达。</p></div>
-              <div><strong>客户交付</strong><p>字段白名单、脱敏、水印、版本哈希、下载授权、审计。</p></div>
+              <div><strong>证据包交付候选</strong><p>字段白名单、脱敏、水印、版本哈希、下载授权、审计。</p></div>
               <div><strong>支付交付</strong><p>订单、支付、收据、发票、结算、交付、回滚。</p></div>
             </div>
           </section>
@@ -1028,6 +1039,7 @@ const stateLabels = {
   "PARTIAL": "部分满足",
   "NOT_EXPOSED": "未展示",
   "FAIL": "未通过",
+  "NOT_READY": "未就绪",
 };
 const projectTypeLabels = {
   "construction": "房建工程",
@@ -1302,7 +1314,7 @@ async function loadUserAcceptanceContract() {
 }
 function acceptanceStatusKind(status) {
   if (status === "FAIL") { return "danger"; }
-  if (status === "PARTIAL" || status === "NOT_EXPOSED") { return "warn"; }
+  if (status === "PARTIAL" || status === "NOT_EXPOSED" || status === "NOT_READY") { return "warn"; }
   return "";
 }
 function renderListItems(items, emptyText="暂无") {
@@ -1351,6 +1363,45 @@ async function loadAcceptanceGapMatrix() {
   const matrix = await json("GET", "/operator-console/user-acceptance-gap-matrix");
   renderAcceptanceGapMatrix(matrix);
   return matrix;
+}
+function renderRealWorldSellability(surface) {
+  const summary = surface?.sellability_summary || {};
+  const boundary = surface?.boundary || {};
+  const lanes = Array.isArray(surface?.lanes) ? surface.lanes : [];
+  const externalReady = summary.external_sellable_now ? "已闭合" : "待接入";
+  $("sellabilityDecision").textContent = `${summary.sellability_level || "真实可卖性待读取"}：${summary.owner_decision || "等待系统读回。"} `;
+  $("sellabilityMetrics").innerHTML = [
+    `<div class="metric"><strong>${summary.sellability_level || "--"}</strong><span>可卖性等级</span></div>`,
+    `<div class="metric"><strong>${summary.latest_opportunity_id || "待运行"}</strong><span>最新商机</span></div>`,
+    `<div class="metric"><strong>${externalReady}</strong><span>真实外部动作</span></div>`
+  ].join("");
+  $("sellabilityBoundary").innerHTML = renderRows([
+    ["内部搜索与证据包验收", boundary.internal_search_and_evidence_package_review ? "可用" : "待运行"],
+    ["线索包交付候选", boundary.leadpack_delivery_candidate_visible ? "可见" : "待生成"],
+    ["真实客户触达", boundary.real_customer_touch_enabled ? "已接入" : "未接入"],
+    ["真实支付", boundary.real_payment_enabled ? "已接入" : "未接入"],
+    ["真实交付", boundary.real_delivery_enabled ? "已接入" : "未接入"],
+    ["自动退款", boundary.automated_refund_enabled ? "已开放" : "排除"],
+  ]);
+  $("sellabilityLaneList").innerHTML = lanes.length
+    ? lanes.map((lane) => {
+      const status = lane.status || "--";
+      return `<div class="stage-card">
+        <strong>${safeText(lane.title || lane.lane_id)}</strong>
+        <p>${safeText(lane.current_state)}</p>
+        ${badge(status, acceptanceStatusKind(status))}
+        <p><strong>缺口</strong></p>
+        <ul>${renderListItems(lane.gaps, "当前无关键缺口")}</ul>
+        <p><strong>下一步</strong></p>
+        <ul>${renderListItems(lane.next_actions)}</ul>
+      </div>`;
+    }).join("")
+    : `<div class="empty-state">暂无真实可卖性读回。</div>`;
+}
+async function loadRealWorldSellability() {
+  const surface = await json("GET", "/operator-console/real-world-sellability");
+  renderRealWorldSellability(surface);
+  return surface;
 }
 async function loadReadiness(writeOutput = true) {
   const readiness = await json("GET", "/operator-console/readiness");
@@ -1695,7 +1746,7 @@ window.addEventListener("hashchange", () => showView((window.location.hash || "#
 showView((window.location.hash || "#overview").slice(1));
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """

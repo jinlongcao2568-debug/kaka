@@ -70,6 +70,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             "previewOperatorCustomerAccessReadiness",
             "previewAutonomousOperatorWorkbench",
             "previewRealSampleAutonomousOpportunityAcceptance",
+            "previewOperatorRealWorldSellability",
             "createOperatorTask",
             "listRealPublicSourceProfiles",
             "listOperatorRegionAdapters",
@@ -102,6 +103,12 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(mounted_operations["runOperatorAutonomousOpportunitySearch"]["raw_json_required"])
         self.assertTrue(mounted_operations["listOperatorAutonomousSearchRuns"]["autonomous_search_run_list"])
         self.assertFalse(mounted_operations["listOperatorAutonomousSearchRuns"]["raw_json_required"])
+        self.assertTrue(
+            mounted_operations["previewOperatorRealWorldSellability"][
+                "real_world_sellability_readiness"
+            ]
+        )
+        self.assertFalse(mounted_operations["previewOperatorRealWorldSellability"]["raw_json_required"])
 
         access_bootstrap = bootstrap["operator_customer_access_bootstrap"]
         self.assertEqual(access_bootstrap["capability_state"], "APPROVAL_READY")
@@ -154,6 +161,9 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(payload["operator_console"]["full_chain_run_entry"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["autonomous_operator_workbench"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_sample_autonomous_acceptance"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_world_sellability_readiness"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_world_sellability_readiness"]["ua11_satisfied"])
+        self.assertFalse(payload["operator_console"]["real_world_sellability_readiness"]["raw_json_required"])
         self.assertTrue(
             payload["operator_console"]["real_sample_autonomous_acceptance"][
                 "real_sample_flow_visible"
@@ -206,6 +216,49 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(profiles["real_provider_call_enabled"])
         self.assertIn("GGZY-DEAL-LIST", {item["profile_id"] for item in profiles["entry_profiles"]})
         self.assertIn("BEIJING-STANDARD-BIDDING-PDF", {item["profile_id"] for item in profiles["attachment_profiles"]})
+
+    def test_real_world_sellability_surface_summarizes_current_owner_decision(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.request("GET", "/operator-console/real-world-sellability")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["surface_id"], "operator_real_world_sellability_readiness")
+        self.assertEqual(
+            payload["contract_ref"],
+            "contracts/ui/operator_user_acceptance_contract.json#UA-11-real-world-sellability",
+        )
+        self.assertTrue(payload["ua11_satisfied"])
+        self.assertTrue(payload["internal_only"])
+        self.assertFalse(payload["live_execution_enabled"])
+        self.assertFalse(payload["external_release_enabled"])
+        self.assertFalse(payload["real_provider_call_enabled"])
+        self.assertFalse(payload["automated_refund_enabled"])
+        summary = payload["sellability_summary"]
+        self.assertEqual(summary["sellability_level"], "内部实战可判断，真实成交交付待接入")
+        self.assertFalse(summary["external_sellable_now"])
+        self.assertIn("真实客户触达", summary["owner_decision"])
+        lanes = {item["lane_id"]: item for item in payload["lanes"]}
+        self.assertEqual(
+            set(lanes),
+            {
+                "market_scan_to_opportunity",
+                "region_adapter_coverage",
+                "evidence_quality",
+                "commercial_hook",
+                "leadpack_delivery_candidate",
+                "governed_outreach",
+                "payment_delivery_writeback",
+            },
+        )
+        self.assertEqual(lanes["governed_outreach"]["status"], "PARTIAL")
+        self.assertEqual(lanes["payment_delivery_writeback"]["status"], "PARTIAL")
+        self.assertFalse(payload["boundary"]["real_customer_touch_enabled"])
+        self.assertFalse(payload["boundary"]["real_payment_enabled"])
+        self.assertFalse(payload["boundary"]["real_delivery_enabled"])
+        self.assertFalse(payload["boundary"]["automated_refund_enabled"])
+        self.assertIn("真实触达 provider sandbox 与审批审计", payload["remaining_real_world_closures"])
 
     def test_real_public_source_runner_uses_existing_stage2_fetchers_and_replay(self) -> None:
         client = TestClient(create_app())

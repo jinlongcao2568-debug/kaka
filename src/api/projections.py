@@ -3443,6 +3443,7 @@ def build_operator_customer_access_readiness_surface(
             "workbench_entries": {
                 "autonomous_operator_workbench": "/operator-console/autonomous-workbench",
                 "real_sample_autonomous_acceptance": "/operator-console/real-sample-autonomous-acceptance",
+                "real_world_sellability_readiness": "/operator-console/real-world-sellability",
                 "stage6_review_report": "/review-report-workbench",
                 "stage7_opportunity_pool": "/saleable-opportunities",
                 "stage8_outreach_workbench": "/contact-targets",
@@ -3476,6 +3477,19 @@ def build_operator_customer_access_readiness_surface(
                 "raw_json_required": False,
                 "live_execution_enabled": False,
                 "external_release_enabled": False,
+            },
+            "real_world_sellability_readiness": {
+                "operation_id": "previewOperatorRealWorldSellability",
+                "method": "GET",
+                "path": "/operator-console/real-world-sellability",
+                "entry_visible": True,
+                "ua11_satisfied": True,
+                "owner_can_observe_without_raw_api": True,
+                "raw_json_required": False,
+                "live_execution_enabled": False,
+                "external_release_enabled": False,
+                "real_provider_call_enabled": False,
+                "automated_refund_enabled": False,
             },
         },
         "provider_status": {

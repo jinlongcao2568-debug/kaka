@@ -6,31 +6,31 @@
   "assessmentMethod": "contract_driven_owner_ui_audit",
   "summary": {
     "totalDimensions": 11,
-    "passCount": 3,
-    "partialCount": 7,
-    "notExposedCount": 1,
+    "passCount": 5,
+    "partialCount": 6,
+    "notExposedCount": 0,
     "failCount": 0,
-    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览和能力暴露基础；距离真实可卖交付还差真实可卖性一屏判断、阶段遥测深度、显式数据控制和真实服务商接入状态闭合。",
-    "nextDecision": "下一轮应优先补真实可卖性判断、阶段1-9运行读回深度、运行记录持久与清空控制、真实服务商接入状态。"
+    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览、能力暴露和真实可卖性一屏判断；距离真实可卖交付还差阶段遥测深度、显式数据控制、重点地区适配器覆盖和真实服务商接入状态闭合。",
+    "nextDecision": "下一轮应优先补阶段1-9运行读回深度、运行记录持久与清空控制、地区适配器覆盖和真实服务商接入状态。"
   },
   "topPriorities": [
     {
       "rank": 1,
-      "dimensionId": "UA-11-real-world-sellability",
-      "title": "真实可卖性一屏判断",
-      "reason": "owner 需要直接判断当前机会能不能卖、还差什么，不应只看到脚本或页面已经打开。"
-    },
-    {
-      "rank": 2,
       "dimensionId": "UA-03-stage-observability",
       "title": "阶段1-9运行读回深度",
       "reason": "现有阶段总览已经可见，但每阶段有效/无效对象和日志仍需要更细读回。"
     },
     {
-      "rank": 3,
+      "rank": 2,
       "dimensionId": "UA-09-data-persistence-and-operator-control",
       "title": "运行记录持久与清空控制",
       "reason": "搜索记录已有 repository 读回基础，但 UI 还缺明确的数据来源、保留状态和显式清空控制。"
+    },
+    {
+      "rank": 3,
+      "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
+      "title": "地区适配器与批量机会运营",
+      "reason": "当前可形成机会，但重点地区本地入口、失败分类和批量复盘仍需要补强。"
     },
     {
       "rank": 4,
@@ -43,20 +43,18 @@
     {
       "dimensionId": "UA-01-product-definition-alignment",
       "title": "产品定义一致",
-      "status": "PARTIAL",
-      "currentUiState": "验收契约页已说明内部线索运营、证据包和销售作战目标；主操作台首屏仍需要把这个定位压到更靠前、更明确的位置。",
+      "status": "PASS",
+      "currentUiState": "操作台首屏已说明内部线索运营平台、情报生产平台、销售作战平台定位，明确交付证据包/机会包/销售推进结果，客户不使用工作台。",
       "evidenceRefs": [
         "contracts/ui/operator_user_acceptance_contract.json#productDefinition",
-        "src/api/routes/operator_frontend.py#acceptanceContract",
-        "src/api/routes/operator_frontend.py#renderUserAcceptanceContract"
+        "src/api/routes/operator_frontend.py#topbar",
+        "src/api/routes/operator_frontend.py#renderRealWorldSellability"
       ],
       "gaps": [
-        "首屏仍偏运营总览，产品定义和客户不使用工作台的边界需要更前置。",
-        "部分导航名仍容易让 owner 误解为客户侧入口。"
+        "后续每次新增一级页面时仍需防止被误写成客户工作台或软件发布台。"
       ],
       "nextActions": [
-        "在操作台首屏补一句产品定位和交付形态。",
-        "把客户材料入口继续改成内部证据包预览/交付候选语义。"
+        "保持首屏产品定义和真实外部动作边界同步更新。"
       ]
     },
     {
@@ -226,20 +224,18 @@
     {
       "dimensionId": "UA-11-real-world-sellability",
       "title": "真实可卖性可判断",
-      "status": "NOT_EXPOSED",
-      "currentUiState": "契约已经定义真实可卖性，但操作台还没有一屏告诉 owner 当前系统能不能真实卖、能卖到哪一步、还差哪些接入。",
+      "status": "PASS",
+      "currentUiState": "操作台首页已展示真实可卖性判断：当前能用于内部实战筛选机会、查看证据包和判断销售价值；真实客户触达、支付、交付仍待 provider/sandbox/live pilot 接入。",
       "evidenceRefs": [
         "contracts/ui/operator_user_acceptance_contract.json#UA-11-real-world-sellability",
-        "control/product_acceptance_checklist.yaml#PTL-I100-149",
-        "control/product_operability_gap_matrix.yaml"
+        "src/api/routes/operator_customer_access.py#preview_operator_real_world_sellability",
+        "src/api/routes/operator_frontend.py#renderRealWorldSellability"
       ],
       "gaps": [
-        "缺真实可卖性总分或分级结论。",
-        "市场扫描、地区适配、证据质量、商业钩子、触达、支付交付、回写治理的缺口还没有聚合。"
+        "真实赚钱交付仍依赖后续真实服务商、重点地区适配器和 live pilot 闭合，不因可卖性面板展示而自动完成。"
       ],
       "nextActions": [
-        "新增真实可卖性面板，按可售链路展示当前通过、部分满足、未接入。",
-        "把真实样本闭环结果、地区适配器覆盖和 provider 状态聚合到一个判断卡。"
+        "在后续轮次把阶段遥测、地区适配、数据控制和真实 provider 状态持续接入该面板。"
       ]
     }
   ]

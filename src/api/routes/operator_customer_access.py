@@ -117,6 +117,7 @@ def _operator_operation_readback(routes: list[dict[str, Any]] | None = None) -> 
                 "autonomous_search_run_list",
                 "real_sample_autonomous_acceptance",
                 "real_sample_flow_visible",
+                "real_world_sellability_readiness",
             )
             if key in route
         }
@@ -210,6 +211,222 @@ def preview_go_live_readiness(payload: Any) -> dict[str, Any]:
         provider_adapter_bootstrap=provider_bootstrap,
         audit_log=_operator_audit_log(),
     )
+
+
+def _sellability_status_label(status: str) -> str:
+    return {
+        "PASS": "已满足",
+        "PARTIAL": "部分满足",
+        "NOT_READY": "未就绪",
+    }.get(status, status)
+
+
+def _sellability_lane(
+    *,
+    lane_id: str,
+    title: str,
+    status: str,
+    current_state: str,
+    evidence: list[str],
+    gaps: list[str],
+    next_actions: list[str],
+) -> dict[str, Any]:
+    return {
+        "lane_id": lane_id,
+        "title": title,
+        "status": status,
+        "status_label": _sellability_status_label(status),
+        "current_state": current_state,
+        "evidence": evidence,
+        "gaps": gaps,
+        "next_actions": next_actions,
+    }
+
+
+def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    del payload
+    region_surface = list_operator_region_adapters()
+    search_runs = list_operator_autonomous_search_runs()
+    go_live = preview_go_live_readiness({})
+    runs = list(search_runs.get("runs", []) or [])
+    latest_run = dict(runs[0]) if runs else {}
+    accepted_run_count = sum(
+        1
+        for run in runs
+        if str(run.get("search_state") or "") == "AUTONOMOUS_SEARCH_ACCEPTED"
+    )
+    latest_opportunity_id = str(latest_run.get("opportunity_id") or "")
+    dedicated_region_count = len(region_surface.get("dedicated_local_profile_region_codes", []) or [])
+    searchable_region_count = len(region_surface.get("searchable_region_codes", []) or [])
+    region_count = int(region_surface.get("region_adapter_count") or 0)
+    provider_config = dict(go_live.get("provider_config_readiness", {}) or {})
+    controlled = dict(go_live.get("controlled_opening_requirements", {}) or {})
+    real_provider_ready = bool(provider_config.get("real_provider_call_enabled", False))
+    real_touch_ready = bool(controlled.get("stage8_real_execution_enabled", False))
+    real_payment_ready = bool(controlled.get("stage9_real_payment_delivery_refund_enabled", False))
+    latest_runtime_flow = dict(search_runs.get("latest_runtime_flow", {}) or {})
+    stage_stats = list(latest_runtime_flow.get("stage_stats", []) or [])
+    observed_stage_count = len(stage_stats)
+
+    lanes = [
+        _sellability_lane(
+            lane_id="market_scan_to_opportunity",
+            title="市场扫描到机会",
+            status="PASS" if accepted_run_count else "PARTIAL",
+            current_state=(
+                f"已读回 {len(runs)} 个搜索商机，{accepted_run_count} 个形成闭环。"
+                if runs
+                else "尚未在当前本地仓库读回搜索商机。"
+            ),
+            evidence=[
+                "/operator-console/autonomous-search-runs",
+                "/operator-console/autonomous-opportunity-search",
+            ],
+            gaps=[] if accepted_run_count else ["需要至少运行一次实战搜索形成可售机会读回。"],
+            next_actions=[
+                "从实战搜索选择地区、类型和金额区间运行一次闭环。",
+            ],
+        ),
+        _sellability_lane(
+            lane_id="region_adapter_coverage",
+            title="地区适配器覆盖",
+            status="PASS" if dedicated_region_count >= region_count and region_count else "PARTIAL",
+            current_state=(
+                f"可搜索地区 {searchable_region_count} 个；本地专用入口 {dedicated_region_count} 个；登记地区 {region_count} 个。"
+            ),
+            evidence=["/operator-console/region-adapters"],
+            gaps=(
+                []
+                if dedicated_region_count >= region_count and region_count
+                else ["部分地区仍依赖全国兜底或待补本地公开源入口。"]
+            ),
+            next_actions=["补商业重点地区的本地公开源入口和失败诊断。"],
+        ),
+        _sellability_lane(
+            lane_id="evidence_quality",
+            title="证据质量与来源回链",
+            status="PASS" if latest_opportunity_id else "PARTIAL",
+            current_state=(
+                "最新机会已可进入证据包预览并回到公开来源验证。"
+                if latest_opportunity_id
+                else "证据包能力已接入，但当前没有最新机会读回。"
+            ),
+            evidence=[
+                "/customer-artifact-portal/{opportunity_id}",
+                "/customer-artifact-portal-download/{opportunity_id}",
+            ],
+            gaps=[] if latest_opportunity_id else ["需要一条最新机会来绑定证据包预览和下载。"],
+            next_actions=["用最新搜索机会打开证据包预览，核对来源网址、字段策略和下载审计。"],
+        ),
+        _sellability_lane(
+            lane_id="commercial_hook",
+            title="商业钩子与买家匹配",
+            status="PASS" if latest_opportunity_id else "PARTIAL",
+            current_state=(
+                "机会工作台已展示商业钩子、买家排序、证据强度和下一步动作。"
+                if latest_opportunity_id
+                else "商业钩子工作台已接入，等待最新机会数据。"
+            ),
+            evidence=["/operator-console/autonomous-workbench"],
+            gaps=[] if latest_opportunity_id else ["需要最新机会来展示真实钩子读回。"],
+            next_actions=["把可讲卖点、暂不外泄字段和报价草稿继续压到一屏可卖性摘要。"],
+        ),
+        _sellability_lane(
+            lane_id="leadpack_delivery_candidate",
+            title="线索包交付候选",
+            status="PASS" if latest_opportunity_id else "PARTIAL",
+            current_state=(
+                "内部证据包预览和下载可用；客户真实下载仍不自动开放。"
+                if latest_opportunity_id
+                else "内部证据包预览可用，等待机会绑定后验收。"
+            ),
+            evidence=["/customer-artifact-access-candidates/{opportunity_id}"],
+            gaps=[
+                "真实客户下载需要账号/审批/审计/下载授权，不因内部预览而自动开放。"
+            ],
+            next_actions=["保留内部预览，后续接真实交付前补审批和下载授权读回。"],
+        ),
+        _sellability_lane(
+            lane_id="governed_outreach",
+            title="触达服务商与外发治理",
+            status="PARTIAL" if not real_touch_ready else "PASS",
+            current_state="内部模拟链路可预览；真实邮件、电话、CRM/报价发送未接入 live provider。",
+            evidence=["/go-live/readiness", "/operator-console/readiness"],
+            gaps=[] if real_touch_ready else ["真实触达 provider、sandbox、审批、审计和 operator action 未闭合。"],
+            next_actions=["补真实邮件/电话/CRM provider 状态表和 sandbox 结果读回。"],
+        ),
+        _sellability_lane(
+            lane_id="payment_delivery_writeback",
+            title="支付交付与回写治理",
+            status="PARTIAL" if not real_payment_ready else "PASS",
+            current_state="支付、交付、退款仍是受控开放读回；自动退款保持排除。",
+            evidence=["/go-live/readiness", "AGENTS.md#Automation Guardrails"],
+            gaps=[] if real_payment_ready else ["真实支付、真实交付、真实退款异常处理和回写治理未接入 live provider。"],
+            next_actions=["补支付/交付 sandbox、小样本 live pilot 状态和人工退款异常读回。"],
+        ),
+    ]
+    counts: dict[str, int] = {}
+    for lane in lanes:
+        status = str(lane["status"])
+        counts[status] = counts.get(status, 0) + 1
+
+    external_sellable_now = bool(
+        latest_opportunity_id
+        and accepted_run_count
+        and real_provider_ready
+        and real_touch_ready
+        and real_payment_ready
+    )
+    return {
+        "surface_id": "operator_real_world_sellability_readiness",
+        "surface_mode": "internal-readback",
+        "contract_ref": "contracts/ui/operator_user_acceptance_contract.json#UA-11-real-world-sellability",
+        "gap_matrix_ref": "control/operator_user_acceptance_gap_matrix.json#UA-11-real-world-sellability",
+        "internal_only": True,
+        "readiness_only": True,
+        "projection_only": True,
+        "raw_json_required": False,
+        "ua11_satisfied": True,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "public_software_release": False,
+        "real_provider_call_enabled": False,
+        "automated_refund_enabled": False,
+        "sellability_summary": {
+            "sellability_level": "内部实战可判断，真实成交交付待接入",
+            "owner_decision": (
+                "可以用来内部实战筛选机会、查看证据包和判断销售价值；"
+                "暂不能宣称真实客户触达、真实支付和真实交付已闭合。"
+            ),
+            "latest_opportunity_id": latest_opportunity_id,
+            "accepted_run_count": accepted_run_count,
+            "observed_stage_count": observed_stage_count,
+            "external_sellable_now": external_sellable_now,
+            "lane_counts": counts,
+        },
+        "boundary": {
+            "internal_search_and_evidence_package_review": bool(latest_opportunity_id or region_count),
+            "leadpack_delivery_candidate_visible": bool(latest_opportunity_id),
+            "real_customer_touch_enabled": real_touch_ready,
+            "real_payment_enabled": bool(controlled.get("real_payment_enabled", False)),
+            "real_delivery_enabled": bool(controlled.get("real_delivery_enabled", False)),
+            "automated_refund_enabled": False,
+        },
+        "lanes": lanes,
+        "remaining_real_world_closures": [
+            "阶段1-9细粒度运行读回",
+            "重点地区本地适配器覆盖",
+            "真实触达 provider sandbox 与审批审计",
+            "真实支付/交付 provider sandbox 与回写治理",
+            "显式数据保留与清空控制",
+        ],
+        "source_readbacks": {
+            "region_adapter_count": region_count,
+            "latest_search_run_id": latest_run.get("run_id"),
+            "go_live_enabled": bool(go_live.get("go_live_enabled", False)),
+            "remaining_blockers": list(go_live.get("remaining_blockers", [])),
+        },
+    }
 
 
 def _queue_status_counts() -> dict[str, int]:
@@ -1384,6 +1601,22 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "previewOperatorRealWorldSellability",
+        "method": "GET",
+        "path": "/operator-console/real-world-sellability",
+        "handler": preview_operator_real_world_sellability,
+        "real_world_sellability_readiness": True,
+        "productized_owner_workbench": True,
+        "opportunity_queue_visible": True,
+        "commercial_hook_review_visible": True,
+        "buyer_ranking_visible": True,
+        "evidence_risk_visible": True,
+        "delivery_state_visible": True,
+        "next_action_visible": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "createOperatorTask",
         "method": "POST",
         "path": "/operator-console/tasks",
@@ -1536,6 +1769,7 @@ __all__ = [
     "preview_customer_artifact_access_candidate",
     "preview_go_live_readiness",
     "preview_operator_customer_access_readiness",
+    "preview_operator_real_world_sellability",
     "preview_real_sample_autonomous_opportunity_acceptance",
     "preview_scheduler_status",
     "read_owner_real_public_source_capture",
