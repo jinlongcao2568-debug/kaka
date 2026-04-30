@@ -614,6 +614,18 @@ class DatabaseSession:
                 return self._backend.list_operator_actions(work_item_id)
             return list(self._operator_actions.get(work_item_id, []))
 
+    def clear_operator_actions(self, work_item_id: str) -> int:
+        with self._lock:
+            if self._backend is not None:
+                if hasattr(self._backend, "clear_operator_actions"):
+                    return int(self._backend.clear_operator_actions(work_item_id))
+                return 0
+            cleared_count = len(self._operator_actions.get(work_item_id, []))
+            if cleared_count:
+                self._operator_actions.pop(work_item_id, None)
+                self._flush_or_mark_dirty()
+            return cleared_count
+
     def list_all_operator_actions(self) -> list[PersistedOperatorAction]:
         with self._lock:
             if self._backend is None:

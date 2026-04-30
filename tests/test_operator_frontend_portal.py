@@ -119,6 +119,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "阶段8 触达",
             "阶段9 支付交付",
             "系统方向：市场扫描",
+            "阶段对象流与失败分类",
+            "最新运行的阶段对象",
             "阶段运行日志",
             "业务闭环摘要",
             "证据链",
@@ -139,6 +141,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "搜索并生成机会闭环",
             "搜索运行记录",
             "待读取最新搜索记录",
+            "数据来源待读取",
+            "清空测试搜索记录",
             "刷新搜索记录",
             "买家排序",
             "交付状态",
@@ -146,6 +150,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "/operator-console/region-adapters",
             "/operator-console/autonomous-opportunity-search",
             "/operator-console/autonomous-search-runs",
+            "/operator-console/autonomous-search-runs/clear",
             "/customer-artifact-portal/",
             "customerPortalLink",
             "data-workbench-opportunity",
@@ -209,6 +214,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             'class="resultPane"',
             "function formatOperatorSummary(value)",
             "function renderStageOverviewTelemetry(telemetry)",
+            "function renderStageObjectFlow(stages)",
+            "function clearAutonomousSearchRuns()",
             "function renderCapabilityExposure(readiness, scheduler, goLive)",
             "function renderUserAcceptanceContract(contract)",
             "async function loadUserAcceptanceContract()",
@@ -221,6 +228,9 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "id=\"sellabilityMetrics\"",
             "id=\"sellabilityBoundary\"",
             "id=\"sellabilityLaneList\"",
+            "id=\"stageObjectFlow\"",
+            "id=\"autonomousSearchPersistence\"",
+            "id=\"clearAutonomousSearchRuns\"",
             "id=\"searchRegionChoices\"",
             "id=\"searchProjectTypeChoices\"",
             "id=\"opportunityDetail\"",
@@ -322,6 +332,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn('"/operator-console/region-adapters"', html)
         self.assertIn('"/operator-console/autonomous-opportunity-search"', html)
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
+        self.assertIn('"/operator-console/autonomous-search-runs/clear"', html)
         self.assertIn('"/operator-console/user-acceptance-contract"', html)
         self.assertIn('"/operator-console/user-acceptance-gap-matrix"', html)
         self.assertIn('"/operator-console/real-world-sellability"', html)
@@ -329,6 +340,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn('data-workbench-opportunity', html)
         self.assertIn('id="selectAllRegions"', html)
         self.assertIn('id="selectAllProjectTypes"', html)
+        self.assertIn('id="clearAutonomousSearchRuns"', html)
+        self.assertIn("持久保存，直到 owner 显式清空", html)
         self.assertIn('renderCandidateCards', html)
         self.assertIn('renderSearchResultFromRun', html)
         self.assertIn('"/customer-artifact-portal/', html)
@@ -395,8 +408,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(matrix["contractRef"], "contracts/ui/operator_user_acceptance_contract.json")
         self.assertEqual(matrix["status"], "ACTIVE")
         self.assertEqual(matrix["summary"]["totalDimensions"], 11)
-        self.assertEqual(matrix["summary"]["passCount"], 5)
-        self.assertEqual(matrix["summary"]["partialCount"], 6)
+        self.assertEqual(matrix["summary"]["passCount"], 7)
+        self.assertEqual(matrix["summary"]["partialCount"], 4)
         self.assertEqual(matrix["summary"]["notExposedCount"], 0)
         self.assertEqual(matrix["summary"]["failCount"], 0)
         self.assertIn("真实可卖交付", matrix["summary"]["operatorConclusion"])
@@ -442,8 +455,16 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             dimensions["UA-01-product-definition-alignment"]["status"],
             "PASS",
         )
+        self.assertEqual(
+            dimensions["UA-03-stage-observability"]["status"],
+            "PASS",
+        )
+        self.assertEqual(
+            dimensions["UA-09-data-persistence-and-operator-control"]["status"],
+            "PASS",
+        )
         self.assertIn(
-            "阶段1-9运行读回深度",
+            "地区适配器与批量机会运营",
             [item["title"] for item in matrix["topPriorities"]],
         )
 

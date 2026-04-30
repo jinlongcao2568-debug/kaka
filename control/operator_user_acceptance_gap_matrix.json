@@ -6,37 +6,37 @@
   "assessmentMethod": "contract_driven_owner_ui_audit",
   "summary": {
     "totalDimensions": 11,
-    "passCount": 5,
-    "partialCount": 6,
+    "passCount": 7,
+    "partialCount": 4,
     "notExposedCount": 0,
     "failCount": 0,
-    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览、能力暴露和真实可卖性一屏判断；距离真实可卖交付还差阶段遥测深度、显式数据控制、重点地区适配器覆盖和真实服务商接入状态闭合。",
-    "nextDecision": "下一轮应优先补阶段1-9运行读回深度、运行记录持久与清空控制、地区适配器覆盖和真实服务商接入状态。"
+    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览、能力暴露、真实可卖性一屏判断、阶段1-9对象流读回和显式数据清空控制；距离真实可卖交付还差重点地区适配器覆盖、批量机会运营、商业钩子边界展示、真实服务商接入状态闭合和中文信息架构继续收口。",
+    "nextDecision": "下一轮应优先补地区适配器覆盖与批量机会运营、真实服务商接入状态、商业钩子卖前/交付后边界和中文枚举解释。"
   },
   "topPriorities": [
     {
       "rank": 1,
-      "dimensionId": "UA-03-stage-observability",
-      "title": "阶段1-9运行读回深度",
-      "reason": "现有阶段总览已经可见，但每阶段有效/无效对象和日志仍需要更细读回。"
+      "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
+      "title": "地区适配器与批量机会运营",
+      "reason": "当前可形成机会并读回记录，但重点地区本地入口、公开源失败分类和批量复盘仍需要补强。"
     },
     {
       "rank": 2,
-      "dimensionId": "UA-09-data-persistence-and-operator-control",
-      "title": "运行记录持久与清空控制",
-      "reason": "搜索记录已有 repository 读回基础，但 UI 还缺明确的数据来源、保留状态和显式清空控制。"
-    },
-    {
-      "rank": 3,
-      "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
-      "title": "地区适配器与批量机会运营",
-      "reason": "当前可形成机会，但重点地区本地入口、失败分类和批量复盘仍需要补强。"
-    },
-    {
-      "rank": 4,
       "dimensionId": "UA-07-governed-outreach-and-delivery",
       "title": "真实服务商接入状态",
       "reason": "内部预览和模拟链路可见，真实邮件、电话、支付、交付服务商仍需显示接入缺口和放行条件。"
+    },
+    {
+      "rank": 3,
+      "dimensionId": "UA-06-commercial-hook-boundary",
+      "title": "商业钩子卖前边界",
+      "reason": "机会详情已有商业钩子基础，但卖前可讲、不可讲、交付后可见和报价价值需要更强聚合。"
+    },
+    {
+      "rank": 4,
+      "dimensionId": "UA-10-chinese-information-architecture",
+      "title": "中文信息架构继续收口",
+      "reason": "核心页面已中文化，但证据包、服务商和技术枚举还需要继续减少英文裸露。"
     }
   ],
   "dimensions": [
@@ -79,20 +79,20 @@
     {
       "dimensionId": "UA-03-stage-observability",
       "title": "阶段1-9可观察",
-      "status": "PARTIAL",
-      "currentUiState": "阶段1-9运营总览已经存在，并能在运行后展示阶段产出、有效数据和日志；细粒度数据流和失败原因仍不够。",
+      "status": "PASS",
+      "currentUiState": "阶段1-9运营总览消费最新实战搜索运行读回，展示阶段产出、有效数据、无效数据、输入输出、对象引用、失败分类、运行日志和下一步动作。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#renderStageOverviewTelemetry",
+        "src/api/routes/operator_frontend.py#renderStageObjectFlow",
+        "src/api/routes/operator_customer_access.py#_build_autonomous_runtime_flow",
         "src/api/routes/operator_frontend.py#stageBoard",
         "control/product_runtime_architecture_map.yaml#primary_operating_loop"
       ],
       "gaps": [
-        "每阶段有效/无效对象还不够细，不能完全解释每条机会怎么被留下或淘汰。",
-        "日志仍偏摘要，缺可点击的阶段对象读回。"
+        "对象引用已可见，但后续仍可把每个对象升级为点击式深读回。"
       ],
       "nextActions": [
-        "给阶段卡补对象列表和失败分类。",
-        "把阶段日志和机会、证据包、来源站点建立可点击关联。"
+        "把阶段对象、机会、证据包、来源站点继续做成可点击关联。"
       ]
     },
     {
@@ -186,20 +186,20 @@
     {
       "dimensionId": "UA-09-data-persistence-and-operator-control",
       "title": "数据持久与清空受控",
-      "status": "PARTIAL",
-      "currentUiState": "搜索运行记录、机会和证据包已有 repository-backed readback 基础；UI 还没有明确的数据来源、保存状态和显式清空控制。",
+      "status": "PASS",
+      "currentUiState": "搜索运行记录来自 OperatorActionRepository，UI 展示数据来源、原始记录数、当前商机数、保留状态、最近更新时间，并提供 owner 显式清空测试搜索记录入口；机会和证据包读回不随页面刷新自动清空。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#loadAutonomousSearchRuns",
+        "src/api/routes/operator_frontend.py#clearAutonomousSearchRuns",
+        "src/api/routes/operator_customer_access.py#clear_operator_autonomous_search_runs",
         "src/api/routes/operator_frontend.py#_search_run_metadata_for_opportunity",
         "storage/repositories/operator_action_repo.py"
       ],
       "gaps": [
-        "刷新后最近记录可读，但页面没有清楚说明数据来自 repository。",
-        "清空/重置控制还没有 owner 显式按钮和审计解释。"
+        "当前清空入口只清空本地测试搜索运行记录，不负责机会、证据包或真实外部系统数据治理。"
       ],
       "nextActions": [
-        "在搜索运行记录区展示数据来源、记录数量和最近更新时间。",
-        "新增显式清空测试数据入口，并保留 operator action 审计。"
+        "后续补更完整的数据治理页，区分测试记录、机会记录、证据包和真实 provider 回写。"
       ]
     },
     {

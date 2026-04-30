@@ -144,6 +144,15 @@ class SQLiteStorageBackend:
         )
         return [self._operator_action_from_json(str(row["payload"])) for row in rows]
 
+    def clear_operator_actions(self, work_item_id: str) -> int:
+        with self._lock:
+            cursor = self._connection.execute(
+                "DELETE FROM operator_actions WHERE work_item_id = ?",
+                (work_item_id,),
+            )
+            self._connection.commit()
+            return int(cursor.rowcount or 0)
+
     def upsert_worker_queue_item(self, entry: Any) -> Any:
         with self._lock:
             self._connection.execute(

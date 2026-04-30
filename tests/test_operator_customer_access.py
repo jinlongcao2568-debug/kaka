@@ -76,6 +76,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             "listOperatorRegionAdapters",
             "runOperatorAutonomousOpportunitySearch",
             "listOperatorAutonomousSearchRuns",
+            "clearOperatorAutonomousSearchRuns",
             "runOwnerRealPublicSourceCapture",
             "listOwnerRealPublicSourceTaskRuns",
             "readOwnerRealPublicSourceCapture",
@@ -103,6 +104,9 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(mounted_operations["runOperatorAutonomousOpportunitySearch"]["raw_json_required"])
         self.assertTrue(mounted_operations["listOperatorAutonomousSearchRuns"]["autonomous_search_run_list"])
         self.assertFalse(mounted_operations["listOperatorAutonomousSearchRuns"]["raw_json_required"])
+        self.assertTrue(mounted_operations["clearOperatorAutonomousSearchRuns"]["autonomous_search_run_clear"])
+        self.assertTrue(mounted_operations["clearOperatorAutonomousSearchRuns"]["explicit_operator_action"])
+        self.assertFalse(mounted_operations["clearOperatorAutonomousSearchRuns"]["raw_json_required"])
         self.assertTrue(
             mounted_operations["previewOperatorRealWorldSellability"][
                 "real_world_sellability_readiness"
@@ -156,6 +160,9 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(payload["operator_console"]["region_adapter_catalog"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["autonomous_search_entry"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["autonomous_search_run_list"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["autonomous_search_run_clear"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["autonomous_search_run_clear"]["explicit_operator_action"])
+        self.assertFalse(payload["operator_console"]["autonomous_search_run_clear"]["affects_opportunity_records"])
         self.assertFalse(payload["operator_console"]["autonomous_search_entry"]["raw_json_required"])
         self.assertFalse(payload["operator_console"]["autonomous_search_run_list"]["raw_json_required"])
         self.assertTrue(payload["operator_console"]["full_chain_run_entry"]["entry_visible"])
@@ -259,6 +266,76 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(payload["boundary"]["real_delivery_enabled"])
         self.assertFalse(payload["boundary"]["automated_refund_enabled"])
         self.assertIn("真实触达 provider sandbox 与审批审计", payload["remaining_real_world_closures"])
+
+    def test_autonomous_search_runs_expose_stage_flow_retention_and_clear_control(self) -> None:
+        client = TestClient(create_app())
+
+        search_response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD", "CN-JS"],
+                "query": "公共建筑工程",
+                "project_types": ["construction", "municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "candidate_count": 3,
+                "now": "2026-04-30T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(search_response.status_code, 200)
+        search = search_response.json()
+        runtime_flow = search["runtime_flow"]
+        self.assertEqual(runtime_flow["surface_id"], "autonomous_search_runtime_flow")
+        self.assertEqual(runtime_flow["totals"]["stage_count"], 9)
+        self.assertEqual(len(runtime_flow["stage_stats"]), 9)
+        stage1 = runtime_flow["stage_stats"][0]
+        self.assertEqual(stage1["stage"], 1)
+        self.assertIn("scan_run_id", stage1["object_refs"])
+        self.assertIn("selected_project_id", stage1["object_refs"])
+        self.assertIn("next_action", stage1)
+        self.assertIn("failure_reasons", stage1)
+        self.assertIn("output_count", stage1)
+
+        runs_response = client.request("GET", "/operator-console/autonomous-search-runs")
+        self.assertEqual(runs_response.status_code, 200)
+        runs = runs_response.json()
+        self.assertEqual(runs["surface_id"], "operator_autonomous_search_runs")
+        self.assertTrue(runs["repository_backed_readback"])
+        self.assertEqual(runs["data_source"], "OperatorActionRepository")
+        self.assertEqual(runs["storage_scope"], "local_repository_operator_action_log")
+        self.assertEqual(runs["retention_state"], "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR")
+        self.assertFalse(runs["auto_clear_enabled"])
+        self.assertTrue(runs["explicit_operator_clear_required"])
+        self.assertEqual(runs["clear_endpoint"], "/operator-console/autonomous-search-runs/clear")
+        self.assertEqual(runs["run_count"], 1)
+        self.assertEqual(runs["raw_run_count"], 1)
+        self.assertEqual(runs["latest_opportunity_id"], search["opportunity_id"])
+        self.assertEqual(
+            runs["latest_runtime_flow"]["stage_stats"][0]["object_refs"]["selected_project_id"],
+            search["candidate"]["project_id"],
+        )
+
+        clear_response = client.request("POST", "/operator-console/autonomous-search-runs/clear")
+        self.assertEqual(clear_response.status_code, 200)
+        cleared = clear_response.json()
+        self.assertEqual(cleared["surface_id"], "operator_autonomous_search_runs_clear")
+        self.assertTrue(cleared["explicit_operator_action"])
+        self.assertEqual(cleared["clear_scope"], "local_test_autonomous_search_runs_only")
+        self.assertEqual(cleared["cleared_count"], 1)
+        self.assertEqual(cleared["remaining_run_count"], 0)
+        self.assertFalse(cleared["affects_opportunity_records"])
+        self.assertFalse(cleared["affects_customer_artifacts"])
+        self.assertFalse(cleared["affects_external_systems"])
+        self.assertFalse(cleared["real_provider_call_enabled"])
+
+        empty_response = client.request("GET", "/operator-console/autonomous-search-runs")
+        self.assertEqual(empty_response.status_code, 200)
+        empty = empty_response.json()
+        self.assertEqual(empty["run_count"], 0)
+        self.assertEqual(empty["raw_run_count"], 0)
+        self.assertEqual(empty["retention_state"], "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR")
 
     def test_real_public_source_runner_uses_existing_stage2_fetchers_and_replay(self) -> None:
         client = TestClient(create_app())

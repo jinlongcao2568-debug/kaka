@@ -164,6 +164,14 @@ class SQLAlchemyStorageBackend:
         )
         return [self._operator_action_from_json(payload) for payload in rows]
 
+    def clear_operator_actions(self, work_item_id: str) -> int:
+        with self._lock:
+            with self._engine.begin() as connection:
+                result = connection.execute(
+                    delete(operator_actions).where(operator_actions.c.work_item_id == work_item_id)
+                )
+            return int(result.rowcount or 0)
+
     def upsert_worker_queue_item(self, entry: Any) -> Any:
         with self._lock:
             self._upsert(

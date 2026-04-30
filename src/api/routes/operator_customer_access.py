@@ -724,18 +724,33 @@ def _runtime_stage(
     produced_count: int,
     effective_count: int | None = None,
     invalid_count: int = 0,
+    input_count: int | None = None,
+    output_count: int | None = None,
     state: str = "已完成",
     note: str = "",
+    object_refs: Mapping[str, Any] | None = None,
+    failure_reasons: list[str] | None = None,
+    next_action: str = "",
 ) -> dict[str, Any]:
     effective = produced_count if effective_count is None else effective_count
+    refs = {
+        key: value
+        for key, value in dict(object_refs or {}).items()
+        if value not in (None, "", [], {})
+    }
     return {
         "stage": stage,
         "name": name,
         "state": state,
+        "input_count": max(input_count if input_count is not None else produced_count, 0),
+        "output_count": max(output_count if output_count is not None else effective, 0),
         "produced_count": max(produced_count, 0),
         "effective_count": max(effective, 0),
         "invalid_count": max(invalid_count, 0),
         "note": note,
+        "object_refs": refs,
+        "failure_reasons": list(failure_reasons or []),
+        "next_action": next_action,
     }
 
 
@@ -754,6 +769,40 @@ def _build_autonomous_runtime_flow(
     selected_candidates = _as_int(market_scan.get("selected_candidate_count"), 0)
     review_candidates = _as_int(market_scan.get("review_candidate_count"), 0)
     skipped_candidates = _as_int(market_scan.get("skipped_candidate_count"), 0)
+    stage_refs = {
+        str(key): dict(value or {})
+        for key, value in dict(acceptance.get("stage_refs", {}) or {}).items()
+        if isinstance(value, Mapping)
+    }
+    stage_ref_ids = {
+        key: str(value.get("object_id") or "")
+        for key, value in stage_refs.items()
+        if str(value.get("object_id") or "").strip()
+    }
+    acceptance_state = str(acceptance.get("acceptance_state") or "")
+    acceptance_reasons = [
+        str(reason)
+        for reason in list(acceptance.get("fail_closed_reasons", []) or acceptance.get("blocked_reasons", []) or [])
+        if str(reason).strip()
+    ]
+    stage1_reasons = []
+    if review_candidates:
+        stage1_reasons.append(f"{review_candidates} 个候选进入复核")
+    if skipped_candidates:
+        stage1_reasons.append(f"{skipped_candidates} 个候选被过滤")
+    stage2_reasons = [] if capture_steps else ["未生成公开来源采集步骤"]
+    source_profile_id = str(candidate.get("source_profile_id") or "")
+    opportunity_id = str(stage_ref_ids.get("stage7_saleable_opportunity") or "")
+    requested_regions_text = ", ".join(
+        str(value)
+        for value in list(payload.get("region_codes", []) or [candidate.get("region_code") or payload.get("region_code") or ""])
+        if str(value).strip()
+    )
+    requested_project_types_text = ", ".join(
+        str(value)
+        for value in list(payload.get("project_types", []) or [candidate.get("project_type") or payload.get("project_type") or ""])
+        if str(value).strip()
+    )
     stage_stats = [
         _runtime_stage(
             stage=1,
@@ -761,58 +810,120 @@ def _build_autonomous_runtime_flow(
             produced_count=input_candidates,
             effective_count=selected_candidates,
             invalid_count=review_candidates + skipped_candidates,
+            input_count=input_candidates,
+            output_count=selected_candidates,
             note="按地区、项目类型、金额区间和竞争信号筛选机会。",
+            object_refs={
+                "scan_run_id": market_scan.get("scan_run_id"),
+                "selected_project_id": candidate.get("project_id"),
+                "selected_opportunity_candidate_id": candidate.get("opportunity_candidate_id"),
+                "region_codes": requested_regions_text,
+                "project_types": requested_project_types_text,
+            },
+            failure_reasons=stage1_reasons,
+            next_action="保留入选候选并进入来源蓝图。",
         ),
         _runtime_stage(
             stage=2,
             name="来源蓝图 / 采集计划",
             produced_count=len(capture_steps),
             effective_count=len(capture_steps),
+            input_count=selected_candidates,
+            output_count=len(capture_steps),
             note="自动选择公开入口和采集步骤；当前不执行真实外部抓取。",
+            object_refs={
+                "source_blueprint_plan_id": source_blueprint.get("source_blueprint_plan_id"),
+                "entry_profile_id": source_profile_id,
+                "capture_step_count": len(capture_steps),
+            },
+            failure_reasons=stage2_reasons,
+            next_action="采集计划进入公开源执行或内部样本链路。",
         ),
         _runtime_stage(
             stage=3,
             name="解析规范化",
             produced_count=_bundle_record_count(chain.get("stage3")),
+            input_count=len(capture_steps),
+            object_refs={
+                "project_id": candidate.get("project_id"),
+                "project_name": candidate.get("project_name"),
+                "source_url": candidate.get("source_url"),
+            },
             note="把公开材料解析成统一项目字段。",
+            next_action="统一项目字段后进入证据风险核验。",
         ),
         _runtime_stage(
             stage=4,
             name="证据风险核验",
             produced_count=_bundle_record_count(chain.get("stage4")),
+            object_refs={
+                "evidence_risk_ref": stage_ref_ids.get("stage4_evidence_risk"),
+                "review_profile_ref": stage_ref_ids.get("stage4_review_profile"),
+            },
             note="生成公开核验、硬伤风险和复核项。",
+            next_action="核验结果进入规则证据门。",
         ),
         _runtime_stage(
             stage=5,
             name="规则证据门",
             produced_count=_bundle_record_count(chain.get("stage5")),
+            state="已完成" if not acceptance_reasons else "待复核",
+            object_refs={
+                "acceptance_state": acceptance_state,
+                "rule_evidence_ref": stage_ref_ids.get("stage5_rule_evidence"),
+                "commercial_evidence_ref": stage_ref_ids.get("stage5_commercial_evidence"),
+            },
+            failure_reasons=acceptance_reasons,
             note="把证据链、规则命中和产品化条件合并。",
+            next_action="通过后进入可售产品包；待复核则回到证据补强。",
         ),
         _runtime_stage(
             stage=6,
             name="产品包",
             produced_count=_bundle_record_count(chain.get("stage6")),
+            object_refs={
+                "report_record_ref": stage_ref_ids.get("stage6_report_record"),
+                "product_package_ref": stage_ref_ids.get("stage6_product_package"),
+            },
             note="形成可售判断、报告记录和内部产品包。",
+            next_action="形成机会详情和证据包候选。",
         ),
         _runtime_stage(
             stage=7,
             name="商业钩子 / 买家匹配",
             produced_count=_bundle_record_count(chain.get("stage7")),
+            object_refs={
+                "opportunity_id": opportunity_id,
+                "saleable_opportunity_ref": stage_ref_ids.get("stage7_saleable_opportunity"),
+                "buyer_fit_ref": stage_ref_ids.get("stage7_buyer_fit"),
+            },
             note="生成商业钩子、买家排序和销售下一步。",
+            next_action="进入触达计划草稿和机会工作台。",
         ),
         _runtime_stage(
             stage=8,
             name="触达计划",
             produced_count=_bundle_record_count(chain.get("stage8")),
             state="已生成草稿",
+            object_refs={
+                "outreach_plan_ref": stage_ref_ids.get("stage8_outreach_plan"),
+                "provider_execution_state": "内部草稿，真实触达未执行",
+            },
             note="内部生成触达计划；真实触达需单独审批和审计。",
+            next_action="内部预览可复核；真实触达需 provider/sandbox/live 放行。",
         ),
         _runtime_stage(
             stage=9,
             name="支付交付",
             produced_count=_bundle_record_count(chain.get("stage9")),
             state="已生成交付候选",
+            object_refs={
+                "order_record_ref": stage_ref_ids.get("stage9_order_record"),
+                "delivery_package_ref": stage_ref_ids.get("stage9_delivery_package"),
+                "automated_refund_enabled": "false",
+            },
             note="内部生成交付候选；真实下载、支付、退款不在本次自动执行。",
+            next_action="成交付款后进入受控邮件交付；自动退款不执行。",
         ),
     ]
     total_produced = sum(row["produced_count"] for row in stage_stats)
@@ -1159,6 +1270,10 @@ def _autonomous_search_work_item_id() -> str:
     return "operator-autonomous-opportunity-search-runs"
 
 
+def _autonomous_search_clear_work_item_id() -> str:
+    return "operator-autonomous-opportunity-search-run-clears"
+
+
 def _record_autonomous_search_run(
     *,
     payload: Mapping[str, Any],
@@ -1316,11 +1431,22 @@ def list_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = Non
         status_counts[status] = status_counts.get(status, 0) + 1
     latest_opportunity_id = str(runs[0].get("opportunity_id") or "") if runs else ""
     latest_runtime_flow = dict(runs[0].get("runtime_flow", {}) or {}) if runs else {}
+    latest_requested_at = str(runs[0].get("requested_at") or "") if runs else ""
+    latest_completed_at = str(runs[0].get("completed_at") or "") if runs else ""
     return {
         "surface_id": "operator_autonomous_search_runs",
         "internal_only": True,
         "repository_backed_readback": True,
         "autonomous_search_run_list": True,
+        "data_source": "OperatorActionRepository",
+        "storage_scope": "local_repository_operator_action_log",
+        "retention_state": "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR",
+        "auto_clear_enabled": False,
+        "explicit_operator_clear_required": True,
+        "clear_endpoint": "/operator-console/autonomous-search-runs/clear",
+        "latest_requested_at": latest_requested_at,
+        "latest_completed_at": latest_completed_at,
+        "last_updated_at": latest_completed_at or latest_requested_at,
         "run_count": len(runs),
         "raw_run_count": len(raw_runs),
         "duplicate_collapsed_count": max(len(raw_runs) - len(runs), 0),
@@ -1338,6 +1464,85 @@ def list_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = Non
         "real_provider_call_enabled": False,
         "external_release_enabled": False,
         "customer_download_enabled": False,
+    }
+
+
+def clear_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    del payload
+    repo = OperatorActionRepository()
+    work_item_id = _autonomous_search_work_item_id()
+    clear_audit_work_item_id = _autonomous_search_clear_work_item_id()
+    requested_at = build_persisted_at()
+    existing_count = len(repo.list(work_item_id=work_item_id))
+    cleared_count = repo.clear(work_item_id=work_item_id)
+    clear_event_id = f"AUTONOMOUS-SEARCH-RUN-CLEAR-{requested_at}".replace(":", "").replace("+", "")
+    audit_action = PersistedOperatorAction(
+        action_event_id=clear_event_id,
+        work_item_id=clear_audit_work_item_id,
+        stage_scope=1,
+        action_id="operator_clear_autonomous_search_runs",
+        button_flow_id="owner_console_clear_autonomous_search_runs",
+        action_state="CLEARED",
+        resulting_assignment_lifecycle_state=None,
+        requested_by_role="single_operator",
+        requested_by="卡卡罗特",
+        assigned_owner_role="single_operator",
+        assigned_owner="卡卡罗特",
+        reviewer_role="single_operator",
+        reviewer="卡卡罗特",
+        reason="explicit_owner_clear_local_test_autonomous_search_records",
+        object_refs={
+            "cleared_work_item_id": work_item_id,
+            "clear_scope": "local_test_autonomous_search_runs_only",
+            "existing_count_before_clear": str(existing_count),
+            "cleared_count": str(cleared_count),
+            "data_source": "OperatorActionRepository",
+            "affects_opportunity_records": "false",
+            "affects_customer_artifacts": "false",
+            "affects_external_systems": "false",
+        },
+        trace_refs={
+            "operator_console_route": "/operator-console/autonomous-search-runs/clear",
+            "run_list_path": "/operator-console/autonomous-search-runs",
+        },
+        audit_refs={
+            "clear_audit_ref": clear_event_id,
+            "internal_only": "true",
+            "explicit_operator_action": "true",
+            "live_execution_enabled": "false",
+            "real_provider_call_enabled": "false",
+        },
+        requested_at=requested_at,
+        completed_at=requested_at,
+    )
+    repo.append(audit_action)
+    remaining_count = len(repo.list(work_item_id=work_item_id))
+    return {
+        "surface_id": "operator_autonomous_search_runs_clear",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "autonomous_search_run_clear": True,
+        "data_source": "OperatorActionRepository",
+        "clear_scope": "local_test_autonomous_search_runs_only",
+        "cleared_work_item_id": work_item_id,
+        "clear_audit_work_item_id": clear_audit_work_item_id,
+        "clear_audit_event_id": clear_event_id,
+        "existing_count_before_clear": existing_count,
+        "cleared_count": cleared_count,
+        "remaining_run_count": remaining_count,
+        "retention_state": "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR",
+        "affects_opportunity_records": False,
+        "affects_customer_artifacts": False,
+        "affects_external_systems": False,
+        "live_execution_enabled": False,
+        "real_external_fetch_enabled": False,
+        "real_provider_call_enabled": False,
+        "external_release_enabled": False,
+        "customer_download_enabled": False,
+        "automated_refund_enabled": False,
+        "requested_at": requested_at,
+        "completed_at": requested_at,
     }
 
 
@@ -1673,6 +1878,17 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "clearOperatorAutonomousSearchRuns",
+        "method": "POST",
+        "path": "/operator-console/autonomous-search-runs/clear",
+        "handler": clear_operator_autonomous_search_runs,
+        "autonomous_search_run_clear": True,
+        "repository_backed_readback": True,
+        "explicit_operator_action": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "runOwnerRealPublicSourceCapture",
         "method": "POST",
         "path": "/operator-console/real-source-runs",
@@ -1759,6 +1975,7 @@ def register_operator_customer_access_routes(
 
 __all__ = [
     "OPERATOR_CUSTOMER_ACCESS_ROUTES",
+    "clear_operator_autonomous_search_runs",
     "create_operator_task",
     "import_operator_project",
     "list_operator_autonomous_search_runs",

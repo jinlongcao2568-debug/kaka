@@ -773,6 +773,9 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div class="stage-card"><strong>阶段8 触达</strong><p>模板、频控、退订、服务商执行读回。</p><span class="pill warn">门禁控制</span></div>
               <div class="stage-card"><strong>阶段9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">无自动退款</span></div>
             </div>
+            <h3>阶段对象流与失败分类</h3>
+            <p class="muted-text">这里读取最新运行的阶段对象、输入输出、有效/无效分类和下一步动作，不再只是静态流程说明。</p>
+            <div class="compact-card-grid" id="stageObjectFlow"></div>
           </section>
           <section>
             <h3>阶段运行日志</h3>
@@ -831,8 +834,12 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <section class="wide">
               <h3>搜索运行记录</h3>
               <p class="muted-text" id="autonomousSearchRunMeta">待读取最新搜索记录。</p>
+              <p class="muted-text" id="autonomousSearchPersistence">数据来源待读取；页面刷新不会自动清空，清空必须由 owner 显式触发。</p>
               <div id="autonomousSearchRuns" class="empty-state">暂无实战搜索运行记录。</div>
-              <button id="refreshAutonomousSearchRuns">刷新搜索记录</button>
+              <div class="field-actions">
+                <button id="refreshAutonomousSearchRuns">刷新搜索记录</button>
+                <button class="secondary" id="clearAutonomousSearchRuns">清空测试搜索记录</button>
+              </div>
             </section>
           </div>
         </div>
@@ -1040,6 +1047,9 @@ const stateLabels = {
   "NOT_EXPOSED": "未展示",
   "FAIL": "未通过",
   "NOT_READY": "未就绪",
+  "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR": "持久保存，直到 owner 显式清空",
+  "local_repository_operator_action_log": "本地仓库操作日志",
+  "OperatorActionRepository": "操作动作仓库",
 };
 const projectTypeLabels = {
   "construction": "房建工程",
@@ -1216,6 +1226,68 @@ function renderOpportunityDetail(first, panels) {
     ${opportunityActions(first.opportunity_id || "")}
   `;
 }
+function stageObjectRefLabel(key) {
+  const labels = {
+    scan_run_id: "扫描批次",
+    selected_project_id: "入选项目",
+    selected_opportunity_candidate_id: "入选候选",
+    region_codes: "地区范围",
+    project_types: "项目类型",
+    source_blueprint_plan_id: "来源蓝图",
+    entry_profile_id: "入口配置",
+    capture_step_count: "采集步骤",
+    project_id: "项目编号",
+    project_name: "项目名称",
+    source_url: "来源网址",
+    evidence_risk_ref: "风险核验对象",
+    review_profile_ref: "复核对象",
+    acceptance_state: "验收状态",
+    rule_evidence_ref: "规则证据",
+    commercial_evidence_ref: "商业证据",
+    report_record_ref: "报告记录",
+    product_package_ref: "产品包对象",
+    opportunity_id: "商机编号",
+    saleable_opportunity_ref: "可售机会",
+    buyer_fit_ref: "买家匹配",
+    outreach_plan_ref: "触达计划",
+    provider_execution_state: "服务商执行",
+    order_record_ref: "订单对象",
+    delivery_package_ref: "交付包",
+    automated_refund_enabled: "自动退款"
+  };
+  return labels[key] || labelOf(key);
+}
+function renderStageObjectFlow(stages) {
+  if (!$("stageObjectFlow")) { return; }
+  const rows = Array.isArray(stages) ? stages : [];
+  if (!rows.length) {
+    $("stageObjectFlow").innerHTML = `<div class="empty-state">暂无阶段对象流；运行实战搜索后显示。</div>`;
+    return;
+  }
+  $("stageObjectFlow").innerHTML = rows.map((stage) => {
+    const refs = Object.entries(stage.object_refs || {})
+      .filter(([, value]) => value !== undefined && value !== null && String(value).length)
+      .slice(0, 6);
+    const refList = refs.length
+      ? refs.map(([key, value]) => `<li>${safeText(stageObjectRefLabel(key))}: ${safeText(labelOf(value))}</li>`).join("")
+      : `<li>暂无对象引用</li>`;
+    const reasons = Array.isArray(stage.failure_reasons) ? stage.failure_reasons.filter(Boolean) : [];
+    const reasonList = reasons.length
+      ? reasons.map((text) => `<li>${safeText(text)}</li>`).join("")
+      : `<li>未发现失败分类</li>`;
+    const invalid = Number(stage.invalid_count || 0);
+    return `<div class="stage-card">
+      <strong>阶段${safeText(stage.stage)} ${safeText(stage.name)}</strong>
+      <p>输入 ${stage.input_count ?? stage.produced_count ?? 0} · 输出 ${stage.output_count ?? stage.effective_count ?? 0} · 有效 ${stage.effective_count ?? 0} · 无效 ${stage.invalid_count ?? 0}</p>
+      ${badge(stage.state || "等待运行", invalid ? "warn" : "")}
+      <p><strong>对象流</strong></p>
+      <ul>${refList}</ul>
+      <p><strong>失败分类</strong></p>
+      <ul>${reasonList}</ul>
+      <p><strong>下一步</strong> ${safeText(stage.next_action || "等待运行。")}</p>
+    </div>`;
+  }).join("");
+}
 function renderStageOverviewTelemetry(telemetry) {
   const defaultStages = [
     "市场扫描 / 机会发现", "来源蓝图 / 采集计划", "解析规范化", "证据风险核验", "规则证据门",
@@ -1228,6 +1300,11 @@ function renderStageOverviewTelemetry(telemetry) {
     produced_count: 0,
     effective_count: 0,
     invalid_count: 0,
+    input_count: 0,
+    output_count: 0,
+    object_refs: {},
+    failure_reasons: [],
+    next_action: "等待实战搜索运行。",
     note: "运行实战搜索后显示本阶段真实统计。"
   }));
   const totals = telemetry?.totals || {
@@ -1253,8 +1330,10 @@ function renderStageOverviewTelemetry(telemetry) {
       ${badge(stage.state || "等待运行", stage.invalid_count ? "warn" : "")}
       ${badge(`产出 ${stage.produced_count ?? 0}`)}
       ${badge(`有效 ${stage.effective_count ?? 0}`)}
+      ${badge(`无效 ${stage.invalid_count ?? 0}`, stage.invalid_count ? "warn" : "")}
     </div>
   `).join("");
+  renderStageObjectFlow(stages);
 }
 function renderCapabilityExposure(readiness, scheduler, goLive) {
   const items = [
@@ -1524,12 +1603,15 @@ async function loadAutonomousSearchRuns() {
   const runs = payload.runs || [];
   updateCustomerPortalLink(payload.latest_opportunity_id || runs[0]?.opportunity_id || "");
   const collapsed = Number(payload.duplicate_collapsed_count || 0);
+  const updatedAt = payload.last_updated_at || payload.latest_completed_at || payload.latest_requested_at || "暂无运行";
   $("autonomousSearchRunMeta").textContent = collapsed
     ? `展示最新 ${runs.length} 个商机，已合并 ${collapsed} 条重复运行记录。`
     : `展示最新 ${runs.length} 个商机。`;
+  $("autonomousSearchPersistence").textContent = `数据来源：${payload.data_source || "OperatorActionRepository"}；原始记录 ${payload.raw_run_count ?? 0} 条，当前商机 ${payload.run_count ?? runs.length} 个；保留状态：${labelOf(payload.retention_state || "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR")}；最近更新时间：${updatedAt}；清空必须点击“清空测试搜索记录”。`;
   if (!runs.length) {
     $("autonomousSearchRuns").className = "empty-state";
     $("autonomousSearchRuns").textContent = "暂无实战搜索运行记录。";
+    renderStageOverviewTelemetry();
     return payload;
   }
   const latestRun = runs[0];
@@ -1558,6 +1640,18 @@ async function loadAutonomousSearchRuns() {
     </div>`;
   }).join("");
   return payload;
+}
+async function clearAutonomousSearchRuns() {
+  const confirmed = window.confirm("只清空本地测试搜索运行记录，不影响机会、证据包或真实外部系统。确认清空？");
+  if (!confirmed) { return; }
+  const result = await json("POST", "/operator-console/autonomous-search-runs/clear", {
+    clear_scope: "local_test_autonomous_search_runs_only",
+    explicit_operator_action: true,
+    now: new Date().toISOString()
+  });
+  out(result);
+  await loadAutonomousSearchRuns();
+  await loadRealWorldSellability();
 }
 async function loadRealSourceProfiles() {
   const catalog = await json("GET", "/operator-console/real-source-profiles");
@@ -1716,6 +1810,7 @@ $("clearRegions").addEventListener("click", () => setAllSelected("searchRegion",
 $("selectAllProjectTypes").addEventListener("click", () => setAllSelected("searchProjectType", true));
 $("clearProjectTypes").addEventListener("click", () => setAllSelected("searchProjectType", false));
 $("refreshAutonomousSearchRuns").addEventListener("click", async () => out(await loadAutonomousSearchRuns()));
+$("clearAutonomousSearchRuns").addEventListener("click", clearAutonomousSearchRuns);
 $("runEntryCapture").addEventListener("click", runEntryCapture);
 $("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
 $("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
