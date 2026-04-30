@@ -41,6 +41,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
                 "renderOwnerOperatorConsole",
                 "renderCustomerArtifactPortal",
                 "renderCustomerArtifactPortalReadback",
+                "renderCustomerArtifactPortalDownload",
             },
         )
         route_metadata = {
@@ -54,6 +55,11 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertTrue(
             route_metadata["renderCustomerArtifactPortalReadback"][
                 "customer_artifact_portal_frontend_readback"
+            ]
+        )
+        self.assertTrue(
+            route_metadata["renderCustomerArtifactPortalDownload"][
+                "internal_evidence_package_download"
             ]
         )
         bootstrap = app.state.transport_bootstrap
@@ -160,6 +166,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "客户账号不作为内部测试前置",
             "真实邮件/电话未接入",
             "真实退款未接入，仅可模拟",
+            "后台能力暴露清单",
+            "系统已有能力是不是已经在 UI 可见",
+            "证据包清单/下载预览",
+            "公开来源网址校验",
+            "文字识别/验证码/校验页处理入口",
+            "批量商机运营",
         ):
             self.assertIn(expected, html)
         for expected in (
@@ -169,10 +181,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             'class="resultPane"',
             "function formatOperatorSummary(value)",
             "function renderStageOverviewTelemetry(telemetry)",
+            "function renderCapabilityExposure(readiness, scheduler, goLive)",
             "function showView(view)",
             "id=\"searchRegionChoices\"",
             "id=\"searchProjectTypeChoices\"",
             "id=\"opportunityDetail\"",
+            "id=\"capabilityExposure\"",
         ):
             self.assertIn(expected, html)
         for removed_duplicate in (
@@ -273,6 +287,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn('renderCandidateCards', html)
         self.assertIn('renderSearchResultFromRun', html)
         self.assertIn('"/customer-artifact-portal/', html)
+        self.assertIn('"/customer-artifact-portal-download/', html)
         self.assertIn('"/operator-console/real-source-profiles"', html)
         self.assertIn('"/operator-console/real-source-runs"', html)
         self.assertIn('"/operator-console/real-source-task-runs"', html)
@@ -309,6 +324,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "内部验收可用",
             "renderEvidencePackage",
             "邮件发送包预览",
+            "下载内部证据包文件",
+            "/customer-artifact-portal-download/",
+            "公开来源",
+            "来源网址",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
@@ -330,6 +349,71 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertFalse(candidate["field_allowlist_masking"]["internal_blackbox_fields_exposed"])
         self.assertFalse(candidate["external_release_enabled"])
         self.assertFalse(candidate["public_software_release"])
+
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+        )
+        self.assertEqual(download_response.status_code, 200)
+        self.assertIn("application/json", download_response.headers["content-type"])
+        self.assertIn(
+            "attachment",
+            download_response.headers.get("content-disposition", ""),
+        )
+        package = download_response.json()
+        self.assertEqual(package["商机编号"], opportunity_id)
+        for expected in (
+            "说明",
+            "未来交付方式",
+            "公开来源验证",
+            "证据包",
+            "拟邮件发送包",
+            "证据项清单",
+            "字段策略",
+            "模拟下载审计",
+        ):
+            self.assertIn(expected, package)
+        self.assertFalse(package["拟邮件发送包"]["真实邮件已发送"])
+        self.assertIsInstance(package["证据项清单"], list)
+
+    def test_customer_artifact_portal_download_includes_search_source_context(self) -> None:
+        client = TestClient(create_app())
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD", "CN-JS"],
+                "query": "公共建筑工程",
+                "project_types": ["construction", "municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "candidate_count": 3,
+                "now": "2026-04-30T00:00:00+00:00",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        opportunity_id = response.json()["opportunity_id"]
+
+        readback_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-readback/{opportunity_id}",
+        )
+        self.assertEqual(readback_response.status_code, 200)
+        readback = readback_response.json()
+        self.assertTrue(readback["source_verification"]["source_url"])
+        self.assertIn("公开来源验证", readback["source_verification"]["verification_hint"])
+
+        download_response = client.request(
+            "GET",
+            f"/customer-artifact-portal-download/{opportunity_id}",
+        )
+        self.assertEqual(download_response.status_code, 200)
+        package = download_response.json()
+        self.assertEqual(
+            package["公开来源验证"]["source_url"],
+            readback["source_verification"]["source_url"],
+        )
+        self.assertTrue(package["证据项清单"][0]["source_url"])
 
     def test_customer_artifact_portal_exposes_empty_state_for_missing_readback(self) -> None:
         client = TestClient(create_app())

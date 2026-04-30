@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import json
 from html import escape
-from typing import Any
+from typing import Any, Mapping
 
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from api.projections import build_customer_artifact_access_candidate_surface, register_route_table
+from storage.repositories.operator_action_repo import OperatorActionRepository
 
 
 OPERATOR_FRONTEND_ROUTE_METADATA = {
@@ -37,6 +38,139 @@ OPERATOR_FRONTEND_ROUTE_METADATA = {
     "field_allowlist_masking_required": True,
     "approval_audit_readback_required": True,
 }
+
+AUTONOMOUS_SEARCH_WORK_ITEM_ID = "operator-autonomous-opportunity-search-runs"
+
+
+def _json_or_default(value: Any, default: Any) -> Any:
+    if not value:
+        return default
+    try:
+        return json.loads(str(value))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return default
+
+
+def _search_run_metadata_for_opportunity(opportunity_id: str) -> dict[str, Any]:
+    if not opportunity_id:
+        return {}
+    actions = OperatorActionRepository().list(work_item_id=AUTONOMOUS_SEARCH_WORK_ITEM_ID)
+    actions.sort(key=lambda item: str(item.requested_at or ""), reverse=True)
+    for action in actions:
+        refs = dict(action.object_refs)
+        if str(refs.get("opportunity_id") or "") != opportunity_id:
+            continue
+        candidate_options = _json_or_default(refs.get("candidate_options_json"), [])
+        selected_project_id = str(refs.get("project_id") or "")
+        selected_candidate = next(
+            (
+                dict(candidate)
+                for candidate in candidate_options
+                if str(candidate.get("project_id") or "") == selected_project_id
+            ),
+            {},
+        )
+        source_url = str(selected_candidate.get("source_url") or refs.get("source_url") or "")
+        source_site_name = str(selected_candidate.get("source_site_name") or refs.get("source_site_name") or "")
+        source_profile_id = str(
+            selected_candidate.get("source_profile_id")
+            or refs.get("source_profile_id")
+            or refs.get("entry_profile_id")
+            or ""
+        )
+        return {
+            "opportunity_id": opportunity_id,
+            "search_run_id": action.action_event_id,
+            "query": refs.get("query"),
+            "project_id": refs.get("project_id"),
+            "project_name": refs.get("project_name"),
+            "region_code": refs.get("region_code"),
+            "region_name": refs.get("region_name"),
+            "project_type": refs.get("project_type"),
+            "project_type_label": refs.get("project_type_label"),
+            "source_url": source_url,
+            "source_site_name": source_site_name,
+            "source_profile_id": source_profile_id,
+            "analysis_score": refs.get("analysis_score"),
+            "analysis_decision": refs.get("analysis_decision"),
+            "analysis_priority": refs.get("analysis_priority"),
+            "amount_range": _json_or_default(refs.get("amount_range_json"), {}),
+            "search_scope": _json_or_default(refs.get("search_scope_json"), {}),
+            "candidate_options": candidate_options,
+            "selected_candidate": selected_candidate,
+            "requested_at": action.requested_at,
+        }
+    return {}
+
+
+def _source_verification_from_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "source_url": str(metadata.get("source_url") or ""),
+        "source_site_name": str(metadata.get("source_site_name") or ""),
+        "source_profile_id": str(metadata.get("source_profile_id") or ""),
+        "project_name": str(metadata.get("project_name") or ""),
+        "region_name": str(metadata.get("region_name") or metadata.get("region_code") or ""),
+        "project_type_label": str(metadata.get("project_type_label") or metadata.get("project_type") or ""),
+        "verification_hint": "公开来源验证：打开公开来源网址，核对项目名称、候选/中标信息、金额区间和公告阶段。",
+    }
+
+
+def _customer_artifact_surface_with_search_context(payload: dict[str, Any]) -> dict[str, Any]:
+    surface = build_customer_artifact_access_candidate_surface(payload)
+    opportunity_id = str(surface.get("opportunity_id") or payload.get("opportunity_id") or "")
+    metadata = _search_run_metadata_for_opportunity(opportunity_id)
+    surface["search_run_metadata"] = metadata
+    surface["source_verification"] = _source_verification_from_metadata(metadata)
+    return surface
+
+
+def _safe_filename_token(value: str) -> str:
+    token = "".join(char if char.isascii() and (char.isalnum() or char in "-_") else "-" for char in value)
+    token = "-".join(part for part in token.split("-") if part)
+    return token or "opportunity"
+
+
+def _internal_evidence_package_download_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    surface = _customer_artifact_surface_with_search_context(payload)
+    formal = dict(surface.get("source_formal_client_export_page_layer_readiness", {}) or {})
+    artifact = dict(surface.get("customer_artifact_readback", {}) or {})
+    manifest = dict(formal.get("package_manifest", {}) or {})
+    source_verification = dict(surface.get("source_verification", {}) or {})
+    evidence_items = []
+    for item in list(manifest.get("evidence_items", []) or []):
+        row = dict(item)
+        row.setdefault("source_url", source_verification.get("source_url"))
+        row.setdefault("source_site_name", source_verification.get("source_site_name"))
+        row.setdefault("source_profile_id", source_verification.get("source_profile_id"))
+        evidence_items.append(row)
+    return {
+        "说明": "内部证据包预览文件；用于运营方验收，不会真实发送给客户。",
+        "未来交付方式": "成交付款后由系统通过邮件发送证据包。",
+        "商机编号": str(payload.get("opportunity_id") or ""),
+        "公开来源验证": source_verification,
+        "证据包": {
+            "证据包编号": artifact.get("evidence_pack_id"),
+            "交付包编号": artifact.get("package_id"),
+            "清单编号": artifact.get("artifact_manifest_id"),
+            "版本哈希": artifact.get("artifact_version_hash"),
+            "水印": dict(artifact.get("watermark", {}) or {}),
+            "页面草稿": dict(formal.get("page_draft", {}) or {}),
+        },
+        "拟邮件发送包": {
+            "邮件主题": f"证据包交付 - {payload.get('opportunity_id') or ''}",
+            "附件": [
+                artifact.get("evidence_pack_id"),
+                artifact.get("artifact_manifest_id"),
+                dict(formal.get("page_draft", {}) or {}).get("page_draft_id"),
+            ],
+            "真实邮件已发送": False,
+            "真实邮件服务商已接入": False,
+        },
+        "证据项清单": evidence_items,
+        "字段策略": dict(surface.get("field_allowlist_masking", {}) or {}),
+        "模拟下载审计": dict(surface.get("download_auth", {}) or {}),
+        "原始读回": surface,
+    }
 
 CONTROLLED_SAMPLE_PAYLOAD = {
     "now": "2026-04-14T00:00:00Z",
@@ -113,6 +247,9 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       background: var(--soft);
       color: var(--ink);
     }}
+    html {{
+      scroll-behavior: smooth;
+    }}
     .layout {{
       min-height: 100vh;
       display: grid;
@@ -128,6 +265,12 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       padding: 24px 18px;
     }}
     .operator-shell nav {{
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+    }}
+    .layout:not(.operator-shell) nav {{
       position: sticky;
       top: 0;
       height: 100vh;
@@ -229,6 +372,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       border-radius: 8px;
       padding: 18px;
       min-width: 0;
+      scroll-margin-top: 18px;
     }}
     section h3 {{
       margin: 0 0 12px;
@@ -521,6 +665,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       nav {{ position: static; }}
       .operator-shell {{ height: auto; overflow: visible; }}
       .operator-shell nav {{ height: auto; }}
+      .layout:not(.operator-shell) nav {{ height: auto; }}
       .operator-shell main {{ height: auto; overflow: visible; display: block; }}
       .workspace {{ display: block; }}
       .panelStack {{ overflow: visible; padding-right: 0; }}
@@ -732,6 +877,11 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <span class="pill warn">真实邮件/电话未接入</span>
             <span class="pill warn">真实退款未接入，仅可模拟</span>
           </section>
+          <section class="wide">
+            <h3>后台能力暴露清单</h3>
+            <p class="muted-text">这里用来检查系统已有能力是不是已经在 UI 可见，避免后端有能力但操作台看不见、用不上。</p>
+            <div id="capabilityExposure" class="compact-card-grid"></div>
+          </section>
         </div>
       </div>
       <section class="resultPane" aria-label="操作结果">
@@ -809,6 +959,8 @@ const stateLabels = {
   "APPROVAL_READY": "可进入审批",
   "PRODUCTION_READY": "内部生产就绪",
   "EXECUTABLE": "可执行",
+  "ANALYZE": "已分析",
+  "INTERNAL DRAFT": "内部草稿",
   "QUALIFIED": "合格机会",
   "REVIEWABLE_PUBLIC_SIGNAL": "公开信号可复核",
   "MEDIUM": "中优先级",
@@ -914,7 +1066,8 @@ function opportunityActions(opportunityId) {
   if (!opportunityId) { return ""; }
   return `<div class="opportunity-actions">
     <a href="#autonomousWorkbench" data-workbench-opportunity="${opportunityId}">查看机会</a>
-    <a href="/customer-artifact-portal/${encodeURIComponent(opportunityId)}">客户材料预览</a>
+    <a href="/customer-artifact-portal/${encodeURIComponent(opportunityId)}">证据包预览</a>
+    <a href="/customer-artifact-portal-download/${encodeURIComponent(opportunityId)}">下载证据包</a>
   </div>`;
 }
 function renderCandidateCards(candidates, activeOpportunityId="", selectedProjectId="") {
@@ -1034,13 +1187,32 @@ function renderStageOverviewTelemetry(telemetry) {
     </div>
   `).join("");
 }
+function renderCapabilityExposure(readiness, scheduler, goLive) {
+  const items = [
+    ["阶段1-9数据流", "已展示", "运营总览显示阶段产出、有效数据、无效数据和运行日志。"],
+    ["实战搜索与地区适配器", "已展示", "支持地区多选、项目类型多选、金额区间和搜索运行记录。"],
+    ["机会评分与商业钩子", "已展示", "机会工作台可查看等级、评分、证据强度、报价、买家排序和下一步动作。"],
+    ["证据包清单/下载预览", "已展示", "内部证据包预览页可看拟邮件包、证据项、字段策略，并可下载内部证据包文件。"],
+    ["公开来源网址校验", "已展示", "证据包读回会补充来源站点、来源网址和验证口径，方便运营方回查。"],
+    ["字段白名单/脱敏/水印/版本哈希", "已展示", "内部预览页显示字段策略、脱敏、水印、版本哈希和模拟下载审计。"],
+    ["服务商读回/调度", "已展示", `服务商状态：${readiness?.provider_status?.mode ? "读回模式" : "读回"}；调度：${labelOf(scheduler?.readiness_state || "未知")}。`],
+    ["文字识别/验证码/校验页处理入口", "待接操作台", "授权能力与采集链路已纳入产品方向，但操作台还缺少专门的运行、读回和失败复盘入口。"],
+    ["真实邮件/电话/支付服务商", "未接入", "当前只做内部预览、模拟外发和读回，不会真实触达客户或产生支付。"],
+    ["订单交付/退款异常", "未接入", "支付交付阶段已在流程中可见；真实订单、交付和退款异常处理还需要服务商与审计链接入。"],
+    ["批量商机运营", "待补强", "当前可看单商机详情和最近运行记录，批量筛选、排序、标记和复盘还不够产品化。"],
+  ];
+  $("capabilityExposure").innerHTML = items.map(([name, state, detail]) => {
+    const warn = state.includes("未接入") || state.includes("待接") || state.includes("待补");
+    return `<div class="stage-card"><strong>${name}</strong><p>${detail}</p>${badge(state, warn ? "warn" : "")}</div>`;
+  }).join("");
+}
 async function loadReadiness(writeOutput = true) {
   const readiness = await json("GET", "/operator-console/readiness");
   const scheduler = await json("GET", "/operator-console/scheduler-status");
   const goLive = await json("GET", "/go-live/readiness");
-  $("capability").textContent = readiness.capability_state || "--";
+  $("capability").textContent = labelOf(readiness.capability_state || "--");
   $("provider").textContent = readiness.provider_status?.mode ? "读回模式" : "读回";
-  $("scheduler").textContent = scheduler.readiness_state || "--";
+  $("scheduler").textContent = labelOf(scheduler.readiness_state || "--");
   $("summary").textContent = "运营操作台已就绪。内部测试链路、证据包预览和模拟外发可跑；真实邮件/电话/支付/退款服务商未接入。";
   $("workbenchStatus").innerHTML = [
     badge("阶段6 产品包"),
@@ -1060,6 +1232,7 @@ async function loadReadiness(writeOutput = true) {
     badge("证据包预览可打开"),
     badge("真实外发审计未接入", "warn")
   ].join("");
+  renderCapabilityExposure(readiness, scheduler, goLive);
   if (writeOutput) { out({ readiness, scheduler, goLive }); }
 }
 let selectedAutonomousOpportunityId = "";
@@ -1446,16 +1619,70 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
 """
     script = f"""
 const opportunityId = {opportunity_id!r};
-function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{text}}</span>`; }}
+const portalLabels = {{
+  "saleable_opportunity_snapshot": "可售机会快照",
+  "offer_recommendation_snapshot": "报价建议快照",
+  "buyer_fit_summary": "买家匹配摘要",
+  "actor_reachability_summary": "可触达对象摘要",
+  "crm_quote_workbench_snapshot": "报价工作台快照",
+  "stage7_resolution_trace_snapshot": "阶段7决策痕迹摘要",
+  "saleable_opportunity": "可售机会",
+  "offer_recommendation": "报价建议",
+  "buyer_fit": "买家匹配",
+  "stage7_actor_profiles": "阶段7联系人画像",
+  "crm_quote_workbench": "报价工作台",
+  "stage7_resolution_trace": "阶段7决策痕迹",
+  "QUALIFIED": "合格机会",
+  "APPROVED": "已通过",
+  "GOVERNMENT": "政府/采购主管",
+  "REACHABLE": "可触达",
+  "TRACE_PRESENT": "痕迹已记录",
+  "READY": "已就绪",
+  "allowed_projection": "允许展示摘要",
+  "summary_only": "仅摘要",
+  "masked_projection": "脱敏展示",
+  "internal_summary_only": "仅内部摘要",
+  "internal_trace_summary": "内部痕迹摘要",
+  "READBACK_READY": "读回就绪",
+  "MASKING_REQUIRED": "需要脱敏",
+  "SANDBOX_CANDIDATE_READY": "测试候选已就绪",
+  "PAGE_DRAFT_ONLY": "仅页面草稿",
+  "REPLAY_READY": "可回放",
+  "APPLIED_TO_DRAFT": "已加到草稿",
+  "INTERNAL DRAFT - NOT CUSTOMER RELEASED": "内部草稿，未发客户",
+  "MISSING": "未接入/未生成",
+  "stage7.saleable_opportunity": "阶段7可售机会",
+  "stage7.offer_recommendation": "阶段7报价建议",
+  "stage7.buyer_fit": "阶段7买家匹配",
+  "stage7.legal_action_actor_profile": "阶段7法务行动方画像",
+  "stage7.procurement_decision_actor_profile": "阶段7采购决策方画像",
+  "stage7.crm_quote_workbench": "阶段7报价工作台",
+  "stage7_resolution_trace.review_gate_report_constraints": "复核门报告约束",
+  "stage7_resolution_trace.opportunity_policy": "机会判断策略",
+  "stage7_resolution_trace.price_resolution": "价格判断痕迹",
+  "stage7_resolution_trace.formal_sink_projection": "正式输出投影",
+}};
+function labelOf(value) {{
+  const text = String(value ?? "--");
+  return portalLabels[text] || text;
+}}
+function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{labelOf(text)}}</span>`; }}
 function valueText(value) {{
-  if (Array.isArray(value)) {{ return value.length ? value.join(" / ") : "--"; }}
+  if (Array.isArray(value)) {{ return value.length ? value.map(labelOf).join(" / ") : "--"; }}
   if (value && typeof value === "object") {{ return JSON.stringify(value); }}
-  return value === undefined || value === null || value === "" ? "--" : String(value);
+  return value === undefined || value === null || value === "" ? "--" : labelOf(value);
+}}
+function valueHtml(value) {{
+  const text = valueText(value);
+  if (/^https?:\/\//.test(text)) {{
+    return `<a href="${{text}}" target="_blank" rel="noopener">${{text}}</a>`;
+  }}
+  return text;
 }}
 function rowsHtml(rows) {{
   return `<div class="detail-table">${{rows
     .filter(([, value]) => value !== undefined && value !== null && String(value).length)
-    .map(([label, value]) => `<div class="detail-row"><strong>${{label}}</strong><span>${{valueText(value)}}</span></div>`)
+    .map(([label, value]) => `<div class="detail-row"><strong>${{label}}</strong><span>${{valueHtml(value)}}</span></div>`)
     .join("")}}</div>`;
 }}
 function evidenceItemsHtml(items) {{
@@ -1463,20 +1690,30 @@ function evidenceItemsHtml(items) {{
   if (!rows.length) {{ return `<div class="empty-state">暂无证据项读回。</div>`; }}
   return `<div class="compact-card-grid">${{rows.map((item) => `
     <div class="stage-card">
-      <strong>${{item.item_id || item.source_object || "--"}}</strong>
-      <p>${{item.source_object || "--"}} · ${{item.source_id || "--"}}</p>
+      <strong>${{labelOf(item.item_id || item.source_object || "--")}}</strong>
+      <p>证据类型：${{labelOf(item.item_id || "--")}}</p>
+      <p>线索类型：${{labelOf(item.source_object || "--")}}</p>
+      <p>来源对象：${{item.source_id || "--"}}</p>
       ${{badge(item.manifest_state || item.status || "--", item.present === false ? "warn" : "")}}
       ${{badge(item.masking_policy || "--")}}
-      <p>${{valueText(item.source_refs)}}</p>
+      <p>来源引用：${{valueText(item.source_refs)}}</p>
+      <p>公开来源：${{item.source_url ? `<a href="${{item.source_url}}" target="_blank" rel="noopener">${{item.source_site_name || item.source_profile_id || item.source_url}}</a>` : "来源网址待读回"}}</p>
     </div>
   `).join("")}}</div>`;
 }}
 function renderEvidencePackage(payload, missing=false) {{
   const formal = payload?.source_formal_client_export_page_layer_readiness || {{}};
+  const sourceVerification = payload?.source_verification || {{}};
   const readback = payload?.customer_artifact_readback || {{}};
   const manifest = formal.package_manifest || {{}};
   const pageDraft = formal.page_draft || {{}};
-  const evidenceItems = manifest.evidence_items || [];
+  const sourceUrl = sourceVerification.source_url || "";
+  const evidenceItems = (manifest.evidence_items || []).map((item) => ({{
+    ...item,
+    source_url: item.source_url || sourceUrl,
+    source_site_name: item.source_site_name || sourceVerification.source_site_name,
+    source_profile_id: item.source_profile_id || sourceVerification.source_profile_id,
+  }}));
   const watermark = readback.watermark || formal.watermark || {{}};
   const hash = readback.artifact_version_hash || formal.artifact_version_hash || "--";
   if (missing) {{
@@ -1491,6 +1728,10 @@ function renderEvidencePackage(payload, missing=false) {{
     ["版本哈希", hash],
     ["水印", watermark.watermark_text || "INTERNAL DRAFT"],
     ["页面草稿", pageDraft.page_draft_id],
+    ["项目名称", sourceVerification.project_name],
+    ["公开来源", sourceVerification.source_site_name || sourceVerification.source_profile_id],
+    ["来源网址", sourceVerification.source_url],
+    ["验证口径", sourceVerification.verification_hint],
   ]);
   document.getElementById("mailPackagePreview").innerHTML = `
     <div class="stage-card">
@@ -1499,12 +1740,14 @@ function renderEvidencePackage(payload, missing=false) {{
       ${{badge("仅内部预览")}}
       ${{badge("真实邮件未接入", "warn")}}
       ${{badge("付款后发送")}}
+      <div class="opportunity-actions"><a href="/customer-artifact-portal-download/${{encodeURIComponent(opportunityId)}}">下载内部证据包文件</a></div>
     </div>
     ${{rowsHtml([
       ["附件1", readback.evidence_pack_id || "证据包清单"],
       ["附件2", readback.artifact_manifest_id || "交付清单"],
       ["页面草稿", pageDraft.page_draft_id],
       ["版本哈希", hash],
+      ["公开来源", sourceVerification.source_url],
     ])}}
   `;
   document.getElementById("evidencePackagePreview").innerHTML = evidenceItemsHtml(evidenceItems);
@@ -1621,7 +1864,7 @@ loadPortal().catch(renderMissingArtifact);
 
 def render_customer_artifact_portal_readback(payload: dict[str, Any]) -> dict[str, Any]:
     try:
-        return build_customer_artifact_access_candidate_surface(payload)
+        return _customer_artifact_surface_with_search_context(payload)
     except (TypeError, ValueError) as exc:
         return {
             "empty_state": True,
@@ -1636,7 +1879,22 @@ def render_customer_artifact_portal_readback(payload: dict[str, Any]) -> dict[st
                 "internal_blackbox_fields_exposed": False,
             },
             "blocked_reasons": ["stage7_artifact_readback_missing"],
+            "search_run_metadata": _search_run_metadata_for_opportunity(str(payload.get("opportunity_id") or "")),
+            "source_verification": _source_verification_from_metadata(
+                _search_run_metadata_for_opportunity(str(payload.get("opportunity_id") or ""))
+            ),
         }
+
+
+def render_customer_artifact_portal_download(payload: dict[str, Any]) -> Response:
+    opportunity_id = str(payload.get("opportunity_id") or "")
+    package = _internal_evidence_package_download_payload(payload)
+    filename = f"internal-evidence-package-{_safe_filename_token(opportunity_id)}.json"
+    return Response(
+        json.dumps(package, ensure_ascii=False, indent=2),
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 OPERATOR_FRONTEND_ROUTES = [
@@ -1671,6 +1929,16 @@ OPERATOR_FRONTEND_ROUTES = [
         "repository_backed_readback": True,
         **OPERATOR_FRONTEND_ROUTE_METADATA,
     },
+    {
+        "operationId": "renderCustomerArtifactPortalDownload",
+        "method": "GET",
+        "path": "/customer-artifact-portal-download/{opportunity_id}",
+        "handler": render_customer_artifact_portal_download,
+        "customer_artifact_portal_frontend_download": True,
+        "internal_evidence_package_download": True,
+        "repository_backed_readback": True,
+        **OPERATOR_FRONTEND_ROUTE_METADATA,
+    },
 ]
 
 
@@ -1682,6 +1950,7 @@ __all__ = [
     "OPERATOR_FRONTEND_ROUTES",
     "register_operator_frontend_routes",
     "render_customer_artifact_portal",
+    "render_customer_artifact_portal_download",
     "render_customer_artifact_portal_readback",
     "render_operator_console",
 ]
