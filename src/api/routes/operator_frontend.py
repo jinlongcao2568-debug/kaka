@@ -472,12 +472,9 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <h1>AX9S 运营操作台</h1>
     <button class="nav-link active" type="button" data-view="overview" aria-current="page">阶段1-9 运营总览</button>
     <button class="nav-link" type="button" data-view="search" aria-current="false">实战搜索</button>
-    <button class="nav-link" type="button" data-view="run" aria-current="false">全链路运行</button>
-    <button class="nav-link" type="button" data-view="business" aria-current="false">业务闭环</button>
-    <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">自主机会工作台</button>
-    <button class="nav-link" type="button" data-view="workbench" aria-current="false">阶段6-9 工作台</button>
-    <button class="nav-link" type="button" data-view="providers" aria-current="false">服务商状态</button>
-    <button class="nav-link" type="button" data-view="audit" aria-current="false">审批审计</button>
+    <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">机会工作台</button>
+    <button class="nav-link" type="button" data-view="run" aria-current="false">采集运行</button>
+    <button class="nav-link" type="button" data-view="systemRelease" aria-current="false">系统与放行</button>
     <a class="external" id="customerPortalLink" href="/customer-artifact-portal/OPP-HAPPY-001">客户材料门户 · 样例</a>
   </nav>
   <main>
@@ -520,10 +517,8 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <h3>阶段运行日志</h3>
             <div id="stageRunLog" class="timeline"></div>
           </section>
-        </div>
-        <div class="view-panel" id="business" data-view-panel="business">
           <section>
-            <h3>业务闭环</h3>
+            <h3>业务闭环摘要</h3>
             <div class="workflow">
               <div><strong>证据链</strong><p>公开来源 -> 解析 -> 核验 -> 规则 -> 阶段6产品包。</p></div>
               <div><strong>销售闭环</strong><p>真实竞争者 -> 买家匹配 -> 客户关系和报价 -> 触达。</p></div>
@@ -572,7 +567,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         </div>
         <div class="view-panel" id="autonomousWorkbench" data-view-panel="autonomousWorkbench">
           <section>
-            <h3>自主机会工作台</h3>
+            <h3>机会工作台</h3>
             <div class="rail" id="autonomousMetrics">
               <div class="metric"><strong>--</strong><span>机会队列</span></div>
               <div class="metric"><strong>--</strong><span>商业钩子</span></div>
@@ -580,13 +575,19 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             </div>
             <div id="autonomousQueue" class="empty-state">暂无已持久化机会队列。</div>
             <div id="autonomousDetailPanels" class="stage-grid"></div>
-            <button id="refreshAutonomousWorkbench">刷新自主机会工作台</button>
+            <button id="refreshAutonomousWorkbench">刷新机会工作台</button>
+          </section>
+          <section>
+            <h3>阶段6-9读回</h3>
+            <div id="workbenchStatus"></div>
+            <p>阶段6-9状态在这里作为机会工作台的交付读回，不再单独占用一级页面。</p>
+            <button id="refreshWorkbench">刷新阶段6-9读回</button>
           </section>
         </div>
         <div class="view-panel" id="run" data-view-panel="run">
           <div class="view-grid">
             <section>
-              <h3>任务创建</h3>
+              <h3>任务与项目</h3>
               <label for="taskId">任务编号</label>
               <input id="taskId" value="TASK-OWNER-127-001" />
               <label for="projectId">项目编号</label>
@@ -595,7 +596,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <button class="secondary" id="importProject">导入项目</button>
             </section>
             <section>
-              <h3>真实公开源验证</h3>
+              <h3>公开源采集</h3>
               <p>只执行白名单内的真实公开入口页和附件原始链接；采集按已批准采集计划、来源配置、同站证据链与服务商门禁执行。</p>
               <label for="entryProfile">入口页配置</label>
               <select id="entryProfile"></select>
@@ -608,35 +609,24 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div id="realSourceRunList" class="empty-state">暂无真实源任务运行记录。</div>
             </section>
             <section class="wide">
-              <h3>全链路运行入口</h3>
+              <h3>内部链路运行</h3>
               <p>只接受脱敏、离线、内部运行参数；阶段1-5外部实时传输不在本页执行。</p>
               <label for="payload">运行参数（结构化文本）</label>
               <textarea id="payload">__CONTROLLED_SAMPLE_PAYLOAD__</textarea>
-              <button id="runControlledSample">运行受控样本到阶段6</button>
-              <button class="secondary" id="previewRun">只检查运行入口</button>
+              <button id="runControlledSample">运行内部样本链路</button>
+              <button class="secondary" id="previewRun">检查运行入口</button>
             </section>
           </div>
         </div>
-        <div class="view-panel" id="workbench" data-view-panel="workbench">
-          <section>
-            <h3>阶段6-9 工作台</h3>
-            <div id="workbenchStatus"></div>
-            <p>这里是后端阶段6-9读回的工作台入口，不会直接执行真实服务商。</p>
-            <button id="refreshWorkbench">刷新工作台读回</button>
-          </section>
-        </div>
-        <div class="view-panel" id="providers" data-view-panel="providers">
+        <div class="view-panel" id="systemRelease" data-view-panel="systemRelease">
           <section>
             <h3>服务商与调度状态</h3>
             <div id="providerStatus"></div>
-            <button id="refreshProvider">刷新服务商 / 调度</button>
+            <button id="refreshSystemRelease">刷新系统与放行</button>
           </section>
-        </div>
-        <div class="view-panel" id="audit" data-view-panel="audit">
           <section>
             <h3>审批审计</h3>
             <div id="auditStatus"></div>
-            <button id="refreshAudit">刷新审计读回</button>
           </section>
           <section class="controlled_opening_requirement">
             <h3>真实对外交付放行要求</h3>
@@ -824,7 +814,7 @@ async function loadReadiness(writeOutput = true) {
   ].join("");
   $("providerStatus").innerHTML = [
     badge(`服务商 ${readiness.provider_status?.mode ? "读回模式" : "读回"}`),
-    badge(`调度 ${scheduler.readiness_state || "未知"}`),
+    badge(`调度 ${labelOf(scheduler.readiness_state || "未知")}`),
     badge("真实服务商调用需单独放行", "warn")
   ].join("");
   $("auditStatus").innerHTML = [
@@ -846,7 +836,7 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
   $("autonomousMetrics").innerHTML = [
     `<div class="metric"><strong>${payload.productized_operator_workbench?.opportunity_queue_count ?? 0}</strong><span>机会队列</span></div>`,
     `<div class="metric"><strong>${first.commercial_hook_teaser ? "可读" : "待生成"}</strong><span>商业钩子</span></div>`,
-    `<div class="metric"><strong>${first.next_action || "--"}</strong><span>下一步动作</span></div>`
+    `<div class="metric"><strong>${labelOf(first.next_action || "--")}</strong><span>下一步动作</span></div>`
   ].join("");
   if (!queue.length) {
     $("autonomousQueue").className = "empty-state";
@@ -862,7 +852,7 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
       badge(item.conversion_priority || "--"),
       badge(item.delivery_state || "--", item.customer_visible_enabled ? "" : "warn")
     ].join("");
-    return `<div class="stage-card"><strong>${item.opportunity_id || "--"}</strong><p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>${tags}<p>${item.next_action || "--"}</p></div>`;
+    return `<div class="stage-card"><strong>${item.opportunity_id || "--"}</strong><p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>${tags}<p>${labelOf(item.next_action || "--")}</p></div>`;
   }).join("");
   const panels = payload.panels || {};
   $("autonomousDetailPanels").innerHTML = [
@@ -870,7 +860,7 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
     `<div class="stage-card"><strong>商业钩子</strong><p>${panels.commercial_hook_panel?.teaser_copy || first.commercial_hook_teaser || "--"}</p>${badge(panels.commercial_hook_panel?.disclosure_level || "--")}</div>`,
     `<div class="stage-card"><strong>买家排序</strong><p>${(panels.buyer_ranking_panel?.buyer_rankings || []).map((row) => `${row.rank}.${labelOf(row.buyer_type || "--")}`).join(" / ") || "--"}</p>${badge("匹配分 " + (panels.buyer_ranking_panel?.buyer_fit_score || "--"))}</div>`,
     `<div class="stage-card"><strong>交付状态</strong><p>${labelOf(panels.delivery_state_panel?.delivery_state || "--")} / ${panels.delivery_state_panel?.page_draft_id || "--"}</p>${badge(panels.delivery_state_panel?.delivery_ready ? "可交付" : "待审批", panels.delivery_state_panel?.delivery_ready ? "" : "warn")}</div>`,
-    `<div class="stage-card"><strong>下一步动作</strong><p>${panels.sales_next_action_panel?.next_action || first.next_action || "--"}</p>${badge(panels.sales_next_action_panel?.quote_surface_state || "--")}</div>`
+    `<div class="stage-card"><strong>下一步动作</strong><p>${labelOf(panels.sales_next_action_panel?.next_action || first.next_action || "--")}</p>${badge(panels.sales_next_action_panel?.quote_surface_state || "--")}</div>`
   ].join("");
   return payload;
 }
@@ -892,14 +882,14 @@ async function loadRegionAdapters() {
   for (const adapter of catalog.region_adapters || []) {
     const option = document.createElement("option");
     option.value = adapter.region_code;
-    option.textContent = `${adapter.region_code} | ${adapter.region_name} | ${adapter.adapter_state}`;
+    option.textContent = `${adapter.region_code} | ${adapter.region_name} | ${labelOf(adapter.adapter_state)}`;
     select.appendChild(option);
   }
   const rows = (catalog.region_adapters || []).slice(0, 8).map((adapter) => {
     const flags = [
       badge(adapter.dedicated_local_profiles ? "本地入口" : "全国兜底", adapter.dedicated_local_profiles ? "" : "warn"),
       badge(adapter.commercial_pilot_region ? "商业试点" : "非试点"),
-      badge(adapter.onboarding_required ? "待补本地 profile" : "profile 就绪", adapter.onboarding_required ? "warn" : "")
+      badge(adapter.onboarding_required ? "待补本地配置" : "配置就绪", adapter.onboarding_required ? "warn" : "")
     ].join("");
     return `<div class="stage-card"><strong>${adapter.region_code} ${adapter.region_name}</strong><p>${adapter.primary_entry_profile_id || "--"}</p>${flags}</div>`;
   }).join("");
@@ -1092,8 +1082,7 @@ $("previewRun").addEventListener("click", previewRun);
 $("runControlledSample").addEventListener("click", runControlledSample);
 $("refreshWorkbench").addEventListener("click", loadReadiness);
 $("refreshAutonomousWorkbench").addEventListener("click", async () => out(await loadAutonomousWorkbench()));
-$("refreshProvider").addEventListener("click", loadReadiness);
-$("refreshAudit").addEventListener("click", loadReadiness);
+$("refreshSystemRelease").addEventListener("click", loadReadiness);
 document.addEventListener("click", async (event) => {
   const target = event.target.closest("[data-workbench-opportunity]");
   if (!target) { return; }
