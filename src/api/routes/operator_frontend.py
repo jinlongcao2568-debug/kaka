@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from html import escape
+from pathlib import Path
 from typing import Any, Mapping
 
 from fastapi.responses import HTMLResponse, Response
@@ -40,6 +41,16 @@ OPERATOR_FRONTEND_ROUTE_METADATA = {
 }
 
 AUTONOMOUS_SEARCH_WORK_ITEM_ID = "operator-autonomous-opportunity-search-runs"
+USER_ACCEPTANCE_CONTRACT_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "contracts"
+    / "ui"
+    / "operator_user_acceptance_contract.json"
+)
+
+
+def _load_user_acceptance_contract() -> dict[str, Any]:
+    return json.loads(USER_ACCEPTANCE_CONTRACT_PATH.read_text(encoding="utf-8"))
 
 
 def _json_or_default(value: Any, default: Any) -> Any:
@@ -704,6 +715,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">机会工作台</button>
     <button class="nav-link" type="button" data-view="run" aria-current="false">采集运行</button>
     <button class="nav-link" type="button" data-view="systemRelease" aria-current="false">系统与放行</button>
+    <button class="nav-link" type="button" data-view="acceptanceContract" aria-current="false">验收契约</button>
     <a class="external" id="customerPortalLink" href="/customer-artifact-portal/OPP-HAPPY-001">证据包预览 · 样例</a>
   </nav>
   <main>
@@ -883,6 +895,21 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div id="capabilityExposure" class="compact-card-grid"></div>
           </section>
         </div>
+        <div class="view-panel" id="acceptanceContract" data-view-panel="acceptanceContract">
+          <section>
+            <h3>用户验收契约</h3>
+            <p class="muted-text">后续 UI 和系统优化先按这份契约验收：产品定义、实战闭环、证据包可验收、能力暴露、真实可卖性都必须能让 owner 看懂和操作。</p>
+            <div id="acceptanceContractSummary"></div>
+          </section>
+          <section class="wide">
+            <h3>验收标准</h3>
+            <div id="acceptanceDimensionList" class="compact-card-grid"></div>
+          </section>
+          <section class="wide">
+            <h3>当前优化优先级</h3>
+            <div id="acceptancePriorityList" class="timeline"></div>
+          </section>
+        </div>
       </div>
       <section class="resultPane" aria-label="操作结果">
         <h3>操作结果</h3>
@@ -991,6 +1018,14 @@ function labelOf(value) {
   return stateLabels[text] || projectTypeLabels[text] || text;
 }
 function badge(text, kind="") { return `<span class="pill ${kind}">${labelOf(text)}</span>`; }
+function safeText(value) {
+  return String(value ?? "--")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 function amountWanToYuan(value, fallback) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) { return fallback; }
@@ -1205,6 +1240,43 @@ function renderCapabilityExposure(readiness, scheduler, goLive) {
     const warn = state.includes("未接入") || state.includes("待接") || state.includes("待补");
     return `<div class="stage-card"><strong>${name}</strong><p>${detail}</p>${badge(state, warn ? "warn" : "")}</div>`;
   }).join("");
+}
+function renderUserAcceptanceContract(contract) {
+  const product = contract?.productDefinition || {};
+  const authority = contract?.acceptanceAuthority || {};
+  const dimensions = Array.isArray(contract?.acceptanceDimensions) ? contract.acceptanceDimensions : [];
+  const priorities = Array.isArray(contract?.currentOptimizationPriorities) ? contract.currentOptimizationPriorities : [];
+  $("acceptanceContractSummary").innerHTML = renderRows([
+    ["契约编号", contract?.contractId],
+    ["状态", contract?.status],
+    ["平台定位", product.platformType],
+    ["售卖对象", product.soldProduct],
+    ["主用户", product.primaryUser],
+    ["客户体验", product.customerExperience],
+    ["主运营链路", product.primaryOperatingLoop],
+    ["验收前置", authority.userAcceptancePrecedesUiRewrite ? "先验收契约，再改 UI/系统" : "未声明"],
+    ["脚本绿灯", authority.scriptsPassingIsNotEnough ? "不等于产品验收通过" : "未声明"],
+  ]);
+  $("acceptanceDimensionList").innerHTML = dimensions.map((item) => {
+    const pass = (item.passCriteria || []).slice(0, 3).map((text) => `<li>${safeText(text)}</li>`).join("");
+    const fail = (item.failSignals || []).slice(0, 2).map((text) => `<li>${safeText(text)}</li>`).join("");
+    return `<div class="stage-card">
+      <strong>${safeText(item.dimensionId)} ${safeText(item.title)}</strong>
+      <p>${safeText(item.userQuestion)}</p>
+      ${badge("验收标准")}
+      <ul>${pass}</ul>
+      <p><strong>失败信号</strong></p>
+      <ul>${fail}</ul>
+    </div>`;
+  }).join("");
+  $("acceptancePriorityList").innerHTML = priorities.length
+    ? priorities.map((item, index) => `<div>${index + 1}. ${safeText(item)}</div>`).join("")
+    : `<div>暂无优化优先级。</div>`;
+}
+async function loadUserAcceptanceContract() {
+  const contract = await json("GET", "/operator-console/user-acceptance-contract");
+  renderUserAcceptanceContract(contract);
+  return contract;
 }
 async function loadReadiness(writeOutput = true) {
   const readiness = await json("GET", "/operator-console/readiness");
@@ -1549,7 +1621,7 @@ window.addEventListener("hashchange", () => showView((window.location.hash || "#
 showView((window.location.hash || "#overview").slice(1));
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """
@@ -1897,6 +1969,11 @@ def render_customer_artifact_portal_download(payload: dict[str, Any]) -> Respons
     )
 
 
+def render_operator_user_acceptance_contract(payload: Any) -> dict[str, Any]:
+    del payload
+    return _load_user_acceptance_contract()
+
+
 OPERATOR_FRONTEND_ROUTES = [
     {
         "operationId": "renderOwnerOperatorConsole",
@@ -1939,6 +2016,16 @@ OPERATOR_FRONTEND_ROUTES = [
         "repository_backed_readback": True,
         **OPERATOR_FRONTEND_ROUTE_METADATA,
     },
+    {
+        "operationId": "renderOperatorUserAcceptanceContract",
+        "method": "GET",
+        "path": "/operator-console/user-acceptance-contract",
+        "handler": render_operator_user_acceptance_contract,
+        "operator_user_acceptance_contract": True,
+        "ui_acceptance_authority": True,
+        "repository_backed_readback": False,
+        **OPERATOR_FRONTEND_ROUTE_METADATA,
+    },
 ]
 
 
@@ -1953,4 +2040,5 @@ __all__ = [
     "render_customer_artifact_portal_download",
     "render_customer_artifact_portal_readback",
     "render_operator_console",
+    "render_operator_user_acceptance_contract",
 ]

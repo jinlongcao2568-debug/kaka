@@ -1,0 +1,288 @@
+{
+  "contractVersion": "1.0.0",
+  "contractId": "AX9S-OPERATOR-USER-ACCEPTANCE-CONTRACT",
+  "status": "ACTIVE",
+  "ownerDocs": [
+    "AGENTS.md",
+    "docs/L0.md",
+    "docs/D5_页面导出与人工复核规范.md",
+    "docs/D8_真实竞争者识别可售对象与销售推进规范.md",
+    "docs/D9_联系对象与销售触达规范.md",
+    "docs/D10_订单支付交付与治理反馈规范.md",
+    "docs/D11_测试验收与金标回归清单.md",
+    "docs/D13_公开可查边界能力清单.md",
+    "control/product_runtime_architecture_map.yaml",
+    "control/product_acceptance_checklist.yaml"
+  ],
+  "purpose": "把 owner 的真实使用验收口径固定为 UI/系统优化前置契约，防止后续只按局部页面、脚本绿灯或历史任务包改产品。",
+  "productDefinition": {
+    "platformType": "内部线索运营平台 / 情报生产平台 / 销售作战平台",
+    "soldProduct": "证据包 / 线索包 / 机会包 / 情报包 / 销售推进结果",
+    "primaryUser": "单人 owner operator",
+    "customerExperience": "客户不使用工作台；成交付款后通过邮件或受控交付链收到证据包。",
+    "primaryOperatingLoop": "市场扫描 -> 来源蓝图 -> 公开采集 -> 解析 -> 核验 -> 规则证据 -> 统一事实 -> 可售机会 -> 买家适配 -> 商业钩子 -> 证据包预览 -> 触达/支付/交付治理回写",
+    "mustNotBe": [
+      "客户可见软件平台本体",
+      "generic_capture_adapter",
+      "manual_url_picker_as_primary_flow",
+      "unreviewed_legal_conclusion_generator",
+      "raw_json_dashboard_for_owner",
+      "automated_refund_program"
+    ]
+  },
+  "acceptanceAuthority": {
+    "userAcceptancePrecedesUiRewrite": true,
+    "scriptsPassingIsNotEnough": true,
+    "uiMustConsumeCanonicalObjects": true,
+    "noSecondJudgmentSystem": true,
+    "ownerMustObserveWithoutRawApi": true,
+    "externalLiveActionsRemainGoverned": true
+  },
+  "acceptanceDimensions": [
+    {
+      "dimensionId": "UA-01-product-definition-alignment",
+      "title": "产品定义一致",
+      "userQuestion": "我一打开系统，能不能知道它是帮我卖证据线索赚钱的内部作战台，而不是客户软件、玩具 demo 或单纯抓取器？",
+      "passCriteria": [
+        "首页首屏说明内部线索运营、证据包和销售作战目标。",
+        "系统明确客户不使用工作台，客户只接收成交后的证据包。",
+        "页面不把 public software release 或客户门户当作主产品目标。",
+        "所有能力解释都回到证据包、线索包、机会包和销售推进结果。"
+      ],
+      "uiObligations": [
+        "首屏必须显示产品目的、用户角色、交付形态和真实外部动作状态。",
+        "导航名称必须反映作战流，不得出现让 owner 误判为客户工作台的入口。"
+      ],
+      "failSignals": [
+        "页面主叙事变成客户软件平台发布。",
+        "系统只展示抓取数量，不展示可售机会和证据包结果。",
+        "客户材料门户被包装成客户自助工作台。"
+      ],
+      "sourceRefs": ["L0 K-01", "L0 第2章", "D5-R-007", "control/product_runtime_architecture_map.yaml#business_goal"]
+    },
+    {
+      "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
+      "title": "市场到机会闭环成立",
+      "userQuestion": "我能不能从地区、项目类型、金额区间启动实战搜索，并看到系统如何产出机会，而不是让我手工挑 URL？",
+      "passCriteria": [
+        "搜索入口支持地区多选、项目类型多选、金额区间和关键词。",
+        "搜索结果显示候选对象、入选对象、金额区间、来源站点和机会编号。",
+        "系统保留搜索运行记录并能回到工作台和证据包。",
+        "全国聚合入口只作为发现/补充，不被误写为全量实时线索源。"
+      ],
+      "uiObligations": [
+        "实战搜索必须展示搜索条件、候选明细、入选理由和下一跳。",
+        "搜索运行记录必须可读、可回放、可定位当前商机。"
+      ],
+      "failSignals": [
+        "只能输入单一 URL 或单地区单类型。",
+        "只返回数量，无法查看候选对象和入选对象。",
+        "搜索记录刷新后丢失或无法回到机会。"
+      ],
+      "sourceRefs": ["D11-R-044", "control/product_runtime_architecture_map.yaml#primary_operating_loop", "control/product_acceptance_checklist.yaml#PTL-I100-144"]
+    },
+    {
+      "dimensionId": "UA-03-stage-observability",
+      "title": "阶段1-9可观察",
+      "userQuestion": "系统跑到哪一步、每一步产生多少数据、哪些有效哪些无效，我能不能看明白？",
+      "passCriteria": [
+        "阶段1-9总览可见且不是摆设。",
+        "运行后阶段统计显示产出对象、有效数据、无效数据和日志。",
+        "阶段方向与 L0 九阶段主链一致。",
+        "系统解释每阶段当前状态和下一步动作。"
+      ],
+      "uiObligations": [
+        "阶段总览必须消费运行读回，不得只展示静态宣传卡片。",
+        "阶段日志必须能解释市场扫描、选源、证据、机会和交付候选如何形成。"
+      ],
+      "failSignals": [
+        "阶段1-9只是一组静态卡片。",
+        "运行后 owner 仍不知道数据流向和处理方向。",
+        "新增流程图与阶段总览重复造轮子且口径不一致。"
+      ],
+      "sourceRefs": ["L0-R-003", "D11-R-007", "control/product_runtime_architecture_map.yaml#stage_1_to_9_improvement_assessment"]
+    },
+    {
+      "dimensionId": "UA-04-opportunity-operability",
+      "title": "机会可操作",
+      "userQuestion": "产出的机会我能不能点开，看等级、价值、证据强度、买家、报价和下一步？",
+      "passCriteria": [
+        "机会队列可见并能点击查看机会详情。",
+        "机会详情展示机会级别、可售状态、异议价值分、买家匹配分、证据强度、硬伤信号、报价草稿和交付状态。",
+        "买家排序、商业钩子、可讲卖点、暂不外泄字段和复核项可见。",
+        "页面不要求 owner 阅读 raw JSON 才能判断。"
+      ],
+      "uiObligations": [
+        "所有机会卡必须有查看机会、证据包预览和下载证据包入口。",
+        "机会详情必须把 Stage6/7/8/9 关键读回聚合到一个可读视图。"
+      ],
+      "failSignals": [
+        "机会只能看到编号或数量，不能点开。",
+        "商业钩子和买家排序藏在 raw JSON。",
+        "报价或下一步动作没有解释来源。"
+      ],
+      "sourceRefs": ["D8-R-004", "D8-R-006", "D11-R-045", "control/product_acceptance_checklist.yaml#PTL-I100-148"]
+    },
+    {
+      "dimensionId": "UA-05-evidence-package-verifiability",
+      "title": "证据包可验收",
+      "userQuestion": "我能不能打开和下载证据包，看到证据类型、线索类型、来源网址和字段策略，并自己验证它值不值得卖？",
+      "passCriteria": [
+        "证据包预览页可从机会进入。",
+        "证据包显示证据包编号、清单编号、版本哈希、水印、公开来源和来源网址。",
+        "证据项显示证据类型、线索类型、来源对象、来源引用和公开来源。",
+        "内部证据包文件可下载，内容包含公开来源验证、拟邮件包、证据项清单、字段策略和模拟下载审计。"
+      ],
+      "uiObligations": [
+        "证据包页导航必须固定或可持续访问，锚点跳转不应把 owner 带丢。",
+        "证据包信息必须中文化，英文枚举只可作为辅助标识。"
+      ],
+      "failSignals": [
+        "证据包无法查看或下载。",
+        "证据项只有英文 ID，没有证据类型、线索类型和来源网址。",
+        "字段策略、脱敏、水印和版本哈希不可见。"
+      ],
+      "sourceRefs": ["D5-R-012", "D6", "D7", "D11-R-007", "control/product_acceptance_checklist.yaml#PTL-I100-149"]
+    },
+    {
+      "dimensionId": "UA-06-commercial-hook-boundary",
+      "title": "商业钩子有价值且不泄密",
+      "userQuestion": "卖前能不能给客户价值感，同时不泄露完整证据链，避免客户白嫖？",
+      "passCriteria": [
+        "系统生成商业钩子线索、allowed_sales_talking_points 和 forbidden_sales_claims。",
+        "卖前页面显示 disclosure_level、withheld_fields 和 leakage_risk。",
+        "完整 source URL、完整项目经理身份组合、冲突项目名称、原始快照和完整核验路径不得进入卖前钩子。",
+        "付款/审批/交付治理后才进入完整证据包交付路径。"
+      ],
+      "uiObligations": [
+        "机会详情必须展示可讲卖点和暂不外泄字段。",
+        "证据包预览必须区分内部验收、拟邮件包和真实外发状态。"
+      ],
+      "failSignals": [
+        "销售前泄露可复现完整证据链。",
+        "商业钩子只是一句空话，没有分数、买家和证据强度支撑。",
+        "页面把内部预览误写成已客户交付。"
+      ],
+      "sourceRefs": ["D8-R-006", "D8-R-080", "control/product_acceptance_checklist.yaml#PTL-I100-147"]
+    },
+    {
+      "dimensionId": "UA-07-governed-outreach-and-delivery",
+      "title": "触达交付受控但不黑盒",
+      "userQuestion": "测试阶段我能不能看到触达、支付、交付、退款这些能力的状态和缺口，而不是一律藏起来？",
+      "passCriteria": [
+        "系统展示真实邮件、电话、支付、交付、退款服务商是否接入。",
+        "内部测试可预览拟外发、模拟下载和交付候选。",
+        "真实触达、真实支付、真实交付、真实退款必须显示审批、审计、operator action 和 provider sandbox 缺口。",
+        "自动退款执行保持排除。"
+      ],
+      "uiObligations": [
+        "系统与放行页必须展示内部测试放行状态和真实外部动作缺口。",
+        "受控边界要解释成状态和下一步，不得只显示阻断词。"
+      ],
+      "failSignals": [
+        "所有外部能力都消失，owner 不知道后续如何接入。",
+        "真实外发按钮伪装成已可执行。",
+        "自动退款被开放为自动执行。"
+      ],
+      "sourceRefs": ["L0-R-008", "D9", "D10", "D11-D", "AGENTS.md#Automation Guardrails"]
+    },
+    {
+      "dimensionId": "UA-08-system-capability-exposure",
+      "title": "系统能力不隐藏",
+      "userQuestion": "后台已有能力、未展示能力、待接能力，我能不能在 UI 看到清单和差距？",
+      "passCriteria": [
+        "UI 显示已展示、待接 UI、未接入和待补强能力。",
+        "能力清单至少覆盖阶段1-9数据流、实战搜索、机会评分、证据包、公开来源验证、字段策略、服务商读回、校验页处理、真实服务商、批量运营。",
+        "能力状态不得只存在文档或代码中。"
+      ],
+      "uiObligations": [
+        "系统页必须提供后台能力暴露清单。",
+        "每项能力要说明当前状态和对 owner 的影响。"
+      ],
+      "failSignals": [
+        "后端能力已存在但 UI 完全不可见。",
+        "待接能力没有入口、没有状态、没有下一步。",
+        "能力清单只报喜不报缺口。"
+      ],
+      "sourceRefs": ["D5-R-007", "D11-A", "control/product_runtime_architecture_map.yaml#decision_layers"]
+    },
+    {
+      "dimensionId": "UA-09-data-persistence-and-operator-control",
+      "title": "数据持久与清空受控",
+      "userQuestion": "刷新网页后数据会不会无故消失？清空数据是不是由我控制？",
+      "passCriteria": [
+        "搜索运行记录、机会队列和证据包读回来自 repository 或正式读回，不依赖页面内存。",
+        "刷新页面后最近运行记录仍可读。",
+        "任何清空、删除或重置必须是显式 operator action，不得自动发生。",
+        "UI 必须说明当前数据来源和读回状态。"
+      ],
+      "uiObligations": [
+        "运行记录区必须展示读取状态和记录数量。",
+        "页面刷新不应丢失最近机会入口。"
+      ],
+      "failSignals": [
+        "刷新后运行结果全部丢失。",
+        "系统自动清空 owner 未要求清空的数据。",
+        "数据来源不明，owner 无法区分示例、模拟、真实读回。"
+      ],
+      "sourceRefs": ["D11-R-007", "D5-R-003", "contracts/ui/page_surface_states.json#surfaceAuthorityContract"]
+    },
+    {
+      "dimensionId": "UA-10-chinese-information-architecture",
+      "title": "中文信息架构可读",
+      "userQuestion": "页面是不是全中文、导航清楚、状态可理解，不需要我猜英文枚举是什么意思？",
+      "passCriteria": [
+        "一级导航数量受控，页面定义不重复。",
+        "状态、按钮、证据项、能力项优先中文展示。",
+        "英文枚举只作为必要技术标识，不作为 owner 唯一理解入口。",
+        "页面高度和滚动行为不妨碍跨区域操作。"
+      ],
+      "uiObligations": [
+        "导航必须稳定可达，避免锚点跳转后丢失上下文。",
+        "紧凑面板中的文本不得溢出或遮挡。"
+      ],
+      "failSignals": [
+        "页面大面积英文状态未翻译。",
+        "点击导航跳到页面底部且回不来。",
+        "多个页面职责重复，owner 不知道从哪里开始运营。"
+      ],
+      "sourceRefs": ["D5-R-006", "D5-R-009", "contracts/ui/workbench_catalog.json"]
+    },
+    {
+      "dimensionId": "UA-11-real-world-sellability",
+      "title": "真实可卖性可判断",
+      "userQuestion": "我能不能判断这个系统离真实卖证据赚钱还差什么，而不是只知道测试过了？",
+      "passCriteria": [
+        "UI 和契约共同展示当前内部可用、线索包可交付、真实外部动作未接入的边界。",
+        "系统能从真实公开样本跑到可售商业钩子和交付候选。",
+        "剩余缺口必须按市场扫描、地区适配、证据质量、商业钩子、触达、支付交付、回写治理分类显示。",
+        "任何交付结论不得只依据脚本绿灯。"
+      ],
+      "uiObligations": [
+        "系统页或验收页必须展示真实可卖性判断维度。",
+        "后续优化必须先检查本契约，再决定改 UI、接口还是文档。"
+      ],
+      "failSignals": [
+        "系统只告诉 owner 测试通过，不告诉能否卖。",
+        "真实样本闭环不可观察。",
+        "剩余缺口散落在文档里，UI 没有可见状态。"
+      ],
+      "sourceRefs": ["D11-R-007", "D11-A", "control/product_acceptance_checklist.yaml#PTL-I100-149", "control/product_operability_gap_matrix.yaml"]
+    }
+  ],
+  "currentOptimizationPriorities": [
+    "把验收契约本身展示到操作台，作为后续 UI 优化前置标准。",
+    "继续减少英文枚举裸露，保留必要技术标识但提供中文解释。",
+    "把真实可卖性缺口从文档资产同步成 owner 可见状态。",
+    "把校验页处理、批量商机运营、真实服务商接入这些待接能力做成可观察入口。"
+  ],
+  "nonNegotiableFailSignals": [
+    "UI 或接口形成第二套主判断体系。",
+    "owner 需要 raw JSON 才能完成日常运营判断。",
+    "客户被引导使用工作台而不是接收成交后的证据包。",
+    "证据包无法查看、无法下载或无法回到公开来源验证。",
+    "真实外部触达、支付、交付或退款绕过审批、审计和 operator action。",
+    "自动退款执行被开放。",
+    "系统只通过脚本但无法让 owner 判断是否能卖。"
+  ]
+}

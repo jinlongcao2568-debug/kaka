@@ -42,6 +42,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
                 "renderCustomerArtifactPortal",
                 "renderCustomerArtifactPortalReadback",
                 "renderCustomerArtifactPortalDownload",
+                "renderOperatorUserAcceptanceContract",
             },
         )
         route_metadata = {
@@ -60,6 +61,11 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertTrue(
             route_metadata["renderCustomerArtifactPortalDownload"][
                 "internal_evidence_package_download"
+            ]
+        )
+        self.assertTrue(
+            route_metadata["renderOperatorUserAcceptanceContract"][
+                "operator_user_acceptance_contract"
             ]
         )
         bootstrap = app.state.transport_bootstrap
@@ -137,6 +143,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "机会工作台",
             "采集运行",
             "系统与放行",
+            "验收契约",
             "任务与项目",
             "公开源采集",
             "入口页配置",
@@ -167,6 +174,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "真实邮件/电话未接入",
             "真实退款未接入，仅可模拟",
             "后台能力暴露清单",
+            "用户验收契约",
+            "验收标准",
+            "当前优化优先级",
+            "/operator-console/user-acceptance-contract",
+            "先验收契约，再改 UI/系统",
+            "脚本绿灯",
             "系统已有能力是不是已经在 UI 可见",
             "证据包清单/下载预览",
             "公开来源网址校验",
@@ -182,11 +195,15 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "function formatOperatorSummary(value)",
             "function renderStageOverviewTelemetry(telemetry)",
             "function renderCapabilityExposure(readiness, scheduler, goLive)",
+            "function renderUserAcceptanceContract(contract)",
+            "async function loadUserAcceptanceContract()",
             "function showView(view)",
             "id=\"searchRegionChoices\"",
             "id=\"searchProjectTypeChoices\"",
             "id=\"opportunityDetail\"",
             "id=\"capabilityExposure\"",
+            "id=\"acceptanceContractSummary\"",
+            "id=\"acceptanceDimensionList\"",
         ):
             self.assertIn(expected, html)
         for removed_duplicate in (
@@ -274,12 +291,13 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
         self.assertIn(
-            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns()])',
+            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract()])',
             html,
         )
         self.assertIn('"/operator-console/region-adapters"', html)
         self.assertIn('"/operator-console/autonomous-opportunity-search"', html)
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
+        self.assertIn('"/operator-console/user-acceptance-contract"', html)
         self.assertIn('href="#autonomousWorkbench"', html)
         self.assertIn('data-workbench-opportunity', html)
         self.assertIn('id="selectAllRegions"', html)
@@ -292,6 +310,52 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn('"/operator-console/real-source-runs"', html)
         self.assertIn('"/operator-console/real-source-task-runs"', html)
         self.assertIn("请先执行入口页或附件抓取。", html)
+
+    def test_operator_user_acceptance_contract_defines_owner_real_world_standard(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.request("GET", "/operator-console/user-acceptance-contract")
+
+        self.assertEqual(response.status_code, 200)
+        contract = response.json()
+        self.assertEqual(contract["contractId"], "AX9S-OPERATOR-USER-ACCEPTANCE-CONTRACT")
+        self.assertEqual(contract["status"], "ACTIVE")
+        self.assertTrue(contract["acceptanceAuthority"]["userAcceptancePrecedesUiRewrite"])
+        self.assertTrue(contract["acceptanceAuthority"]["scriptsPassingIsNotEnough"])
+        self.assertTrue(contract["acceptanceAuthority"]["ownerMustObserveWithoutRawApi"])
+        self.assertEqual(
+            contract["productDefinition"]["soldProduct"],
+            "证据包 / 线索包 / 机会包 / 情报包 / 销售推进结果",
+        )
+        self.assertIn("manual_url_picker_as_primary_flow", contract["productDefinition"]["mustNotBe"])
+        self.assertIn("raw_json_dashboard_for_owner", contract["productDefinition"]["mustNotBe"])
+        dimensions = {
+            item["dimensionId"]: item
+            for item in contract["acceptanceDimensions"]
+        }
+        for dimension_id in (
+            "UA-01-product-definition-alignment",
+            "UA-02-autonomous-market-to-opportunity-loop",
+            "UA-03-stage-observability",
+            "UA-04-opportunity-operability",
+            "UA-05-evidence-package-verifiability",
+            "UA-06-commercial-hook-boundary",
+            "UA-07-governed-outreach-and-delivery",
+            "UA-08-system-capability-exposure",
+            "UA-09-data-persistence-and-operator-control",
+            "UA-10-chinese-information-architecture",
+            "UA-11-real-world-sellability",
+        ):
+            self.assertIn(dimension_id, dimensions)
+            self.assertTrue(dimensions[dimension_id]["userQuestion"])
+            self.assertTrue(dimensions[dimension_id]["passCriteria"])
+            self.assertTrue(dimensions[dimension_id]["uiObligations"])
+            self.assertTrue(dimensions[dimension_id]["failSignals"])
+            self.assertTrue(dimensions[dimension_id]["sourceRefs"])
+        self.assertIn(
+            "证据包无法查看、无法下载或无法回到公开来源验证。",
+            contract["nonNegotiableFailSignals"],
+        )
 
     def test_customer_artifact_portal_is_gated_and_uses_candidate_readback(self) -> None:
         result = run_internal_chain(load_fixture("internal_chain_happy.json"))
