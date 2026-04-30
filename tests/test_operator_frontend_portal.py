@@ -117,6 +117,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "/operator-console/region-adapters",
             "/operator-console/autonomous-opportunity-search",
             "/operator-console/autonomous-search-runs",
+            "/customer-artifact-portal/",
+            "data-workbench-opportunity",
             "任务创建",
             "真实公开源验证",
             "入口页 Profile",
@@ -151,9 +153,16 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             'data-view="audit"',
             'data-view-panel="audit"',
             'class="resultPane"',
+            "function formatOperatorSummary(value)",
             "function showView(view)",
         ):
             self.assertIn(expected, html)
+        self.assertNotIn(
+            'const out = (value) => { $("output").textContent = JSON.stringify(value, null, 2); };',
+            html,
+        )
+        self.assertIn(r'join("\n")', html)
+        self.assertNotIn('join("\n")', html)
         self.assertNotIn('href="#audit"', html)
         self.assertNotIn("public software release enabled", html)
 
@@ -219,6 +228,9 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn('"/operator-console/region-adapters"', html)
         self.assertIn('"/operator-console/autonomous-opportunity-search"', html)
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
+        self.assertIn('href="#autonomousWorkbench"', html)
+        self.assertIn('data-workbench-opportunity', html)
+        self.assertIn('"/customer-artifact-portal/', html)
         self.assertIn('"/operator-console/real-source-profiles"', html)
         self.assertIn('"/operator-console/real-source-runs"', html)
         self.assertIn('"/operator-console/real-source-task-runs"', html)
@@ -245,10 +257,13 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "字段白名单已执行",
             "脱敏必需",
             "未执行真实下载",
+            "读回摘要",
+            "renderReadbackSummary",
             "/customer-artifact-portal-readback/",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
+        self.assertNotIn("JSON.stringify(value, null, 2)", html)
         self.assertIn("暂无材料读回", html)
         self.assertIn("暂无客户材料", html)
         self.assertIn("renderMissingArtifact", html)

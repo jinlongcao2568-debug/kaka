@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from tempfile import mkstemp
@@ -288,6 +289,8 @@ class DatabaseSession:
         self._operator_actions: Dict[str, List[PersistedOperatorAction]] = {}
         self._worker_queue_items: Dict[str, PersistedWorkerQueueItem] = {}
         self._worker_queue_events: Dict[str, List[PersistedWorkerQueueEvent]] = {}
+        self._flush_depth = 0
+        self._dirty = False
         if self._backend is None:
             self._load()
 
@@ -422,12 +425,34 @@ class DatabaseSession:
                 self._backend.close()
             self._closed = True
 
+    @contextmanager
+    def bulk_write(self) -> Any:
+        if self._backend is not None:
+            yield self
+            return
+        with self._lock:
+            self._flush_depth += 1
+        try:
+            yield self
+        finally:
+            with self._lock:
+                self._flush_depth -= 1
+                if self._flush_depth == 0 and self._dirty:
+                    self._dirty = False
+                    self._flush()
+
+    def _flush_or_mark_dirty(self) -> None:
+        if self._flush_depth > 0:
+            self._dirty = True
+            return
+        self._flush()
+
     def upsert_record(self, entry: PersistedRecord) -> PersistedRecord:
         with self._lock:
             if self._backend is not None:
                 return self._backend.upsert_record(entry)
             self._tables.setdefault(entry.object_type, {})[entry.record_id] = entry
-            self._flush()
+            self._flush_or_mark_dirty()
             return entry
 
     def get_record(self, object_type: str, record_id: str) -> PersistedRecord | None:
@@ -490,7 +515,7 @@ class DatabaseSession:
             if self._backend is not None:
                 return self._backend.upsert_stage_state(stage_key, entry)
             self._stage_states[stage_key] = entry
-            self._flush()
+            self._flush_or_mark_dirty()
             return entry
 
     def get_stage_state(self, stage_scope: int, surface_id: str, root_record_id: str) -> PersistedStageState | None:
@@ -537,7 +562,7 @@ class DatabaseSession:
             if self._backend is not None:
                 return self._backend.upsert_work_item(entry)
             self._work_items[entry.work_item_id] = entry
-            self._flush()
+            self._flush_or_mark_dirty()
             return entry
 
     def find_work_item(
@@ -580,7 +605,7 @@ class DatabaseSession:
             if self._backend is not None:
                 return self._backend.append_operator_action(entry)
             self._operator_actions.setdefault(entry.work_item_id, []).append(entry)
-            self._flush()
+            self._flush_or_mark_dirty()
             return entry
 
     def list_operator_actions(self, work_item_id: str) -> list[PersistedOperatorAction]:
@@ -630,7 +655,7 @@ class DatabaseSession:
             if self._backend is not None:
                 return self._backend.upsert_worker_queue_item(entry)
             self._worker_queue_items[entry.queue_item_id] = entry
-            self._flush()
+            self._flush_or_mark_dirty()
             return entry
 
     def get_worker_queue_item(self, queue_item_id: str) -> PersistedWorkerQueueItem | None:
@@ -662,7 +687,7 @@ class DatabaseSession:
             if self._backend is not None:
                 return self._backend.append_worker_queue_event(entry)
             self._worker_queue_events.setdefault(entry.queue_item_id, []).append(entry)
-            self._flush()
+            self._flush_or_mark_dirty()
             return entry
 
     def list_worker_queue_events(self, queue_item_id: str) -> list[PersistedWorkerQueueEvent]:

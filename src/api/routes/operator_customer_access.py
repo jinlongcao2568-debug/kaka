@@ -30,7 +30,7 @@ from stage2_ingestion import (
     REAL_PUBLIC_ENTRY_PROFILES,
 )
 from stage2_ingestion.service import Stage2Service
-from storage.db import PersistedOperatorAction, build_persisted_at
+from storage.db import DatabaseSession, PersistedOperatorAction, build_persisted_at
 from storage.repositories.operator_action_repo import OperatorActionRepository
 from storage.repositories.worker_queue_repo import WorkerQueueRepository
 from storage.repository_boundary import persist_stage_bundle
@@ -503,50 +503,51 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         now=now,
     )
     chain = run_internal_chain(chain_payload)
-    for stage_key in ("stage6", "stage7", "stage8", "stage9"):
-        persist_stage_bundle(chain[stage_key])
-    acceptance_payload = {
-        **chain,
-        "market_scan": market_scan,
-        "source_blueprint_plan": source_blueprint,
-    }
-    acceptance = build_real_sample_autonomous_opportunity_acceptance_surface(acceptance_payload)
-    opportunity_ref = dict(acceptance.get("stage_refs", {}).get("stage7_saleable_opportunity", {}))
-    opportunity_id = str(opportunity_ref.get("object_id") or "")
-    response = {
-        "surface_id": "operator_autonomous_opportunity_search",
-        "search_state": "AUTONOMOUS_SEARCH_ACCEPTED"
-        if acceptance.get("acceptance_state") == "REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTED"
-        else "REVIEW_REQUIRED",
-        "capability_state": acceptance.get("capability_state"),
-        "internal_only": True,
-        "repository_backed_readback": True,
-        "productized_owner_workbench": True,
-        "region_adapter": region_adapter,
-        "entry_profile": entry_profile,
-        "candidate": candidate,
-        "market_scan": market_scan,
-        "source_blueprint_plan": source_blueprint,
-        "acceptance": acceptance,
-        "opportunity_id": opportunity_id,
-        "operator_workbench_readback_path": f"/operator-console/autonomous-workbench?opportunity_id={opportunity_id}"
-        if opportunity_id
-        else "",
-        "customer_artifact_candidate_path": f"/customer-artifact-access-candidates/{opportunity_id}"
-        if opportunity_id
-        else "",
-        "manual_url_picker_primary_flow": False,
-        "live_execution_enabled": False,
-        "real_external_fetch_enabled": False,
-        "real_provider_call_enabled": False,
-        "external_release_enabled": False,
-        "customer_download_enabled": False,
-        "automated_refund_enabled": False,
-    }
-    response["search_run_record"] = _record_autonomous_search_run(
-        payload=payload,
-        result=response,
-    )
+    with DatabaseSession.default().bulk_write():
+        for stage_key in ("stage6", "stage7", "stage8", "stage9"):
+            persist_stage_bundle(chain[stage_key])
+        acceptance_payload = {
+            **chain,
+            "market_scan": market_scan,
+            "source_blueprint_plan": source_blueprint,
+        }
+        acceptance = build_real_sample_autonomous_opportunity_acceptance_surface(acceptance_payload)
+        opportunity_ref = dict(acceptance.get("stage_refs", {}).get("stage7_saleable_opportunity", {}))
+        opportunity_id = str(opportunity_ref.get("object_id") or "")
+        response = {
+            "surface_id": "operator_autonomous_opportunity_search",
+            "search_state": "AUTONOMOUS_SEARCH_ACCEPTED"
+            if acceptance.get("acceptance_state") == "REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTED"
+            else "REVIEW_REQUIRED",
+            "capability_state": acceptance.get("capability_state"),
+            "internal_only": True,
+            "repository_backed_readback": True,
+            "productized_owner_workbench": True,
+            "region_adapter": region_adapter,
+            "entry_profile": entry_profile,
+            "candidate": candidate,
+            "market_scan": market_scan,
+            "source_blueprint_plan": source_blueprint,
+            "acceptance": acceptance,
+            "opportunity_id": opportunity_id,
+            "operator_workbench_readback_path": f"/operator-console/autonomous-workbench?opportunity_id={opportunity_id}"
+            if opportunity_id
+            else "",
+            "customer_artifact_candidate_path": f"/customer-artifact-access-candidates/{opportunity_id}"
+            if opportunity_id
+            else "",
+            "manual_url_picker_primary_flow": False,
+            "live_execution_enabled": False,
+            "real_external_fetch_enabled": False,
+            "real_provider_call_enabled": False,
+            "external_release_enabled": False,
+            "customer_download_enabled": False,
+            "automated_refund_enabled": False,
+        }
+        response["search_run_record"] = _record_autonomous_search_run(
+            payload=payload,
+            result=response,
+        )
     response["search_run_id"] = response["search_run_record"]["run_id"]
     return response
 

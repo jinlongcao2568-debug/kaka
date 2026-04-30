@@ -374,6 +374,25 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       white-space: pre-wrap;
       word-break: break-word;
     }}
+    .summary-list {{
+      display: grid;
+      gap: 8px;
+      color: var(--ink);
+    }}
+    .summary-row {{
+      display: grid;
+      grid-template-columns: 144px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      font-size: 14px;
+    }}
+    .summary-row strong {{
+      color: var(--muted);
+      font-weight: 600;
+    }}
+    .summary-row span {{
+      word-break: break-word;
+    }}
     .resultPane {{
       min-height: 0;
       display: flex;
@@ -602,7 +621,26 @@ def render_operator_console(payload: Any) -> HTMLResponse:
 """.replace("__CONTROLLED_SAMPLE_PAYLOAD__", controlled_sample_payload)
     script = """
 const $ = (id) => document.getElementById(id);
-const out = (value) => { $("output").textContent = JSON.stringify(value, null, 2); };
+function formatOperatorSummary(value) {
+  if (!value || typeof value !== "object" || value.raw_json_required !== false) {
+    return "";
+  }
+  const rows = [
+    ["状态", value.search_state || value.state],
+    ["商机", value.opportunity_id],
+    ["运行 ID", value.search_run_id || value.run_id],
+    ["地区", value.region_code],
+    ["入口 Profile", value.entry_profile_id],
+    ["工作台", value.workbench],
+    ["材料候选", value.customer_artifact_candidate],
+    ["说明", value.display_message],
+  ].filter(([, text]) => text !== undefined && text !== null && String(text).length);
+  return rows.map(([label, text]) => `${label}: ${text}`).join("\\n");
+}
+const out = (value) => {
+  const summary = formatOperatorSummary(value);
+  $("output").textContent = summary || JSON.stringify(value, null, 2);
+};
 const views = new Set(Array.from(document.querySelectorAll("[data-view-panel]")).map((panel) => panel.dataset.viewPanel));
 function showView(view) {
   const selected = views.has(view) ? view : "overview";
@@ -655,8 +693,13 @@ async function loadReadiness(writeOutput = true) {
   ].join("");
   if (writeOutput) { out({ readiness, scheduler, goLive }); }
 }
-async function loadAutonomousWorkbench() {
-  const payload = await json("GET", "/operator-console/autonomous-workbench");
+let selectedAutonomousOpportunityId = "";
+async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportunityId) {
+  selectedAutonomousOpportunityId = opportunityId || selectedAutonomousOpportunityId || "";
+  const query = selectedAutonomousOpportunityId
+    ? `?opportunity_id=${encodeURIComponent(selectedAutonomousOpportunityId)}`
+    : "";
+  const payload = await json("GET", `/operator-console/autonomous-workbench${query}`);
   const queue = payload.opportunity_queue || [];
   const first = queue[0] || {};
   $("autonomousMetrics").innerHTML = [
@@ -733,11 +776,9 @@ async function loadAutonomousSearchRuns() {
   }
   $("autonomousSearchRuns").className = "compact-card-grid";
   $("autonomousSearchRuns").innerHTML = runs.slice(0, 8).map((run) => {
-    const workbenchPath = run.operator_workbench_readback_path || "";
-    const customerPath = run.customer_artifact_candidate_path || "";
     const links = [
-      workbenchPath ? `<a href="${workbenchPath}">工作台</a>` : "",
-      customerPath ? `<a href="${customerPath}">材料候选</a>` : ""
+      run.opportunity_id ? `<a href="#autonomousWorkbench" data-workbench-opportunity="${run.opportunity_id}">工作台</a>` : "",
+      run.opportunity_id ? `<a href="/customer-artifact-portal/${encodeURIComponent(run.opportunity_id)}">材料门户</a>` : ""
     ].filter(Boolean).join(" · ");
     return `<div class="stage-card">
       <strong>${run.opportunity_id || "--"}</strong>
@@ -774,6 +815,7 @@ async function runAutonomousSearch() {
     now: new Date().toISOString()
   };
   const result = await json("POST", "/operator-console/autonomous-opportunity-search", payload);
+  selectedAutonomousOpportunityId = result.opportunity_id || "";
   const accepted = result.search_state === "AUTONOMOUS_SEARCH_ACCEPTED";
   $("searchResult").className = "";
   $("searchResult").innerHTML = `
@@ -797,7 +839,7 @@ async function runAutonomousSearch() {
     raw_json_required: false
   });
   await loadAutonomousSearchRuns();
-  await loadAutonomousWorkbench();
+  await loadAutonomousWorkbench(selectedAutonomousOpportunityId);
   return result;
 }
 async function previewRun() {
@@ -878,6 +920,15 @@ $("refreshWorkbench").addEventListener("click", loadReadiness);
 $("refreshAutonomousWorkbench").addEventListener("click", async () => out(await loadAutonomousWorkbench()));
 $("refreshProvider").addEventListener("click", loadReadiness);
 $("refreshAudit").addEventListener("click", loadReadiness);
+document.addEventListener("click", async (event) => {
+  const target = event.target.closest("[data-workbench-opportunity]");
+  if (!target) { return; }
+  event.preventDefault();
+  selectedAutonomousOpportunityId = target.dataset.workbenchOpportunity || "";
+  showView("autonomousWorkbench");
+  history.replaceState(null, "", "#autonomousWorkbench");
+  await loadAutonomousWorkbench(selectedAutonomousOpportunityId);
+});
 document.querySelectorAll("[data-view]").forEach((item) => {
   item.addEventListener("click", (event) => {
     event.preventDefault();
@@ -936,8 +987,8 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
         <p>无授权不生成下载；内部黑箱评分、未复核推断或未审批材料不会展示。</p>
       </section>
       <section class="wide">
-        <h3>Readback</h3>
-        <pre id="output">等待读取...</pre>
+        <h3>读回摘要</h3>
+        <div id="output" class="empty-state summary-list">等待读取...</div>
       </section>
     </div>
   </main>
@@ -945,8 +996,36 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
 """
     script = f"""
 const opportunityId = {opportunity_id!r};
-const out = (value) => {{ document.getElementById("output").textContent = JSON.stringify(value, null, 2); }};
 function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{text}}</span>`; }}
+function renderReadbackSummary(payload, missing=false) {{
+  const output = document.getElementById("output");
+  const downloadAuth = payload?.download_auth || {{}};
+  const fieldPolicy = payload?.field_allowlist_masking || {{}};
+  const blockedReasons = Array.isArray(payload?.blocked_reasons) ? payload.blocked_reasons.join(", ") : "无";
+  const detail = payload?.detail || payload?.readback_error?.detail || "";
+  const rows = [
+    ["商机", opportunityId],
+    ["读回状态", missing ? "暂无可交付读回" : "已读取客户候选"],
+    ["客户可见", payload?.customer_visible_export_enabled ? "已批准" : "未开放"],
+    ["对外交付", payload?.external_release_enabled ? "已开放" : "未开放"],
+    ["下载授权", downloadAuth.customer_download_enabled ? "已授权" : "未授权"],
+    ["字段策略", fieldPolicy.allowlist_enforced === false ? "白名单未确认" : "白名单已执行"],
+    ["阻断原因", blockedReasons],
+  ];
+  if (detail) {{ rows.push(["读回说明", detail]); }}
+  output.className = missing ? "empty-state summary-list" : "summary-list";
+  output.replaceChildren();
+  rows.forEach(([label, value]) => {{
+    const row = document.createElement("div");
+    row.className = "summary-row";
+    const name = document.createElement("strong");
+    name.textContent = label;
+    const text = document.createElement("span");
+    text.textContent = String(value);
+    row.append(name, text);
+    output.appendChild(row);
+  }});
+}}
 async function loadPortal() {{
   const response = await fetch(`/customer-artifact-portal-readback/${{encodeURIComponent(opportunityId)}}`);
   const payload = await response.json();
@@ -976,7 +1055,7 @@ async function loadPortal() {{
     badge("审计必需"),
     badge("未执行真实下载", "warn")
   ].join("");
-  out(payload);
+  renderReadbackSummary(payload, false);
 }}
 function renderMissingArtifact(payload) {{
   document.getElementById("portalSummary").textContent =
@@ -998,7 +1077,7 @@ function renderMissingArtifact(payload) {{
     badge("审计必需"),
     badge("客户可见发布已阻断", "danger")
   ].join("");
-  out({{ empty_state: true, opportunity_id: opportunityId, readback_error: payload }});
+  renderReadbackSummary(payload || {{}}, true);
 }}
 loadPortal().catch(renderMissingArtifact);
 """
