@@ -210,7 +210,9 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "src/api/routes/operator_customer_access.py" in internal_preview["current_files"]
     assert "src/api/routes/operator_frontend.py" in internal_preview["current_files"]
     assert "tests/test_productized_autonomous_operator_workbench.py" in registry_text
+    assert "tests/test_real_sample_autonomous_opportunity_acceptance.py" in registry_text
     assert "productized autonomous operator workbench projection" in " ".join(internal_preview["notes"])
+    assert "real sample autonomous opportunity acceptance surface" in " ".join(internal_preview["notes"])
     shared_runtime = modules["SHARED-RUNTIME-POLICY-CHAIN"]
     assert "src/shared/policy_contract_helpers.py" in shared_runtime["current_files"]
     assert "src/shared/runtime_semantic_rules.py" in shared_runtime["current_files"]

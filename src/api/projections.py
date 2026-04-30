@@ -3402,6 +3402,7 @@ def build_operator_customer_access_readiness_surface(
             },
             "workbench_entries": {
                 "autonomous_operator_workbench": "/operator-console/autonomous-workbench",
+                "real_sample_autonomous_acceptance": "/operator-console/real-sample-autonomous-acceptance",
                 "stage6_review_report": "/review-report-workbench",
                 "stage7_opportunity_pool": "/saleable-opportunities",
                 "stage8_outreach_workbench": "/contact-targets",
@@ -3421,6 +3422,18 @@ def build_operator_customer_access_readiness_surface(
                 "next_action_visible": True,
                 "raw_json_required": False,
                 "raw_json_fallback_required": False,
+                "live_execution_enabled": False,
+                "external_release_enabled": False,
+            },
+            "real_sample_autonomous_acceptance": {
+                "operation_id": "previewRealSampleAutonomousOpportunityAcceptance",
+                "method": "GET",
+                "path": "/operator-console/real-sample-autonomous-acceptance",
+                "entry_visible": True,
+                "real_sample_flow_visible": True,
+                "productized_owner_workbench": True,
+                "owner_can_observe_without_raw_api": True,
+                "raw_json_required": False,
                 "live_execution_enabled": False,
                 "external_release_enabled": False,
             },
@@ -3533,6 +3546,299 @@ def build_autonomous_operator_workbench_surface(payload: Any) -> dict[str, Any]:
     }
 
 
+def _try_build_surface(builder: Any, payload: Any) -> dict[str, Any]:
+    try:
+        return builder(payload)
+    except (TypeError, KeyError, ValueError):
+        return {}
+
+
+def _stage_bundle_from_payload(payload: Any, stage_key: str) -> StageBundle | None:
+    expected_stage = int(stage_key.replace("stage", ""))
+    if isinstance(payload, StageBundle):
+        return payload if payload.stage == expected_stage else None
+    if not isinstance(payload, Mapping):
+        return None
+    candidate = payload.get(stage_key)
+    if isinstance(candidate, StageBundle):
+        return candidate if candidate.stage == expected_stage else None
+    try:
+        return hydrate_stage_bundle(stage_key, payload)
+    except (TypeError, KeyError, ValueError):
+        return None
+
+
+def _stage_record_ref(bundle: StageBundle | None, record_name: str, object_type: str) -> dict[str, Any]:
+    if bundle is None or record_name not in bundle.records:
+        return {
+            "stage": None,
+            "object_type": object_type,
+            "object_id": "",
+            "observed": False,
+        }
+    record = _record_data(bundle.record(record_name))
+    return {
+        "stage": bundle.stage,
+        "object_type": object_type,
+        "object_id": _record_id(record, object_type),
+        "primary_status": _record_status(record, object_type),
+        "observed": True,
+    }
+
+
+def _payload_mapping(payload: Any) -> dict[str, Any]:
+    return dict(payload) if isinstance(payload, Mapping) else {}
+
+
+def _real_sample_controlled_opening_preserved(
+    *,
+    market_scan: Mapping[str, Any],
+    source_blueprint: Mapping[str, Any],
+    workbench: Mapping[str, Any],
+    stage7_surface: Mapping[str, Any],
+    stage8_surface: Mapping[str, Any],
+    stage9_surface: Mapping[str, Any],
+) -> dict[str, bool]:
+    stage7_workbench = dict(stage7_surface.get(CRM_QUOTE_WORKBENCH_INPUT_KEY, {}) or {})
+    leadpack_package = dict(stage7_surface.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY, {}) or {})
+    hook = dict(stage7_surface.get(COMMERCIAL_HOOK_LEAD_INPUT_KEY, {}) or {})
+    stage8_outbox = dict(stage8_surface.get("outreach_execution_outbox", {}) or {})
+    stage9_execution = dict(stage9_surface.get("order_payment_delivery_execution_summary", {}) or {})
+    approved_stage9_execution = dict(stage9_surface.get(APPROVED_PAYMENT_DELIVERY_EXECUTION_INPUT_KEY, {}) or {})
+    return {
+        "public_software_release_enabled": False,
+        "manual_url_picker_primary_flow": bool(
+            market_scan.get("manual_url_picker_primary_flow", False)
+            or source_blueprint.get("manual_url_picker_primary_flow", False)
+        ),
+        "customer_visible_hook_enabled": bool(hook.get("customer_visible_enabled", False)),
+        "commercial_hook_external_send_enabled": bool(hook.get("external_send_enabled", False)),
+        "leadpack_customer_visible_enabled": bool(leadpack_package.get("customer_visible_enabled", False)),
+        "leadpack_external_delivery_enabled": bool(leadpack_package.get("external_delivery_enabled", False)),
+        "customer_download_enabled": bool(
+            workbench.get("safe_display_contract", {}).get("customer_download_enabled", False)
+        ),
+        "crm_quote_provider_execution_enabled": bool(
+            stage7_workbench.get("approved_crm_quote_execution_enabled", False)
+        ),
+        "stage8_real_send_enabled": bool(
+            stage8_surface.get("real_send_enabled", False)
+            or stage8_outbox.get("real_send_enabled", False)
+            or stage8_outbox.get("real_send_attempted", False)
+        ),
+        "stage9_real_charge_enabled": bool(
+            stage9_surface.get("real_charge_enabled", False)
+            or stage9_execution.get("real_charge_enabled", False)
+            or stage9_execution.get("real_charge_attempted", False)
+            or approved_stage9_execution.get("real_charge_attempted", False)
+        ),
+        "stage9_real_delivery_enabled": bool(
+            stage9_surface.get("real_delivery_enabled", False)
+            or stage9_execution.get("real_delivery_enabled", False)
+            or stage9_execution.get("real_delivery_fulfillment_attempted", False)
+            or approved_stage9_execution.get("real_delivery_fulfillment_attempted", False)
+        ),
+        "automated_refund_enabled": bool(stage9_surface.get("automated_refund_enabled", False)),
+    }
+
+
+def build_real_sample_autonomous_opportunity_acceptance_surface(payload: Any) -> dict[str, Any]:
+    payload_map = _payload_mapping(payload)
+    market_scan = dict(payload_map.get("market_scan", {}) or {})
+    source_blueprint = dict(
+        payload_map.get("source_blueprint_plan", {})
+        or payload_map.get("source_blueprint", {})
+        or payload_map.get("stage1_source_blueprint", {})
+        or {}
+    )
+    stage7_surface = _try_build_surface(build_stage7_preview_surface, payload)
+    stage8_surface = _try_build_surface(build_stage8_preview_surface, payload)
+    stage9_surface = _try_build_surface(build_stage9_preview_surface, payload)
+    operator_surface = build_autonomous_operator_workbench_surface(payload)
+    workbench = dict(operator_surface.get("productized_operator_workbench", {}) or {})
+    leadpack_package = dict(stage7_surface.get(LEADPACK_DELIVERY_PACKAGE_INPUT_KEY, {}) or {})
+    leadpack_readiness = dict(stage7_surface.get(LEADPACK_DELIVERY_READINESS_INPUT_KEY, {}) or {})
+    hook = dict(stage7_surface.get(COMMERCIAL_HOOK_LEAD_INPUT_KEY, {}) or {})
+    hook_summary = dict(stage7_surface.get(COMMERCIAL_HOOK_READINESS_INPUT_KEY, {}) or {})
+
+    stage1 = _stage_bundle_from_payload(payload, "stage1")
+    stage2 = _stage_bundle_from_payload(payload, "stage2")
+    stage3 = _stage_bundle_from_payload(payload, "stage3")
+    stage4 = _stage_bundle_from_payload(payload, "stage4")
+    stage5 = _stage_bundle_from_payload(payload, "stage5")
+    stage6 = _stage_bundle_from_payload(payload, "stage6")
+    stage7 = _stage_bundle_from_payload(payload, "stage7")
+    stage8 = _stage_bundle_from_payload(payload, "stage8")
+    stage9 = _stage_bundle_from_payload(payload, "stage9")
+
+    selected_count = int(market_scan.get("selected_candidate_count") or 0)
+    capture_plan = dict(source_blueprint.get("stage2_capture_plan", {}) or {})
+    opportunity_queue = list(operator_surface.get("opportunity_queue", []))
+    controlled_opening = _real_sample_controlled_opening_preserved(
+        market_scan=market_scan,
+        source_blueprint=source_blueprint,
+        workbench=workbench,
+        stage7_surface=stage7_surface,
+        stage8_surface=stage8_surface,
+        stage9_surface=stage9_surface,
+    )
+
+    fail_closed_reasons: list[str] = []
+    if not bool(market_scan.get("autonomous_decision", False)):
+        fail_closed_reasons.append("market_scan_autonomous_decision_missing")
+    if selected_count < 1:
+        fail_closed_reasons.append("market_scan_selected_candidate_missing")
+    if bool(market_scan.get("manual_url_picker_primary_flow", False)):
+        fail_closed_reasons.append("manual_url_picker_primary_flow_detected")
+    if not bool(source_blueprint.get("source_blueprint_auto_selection", False)):
+        fail_closed_reasons.append("source_blueprint_auto_selection_missing")
+    if not bool(source_blueprint.get("stage2_capture_plan_generation", False)):
+        fail_closed_reasons.append("stage2_capture_plan_generation_missing")
+    if bool(source_blueprint.get("stage2_fetch_executed", False)):
+        fail_closed_reasons.append("source_blueprint_executed_fetch_in_acceptance_unexpected")
+    if not capture_plan:
+        fail_closed_reasons.append("stage2_capture_plan_missing")
+    if any(
+        bundle is None
+        for bundle in (stage1, stage2, stage3, stage4, stage5, stage6, stage7, stage8, stage9)
+    ):
+        fail_closed_reasons.append("stage1_to_stage9_chain_bundle_missing")
+    if not hook:
+        fail_closed_reasons.append("commercial_hook_lead_missing")
+    if not bool(hook_summary.get("no_full_evidence_leakage", False)):
+        fail_closed_reasons.append("commercial_hook_no_full_evidence_leakage_missing")
+    if not opportunity_queue:
+        fail_closed_reasons.append("operator_workbench_opportunity_queue_missing")
+    if not bool(operator_surface.get("owner_can_observe_without_raw_json", False)):
+        fail_closed_reasons.append("owner_workbench_raw_json_dependency_detected")
+    if not leadpack_package:
+        fail_closed_reasons.append("leadpack_delivery_candidate_missing")
+    elif not bool(leadpack_readiness.get("readback_ready", False)):
+        fail_closed_reasons.append("leadpack_delivery_candidate_readback_not_ready")
+    enabled_controlled_opening = [
+        key
+        for key, value in controlled_opening.items()
+        if key != "manual_url_picker_primary_flow" and value
+    ]
+    if controlled_opening["manual_url_picker_primary_flow"]:
+        enabled_controlled_opening.append("manual_url_picker_primary_flow")
+    if enabled_controlled_opening:
+        fail_closed_reasons.extend(
+            f"controlled_opening_requirement_not_preserved:{key}"
+            for key in enabled_controlled_opening
+        )
+
+    acceptance_state = (
+        "REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTED"
+        if not fail_closed_reasons
+        else "REVIEW_REQUIRED"
+    )
+    first_queue_item = dict(opportunity_queue[0]) if opportunity_queue else {}
+    return {
+        "surface_id": "real_sample_autonomous_opportunity_acceptance",
+        "task_id": "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
+        "surface_mode": "internal-readback",
+        "capability_state": "PRODUCTION_READY" if acceptance_state.endswith("ACCEPTED") else "REVIEW_REQUIRED",
+        "acceptance_state": acceptance_state,
+        "internal_only": True,
+        "projection_only": True,
+        "owner_can_observe_without_raw_api": bool(
+            operator_surface.get("owner_can_observe_without_raw_json", False)
+        ),
+        "raw_json_required": False,
+        "manual_url_picker_primary_flow": bool(controlled_opening["manual_url_picker_primary_flow"]),
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "public_software_release": False,
+        "real_provider_call_enabled": False,
+        "automated_refund_enabled": False,
+        "real_sample_flow": {
+            "market_scan_observed": bool(market_scan),
+            "market_scan_autonomous_decision": bool(market_scan.get("autonomous_decision", False)),
+            "selected_candidate_count": selected_count,
+            "source_blueprint_observed": bool(source_blueprint),
+            "source_blueprint_auto_selection": bool(
+                source_blueprint.get("source_blueprint_auto_selection", False)
+            ),
+            "stage2_capture_plan_observed": bool(capture_plan),
+            "stage2_capture_step_count": len(capture_plan.get("capture_steps", [])),
+            "stage1_to_stage9_chain_observed": all(
+                bundle is not None
+                for bundle in (stage1, stage2, stage3, stage4, stage5, stage6, stage7, stage8, stage9)
+            ),
+            "commercial_hook_observed": bool(hook),
+            "leadpack_delivery_candidate_observed": bool(leadpack_package),
+            "operator_workbench_observed": bool(opportunity_queue),
+            "controlled_opening_requirements_preserved": not enabled_controlled_opening,
+        },
+        "owner_workbench_acceptance": {
+            "opportunity_queue_visible": bool(operator_surface.get("opportunity_queue_visible", False)),
+            "commercial_hook_review_visible": bool(
+                operator_surface.get("commercial_hook_review_visible", False)
+            ),
+            "buyer_ranking_visible": bool(operator_surface.get("buyer_ranking_visible", False)),
+            "evidence_risk_visible": bool(operator_surface.get("evidence_risk_visible", False)),
+            "delivery_state_visible": bool(operator_surface.get("delivery_state_visible", False)),
+            "next_action_visible": bool(operator_surface.get("next_action_visible", False)),
+            "owner_can_observe_without_raw_json": bool(
+                operator_surface.get("owner_can_observe_without_raw_json", False)
+            ),
+            "queue_item": first_queue_item,
+        },
+        "commercial_hook_acceptance": {
+            "hook_lead_id": hook.get("hook_lead_id"),
+            "hook_eligibility_state": hook.get("hook_eligibility_state"),
+            "disclosure_level": hook.get("disclosure_level"),
+            "no_full_evidence_leakage": bool(hook_summary.get("no_full_evidence_leakage", False)),
+            "forbidden_claims_filter_passed": bool(
+                hook_summary.get("forbidden_claims_filter_passed", False)
+            ),
+            "withheld_fields": list(hook.get("withheld_fields", [])),
+            "leakage_risk_level": hook_summary.get("leakage_risk_level"),
+        },
+        "delivery_candidate_acceptance": {
+            "leadpack_package_id": leadpack_package.get("package_id"),
+            "delivery_state": leadpack_package.get("delivery_state"),
+            "page_state": leadpack_package.get("page_state"),
+            "readback_ready": bool(leadpack_readiness.get("readback_ready", False)),
+            "delivery_ready": bool(leadpack_readiness.get("delivery_ready", False)),
+            "customer_visible_enabled": False,
+            "external_delivery_enabled": False,
+            "customer_download_enabled": False,
+        },
+        "stage_refs": {
+            "stage1_task_execution_context": _stage_record_ref(
+                stage1, "task_execution_context", "task_execution_context"
+            ),
+            "stage2_public_chain": _stage_record_ref(stage2, "public_chain", "public_chain"),
+            "stage3_project_base": _stage_record_ref(stage3, "project_base", "project_base"),
+            "stage4_focus_bidder_verification_profile": _stage_record_ref(
+                stage4,
+                "focus_bidder_verification_profile",
+                "focus_bidder_verification_profile",
+            ),
+            "stage5_evidence_gate_decision": _stage_record_ref(
+                stage5, "evidence_gate_decision", "evidence_gate_decision"
+            ),
+            "stage6_report_record": _stage_record_ref(stage6, "report_record", "report_record"),
+            "stage7_saleable_opportunity": _stage_record_ref(
+                stage7, "saleable_opportunity", "saleable_opportunity"
+            ),
+            "stage8_outreach_plan": _stage_record_ref(stage8, "outreach_plan", "outreach_plan"),
+            "stage9_order_record": _stage_record_ref(stage9, "order_record", "order_record"),
+        },
+        "replay_refs": {
+            "market_scan_run_id": market_scan.get("scan_run_id"),
+            "source_blueprint_plan_id": source_blueprint.get("source_blueprint_plan_id"),
+            "stage2_capture_plan_id": capture_plan.get("capture_plan_id"),
+            "operator_workbench_id": workbench.get("workbench_id"),
+            "leadpack_package_id": leadpack_package.get("package_id"),
+        },
+        "controlled_opening_requirements": controlled_opening,
+        "fail_closed_reasons": fail_closed_reasons,
+    }
+
+
 def register_route_table(router: object | None, routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if router is None:
         return routes
@@ -3561,6 +3867,7 @@ __all__ = [
     "build_leadpack_activation_prep_surface",
     "build_leadpack_external_delivery_candidate_surface",
     "build_leadpack_implementation_decision_readiness_packet_surface",
+    "build_real_sample_autonomous_opportunity_acceptance_surface",
     "build_stage7_preview_surface",
     "build_stage8_preview_surface",
     "build_stage9_preview_surface",

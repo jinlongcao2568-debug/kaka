@@ -126,12 +126,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-148-productized-autonomous-operator-workbench
-  packet_id: PTL-I100-148-productized-autonomous-operator-workbench
-  title: "I100-48 Productized autonomous operator workbench"
+  task_id: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+  packet_id: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+  title: "I100-49 Real sample autonomous opportunity acceptance"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-147 commercial value, buyer fit, and hook lead engine is internally ready through 65ffbb0. 148 is active for productized autonomous operator workbench: owner-visible opportunity queue, evidence risk, commercial hook review, buyer ranking, delivery state, and next action projection without raw JSON dependency. This packet does not execute unapproved live provider calls, outreach, payment, delivery, customer download, refund, or public software release."
+  runtime_notes: "PTL-I100-148 productized autonomous operator workbench is internally ready through dfeb331. 149 is active for real sample autonomous opportunity acceptance: market scan, source blueprint, Stage1-9 chain, commercial hook, owner workbench, and gated delivery candidate acceptance. This packet does not execute unapproved live provider calls, outreach, payment, delivery, customer download, refund, or public software release."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -3506,9 +3506,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [api_transport, operator_frontend, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, product_acceptance]
     task_type: productized_autonomous_operator_workbench
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P54
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
@@ -3526,15 +3526,18 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-148-productized-autonomous-operator-workbench
     suggested_packet_refs: [PTL-I100-148-productized-autonomous-operator-workbench]
     risk_level: HIGH
+    completed_commit: dfeb331
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_PRODUCTIZED_AUTONOMOUS_OPERATOR_WORKBENCH"
   - task_id: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
     title: "I100-49 Real sample autonomous opportunity acceptance"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, operator_frontend, product_acceptance]
     task_type: real_sample_autonomous_opportunity_acceptance
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: false
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
     priority: P55
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:

@@ -811,10 +811,10 @@ implementation_sequence:
     status: COMPLETED
     purpose: score_objection_value_buyer_fit_and_generate_non_leaking_hook_lead
   - packet_ref: PTL-I100-148-productized-autonomous-operator-workbench
-    status: ACTIVE
+    status: COMPLETED
     purpose: expose_opportunity_queue_evidence_risk_hook_lead_buyer_fit_and_next_actions
   - packet_ref: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
-    status: PLANNED
+    status: ACTIVE
     purpose: prove_real_public_sample_can_flow_from_market_scan_to_sellable_hook_and_delivery_candidate
 controlled_opening_requirements_preserved:
   external_software_release: CONTROLLED_OPENING

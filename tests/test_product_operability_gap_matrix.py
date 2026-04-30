@@ -443,16 +443,22 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             for item in self.matrix["production_gap_task_map"]
             if item["packet_ref"] == "PTL-I100-148-productized-autonomous-operator-workbench"
         )
+        real_sample_gap = next(
+            item
+            for item in self.matrix["production_gap_task_map"]
+            if item["packet_ref"] == "PTL-I100-149-real-sample-autonomous-opportunity-acceptance"
+        )
         self.assertEqual(market_gap["status"], "COMPLETED")
         self.assertEqual(source_blueprint_gap["status"], "COMPLETED")
         self.assertEqual(public_web_gap["status"], "COMPLETED")
         self.assertEqual(captcha_resume_gap["status"], "COMPLETED")
         self.assertEqual(evidence_risk_gap["status"], "COMPLETED")
         self.assertEqual(commercial_hook_gap["status"], "COMPLETED")
-        self.assertEqual(operator_workbench_gap["status"], "ACTIVE")
+        self.assertEqual(operator_workbench_gap["status"], "COMPLETED")
+        self.assertEqual(real_sample_gap["status"], "ACTIVE")
         self.assertEqual(
             self.matrix["current_gap_sync_2026_04_29"]["current_active_packet"],
-            "PTL-I100-148-productized-autonomous-operator-workbench",
+            "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
         )
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:

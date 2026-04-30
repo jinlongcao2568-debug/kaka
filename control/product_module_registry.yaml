@@ -1044,6 +1044,7 @@ cross_cutting_surfaces:
       - tests/test_api_transport_bootstrap.py
       - tests/test_internal_surface_preview.py
       - tests/test_productized_autonomous_operator_workbench.py
+      - tests/test_real_sample_autonomous_opportunity_acceptance.py
       - tests/test_operator_customer_access.py
       - tests/test_operator_frontend_portal.py
       - tests/test_real_provider_binding.py
@@ -1725,6 +1726,7 @@ modules:
     notes:
       - "P8 observability/operator workbench first cut completed in local commit b8a2762 and src/api/workbench_observability.py remains part of the formal internal-preview current-files ledger."
       - "PTL-I100-148 adds productized autonomous operator workbench projection and owner console entry so opportunity queue, evidence risk, commercial hook, buyer ranking, delivery state and next action are visible without raw JSON dependency."
+      - "PTL-I100-149 adds the real sample autonomous opportunity acceptance surface so market scan, source blueprint, Stage1-9 chain, commercial hook, owner workbench, and gated delivery candidate can be observed in one internal readback."
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false

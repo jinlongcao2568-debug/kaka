@@ -667,13 +667,12 @@ current_gap_sync_2026_04_29:
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/repo_status.md
-  current_active_packet: PTL-I100-148-productized-autonomous-operator-workbench
-  current_active_packet_scope: internal_productized_autonomous_operator_workbench_only
-  closed_prerequisite_packet: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+  current_active_packet: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+  current_active_packet_scope: internal_real_sample_autonomous_opportunity_acceptance_only
+  closed_prerequisite_packet: PTL-I100-148-productized-autonomous-operator-workbench
   owner_operated_controlled_business_state: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
   remaining_product_blockers_for_controlled_owner_e2e: []
   current_remaining_runtime_productization_packets:
-    - PTL-I100-148-productized-autonomous-operator-workbench
     - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
   preserved_live_boundaries:
     external_software_release: CONTROLLED_OPENING
@@ -983,7 +982,8 @@ production_gap_task_map:
       - leakage_risk_and_disclosure_level
   - gap_group: productized_autonomous_operator_workbench
     packet_ref: PTL-I100-148-productized-autonomous-operator-workbench
-    status: ACTIVE
+    status: COMPLETED
+    completed_commit: dfeb331
     target_capability_state: PRODUCTION_READY
     covered_capabilities:
       - autonomous_opportunity_queue_ui
@@ -991,7 +991,7 @@ production_gap_task_map:
       - evidence_risk_and_delivery_state_ui
   - gap_group: real_sample_autonomous_opportunity_acceptance
     packet_ref: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
-    status: PLANNED
+    status: ACTIVE
     target_capability_state: PRODUCTION_READY
     covered_capabilities:
       - real_sample_market_scan_to_hook_lead
@@ -1248,7 +1248,7 @@ recommended_execution_order_after_reassessment:
     Historical reassessment order used before the 112-131 closeout. It is kept
     for audit context only. Current remaining implementation should follow
     current_gap_sync_2026_04_29 and control/product_runtime_architecture_map.yaml,
-    with PTL-I100-148 active as the current productized operator workbench packet.
+    with PTL-I100-149 active as the current real sample autonomous opportunity acceptance packet.
   sequence:
     - packet_ref: PTL-I100-112-production-platform-infrastructure
       reason: "Production durability, queue/worker, object storage, audit persistence, and health checks are prerequisites for real source ingestion and provider execution."

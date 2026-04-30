@@ -193,12 +193,14 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_146 = self.tasks_by_id["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]
         task_147 = self.tasks_by_id["PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine"]
         task_148 = self.tasks_by_id["PTL-I100-148-productized-autonomous-operator-workbench"]
+        task_149 = self.tasks_by_id["PTL-I100-149-real-sample-autonomous-opportunity-acceptance"]
         checklist_143g = self.checklist["tasks"]["PTL-I100-143G-public-web-capture-doc-sync-and-order-review"]
         checklist_150 = self.checklist["tasks"]["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         checklist_151 = self.checklist["tasks"]["PTL-I100-151-public-web-captcha-automated-resolution-and-resume"]
         checklist_146 = self.checklist["tasks"]["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]
         checklist_147 = self.checklist["tasks"]["PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine"]
         checklist_148 = self.checklist["tasks"]["PTL-I100-148-productized-autonomous-operator-workbench"]
+        checklist_149 = self.checklist["tasks"]["PTL-I100-149-real-sample-autonomous-opportunity-acceptance"]
 
         self.assertEqual(task_143g["status"], "COMPLETED")
         self.assertEqual(task_143g["completed_commit"], "64efed4")
@@ -219,8 +221,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertEqual(task_147["status"], "COMPLETED")
         self.assertEqual(task_147["completed_commit"], "65ffbb0")
         self.assertFalse(task_147["is_current_mainline_next_candidate"])
-        self.assertEqual(task_148["status"], "ACTIVE")
-        self.assertTrue(task_148["is_current_mainline_next_candidate"])
+        self.assertEqual(task_148["status"], "COMPLETED")
+        self.assertEqual(task_148["completed_commit"], "dfeb331")
+        self.assertFalse(task_148["is_current_mainline_next_candidate"])
+        self.assertEqual(task_149["status"], "ACTIVE")
+        self.assertTrue(task_149["is_current_mainline_next_candidate"])
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", task_143g["acceptance_checks"])
         self.assertIn("autonomous_run_controller_and_stage_state_machine_visible", task_144["acceptance_checks"])
         self.assertIn("stage2_capture_plan_generation", task_145["acceptance_checks"])
@@ -254,6 +259,9 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIn("project_manager_active_conflict_priority", task_146["capability_gaps_covered"])
         self.assertIn("commercial_hook_lead_generation", task_147["capability_gaps_covered"])
         self.assertIn("autonomous_opportunity_queue_ui", task_148["capability_gaps_covered"])
+        self.assertIn("real_sample_market_scan_to_hook_lead", task_149["capability_gaps_covered"])
+        self.assertIn("autonomous_source_to_evidence_to_sales_flow", task_149["capability_gaps_covered"])
+        self.assertIn("real_sample_runs_through_autonomous_opportunity_flow", task_149["acceptance_checks"])
 
         serialized_143g = yaml.safe_dump(checklist_143g, allow_unicode=True)
         serialized_150 = yaml.safe_dump(checklist_150, allow_unicode=True)
@@ -261,6 +269,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         serialized_146 = yaml.safe_dump(checklist_146, allow_unicode=True)
         serialized_147 = yaml.safe_dump(checklist_147, allow_unicode=True)
         serialized_148 = yaml.safe_dump(checklist_148, allow_unicode=True)
+        serialized_149 = yaml.safe_dump(checklist_149, allow_unicode=True)
         self.assertIn("144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149", serialized_143g)
         self.assertIn("D1-D14", serialized_143g)
         self.assertIn("Stage2Service", serialized_150)
@@ -274,6 +283,9 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIn("机会队列", serialized_148)
         self.assertIn("owner 不应依赖原始 JSON", serialized_148)
         self.assertIn("productized_autonomous_operator_workbench", checklist_148["targeted_test_expectations"])
+        self.assertIn("市场扫描到可售商业钩子", serialized_149)
+        self.assertIn("不依赖 raw JSON", serialized_149)
+        self.assertIn("real_sample_autonomous_opportunity_acceptance", checklist_149["targeted_test_expectations"])
 
     def test_required_subpackets_have_dedicated_acceptance_entries(self) -> None:
         subpacket_acceptance = self.checklist["subpacket_acceptance"]

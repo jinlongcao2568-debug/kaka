@@ -69,6 +69,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         expected_operations = {
             "previewOperatorCustomerAccessReadiness",
             "previewAutonomousOperatorWorkbench",
+            "previewRealSampleAutonomousOpportunityAcceptance",
             "createOperatorTask",
             "listRealPublicSourceProfiles",
             "runOwnerRealPublicSourceCapture",
@@ -138,6 +139,15 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["repository_backed_readback"])
         self.assertTrue(payload["operator_console"]["full_chain_run_entry"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["autonomous_operator_workbench"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_sample_autonomous_acceptance"]["entry_visible"])
+        self.assertTrue(
+            payload["operator_console"]["real_sample_autonomous_acceptance"][
+                "real_sample_flow_visible"
+            ]
+        )
+        self.assertFalse(
+            payload["operator_console"]["real_sample_autonomous_acceptance"]["raw_json_required"]
+        )
         self.assertTrue(
             payload["operator_console"]["autonomous_operator_workbench"][
                 "opportunity_queue_visible"

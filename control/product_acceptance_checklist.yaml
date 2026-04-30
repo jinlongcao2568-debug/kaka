@@ -1136,6 +1136,12 @@ tasks:
     completion_must_prove:
       - "必须用真实公开样本证明系统能从市场扫描到可售商业钩子和交付候选形成端到端可观察流程。"
       - "必须在操作台可看懂成功、降级、复核和阻断原因。"
+      - "必须证明 owner 可从产品化工作台观察机会队列、商业钩子、买家排序、交付候选和下一步动作，不依赖 raw JSON。"
+    targeted_test_expectations:
+      - real_sample_autonomous_opportunity_acceptance
+      - productized_autonomous_operator_workbench
+      - operator_customer_access
+      - product_operability_gap_matrix
     controlled_opening_requirement_checks:
       - real_sample_runs_through_autonomous_opportunity_flow
       - owner_can_observe_and_review_without_raw_api
