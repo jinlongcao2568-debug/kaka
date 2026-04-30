@@ -365,32 +365,6 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }}
-    .flow-steps {{
-      display: grid;
-      grid-template-columns: repeat(9, minmax(120px, 1fr));
-      gap: 8px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-    }}
-    .flow-step {{
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fbfcfe;
-      padding: 10px;
-      min-height: 128px;
-    }}
-    .flow-step strong {{
-      display: block;
-      font-size: 13px;
-      margin-bottom: 6px;
-    }}
-    .flow-step span {{
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-      margin-bottom: 4px;
-    }}
     .timeline {{
       display: grid;
       gap: 8px;
@@ -497,7 +471,6 @@ def render_operator_console(payload: Any) -> HTMLResponse:
   <nav aria-label="运营操作台导航">
     <h1>AX9S 运营操作台</h1>
     <button class="nav-link active" type="button" data-view="overview" aria-current="page">阶段1-9 运营总览</button>
-    <button class="nav-link" type="button" data-view="flow" aria-current="false">流程观察</button>
     <button class="nav-link" type="button" data-view="search" aria-current="false">实战搜索</button>
     <button class="nav-link" type="button" data-view="run" aria-current="false">全链路运行</button>
     <button class="nav-link" type="button" data-view="business" aria-current="false">业务闭环</button>
@@ -525,6 +498,12 @@ def render_operator_console(payload: Any) -> HTMLResponse:
         <div class="view-panel active" id="overview" data-view-panel="overview">
           <section>
             <h3>阶段1-9 运营总览</h3>
+            <p class="muted-text" id="stageDirection">系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 客户材料候选。运行实战搜索后显示每阶段产出。</p>
+            <div class="rail" id="stageMetrics">
+              <div class="metric"><strong>9</strong><span>阶段数</span></div>
+              <div class="metric"><strong>0</strong><span>产出对象</span></div>
+              <div class="metric"><strong>0</strong><span>有效数据</span></div>
+            </div>
             <div class="stage-grid" id="stageBoard">
               <div class="stage-card"><strong>阶段1 调度</strong><p>任务、窗口、队列、暂停恢复。</p><span class="pill">内部执行</span></div>
               <div class="stage-card"><strong>阶段2 公开源</strong><p>公开源适配器、快照、哈希、来源链。</p><span class="pill">仅公开来源</span></div>
@@ -537,21 +516,9 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div class="stage-card"><strong>阶段9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">无自动退款</span></div>
             </div>
           </section>
-        </div>
-        <div class="view-panel" id="flow" data-view-panel="flow">
           <section>
-            <h3>系统流程图与数据流</h3>
-            <p class="muted-text" id="flowDirection">运行实战搜索后，这里显示本次搜索从市场扫描到客户材料候选的真实阶段统计。</p>
-            <div class="rail" id="flowMetrics">
-              <div class="metric"><strong>--</strong><span>阶段数</span></div>
-              <div class="metric"><strong>--</strong><span>产出对象</span></div>
-              <div class="metric"><strong>--</strong><span>有效数据</span></div>
-            </div>
-            <div class="flow-steps" id="flowDiagram"></div>
-          </section>
-          <section>
-            <h3>运行日志</h3>
-            <div id="flowLog" class="timeline"></div>
+            <h3>阶段运行日志</h3>
+            <div id="stageRunLog" class="timeline"></div>
           </section>
         </div>
         <div class="view-panel" id="business" data-view-panel="business">
@@ -800,12 +767,12 @@ function amountRangeText(range) {
   if (!range) { return "--"; }
   return `${moneyWanText(range.minimum)} - ${moneyWanText(range.maximum)}`;
 }
-function renderFlowTelemetry(flow) {
+function renderStageOverviewTelemetry(telemetry) {
   const defaultStages = [
     "市场扫描 / 机会发现", "来源蓝图 / 采集计划", "解析规范化", "证据风险核验", "规则证据门",
     "产品包", "商业钩子 / 买家匹配", "触达计划", "支付交付"
   ];
-  const stages = flow?.stage_stats || defaultStages.map((name, index) => ({
+  const stages = telemetry?.stage_stats || defaultStages.map((name, index) => ({
     stage: index + 1,
     name,
     state: "等待运行",
@@ -814,32 +781,22 @@ function renderFlowTelemetry(flow) {
     invalid_count: 0,
     note: "运行实战搜索后显示本阶段真实统计。"
   }));
-  const totals = flow?.totals || {
+  const totals = telemetry?.totals || {
     stage_count: stages.length,
     produced_count: 0,
     effective_count: 0,
     invalid_count: 0
   };
-  $("flowDirection").textContent = flow?.direction
-    ? `${flow.direction}。内部测试链路可跑；真实对外交付门禁保留。`
+  $("stageDirection").textContent = telemetry?.direction
+    ? `${telemetry.direction}。内部测试链路可跑；真实对外交付门禁保留。`
     : "系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 客户材料候选。运行后显示每阶段产出。";
-  $("flowMetrics").innerHTML = [
+  $("stageMetrics").innerHTML = [
     `<div class="metric"><strong>${totals.stage_count || stages.length}</strong><span>阶段数</span></div>`,
     `<div class="metric"><strong>${totals.produced_count || 0}</strong><span>产出对象</span></div>`,
     `<div class="metric"><strong>${totals.effective_count || 0}</strong><span>有效数据</span></div>`
   ].join("");
-  $("flowDiagram").innerHTML = stages.map((stage) => `
-    <div class="flow-step">
-      <strong>阶段${stage.stage} ${stage.name}</strong>
-      ${badge(stage.state || "等待运行", stage.invalid_count ? "warn" : "")}
-      <span>产出：${stage.produced_count ?? 0}</span>
-      <span>有效：${stage.effective_count ?? 0}</span>
-      <span>无效/待复核：${stage.invalid_count ?? 0}</span>
-      <span>${stage.note || ""}</span>
-    </div>
-  `).join("");
-  const logs = flow?.logs || ["等待运行。这里会记录搜索、选源、阶段1-9产出和交付候选生成过程。"];
-  $("flowLog").innerHTML = logs.map((item, index) => `<div>${index + 1}. ${item}</div>`).join("");
+  const logs = telemetry?.logs || ["等待运行。这里会记录搜索、选源、阶段1-9产出和交付候选生成过程。"];
+  $("stageRunLog").innerHTML = logs.map((item, index) => `<div>${index + 1}. ${item}</div>`).join("");
   $("stageBoard").innerHTML = stages.map((stage) => `
     <div class="stage-card">
       <strong>阶段${stage.stage} ${stage.name}</strong>
@@ -1045,7 +1002,7 @@ async function runAutonomousSearch() {
       customer_artifact_candidate: result.customer_artifact_candidate_path,
       raw_json_required: false
     });
-    renderFlowTelemetry(result.runtime_flow);
+    renderStageOverviewTelemetry(result.runtime_flow);
     await loadAutonomousSearchRuns();
     await loadAutonomousWorkbench(selectedAutonomousOpportunityId);
     return result;
@@ -1156,7 +1113,7 @@ document.querySelectorAll("[data-view]").forEach((item) => {
 });
 window.addEventListener("hashchange", () => showView((window.location.hash || "#overview").slice(1)));
 showView((window.location.hash || "#overview").slice(1));
-renderFlowTelemetry();
+renderStageOverviewTelemetry();
 Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);

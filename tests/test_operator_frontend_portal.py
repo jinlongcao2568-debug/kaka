@@ -99,9 +99,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "阶段7 销售",
             "阶段8 触达",
             "阶段9 支付交付",
-            "流程观察",
-            "系统流程图与数据流",
-            "运行日志",
+            "系统方向：市场扫描",
+            "阶段运行日志",
             "业务闭环",
             "证据链",
             "证据风险",
@@ -163,14 +162,20 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             'class="layout operator-shell"',
             'data-view="audit"',
             'data-view-panel="audit"',
-            'data-view="flow"',
-            'data-view-panel="flow"',
             'class="resultPane"',
             "function formatOperatorSummary(value)",
-            "function renderFlowTelemetry(flow)",
+            "function renderStageOverviewTelemetry(telemetry)",
             "function showView(view)",
         ):
             self.assertIn(expected, html)
+        for removed_duplicate in (
+            "流程观察",
+            "系统流程图与数据流",
+            'data-view="flow"',
+            'data-view-panel="flow"',
+            "function renderFlowTelemetry(flow)",
+        ):
+            self.assertNotIn(removed_duplicate, html)
         self.assertNotIn(
             'const out = (value) => { $("output").textContent = JSON.stringify(value, null, 2); };',
             html,
