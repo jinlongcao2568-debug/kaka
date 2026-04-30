@@ -283,6 +283,30 @@ stage_module_inventory:
           - "手工 URL 选择不得成为主流程；本 slice 不执行 Stage2 fetch 或 capture_adapter。"
         deferred_gaps:
           - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+      - slice_id: stage1.source_blueprint_orchestration
+        business_summary: "根据 opportunity candidate 自动选择公开源组合并生成 Stage2 capture plan。"
+        implementation_state: INTERNAL_READY_CANDIDATE
+        current_files:
+          - src/stage1_tasking/source_blueprint.py
+        handoff_files:
+          - handoff/stage1_to_stage2/contract.json
+        api_surface_files:
+          - src/api/routes/stage1.py
+          - src/api/schemas/stage1.py
+        repository_files:
+          - src/storage/repositories/stage1_source_blueprint_repo.py
+        test_files:
+          - tests/test_stage1_source_blueprint.py
+        depends_on_slices:
+          - stage1.market_scan_opportunity_discovery
+          - stage1.source_route_clock
+        target_packet_candidates:
+          - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+        exit_criteria:
+          - "source mix、source selection/skip reason、Stage2 capture plan、approved-source summary 和 readback 可读回。"
+          - "全国聚合仅作一级发现；北京仅作技术回归；城市来源按覆盖缺口触发；本 slice 不执行 Stage2 fetch。"
+        deferred_gaps:
+          - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
   - stage_id: stage2_ingestion
     stage_name: "Stage2 公开链抓取与固定化"
     business_summary: "把公开来源、版本链、时钟链和固定化输入转成 Stage3 可解析的正式公开链。"

@@ -78,3 +78,47 @@ class Stage1MarketScanResponse(TypedDict, total=False):
     run_controller: dict[str, Any]
     stage_state_machine: dict[str, Any]
     readback_summary: dict[str, Any]
+
+
+class Stage1SourceBlueprintRequest(TypedDict, total=False):
+    source_blueprint_plan_id: str
+    scan_run_id: str
+    market_scan_run_id: str
+    source_blueprint_batch_id: str
+    opportunity_candidate: Stage1OpportunityCandidate
+    opportunity_candidates: list[Stage1OpportunityCandidate]
+    coverage_gap_signals: list[str]
+    now: str
+
+
+class Stage1SourceDecision(TypedDict, total=False):
+    surface_key: str
+    source_role: str
+    selected: bool
+    selection_reason: str
+    source_registry_id: str
+    source_family: str
+    adapter_id: str
+    approved: bool
+    approval_source: str
+    triggered_by_coverage_gap: bool
+    trigger_signals: list[str]
+
+
+class Stage1SourceBlueprintResponse(TypedDict, total=False):
+    source_blueprint_plan_id: str
+    capability_state: str
+    plan_state: str
+    internal_only: bool
+    customer_visible: bool
+    capture_execution_enabled: bool
+    stage2_fetch_executed: bool
+    real_external_fetch_enabled: bool
+    source_blueprint_auto_selection: bool
+    stage2_capture_plan_generation: bool
+    source_mix: list[Stage1SourceDecision]
+    stage2_capture_plan: dict[str, Any]
+    coverage_gap_policy: dict[str, Any]
+    commercial_pilot_policy: dict[str, Any]
+    pilot_province_portfolio: list[dict[str, Any]]
+    readback_summary: dict[str, Any]

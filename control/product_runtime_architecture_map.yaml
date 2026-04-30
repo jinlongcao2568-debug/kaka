@@ -521,6 +521,9 @@ autonomous_execution_brain_contract:
       adds:
         - stage2_capture_plan_executor_binding
         - source_blueprint_auto_selection
+        - source_mix_reasoning_and_skip_reasons
+        - repository_backed_source_blueprint_readback
+        - gap_driven_city_adapter_selection
     PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation:
       adds:
         - public_web_failure_diagnosis
@@ -790,10 +793,10 @@ implementation_sequence:
     status: COMPLETED
     purpose: synchronize_non_refund_boundaries_to_controlled_opening_semantics
   - packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
-    status: ACTIVE
+    status: COMPLETED
     purpose: choose_which_projects_are_worth_analysis
   - packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-    status: PLANNED
+    status: ACTIVE
     purpose: choose_public_source_mix_and_generate_stage2_capture_plan
   - packet_ref: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     status: PLANNED

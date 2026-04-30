@@ -557,7 +557,7 @@ public_web_capture_doc_sync_and_order_review_after_143F:
     - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
 source_strategy_pilot_portfolio_after_143D:
   packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-  status: PLANNED
+  status: ACTIVE
   trigger_reason: "Owner challenged whether national aggregated tender platforms are updated and comprehensive enough; real-world source strategy must treat national aggregation as discovery/dedupe only, then use pilot province and gap-driven city adapters."
   target_capability_state: INTERNAL_READY
   current_gap: "Current real public fetchers include national and representative local profiles, but the product has not yet selected a commercial pilot province portfolio or encoded when city adapters are necessary."
@@ -665,13 +665,12 @@ current_gap_sync_2026_04_29:
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/repo_status.md
-  current_active_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
-  current_active_packet_scope: internal_market_scan_opportunity_discovery_only
-  closed_prerequisite_packet: PTL-I100-144A-controlled-opening-sync
+  current_active_packet: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+  current_active_packet_scope: internal_source_blueprint_orchestration_and_capture_plan_only
+  closed_prerequisite_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
   owner_operated_controlled_business_state: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
   remaining_product_blockers_for_controlled_owner_e2e: []
   current_remaining_runtime_productization_packets:
-    - PTL-I100-144-market-scan-opportunity-discovery-engine
     - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     - PTL-I100-151-public-web-captcha-automated-resolution-and-resume
@@ -936,7 +935,7 @@ production_gap_task_map:
       - reuse_existing_runtime_surfaces_doc_policy
   - gap_group: market_scan_opportunity_discovery_engine
     packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - autonomous_market_segment_selection
@@ -944,7 +943,7 @@ production_gap_task_map:
       - analysis_priority_and_skip_reason
   - gap_group: source_blueprint_orchestration_and_capture_plan
     packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-    status: PLANNED
+    status: ACTIVE
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - source_blueprint_auto_selection

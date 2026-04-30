@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-144-market-scan-opportunity-discovery-engine (ACTIVE; implements the internal market scan opportunity discovery slice with autonomous run controller, stage state machine, opportunity candidate priority, why_analyze/why_skip, and no manual URL picker as the primary flow. This packet does not execute Stage2 fetch, real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
+Current Workstream: PTL-I100-145-source-blueprint-orchestration-and-capture-plan (ACTIVE; implements the internal source blueprint and Stage2 capture-plan slice with automatic public source mix selection, approved-source checks, national aggregator discovery-only policy, pilot province portfolio, Beijing technical-regression-only policy, and gap-driven city adapter selection. This packet does not execute Stage2 fetch, real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -19,7 +19,7 @@ Current Controlled Opening Boundaries:
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
 - PTL-I100-143G is completed and registered the public-web capture escalation, captcha automated challenge resolution/resume, and implementation order before runtime packets continue.
-- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144 is the active internal market scan opportunity discovery packet and does not execute provider calls, outreach, payment, delivery, refund, customer download, or public release.
+- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144 is internally ready for market scan opportunity discovery; PTL-I100-145 is the active internal source blueprint orchestration and capture-plan packet and does not execute provider calls, outreach, payment, delivery, refund, customer download, or public release.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -27,13 +27,14 @@ Product Open Capability Baseline:
 - Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the controlled-opening gate pass; it does not mean the capability is permanently out of product scope.
 
-Current 144 Scope:
-- Implement Stage1 market scan opportunity discovery as an internal owner-operated product slice.
-- Produce opportunity candidates, analysis priority, why_analyze/why_skip/review reasons, run controller, stage state machine, and repository-backed readback.
-- Keep manual URL selection out of the primary flow.
+Current 145 Scope:
+- Implement Stage1 source blueprint orchestration as an internal owner-operated product slice.
+- Produce source mix decisions, source selection/skip reasons, Stage2 capture plan, approved-source summary, national aggregator discovery-only policy, pilot province portfolio, Beijing technical-regression-only policy, gap-driven city adapter policy, and repository-backed readback.
+- Keep manual URL selection out of the primary flow and keep city adapters gap-driven rather than blanket rollout.
 - Keep Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, automated refund, and public release unexecuted.
 
 Recently Closed:
+- PTL-I100-144-market-scan-opportunity-discovery-engine completed and committed locally: 62ee945.
 - PTL-I100-144A-controlled-opening-sync closed after controlled-opening semantics and status assets were synchronized.
 - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed and committed locally: 64efed4.
 - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync completed and committed locally: 5f71320.
@@ -65,6 +66,7 @@ State Semantics:
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
 - python -m unittest tests.test_stage1_market_scan -v
+- python -m unittest tests.test_stage1_source_blueprint -v
 - python -m unittest tests.test_stage1_scheduler -v
 - python -m unittest tests.test_api_transport_bootstrap -v
 - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v

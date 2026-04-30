@@ -150,3 +150,13 @@ class Stage1Service:
         from stage1_tasking.market_scan import Stage1MarketScanEngine
 
         return Stage1MarketScanEngine().readback(scan_run_id)
+
+    def build_source_blueprint(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+        from stage1_tasking.source_blueprint import Stage1SourceBlueprintOrchestrator
+
+        return Stage1SourceBlueprintOrchestrator().build(payload)
+
+    def read_source_blueprint(self, source_blueprint_plan_id: str) -> Mapping[str, Any]:
+        from stage1_tasking.source_blueprint import Stage1SourceBlueprintOrchestrator
+
+        return Stage1SourceBlueprintOrchestrator().readback(source_blueprint_plan_id)

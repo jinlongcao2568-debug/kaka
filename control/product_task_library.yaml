@@ -126,12 +126,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
-  packet_id: PTL-I100-144-market-scan-opportunity-discovery-engine
-  title: "I100-44 Market scan opportunity discovery engine"
+  task_id: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+  packet_id: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+  title: "I100-45 Source blueprint orchestration and capture plan"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-144A controlled-opening sync is closed. 144 is active for the internal market scan opportunity discovery engine: autonomous run controller, stage state machine, opportunity candidate priority, why_analyze/why_skip, and no manual URL picker as primary flow. This packet does not execute Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, or public software release."
+  runtime_notes: "PTL-I100-144 market scan opportunity discovery is internally ready. 145 is active for source blueprint orchestration and Stage2 capture-plan generation: automatic source mix, approved source selection, national aggregator discovery-only policy, pilot province portfolio, Beijing technical-regression-only policy, and gap-driven city adapter selection. This packet does not execute Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, or public software release."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -3278,9 +3278,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage6_fact_review, product_acceptance]
     task_type: market_scan_opportunity_discovery_engine
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P50
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
@@ -3301,15 +3301,18 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-144-market-scan-opportunity-discovery-engine
     suggested_packet_refs: [PTL-I100-144-market-scan-opportunity-discovery-engine]
     risk_level: HIGH
+    completed_commit: 62ee945
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_MARKET_SCAN_OPPORTUNITY_DISCOVERY_ENGINE"
   - task_id: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     title: "I100-45 Source blueprint orchestration and capture plan"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, operator_frontend, product_acceptance]
     task_type: source_blueprint_orchestration_and_capture_plan
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: false
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
     priority: P51
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:

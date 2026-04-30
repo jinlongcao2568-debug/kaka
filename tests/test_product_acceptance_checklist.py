@@ -187,6 +187,7 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_143g = self.tasks_by_id["PTL-I100-143G-public-web-capture-doc-sync-and-order-review"]
         task_144a = self.tasks_by_id["PTL-I100-144A-controlled-opening-sync"]
         task_144 = self.tasks_by_id["PTL-I100-144-market-scan-opportunity-discovery-engine"]
+        task_145 = self.tasks_by_id["PTL-I100-145-source-blueprint-orchestration-and-capture-plan"]
         task_150 = self.tasks_by_id["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         task_151 = self.tasks_by_id["PTL-I100-151-public-web-captcha-automated-resolution-and-resume"]
         checklist_143g = self.checklist["tasks"]["PTL-I100-143G-public-web-capture-doc-sync-and-order-review"]
@@ -197,12 +198,15 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertEqual(task_143g["completed_commit"], "64efed4")
         self.assertEqual(task_144a["status"], "COMPLETED")
         self.assertFalse(task_144a["is_current_mainline_next_candidate"])
-        self.assertEqual(task_144["status"], "ACTIVE")
-        self.assertTrue(task_144["is_current_mainline_next_candidate"])
+        self.assertEqual(task_144["status"], "COMPLETED")
+        self.assertFalse(task_144["is_current_mainline_next_candidate"])
+        self.assertEqual(task_145["status"], "ACTIVE")
+        self.assertTrue(task_145["is_current_mainline_next_candidate"])
         self.assertEqual(task_150["status"], "PLANNED")
         self.assertEqual(task_151["status"], "PLANNED")
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", task_143g["acceptance_checks"])
         self.assertIn("autonomous_run_controller_and_stage_state_machine_visible", task_144["acceptance_checks"])
+        self.assertIn("stage2_capture_plan_generation", task_145["acceptance_checks"])
         self.assertIn(
             "PTL-I100-151-public-web-captcha-automated-resolution-and-resume",
             self.tasks_by_id["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]["hard_depends_on"],

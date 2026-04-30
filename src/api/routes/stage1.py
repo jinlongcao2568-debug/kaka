@@ -9,6 +9,7 @@ from typing import Any
 
 from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.scheduler import Stage1Scheduler
+from stage1_tasking.source_blueprint import Stage1SourceBlueprintOrchestrator
 from api.deps import build_transport_unavailable
 
 
@@ -57,11 +58,24 @@ def read_stage1_market_scan(payload: dict[str, Any]) -> dict[str, Any]:
     return Stage1MarketScanEngine().readback(str(scan_run_id))
 
 
+def create_stage1_source_blueprint_plan(payload: dict[str, Any]) -> dict[str, Any]:
+    return Stage1SourceBlueprintOrchestrator().build(payload)
+
+
+def read_stage1_source_blueprint_plan(payload: dict[str, Any]) -> dict[str, Any]:
+    plan_id = payload.get("source_blueprint_plan_id")
+    if not plan_id:
+        raise ValueError("source_blueprint_plan_id is required for stage1 source blueprint readback")
+    return Stage1SourceBlueprintOrchestrator().readback(str(plan_id))
+
+
 __all__ = [
     "STAGE1_TRANSPORT_UNAVAILABLE",
     "create_stage1_market_scan",
     "create_stage1_scheduler_task",
+    "create_stage1_source_blueprint_plan",
     "read_stage1_market_scan",
     "read_stage1_scheduler_task",
+    "read_stage1_source_blueprint_plan",
     "register_stage1_routes",
 ]
