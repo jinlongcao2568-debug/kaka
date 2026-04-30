@@ -264,6 +264,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
         self.assertIn('href="#autonomousWorkbench"', html)
         self.assertIn('data-workbench-opportunity', html)
+        self.assertIn('id="selectAllRegions"', html)
+        self.assertIn('id="selectAllProjectTypes"', html)
+        self.assertIn('renderCandidateCards', html)
+        self.assertIn('renderSearchResultFromRun', html)
         self.assertIn('"/customer-artifact-portal/', html)
         self.assertIn('"/operator-console/real-source-profiles"', html)
         self.assertIn('"/operator-console/real-source-runs"', html)
@@ -288,6 +292,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "访问控制",
             "字段策略",
             "下载审计",
+            "内部预览验收",
             "字段白名单已执行",
             "脱敏必需",
             "未执行真实下载",
@@ -295,6 +300,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "renderReadbackSummary",
             "blockedReasonLabel",
             "/customer-artifact-portal-readback/",
+            "内部验收可用",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
@@ -330,6 +336,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "未执行真实下载",
             "客户可见发布待审批",
             "内部黑箱已隐藏",
+            "内部预览未形成",
         ):
             self.assertIn(expected, html)
 

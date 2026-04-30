@@ -219,6 +219,11 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertTrue(payload["runtime_flow"]["live_delivery_gates_preserved"])
         self.assertEqual(payload["runtime_flow"]["totals"]["stage_count"], 9)
         self.assertEqual(len(payload["runtime_flow"]["stage_stats"]), 9)
+        self.assertEqual(payload["search_scope"]["candidate_count"], 1)
+        self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 1)
+        self.assertEqual(len(payload["candidate_options"]), 1)
+        self.assertEqual(payload["candidate_options"][0]["region_code"], "CN-GD")
+        self.assertEqual(payload["candidate_options"][0]["project_type"], "municipal")
         self.assertTrue(payload["search_run_id"])
         self.assertEqual(
             payload["search_run_record"]["search_state"],
@@ -236,6 +241,9 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertFalse(runs["raw_json_required"])
         self.assertEqual(runs["runs"][0]["opportunity_id"], opportunity_id)
         self.assertEqual(runs["runs"][0]["region_code"], "CN-GD")
+        self.assertEqual(runs["latest_runtime_flow"]["totals"]["stage_count"], 9)
+        self.assertEqual(runs["runs"][0]["search_scope"]["candidate_count"], 1)
+        self.assertEqual(runs["runs"][0]["candidate_options"][0]["region_code"], "CN-GD")
         self.assertEqual(
             runs["runs"][0]["search_state"],
             "AUTONOMOUS_SEARCH_ACCEPTED",
@@ -308,6 +316,38 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(runs["runs"][0]["opportunity_id"], opportunity_id)
         self.assertEqual(runs["runs"][0]["amount_min"], "8000000")
         self.assertEqual(runs["runs"][0]["amount_max"], "30000000")
+        self.assertEqual(runs["runs"][0]["search_scope"]["closed_loop_generated_count"], 1)
+        self.assertTrue(runs["runs"][0]["runtime_flow"]["stage_stats"])
+
+    def test_operator_autonomous_search_accepts_multi_region_and_project_type_scope(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD", "CN-JS"],
+                "query": "公共建筑工程",
+                "project_types": ["construction", "municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "candidate_count": 3,
+                "now": "2026-04-30T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_state"], "AUTONOMOUS_SEARCH_ACCEPTED")
+        self.assertEqual(payload["search_scope"]["region_codes"], ["CN-GD", "CN-JS"])
+        self.assertEqual(payload["search_scope"]["project_types"], ["construction", "municipal"])
+        self.assertEqual(payload["search_scope"]["candidate_count"], 4)
+        self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 1)
+        self.assertEqual(payload["region_adapter"]["region_code"], "CN-GD")
+        self.assertEqual(payload["candidate"]["project_type"], "construction")
+        self.assertEqual(len(payload["candidate_options"]), 4)
+        self.assertTrue(payload["candidate_options"][0]["project_name"])
+        self.assertEqual(payload["runtime_flow"]["stage_stats"][0]["produced_count"], 4)
 
 
 if __name__ == "__main__":

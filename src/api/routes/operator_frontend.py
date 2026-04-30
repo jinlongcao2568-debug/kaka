@@ -365,6 +365,42 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }}
+    .field-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0 4px;
+    }}
+    .field-actions button {{
+      margin-top: 0;
+      padding: 7px 10px;
+      font-size: 13px;
+    }}
+    .opportunity-actions {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }}
+    .opportunity-actions a,
+    .opportunity-actions button {{
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 9px;
+      font-size: 13px;
+      text-decoration: none;
+      color: var(--accent);
+      background: #fff;
+      cursor: pointer;
+      margin-top: 0;
+    }}
+    .opportunity-actions a:hover,
+    .opportunity-actions button:hover {{
+      background: #edf8f4;
+    }}
+    select[multiple] {{
+      min-height: 132px;
+    }}
     .timeline {{
       display: grid;
       gap: 8px;
@@ -532,16 +568,24 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <section>
               <h3>实战项目搜索</h3>
               <label for="searchRegion">地区适配器</label>
-              <select id="searchRegion"></select>
+              <select id="searchRegion" multiple size="5"></select>
+              <div class="field-actions">
+                <button class="secondary" type="button" id="selectAllRegions">全选地区</button>
+                <button class="secondary" type="button" id="clearRegions">清空地区</button>
+              </div>
               <label for="searchKeyword">关键词</label>
               <input id="searchKeyword" value="公共建筑工程" />
               <label for="searchProjectType">项目类型</label>
-              <select id="searchProjectType">
-                <option value="construction">房建工程</option>
+              <select id="searchProjectType" multiple size="4">
+                <option value="construction" selected>房建工程</option>
                 <option value="municipal">市政工程</option>
                 <option value="highway">公路交通</option>
                 <option value="water_conservancy">水利工程</option>
               </select>
+              <div class="field-actions">
+                <button class="secondary" type="button" id="selectAllProjectTypes">全选类型</button>
+                <button class="secondary" type="button" id="clearProjectTypes">清空类型</button>
+              </div>
               <label>金额区间（万元）</label>
               <div class="field-row">
                 <input id="searchAmountMinWan" type="number" value="800" aria-label="最低金额（万元）" />
@@ -757,6 +801,68 @@ function amountRangeText(range) {
   if (!range) { return "--"; }
   return `${moneyWanText(range.minimum)} - ${moneyWanText(range.maximum)}`;
 }
+function selectedValues(id) {
+  const select = $(id);
+  return Array.from(select?.selectedOptions || []).map((option) => option.value).filter(Boolean);
+}
+function setAllSelected(id, selected) {
+  const select = $(id);
+  if (!select) { return; }
+  Array.from(select.options).forEach((option) => { option.selected = selected; });
+}
+function candidateRange(candidate) {
+  return {
+    minimum: candidate?.amount_min ?? candidate?.amount,
+    maximum: candidate?.amount_max ?? candidate?.amount
+  };
+}
+function opportunityActions(opportunityId) {
+  if (!opportunityId) { return ""; }
+  return `<div class="opportunity-actions">
+    <a href="#autonomousWorkbench" data-workbench-opportunity="${opportunityId}">查看机会</a>
+    <a href="/customer-artifact-portal/${encodeURIComponent(opportunityId)}">客户材料预览</a>
+  </div>`;
+}
+function renderCandidateCards(candidates, activeOpportunityId="", selectedProjectId="") {
+  const rows = Array.isArray(candidates) ? candidates : [];
+  if (!rows.length) {
+    return `<div class="empty-state">暂无候选对象明细。</div>`;
+  }
+  return `<div class="compact-card-grid">${rows.map((candidate) => `
+    <div class="stage-card">
+      <strong>${candidate.project_name || candidate.project_id || "--"}</strong>
+      <p>${candidate.region_name || candidate.region_code || "--"} · ${labelOf(candidate.project_type || "--")} · ${amountRangeText(candidateRange(candidate))}</p>
+      ${badge(candidate.analysis_decision || "--", candidate.selected_for_capture_plan ? "" : "warn")}
+      ${badge(candidate.analysis_priority || "--")}
+      ${badge(candidate.analysis_score ? `评分 ${candidate.analysis_score}` : "评分 --")}
+      <p>${candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回"}</p>
+      ${activeOpportunityId && candidate.project_id === selectedProjectId ? opportunityActions(activeOpportunityId) : ""}
+    </div>
+  `).join("")}</div>`;
+}
+function renderSearchResultFromRun(run) {
+  if (!run) {
+    $("searchResult").className = "empty-state";
+    $("searchResult").textContent = "暂无搜索结果。";
+    return;
+  }
+  const scope = run.search_scope || {};
+  $("searchResult").className = "";
+  $("searchResult").innerHTML = `
+    <div class="stage-card">
+      <strong>${run.opportunity_id || "--"}</strong>
+      <p>${run.project_name || run.query || "--"}</p>
+      ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
+      ${badge(run.region_code || "--")}
+      ${badge(run.project_type_label || run.project_type || "--")}
+      <p>金额区间：${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
+      <p>候选对象：${scope.candidate_count ?? (run.candidate_options || []).length ?? 0}；进入闭环：${scope.closed_loop_generated_count ?? (run.opportunity_id ? 1 : 0)}</p>
+      ${opportunityActions(run.opportunity_id)}
+    </div>
+    <h3>候选对象明细</h3>
+    ${renderCandidateCards(run.candidate_options || [], run.opportunity_id || "", scope.selected_project_id || run.project_id || "")}
+  `;
+}
 function renderStageOverviewTelemetry(telemetry) {
   const defaultStages = [
     "市场扫描 / 机会发现", "来源蓝图 / 采集计划", "解析规范化", "证据风险核验", "规则证据门",
@@ -852,7 +958,13 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
       badge(item.conversion_priority || "--"),
       badge(item.delivery_state || "--", item.customer_visible_enabled ? "" : "warn")
     ].join("");
-    return `<div class="stage-card"><strong>${item.opportunity_id || "--"}</strong><p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>${tags}<p>${labelOf(item.next_action || "--")}</p></div>`;
+    return `<div class="stage-card">
+      <strong>${item.opportunity_id || "--"}</strong>
+      <p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>
+      ${tags}
+      <p>${labelOf(item.next_action || "--")}</p>
+      ${opportunityActions(item.opportunity_id || "")}
+    </div>`;
   }).join("");
   const panels = payload.panels || {};
   $("autonomousDetailPanels").innerHTML = [
@@ -883,7 +995,11 @@ async function loadRegionAdapters() {
     const option = document.createElement("option");
     option.value = adapter.region_code;
     option.textContent = `${adapter.region_code} | ${adapter.region_name} | ${labelOf(adapter.adapter_state)}`;
+    option.selected = adapter.region_code === "CN-GD";
     select.appendChild(option);
+  }
+  if (!selectedValues("searchRegion").length && select.options.length) {
+    select.options[0].selected = true;
   }
   const rows = (catalog.region_adapters || []).slice(0, 8).map((adapter) => {
     const flags = [
@@ -910,6 +1026,14 @@ async function loadAutonomousSearchRuns() {
     $("autonomousSearchRuns").textContent = "暂无实战搜索运行记录。";
     return payload;
   }
+  const latestRun = runs[0];
+  if (latestRun?.opportunity_id && !selectedAutonomousOpportunityId) {
+    selectedAutonomousOpportunityId = latestRun.opportunity_id;
+  }
+  renderSearchResultFromRun(latestRun);
+  if (payload.latest_runtime_flow?.stage_stats || latestRun?.runtime_flow?.stage_stats) {
+    renderStageOverviewTelemetry(payload.latest_runtime_flow?.stage_stats ? payload.latest_runtime_flow : latestRun.runtime_flow);
+  }
   $("autonomousSearchRuns").className = "compact-card-grid";
   $("autonomousSearchRuns").innerHTML = runs.slice(0, 8).map((run) => {
     const links = [
@@ -922,7 +1046,8 @@ async function loadAutonomousSearchRuns() {
       ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
       ${badge(run.region_code || "--")}
       ${badge(run.entry_profile_id || "--")}
-      <p>${labelOf(run.project_type)} · ${amountRangeText({minimum: run.amount_min, maximum: run.amount_max})}</p>
+      <p>${labelOf(run.project_type_label || run.project_type)} · ${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
+      <p>候选 ${run.search_scope?.candidate_count ?? (run.candidate_options || []).length ?? 0} · 闭环 ${run.search_scope?.closed_loop_generated_count ?? 1}</p>
       <p>${links || "读回路径待生成"}</p>
     </div>`;
   }).join("");
@@ -944,14 +1069,18 @@ async function importProject() {
 }
 async function runAutonomousSearch() {
   const button = $("runAutonomousSearch");
+  const regionCodes = selectedValues("searchRegion");
+  const projectTypes = selectedValues("searchProjectType");
   const amountMin = amountWanToYuan($("searchAmountMinWan").value, 1000000);
   const amountMax = amountWanToYuan($("searchAmountMaxWan").value, 30000000);
   const normalizedMin = Math.min(amountMin, amountMax);
   const normalizedMax = Math.max(amountMin, amountMax);
   const payload = {
-    region_code: $("searchRegion").value,
+    region_code: regionCodes[0] || $("searchRegion").value,
+    region_codes: regionCodes,
     query: $("searchKeyword").value,
-    project_type: $("searchProjectType").value,
+    project_type: projectTypes[0] || $("searchProjectType").value,
+    project_types: projectTypes,
     amount: normalizedMax,
     amount_min: normalizedMin,
     amount_max: normalizedMax,
@@ -970,17 +1099,20 @@ async function runAutonomousSearch() {
     updateCustomerPortalLink(selectedAutonomousOpportunityId);
     const accepted = result.search_state === "AUTONOMOUS_SEARCH_ACCEPTED";
     $("searchResult").className = "";
-    $("searchResult").innerHTML = `
-      <div class="stage-card">
-        <strong>${result.opportunity_id || "--"}</strong>
-        <p>${result.candidate?.project_name || "--"}</p>
-        ${badge(result.search_state || "--", accepted ? "" : "warn")}
-        ${badge(result.acceptance?.acceptance_state || "--", accepted ? "" : "warn")}
-        ${badge(result.region_adapter?.region_code || "--")}
-        ${badge(result.search_run_id || "--")}
-        <p>项目类型：${labelOf(result.candidate?.project_type)}；金额区间：${amountRangeText(result.amount_range)}</p>
-        <p>${result.acceptance?.owner_workbench_acceptance?.queue_item?.commercial_hook_teaser || "商业钩子待生成"}</p>
-      </div>`;
+    renderSearchResultFromRun({
+      run_id: result.search_run_id,
+      search_state: result.search_state,
+      opportunity_id: result.opportunity_id,
+      project_name: result.candidate?.project_name,
+      query: result.candidate?.project_name || payload.query,
+      region_code: result.region_adapter?.region_code,
+      project_type: result.candidate?.project_type,
+      project_type_label: result.candidate?.project_type_label,
+      amount_range: result.amount_range,
+      search_scope: result.search_scope,
+      candidate_options: result.candidate_options || []
+    });
+    $("searchResult").insertAdjacentHTML("afterbegin", `<p class="muted-text">${accepted ? "已生成最高优先级机会闭环。" : "本次候选需要复核。"}</p>`);
     out({
       search_state: result.search_state,
       opportunity_id: result.opportunity_id,
@@ -1073,6 +1205,10 @@ async function loadRealSourceRuns() {
 $("createTask").addEventListener("click", createTask);
 $("importProject").addEventListener("click", importProject);
 $("runAutonomousSearch").addEventListener("click", runAutonomousSearch);
+$("selectAllRegions").addEventListener("click", () => setAllSelected("searchRegion", true));
+$("clearRegions").addEventListener("click", () => setAllSelected("searchRegion", false));
+$("selectAllProjectTypes").addEventListener("click", () => setAllSelected("searchProjectType", true));
+$("clearProjectTypes").addEventListener("click", () => setAllSelected("searchProjectType", false));
 $("refreshAutonomousSearchRuns").addEventListener("click", async () => out(await loadAutonomousSearchRuns()));
 $("runEntryCapture").addEventListener("click", runEntryCapture);
 $("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
@@ -1145,6 +1281,10 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
       <section id="audit">
         <h3>下载审计</h3>
         <div id="auditState"></div>
+      </section>
+      <section class="wide">
+        <h3>内部预览验收</h3>
+        <div id="previewState"></div>
       </section>
       <section class="controlled_opening_requirement wide">
         <h3>客户侧受控开放要求</h3>
@@ -1239,6 +1379,8 @@ async function loadPortal() {{
     badge("审计必需"),
     badge("未执行真实下载", "warn")
   ].join("");
+  document.getElementById("previewState").innerHTML =
+    `<div class="stage-card"><strong>内部验收可用</strong><p>可验收字段白名单、脱敏、水印、版本哈希、下载授权状态和审计读回；真实下载仍等待账号访问、审批和操作员确认。</p>${{badge("内部预览")}} ${{badge("真实下载待授权", "warn")}} ${{badge("审计读回可见")}}</div>`;
   renderReadbackSummary(payload, false);
 }}
 function renderMissingArtifact(payload) {{
@@ -1261,6 +1403,8 @@ function renderMissingArtifact(payload) {{
     badge("审计必需"),
     badge("客户可见发布待审批", "danger")
   ].join("");
+  document.getElementById("previewState").innerHTML =
+    `<div class="empty-state"><strong>内部预览未形成</strong><p>当前商机缺少阶段7客户材料读回。先从实战搜索生成机会闭环，再回到本页验收材料候选、字段白名单和下载审计状态。</p></div>`;
   renderReadbackSummary(payload || {{}}, true);
 }}
 loadPortal().catch(renderMissingArtifact);

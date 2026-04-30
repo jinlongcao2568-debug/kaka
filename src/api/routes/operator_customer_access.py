@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Mapping
 
 from api.deps import get_settings
@@ -50,6 +51,13 @@ OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA = {
     "stage9_real_payment_delivery_refund_enabled": False,
     "automated_refund_enabled": False,
 }
+
+DEFAULT_AUTONOMOUS_PROJECT_TYPES = (
+    "construction",
+    "municipal",
+    "highway",
+    "water_conservancy",
+)
 
 
 def _json_safe_snapshot_replay(replay: Mapping[str, Any]) -> dict[str, Any]:
@@ -320,6 +328,46 @@ def _id_token(value: Any, default: str) -> str:
     return token or default
 
 
+def _as_string_list(value: Any, default: list[str]) -> list[str]:
+    if value is None:
+        return list(default)
+    if isinstance(value, str):
+        raw_items = value.replace(";", ",").split(",")
+    elif isinstance(value, (list, tuple, set)):
+        raw_items = list(value)
+    else:
+        raw_items = [value]
+    items: list[str] = []
+    for item in raw_items:
+        text = str(item or "").strip()
+        if text and text not in items:
+            items.append(text)
+    return items or list(default)
+
+
+def _json_text(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _json_value(text: Any, default: Any) -> Any:
+    if not text:
+        return default
+    try:
+        return json.loads(str(text))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return default
+
+
+def _project_type_label(project_type: str) -> str:
+    labels = {
+        "construction": "房建工程",
+        "municipal": "市政工程",
+        "highway": "公路交通",
+        "water_conservancy": "水利工程",
+    }
+    return labels.get(project_type, project_type)
+
+
 def _search_candidate_from_payload(
     payload: Mapping[str, Any],
     *,
@@ -341,9 +389,12 @@ def _search_candidate_from_payload(
     if amount < amount_min or amount > amount_max:
         amount = amount_max
     candidate_count = _as_int(payload.get("candidate_count"), 3)
+    project_id_parts = [_id_token(region_code, "REGION"), _id_token(keyword, "SEARCH")[:18]]
+    if payload.get("multi_search_candidate_index") not in (None, ""):
+        project_id_parts.insert(1, _id_token(project_type, "TYPE"))
     project_id = str(
         payload.get("project_id")
-        or build_id("PROJ", _id_token(region_code, "REGION"), _id_token(keyword, "SEARCH")[:18])
+        or build_id("PROJ", "-".join(project_id_parts[:-1]), project_id_parts[-1])
     )
     project_name = str(payload.get("project_name") or f"{region_adapter.get('region_name')} {keyword} 机会搜索样本")
     source_url = str(entry_profile.get("sample_detail_url") or entry_profile.get("url") or "")
@@ -352,7 +403,9 @@ def _search_candidate_from_payload(
         "project_id": project_id,
         "project_name": project_name,
         "region_code": region_code,
+        "region_name": str(region_adapter.get("region_name") or region_code),
         "project_type": project_type,
+        "project_type_label": _project_type_label(project_type),
         "procurement_category": project_type,
         "notice_stage": str(payload.get("notice_stage") or "candidate_notice"),
         "amount": amount,
@@ -559,7 +612,7 @@ def _build_autonomous_runtime_flow(
             "maximum": candidate.get("amount_max"),
             "unit": "CNY",
         },
-        "project_type": payload.get("project_type") or candidate.get("project_type"),
+        "project_type": candidate.get("project_type") or payload.get("project_type"),
         "acceptance_state": acceptance.get("acceptance_state"),
         "stage_stats": stage_stats,
         "totals": {
@@ -578,21 +631,129 @@ def _build_autonomous_runtime_flow(
     }
 
 
+def _candidate_option_surface(
+    *,
+    market_scan: Mapping[str, Any],
+    raw_candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    raw_by_project_id = {str(candidate.get("project_id") or ""): candidate for candidate in raw_candidates}
+    options: list[dict[str, Any]] = []
+    for row in list(market_scan.get("market_scan_candidates", []) or []):
+        if not isinstance(row, Mapping):
+            continue
+        project_id = str(row.get("project_id") or "")
+        raw = raw_by_project_id.get(project_id, {})
+        source_refs = dict(row.get("source_refs", {}) or {})
+        amount_min = raw.get("amount_min")
+        amount_max = raw.get("amount_max")
+        options.append(
+            {
+                "opportunity_candidate_id": str(row.get("opportunity_candidate_id") or ""),
+                "project_id": project_id,
+                "project_name": str(row.get("project_name") or raw.get("project_name") or ""),
+                "region_code": str(row.get("region_code") or raw.get("region_code") or ""),
+                "region_name": str(raw.get("region_name") or row.get("region_code") or ""),
+                "project_type": str(row.get("project_type") or raw.get("project_type") or ""),
+                "project_type_label": _project_type_label(str(row.get("project_type") or raw.get("project_type") or "")),
+                "amount": row.get("amount"),
+                "amount_min": amount_min,
+                "amount_max": amount_max,
+                "analysis_score": row.get("analysis_score"),
+                "analysis_decision": str(row.get("analysis_decision") or ""),
+                "analysis_priority": str(row.get("analysis_priority") or ""),
+                "selected_for_capture_plan": bool(row.get("selected_for_capture_plan")),
+                "source_url": str(raw.get("source_url") or source_refs.get("source_url") or ""),
+                "source_profile_id": str(raw.get("source_profile_id") or ""),
+                "source_site_name": str(raw.get("source_site_name") or ""),
+            }
+        )
+    return options
+
+
+def _candidate_selection_key(
+    candidate: Mapping[str, Any],
+    *,
+    region_rank: Mapping[str, int],
+    project_type_rank: Mapping[str, int],
+) -> tuple[float, int, int, int]:
+    priority_rank = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+    return (
+        _as_float(candidate.get("analysis_score"), 0.0),
+        priority_rank.get(str(candidate.get("analysis_priority") or ""), 0),
+        -project_type_rank.get(str(candidate.get("project_type") or ""), 999),
+        -region_rank.get(str(candidate.get("region_code") or ""), 999),
+    )
+
+
 def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> dict[str, Any]:
     now = str(payload.get("now") or utc_now_iso())
+    all_region_codes = [
+        str(adapter.get("region_code") or "").strip()
+        for adapter in list_region_source_adapters()
+        if str(adapter.get("region_code") or "").strip()
+    ]
     region_code = str(payload.get("region_code") or "CN-NATIONAL").strip() or "CN-NATIONAL"
-    resolved = resolve_entry_profile_for_region(
-        region_code,
-        requested_profile_id=str(payload.get("profile_id") or payload.get("entry_profile_id") or "").strip() or None,
+    requested_region_codes = _as_string_list(payload.get("region_codes") or region_code, [region_code])
+    if "__all__" in requested_region_codes:
+        requested_region_codes = all_region_codes or ["CN-NATIONAL"]
+    project_type = str(payload.get("project_type") or "construction").strip() or "construction"
+    requested_project_types = _as_string_list(payload.get("project_types") or project_type, [project_type])
+    if "__all__" in requested_project_types:
+        requested_project_types = list(DEFAULT_AUTONOMOUS_PROJECT_TYPES)
+
+    resolved_by_region: dict[str, dict[str, Any]] = {}
+    raw_candidates: list[dict[str, Any]] = []
+    for region_index, requested_region_code in enumerate(requested_region_codes):
+        resolved = resolve_entry_profile_for_region(
+            requested_region_code,
+            requested_profile_id=str(payload.get("profile_id") or payload.get("entry_profile_id") or "").strip()
+            or None,
+        )
+        region_adapter_for_candidate = dict(resolved["region_adapter"])
+        entry_profile_for_candidate = dict(resolved["entry_profile"])
+        resolved_by_region[str(region_adapter_for_candidate.get("region_code") or requested_region_code)] = {
+            "region_adapter": region_adapter_for_candidate,
+            "entry_profile": entry_profile_for_candidate,
+        }
+        for type_index, requested_project_type in enumerate(requested_project_types):
+            candidate_payload = {
+                **dict(payload),
+                "region_code": str(region_adapter_for_candidate.get("region_code") or requested_region_code),
+                "project_type": requested_project_type,
+            }
+            if len(requested_region_codes) > 1 or len(requested_project_types) > 1:
+                candidate_payload["multi_search_candidate_index"] = f"{region_index + 1}-{type_index + 1}"
+            raw_candidates.append(
+                _search_candidate_from_payload(
+                    candidate_payload,
+                    region_adapter=region_adapter_for_candidate,
+                    entry_profile=entry_profile_for_candidate,
+                    now=now,
+                )
+            )
+    if not raw_candidates:
+        resolved = resolve_entry_profile_for_region(region_code)
+        region_adapter_fallback = dict(resolved["region_adapter"])
+        entry_profile_fallback = dict(resolved["entry_profile"])
+        raw_candidates.append(
+            _search_candidate_from_payload(
+                payload,
+                region_adapter=region_adapter_fallback,
+                entry_profile=entry_profile_fallback,
+                now=now,
+            )
+        )
+        resolved_by_region[str(region_adapter_fallback.get("region_code") or region_code)] = {
+            "region_adapter": region_adapter_fallback,
+            "entry_profile": entry_profile_fallback,
+        }
+    primary_candidate_seed = raw_candidates[0]
+    primary_resolved = resolved_by_region.get(str(primary_candidate_seed.get("region_code") or "")) or next(
+        iter(resolved_by_region.values())
     )
-    region_adapter = dict(resolved["region_adapter"])
-    entry_profile = dict(resolved["entry_profile"])
-    candidate = _search_candidate_from_payload(
-        payload,
-        region_adapter=region_adapter,
-        entry_profile=entry_profile,
-        now=now,
-    )
+    region_adapter = dict(primary_resolved["region_adapter"])
+    entry_profile = dict(primary_resolved["entry_profile"])
+    candidate = primary_candidate_seed
     scan_run_id = str(
         payload.get("scan_run_id")
         or build_id("MKTSCAN", candidate["project_id"], candidate["region_code"])
@@ -606,7 +767,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "source_blueprint_batch_id": str(payload.get("source_blueprint_batch_id") or "PTL-I100-ROADMAP-01"),
             "minimum_amount": _as_float(payload.get("minimum_amount"), 1_000_000.0),
             "analysis_score_threshold": _as_int(payload.get("analysis_score_threshold"), 50),
-            "notice_candidates": [candidate],
+            "notice_candidates": raw_candidates,
             "manual_url_picker_primary_flow": False,
             "live_execution_enabled": False,
             "real_external_fetch_enabled": False,
@@ -614,6 +775,41 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         }
     )
     selected = list(market_scan.get("opportunity_candidates", []))
+    raw_by_project_id = {str(item.get("project_id") or ""): item for item in raw_candidates}
+    region_rank = {region: index for index, region in enumerate(requested_region_codes)}
+    project_type_rank = {project_type_item: index for index, project_type_item in enumerate(requested_project_types)}
+    selected_candidate = (
+        dict(
+            max(
+                selected,
+                key=lambda item: _candidate_selection_key(
+                    item,
+                    region_rank=region_rank,
+                    project_type_rank=project_type_rank,
+                ),
+            )
+        )
+        if selected
+        else {}
+    )
+    if selected_candidate:
+        selected_raw_candidate = dict(
+            raw_by_project_id.get(str(selected_candidate.get("project_id") or ""), primary_candidate_seed)
+        )
+        selected_raw_candidate.update(
+            {
+                "opportunity_candidate_id": selected_candidate.get("opportunity_candidate_id"),
+                "analysis_score": selected_candidate.get("analysis_score"),
+                "analysis_decision": selected_candidate.get("analysis_decision"),
+                "analysis_priority": selected_candidate.get("analysis_priority"),
+                "selected_for_capture_plan": selected_candidate.get("selected_for_capture_plan"),
+            }
+        )
+        candidate = selected_raw_candidate
+    selected_region_code = str(candidate.get("region_code") or region_adapter.get("region_code") or region_code)
+    selected_resolved = resolved_by_region.get(selected_region_code, primary_resolved)
+    region_adapter = dict(selected_resolved["region_adapter"])
+    entry_profile = dict(selected_resolved["entry_profile"])
     source_blueprint = (
         Stage1SourceBlueprintOrchestrator().build(
             {
@@ -636,6 +832,17 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "region_adapter": region_adapter,
             "entry_profile": entry_profile,
             "market_scan": market_scan,
+            "search_scope": {
+                "region_codes": requested_region_codes,
+                "project_types": requested_project_types,
+                "candidate_count": len(raw_candidates),
+                "selected_candidate_count": len(selected),
+                "closed_loop_generated_count": 0,
+            },
+            "candidate_options": _candidate_option_surface(
+                market_scan=market_scan,
+                raw_candidates=raw_candidates,
+            ),
             "selected_candidate_count": 0,
             "reason": "market_scan_did_not_select_candidate",
             "manual_url_picker_primary_flow": False,
@@ -646,8 +853,12 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         }
 
     chain_payload = _internal_chain_payload_from_search(
-        payload,
-        candidate=selected[0],
+        {
+            **dict(payload),
+            "region_code": candidate.get("region_code"),
+            "project_type": candidate.get("project_type"),
+        },
+        candidate=selected_candidate,
         market_scan=market_scan,
         source_blueprint=source_blueprint,
         now=now,
@@ -676,6 +887,18 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "region_adapter": region_adapter,
             "entry_profile": entry_profile,
             "candidate": candidate,
+            "candidate_options": _candidate_option_surface(
+                market_scan=market_scan,
+                raw_candidates=raw_candidates,
+            ),
+            "search_scope": {
+                "region_codes": requested_region_codes,
+                "project_types": requested_project_types,
+                "candidate_count": len(raw_candidates),
+                "selected_candidate_count": len(selected),
+                "closed_loop_generated_count": 1,
+                "selected_project_id": candidate.get("project_id"),
+            },
             "market_scan": market_scan,
             "source_blueprint_plan": source_blueprint,
             "acceptance": acceptance,
@@ -731,6 +954,9 @@ def _record_autonomous_search_run(
     market_scan = dict(result.get("market_scan", {}) or {})
     source_blueprint = dict(result.get("source_blueprint_plan", {}) or {})
     acceptance = dict(result.get("acceptance", {}) or {})
+    runtime_flow = dict(result.get("runtime_flow", {}) or {})
+    search_scope = dict(result.get("search_scope", {}) or {})
+    candidate_options = list(result.get("candidate_options", []) or [])
     opportunity_id = str(result.get("opportunity_id") or "").strip()
     search_state = str(result.get("search_state") or "UNKNOWN")
     action_state = search_state
@@ -745,19 +971,31 @@ def _record_autonomous_search_run(
         "adapter_state": str(region_adapter.get("adapter_state") or ""),
         "entry_profile_id": str(entry_profile.get("profile_id") or ""),
         "query": str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or ""),
-        "project_type": str(payload.get("project_type") or ""),
+        "project_type": str(candidate.get("project_type") or payload.get("project_type") or ""),
+        "project_type_label": str(candidate.get("project_type_label") or _project_type_label(str(candidate.get("project_type") or ""))),
         "amount": str(payload.get("amount") or payload.get("minimum_amount") or ""),
         "amount_min": str(payload.get("amount_min") or payload.get("minimum_amount") or ""),
         "amount_max": str(payload.get("amount_max") or payload.get("maximum_amount") or payload.get("amount") or ""),
+        "amount_range_json": _json_text(result.get("amount_range") or {}),
         "opportunity_id": opportunity_id,
         "project_id": str(candidate.get("project_id") or ""),
         "project_name": str(candidate.get("project_name") or ""),
+        "source_url": str(candidate.get("source_url") or ""),
+        "source_profile_id": str(candidate.get("source_profile_id") or entry_profile.get("profile_id") or ""),
+        "source_site_name": str(candidate.get("source_site_name") or entry_profile.get("site_name") or ""),
+        "analysis_score": str(candidate.get("analysis_score") or ""),
+        "analysis_decision": str(candidate.get("analysis_decision") or ""),
+        "analysis_priority": str(candidate.get("analysis_priority") or ""),
         "search_state": search_state,
         "acceptance_state": str(acceptance.get("acceptance_state") or ""),
         "market_scan_run_id": str(market_scan.get("scan_run_id") or ""),
         "source_blueprint_plan_id": str(source_blueprint.get("source_blueprint_plan_id") or ""),
         "operator_workbench_readback_path": str(result.get("operator_workbench_readback_path") or ""),
         "customer_artifact_candidate_path": str(result.get("customer_artifact_candidate_path") or ""),
+        "customer_artifact_portal_path": f"/customer-artifact-portal/{opportunity_id}" if opportunity_id else "",
+        "search_scope_json": _json_text(search_scope),
+        "candidate_options_json": _json_text(candidate_options),
+        "runtime_flow_json": _json_text(runtime_flow),
     }
     action = PersistedOperatorAction(
         action_event_id=run_id,
@@ -795,6 +1033,10 @@ def _record_autonomous_search_run(
 
 def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[str, Any]:
     refs = dict(action.object_refs)
+    amount_range = _json_value(refs.get("amount_range_json"), {})
+    search_scope = _json_value(refs.get("search_scope_json"), {})
+    candidate_options = _json_value(refs.get("candidate_options_json"), [])
+    runtime_flow = _json_value(refs.get("runtime_flow_json"), {})
     return {
         "run_id": action.action_event_id,
         "search_state": refs.get("search_state") or action.action_state,
@@ -804,17 +1046,29 @@ def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[s
         "entry_profile_id": refs.get("entry_profile_id"),
         "query": refs.get("query"),
         "project_type": refs.get("project_type"),
+        "project_type_label": refs.get("project_type_label"),
         "amount": refs.get("amount"),
         "amount_min": refs.get("amount_min"),
         "amount_max": refs.get("amount_max"),
+        "amount_range": amount_range,
         "opportunity_id": refs.get("opportunity_id"),
         "project_id": refs.get("project_id"),
         "project_name": refs.get("project_name"),
+        "source_url": refs.get("source_url"),
+        "source_profile_id": refs.get("source_profile_id"),
+        "source_site_name": refs.get("source_site_name"),
+        "analysis_score": refs.get("analysis_score"),
+        "analysis_decision": refs.get("analysis_decision"),
+        "analysis_priority": refs.get("analysis_priority"),
         "acceptance_state": refs.get("acceptance_state"),
         "market_scan_run_id": refs.get("market_scan_run_id"),
         "source_blueprint_plan_id": refs.get("source_blueprint_plan_id"),
         "operator_workbench_readback_path": refs.get("operator_workbench_readback_path"),
         "customer_artifact_candidate_path": refs.get("customer_artifact_candidate_path"),
+        "customer_artifact_portal_path": refs.get("customer_artifact_portal_path"),
+        "search_scope": search_scope,
+        "candidate_options": candidate_options,
+        "runtime_flow": runtime_flow,
         "requested_at": action.requested_at,
         "completed_at": action.completed_at,
         "repository_backed": True,
@@ -844,6 +1098,7 @@ def list_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = Non
         status = str(row.get("search_state") or "UNKNOWN")
         status_counts[status] = status_counts.get(status, 0) + 1
     latest_opportunity_id = str(runs[0].get("opportunity_id") or "") if runs else ""
+    latest_runtime_flow = dict(runs[0].get("runtime_flow", {}) or {}) if runs else {}
     return {
         "surface_id": "operator_autonomous_search_runs",
         "internal_only": True,
@@ -856,6 +1111,7 @@ def list_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = Non
         "latest_customer_artifact_portal_path": f"/customer-artifact-portal/{latest_opportunity_id}"
         if latest_opportunity_id
         else "",
+        "latest_runtime_flow": latest_runtime_flow,
         "status_counts": status_counts,
         "runs": runs,
         "raw_json_required": False,
