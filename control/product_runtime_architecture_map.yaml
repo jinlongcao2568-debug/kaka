@@ -787,10 +787,10 @@ implementation_sequence:
     status: COMPLETED
     purpose: synchronize_public_web_capture_captcha_resume_docs_and_reassess_implementation_order
   - packet_ref: PTL-I100-144A-controlled-opening-sync
-    status: ACTIVE
+    status: COMPLETED
     purpose: synchronize_non_refund_boundaries_to_controlled_opening_semantics
   - packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
-    status: PLANNED
+    status: ACTIVE
     purpose: choose_which_projects_are_worth_analysis
   - packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     status: PLANNED

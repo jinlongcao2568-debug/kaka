@@ -93,8 +93,12 @@ class TestStage1MarketScan(unittest.TestCase):
         self.assertEqual(selected["analysis_priority"], "HIGH")
         self.assertIn("active_objection_window", selected["why_analyze"])
         self.assertIn("high_value_amount_band", selected["why_analyze"])
+        self.assertIn("engineering_project_type", selected["why_analyze"])
         self.assertEqual(selected["why_skip"], [])
         self.assertTrue(selected["selected_for_capture_plan"])
+        self.assertEqual(selected["score_components"]["project_type"], 10)
+        self.assertEqual(selected["market_segment"]["project_type"], "construction")
+        self.assertEqual(selected["market_segment"]["amount_band"], "HIGH_VALUE")
 
         skipped = scan["skipped_candidates"][0]
         self.assertEqual(skipped["analysis_decision"], "SKIP")
@@ -166,6 +170,31 @@ class TestStage1MarketScan(unittest.TestCase):
         self.assertEqual(candidate["analysis_decision"], "REVIEW")
         self.assertIn("controlled_challenge_marker_captcha", candidate["review_reasons"])
         self.assertEqual(candidate["why_skip"], [])
+
+    def test_market_scan_uses_project_type_to_skip_non_engineering_notices(self) -> None:
+        payload = {
+            **self.payload,
+            "scan_run_id": "MKTSCAN-NON-ENGINEERING-001",
+            "notice_candidates": [
+                {
+                    **self.payload["notice_candidates"][0],
+                    "notice_id": "NOTICE-GOODS-001",
+                    "project_type": "office_supplies",
+                    "amount": 30000000,
+                    "objection_deadline_at_optional": "2026-05-02T00:00:00+00:00",
+                }
+            ],
+        }
+
+        scan = Stage1MarketScanEngine().run(payload)
+
+        self.assertEqual(scan["selected_candidate_count"], 0)
+        self.assertEqual(scan["skipped_candidate_count"], 1)
+        candidate = scan["skipped_candidates"][0]
+        self.assertEqual(candidate["analysis_decision"], "SKIP")
+        self.assertIn("project_type_not_engineering", candidate["why_skip"])
+        self.assertEqual(candidate["score_components"]["project_type"], 0)
+        self.assertEqual(candidate["market_segment"]["project_type"], "office_supplies")
 
 
 if __name__ == "__main__":

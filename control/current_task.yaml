@@ -1,15 +1,15 @@
 version: 1
 templateState: NAMED_ASSIGNED
 single_operator_mode: true
-updated_at: '2026-04-29'
+updated_at: '2026-04-30'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL-I100-144A-controlled-opening-sync
+navigation_state: PTL-I100-144-market-scan-opportunity-discovery-engine
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-143G completed locally through 64efed4; owner inserted PTL-I100-144A as the active controlled-opening semantics sync before runtime packet PTL-I100-144 begins.
+activation_condition: PTL-I100-144A controlled-opening semantics sync is closed; owner asked to start the 144 market scan and opportunity discovery task.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-144A-controlled-opening-sync
-  title: I100-44A Controlled opening controlled_opening_requirement removal sync
+  task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+  title: I100-44 Market scan opportunity discovery engine
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -56,8 +56,8 @@ currentTask:
   - contracts/testing/regression_manifest.json
   - scripts/check-state-alignment.ps1
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-144A-controlled-opening-sync
-  objective: 将除 automated_refund_execution 以外的既有 controlled_opening_requirement/受控开放要求语义迁移为 controlled opening / 受控开放口径，并同步 docs、control、contracts、scripts、runtime readback 与 tests；本包不执行真实外部动作。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-144-market-scan-opportunity-discovery-engine
+  objective: 实现市场扫描与机会发现：根据地区、工程类型、金额区间、公告阶段、异议窗口、竞争者和关键字段自动判断哪些公告值得进入分析，输出 opportunity candidate、analysis priority、why_analyze、why_skip、run controller 和 stage state machine readback，不把手工 URL 选择作为主流程。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -77,46 +77,47 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-144A-controlled-opening-sync
-    subpacket_id: PTL-I100-144A-controlled-opening-sync
-    backlog_packet_ref: PTL-I100-144A-controlled-opening-sync
+    packet_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+    subpacket_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+    backlog_packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: PTL-I100-144A_ACTIVE_CONTROLLED_OPENING_BOUNDARY_SYNC
-    existing_runtime_state: CONTROLLED_OPENING_BOUNDARY_BOUNDARY_ASSERTIONS_PRESENT
-    title: I100-44A Controlled opening controlled_opening_requirement removal sync
+    existing_code_state: STAGE1_MARKET_SCAN_INTERNAL_RUNTIME_PRESENT
+    existing_runtime_state: MARKET_SCAN_REPOSITORY_BACKED_INTERNAL_READY_CANDIDATE
+    title: I100-44 Market scan opportunity discovery engine
     status: ACTIVE
-    objective: 同步移除除自动退款外的硬受控开放要求语义：external release、Stage8 real execution、Stage9 payment/delivery/refund、provider/customer-facing/live paths 改为 controlled opening，自动退款继续 EXCLUDED。
+    objective: 实现并验收 Stage1 市场扫描机会发现首包：自动筛选公告、生成机会候选和优先级、给出 why_analyze/why_skip/review reason、暴露 run controller 与 stage state machine，禁止手工 URL picker 成为主流程。
     depends_on:
     - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed locally through 64efed4.
+    - PTL-I100-144A-controlled-opening-sync closed locally through c5d3c32.
     - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-143G-public-web-capture-doc-sync-and-order-review
-      target_active_packet: PTL-I100-144A-controlled-opening-sync
-      parent_packet: PTL-I100-controlled-opening-governance-sync
+      previous_active_packet: PTL-I100-144A-controlled-opening-sync
+      target_active_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
+      parent_packet: PTL-I100-autonomous-opportunity-operationalization
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: controlled_opening_semantics_sync
+      active_packet_kind: market_scan_opportunity_discovery_engine
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
       runtime_change: true
       runtime_change_in_packet: IN_SCOPE
-      docs_change: true
-      contracts_change: true
+      docs_change: false
+      contracts_change: false
       handoff_change: false
-      scripts_change: true
+      scripts_change: false
       tests_change: true
-      fixture_change: true
+      fixture_change: false
       control_change: true
       product_operational_acceptance_change: true
-      live_execution_scope_change: true
+      live_execution_scope_change: false
       automated_refund_program_change: false
       new_business_object_enum_gate_exception_semantics: false
       new_formal_object_enum_gate_exception_semantics: false
@@ -129,10 +130,12 @@ currentTask:
     - 不执行 public software release
     - 不无审批/无审计发送
     - 不绕过 provider config / sandbox / approval / audit / operator action
+    - 不执行 Stage2 fetch 或真实外部抓取
+    - 不执行 provider call、真实触达、真实支付、真实交付、真实退款、客户下载或 public release
+    - 不把手工 URL 选择作为主流程
     - 不新增业务对象、枚举、gate、exception 语义
-    - 不实现或启用自动退款，automated_refund_execution 继续 EXCLUDED
-    - 本包只同步受控开放要求语义到 controlled opening，不执行真实 provider、真实触达、真实支付、真实交付、真实退款、客户下载或 public release
     - 不新增正式对象、枚举、gate 或 exception 语义
+    - 不实现或启用自动退款，automated_refund_execution 继续 EXCLUDED
     - 不 push
     affected_stages:
     - stage1_tasking
@@ -149,13 +152,12 @@ currentTask:
     - testing_owner
     - release_approver
     change_domains:
-    - governance_release_core
     - automation_control_core
-    - shared_runtime_core
-    - stage8_stage9_high_risk_execution
-    - scripts_and_tests_general
+    - stage1_tasking
+    - storage_readback
+    - api_internal_helpers
+    - tests_general
     - machine_assets_general
-    - docs_general
     reviews:
     - architecture_owner
     - governance_owner
@@ -165,41 +167,37 @@ currentTask:
     - release_approver
     baseline_dirty_paths: []
     declared_changed_paths:
-    - scripts/check-state-alignment.ps1
     - control/repo_status.md
     - control/product_runtime_architecture_map.yaml
     - control/product_operability_gap_matrix.yaml
     - control/product_acceptance_checklist.yaml
     - control/product_module_registry.yaml
     - control/product_task_library.yaml
-    - AGENTS.md
-    - README.md
-    - ARCHITECTURE_NOTE.md
-    - docs/**
     - control/**
-    - contracts/**
-    - scripts/**
-    - src/**
-    - tests/**
-    - fixtures/**
+    - src/stage1_tasking/**
+    - src/storage/repositories/stage1_market_scan_repo.py
+    - src/api/routes/stage1.py
+    - src/api/schemas/stage1.py
+    - tests/test_stage1_market_scan.py
+    - tests/test_product_acceptance_checklist.py
+    - tests/test_product_runtime_architecture_map.py
+    - tests/test_product_operability_gap_matrix.py
     allowed_modification_paths:
-    - scripts/check-state-alignment.ps1
     - control/repo_status.md
     - control/product_runtime_architecture_map.yaml
     - control/product_operability_gap_matrix.yaml
     - control/product_acceptance_checklist.yaml
     - control/product_module_registry.yaml
     - control/product_task_library.yaml
-    - AGENTS.md
-    - README.md
-    - ARCHITECTURE_NOTE.md
-    - docs/**
     - control/**
-    - contracts/**
-    - scripts/**
-    - src/**
-    - tests/**
-    - fixtures/**
+    - src/stage1_tasking/**
+    - src/storage/repositories/stage1_market_scan_repo.py
+    - src/api/routes/stage1.py
+    - src/api/schemas/stage1.py
+    - tests/test_stage1_market_scan.py
+    - tests/test_product_acceptance_checklist.py
+    - tests/test_product_runtime_architecture_map.py
+    - tests/test_product_operability_gap_matrix.py
     forbidden_modification_paths:
     - archive/**
     - .git/**
@@ -207,31 +205,37 @@ currentTask:
     - '*.pyc'
     - .pytest_cache/**
     impacted_assets:
-      docs:
-      - docs/**
-      - AGENTS.md
-      - README.md
-      - ARCHITECTURE_NOTE.md
+      docs: []
       control:
       - control/**
-      contracts:
-      - contracts/**
+      contracts: []
       handoff: []
-      scripts:
-      - scripts/**
+      scripts: []
       runtime:
-      - src/**
+      - src/stage1_tasking/**
+      - src/storage/repositories/stage1_market_scan_repo.py
+      - src/api/routes/stage1.py
+      - src/api/schemas/stage1.py
       tests:
-      - tests/**
-      fixtures:
-      - fixtures/**
+      - tests/test_stage1_market_scan.py
+      - tests/test_product_acceptance_checklist.py
+      - tests/test_product_runtime_architecture_map.py
+      - tests/test_product_operability_gap_matrix.py
+      fixtures: []
     required_scripts:
     - git status --short --untracked-files=all
+    - python -m unittest tests.test_stage1_market_scan -v
+    - python -m unittest tests.test_stage1_scheduler -v
+    - python -m unittest tests.test_api_transport_bootstrap -v
+    - python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
+    - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+    - python -m unittest tests.test_product_module_registry -v
+    - python -m unittest tests.test_product_runtime_architecture_map -v
+    - python -m unittest tests.test_product_operability_gap_matrix -v
+    - python -m unittest tests.test_product_acceptance_checklist -v
     - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
     - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
     - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
-    - python -m unittest tests.test_product_acceptance_checklist tests.test_product_runtime_architecture_map tests.test_product_operability_gap_matrix tests.test_product_module_registry -v
-    - python -m unittest tests.test_api_transport_bootstrap tests.test_runtime_governance_guards tests.test_stage12_extractors -v
     - python tests/run_tests.py
     - git diff --check
     - git status --short --untracked-files=all
@@ -241,22 +245,27 @@ currentTask:
       ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
       : 300000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
-      ? python -m unittest tests.test_api_transport_bootstrap tests.test_runtime_governance_guards tests.test_stage12_extractors -v
-      : 600000
+      python -m unittest tests.test_stage1_market_scan -v: 300000
+      python -m unittest tests.test_stage1_scheduler -v: 300000
+      python -m unittest tests.test_api_transport_bootstrap -v: 600000
+      python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v: 300000
+      python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
+      python -m unittest tests.test_product_module_registry -v: 300000
+      python -m unittest tests.test_product_runtime_architecture_map -v: 300000
+      python -m unittest tests.test_product_operability_gap_matrix -v: 300000
+      python -m unittest tests.test_product_acceptance_checklist -v: 300000
       python tests/run_tests.py: 1800000
       git diff --check: 300000
-      ? python -m unittest tests.test_product_acceptance_checklist tests.test_product_runtime_architecture_map tests.test_product_operability_gap_matrix tests.test_product_module_registry -v
-      : 600000
     stop_conditions:
     - Any automated refund execution path becomes enabled.
-    - Any change executes a real provider call, real outreach, real payment, real delivery, real refund, customer download, push, or public release during this sync.
+    - Any change executes Stage2 fetch, real provider call, real outreach, real payment, real delivery, real refund, customer download, push, or public release during this packet.
     - Any required script failure that cannot be fixed inside the declared paths.
     acceptance:
-    - all_non_refund_controlled_opening_requirements_migrated_to_controlled_opening_semantics
-    - automated_refund_execution_remains_excluded
-    - docs_control_contracts_scripts_runtime_tests_aligned
-    - no_real_external_action_executed
+    - autonomous_run_controller_and_stage_state_machine_visible
+    - autonomous_market_segment_selection
+    - opportunity_candidate_priority_and_skip_reason
+    - no_manual_url_picker_as_primary_flow
 notes:
 - current_task -> product_task_library -> repo_status remains the active-source priority.
-- This packet migrates non-refund hard controlled_opening_requirements to controlled opening semantics; automated refund execution remains excluded.
-- No real external execution is performed by this sync packet.
+- This packet implements the internal market scan opportunity discovery slice; automated refund execution remains excluded.
+- No Stage2 fetch or real external execution is performed by this packet.

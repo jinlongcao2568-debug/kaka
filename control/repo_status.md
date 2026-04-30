@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-144A-controlled-opening-sync (ACTIVE; migrates all non-refund hard boundary assertions to controlled-opening semantics across docs/control/contracts/scripts/runtime/tests. This sync does not execute real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
+Current Workstream: PTL-I100-144-market-scan-opportunity-discovery-engine (ACTIVE; implements the internal market scan opportunity discovery slice with autonomous run controller, stage state machine, opportunity candidate priority, why_analyze/why_skip, and no manual URL picker as the primary flow. This packet does not execute Stage2 fetch, real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -19,7 +19,7 @@ Current Controlled Opening Boundaries:
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
 - PTL-I100-143G is completed and registered the public-web capture escalation, captcha automated challenge resolution/resume, and implementation order before runtime packets continue.
-- PTL-I100-144A only synchronizes controlled-opening semantics; it does not execute provider calls, outreach, payment, delivery, refund, customer download, or public release.
+- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144 is the active internal market scan opportunity discovery packet and does not execute provider calls, outreach, payment, delivery, refund, customer download, or public release.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -27,13 +27,14 @@ Product Open Capability Baseline:
 - Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the controlled-opening gate pass; it does not mean the capability is permanently out of product scope.
 
-Current 144A Scope:
-- Remove non-refund hard boundary assertions from current formal assets and replace them with controlled-opening semantics.
-- Keep automated refund execution excluded in docs, control, contracts, runtime readback, scripts, and tests.
-- Keep real external actions unexecuted during this sync packet.
-- Preserve legal/compliance prerequisites as activation conditions rather than permanent product exclusions.
+Current 144 Scope:
+- Implement Stage1 market scan opportunity discovery as an internal owner-operated product slice.
+- Produce opportunity candidates, analysis priority, why_analyze/why_skip/review reasons, run controller, stage state machine, and repository-backed readback.
+- Keep manual URL selection out of the primary flow.
+- Keep Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, automated refund, and public release unexecuted.
 
 Recently Closed:
+- PTL-I100-144A-controlled-opening-sync closed after controlled-opening semantics and status assets were synchronized.
 - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed and committed locally: 64efed4.
 - PTL-I100-143F-public-web-capture-and-captcha-task-pool-sync completed and committed locally: 5f71320.
 - PTL-I100-132-owner-operator-frontend-productization-workbench completed and committed locally before the 143 series.

@@ -126,12 +126,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-144A-controlled-opening-sync
-  packet_id: PTL-I100-144A-controlled-opening-sync
-  title: "Controlled opening boundary sync"
+  task_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+  packet_id: PTL-I100-144-market-scan-opportunity-discovery-engine
+  title: "I100-44 Market scan opportunity discovery engine"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-127 through PTL-I100-132 are completed. PTL-I100-143D completed locally through 440b49b, 143E through fd6531a, 143F through 5f71320, and 143G through 64efed4. 144A is active to sync controlled opening semantics across real public source, external release, Stage8, Stage9, provider and customer-facing surfaces; no public software release or real external action is executed by this sync. Automated refund remains excluded."
+  runtime_notes: "PTL-I100-144A controlled-opening sync is closed. 144 is active for the internal market scan opportunity discovery engine: autonomous run controller, stage state machine, opportunity candidate priority, why_analyze/why_skip, and no manual URL picker as primary flow. This packet does not execute Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, or public software release."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -144,6 +144,7 @@ post_mainline_execution_ladder:
   notes:
     - "This ladder is the explicit product-only post-mainline record for future AI windows."
     - "The full post-mainline ladder remains P1 -> P2 -> P3 -> P4 -> P5 -> P6 -> P7 -> P8; all product-only tasks in this ladder are now completed and no next task is auto-activated."
+    - "PTL-I100-127 through PTL-I100-132 are completed; subsequent product work must continue from the registered task pool rather than reopening those closed packets."
     - "118R may register new product-only manual-selection tasks after the 122-126 reacceptance; candidate pointers remain advisory only."
     - "Controlled future work such as live/provider execution must run through controlled-opening gates; external-unlock preresearch and ordinary internal direct-dev are not blocked by this ladder."
     - "Governance closeout / AX9S sync / future unlock prep may run as ordinary direct-dev unless they change live/release, approval/audit, schema/migration, or cross-stage machine-contract semantics."
@@ -254,12 +255,12 @@ tasks:
     title: "Controlled opening boundary sync"
     stage_scope: [governance_release_core, automation_control, product_acceptance]
     task_type: control_governance_implementation
-    status: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P0
     existing_code_state: HARD_BOUNDARY_ASSERTIONS_PRESENT
     existing_runtime_state: CONTROLLED_OPENING_SYNC_REQUIRED
-    planning_state: ACTIVE
+    planning_state: COMPLETED
     runtime_change_in_packet: IN_SCOPE
     runtime_notes: "Synchronize non-refund hard boundary assertions into controlled opening semantics across docs/control/contracts/scripts/runtime/tests; no public software release, provider execution, customer download, real payment, real delivery, real refund, or automated refund is executed in this packet."
     hard_depends_on:
@@ -286,6 +287,9 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-144A-controlled-opening-sync
     suggested_packet_refs: [PTL-I100-144A-controlled-opening-sync]
     risk_level: HIGH
+    completed_commit: c5d3c32
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_CONTROLLED_OPENING_SEMANTICS_SYNC"
   - task_id: PTL-GOV-101-product-planning-sync-implementation
     title: "product_task_library 与 AX9S 路线图正式同步机制"
     stage_scope: [automation_control, product_navigation_sync]
@@ -3274,9 +3278,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage6_fact_review, product_acceptance]
     task_type: market_scan_opportunity_discovery_engine
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: false
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
     priority: P50
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:

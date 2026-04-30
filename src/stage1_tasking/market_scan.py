@@ -38,6 +38,40 @@ REQUIRED_KEY_FIELDS = {
     "candidate_company",
     "notice_stage",
 }
+PRIORITY_ENGINEERING_PROJECT_TYPES = {
+    "building_construction",
+    "civil_engineering",
+    "construction",
+    "highway",
+    "housing_construction",
+    "infrastructure",
+    "municipal",
+    "public_building",
+    "road",
+    "transport",
+    "water_conservancy",
+}
+NON_ENGINEERING_PROJECT_TYPES = {
+    "consulting",
+    "equipment",
+    "goods",
+    "medical_equipment",
+    "office_supplies",
+    "service",
+    "software",
+}
+ENGINEERING_PROJECT_TYPE_TOKENS = (
+    "bridge",
+    "build",
+    "construction",
+    "engineering",
+    "highway",
+    "infrastructure",
+    "municipal",
+    "road",
+    "transport",
+    "water",
+)
 _BLOCKED_LIVE_FLAGS = (
     "live_execution_enabled",
     "external_fetch_enabled",
@@ -90,6 +124,32 @@ def _parse_time(value: Any) -> datetime | None:
 
 def _normalize_stage(value: Any) -> str:
     return str(value or "unknown").strip().lower().replace("-", "_")
+
+
+def _normalize_project_type(value: Any) -> str:
+    return (
+        str(value or "unknown")
+        .strip()
+        .lower()
+        .replace("-", "_")
+        .replace(" ", "_")
+    )
+
+
+def _amount_band(amount: float, minimum_amount: float) -> str:
+    if amount >= HIGH_VALUE_AMOUNT:
+        return "HIGH_VALUE"
+    if amount >= MEDIUM_VALUE_AMOUNT:
+        return "MEDIUM_VALUE"
+    if amount >= minimum_amount:
+        return "MINIMUM_VALUE"
+    return "BELOW_MINIMUM"
+
+
+def _project_type_is_engineering(project_type: str) -> bool:
+    return project_type in PRIORITY_ENGINEERING_PROJECT_TYPES or any(
+        token in project_type for token in ENGINEERING_PROJECT_TYPE_TOKENS
+    )
 
 
 def _candidate_id(scan_run_id: str, index: int, candidate: Mapping[str, Any]) -> str:
@@ -297,6 +357,13 @@ class Stage1MarketScanEngine:
         minimum_amount = _as_float(payload.get("minimum_amount"), DEFAULT_MINIMUM_AMOUNT)
         notice_stage = _normalize_stage(candidate.get("notice_stage"))
         region_code = str(candidate.get("region_code") or payload.get("region_code") or "UNKNOWN")
+        project_type = _normalize_project_type(
+            candidate.get("project_type")
+            or candidate.get("procurement_category")
+            or payload.get("project_type")
+            or payload.get("procurement_category")
+            or payload.get("procurement_regime")
+        )
         competitor_count = max(
             _as_int(candidate.get("candidate_count")),
             _as_int(candidate.get("competitor_count")),
@@ -319,6 +386,19 @@ class Stage1MarketScanEngine:
         missing_fields = sorted(REQUIRED_KEY_FIELDS - key_fields)
         if missing_fields:
             review_reasons.append("missing_key_fields:" + ",".join(missing_fields))
+
+        if project_type in {"", "unknown"}:
+            score_components["project_type"] = 0
+            review_reasons.append("project_type_unknown")
+        elif project_type in NON_ENGINEERING_PROJECT_TYPES:
+            score_components["project_type"] = 0
+            why_skip.append("project_type_not_engineering")
+        elif _project_type_is_engineering(project_type):
+            score_components["project_type"] = 10
+            why_analyze.append("engineering_project_type")
+        else:
+            score_components["project_type"] = 4
+            review_reasons.append("project_type_needs_blueprint_review")
 
         if amount >= HIGH_VALUE_AMOUNT:
             score_components["value_band"] = 25
@@ -403,7 +483,7 @@ class Stage1MarketScanEngine:
             "project_id": project_id,
             "project_name": str(candidate.get("project_name") or "UNKNOWN"),
             "region_code": region_code,
-            "project_type": str(candidate.get("project_type") or "UNKNOWN"),
+            "project_type": project_type,
             "notice_stage": notice_stage,
             "amount": amount,
             "competitor_count": competitor_count,
@@ -421,6 +501,22 @@ class Stage1MarketScanEngine:
             "why_analyze": why_analyze if selected else [],
             "why_skip": why_skip,
             "review_reasons": review_reasons,
+            "market_segment": {
+                "region_code": region_code,
+                "project_type": project_type,
+                "amount_band": _amount_band(amount, minimum_amount),
+                "notice_stage": notice_stage,
+                "objection_window_state": "ACTIVE"
+                if deadline is not None and deadline >= effective_now
+                else "EXPIRED"
+                if deadline is not None
+                else "UNKNOWN",
+                "competitor_signal": "MULTI_COMPETITOR"
+                if competitor_count >= 3
+                else "SINGLE_COMPETITOR"
+                if competitor_count >= 1
+                else "NO_COMPETITOR",
+            },
             "source_refs": {
                 "source_url": str(candidate.get("source_url") or ""),
                 "source_family": str(candidate.get("source_family") or ""),
@@ -486,6 +582,8 @@ class Stage1MarketScanEngine:
                 "manual_url_selection_as_primary_flow": False,
                 "market_segment_selection_source": "market_scan_policy",
                 "region_project_type_amount_stage_window_competitor_filter": True,
+                "project_type_selection_source": "market_scan_project_type_policy",
+                "priority_engineering_project_types": sorted(PRIORITY_ENGINEERING_PROJECT_TYPES),
             },
             "operator_intervention_gate": {
                 "required": bool(review) and not selected,

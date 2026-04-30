@@ -413,10 +413,10 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             for item in self.matrix["production_gap_task_map"]
             if item["packet_ref"] == "PTL-I100-144-market-scan-opportunity-discovery-engine"
         )
-        self.assertEqual(market_gap["status"], "PLANNED")
+        self.assertEqual(market_gap["status"], "ACTIVE")
         self.assertEqual(
             self.matrix["current_gap_sync_2026_04_29"]["current_active_packet"],
-            "PTL-I100-144A-controlled-opening-sync",
+            "PTL-I100-144-market-scan-opportunity-discovery-engine",
         )
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:

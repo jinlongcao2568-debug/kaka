@@ -131,9 +131,8 @@ decision_summary:
     PTL-I100-112 through PTL-I100-143G are closed in the product task library.
     PTL-I100-118R and PTL-I100-131 record controlled owner-operated production
     readiness with no remaining product blockers for the controlled E2E pilot.
-    control/current_task.yaml currently points to PTL-I100-144A, which is a
-    state/semantics sync packet; runtime PTL-I100-144 remains PLANNED until
-    144A is closed.
+    PTL-I100-144A is closed. control/current_task.yaml now points to
+    PTL-I100-144 as the active market scan opportunity discovery packet.
   post_122_126_reacceptance_summary: >
     PTL-I100-122 through PTL-I100-131 closed the original 118 blockers as
     controlled execution/readback and controlled-real-world E2E paths.
@@ -666,9 +665,9 @@ current_gap_sync_2026_04_29:
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/repo_status.md
-  current_active_packet: PTL-I100-144A-controlled-opening-sync
-  current_active_packet_scope: state_and_controlled_opening_semantics_sync_only
-  not_current_active_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
+  current_active_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
+  current_active_packet_scope: internal_market_scan_opportunity_discovery_only
+  closed_prerequisite_packet: PTL-I100-144A-controlled-opening-sync
   owner_operated_controlled_business_state: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
   remaining_product_blockers_for_controlled_owner_e2e: []
   current_remaining_runtime_productization_packets:
@@ -937,7 +936,7 @@ production_gap_task_map:
       - reuse_existing_runtime_surfaces_doc_policy
   - gap_group: market_scan_opportunity_discovery_engine
     packet_ref: PTL-I100-144-market-scan-opportunity-discovery-engine
-    status: PLANNED
+    status: ACTIVE
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - autonomous_market_segment_selection
@@ -1253,7 +1252,7 @@ recommended_execution_order_after_reassessment:
     Historical reassessment order used before the 112-131 closeout. It is kept
     for audit context only. Current remaining implementation should follow
     current_gap_sync_2026_04_29 and control/product_runtime_architecture_map.yaml,
-    with PTL-I100-144A active before runtime PTL-I100-144 resumes.
+    with PTL-I100-144 active as the current runtime market scan packet.
   sequence:
     - packet_ref: PTL-I100-112-production-platform-infrastructure
       reason: "Production durability, queue/worker, object storage, audit persistence, and health checks are prerequisites for real source ingestion and provider execution."
