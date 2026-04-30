@@ -43,6 +43,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
                 "renderCustomerArtifactPortalReadback",
                 "renderCustomerArtifactPortalDownload",
                 "renderOperatorUserAcceptanceContract",
+                "renderOperatorUserAcceptanceGapMatrix",
             },
         )
         route_metadata = {
@@ -68,6 +69,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
                 "operator_user_acceptance_contract"
             ]
         )
+        self.assertTrue(
+            route_metadata["renderOperatorUserAcceptanceGapMatrix"][
+                "operator_user_acceptance_gap_matrix"
+            ]
+        )
+        self.assertTrue(route_metadata["renderOperatorUserAcceptanceGapMatrix"]["ui_acceptance_status"])
         bootstrap = app.state.transport_bootstrap
         frontend_ops = {
             operation["operationId"]: operation
@@ -175,9 +182,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "真实退款未接入，仅可模拟",
             "后台能力暴露清单",
             "用户验收契约",
+            "当前验收状态",
+            "验收差距矩阵",
             "验收标准",
             "当前优化优先级",
             "/operator-console/user-acceptance-contract",
+            "/operator-console/user-acceptance-gap-matrix",
             "先验收契约，再改 UI/系统",
             "脚本绿灯",
             "系统已有能力是不是已经在 UI 可见",
@@ -197,12 +207,16 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "function renderCapabilityExposure(readiness, scheduler, goLive)",
             "function renderUserAcceptanceContract(contract)",
             "async function loadUserAcceptanceContract()",
+            "function renderAcceptanceGapMatrix(matrix)",
+            "async function loadAcceptanceGapMatrix()",
             "function showView(view)",
             "id=\"searchRegionChoices\"",
             "id=\"searchProjectTypeChoices\"",
             "id=\"opportunityDetail\"",
             "id=\"capabilityExposure\"",
             "id=\"acceptanceContractSummary\"",
+            "id=\"acceptanceGapSummary\"",
+            "id=\"acceptanceGapMatrix\"",
             "id=\"acceptanceDimensionList\"",
         ):
             self.assertIn(expected, html)
@@ -291,13 +305,14 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
         self.assertIn(
-            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract()])',
+            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix()])',
             html,
         )
         self.assertIn('"/operator-console/region-adapters"', html)
         self.assertIn('"/operator-console/autonomous-opportunity-search"', html)
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
         self.assertIn('"/operator-console/user-acceptance-contract"', html)
+        self.assertIn('"/operator-console/user-acceptance-gap-matrix"', html)
         self.assertIn('href="#autonomousWorkbench"', html)
         self.assertIn('data-workbench-opportunity', html)
         self.assertIn('id="selectAllRegions"', html)
@@ -355,6 +370,65 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn(
             "证据包无法查看、无法下载或无法回到公开来源验证。",
             contract["nonNegotiableFailSignals"],
+        )
+
+    def test_operator_user_acceptance_gap_matrix_exposes_current_product_gaps(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.request("GET", "/operator-console/user-acceptance-gap-matrix")
+
+        self.assertEqual(response.status_code, 200)
+        matrix = response.json()
+        self.assertEqual(matrix["matrixId"], "AX9S-OPERATOR-USER-ACCEPTANCE-GAP-MATRIX")
+        self.assertEqual(matrix["contractRef"], "contracts/ui/operator_user_acceptance_contract.json")
+        self.assertEqual(matrix["status"], "ACTIVE")
+        self.assertEqual(matrix["summary"]["totalDimensions"], 11)
+        self.assertEqual(matrix["summary"]["passCount"], 3)
+        self.assertEqual(matrix["summary"]["partialCount"], 7)
+        self.assertEqual(matrix["summary"]["notExposedCount"], 1)
+        self.assertEqual(matrix["summary"]["failCount"], 0)
+        self.assertIn("真实可卖交付", matrix["summary"]["operatorConclusion"])
+        dimensions = {
+            item["dimensionId"]: item
+            for item in matrix["dimensions"]
+        }
+        self.assertEqual(
+            set(dimensions),
+            {
+                "UA-01-product-definition-alignment",
+                "UA-02-autonomous-market-to-opportunity-loop",
+                "UA-03-stage-observability",
+                "UA-04-opportunity-operability",
+                "UA-05-evidence-package-verifiability",
+                "UA-06-commercial-hook-boundary",
+                "UA-07-governed-outreach-and-delivery",
+                "UA-08-system-capability-exposure",
+                "UA-09-data-persistence-and-operator-control",
+                "UA-10-chinese-information-architecture",
+                "UA-11-real-world-sellability",
+            },
+        )
+        for item in dimensions.values():
+            self.assertIn(item["status"], {"PASS", "PARTIAL", "NOT_EXPOSED", "FAIL"})
+            self.assertTrue(item["currentUiState"])
+            self.assertTrue(item["evidenceRefs"])
+            self.assertTrue(item["gaps"])
+            self.assertTrue(item["nextActions"])
+        self.assertEqual(
+            dimensions["UA-05-evidence-package-verifiability"]["status"],
+            "PASS",
+        )
+        self.assertIn(
+            "来源网址",
+            dimensions["UA-05-evidence-package-verifiability"]["currentUiState"],
+        )
+        self.assertEqual(
+            dimensions["UA-11-real-world-sellability"]["status"],
+            "NOT_EXPOSED",
+        )
+        self.assertIn(
+            "真实可卖性一屏判断",
+            [item["title"] for item in matrix["topPriorities"]],
         )
 
     def test_customer_artifact_portal_is_gated_and_uses_candidate_readback(self) -> None:

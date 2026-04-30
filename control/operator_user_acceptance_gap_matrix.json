@@ -1,0 +1,246 @@
+{
+  "matrixId": "AX9S-OPERATOR-USER-ACCEPTANCE-GAP-MATRIX",
+  "contractRef": "contracts/ui/operator_user_acceptance_contract.json",
+  "status": "ACTIVE",
+  "updatedAt": "2026-04-30",
+  "assessmentMethod": "contract_driven_owner_ui_audit",
+  "summary": {
+    "totalDimensions": 11,
+    "passCount": 3,
+    "partialCount": 7,
+    "notExposedCount": 1,
+    "failCount": 0,
+    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览和能力暴露基础；距离真实可卖交付还差真实可卖性一屏判断、阶段遥测深度、显式数据控制和真实服务商接入状态闭合。",
+    "nextDecision": "下一轮应优先补真实可卖性判断、阶段1-9运行读回深度、运行记录持久与清空控制、真实服务商接入状态。"
+  },
+  "topPriorities": [
+    {
+      "rank": 1,
+      "dimensionId": "UA-11-real-world-sellability",
+      "title": "真实可卖性一屏判断",
+      "reason": "owner 需要直接判断当前机会能不能卖、还差什么，不应只看到脚本或页面已经打开。"
+    },
+    {
+      "rank": 2,
+      "dimensionId": "UA-03-stage-observability",
+      "title": "阶段1-9运行读回深度",
+      "reason": "现有阶段总览已经可见，但每阶段有效/无效对象和日志仍需要更细读回。"
+    },
+    {
+      "rank": 3,
+      "dimensionId": "UA-09-data-persistence-and-operator-control",
+      "title": "运行记录持久与清空控制",
+      "reason": "搜索记录已有 repository 读回基础，但 UI 还缺明确的数据来源、保留状态和显式清空控制。"
+    },
+    {
+      "rank": 4,
+      "dimensionId": "UA-07-governed-outreach-and-delivery",
+      "title": "真实服务商接入状态",
+      "reason": "内部预览和模拟链路可见，真实邮件、电话、支付、交付服务商仍需显示接入缺口和放行条件。"
+    }
+  ],
+  "dimensions": [
+    {
+      "dimensionId": "UA-01-product-definition-alignment",
+      "title": "产品定义一致",
+      "status": "PARTIAL",
+      "currentUiState": "验收契约页已说明内部线索运营、证据包和销售作战目标；主操作台首屏仍需要把这个定位压到更靠前、更明确的位置。",
+      "evidenceRefs": [
+        "contracts/ui/operator_user_acceptance_contract.json#productDefinition",
+        "src/api/routes/operator_frontend.py#acceptanceContract",
+        "src/api/routes/operator_frontend.py#renderUserAcceptanceContract"
+      ],
+      "gaps": [
+        "首屏仍偏运营总览，产品定义和客户不使用工作台的边界需要更前置。",
+        "部分导航名仍容易让 owner 误解为客户侧入口。"
+      ],
+      "nextActions": [
+        "在操作台首屏补一句产品定位和交付形态。",
+        "把客户材料入口继续改成内部证据包预览/交付候选语义。"
+      ]
+    },
+    {
+      "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
+      "title": "市场到机会闭环成立",
+      "status": "PARTIAL",
+      "currentUiState": "实战搜索支持地区多选、项目类型多选、金额区间和候选对象明细；真实地区适配器覆盖和外部来源稳定性仍未闭合。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#renderSearchResultFromRun",
+        "src/api/routes/operator_frontend.py#renderCandidateCards",
+        "src/api/routes/operator_console.py#autonomous-opportunity-search"
+      ],
+      "gaps": [
+        "已能从搜索形成机会，但地区公开源适配器仍不足以支撑大范围稳定实战。",
+        "搜索运行记录可回读，但还缺批量复盘和失败分类入口。"
+      ],
+      "nextActions": [
+        "补地区适配器覆盖和公开源失败诊断。",
+        "把候选对象、入选理由、失败原因做成批量运营视图。"
+      ]
+    },
+    {
+      "dimensionId": "UA-03-stage-observability",
+      "title": "阶段1-9可观察",
+      "status": "PARTIAL",
+      "currentUiState": "阶段1-9运营总览已经存在，并能在运行后展示阶段产出、有效数据和日志；细粒度数据流和失败原因仍不够。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#renderStageOverviewTelemetry",
+        "src/api/routes/operator_frontend.py#stageBoard",
+        "control/product_runtime_architecture_map.yaml#primary_operating_loop"
+      ],
+      "gaps": [
+        "每阶段有效/无效对象还不够细，不能完全解释每条机会怎么被留下或淘汰。",
+        "日志仍偏摘要，缺可点击的阶段对象读回。"
+      ],
+      "nextActions": [
+        "给阶段卡补对象列表和失败分类。",
+        "把阶段日志和机会、证据包、来源站点建立可点击关联。"
+      ]
+    },
+    {
+      "dimensionId": "UA-04-opportunity-operability",
+      "title": "机会可操作",
+      "status": "PASS",
+      "currentUiState": "机会队列、查看机会、机会详情、买家排序、商业钩子、证据包预览和下载入口已经在操作台可见。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#opportunityActions",
+        "src/api/routes/operator_frontend.py#renderOpportunityDetail",
+        "tests/test_operator_frontend_portal.py#test_owner_console_frontend_is_mounted_and_exposes_operator_workflow"
+      ],
+      "gaps": [
+        "批量筛选、标记、排序和复盘仍可继续产品化。"
+      ],
+      "nextActions": [
+        "后续把单机会操作扩展成批量机会运营。"
+      ]
+    },
+    {
+      "dimensionId": "UA-05-evidence-package-verifiability",
+      "title": "证据包可验收",
+      "status": "PASS",
+      "currentUiState": "内部证据包预览和下载已接入，证据包编号、版本哈希、水印、字段策略、公开来源、来源网址和模拟下载审计可见。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#render_customer_artifact_portal",
+        "src/api/routes/operator_frontend.py#render_customer_artifact_portal_download",
+        "tests/test_operator_frontend_portal.py#test_customer_artifact_portal_download_returns_internal_evidence_package"
+      ],
+      "gaps": [
+        "证据项的中文解释可以继续补强，减少技术枚举裸露。"
+      ],
+      "nextActions": [
+        "继续把证据类型、线索类型、字段策略改成中文优先展示。"
+      ]
+    },
+    {
+      "dimensionId": "UA-06-commercial-hook-boundary",
+      "title": "商业钩子有价值且不泄密",
+      "status": "PARTIAL",
+      "currentUiState": "机会详情已展示商业钩子、可讲卖点、暂不外泄字段、买家排序和泄露风险；卖前/交付后边界还需要更清楚的状态解释。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#renderOpportunityDetail",
+        "tests/test_stage7_commercial_hook_lead.py",
+        "contracts/ui/operator_user_acceptance_contract.json#UA-06-commercial-hook-boundary"
+      ],
+      "gaps": [
+        "内部预览、拟邮件包、真实外发状态仍需要在 UI 中更强区分。",
+        "商业钩子价值判断还缺与报价、买家和证据强度的一屏聚合。"
+      ],
+      "nextActions": [
+        "在机会详情补卖前可讲/不可讲/交付后可见的分区。",
+        "把商业钩子分数、买家匹配和报价草稿聚合成可卖性摘要。"
+      ]
+    },
+    {
+      "dimensionId": "UA-07-governed-outreach-and-delivery",
+      "title": "触达交付受控但不黑盒",
+      "status": "PARTIAL",
+      "currentUiState": "系统与放行页已展示内部测试可预览、模拟外发可跑、真实邮件/电话/支付/退款未接入；真实 provider 放行链仍未产品化。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#controlled_opening_requirement",
+        "src/api/routes/operator_frontend.py#renderCapabilityExposure",
+        "AGENTS.md#Automation Guardrails"
+      ],
+      "gaps": [
+        "真实服务商接入状态还没有形成逐项 provider 面板。",
+        "真实外部动作的审批、审计、operator action 缺口需要按能力显示。"
+      ],
+      "nextActions": [
+        "补真实邮件、电话、支付、交付、退款 provider 状态表。",
+        "把内部测试、sandbox、真实 live 的差异显示成状态和下一步。"
+      ]
+    },
+    {
+      "dimensionId": "UA-08-system-capability-exposure",
+      "title": "系统能力不隐藏",
+      "status": "PASS",
+      "currentUiState": "系统与放行页已展示阶段1-9、实战搜索、机会评分、证据包、来源验证、字段策略、服务商读回、校验页处理、真实服务商和批量运营能力状态。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#renderCapabilityExposure",
+        "tests/test_operator_frontend_portal.py#test_owner_console_frontend_is_mounted_and_exposes_operator_workflow"
+      ],
+      "gaps": [
+        "部分待接能力还缺可点击详情。"
+      ],
+      "nextActions": [
+        "给待接能力增加详情面板和对应后续任务入口。"
+      ]
+    },
+    {
+      "dimensionId": "UA-09-data-persistence-and-operator-control",
+      "title": "数据持久与清空受控",
+      "status": "PARTIAL",
+      "currentUiState": "搜索运行记录、机会和证据包已有 repository-backed readback 基础；UI 还没有明确的数据来源、保存状态和显式清空控制。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#loadAutonomousSearchRuns",
+        "src/api/routes/operator_frontend.py#_search_run_metadata_for_opportunity",
+        "storage/repositories/operator_action_repo.py"
+      ],
+      "gaps": [
+        "刷新后最近记录可读，但页面没有清楚说明数据来自 repository。",
+        "清空/重置控制还没有 owner 显式按钮和审计解释。"
+      ],
+      "nextActions": [
+        "在搜索运行记录区展示数据来源、记录数量和最近更新时间。",
+        "新增显式清空测试数据入口，并保留 operator action 审计。"
+      ]
+    },
+    {
+      "dimensionId": "UA-10-chinese-information-architecture",
+      "title": "中文信息架构可读",
+      "status": "PARTIAL",
+      "currentUiState": "一级导航已经收敛，锚点跳转会回到面板顶部，核心状态有中文标签；仍有技术枚举和证据包字段需要继续中文化。",
+      "evidenceRefs": [
+        "src/api/routes/operator_frontend.py#showView",
+        "src/api/routes/operator_frontend.py#stateLabels",
+        "src/api/routes/operator_frontend.py#renderUserAcceptanceContract"
+      ],
+      "gaps": [
+        "部分英文枚举仍直接显示。",
+        "证据包和服务商状态还需要更多中文解释。"
+      ],
+      "nextActions": [
+        "继续扩充状态映射和证据类型中文映射。",
+        "按 owner 日常流程重排部分页面文案。"
+      ]
+    },
+    {
+      "dimensionId": "UA-11-real-world-sellability",
+      "title": "真实可卖性可判断",
+      "status": "NOT_EXPOSED",
+      "currentUiState": "契约已经定义真实可卖性，但操作台还没有一屏告诉 owner 当前系统能不能真实卖、能卖到哪一步、还差哪些接入。",
+      "evidenceRefs": [
+        "contracts/ui/operator_user_acceptance_contract.json#UA-11-real-world-sellability",
+        "control/product_acceptance_checklist.yaml#PTL-I100-149",
+        "control/product_operability_gap_matrix.yaml"
+      ],
+      "gaps": [
+        "缺真实可卖性总分或分级结论。",
+        "市场扫描、地区适配、证据质量、商业钩子、触达、支付交付、回写治理的缺口还没有聚合。"
+      ],
+      "nextActions": [
+        "新增真实可卖性面板，按可售链路展示当前通过、部分满足、未接入。",
+        "把真实样本闭环结果、地区适配器覆盖和 provider 状态聚合到一个判断卡。"
+      ]
+    }
+  ]
+}

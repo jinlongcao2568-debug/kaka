@@ -47,10 +47,19 @@ USER_ACCEPTANCE_CONTRACT_PATH = (
     / "ui"
     / "operator_user_acceptance_contract.json"
 )
+USER_ACCEPTANCE_GAP_MATRIX_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "control"
+    / "operator_user_acceptance_gap_matrix.json"
+)
 
 
 def _load_user_acceptance_contract() -> dict[str, Any]:
     return json.loads(USER_ACCEPTANCE_CONTRACT_PATH.read_text(encoding="utf-8"))
+
+
+def _load_user_acceptance_gap_matrix() -> dict[str, Any]:
+    return json.loads(USER_ACCEPTANCE_GAP_MATRIX_PATH.read_text(encoding="utf-8"))
 
 
 def _json_or_default(value: Any, default: Any) -> Any:
@@ -901,6 +910,15 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <p class="muted-text">后续 UI 和系统优化先按这份契约验收：产品定义、实战闭环、证据包可验收、能力暴露、真实可卖性都必须能让 owner 看懂和操作。</p>
             <div id="acceptanceContractSummary"></div>
           </section>
+          <section>
+            <h3>当前验收状态</h3>
+            <p class="muted-text">这里按同一份契约列出当前通过、部分满足和未展示项，用来决定下一轮应该改 UI、接口还是数据读回。</p>
+            <div id="acceptanceGapSummary"></div>
+          </section>
+          <section class="wide">
+            <h3>验收差距矩阵</h3>
+            <div id="acceptanceGapMatrix" class="compact-card-grid"></div>
+          </section>
           <section class="wide">
             <h3>验收标准</h3>
             <div id="acceptanceDimensionList" class="compact-card-grid"></div>
@@ -1006,6 +1024,10 @@ const stateLabels = {
   "GUANGDONG-PROVINCIAL-PORTAL": "广东公共资源入口",
   "BEIJING-PLATFORM-HOME": "北京公共资源入口",
   "GGZY-DEAL-LIST": "全国公共资源交易列表",
+  "PASS": "通过",
+  "PARTIAL": "部分满足",
+  "NOT_EXPOSED": "未展示",
+  "FAIL": "未通过",
 };
 const projectTypeLabels = {
   "construction": "房建工程",
@@ -1277,6 +1299,58 @@ async function loadUserAcceptanceContract() {
   const contract = await json("GET", "/operator-console/user-acceptance-contract");
   renderUserAcceptanceContract(contract);
   return contract;
+}
+function acceptanceStatusKind(status) {
+  if (status === "FAIL") { return "danger"; }
+  if (status === "PARTIAL" || status === "NOT_EXPOSED") { return "warn"; }
+  return "";
+}
+function renderListItems(items, emptyText="暂无") {
+  const rows = Array.isArray(items) ? items.filter(Boolean) : [];
+  return rows.length
+    ? rows.map((text) => `<li>${safeText(text)}</li>`).join("")
+    : `<li>${safeText(emptyText)}</li>`;
+}
+function renderAcceptanceGapMatrix(matrix) {
+  const summary = matrix?.summary || {};
+  const priorities = Array.isArray(matrix?.topPriorities) ? matrix.topPriorities : [];
+  const dimensions = Array.isArray(matrix?.dimensions) ? matrix.dimensions : [];
+  $("acceptanceGapSummary").innerHTML = renderRows([
+    ["矩阵编号", matrix?.matrixId],
+    ["契约引用", matrix?.contractRef],
+    ["维度总数", summary.totalDimensions],
+    ["通过", summary.passCount],
+    ["部分满足", summary.partialCount],
+    ["未展示", summary.notExposedCount],
+    ["未通过", summary.failCount],
+    ["操作结论", summary.operatorConclusion],
+    ["下一步判断", summary.nextDecision],
+  ]) + `<h3>优先修复</h3><div class="timeline">${
+    priorities.length
+      ? priorities.map((item) => `<div>${safeText(item.rank)}. ${safeText(item.title)}：${safeText(item.reason)}</div>`).join("")
+      : `<div>暂无优先修复项。</div>`
+  }</div>`;
+  $("acceptanceGapMatrix").innerHTML = dimensions.length
+    ? dimensions.map((item) => {
+      const status = item.status || "--";
+      return `<div class="stage-card">
+        <strong>${safeText(item.dimensionId)} ${safeText(item.title)}</strong>
+        <p>${safeText(item.currentUiState)}</p>
+        ${badge(status, acceptanceStatusKind(status))}
+        <p><strong>当前缺口</strong></p>
+        <ul>${renderListItems(item.gaps)}</ul>
+        <p><strong>下一步</strong></p>
+        <ul>${renderListItems(item.nextActions)}</ul>
+        <p><strong>依据</strong></p>
+        <ul>${renderListItems((item.evidenceRefs || []).slice(0, 3))}</ul>
+      </div>`;
+    }).join("")
+    : `<div class="empty-state">暂无验收状态矩阵。</div>`;
+}
+async function loadAcceptanceGapMatrix() {
+  const matrix = await json("GET", "/operator-console/user-acceptance-gap-matrix");
+  renderAcceptanceGapMatrix(matrix);
+  return matrix;
 }
 async function loadReadiness(writeOutput = true) {
   const readiness = await json("GET", "/operator-console/readiness");
@@ -1621,7 +1695,7 @@ window.addEventListener("hashchange", () => showView((window.location.hash || "#
 showView((window.location.hash || "#overview").slice(1));
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """
@@ -1974,6 +2048,11 @@ def render_operator_user_acceptance_contract(payload: Any) -> dict[str, Any]:
     return _load_user_acceptance_contract()
 
 
+def render_operator_user_acceptance_gap_matrix(payload: Any) -> dict[str, Any]:
+    del payload
+    return _load_user_acceptance_gap_matrix()
+
+
 OPERATOR_FRONTEND_ROUTES = [
     {
         "operationId": "renderOwnerOperatorConsole",
@@ -2026,6 +2105,16 @@ OPERATOR_FRONTEND_ROUTES = [
         "repository_backed_readback": False,
         **OPERATOR_FRONTEND_ROUTE_METADATA,
     },
+    {
+        "operationId": "renderOperatorUserAcceptanceGapMatrix",
+        "method": "GET",
+        "path": "/operator-console/user-acceptance-gap-matrix",
+        "handler": render_operator_user_acceptance_gap_matrix,
+        "operator_user_acceptance_gap_matrix": True,
+        "ui_acceptance_status": True,
+        "repository_backed_readback": False,
+        **OPERATOR_FRONTEND_ROUTE_METADATA,
+    },
 ]
 
 
@@ -2041,4 +2130,5 @@ __all__ = [
     "render_customer_artifact_portal_readback",
     "render_operator_console",
     "render_operator_user_acceptance_contract",
+    "render_operator_user_acceptance_gap_matrix",
 ]
