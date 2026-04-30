@@ -9,7 +9,7 @@ navigation_state: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-148 productized autonomous operator workbench is internally ready through dfeb331; owner asked to continue into 149 real sample autonomous opportunity acceptance.
+activation_condition: PTL-I100-149 real sample autonomous opportunity acceptance completed locally through 53e0d1b; long gates passed after PTL-I100-147/148/149 completion.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -87,7 +87,7 @@ currentTask:
     existing_code_state: STAGE1_TO_STAGE9_AND_PRODUCTIZED_WORKBENCH_PRESENT
     existing_runtime_state: REAL_SAMPLE_AUTONOMOUS_ACCEPTANCE_NOT_YET_BOUND
     title: I100-49 Real sample autonomous opportunity acceptance
-    status: ACTIVE
+    status: COMPLETED
     objective: 实现并验收真实公开样本自主机会 acceptance：复用 Stage1 market scan、source blueprint、Stage1-9 internal chain、commercial_hook、LeadPack、Stage8/Stage9 readback 和 operator console，证明市场扫描到可售商业钩子、交付候选、操作台观察、复核和回放能形成端到端验收面。
     depends_on:
     - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed locally through 64efed4.
@@ -206,6 +206,8 @@ currentTask:
     - tests/test_product_acceptance_checklist.py
     - tests/test_product_runtime_architecture_map.py
     - tests/test_product_operability_gap_matrix.py
+    - tests/test_stage12_extractors.py
+    - tests/test_controlled_real_world_e2e_closeout.py
     allowed_modification_paths:
     - control/repo_status.md
     - control/product_runtime_architecture_map.yaml
@@ -231,6 +233,8 @@ currentTask:
     - tests/test_product_acceptance_checklist.py
     - tests/test_product_runtime_architecture_map.py
     - tests/test_product_operability_gap_matrix.py
+    - tests/test_stage12_extractors.py
+    - tests/test_controlled_real_world_e2e_closeout.py
     forbidden_modification_paths:
     - archive/**
     - .git/**
@@ -263,6 +267,8 @@ currentTask:
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_runtime_architecture_map.py
       - tests/test_product_operability_gap_matrix.py
+      - tests/test_stage12_extractors.py
+      - tests/test_controlled_real_world_e2e_closeout.py
       fixtures: []
     required_scripts:
     - git status --short --untracked-files=all
@@ -303,8 +309,13 @@ currentTask:
     - real_sample_runs_through_autonomous_opportunity_flow
     - owner_can_observe_and_review_without_raw_api
     - controlled_opening_requirements_preserved
+    completed_commit: 53e0d1b
+    completion_result: COMPLETED_REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTANCE
+    completion_verified_by:
+    - python tests/run_tests.py
+    - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
 notes:
 - current_task -> product_task_library -> repo_status remains the active-source priority.
 - This packet implements the real sample autonomous opportunity acceptance projection and route; automated refund execution remains excluded.
-- Owner deferred python tests/run_tests.py and check-final-gate.ps1 until PTL-I100-147, PTL-I100-148, and PTL-I100-149 are complete because those gates are too long for intermediate commits.
+- Owner deferred python tests/run_tests.py and check-final-gate.ps1 until PTL-I100-147, PTL-I100-148, and PTL-I100-149 were complete; both long gates passed after 149 completion.
 - No unapproved real external execution is performed by this packet.

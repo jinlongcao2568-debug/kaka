@@ -667,13 +667,12 @@ current_gap_sync_2026_04_29:
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/repo_status.md
-  current_active_packet: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
-  current_active_packet_scope: internal_real_sample_autonomous_opportunity_acceptance_only
-  closed_prerequisite_packet: PTL-I100-148-productized-autonomous-operator-workbench
+  current_active_packet: NONE_ACTIVE_PRODUCT_MAINLINE_PACKET
+  current_active_packet_scope: none_after_real_sample_autonomous_acceptance_closeout
+  closed_prerequisite_packet: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
   owner_operated_controlled_business_state: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
   remaining_product_blockers_for_controlled_owner_e2e: []
-  current_remaining_runtime_productization_packets:
-    - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
+  current_remaining_runtime_productization_packets: []
   preserved_live_boundaries:
     external_software_release: CONTROLLED_OPENING
     live_provider_call: CONTROLLED_OPENING
@@ -991,7 +990,9 @@ production_gap_task_map:
       - evidence_risk_and_delivery_state_ui
   - gap_group: real_sample_autonomous_opportunity_acceptance
     packet_ref: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
-    status: ACTIVE
+    status: COMPLETED
+    completed_commit: 53e0d1b
+    completion_result: "COMPLETED_REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTANCE"
     target_capability_state: PRODUCTION_READY
     covered_capabilities:
       - real_sample_market_scan_to_hook_lead
@@ -1247,8 +1248,8 @@ recommended_execution_order_after_reassessment:
   principle: >
     Historical reassessment order used before the 112-131 closeout. It is kept
     for audit context only. Current remaining implementation should follow
-    current_gap_sync_2026_04_29 and control/product_runtime_architecture_map.yaml,
-    with PTL-I100-149 active as the current real sample autonomous opportunity acceptance packet.
+    current_gap_sync_2026_04_29 and control/product_runtime_architecture_map.yaml;
+    PTL-I100-149 is now closed and no product mainline packet is auto-activated.
   sequence:
     - packet_ref: PTL-I100-112-production-platform-infrastructure
       reason: "Production durability, queue/worker, object storage, audit persistence, and health checks are prerequisites for real source ingestion and provider execution."

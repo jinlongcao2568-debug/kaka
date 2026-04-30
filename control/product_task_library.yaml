@@ -1,6 +1,6 @@
 version: 1
 library_id: PRODUCT_MAINLINE_TASK_LIBRARY
-updated_at: "2026-04-28"
+updated_at: "2026-04-30"
 status: EFFECTIVE
 role: product_mainline_task_source
 library_role: product_mainline_task_source
@@ -129,9 +129,11 @@ current_mainline_next_candidate:
   task_id: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
   packet_id: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
   title: "I100-49 Real sample autonomous opportunity acceptance"
-  planning_state: ACTIVE
+  planning_state: COMPLETED
+  candidate_pointer_state: CLOSED_LAST_COMPLETED_MAINLINE_PACKET
+  no_active_mainline_next_candidate: true
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-148 productized autonomous operator workbench is internally ready through dfeb331. 149 is active for real sample autonomous opportunity acceptance: market scan, source blueprint, Stage1-9 chain, commercial hook, owner workbench, and gated delivery candidate acceptance. This packet does not execute unapproved live provider calls, outreach, payment, delivery, customer download, refund, or public software release."
+  runtime_notes: "PTL-I100-149 real sample autonomous opportunity acceptance completed through 53e0d1b and passed the deferred long gates. No next product mainline packet is auto-activated; ordinary follow-up uses AGENTS direct-dev unless live/release/high-risk controlled semantics require a task packet."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -3535,9 +3537,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, stage4_verification, stage5_rules_evidence, stage6_fact_review, stage7_sales, stage8_outreach, stage9_delivery, operator_frontend, product_acceptance]
     task_type: real_sample_autonomous_opportunity_acceptance
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P55
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
@@ -3555,3 +3557,6 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-149-real-sample-autonomous-opportunity-acceptance
     suggested_packet_refs: [PTL-I100-149-real-sample-autonomous-opportunity-acceptance]
     risk_level: HIGH
+    completed_commit: 53e0d1b
+    capability_state_after: PRODUCTION_READY
+    completion_result: "COMPLETED_REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTANCE"

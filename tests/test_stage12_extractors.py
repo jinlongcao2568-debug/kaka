@@ -216,7 +216,8 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertIsInstance(active_packet, dict)
         self.assertEqual(active_packet["packet_kind"], "EXECUTABLE_SCOPED_SUBPACKET")
         self.assertIn(active_packet["execution_mode"], {"ACTIVATION_ONLY", "SCOPED_EXECUTION"})
-        self.assertEqual(active_packet["status"], "ACTIVE")
+        self.assertEqual(active_packet["status"], "COMPLETED")
+        self.assertEqual(active_packet["completed_commit"], "53e0d1b")
         self.assertTrue(active_packet["packet_id"])
         self.assertTrue(active_packet["backlog_packet_ref"])
         self.assertTrue(active_packet["source_blueprint_batch_id"])
@@ -254,11 +255,12 @@ class TestStage12Extractors(unittest.TestCase):
         self.assertEqual(task_library["formal_active_task_source"], "control/current_task.yaml")
 
         candidate = task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["planning_state"], "ACTIVE")
+        self.assertEqual(candidate["planning_state"], "COMPLETED")
+        self.assertTrue(candidate["no_active_mainline_next_candidate"])
         self.assertEqual(candidate["task_id"], active_task["task_id"])
         self.assertEqual(candidate["packet_id"], active_task["task_id"])
 
-        self.assertIn("planning_state: ACTIVE", task_library_text)
+        self.assertIn("planning_state: COMPLETED", task_library_text)
         self.assertIn("PTL-I100-128-real-public-source-field-validation-and-coverage", task_library_text)
         self.assertIn("COMPLETED_CONTROLLED_MANUAL_PUBLIC_SOURCE_FIELD_VALIDATION_AND_COVERAGE_REPORT", task_library_text)
         self.assertIn("PTL-I100-129-real-provider-binding-wecom-email-crm-payment-delivery-no-auto-refund", task_library_text)

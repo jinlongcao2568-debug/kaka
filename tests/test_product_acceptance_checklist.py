@@ -46,6 +46,15 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         ]
         active_task_id = self.current_task["currentTask"]["task_id"]
 
+        if not non_completed:
+            current_task = self.tasks_by_id[active_task_id]
+            self.assertEqual(current_task["status"], "COMPLETED")
+            self.assertFalse(current_task["is_current_mainline_next_candidate"])
+            self.assertTrue(
+                self.library["current_mainline_next_candidate"]["no_active_mainline_next_candidate"]
+            )
+            return
+
         self.assertIn(active_task_id, {task["task_id"] for task in non_completed})
         for task in non_completed:
             task_id = task["task_id"]
@@ -224,8 +233,9 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertEqual(task_148["status"], "COMPLETED")
         self.assertEqual(task_148["completed_commit"], "dfeb331")
         self.assertFalse(task_148["is_current_mainline_next_candidate"])
-        self.assertEqual(task_149["status"], "ACTIVE")
-        self.assertTrue(task_149["is_current_mainline_next_candidate"])
+        self.assertEqual(task_149["status"], "COMPLETED")
+        self.assertEqual(task_149["completed_commit"], "53e0d1b")
+        self.assertFalse(task_149["is_current_mainline_next_candidate"])
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", task_143g["acceptance_checks"])
         self.assertIn("autonomous_run_controller_and_stage_state_machine_visible", task_144["acceptance_checks"])
         self.assertIn("stage2_capture_plan_generation", task_145["acceptance_checks"])
@@ -681,12 +691,16 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertTrue(checklist_132["current_132_frontend_result"]["owner_console_productized"])
         self.assertTrue(checklist_132["current_132_frontend_result"]["customer_portal_empty_state_supported"])
         self.assertFalse(checklist_132["current_132_frontend_result"]["live_execution_enabled_by_frontend"])
-        self.assertEqual(active_task["status"], "ACTIVE")
-        self.assertEqual(active_task["planning_state"], "ACTIVE")
-        self.assertTrue(active_task["is_current_mainline_next_candidate"])
+        self.assertEqual(active_task["status"], "COMPLETED")
+        self.assertEqual(active_task["planning_state"], "COMPLETED")
+        self.assertEqual(active_task["completed_commit"], "53e0d1b")
+        self.assertFalse(active_task["is_current_mainline_next_candidate"])
         self.assertEqual(
             self.library["current_mainline_next_candidate"]["task_id"],
             active_task_id,
+        )
+        self.assertTrue(
+            self.library["current_mainline_next_candidate"]["no_active_mainline_next_candidate"]
         )
         self.assertTrue(active_task["capability_gaps_covered"])
         active_checklist = self.checklist["tasks"][active_task_id]

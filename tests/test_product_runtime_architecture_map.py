@@ -240,10 +240,14 @@ class ProductRuntimeArchitectureMapTests(unittest.TestCase):
         self.assertEqual(task_ids[expected[9]]["status"], "COMPLETED")
         self.assertEqual(task_ids[expected[10]]["status"], "COMPLETED")
         self.assertEqual(task_ids[expected[11]]["status"], "COMPLETED")
-        self.assertEqual(task_ids[expected[12]]["status"], "ACTIVE")
+        self.assertEqual(task_ids[expected[12]]["status"], "COMPLETED")
+        self.assertEqual(task_ids[expected[12]]["completed_commit"], "53e0d1b")
         self.assertEqual(
             self.task_library["current_mainline_next_candidate"]["task_id"],
             expected[12],
+        )
+        self.assertTrue(
+            self.task_library["current_mainline_next_candidate"]["no_active_mainline_next_candidate"]
         )
 
         sequence = [item["packet_ref"] for item in self.architecture["implementation_sequence"]]

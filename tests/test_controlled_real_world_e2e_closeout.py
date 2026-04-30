@@ -113,7 +113,8 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
                 self.assertFalse(tasks[task_id]["is_current_mainline_next_candidate"])
 
         candidate = self.task_library["current_mainline_next_candidate"]
-        self.assertEqual(candidate["planning_state"], "ACTIVE")
+        self.assertEqual(candidate["planning_state"], "COMPLETED")
+        self.assertTrue(candidate["no_active_mainline_next_candidate"])
         self.assertNotIn(
             candidate["task_id"],
             {
@@ -126,8 +127,8 @@ class TestControlledRealWorldE2ECloseout(unittest.TestCase):
             },
         )
         self.assertEqual(candidate["task_id"], self.current_task["currentTask"]["task_id"])
-        self.assertRegex(candidate["runtime_notes"], r"public|verification|entry")
-        self.assertEqual(tasks[candidate["task_id"]]["status"], "ACTIVE")
+        self.assertRegex(candidate["runtime_notes"], r"real sample|long gates|direct-dev")
+        self.assertEqual(tasks[candidate["task_id"]]["status"], "COMPLETED")
 
 
 if __name__ == "__main__":

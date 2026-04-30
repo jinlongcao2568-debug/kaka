@@ -455,10 +455,11 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
         self.assertEqual(evidence_risk_gap["status"], "COMPLETED")
         self.assertEqual(commercial_hook_gap["status"], "COMPLETED")
         self.assertEqual(operator_workbench_gap["status"], "COMPLETED")
-        self.assertEqual(real_sample_gap["status"], "ACTIVE")
+        self.assertEqual(real_sample_gap["status"], "COMPLETED")
+        self.assertEqual(real_sample_gap["completed_commit"], "53e0d1b")
         self.assertEqual(
             self.matrix["current_gap_sync_2026_04_29"]["current_active_packet"],
-            "PTL-I100-149-real-sample-autonomous-opportunity-acceptance",
+            "NONE_ACTIVE_PRODUCT_MAINLINE_PACKET",
         )
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:

@@ -611,7 +611,7 @@ remaining_product_readiness_gap_assessment:
         - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
       acceptance_question: "Can approved sales, payment, and delivery readback bind to the same run without silent live fallback?"
     real_world_sample_acceptance:
-      current_state: controlled_real_public_pilots_exist_but_autonomous_market_to_hook_sample_not_yet_closed
+      current_state: real_sample_market_to_hook_acceptance_closed
       risk_if_ignored: tests_pass_but_product_value_is_not_proven_on_real_public_samples
       required_upgrade: real_sample_market_scan_to_hook_lead_to_delivery_candidate_closeout
       primary_packets:
@@ -814,7 +814,8 @@ implementation_sequence:
     status: COMPLETED
     purpose: expose_opportunity_queue_evidence_risk_hook_lead_buyer_fit_and_next_actions
   - packet_ref: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
-    status: ACTIVE
+    status: COMPLETED
+    completed_commit: 53e0d1b
     purpose: prove_real_public_sample_can_flow_from_market_scan_to_sellable_hook_and_delivery_candidate
 controlled_opening_requirements_preserved:
   external_software_release: CONTROLLED_OPENING

@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-149-real-sample-autonomous-opportunity-acceptance (ACTIVE; implements the internal real sample autonomous opportunity acceptance surface for market scan, source blueprint, Stage1-9 chain, commercial hook, owner workbench, and gated delivery candidate readback. This packet does not execute unapproved live provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
+Current Workstream: NO_ACTIVE_PRODUCT_MAINLINE_PACKET (PTL-I100-149-real-sample-autonomous-opportunity-acceptance completed locally through 53e0d1b; no next product mainline packet is auto-activated. Follow-up ordinary development uses AGENTS direct-dev unless live/release/high-risk controlled semantics require a task packet.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -19,7 +19,7 @@ Current Controlled Opening Boundaries:
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
 - PTL-I100-143G is completed and registered the public-web capture escalation, captcha automated challenge resolution/resume, and implementation order before runtime packets continue.
-- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144, PTL-I100-145, PTL-I100-150, PTL-I100-151, PTL-I100-146, PTL-I100-147, and PTL-I100-148 are internally ready; PTL-I100-149 is the active internal real sample autonomous opportunity acceptance packet and does not execute unapproved live provider calls, outreach, payment, delivery, refund, customer download, or public release.
+- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144, PTL-I100-145, PTL-I100-150, PTL-I100-151, PTL-I100-146, PTL-I100-147, PTL-I100-148, and PTL-I100-149 are internally ready. No current product mainline packet is active; unapproved live provider calls, outreach, payment, delivery, refund, customer download, or public release remain disallowed.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -27,13 +27,14 @@ Product Open Capability Baseline:
 - Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the controlled-opening gate pass; it does not mean the capability is permanently out of product scope.
 
-Current 149 Scope:
-- Implement real sample autonomous opportunity acceptance as an internal owner-operated product slice.
-- Prove market scan, source blueprint, Stage1-9 internal chain, commercial hook, operator workbench, and LeadPack delivery candidate are observable, reviewable, and replayable without raw JSON dependency.
-- Bind the readback into `/operator-console/real-sample-autonomous-acceptance`, operator console readiness, and the workbench catalog.
-- Keep customer-visible send, provider calls, outreach, payment, delivery, customer download, refund, automated refund, and public release unexecuted.
+Closed 149 Result:
+- Real sample autonomous opportunity acceptance is implemented as an internal owner-operated product slice.
+- Market scan, source blueprint, Stage1-9 internal chain, commercial hook, operator workbench, and LeadPack delivery candidate are observable, reviewable, and replayable without raw JSON dependency.
+- Readback is bound into `/operator-console/real-sample-autonomous-acceptance`, operator console readiness, and the workbench catalog.
+- Customer-visible send, provider calls, outreach, payment, delivery, customer download, refund, automated refund, and public release remain unexecuted unless a later controlled-opening action is approved and audited.
 
 Recently Closed:
+- PTL-I100-149-real-sample-autonomous-opportunity-acceptance completed and committed locally: 53e0d1b.
 - PTL-I100-148-productized-autonomous-operator-workbench completed and committed locally: dfeb331.
 - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine completed and committed locally: 65ffbb0.
 - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy completed and committed locally: b782b49.
@@ -86,10 +87,10 @@ Current Scoped-Execution Required Checks:
 - git diff --check
 - git status --short --untracked-files=all
 
-Long Gates Deferred By Owner:
+Long Gates Completed After PTL-I100-149:
 - python tests/run_tests.py
 - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-final-gate.ps1
-- These long gates are deferred until PTL-I100-147, PTL-I100-148, and PTL-I100-149 are complete; current intermediate commits use targeted tests plus task/state alignment.
+- These long gates were deferred until PTL-I100-147, PTL-I100-148, and PTL-I100-149 were complete; both passed after 149 completion.
 
 Automation Guardrails:
 - Action matrix: control/automation_action_matrix.yaml
