@@ -360,6 +360,48 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       padding: 12px;
       background: #fbfcfe;
     }}
+    .field-row {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }}
+    .flow-steps {{
+      display: grid;
+      grid-template-columns: repeat(9, minmax(120px, 1fr));
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }}
+    .flow-step {{
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      padding: 10px;
+      min-height: 128px;
+    }}
+    .flow-step strong {{
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }}
+    .flow-step span {{
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 4px;
+    }}
+    .timeline {{
+      display: grid;
+      gap: 8px;
+    }}
+    .timeline div {{
+      border-left: 3px solid var(--accent);
+      background: #fbfcfe;
+      padding: 8px 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
     .empty-state {{
       border: 1px dashed var(--line);
       border-radius: 8px;
@@ -427,6 +469,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       .resultPane pre {{ max-height: 260px; }}
       .grid, .rail, .stage-grid, .workflow, .compact-card-grid {{ grid-template-columns: 1fr; }}
       .view-grid {{ grid-template-columns: 1fr; }}
+      .field-row {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px; }}
       .topbar {{ display: block; }}
     }}
@@ -453,12 +496,13 @@ def render_operator_console(payload: Any) -> HTMLResponse:
 <div class="layout operator-shell">
   <nav aria-label="运营操作台导航">
     <h1>AX9S 运营操作台</h1>
-    <button class="nav-link active" type="button" data-view="overview" aria-current="page">Stage1-9 运营总览</button>
+    <button class="nav-link active" type="button" data-view="overview" aria-current="page">阶段1-9 运营总览</button>
+    <button class="nav-link" type="button" data-view="flow" aria-current="false">流程观察</button>
     <button class="nav-link" type="button" data-view="search" aria-current="false">实战搜索</button>
     <button class="nav-link" type="button" data-view="run" aria-current="false">全链路运行</button>
     <button class="nav-link" type="button" data-view="business" aria-current="false">业务闭环</button>
     <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">自主机会工作台</button>
-    <button class="nav-link" type="button" data-view="workbench" aria-current="false">Stage6-9 工作台</button>
+    <button class="nav-link" type="button" data-view="workbench" aria-current="false">阶段6-9 工作台</button>
     <button class="nav-link" type="button" data-view="providers" aria-current="false">服务商状态</button>
     <button class="nav-link" type="button" data-view="audit" aria-current="false">审批审计</button>
     <a class="external" id="customerPortalLink" href="/customer-artifact-portal/OPP-HAPPY-001">客户材料门户 · 样例</a>
@@ -467,9 +511,9 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <div class="topbar">
       <div>
         <h2>证据包运营操作台</h2>
-        <p>任务创建、项目导入、Stage1-9 运营、销售闭环、客户交付、支付交付、审计回写集中在同一入口。</p>
+        <p>任务创建、项目导入、阶段1-9运营、销售闭环、客户交付、支付交付、审计回写集中在同一入口。</p>
       </div>
-      <div class="status" id="summary">正在读取 bootstrap / readiness...</div>
+      <div class="status" id="summary">正在读取启动状态和就绪状态...</div>
     </div>
     <div class="rail" aria-label="readiness summary">
       <div class="metric"><strong id="capability">--</strong><span>操作权限状态</span></div>
@@ -480,26 +524,42 @@ def render_operator_console(payload: Any) -> HTMLResponse:
       <div class="panelStack" aria-live="polite">
         <div class="view-panel active" id="overview" data-view-panel="overview">
           <section>
-            <h3>Stage1-9 运营总览</h3>
+            <h3>阶段1-9 运营总览</h3>
             <div class="stage-grid" id="stageBoard">
-              <div class="stage-card"><strong>Stage1 调度</strong><p>任务、窗口、队列、暂停恢复。</p><span class="pill">内部执行</span></div>
-              <div class="stage-card"><strong>Stage2 公开源</strong><p>公开源适配器、快照、哈希、来源链。</p><span class="pill">仅公开来源</span></div>
-              <div class="stage-card"><strong>Stage3 解析</strong><p>HTML/PDF/OCR/附件字段候选与复核。</p><span class="pill">待核验</span></div>
-              <div class="stage-card"><strong>Stage4 核验</strong><p>公开核验、证据等级、失败关闭。</p><span class="pill">公开核验</span></div>
-              <div class="stage-card"><strong>Stage5 规则</strong><p>规则目录、金标用例、证据绑定。</p><span class="pill">规则工厂</span></div>
-              <div class="stage-card"><strong>Stage6 产品包</strong><p>异议价值、可售判断、交付就绪。</p><span class="pill">产品包</span></div>
-              <div class="stage-card"><strong>Stage7 销售</strong><p>真实竞争者、买家匹配、CRM/报价。</p><span class="pill">销售闭环</span></div>
-              <div class="stage-card"><strong>Stage8 触达</strong><p>模板、频控、退订、服务商执行读回。</p><span class="pill warn">门禁控制</span></div>
-              <div class="stage-card"><strong>Stage9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">无自动退款</span></div>
+              <div class="stage-card"><strong>阶段1 调度</strong><p>任务、窗口、队列、暂停恢复。</p><span class="pill">内部执行</span></div>
+              <div class="stage-card"><strong>阶段2 公开源</strong><p>公开源适配器、快照、哈希、来源链。</p><span class="pill">仅公开来源</span></div>
+              <div class="stage-card"><strong>阶段3 解析</strong><p>网页、文档、文字识别、附件字段候选与复核。</p><span class="pill">待核验</span></div>
+              <div class="stage-card"><strong>阶段4 核验</strong><p>公开核验、证据等级、失败关闭。</p><span class="pill">公开核验</span></div>
+              <div class="stage-card"><strong>阶段5 规则</strong><p>规则目录、金标用例、证据绑定。</p><span class="pill">规则工厂</span></div>
+              <div class="stage-card"><strong>阶段6 产品包</strong><p>异议价值、可售判断、交付就绪。</p><span class="pill">产品包</span></div>
+              <div class="stage-card"><strong>阶段7 销售</strong><p>真实竞争者、买家匹配、客户关系和报价。</p><span class="pill">销售闭环</span></div>
+              <div class="stage-card"><strong>阶段8 触达</strong><p>模板、频控、退订、服务商执行读回。</p><span class="pill warn">门禁控制</span></div>
+              <div class="stage-card"><strong>阶段9 支付交付</strong><p>订单、收款、交付、对账、人工退款异常。</p><span class="pill warn">无自动退款</span></div>
             </div>
+          </section>
+        </div>
+        <div class="view-panel" id="flow" data-view-panel="flow">
+          <section>
+            <h3>系统流程图与数据流</h3>
+            <p class="muted-text" id="flowDirection">运行实战搜索后，这里显示本次搜索从市场扫描到客户材料候选的真实阶段统计。</p>
+            <div class="rail" id="flowMetrics">
+              <div class="metric"><strong>--</strong><span>阶段数</span></div>
+              <div class="metric"><strong>--</strong><span>产出对象</span></div>
+              <div class="metric"><strong>--</strong><span>有效数据</span></div>
+            </div>
+            <div class="flow-steps" id="flowDiagram"></div>
+          </section>
+          <section>
+            <h3>运行日志</h3>
+            <div id="flowLog" class="timeline"></div>
           </section>
         </div>
         <div class="view-panel" id="business" data-view-panel="business">
           <section>
             <h3>业务闭环</h3>
             <div class="workflow">
-              <div><strong>证据链</strong><p>公开来源 -> 解析 -> 核验 -> 规则 -> Stage6 产品包。</p></div>
-              <div><strong>销售闭环</strong><p>真实竞争者 -> 买家匹配 -> CRM/报价 -> 触达。</p></div>
+              <div><strong>证据链</strong><p>公开来源 -> 解析 -> 核验 -> 规则 -> 阶段6产品包。</p></div>
+              <div><strong>销售闭环</strong><p>真实竞争者 -> 买家匹配 -> 客户关系和报价 -> 触达。</p></div>
               <div><strong>客户交付</strong><p>字段白名单、脱敏、水印、版本哈希、下载授权、审计。</p></div>
               <div><strong>支付交付</strong><p>订单、支付、收据、发票、结算、交付、回滚。</p></div>
             </div>
@@ -515,13 +575,16 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <input id="searchKeyword" value="公共建筑工程" />
               <label for="searchProjectType">项目类型</label>
               <select id="searchProjectType">
-                <option value="construction">construction</option>
-                <option value="municipal">municipal</option>
-                <option value="highway">highway</option>
-                <option value="water_conservancy">water_conservancy</option>
+                <option value="construction">房建工程</option>
+                <option value="municipal">市政工程</option>
+                <option value="highway">公路交通</option>
+                <option value="water_conservancy">水利工程</option>
               </select>
-              <label for="searchAmount">金额</label>
-              <input id="searchAmount" type="number" value="12000000" />
+              <label>金额区间（万元）</label>
+              <div class="field-row">
+                <input id="searchAmountMinWan" type="number" value="800" aria-label="最低金额（万元）" />
+                <input id="searchAmountMaxWan" type="number" value="3000" aria-label="最高金额（万元）" />
+              </div>
               <button id="runAutonomousSearch">搜索并生成机会闭环</button>
             </section>
             <section>
@@ -557,20 +620,20 @@ def render_operator_console(payload: Any) -> HTMLResponse:
           <div class="view-grid">
             <section>
               <h3>任务创建</h3>
-              <label for="taskId">任务 ID</label>
+              <label for="taskId">任务编号</label>
               <input id="taskId" value="TASK-OWNER-127-001" />
-              <label for="projectId">项目 ID</label>
+              <label for="projectId">项目编号</label>
               <input id="projectId" value="PROJ-OWNER-127-001" />
               <button id="createTask">创建内部任务</button>
               <button class="secondary" id="importProject">导入项目</button>
             </section>
             <section>
               <h3>真实公开源验证</h3>
-              <p>只执行 allowlist 的真实公开入口页和附件原始链接；采集按 approved capture plan、source profile、同站证据链与 provider gate 执行。</p>
-              <label for="entryProfile">入口页 Profile</label>
+              <p>只执行白名单内的真实公开入口页和附件原始链接；采集按已批准采集计划、来源配置、同站证据链与服务商门禁执行。</p>
+              <label for="entryProfile">入口页配置</label>
               <select id="entryProfile"></select>
               <button id="runEntryCapture">执行入口页抓取</button>
-              <label for="attachmentProfile">附件 Profile</label>
+              <label for="attachmentProfile">附件配置</label>
               <select id="attachmentProfile"></select>
               <button class="secondary" id="runAttachmentCapture">执行附件抓取</button>
               <button class="secondary" id="readLatestSourceCapture">读取最近一次抓取读回</button>
@@ -579,19 +642,19 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             </section>
             <section class="wide">
               <h3>全链路运行入口</h3>
-              <p>只接受脱敏、离线、内部 payload；Stage1-5 外部 live transport 仍关闭。</p>
-              <label for="payload">运行参数 JSON</label>
+              <p>只接受脱敏、离线、内部运行参数；阶段1-5外部实时传输不在本页执行。</p>
+              <label for="payload">运行参数（结构化文本）</label>
               <textarea id="payload">__CONTROLLED_SAMPLE_PAYLOAD__</textarea>
-              <button id="runControlledSample">运行受控样本到 Stage6</button>
+              <button id="runControlledSample">运行受控样本到阶段6</button>
               <button class="secondary" id="previewRun">只检查运行入口</button>
             </section>
           </div>
         </div>
         <div class="view-panel" id="workbench" data-view-panel="workbench">
           <section>
-            <h3>Stage6-9 工作台</h3>
+            <h3>阶段6-9 工作台</h3>
             <div id="workbenchStatus"></div>
-            <p>这里是后端 Stage6-9 读回的工作台入口，不会直接执行真实服务商。</p>
+            <p>这里是后端阶段6-9读回的工作台入口，不会直接执行真实服务商。</p>
             <button id="refreshWorkbench">刷新工作台读回</button>
           </section>
         </div>
@@ -609,12 +672,12 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <button id="refreshAudit">刷新审计读回</button>
           </section>
           <section class="controlled_opening_requirement">
-            <h3>受控开放要求</h3>
-            <p>本页面不执行对外软件发布、真实触达、真实支付、真实交付、真实退款或自动退款。</p>
-            <span class="pill danger">对外发布已阻断</span>
-            <span class="pill danger">自动退款已排除</span>
-            <span class="pill danger">客户真实下载默认关闭</span>
-            <span class="pill warn">客户访问受门禁控制</span>
+            <h3>真实对外交付放行要求</h3>
+            <p>内部测试链路可完整跑通；真实发布、触达、支付、交付、退款需要审批、审计和操作员确认。</p>
+            <span class="pill warn">对外发布需审批</span>
+            <span class="pill danger">自动退款不执行</span>
+            <span class="pill warn">客户真实下载需授权</span>
+            <span class="pill warn">客户访问需账号控制</span>
           </section>
         </div>
       </div>
@@ -633,11 +696,12 @@ function formatOperatorSummary(value) {
     return "";
   }
   const rows = [
-    ["状态", value.search_state || value.state],
+    ["状态", labelOf(value.search_state || value.state)],
     ["商机", value.opportunity_id],
-    ["运行 ID", value.search_run_id || value.run_id],
+    ["运行编号", value.search_run_id || value.run_id],
     ["地区", value.region_code],
-    ["入口 Profile", value.entry_profile_id],
+    ["入口", labelOf(value.entry_profile_id)],
+    ["金额区间", amountRangeText(value.amount_range)],
     ["工作台", value.workbench],
     ["材料候选", value.customer_artifact_candidate],
     ["说明", value.display_message],
@@ -685,7 +749,107 @@ async function json(method, url, body) {
   if (!response.ok) { throw payload; }
   return payload;
 }
-function badge(text, kind="") { return `<span class="pill ${kind}">${text}</span>`; }
+const stateLabels = {
+  "AUTONOMOUS_SEARCH_ACCEPTED": "自动搜索已接受",
+  "REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTED": "真实样本闭环通过",
+  "REVIEW_REQUIRED": "需要复核",
+  "APPROVAL_READY": "可进入审批",
+  "PRODUCTION_READY": "内部生产就绪",
+  "EXECUTABLE": "可执行",
+  "QUALIFIED": "合格机会",
+  "REVIEWABLE_PUBLIC_SIGNAL": "公开信号可复核",
+  "MEDIUM": "中优先级",
+  "HIGH": "高优先级",
+  "DELIVERY_BLOCKED": "真实交付待放行",
+  "PREPARE_LEADPACK_REVIEW_AND_DELIVERY_GATE": "准备线索包复核与交付放行",
+  "L1_HOOK": "一级钩子摘要",
+  "DRAFT": "草稿",
+  "public_competition_risk_signal": "公开竞争风险信号",
+  "GOVERNMENT": "政府/采购主管",
+  "legal_action_actor": "法务/异议行动方",
+  "procurement_decision_actor": "采购决策方",
+  "NATIONAL_DISCOVERY_READY": "全国发现就绪",
+  "LOCAL_PROFILE_READY": "本地入口就绪",
+  "NATIONAL_FALLBACK_READY_LOCAL_ONBOARDING_PENDING": "全国兜底，本地入口待补",
+  "GUANGDONG-PROVINCIAL-PORTAL": "广东公共资源入口",
+  "BEIJING-PLATFORM-HOME": "北京公共资源入口",
+  "GGZY-DEAL-LIST": "全国公共资源交易列表",
+};
+const projectTypeLabels = {
+  "construction": "房建工程",
+  "municipal": "市政工程",
+  "highway": "公路交通",
+  "water_conservancy": "水利工程",
+};
+function labelOf(value) {
+  const text = String(value ?? "--");
+  return stateLabels[text] || projectTypeLabels[text] || text;
+}
+function badge(text, kind="") { return `<span class="pill ${kind}">${labelOf(text)}</span>`; }
+function amountWanToYuan(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) { return fallback; }
+  return Math.round(parsed * 10000);
+}
+function moneyWanText(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) { return "--"; }
+  return `${Math.round(parsed / 10000)} 万`;
+}
+function amountRangeText(range) {
+  if (!range) { return "--"; }
+  return `${moneyWanText(range.minimum)} - ${moneyWanText(range.maximum)}`;
+}
+function renderFlowTelemetry(flow) {
+  const defaultStages = [
+    "市场扫描 / 机会发现", "来源蓝图 / 采集计划", "解析规范化", "证据风险核验", "规则证据门",
+    "产品包", "商业钩子 / 买家匹配", "触达计划", "支付交付"
+  ];
+  const stages = flow?.stage_stats || defaultStages.map((name, index) => ({
+    stage: index + 1,
+    name,
+    state: "等待运行",
+    produced_count: 0,
+    effective_count: 0,
+    invalid_count: 0,
+    note: "运行实战搜索后显示本阶段真实统计。"
+  }));
+  const totals = flow?.totals || {
+    stage_count: stages.length,
+    produced_count: 0,
+    effective_count: 0,
+    invalid_count: 0
+  };
+  $("flowDirection").textContent = flow?.direction
+    ? `${flow.direction}。内部测试链路可跑；真实对外交付门禁保留。`
+    : "系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 客户材料候选。运行后显示每阶段产出。";
+  $("flowMetrics").innerHTML = [
+    `<div class="metric"><strong>${totals.stage_count || stages.length}</strong><span>阶段数</span></div>`,
+    `<div class="metric"><strong>${totals.produced_count || 0}</strong><span>产出对象</span></div>`,
+    `<div class="metric"><strong>${totals.effective_count || 0}</strong><span>有效数据</span></div>`
+  ].join("");
+  $("flowDiagram").innerHTML = stages.map((stage) => `
+    <div class="flow-step">
+      <strong>阶段${stage.stage} ${stage.name}</strong>
+      ${badge(stage.state || "等待运行", stage.invalid_count ? "warn" : "")}
+      <span>产出：${stage.produced_count ?? 0}</span>
+      <span>有效：${stage.effective_count ?? 0}</span>
+      <span>无效/待复核：${stage.invalid_count ?? 0}</span>
+      <span>${stage.note || ""}</span>
+    </div>
+  `).join("");
+  const logs = flow?.logs || ["等待运行。这里会记录搜索、选源、阶段1-9产出和交付候选生成过程。"];
+  $("flowLog").innerHTML = logs.map((item, index) => `<div>${index + 1}. ${item}</div>`).join("");
+  $("stageBoard").innerHTML = stages.map((stage) => `
+    <div class="stage-card">
+      <strong>阶段${stage.stage} ${stage.name}</strong>
+      <p>${stage.note || "等待运行。"}</p>
+      ${badge(stage.state || "等待运行", stage.invalid_count ? "warn" : "")}
+      ${badge(`产出 ${stage.produced_count ?? 0}`)}
+      ${badge(`有效 ${stage.effective_count ?? 0}`)}
+    </div>
+  `).join("");
+}
 async function loadReadiness(writeOutput = true) {
   const readiness = await json("GET", "/operator-console/readiness");
   const scheduler = await json("GET", "/operator-console/scheduler-status");
@@ -693,18 +857,18 @@ async function loadReadiness(writeOutput = true) {
   $("capability").textContent = readiness.capability_state || "--";
   $("provider").textContent = readiness.provider_status?.mode ? "读回模式" : "读回";
   $("scheduler").textContent = scheduler.readiness_state || "--";
-  $("summary").textContent = "运营操作台已就绪。客户访问仍受审批和审计门禁控制。";
+  $("summary").textContent = "运营操作台已就绪。内部测试链路可跑；真实对外交付需审批、授权和审计。";
   $("workbenchStatus").innerHTML = [
-    badge("Stage6 产品包"),
-    badge("Stage7 CRM/报价"),
-    badge("Stage8 销售触达"),
-    badge("Stage9 支付交付"),
-    badge(`上线 ${goLive.go_live_enabled ? "已开放" : "已阻断"}`, goLive.go_live_enabled ? "" : "warn")
+    badge("阶段6 产品包"),
+    badge("阶段7 客户关系/报价"),
+    badge("阶段8 销售触达"),
+    badge("阶段9 支付交付"),
+    badge(`真实上线 ${goLive.go_live_enabled ? "已开放" : "需审批"}`, goLive.go_live_enabled ? "" : "warn")
   ].join("");
   $("providerStatus").innerHTML = [
     badge(`服务商 ${readiness.provider_status?.mode ? "读回模式" : "读回"}`),
     badge(`调度 ${scheduler.readiness_state || "未知"}`),
-    badge("真实服务商调用已关闭", "warn")
+    badge("真实服务商调用需单独放行", "warn")
   ].join("");
   $("auditStatus").innerHTML = [
     badge("审批可见"),
@@ -745,10 +909,10 @@ async function loadAutonomousWorkbench(opportunityId = selectedAutonomousOpportu
   }).join("");
   const panels = payload.panels || {};
   $("autonomousDetailPanels").innerHTML = [
-    `<div class="stage-card"><strong>证据风险</strong><p>${panels.evidence_risk_panel?.evidence_strength_label || "--"} / ${panels.evidence_risk_panel?.hard_defect_public_label || "--"}</p>${badge((panels.evidence_risk_panel?.review_items || []).length + " 项复核")}</div>`,
+    `<div class="stage-card"><strong>证据风险</strong><p>${labelOf(panels.evidence_risk_panel?.evidence_strength_label || "--")} / ${labelOf(panels.evidence_risk_panel?.hard_defect_public_label || "--")}</p>${badge((panels.evidence_risk_panel?.review_items || []).length + " 项复核")}</div>`,
     `<div class="stage-card"><strong>商业钩子</strong><p>${panels.commercial_hook_panel?.teaser_copy || first.commercial_hook_teaser || "--"}</p>${badge(panels.commercial_hook_panel?.disclosure_level || "--")}</div>`,
-    `<div class="stage-card"><strong>买家排序</strong><p>${(panels.buyer_ranking_panel?.buyer_rankings || []).map((row) => `${row.rank}.${row.buyer_type || "--"}`).join(" / ") || "--"}</p>${badge("fit " + (panels.buyer_ranking_panel?.buyer_fit_score || "--"))}</div>`,
-    `<div class="stage-card"><strong>交付状态</strong><p>${panels.delivery_state_panel?.delivery_state || "--"} / ${panels.delivery_state_panel?.page_draft_id || "--"}</p>${badge(panels.delivery_state_panel?.delivery_ready ? "可交付" : "待审批", panels.delivery_state_panel?.delivery_ready ? "" : "warn")}</div>`,
+    `<div class="stage-card"><strong>买家排序</strong><p>${(panels.buyer_ranking_panel?.buyer_rankings || []).map((row) => `${row.rank}.${labelOf(row.buyer_type || "--")}`).join(" / ") || "--"}</p>${badge("匹配分 " + (panels.buyer_ranking_panel?.buyer_fit_score || "--"))}</div>`,
+    `<div class="stage-card"><strong>交付状态</strong><p>${labelOf(panels.delivery_state_panel?.delivery_state || "--")} / ${panels.delivery_state_panel?.page_draft_id || "--"}</p>${badge(panels.delivery_state_panel?.delivery_ready ? "可交付" : "待审批", panels.delivery_state_panel?.delivery_ready ? "" : "warn")}</div>`,
     `<div class="stage-card"><strong>下一步动作</strong><p>${panels.sales_next_action_panel?.next_action || first.next_action || "--"}</p>${badge(panels.sales_next_action_panel?.quote_surface_state || "--")}</div>`
   ].join("");
   return payload;
@@ -811,6 +975,7 @@ async function loadAutonomousSearchRuns() {
       ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
       ${badge(run.region_code || "--")}
       ${badge(run.entry_profile_id || "--")}
+      <p>${labelOf(run.project_type)} · ${amountRangeText({minimum: run.amount_min, maximum: run.amount_max})}</p>
       <p>${links || "读回路径待生成"}</p>
     </div>`;
   }).join("");
@@ -832,11 +997,19 @@ async function importProject() {
 }
 async function runAutonomousSearch() {
   const button = $("runAutonomousSearch");
+  const amountMin = amountWanToYuan($("searchAmountMinWan").value, 1000000);
+  const amountMax = amountWanToYuan($("searchAmountMaxWan").value, 30000000);
+  const normalizedMin = Math.min(amountMin, amountMax);
+  const normalizedMax = Math.max(amountMin, amountMax);
   const payload = {
     region_code: $("searchRegion").value,
     query: $("searchKeyword").value,
     project_type: $("searchProjectType").value,
-    amount: Number($("searchAmount").value || 12000000),
+    amount: normalizedMax,
+    amount_min: normalizedMin,
+    amount_max: normalizedMax,
+    minimum_amount: normalizedMin,
+    maximum_amount: normalizedMax,
     candidate_count: 3,
     now: new Date().toISOString()
   };
@@ -858,6 +1031,7 @@ async function runAutonomousSearch() {
         ${badge(result.acceptance?.acceptance_state || "--", accepted ? "" : "warn")}
         ${badge(result.region_adapter?.region_code || "--")}
         ${badge(result.search_run_id || "--")}
+        <p>项目类型：${labelOf(result.candidate?.project_type)}；金额区间：${amountRangeText(result.amount_range)}</p>
         <p>${result.acceptance?.owner_workbench_acceptance?.queue_item?.commercial_hook_teaser || "商业钩子待生成"}</p>
       </div>`;
     out({
@@ -866,10 +1040,12 @@ async function runAutonomousSearch() {
       search_run_id: result.search_run_id,
       region_code: result.region_adapter?.region_code,
       entry_profile_id: result.entry_profile?.profile_id,
+      amount_range: result.amount_range,
       workbench: result.operator_workbench_readback_path,
       customer_artifact_candidate: result.customer_artifact_candidate_path,
       raw_json_required: false
     });
+    renderFlowTelemetry(result.runtime_flow);
     await loadAutonomousSearchRuns();
     await loadAutonomousWorkbench(selectedAutonomousOpportunityId);
     return result;
@@ -885,19 +1061,19 @@ async function runAutonomousSearch() {
 }
 async function previewRun() {
   let payload = {};
-  try { payload = JSON.parse($("payload").value); } catch (err) { out({ error: "invalid JSON", detail: String(err) }); return; }
+  try { payload = JSON.parse($("payload").value); } catch (err) { out({ error: "运行参数不是有效JSON", detail: String(err) }); return; }
   out({ entry: "/internal/stage1-6/orchestrations", accepted_payload: payload, live_execution_enabled: false, display_message: "仅检查内部运行入口，不执行真实外部动作。" });
 }
 async function runControlledSample() {
   let payload = {};
-  try { payload = JSON.parse($("payload").value); } catch (err) { out({ error: "invalid JSON", detail: String(err) }); return; }
+  try { payload = JSON.parse($("payload").value); } catch (err) { out({ error: "运行参数不是有效JSON", detail: String(err) }); return; }
   payload.payload_boundary = "SANITIZED_OFFLINE_INTERNAL";
   payload.source_mode = payload.source_mode || "OFFLINE_FIXTURE";
   payload.run_mode = payload.run_mode || "DRY_RUN";
   payload.live_execution_enabled = false;
   const result = await json("POST", "/internal/stage1-6/orchestrations", payload);
   $("workbenchStatus").innerHTML = [
-    badge(`Stage6 已持久化 ${result.stage6_persisted ? "是" : "否"}`),
+    badge(`阶段6 已持久化 ${result.stage6_persisted ? "是" : "否"}`),
     badge(`项目 ${result.stage6_project_id || "--"}`),
     badge("真实执行已关闭", "warn")
   ].join("");
@@ -980,6 +1156,7 @@ document.querySelectorAll("[data-view]").forEach((item) => {
 });
 window.addEventListener("hashchange", () => showView((window.location.hash || "#overview").slice(1)));
 showView((window.location.hash || "#overview").slice(1));
+renderFlowTelemetry();
 Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
@@ -1002,9 +1179,9 @@ def render_customer_artifact_portal(payload: dict[str, Any]) -> HTMLResponse:
     <div class="topbar">
       <div>
         <h2>客户材料门户</h2>
-        <p>Opportunity <strong id="opportunity">{opportunity_id}</strong></p>
+        <p>商机 <strong id="opportunity">{opportunity_id}</strong></p>
       </div>
-      <div class="status" id="portalSummary">正在读取客户 artifact access candidate...</div>
+      <div class="status" id="portalSummary">正在读取客户材料访问候选...</div>
     </div>
     <div class="grid">
       <section id="artifact">
@@ -1040,8 +1217,8 @@ const opportunityId = {opportunity_id!r};
 function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{text}}</span>`; }}
 function blockedReasonLabel(reason) {{
   const labels = {{
-    "stage7_artifact_readback_missing": "Stage7 客户材料尚未生成",
-    "stage8_stage9_delivery_context_not_required_for_access_candidate_readback": "Stage8/Stage9 交付上下文未进入客户开放面",
+    "stage7_artifact_readback_missing": "阶段7 客户材料尚未生成",
+    "stage8_stage9_delivery_context_not_required_for_access_candidate_readback": "阶段8/9 交付上下文未进入客户开放面",
     "customer_visible_export_enabled=false": "客户可见导出未开启",
     "client_page_release_enabled=false": "客户页面未发布",
     "external_release_enabled=false": "对外发布未批准",
@@ -1071,7 +1248,7 @@ function renderReadbackSummary(payload, missing=false) {{
     ["对外交付", payload?.external_release_enabled ? "已开放" : "未开放"],
     ["下载授权", downloadAuth.customer_download_enabled ? "已授权" : "未授权"],
     ["字段策略", fieldPolicy.allowlist_enforced === false ? "白名单未确认" : "白名单已执行"],
-    ["阻断原因", blockedReasons],
+    ["放行要求", blockedReasons],
   ];
   if (detail) {{ rows.push(["读回说明", detail]); }}
   output.className = missing ? "empty-state summary-list" : "summary-list";
@@ -1098,13 +1275,13 @@ async function loadPortal() {{
     payload.release_blocked ? "材料仍受审批、账号访问、下载授权和审计门禁控制。" : "已存在审批后的客户可见读回。";
   document.getElementById("artifactState").innerHTML = [
     badge(payload.capability_state || "APPROVAL_READY"),
-    badge(payload.customer_visible_export_enabled ? "客户可见已批准" : "客户可见已阻断", payload.customer_visible_export_enabled ? "" : "warn"),
-    badge(payload.external_release_enabled ? "对外交付已开放" : "对外交付已阻断", payload.external_release_enabled ? "" : "danger")
+    badge(payload.customer_visible_export_enabled ? "客户可见已批准" : "客户可见待审批", payload.customer_visible_export_enabled ? "" : "warn"),
+    badge(payload.external_release_enabled ? "对外交付已开放" : "对外交付待审批", payload.external_release_enabled ? "" : "danger")
   ].join("");
   document.getElementById("accessState").innerHTML = [
     badge("账号访问控制必需", "warn"),
     badge("下载授权必需", "warn"),
-    badge(payload.download_auth?.customer_download_enabled ? "下载读回已批准" : "下载已阻断", payload.download_auth?.customer_download_enabled ? "" : "warn")
+    badge(payload.download_auth?.customer_download_enabled ? "下载读回已批准" : "下载待授权", payload.download_auth?.customer_download_enabled ? "" : "warn")
   ].join("");
   document.getElementById("fieldState").innerHTML = [
     badge("字段白名单已执行"),
@@ -1120,7 +1297,7 @@ async function loadPortal() {{
 }}
 function renderMissingArtifact(payload) {{
   document.getElementById("portalSummary").textContent =
-    "暂无材料读回：请先在运营操作台完成项目导入、Stage7/LeadPack 生成和审批审计。";
+    "暂无材料读回：请先在运营操作台完成项目导入、阶段7线索包生成和审批审计。";
   document.getElementById("artifactState").innerHTML =
     `<div class="empty-state"><strong>暂无客户材料</strong><p>当前商机还没有可回放的客户交付候选。系统保持下载授权、字段白名单、脱敏和审批审计门禁关闭。</p></div>`;
   document.getElementById("accessState").innerHTML = [
@@ -1136,7 +1313,7 @@ function renderMissingArtifact(payload) {{
   document.getElementById("auditState").innerHTML = [
     badge("审批必需"),
     badge("审计必需"),
-    badge("客户可见发布已阻断", "danger")
+    badge("客户可见发布待审批", "danger")
   ].join("");
   renderReadbackSummary(payload || {{}}, true);
 }}

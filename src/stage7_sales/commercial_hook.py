@@ -36,11 +36,11 @@ FORBIDDEN_PRE_SALE_CLAIMS = [
 ]
 
 SAFE_ALLOWED_TALKING_POINT_TEMPLATES = [
-    "public_record_risk_signal_exists",
-    "evidence_strength_label_available",
-    "buyer_fit_and_window_priority_available",
-    "recommended_offer_band_available",
-    "full_evidence_path_requires_approved_delivery",
+    "存在公开记录风险信号",
+    "证据强度已标注",
+    "买家适配度和窗口优先级已标注",
+    "建议报价区间已标注",
+    "完整证据路径需审批交付后开放",
 ]
 
 _EMPTY_VALUES = {None, "", "UNKNOWN", "None"}
@@ -381,7 +381,10 @@ def _buyer_benefit_summary(
 ) -> str:
     buyer_type = str(buyer_fit.get("buyer_type") or "REVIEW_BUYER")
     quote_band = str(offer_recommendation.get("recommended_quote_band") or "REVIEW")
-    return f"{buyer_type}: {conversion_priority} priority; recommended offer band {quote_band}; full evidence gated."
+    return (
+        f"{_display_label(buyer_type)}：{_display_label(conversion_priority)}优先级；"
+        f"建议报价区间{_display_label(quote_band)}；完整证据受交付门禁控制。"
+    )
 
 
 def _teaser_copy(
@@ -392,16 +395,18 @@ def _teaser_copy(
     conversion_priority: str,
 ) -> str:
     return (
-        f"{conversion_priority} value public-risk signal: {defect_label}; "
-        f"evidence strength {evidence_strength_label}; urgency {urgency_label}; "
-        "full verification path withheld until approved delivery."
+        f"{_display_label(conversion_priority)}价值公开风险信号：{_display_label(defect_label)}；"
+        f"证据强度：{_display_label(evidence_strength_label)}；"
+        f"紧急度：{_display_label(urgency_label)}；"
+        "完整核验路径需审批交付后开放。"
     )
 
 
 def _redacted_claim_summary(*, defect_label: str, evidence_strength_label: str, disclosure_level: str) -> str:
     return (
-        f"Redacted hook summary for {defect_label}; evidence={evidence_strength_label}; "
-        f"disclosure={disclosure_level}; detailed identifiers and reproduction path withheld."
+        f"脱敏钩子摘要：{_display_label(defect_label)}；"
+        f"证据强度：{_display_label(evidence_strength_label)}；"
+        f"披露级别：{_display_label(disclosure_level)}；详细标识和复现路径暂不展示。"
     )
 
 
@@ -415,11 +420,37 @@ def _allowed_talking_points(
     quote_band = offer_recommendation.get("recommended_quote_band") or "REVIEW"
     return [
         *SAFE_ALLOWED_TALKING_POINT_TEMPLATES,
-        f"buyer_type={buyer_type or 'REVIEW_BUYER'}",
-        f"evidence_strength_label={evidence_strength_label}",
-        f"urgency_label={urgency_label}",
-        f"recommended_quote_band={quote_band}",
+        f"买家类型：{_display_label(buyer_type or 'REVIEW_BUYER')}",
+        f"证据强度：{_display_label(evidence_strength_label)}",
+        f"紧急度：{_display_label(urgency_label)}",
+        f"建议报价区间：{_display_label(quote_band)}",
     ]
+
+
+def _display_label(value: Any) -> str:
+    text = str(value or "REVIEW")
+    labels = {
+        "LOW": "低",
+        "MEDIUM": "中",
+        "HIGH": "高",
+        "URGENT": "紧急",
+        "TIME_SENSITIVE": "时间敏感",
+        "STANDARD": "常规",
+        "REVIEW": "待复核",
+        "REVIEW_BUYER": "待复核买家",
+        "L1_HOOK": "一级钩子摘要",
+        "INTERNAL_REVIEW_ONLY": "仅内部复核",
+        "REVIEWABLE_PUBLIC_SIGNAL": "公开信号可复核",
+        "public_manager_or_performance_risk_signal": "公开项目经理或履约风险信号",
+        "public_qualification_risk_signal": "公开资质风险信号",
+        "public_credit_risk_signal": "公开信用风险信号",
+        "public_competition_risk_signal": "公开竞争风险信号",
+        "public_procurement_risk_signal": "公开采购风险信号",
+        "GOVERNMENT": "政府/采购主管",
+        "legal_action_actor": "法务/异议行动方",
+        "procurement_decision_actor": "采购决策方",
+    }
+    return labels.get(text, text.replace("_", " "))
 
 
 def _urgency_label(buyer_fit: Mapping[str, Any]) -> str:

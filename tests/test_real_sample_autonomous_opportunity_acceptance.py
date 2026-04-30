@@ -193,7 +193,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
                 "region_code": "CN-GD",
                 "query": "市政工程",
                 "project_type": "municipal",
-                "amount": 18000000,
+                "amount_min": 8000000,
+                "amount_max": 30000000,
                 "candidate_count": 3,
                 "now": "2026-04-30T00:00:00+00:00",
             },
@@ -212,6 +213,12 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertFalse(payload["manual_url_picker_primary_flow"])
         self.assertFalse(payload["live_execution_enabled"])
         self.assertFalse(payload["real_provider_call_enabled"])
+        self.assertEqual(payload["amount_range"]["minimum"], 8000000)
+        self.assertEqual(payload["amount_range"]["maximum"], 30000000)
+        self.assertTrue(payload["runtime_flow"]["test_path_unblocked"])
+        self.assertTrue(payload["runtime_flow"]["live_delivery_gates_preserved"])
+        self.assertEqual(payload["runtime_flow"]["totals"]["stage_count"], 9)
+        self.assertEqual(len(payload["runtime_flow"]["stage_stats"]), 9)
         self.assertTrue(payload["search_run_id"])
         self.assertEqual(
             payload["search_run_record"]["search_state"],
@@ -242,7 +249,7 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         workbench = workbench_response.json()
         self.assertEqual(workbench["opportunity_queue"][0]["opportunity_id"], opportunity_id)
         self.assertIn(
-            "public-risk signal",
+            "公开风险信号",
             workbench["opportunity_queue"][0]["commercial_hook_teaser"],
         )
         self.assertEqual(
@@ -266,7 +273,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
             "region_code": "CN-GD",
             "query": "市政工程",
             "project_type": "municipal",
-            "amount": 18000000,
+            "amount_min": 8000000,
+            "amount_max": 30000000,
             "candidate_count": 3,
             "now": "2026-04-30T00:00:00+00:00",
         }
@@ -298,6 +306,8 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
             f"/customer-artifact-portal/{opportunity_id}",
         )
         self.assertEqual(runs["runs"][0]["opportunity_id"], opportunity_id)
+        self.assertEqual(runs["runs"][0]["amount_min"], "8000000")
+        self.assertEqual(runs["runs"][0]["amount_max"], "30000000")
 
 
 if __name__ == "__main__":

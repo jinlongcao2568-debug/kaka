@@ -330,7 +330,16 @@ def _search_candidate_from_payload(
     region_code = str(region_adapter.get("region_code") or payload.get("region_code") or "CN-NATIONAL")
     keyword = str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or "工程项目").strip()
     project_type = str(payload.get("project_type") or "construction").strip() or "construction"
-    amount = _as_float(payload.get("amount") or payload.get("minimum_amount"), 12_000_000.0)
+    amount_min = _as_float(payload.get("amount_min") or payload.get("minimum_amount"), 1_000_000.0)
+    amount_max = _as_float(
+        payload.get("amount_max") or payload.get("maximum_amount") or payload.get("amount"),
+        12_000_000.0,
+    )
+    if amount_max < amount_min:
+        amount_min, amount_max = amount_max, amount_min
+    amount = _as_float(payload.get("amount"), amount_max)
+    if amount < amount_min or amount > amount_max:
+        amount = amount_max
     candidate_count = _as_int(payload.get("candidate_count"), 3)
     project_id = str(
         payload.get("project_id")
@@ -348,6 +357,9 @@ def _search_candidate_from_payload(
         "notice_stage": str(payload.get("notice_stage") or "candidate_notice"),
         "amount": amount,
         "estimated_amount": amount,
+        "amount_min": amount_min,
+        "amount_max": amount_max,
+        "amount_range_label": f"{amount_min:,.0f}-{amount_max:,.0f}",
         "candidate_count": candidate_count,
         "candidate_company": str(payload.get("candidate_company") or "第一候选施工企业"),
         "objection_deadline_at_optional": str(
@@ -425,6 +437,144 @@ def _internal_chain_payload_from_search(
         "source_blueprint_plan_id": str(source_blueprint.get("source_blueprint_plan_id") or ""),
         "stage2_capture_plan_id": str(capture_plan.get("capture_plan_id") or ""),
         "flags": {"report_approved": True},
+    }
+
+
+def _bundle_record_count(bundle: Any) -> int:
+    records = getattr(bundle, "records", None)
+    if isinstance(records, Mapping):
+        return len(records)
+    return 0
+
+
+def _runtime_stage(
+    *,
+    stage: int,
+    name: str,
+    produced_count: int,
+    effective_count: int | None = None,
+    invalid_count: int = 0,
+    state: str = "已完成",
+    note: str = "",
+) -> dict[str, Any]:
+    effective = produced_count if effective_count is None else effective_count
+    return {
+        "stage": stage,
+        "name": name,
+        "state": state,
+        "produced_count": max(produced_count, 0),
+        "effective_count": max(effective, 0),
+        "invalid_count": max(invalid_count, 0),
+        "note": note,
+    }
+
+
+def _build_autonomous_runtime_flow(
+    *,
+    payload: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    market_scan: Mapping[str, Any],
+    source_blueprint: Mapping[str, Any],
+    chain: Mapping[str, Any],
+    acceptance: Mapping[str, Any],
+) -> dict[str, Any]:
+    capture_plan = dict(source_blueprint.get("stage2_capture_plan", {}) or {})
+    capture_steps = list(capture_plan.get("capture_steps", []) or [])
+    input_candidates = _as_int(market_scan.get("input_candidate_count"), 1)
+    selected_candidates = _as_int(market_scan.get("selected_candidate_count"), 0)
+    review_candidates = _as_int(market_scan.get("review_candidate_count"), 0)
+    skipped_candidates = _as_int(market_scan.get("skipped_candidate_count"), 0)
+    stage_stats = [
+        _runtime_stage(
+            stage=1,
+            name="市场扫描 / 机会发现",
+            produced_count=input_candidates,
+            effective_count=selected_candidates,
+            invalid_count=review_candidates + skipped_candidates,
+            note="按地区、项目类型、金额区间和竞争信号筛选机会。",
+        ),
+        _runtime_stage(
+            stage=2,
+            name="来源蓝图 / 采集计划",
+            produced_count=len(capture_steps),
+            effective_count=len(capture_steps),
+            note="自动选择公开入口和采集步骤；当前不执行真实外部抓取。",
+        ),
+        _runtime_stage(
+            stage=3,
+            name="解析规范化",
+            produced_count=_bundle_record_count(chain.get("stage3")),
+            note="把公开材料解析成统一项目字段。",
+        ),
+        _runtime_stage(
+            stage=4,
+            name="证据风险核验",
+            produced_count=_bundle_record_count(chain.get("stage4")),
+            note="生成公开核验、硬伤风险和复核项。",
+        ),
+        _runtime_stage(
+            stage=5,
+            name="规则证据门",
+            produced_count=_bundle_record_count(chain.get("stage5")),
+            note="把证据链、规则命中和产品化条件合并。",
+        ),
+        _runtime_stage(
+            stage=6,
+            name="产品包",
+            produced_count=_bundle_record_count(chain.get("stage6")),
+            note="形成可售判断、报告记录和内部产品包。",
+        ),
+        _runtime_stage(
+            stage=7,
+            name="商业钩子 / 买家匹配",
+            produced_count=_bundle_record_count(chain.get("stage7")),
+            note="生成商业钩子、买家排序和销售下一步。",
+        ),
+        _runtime_stage(
+            stage=8,
+            name="触达计划",
+            produced_count=_bundle_record_count(chain.get("stage8")),
+            state="已生成草稿",
+            note="内部生成触达计划；真实触达需单独审批和审计。",
+        ),
+        _runtime_stage(
+            stage=9,
+            name="支付交付",
+            produced_count=_bundle_record_count(chain.get("stage9")),
+            state="已生成交付候选",
+            note="内部生成交付候选；真实下载、支付、退款不在本次自动执行。",
+        ),
+    ]
+    total_produced = sum(row["produced_count"] for row in stage_stats)
+    total_effective = sum(row["effective_count"] for row in stage_stats)
+    total_invalid = sum(row["invalid_count"] for row in stage_stats)
+    return {
+        "surface_id": "autonomous_search_runtime_flow",
+        "flow_mode": "内部实战测试闭环",
+        "direction": "地区机会扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 客户材料候选",
+        "test_path_unblocked": True,
+        "live_delivery_gates_preserved": True,
+        "amount_range": {
+            "minimum": candidate.get("amount_min"),
+            "maximum": candidate.get("amount_max"),
+            "unit": "CNY",
+        },
+        "project_type": payload.get("project_type") or candidate.get("project_type"),
+        "acceptance_state": acceptance.get("acceptance_state"),
+        "stage_stats": stage_stats,
+        "totals": {
+            "stage_count": len(stage_stats),
+            "produced_count": total_produced,
+            "effective_count": total_effective,
+            "invalid_count": total_invalid,
+        },
+        "logs": [
+            "收到搜索条件并生成候选项目。",
+            f"阶段1 选择 {selected_candidates}/{input_candidates} 个候选机会。",
+            f"阶段2 生成 {len(capture_steps)} 个采集计划步骤。",
+            "阶段3-9已在内部链路生成结构化对象、商业钩子和交付候选。",
+            "真实对外交付门禁保留；内部测试链路可完整跑通。",
+        ],
     }
 
 
@@ -529,6 +679,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "market_scan": market_scan,
             "source_blueprint_plan": source_blueprint,
             "acceptance": acceptance,
+            "runtime_flow": _build_autonomous_runtime_flow(
+                payload=payload,
+                candidate=candidate,
+                market_scan=market_scan,
+                source_blueprint=source_blueprint,
+                chain=chain,
+                acceptance=acceptance,
+            ),
             "opportunity_id": opportunity_id,
             "operator_workbench_readback_path": f"/operator-console/autonomous-workbench?opportunity_id={opportunity_id}"
             if opportunity_id
@@ -536,6 +694,11 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "customer_artifact_candidate_path": f"/customer-artifact-access-candidates/{opportunity_id}"
             if opportunity_id
             else "",
+            "amount_range": {
+                "minimum": candidate.get("amount_min"),
+                "maximum": candidate.get("amount_max"),
+                "unit": "CNY",
+            },
             "manual_url_picker_primary_flow": False,
             "live_execution_enabled": False,
             "real_external_fetch_enabled": False,
@@ -584,6 +747,8 @@ def _record_autonomous_search_run(
         "query": str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or ""),
         "project_type": str(payload.get("project_type") or ""),
         "amount": str(payload.get("amount") or payload.get("minimum_amount") or ""),
+        "amount_min": str(payload.get("amount_min") or payload.get("minimum_amount") or ""),
+        "amount_max": str(payload.get("amount_max") or payload.get("maximum_amount") or payload.get("amount") or ""),
         "opportunity_id": opportunity_id,
         "project_id": str(candidate.get("project_id") or ""),
         "project_name": str(candidate.get("project_name") or ""),
@@ -640,6 +805,8 @@ def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[s
         "query": refs.get("query"),
         "project_type": refs.get("project_type"),
         "amount": refs.get("amount"),
+        "amount_min": refs.get("amount_min"),
+        "amount_max": refs.get("amount_max"),
         "opportunity_id": refs.get("opportunity_id"),
         "project_id": refs.get("project_id"),
         "project_name": refs.get("project_name"),
