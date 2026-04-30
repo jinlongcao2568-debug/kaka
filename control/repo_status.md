@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation (ACTIVE; implements the internal Stage2 public web adaptive capture diagnosis slice with failure classification, retry/backoff/degrade/suspend reasons, source health readback, and capture/parser strategy candidates inside the existing public source adapter seam. This packet does not execute unapproved live Stage2 fetch, real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
+Current Workstream: PTL-I100-151-public-web-captcha-automated-resolution-and-resume (ACTIVE; implements the internal Stage2 public web challenge automated resolution and resume slice with challenge detection, URL/cookie/form/browser session/capture plan preservation, authorized automated capability chain, same-capture-plan resume, and audit readback inside the existing public source adapter seam. This packet does not execute unapproved live Stage2 fetch, real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -19,7 +19,7 @@ Current Controlled Opening Boundaries:
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
 - PTL-I100-143G is completed and registered the public-web capture escalation, captcha automated challenge resolution/resume, and implementation order before runtime packets continue.
-- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144 and PTL-I100-145 are internally ready; PTL-I100-150 is the active internal public web adaptive capture hardening packet and does not execute unapproved live Stage2 fetch, provider calls, outreach, payment, delivery, refund, customer download, or public release.
+- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144, PTL-I100-145, and PTL-I100-150 are internally ready; PTL-I100-151 is the active internal public web captcha/challenge automated resolution and resume packet and does not execute unapproved live Stage2 fetch, provider calls, outreach, payment, delivery, refund, customer download, or public release.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -27,13 +27,14 @@ Product Open Capability Baseline:
 - Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the controlled-opening gate pass; it does not mean the capability is permanently out of product scope.
 
-Current 150 Scope:
-- Implement Stage2 public source adapter adaptive failure diagnosis as an internal owner-operated product slice.
-- Classify DOM/structure drift, JS shell, pagination or redirect gaps, attachment discovery gaps, encoding errors, parser template drift, source health degradation, timeout, rate limit, and generic transport failures.
-- Expose why_retry, why_backoff, why_degrade, why_suspend, source_health, and adaptive capture/parser strategy candidates without creating a second Stage2 pipeline.
+Current 151 Scope:
+- Implement Stage2 public source adapter captcha/challenge automated resolution and resume as an internal owner-operated product slice.
+- Preserve URL, cookie, form, browser session, fingerprint, source lineage, and capture plan context when challenge is detected.
+- Expose authorized automated capability chain and same-capture-plan resume audit without creating a second Stage2 or operator path.
 - Keep unapproved live Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, automated refund, and public release unexecuted.
 
 Recently Closed:
+- PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation completed and committed locally: d2e2e7a.
 - PTL-I100-145-source-blueprint-orchestration-and-capture-plan completed and committed locally: 97211f0.
 - PTL-I100-144-market-scan-opportunity-discovery-engine completed and committed locally: 62ee945.
 - PTL-I100-144A-controlled-opening-sync closed after controlled-opening semantics and status assets were synchronized.
@@ -67,7 +68,7 @@ State Semantics:
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
 - python -m unittest tests.test_stage2_public_source_adapters -v
-- python -m unittest tests.test_stage3_real_parser -v
+- python -m unittest tests.test_stage2_real_public_url_fetcher -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_runtime_architecture_map -v

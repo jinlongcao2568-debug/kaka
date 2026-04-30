@@ -202,14 +202,17 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertFalse(task_144["is_current_mainline_next_candidate"])
         self.assertEqual(task_145["status"], "COMPLETED")
         self.assertFalse(task_145["is_current_mainline_next_candidate"])
-        self.assertEqual(task_150["status"], "ACTIVE")
-        self.assertTrue(task_150["is_current_mainline_next_candidate"])
-        self.assertEqual(task_151["status"], "PLANNED")
+        self.assertEqual(task_150["status"], "COMPLETED")
+        self.assertFalse(task_150["is_current_mainline_next_candidate"])
+        self.assertEqual(task_151["status"], "ACTIVE")
+        self.assertTrue(task_151["is_current_mainline_next_candidate"])
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", task_143g["acceptance_checks"])
         self.assertIn("autonomous_run_controller_and_stage_state_machine_visible", task_144["acceptance_checks"])
         self.assertIn("stage2_capture_plan_generation", task_145["acceptance_checks"])
         self.assertIn("automatic_failure_diagnosis_visible", task_150["acceptance_checks"])
         self.assertIn("adaptive_capture_strategy_upgrade_visible", task_150["acceptance_checks"])
+        self.assertIn("session_context_preserved_for_resume", task_151["acceptance_checks"])
+        self.assertIn("automated_challenge_resume_uses_same_capture_plan", task_151["acceptance_checks"])
         self.assertIn(
             "PTL-I100-151-public-web-captcha-automated-resolution-and-resume",
             self.tasks_by_id["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]["hard_depends_on"],

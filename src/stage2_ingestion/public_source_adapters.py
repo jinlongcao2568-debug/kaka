@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Protocol
 
@@ -306,6 +306,10 @@ CONTROLLED_CHALLENGE_VISIBILITY_STATES = frozenset(
         "LOGIN_REQUIRED",
         "CAPTCHA_REQUIRED",
         "ANTI_BOT_RESTRICTED",
+        "BROWSER_FINGERPRINT_CHALLENGE",
+        "COOKIE_SESSION_REQUIRED",
+        "SLIDER_CHALLENGE_REQUIRED",
+        "OCR_CHALLENGE_REQUIRED",
     }
 )
 
@@ -313,7 +317,73 @@ CONTROLLED_CHALLENGE_FLAG_NAMES = (
     "login_required",
     "captcha_required",
     "anti_bot_restricted",
+    "browser_fingerprint_challenge",
+    "browser_fingerprint_required",
+    "cookie_session_required",
+    "cookie_reuse_required",
+    "slider_challenge_required",
+    "slider_required",
+    "ocr_challenge_required",
+    "ocr_required",
 )
+CONTROLLED_CHALLENGE_TYPE_BY_FLAG = {
+    "login_required": "LOGIN_SESSION_REQUIRED",
+    "captcha_required": "CAPTCHA_OCR_REQUIRED",
+    "anti_bot_restricted": "ANTI_BOT_RESTRICTED",
+    "browser_fingerprint_challenge": "BROWSER_FINGERPRINT_CHALLENGE",
+    "browser_fingerprint_required": "BROWSER_FINGERPRINT_CHALLENGE",
+    "cookie_session_required": "COOKIE_SESSION_REQUIRED",
+    "cookie_reuse_required": "COOKIE_SESSION_REQUIRED",
+    "slider_challenge_required": "SLIDER_TRAJECTORY_CHALLENGE",
+    "slider_required": "SLIDER_TRAJECTORY_CHALLENGE",
+    "ocr_challenge_required": "OCR_CHALLENGE_REQUIRED",
+    "ocr_required": "OCR_CHALLENGE_REQUIRED",
+}
+CONTROLLED_CHALLENGE_TYPE_BY_VISIBILITY = {
+    "LOGIN_REQUIRED": "LOGIN_SESSION_REQUIRED",
+    "CAPTCHA_REQUIRED": "CAPTCHA_OCR_REQUIRED",
+    "ANTI_BOT_RESTRICTED": "ANTI_BOT_RESTRICTED",
+    "BROWSER_FINGERPRINT_CHALLENGE": "BROWSER_FINGERPRINT_CHALLENGE",
+    "COOKIE_SESSION_REQUIRED": "COOKIE_SESSION_REQUIRED",
+    "SLIDER_CHALLENGE_REQUIRED": "SLIDER_TRAJECTORY_CHALLENGE",
+    "OCR_CHALLENGE_REQUIRED": "OCR_CHALLENGE_REQUIRED",
+}
+CONTROLLED_CHALLENGE_CAPABILITY_CHAIN_BY_TYPE = {
+    "LOGIN_SESSION_REQUIRED": [
+        "authorized_login_session_reuse",
+        "cookie_session_preservation",
+        "login_after_page_capture_resume",
+    ],
+    "CAPTCHA_OCR_REQUIRED": [
+        "captcha_recognition",
+        "ocr_recognition",
+        "same_session_capture_resume",
+    ],
+    "ANTI_BOT_RESTRICTED": [
+        "browser_fingerprint_profile_reuse",
+        "cookie_session_preservation",
+        "proxy_pool_rate_limit_backoff",
+    ],
+    "BROWSER_FINGERPRINT_CHALLENGE": [
+        "browser_fingerprint_profile_reuse",
+        "same_session_capture_resume",
+    ],
+    "COOKIE_SESSION_REQUIRED": [
+        "cookie_session_preservation",
+        "cookie_reuse",
+        "same_session_capture_resume",
+    ],
+    "SLIDER_TRAJECTORY_CHALLENGE": [
+        "slider_trajectory_simulation",
+        "browser_fingerprint_profile_reuse",
+        "same_session_capture_resume",
+    ],
+    "OCR_CHALLENGE_REQUIRED": [
+        "ocr_recognition",
+        "same_session_capture_resume",
+    ],
+}
+CHALLENGE_RESUME_POLICY_ID = "STAGE2_PUBLIC_WEB_AUTOMATED_CHALLENGE_RESUME_V1"
 
 BLOCKED_VISIBILITY_STATES = frozenset(
     {
@@ -1025,6 +1095,80 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             },
         )
 
+    def resume_after_automated_challenge(
+        self,
+        request: PublicSourceSnapshotRequest,
+        *,
+        challenge_resolution: Mapping[str, Any],
+    ) -> PublicSourceSnapshotResult:
+        boundary = self._public_boundary(request)
+        if not bool(boundary.get("controlled_challenge")):
+            raise PublicSourceBoundaryError(
+                "automated_challenge_context_required",
+                carrier=self._blocked_carrier(
+                    request,
+                    boundary=self._boundary_block(
+                        request,
+                        "automated_challenge_context_required",
+                    ),
+                ),
+            )
+        challenge_context = self._challenge_resume_context(
+            request,
+            boundary=boundary,
+        )
+        resolution = dict(challenge_resolution)
+        provided_context_id = str(
+            resolution.get("challenge_resume_context_id")
+            or resolution.get("context_id")
+            or ""
+        ).strip()
+        if provided_context_id and provided_context_id != challenge_context["context_id"]:
+            raise PublicSourceBoundaryError(
+                "challenge_resume_context_mismatch",
+                carrier=self._blocked_carrier(request, boundary=boundary),
+            )
+        if not bool(
+            resolution.get("automated_challenge_resolved")
+            or resolution.get("resolved")
+            or resolution.get("challenge_resolved")
+        ):
+            raise PublicSourceBoundaryError(
+                "automated_challenge_not_resolved",
+                carrier=self._blocked_carrier(request, boundary=boundary),
+            )
+
+        resume_audit = {
+            "policy_id": CHALLENGE_RESUME_POLICY_ID,
+            "challenge_resume_context_id": challenge_context["context_id"],
+            "challenge_type": challenge_context["challenge_type"],
+            "challenge_reason": challenge_context["challenge_reason"],
+            "resume_state": "AUTOMATED_CHALLENGE_RESOLVED_RESUMING_CAPTURE",
+            "resolution_method": str(
+                resolution.get("resolution_method")
+                or resolution.get("method")
+                or "controlled_automated_resolution"
+            ),
+            "automated_challenge_resolution_first": True,
+            "resume_requires_human_input": False,
+            "resume_from_same_capture_plan": True,
+            "same_capture_plan_hash": challenge_context["capture_plan"]["capture_plan_hash"],
+            "authorized_target_or_sandbox_only": True,
+            "unapproved_live_capture_enabled": False,
+            "real_provider_connection_enabled": False,
+            "no_duplicate_stage2_pipeline": True,
+        }
+        lineage_refs = dict(request.lineage_refs)
+        lineage_refs["challenge_resume_context_id"] = challenge_context["context_id"]
+        lineage_refs["challenge_resume_audit"] = resume_audit
+        resume_request = replace(
+            request,
+            source_visibility_state=PUBLIC_VISIBLE_STATE,
+            boundary_flags=self._strip_challenge_flags(request.boundary_flags),
+            lineage_refs=lineage_refs,
+        )
+        return self.capture(resume_request)
+
     def _persist_response(
         self,
         request: PublicSourceSnapshotRequest,
@@ -1065,6 +1209,10 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "unapproved_live_capture_enabled": False,
             "real_provider_connection_enabled": False,
         }
+        challenge_resume_audit = dict(lineage_refs.get("challenge_resume_audit") or {})
+        if challenge_resume_audit:
+            fetch_audit["challenge_resume_audit"] = challenge_resume_audit
+            fetch_audit["automated_challenge_resume_used"] = True
         fetch_audit["adaptive_capture_strategy"] = self._adaptive_success_strategy(
             retry_events=retry_events
         )
@@ -1083,6 +1231,9 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "manual_review_required": False,
             "adaptive_capture_strategy": dict(fetch_audit["adaptive_capture_strategy"]),
         }
+        if challenge_resume_audit:
+            source_health["challenge_resume_audit"] = challenge_resume_audit
+            source_health["automated_challenge_resume_used"] = True
         self._copy_lineage_metadata(source_health, lineage_refs)
         raw_snapshot_metadata = {
             "adapter_id": self.config.adapter_id,
@@ -1106,6 +1257,9 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "snapshot_kind": self._snapshot_kind(content_type),
             "object_key": object_key,
         }
+        if challenge_resume_audit:
+            raw_snapshot_metadata["challenge_resume_audit"] = challenge_resume_audit
+            raw_snapshot_metadata["automated_challenge_resume_used"] = True
         self._copy_lineage_metadata(raw_snapshot_metadata, lineage_refs)
         manifest = self.repository.save_snapshot(
             data,
@@ -1215,6 +1369,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         boundary["automated_challenge_resolution_first"] = True
         boundary["resume_requires_human_input"] = False
         boundary["resume_policy"] = "preserve_url_cookie_form_context_and_capture_plan_for_automated_resume"
+        boundary["challenge_type"] = self._challenge_type_from_reason(reason)
         return boundary
 
     def _blocked_carrier(
@@ -1224,7 +1379,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         boundary: Mapping[str, Any],
     ) -> dict[str, Any]:
         controlled_challenge = bool(boundary.get("controlled_challenge"))
-        return {
+        carrier = {
             "adapter_id": self.config.adapter_id,
             "status": "AUTOMATED_CHALLENGE_RESOLUTION_PENDING" if controlled_challenge else "BLOCKED",
             "result_state": "AUTOMATED_CHALLENGE_RESOLUTION_BEFORE_TRANSPORT"
@@ -1238,6 +1393,171 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "fetch_mode": request.fetch_mode,
             "unapproved_live_capture_enabled": False,
             "real_provider_connection_enabled": False,
+        }
+        if controlled_challenge:
+            challenge_context = self._challenge_resume_context(request, boundary=boundary)
+            carrier.update(
+                {
+                    "automated_challenge_resolution_pending": True,
+                    "automated_challenge_resolution_first": True,
+                    "resume_requires_human_input": False,
+                    "resume_policy": "preserve_url_cookie_form_context_and_capture_plan_for_automated_resume",
+                    "challenge_resume_context": challenge_context,
+                    "challenge_resume_context_id": challenge_context["context_id"],
+                    "challenge_resume_audit_record": challenge_context["audit_record"],
+                    "no_duplicate_operator_or_stage2_path_created": True,
+                }
+            )
+        return carrier
+
+    def _challenge_type_from_reason(self, reason: str) -> str:
+        normalized = str(reason or "").strip()
+        if normalized.startswith("controlled_challenge_flag:"):
+            flag_name = normalized.split(":", 1)[1]
+            return CONTROLLED_CHALLENGE_TYPE_BY_FLAG.get(
+                flag_name,
+                "CONTROLLED_PUBLIC_WEB_CHALLENGE",
+            )
+        if normalized.startswith("controlled_challenge_visibility:"):
+            visibility_state = normalized.split(":", 1)[1]
+            return CONTROLLED_CHALLENGE_TYPE_BY_VISIBILITY.get(
+                visibility_state,
+                "CONTROLLED_PUBLIC_WEB_CHALLENGE",
+            )
+        return "CONTROLLED_PUBLIC_WEB_CHALLENGE"
+
+    def _challenge_resume_context(
+        self,
+        request: PublicSourceSnapshotRequest,
+        *,
+        boundary: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        reason = str(
+            boundary.get("challenge_resolution_reason")
+            or boundary.get("boundary_reason")
+            or "controlled_challenge"
+        )
+        challenge_type = str(boundary.get("challenge_type") or self._challenge_type_from_reason(reason))
+        capture_plan = self._capture_plan_snapshot(request)
+        context_id = self._challenge_resume_context_id(
+            request,
+            reason=reason,
+            capture_plan_hash=capture_plan["capture_plan_hash"],
+        )
+        capability_chain = CONTROLLED_CHALLENGE_CAPABILITY_CHAIN_BY_TYPE.get(
+            challenge_type,
+            ["same_session_capture_resume"],
+        )
+        preserved_context = {
+            "source_url": request.source_url,
+            "cookie_jar_ref": f"stage2-challenge-cookie:{context_id}",
+            "form_context_ref": f"stage2-challenge-form:{context_id}",
+            "browser_session_ref": f"stage2-challenge-browser-session:{context_id}",
+            "fingerprint_profile_ref": f"stage2-challenge-fingerprint:{context_id}",
+            "capture_plan_hash": capture_plan["capture_plan_hash"],
+            "source_blueprint_batch_id": dict(request.lineage_refs).get(
+                "source_blueprint_batch_id"
+            ),
+        }
+        audit_record = {
+            "policy_id": CHALLENGE_RESUME_POLICY_ID,
+            "context_id": context_id,
+            "challenge_type": challenge_type,
+            "challenge_reason": reason,
+            "audit_state": "AUTOMATED_CHALLENGE_RESOLUTION_PENDING",
+            "session_context_preserved": True,
+            "resume_from_same_capture_plan": True,
+            "resume_requires_human_input": False,
+            "authorized_target_or_sandbox_only": True,
+            "unapproved_live_capture_enabled": False,
+            "real_provider_connection_enabled": False,
+        }
+        return {
+            "context_id": context_id,
+            "policy_id": CHALLENGE_RESUME_POLICY_ID,
+            "status": "AUTOMATED_CHALLENGE_RESOLUTION_PENDING",
+            "challenge_type": challenge_type,
+            "challenge_reason": reason,
+            "capture_plan": capture_plan,
+            "preserved_session_context": preserved_context,
+            "authorized_capability_chain": list(capability_chain),
+            "resume_plan": {
+                "resume_method": "resume_after_automated_challenge",
+                "resume_from_same_capture_plan": True,
+                "same_stage2_adapter": self.config.adapter_id,
+                "same_source_url": request.source_url,
+                "same_source_registry_id": request.source_registry_id,
+                "same_record_kind": request.record_kind,
+                "same_fetch_mode": request.fetch_mode,
+                "resume_requires_human_input": False,
+                "no_duplicate_stage2_pipeline": True,
+            },
+            "challenge_rate_tracking": {
+                "rate_limit_key": self._rate_limit_key(request),
+                "challenge_counter_scope": f"{self.config.adapter_id}:{request.source_registry_id}",
+                "feeds_source_health_policy": True,
+            },
+            "audit_record": audit_record,
+            "automated_challenge_resolution_first": True,
+            "resume_requires_human_input": False,
+            "authorized_target_or_sandbox_only": True,
+            "public_boundary_preserved": True,
+            "no_duplicate_stage2_pipeline": True,
+        }
+
+    def _capture_plan_snapshot(self, request: PublicSourceSnapshotRequest) -> dict[str, Any]:
+        lineage_refs = dict(request.lineage_refs)
+        boundary_flags = dict(request.boundary_flags)
+        plan_payload = {
+            "source_url": request.source_url,
+            "source_registry_id": request.source_registry_id,
+            "source_family": request.source_family,
+            "record_kind": request.record_kind,
+            "fetch_mode": request.fetch_mode,
+            "snapshot_version": request.snapshot_version,
+            "timeout_seconds": request.timeout_seconds,
+            "max_retries": request.max_retries,
+            "rate_limit_key": request.rate_limit_key,
+            "lineage_refs": lineage_refs,
+            "boundary_flags": boundary_flags,
+        }
+        stable_items = repr(sorted(plan_payload.items())).encode("utf-8")
+        return {
+            **plan_payload,
+            "capture_plan_hash": hashlib.sha256(stable_items).hexdigest(),
+            "same_capture_plan_resume_required": True,
+        }
+
+    def _challenge_resume_context_id(
+        self,
+        request: PublicSourceSnapshotRequest,
+        *,
+        reason: str,
+        capture_plan_hash: str,
+    ) -> str:
+        digest = hashlib.sha256(
+            "|".join(
+                [
+                    self.config.adapter_id,
+                    request.source_url,
+                    request.source_registry_id,
+                    str(request.record_kind or ""),
+                    reason,
+                    capture_plan_hash,
+                ]
+            ).encode("utf-8")
+        ).hexdigest()
+        return f"CHAL-S2-{digest[:20]}"
+
+    def _strip_challenge_flags(
+        self,
+        flags: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        challenge_flags = set(CONTROLLED_CHALLENGE_FLAG_NAMES)
+        return {
+            str(key): value
+            for key, value in dict(flags).items()
+            if str(key) not in challenge_flags
         }
 
     def _url_is_allowlisted(self, source_url: str) -> bool:

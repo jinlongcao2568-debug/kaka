@@ -240,6 +240,21 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertTrue(source_boundary["automated_challenge_resolution_first"])
             self.assertFalse(source_boundary["resume_requires_human_input"])
             self.assertTrue(source_boundary["challenge_resolution_reason"])
+            self.assertTrue(carrier["automated_challenge_resolution_pending"])
+            self.assertFalse(carrier["resume_requires_human_input"])
+            challenge_context = carrier["challenge_resume_context"]
+            self.assertEqual(
+                challenge_context["status"],
+                "AUTOMATED_CHALLENGE_RESOLUTION_PENDING",
+            )
+            self.assertTrue(challenge_context["capture_plan"]["same_capture_plan_resume_required"])
+            self.assertTrue(challenge_context["preserved_session_context"]["cookie_jar_ref"])
+            self.assertTrue(challenge_context["preserved_session_context"]["form_context_ref"])
+            self.assertTrue(challenge_context["preserved_session_context"]["browser_session_ref"])
+            self.assertTrue(challenge_context["resume_plan"]["resume_from_same_capture_plan"])
+            self.assertFalse(challenge_context["resume_plan"]["resume_requires_human_input"])
+            self.assertTrue(challenge_context["audit_record"]["session_context_preserved"])
+            self.assertTrue(carrier["no_duplicate_operator_or_stage2_path_created"])
         else:
             self.assertEqual(source_boundary["boundary_action"], "BLOCK")
             self.assertTrue(source_boundary["blocked_reason"])
@@ -3576,6 +3591,110 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertIn("rate_limit_policy_requires_wait", diagnosis["why_backoff"])
             self.assertFalse(diagnosis["manual_restart_as_primary_flow"])
             self.assertTrue(diagnosis["public_boundary_preserved"])
+
+    def test_public_web_challenge_resume_context_preserves_session_and_capture_plan(self) -> None:
+        challenge_cases = [
+            (
+                self._request(boundary_flags={"captcha_required": True}),
+                {"captcha_recognition", "ocr_recognition", "same_session_capture_resume"},
+            ),
+            (
+                self._request(boundary_flags={"slider_challenge_required": True}),
+                {"slider_trajectory_simulation", "browser_fingerprint_profile_reuse"},
+            ),
+            (
+                self._request(boundary_flags={"browser_fingerprint_challenge": True}),
+                {"browser_fingerprint_profile_reuse", "same_session_capture_resume"},
+            ),
+            (
+                self._request(boundary_flags={"cookie_session_required": True}),
+                {"cookie_session_preservation", "cookie_reuse"},
+            ),
+        ]
+        for request, expected_capabilities in challenge_cases:
+            with self.subTest(flags=request.boundary_flags), tempfile.TemporaryDirectory() as tmp_dir:
+                transport = StaticPublicSourceTransport({})
+                adapter = self._adapter(self._repo(tmp_dir), transport)
+
+                with self.assertRaises(PublicSourceBoundaryError) as raised:
+                    adapter.capture(request)
+
+                carrier = raised.exception.carrier
+                context = carrier["challenge_resume_context"]
+                self.assertEqual(carrier["status"], "AUTOMATED_CHALLENGE_RESOLUTION_PENDING")
+                self.assertEqual(
+                    context["policy_id"],
+                    "STAGE2_PUBLIC_WEB_AUTOMATED_CHALLENGE_RESUME_V1",
+                )
+                self.assertEqual(context["capture_plan"]["source_url"], request.source_url)
+                self.assertEqual(
+                    context["resume_plan"]["same_stage2_adapter"],
+                    LOCAL_PUBLIC_RESOURCE_TRADING_CENTER_ADAPTER_ID,
+                )
+                self.assertTrue(context["resume_plan"]["resume_from_same_capture_plan"])
+                self.assertFalse(context["resume_plan"]["resume_requires_human_input"])
+                self.assertTrue(context["preserved_session_context"]["cookie_jar_ref"])
+                self.assertTrue(context["preserved_session_context"]["form_context_ref"])
+                self.assertTrue(context["preserved_session_context"]["fingerprint_profile_ref"])
+                self.assertTrue(
+                    expected_capabilities.issubset(set(context["authorized_capability_chain"]))
+                )
+                self.assertTrue(context["audit_record"]["session_context_preserved"])
+                self.assertEqual(transport.call_log, [])
+
+    def test_public_web_automated_challenge_resume_uses_same_capture_plan_and_persists_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            transport = StaticPublicSourceTransport(
+                {
+                    PUBLIC_HTML_URL: PublicSourceTransportResponse(
+                        content=b"<html>resume success after challenge</html>",
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                }
+            )
+            adapter = self._adapter(self._repo(tmp_dir), transport)
+            request = self._request(boundary_flags={"captcha_required": True})
+
+            with self.assertRaises(PublicSourceBoundaryError) as raised:
+                adapter.capture(request)
+            challenge_context = raised.exception.carrier["challenge_resume_context"]
+
+            result = adapter.resume_after_automated_challenge(
+                request,
+                challenge_resolution={
+                    "automated_challenge_resolved": True,
+                    "challenge_resume_context_id": challenge_context["context_id"],
+                    "resolution_method": "controlled_sandbox_ocr",
+                },
+            )
+
+            self.assertEqual(result.status, "SNAPSHOT_CAPTURED")
+            self.assertEqual(len(transport.call_log), 1)
+            self.assertEqual(transport.call_log[0]["source_url"], request.source_url)
+            audit = result.fetch_audit["challenge_resume_audit"]
+            self.assertEqual(audit["challenge_resume_context_id"], challenge_context["context_id"])
+            self.assertEqual(audit["resolution_method"], "controlled_sandbox_ocr")
+            self.assertTrue(audit["resume_from_same_capture_plan"])
+            self.assertEqual(
+                audit["same_capture_plan_hash"],
+                challenge_context["capture_plan"]["capture_plan_hash"],
+            )
+            self.assertFalse(audit["resume_requires_human_input"])
+            self.assertTrue(result.fetch_audit["automated_challenge_resume_used"])
+            self.assertTrue(result.raw_snapshot_metadata["automated_challenge_resume_used"])
+            self.assertEqual(
+                result.raw_snapshot_metadata["source_url"],
+                challenge_context["capture_plan"]["source_url"],
+            )
+            self.assertEqual(
+                result.raw_snapshot_metadata["source_registry_id"],
+                challenge_context["capture_plan"]["source_registry_id"],
+            )
+            self.assertTrue(
+                result.source_health["challenge_resume_audit"]["no_duplicate_stage2_pipeline"]
+            )
 
     def test_credit_china_source_health_retry_timeout_rate_limit_and_failure_degrade_are_readable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

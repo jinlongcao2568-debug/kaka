@@ -131,9 +131,9 @@ decision_summary:
     PTL-I100-112 through PTL-I100-143G are closed in the product task library.
     PTL-I100-118R and PTL-I100-131 record controlled owner-operated production
     readiness with no remaining product blockers for the controlled E2E pilot.
-    PTL-I100-144A is closed. PTL-I100-144 and PTL-I100-145 are internally
-    ready. control/current_task.yaml now points to PTL-I100-150 as the active
-    public web adaptive capture hardening packet.
+    PTL-I100-144A is closed. PTL-I100-144, PTL-I100-145, and PTL-I100-150 are
+    internally ready. control/current_task.yaml now points to PTL-I100-151 as
+    the active public web captcha/challenge automated resolution and resume packet.
   post_122_126_reacceptance_summary: >
     PTL-I100-122 through PTL-I100-131 closed the original 118 blockers as
     controlled execution/readback and controlled-real-world E2E paths.
@@ -666,13 +666,12 @@ current_gap_sync_2026_04_29:
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/repo_status.md
-  current_active_packet: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
-  current_active_packet_scope: internal_public_web_adaptive_capture_hardening_only
-  closed_prerequisite_packet: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
+  current_active_packet: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
+  current_active_packet_scope: internal_public_web_captcha_challenge_resume_only
+  closed_prerequisite_packet: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
   owner_operated_controlled_business_state: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
   remaining_product_blockers_for_controlled_owner_e2e: []
   current_remaining_runtime_productization_packets:
-    - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     - PTL-I100-151-public-web-captcha-automated-resolution-and-resume
     - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
@@ -951,7 +950,7 @@ production_gap_task_map:
       - source_mix_reasoning
   - gap_group: public_web_adaptive_capture_hardening
     packet_ref: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - public_web_failure_diagnosis
@@ -960,7 +959,7 @@ production_gap_task_map:
       - no_manual_restart_as_primary_failure_mode
   - gap_group: public_web_captcha_automated_resolution_and_resume
     packet_ref: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
-    status: PLANNED
+    status: ACTIVE
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - captcha_challenge_detection
