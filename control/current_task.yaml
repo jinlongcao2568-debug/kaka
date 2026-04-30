@@ -5,11 +5,11 @@ updated_at: '2026-04-30'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+navigation_state: PTL-I100-148-productized-autonomous-operator-workbench
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-146 evidence risk and hard defect verification strategy is internally ready; owner asked to continue into 147 commercial value, buyer fit, and hook lead engine.
+activation_condition: PTL-I100-147 commercial value, buyer fit, and hook lead engine is internally ready through 65ffbb0; owner asked to continue into 148 productized autonomous operator workbench.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
-  title: I100-47 Commercial value, buyer fit, and hook lead engine
+  task_id: PTL-I100-148-productized-autonomous-operator-workbench
+  title: I100-48 Productized autonomous operator workbench
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -56,8 +56,8 @@ currentTask:
   - contracts/testing/regression_manifest.json
   - scripts/check-state-alignment.ps1
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
-  objective: 实现 Stage6/Stage7 商业价值、买家适配和商业钩子线索 carrier：输出 objection value、buyer motivation、purchase capacity、conversion priority、披露级别、withheld fields、禁语过滤和 leakage risk，卖前不给可复现完整证据链。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-148-productized-autonomous-operator-workbench
+  objective: 实现产品化 autonomous operator workbench：owner 可直接看到机会队列、证据风险、商业钩子、买家排序、复核项、触达建议、交付状态和下一步动作，不依赖 raw JSON 判断业务状态。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -77,18 +77,18 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
-    subpacket_id: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
-    backlog_packet_ref: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+    packet_id: PTL-I100-148-productized-autonomous-operator-workbench
+    subpacket_id: PTL-I100-148-productized-autonomous-operator-workbench
+    backlog_packet_ref: PTL-I100-148-productized-autonomous-operator-workbench
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: STAGE6_PRODUCT_PACKAGE_AND_STAGE7_BUYER_FIT_LEADPACK_PRESENT
-    existing_runtime_state: COMMERCIAL_HOOK_LEAD_INTERNAL_READY_CANDIDATE
-    title: I100-47 Commercial value, buyer fit, and hook lead engine
+    existing_code_state: STAGE7_COMMERCIAL_HOOK_AND_OPERATOR_FRONTEND_PRESENT
+    existing_runtime_state: PRODUCTIZED_OPERATOR_WORKBENCH_INTERNAL_READY_CANDIDATE
+    title: I100-48 Productized autonomous operator workbench
     status: ACTIVE
-    objective: 实现并验收 Stage7 commercial hook lead carrier：复用现有 sales lead、saleable opportunity、buyer fit、offer、LeadPack readiness 和 model-assist readback，生成卖前商业钩子、披露级别、withheld fields、禁语过滤、leakage risk 和 buyer-fit/value summary；不泄露 source URL、raw snapshot、完整核验路径或内部评分模型。
+    objective: 实现并验收产品化 autonomous operator workbench：复用现有 Stage7 opportunity_pool、commercial_hook、CRM/Quote、LeadPack、Stage8/Stage9 工作台入口和 operator console，形成 owner 可读机会队列、证据风险、商业钩子、买家排序、交付状态、下一步动作 projection；不要求 owner 阅读 raw JSON。
     depends_on:
     - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed locally through 64efed4.
     - PTL-I100-144A-controlled-opening-sync closed locally through c5d3c32.
@@ -97,18 +97,19 @@ currentTask:
     - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation completed locally through d2e2e7a.
     - PTL-I100-151-public-web-captcha-automated-resolution-and-resume completed locally through 5ffdc49.
     - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy completed locally through b782b49.
+    - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine completed locally through 65ffbb0.
     - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
-      target_active_packet: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+      previous_active_packet: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
+      target_active_packet: PTL-I100-148-productized-autonomous-operator-workbench
       parent_packet: PTL-I100-autonomous-opportunity-operationalization
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: commercial_value_buyer_fit_and_hook_lead_engine
+      active_packet_kind: productized_autonomous_operator_workbench
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -133,16 +134,20 @@ currentTask:
     - 本包不做真实 live/external 执行动作；不阻止后续受控开放、sandbox、授权目标能力实现或 readiness 正常升级
     - repo readiness 可随正式状态资产与验收结果同步变化，不再被旧 non-goal 锁死
     - 真实 public release、真实外发、真实支付、真实交付、真实退款仍必须走 release checklist、审批链、审计链、operator action 与 rollback 记录
-    - 不执行未授权真实 live/external 动作；本包只生成内部商业钩子 carrier、readback 和 Stage7/LeadPack 绑定
+    - 不执行未授权真实 live/external 动作；本包只生成内部产品化操作台 projection/readback 和前端入口
     - 不执行 provider call、真实触达、真实支付、真实交付、真实退款、客户下载或 public release
-    - 不把 source URL、raw snapshot、完整核验路径、完整身份组合、内部评分模型或未复核结论暴露到卖前钩子
+    - 不要求 owner 读取 raw JSON；不把 source URL、raw snapshot、完整核验路径、完整身份组合、内部评分模型或未复核结论暴露到 owner 的销售/客户可见视图
     - 不新增业务对象、枚举、gate、exception 语义
     - 不新增正式对象、枚举、gate 或 exception 语义
     - 不实现或启用自动退款，automated_refund_execution 继续 EXCLUDED
     - 不 push
     affected_stages:
+    - api_transport
+    - operator_frontend
     - stage6_fact_review
     - stage7_sales
+    - stage8_outreach
+    - stage9_delivery
     - product_acceptance
     risk_level: HIGH
     change_class: MANDATORY_HUMAN_REVIEW
@@ -156,13 +161,15 @@ currentTask:
     - release_approver
     change_domains:
     - automation_control_core
+    - api_transport
+    - operator_frontend
     - stage6_fact_review
     - stage7_sales
-    - commercial_value_scoring
-    - buyer_fit
-    - commercial_hook_lead
-    - presale_disclosure_filter
-    - leakage_risk_readback
+    - stage8_outreach
+    - stage9_delivery
+    - autonomous_operator_workbench
+    - opportunity_queue_projection
+    - owner_readback_projection
     - tests_general
     - machine_assets_general
     reviews:
@@ -181,10 +188,16 @@ currentTask:
     - control/product_module_registry.yaml
     - control/product_task_library.yaml
     - control/**
-    - src/stage7_sales/service.py
-    - src/stage7_sales/__init__.py
-    - src/stage7_sales/commercial_hook.py
-    - tests/test_stage7_commercial_hook_lead.py
+    - contracts/ui/workbench_catalog.json
+    - src/api/projections.py
+    - src/api/main.py
+    - src/api/routes/operator_customer_access.py
+    - src/api/routes/operator_frontend.py
+    - tests/test_productized_autonomous_operator_workbench.py
+    - tests/test_operator_customer_access.py
+    - tests/test_operator_frontend_portal.py
+    - tests/test_internal_surface_preview.py
+    - tests/test_api_transport_bootstrap.py
     - tests/test_stage7_runtime_closure.py
     - tests/test_real_challenger_identification.py
     - tests/test_product_module_registry.py
@@ -199,10 +212,16 @@ currentTask:
     - control/product_module_registry.yaml
     - control/product_task_library.yaml
     - control/**
-    - src/stage7_sales/service.py
-    - src/stage7_sales/__init__.py
-    - src/stage7_sales/commercial_hook.py
-    - tests/test_stage7_commercial_hook_lead.py
+    - contracts/ui/workbench_catalog.json
+    - src/api/projections.py
+    - src/api/main.py
+    - src/api/routes/operator_customer_access.py
+    - src/api/routes/operator_frontend.py
+    - tests/test_productized_autonomous_operator_workbench.py
+    - tests/test_operator_customer_access.py
+    - tests/test_operator_frontend_portal.py
+    - tests/test_internal_surface_preview.py
+    - tests/test_api_transport_bootstrap.py
     - tests/test_stage7_runtime_closure.py
     - tests/test_real_challenger_identification.py
     - tests/test_product_module_registry.py
@@ -219,15 +238,21 @@ currentTask:
       docs: []
       control:
       - control/**
-      contracts: []
+      contracts:
+      - contracts/ui/workbench_catalog.json
       handoff: []
       scripts: []
       runtime:
-      - src/stage7_sales/service.py
-      - src/stage7_sales/__init__.py
-      - src/stage7_sales/commercial_hook.py
+      - src/api/projections.py
+      - src/api/main.py
+      - src/api/routes/operator_customer_access.py
+      - src/api/routes/operator_frontend.py
       tests:
-      - tests/test_stage7_commercial_hook_lead.py
+      - tests/test_productized_autonomous_operator_workbench.py
+      - tests/test_operator_customer_access.py
+      - tests/test_operator_frontend_portal.py
+      - tests/test_internal_surface_preview.py
+      - tests/test_api_transport_bootstrap.py
       - tests/test_stage7_runtime_closure.py
       - tests/test_real_challenger_identification.py
       - tests/test_product_module_registry.py
@@ -237,9 +262,11 @@ currentTask:
       fixtures: []
     required_scripts:
     - git status --short --untracked-files=all
-    - python -m unittest tests.test_stage7_commercial_hook_lead -v
-    - python -m unittest tests.test_stage7_runtime_closure -v
-    - python -m unittest tests.test_real_challenger_identification -v
+    - python -m unittest tests.test_productized_autonomous_operator_workbench -v
+    - python -m unittest tests.test_operator_customer_access -v
+    - python -m unittest tests.test_operator_frontend_portal -v
+    - python -m unittest tests.test_internal_surface_preview.TestInternalSurfacePreview.test_stage7_preview_surface_consumes_formal_objects -v
+    - python -m unittest tests.test_api_transport_bootstrap.TestApiTransportBootstrap.test_stage7_http_transport_reads_repository_backed_preview -v
     - python -m unittest tests.test_product_module_registry -v
     - python -m unittest tests.test_product_runtime_architecture_map -v
     - python -m unittest tests.test_product_operability_gap_matrix -v
@@ -252,9 +279,11 @@ currentTask:
       git status --short --untracked-files=all: 120000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1: 300000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
-      python -m unittest tests.test_stage7_commercial_hook_lead -v: 300000
-      python -m unittest tests.test_stage7_runtime_closure -v: 300000
-      python -m unittest tests.test_real_challenger_identification -v: 300000
+      python -m unittest tests.test_productized_autonomous_operator_workbench -v: 300000
+      python -m unittest tests.test_operator_customer_access -v: 300000
+      python -m unittest tests.test_operator_frontend_portal -v: 300000
+      python -m unittest tests.test_internal_surface_preview.TestInternalSurfacePreview.test_stage7_preview_surface_consumes_formal_objects -v: 300000
+      python -m unittest tests.test_api_transport_bootstrap.TestApiTransportBootstrap.test_stage7_http_transport_reads_repository_backed_preview -v: 300000
       python -m unittest tests.test_product_module_registry -v: 300000
       python -m unittest tests.test_product_runtime_architecture_map -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
@@ -265,13 +294,13 @@ currentTask:
     - Any change executes unapproved live Stage2 fetch, real provider call, real outreach, real payment, real delivery, real refund, customer download, push, or public release during this packet.
     - Any required script failure that cannot be fixed inside the declared paths.
     acceptance:
-    - objection_value_and_buyer_fit_scoring
-    - commercial_hook_lead_generated
-    - presale_hook_does_not_leak_reproducible_evidence
-    - leakage_risk_and_disclosure_level_visible
-    - forbidden_sales_claims_filter_passed
+    - autonomous_opportunity_queue_visible
+    - commercial_hook_review_ui
+    - owner_can_observe_without_raw_json
+    - buyer_fit_and_next_action_visible
+    - customer_download_still_gated
 notes:
 - current_task -> product_task_library -> repo_status remains the active-source priority.
-- This packet implements the internal commercial value, buyer fit, and non-leaking hook lead slice; automated refund execution remains excluded.
-- Owner deferred python tests/run_tests.py and check-final-gate.ps1 until PTL-I100-147, PTL-I100-148, and PTL-I100-149 are complete because those gates are too long for this intermediate commit.
+- This packet implements the productized autonomous operator workbench projection and frontend entry; automated refund execution remains excluded.
+- Owner deferred python tests/run_tests.py and check-final-gate.ps1 until PTL-I100-147, PTL-I100-148, and PTL-I100-149 are complete because those gates are too long for intermediate commits.
 - No unapproved real external execution is performed by this packet.

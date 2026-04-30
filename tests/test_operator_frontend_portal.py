@@ -190,7 +190,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
     def test_owner_console_real_source_runner_uses_internal_only_routes(self) -> None:
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
-        self.assertIn('Promise.all([loadReadiness(), loadRealSourceProfiles(), loadRealSourceRuns()])', html)
+        self.assertIn(
+            'Promise.all([loadReadiness(), loadAutonomousWorkbench(), loadRealSourceProfiles(), loadRealSourceRuns()])',
+            html,
+        )
         self.assertIn('"/operator-console/real-source-profiles"', html)
         self.assertIn('"/operator-console/real-source-runs"', html)
         self.assertIn('"/operator-console/real-source-task-runs"', html)

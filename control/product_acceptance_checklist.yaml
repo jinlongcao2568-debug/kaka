@@ -1119,6 +1119,13 @@ tasks:
       - "操作台必须展示机会队列、证据强度、硬伤类型、商业钩子、买家排序、复核项、触达建议、交付状态和下一步动作。"
       - "owner 不应依赖原始 JSON 判断业务状态。"
       - "客户门户仍必须遵守字段白名单、脱敏、下载授权和审计。"
+    targeted_test_expectations:
+      - productized_autonomous_operator_workbench
+      - operator_customer_access
+      - operator_frontend_portal
+      - internal_surface_preview_stage7
+      - api_transport_stage7_workbench
+      - product_operability_gap_matrix
     controlled_opening_requirement_checks:
       - owner_workbench_shows_autonomous_decision_state
       - no_internal_blackbox_customer_exposure

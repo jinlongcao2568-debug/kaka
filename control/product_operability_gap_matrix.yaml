@@ -132,9 +132,9 @@ decision_summary:
     PTL-I100-118R and PTL-I100-131 record controlled owner-operated production
     readiness with no remaining product blockers for the controlled E2E pilot.
     PTL-I100-144A is closed. PTL-I100-144, PTL-I100-145, PTL-I100-150, and
-    PTL-I100-151 and PTL-I100-146 are internally ready. control/current_task.yaml
-    now points to PTL-I100-147 as the active commercial value, buyer fit, and
-    hook lead engine packet.
+    PTL-I100-151, PTL-I100-146, and PTL-I100-147 are internally ready.
+    control/current_task.yaml now points to PTL-I100-148 as the active
+    productized autonomous operator workbench packet.
   post_122_126_reacceptance_summary: >
     PTL-I100-122 through PTL-I100-131 closed the original 118 blockers as
     controlled execution/readback and controlled-real-world E2E paths.
@@ -667,13 +667,12 @@ current_gap_sync_2026_04_29:
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/repo_status.md
-  current_active_packet: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
-  current_active_packet_scope: internal_commercial_value_buyer_fit_hook_lead_only
-  closed_prerequisite_packet: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+  current_active_packet: PTL-I100-148-productized-autonomous-operator-workbench
+  current_active_packet_scope: internal_productized_autonomous_operator_workbench_only
+  closed_prerequisite_packet: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
   owner_operated_controlled_business_state: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
   remaining_product_blockers_for_controlled_owner_e2e: []
   current_remaining_runtime_productization_packets:
-    - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
     - PTL-I100-148-productized-autonomous-operator-workbench
     - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
   preserved_live_boundaries:
@@ -975,7 +974,7 @@ production_gap_task_map:
       - evidence_risk_fail_closed_taxonomy
   - gap_group: commercial_value_buyer_fit_and_hook_lead_engine
     packet_ref: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - objection_value_score
@@ -984,7 +983,7 @@ production_gap_task_map:
       - leakage_risk_and_disclosure_level
   - gap_group: productized_autonomous_operator_workbench
     packet_ref: PTL-I100-148-productized-autonomous-operator-workbench
-    status: PLANNED
+    status: ACTIVE
     target_capability_state: PRODUCTION_READY
     covered_capabilities:
       - autonomous_opportunity_queue_ui
@@ -1249,7 +1248,7 @@ recommended_execution_order_after_reassessment:
     Historical reassessment order used before the 112-131 closeout. It is kept
     for audit context only. Current remaining implementation should follow
     current_gap_sync_2026_04_29 and control/product_runtime_architecture_map.yaml,
-    with PTL-I100-147 active as the current commercial hook packet.
+    with PTL-I100-148 active as the current productized operator workbench packet.
   sequence:
     - packet_ref: PTL-I100-112-production-platform-infrastructure
       reason: "Production durability, queue/worker, object storage, audit persistence, and health checks are prerequisites for real source ingestion and provider execution."

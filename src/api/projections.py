@@ -27,6 +27,11 @@ from stage7_sales.crm_quote_workbench import (
     CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
     build_crm_quote_workbench_readiness_summary,
 )
+from stage7_sales.commercial_hook import (
+    COMMERCIAL_HOOK_LEAD_INPUT_KEY,
+    COMMERCIAL_HOOK_READINESS_INPUT_KEY,
+    build_commercial_hook_readiness_summary,
+)
 from stage7_sales.leadpack_delivery_package import (
     LEADPACK_DELIVERY_PACKAGE_INPUT_KEY,
     LEADPACK_DELIVERY_READINESS_INPUT_KEY,
@@ -287,6 +292,182 @@ def _formal_object_ref(bundle: StageBundle, object_type: str, record: Mapping[st
             key: record.get(key)
             for key in TRACE_FIELDS
             if record.get(key) not in (None, "")
+        },
+    }
+
+
+def _commercial_hook_preview(carrier: Mapping[str, Any], summary: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "hook_lead_id": carrier.get("hook_lead_id"),
+        "contract_id": carrier.get("contract_id"),
+        "hook_eligibility_state": carrier.get("hook_eligibility_state"),
+        "hook_eligible_for_presale_touch": bool(carrier.get("hook_eligible_for_presale_touch", False)),
+        "disclosure_level": carrier.get("disclosure_level"),
+        "evidence_strength_label": carrier.get("evidence_strength_label"),
+        "defect_category_public_label": carrier.get("defect_category_public_label"),
+        "urgency_label": carrier.get("urgency_label"),
+        "teaser_copy": carrier.get("teaser_copy"),
+        "redacted_claim_summary": carrier.get("redacted_claim_summary"),
+        "allowed_sales_talking_points": list(carrier.get("allowed_sales_talking_points", [])),
+        "withheld_fields": list(carrier.get("withheld_fields", [])),
+        "withheld_field_count": summary.get("withheld_field_count"),
+        "leakage_risk_level": summary.get("leakage_risk_level"),
+        "leakage_risk_classified": bool(summary.get("leakage_risk_classified", False)),
+        "forbidden_claims_filter_passed": bool(summary.get("forbidden_claims_filter_passed", False)),
+        "requires_manual_review": bool(summary.get("requires_manual_review", False)),
+        "customer_visible_enabled": False,
+        "external_send_enabled": False,
+        "no_full_evidence_leakage": bool(summary.get("no_full_evidence_leakage", False)),
+    }
+
+
+def _operator_next_action(
+    *,
+    opportunity: Mapping[str, Any],
+    hook_summary: Mapping[str, Any],
+    leadpack_readiness_summary: Mapping[str, Any],
+) -> str:
+    if str(opportunity.get("saleability_status") or "") != "QUALIFIED":
+        return "REVIEW_EVIDENCE_RISK_BEFORE_COMMERCIAL_USE"
+    if not bool(hook_summary.get("hook_eligible_for_presale_touch", False)):
+        return "REVIEW_COMMERCIAL_HOOK"
+    if str(hook_summary.get("leakage_risk_level") or "") not in {"", "LOW"}:
+        return "REVIEW_HOOK_LEAKAGE_RISK"
+    if not bool(leadpack_readiness_summary.get("delivery_ready", False)):
+        return "PREPARE_LEADPACK_REVIEW_AND_DELIVERY_GATE"
+    return "REQUEST_CONTROLLED_REVIEW_BEFORE_OUTREACH"
+
+
+def _build_productized_operator_workbench_projection(
+    *,
+    opportunity: Mapping[str, Any],
+    offer: Mapping[str, Any],
+    buyer_fit: Mapping[str, Any],
+    legal_actor: Mapping[str, Any],
+    procurement_actor: Mapping[str, Any],
+    workbench: Mapping[str, Any],
+    workbench_summary: Mapping[str, Any],
+    leadpack_package: Mapping[str, Any],
+    leadpack_readiness_summary: Mapping[str, Any],
+    commercial_hook: Mapping[str, Any],
+    commercial_hook_summary: Mapping[str, Any],
+) -> dict[str, Any]:
+    hook_preview = _commercial_hook_preview(commercial_hook, commercial_hook_summary) if commercial_hook else {}
+    buyer_fit_score = int(buyer_fit.get("fit_score") or 0)
+    buyer_rankings = [
+        {
+            "rank": 1,
+            "buyer_type": buyer_fit.get("buyer_type"),
+            "buyer_fit_score": buyer_fit_score,
+            "buyer_motivation_score": commercial_hook_summary.get("buyer_motivation_score"),
+            "purchase_capacity_score": commercial_hook_summary.get("purchase_capacity_score"),
+            "fit_reason_tags": list(buyer_fit.get("fit_reason_tags", [])),
+        },
+        {
+            "rank": 2,
+            "buyer_type": "legal_action_actor",
+            "actor_id": legal_actor.get("actor_id"),
+            "actor_role_cluster": legal_actor.get("actor_role_cluster"),
+            "actionability_state": legal_actor.get("actionability_state"),
+        },
+        {
+            "rank": 3,
+            "buyer_type": "procurement_decision_actor",
+            "actor_id": procurement_actor.get("actor_id"),
+            "actor_role_cluster": procurement_actor.get("actor_role_cluster"),
+            "reachable_state": procurement_actor.get("reachable_state"),
+        },
+    ]
+    review_items: list[str] = []
+    if str(opportunity.get("saleability_status") or "") != "QUALIFIED":
+        review_items.append("saleability_status_not_qualified")
+    if not bool(hook_preview.get("forbidden_claims_filter_passed", False)):
+        review_items.append("forbidden_sales_claims_filter_required")
+    if bool(hook_preview.get("requires_manual_review", False)):
+        review_items.append("commercial_hook_manual_review_required")
+    if not bool(leadpack_readiness_summary.get("delivery_ready", False)):
+        review_items.append("leadpack_delivery_gate_not_ready")
+    if bool(workbench_summary.get("blocked_live", True)):
+        review_items.append("crm_quote_live_execution_blocked")
+    next_action = _operator_next_action(
+        opportunity=opportunity,
+        hook_summary=commercial_hook_summary,
+        leadpack_readiness_summary=leadpack_readiness_summary,
+    )
+    queue_item = {
+        "queue_item_id": opportunity.get("opportunity_id"),
+        "opportunity_id": opportunity.get("opportunity_id"),
+        "saleability_status": opportunity.get("saleability_status"),
+        "opportunity_grade": opportunity.get("opportunity_grade"),
+        "recommended_sku": opportunity.get("recommended_sku"),
+        "evidence_strength_label": hook_preview.get("evidence_strength_label"),
+        "hard_defect_public_label": hook_preview.get("defect_category_public_label"),
+        "commercial_hook_teaser": hook_preview.get("teaser_copy"),
+        "conversion_priority": commercial_hook_summary.get("conversion_priority"),
+        "objection_value_score": commercial_hook_summary.get("objection_value_score"),
+        "buyer_fit_score": commercial_hook_summary.get("buyer_fit_score") or buyer_fit_score,
+        "buyer_rankings": buyer_rankings,
+        "review_items": review_items,
+        "next_action": next_action,
+        "outreach_suggestion": "use_commercial_hook_after_review_gate",
+        "delivery_state": leadpack_package.get("delivery_state"),
+        "page_state": leadpack_package.get("page_state"),
+        "customer_visible_enabled": False,
+        "external_delivery_enabled": False,
+        "external_send_enabled": False,
+        "live_execution_enabled": False,
+    }
+    return {
+        "workbench_id": "autonomous_operator_workbench",
+        "surface_id": "opportunity_pool",
+        "productized_owner_view": True,
+        "owner_can_observe_without_raw_json": True,
+        "raw_json_required": False,
+        "raw_json_fallback_required": False,
+        "opportunity_queue_visible": True,
+        "opportunity_queue_count": 1 if opportunity else 0,
+        "opportunity_queue": [queue_item] if opportunity else [],
+        "panels": {
+            "evidence_risk_panel": {
+                "evidence_strength_label": hook_preview.get("evidence_strength_label"),
+                "hard_defect_public_label": hook_preview.get("defect_category_public_label"),
+                "review_items": review_items,
+            },
+            "commercial_hook_panel": hook_preview,
+            "buyer_ranking_panel": {
+                "buyer_rankings": buyer_rankings,
+                "buyer_fit_score": commercial_hook_summary.get("buyer_fit_score") or buyer_fit_score,
+                "buyer_motivation_score": commercial_hook_summary.get("buyer_motivation_score"),
+                "purchase_capacity_score": commercial_hook_summary.get("purchase_capacity_score"),
+            },
+            "sales_next_action_panel": {
+                "next_action": next_action,
+                "crm_action_id": workbench.get("crm_action_id"),
+                "quote_draft_id": workbench.get("quote_draft_id"),
+                "quote_surface_state": workbench.get("quote_surface_state"),
+                "approval_state": workbench.get("approval_state"),
+                "audit_state": workbench.get("audit_state"),
+                "provider_execution_state": workbench.get("provider_execution_state"),
+                "live_execution_enabled": False,
+            },
+            "delivery_state_panel": {
+                "package_id": leadpack_package.get("package_id"),
+                "page_draft_id": leadpack_package.get("page_draft_id"),
+                "delivery_state": leadpack_package.get("delivery_state"),
+                "delivery_ready": bool(leadpack_readiness_summary.get("delivery_ready", False)),
+                "customer_visible_enabled": False,
+                "external_delivery_enabled": False,
+                "customer_download_enabled": False,
+            },
+        },
+        "safe_display_contract": {
+            "source_url_visible": False,
+            "raw_snapshot_visible": False,
+            "complete_verification_path_visible": False,
+            "internal_score_model_visible": False,
+            "customer_visible_publication_enabled": False,
+            "external_send_enabled": False,
+            "customer_download_enabled": False,
         },
     }
 
@@ -889,6 +1070,27 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
         if leadpack_package
         else {}
     )
+    commercial_hook = dict(bundle.inputs.get(COMMERCIAL_HOOK_LEAD_INPUT_KEY, {}))
+    commercial_hook_summary = (
+        dict(bundle.inputs.get(COMMERCIAL_HOOK_READINESS_INPUT_KEY, {}))
+        if isinstance(bundle.inputs.get(COMMERCIAL_HOOK_READINESS_INPUT_KEY), Mapping)
+        else build_commercial_hook_readiness_summary(commercial_hook)
+        if commercial_hook
+        else {}
+    )
+    productized_operator_workbench = _build_productized_operator_workbench_projection(
+        opportunity=opportunity,
+        offer=offer,
+        buyer_fit=buyer_fit,
+        legal_actor=legal_actor,
+        procurement_actor=procurement_actor,
+        workbench=workbench,
+        workbench_summary=workbench_summary,
+        leadpack_package=leadpack_package,
+        leadpack_readiness_summary=leadpack_readiness_summary,
+        commercial_hook=commercial_hook,
+        commercial_hook_summary=commercial_hook_summary,
+    )
     formal_records = {
         "saleable_opportunity": opportunity,
         "offer_recommendation": offer,
@@ -992,6 +1194,11 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
         if leadpack_package
         else {},
         "leadpack_delivery_readiness_summary": leadpack_readiness_summary,
+        "commercial_hook_preview": _commercial_hook_preview(commercial_hook, commercial_hook_summary)
+        if commercial_hook
+        else {},
+        "commercial_hook_readiness_summary": commercial_hook_summary,
+        "productized_operator_workbench": productized_operator_workbench,
         "_raw_records": [opportunity, offer, buyer_fit, legal_actor, procurement_actor],
     }
     envelope = _surface_envelope(
@@ -1015,6 +1222,10 @@ def build_stage7_preview_surface(payload: Any) -> dict[str, Any]:
     envelope["crm_quote_provider_execution_replay_state"] = dict(workbench.get("replay_state", {}))
     envelope[LEADPACK_DELIVERY_PACKAGE_INPUT_KEY] = leadpack_package
     envelope[LEADPACK_DELIVERY_READINESS_INPUT_KEY] = leadpack_readiness_summary
+    envelope[COMMERCIAL_HOOK_LEAD_INPUT_KEY] = commercial_hook
+    envelope[COMMERCIAL_HOOK_READINESS_INPUT_KEY] = commercial_hook_summary
+    envelope["commercial_hook_workbench_preview"] = preview_projection["commercial_hook_preview"]
+    envelope["productized_operator_workbench"] = productized_operator_workbench
     envelope["package_page_delivery_summary"] = {
         "package": leadpack_delivery_package_summary(leadpack_package) if leadpack_package else {},
         "readiness": leadpack_readiness_summary,
@@ -3190,10 +3401,28 @@ def build_operator_customer_access_readiness_surface(
                 "persists_stage6_bundle": True,
             },
             "workbench_entries": {
+                "autonomous_operator_workbench": "/operator-console/autonomous-workbench",
                 "stage6_review_report": "/review-report-workbench",
                 "stage7_opportunity_pool": "/saleable-opportunities",
                 "stage8_outreach_workbench": "/contact-targets",
                 "stage9_order_delivery_workbench": "/orders",
+            },
+            "autonomous_operator_workbench": {
+                "operation_id": "previewAutonomousOperatorWorkbench",
+                "method": "GET",
+                "path": "/operator-console/autonomous-workbench",
+                "entry_visible": True,
+                "productized_owner_workbench": True,
+                "opportunity_queue_visible": True,
+                "evidence_risk_visible": True,
+                "commercial_hook_review_visible": True,
+                "buyer_ranking_visible": True,
+                "delivery_state_visible": True,
+                "next_action_visible": True,
+                "raw_json_required": False,
+                "raw_json_fallback_required": False,
+                "live_execution_enabled": False,
+                "external_release_enabled": False,
             },
         },
         "provider_status": {
@@ -3237,6 +3466,73 @@ def build_operator_customer_access_readiness_surface(
     }
 
 
+def build_autonomous_operator_workbench_surface(payload: Any) -> dict[str, Any]:
+    try:
+        stage7_surface = build_stage7_preview_surface(payload)
+    except (TypeError, KeyError):
+        stage7_surface = {}
+    productized = dict(stage7_surface.get("productized_operator_workbench", {}))
+    if not productized:
+        productized = {
+            "workbench_id": "autonomous_operator_workbench",
+            "surface_id": "opportunity_pool",
+            "productized_owner_view": True,
+            "owner_can_observe_without_raw_json": True,
+            "raw_json_required": False,
+            "raw_json_fallback_required": False,
+            "opportunity_queue_visible": True,
+            "opportunity_queue_count": 0,
+            "opportunity_queue": [],
+            "panels": {},
+            "safe_display_contract": {
+                "source_url_visible": False,
+                "raw_snapshot_visible": False,
+                "complete_verification_path_visible": False,
+                "internal_score_model_visible": False,
+                "customer_visible_publication_enabled": False,
+                "external_send_enabled": False,
+                "customer_download_enabled": False,
+            },
+        }
+    return {
+        "surface_id": "autonomous_operator_workbench",
+        "surface_mode": "internal-readback",
+        "surface_state": "ready-for-owner-review" if productized.get("opportunity_queue") else "empty-queue-ready",
+        "capability_state": "INTERNAL_READY",
+        "internal_only": True,
+        "readiness_only": False,
+        "projection_only": True,
+        "productized_owner_workbench": True,
+        "owner_can_observe_without_raw_json": bool(
+            productized.get("owner_can_observe_without_raw_json", False)
+        ),
+        "raw_json_required": False,
+        "raw_json_fallback_required": False,
+        "opportunity_queue_visible": True,
+        "commercial_hook_review_visible": True,
+        "buyer_ranking_visible": True,
+        "evidence_risk_visible": True,
+        "delivery_state_visible": True,
+        "next_action_visible": True,
+        "live_execution_enabled": False,
+        "external_release_enabled": False,
+        "public_software_release": False,
+        "real_provider_call_enabled": False,
+        "automated_refund_enabled": False,
+        "stage_links": {
+            "stage6_review_report": "/review-report-workbench",
+            "stage7_opportunity_pool": "/saleable-opportunities",
+            "stage8_outreach_workbench": "/contact-targets",
+            "stage9_order_delivery_workbench": "/orders",
+            "customer_artifact_access": "/customer-artifact-access-candidates/{opportunity_id}",
+        },
+        "productized_operator_workbench": productized,
+        "opportunity_queue": list(productized.get("opportunity_queue", [])),
+        "panels": dict(productized.get("panels", {})),
+        "safe_display_contract": dict(productized.get("safe_display_contract", {})),
+    }
+
+
 def register_route_table(router: object | None, routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if router is None:
         return routes
@@ -3255,6 +3551,7 @@ def register_route_table(router: object | None, routes: list[dict[str, Any]]) ->
 
 
 __all__ = [
+    "build_autonomous_operator_workbench_surface",
     "build_customer_artifact_access_candidate_surface",
     "build_formal_client_export_page_layer_readiness_surface",
     "build_go_live_readiness_surface",

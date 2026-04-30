@@ -1043,6 +1043,7 @@ cross_cutting_surfaces:
     test_files:
       - tests/test_api_transport_bootstrap.py
       - tests/test_internal_surface_preview.py
+      - tests/test_productized_autonomous_operator_workbench.py
       - tests/test_operator_customer_access.py
       - tests/test_operator_frontend_portal.py
       - tests/test_real_provider_binding.py
@@ -1707,6 +1708,7 @@ modules:
     formal_objects:
       - internal_preview_surface
     current_files:
+      - contracts/ui/workbench_catalog.json
       - src/api/projections.py
       - src/api/workbench_observability.py
       - src/api/routes/operator_customer_access.py
@@ -1722,6 +1724,7 @@ modules:
     pending_packets: []
     notes:
       - "P8 observability/operator workbench first cut completed in local commit b8a2762 and src/api/workbench_observability.py remains part of the formal internal-preview current-files ledger."
+      - "PTL-I100-148 adds productized autonomous operator workbench projection and owner console entry so opportunity queue, evidence risk, commercial hook, buyer ranking, delivery state and next action are visible without raw JSON dependency."
     external_release_allowed: false
     live_execution_allowed: false
     deferred_module_split: false

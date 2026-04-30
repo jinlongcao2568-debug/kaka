@@ -320,6 +320,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <a href="#overview">Stage1-9 运营总览</a>
     <a href="#run">全链路运行</a>
     <a href="#business">业务闭环</a>
+    <a href="#autonomousWorkbench">自主机会工作台</a>
     <a href="#workbench">Stage6-9 工作台</a>
     <a href="#providers">服务商状态</a>
     <a href="#audit">审批审计</a>
@@ -361,6 +362,16 @@ def render_operator_console(payload: Any) -> HTMLResponse:
           <div><strong>客户交付</strong><p>字段白名单、脱敏、水印、版本哈希、下载授权、审计。</p></div>
           <div><strong>支付交付</strong><p>订单、支付、收据、发票、结算、交付、回滚。</p></div>
         </div>
+      </section>
+      <section class="wide" id="autonomousWorkbench">
+        <h3>自主机会工作台</h3>
+        <div class="rail" id="autonomousMetrics">
+          <div class="metric"><strong>--</strong><span>机会队列</span></div>
+          <div class="metric"><strong>--</strong><span>商业钩子</span></div>
+          <div class="metric"><strong>--</strong><span>下一步动作</span></div>
+        </div>
+        <div id="autonomousQueue" class="empty-state">暂无已持久化机会队列。</div>
+        <button id="refreshAutonomousWorkbench">刷新自主机会工作台</button>
       </section>
       <section id="run">
         <h3>任务创建</h3>
@@ -465,6 +476,32 @@ async function loadReadiness() {
   ].join("");
   out({ readiness, scheduler, goLive });
 }
+async function loadAutonomousWorkbench() {
+  const payload = await json("GET", "/operator-console/autonomous-workbench");
+  const queue = payload.opportunity_queue || [];
+  const first = queue[0] || {};
+  $("autonomousMetrics").innerHTML = [
+    `<div class="metric"><strong>${payload.productized_operator_workbench?.opportunity_queue_count ?? 0}</strong><span>机会队列</span></div>`,
+    `<div class="metric"><strong>${first.commercial_hook_teaser ? "可读" : "待生成"}</strong><span>商业钩子</span></div>`,
+    `<div class="metric"><strong>${first.next_action || "--"}</strong><span>下一步动作</span></div>`
+  ].join("");
+  if (!queue.length) {
+    $("autonomousQueue").className = "empty-state";
+    $("autonomousQueue").textContent = "暂无已持久化机会队列。";
+    return payload;
+  }
+  $("autonomousQueue").className = "";
+  $("autonomousQueue").innerHTML = queue.map((item) => {
+    const tags = [
+      badge(item.saleability_status || "--"),
+      badge(item.evidence_strength_label || "--"),
+      badge(item.conversion_priority || "--"),
+      badge(item.delivery_state || "--", item.customer_visible_enabled ? "" : "warn")
+    ].join("");
+    return `<div class="stage-card"><strong>${item.opportunity_id || "--"}</strong><p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>${tags}<p>${item.next_action || "--"}</p></div>`;
+  }).join("");
+  return payload;
+}
 let lastRealSourceSnapshotId = "";
 function fillSelect(id, items, labelBuilder) {
   const select = $(id);
@@ -563,9 +600,10 @@ $("refreshRealSourceRuns").addEventListener("click", async () => out(await loadR
 $("previewRun").addEventListener("click", previewRun);
 $("runControlledSample").addEventListener("click", runControlledSample);
 $("refreshWorkbench").addEventListener("click", loadReadiness);
+$("refreshAutonomousWorkbench").addEventListener("click", async () => out(await loadAutonomousWorkbench()));
 $("refreshProvider").addEventListener("click", loadReadiness);
 $("refreshAudit").addEventListener("click", loadReadiness);
-Promise.all([loadReadiness(), loadRealSourceProfiles(), loadRealSourceRuns()]).catch(out);
+Promise.all([loadReadiness(), loadAutonomousWorkbench(), loadRealSourceProfiles(), loadRealSourceRuns()]).catch(out);
 """
     return _page("AX9S 运营操作台", body, script)
 

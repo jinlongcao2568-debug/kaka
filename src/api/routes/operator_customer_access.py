@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from api.deps import get_settings
 from api.projections import (
+    build_autonomous_operator_workbench_surface,
     build_customer_artifact_access_candidate_surface,
     build_go_live_readiness_surface,
     build_operator_customer_access_readiness_surface,
@@ -84,6 +85,15 @@ def _operator_operation_readback(routes: list[dict[str, Any]] | None = None) -> 
                 "stage8_real_execution_enabled",
                 "stage9_real_payment_delivery_refund_enabled",
                 "automated_refund_enabled",
+                "autonomous_operator_workbench",
+                "productized_owner_workbench",
+                "opportunity_queue_visible",
+                "commercial_hook_review_visible",
+                "buyer_ranking_visible",
+                "evidence_risk_visible",
+                "delivery_state_visible",
+                "next_action_visible",
+                "raw_json_required",
             )
             if key in route
         }
@@ -100,6 +110,10 @@ def preview_operator_customer_access_readiness(payload: Any) -> dict[str, Any]:
         audit_log=_operator_audit_log(),
         operator_operation_readback=_operator_operation_readback(),
     )
+
+
+def preview_autonomous_operator_workbench(payload: Any) -> dict[str, Any]:
+    return build_autonomous_operator_workbench_surface(payload)
 
 
 def create_operator_task(payload: dict[str, Any]) -> dict[str, Any]:
@@ -456,6 +470,22 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "previewAutonomousOperatorWorkbench",
+        "method": "GET",
+        "path": "/operator-console/autonomous-workbench",
+        "handler": preview_autonomous_operator_workbench,
+        "autonomous_operator_workbench": True,
+        "productized_owner_workbench": True,
+        "opportunity_queue_visible": True,
+        "commercial_hook_review_visible": True,
+        "buyer_ranking_visible": True,
+        "evidence_risk_visible": True,
+        "delivery_state_visible": True,
+        "next_action_visible": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "createOperatorTask",
         "method": "POST",
         "path": "/operator-console/tasks",
@@ -564,6 +594,7 @@ __all__ = [
     "import_operator_project",
     "list_owner_real_public_source_task_runs",
     "list_real_public_source_profiles",
+    "preview_autonomous_operator_workbench",
     "preview_customer_artifact_access_candidate",
     "preview_go_live_readiness",
     "preview_operator_customer_access_readiness",

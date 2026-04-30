@@ -204,6 +204,13 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-S9-101-p5-typed-lifecycle-deepening" in stage9["completed_packets"]
     assert "PTL-S9-102-p6-feedback-writeback-productization" in stage9["completed_packets"]
     assert stage9["pending_packets"] == []
+    internal_preview = modules["INTERNAL-PREVIEW-SURFACE"]
+    assert "contracts/ui/workbench_catalog.json" in internal_preview["current_files"]
+    assert "src/api/projections.py" in internal_preview["current_files"]
+    assert "src/api/routes/operator_customer_access.py" in internal_preview["current_files"]
+    assert "src/api/routes/operator_frontend.py" in internal_preview["current_files"]
+    assert "tests/test_productized_autonomous_operator_workbench.py" in registry_text
+    assert "productized autonomous operator workbench projection" in " ".join(internal_preview["notes"])
     shared_runtime = modules["SHARED-RUNTIME-POLICY-CHAIN"]
     assert "src/shared/policy_contract_helpers.py" in shared_runtime["current_files"]
     assert "src/shared/runtime_semantic_rules.py" in shared_runtime["current_files"]

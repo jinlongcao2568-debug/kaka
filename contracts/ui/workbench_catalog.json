@@ -306,7 +306,13 @@
         "blocked_review_banner",
         "field_masking_notice",
         "preview_only_actions",
-        "operator_action_history"
+        "operator_action_history",
+        "autonomous_opportunity_queue",
+        "evidence_risk_panel",
+        "commercial_hook_panel",
+        "buyer_ranking_panel",
+        "delivery_state_panel",
+        "sales_next_action_panel"
       ],
       "panels": [
         {
@@ -336,6 +342,30 @@
             "stage7_mark_reviewed",
             "stage7_return_for_revision"
           ]
+        },
+        {
+          "panelId": "autonomous_operator_workbench_panel",
+          "mode": "internal_readback",
+          "projectionField": "productized_operator_workbench",
+          "requiredReadbackFields": [
+            "opportunity_queue",
+            "evidence_risk_panel",
+            "commercial_hook_panel",
+            "buyer_ranking_panel",
+            "delivery_state_panel",
+            "sales_next_action_panel"
+          ],
+          "displayContract": {
+            "owner_can_observe_without_raw_json": true,
+            "raw_json_required": false,
+            "source_url_visible": false,
+            "raw_snapshot_visible": false,
+            "complete_verification_path_visible": false,
+            "internal_score_model_visible": false,
+            "customer_visible_publication_enabled": false,
+            "external_send_enabled": false,
+            "customer_download_enabled": false
+          }
         }
       ],
       "notes": "internal preview / draft 页面，不得形成真实外部执行面。仅限内部作战台使用，不面向客户工作台；页面必须直接消费 canonical envelope，不得自行推断 blocked/review/governed。",
