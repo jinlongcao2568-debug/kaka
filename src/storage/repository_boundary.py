@@ -12,6 +12,10 @@ from stage7_sales.crm_quote_workbench import (
     CRM_QUOTE_WORKBENCH_READINESS_INPUT_KEY,
     QUOTE_DRAFT_ID_INPUT_KEY,
 )
+from stage7_sales.commercial_hook import (
+    COMMERCIAL_HOOK_LEAD_INPUT_KEY,
+    COMMERCIAL_HOOK_READINESS_INPUT_KEY,
+)
 from stage7_sales.leadpack_delivery_package import (
     LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY,
     LEADPACK_DELIVERY_PACKAGE_INPUT_KEY,
@@ -105,6 +109,8 @@ STAGE_INPUT_FIELDS = {
         LEADPACK_EVIDENCE_PACK_ID_INPUT_KEY,
         LEADPACK_PAGE_DRAFT_ID_INPUT_KEY,
         LEADPACK_ARTIFACT_MANIFEST_ID_INPUT_KEY,
+        COMMERCIAL_HOOK_LEAD_INPUT_KEY,
+        COMMERCIAL_HOOK_READINESS_INPUT_KEY,
         "_stage7_handoff_snapshot",
         "_stage7_trace_rules_snapshot",
     ),

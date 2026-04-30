@@ -241,6 +241,22 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(workbench_response.status_code, 200)
         workbench = workbench_response.json()
         self.assertEqual(workbench["opportunity_queue"][0]["opportunity_id"], opportunity_id)
+        self.assertIn(
+            "public-risk signal",
+            workbench["opportunity_queue"][0]["commercial_hook_teaser"],
+        )
+        self.assertEqual(
+            workbench["opportunity_queue"][0]["next_action"],
+            "PREPARE_LEADPACK_REVIEW_AND_DELIVERY_GATE",
+        )
+        self.assertEqual(
+            workbench["panels"]["commercial_hook_panel"]["disclosure_level"],
+            "L1_HOOK",
+        )
+        self.assertEqual(
+            workbench["panels"]["evidence_risk_panel"]["evidence_strength_label"],
+            "REVIEWABLE_PUBLIC_SIGNAL",
+        )
         self.assertFalse(workbench["raw_json_required"])
         self.assertFalse(workbench["safe_display_contract"]["customer_download_enabled"])
 

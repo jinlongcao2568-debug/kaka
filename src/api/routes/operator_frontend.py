@@ -523,6 +523,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div class="metric"><strong>--</strong><span>下一步动作</span></div>
             </div>
             <div id="autonomousQueue" class="empty-state">暂无已持久化机会队列。</div>
+            <div id="autonomousDetailPanels" class="stage-grid"></div>
             <button id="refreshAutonomousWorkbench">刷新自主机会工作台</button>
           </section>
         </div>
@@ -666,6 +667,7 @@ async function loadAutonomousWorkbench() {
   if (!queue.length) {
     $("autonomousQueue").className = "empty-state";
     $("autonomousQueue").textContent = "暂无已持久化机会队列。";
+    $("autonomousDetailPanels").innerHTML = "";
     return payload;
   }
   $("autonomousQueue").className = "";
@@ -678,6 +680,14 @@ async function loadAutonomousWorkbench() {
     ].join("");
     return `<div class="stage-card"><strong>${item.opportunity_id || "--"}</strong><p>${item.commercial_hook_teaser || "商业钩子待生成"}</p>${tags}<p>${item.next_action || "--"}</p></div>`;
   }).join("");
+  const panels = payload.panels || {};
+  $("autonomousDetailPanels").innerHTML = [
+    `<div class="stage-card"><strong>证据风险</strong><p>${panels.evidence_risk_panel?.evidence_strength_label || "--"} / ${panels.evidence_risk_panel?.hard_defect_public_label || "--"}</p>${badge((panels.evidence_risk_panel?.review_items || []).length + " 项复核")}</div>`,
+    `<div class="stage-card"><strong>商业钩子</strong><p>${panels.commercial_hook_panel?.teaser_copy || first.commercial_hook_teaser || "--"}</p>${badge(panels.commercial_hook_panel?.disclosure_level || "--")}</div>`,
+    `<div class="stage-card"><strong>买家排序</strong><p>${(panels.buyer_ranking_panel?.buyer_rankings || []).map((row) => `${row.rank}.${row.buyer_type || "--"}`).join(" / ") || "--"}</p>${badge("fit " + (panels.buyer_ranking_panel?.buyer_fit_score || "--"))}</div>`,
+    `<div class="stage-card"><strong>交付状态</strong><p>${panels.delivery_state_panel?.delivery_state || "--"} / ${panels.delivery_state_panel?.page_draft_id || "--"}</p>${badge(panels.delivery_state_panel?.delivery_ready ? "可交付" : "待审批", panels.delivery_state_panel?.delivery_ready ? "" : "warn")}</div>`,
+    `<div class="stage-card"><strong>下一步动作</strong><p>${panels.sales_next_action_panel?.next_action || first.next_action || "--"}</p>${badge(panels.sales_next_action_panel?.quote_surface_state || "--")}</div>`
+  ].join("");
   return payload;
 }
 let lastRealSourceSnapshotId = "";
