@@ -9,7 +9,7 @@ navigation_state: PTL-I100-149-real-sample-autonomous-opportunity-acceptance
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-149 real sample autonomous opportunity acceptance completed locally through 53e0d1b; long gates passed after PTL-I100-147/148/149 completion.
+activation_condition: PTL-I100-149 real sample autonomous opportunity acceptance completed locally through 53e0d1b; post-149 direct-dev practical operator hardening completed through e6286b0; long gates passed after PTL-I100-147/148/149 completion.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false

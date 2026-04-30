@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: NO_ACTIVE_PRODUCT_MAINLINE_PACKET (PTL-I100-149-real-sample-autonomous-opportunity-acceptance completed locally through 53e0d1b; no next product mainline packet is auto-activated. Follow-up ordinary development uses AGENTS direct-dev unless live/release/high-risk controlled semantics require a task packet.)
+Current Workstream: NO_ACTIVE_PRODUCT_MAINLINE_PACKET (PTL-I100-149-real-sample-autonomous-opportunity-acceptance completed locally through 53e0d1b; post-149 direct-dev practical operator hardening completed through e6286b0. No next product mainline packet is auto-activated. Follow-up ordinary development uses AGENTS direct-dev unless live/release/high-risk controlled semantics require a task packet.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -31,9 +31,13 @@ Closed 149 Result:
 - Real sample autonomous opportunity acceptance is implemented as an internal owner-operated product slice.
 - Market scan, source blueprint, Stage1-9 internal chain, commercial hook, operator workbench, and LeadPack delivery candidate are observable, reviewable, and replayable without raw JSON dependency.
 - Readback is bound into `/operator-console/real-sample-autonomous-acceptance`, operator console readiness, and the workbench catalog.
+- Post-149 practical hardening added `/operator-console#search`, region adapter catalog, autonomous search run history, persistent commercial-hook readback after refresh, and compact owner-facing workbench panels for evidence risk, buyer ranking, delivery state, and next action.
 - Customer-visible send, provider calls, outreach, payment, delivery, customer download, refund, automated refund, and public release remain unexecuted unless a later controlled-opening action is approved and audited.
 
 Recently Closed:
+- Post-149 practical operator hardening committed locally: e6286b0.
+- Autonomous search run history/readback committed locally: ad67348.
+- Operator autonomous search loop and region adapters committed locally: 36fc480.
 - PTL-I100-149-real-sample-autonomous-opportunity-acceptance completed and committed locally: 53e0d1b.
 - PTL-I100-148-productized-autonomous-operator-workbench completed and committed locally: dfeb331.
 - PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine completed and committed locally: 65ffbb0.
