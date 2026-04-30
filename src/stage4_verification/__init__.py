@@ -13,11 +13,19 @@ from stage4_verification.active_conflict import (
     build_project_manager_active_conflict_readback,
     evaluate_project_manager_active_conflict,
 )
+from stage4_verification.hard_defect_strategy import (
+    EvidenceRiskHardDefectStrategyCarrier,
+    build_evidence_risk_hard_defect_strategy,
+    build_evidence_risk_hard_defect_strategy_readback,
+)
 
 __all__ = [
+    "EvidenceRiskHardDefectStrategyCarrier",
     "ProjectManagerActiveConflictCarrier",
     "PublicVerificationAdapter",
     "PublicVerificationCarrier",
+    "build_evidence_risk_hard_defect_strategy",
+    "build_evidence_risk_hard_defect_strategy_readback",
     "build_project_manager_active_conflict_readback",
     "build_public_verification_readback",
     "evaluate_project_manager_active_conflict",

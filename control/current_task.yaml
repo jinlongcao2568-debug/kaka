@@ -5,11 +5,11 @@ updated_at: '2026-04-30'
 currentPhase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 currentStatus: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 current_state: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
-navigation_state: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
+navigation_state: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
 responsible_role: single_operator
 responsible_person: 卡卡罗特
 escalation_path: []
-activation_condition: PTL-I100-150 public web adaptive capture hardening is internally ready; owner asked to continue into 151 captcha/challenge automated resolution and resume.
+activation_condition: PTL-I100-151 public web captcha/challenge automated resolution and resume is internally ready; owner asked to continue into 146 evidence risk and hard defect verification strategy.
 state_dimensions:
   candidate_gap_active: false
   strategic_branch_active: false
@@ -17,8 +17,8 @@ state_dimensions:
   closure_review_completed: true
   mainline_selection_ready: true
 currentTask:
-  task_id: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
-  title: I100-51 Public web captcha automated resolution and resume
+  task_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+  title: I100-46 Evidence risk and hard defect verification strategy
   owner_role: single_operator
   responsible_role: single_operator
   responsible_person: 卡卡罗特
@@ -56,8 +56,8 @@ currentTask:
   - contracts/testing/regression_manifest.json
   - scripts/check-state-alignment.ps1
   capability_adjudication_source: control/product_task_library.yaml#open_capability_policy
-  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-151-public-web-captcha-automated-resolution-and-resume
-  objective: 公开网站遇到验证码/校验页时，自动识别 challenge，保存 URL、cookie、表单、浏览器会话和 capture plan 上下文，优先通过授权自动化识别/OCR/session 续跑从同一 capture plan 恢复；不要求重启整条链路。
+  acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+  objective: 根据 Stage3 解析字段自动选择项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵核验策略，输出公开核验 target、Stage5 requested rule 绑定和弱证据 fail-closed taxonomy；LLM 不得替代公开核验或规则判定。
   operator_assignment_roster_source_ref: control/operator_assignment_roster_defaults.yaml#defaults
   operator_assignment_roster:
     stage7:
@@ -77,36 +77,37 @@ currentTask:
       reviewer: 卡卡罗特
   task_packet:
     version: 1
-    packet_id: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
-    subpacket_id: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
-    backlog_packet_ref: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
+    packet_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+    subpacket_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+    backlog_packet_ref: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     packet_kind: EXECUTABLE_SCOPED_SUBPACKET
     execution_mode: SCOPED_EXECUTION
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     runtime_change_in_packet: IN_SCOPE
-    existing_code_state: STAGE2_PUBLIC_SOURCE_CHALLENGE_RESUME_RUNTIME_PRESENT
-    existing_runtime_state: PUBLIC_SOURCE_ADAPTER_CHALLENGE_RESUME_INTERNAL_READY_CANDIDATE
-    title: I100-51 Public web captcha automated resolution and resume
+    existing_code_state: STAGE4_PUBLIC_VERIFICATION_AND_STAGE5_RULE_FACTORY_PRESENT
+    existing_runtime_state: EVIDENCE_RISK_HARD_DEFECT_STRATEGY_INTERNAL_READY_CANDIDATE
+    title: I100-46 Evidence risk and hard defect verification strategy
     status: ACTIVE
-    objective: 实现并验收 Stage2 public source adapter 的验证码/challenge 自动化处理与续跑载体：识别 challenge，保存 URL/cookie/form/browser session/capture plan 上下文，生成自动化识别/OCR/slider/fingerprint/cookie/session 能力链，使用同一 capture plan 续跑并写入审计 readback。
+    objective: 实现并验收 Stage4 evidence-risk / hard-defect strategy carrier：根据 Stage3 parsed fields 自动选择项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵核验策略，生成公开核验 targets、Stage5 requested rules、弱证据 fail-closed taxonomy，并证明 LLM 不参与事实/公开核验/规则判定。
     depends_on:
     - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed locally through 64efed4.
     - PTL-I100-144A-controlled-opening-sync closed locally through c5d3c32.
     - PTL-I100-144-market-scan-opportunity-discovery-engine completed locally through 62ee945.
     - PTL-I100-145-source-blueprint-orchestration-and-capture-plan completed locally through 97211f0.
     - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation completed locally through d2e2e7a.
+    - PTL-I100-151-public-web-captcha-automated-resolution-and-resume completed locally through 5ffdc49.
     - current_task -> product_task_library -> repo_status is the active-source priority.
     scoped_execution_scope:
       current_active_packet_switch: true
-      previous_active_packet: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
-      target_active_packet: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
+      previous_active_packet: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
+      target_active_packet: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
       parent_packet: PTL-I100-autonomous-opportunity-operationalization
       product_task_library_change: true
       product_module_registry_change: true
       source_blueprint_registry_change: false
       activation_window_only: false
       enter_scoped_execution: true
-      active_packet_kind: public_web_captcha_automated_resolution_and_resume
+      active_packet_kind: evidence_risk_and_hard_defect_verification_strategy
       product_mainline_task: true
       source_blueprint_batch_id: PTL-I100-ROADMAP-01
       execution_mode: SCOPED_EXECUTION
@@ -131,17 +132,17 @@ currentTask:
     - 本包不做真实 live/external 执行动作；不阻止后续受控开放、sandbox、授权目标能力实现或 readiness 正常升级
     - repo readiness 可随正式状态资产与验收结果同步变化，不再被旧 non-goal 锁死
     - 真实 public release、真实外发、真实支付、真实交付、真实退款仍必须走 release checklist、审批链、审计链、operator action 与 rollback 记录
-    - 不执行未授权真实 live/external 抓取；仅在受控 transport / sandbox / 已授权目标内生成 challenge 续跑载体和受控续跑
+    - 不执行未授权真实 live/external 抓取；本包只生成内部策略 carrier、readback 和 Stage5 rule request 绑定
     - 不执行 provider call、真实触达、真实支付、真实交付、真实退款、客户下载或 public release
-    - 不把人工输入验证码或重启整条链路作为默认失败路径
+    - 不把弱证据、同名未消歧、字段冲突、缺 snapshot 或 source slice 包装成可直接升级的硬伤结论
     - 不新增业务对象、枚举、gate、exception 语义
     - 不新增正式对象、枚举、gate 或 exception 语义
     - 不实现或启用自动退款，automated_refund_execution 继续 EXCLUDED
     - 不 push
     affected_stages:
-    - stage2_ingestion
-    - api_transport
-    - operator_frontend
+    - stage3_parsing
+    - stage4_verification
+    - stage5_rules_evidence
     - product_acceptance
     risk_level: HIGH
     change_class: MANDATORY_HUMAN_REVIEW
@@ -155,11 +156,12 @@ currentTask:
     - release_approver
     change_domains:
     - automation_control_core
-    - stage2_ingestion
-    - public_source_adapters
-    - automated_challenge_resolution
-    - challenge_resume_context
-    - capture_plan_resume_audit
+    - stage3_parsing
+    - stage4_verification
+    - stage5_rules_evidence
+    - evidence_risk_strategy
+    - hard_defect_public_verification_strategy
+    - weak_evidence_fail_closed_taxonomy
     - tests_general
     - machine_assets_general
     reviews:
@@ -178,11 +180,16 @@ currentTask:
     - control/product_module_registry.yaml
     - control/product_task_library.yaml
     - control/**
-    - src/stage2_ingestion/public_source_adapters.py
-    - src/stage2_ingestion/service.py
-    - src/stage2_ingestion/source_validation.py
-    - tests/test_stage2_public_source_adapters.py
-    - tests/test_stage2_real_public_url_fetcher.py
+    - src/stage4_verification/service.py
+    - src/stage4_verification/__init__.py
+    - src/stage4_verification/hard_defect_strategy.py
+    - src/stage5_rules_evidence/service.py
+    - src/stage5_rules_evidence/rule_runner.py
+    - tests/test_stage4_evidence_risk_strategy.py
+    - tests/test_stage4_public_verification_adapters.py
+    - tests/test_project_manager_active_conflict_vertical_slice.py
+    - tests/test_stage5_rule_factory_expansion.py
+    - tests/test_stage56_evaluators.py
     - tests/test_runtime_governance_guards.py
     - tests/test_product_module_registry.py
     - tests/test_product_acceptance_checklist.py
@@ -196,11 +203,16 @@ currentTask:
     - control/product_module_registry.yaml
     - control/product_task_library.yaml
     - control/**
-    - src/stage2_ingestion/public_source_adapters.py
-    - src/stage2_ingestion/service.py
-    - src/stage2_ingestion/source_validation.py
-    - tests/test_stage2_public_source_adapters.py
-    - tests/test_stage2_real_public_url_fetcher.py
+    - src/stage4_verification/service.py
+    - src/stage4_verification/__init__.py
+    - src/stage4_verification/hard_defect_strategy.py
+    - src/stage5_rules_evidence/service.py
+    - src/stage5_rules_evidence/rule_runner.py
+    - tests/test_stage4_evidence_risk_strategy.py
+    - tests/test_stage4_public_verification_adapters.py
+    - tests/test_project_manager_active_conflict_vertical_slice.py
+    - tests/test_stage5_rule_factory_expansion.py
+    - tests/test_stage56_evaluators.py
     - tests/test_runtime_governance_guards.py
     - tests/test_product_module_registry.py
     - tests/test_product_acceptance_checklist.py
@@ -220,12 +232,16 @@ currentTask:
       handoff: []
       scripts: []
       runtime:
-      - src/stage2_ingestion/public_source_adapters.py
-      - src/stage2_ingestion/real_public_url_fetcher.py
+      - src/stage4_verification/service.py
+      - src/stage4_verification/hard_defect_strategy.py
+      - src/stage5_rules_evidence/service.py
+      - src/stage5_rules_evidence/rule_runner.py
       tests:
-      - tests/test_stage2_public_source_adapters.py
-      - tests/test_stage2_real_public_url_fetcher.py
-      - tests/test_runtime_governance_guards.py
+      - tests/test_stage4_evidence_risk_strategy.py
+      - tests/test_stage4_public_verification_adapters.py
+      - tests/test_project_manager_active_conflict_vertical_slice.py
+      - tests/test_stage5_rule_factory_expansion.py
+      - tests/test_stage56_evaluators.py
       - tests/test_product_module_registry.py
       - tests/test_product_acceptance_checklist.py
       - tests/test_product_runtime_architecture_map.py
@@ -233,9 +249,11 @@ currentTask:
       fixtures: []
     required_scripts:
     - git status --short --untracked-files=all
-    - python -m unittest tests.test_stage2_public_source_adapters -v
-    - python -m unittest tests.test_stage2_real_public_url_fetcher -v
-    - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
+    - python -m unittest tests.test_stage4_evidence_risk_strategy -v
+    - python -m unittest tests.test_stage4_public_verification_adapters -v
+    - python -m unittest tests.test_project_manager_active_conflict_vertical_slice -v
+    - python -m unittest tests.test_stage5_rule_factory_expansion -v
+    - python -m unittest tests.test_stage56_evaluators -v
     - python -m unittest tests.test_product_module_registry -v
     - python -m unittest tests.test_product_runtime_architecture_map -v
     - python -m unittest tests.test_product_operability_gap_matrix -v
@@ -249,9 +267,11 @@ currentTask:
       git status --short --untracked-files=all: 120000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1: 300000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
-      python -m unittest tests.test_stage2_public_source_adapters -v: 300000
-      python -m unittest tests.test_stage2_real_public_url_fetcher -v: 300000
-      python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v: 300000
+      python -m unittest tests.test_stage4_evidence_risk_strategy -v: 300000
+      python -m unittest tests.test_stage4_public_verification_adapters -v: 300000
+      python -m unittest tests.test_project_manager_active_conflict_vertical_slice -v: 300000
+      python -m unittest tests.test_stage5_rule_factory_expansion -v: 300000
+      python -m unittest tests.test_stage56_evaluators -v: 300000
       python -m unittest tests.test_product_module_registry -v: 300000
       python -m unittest tests.test_product_runtime_architecture_map -v: 300000
       python -m unittest tests.test_product_operability_gap_matrix -v: 300000
@@ -263,12 +283,12 @@ currentTask:
     - Any change executes unapproved live Stage2 fetch, real provider call, real outreach, real payment, real delivery, real refund, customer download, push, or public release during this packet.
     - Any required script failure that cannot be fixed inside the declared paths.
     acceptance:
-    - captcha_page_detected_before_parser
-    - session_context_preserved_for_resume
-    - automated_challenge_resume_uses_same_capture_plan
-    - captcha_resume_audit_record_visible
-    - no_duplicate_operator_or_stage2_path_created
+    - hard_defect_strategy_selection
+    - public_verification_required
+    - weak_evidence_fails_closed
+    - stage5_requested_rules_preserve_strategy_priority
+    - no_llm_fact_adjudication
 notes:
 - current_task -> product_task_library -> repo_status remains the active-source priority.
-- This packet implements the internal public web captcha/challenge automated resolution and resume slice; automated refund execution remains excluded.
+- This packet implements the internal evidence-risk and hard-defect verification strategy slice; automated refund execution remains excluded.
 - No unapproved real external execution is performed by this packet.

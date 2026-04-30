@@ -131,7 +131,7 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation" in adaptive_slice["target_packet_candidates"]
     assert "PTL-I100-151-public-web-captcha-automated-resolution-and-resume" in adaptive_slice["deferred_gaps"]
     challenge_slice = stage2_slices["stage2.public_web_challenge_resume"]
-    assert challenge_slice["implementation_state"] == "INTERNAL_READY_CANDIDATE"
+    assert challenge_slice["implementation_state"] == "INTERNAL_READY"
     assert "PTL-I100-151-public-web-captcha-automated-resolution-and-resume" in challenge_slice["target_packet_candidates"]
     assert "tests/test_stage2_public_source_adapters.py" in challenge_slice["test_files"]
     assert "tests/test_real_public_source_field_validation.py" in registry_text
@@ -151,6 +151,19 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "PTL-I100-133A registers src/stage2_ingestion/real_public_url_fetcher.py" in " ".join(stage2["notes"])
     assert "src/stage3_parsing/real_parser.py" in stage3["current_files"]
     assert (ROOT / "src/stage3_parsing/real_parser.py").exists()
+    stage4_inventory = next(
+        stage for stage in registry["stage_module_inventory"]
+        if stage["stage_id"] == "stage4_verification"
+    )
+    stage4_slices = {module_slice["slice_id"]: module_slice for module_slice in stage4_inventory["module_slices"]}
+    strategy_slice = stage4_slices["stage4.evidence_risk_hard_defect_strategy"]
+    assert strategy_slice["implementation_state"] == "INTERNAL_READY_CANDIDATE"
+    assert "src/stage4_verification/hard_defect_strategy.py" in strategy_slice["current_files"]
+    assert "tests/test_stage4_evidence_risk_strategy.py" in strategy_slice["test_files"]
+    assert (
+        "PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"
+        in strategy_slice["target_packet_candidates"]
+    )
     assert "PTL-S7-price-competitor-offer-resolution" in stage7["completed_packets"]
     assert "PTL-S7-module-boundary-refactor" in stage7["completed_packets"]
     assert stage7["pending_packets"] == []

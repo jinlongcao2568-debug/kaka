@@ -13,6 +13,10 @@ from stage4_verification.active_conflict import (
     build_project_manager_active_conflict_readback as build_active_conflict_readback,
     evaluate_project_manager_active_conflict as evaluate_active_conflict,
 )
+from stage4_verification.hard_defect_strategy import (
+    build_evidence_risk_hard_defect_strategy as build_hard_defect_strategy,
+    build_evidence_risk_hard_defect_strategy_readback as build_hard_defect_strategy_readback,
+)
 from stage4_verification.verification import PublicVerificationAdapter, build_public_verification_readback
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
@@ -457,3 +461,21 @@ class Stage4Service:
         carrier: Mapping[str, Any],
     ) -> Mapping[str, Any]:
         return build_active_conflict_readback(carrier)
+
+    def build_evidence_risk_hard_defect_strategy(
+        self,
+        parsed_context: Mapping[str, Any] | StageBundle,
+        *,
+        existing_public_verification_carriers: list[Mapping[str, Any]] | None = None,
+    ) -> Mapping[str, Any]:
+        carrier = build_hard_defect_strategy(
+            parsed_context,
+            existing_public_verification_carriers=existing_public_verification_carriers,
+        )
+        return carrier.as_payload()
+
+    def build_evidence_risk_hard_defect_strategy_readback(
+        self,
+        carrier: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        return build_hard_defect_strategy_readback(carrier)

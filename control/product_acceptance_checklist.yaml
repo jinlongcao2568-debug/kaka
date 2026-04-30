@@ -1087,6 +1087,11 @@ tasks:
       - "系统必须根据解析字段自动选择项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵核验策略。"
       - "弱证据、同名未消歧、字段冲突、缺 snapshot 或 source slice 必须 review/fail closed。"
       - "LLM 不得替代公开核验或规则判定。"
+    targeted_test_expectations:
+      - stage4_evidence_risk_strategy
+      - stage4_public_verification_adapters
+      - stage5_rule_factory_expansion
+      - product_operability_gap_matrix
     controlled_opening_requirement_checks:
       - public_verification_required
       - no_llm_fact_adjudication

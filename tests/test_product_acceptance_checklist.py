@@ -190,9 +190,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         task_145 = self.tasks_by_id["PTL-I100-145-source-blueprint-orchestration-and-capture-plan"]
         task_150 = self.tasks_by_id["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         task_151 = self.tasks_by_id["PTL-I100-151-public-web-captcha-automated-resolution-and-resume"]
+        task_146 = self.tasks_by_id["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]
         checklist_143g = self.checklist["tasks"]["PTL-I100-143G-public-web-capture-doc-sync-and-order-review"]
         checklist_150 = self.checklist["tasks"]["PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"]
         checklist_151 = self.checklist["tasks"]["PTL-I100-151-public-web-captcha-automated-resolution-and-resume"]
+        checklist_146 = self.checklist["tasks"]["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]
 
         self.assertEqual(task_143g["status"], "COMPLETED")
         self.assertEqual(task_143g["completed_commit"], "64efed4")
@@ -204,8 +206,11 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertFalse(task_145["is_current_mainline_next_candidate"])
         self.assertEqual(task_150["status"], "COMPLETED")
         self.assertFalse(task_150["is_current_mainline_next_candidate"])
-        self.assertEqual(task_151["status"], "ACTIVE")
-        self.assertTrue(task_151["is_current_mainline_next_candidate"])
+        self.assertEqual(task_151["status"], "COMPLETED")
+        self.assertEqual(task_151["completed_commit"], "5ffdc49")
+        self.assertFalse(task_151["is_current_mainline_next_candidate"])
+        self.assertEqual(task_146["status"], "ACTIVE")
+        self.assertTrue(task_146["is_current_mainline_next_candidate"])
         self.assertIn("docs_reference_143g_public_web_capture_and_captcha_resume_policy", task_143g["acceptance_checks"])
         self.assertIn("autonomous_run_controller_and_stage_state_machine_visible", task_144["acceptance_checks"])
         self.assertIn("stage2_capture_plan_generation", task_145["acceptance_checks"])
@@ -213,21 +218,28 @@ class ProductAcceptanceChecklistTests(unittest.TestCase):
         self.assertIn("adaptive_capture_strategy_upgrade_visible", task_150["acceptance_checks"])
         self.assertIn("session_context_preserved_for_resume", task_151["acceptance_checks"])
         self.assertIn("automated_challenge_resume_uses_same_capture_plan", task_151["acceptance_checks"])
+        self.assertIn("hard_defect_strategy_selection", task_146["acceptance_checks"])
+        self.assertIn("public_verification_required", task_146["acceptance_checks"])
+        self.assertIn("weak_evidence_fails_closed", task_146["acceptance_checks"])
         self.assertIn(
             "PTL-I100-151-public-web-captcha-automated-resolution-and-resume",
-            self.tasks_by_id["PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy"]["hard_depends_on"],
+            task_146["hard_depends_on"],
         )
         self.assertIn("no_manual_restart_as_primary_failure_mode", task_150["capability_gaps_covered"])
         self.assertIn("captcha_challenge_detection", task_151["capability_gaps_covered"])
+        self.assertIn("project_manager_active_conflict_priority", task_146["capability_gaps_covered"])
 
         serialized_143g = yaml.safe_dump(checklist_143g, allow_unicode=True)
         serialized_150 = yaml.safe_dump(checklist_150, allow_unicode=True)
         serialized_151 = yaml.safe_dump(checklist_151, allow_unicode=True)
+        serialized_146 = yaml.safe_dump(checklist_146, allow_unicode=True)
         self.assertIn("144 -> 145 -> 150 -> 151 -> 146 -> 147 -> 148 -> 149", serialized_143g)
         self.assertIn("D1-D14", serialized_143g)
         self.assertIn("Stage2Service", serialized_150)
         self.assertIn("第二套重复链路", serialized_150)
         self.assertIn("默认走自动化续跑路径", serialized_151)
+        self.assertIn("弱证据", serialized_146)
+        self.assertIn("LLM 不得替代公开核验或规则判定", serialized_146)
 
     def test_required_subpackets_have_dedicated_acceptance_entries(self) -> None:
         subpacket_acceptance = self.checklist["subpacket_acceptance"]

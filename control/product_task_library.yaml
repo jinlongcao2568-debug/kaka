@@ -126,12 +126,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
-  packet_id: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
-  title: "I100-51 Public web captcha automated resolution and resume"
+  task_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+  packet_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
+  title: "I100-46 Evidence risk and hard defect verification strategy"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-150 public web adaptive capture hardening is internally ready. 151 is active for public web captcha/challenge automated resolution and resume: challenge detection, URL/cookie/form/browser session/capture plan preservation, authorized automated OCR/slider/fingerprint/cookie/session capability chain, same-capture-plan resume, and audit readback inside the existing Stage2 adapter seam. This packet does not execute unapproved live Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, or public software release."
+  runtime_notes: "PTL-I100-151 public web captcha/challenge automated resolution and resume is internally ready. 146 is active for Stage3/Stage4/Stage5 evidence-risk and hard-defect verification strategy: parsed-field driven strategy selection, public verification target planning, Stage5 requested-rule binding, weak-evidence fail-closed taxonomy, and no LLM fact adjudication. This packet does not execute unapproved live Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, or public software release."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -3412,9 +3412,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage2_ingestion, api_transport, operator_frontend, product_acceptance]
     task_type: public_web_captcha_automated_resolution_and_resume
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P51B
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
@@ -3438,15 +3438,18 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-151-public-web-captcha-automated-resolution-and-resume
     suggested_packet_refs: [PTL-I100-151-public-web-captcha-automated-resolution-and-resume]
     risk_level: HIGH
+    completed_commit: 5ffdc49
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_PUBLIC_WEB_CHALLENGE_AUTOMATED_RESUME"
   - task_id: PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
     title: "I100-46 Evidence risk and hard defect verification strategy"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage3_parsing, stage4_verification, stage5_rules_evidence, product_acceptance]
     task_type: evidence_risk_and_hard_defect_verification_strategy
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: false
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
     priority: P52
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:

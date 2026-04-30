@@ -10,6 +10,10 @@ from typing import Any, Mapping
 from stage5_rules_evidence.engine import RuleEvidenceEngine
 from shared.contracts_runtime import ContractStore, StageBundle
 from shared.utils import resolve_bundle
+from stage4_verification.hard_defect_strategy import (
+    READY_FOR_PUBLIC_VERIFICATION,
+    build_evidence_risk_hard_defect_strategy_readback,
+)
 
 
 class Stage5Service:
@@ -160,6 +164,134 @@ class Stage5Service:
         )
         return self.run(enriched_bundle)
 
+    def run_evidence_risk_hard_defect_strategy_readback(
+        self,
+        payload: Mapping[str, Any] | StageBundle,
+        strategy_carrier: Mapping[str, Any],
+        *,
+        project_manager_active_conflict_readback: Mapping[str, Any] | None = None,
+    ) -> StageBundle:
+        stage4_bundle = resolve_bundle(payload)
+        carrier = dict(strategy_carrier)
+        readback = build_evidence_risk_hard_defect_strategy_readback(carrier)
+        verification_state = self._stage5_verification_state_for_hard_defect_strategy(readback)
+
+        records = dict(stage4_bundle.records)
+        focus_profile = dict(records["focus_bidder_verification_profile"].data)
+        focus_profile["verification_state"] = verification_state
+        records["focus_bidder_verification_profile"] = self.store.build_record(
+            "focus_bidder_verification_profile",
+            focus_profile,
+        )
+
+        evidence_profile = dict(records["evidence_grade_profile"].data)
+        if verification_state == "PASS":
+            evidence_profile.update(
+                {
+                    "cross_check_state": "PASS",
+                    "provenance_chain_status": "COMPLETE",
+                    "fixation_status": "HASH_LOCKED",
+                    "retrieval_readiness_status": "READY",
+                    "requires_manual_confirmation": False,
+                }
+            )
+        elif verification_state == "BLOCK":
+            evidence_profile.update(
+                {
+                    "cross_check_state": "BLOCK",
+                    "provenance_chain_status": "BROKEN",
+                    "fixation_status": "NOT_FIXED",
+                    "retrieval_readiness_status": "BLOCKED",
+                    "requires_manual_confirmation": True,
+                }
+            )
+        else:
+            evidence_profile.update(
+                {
+                    "cross_check_state": "REVIEW",
+                    "provenance_chain_status": "PARTIAL",
+                    "fixation_status": "SNAPSHOT_CAPTURED",
+                    "retrieval_readiness_status": "PARTIAL",
+                    "requires_manual_confirmation": True,
+                }
+            )
+        records["evidence_grade_profile"] = self.store.build_record(
+            "evidence_grade_profile",
+            evidence_profile,
+        )
+
+        refs = self._hard_defect_strategy_source_refs(carrier)
+        requested_rule_codes = list(readback.get("stage5_requested_rule_codes") or [])
+        supported_upstream = list(
+            dict.fromkeys(
+                [
+                    *[
+                        str(value)
+                        for value in stage4_bundle.inputs.get("stage5_supported_upstream_objects", [])
+                        if value
+                    ],
+                    *[str(value) for value in readback.get("stage5_supported_upstream_objects", []) if value],
+                ]
+            )
+        )
+
+        inputs = dict(stage4_bundle.inputs)
+        inputs.update(
+            {
+                "verification_state": verification_state,
+                "cross_check_state": evidence_profile.get("cross_check_state"),
+                "provenance_chain_status": evidence_profile.get("provenance_chain_status"),
+                "fixation_status": evidence_profile.get("fixation_status"),
+                "retrieval_readiness_status": evidence_profile.get("retrieval_readiness_status"),
+                "evidence_risk_hard_defect_strategy_carrier": carrier,
+                "evidence_risk_hard_defect_strategy_readback": readback,
+                "evidence_risk_strategy_run_id": carrier.get("strategy_run_id"),
+                "evidence_risk_state": readback.get("evidence_risk_state"),
+                "stage5_requested_rule_codes": requested_rule_codes,
+                "stage5_supported_upstream_objects": supported_upstream,
+                "source_object_refs": list(
+                    dict.fromkeys(
+                        [
+                            *[str(value) for value in (inputs.get("source_object_refs") or []) if value],
+                            *refs,
+                        ]
+                    )
+                ),
+                "visibility_reason_summary": (
+                    "Stage4 evidence-risk hard-defect strategy readback consumed by Stage5; "
+                    f"risk_state={readback.get('evidence_risk_state')}; "
+                    f"fail_closed={readback.get('fail_closed')}; "
+                    f"reasons={','.join(readback.get('fail_closed_reasons') or [])}"
+                ),
+                "missing_condition_family": (
+                    "MISSING_EVIDENCE" if readback.get("fail_closed") else inputs.get("missing_condition_family")
+                ),
+                "review_lane": "HIGH_PRIORITY" if readback.get("fail_closed") else inputs.get("review_lane", "STANDARD"),
+            }
+        )
+        if project_manager_active_conflict_readback is not None:
+            inputs["project_manager_active_conflict_readback"] = dict(project_manager_active_conflict_readback)
+
+        handoff = dict(stage4_bundle.handoff)
+        handoff.update(
+            {
+                "verification_state": verification_state,
+                "cross_check_state": evidence_profile.get("cross_check_state"),
+                "provenance_chain_status": evidence_profile.get("provenance_chain_status"),
+                "fixation_status": evidence_profile.get("fixation_status"),
+                "retrieval_readiness_status": evidence_profile.get("retrieval_readiness_status"),
+            }
+        )
+
+        enriched_bundle = StageBundle(
+            stage=4,
+            records=records,
+            handoff=handoff,
+            trace_rules=list(stage4_bundle.trace_rules),
+            inputs=inputs,
+        )
+        return self.run(enriched_bundle)
+
     def build_handoff(self, result: StageBundle) -> Mapping[str, Any]:
         return result.handoff
 
@@ -239,6 +371,51 @@ class Stage5Service:
         ):
             return "PASS"
         return "REVIEW"
+
+    def _stage5_verification_state_for_hard_defect_strategy(
+        self,
+        readback: Mapping[str, Any],
+    ) -> str:
+        if readback.get("readback_state") == "FAIL_CLOSED_INCOMPLETE_OR_BOUNDARY_UNSAFE":
+            return "BLOCK"
+        if readback.get("evidence_risk_state") == READY_FOR_PUBLIC_VERIFICATION and not readback.get("fail_closed"):
+            return "PASS"
+        return "REVIEW"
+
+    def _hard_defect_strategy_source_refs(self, carrier: Mapping[str, Any]) -> list[str]:
+        refs: list[str] = []
+        for key in (
+            "strategy_run_id",
+            "strategy_version",
+            "input_parse_run_id",
+            "source_snapshot_id",
+            "source_url",
+        ):
+            value = carrier.get(key)
+            if value not in (None, ""):
+                refs.append(str(value))
+        for target in carrier.get("strategy_targets") or []:
+            if not isinstance(target, Mapping):
+                continue
+            for key in ("strategy_key", "hard_defect_family"):
+                value = target.get(key)
+                if value not in (None, ""):
+                    refs.append(str(value))
+            for field_ref in target.get("matched_field_refs") or []:
+                if not isinstance(field_ref, Mapping):
+                    continue
+                for key in ("field_ref", "source_file_ref", "source_slice_sha256"):
+                    value = field_ref.get(key)
+                    if value not in (None, ""):
+                        refs.append(str(value))
+        for target in carrier.get("verification_targets") or []:
+            if not isinstance(target, Mapping):
+                continue
+            for key in ("verification_target_id", "verification_target_type", "target_identifier"):
+                value = target.get(key)
+                if value not in (None, ""):
+                    refs.append(str(value))
+        return list(dict.fromkeys(refs))
 
     def _close_h05_formal_handoff(self, result: StageBundle) -> StageBundle:
         handoff = dict(result.handoff)

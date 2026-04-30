@@ -334,8 +334,15 @@ class RuleRunner:
             if not self._profile_fail_closed_reasons(profile)
         ]
         if requested_rule_codes:
+            selected_by_code = {
+                profile["rule_code"]: profile
+                for profile in stage5_profiles
+                if profile["rule_code"] in requested_rule_code_set
+            }
             selected_profiles = [
-                profile for profile in stage5_profiles if profile["rule_code"] in requested_rule_code_set
+                selected_by_code[rule_code]
+                for rule_code in requested_rule_codes
+                if rule_code in selected_by_code
             ]
             missing_requested = [
                 rule_code for rule_code in requested_rule_codes if rule_code not in {p["rule_code"] for p in selected_profiles}
