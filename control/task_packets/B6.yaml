@@ -8,9 +8,9 @@ objective: "Close Stage9 order/payment/delivery/outcome/governance workflow and 
 why_now: "Stage9 is where the current forward-strong but backward-weak closure gap is most visible."
 depends_on: [B5]
 non_goals:
-  - "Do not enable live payment, delivery, refund, or export execution."
+  - "Do not execute live payment, delivery, refund, or export without controlled-opening prerequisites; automated refund remains excluded."
   - "Do not blur projected/advisory/persisted semantics."
-  - "not an external unlock implementation"
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - stage9_delivery
 declared_changed_paths:

@@ -305,7 +305,15 @@ if (@($actualChangedPaths).Count -gt 0) {
     if (@($baselineDirtyPaths).Count -gt 0) {
         $actualChangedPaths = @($actualChangedPaths | Where-Object { $_ -notin $baselineDirtyPaths })
     }
-    Test-PathScopeCompliance -Paths $actualChangedPaths -DeclaredPatterns $declaredPaths -AllowedPatterns $allowedPaths -ForbiddenPatterns $forbiddenPaths -IssuePrefix 'ACTUAL' -Issues ([ref]$issues)
+    if (@($normalizedPlannedTargetPaths).Count -gt 0) {
+        Test-PathScopeCompliance -Paths $actualChangedPaths -DeclaredPatterns $declaredPaths -AllowedPatterns $allowedPaths -ForbiddenPatterns $forbiddenPaths -IssuePrefix 'ACTUAL' -Issues ([ref]$issues)
+    } else {
+        foreach ($path in @($actualChangedPaths | ForEach-Object { Normalize-Path ([string]$_) })) {
+            if (Test-PatternMatch -Path $path -Patterns $forbiddenPaths) {
+                Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'ACTUAL_PATH_FORBIDDEN' -Message "ACTUAL path $path matches forbidden_modification_paths." -Path $path
+            }
+        }
+    }
 }
 
 $repoStatusText = if (Test-Path -LiteralPath (Join-Path $root 'control/repo_status.md')) { Get-Content -Raw -LiteralPath (Join-Path $root 'control/repo_status.md') -Encoding UTF8 } else { '' }

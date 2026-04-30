@@ -78,7 +78,7 @@ fail_conditions:
   - planned_target_path_not_declared
   - planned_target_path_not_allowed
   - planned_target_path_forbidden
-  - actual_changed_path_not_allowed
+  - strict_planned_or_actual_path_not_allowed
   - change_class_below_required
   - missing_human_review_for_non_low_risk
   - missing_required_owner_review
@@ -93,7 +93,7 @@ preflight_checks:
       'control/repo_status.md'
     )
     pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1 -PlannedTargetPaths $paths
-  required_rule: planned target paths / intended changed files must match declared_changed_paths and allowed_modification_paths before editing or commit
+  required_rule: strict packet windows should pass planned target paths / intended changed files; direct-dev default only checks task-packet shape, source registration, roster alignment, and forbidden paths
   compatibility_note: scripts/check-task-packet.ps1 对单字符串逗号拼接形式有兼容处理，仅作工具链兜底，不是首选写法
 notes:
   - there is no single repository-wide max_files, max_docs, max_control, or max_machine_assets hard cap

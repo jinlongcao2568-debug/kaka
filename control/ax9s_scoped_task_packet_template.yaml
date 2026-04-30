@@ -11,7 +11,7 @@ status: DRAFT
 objective: "{{OBJECTIVE}}"
 depends_on: []
 non_goals:
-  - "not an external unlock implementation"
+  - "No real live/external action is executed by this packet unless the packet explicitly declares the controlled-opening scope, required approvals, audit evidence, operator action, and rollback path."
 affected_stages: []
 risk_level: HIGH
 change_class: MANDATORY_HUMAN_REVIEW

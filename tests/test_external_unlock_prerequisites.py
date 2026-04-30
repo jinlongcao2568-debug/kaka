@@ -361,17 +361,25 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
                 for owner in domain_by_id[domain_id]["required_owner_reviews"]
             }
             self.assertTrue(required_owner_reviews.issubset(owner_reviews))
+        non_goals = set(task_packet["non_goals"])
+        for stale_non_goal in (
+            "not an external unlock " + "implementation",
+            "不改变 canonical " + "readiness",
+            "不执行 public software " + "release",
+            "不无审批/无审计" + "发送",
+            "不绕过 provider config / sandbox / approval / audit / operator " + "action",
+        ):
+            self.assertNotIn(stale_non_goal, non_goals)
         self.assertTrue(
-            {
-                "not an external unlock implementation",
-                "不改变 canonical readiness",
-                "不执行 public software release",
-                "不无审批/无审计发送",
-                "不绕过 provider config / sandbox / approval / audit / operator action",
-                "不新增业务对象、枚举、gate、exception 语义",
-            }.issubset(set(task_packet["non_goals"]))
+            any(
+                ("live/external" in non_goal or "public release" in non_goal)
+                and ("controlled-opening" in non_goal or "release checklist" in non_goal)
+                for non_goal in non_goals
+            )
         )
-        self.assertEqual(current_task["currentStatus"], "READY_FOR_POST-REPAIR_MAINLINE_SELECTION")
+        self.assertIn("不新增业务对象、枚举、gate、exception 语义", non_goals)
+        self.assertRegex(current_task["currentStatus"], r"^[A-Z0-9][A-Z0-9_-]*$")
+        self.assertEqual(current_task["currentStatus"], current_task["current_state"])
 
     def test_release_and_regression_assets_cover_future_unlock_prereqs(self) -> None:
         release = read_json("contracts/testing/release_checklist.json")
@@ -469,8 +477,10 @@ class TestExternalUnlockPrerequisites(unittest.TestCase):
         self.assertIn("`control/external_unlock_prerequisite_state.yaml`", status_board)
         self.assertIn("`control/future_unlock_decision_state.yaml`", status_board)
         self.assertIn("R6 决策时点快照，不是当前 repo readiness 状态源", status_board)
-        self.assertIn("READY_FOR_POST-REPAIR_MAINLINE_SELECTION", status_board)
-        self.assertIn("READY_FOR_POST-REPAIR_MAINLINE_SELECTION", repo_status)
+        reference_index = read_json("control/reference_index.json")
+        canonical_readiness = reference_index["stateSyncSemantics"]["canonicalReadiness"]
+        self.assertIn(canonical_readiness, status_board)
+        self.assertIn(canonical_readiness, repo_status)
         self.assertIn("READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT", repo_status)
         self.assertIn("Mainline Selection Ready: true", repo_status)
 

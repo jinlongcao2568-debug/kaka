@@ -9,8 +9,8 @@ why_now: "Stage7 is the highest-leverage commercial layer and the main input to 
 depends_on: [B3]
 non_goals:
   - "Do not repair Stage8/9 semantics in this blueprint."
-  - "Do not open any external promise or live commercial path."
-  - "not an external unlock implementation"
+  - "Do not execute any external promise or live commercial action without controlled-opening prerequisites."
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - stage7_sales
 declared_changed_paths:

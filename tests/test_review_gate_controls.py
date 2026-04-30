@@ -84,7 +84,10 @@ class TestReviewGateControls(unittest.TestCase):
                     "title": "precheck scope test",
                     "status": "ACTIVE",
                     "objective": "verify preflight scope enforcement",
-                    "non_goals": ["do not relax readiness", "not an external unlock implementation"],
+                    "non_goals": [
+                        "no real live/external action without controlled-opening prerequisites",
+                        "readiness changes must stay aligned across formal state sources",
+                    ],
                     "affected_stages": ["automation_control"],
                     "risk_level": "HIGH",
                     "change_class": "MANDATORY_HUMAN_REVIEW",
@@ -144,13 +147,13 @@ class TestReviewGateControls(unittest.TestCase):
             text=True,
         )
 
-    def _read_planned_target_required_script(self) -> str:
+    def _read_default_task_packet_required_script(self) -> str:
         current_task = yaml.safe_load(read("control/current_task.yaml"))
         required_scripts = current_task["currentTask"]["task_packet"]["required_scripts"]
         for command in required_scripts:
-            if "-PlannedTargetPaths" in command:
+            if "scripts/check-task-packet.ps1" in command and "-PlannedTargetPaths" not in command:
                 return command
-        self.fail("control/current_task.yaml must define a required_scripts entry with -PlannedTargetPaths")
+        self.fail("control/current_task.yaml must define a default check-task-packet required_scripts entry")
 
     def _run_task_packet_check(self, repo: Path, planned_target_paths: list[str], *, via_array: bool = False) -> subprocess.CompletedProcess[str]:
         if via_array:
@@ -209,18 +212,20 @@ class TestReviewGateControls(unittest.TestCase):
         self.assertIn("单字符串逗号拼接形式有兼容处理", template)
         self.assertIn("-PlannedTargetPaths $paths", task_rules)
         self.assertIn("单字符串逗号拼接形式", task_rules)
+        self.assertIn("direct-dev", task_rules)
         self.assertIn("check-final-gate.ps1", gate)
         self.assertIn("suggestion-only", ax9s)
         self.assertIn("manual_planning_review", ax9s)
 
-    def test_published_planned_target_command_runs_as_recorded(self) -> None:
-        command = self._read_planned_target_required_script()
+    def test_published_task_packet_command_runs_as_recorded(self) -> None:
+        command = self._read_default_task_packet_required_script()
         repo_status = read("control/repo_status.md")
         current_task = yaml.safe_load(read("control/current_task.yaml"))
         script_timeouts = current_task["currentTask"]["task_packet"]["script_timeouts"]
 
         self.assertIn(command, repo_status)
         self.assertIn(command, script_timeouts)
+        self.assertNotIn("-PlannedTargetPaths", command)
 
         repo = self._build_temp_repo_from_real_scope_snapshot()
         result = self._run_shell_command_string(repo, command)

@@ -9,9 +9,9 @@ why_now: "Stage1-2 are upstream producers; unstable authority here invalidates e
 depends_on: [B0]
 non_goals:
   - "Do not widen source rollout to nationwide full coverage."
-  - "Do not open external source live capability."
+  - "Do not execute external source live calls without controlled-opening prerequisites; source adapters and authorized sandbox tests may be implemented."
   - "Do not repair Stage3+ semantics in this blueprint."
-  - "not an external unlock implementation"
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - stage1_tasking
   - stage2_ingestion

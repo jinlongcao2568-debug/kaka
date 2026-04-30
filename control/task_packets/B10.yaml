@@ -10,7 +10,7 @@ depends_on: [B9]
 non_goals:
   - "Do not introduce new business semantics in the hardening pass."
   - "Do not reopen earlier batches inside this blueprint."
-  - "not an external unlock implementation"
+  - "Internal implementation, authorized sandbox work, release readiness checks, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - full_chain
 declared_changed_paths:

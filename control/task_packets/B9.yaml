@@ -8,9 +8,9 @@ objective: "Standardize source/vendor/model/tool/execution adapter interfaces an
 why_now: "Adapters should be designed only after semantics, persistence, and capability modes are stable."
 depends_on: [B8]
 non_goals:
-  - "Do not bind or enable live external providers/vendors."
-  - "Do not bypass capability runtime, audit, or review."
-  - "not an external unlock implementation"
+  - "Do not bind or execute live external providers/vendors without controlled-opening prerequisites."
+  - "Do not bypass capability runtime, audit, or review for live/external execution."
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - provider_vendor_adapter_layer
 declared_changed_paths:

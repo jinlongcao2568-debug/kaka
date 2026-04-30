@@ -28,11 +28,12 @@ class TestPostRepairStateSync(unittest.TestCase):
         milestone = read_yaml("control/milestone_status.yaml")
         release_manifest = read_yaml("control/release_manifest.yaml")
         model_manifest = read_yaml("control/model_release_manifest.yaml")
+        reference_index = read_json("control/reference_index.json")
         repo_status = read_text("control/repo_status.md")
         status_board = read_text("docs/文档与资产状态板.md")
         launch_page = read_text("docs/正式业务代码开发开工裁决页.md")
 
-        canonical = "READY_FOR_POST-REPAIR_MAINLINE_SELECTION"
+        canonical = reference_index["stateSyncSemantics"]["canonicalReadiness"]
         values = {
             current_task["currentStatus"],
             current_task["current_state"],

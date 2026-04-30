@@ -8,9 +8,9 @@ objective: "Converge repository boundaries, preview surfaces, work items, transp
 why_now: "Surfaces should be tightened only after formal object and workflow semantics are closed."
 depends_on: [B7]
 non_goals:
-  - "Do not promote Stage1-6 transport to runtime-ready without separate approval."
+  - "Do not promote Stage1-6 live/external transport without declared readiness evidence and required approval."
   - "Do not expose internal-only blocked fields."
-  - "not an external unlock implementation"
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - api_transport
   - storage

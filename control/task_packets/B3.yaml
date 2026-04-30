@@ -10,7 +10,7 @@ depends_on: [B2]
 non_goals:
   - "Do not repair Stage7+ semantics in this blueprint."
   - "Do not bypass project_fact as the unified fact hub."
-  - "not an external unlock implementation"
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - stage4_verification
   - stage5_rules_evidence

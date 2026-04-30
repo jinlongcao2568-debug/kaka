@@ -8,9 +8,9 @@ objective: "Close Stage8 candidate merge/conflict, cadence/retry/stop, vendor tr
 why_now: "Stage8 is the largest operator-friction surface and the direct producer of Stage9 touch facts."
 depends_on: [B4]
 non_goals:
-  - "Do not enable any live outreach path."
+  - "Do not execute live outreach without controlled-opening prerequisites."
   - "Do not default-open personal channels."
-  - "not an external unlock implementation"
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - stage8_outreach
 declared_changed_paths:

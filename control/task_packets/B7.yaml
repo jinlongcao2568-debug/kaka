@@ -8,9 +8,9 @@ objective: "Unify buildable-but-off, shadow, dry-run, approval-required, interna
 why_now: "After core workflow semantics are stable, capability opening language must converge to prevent future drift and false blocking."
 depends_on: [B6]
 non_goals:
-  - "Do not weaken external controlled-opening-required or approval/audit controlled_opening_requirements."
-  - "Do not enable any live path."
-  - "not an external unlock implementation"
+  - "Do not weaken live/external controlled-opening, approval, audit, operator-action, rollback, or evidence prerequisites."
+  - "Do not execute any live path without those prerequisites."
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - shared_capability_runtime
   - governance_release

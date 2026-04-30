@@ -89,8 +89,8 @@ class TestCheckAutomationReadinessUnicodePaths(unittest.TestCase):
                     "status": "CLOSED",
                     "objective": "Verify readiness validator handles unicode git paths.",
                     "non_goals": [
-                        "not an external unlock implementation",
-                        "Do not change automation semantics.",
+                        "no real live/external action without controlled-opening prerequisites",
+                        "automation semantics changes must stay inside declared scope.",
                     ],
                     "affected_stages": ["automation_control"],
                     "risk_level": "HIGH",

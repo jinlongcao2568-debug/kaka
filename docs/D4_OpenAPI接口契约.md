@@ -934,7 +934,7 @@ GET /v1/contact-targets
 
 补充说明：
 - H-08 仍保持 `saleable_opportunity + touch_record` 为 critical object set；`outreach_plan` 只作为 optional preview/writeback carrier，不提升为 hard dependency；
-- 本补表只收口 API contract authority，不执行 public software release、Stage 8 real execution 或 Stage 9 real payment/delivery/refund。
+- 本补表只收口 API contract authority；真实 public/live release、Stage 8 real execution 或 Stage 9 real payment/delivery/refund 需在对应受控开放窗口执行。
 
 ### 14.10 FF-16-S1 Stage7-9 API/UI/workbench envelope authority closure 补表（本轮新增）
 

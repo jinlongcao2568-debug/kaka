@@ -10,7 +10,7 @@ depends_on: [B1]
 non_goals:
   - "Do not repair Stage4+ semantics in this blueprint."
   - "Do not add a second parser truth system."
-  - "not an external unlock implementation"
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - stage3_parsing
 declared_changed_paths:

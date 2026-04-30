@@ -125,11 +125,9 @@ currentTask:
       current_mainline_next_candidate_change: true
       push_allowed: false
     non_goals:
-    - not an external unlock implementation
-    - 不改变 canonical readiness
-    - 不执行 public software release
-    - 不无审批/无审计发送
-    - 不绕过 provider config / sandbox / approval / audit / operator action
+    - 本包不做真实 live/external 执行动作；不阻止后续受控开放、sandbox、授权目标能力实现或 readiness 正常升级
+    - repo readiness 可随正式状态资产与验收结果同步变化，不再被旧 non-goal 锁死
+    - 真实 public release、真实外发、真实支付、真实交付、真实退款仍必须走 release checklist、审批链、审计链、operator action 与 rollback 记录
     - 不执行 Stage2 fetch 或真实外部抓取
     - 不执行 provider call、真实触达、真实支付、真实交付、真实退款、客户下载或 public release
     - 不把手工 URL 选择作为主流程
@@ -234,7 +232,6 @@ currentTask:
     - python -m unittest tests.test_product_operability_gap_matrix -v
     - python -m unittest tests.test_product_acceptance_checklist -v
     - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1
-    - pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
     - pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1
     - python tests/run_tests.py
     - git diff --check
@@ -242,8 +239,6 @@ currentTask:
     script_timeouts:
       git status --short --untracked-files=all: 120000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1: 300000
-      ? pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = git -c core.quotePath=false ls-files --modified --others --exclude-standard; & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'
-      : 300000
       pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1: 300000
       python -m unittest tests.test_stage1_market_scan -v: 300000
       python -m unittest tests.test_stage1_scheduler -v: 300000

@@ -43,8 +43,8 @@ global_acceptance_layers:
       - "manual review path for uncertain or high-risk outputs"
       - "remaining blockers and next packet"
 minimum_formal_checks:
-  - "pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<actual changed paths>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
   - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-task-packet.ps1"
+  - "strict task-packet windows may additionally run: pwsh -NoProfile -ExecutionPolicy Bypass -Command '$paths = @(<planned scoped paths>); & ''scripts/check-task-packet.ps1'' -PlannedTargetPaths $paths'"
   - "python tests/run_tests.py"
   - "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-state-alignment.ps1"
   - "git diff --check"

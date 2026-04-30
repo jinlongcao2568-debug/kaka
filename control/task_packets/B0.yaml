@@ -9,8 +9,8 @@ why_now: "Without a stable semantic source and gate baseline, later batches will
 depends_on: []
 non_goals:
   - "Do not execute any downstream runtime/business repair in this batch."
-  - "Do not weaken blocked or governed controlled_opening_requirements."
-  - "not an external unlock implementation"
+  - "Do not weaken live/external approval, audit, operator-action, rollback, or controlled-opening prerequisites."
+  - "Internal implementation, authorized sandbox work, and readiness movement are not excluded by this blueprint."
 affected_stages:
   - control_plane
   - execution_governance

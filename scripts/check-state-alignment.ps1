@@ -63,6 +63,21 @@ sys.stdout.buffer.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
     }
 }
 
+function Load-JsonFile {
+    param([string]$Path,[ref]$Issues)
+    if (-not (Test-Path -LiteralPath $Path)) {
+        Add-Issue -Bag $Issues -Severity 'ERROR' -Code 'MISSING_FILE' -Message 'Required JSON file is missing.' -Path $Path
+        return $null
+    }
+    try {
+        return (Get-Content -LiteralPath $Path -Raw -Encoding UTF8) | ConvertFrom-Json -Depth 100
+    }
+    catch {
+        Add-Issue -Bag $Issues -Severity 'ERROR' -Code 'JSON_PARSE_FAILED' -Message $_.Exception.Message -Path $Path
+        return $null
+    }
+}
+
 function Get-FieldValue {
     param([object]$Object,[string]$Name)
     if ($null -eq $Object) { return $null }
@@ -82,8 +97,11 @@ $issues = [System.Collections.Generic.List[object]]::new()
 
 $currentTask = Load-YamlFile -Path (Join-Path $root 'control/current_task.yaml') -Issues ([ref]$issues)
 $productTaskLibrary = Load-YamlFile -Path (Join-Path $root 'control/product_task_library.yaml') -Issues ([ref]$issues)
+$milestoneStatus = Load-YamlFile -Path (Join-Path $root 'control/milestone_status.yaml') -Issues ([ref]$issues)
+$releaseManifest = Load-YamlFile -Path (Join-Path $root 'control/release_manifest.yaml') -Issues ([ref]$issues)
+$modelReleaseManifest = Load-YamlFile -Path (Join-Path $root 'control/model_release_manifest.yaml') -Issues ([ref]$issues)
+$referenceIndex = Load-JsonFile -Path (Join-Path $root 'control/reference_index.json') -Issues ([ref]$issues)
 $repoStatusText = Read-TextFile -Path (Join-Path $root 'control/repo_status.md') -Issues ([ref]$issues)
-$milestoneText = Read-TextFile -Path (Join-Path $root 'control/milestone_status.yaml') -Issues ([ref]$issues)
 $ax9sText = Read-TextFile -Path (Join-Path $root 'docs/AX9S_开发执行路由图.md') -Issues ([ref]$issues)
 $agText = Read-TextFile -Path (Join-Path $root 'AGENTS.md') -Issues ([ref]$issues)
 
@@ -113,11 +131,36 @@ $conditionalGo = Get-RegexValue -Text $repoStatusText -Pattern '^Current Conditi
 if ($phase -ne 'PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT') {
     Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_PHASE_DRIFT' -Message "Current Phase must be PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT. Actual: $phase" -Path 'control/repo_status.md'
 }
-if ($readiness -ne 'READY_FOR_POST-REPAIR_MAINLINE_SELECTION') {
-    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_READINESS_DRIFT' -Message "Current Readiness Conclusion must be READY_FOR_POST-REPAIR_MAINLINE_SELECTION. Actual: $readiness" -Path 'control/repo_status.md'
+$milestoneSummary = Get-FieldValue -Object $milestoneStatus -Name 'summary'
+$releaseDecision = Get-FieldValue -Object $releaseManifest -Name 'future_external_unlock_decision'
+$modelDecision = Get-FieldValue -Object $modelReleaseManifest -Name 'future_externalization_decision'
+$referenceSemantics = Get-FieldValue -Object $referenceIndex -Name 'stateSyncSemantics'
+$readinessSources = @(
+    [pscustomobject]@{ name = 'repo_status.Current Readiness Conclusion'; value = $readiness; path = 'control/repo_status.md' },
+    [pscustomobject]@{ name = 'current_task.currentStatus'; value = Get-FieldValue -Object $currentTask -Name 'currentStatus'; path = 'control/current_task.yaml' },
+    [pscustomobject]@{ name = 'current_task.current_state'; value = Get-FieldValue -Object $currentTask -Name 'current_state'; path = 'control/current_task.yaml' },
+    [pscustomobject]@{ name = 'milestone.summary.current_readiness_conclusion'; value = Get-FieldValue -Object $milestoneSummary -Name 'current_readiness_conclusion'; path = 'control/milestone_status.yaml' },
+    [pscustomobject]@{ name = 'release_manifest.future_external_unlock_decision.repo_readiness'; value = Get-FieldValue -Object $releaseDecision -Name 'repo_readiness'; path = 'control/release_manifest.yaml' },
+    [pscustomobject]@{ name = 'model_release_manifest.future_externalization_decision.repo_readiness'; value = Get-FieldValue -Object $modelDecision -Name 'repo_readiness'; path = 'control/model_release_manifest.yaml' },
+    [pscustomobject]@{ name = 'reference_index.stateSyncSemantics.canonicalReadiness'; value = Get-FieldValue -Object $referenceSemantics -Name 'canonicalReadiness'; path = 'control/reference_index.json' }
+)
+foreach ($source in $readinessSources) {
+    $value = [string]$source.value
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_READINESS_SOURCE_MISSING' -Message "Missing readiness value: $($source.name)" -Path $source.path
+    } elseif ($value -notmatch '^[A-Z0-9][A-Z0-9_-]*$') {
+        Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_READINESS_TOKEN_INVALID' -Message "Invalid readiness token in $($source.name): $value" -Path $source.path
+    }
 }
-if ($conditionalGo -ne 'READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT') {
-    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_CONDITIONAL_GO_DRIFT' -Message "Current Conditional-Go must be READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT. Actual: $conditionalGo" -Path 'control/repo_status.md'
+$readinessValues = @($readinessSources | ForEach-Object { [string]$_.value } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
+if (@($readinessValues).Count -gt 1) {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_READINESS_DRIFT' -Message "Readiness sources must agree; actual values: $($readinessValues -join ', ')" -Path 'control/repo_status.md'
+}
+$milestoneConditionalGo = Get-FieldValue -Object $milestoneSummary -Name 'controlled_auto_drive_ready'
+if ([string]::IsNullOrWhiteSpace([string]$conditionalGo)) {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_CONDITIONAL_GO_MISSING' -Message 'Current Conditional-Go is missing.' -Path 'control/repo_status.md'
+} elseif (-not [string]::IsNullOrWhiteSpace([string]$milestoneConditionalGo) -and $conditionalGo -ne $milestoneConditionalGo) {
+    Add-Issue -Bag ([ref]$issues) -Severity 'ERROR' -Code 'REPO_CONDITIONAL_GO_DRIFT' -Message "Current Conditional-Go must match milestone summary controlled_auto_drive_ready. Repo: $conditionalGo; milestone: $milestoneConditionalGo" -Path 'control/repo_status.md'
 }
 
 foreach ($token in @(
