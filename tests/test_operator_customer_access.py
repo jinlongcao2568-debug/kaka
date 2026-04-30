@@ -72,6 +72,8 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             "previewRealSampleAutonomousOpportunityAcceptance",
             "createOperatorTask",
             "listRealPublicSourceProfiles",
+            "listOperatorRegionAdapters",
+            "runOperatorAutonomousOpportunitySearch",
             "runOwnerRealPublicSourceCapture",
             "listOwnerRealPublicSourceTaskRuns",
             "readOwnerRealPublicSourceCapture",
@@ -93,6 +95,10 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             self.assertFalse(operation["provider_call_enabled"])
             self.assertFalse(operation["real_provider_call_enabled"])
             self.assertFalse(operation["automated_refund_enabled"])
+        self.assertTrue(mounted_operations["listOperatorRegionAdapters"]["region_adapter_catalog"])
+        self.assertTrue(mounted_operations["runOperatorAutonomousOpportunitySearch"]["autonomous_search_entry"])
+        self.assertTrue(mounted_operations["runOperatorAutonomousOpportunitySearch"]["opportunity_queue_visible"])
+        self.assertFalse(mounted_operations["runOperatorAutonomousOpportunitySearch"]["raw_json_required"])
 
         access_bootstrap = bootstrap["operator_customer_access_bootstrap"]
         self.assertEqual(access_bootstrap["capability_state"], "APPROVAL_READY")

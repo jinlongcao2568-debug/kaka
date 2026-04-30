@@ -418,6 +418,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
   <nav aria-label="运营操作台导航">
     <h1>AX9S 运营操作台</h1>
     <button class="nav-link active" type="button" data-view="overview" aria-current="page">Stage1-9 运营总览</button>
+    <button class="nav-link" type="button" data-view="search" aria-current="false">实战搜索</button>
     <button class="nav-link" type="button" data-view="run" aria-current="false">全链路运行</button>
     <button class="nav-link" type="button" data-view="business" aria-current="false">业务闭环</button>
     <button class="nav-link" type="button" data-view="autonomousWorkbench" aria-current="false">自主机会工作台</button>
@@ -467,6 +468,35 @@ def render_operator_console(payload: Any) -> HTMLResponse:
               <div><strong>支付交付</strong><p>订单、支付、收据、发票、结算、交付、回滚。</p></div>
             </div>
           </section>
+        </div>
+        <div class="view-panel" id="search" data-view-panel="search">
+          <div class="view-grid">
+            <section>
+              <h3>实战项目搜索</h3>
+              <label for="searchRegion">地区适配器</label>
+              <select id="searchRegion"></select>
+              <label for="searchKeyword">关键词</label>
+              <input id="searchKeyword" value="公共建筑工程" />
+              <label for="searchProjectType">项目类型</label>
+              <select id="searchProjectType">
+                <option value="construction">construction</option>
+                <option value="municipal">municipal</option>
+                <option value="highway">highway</option>
+                <option value="water_conservancy">water_conservancy</option>
+              </select>
+              <label for="searchAmount">金额</label>
+              <input id="searchAmount" type="number" value="12000000" />
+              <button id="runAutonomousSearch">搜索并生成机会闭环</button>
+            </section>
+            <section>
+              <h3>地区适配器状态</h3>
+              <div id="regionAdapterSummary" class="empty-state">正在读取地区适配器...</div>
+            </section>
+            <section class="wide">
+              <h3>搜索结果</h3>
+              <div id="searchResult" class="empty-state">暂无搜索结果。</div>
+            </section>
+          </div>
         </div>
         <div class="view-panel" id="autonomousWorkbench" data-view-panel="autonomousWorkbench">
           <section>
@@ -581,7 +611,7 @@ async function json(method, url, body) {
   return payload;
 }
 function badge(text, kind="") { return `<span class="pill ${kind}">${text}</span>`; }
-async function loadReadiness() {
+async function loadReadiness(writeOutput = true) {
   const readiness = await json("GET", "/operator-console/readiness");
   const scheduler = await json("GET", "/operator-console/scheduler-status");
   const goLive = await json("GET", "/go-live/readiness");
@@ -606,7 +636,7 @@ async function loadReadiness() {
     badge("审计可见"),
     badge("下载授权必需", "warn")
   ].join("");
-  out({ readiness, scheduler, goLive });
+  if (writeOutput) { out({ readiness, scheduler, goLive }); }
 }
 async function loadAutonomousWorkbench() {
   const payload = await json("GET", "/operator-console/autonomous-workbench");
@@ -645,6 +675,28 @@ function fillSelect(id, items, labelBuilder) {
     select.appendChild(option);
   }
 }
+async function loadRegionAdapters() {
+  const catalog = await json("GET", "/operator-console/region-adapters");
+  const select = $("searchRegion");
+  select.innerHTML = "";
+  for (const adapter of catalog.region_adapters || []) {
+    const option = document.createElement("option");
+    option.value = adapter.region_code;
+    option.textContent = `${adapter.region_code} | ${adapter.region_name} | ${adapter.adapter_state}`;
+    select.appendChild(option);
+  }
+  const rows = (catalog.region_adapters || []).slice(0, 8).map((adapter) => {
+    const flags = [
+      badge(adapter.dedicated_local_profiles ? "本地入口" : "全国兜底", adapter.dedicated_local_profiles ? "" : "warn"),
+      badge(adapter.commercial_pilot_region ? "商业试点" : "非试点"),
+      badge(adapter.onboarding_required ? "待补本地 profile" : "profile 就绪", adapter.onboarding_required ? "warn" : "")
+    ].join("");
+    return `<div class="stage-card"><strong>${adapter.region_code} ${adapter.region_name}</strong><p>${adapter.primary_entry_profile_id || "--"}</p>${flags}</div>`;
+  }).join("");
+  $("regionAdapterSummary").className = rows ? "" : "empty-state";
+  $("regionAdapterSummary").innerHTML = rows || "暂无地区适配器。";
+  return catalog;
+}
 async function loadRealSourceProfiles() {
   const catalog = await json("GET", "/operator-console/real-source-profiles");
   fillSelect("entryProfile", catalog.entry_profiles || [], (item) => `${item.profile_id} | ${item.site_name}`);
@@ -658,6 +710,31 @@ async function createTask() {
 async function importProject() {
   const payload = { project_id: $("projectId").value, source_mode: "INTERNAL_PROJECT_IMPORT", now: new Date().toISOString() };
   out(await json("POST", "/operator-console/project-imports", payload));
+}
+async function runAutonomousSearch() {
+  const payload = {
+    region_code: $("searchRegion").value,
+    query: $("searchKeyword").value,
+    project_type: $("searchProjectType").value,
+    amount: Number($("searchAmount").value || 12000000),
+    candidate_count: 3,
+    now: new Date().toISOString()
+  };
+  const result = await json("POST", "/operator-console/autonomous-opportunity-search", payload);
+  const accepted = result.search_state === "AUTONOMOUS_SEARCH_ACCEPTED";
+  $("searchResult").className = "";
+  $("searchResult").innerHTML = `
+    <div class="stage-card">
+      <strong>${result.opportunity_id || "--"}</strong>
+      <p>${result.candidate?.project_name || "--"}</p>
+      ${badge(result.search_state || "--", accepted ? "" : "warn")}
+      ${badge(result.acceptance?.acceptance_state || "--", accepted ? "" : "warn")}
+      ${badge(result.region_adapter?.region_code || "--")}
+      <p>${result.acceptance?.owner_workbench_acceptance?.queue_item?.commercial_hook_teaser || "商业钩子待生成"}</p>
+    </div>`;
+  out(result);
+  await loadAutonomousWorkbench();
+  return result;
 }
 async function previewRun() {
   let payload = {};
@@ -725,6 +802,7 @@ async function loadRealSourceRuns() {
 }
 $("createTask").addEventListener("click", createTask);
 $("importProject").addEventListener("click", importProject);
+$("runAutonomousSearch").addEventListener("click", runAutonomousSearch);
 $("runEntryCapture").addEventListener("click", runEntryCapture);
 $("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
 $("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
@@ -745,7 +823,9 @@ document.querySelectorAll("[data-view]").forEach((item) => {
 });
 window.addEventListener("hashchange", () => showView((window.location.hash || "#overview").slice(1)));
 showView((window.location.hash || "#overview").slice(1));
-Promise.all([loadReadiness(), loadAutonomousWorkbench(), loadRealSourceProfiles(), loadRealSourceRuns()]).catch(out);
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadRealSourceProfiles(), loadRealSourceRuns()])
+  .then(() => { $("output").textContent = "等待操作..."; })
+  .catch(out);
 """
     return _page("AX9S 运营操作台", body, script)
 

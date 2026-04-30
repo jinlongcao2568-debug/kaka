@@ -104,6 +104,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "销售闭环",
             "客户交付",
             "支付交付",
+            "实战搜索",
+            "实战项目搜索",
+            "地区适配器",
+            "搜索并生成机会闭环",
+            "/operator-console/region-adapters",
+            "/operator-console/autonomous-opportunity-search",
             "任务创建",
             "真实公开源验证",
             "入口页 Profile",
@@ -200,9 +206,11 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
         self.assertIn(
-            'Promise.all([loadReadiness(), loadAutonomousWorkbench(), loadRealSourceProfiles(), loadRealSourceRuns()])',
+            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadRealSourceProfiles(), loadRealSourceRuns()])',
             html,
         )
+        self.assertIn('"/operator-console/region-adapters"', html)
+        self.assertIn('"/operator-console/autonomous-opportunity-search"', html)
         self.assertIn('"/operator-console/real-source-profiles"', html)
         self.assertIn('"/operator-console/real-source-runs"', html)
         self.assertIn('"/operator-console/real-source-task-runs"', html)

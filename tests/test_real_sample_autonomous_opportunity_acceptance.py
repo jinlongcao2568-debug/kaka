@@ -5,6 +5,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from fastapi.testclient import TestClient
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -13,9 +15,11 @@ for search_path in (SRC, TESTS):
     if str(search_path) not in sys.path:
         sys.path.insert(0, str(search_path))
 
+from api.main import create_app
 from api.projections import build_real_sample_autonomous_opportunity_acceptance_surface
 from api.routes.operator_customer_access import (
     OPERATOR_CUSTOMER_ACCESS_ROUTES,
+    list_operator_region_adapters,
     preview_real_sample_autonomous_opportunity_acceptance,
 )
 from helpers import load_fixture
@@ -163,6 +167,64 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         )
         self.assertEqual(surface["surface_id"], "real_sample_autonomous_opportunity_acceptance")
         self.assertEqual(surface["fail_closed_reasons"], [])
+
+    def test_region_adapters_are_visible_for_owner_search(self) -> None:
+        catalog = list_operator_region_adapters({})
+
+        self.assertEqual(catalog["surface_id"], "operator_region_source_adapters")
+        self.assertTrue(catalog["region_adapter_catalog"])
+        self.assertIn("CN-GD", catalog["searchable_region_codes"])
+        self.assertIn("CN-SC", catalog["commercial_pilot_region_codes"])
+        by_code = {
+            adapter["region_code"]: adapter
+            for adapter in catalog["region_adapters"]
+        }
+        self.assertTrue(by_code["CN-GD"]["dedicated_local_profiles"])
+        self.assertTrue(by_code["CN-SC"]["onboarding_required"])
+        self.assertFalse(by_code["CN-SC"]["manual_url_picker_primary_flow"])
+
+    def test_operator_autonomous_search_runs_region_to_workbench_loop(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_code": "CN-GD",
+                "query": "市政工程",
+                "project_type": "municipal",
+                "amount": 18000000,
+                "candidate_count": 3,
+                "now": "2026-04-30T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["surface_id"], "operator_autonomous_opportunity_search")
+        self.assertEqual(payload["search_state"], "AUTONOMOUS_SEARCH_ACCEPTED")
+        self.assertEqual(payload["region_adapter"]["region_code"], "CN-GD")
+        self.assertTrue(payload["region_adapter"]["dedicated_local_profiles"])
+        self.assertEqual(
+            payload["acceptance"]["acceptance_state"],
+            "REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTED",
+        )
+        self.assertFalse(payload["manual_url_picker_primary_flow"])
+        self.assertFalse(payload["live_execution_enabled"])
+        self.assertFalse(payload["real_provider_call_enabled"])
+
+        opportunity_id = payload["opportunity_id"]
+        self.assertTrue(opportunity_id)
+        workbench_response = client.request(
+            "GET",
+            "/operator-console/autonomous-workbench",
+            params={"opportunity_id": opportunity_id},
+        )
+        self.assertEqual(workbench_response.status_code, 200)
+        workbench = workbench_response.json()
+        self.assertEqual(workbench["opportunity_queue"][0]["opportunity_id"], opportunity_id)
+        self.assertFalse(workbench["raw_json_required"])
+        self.assertFalse(workbench["safe_display_contract"]["customer_download_enabled"])
 
 
 if __name__ == "__main__":
