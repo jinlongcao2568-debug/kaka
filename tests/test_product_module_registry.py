@@ -121,6 +121,15 @@ def test_product_module_registry_current_files_exist_and_p1_to_p8_runtime_cleanu
     assert "src/stage2_ingestion/source_validation.py" in stage2["current_files"]
     assert "src/stage2_ingestion/real_public_url_fetcher.py" in stage2["current_files"]
     assert "tests/test_stage2_public_source_adapters.py" in registry_text
+    stage2_inventory = next(
+        stage for stage in registry["stage_module_inventory"]
+        if stage["stage_id"] == "stage2_ingestion"
+    )
+    stage2_slices = {module_slice["slice_id"]: module_slice for module_slice in stage2_inventory["module_slices"]}
+    adaptive_slice = stage2_slices["stage2.public_web_adaptive_capture_hardening"]
+    assert adaptive_slice["implementation_state"] == "INTERNAL_READY_CANDIDATE"
+    assert "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation" in adaptive_slice["target_packet_candidates"]
+    assert "PTL-I100-151-public-web-captcha-automated-resolution-and-resume" in adaptive_slice["deferred_gaps"]
     assert "tests/test_real_public_source_field_validation.py" in registry_text
     assert "tests/test_stage2_real_public_url_fetcher.py" in registry_text
     assert "PTL-INT-103-p7-stage1-to-stage5-contract-runtime-completion" in stage2["completed_packets"]

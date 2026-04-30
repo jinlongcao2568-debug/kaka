@@ -126,12 +126,12 @@ planning_sync_implementation_registration:
     - "同步机制只给 warning / suggestion，不自动改文件，不升级为 release blocker。"
     - "路线图近端候选仍只作提示，不决定执行顺序。"
 current_mainline_next_candidate:
-  task_id: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-  packet_id: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-  title: "I100-45 Source blueprint orchestration and capture plan"
+  task_id: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+  packet_id: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+  title: "I100-50 Public web adaptive capture hardening and failure escalation"
   planning_state: ACTIVE
   runtime_change_in_packet: IN_SCOPE
-  runtime_notes: "PTL-I100-144 market scan opportunity discovery is internally ready. 145 is active for source blueprint orchestration and Stage2 capture-plan generation: automatic source mix, approved source selection, national aggregator discovery-only policy, pilot province portfolio, Beijing technical-regression-only policy, and gap-driven city adapter selection. This packet does not execute Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, or public software release."
+  runtime_notes: "PTL-I100-145 source blueprint orchestration and capture plan is internally ready. 150 is active for public web adaptive capture hardening: failure diagnosis, retry/backoff/degrade/suspend reasons, source health, and parser/capture upgrade planning inside the existing Stage2 adapter seam. This packet does not execute unapproved live Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, or public software release."
 post_mainline_execution_ladder:
   status: EFFECTIVE
   mode: MANUAL_SELECTION_ONLY
@@ -3310,9 +3310,9 @@ tasks:
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, operator_frontend, product_acceptance]
     task_type: source_blueprint_orchestration_and_capture_plan
-    status: ACTIVE
-    planning_state: ACTIVE
-    is_current_mainline_next_candidate: true
+    status: COMPLETED
+    planning_state: COMPLETED
+    is_current_mainline_next_candidate: false
     priority: P51
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:
@@ -3366,15 +3366,18 @@ tasks:
     acceptance_checklist_ref: control/product_acceptance_checklist.yaml#tasks.PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     suggested_packet_refs: [PTL-I100-145-source-blueprint-orchestration-and-capture-plan]
     risk_level: HIGH
+    completed_commit: 97211f0
+    capability_state_after: INTERNAL_READY
+    completion_result: "COMPLETED_SOURCE_BLUEPRINT_ORCHESTRATION_AND_CAPTURE_PLAN"
   - task_id: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     title: "I100-50 Public web adaptive capture hardening and failure escalation"
     program_ref: PTL-I100-autonomous-opportunity-operationalization
     source_blueprint_batch_id: PTL-I100-ROADMAP-01
     stage_scope: [stage1_tasking, stage2_ingestion, stage3_parsing, product_acceptance]
     task_type: public_web_adaptive_capture_hardening
-    status: PLANNED
-    planning_state: PLANNED
-    is_current_mainline_next_candidate: false
+    status: ACTIVE
+    planning_state: ACTIVE
+    is_current_mainline_next_candidate: true
     priority: P51A
     runtime_change_in_packet: IN_SCOPE_WHEN_ACTIVATED
     hard_depends_on:

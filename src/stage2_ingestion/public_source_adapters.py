@@ -346,6 +346,179 @@ BLOCKED_FETCH_MODES = frozenset(
         "real_provider",
     }
 )
+ADAPTIVE_PRE_FLIGHT_DEGRADE_FLAGS = {
+    "dom_structure_changed": "dom_structure_changed",
+    "structure_changed": "dom_structure_changed",
+    "js_shell_detected": "js_shell_detected",
+    "js_shell": "js_shell_detected",
+    "pagination_redirect_required": "pagination_or_redirect_required",
+    "pagination_required": "pagination_or_redirect_required",
+    "redirect_required": "pagination_or_redirect_required",
+    "attachment_discovery_missing": "attachment_discovery_missing",
+    "attachment_missing": "attachment_discovery_missing",
+    "encoding_error": "encoding_error",
+    "encoding_anomaly": "encoding_error",
+    "parser_template_drift": "parser_template_drift",
+    "parser_drift": "parser_template_drift",
+    "source_health_degraded": "source_health_degraded",
+    "site_health_degraded": "source_health_degraded",
+}
+ADAPTIVE_FAILURE_DIAGNOSIS_CATALOG: dict[str, dict[str, Any]] = {
+    "dom_structure_changed": {
+        "failure_class": "DOM_STRUCTURE_CHANGED",
+        "diagnosis_tags": ["dom_structure_changed", "template_reselect"],
+        "capture_strategy_candidates": ["selector_relearn", "detail_direct_fallback"],
+        "parser_strategy_candidates": ["template_reselect", "field_locator_relearn"],
+        "why_retry": ["retry_after_selector_relearn"],
+        "why_backoff": ["backoff_if_site_health_degraded"],
+        "why_degrade": ["degrade_when_required_fields_still_missing"],
+        "why_suspend": ["suspend_only_when_public_boundary_blocks_or_retry_budget_exhausted"],
+        "retryable": True,
+    },
+    "js_shell_detected": {
+        "failure_class": "JS_SHELL_DETECTED",
+        "diagnosis_tags": ["js_shell", "rendered_html_needed"],
+        "capture_strategy_candidates": ["controlled_rendered_html_capture", "metadata_only_fallback"],
+        "parser_strategy_candidates": ["rendered_dom_parser", "metadata_field_parser"],
+        "why_retry": ["retry_with_controlled_rendered_html_capture"],
+        "why_backoff": ["backoff_on_repeated_js_shell_failures"],
+        "why_degrade": ["degrade_to_metadata_when_rendered_dom_unavailable"],
+        "why_suspend": ["suspend_only_on_public_boundary_or_challenge"],
+        "retryable": True,
+    },
+    "pagination_or_redirect_required": {
+        "failure_class": "PAGINATION_OR_REDIRECT_REQUIRED",
+        "diagnosis_tags": ["pagination", "redirect", "entry_to_detail"],
+        "capture_strategy_candidates": ["list_to_detail_follow", "pagination_cursor_discovery"],
+        "parser_strategy_candidates": ["detail_page_parser", "list_item_locator"],
+        "why_retry": ["retry_after_entry_detail_route_resolution"],
+        "why_backoff": ["backoff_if_redirect_loop_detected"],
+        "why_degrade": ["degrade_when_detail_url_cannot_be_fixed"],
+        "why_suspend": ["suspend_only_on_redirect_to_blocked_visibility_state"],
+        "retryable": True,
+    },
+    "attachment_discovery_missing": {
+        "failure_class": "ATTACHMENT_DISCOVERY_MISSING",
+        "diagnosis_tags": ["attachment_discovery", "link_locator"],
+        "capture_strategy_candidates": ["attachment_link_discovery", "detail_direct_fallback"],
+        "parser_strategy_candidates": ["attachment_parser_queue", "html_fallback_parser"],
+        "why_retry": ["retry_after_attachment_link_discovery"],
+        "why_backoff": ["backoff_on_repeated_attachment_missing"],
+        "why_degrade": ["degrade_when_required_attachment_absent"],
+        "why_suspend": ["suspend_only_when_attachment_requires_blocked_boundary"],
+        "retryable": True,
+    },
+    "encoding_error": {
+        "failure_class": "ENCODING_ERROR",
+        "diagnosis_tags": ["encoding", "charset_detection"],
+        "capture_strategy_candidates": ["charset_redecode", "binary_snapshot_preserve"],
+        "parser_strategy_candidates": ["charset_aware_parser", "raw_snapshot_review"],
+        "why_retry": ["retry_after_charset_detection"],
+        "why_backoff": ["backoff_not_required_for_single_decode_error"],
+        "why_degrade": ["degrade_when_text_cannot_be_redecoded"],
+        "why_suspend": ["suspend_only_when_source_boundary_blocks"],
+        "retryable": True,
+    },
+    "parser_template_drift": {
+        "failure_class": "PARSER_TEMPLATE_DRIFT",
+        "diagnosis_tags": ["parser_template_drift", "field_mapping"],
+        "capture_strategy_candidates": ["same_snapshot_parser_replay"],
+        "parser_strategy_candidates": ["template_reselect", "field_mapping_relearn"],
+        "why_retry": ["retry_parser_replay_without_refetch"],
+        "why_backoff": ["backoff_not_required_for_parser_only_drift"],
+        "why_degrade": ["degrade_when_required_fields_unmapped"],
+        "why_suspend": ["suspend_only_after_parser_replay_budget_exhausted"],
+        "retryable": True,
+    },
+    "source_health_degraded": {
+        "failure_class": "SOURCE_HEALTH_DEGRADED",
+        "diagnosis_tags": ["source_health", "site_degraded"],
+        "capture_strategy_candidates": ["source_health_degrade", "alternate_approved_source_plan"],
+        "parser_strategy_candidates": ["no_parser_until_source_recovers"],
+        "why_retry": ["retry_after_source_health_recovers"],
+        "why_backoff": ["backoff_due_to_source_health_degraded"],
+        "why_degrade": ["degrade_to_source_health_readback"],
+        "why_suspend": ["suspend_capture_plan_step_after_consecutive_source_health_failures"],
+        "retryable": False,
+    },
+    "fetch_timeout": {
+        "failure_class": "TIMEOUT",
+        "diagnosis_tags": ["timeout", "transport_retry"],
+        "capture_strategy_candidates": ["retry_with_backoff", "timeout_budget_adjustment"],
+        "parser_strategy_candidates": ["no_parser_until_snapshot_captured"],
+        "why_retry": ["timeout_is_retryable_within_budget"],
+        "why_backoff": ["backoff_before_next_transport_attempt"],
+        "why_degrade": ["degrade_when_timeout_retry_budget_exhausted"],
+        "why_suspend": ["suspend_only_after_repeated_timeout_or_boundary_block"],
+        "retryable": True,
+    },
+    "rate_limited": {
+        "failure_class": "RATE_LIMITED",
+        "diagnosis_tags": ["rate_limit", "backoff"],
+        "capture_strategy_candidates": ["scheduled_backoff_retry"],
+        "parser_strategy_candidates": ["no_parser_until_snapshot_captured"],
+        "why_retry": ["retry_after_rate_limit_window"],
+        "why_backoff": ["rate_limit_policy_requires_wait"],
+        "why_degrade": ["degrade_to_readback_until_retry_window"],
+        "why_suspend": ["suspend_only_when_rate_limit_repeats_beyond_policy"],
+        "retryable": True,
+    },
+    "fetch_failed": {
+        "failure_class": "TRANSPORT_FAILURE",
+        "diagnosis_tags": ["transport_failure", "http_or_network"],
+        "capture_strategy_candidates": ["retry_with_backoff", "source_health_degrade"],
+        "parser_strategy_candidates": ["no_parser_until_snapshot_captured"],
+        "why_retry": ["transport_failure_retryable_within_budget"],
+        "why_backoff": ["backoff_before_next_transport_attempt"],
+        "why_degrade": ["degrade_when_transport_retry_budget_exhausted"],
+        "why_suspend": ["suspend_only_after_consecutive_transport_failures"],
+        "retryable": True,
+    },
+    "weak_structure": {
+        "failure_class": "DOM_STRUCTURE_CHANGED",
+        "diagnosis_tags": ["weak_structure", "template_reselect"],
+        "capture_strategy_candidates": ["selector_relearn", "metadata_only_fallback"],
+        "parser_strategy_candidates": ["template_reselect", "field_locator_relearn"],
+        "why_retry": ["retry_after_selector_relearn"],
+        "why_backoff": ["backoff_if_weak_structure_repeats"],
+        "why_degrade": ["degrade_when_required_fields_still_missing"],
+        "why_suspend": ["suspend_only_after_retry_budget_exhausted"],
+        "retryable": True,
+    },
+    "weak_coverage": {
+        "failure_class": "SOURCE_HEALTH_DEGRADED",
+        "diagnosis_tags": ["weak_coverage", "source_coverage"],
+        "capture_strategy_candidates": ["approved_source_mix_recheck", "coverage_gap_escalation"],
+        "parser_strategy_candidates": ["no_parser_until_coverage_resolved"],
+        "why_retry": ["retry_after_source_mix_recheck"],
+        "why_backoff": ["backoff_if_source_coverage_still_weak"],
+        "why_degrade": ["degrade_when_required_source_slice_missing"],
+        "why_suspend": ["suspend_only_when_required_source_slice_is_boundary_blocked"],
+        "retryable": True,
+    },
+    "missing_key_lineage": {
+        "failure_class": "SOURCE_HEALTH_DEGRADED",
+        "diagnosis_tags": ["missing_key_lineage", "lineage_gap"],
+        "capture_strategy_candidates": ["lineage_repair_before_capture"],
+        "parser_strategy_candidates": ["no_parser_without_lineage"],
+        "why_retry": ["retry_after_lineage_repair"],
+        "why_backoff": ["backoff_not_required_for_lineage_gap"],
+        "why_degrade": ["degrade_when_lineage_required_for_replay_is_missing"],
+        "why_suspend": ["suspend_until_lineage_is_repaired"],
+        "retryable": False,
+    },
+    "missing_filing_type": {
+        "failure_class": "SOURCE_HEALTH_DEGRADED",
+        "diagnosis_tags": ["missing_filing_type", "filing_context_gap"],
+        "capture_strategy_candidates": ["filing_context_repair_before_capture"],
+        "parser_strategy_candidates": ["no_parser_without_filing_context"],
+        "why_retry": ["retry_after_filing_context_repair"],
+        "why_backoff": ["backoff_not_required_for_filing_context_gap"],
+        "why_degrade": ["degrade_when_filing_context_is_missing"],
+        "why_suspend": ["suspend_until_filing_context_is_repaired"],
+        "retryable": False,
+    },
+}
 
 
 class PublicSourceAdapterError(RuntimeError):
@@ -815,16 +988,26 @@ class LocalPublicResourceTradingCenterSourceAdapter:
                 )
             except (PublicSourceTimeoutError, PublicSourceTransportError) as exc:
                 last_error = exc
+                retry_reason = self._transport_failure_reason(exc)
                 retry_events.append(
                     {
                         "attempt_index": attempt_index,
                         "reason": exc.__class__.__name__,
                         "message": str(exc),
                         "will_retry": attempt_index < attempts,
+                        "failure_reason": retry_reason,
+                        "failure_diagnosis": self._failure_diagnosis(
+                            retry_reason,
+                            request,
+                            fetch_audit={
+                                "attempt_count": attempt_index,
+                                "max_retries": request.max_retries,
+                            },
+                        ),
                     }
                 )
 
-        reason = "fetch_timeout" if isinstance(last_error, PublicSourceTimeoutError) else "fetch_failed"
+        reason = self._transport_failure_reason(last_error)
         return self._degraded_result(
             request,
             reason=reason,
@@ -882,6 +1065,9 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "unapproved_live_capture_enabled": False,
             "real_provider_connection_enabled": False,
         }
+        fetch_audit["adaptive_capture_strategy"] = self._adaptive_success_strategy(
+            retry_events=retry_events
+        )
         source_health = {
             "adapter_id": self.config.adapter_id,
             "source_family": request.source_family,
@@ -895,6 +1081,7 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "retry_count": max(0, attempt_count - 1),
             "timeout_seconds": request.timeout_seconds,
             "manual_review_required": False,
+            "adaptive_capture_strategy": dict(fetch_audit["adaptive_capture_strategy"]),
         }
         self._copy_lineage_metadata(source_health, lineage_refs)
         raw_snapshot_metadata = {
@@ -1093,6 +1280,26 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         resolved_fetch_audit = dict(fetch_audit)
         resolved_fetch_audit.setdefault("source_family", request.source_family)
         resolved_fetch_audit.setdefault("record_kind", request.record_kind)
+        failure_diagnosis = self._failure_diagnosis(
+            reason,
+            request,
+            fetch_audit=resolved_fetch_audit,
+        )
+        resolved_fetch_audit["failure_diagnosis"] = failure_diagnosis
+        resolved_fetch_audit["adaptive_capture_strategy"] = {
+            "state": "AUTO_DEGRADE_OR_RETRY_PLANNED",
+            "diagnosis_id": failure_diagnosis["diagnosis_id"],
+            "failure_class": failure_diagnosis["failure_class"],
+            "capture_strategy_candidates": list(
+                failure_diagnosis["capture_strategy_candidates"]
+            ),
+            "parser_strategy_candidates": list(
+                failure_diagnosis["parser_strategy_candidates"]
+            ),
+            "manual_restart_as_primary_flow": False,
+            "no_duplicate_stage2_pipeline": True,
+            "public_boundary_preserved": True,
+        }
         source_health = {
             "adapter_id": self.config.adapter_id,
             "source_family": request.source_family,
@@ -1108,6 +1315,8 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "manual_review_required": True,
             "no_broad_fallback": True,
             "fail_closed": True,
+            "failure_diagnosis": failure_diagnosis,
+            "adaptive_capture_strategy": dict(resolved_fetch_audit["adaptive_capture_strategy"]),
         }
         lineage_refs = self._lineage_refs(
             request,
@@ -1120,8 +1329,12 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             "snapshot_persisted": False,
             "readback_state": "NO_SNAPSHOT_DUE_TO_DEGRADE",
             "manual_review_required": True,
+            "manual_restart_as_primary_flow": False,
+            "manual_restart_required": False,
             "no_broad_fallback": True,
             "fail_closed": True,
+            "failure_diagnosis": failure_diagnosis,
+            "adaptive_capture_strategy": dict(resolved_fetch_audit["adaptive_capture_strategy"]),
         }
         return PublicSourceSnapshotResult(
             status="DEGRADED",
@@ -1133,6 +1346,105 @@ class LocalPublicResourceTradingCenterSourceAdapter:
             readback=None,
             failure_degrade=failure_degrade,
         )
+
+    def _transport_failure_reason(self, error: Exception | None) -> str:
+        if isinstance(error, PublicSourceTimeoutError):
+            return "fetch_timeout"
+        message = str(error or "").strip().lower()
+        if message.startswith("http_status_429"):
+            return "rate_limited"
+        if message.startswith("http_status_408") or message.startswith("http_status_504"):
+            return "fetch_timeout"
+        return "fetch_failed"
+
+    def _failure_diagnosis(
+        self,
+        reason: str,
+        request: PublicSourceSnapshotRequest,
+        *,
+        fetch_audit: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        normalized_reason = self._normalize_failure_reason(reason)
+        template = ADAPTIVE_FAILURE_DIAGNOSIS_CATALOG.get(
+            normalized_reason,
+            ADAPTIVE_FAILURE_DIAGNOSIS_CATALOG["fetch_failed"],
+        )
+        audit = dict(fetch_audit or {})
+        attempt_count = int(audit.get("attempt_count", 0) or 0)
+        max_retries = int(audit.get("max_retries", request.max_retries) or 0)
+        retry_budget_remaining = max(0, (max_retries + 1) - attempt_count)
+        retryable = bool(template["retryable"])
+        if normalized_reason in {"missing_key_lineage", "missing_filing_type"}:
+            retry_budget_remaining = 0
+        return {
+            "diagnosis_id": "STAGE2_PUBLIC_WEB_ADAPTIVE_CAPTURE_V1",
+            "failure_reason": normalized_reason,
+            "failure_class": str(template["failure_class"]),
+            "diagnosis_tags": list(template["diagnosis_tags"]),
+            "capture_strategy_candidates": list(template["capture_strategy_candidates"]),
+            "parser_strategy_candidates": list(template["parser_strategy_candidates"]),
+            "retryable": retryable,
+            "retry_budget_remaining": retry_budget_remaining,
+            "why_retry": list(template["why_retry"]) if retryable else [],
+            "why_backoff": list(template["why_backoff"]),
+            "why_degrade": list(template["why_degrade"]),
+            "why_suspend": list(template["why_suspend"]),
+            "manual_restart_as_primary_flow": False,
+            "manual_restart_required": False,
+            "public_boundary_preserved": True,
+            "no_duplicate_stage2_pipeline": True,
+            "no_broad_fallback": True,
+            "fail_closed": True,
+            "source_registry_id": request.source_registry_id,
+            "source_family": request.source_family,
+            "record_kind": request.record_kind,
+        }
+
+    def _normalize_failure_reason(self, reason: str) -> str:
+        normalized = str(reason or "fetch_failed").strip()
+        if normalized.startswith("http_status_429"):
+            return "rate_limited"
+        if normalized.startswith("http_status_408") or normalized.startswith("http_status_504"):
+            return "fetch_timeout"
+        if normalized.startswith("http_status_"):
+            return "fetch_failed"
+        return normalized
+
+    def _adaptive_success_strategy(
+        self,
+        *,
+        retry_events: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        if not retry_events:
+            return {
+                "state": "NOT_NEEDED",
+                "diagnosis_id": "STAGE2_PUBLIC_WEB_ADAPTIVE_CAPTURE_V1",
+                "manual_restart_as_primary_flow": False,
+                "no_duplicate_stage2_pipeline": True,
+                "public_boundary_preserved": True,
+            }
+        classes = [
+            str(dict(event.get("failure_diagnosis") or {}).get("failure_class", "UNKNOWN"))
+            for event in retry_events
+        ]
+        return {
+            "state": "AUTO_RECOVERED_AFTER_RETRY",
+            "diagnosis_id": "STAGE2_PUBLIC_WEB_ADAPTIVE_CAPTURE_V1",
+            "recovered_failure_classes": classes,
+            "why_retry": [
+                reason
+                for event in retry_events
+                for reason in dict(event.get("failure_diagnosis") or {}).get("why_retry", [])
+            ],
+            "why_backoff": [
+                reason
+                for event in retry_events
+                for reason in dict(event.get("failure_diagnosis") or {}).get("why_backoff", [])
+            ],
+            "manual_restart_as_primary_flow": False,
+            "no_duplicate_stage2_pipeline": True,
+            "public_boundary_preserved": True,
+        }
 
     def _snapshot_id(self, *, source_url: str, snapshot_version: str, sha256: str) -> str:
         digest = hashlib.sha256(
@@ -1238,6 +1550,9 @@ class LocalPublicResourceTradingCenterSourceAdapter:
         for flag_name in CONTROLLED_CHALLENGE_FLAG_NAMES:
             if flags.get(flag_name):
                 return f"controlled_challenge_flag:{flag_name}"
+        for flag_name, reason in ADAPTIVE_PRE_FLIGHT_DEGRADE_FLAGS.items():
+            if flags.get(flag_name):
+                return reason
         if self.config.adapter_id == TENDERER_PUBLIC_NOTICE_PAGE_ADAPTER_ID:
             flags = {
                 str(key): bool(value) for key, value in request.boundary_flags.items()

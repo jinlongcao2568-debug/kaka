@@ -131,8 +131,9 @@ decision_summary:
     PTL-I100-112 through PTL-I100-143G are closed in the product task library.
     PTL-I100-118R and PTL-I100-131 record controlled owner-operated production
     readiness with no remaining product blockers for the controlled E2E pilot.
-    PTL-I100-144A is closed. control/current_task.yaml now points to
-    PTL-I100-144 as the active market scan opportunity discovery packet.
+    PTL-I100-144A is closed. PTL-I100-144 and PTL-I100-145 are internally
+    ready. control/current_task.yaml now points to PTL-I100-150 as the active
+    public web adaptive capture hardening packet.
   post_122_126_reacceptance_summary: >
     PTL-I100-122 through PTL-I100-131 closed the original 118 blockers as
     controlled execution/readback and controlled-real-world E2E paths.
@@ -557,7 +558,7 @@ public_web_capture_doc_sync_and_order_review_after_143F:
     - PTL-I100-149-real-sample-autonomous-opportunity-acceptance
 source_strategy_pilot_portfolio_after_143D:
   packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-  status: ACTIVE
+  status: COMPLETED
   trigger_reason: "Owner challenged whether national aggregated tender platforms are updated and comprehensive enough; real-world source strategy must treat national aggregation as discovery/dedupe only, then use pilot province and gap-driven city adapters."
   target_capability_state: INTERNAL_READY
   current_gap: "Current real public fetchers include national and representative local profiles, but the product has not yet selected a commercial pilot province portfolio or encoded when city adapters are necessary."
@@ -665,13 +666,12 @@ current_gap_sync_2026_04_29:
     - control/current_task.yaml
     - control/product_task_library.yaml
     - control/repo_status.md
-  current_active_packet: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-  current_active_packet_scope: internal_source_blueprint_orchestration_and_capture_plan_only
-  closed_prerequisite_packet: PTL-I100-144-market-scan-opportunity-discovery-engine
+  current_active_packet: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+  current_active_packet_scope: internal_public_web_adaptive_capture_hardening_only
+  closed_prerequisite_packet: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
   owner_operated_controlled_business_state: PRODUCTION_CLOSEOUT_READY_FOR_OWNER_OPERATED_CONTROLLED_USE
   remaining_product_blockers_for_controlled_owner_e2e: []
   current_remaining_runtime_productization_packets:
-    - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
     - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     - PTL-I100-151-public-web-captcha-automated-resolution-and-resume
     - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
@@ -943,7 +943,7 @@ production_gap_task_map:
       - analysis_priority_and_skip_reason
   - gap_group: source_blueprint_orchestration_and_capture_plan
     packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-    status: ACTIVE
+    status: COMPLETED
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - source_blueprint_auto_selection
@@ -951,7 +951,7 @@ production_gap_task_map:
       - source_mix_reasoning
   - gap_group: public_web_adaptive_capture_hardening
     packet_ref: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
-    status: PLANNED
+    status: ACTIVE
     target_capability_state: INTERNAL_READY
     covered_capabilities:
       - public_web_failure_diagnosis

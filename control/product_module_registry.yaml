@@ -285,7 +285,7 @@ stage_module_inventory:
           - PTL-I100-145-source-blueprint-orchestration-and-capture-plan
       - slice_id: stage1.source_blueprint_orchestration
         business_summary: "根据 opportunity candidate 自动选择公开源组合并生成 Stage2 capture plan。"
-        implementation_state: INTERNAL_READY_CANDIDATE
+        implementation_state: INTERNAL_READY
         current_files:
           - src/stage1_tasking/source_blueprint.py
         handoff_files:
@@ -317,6 +317,7 @@ stage_module_inventory:
       - stage1_tasking
     target_packet_candidates:
       - PTL-S23-public-chain-to-parser-contract
+      - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
     current_blockers:
       - "已完成主链闭合；外部采集系统接入仍不在当前范围。"
     exit_criteria:
@@ -355,6 +356,28 @@ stage_module_inventory:
         exit_criteria:
           - "公开链字段有来源、版本和固定化 trace。"
         deferred_gaps: []
+      - slice_id: stage2.public_web_adaptive_capture_hardening
+        business_summary: "在既有 Stage2 public source adapter 内对公开网站抓取失败做自动诊断、重试/退避/降级/挂起原因输出和采集/解析策略候选生成。"
+        implementation_state: INTERNAL_READY_CANDIDATE
+        current_files:
+          - src/stage2_ingestion/public_source_adapters.py
+        handoff_files:
+          - handoff/stage2_to_stage3/contract.json
+        api_surface_files: []
+        repository_files:
+          - src/storage/repositories/object_storage_repo.py
+        test_files:
+          - tests/test_stage2_public_source_adapters.py
+        depends_on_slices:
+          - stage2.public_chain_ingestion
+          - stage1.source_blueprint_orchestration
+        target_packet_candidates:
+          - PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
+        exit_criteria:
+          - "failure_diagnosis、adaptive_capture_strategy、why_retry / why_backoff / why_degrade / why_suspend 和 source_health 可读回。"
+          - "复用现有 Stage2 adapter/service/object storage/parser seam，不新增第二套 Stage2 pipeline，不执行未授权 live 抓取。"
+        deferred_gaps:
+          - PTL-I100-151-public-web-captcha-automated-resolution-and-resume
       - slice_id: stage2.fixation_version_clock
         business_summary: "固定公告版本链和制度时钟，给 Stage3/Stage6 后续判断提供可追溯输入。"
         implementation_state: PARTIAL_RUNTIME

@@ -3470,6 +3470,113 @@ class Stage2PublicSourceAdapterTests(unittest.TestCase):
             self.assertTrue(rate_limited.failure_degrade["no_broad_fallback"])
             self.assertEqual(len(transport.call_log), 1)
 
+    def test_public_web_adaptive_failure_diagnosis_classifies_common_failure_modes(self) -> None:
+        cases = [
+            ("dom_structure_changed", "DOM_STRUCTURE_CHANGED"),
+            ("js_shell_detected", "JS_SHELL_DETECTED"),
+            ("pagination_redirect_required", "PAGINATION_OR_REDIRECT_REQUIRED"),
+            ("attachment_discovery_missing", "ATTACHMENT_DISCOVERY_MISSING"),
+            ("encoding_error", "ENCODING_ERROR"),
+            ("parser_template_drift", "PARSER_TEMPLATE_DRIFT"),
+            ("source_health_degraded", "SOURCE_HEALTH_DEGRADED"),
+        ]
+        for flag_name, expected_class in cases:
+            with self.subTest(flag_name=flag_name), tempfile.TemporaryDirectory() as tmp_dir:
+                transport = StaticPublicSourceTransport(
+                    {
+                        PROVINCIAL_HTML_URL: PublicSourceTransportResponse(
+                            content=b"<html>unused due to preflight diagnosis</html>",
+                            content_type="text/html",
+                            fetched_at=NOW,
+                            captured_at=NOW,
+                        )
+                    }
+                )
+                adapter = self._adapter(
+                    self._repo(tmp_dir),
+                    transport,
+                    config=provincial_bidding_platform_adapter_config(),
+                )
+                result = adapter.capture(
+                    self._provincial_request(boundary_flags={flag_name: True})
+                )
+
+                self.assertEqual(result.status, "DEGRADED")
+                self.assertEqual(transport.call_log, [])
+                diagnosis = result.failure_degrade["failure_diagnosis"]
+                self.assertEqual(diagnosis["failure_class"], expected_class)
+                for key in ("why_retry", "why_backoff", "why_degrade", "why_suspend"):
+                    self.assertIn(key, diagnosis)
+                    self.assertIsInstance(diagnosis[key], list)
+                self.assertFalse(diagnosis["manual_restart_as_primary_flow"])
+                self.assertFalse(result.failure_degrade["manual_restart_required"])
+                self.assertTrue(diagnosis["public_boundary_preserved"])
+                self.assertTrue(diagnosis["no_duplicate_stage2_pipeline"])
+                self.assertEqual(
+                    result.fetch_audit["adaptive_capture_strategy"]["state"],
+                    "AUTO_DEGRADE_OR_RETRY_PLANNED",
+                )
+
+    def test_public_web_adaptive_retry_backoff_and_rate_limit_diagnostics_are_visible(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            adapter = self._adapter(
+                repo,
+                StaticPublicSourceTransport(
+                    {
+                        PUBLIC_HTML_URL: [
+                            PublicSourceTimeoutError("local timeout once"),
+                            PublicSourceTransportResponse(
+                                content=b"<html>retry success</html>",
+                                content_type="text/html",
+                                fetched_at=NOW,
+                                captured_at=NOW,
+                            ),
+                        ]
+                    }
+                ),
+            )
+
+            result = adapter.capture(self._request(max_retries=1))
+
+            retry_diagnosis = result.fetch_audit["retry_events"][0]["failure_diagnosis"]
+            self.assertEqual(retry_diagnosis["failure_class"], "TIMEOUT")
+            self.assertIn("timeout_is_retryable_within_budget", retry_diagnosis["why_retry"])
+            self.assertIn("backoff_before_next_transport_attempt", retry_diagnosis["why_backoff"])
+            self.assertEqual(
+                result.fetch_audit["adaptive_capture_strategy"]["state"],
+                "AUTO_RECOVERED_AFTER_RETRY",
+            )
+            self.assertFalse(
+                result.source_health["adaptive_capture_strategy"]["manual_restart_as_primary_flow"]
+            )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo = self._repo(tmp_dir)
+            transport = StaticPublicSourceTransport(
+                {
+                    PUBLIC_HTML_URL: PublicSourceTransportResponse(
+                        content=b"<html>rate limit seed</html>",
+                        content_type="text/html",
+                        fetched_at=NOW,
+                        captured_at=NOW,
+                    )
+                }
+            )
+            rate_adapter = self._adapter(
+                repo,
+                transport,
+                config=PublicSourceAdapterConfig(min_interval_seconds=60),
+            )
+            rate_adapter.capture(self._request())
+            rate_limited = rate_adapter.capture(self._request())
+
+            diagnosis = rate_limited.failure_degrade["failure_diagnosis"]
+            self.assertEqual(diagnosis["failure_class"], "RATE_LIMITED")
+            self.assertIn("rate_limit_policy_requires_wait", diagnosis["why_backoff"])
+            self.assertFalse(diagnosis["manual_restart_as_primary_flow"])
+            self.assertTrue(diagnosis["public_boundary_preserved"])
+
     def test_credit_china_source_health_retry_timeout_rate_limit_and_failure_degrade_are_readable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo = self._repo(tmp_dir)

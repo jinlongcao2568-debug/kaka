@@ -418,11 +418,17 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
             for item in self.matrix["production_gap_task_map"]
             if item["packet_ref"] == "PTL-I100-145-source-blueprint-orchestration-and-capture-plan"
         )
+        public_web_gap = next(
+            item
+            for item in self.matrix["production_gap_task_map"]
+            if item["packet_ref"] == "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation"
+        )
         self.assertEqual(market_gap["status"], "COMPLETED")
-        self.assertEqual(source_blueprint_gap["status"], "ACTIVE")
+        self.assertEqual(source_blueprint_gap["status"], "COMPLETED")
+        self.assertEqual(public_web_gap["status"], "ACTIVE")
         self.assertEqual(
             self.matrix["current_gap_sync_2026_04_29"]["current_active_packet"],
-            "PTL-I100-145-source-blueprint-orchestration-and-capture-plan",
+            "PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation",
         )
 
     def test_133b_national_verification_entry_fetcher_records_blocked_runtime_gap(self) -> None:

@@ -3,7 +3,7 @@
 Current Phase: PHASE_5_INTERNAL_LEADOPS_DEVELOPMENT
 Current Readiness Conclusion: READY_FOR_POST-REPAIR_MAINLINE_SELECTION
 Current Conditional-Go: READY_FOR_INTERNAL_LEADOPS_DEVELOPMENT
-Current Workstream: PTL-I100-145-source-blueprint-orchestration-and-capture-plan (ACTIVE; implements the internal source blueprint and Stage2 capture-plan slice with automatic public source mix selection, approved-source checks, national aggregator discovery-only policy, pilot province portfolio, Beijing technical-regression-only policy, and gap-driven city adapter selection. This packet does not execute Stage2 fetch, real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
+Current Workstream: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation (ACTIVE; implements the internal Stage2 public web adaptive capture diagnosis slice with failure classification, retry/backoff/degrade/suspend reasons, source health readback, and capture/parser strategy candidates inside the existing public source adapter seam. This packet does not execute unapproved live Stage2 fetch, real provider calls, outreach, payment, delivery, refund, customer download, or public software release.)
 Current Full-Repair Program Status: FULL_REPAIR_COMPLETE_REVIEW_READY
 Candidate Gap Active: false
 Strategic Branch Active: false
@@ -19,7 +19,7 @@ Current Controlled Opening Boundaries:
 - Stage 9 real payment/delivery/refund is a controlled-opening capability: payment, delivery, and real refund require provider config, sandbox/live-pilot evidence, approval/audit, operator action, reconciliation/writeback, and acceptance before live execution.
 - Automated refund execution remains excluded; refund handling is manual exception record, manual approval/audit, and governed review only.
 - PTL-I100-143G is completed and registered the public-web capture escalation, captcha automated challenge resolution/resume, and implementation order before runtime packets continue.
-- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144 is internally ready for market scan opportunity discovery; PTL-I100-145 is the active internal source blueprint orchestration and capture-plan packet and does not execute provider calls, outreach, payment, delivery, refund, customer download, or public release.
+- PTL-I100-144A synchronized controlled-opening semantics and is closed; PTL-I100-144 and PTL-I100-145 are internally ready; PTL-I100-150 is the active internal public web adaptive capture hardening packet and does not execute unapproved live Stage2 fetch, provider calls, outreach, payment, delivery, refund, customer download, or public release.
 
 Product Open Capability Baseline:
 - Policy id: PTL-I100-OPEN-CAPABILITY-BASELINE.
@@ -27,13 +27,14 @@ Product Open Capability Baseline:
 - Except automated refund execution, all business capabilities needed to sell evidence packs are target capabilities and must be implemented through staged controlled opening.
 - "Controlled opening" means not live until provider config, sandbox, approval, audit, operator action, field allowlist/masking, rollback/suspension, and the controlled-opening gate pass; it does not mean the capability is permanently out of product scope.
 
-Current 145 Scope:
-- Implement Stage1 source blueprint orchestration as an internal owner-operated product slice.
-- Produce source mix decisions, source selection/skip reasons, Stage2 capture plan, approved-source summary, national aggregator discovery-only policy, pilot province portfolio, Beijing technical-regression-only policy, gap-driven city adapter policy, and repository-backed readback.
-- Keep manual URL selection out of the primary flow and keep city adapters gap-driven rather than blanket rollout.
-- Keep Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, automated refund, and public release unexecuted.
+Current 150 Scope:
+- Implement Stage2 public source adapter adaptive failure diagnosis as an internal owner-operated product slice.
+- Classify DOM/structure drift, JS shell, pagination or redirect gaps, attachment discovery gaps, encoding errors, parser template drift, source health degradation, timeout, rate limit, and generic transport failures.
+- Expose why_retry, why_backoff, why_degrade, why_suspend, source_health, and adaptive capture/parser strategy candidates without creating a second Stage2 pipeline.
+- Keep unapproved live Stage2 fetch, provider calls, outreach, payment, delivery, customer download, refund, automated refund, and public release unexecuted.
 
 Recently Closed:
+- PTL-I100-145-source-blueprint-orchestration-and-capture-plan completed and committed locally: 97211f0.
 - PTL-I100-144-market-scan-opportunity-discovery-engine completed and committed locally: 62ee945.
 - PTL-I100-144A-controlled-opening-sync closed after controlled-opening semantics and status assets were synchronized.
 - PTL-I100-143G-public-web-capture-doc-sync-and-order-review completed and committed locally: 64efed4.
@@ -65,11 +66,8 @@ State Semantics:
 
 Current Scoped-Execution Required Checks:
 - git status --short --untracked-files=all
-- python -m unittest tests.test_stage1_market_scan -v
-- python -m unittest tests.test_stage1_source_blueprint -v
-- python -m unittest tests.test_stage1_scheduler -v
-- python -m unittest tests.test_api_transport_bootstrap -v
-- python -m unittest tests.test_internal_repository_boundary.TestInternalRepositoryBoundary -v
+- python -m unittest tests.test_stage2_public_source_adapters -v
+- python -m unittest tests.test_stage3_real_parser -v
 - python -m unittest tests.test_runtime_governance_guards.TestRuntimeGovernanceGuards -v
 - python -m unittest tests.test_product_module_registry -v
 - python -m unittest tests.test_product_runtime_architecture_map -v

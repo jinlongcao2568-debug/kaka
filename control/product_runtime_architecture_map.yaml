@@ -796,10 +796,10 @@ implementation_sequence:
     status: COMPLETED
     purpose: choose_which_projects_are_worth_analysis
   - packet_ref: PTL-I100-145-source-blueprint-orchestration-and-capture-plan
-    status: ACTIVE
+    status: COMPLETED
     purpose: choose_public_source_mix_and_generate_stage2_capture_plan
   - packet_ref: PTL-I100-150-public-web-adaptive-capture-hardening-and-failure-escalation
-    status: PLANNED
+    status: ACTIVE
     purpose: automatically_upgrade_legal_capture_and_parse_strategy_before_defaulting_to_manual_restart
   - packet_ref: PTL-I100-151-public-web-captcha-automated-resolution-and-resume
     status: PLANNED
