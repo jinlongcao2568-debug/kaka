@@ -115,6 +115,7 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "real_public_source_readback",
     "region_adapter_catalog",
     "autonomous_search_entry",
+    "autonomous_search_run_list",
     "scheduler_status_readback",
     "customer_artifact_access_readiness",
     "download_auth_required",

@@ -313,7 +313,8 @@
         "buyer_ranking_panel",
         "delivery_state_panel",
         "sales_next_action_panel",
-        "real_sample_autonomous_acceptance_panel"
+        "real_sample_autonomous_acceptance_panel",
+        "autonomous_search_run_history_panel"
       ],
       "panels": [
         {
@@ -382,6 +383,25 @@
           ],
           "displayContract": {
             "owner_can_observe_without_raw_api": true,
+            "raw_json_required": false,
+            "manual_url_picker_primary_flow": false,
+            "customer_visible_publication_enabled": false,
+            "external_send_enabled": false,
+            "real_provider_call_enabled": false,
+            "customer_download_enabled": false
+          }
+        },
+        {
+          "panelId": "autonomous_search_run_history_panel",
+          "mode": "internal_readback",
+          "projectionField": "operator_autonomous_search_runs",
+          "requiredReadbackFields": [
+            "runs",
+            "run_count",
+            "status_counts"
+          ],
+          "displayContract": {
+            "repository_backed_readback": true,
             "raw_json_required": false,
             "manual_url_picker_primary_flow": false,
             "customer_visible_publication_enabled": false,

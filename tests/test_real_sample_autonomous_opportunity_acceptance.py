@@ -212,9 +212,27 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertFalse(payload["manual_url_picker_primary_flow"])
         self.assertFalse(payload["live_execution_enabled"])
         self.assertFalse(payload["real_provider_call_enabled"])
+        self.assertTrue(payload["search_run_id"])
+        self.assertEqual(
+            payload["search_run_record"]["search_state"],
+            "AUTONOMOUS_SEARCH_ACCEPTED",
+        )
 
         opportunity_id = payload["opportunity_id"]
         self.assertTrue(opportunity_id)
+        runs_response = client.request("GET", "/operator-console/autonomous-search-runs")
+        self.assertEqual(runs_response.status_code, 200)
+        runs = runs_response.json()
+        self.assertEqual(runs["surface_id"], "operator_autonomous_search_runs")
+        self.assertEqual(runs["run_count"], 1)
+        self.assertTrue(runs["autonomous_search_run_list"])
+        self.assertFalse(runs["raw_json_required"])
+        self.assertEqual(runs["runs"][0]["opportunity_id"], opportunity_id)
+        self.assertEqual(runs["runs"][0]["region_code"], "CN-GD")
+        self.assertEqual(
+            runs["runs"][0]["search_state"],
+            "AUTONOMOUS_SEARCH_ACCEPTED",
+        )
         workbench_response = client.request(
             "GET",
             "/operator-console/autonomous-workbench",

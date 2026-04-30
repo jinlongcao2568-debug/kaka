@@ -332,6 +332,17 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       font-size: 13px;
       line-height: 1.35;
     }}
+    .compact-card-grid {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      max-height: 420px;
+      overflow: auto;
+      padding-right: 4px;
+    }}
+    .compact-card-grid .stage-card {{
+      min-height: 96px;
+    }}
     .workflow {{
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -389,7 +400,7 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       .workspace {{ display: block; }}
       .panelStack {{ overflow: visible; padding-right: 0; }}
       .resultPane pre {{ max-height: 260px; }}
-      .grid, .rail, .stage-grid, .workflow {{ grid-template-columns: 1fr; }}
+      .grid, .rail, .stage-grid, .workflow, .compact-card-grid {{ grid-template-columns: 1fr; }}
       .view-grid {{ grid-template-columns: 1fr; }}
       main {{ padding: 18px; }}
       .topbar {{ display: block; }}
@@ -495,6 +506,11 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <section class="wide">
               <h3>搜索结果</h3>
               <div id="searchResult" class="empty-state">暂无搜索结果。</div>
+            </section>
+            <section class="wide">
+              <h3>搜索运行记录</h3>
+              <div id="autonomousSearchRuns" class="empty-state">暂无实战搜索运行记录。</div>
+              <button id="refreshAutonomousSearchRuns">刷新搜索记录</button>
             </section>
           </div>
         </div>
@@ -693,9 +709,36 @@ async function loadRegionAdapters() {
     ].join("");
     return `<div class="stage-card"><strong>${adapter.region_code} ${adapter.region_name}</strong><p>${adapter.primary_entry_profile_id || "--"}</p>${flags}</div>`;
   }).join("");
-  $("regionAdapterSummary").className = rows ? "" : "empty-state";
+  $("regionAdapterSummary").className = rows ? "compact-card-grid" : "empty-state";
   $("regionAdapterSummary").innerHTML = rows || "暂无地区适配器。";
   return catalog;
+}
+async function loadAutonomousSearchRuns() {
+  const payload = await json("GET", "/operator-console/autonomous-search-runs");
+  const runs = payload.runs || [];
+  if (!runs.length) {
+    $("autonomousSearchRuns").className = "empty-state";
+    $("autonomousSearchRuns").textContent = "暂无实战搜索运行记录。";
+    return payload;
+  }
+  $("autonomousSearchRuns").className = "compact-card-grid";
+  $("autonomousSearchRuns").innerHTML = runs.slice(0, 8).map((run) => {
+    const workbenchPath = run.operator_workbench_readback_path || "";
+    const customerPath = run.customer_artifact_candidate_path || "";
+    const links = [
+      workbenchPath ? `<a href="${workbenchPath}">工作台</a>` : "",
+      customerPath ? `<a href="${customerPath}">材料候选</a>` : ""
+    ].filter(Boolean).join(" · ");
+    return `<div class="stage-card">
+      <strong>${run.opportunity_id || "--"}</strong>
+      <p>${run.project_name || run.query || "--"}</p>
+      ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
+      ${badge(run.region_code || "--")}
+      ${badge(run.entry_profile_id || "--")}
+      <p>${links || "读回路径待生成"}</p>
+    </div>`;
+  }).join("");
+  return payload;
 }
 async function loadRealSourceProfiles() {
   const catalog = await json("GET", "/operator-console/real-source-profiles");
@@ -730,9 +773,20 @@ async function runAutonomousSearch() {
       ${badge(result.search_state || "--", accepted ? "" : "warn")}
       ${badge(result.acceptance?.acceptance_state || "--", accepted ? "" : "warn")}
       ${badge(result.region_adapter?.region_code || "--")}
+      ${badge(result.search_run_id || "--")}
       <p>${result.acceptance?.owner_workbench_acceptance?.queue_item?.commercial_hook_teaser || "商业钩子待生成"}</p>
     </div>`;
-  out(result);
+  out({
+    search_state: result.search_state,
+    opportunity_id: result.opportunity_id,
+    search_run_id: result.search_run_id,
+    region_code: result.region_adapter?.region_code,
+    entry_profile_id: result.entry_profile?.profile_id,
+    workbench: result.operator_workbench_readback_path,
+    customer_artifact_candidate: result.customer_artifact_candidate_path,
+    raw_json_required: false
+  });
+  await loadAutonomousSearchRuns();
   await loadAutonomousWorkbench();
   return result;
 }
@@ -803,6 +857,7 @@ async function loadRealSourceRuns() {
 $("createTask").addEventListener("click", createTask);
 $("importProject").addEventListener("click", importProject);
 $("runAutonomousSearch").addEventListener("click", runAutonomousSearch);
+$("refreshAutonomousSearchRuns").addEventListener("click", async () => out(await loadAutonomousSearchRuns()));
 $("runEntryCapture").addEventListener("click", runEntryCapture);
 $("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
 $("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
@@ -823,7 +878,7 @@ document.querySelectorAll("[data-view]").forEach((item) => {
 });
 window.addEventListener("hashchange", () => showView((window.location.hash || "#overview").slice(1)));
 showView((window.location.hash || "#overview").slice(1));
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadRealSourceProfiles(), loadRealSourceRuns()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """

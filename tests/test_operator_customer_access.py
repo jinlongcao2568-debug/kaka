@@ -74,6 +74,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             "listRealPublicSourceProfiles",
             "listOperatorRegionAdapters",
             "runOperatorAutonomousOpportunitySearch",
+            "listOperatorAutonomousSearchRuns",
             "runOwnerRealPublicSourceCapture",
             "listOwnerRealPublicSourceTaskRuns",
             "readOwnerRealPublicSourceCapture",
@@ -99,6 +100,8 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(mounted_operations["runOperatorAutonomousOpportunitySearch"]["autonomous_search_entry"])
         self.assertTrue(mounted_operations["runOperatorAutonomousOpportunitySearch"]["opportunity_queue_visible"])
         self.assertFalse(mounted_operations["runOperatorAutonomousOpportunitySearch"]["raw_json_required"])
+        self.assertTrue(mounted_operations["listOperatorAutonomousSearchRuns"]["autonomous_search_run_list"])
+        self.assertFalse(mounted_operations["listOperatorAutonomousSearchRuns"]["raw_json_required"])
 
         access_bootstrap = bootstrap["operator_customer_access_bootstrap"]
         self.assertEqual(access_bootstrap["capability_state"], "APPROVAL_READY")
@@ -143,6 +146,11 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertFalse(payload["operator_console"]["real_public_source_runner_entry"]["real_provider_call_enabled"])
         self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["repository_backed_readback"])
+        self.assertTrue(payload["operator_console"]["region_adapter_catalog"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["autonomous_search_entry"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["autonomous_search_run_list"]["entry_visible"])
+        self.assertFalse(payload["operator_console"]["autonomous_search_entry"]["raw_json_required"])
+        self.assertFalse(payload["operator_console"]["autonomous_search_run_list"]["raw_json_required"])
         self.assertTrue(payload["operator_console"]["full_chain_run_entry"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["autonomous_operator_workbench"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_sample_autonomous_acceptance"]["entry_visible"])

@@ -104,6 +104,9 @@ def _operator_operation_readback(routes: list[dict[str, Any]] | None = None) -> 
                 "delivery_state_visible",
                 "next_action_visible",
                 "raw_json_required",
+                "region_adapter_catalog",
+                "autonomous_search_entry",
+                "autonomous_search_run_list",
                 "real_sample_autonomous_acceptance",
                 "real_sample_flow_visible",
             )
@@ -510,7 +513,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     acceptance = build_real_sample_autonomous_opportunity_acceptance_surface(acceptance_payload)
     opportunity_ref = dict(acceptance.get("stage_refs", {}).get("stage7_saleable_opportunity", {}))
     opportunity_id = str(opportunity_ref.get("object_id") or "")
-    return {
+    response = {
         "surface_id": "operator_autonomous_opportunity_search",
         "search_state": "AUTONOMOUS_SEARCH_ACCEPTED"
         if acceptance.get("acceptance_state") == "REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTED"
@@ -539,6 +542,147 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         "external_release_enabled": False,
         "customer_download_enabled": False,
         "automated_refund_enabled": False,
+    }
+    response["search_run_record"] = _record_autonomous_search_run(
+        payload=payload,
+        result=response,
+    )
+    response["search_run_id"] = response["search_run_record"]["run_id"]
+    return response
+
+
+def _autonomous_search_work_item_id() -> str:
+    return "operator-autonomous-opportunity-search-runs"
+
+
+def _record_autonomous_search_run(
+    *,
+    payload: Mapping[str, Any],
+    result: Mapping[str, Any],
+) -> dict[str, Any]:
+    requested_at = build_persisted_at()
+    region_adapter = dict(result.get("region_adapter", {}) or {})
+    entry_profile = dict(result.get("entry_profile", {}) or {})
+    candidate = dict(result.get("candidate", {}) or {})
+    market_scan = dict(result.get("market_scan", {}) or {})
+    source_blueprint = dict(result.get("source_blueprint_plan", {}) or {})
+    acceptance = dict(result.get("acceptance", {}) or {})
+    opportunity_id = str(result.get("opportunity_id") or "").strip()
+    search_state = str(result.get("search_state") or "UNKNOWN")
+    action_state = search_state
+    run_id = (
+        f"AUTONOMOUS-SEARCH-RUN-{opportunity_id or region_adapter.get('region_code') or 'SEARCH'}-{requested_at}"
+        .replace(":", "")
+        .replace("+", "")
+    )
+    object_refs = {
+        "region_code": str(region_adapter.get("region_code") or payload.get("region_code") or ""),
+        "region_name": str(region_adapter.get("region_name") or ""),
+        "adapter_state": str(region_adapter.get("adapter_state") or ""),
+        "entry_profile_id": str(entry_profile.get("profile_id") or ""),
+        "query": str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or ""),
+        "project_type": str(payload.get("project_type") or ""),
+        "amount": str(payload.get("amount") or payload.get("minimum_amount") or ""),
+        "opportunity_id": opportunity_id,
+        "project_id": str(candidate.get("project_id") or ""),
+        "project_name": str(candidate.get("project_name") or ""),
+        "search_state": search_state,
+        "acceptance_state": str(acceptance.get("acceptance_state") or ""),
+        "market_scan_run_id": str(market_scan.get("scan_run_id") or ""),
+        "source_blueprint_plan_id": str(source_blueprint.get("source_blueprint_plan_id") or ""),
+        "operator_workbench_readback_path": str(result.get("operator_workbench_readback_path") or ""),
+        "customer_artifact_candidate_path": str(result.get("customer_artifact_candidate_path") or ""),
+    }
+    action = PersistedOperatorAction(
+        action_event_id=run_id,
+        work_item_id=_autonomous_search_work_item_id(),
+        stage_scope=1,
+        action_id="operator_autonomous_opportunity_search",
+        button_flow_id="owner_console_autonomous_opportunity_search",
+        action_state=action_state,
+        resulting_assignment_lifecycle_state=None,
+        requested_by_role="single_operator",
+        requested_by="卡卡罗特",
+        assigned_owner_role="single_operator",
+        assigned_owner="卡卡罗特",
+        reviewer_role="single_operator",
+        reviewer="卡卡罗特",
+        reason="region_adapter_to_autonomous_opportunity_closed_loop",
+        object_refs=object_refs,
+        trace_refs={
+            "operator_console_route": "/operator-console/autonomous-opportunity-search",
+            "run_list_path": "/operator-console/autonomous-search-runs",
+            "workbench_readback_path": object_refs["operator_workbench_readback_path"],
+        },
+        audit_refs={
+            "run_audit_ref": run_id,
+            "internal_only": "true",
+            "live_execution_enabled": "false",
+            "real_provider_call_enabled": "false",
+        },
+        requested_at=requested_at,
+        completed_at=requested_at,
+    )
+    OperatorActionRepository().append(action)
+    return _autonomous_search_action_payload(action)
+
+
+def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[str, Any]:
+    refs = dict(action.object_refs)
+    return {
+        "run_id": action.action_event_id,
+        "search_state": refs.get("search_state") or action.action_state,
+        "region_code": refs.get("region_code"),
+        "region_name": refs.get("region_name"),
+        "adapter_state": refs.get("adapter_state"),
+        "entry_profile_id": refs.get("entry_profile_id"),
+        "query": refs.get("query"),
+        "project_type": refs.get("project_type"),
+        "amount": refs.get("amount"),
+        "opportunity_id": refs.get("opportunity_id"),
+        "project_id": refs.get("project_id"),
+        "project_name": refs.get("project_name"),
+        "acceptance_state": refs.get("acceptance_state"),
+        "market_scan_run_id": refs.get("market_scan_run_id"),
+        "source_blueprint_plan_id": refs.get("source_blueprint_plan_id"),
+        "operator_workbench_readback_path": refs.get("operator_workbench_readback_path"),
+        "customer_artifact_candidate_path": refs.get("customer_artifact_candidate_path"),
+        "requested_at": action.requested_at,
+        "completed_at": action.completed_at,
+        "repository_backed": True,
+        "internal_only": True,
+        "manual_url_picker_primary_flow": False,
+        "live_execution_enabled": False,
+        "real_provider_call_enabled": False,
+        "external_release_enabled": False,
+        "customer_download_enabled": False,
+    }
+
+
+def list_operator_autonomous_search_runs(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    del payload
+    actions = OperatorActionRepository().list(work_item_id=_autonomous_search_work_item_id())
+    runs = [_autonomous_search_action_payload(action) for action in actions]
+    runs.sort(key=lambda row: str(row.get("requested_at") or ""), reverse=True)
+    status_counts: dict[str, int] = {}
+    for row in runs:
+        status = str(row.get("search_state") or "UNKNOWN")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    return {
+        "surface_id": "operator_autonomous_search_runs",
+        "internal_only": True,
+        "repository_backed_readback": True,
+        "autonomous_search_run_list": True,
+        "run_count": len(runs),
+        "status_counts": status_counts,
+        "runs": runs,
+        "raw_json_required": False,
+        "manual_url_picker_primary_flow": False,
+        "live_execution_enabled": False,
+        "real_external_fetch_enabled": False,
+        "real_provider_call_enabled": False,
+        "external_release_enabled": False,
+        "customer_download_enabled": False,
     }
 
 
@@ -848,6 +992,16 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
+        "operationId": "listOperatorAutonomousSearchRuns",
+        "method": "GET",
+        "path": "/operator-console/autonomous-search-runs",
+        "handler": list_operator_autonomous_search_runs,
+        "autonomous_search_run_list": True,
+        "repository_backed_readback": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
         "operationId": "runOwnerRealPublicSourceCapture",
         "method": "POST",
         "path": "/operator-console/real-source-runs",
@@ -936,6 +1090,7 @@ __all__ = [
     "OPERATOR_CUSTOMER_ACCESS_ROUTES",
     "create_operator_task",
     "import_operator_project",
+    "list_operator_autonomous_search_runs",
     "list_owner_real_public_source_task_runs",
     "list_operator_region_adapters",
     "list_real_public_source_profiles",
