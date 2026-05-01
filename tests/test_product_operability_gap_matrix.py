@@ -501,13 +501,17 @@ class ProductOperabilityGapMatrixTests(unittest.TestCase):
                 "https://ggzyfw.beijing.gov.cn/",
                 "https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html",
                 "https://ggzyjy.bda.gov.cn/",
-                "https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index",
-                "https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index",
+                "https://ygp.gdzwfw.gov.cn/#/44/jygg",
+                "http://jsggzy.jszwfw.gov.cn/",
+                "https://ggzy.zj.gov.cn/jyxxgk/list.html",
+                "https://ggzyjy.shandong.gov.cn/queryContent-jyxxgk.jspx?channelId=78",
+                "https://www.hbbidcloud.cn/hubei/jyxx/about.html",
+                "https://ggzyjy.sc.gov.cn/jyxx/transactionInfo.html",
             ],
         )
         self.assertIn("beijing_local_platform_html_success_path", section["must_prove"])
         self.assertIn("beijing_bda_html_success_path", section["must_prove"])
-        self.assertIn("guangdong_portal_raw_shell_fail_closed", section["must_prove"])
+        self.assertIn("province_realtime_source_urls_browser_verified", section["must_prove"])
 
     def test_133d_public_attachment_fetcher_records_binary_attachment_gap(self) -> None:
         section = self.matrix["public_attachment_original_link_operationalization_after_133C"]

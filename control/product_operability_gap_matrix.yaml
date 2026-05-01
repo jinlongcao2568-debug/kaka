@@ -287,18 +287,22 @@ representative_local_platform_operationalization_after_133B:
   completed_commit: 07426ac
   trigger_reason: "133B completed. Real source operation now needs representative local/provincial platform entry fetchers with direct HTML success-path and raw-shell classification."
   target_capability_state: INTERNAL_READY
-  current_gap: "System can classify national verification entry URLs, but does not yet distinguish direct local HTML entry pages from provincial portal shell pages on representative real platforms."
+  current_gap: "System can classify national verification entry URLs, but does not yet distinguish direct local HTML entry pages from province-specific realtime trading list pages on representative real platforms."
   official_entry_urls:
     - https://ggzyfw.beijing.gov.cn/
     - https://ggzyfw.beijing.gov.cn/tyrkgcjs/index.html
     - https://ggzyjy.bda.gov.cn/
-    - https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index
-    - https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index
+    - https://ygp.gdzwfw.gov.cn/#/44/jygg
+    - http://jsggzy.jszwfw.gov.cn/
+    - https://ggzy.zj.gov.cn/jyxxgk/list.html
+    - https://ggzyjy.shandong.gov.cn/queryContent-jyxxgk.jspx?channelId=78
+    - https://www.hbbidcloud.cn/hubei/jyxx/about.html
+    - https://ggzyjy.sc.gov.cn/jyxx/transactionInfo.html
   must_prove:
     - representative_local_platform_urls
     - beijing_local_platform_html_success_path
     - beijing_bda_html_success_path
-    - guangdong_portal_raw_shell_fail_closed
+    - province_realtime_source_urls_browser_verified
     - no_unregistered_url_fetch
   next_packets_if_133C_passes:
     - PTL-I100-133D-public-attachment-original-link-fetching
@@ -783,7 +787,7 @@ production_gap_task_map:
       - representative_local_platform_urls
       - beijing_local_platform_html_success_path
       - beijing_bda_html_success_path
-      - guangdong_portal_raw_shell_fail_closed
+      - province_realtime_source_urls_browser_verified
   - gap_group: stage2_public_attachment_original_link_fetcher
     packet_ref: PTL-I100-133D-public-attachment-original-link-fetching
     status: COMPLETED

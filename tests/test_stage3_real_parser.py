@@ -49,8 +49,12 @@ REAL_PUBLIC_HTML_SNAPSHOT_PROFILE_IDS_FOR_138 = (
     "BEIJING-GCJS-LIST",
     "BEIJING-BDA-HOME",
     "JZSC-NATIONAL-HOME",
-    "GUANGDONG-PROVINCIAL-PORTAL",
-    "GUANGDONG-YUNFU-PORTAL",
+    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+    "JIANGSU-GGZY-HOME",
+    "ZHEJIANG-GGZY-JYXXGK-LIST",
+    "SHANDONG-GGZY-JYXXGK-LIST",
+    "HUBEI-BIDCLOUD-JYXX-LIST",
+    "SICHUAN-GGZY-TRANSACTION-INFO",
 )
 
 
@@ -499,8 +503,7 @@ def _real_public_profile_html(profile_id: str) -> bytes:
     markers = profile.visible_entry_markers or profile.lightweight_public_entry_markers
     if profile.lightweight_public_entry_markers and profile_id in {
         "JZSC-NATIONAL-HOME",
-        "GUANGDONG-PROVINCIAL-PORTAL",
-        "GUANGDONG-YUNFU-PORTAL",
+        "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
     }:
         markers = profile.lightweight_public_entry_markers
     marker_text = " ".join(markers)

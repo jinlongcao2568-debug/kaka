@@ -20,9 +20,10 @@
 
 **Operating Mode and State Sources**
 - 本文件不冻结任何动态项目状态；需要时读取 `control/repo_status.md`、`control/current_task.yaml`、`control/milestone_status.yaml` 和相关 control 状态资产。
-- 默认执行模式：内部 LeadOps 产品开发以 `DIRECT_DEV_DEFAULT` 为默认入口；task packet / scoped subpacket 仅用于高风险、对外/live、机器契约或大批量治理窗口，不再作为普通开发前置门槛。
+- 默认执行模式：真实公开市场机会发现与证据包商业化产品开发以 `DIRECT_DEV_DEFAULT` 为默认入口；task packet / scoped subpacket 仅用于高风险、对外/live、机器契约或大批量治理窗口，不再作为普通开发前置门槛。
+- 产品完成标准：真实公开来源候选能进料、可解析、可核验、可形成可验证证据包和商业钩子；内部/样本链路只作为开发回归、安全演练和受控验证环境，不再单独构成实战完成。
 - 受控开放边界：外部软件 release、真实触达、真实支付、真实交付、真实退款均可作为受控开放能力推进；线索包外发仍需审批链 + 审计链；自动退款执行仍为 `EXCLUDED`。
-- 允许：内部线索运营开发与受控实现、必要的文档/机器资产最小补齐、运行脚本校验并如实汇报结果。
+- 允许：真实市场候选发现、公开来源采集、证据包商业化主线开发与受控实现、必要的文档/机器资产最小补齐、运行脚本校验并如实汇报结果。
 - 禁止：未通过 release checklist / 审批链 / 审计链 / operator action 的对外软件 release、线索包外发、触达、支付、交付或退款；自动退款执行。
 
 **Required Read Order**
@@ -52,7 +53,7 @@
 - 真实 live 的触达/支付/交付/退款/高限制字段放行动作，必须先满足门禁、审批、审计与 operator action；自动退款执行必须停机并转人工拒绝。
 
 **Direct Development Default**
-- 普通代码修复、测试修复、文档小修、局部重构、非 live 的内部功能实现，默认不要求先建立或切换 `control/current_task.yaml`。
+- 普通代码修复、测试修复、文档小修、局部重构、非 live 的真实市场候选发现/证据包商业化功能实现，默认不要求先建立或切换 `control/current_task.yaml`。
 - 普通开发默认按“定位影响面 -> 最小实现 -> 相关测试/脚本验证 -> 汇报或提交”执行。
 - 仅当改动涉及以下任一项时，才需要 controlled task packet / scoped subpacket：对外软件 release、真实触达、真实支付、真实交付、真实退款、高限制字段放行、release gate、approval/audit 语义、schema/migration、跨阶段机器契约、批量生成 handoff/schema/control、或人类明确要求走小包。
 - 人类明确说“不要小包 / 直接改 / 直接提交 / 不需要看范围”时，按 direct-dev 执行；但不得绕过对外/live、审批、审计、operator action 与自动退款禁令。

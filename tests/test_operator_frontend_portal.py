@@ -128,7 +128,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "销售闭环",
             "证据包交付候选",
             "支付交付",
-            "内部线索运营平台 / 情报生产平台 / 销售作战平台",
+            "真实公开市场机会发现 + 证据包商业化运营系统",
+            "内部/样本只作为回归模式",
             "客户不使用工作台",
             "真实可卖性判断",
             "当前能卖到哪一步",
@@ -157,6 +158,18 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "/operator-console/autonomous-opportunity-search",
             "/operator-console/autonomous-search-runs",
             "/operator-console/autonomous-search-runs/clear",
+            "/operator-console/real-candidates",
+            "/operator-console/real-candidate-stage2-captures",
+            "真实候选入库 / 去重读回",
+            "刷新真实候选库",
+            "候选详情快照 / Stage2 读回",
+            "无候选诊断 / 来源解析",
+            "refreshRealCandidateDiscoveryDiagnostics",
+            "/operator-console/real-candidate-discovery-runs",
+            "疑似 JS 列表壳，需要接列表数据源",
+            "function reasonLabel(value)",
+            "金额低于搜索下限",
+            "刷新详情快照",
             "/customer-artifact-portal/",
             "customerPortalLink",
             "data-workbench-opportunity",
@@ -195,12 +208,16 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "/operator-console/readiness",
             "/go-live/readiness",
             "/operator-console/real-world-sellability",
-            "内部测试放行状态",
+            "回归与受控放行状态",
+            "默认实战搜索已接真实公开列表页候选发现",
             "内部测试发布模拟已打开",
             "客户账号不作为内部测试前置",
             "真实邮件/电话未接入",
             "真实退款未接入，仅可模拟",
             "后台能力暴露清单",
+            "真实候选发现器",
+            "默认实战搜索会调用真实公开列表页候选发现器",
+            "详情页快照读回",
             "用户验收契约",
             "当前验收状态",
             "验收差距矩阵",
@@ -239,6 +256,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "id=\"sellabilityBoundary\"",
             "id=\"sellabilityLaneList\"",
             "id=\"stageObjectFlow\"",
+            "id=\"stageRunBoundary\"",
             "id=\"autonomousSearchPersistence\"",
             "id=\"clearAutonomousSearchRuns\"",
             "id=\"searchRegionChoices\"",
@@ -253,6 +271,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "id=\"acceptanceGapSummary\"",
             "id=\"acceptanceGapMatrix\"",
             "id=\"acceptanceDimensionList\"",
+            "id=\"realCandidateStage2Captures\"",
+            "async function loadRealCandidateStage2Captures()",
         ):
             self.assertIn(expected, html)
         for removed_duplicate in (
@@ -336,17 +356,51 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "persisted",
         )
 
+    def test_owner_console_minimal_task_creation_is_visible_in_run_overview(self) -> None:
+        client = TestClient(create_app())
+
+        created_response = client.request(
+            "POST",
+            "/operator-console/tasks",
+            json={
+                "task_id": "TASK-FRONTEND-MIN-001",
+                "project_id": "PROJ-FRONTEND-MIN-001",
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(created_response.status_code, 200)
+        created = created_response.json()
+        self.assertEqual(created["surface_id"], "operator_task_creation")
+        self.assertEqual(created["scheduler_task"]["task_id"], "TASK-FRONTEND-MIN-001")
+        self.assertEqual(created["scheduler_task"]["project_id"], "PROJ-FRONTEND-MIN-001")
+        self.assertEqual(created["scheduler_task"]["region_code"], "CN-GD")
+        self.assertEqual(created["operator_task_overview"]["task_id"], "TASK-FRONTEND-MIN-001")
+        self.assertEqual(created["operator_task_overview"]["status"], "queued")
+        self.assertFalse(created["real_external_fetch_enabled"])
+        self.assertFalse(created["live_execution_enabled"])
+
+        scheduler_response = client.request("GET", "/operator-console/scheduler-status")
+        self.assertEqual(scheduler_response.status_code, 200)
+        scheduler = scheduler_response.json()
+        self.assertEqual(scheduler["queue_status_counts"]["queued"], 1)
+        self.assertEqual(scheduler["latest_queue_item"]["task_id"], "TASK-FRONTEND-MIN-001")
+        self.assertEqual(scheduler["latest_queue_items"][0]["project_id"], "PROJ-FRONTEND-MIN-001")
+        self.assertFalse(scheduler["real_external_fetch_enabled"])
+
     def test_owner_console_real_source_runner_uses_internal_only_routes(self) -> None:
         client = TestClient(create_app())
         html = client.request("GET", "/operator-console").text
         self.assertIn(
-            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability()])',
+            'Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability()])',
             html,
         )
         self.assertIn('"/operator-console/region-adapters"', html)
         self.assertIn('"/operator-console/autonomous-opportunity-search"', html)
         self.assertIn('"/operator-console/autonomous-search-runs"', html)
         self.assertIn('"/operator-console/autonomous-search-runs/clear"', html)
+        self.assertIn('"/operator-console/real-candidates"', html)
+        self.assertIn('"/operator-console/real-candidate-stage2-captures"', html)
         self.assertIn('"/operator-console/user-acceptance-contract"', html)
         self.assertIn('"/operator-console/user-acceptance-gap-matrix"', html)
         self.assertIn('"/operator-console/real-world-sellability"', html)
@@ -359,6 +413,25 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertIn("renderCandidateBatchReview", html)
         self.assertIn("renderProviderExecutionMatrix", html)
         self.assertIn("renderCommercialBoundary", html)
+        self.assertIn("当前任务运行总览", html)
+        self.assertIn("taskRunOverviewList", html)
+        self.assertIn("renderTaskRunOverview", html)
+        self.assertIn("taskOverviewTelemetryFromQueueItem", html)
+        self.assertIn("renderStageRunBoundary", html)
+        self.assertIn("客户可售证据未就绪", html)
+        self.assertIn("真实候选缺失", html)
+        self.assertIn("upstream_stage_not_reached", html)
+        self.assertIn("<strong>9</strong><span>阶段数</span>", html)
+        self.assertIn('window.scrollTo({ top: 0, left: 0, behavior: "auto" })', html)
+        self.assertLess(
+            html.index("<h3>阶段1-9 运营总览</h3>"),
+            html.index("<h3>当前任务运行总览</h3>"),
+        )
+        self.assertLess(
+            html.index("<h3>阶段1-9 运营总览</h3>"),
+            html.index("<h3>真实可卖性判断</h3>"),
+        )
+        self.assertIn("showView(\"overview\")", html)
         self.assertIn("真实邮件/电话触达", html)
         self.assertIn('renderCandidateCards', html)
         self.assertIn('renderSearchResultFromRun', html)
@@ -387,6 +460,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         )
         self.assertIn("manual_url_picker_as_primary_flow", contract["productDefinition"]["mustNotBe"])
         self.assertIn("raw_json_dashboard_for_owner", contract["productDefinition"]["mustNotBe"])
+        self.assertIn("offline_sample_chain_as_product_completion", contract["productDefinition"]["mustNotBe"])
+        self.assertIn("真实公开来源候选自动进料", contract["productDefinition"]["completionStandard"])
         dimensions = {
             item["dimensionId"]: item
             for item in contract["acceptanceDimensions"]
@@ -426,11 +501,11 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(matrix["contractRef"], "contracts/ui/operator_user_acceptance_contract.json")
         self.assertEqual(matrix["status"], "ACTIVE")
         self.assertEqual(matrix["summary"]["totalDimensions"], 11)
-        self.assertEqual(matrix["summary"]["passCount"], 11)
-        self.assertEqual(matrix["summary"]["partialCount"], 0)
+        self.assertEqual(matrix["summary"]["passCount"], 8)
+        self.assertEqual(matrix["summary"]["partialCount"], 3)
         self.assertEqual(matrix["summary"]["notExposedCount"], 0)
         self.assertEqual(matrix["summary"]["failCount"], 0)
-        self.assertIn("真实可卖交付", matrix["summary"]["operatorConclusion"])
+        self.assertIn("真实公开列表页候选发现", matrix["summary"]["operatorConclusion"])
         dimensions = {
             item["dimensionId"]: item
             for item in matrix["dimensions"]
@@ -467,7 +542,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         )
         self.assertEqual(
             dimensions["UA-11-real-world-sellability"]["status"],
-            "PASS",
+            "PARTIAL",
         )
         self.assertEqual(
             dimensions["UA-01-product-definition-alignment"]["status"],
@@ -483,7 +558,11 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         )
         self.assertEqual(
             dimensions["UA-02-autonomous-market-to-opportunity-loop"]["status"],
-            "PASS",
+            "PARTIAL",
+        )
+        self.assertIn(
+            "真实列表页候选发现器",
+            dimensions["UA-02-autonomous-market-to-opportunity-loop"]["gaps"][0],
         )
         self.assertEqual(
             dimensions["UA-06-commercial-hook-boundary"]["status"],
@@ -491,14 +570,14 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         )
         self.assertEqual(
             dimensions["UA-07-governed-outreach-and-delivery"]["status"],
-            "PASS",
+            "PARTIAL",
         )
         self.assertEqual(
             dimensions["UA-10-chinese-information-architecture"]["status"],
             "PASS",
         )
         self.assertIn(
-            "真实 provider sandbox / live pilot",
+            "真实公开来源候选发现器",
             [item["title"] for item in matrix["topPriorities"]],
         )
 
@@ -539,6 +618,9 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "/customer-artifact-portal-download/",
             "公开来源",
             "来源网址",
+            "数据模式",
+            "客户交付判断",
+            "来源网址精度",
         ):
             self.assertIn(expected, html)
         self.assertNotIn("signed download url enabled", html.lower())
@@ -576,6 +658,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         for expected in (
             "说明",
             "未来交付方式",
+            "数据真实性边界",
             "公开来源验证",
             "证据包",
             "拟邮件发送包",
@@ -586,8 +669,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         ):
             self.assertIn(expected, package)
         self.assertFalse(package["拟邮件发送包"]["真实邮件已发送"])
+        self.assertIn("客户可交付判断", package["数据真实性边界"])
         self.assertIsInstance(package["证据项清单"], list)
         self.assertNotIn("原始读回", package)
+        self.assertNotIn("原始授权状态摘要", package["模拟下载审计"])
 
     def test_customer_artifact_portal_download_includes_search_source_context(self) -> None:
         client = TestClient(create_app())
@@ -616,6 +701,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         readback = readback_response.json()
         self.assertTrue(readback["source_verification"]["source_url"])
         self.assertIn("公开来源验证", readback["source_verification"]["verification_hint"])
+        self.assertEqual(readback["data_boundary"]["数据模式"], "离线样本验证")
+        self.assertTrue(readback["data_boundary"]["是否离线样本"])
+        self.assertFalse(readback["data_boundary"]["是否真实市场发现"])
+        self.assertIn("不可作为客户可售证据", readback["data_boundary"]["客户可交付判断"])
 
         download_response = client.request(
             "GET",
@@ -628,6 +717,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             readback["source_verification"]["source_url"],
         )
         self.assertTrue(package["证据项清单"][0]["公开来源网址"])
+        self.assertEqual(package["数据真实性边界"]["数据模式"], "离线样本验证")
+        self.assertIn("不可作为客户可售证据", package["数据真实性边界"]["客户可交付判断"])
         self.assertNotIn("source_url", package["公开来源验证"])
 
     def test_customer_artifact_portal_exposes_empty_state_for_missing_readback(self) -> None:

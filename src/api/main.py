@@ -116,6 +116,9 @@ MOUNTED_OPERATION_READBACK_KEYS = (
     "real_public_source_task_run_list",
     "real_public_source_readback",
     "region_adapter_catalog",
+    "real_candidate_catalog",
+    "real_candidate_discovery_run_list",
+    "real_candidate_stage2_capture_run_list",
     "autonomous_search_entry",
     "autonomous_search_run_list",
     "autonomous_search_run_clear",
@@ -895,6 +898,9 @@ def _build_transport_bootstrap(
                     "real_public_source_run": "/operator-console/real-source-runs",
                     "real_public_source_task_runs": "/operator-console/real-source-task-runs",
                     "real_public_source_readback": "/operator-console/real-source-runs/{snapshot_id}",
+                    "real_candidate_catalog": "/operator-console/real-candidates",
+                    "real_candidate_discovery_runs": "/operator-console/real-candidate-discovery-runs",
+                    "real_candidate_stage2_captures": "/operator-console/real-candidate-stage2-captures",
                     "full_chain_run": INTERNAL_STAGE1_TO_STAGE6_ORCHESTRATION_ENTRY[
                         "internal_orchestration_path"
                     ],

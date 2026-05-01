@@ -24,11 +24,24 @@ from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.region_adapters import (
     list_region_source_adapters,
     resolve_entry_profile_for_region,
+    resolve_region_source_adapter,
+)
+from stage1_tasking.real_candidate_discovery import (
+    REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
+    RealPublicCandidateDiscoveryService,
+    list_persisted_real_candidates,
+    list_real_candidate_discovery_runs,
 )
 from stage1_tasking.source_blueprint import Stage1SourceBlueprintOrchestrator
 from stage2_ingestion import (
     REAL_PUBLIC_ATTACHMENT_PROFILES,
     REAL_PUBLIC_ENTRY_PROFILES,
+)
+from stage2_ingestion.real_candidate_capture import (
+    DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
+    DEFAULT_DETAIL_CAPTURE_LIMIT,
+    RealCandidateStage2CaptureService,
+    list_real_candidate_stage2_captures,
 )
 from stage2_ingestion.service import Stage2Service
 from storage.db import DatabaseSession, PersistedOperatorAction, build_persisted_at
@@ -58,6 +71,24 @@ DEFAULT_AUTONOMOUS_PROJECT_TYPES = (
     "highway",
     "water_conservancy",
 )
+DEFAULT_OPERATOR_TASK_PAYLOAD = {
+    "region_code": "CN-GD",
+    "region_scope": "NATIONAL",
+    "source_family": "PROCUREMENT_NOTICE",
+    "platform_level": "NATIONAL",
+    "coverage_tier": "T0_CORE",
+    "default_route": "LIST_TO_DETAIL",
+    "review_lane": "STANDARD",
+    "carrier_type": "HTML_PAGE",
+    "procurement_regime": "OPEN_TENDER",
+    "payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
+    "source_mode": "INTERNAL_OPERATOR_TASK",
+    "run_mode": "DRY_RUN",
+    "live_execution_enabled": False,
+    "real_external_fetch_enabled": False,
+    "real_provider_call_enabled": False,
+    "external_release_enabled": False,
+}
 
 
 def _json_safe_snapshot_replay(replay: Mapping[str, Any]) -> dict[str, Any]:
@@ -113,6 +144,9 @@ def _operator_operation_readback(routes: list[dict[str, Any]] | None = None) -> 
                 "next_action_visible",
                 "raw_json_required",
                 "region_adapter_catalog",
+                "real_candidate_catalog",
+                "real_candidate_discovery_run_list",
+                "real_candidate_stage2_capture_run_list",
                 "autonomous_search_entry",
                 "autonomous_search_run_list",
                 "real_sample_autonomous_acceptance",
@@ -144,8 +178,28 @@ def preview_real_sample_autonomous_opportunity_acceptance(payload: Any) -> dict[
     return build_real_sample_autonomous_opportunity_acceptance_surface(payload)
 
 
+def _operator_task_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    task_payload = {**DEFAULT_OPERATOR_TASK_PAYLOAD, **dict(payload)}
+    project_id = str(task_payload.get("project_id") or "").strip()
+    task_id = str(task_payload.get("task_id") or "").strip()
+    if not task_id:
+        raise ValueError("task_id is required for operator task creation")
+    if not project_id:
+        raise ValueError("project_id is required for operator task creation")
+    task_payload["task_id"] = task_id
+    task_payload["project_id"] = project_id
+    task_payload.setdefault("project_name", f"内部运营任务 {project_id}")
+    task_payload.setdefault("now", utc_now_iso())
+    return task_payload
+
+
 def create_operator_task(payload: dict[str, Any]) -> dict[str, Any]:
-    response = create_stage1_scheduler_task(payload)
+    task_payload = _operator_task_payload(payload)
+    response = create_stage1_scheduler_task(task_payload)
+    scheduler_task = dict(response.get("scheduler_task", {}) or {})
+    scheduler_task["region_code"] = str(task_payload.get("region_code") or "")
+    response["scheduler_task"] = scheduler_task
+    response["queue_item_id"] = str(scheduler_task.get("queue_item_id") or "")
     response.update(
         {
             "surface_id": "operator_task_creation",
@@ -156,6 +210,9 @@ def create_operator_task(payload: dict[str, Any]) -> dict[str, Any]:
             "real_external_fetch_enabled": False,
             "unregistered_capture_enabled": False,
             "live_execution_enabled": False,
+            "operator_task_overview": _queue_item_summary(
+                WorkerQueueRepository().get(str(dict(response.get("scheduler_task", {}) or {}).get("queue_item_id") or ""))
+            ),
         }
     )
     return response
@@ -178,7 +235,12 @@ def import_operator_project(payload: dict[str, Any]) -> dict[str, Any]:
     if not project_id:
         raise ValueError("project_id is required for project import readiness")
     task_payload = {
-        **dict(payload),
+        **_operator_task_payload(
+            {
+                **dict(payload),
+                "task_id": str(payload.get("task_id") or f"IMPORT-{project_id}"),
+            }
+        ),
         "task_id": str(payload.get("task_id") or f"IMPORT-{project_id}"),
         "source_mode": str(payload.get("source_mode") or "INTERNAL_PROJECT_IMPORT"),
         "project_import_entry": True,
@@ -247,6 +309,7 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
     del payload
     region_surface = list_operator_region_adapters()
     search_runs = list_operator_autonomous_search_runs()
+    stage2_captures = list_operator_real_candidate_stage2_captures()
     go_live = preview_go_live_readiness({})
     runs = list(search_runs.get("runs", []) or [])
     latest_run = dict(runs[0]) if runs else {}
@@ -254,6 +317,28 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
         1
         for run in runs
         if str(run.get("search_state") or "") == "AUTONOMOUS_SEARCH_ACCEPTED"
+    )
+    real_market_run_count = sum(
+        1
+        for run in runs
+        if bool(run.get("real_market_discovery"))
+        and not bool(run.get("offline_sample_validation"))
+        and str(run.get("source_candidate_mode") or "") not in {"", "OFFLINE_SAMPLE_CANDIDATES", "REAL_SOURCE_REQUIRED"}
+        and _as_int(dict(run.get("search_scope", {}) or {}).get("candidate_count"), 0) > 0
+    )
+    customer_sellable_ready_count = sum(
+        1
+        for run in runs
+        if bool(run.get("customer_sellable_evidence_ready"))
+    )
+    stage2_detail_snapshot_count = sum(
+        1
+        for capture in list(stage2_captures.get("captures", []) or [])
+        if str(capture.get("detail_snapshot_id_optional") or "").strip()
+    )
+    stage2_attachment_snapshot_count = sum(
+        _as_int(capture.get("attachment_snapshot_count"), 0)
+        for capture in list(stage2_captures.get("captures", []) or [])
     )
     latest_opportunity_id = str(latest_run.get("opportunity_id") or "")
     dedicated_region_count = len(region_surface.get("dedicated_local_profile_region_codes", []) or [])
@@ -272,19 +357,22 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
         _sellability_lane(
             lane_id="market_scan_to_opportunity",
             title="市场扫描到机会",
-            status="PASS" if accepted_run_count else "PARTIAL",
+            status="PASS" if real_market_run_count else "PARTIAL",
             current_state=(
-                f"已读回 {len(runs)} 个搜索商机，{accepted_run_count} 个形成闭环。"
+                f"已读回 {len(runs)} 个搜索记录，{accepted_run_count} 个形成内部/样本闭环；真实列表页候选进料记录 {real_market_run_count} 个。"
                 if runs
-                else "尚未在当前本地仓库读回搜索商机。"
+                else "尚未在当前本地仓库读回搜索记录。"
             ),
             evidence=[
                 "/operator-console/autonomous-search-runs",
                 "/operator-console/autonomous-opportunity-search",
             ],
-            gaps=[] if accepted_run_count else ["需要至少运行一次实战搜索形成可售机会读回。"],
+            gaps=[] if real_market_run_count else [
+                "需要至少一次真实公开列表页候选发现命中并生成 notice_candidates。",
+                "离线样本或显式候选只能算回归模式，不能算真实市场进料完成。",
+            ],
             next_actions=[
-                "从实战搜索选择地区、类型和金额区间运行一次闭环。",
+                "继续硬化真实列表页搜索、公告解析、候选去重入库，并把真实候选稳定喂给 Stage1。",
             ],
         ),
         _sellability_lane(
@@ -298,50 +386,57 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
             gaps=(
                 []
                 if dedicated_region_count >= region_count and region_count
-                else ["部分地区仍依赖全国兜底或待补本地公开源入口。"]
+                else ["部分地区本省实时公开源入口待补；全国平台只用于全国搜索，不能代替地方来源。"]
             ),
             next_actions=["补商业重点地区的本地公开源入口和失败诊断。"],
         ),
         _sellability_lane(
             lane_id="evidence_quality",
             title="证据质量与来源回链",
-            status="PASS" if latest_opportunity_id else "PARTIAL",
+            status="PASS" if customer_sellable_ready_count else "PARTIAL",
             current_state=(
-                "最新机会已可进入证据包预览并回到公开来源验证。"
-                if latest_opportunity_id
-                else "证据包能力已接入，但当前没有最新机会读回。"
+                "已有客户可售证据包就绪记录。"
+                if customer_sellable_ready_count
+                else f"证据包预览链路已接入；真实候选详情快照已读回 {stage2_detail_snapshot_count} 条，同站附件原文快照 {stage2_attachment_snapshot_count} 条，但客户可售证据未就绪。"
             ),
             evidence=[
+                "/operator-console/real-candidate-stage2-captures",
                 "/customer-artifact-portal/{opportunity_id}",
                 "/customer-artifact-portal-download/{opportunity_id}",
             ],
-            gaps=[] if latest_opportunity_id else ["需要一条最新机会来绑定证据包预览和下载。"],
-            next_actions=["用最新搜索机会打开证据包预览，核对来源网址、字段策略和下载审计。"],
+            gaps=[] if customer_sellable_ready_count else [
+                "需要真实详情页/附件快照正式进入 Stage4-9 解析、核验、证据包链路。",
+                "需要来源网址、快照哈希、字段策略和可售判断同时就绪。"
+            ],
+            next_actions=["把真实公开来源快照接入 Stage4-9，再核对来源网址、字段策略和下载审计。"],
         ),
         _sellability_lane(
             lane_id="commercial_hook",
             title="商业钩子与买家匹配",
-            status="PASS" if latest_opportunity_id else "PARTIAL",
+            status="PASS" if customer_sellable_ready_count else "PARTIAL",
             current_state=(
-                "机会工作台已展示商业钩子、买家排序、证据强度和下一步动作。"
-                if latest_opportunity_id
-                else "商业钩子工作台已接入，等待最新机会数据。"
+                "真实客户可售证据已支撑商业钩子。"
+                if customer_sellable_ready_count
+                else "机会工作台已能展示商业钩子、买家排序、证据强度和下一步动作；真实市场证据支撑仍需接入。"
             ),
             evidence=["/operator-console/autonomous-workbench"],
-            gaps=[] if latest_opportunity_id else ["需要最新机会来展示真实钩子读回。"],
-            next_actions=["把可讲卖点、暂不外泄字段和报价草稿继续压到一屏可卖性摘要。"],
+            gaps=[] if customer_sellable_ready_count else ["需要真实候选和真实证据快照支撑可售钩子，不能只用样本钩子。"],
+            next_actions=["把真实来源证据强度、可讲卖点、暂不外泄字段和报价草稿压到一屏可卖性摘要。"],
         ),
         _sellability_lane(
             lane_id="leadpack_delivery_candidate",
             title="线索包交付候选",
-            status="PASS" if latest_opportunity_id else "PARTIAL",
+            status="PASS" if customer_sellable_ready_count else "PARTIAL",
             current_state=(
-                "内部证据包预览和下载可用；客户真实下载仍不自动开放。"
-                if latest_opportunity_id
-                else "内部证据包预览可用，等待机会绑定后验收。"
+                "客户可售证据包候选已就绪。"
+                if customer_sellable_ready_count
+                else "内部证据包预览可用，等待真实机会绑定后验收。"
             ),
-            evidence=["/customer-artifact-access-candidates/{opportunity_id}"],
+            evidence=[
+                "/customer-artifact-access-candidates/{opportunity_id}",
+            ],
             gaps=[
+                "客户可售证据包需要真实市场候选和真实来源快照支撑。",
                 "真实客户下载需要账号/审批/审计/下载授权，不因内部预览而自动开放。"
             ],
             next_actions=["保留内部预览，后续接真实交付前补审批和下载授权读回。"],
@@ -372,7 +467,8 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
 
     external_sellable_now = bool(
         latest_opportunity_id
-        and accepted_run_count
+        and real_market_run_count
+        and customer_sellable_ready_count
         and real_provider_ready
         and real_touch_ready
         and real_payment_ready
@@ -386,26 +482,39 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
         "readiness_only": True,
         "projection_only": True,
         "raw_json_required": False,
-        "ua11_satisfied": True,
+        "ua11_satisfied": False,
+        "real_world_product_completion_satisfied": False,
         "live_execution_enabled": False,
         "external_release_enabled": False,
         "public_software_release": False,
         "real_provider_call_enabled": False,
         "automated_refund_enabled": False,
         "sellability_summary": {
-            "sellability_level": "内部实战可判断，真实成交交付待接入",
+            "sellability_level": "真实实战未完成：缺真实快照入链和客户可售证据"
+            if real_market_run_count or stage2_detail_snapshot_count
+            else "真实实战未完成：缺真实市场候选进料",
             "owner_decision": (
-                "可以用来内部实战筛选机会、查看证据包和判断销售价值；"
-                "暂不能宣称真实客户触达、真实支付和真实交付已闭合。"
+                "内部/样本链路可用于回归、观察和证据包预览；"
+                "真实列表页候选发现、详情快照读回和同站附件原文快照已进入最小闭环，但客户可售前仍需 Stage4-9 证据回链。"
+                if real_market_run_count or stage2_detail_snapshot_count
+                else "默认实战搜索尚未命中真实公开来源候选，不能宣称真实可售。"
             ),
             "latest_opportunity_id": latest_opportunity_id,
             "accepted_run_count": accepted_run_count,
+            "real_market_run_count": real_market_run_count,
+            "stage2_detail_snapshot_count": stage2_detail_snapshot_count,
+            "stage2_attachment_snapshot_count": stage2_attachment_snapshot_count,
+            "customer_sellable_ready_count": customer_sellable_ready_count,
             "observed_stage_count": observed_stage_count,
             "external_sellable_now": external_sellable_now,
             "lane_counts": counts,
         },
         "boundary": {
-            "internal_search_and_evidence_package_review": bool(latest_opportunity_id or region_count),
+            "regression_search_and_evidence_package_review": bool(latest_opportunity_id or region_count),
+            "real_market_candidate_feed_ready": bool(real_market_run_count),
+            "real_detail_snapshot_feed_ready": bool(stage2_detail_snapshot_count),
+            "real_attachment_snapshot_feed_ready": bool(stage2_attachment_snapshot_count),
+            "customer_sellable_evidence_ready": bool(customer_sellable_ready_count),
             "leadpack_delivery_candidate_visible": bool(latest_opportunity_id),
             "real_customer_touch_enabled": real_touch_ready,
             "real_payment_enabled": bool(controlled.get("real_payment_enabled", False)),
@@ -414,15 +523,16 @@ def preview_operator_real_world_sellability(payload: Mapping[str, Any] | None = 
         },
         "lanes": lanes,
         "remaining_real_world_closures": [
-            "阶段1-9细粒度运行读回",
+            "真实公开来源候选发现器硬化：更多列表页搜索、公告解析、候选去重入库",
+            "真实详情页/附件快照已接首段；继续补 Stage4-9 正式消费",
             "重点地区本地适配器覆盖",
             "真实触达 provider sandbox 与审批审计",
             "真实支付/交付 provider sandbox 与回写治理",
-            "显式数据保留与清空控制",
         ],
         "source_readbacks": {
             "region_adapter_count": region_count,
             "latest_search_run_id": latest_run.get("run_id"),
+            "stage2_detail_snapshot_count": stage2_detail_snapshot_count,
             "go_live_enabled": bool(go_live.get("go_live_enabled", False)),
             "remaining_blockers": list(go_live.get("remaining_blockers", [])),
         },
@@ -434,6 +544,47 @@ def _queue_status_counts() -> dict[str, int]:
     for item in WorkerQueueRepository().list():
         counts[item.status] = counts.get(item.status, 0) + 1
     return counts
+
+
+def _queue_item_summary(item: Any) -> dict[str, Any]:
+    if item is None:
+        return {}
+    payload = dict(getattr(item, "payload", {}) or {})
+    scheduler_task = dict(payload.get("scheduler_task", {}) or {})
+    stage1_inputs = dict(payload.get("stage1_inputs", {}) or {})
+    handoff = dict(
+        scheduler_task.get("stage2_handoff_intent", {})
+        or payload.get("stage2_handoff_intent", {})
+        or {}
+    )
+    handoff_payload = dict(handoff.get("handoff_payload", {}) or {})
+    trace_refs = dict(getattr(item, "trace_refs", {}) or {})
+    audit_refs = dict(getattr(item, "audit_refs", {}) or {})
+    return {
+        "queue_item_id": str(getattr(item, "queue_item_id", "") or ""),
+        "queue_name": str(getattr(item, "queue_name", "") or ""),
+        "status": str(getattr(item, "status", "") or ""),
+        "task_id": str(scheduler_task.get("task_id") or trace_refs.get("task_id") or ""),
+        "project_id": str(scheduler_task.get("project_id") or trace_refs.get("project_id") or ""),
+        "region_code": str(stage1_inputs.get("region_code") or handoff_payload.get("region_code") or ""),
+        "source_registry_id": str(scheduler_task.get("source_registry_id") or trace_refs.get("source_registry_id") or ""),
+        "route_policy_id": str(scheduler_task.get("route_policy_id") or trace_refs.get("route_policy_id") or ""),
+        "stage2_handoff_intent_state": str(handoff.get("intent_state") or ""),
+        "priority": getattr(item, "priority", None),
+        "attempt_count": getattr(item, "attempt_count", None),
+        "max_attempts": getattr(item, "max_attempts", None),
+        "next_run_at": getattr(item, "next_run_at", None),
+        "created_at": getattr(item, "created_at", None),
+        "updated_at": getattr(item, "updated_at", None),
+        "last_error": getattr(item, "last_error", None),
+        "audit_ref": audit_refs.get("scheduling_audit_id") or audit_refs.get("run_audit_ref") or "",
+    }
+
+
+def _latest_queue_item_summaries(limit: int = 8) -> list[dict[str, Any]]:
+    items = WorkerQueueRepository().list()
+    items.sort(key=lambda item: str(getattr(item, "updated_at", "") or ""), reverse=True)
+    return [_queue_item_summary(item) for item in items[:limit]]
 
 
 def _entry_profiles_readback() -> list[dict[str, Any]]:
@@ -522,11 +673,119 @@ def list_operator_region_adapters(payload: Mapping[str, Any] | None = None) -> d
     }
 
 
+def _overlay_stage2_capture_on_candidate(
+    candidate: Mapping[str, Any],
+    capture: Mapping[str, Any],
+) -> dict[str, Any]:
+    row = dict(candidate)
+    fields = dict(capture.get("detail_fields", {}) or {})
+    detail_snapshot_id = str(capture.get("detail_snapshot_id_optional") or "")
+    attachment_captures = list(capture.get("attachment_captures", []) or [])
+    attachment_snapshot_ids = [
+        str(item.get("attachment_snapshot_id_optional") or "")
+        for item in attachment_captures
+        if str(item.get("attachment_snapshot_id_optional") or "")
+    ]
+    row["stage2_detail_capture_state"] = str(capture.get("detail_capture_status") or "")
+    row["stage2_detail_snapshot_id_optional"] = detail_snapshot_id
+    row["stage3_detail_parse_state"] = str(capture.get("stage3_parse_state") or "")
+    row["stage2_attachment_link_count"] = _as_int(capture.get("attachment_link_count"), 0)
+    row["stage2_attachment_snapshot_count"] = len(attachment_snapshot_ids)
+    row["stage2_attachment_snapshot_ids"] = attachment_snapshot_ids
+    row["stage2_attachment_captures"] = attachment_captures
+    if fields.get("project_name"):
+        row["project_name"] = str(fields["project_name"])
+    if fields.get("notice_stage"):
+        row["notice_stage"] = str(fields["notice_stage"])
+    if fields.get("amount") is not None:
+        row["amount"] = fields["amount"]
+        row["estimated_amount"] = fields["amount"]
+        row["amount_parse_state"] = fields.get("amount_parse_state") or "DETAIL_TEXT"
+    if fields.get("candidate_company"):
+        row["candidate_company"] = str(fields["candidate_company"])
+        row["candidate_company_parse_state"] = fields.get("candidate_company_parse_state") or "DETAIL_TEXT"
+    if fields.get("objection_deadline_at_optional"):
+        row["objection_deadline_at_optional"] = str(fields["objection_deadline_at_optional"])
+    if detail_snapshot_id:
+        row["source_document_ref"] = detail_snapshot_id
+        row["source_slice_ref"] = detail_snapshot_id
+        row["real_snapshot_ids"] = [
+            value
+            for value in [
+                str(row.get("snapshot_id_optional") or ""),
+                detail_snapshot_id,
+                *attachment_snapshot_ids,
+            ]
+            if value
+        ]
+    key_fields = set(str(item) for item in list(row.get("key_fields_present", []) or []) if item)
+    for key in ("project_name", "notice_stage", "candidate_company"):
+        if row.get(key):
+            key_fields.add(key)
+    row["key_fields_present"] = sorted(key_fields)
+    row["sellability_evidence_state"] = (
+        "REAL_DETAIL_AND_ATTACHMENT_SNAPSHOTS_PARSED_NEEDS_STAGE4_TO_STAGE9"
+        if detail_snapshot_id and attachment_snapshot_ids
+        else "REAL_DETAIL_SNAPSHOT_PARSED_NEEDS_STAGE4_TO_STAGE9"
+        if detail_snapshot_id
+        else row.get("sellability_evidence_state")
+    )
+    row["truth_boundary"] = (
+        "真实候选库已合并最新详情/附件快照读回；客户可售前仍需 Stage4-9 正式消费快照并完成证据回链。"
+        if detail_snapshot_id
+        else row.get("truth_boundary")
+    )
+    row["stage2_capture_overlay_applied"] = bool(capture)
+    return row
+
+
+def list_operator_real_candidates(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    limit = _as_int((payload or {}).get("limit"), 100) if isinstance(payload, Mapping) else 100
+    catalog = list_persisted_real_candidates(limit=limit)
+    captures = list_real_candidate_stage2_captures(limit=limit)
+    capture_by_key = {
+        str(capture.get("candidate_key") or ""): capture
+        for capture in list(captures.get("captures", []) or [])
+        if str(capture.get("candidate_key") or "")
+    }
+    catalog["candidates"] = [
+        _overlay_stage2_capture_on_candidate(candidate, capture_by_key[str(candidate.get("candidate_key") or "")])
+        if str(candidate.get("candidate_key") or "") in capture_by_key
+        else candidate
+        for candidate in list(catalog.get("candidates", []) or [])
+    ]
+    catalog["stage2_capture_overlay_applied"] = bool(capture_by_key)
+    catalog["stage2_capture_overlay_count"] = sum(
+        1
+        for candidate in list(catalog.get("candidates", []) or [])
+        if bool(candidate.get("stage2_capture_overlay_applied"))
+    )
+    catalog["stage2_capture_catalog_count"] = _as_int(captures.get("capture_count"), 0)
+    return catalog
+
+
+def list_operator_real_candidate_discovery_runs(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    limit = _as_int((payload or {}).get("limit"), 50) if isinstance(payload, Mapping) else 50
+    return list_real_candidate_discovery_runs(limit=limit)
+
+
+def list_operator_real_candidate_stage2_captures(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    limit = _as_int((payload or {}).get("limit"), 100) if isinstance(payload, Mapping) else 100
+    return list_real_candidate_stage2_captures(limit=limit)
+
+
 def _as_float(value: Any, default: float) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value not in (None, ""):
+            return value
+    return None
 
 
 def _as_int(value: Any, default: int) -> int:
@@ -601,9 +860,9 @@ def _search_candidate_from_payload(
     region_code = str(region_adapter.get("region_code") or payload.get("region_code") or "CN-NATIONAL")
     keyword = str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or "工程项目").strip()
     project_type = str(payload.get("project_type") or "construction").strip() or "construction"
-    amount_min = _as_float(payload.get("amount_min") or payload.get("minimum_amount"), 1_000_000.0)
+    amount_min = _as_float(_first_present(payload.get("amount_min"), payload.get("minimum_amount")), 1_000_000.0)
     amount_max = _as_float(
-        payload.get("amount_max") or payload.get("maximum_amount") or payload.get("amount"),
+        _first_present(payload.get("amount_max"), payload.get("maximum_amount"), payload.get("amount")),
         12_000_000.0,
     )
     if amount_max < amount_min:
@@ -655,6 +914,25 @@ def _search_candidate_from_payload(
     }
 
 
+def _resolve_entry_profile_for_search(
+    region_code: str,
+    *,
+    requested_profile_id: str | None = None,
+) -> dict[str, Any]:
+    try:
+        return resolve_entry_profile_for_region(
+            region_code,
+            requested_profile_id=requested_profile_id,
+        )
+    except ValueError as exc:
+        if not str(exc).startswith("region_adapter_profile_missing:"):
+            raise
+        return {
+            "region_adapter": resolve_region_source_adapter(region_code),
+            "entry_profile": {},
+        }
+
+
 def _internal_chain_payload_from_search(
     payload: Mapping[str, Any],
     *,
@@ -664,6 +942,30 @@ def _internal_chain_payload_from_search(
     now: str,
 ) -> dict[str, Any]:
     capture_plan = dict(source_blueprint.get("stage2_capture_plan", {}) or {})
+    candidate_source_mode = str(candidate.get("source_candidate_mode") or "")
+    detail_snapshot_ref = str(
+        candidate.get("source_document_ref")
+        or candidate.get("stage2_detail_snapshot_id_optional")
+        or payload.get("source_document_ref")
+        or build_id("DOC", candidate.get("project_id") or "SEARCH")
+    )
+    slice_snapshot_ref = str(
+        candidate.get("source_slice_ref")
+        or candidate.get("stage2_detail_snapshot_id_optional")
+        or payload.get("source_slice_ref")
+        or build_id("SLICE", candidate.get("project_id") or "SEARCH")
+    )
+    real_snapshot_ids = [
+        str(item)
+        for item in list(candidate.get("real_snapshot_ids", []) or [])
+        if str(item)
+    ]
+    if detail_snapshot_ref.startswith("REAL-") and detail_snapshot_ref not in real_snapshot_ids:
+        real_snapshot_ids.append(detail_snapshot_ref)
+    for attachment_snapshot_id in list(candidate.get("stage2_attachment_snapshot_ids", []) or []):
+        value = str(attachment_snapshot_id or "")
+        if value and value not in real_snapshot_ids:
+            real_snapshot_ids.append(value)
     return {
         "now": now,
         "task_id": str(payload.get("task_id") or build_id("TASK", market_scan.get("scan_run_id") or "SEARCH")),
@@ -679,8 +981,15 @@ def _internal_chain_payload_from_search(
         "review_lane": str(payload.get("review_lane") or "STANDARD"),
         "carrier_type": str(payload.get("carrier_type") or "HTML_PAGE"),
         "announcement_url": str(candidate.get("source_url") or payload.get("announcement_url") or "https://example.invalid/notice/search"),
-        "source_document_ref": str(payload.get("source_document_ref") or build_id("DOC", candidate.get("project_id") or "SEARCH")),
-        "source_slice_ref": str(payload.get("source_slice_ref") or build_id("SLICE", candidate.get("project_id") or "SEARCH")),
+        "source_document_ref": detail_snapshot_ref,
+        "source_slice_ref": slice_snapshot_ref,
+        "real_snapshot_ids": real_snapshot_ids,
+        "stage2_detail_snapshot_id_optional": str(candidate.get("stage2_detail_snapshot_id_optional") or ""),
+        "stage2_attachment_snapshot_ids": [
+            str(item)
+            for item in list(candidate.get("stage2_attachment_snapshot_ids", []) or [])
+            if str(item)
+        ],
         "normalization_rule_id": str(payload.get("normalization_rule_id") or "NR-001"),
         "parser_confidence_score": _as_float(payload.get("parser_confidence_score"), 0.92),
         "procurement_regime": str(payload.get("procurement_regime") or "OPEN_TENDER"),
@@ -700,8 +1009,12 @@ def _internal_chain_payload_from_search(
         "quiet_hours_policy_state": str(payload.get("quiet_hours_policy_state") or "ALLOW"),
         "response_status": str(payload.get("response_status") or "NO_RESPONSE"),
         "crm_owner_state": str(payload.get("crm_owner_state") or "UNASSIGNED"),
-        "payload_boundary": "SANITIZED_OFFLINE_INTERNAL",
-        "source_mode": "OFFLINE_REAL_PUBLIC_SAMPLE",
+        "payload_boundary": "REAL_PUBLIC_INTERNAL_REPLAY"
+        if candidate_source_mode == "REAL_PUBLIC_SOURCE_CANDIDATES"
+        else "SANITIZED_OFFLINE_INTERNAL",
+        "source_mode": "REAL_PUBLIC_CANDIDATE_DETAIL_CAPTURE"
+        if candidate_source_mode == "REAL_PUBLIC_SOURCE_CANDIDATES"
+        else "OFFLINE_REAL_PUBLIC_SAMPLE",
         "run_mode": "DRY_RUN",
         "automation_level": "AUTONOMOUS",
         "approval_state": "NOT_REQUIRED",
@@ -823,11 +1136,14 @@ def _build_autonomous_runtime_flow(
                 "scan_run_id": market_scan.get("scan_run_id"),
                 "selected_project_id": candidate.get("project_id"),
                 "selected_opportunity_candidate_id": candidate.get("opportunity_candidate_id"),
+                "passed_filter_candidate_count": selected_candidates,
+                "review_candidate_count": review_candidates,
+                "filtered_candidate_count": skipped_candidates,
                 "region_codes": requested_regions_text,
                 "project_types": requested_project_types_text,
             },
             failure_reasons=stage1_reasons,
-            next_action="保留入选候选并进入来源蓝图。",
+            next_action="保留所有通过过滤的候选并进入来源蓝图。",
         ),
         _runtime_stage(
             stage=2,
@@ -935,10 +1251,25 @@ def _build_autonomous_runtime_flow(
     total_produced = sum(row["produced_count"] for row in stage_stats)
     total_effective = sum(row["effective_count"] for row in stage_stats)
     total_invalid = sum(row["invalid_count"] for row in stage_stats)
+    source_candidate_mode = str(candidate.get("source_candidate_mode") or "EXPLICIT_CANDIDATES")
+    offline_sample_validation = bool(candidate.get("is_offline_sample_candidate")) or source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
+    data_boundary_message = (
+        "离线样本只验证 Stage1-9、工作台和证据包链路；不能当作真实市场发现或客户可售证据。"
+        if offline_sample_validation
+        else "真实列表页候选已进入内部闭环；客户可交付前仍需核验真实来源详情页、附件和证据回链。"
+        if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+        else "显式候选已进入内部闭环；客户可交付前仍需核验真实来源详情页、附件和证据回链。"
+    )
     return {
         "surface_id": "autonomous_search_runtime_flow",
-        "flow_mode": "内部实战测试闭环",
+        "flow_mode": "真实候选内部闭环" if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE else "内部实战测试闭环",
         "direction": "地区机会扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 客户材料候选",
+        "source_candidate_mode": source_candidate_mode,
+        "real_market_discovery": not offline_sample_validation,
+        "real_candidate_discovery_attempted": source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
+        "offline_sample_validation": offline_sample_validation,
+        "customer_sellable_evidence_ready": False,
+        "data_boundary_message": data_boundary_message,
         "test_path_unblocked": True,
         "live_delivery_gates_preserved": True,
         "amount_range": {
@@ -957,10 +1288,10 @@ def _build_autonomous_runtime_flow(
         },
         "logs": [
             "收到搜索条件并生成候选项目。",
-            f"阶段1 选择 {selected_candidates}/{input_candidates} 个候选机会。",
+            f"阶段1 过滤后通过 {selected_candidates}/{input_candidates} 个候选机会。",
             f"阶段2 生成 {len(capture_steps)} 个采集计划步骤。",
             "阶段3-9已在内部链路生成结构化对象、商业钩子和交付候选。",
-            "真实对外交付门禁保留；内部测试链路可完整跑通。",
+            "真实对外交付门禁保留；内部/样本链路仅代表回归跑通。",
         ],
     }
 
@@ -990,15 +1321,38 @@ def _candidate_option_surface(
                 "project_type": str(row.get("project_type") or raw.get("project_type") or ""),
                 "project_type_label": _project_type_label(str(row.get("project_type") or raw.get("project_type") or "")),
                 "amount": row.get("amount"),
+                "candidate_company": str(raw.get("candidate_company") or row.get("candidate_company") or ""),
                 "amount_min": amount_min,
                 "amount_max": amount_max,
                 "analysis_score": row.get("analysis_score"),
                 "analysis_decision": str(row.get("analysis_decision") or ""),
                 "analysis_priority": str(row.get("analysis_priority") or ""),
                 "selected_for_capture_plan": bool(row.get("selected_for_capture_plan")),
+                "why_analyze": list(row.get("why_analyze", []) or []),
+                "why_skip": list(row.get("why_skip", []) or []),
+                "review_reasons": list(row.get("review_reasons", []) or []),
+                "score_components": dict(row.get("score_components", {}) or {}),
                 "source_url": str(raw.get("source_url") or source_refs.get("source_url") or ""),
                 "source_profile_id": str(raw.get("source_profile_id") or ""),
                 "source_site_name": str(raw.get("source_site_name") or ""),
+                "source_candidate_mode": str(raw.get("source_candidate_mode") or ""),
+                "is_offline_sample_candidate": bool(raw.get("is_offline_sample_candidate")),
+                "sellability_evidence_state": str(raw.get("sellability_evidence_state") or ""),
+                "truth_boundary": str(raw.get("truth_boundary") or ""),
+                "candidate_key": str(raw.get("candidate_key") or ""),
+                "source_entry_url": str(raw.get("source_entry_url") or ""),
+                "snapshot_id_optional": str(raw.get("snapshot_id_optional") or ""),
+                "entry_fetch_status": str(raw.get("entry_fetch_status") or ""),
+                "amount_parse_state": str(raw.get("amount_parse_state") or ""),
+                "region_parse_state": str(raw.get("region_parse_state") or ""),
+                "candidate_company_parse_state": str(raw.get("candidate_company_parse_state") or ""),
+                "stage2_detail_capture_state": str(raw.get("stage2_detail_capture_state") or ""),
+                "stage2_detail_snapshot_id_optional": str(raw.get("stage2_detail_snapshot_id_optional") or ""),
+                "stage3_detail_parse_state": str(raw.get("stage3_detail_parse_state") or ""),
+                "stage2_attachment_link_count": _as_int(raw.get("stage2_attachment_link_count"), 0),
+                "stage2_attachment_snapshot_count": _as_int(raw.get("stage2_attachment_snapshot_count"), 0),
+                "published_at_optional": str(raw.get("published_at_optional") or ""),
+                "publication_window_state": str(raw.get("publication_window_state") or ""),
             }
         )
     return options
@@ -1090,8 +1444,10 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
     )
     resolved_by_region: dict[str, dict[str, Any]] = {}
     raw_candidates: list[dict[str, Any]] = []
+    real_candidate_discovery: dict[str, Any] = {}
+    real_candidate_stage2_capture: dict[str, Any] = {}
     for requested_region_code in requested_region_codes:
-        resolved = resolve_entry_profile_for_region(
+        resolved = _resolve_entry_profile_for_search(
             requested_region_code,
             requested_profile_id=str(payload.get("profile_id") or payload.get("entry_profile_id") or "").strip()
             or None,
@@ -1103,10 +1459,18 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "entry_profile": entry_profile_for_candidate,
         }
     if explicit_candidate_list:
-        raw_candidates = explicit_candidate_list
+        raw_candidates = []
+        for candidate in explicit_candidate_list:
+            row = dict(candidate)
+            row.setdefault("source_candidate_mode", "EXPLICIT_CANDIDATES")
+            row.setdefault("is_offline_sample_candidate", False)
+            row.setdefault("sellability_evidence_state", "EXPLICIT_SOURCE_REVIEW_REQUIRED")
+            raw_candidates.append(row)
     elif offline_sample_candidates_enabled:
         for region_index, requested_region_code in enumerate(requested_region_codes):
             resolved = resolved_by_region.get(str(requested_region_code)) or next(iter(resolved_by_region.values()))
+            if not dict(resolved.get("entry_profile") or {}):
+                continue
             region_adapter_for_candidate = dict(resolved["region_adapter"])
             entry_profile_for_candidate = dict(resolved["entry_profile"])
             for type_index, requested_project_type in enumerate(requested_project_types):
@@ -1118,22 +1482,80 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 if len(requested_region_codes) > 1 or len(requested_project_types) > 1:
                     candidate_payload["multi_search_candidate_index"] = f"{region_index + 1}-{type_index + 1}"
                 raw_candidates.append(
-                    _search_candidate_from_payload(
-                        candidate_payload,
-                        region_adapter=region_adapter_for_candidate,
-                        entry_profile=entry_profile_for_candidate,
-                        now=now,
-                    )
+                    {
+                        **_search_candidate_from_payload(
+                            candidate_payload,
+                            region_adapter=region_adapter_for_candidate,
+                            entry_profile=entry_profile_for_candidate,
+                            now=now,
+                        ),
+                        "source_candidate_mode": "OFFLINE_SAMPLE_CANDIDATES",
+                        "is_offline_sample_candidate": True,
+                        "sellability_evidence_state": "SAMPLE_NOT_CUSTOMER_SELLABLE",
+                        "truth_boundary": "离线样本只验证后续链路，不代表真实市场发现或可售证据。",
+                    }
                 )
+    else:
+        real_candidate_discovery = RealPublicCandidateDiscoveryService().discover(
+            {
+                **dict(payload),
+                "region_codes": requested_region_codes,
+                "project_types": requested_project_types,
+                "amount_min": _as_float(_first_present(payload.get("amount_min"), payload.get("minimum_amount")), 1_000_000.0),
+                "amount_max": _as_float(
+                    _first_present(payload.get("amount_max"), payload.get("maximum_amount"), payload.get("amount")),
+                    30_000_000.0,
+                ),
+                "now": now,
+            },
+            now=now,
+        )
+        raw_candidates = [
+            dict(candidate)
+            for candidate in list(real_candidate_discovery.get("candidates", []) or [])
+            if isinstance(candidate, Mapping)
+        ]
+        if raw_candidates and not _truthy(payload.get("disable_real_candidate_stage2_capture")):
+            real_candidate_stage2_capture = RealCandidateStage2CaptureService().capture_candidates(
+                raw_candidates,
+                now=now,
+                detail_capture_limit=_as_int(
+                    payload.get("detail_capture_limit")
+                    or payload.get("real_candidate_detail_capture_limit"),
+                    DEFAULT_DETAIL_CAPTURE_LIMIT,
+                ),
+                attachment_capture_limit=_as_int(
+                    payload.get("attachment_capture_limit")
+                    or payload.get("real_candidate_attachment_capture_limit"),
+                    DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
+                ),
+            )
+            raw_candidates = [
+                dict(candidate)
+                for candidate in list(real_candidate_stage2_capture.get("enriched_candidates", []) or raw_candidates)
+                if isinstance(candidate, Mapping)
+            ]
     if not raw_candidates:
+        discovery_attempted = bool(real_candidate_discovery)
+        no_candidate_mode = REAL_PUBLIC_SOURCE_CANDIDATE_MODE if discovery_attempted else "REAL_SOURCE_REQUIRED"
+        no_candidate_reason = (
+            "real_public_candidate_discovery_returned_no_candidates"
+            if discovery_attempted
+            else "real_search_requires_source_candidates_or_explicit_offline_sample_mode"
+        )
+        no_candidate_message = (
+            "已调用真实公开列表页候选发现器，但本次没有解析到符合地区、类型和金额区间的候选；没有生成机会。"
+            if discovery_attempted
+            else "默认实战搜索未读取到真实来源候选，因此没有生成机会；系统没有合成样本机会。"
+        )
         primary_region_code = requested_region_codes[0] if requested_region_codes else region_code
-        resolved = resolved_by_region.get(str(primary_region_code)) or resolve_entry_profile_for_region(primary_region_code)
+        resolved = resolved_by_region.get(str(primary_region_code)) or _resolve_entry_profile_for_search(primary_region_code)
         region_adapter = dict(resolved["region_adapter"])
         entry_profile = dict(resolved["entry_profile"])
         result = {
             "surface_id": "operator_autonomous_opportunity_search",
             "search_state": "NO_CANDIDATES",
-            "capability_state": "REAL_SOURCE_ADAPTER_REQUIRED",
+            "capability_state": "REAL_SOURCE_NO_CANDIDATES" if discovery_attempted else "REAL_SOURCE_ADAPTER_REQUIRED",
             "internal_only": True,
             "repository_backed_readback": True,
             "productized_owner_workbench": True,
@@ -1149,8 +1571,23 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "candidate_count": 0,
                 "selected_candidate_count": 0,
                 "closed_loop_generated_count": 0,
-                "source_candidate_mode": "REAL_SOURCE_REQUIRED",
+                "selection_semantics": "PASSED_FILTERS_NOT_SINGLE_PICK",
+                "stage1_policy": "所有候选先进入当前时间窗口、地区、项目类型、金额区间、公告状态和证据字段过滤；通过者批量进入后续闭环，未通过者保留原因。",
+                "source_candidate_mode": no_candidate_mode,
+                "real_market_discovery": False,
+                "real_candidate_discovery_attempted": discovery_attempted,
+                "offline_sample_candidates_enabled": False,
             },
+            "data_boundary": {
+                "source_candidate_mode": no_candidate_mode,
+                "real_market_discovery": False,
+                "real_candidate_discovery_attempted": discovery_attempted,
+                "offline_sample_validation": False,
+                "customer_sellable_evidence_ready": False,
+                "display_message": no_candidate_message,
+            },
+            "real_candidate_discovery": real_candidate_discovery,
+            "real_candidate_stage2_capture": real_candidate_stage2_capture,
             "market_scan": {
                 "scan_run_id": str(
                     payload.get("scan_run_id")
@@ -1166,8 +1603,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             },
             "runtime_flow": {
                 "surface_id": "autonomous_search_runtime_flow",
-                "flow_mode": "真实来源候选待接入",
+                "flow_mode": "真实列表页候选发现已执行但未命中" if discovery_attempted else "真实来源候选待接入",
                 "direction": "地区机会扫描 -> 真实来源候选 -> Stage1-9",
+                "source_candidate_mode": no_candidate_mode,
+                "real_market_discovery": False,
+                "real_candidate_discovery_attempted": discovery_attempted,
+                "offline_sample_validation": False,
+                "customer_sellable_evidence_ready": False,
+                "data_boundary_message": no_candidate_message,
                 "test_path_unblocked": False,
                 "live_delivery_gates_preserved": True,
                 "stage_stats": [
@@ -1178,9 +1621,15 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                         effective_count=0,
                         invalid_count=0,
                         state="无候选",
-                        note="默认实战搜索不再合成可售机会；需要真实来源候选或显式离线样本模式。",
-                        failure_reasons=["real_source_candidate_feed_missing"],
-                        next_action="接入真实地区适配器候选列表，或打开离线样本验证后续链路。",
+                        note=no_candidate_message,
+                        failure_reasons=[
+                            "real_public_candidate_discovery_no_match"
+                            if discovery_attempted
+                            else "real_source_candidate_feed_missing"
+                        ],
+                        next_action="查看真实候选发现运行记录和来源失败原因，必要时补地区 profile 或列表页解析规则。"
+                        if discovery_attempted
+                        else "接入真实地区适配器候选列表，或打开离线样本验证后续链路。",
                     )
                 ],
                 "totals": {
@@ -1191,10 +1640,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 },
                 "logs": [
                     "默认实战搜索没有执行离线样本合成。",
-                    "未读取到真实来源候选列表，因此没有生成可售机会。",
+                    "已执行真实公开列表页候选发现。" if discovery_attempted else "未读取到真实来源候选列表。",
+                    "未解析到符合条件的真实候选，因此没有生成可售机会。"
+                    if discovery_attempted
+                    else "未读取到真实来源候选列表，因此没有生成可售机会。",
                 ],
             },
-            "reason": "real_search_requires_source_candidates_or_explicit_offline_sample_mode",
+            "reason": no_candidate_reason,
+            "display_message": no_candidate_message,
             "opportunity_id": "",
             "operator_workbench_readback_path": "",
             "customer_artifact_candidate_path": "",
@@ -1228,7 +1681,22 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "scan_run_id": scan_run_id,
             "batch_id": str(payload.get("source_blueprint_batch_id") or "PTL-I100-ROADMAP-01"),
             "source_blueprint_batch_id": str(payload.get("source_blueprint_batch_id") or "PTL-I100-ROADMAP-01"),
-            "minimum_amount": _as_float(payload.get("minimum_amount"), 1_000_000.0),
+            "minimum_amount": _as_float(
+                _first_present(
+                    payload.get("minimum_amount"),
+                    payload.get("amount_min"),
+                    payload.get("minimum_amount_optional"),
+                ),
+                1_000_000.0,
+            ),
+            "maximum_amount": _as_float(
+                _first_present(
+                    payload.get("maximum_amount"),
+                    payload.get("amount_max"),
+                    payload.get("maximum_amount_optional"),
+                ),
+                0.0,
+            ),
             "analysis_score_threshold": _as_int(payload.get("analysis_score_threshold"), 50),
             "notice_candidates": raw_candidates,
             "manual_url_picker_primary_flow": False,
@@ -1251,18 +1719,54 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         reverse=True,
     )
     if not selected_ranked:
-        return {
+        source_candidate_mode = (
+            "EXPLICIT_CANDIDATES"
+            if explicit_candidate_list
+            else "OFFLINE_SAMPLE_CANDIDATES"
+            if offline_sample_candidates_enabled
+            else REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+        )
+        offline_sample_mode = source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
+        review_response = {
             "surface_id": "operator_autonomous_opportunity_search",
             "search_state": "REVIEW_REQUIRED",
             "region_adapter": region_adapter,
             "entry_profile": entry_profile,
+            "candidate": raw_candidates[0] if raw_candidates else {},
             "market_scan": market_scan,
+            "real_candidate_discovery": real_candidate_discovery,
+            "real_candidate_stage2_capture": real_candidate_stage2_capture,
             "search_scope": {
                 "region_codes": requested_region_codes,
                 "project_types": requested_project_types,
                 "candidate_count": len(raw_candidates),
                 "selected_candidate_count": len(selected),
                 "closed_loop_generated_count": 0,
+                "selection_semantics": "PASSED_FILTERS_NOT_SINGLE_PICK",
+                "stage1_policy": "所有候选先进入当前时间窗口、地区、项目类型、金额区间、公告状态和证据字段过滤；通过者批量进入后续闭环，未通过者保留原因。",
+                "stage2_detail_snapshot_count": _as_int(
+                    real_candidate_stage2_capture.get("detail_snapshot_count"), 0
+                ),
+                "stage3_parse_success_count": _as_int(
+                    real_candidate_stage2_capture.get("stage3_parse_success_count"), 0
+                ),
+                "stage2_attachment_snapshot_count": _as_int(
+                    real_candidate_stage2_capture.get("attachment_snapshot_count"), 0
+                ),
+                "source_candidate_mode": source_candidate_mode,
+                "real_market_discovery": source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
+                "real_candidate_discovery_attempted": bool(real_candidate_discovery),
+                "offline_sample_candidates_enabled": offline_sample_mode,
+            },
+            "data_boundary": {
+                "source_candidate_mode": source_candidate_mode,
+                "real_market_discovery": source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
+                "real_candidate_discovery_attempted": bool(real_candidate_discovery),
+                "offline_sample_validation": offline_sample_mode,
+                "customer_sellable_evidence_ready": False,
+                "display_message": "真实列表页候选已入库，详情页快照已尝试进入 Stage2/Stage3；当前仍未满足自动闭环阈值，需要补字段解析、附件或后续核验。"
+                if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+                else "候选进入 Stage1 评分，但未入选闭环生成。",
             },
             "candidate_options": _candidate_option_surface(
                 market_scan=market_scan,
@@ -1270,12 +1774,97 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             ),
             "selected_candidate_count": 0,
             "reason": "market_scan_did_not_select_candidate",
+            "runtime_flow": {
+                "surface_id": "autonomous_search_runtime_flow",
+                "flow_mode": "真实候选发现后待详情页补链"
+                if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+                else "候选待复核",
+                "direction": "真实列表页候选 -> Stage1 评分 -> Stage2 详情页/附件补链",
+                "source_candidate_mode": source_candidate_mode,
+                "real_market_discovery": source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
+                "real_candidate_discovery_attempted": bool(real_candidate_discovery),
+                "offline_sample_validation": offline_sample_mode,
+                "customer_sellable_evidence_ready": False,
+                "data_boundary_message": "已发现真实列表页候选并尝试 Stage2 详情页快照；客户可售前还要完成真实详情字段、附件和 Stage4-9 证据回链。"
+                if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+                else "候选未入选闭环生成。",
+                "test_path_unblocked": bool(raw_candidates),
+                "live_delivery_gates_preserved": True,
+                "stage_stats": [
+                    _runtime_stage(
+                        stage=1,
+                        name="市场扫描 / 机会发现",
+                        produced_count=len(raw_candidates),
+                        effective_count=len(selected),
+                        invalid_count=max(len(raw_candidates) - len(selected), 0),
+                        state="候选待复核",
+                        note="真实候选已送入 Stage1，但未满足自动闭环阈值。",
+                        failure_reasons=["candidate_fields_need_detail_capture"],
+                        next_action="把真实详情/附件快照送入 Stage4-9，并继续补字段解析硬化。",
+                    ),
+                    _runtime_stage(
+                        stage=2,
+                        name="详情页快照 / 附件原文",
+                        produced_count=_as_int(real_candidate_stage2_capture.get("detail_capture_attempted_count"), 0),
+                        effective_count=_as_int(real_candidate_stage2_capture.get("detail_snapshot_count"), 0),
+                        invalid_count=max(
+                            _as_int(real_candidate_stage2_capture.get("detail_capture_attempted_count"), 0)
+                            - _as_int(real_candidate_stage2_capture.get("detail_snapshot_count"), 0),
+                            0,
+                        ),
+                        state="详情和附件已抓取"
+                        if real_candidate_stage2_capture.get("attachment_snapshot_count")
+                        else "详情已抓取"
+                        if real_candidate_stage2_capture.get("detail_snapshot_count")
+                        else "详情待补链",
+                        note="从已发现候选的来源网址抓取同站详情页，保存可回放快照，并抓取同站公开附件原文。",
+                        object_refs={
+                            "attachment_link_count": real_candidate_stage2_capture.get("attachment_link_count"),
+                            "attachment_snapshot_count": real_candidate_stage2_capture.get("attachment_snapshot_count"),
+                            "stage3_parse_success_count": real_candidate_stage2_capture.get("stage3_parse_success_count"),
+                        },
+                        failure_reasons=[]
+                        if real_candidate_stage2_capture.get("detail_snapshot_count")
+                        else ["detail_snapshot_missing_or_degraded"],
+                        next_action="把 detail/attachment snapshot 的解析字段作为 Stage4-9 正式输入。",
+                    )
+                ],
+                "totals": {
+                    "stage_count": 2,
+                    "produced_count": len(raw_candidates)
+                    + _as_int(real_candidate_stage2_capture.get("detail_capture_attempted_count"), 0),
+                    "effective_count": len(selected)
+                    + _as_int(real_candidate_stage2_capture.get("detail_snapshot_count"), 0),
+                    "invalid_count": max(len(raw_candidates) - len(selected), 0),
+                },
+                "logs": [
+                    f"真实候选发现产出 {len(raw_candidates)} 条候选。",
+                    f"Stage2 详情页快照尝试 {real_candidate_stage2_capture.get('detail_capture_attempted_count', 0)} 条，成功 {real_candidate_stage2_capture.get('detail_snapshot_count', 0)} 条。",
+                    "Stage1 已评分，但没有候选进入自动闭环。",
+                    "没有合成样本机会；候选保留在本地候选库。",
+                ],
+            },
+            "opportunity_id": "",
+            "opportunity_ids": [],
+            "amount_range": {
+                "minimum": raw_candidates[0].get("amount_min") if raw_candidates else None,
+                "maximum": raw_candidates[0].get("amount_max") if raw_candidates else None,
+                "unit": "CNY",
+            },
             "manual_url_picker_primary_flow": False,
             "live_execution_enabled": False,
             "real_external_fetch_enabled": False,
             "real_provider_call_enabled": False,
             "external_release_enabled": False,
+            "customer_download_enabled": False,
+            "automated_refund_enabled": False,
         }
+        review_response["search_run_record"] = _record_autonomous_search_run(
+            payload=payload,
+            result=review_response,
+        )
+        review_response["search_run_id"] = review_response["search_run_record"]["run_id"]
+        return review_response
 
     closed_loop_results: list[dict[str, Any]] = []
     primary_chain: dict[str, Any] = {}
@@ -1381,6 +1970,14 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         ),
         closed_loop_results,
     )
+    source_candidate_mode = (
+        "EXPLICIT_CANDIDATES"
+        if explicit_candidate_list
+        else "OFFLINE_SAMPLE_CANDIDATES"
+        if offline_sample_candidates_enabled
+        else REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+    )
+    offline_sample_mode = source_candidate_mode == "OFFLINE_SAMPLE_CANDIDATES"
     response = {
         "surface_id": "operator_autonomous_opportunity_search",
         "search_state": search_state,
@@ -1392,6 +1989,8 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         "entry_profile": entry_profile,
         "candidate": candidate,
         "candidate_options": candidate_options,
+        "real_candidate_discovery": real_candidate_discovery,
+        "real_candidate_stage2_capture": real_candidate_stage2_capture,
         "closed_loop_results": closed_loop_results,
         "opportunity_ids": [
             str(item.get("opportunity_id"))
@@ -1404,10 +2003,38 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "candidate_count": len(raw_candidates),
             "selected_candidate_count": len(selected),
             "closed_loop_generated_count": closed_loop_generated_count,
+            "selection_semantics": "PASSED_FILTERS_NOT_SINGLE_PICK",
+            "stage1_policy": "所有候选先进入当前时间窗口、地区、项目类型、金额区间、公告状态和证据字段过滤；通过者批量进入后续闭环，未通过者保留原因。",
+            "stage2_detail_snapshot_count": _as_int(
+                real_candidate_stage2_capture.get("detail_snapshot_count"), 0
+            ),
+            "stage3_parse_success_count": _as_int(
+                real_candidate_stage2_capture.get("stage3_parse_success_count"), 0
+            ),
+            "stage2_attachment_snapshot_count": _as_int(
+                real_candidate_stage2_capture.get("attachment_snapshot_count"), 0
+            ),
             "selected_project_id": candidate.get("project_id"),
-            "source_candidate_mode": "EXPLICIT_CANDIDATES"
-            if explicit_candidate_list
-            else "OFFLINE_SAMPLE_CANDIDATES",
+            "primary_project_id": candidate.get("project_id"),
+            "primary_opportunity_id": opportunity_id,
+            "source_candidate_mode": source_candidate_mode,
+            "real_market_discovery": not offline_sample_mode,
+            "real_candidate_discovery_attempted": bool(real_candidate_discovery),
+            "offline_sample_candidates_enabled": offline_sample_mode,
+        },
+        "data_boundary": {
+            "source_candidate_mode": source_candidate_mode,
+            "real_market_discovery": not offline_sample_mode,
+            "real_candidate_discovery_attempted": bool(real_candidate_discovery),
+            "offline_sample_validation": offline_sample_mode,
+            "customer_sellable_evidence_ready": False,
+            "display_message": (
+                "离线样本只验证 Stage1-9、工作台和证据包链路；不能当作真实市场发现或客户可售证据。"
+                if offline_sample_mode
+                else "真实列表页候选已进入内部闭环；客户可交付前仍需核验真实来源详情页、附件和证据回链。"
+                if source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE
+                else "显式候选已进入内部闭环；客户可交付前仍需核验真实来源详情页、附件和证据回链。"
+            ),
         },
         "market_scan": market_scan,
         "source_blueprint_plan": source_blueprint,
@@ -1421,6 +2048,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             acceptance=acceptance,
         ),
         "opportunity_id": opportunity_id,
+        "source_candidate_mode": source_candidate_mode,
         "operator_workbench_readback_path": f"/operator-console/autonomous-workbench?opportunity_id={opportunity_id}"
         if opportunity_id
         else "",
@@ -1471,7 +2099,14 @@ def _record_autonomous_search_run(
     runtime_flow = dict(result.get("runtime_flow", {}) or {})
     search_scope = dict(result.get("search_scope", {}) or {})
     candidate_options = list(result.get("candidate_options", []) or [])
+    data_boundary = dict(result.get("data_boundary", {}) or {})
     opportunity_id = str(result.get("opportunity_id") or "").strip()
+    opportunity_ids = [
+        str(item)
+        for item in list(result.get("opportunity_ids", []) or [])
+        if str(item).strip()
+    ]
+    closed_loop_results = list(result.get("closed_loop_results", []) or [])
     search_state = str(result.get("search_state") or "UNKNOWN")
     action_state = search_state
     run_id = (
@@ -1492,6 +2127,8 @@ def _record_autonomous_search_run(
         "amount_max": str(payload.get("amount_max") or payload.get("maximum_amount") or payload.get("amount") or ""),
         "amount_range_json": _json_text(result.get("amount_range") or {}),
         "opportunity_id": opportunity_id,
+        "opportunity_ids_json": _json_text(opportunity_ids),
+        "closed_loop_results_json": _json_text(closed_loop_results),
         "project_id": str(candidate.get("project_id") or ""),
         "project_name": str(candidate.get("project_name") or ""),
         "source_url": str(candidate.get("source_url") or ""),
@@ -1501,6 +2138,13 @@ def _record_autonomous_search_run(
         "analysis_decision": str(candidate.get("analysis_decision") or ""),
         "analysis_priority": str(candidate.get("analysis_priority") or ""),
         "search_state": search_state,
+        "source_candidate_mode": str(
+            search_scope.get("source_candidate_mode") or data_boundary.get("source_candidate_mode") or ""
+        ),
+        "real_market_discovery": str(bool(data_boundary.get("real_market_discovery"))).lower(),
+        "offline_sample_validation": str(bool(data_boundary.get("offline_sample_validation"))).lower(),
+        "customer_sellable_evidence_ready": str(bool(data_boundary.get("customer_sellable_evidence_ready"))).lower(),
+        "display_message": str(data_boundary.get("display_message") or result.get("display_message") or ""),
         "acceptance_state": str(acceptance.get("acceptance_state") or ""),
         "market_scan_run_id": str(market_scan.get("scan_run_id") or ""),
         "source_blueprint_plan_id": str(source_blueprint.get("source_blueprint_plan_id") or ""),
@@ -1510,6 +2154,7 @@ def _record_autonomous_search_run(
         "search_scope_json": _json_text(search_scope),
         "candidate_options_json": _json_text(candidate_options),
         "runtime_flow_json": _json_text(runtime_flow),
+        "data_boundary_json": _json_text(data_boundary),
     }
     action = PersistedOperatorAction(
         action_event_id=run_id,
@@ -1550,7 +2195,10 @@ def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[s
     amount_range = _json_value(refs.get("amount_range_json"), {})
     search_scope = _json_value(refs.get("search_scope_json"), {})
     candidate_options = _json_value(refs.get("candidate_options_json"), [])
+    opportunity_ids = _json_value(refs.get("opportunity_ids_json"), [])
+    closed_loop_results = _json_value(refs.get("closed_loop_results_json"), [])
     runtime_flow = _json_value(refs.get("runtime_flow_json"), {})
+    data_boundary = _json_value(refs.get("data_boundary_json"), {})
     return {
         "run_id": action.action_event_id,
         "search_state": refs.get("search_state") or action.action_state,
@@ -1566,6 +2214,8 @@ def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[s
         "amount_max": refs.get("amount_max"),
         "amount_range": amount_range,
         "opportunity_id": refs.get("opportunity_id"),
+        "opportunity_ids": opportunity_ids,
+        "closed_loop_results": closed_loop_results,
         "project_id": refs.get("project_id"),
         "project_name": refs.get("project_name"),
         "source_url": refs.get("source_url"),
@@ -1574,6 +2224,11 @@ def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[s
         "analysis_score": refs.get("analysis_score"),
         "analysis_decision": refs.get("analysis_decision"),
         "analysis_priority": refs.get("analysis_priority"),
+        "source_candidate_mode": refs.get("source_candidate_mode"),
+        "real_market_discovery": refs.get("real_market_discovery") == "true",
+        "offline_sample_validation": refs.get("offline_sample_validation") == "true",
+        "customer_sellable_evidence_ready": refs.get("customer_sellable_evidence_ready") == "true",
+        "display_message": refs.get("display_message"),
         "acceptance_state": refs.get("acceptance_state"),
         "market_scan_run_id": refs.get("market_scan_run_id"),
         "source_blueprint_plan_id": refs.get("source_blueprint_plan_id"),
@@ -1583,6 +2238,7 @@ def _autonomous_search_action_payload(action: PersistedOperatorAction) -> dict[s
         "search_scope": search_scope,
         "candidate_options": candidate_options,
         "runtime_flow": runtime_flow,
+        "data_boundary": data_boundary,
         "requested_at": action.requested_at,
         "completed_at": action.completed_at,
         "repository_backed": True,
@@ -1927,6 +2583,7 @@ def read_owner_real_public_source_capture(payload: Mapping[str, Any]) -> dict[st
 def preview_scheduler_status(payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
     storage_bootstrap, _ = _settings_bootstrap()
     worker_queue = dict(storage_bootstrap.get("worker_queue_bootstrap", {}))
+    latest_queue_items = _latest_queue_item_summaries()
     return {
         "surface_id": "operator_scheduler_status",
         "internal_only": True,
@@ -1937,6 +2594,8 @@ def preview_scheduler_status(payload: Mapping[str, Any] | None = None) -> dict[s
         "queue_backend": worker_queue.get("queue_backend"),
         "effective_queue_backend": worker_queue.get("effective_queue_backend"),
         "queue_status_counts": _queue_status_counts(),
+        "latest_queue_items": latest_queue_items,
+        "latest_queue_item": (latest_queue_items or [{}])[0],
         "stage2_fetch_enabled": False,
         "unregistered_capture_enabled": False,
         "real_external_fetch_enabled": False,
@@ -2028,6 +2687,36 @@ OPERATOR_CUSTOMER_ACCESS_ROUTES = [
         "handler": list_operator_region_adapters,
         "region_adapter_catalog": True,
         "repository_backed_readback": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "listOperatorRealCandidates",
+        "method": "GET",
+        "path": "/operator-console/real-candidates",
+        "handler": list_operator_real_candidates,
+        "real_candidate_catalog": True,
+        "repository_backed_readback": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "listOperatorRealCandidateDiscoveryRuns",
+        "method": "GET",
+        "path": "/operator-console/real-candidate-discovery-runs",
+        "handler": list_operator_real_candidate_discovery_runs,
+        "real_candidate_discovery_run_list": True,
+        "repository_backed_readback": True,
+        "raw_json_required": False,
+        **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
+    },
+    {
+        "operationId": "listOperatorRealCandidateStage2Captures",
+        "method": "GET",
+        "path": "/operator-console/real-candidate-stage2-captures",
+        "handler": list_operator_real_candidate_stage2_captures,
+        "real_candidate_stage2_capture_run_list": True,
+        "repository_backed_readback": True,
+        "raw_json_required": False,
         **OPERATOR_CUSTOMER_ACCESS_ROUTE_METADATA,
     },
     {
@@ -2162,6 +2851,9 @@ __all__ = [
     "import_operator_project",
     "list_operator_autonomous_search_runs",
     "list_owner_real_public_source_task_runs",
+    "list_operator_real_candidate_discovery_runs",
+    "list_operator_real_candidate_stage2_captures",
+    "list_operator_real_candidates",
     "list_operator_region_adapters",
     "list_real_public_source_profiles",
     "preview_autonomous_operator_workbench",

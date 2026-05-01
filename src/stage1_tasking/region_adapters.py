@@ -29,7 +29,7 @@ class RegionSourceAdapter:
     region_name: str
     adapter_state: str
     entry_profile_ids: tuple[str, ...]
-    fallback_entry_profile_ids: tuple[str, ...] = NATIONAL_DISCOVERY_PROFILE_IDS
+    fallback_entry_profile_ids: tuple[str, ...] = ()
     verification_profile_ids: tuple[str, ...] = NATIONAL_VERIFICATION_PROFILE_IDS
     coverage_gap_signals: tuple[str, ...] = DEFAULT_COVERAGE_GAP_SIGNALS
     dedicated_local_profiles: bool = False
@@ -58,7 +58,7 @@ class RegionSourceAdapter:
             "region_code": self.region_code,
             "region_name": self.region_name,
             "adapter_state": self.adapter_state,
-            "searchable_now": not bool(unknown_profile_ids),
+            "searchable_now": bool(primary_profile_id) and not bool(unknown_profile_ids) and not self.onboarding_required,
             "primary_entry_profile_id": primary_profile_id,
             "entry_profile_ids": list(self.entry_profile_ids),
             "fallback_entry_profile_ids": list(self.fallback_entry_profile_ids),
@@ -101,57 +101,57 @@ REGION_SOURCE_ADAPTERS: tuple[RegionSourceAdapter, ...] = (
         region_name="广东",
         adapter_state="LOCAL_PROFILE_READY",
         entry_profile_ids=(
-            "GUANGDONG-PROVINCIAL-PORTAL",
-            "GUANGDONG-YUNFU-PORTAL",
+            "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
         ),
         dedicated_local_profiles=True,
         commercial_pilot_region=True,
-        notes="广东省级和云浮入口已登记；弱正文入口按自动诊断和降级策略处理。",
+        coverage_gap_signals=("browser_rendered_realtime_list_required",),
+        notes="广东按广东省公共资源交易平台省主站交易公开页作为当前实战入口；浏览器已验真可见当日全省公告，后端需接浏览器渲染列表或合法公开数据接口。",
     ),
     RegionSourceAdapter(
         region_code="CN-SC",
         region_name="四川",
-        adapter_state="NATIONAL_FALLBACK_READY_LOCAL_ONBOARDING_PENDING",
-        entry_profile_ids=NATIONAL_DISCOVERY_PROFILE_IDS,
-        onboarding_required=True,
+        adapter_state="LOCAL_PROFILE_READY",
+        entry_profile_ids=("SICHUAN-GGZY-TRANSACTION-INFO",),
+        dedicated_local_profiles=True,
         commercial_pilot_region=True,
-        notes="当前可用全国发现入口；四川本地专用入口仍需后续 profile 登记。",
+        notes="四川按四川省公共资源交易信息网交易信息页作为省级实时入口；浏览器已验真可见当日全省公告。",
     ),
     RegionSourceAdapter(
         region_code="CN-JS",
         region_name="江苏",
-        adapter_state="NATIONAL_FALLBACK_READY_LOCAL_ONBOARDING_PENDING",
-        entry_profile_ids=NATIONAL_DISCOVERY_PROFILE_IDS,
-        onboarding_required=True,
+        adapter_state="LOCAL_PROFILE_READY",
+        entry_profile_ids=("JIANGSU-GGZY-HOME",),
+        dedicated_local_profiles=True,
         commercial_pilot_region=True,
-        notes="当前可用全国发现入口；江苏本地专用入口仍需后续 profile 登记。",
+        notes="江苏按江苏省公共资源交易网作为省级实时入口；浏览器已验真可见近期交易信息。",
     ),
     RegionSourceAdapter(
         region_code="CN-ZJ",
         region_name="浙江",
-        adapter_state="NATIONAL_FALLBACK_READY_LOCAL_ONBOARDING_PENDING",
-        entry_profile_ids=NATIONAL_DISCOVERY_PROFILE_IDS,
-        onboarding_required=True,
+        adapter_state="LOCAL_PROFILE_READY",
+        entry_profile_ids=("ZHEJIANG-GGZY-JYXXGK-LIST",),
+        dedicated_local_profiles=True,
         commercial_pilot_region=True,
-        notes="当前可用全国发现入口；浙江本地专用入口仍需后续 profile 登记。",
+        notes="浙江按浙江省公共资源交易服务平台交易信息公开页作为省级实时入口；浏览器已验真可见近期公告。",
     ),
     RegionSourceAdapter(
         region_code="CN-SD",
         region_name="山东",
-        adapter_state="NATIONAL_FALLBACK_READY_LOCAL_ONBOARDING_PENDING",
-        entry_profile_ids=NATIONAL_DISCOVERY_PROFILE_IDS,
-        onboarding_required=True,
+        adapter_state="LOCAL_PROFILE_READY",
+        entry_profile_ids=("SHANDONG-GGZY-JYXXGK-LIST",),
+        dedicated_local_profiles=True,
         commercial_pilot_region=True,
-        notes="当前可用全国发现入口；山东本地专用入口仍需后续 profile 登记。",
+        notes="山东按山东省公共资源交易网交易公开页作为省级实时入口；浏览器已验真可见当日全省公告。",
     ),
     RegionSourceAdapter(
         region_code="CN-HB",
         region_name="湖北",
-        adapter_state="NATIONAL_FALLBACK_READY_LOCAL_ONBOARDING_PENDING",
-        entry_profile_ids=NATIONAL_DISCOVERY_PROFILE_IDS,
-        onboarding_required=True,
+        adapter_state="LOCAL_PROFILE_READY",
+        entry_profile_ids=("HUBEI-BIDCLOUD-JYXX-LIST",),
+        dedicated_local_profiles=True,
         commercial_pilot_region=True,
-        notes="当前可用全国发现入口；湖北本地专用入口仍需后续 profile 登记。",
+        notes="湖北按湖北省公共资源交易云平台交易信息页作为省级实时入口；浏览器已验真可见近期公告。",
     ),
 )
 

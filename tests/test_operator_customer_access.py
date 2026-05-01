@@ -18,6 +18,7 @@ for search_path in (SRC, TESTS):
 
 from api.deps import get_settings
 from api.main import create_app
+from api.routes.operator_customer_access import _internal_chain_payload_from_search
 from helpers import load_fixture
 from shared.pipeline import run_internal_chain
 from storage import persist_stage_bundle, reset_default_storage
@@ -74,6 +75,9 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             "createOperatorTask",
             "listRealPublicSourceProfiles",
             "listOperatorRegionAdapters",
+            "listOperatorRealCandidates",
+            "listOperatorRealCandidateDiscoveryRuns",
+            "listOperatorRealCandidateStage2Captures",
             "runOperatorAutonomousOpportunitySearch",
             "listOperatorAutonomousSearchRuns",
             "clearOperatorAutonomousSearchRuns",
@@ -99,6 +103,9 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             self.assertFalse(operation["real_provider_call_enabled"])
             self.assertFalse(operation["automated_refund_enabled"])
         self.assertTrue(mounted_operations["listOperatorRegionAdapters"]["region_adapter_catalog"])
+        self.assertTrue(mounted_operations["listOperatorRealCandidates"]["real_candidate_catalog"])
+        self.assertTrue(mounted_operations["listOperatorRealCandidateDiscoveryRuns"]["real_candidate_discovery_run_list"])
+        self.assertTrue(mounted_operations["listOperatorRealCandidateStage2Captures"]["real_candidate_stage2_capture_run_list"])
         self.assertTrue(mounted_operations["runOperatorAutonomousOpportunitySearch"]["autonomous_search_entry"])
         self.assertTrue(mounted_operations["runOperatorAutonomousOpportunitySearch"]["opportunity_queue_visible"])
         self.assertFalse(mounted_operations["runOperatorAutonomousOpportunitySearch"]["raw_json_required"])
@@ -158,7 +165,19 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_public_source_task_run_list"]["repository_backed_readback"])
         self.assertTrue(payload["operator_console"]["region_adapter_catalog"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_candidate_catalog"]["entry_visible"])
+        self.assertTrue(payload["operator_console"]["real_candidate_stage2_capture_run_list"]["entry_visible"])
+        self.assertTrue(
+            payload["operator_console"]["real_candidate_stage2_capture_run_list"][
+                "stage2_detail_capture_enabled"
+            ]
+        )
         self.assertTrue(payload["operator_console"]["autonomous_search_entry"]["entry_visible"])
+        self.assertTrue(
+            payload["operator_console"]["autonomous_search_entry"][
+                "real_candidate_stage2_detail_capture_enabled"
+            ]
+        )
         self.assertTrue(payload["operator_console"]["autonomous_search_run_list"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["autonomous_search_run_clear"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["autonomous_search_run_clear"]["explicit_operator_action"])
@@ -169,7 +188,12 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertTrue(payload["operator_console"]["autonomous_operator_workbench"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_sample_autonomous_acceptance"]["entry_visible"])
         self.assertTrue(payload["operator_console"]["real_world_sellability_readiness"]["entry_visible"])
-        self.assertTrue(payload["operator_console"]["real_world_sellability_readiness"]["ua11_satisfied"])
+        self.assertFalse(payload["operator_console"]["real_world_sellability_readiness"]["ua11_satisfied"])
+        self.assertFalse(
+            payload["operator_console"]["real_world_sellability_readiness"][
+                "real_world_product_completion_satisfied"
+            ]
+        )
         self.assertFalse(payload["operator_console"]["real_world_sellability_readiness"]["raw_json_required"])
         self.assertTrue(
             payload["operator_console"]["real_sample_autonomous_acceptance"][
@@ -224,6 +248,90 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         self.assertIn("GGZY-DEAL-LIST", {item["profile_id"] for item in profiles["entry_profiles"]})
         self.assertIn("BEIJING-STANDARD-BIDDING-PDF", {item["profile_id"] for item in profiles["attachment_profiles"]})
 
+    def test_real_candidate_catalog_overlays_latest_stage2_capture_fields(self) -> None:
+        client = TestClient(create_app())
+        with patch(
+            "api.routes.operator_customer_access.list_persisted_real_candidates",
+            return_value={
+                "surface_id": "operator_real_candidate_catalog",
+                "candidate_count": 1,
+                "candidates": [
+                    {
+                        "candidate_key": "real-candidate-001",
+                        "project_name": "列表页标题",
+                        "amount": None,
+                        "candidate_company": "",
+                        "key_fields_present": ["project_name", "notice_stage"],
+                        "snapshot_id_optional": "REAL-ENTRY-001",
+                    }
+                ],
+            },
+        ), patch(
+            "api.routes.operator_customer_access.list_real_candidate_stage2_captures",
+            return_value={
+                "capture_count": 1,
+                "captures": [
+                    {
+                        "candidate_key": "real-candidate-001",
+                        "detail_capture_status": "FETCHED",
+                        "detail_snapshot_id_optional": "REAL-DETAIL-001",
+                        "stage3_parse_state": "PARSED",
+                        "attachment_link_count": 1,
+                        "attachment_captures": [
+                            {
+                                "attachment_snapshot_id_optional": "REAL-ATTACH-001",
+                                "attachment_filename": "notice.pdf",
+                            }
+                        ],
+                        "detail_fields": {
+                            "project_name": "详情页项目名",
+                            "notice_stage": "award_result",
+                            "amount": 12805000.0,
+                            "amount_parse_state": "DETAIL_TEXT",
+                            "candidate_company": "北京测试科技有限公司",
+                            "candidate_company_parse_state": "DETAIL_TEXT",
+                        },
+                    }
+                ],
+            },
+        ):
+            response = client.request("GET", "/operator-console/real-candidates")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["stage2_capture_overlay_applied"])
+        self.assertEqual(payload["stage2_capture_overlay_count"], 1)
+        candidate = payload["candidates"][0]
+        self.assertEqual(candidate["project_name"], "详情页项目名")
+        self.assertEqual(candidate["amount"], 12805000.0)
+        self.assertEqual(candidate["candidate_company"], "北京测试科技有限公司")
+        self.assertEqual(candidate["stage2_detail_snapshot_id_optional"], "REAL-DETAIL-001")
+        self.assertEqual(candidate["stage2_attachment_snapshot_count"], 1)
+        self.assertIn("REAL-ATTACH-001", candidate["real_snapshot_ids"])
+
+    def test_internal_chain_payload_prefers_real_candidate_snapshot_refs(self) -> None:
+        payload = _internal_chain_payload_from_search(
+            {},
+            candidate={
+                "project_id": "PROJ-REAL-001",
+                "project_name": "真实公告项目",
+                "region_code": "CN-NATIONAL",
+                "source_url": "https://www.ccgp.gov.cn/cggg/zygg/cjgg/202605/t20260501_1.htm",
+                "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+                "stage2_detail_snapshot_id_optional": "REAL-DETAIL-001",
+                "stage2_attachment_snapshot_ids": ["REAL-ATTACH-001"],
+            },
+            market_scan={"scan_run_id": "SCAN-001"},
+            source_blueprint={"source_blueprint_plan_id": "SRCBLUE-001", "stage2_capture_plan": {"capture_plan_id": "CAP-001"}},
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(payload["source_document_ref"], "REAL-DETAIL-001")
+        self.assertEqual(payload["source_slice_ref"], "REAL-DETAIL-001")
+        self.assertEqual(payload["real_snapshot_ids"], ["REAL-DETAIL-001", "REAL-ATTACH-001"])
+        self.assertEqual(payload["source_mode"], "REAL_PUBLIC_CANDIDATE_DETAIL_CAPTURE")
+        self.assertEqual(payload["payload_boundary"], "REAL_PUBLIC_INTERNAL_REPLAY")
+
     def test_real_world_sellability_surface_summarizes_current_owner_decision(self) -> None:
         client = TestClient(create_app())
 
@@ -236,16 +344,19 @@ class TestOperatorCustomerAccess(unittest.TestCase):
             payload["contract_ref"],
             "contracts/ui/operator_user_acceptance_contract.json#UA-11-real-world-sellability",
         )
-        self.assertTrue(payload["ua11_satisfied"])
+        self.assertFalse(payload["ua11_satisfied"])
+        self.assertFalse(payload["real_world_product_completion_satisfied"])
         self.assertTrue(payload["internal_only"])
         self.assertFalse(payload["live_execution_enabled"])
         self.assertFalse(payload["external_release_enabled"])
         self.assertFalse(payload["real_provider_call_enabled"])
         self.assertFalse(payload["automated_refund_enabled"])
         summary = payload["sellability_summary"]
-        self.assertEqual(summary["sellability_level"], "内部实战可判断，真实成交交付待接入")
+        self.assertEqual(summary["sellability_level"], "真实实战未完成：缺真实市场候选进料")
         self.assertFalse(summary["external_sellable_now"])
-        self.assertIn("真实客户触达", summary["owner_decision"])
+        self.assertIn("尚未命中真实公开来源候选", summary["owner_decision"])
+        self.assertEqual(summary["real_market_run_count"], 0)
+        self.assertEqual(summary["customer_sellable_ready_count"], 0)
         lanes = {item["lane_id"]: item for item in payload["lanes"]}
         self.assertEqual(
             set(lanes),
@@ -261,11 +372,16 @@ class TestOperatorCustomerAccess(unittest.TestCase):
         )
         self.assertEqual(lanes["governed_outreach"]["status"], "PARTIAL")
         self.assertEqual(lanes["payment_delivery_writeback"]["status"], "PARTIAL")
+        self.assertEqual(lanes["market_scan_to_opportunity"]["status"], "PARTIAL")
+        self.assertEqual(lanes["evidence_quality"]["status"], "PARTIAL")
+        self.assertIn("真实公开列表页候选发现", lanes["market_scan_to_opportunity"]["gaps"][0])
+        self.assertFalse(payload["boundary"]["real_market_candidate_feed_ready"])
+        self.assertFalse(payload["boundary"]["customer_sellable_evidence_ready"])
         self.assertFalse(payload["boundary"]["real_customer_touch_enabled"])
         self.assertFalse(payload["boundary"]["real_payment_enabled"])
         self.assertFalse(payload["boundary"]["real_delivery_enabled"])
         self.assertFalse(payload["boundary"]["automated_refund_enabled"])
-        self.assertIn("真实触达 provider sandbox 与审批审计", payload["remaining_real_world_closures"])
+        self.assertIn("真实公开来源候选发现器硬化：更多列表页搜索、公告解析、候选去重入库", payload["remaining_real_world_closures"])
 
     def test_autonomous_search_runs_expose_stage_flow_retention_and_clear_control(self) -> None:
         client = TestClient(create_app())

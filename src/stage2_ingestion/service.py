@@ -247,6 +247,25 @@ class Stage2Service:
             lineage_refs=lineage_refs,
         )
 
+    def fetch_real_public_candidate_detail_url(
+        self,
+        url: str,
+        *,
+        profile_id: str,
+        repository: ObjectStorageRepository | None = None,
+        transport: RealPublicFetchTransport | None = None,
+        lineage_refs: Mapping[str, str] | None = None,
+    ) -> Mapping[str, Any]:
+        fetcher = RealPublicEntryFetcher(
+            repository=repository or ObjectStorageRepository(settings=self.settings),
+            transport=transport,
+        )
+        return fetcher.fetch_candidate_detail_url(
+            url,
+            profile_id=profile_id,
+            lineage_refs=lineage_refs,
+        )
+
     def fetch_real_public_attachment_url(
         self,
         url: str,
@@ -264,6 +283,27 @@ class Stage2Service:
         return fetcher.fetch_attachment_original_link(
             url,
             profile_id=profile_id,
+            lineage_refs=lineage_refs,
+            detail_page_url=detail_page_url,
+        )
+
+    def fetch_real_public_same_site_attachment_url(
+        self,
+        url: str,
+        *,
+        parent_profile_id: str,
+        repository: ObjectStorageRepository | None = None,
+        transport: RealPublicFetchTransport | None = None,
+        lineage_refs: Mapping[str, str] | None = None,
+        detail_page_url: str | None = None,
+    ) -> Mapping[str, Any]:
+        fetcher = RealPublicEntryFetcher(
+            repository=repository or ObjectStorageRepository(settings=self.settings),
+            transport=transport,
+        )
+        return fetcher.fetch_same_site_attachment_url(
+            url,
+            parent_profile_id=parent_profile_id,
             lineage_refs=lineage_refs,
             detail_page_url=detail_page_url,
         )

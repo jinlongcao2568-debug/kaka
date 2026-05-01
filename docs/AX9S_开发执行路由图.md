@@ -166,11 +166,11 @@
 - `PTL-I100-132-owner-operator-frontend-productization-workbench`：在前端实机检查后补产品化工作台、Stage1-9 运营总览、客户门户空状态和受控开放要求可视化。
 - `PTL-I100-133A-real-public-entry-url-fetcher-and-allowlist`：已完成第一批真实公开总入口 fetcher，覆盖全国公共资源交易平台交易查询、中国政府采购网中央公告/中标公告等总入口。
 - `PTL-I100-133B-national-verification-source-entry-fetchers`：已完成国家级核验入口 fetch/readback，覆盖四库一平台 home/company/person/project 以及 Credit China / GSXT 官方入口，把 `200+SPA 壳`、`412`、`521` 等真实运行状态统一压到受控 readback/fail-closed。
-- `PTL-I100-133C-representative-local-platform-entry-fetchers`：已完成代表性地方平台入口 fetch/readback，覆盖北京市主平台、北京工程建设入口、北京经开区分平台和广东省 portal，区分“直接 HTML 成功入口”和“200 但只返回前端壳页的 portal”。
+- `PTL-I100-133C-representative-local-platform-entry-fetchers`：已完成代表性地方平台入口 fetch/readback，覆盖北京市主平台、北京工程建设入口、北京经开区分平台，以及广东、江苏、浙江、山东、湖北、四川省级交易信息入口，区分“直接 HTML 成功入口”和“入口可读但实时列表需浏览器渲染/合法公开接口”的来源。
 - `PTL-I100-134-owner-task-runner-real-source-ui`：已完成并提交；把 owner console 接到 133A-133D 的 allowlisted real public fetcher，上线 internal-only profile catalog、capture 触发和 repository-backed readback，不引入新前端栈。
 - `PTL-I100-135-owner-real-source-task-workbench`：已完成并提交；把真实公开源抓取升级为 owner 可连续操作的任务工作台，补 run list、状态、snapshot/readback 链接和失败关闭状态可见性。
 - `PTL-I100-136-real-public-url-fetcher-bulk-hardening`：已完成并提交 `ee9f354`；一次性硬化当前登记的 14 个入口 URL 和 2 个附件 URL，修复 TLS fallback、HTTP 状态分类、SPA/弱正文 fail-closed 和成功 snapshot/readback。
-- `PTL-I100-137-degraded-real-public-site-hardening`：已完成并提交 `36b242d`；对 136 中 JZSC、CreditChina、GSXT、广东省/云浮等 degraded profile 做站点级公开路径硬化或稳定 fail-closed 分类。
+- `PTL-I100-137-degraded-real-public-site-hardening`：已完成并提交 `36b242d`；对 136 中 JZSC、CreditChina、GSXT 和省级交易信息入口等 degraded profile 做站点级公开路径硬化或稳定 fail-closed 分类。
 - `PTL-I100-138-real-public-snapshot-to-parser-pilot`：已完成并提交 `cb19fbf`；把已成功固定的真实公开 HTML/PDF snapshot 送入 Stage3 parser/readback，证明 source slice、confidence、parser audit 和 UNVERIFIED/review-required 边界，不生成 verified fact、rule hit 或客户可见材料。
 - `PTL-I100-139-real-public-parser-to-verification-pilot`：已完成并提交 `b3ab9c6`；把真实公开 Stage3 parsed carrier 送入 Stage4 public verification/readback，验证 parsed field refs、snapshot refs、evidence grade 和 fail-closed taxonomy，不生成 Stage5/Stage6/客户可见输出。
 - `PTL-I100-140-real-public-verification-to-rule-evidence-pilot`：已完成并提交 `65baa08`；把真实公开 Stage4 public verification carrier 送入 Stage5 rule/evidence gate/readback，验证 rule_hit/evidence/readback 绑定 verification run、source snapshot 和 parsed field refs，review/weak 结果 fail-closed 到 REVIEW，不生成 Stage6 fact 或客户可见输出。

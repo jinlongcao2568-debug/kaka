@@ -4,6 +4,7 @@ import copy
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -27,6 +28,117 @@ from shared.pipeline import run_internal_chain
 from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.source_blueprint import Stage1SourceBlueprintOrchestrator
 from storage import reset_default_storage
+
+
+class _FakeNoCandidateDiscoveryService:
+    def discover(self, payload: dict, *, now: str | None = None) -> dict:
+        return {
+            "surface_id": "operator_real_candidate_discovery",
+            "discovery_run_id": "REAL-CANDIDATE-DISCOVERY-EMPTY",
+            "discovery_state": "NO_CANDIDATES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "real_market_discovery": False,
+            "region_codes": list(payload.get("region_codes", []) or []),
+            "project_types": list(payload.get("project_types", []) or []),
+            "candidate_count": 0,
+            "candidates": [],
+            "profile_reports": [
+                {
+                    "profile_id": "GGZY-DEAL-LIST",
+                    "status": "FETCHED",
+                    "same_site_detail_link_count": 0,
+                    "candidate_count": 0,
+                }
+            ],
+            "repository_backed_readback": True,
+        }
+
+
+class _FakeReviewCandidateDiscoveryService:
+    def discover(self, payload: dict, *, now: str | None = None) -> dict:
+        return {
+            "surface_id": "operator_real_candidate_discovery",
+            "discovery_run_id": "REAL-CANDIDATE-DISCOVERY-REVIEW",
+            "discovery_state": "COMPLETED",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "real_market_discovery": True,
+            "region_codes": list(payload.get("region_codes", []) or []),
+            "project_types": list(payload.get("project_types", []) or []),
+            "candidate_count": 1,
+            "candidates": [
+                {
+                    "notice_id": "NOTICE-REAL-LIST-001",
+                    "project_id": "PROJ-REAL-LIST-001",
+                    "project_name": "广东市政道路工程招标公告",
+                    "region_code": "CN-GD",
+                    "region_name": "广东",
+                    "project_type": "municipal",
+                    "project_type_label": "市政工程",
+                    "notice_stage": "tender_notice",
+                    "amount": 12_000_000,
+                    "estimated_amount": 12_000_000,
+                    "amount_min": 8_000_000,
+                    "amount_max": 30_000_000,
+                    "candidate_count": 0,
+                    "competitor_count": 0,
+                    "candidate_company": "",
+                    "key_fields_present": ["project_name", "notice_stage"],
+                    "source_url": "https://www.ggzy.gov.cn/information/deal/html/a/440000/0101/20260424/real-list-001.html",
+                    "source_family": "local_public_resource_trading_center",
+                    "source_registry_id": "REAL_PUBLIC_LIST_PAGE_DISCOVERY",
+                    "source_profile_id": "GGZY-DEAL-LIST",
+                    "source_site_name": "全国公共资源交易平台",
+                    "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+                    "is_offline_sample_candidate": False,
+                    "sellability_evidence_state": "REAL_LIST_PAGE_CANDIDATE_NEEDS_DETAIL_CAPTURE",
+                    "candidate_key": "real-list-001",
+                    "snapshot_id_optional": "SNAP-GGZY-DEAL-LIST",
+                    "market_scan_generated_at": now or "2026-05-01T00:00:00+00:00",
+                }
+            ],
+            "profile_reports": [
+                {
+                    "profile_id": "GGZY-DEAL-LIST",
+                    "status": "FETCHED",
+                    "same_site_detail_link_count": 1,
+                    "candidate_count": 1,
+                }
+            ],
+            "repository_backed_readback": True,
+        }
+
+
+class _FakeReviewCandidateStage2CaptureService:
+    def capture_candidates(
+        self,
+        candidates: list[dict],
+        *,
+        now: str | None = None,
+        detail_capture_limit: int = 5,
+        attachment_capture_limit: int = 2,
+    ) -> dict:
+        enriched = []
+        for candidate in candidates:
+            row = dict(candidate)
+            row["stage2_detail_capture_state"] = "FETCHED"
+            row["stage2_detail_snapshot_id_optional"] = "REAL-DETAIL-GGZY-DEAL-LIST-001"
+            row["stage3_detail_parse_state"] = "PARSED_WITH_REVIEW"
+            row["stage2_attachment_link_count"] = 0
+            row["stage2_attachment_snapshot_count"] = 0
+            row["sellability_evidence_state"] = "REAL_DETAIL_SNAPSHOT_PARSED_NEEDS_STAGE4_TO_STAGE9"
+            enriched.append(row)
+        return {
+            "surface_id": "operator_real_candidate_stage2_capture",
+            "detail_capture_attempted_count": len(enriched),
+            "detail_snapshot_count": len(enriched),
+            "stage3_parse_success_count": len(enriched),
+            "attachment_link_count": 0,
+            "attachment_capture_attempted_count": 0,
+            "attachment_snapshot_count": 0,
+            "captures": [],
+            "enriched_candidates": enriched,
+            "repository_backed_readback": True,
+        }
 
 
 class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
@@ -180,10 +292,22 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
             for adapter in catalog["region_adapters"]
         }
         self.assertTrue(by_code["CN-GD"]["dedicated_local_profiles"])
-        self.assertTrue(by_code["CN-SC"]["onboarding_required"])
+        self.assertTrue(by_code["CN-SC"]["dedicated_local_profiles"])
+        self.assertTrue(by_code["CN-JS"]["dedicated_local_profiles"])
+        self.assertTrue(by_code["CN-ZJ"]["dedicated_local_profiles"])
+        self.assertTrue(by_code["CN-SD"]["dedicated_local_profiles"])
+        self.assertTrue(by_code["CN-HB"]["dedicated_local_profiles"])
+        self.assertFalse(by_code["CN-SC"]["onboarding_required"])
         self.assertFalse(by_code["CN-SC"]["manual_url_picker_primary_flow"])
 
-    def test_operator_autonomous_search_does_not_fabricate_opportunity_by_default(self) -> None:
+    @patch(
+        "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+        return_value=_FakeNoCandidateDiscoveryService(),
+    )
+    def test_operator_autonomous_search_calls_real_candidate_discovery_and_does_not_fabricate_when_empty(
+        self,
+        _discovery_service: object,
+    ) -> None:
         client = TestClient(create_app())
 
         response = client.request(
@@ -203,14 +327,81 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["search_state"], "NO_CANDIDATES")
-        self.assertEqual(payload["reason"], "real_search_requires_source_candidates_or_explicit_offline_sample_mode")
+        self.assertEqual(payload["reason"], "real_public_candidate_discovery_returned_no_candidates")
         self.assertEqual(payload["search_scope"]["candidate_count"], 0)
         self.assertEqual(payload["search_scope"]["selected_candidate_count"], 0)
         self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 0)
-        self.assertEqual(payload["search_scope"]["source_candidate_mode"], "REAL_SOURCE_REQUIRED")
+        self.assertEqual(payload["search_scope"]["source_candidate_mode"], "REAL_PUBLIC_SOURCE_CANDIDATES")
+        self.assertTrue(payload["search_scope"]["real_candidate_discovery_attempted"])
+        self.assertFalse(payload["search_scope"]["real_market_discovery"])
+        self.assertEqual(payload["runtime_flow"]["source_candidate_mode"], "REAL_PUBLIC_SOURCE_CANDIDATES")
+        self.assertTrue(payload["runtime_flow"]["real_candidate_discovery_attempted"])
+        self.assertFalse(payload["runtime_flow"]["test_path_unblocked"])
+        self.assertFalse(payload["runtime_flow"]["customer_sellable_evidence_ready"])
+        self.assertEqual(payload["real_candidate_discovery"]["surface_id"], "operator_real_candidate_discovery")
+        self.assertIn("没有生成机会", payload["runtime_flow"]["data_boundary_message"])
+        self.assertFalse(payload["data_boundary"]["offline_sample_validation"])
+        self.assertFalse(payload["data_boundary"]["customer_sellable_evidence_ready"])
+        self.assertIn("没有生成机会", payload["display_message"])
         self.assertEqual(payload["opportunity_id"], "")
         self.assertEqual(payload["opportunity_ids"], [])
         self.assertEqual(payload["candidate_options"], [])
+
+    @patch(
+        "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+        return_value=_FakeReviewCandidateDiscoveryService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access.RealCandidateStage2CaptureService",
+        return_value=_FakeReviewCandidateStage2CaptureService(),
+    )
+    def test_operator_autonomous_search_feeds_real_list_candidates_into_stage1_without_sample_fabrication(
+        self,
+        _stage2_capture_service: object,
+        _discovery_service: object,
+    ) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD"],
+                "query": "市政道路",
+                "project_types": ["municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_state"], "REVIEW_REQUIRED")
+        self.assertEqual(payload["search_scope"]["candidate_count"], 1)
+        self.assertEqual(payload["search_scope"]["source_candidate_mode"], "REAL_PUBLIC_SOURCE_CANDIDATES")
+        self.assertTrue(payload["search_scope"]["real_candidate_discovery_attempted"])
+        self.assertTrue(payload["search_scope"]["real_market_discovery"])
+        self.assertEqual(payload["search_scope"]["stage2_detail_snapshot_count"], 1)
+        self.assertEqual(payload["search_scope"]["stage3_parse_success_count"], 1)
+        self.assertFalse(payload["data_boundary"]["offline_sample_validation"])
+        self.assertFalse(payload["data_boundary"]["customer_sellable_evidence_ready"])
+        self.assertEqual(payload["real_candidate_discovery"]["candidate_count"], 1)
+        self.assertEqual(payload["real_candidate_stage2_capture"]["detail_snapshot_count"], 1)
+        self.assertEqual(payload["candidate_options"][0]["source_candidate_mode"], "REAL_PUBLIC_SOURCE_CANDIDATES")
+        self.assertEqual(payload["candidate_options"][0]["stage2_detail_capture_state"], "FETCHED")
+        self.assertEqual(payload["candidate_options"][0]["source_url"], "https://www.ggzy.gov.cn/information/deal/html/a/440000/0101/20260424/real-list-001.html")
+        self.assertIn("review_reasons", payload["candidate_options"][0])
+        self.assertIn("missing_key_fields:candidate_company", payload["candidate_options"][0]["review_reasons"])
+        self.assertEqual(payload["opportunity_id"], "")
+        self.assertEqual(payload["opportunity_ids"], [])
+
+        runs_response = client.request("GET", "/operator-console/autonomous-search-runs")
+        self.assertEqual(runs_response.status_code, 200)
+        runs = runs_response.json()
+        self.assertEqual(runs["run_count"], 1)
+        self.assertEqual(runs["runs"][0]["source_candidate_mode"], "REAL_PUBLIC_SOURCE_CANDIDATES")
+        self.assertEqual(runs["runs"][0]["search_state"], "REVIEW_REQUIRED")
 
     def test_operator_autonomous_search_runs_region_to_workbench_loop(self) -> None:
         client = TestClient(create_app())
@@ -247,13 +438,28 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["amount_range"]["maximum"], 30000000)
         self.assertTrue(payload["runtime_flow"]["test_path_unblocked"])
         self.assertTrue(payload["runtime_flow"]["live_delivery_gates_preserved"])
+        self.assertEqual(payload["runtime_flow"]["source_candidate_mode"], "OFFLINE_SAMPLE_CANDIDATES")
+        self.assertTrue(payload["runtime_flow"]["offline_sample_validation"])
+        self.assertFalse(payload["runtime_flow"]["customer_sellable_evidence_ready"])
+        self.assertIn("不能当作真实市场发现", payload["runtime_flow"]["data_boundary_message"])
         self.assertEqual(payload["runtime_flow"]["totals"]["stage_count"], 9)
         self.assertEqual(len(payload["runtime_flow"]["stage_stats"]), 9)
         self.assertEqual(payload["search_scope"]["candidate_count"], 1)
         self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 1)
+        self.assertEqual(payload["search_scope"]["source_candidate_mode"], "OFFLINE_SAMPLE_CANDIDATES")
+        self.assertTrue(payload["search_scope"]["offline_sample_candidates_enabled"])
+        self.assertFalse(payload["search_scope"]["real_market_discovery"])
+        self.assertTrue(payload["data_boundary"]["offline_sample_validation"])
+        self.assertFalse(payload["data_boundary"]["customer_sellable_evidence_ready"])
+        self.assertIn("不能当作真实市场发现", payload["data_boundary"]["display_message"])
         self.assertEqual(len(payload["candidate_options"]), 1)
         self.assertEqual(payload["candidate_options"][0]["region_code"], "CN-GD")
         self.assertEqual(payload["candidate_options"][0]["project_type"], "municipal")
+        self.assertTrue(payload["candidate_options"][0]["is_offline_sample_candidate"])
+        self.assertEqual(
+            payload["candidate_options"][0]["sellability_evidence_state"],
+            "SAMPLE_NOT_CUSTOMER_SELLABLE",
+        )
         self.assertTrue(payload["search_run_id"])
         self.assertEqual(
             payload["search_run_record"]["search_state"],
@@ -274,6 +480,9 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(runs["latest_runtime_flow"]["totals"]["stage_count"], 9)
         self.assertEqual(runs["runs"][0]["search_scope"]["candidate_count"], 1)
         self.assertEqual(runs["runs"][0]["candidate_options"][0]["region_code"], "CN-GD")
+        self.assertEqual(runs["runs"][0]["source_candidate_mode"], "OFFLINE_SAMPLE_CANDIDATES")
+        self.assertTrue(runs["runs"][0]["offline_sample_validation"])
+        self.assertFalse(runs["runs"][0]["customer_sellable_evidence_ready"])
         self.assertEqual(
             runs["runs"][0]["search_state"],
             "AUTONOMOUS_SEARCH_ACCEPTED",
@@ -374,14 +583,22 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["search_scope"]["region_codes"], ["CN-GD", "CN-JS"])
         self.assertEqual(payload["search_scope"]["project_types"], ["construction", "municipal"])
         self.assertEqual(payload["search_scope"]["candidate_count"], 4)
+        self.assertEqual(payload["search_scope"]["selected_candidate_count"], 4)
         self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 4)
+        self.assertEqual(payload["search_scope"]["selection_semantics"], "PASSED_FILTERS_NOT_SINGLE_PICK")
+        self.assertIn("所有候选", payload["search_scope"]["stage1_policy"])
         self.assertEqual(len(payload["opportunity_ids"]), 4)
         self.assertEqual(payload["region_adapter"]["region_code"], "CN-GD")
         self.assertEqual(payload["candidate"]["project_type"], "construction")
         self.assertEqual(len(payload["candidate_options"]), 4)
+        self.assertEqual(
+            {candidate["region_code"] for candidate in payload["candidate_options"]},
+            {"CN-GD", "CN-JS"},
+        )
         self.assertTrue(all(candidate["opportunity_id"] for candidate in payload["candidate_options"]))
         self.assertTrue(payload["candidate_options"][0]["project_name"])
         self.assertEqual(payload["runtime_flow"]["stage_stats"][0]["produced_count"], 4)
+        self.assertEqual(payload["runtime_flow"]["stage_stats"][0]["object_refs"]["passed_filter_candidate_count"], 4)
 
 
 if __name__ == "__main__":

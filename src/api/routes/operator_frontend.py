@@ -81,6 +81,8 @@ def _search_run_metadata_for_opportunity(opportunity_id: str) -> dict[str, Any]:
         if str(refs.get("opportunity_id") or "") != opportunity_id:
             continue
         candidate_options = _json_or_default(refs.get("candidate_options_json"), [])
+        search_scope = _json_or_default(refs.get("search_scope_json"), {})
+        data_boundary = _json_or_default(refs.get("data_boundary_json"), {})
         selected_project_id = str(refs.get("project_id") or "")
         selected_candidate = next(
             (
@@ -115,7 +117,20 @@ def _search_run_metadata_for_opportunity(opportunity_id: str) -> dict[str, Any]:
             "analysis_decision": refs.get("analysis_decision"),
             "analysis_priority": refs.get("analysis_priority"),
             "amount_range": _json_or_default(refs.get("amount_range_json"), {}),
-            "search_scope": _json_or_default(refs.get("search_scope_json"), {}),
+            "search_scope": search_scope,
+            "source_candidate_mode": str(
+                refs.get("source_candidate_mode")
+                or search_scope.get("source_candidate_mode")
+                or data_boundary.get("source_candidate_mode")
+                or ""
+            ),
+            "real_market_discovery": str(refs.get("real_market_discovery") or "").lower() == "true",
+            "offline_sample_validation": str(refs.get("offline_sample_validation") or "").lower() == "true",
+            "customer_sellable_evidence_ready": str(
+                refs.get("customer_sellable_evidence_ready") or ""
+            ).lower()
+            == "true",
+            "data_boundary": data_boundary,
             "candidate_options": candidate_options,
             "selected_candidate": selected_candidate,
             "requested_at": action.requested_at,
@@ -135,12 +150,53 @@ def _source_verification_from_metadata(metadata: Mapping[str, Any]) -> dict[str,
     }
 
 
+def _localized_data_boundary(surface: Mapping[str, Any], metadata: Mapping[str, Any]) -> dict[str, Any]:
+    metadata_boundary = dict(metadata.get("data_boundary", {}) or {})
+    source_mode = str(
+        metadata.get("source_candidate_mode")
+        or dict(metadata.get("search_scope", {}) or {}).get("source_candidate_mode")
+        or metadata_boundary.get("source_candidate_mode")
+        or ""
+    )
+    project_name = str(metadata.get("project_name") or "")
+    offline_sample = bool(metadata.get("offline_sample_validation")) or source_mode == "OFFLINE_SAMPLE_CANDIDATES"
+    if not offline_sample and "机会搜索样本" in project_name:
+        offline_sample = True
+    has_source_url = bool(str(metadata.get("source_url") or "").strip())
+    if offline_sample:
+        mode_label = "离线样本验证"
+        sellable_label = "不可作为客户可售证据，只能验证 Stage1-9、工作台和证据包链路。"
+    elif source_mode == "REAL_SOURCE_REQUIRED":
+        mode_label = "真实来源候选待接入"
+        sellable_label = "尚未形成真实候选，不能生成客户证据包。"
+    elif source_mode == "EXPLICIT_CANDIDATES":
+        mode_label = "显式候选闭环"
+        sellable_label = "可用于内部闭环验证；客户交付前仍需核验真实详情页、附件和回链。"
+    else:
+        mode_label = "来源模式待读取"
+        sellable_label = "客户交付前需要完成真实来源核验。"
+    return {
+        "数据模式": mode_label,
+        "来源候选模式": source_mode or "UNKNOWN",
+        "是否离线样本": offline_sample,
+        "是否真实市场发现": bool(metadata.get("real_market_discovery")) and not offline_sample,
+        "客户可交付判断": sellable_label,
+        "来源网址精度": "已提供公开来源网址，仍需核对是否为项目详情页/附件页。"
+        if has_source_url
+        else "缺少公开来源网址，不能作为客户证据。",
+        "证据包用途": "内部运营验收，不会真实发送客户。",
+        "客户可见导出已开放": bool(surface.get("customer_visible_export_enabled")),
+        "真实外发已开放": bool(surface.get("external_release_enabled")),
+    }
+
+
 def _customer_artifact_surface_with_search_context(payload: dict[str, Any]) -> dict[str, Any]:
     surface = build_customer_artifact_access_candidate_surface(payload)
     opportunity_id = str(surface.get("opportunity_id") or payload.get("opportunity_id") or "")
     metadata = _search_run_metadata_for_opportunity(opportunity_id)
     surface["search_run_metadata"] = metadata
     surface["source_verification"] = _source_verification_from_metadata(metadata)
+    surface["data_boundary"] = _localized_data_boundary(surface, metadata)
     return surface
 
 
@@ -212,6 +268,12 @@ OWNER_VISIBLE_LABELS = {
     "UNASSIGNED": "未分配",
     "VALID": "有效",
     "WINDOW_ACTIONABLE": "窗口可行动",
+    "NO_CANDIDATES": "未发现候选",
+    "REAL_SOURCE_REQUIRED": "需要真实来源候选",
+    "OFFLINE_SAMPLE_CANDIDATES": "离线样本候选",
+    "EXPLICIT_CANDIDATES": "显式候选",
+    "SAMPLE_NOT_CUSTOMER_SELLABLE": "样本不可客户交付",
+    "EXPLICIT_SOURCE_REVIEW_REQUIRED": "显式候选需真实回链复核",
     "allowed_projection": "允许展示摘要",
     "allowlist_enforced": "字段白名单已执行",
     "artifact_manifest_id": "清单编号",
@@ -259,6 +321,21 @@ OWNER_VISIBLE_LABELS = {
     "watermark_text": "水印文字",
 }
 
+OWNER_BLOCKED_REASON_LABELS = {
+    "stage7_artifact_readback_missing": "阶段7证据包尚未生成",
+    "stage8_stage9_delivery_context_not_required_for_access_candidate_readback": "阶段8/9真实交付上下文未进入内部预览；不影响内部证据包检查",
+    "customer_visible_export_enabled=false": "客户自助页面未开放；当前按内部预览和邮件交付路线处理",
+    "client_page_release_enabled=false": "客户自助页面未发布；当前不是客户工作台交付",
+    "external_release_enabled=false": "真实外发未接入；内部测试不触达外部",
+    "external_delivery_enabled=false": "真实交付未接入；内部测试不触达外部",
+    "direct_export_enabled=false": "直接导出未接入；当前使用内部证据包下载",
+    "approval_audit_and_implementation_decision_required_before_live": "真实外发前需要审批、审计和执行决策",
+    "customer_account_access_control_required": "客户账号不作为当前内部测试前置",
+    "download_auth_required": "客户自助下载不是当前交付路径；未来成交付款后邮件发送",
+    "approval_audit_required_before_customer_download": "客户真实下载前需要审批和审计",
+    "public_software_release_not_approved": "不交付客户软件平台；内部预览不受影响",
+}
+
 
 def _owner_visible_label(value: Any) -> str:
     text = str(value or "")
@@ -277,6 +354,16 @@ def _owner_visible_value(value: Any) -> Any:
     if isinstance(value, str):
         return _owner_visible_label(value)
     return value
+
+
+def _owner_visible_blocked_reasons(reasons: list[Any]) -> list[str]:
+    labels: list[str] = []
+    for reason in reasons:
+        text = str(reason or "").strip()
+        if not text:
+            continue
+        labels.append(OWNER_BLOCKED_REASON_LABELS.get(text, text.replace("_", " ")))
+    return labels
 
 
 def _localized_source_verification(source_verification: Mapping[str, Any]) -> dict[str, Any]:
@@ -302,23 +389,28 @@ def _localized_field_policy(policy: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _localized_download_auth(download_auth: Mapping[str, Any]) -> dict[str, Any]:
+    customer_download_enabled = bool(download_auth.get("customer_download_enabled") or download_auth.get("download_enabled"))
     return {
         "当前下载用途": "内部运营预览，不会真实发送客户",
-        "客户自助下载已开放": bool(download_auth.get("customer_download_enabled") or download_auth.get("download_enabled")),
+        "客户自助下载已开放": customer_download_enabled,
         "客户下载需要授权": bool(download_auth.get("auth_required", True)),
         "真实客户下载已执行": False,
-        "原始授权状态摘要": _owner_visible_value(download_auth),
+        "授权状态说明": "当前只允许运营方下载内部预览包；客户未来通过成交付款后的邮件证据包接收。",
     }
 
 
 def _localized_evidence_item(
     item: Mapping[str, Any],
     source_verification: Mapping[str, Any],
+    data_boundary: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
+    boundary = dict(data_boundary or {})
     return {
         "证据项编号": _owner_visible_label(item.get("item_id") or ""),
         "证据类型": _owner_visible_label(item.get("item_id") or item.get("source_object") or ""),
         "线索类型": _owner_visible_label(item.get("source_object") or ""),
+        "证据说明": "内部证据包条目；用于核对项目事实、报价判断、买家匹配或阶段7决策痕迹。",
+        "客户交付判断": str(boundary.get("客户可交付判断") or "客户交付前需要完成真实来源核验。"),
         "来源对象编号": str(item.get("source_id") or ""),
         "清单状态": _owner_visible_label(item.get("manifest_state") or item.get("status") or ""),
         "脱敏策略": _owner_visible_label(item.get("masking_policy") or ""),
@@ -335,19 +427,21 @@ def _internal_evidence_package_download_payload(payload: dict[str, Any]) -> dict
     artifact = dict(surface.get("customer_artifact_readback", {}) or {})
     manifest = dict(formal.get("package_manifest", {}) or {})
     source_verification = dict(surface.get("source_verification", {}) or {})
+    data_boundary = dict(surface.get("data_boundary", {}) or {})
     evidence_items = []
     for item in list(manifest.get("evidence_items", []) or []):
         row = dict(item)
         row.setdefault("source_url", source_verification.get("source_url"))
         row.setdefault("source_site_name", source_verification.get("source_site_name"))
         row.setdefault("source_profile_id", source_verification.get("source_profile_id"))
-        evidence_items.append(_localized_evidence_item(row, source_verification))
+        evidence_items.append(_localized_evidence_item(row, source_verification, data_boundary))
     field_policy = dict(surface.get("field_allowlist_masking", {}) or {})
     download_auth = dict(surface.get("download_auth", {}) or {})
     return {
         "说明": "内部证据包预览文件；用于运营方验收，不会真实发送给客户。",
         "未来交付方式": "成交付款后由系统通过邮件发送证据包。",
         "商机编号": str(payload.get("opportunity_id") or ""),
+        "数据真实性边界": data_boundary,
         "公开来源验证": _localized_source_verification(source_verification),
         "证据包": {
             "证据包编号": artifact.get("evidence_pack_id"),
@@ -374,7 +468,7 @@ def _internal_evidence_package_download_payload(payload: dict[str, Any]) -> dict
             "候选状态": "可内部预览" if not surface.get("empty_state") else "暂无证据包读回",
             "客户可见导出已开放": bool(surface.get("customer_visible_export_enabled")),
             "真实外发已开放": bool(surface.get("external_release_enabled")),
-            "待接或受控原因": _owner_visible_value(list(surface.get("blocked_reasons", []) or [])),
+            "待接或受控原因": _owner_visible_blocked_reasons(list(surface.get("blocked_reasons", []) or [])),
         },
     }
 
@@ -544,6 +638,11 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       padding: 10px 12px;
       color: var(--muted);
       max-width: 520px;
+    }}
+    .status.warn {{
+      border-color: #f2c078;
+      background: #fff8ec;
+      color: #80510a;
     }}
     .grid {{
       display: grid;
@@ -922,7 +1021,7 @@ def render_operator_console(payload: Any) -> HTMLResponse:
     <div class="topbar">
       <div>
         <h2>证据包运营操作台</h2>
-        <p>内部线索运营平台 / 情报生产平台 / 销售作战平台：从市场扫描到证据包、机会包和销售推进结果，客户不使用工作台。</p>
+        <p>真实公开市场机会发现 + 证据包商业化运营系统：默认目标是真实来源候选进料、证据核验和可售线索包；内部/样本只作为回归模式，客户不使用工作台。</p>
       </div>
       <div class="status" id="summary">正在读取启动状态和就绪状态...</div>
     </div>
@@ -935,19 +1034,9 @@ def render_operator_console(payload: Any) -> HTMLResponse:
       <div class="panelStack" aria-live="polite">
         <div class="view-panel active" id="overview" data-view-panel="overview">
           <section>
-            <h3>真实可卖性判断</h3>
-            <p class="muted-text" id="sellabilityDecision">正在读取当前能卖到哪一步、还差哪些接入。</p>
-            <div class="rail" id="sellabilityMetrics">
-              <div class="metric"><strong>--</strong><span>可卖性等级</span></div>
-              <div class="metric"><strong>--</strong><span>最新商机</span></div>
-              <div class="metric"><strong>--</strong><span>真实外部动作</span></div>
-            </div>
-            <div id="sellabilityBoundary"></div>
-            <div id="sellabilityLaneList" class="compact-card-grid"></div>
-          </section>
-          <section>
             <h3>阶段1-9 运营总览</h3>
             <p class="muted-text" id="stageDirection">系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 证据包预览。运行实战搜索后显示每阶段产出。</p>
+            <div class="status" id="stageRunBoundary">运行边界：等待实战搜索或任务运行。</div>
             <div class="rail" id="stageMetrics">
               <div class="metric"><strong>9</strong><span>阶段数</span></div>
               <div class="metric"><strong>0</strong><span>产出对象</span></div>
@@ -967,6 +1056,27 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <h3>阶段对象流与失败分类</h3>
             <p class="muted-text">这里读取最新运行的阶段对象、输入输出、有效/无效分类和下一步动作，不再只是静态流程说明。</p>
             <div class="compact-card-grid" id="stageObjectFlow"></div>
+          </section>
+          <section>
+            <h3>当前任务运行总览</h3>
+            <p class="muted-text" id="taskRunOverviewNarrative">发起任务后这里显示队列状态、任务编号、项目编号、入口状态和下一步动作。</p>
+            <div class="rail" id="taskRunMetrics">
+              <div class="metric"><strong>--</strong><span>队列任务</span></div>
+              <div class="metric"><strong>--</strong><span>排队中</span></div>
+              <div class="metric"><strong>--</strong><span>最新任务</span></div>
+            </div>
+            <div id="taskRunOverviewList" class="empty-state">暂无任务运行记录；在“采集运行”里创建内部任务后显示。</div>
+          </section>
+          <section>
+            <h3>真实可卖性判断</h3>
+            <p class="muted-text" id="sellabilityDecision">正在读取当前能卖到哪一步、还差哪些接入。</p>
+            <div class="rail" id="sellabilityMetrics">
+              <div class="metric"><strong>--</strong><span>可卖性等级</span></div>
+              <div class="metric"><strong>--</strong><span>最新商机</span></div>
+              <div class="metric"><strong>--</strong><span>真实外部动作</span></div>
+            </div>
+            <div id="sellabilityBoundary"></div>
+            <div id="sellabilityLaneList" class="compact-card-grid"></div>
           </section>
           <section>
             <h3>阶段运行日志</h3>
@@ -1025,12 +1135,36 @@ def render_operator_console(payload: Any) -> HTMLResponse:
                 <div class="metric"><strong>--</strong><span>本地专用入口</span></div>
                 <div class="metric"><strong>--</strong><span>待补地区</span></div>
               </div>
-              <p class="muted-text" id="regionCoverageNarrative">地区覆盖缺口待读取：正在读取全国兜底、本地入口和商业试点缺口。</p>
+              <p class="muted-text" id="regionCoverageNarrative">地区覆盖缺口待读取：正在读取本省实时源、全国搜索入口和商业试点缺口。</p>
               <div id="regionAdapterSummary" class="empty-state">正在读取地区适配器...</div>
             </section>
             <section class="wide">
               <h3>搜索结果</h3>
               <div id="searchResult" class="empty-state">暂无搜索结果。</div>
+            </section>
+            <section class="wide">
+              <h3>无候选诊断 / 来源解析</h3>
+              <p class="muted-text" id="realCandidateDiscoveryDiagnosticsMeta">待读取真实候选发现诊断。</p>
+              <div id="realCandidateDiscoveryDiagnostics" class="empty-state">暂无真实候选发现诊断。</div>
+              <div class="field-actions">
+                <button id="refreshRealCandidateDiscoveryDiagnostics">刷新发现诊断</button>
+              </div>
+            </section>
+            <section class="wide">
+              <h3>真实候选入库 / 去重读回</h3>
+              <p class="muted-text" id="realCandidateCatalogMeta">待读取真实列表页候选库。</p>
+              <div id="realCandidateCatalog" class="empty-state">暂无已入库真实候选。</div>
+              <div class="field-actions">
+                <button id="refreshRealCandidateCatalog">刷新真实候选库</button>
+              </div>
+            </section>
+            <section class="wide">
+              <h3>候选详情快照 / Stage2 读回</h3>
+              <p class="muted-text" id="realCandidateStage2CaptureMeta">待读取真实候选详情页快照。</p>
+              <div id="realCandidateStage2Captures" class="empty-state">暂无候选详情快照。</div>
+              <div class="field-actions">
+                <button id="refreshRealCandidateStage2Captures">刷新详情快照</button>
+              </div>
             </section>
             <section class="wide">
               <h3>搜索运行记录</h3>
@@ -1113,8 +1247,8 @@ def render_operator_console(payload: Any) -> HTMLResponse:
             <div id="liveActionGateMatrix" class="compact-card-grid"></div>
           </section>
           <section class="controlled_opening_requirement">
-            <h3>内部测试放行状态</h3>
-            <p>测试阶段内部预览、证据包生成、模拟下载、模拟外发链路可以打开；当前没有邮件、电话、支付、退款服务商接入，所以不会真实触达外部。</p>
+            <h3>回归与受控放行状态</h3>
+            <p>内部/样本链路只用于回归和受控验证，不代表真实实战完成；当前没有邮件、电话、支付、退款服务商接入，所以不会真实触达外部。</p>
             <span class="pill">内部测试发布模拟已打开</span>
             <span class="pill">证据包预览可打开</span>
             <span class="pill">客户账号不作为内部测试前置</span>
@@ -1209,6 +1343,9 @@ function showView(view) {
   });
   const stack = document.querySelector(".panelStack");
   if (stack) { stack.scrollTop = 0; }
+  const selectedPanel = document.querySelector(`[data-view-panel="${selected}"]`);
+  if (selectedPanel) { selectedPanel.scrollTop = 0; }
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 async function json(method, url, body) {
   const options = { method, headers: { "accept": "application/json" } };
@@ -1222,8 +1359,38 @@ async function json(method, url, body) {
 }
 const stateLabels = {
   "AUTONOMOUS_SEARCH_ACCEPTED": "自动搜索已接受",
+  "NO_CANDIDATES": "未发现候选",
+  "REAL_SOURCE_ADAPTER_REQUIRED": "需要真实来源适配器",
+  "REAL_SOURCE_REQUIRED": "需要真实来源候选",
+  "REAL_PUBLIC_SOURCE_CANDIDATES": "真实列表页候选",
+  "REAL_PUBLIC_CANDIDATE_DETAIL_CAPTURE": "真实候选详情抓取",
+  "REAL_DETAIL_SNAPSHOT_PARSED_NEEDS_STAGE4_TO_STAGE9": "详情快照已解析，待后续证据回链",
+  "REAL_LIST_PAGE_CANDIDATE_NEEDS_DETAIL_CAPTURE": "列表候选待详情抓取",
+  "REAL_SOURCE_NO_CANDIDATES": "真实来源未命中候选",
+  "OFFLINE_SAMPLE_CANDIDATES": "离线样本候选",
+  "EXPLICIT_CANDIDATES": "显式候选",
+  "SAMPLE_NOT_CUSTOMER_SELLABLE": "样本不可客户交付",
+  "EXPLICIT_SOURCE_REVIEW_REQUIRED": "显式候选需真实回链复核",
+  "real_source_candidate_feed_missing": "真实来源候选列表未接入",
+  "WAIT_REAL_SOURCE_CANDIDATES": "等待真实来源候选",
+  "queued": "排队中",
+  "running": "运行中",
+  "completed": "已完成",
+  "failed": "失败",
+  "paused": "已暂停",
+  "dead_letter": "死信",
+  "stage1_scheduler": "阶段1调度队列",
+  "stage1_scheduler_queue": "阶段1调度队列",
+  "STAGE2_HANDOFF_READY": "阶段2交接已准备",
+  "INTENT_ONLY_NO_FETCH": "只生成交接意图，不抓取",
+  "upstream_stage_not_reached": "上游阶段未到达",
   "REAL_SAMPLE_AUTONOMOUS_OPPORTUNITY_ACCEPTED": "真实样本闭环通过",
   "REVIEW_REQUIRED": "需要复核",
+  "FETCHED": "已抓取",
+  "DEGRADED": "降级",
+  "PARSED": "已解析",
+  "PARSED_WITH_REVIEW": "已解析待复核",
+  "NOT_RUN": "未运行",
   "APPROVAL_READY": "可进入审批",
   "PRODUCTION_READY": "内部生产就绪",
   "EXECUTABLE": "可执行",
@@ -1243,8 +1410,13 @@ const stateLabels = {
   "procurement_decision_actor": "采购决策方",
   "NATIONAL_DISCOVERY_READY": "全国发现就绪",
   "LOCAL_PROFILE_READY": "本地入口就绪",
-  "NATIONAL_FALLBACK_READY_LOCAL_ONBOARDING_PENDING": "全国兜底，本地入口待补",
-  "GUANGDONG-PROVINCIAL-PORTAL": "广东公共资源入口",
+  "LOCAL_REALTIME_SOURCE_REQUIRED": "本省实时源待补",
+  "GUANGDONG-YGP-PROVINCE-TRADING-LIST": "广东省交易公开",
+  "JIANGSU-GGZY-HOME": "江苏公共资源交易网",
+  "ZHEJIANG-GGZY-JYXXGK-LIST": "浙江交易信息公开",
+  "SHANDONG-GGZY-JYXXGK-LIST": "山东交易公开",
+  "HUBEI-BIDCLOUD-JYXX-LIST": "湖北交易信息",
+  "SICHUAN-GGZY-TRANSACTION-INFO": "四川交易信息",
   "BEIJING-PLATFORM-HOME": "北京公共资源入口",
   "GGZY-DEAL-LIST": "全国公共资源交易列表",
   "PASS": "通过",
@@ -1357,6 +1529,45 @@ function labelOf(value) {
   const text = String(value ?? "--");
   return stateLabels[text] || projectTypeLabels[text] || text;
 }
+function reasonLabel(value) {
+  const text = String(value ?? "");
+  if (text.startsWith("missing_key_fields:")) {
+    return `缺关键字段：${text.replace("missing_key_fields:", "").replaceAll(",", "、")}`;
+  }
+  const labels = {
+    amount_below_minimum: "金额低于搜索下限",
+    amount_above_maximum: "金额高于搜索上限",
+    objection_window_expired: "异议/公告窗口已过",
+    no_competitor_signal: "缺少候选公司/竞争信号",
+    score_below_analysis_threshold: "评分低于自动闭环阈值",
+    project_type_not_engineering: "项目类型不是工程类",
+    project_type_unknown: "项目类型未识别",
+    region_parse_state_unconfirmed: "地区来源仍需复核",
+    objection_window_unknown: "异议窗口未知",
+    static_detail_links_missing: "没有静态详情链接",
+    js_rendered_list_or_api_required: "疑似 JS 列表壳，需要接列表数据源",
+    browser_rendered_realtime_list_required: "正确实时源需要浏览器渲染列表读取",
+    province_realtime_source_not_registered: "本省实时来源未登记",
+    candidate_links_accepted: "已接受候选链接",
+    all_or_some_links_filtered_by_region: "部分/全部链接被地区过滤",
+    all_or_some_links_filtered_by_project_type: "部分/全部链接被项目类型过滤",
+    all_or_some_links_filtered_by_amount_range: "部分/全部链接被金额区间过滤",
+    links_present_but_navigation_or_template_only: "只有栏目导航或模板占位链接",
+    links_present_but_not_candidate_detail_pages: "有链接但不是候选详情页",
+    links_present_but_no_candidate_after_filters: "有链接但过滤后无候选",
+    candidate_discovery_no_issue_detected: "未检测到明确解析问题",
+    non_mapping_link_item: "链接对象格式异常",
+    missing_source_url: "链接缺少 URL",
+    navigation_or_template_link: "栏目导航或模板占位链接",
+    not_candidate_detail_url: "不是候选详情页",
+    region_mismatch: "地区不匹配",
+    project_type_mismatch: "项目类型不匹配",
+  };
+  return labels[text] || labelOf(text);
+}
+function reasonListText(values) {
+  return (values || []).map(reasonLabel).filter(Boolean).join("、");
+}
 function badge(text, kind="") { return `<span class="pill ${kind}">${labelOf(text)}</span>`; }
 function safeText(value) {
   return String(value ?? "--")
@@ -1443,17 +1654,69 @@ function candidateRange(candidate) {
     maximum: candidate?.amount_max ?? candidate?.amount
   };
 }
-function opportunityActions(opportunityId) {
+function sourceModeOf(runOrCandidate) {
+  return runOrCandidate?.source_candidate_mode
+    || runOrCandidate?.search_scope?.source_candidate_mode
+    || runOrCandidate?.data_boundary?.source_candidate_mode
+    || "";
+}
+function isOfflineSample(runOrCandidate) {
+  const sourceMode = sourceModeOf(runOrCandidate);
+  return sourceMode === "OFFLINE_SAMPLE_CANDIDATES"
+    || runOrCandidate?.offline_sample_validation === true
+    || runOrCandidate?.is_offline_sample_candidate === true
+    || String(runOrCandidate?.project_name || "").includes("机会搜索样本");
+}
+function searchBoundaryMessage(run) {
+  const sourceMode = sourceModeOf(run);
+  if (run?.search_state === "NO_CANDIDATES" || sourceMode === "REAL_SOURCE_REQUIRED") {
+    return {
+      title: "未发现真实候选",
+      body: "默认实战搜索没有合成样本机会；当前真实来源候选列表未接入，所以本次为 0 候选、0 闭环。",
+      kind: "warn",
+    };
+  }
+  if (isOfflineSample(run)) {
+    return {
+      title: "离线样本验证",
+      body: "这些机会只用于验证 Stage1-9、工作台和证据包链路，不代表真实市场发现，也不能作为客户可售证据。",
+      kind: "warn",
+    };
+  }
+  if (sourceMode === "EXPLICIT_CANDIDATES") {
+    return {
+      title: "显式候选闭环",
+      body: "候选已进入内部闭环；客户交付前仍要核验真实详情页、附件和证据回链。",
+      kind: "",
+    };
+  }
+  if (sourceMode === "REAL_PUBLIC_SOURCE_CANDIDATES") {
+    const count = run?.search_scope?.candidate_count ?? (run?.candidate_options || []).length ?? 0;
+    return {
+      title: count ? "真实列表页候选" : "真实列表页未命中",
+      body: count
+        ? "已从真实公开列表页解析候选，并自动尝试详情页与同站附件原文进入 Stage2/Stage3；客户可售前还需要 Stage4-9 证据回链。"
+        : "已调用真实公开列表页候选发现器，但本次没有解析到符合条件的候选。",
+      kind: count ? "" : "warn",
+    };
+  }
+  return {
+    title: "搜索读回",
+    body: run?.display_message || "已读取搜索运行记录。",
+    kind: "",
+  };
+}
+function opportunityActions(opportunityId, sampleMode=false) {
   if (!opportunityId) { return ""; }
   return `<div class="opportunity-actions">
-    <a href="#autonomousWorkbench" data-workbench-opportunity="${opportunityId}">查看机会</a>
+    <a href="#autonomousWorkbench" data-workbench-opportunity="${opportunityId}">${sampleMode ? "查看样本机会" : "查看机会"}</a>
     <a href="/customer-artifact-portal/${encodeURIComponent(opportunityId)}">证据包预览</a>
-    <a href="/customer-artifact-portal-download/${encodeURIComponent(opportunityId)}">下载证据包</a>
+    <a href="/customer-artifact-portal-download/${encodeURIComponent(opportunityId)}">${sampleMode ? "下载内部样本证据包" : "下载证据包"}</a>
   </div>`;
 }
 function candidateOpportunityActions(candidate, activeOpportunityId="", selectedProjectId="") {
   const candidateOpportunityId = candidate.opportunity_id || (activeOpportunityId && candidate.project_id === selectedProjectId ? activeOpportunityId : "");
-  return opportunityActions(candidateOpportunityId);
+  return opportunityActions(candidateOpportunityId, isOfflineSample(candidate));
 }
 function renderCandidateCards(candidates, activeOpportunityId="", selectedProjectId="") {
   const rows = Array.isArray(candidates) ? candidates : [];
@@ -1466,17 +1729,34 @@ function renderCandidateCards(candidates, activeOpportunityId="", selectedProjec
       <p>${candidate.region_name || candidate.region_code || "--"} · ${labelOf(candidate.project_type || "--")} · ${amountRangeText(candidateRange(candidate))}</p>
       ${badge(candidate.analysis_decision || "--", candidate.selected_for_capture_plan ? "" : "warn")}
       ${badge(candidate.analysis_priority || "--")}
+      ${isOfflineSample(candidate) ? badge("离线样本，不可客户交付", "warn") : badge(candidate.source_candidate_mode || "真实候选待核验")}
       ${badge(candidate.analysis_score ? `评分 ${candidate.analysis_score}` : "评分 --")}
-      ${badge(candidate.closed_loop_generated ? "已生成机会闭环" : "未生成机会闭环", candidate.closed_loop_generated ? "" : "warn")}
+      ${badge(candidate.closed_loop_generated ? (isOfflineSample(candidate) ? "已生成样本闭环" : "已生成机会闭环") : "未生成机会闭环", candidate.closed_loop_generated ? "" : "warn")}
+      ${candidate.stage2_detail_capture_state ? badge(`详情 ${candidate.stage2_detail_capture_state}`, candidate.stage2_detail_snapshot_id_optional ? "" : "warn") : ""}
+      ${candidate.stage3_detail_parse_state ? badge(`解析 ${candidate.stage3_detail_parse_state}`, String(candidate.stage3_detail_parse_state).startsWith("PARSED") ? "" : "warn") : ""}
+      ${candidate.publication_window_state ? badge(labelOf(candidate.publication_window_state)) : ""}
       <p>${candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回"}</p>
+      ${candidate.source_url ? `<p><strong>来源网址</strong> <a href="${safeText(candidate.source_url)}" target="_blank" rel="noopener">${safeText(candidate.source_url)}</a></p>` : ""}
+      ${candidate.published_at_optional ? `<p><strong>发布时间</strong> ${safeText(candidate.published_at_optional)}</p>` : ""}
+      ${candidate.amount_parse_state || candidate.region_parse_state ? `<p><strong>解析状态</strong> 金额：${safeText(labelOf(candidate.amount_parse_state || "--"))}；地区：${safeText(labelOf(candidate.region_parse_state || "--"))}</p>` : ""}
+      ${candidate.stage2_detail_snapshot_id_optional ? `<p><strong>详情快照</strong> ${safeText(candidate.stage2_detail_snapshot_id_optional)} · 附件线索 ${safeText(candidate.stage2_attachment_link_count ?? 0)} · 附件快照 ${safeText(candidate.stage2_attachment_snapshot_count ?? 0)}</p>` : ""}
       <p><strong>${candidate.selected_for_capture_plan ? "入选理由" : "未入选原因"}</strong> ${candidateDecisionReason(candidate, selectedProjectId)}</p>
       ${candidateOpportunityActions(candidate, activeOpportunityId, selectedProjectId)}
     </div>
   `).join("")}</div>`;
 }
 function candidateDecisionReason(candidate, selectedProjectId="") {
+  if (isOfflineSample(candidate)) {
+    return `离线样本命中地区、项目类型和金额区间，评分 ${candidate.analysis_score ?? "--"}；只验证后续链路，不代表真实市场机会。`;
+  }
   if (candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId) {
-    return `匹配地区、项目类型和金额区间，评分 ${candidate.analysis_score ?? "--"}，进入来源蓝图和闭环生成。`;
+    return `通过当前时间窗口、地区、项目类型、金额区间和证据字段过滤，评分 ${candidate.analysis_score ?? "--"}，进入来源蓝图和闭环生成。`;
+  }
+  if ((candidate.why_skip || []).length) {
+    return `跳过：${reasonListText(candidate.why_skip)}；评分 ${candidate.analysis_score ?? "--"}。`;
+  }
+  if ((candidate.review_reasons || []).length) {
+    return `需要复核：${reasonListText(candidate.review_reasons)}；评分 ${candidate.analysis_score ?? "--"}。`;
   }
   if (!candidate.source_url && !candidate.source_profile_id) {
     return "公开来源入口缺失，进入来源补齐队列。";
@@ -1487,8 +1767,11 @@ function candidateDecisionReason(candidate, selectedProjectId="") {
   return `${labelOf(candidate.analysis_decision || "需要复核")}，等待批量复盘。`;
 }
 function candidateFailureCategory(candidate, selectedProjectId="") {
+  if (isOfflineSample(candidate) && (candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId)) {
+    return "样本闭环，非真实可售";
+  }
   if (candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId) {
-    return "未淘汰，进入闭环";
+    return "通过过滤，进入闭环";
   }
   if (!candidate.source_url && !candidate.source_profile_id) {
     return "来源缺口";
@@ -1505,8 +1788,8 @@ function renderCandidateBatchReview(run) {
   }
   const selectedProjectId = run.search_scope?.selected_project_id || run.project_id || "";
   const selected = rows.filter((candidate) => candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId);
-  const fallbackCount = rows.filter((candidate) => String(candidate.source_profile_id || "").includes("GGZY-DEAL-LIST")).length;
-  const localCount = rows.length - fallbackCount;
+  const nationalCount = rows.filter((candidate) => String(candidate.source_profile_id || "").includes("GGZY-DEAL-LIST")).length;
+  const localCount = rows.length - nationalCount;
   const categories = {};
   rows.forEach((candidate) => {
     const category = candidateFailureCategory(candidate, selectedProjectId);
@@ -1517,9 +1800,9 @@ function renderCandidateBatchReview(run) {
     <div class="rail">
       <div class="metric"><strong>${rows.length}</strong><span>候选对象</span></div>
       <div class="metric"><strong>${selected.length}</strong><span>进入闭环</span></div>
-      <div class="metric"><strong>${fallbackCount}</strong><span>全国兜底来源</span></div>
+      <div class="metric"><strong>${nationalCount}</strong><span>全国平台来源</span></div>
     </div>
-    <p class="muted-text">失败分类：${safeText(categoryText || "暂无失败分类")}；本地入口 ${localCount} 条，全国兜底 ${fallbackCount} 条。</p>
+    <p class="muted-text">失败分类：${safeText(categoryText || "暂无失败分类")}；本省实时入口 ${localCount} 条，全国平台 ${nationalCount} 条（只用于全国搜索，不代替省级来源）。</p>
     <div class="compact-card-grid">${rows.map((candidate) => `
       <div class="stage-card">
         <strong>${safeText(candidate.project_name || candidate.project_id || "--")}</strong>
@@ -1539,17 +1822,33 @@ function renderSearchResultFromRun(run) {
     return;
   }
   const scope = run.search_scope || {};
+  const boundary = searchBoundaryMessage(run);
+  const sampleMode = isOfflineSample(run);
+  const opportunityIds = Array.isArray(run.opportunity_ids) ? run.opportunity_ids.filter(Boolean) : [];
+  const closedCount = scope.closed_loop_generated_count ?? opportunityIds.length ?? (run.opportunity_id ? 1 : 0);
+  const opportunityTitle = closedCount > 1
+    ? `已生成 ${closedCount} 个机会闭环`
+    : run.opportunity_id
+    ? (sampleMode ? `样本机会闭环：${run.opportunity_id}` : run.opportunity_id)
+    : "未生成机会";
   $("searchResult").className = "";
   $("searchResult").innerHTML = `
+    <div class="stage-card ${boundary.kind === "warn" ? "controlled_opening_requirement" : ""}">
+      <strong>${safeText(boundary.title)}</strong>
+      <p>${safeText(boundary.body)}</p>
+      ${badge(sourceModeOf(run) || scope.source_candidate_mode || run.search_state || "--", boundary.kind)}
+      ${sampleMode ? badge("样本不可客户交付", "warn") : ""}
+    </div>
     <div class="stage-card">
-      <strong>${run.opportunity_id || "未生成可售机会"}</strong>
+      <strong>${safeText(opportunityTitle)}</strong>
       <p>${run.project_name || run.query || "--"}</p>
       ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
       ${badge(run.region_code || "--")}
       ${badge(run.project_type_label || run.project_type || "--")}
       <p>金额区间：${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
-      <p>候选对象：${scope.candidate_count ?? (run.candidate_options || []).length ?? 0}；进入闭环：${scope.closed_loop_generated_count ?? (run.opportunity_id ? 1 : 0)}</p>
-      ${opportunityActions(run.opportunity_id)}
+      <p>候选对象：${scope.candidate_count ?? (run.candidate_options || []).length ?? 0}；通过过滤：${scope.selected_candidate_count ?? "--"}；生成闭环：${closedCount}</p>
+      <p class="muted-text">${safeText(scope.stage1_policy || "Stage1 不是单选代表，而是批量过滤候选；未通过者保留原因。")}</p>
+      ${opportunityActions(run.opportunity_id, sampleMode)}
     </div>
     <h3>候选对象明细</h3>
     ${renderCandidateCards(run.candidate_options || [], run.opportunity_id || "", scope.selected_project_id || run.project_id || "")}
@@ -1654,6 +1953,7 @@ function stageObjectRefLabel(key) {
     selected_opportunity_candidate_id: "入选候选",
     region_codes: "地区范围",
     project_types: "项目类型",
+    queue_item_id: "队列编号",
     source_blueprint_plan_id: "来源蓝图",
     entry_profile_id: "入口配置",
     capture_step_count: "采集步骤",
@@ -1694,7 +1994,7 @@ function renderStageObjectFlow(stages) {
       : `<li>暂无对象引用</li>`;
     const reasons = Array.isArray(stage.failure_reasons) ? stage.failure_reasons.filter(Boolean) : [];
     const reasonList = reasons.length
-      ? reasons.map((text) => `<li>${safeText(text)}</li>`).join("")
+      ? reasons.map((text) => `<li>${safeText(labelOf(text))}</li>`).join("")
       : `<li>未发现失败分类</li>`;
     const invalid = Number(stage.invalid_count || 0);
     return `<div class="stage-card">
@@ -1709,25 +2009,77 @@ function renderStageObjectFlow(stages) {
     </div>`;
   }).join("");
 }
+function renderStageRunBoundary(telemetry) {
+  const sourceMode = telemetry?.source_candidate_mode || "";
+  const offlineSample = Boolean(telemetry?.offline_sample_validation) || sourceMode === "OFFLINE_SAMPLE_CANDIDATES";
+  const noRealCandidate = sourceMode === "REAL_SOURCE_REQUIRED" || telemetry?.test_path_unblocked === false;
+  const customerReady = Boolean(telemetry?.customer_sellable_evidence_ready);
+  const parts = [];
+  if (noRealCandidate) {
+    parts.push("运行边界：默认实战搜索没有读取到真实来源候选，系统没有生成可售机会。");
+  } else if (offlineSample) {
+    parts.push("运行边界：离线样本验证，只证明 1-9 内部链路、工作台和证据包链路可跑。");
+  } else if (sourceMode === "EXPLICIT_CANDIDATES") {
+    parts.push("运行边界：显式候选闭环，客户交付前仍需核验真实详情页、附件和证据回链。");
+  } else {
+    parts.push("运行边界：等待实战搜索或任务运行。");
+  }
+  if (telemetry?.data_boundary_message) { parts.push(telemetry.data_boundary_message); }
+  if (!customerReady) { parts.push("客户可售证据：未就绪。"); }
+  const boundary = $("stageRunBoundary");
+  if (!boundary) { return; }
+  boundary.className = `status ${offlineSample || noRealCandidate || !customerReady ? "warn" : ""}`;
+  boundary.innerHTML = `${safeText(parts.join(" "))} ${
+    [
+      sourceMode ? badge(sourceMode, offlineSample || noRealCandidate ? "warn" : "") : "",
+      offlineSample ? badge("离线样本", "warn") : "",
+      noRealCandidate ? badge("真实候选缺失", "warn") : "",
+      customerReady ? badge("客户可售证据就绪") : badge("客户可售证据未就绪", "warn")
+    ].filter(Boolean).join("")
+  }`;
+}
 function renderStageOverviewTelemetry(telemetry) {
   const defaultStages = [
     "市场扫描 / 机会发现", "来源蓝图 / 采集计划", "解析规范化", "证据风险核验", "规则证据门",
     "产品包", "商业钩子 / 买家匹配", "触达计划", "支付交付"
   ];
-  const stages = telemetry?.stage_stats || defaultStages.map((name, index) => ({
-    stage: index + 1,
-    name,
-    state: "等待运行",
-    produced_count: 0,
-    effective_count: 0,
-    invalid_count: 0,
-    input_count: 0,
-    output_count: 0,
-    object_refs: {},
-    failure_reasons: [],
-    next_action: "等待实战搜索运行。",
-    note: "运行实战搜索后显示本阶段真实统计。"
-  }));
+  const actualStages = Array.isArray(telemetry?.stage_stats) ? telemetry.stage_stats : [];
+  const actualByStage = new Map(actualStages.map((stage) => [Number(stage.stage), stage]));
+  const stages = defaultStages.map((name, index) => {
+    const stageNumber = index + 1;
+    const actual = actualByStage.get(stageNumber);
+    if (actual) {
+      return {
+        stage: stageNumber,
+        name: actual.name || name,
+        state: actual.state || "已读回",
+        produced_count: actual.produced_count ?? actual.output_count ?? 0,
+        effective_count: actual.effective_count ?? 0,
+        invalid_count: actual.invalid_count ?? 0,
+        input_count: actual.input_count ?? actual.produced_count ?? 0,
+        output_count: actual.output_count ?? actual.effective_count ?? 0,
+        object_refs: actual.object_refs || {},
+        failure_reasons: actual.failure_reasons || [],
+        next_action: actual.next_action || "等待下一步动作。",
+        note: actual.note || "已读取本阶段运行统计。",
+      };
+    }
+    const upstreamHasRun = actualStages.length > 0;
+    return {
+      stage: stageNumber,
+      name,
+      state: upstreamHasRun ? "等待上游有效数据" : "等待运行",
+      produced_count: 0,
+      effective_count: 0,
+      invalid_count: 0,
+      input_count: 0,
+      output_count: 0,
+      object_refs: {},
+      failure_reasons: upstreamHasRun ? ["upstream_stage_not_reached"] : [],
+      next_action: upstreamHasRun ? "先补齐上游候选、采集或任务消费，达到本阶段后自动显示产出。" : "等待实战搜索或任务运行。",
+      note: upstreamHasRun ? "本阶段还没有收到上游有效对象，不代表该阶段不存在。" : "运行实战搜索或创建任务后显示本阶段统计。",
+    };
+  });
   const totals = telemetry?.totals || {
     stage_count: stages.length,
     produced_count: 0,
@@ -1735,10 +2087,11 @@ function renderStageOverviewTelemetry(telemetry) {
     invalid_count: 0
   };
   $("stageDirection").textContent = telemetry?.direction
-    ? `${telemetry.direction}。内部测试链路可跑；真实对外交付门禁保留。`
+    ? `${telemetry.direction}。内部/样本链路只算回归；真实候选进料和对外交付门禁必须单独验收。`
     : "系统方向：市场扫描 -> 来源蓝图 -> 阶段1-9内部链路 -> 工作台 -> 证据包预览。运行后显示每阶段产出。";
+  renderStageRunBoundary(telemetry);
   $("stageMetrics").innerHTML = [
-    `<div class="metric"><strong>${totals.stage_count || stages.length}</strong><span>阶段数</span></div>`,
+    `<div class="metric"><strong>9</strong><span>阶段数</span></div>`,
     `<div class="metric"><strong>${totals.produced_count || 0}</strong><span>产出对象</span></div>`,
     `<div class="metric"><strong>${totals.effective_count || 0}</strong><span>有效数据</span></div>`
   ].join("");
@@ -1759,7 +2112,9 @@ function renderStageOverviewTelemetry(telemetry) {
 function renderCapabilityExposure(readiness, scheduler, goLive) {
   const items = [
     ["阶段1-9数据流", "已展示", "运营总览显示阶段产出、有效数据、无效数据和运行日志。"],
-    ["实战搜索与地区适配器", "已展示", "支持地区多选、项目类型多选、金额区间和搜索运行记录。"],
+    ["真实候选发现器", "已接入首段", "默认实战搜索会调用真实公开列表页候选发现器，解析候选、去重入库并送入 Stage1。"],
+    ["详情页/附件快照读回", "最小接入", "真实候选会自动尝试抓取同站详情页和同站附件原文，保存 Stage2 快照并运行 Stage3 parser；Stage4-9 正式消费仍需继续补。"],
+    ["实战搜索与地区适配器", "部分接入", "UI 支持地区多选、项目类型多选、金额区间、搜索运行记录和真实候选读回；部分地区本省实时源仍待补，全国平台只用于全国搜索。"],
     ["机会评分与商业钩子", "已展示", "机会工作台可查看等级、评分、证据强度、报价、买家排序和下一步动作。"],
     ["证据包清单/下载预览", "已展示", "内部证据包预览页可看拟邮件包、证据项、字段策略，并可下载内部证据包文件。"],
     ["公开来源网址校验", "已展示", "证据包读回会补充来源站点、来源网址和验证口径，方便运营方回查。"],
@@ -1918,7 +2273,9 @@ function renderRealWorldSellability(surface) {
     `<div class="metric"><strong>${externalReady}</strong><span>真实外部动作</span></div>`
   ].join("");
   $("sellabilityBoundary").innerHTML = renderRows([
-    ["内部搜索与证据包验收", boundary.internal_search_and_evidence_package_review ? "可用" : "待运行"],
+    ["回归搜索与证据包验收", boundary.regression_search_and_evidence_package_review ? "可用" : "待运行"],
+    ["真实市场候选进料", boundary.real_market_candidate_feed_ready ? "已接入" : "未接入"],
+    ["客户可售证据", boundary.customer_sellable_evidence_ready ? "已就绪" : "未就绪"],
     ["线索包交付候选", boundary.leadpack_delivery_candidate_visible ? "可见" : "待生成"],
     ["真实客户触达", boundary.real_customer_touch_enabled ? "已接入" : "未接入"],
     ["真实支付", boundary.real_payment_enabled ? "已接入" : "未接入"],
@@ -1945,6 +2302,103 @@ async function loadRealWorldSellability() {
   renderRealWorldSellability(surface);
   return surface;
 }
+function queueStatusTotal(counts) {
+  return Object.values(counts || {}).reduce((total, value) => total + Number(value || 0), 0);
+}
+function taskOverviewTelemetryFromQueueItem(item) {
+  if (!item?.task_id && !item?.queue_item_id) { return null; }
+  const taskId = item.task_id || "--";
+  const projectId = item.project_id || "--";
+  const queueItemId = item.queue_item_id || "--";
+  return {
+    direction: "内部任务发起 -> 队列调度 -> 阶段2交接意图 -> 后续采集/闭环",
+    stage_stats: [
+      {
+        stage: 1,
+        name: "调度 / 任务入队",
+        state: item.status || "queued",
+        input_count: 1,
+        output_count: 1,
+        produced_count: 1,
+        effective_count: 1,
+        invalid_count: item.last_error ? 1 : 0,
+        note: `任务 ${taskId} 已进入内部队列。`,
+        object_refs: {
+          task_id: taskId,
+          project_id: projectId,
+          queue_item_id: queueItemId,
+          source_registry_id: item.source_registry_id,
+          route_policy_id: item.route_policy_id,
+        },
+        failure_reasons: item.last_error ? [item.last_error] : [],
+        next_action: "等待内部 worker 或后续采集运行消费；当前不会真实外部抓取。",
+      },
+      {
+        stage: 2,
+        name: "阶段2交接意图",
+        state: item.stage2_handoff_intent_state || "INTENT_ONLY_NO_FETCH",
+        input_count: 1,
+        output_count: 1,
+        produced_count: 1,
+        effective_count: 1,
+        invalid_count: 0,
+        note: "阶段2交接对象已生成，但真实外部抓取默认关闭。",
+        object_refs: {
+          queue_item_id: queueItemId,
+          source_registry_id: item.source_registry_id,
+        },
+        failure_reasons: [],
+        next_action: "如需采集，进入“采集运行”选择公开源入口执行受控抓取。",
+      }
+    ],
+    totals: { stage_count: 9, produced_count: 2, effective_count: 2, invalid_count: item.last_error ? 1 : 0 },
+    logs: [
+      `已创建内部任务 ${taskId}。`,
+      `队列编号 ${queueItemId}，状态 ${labelOf(item.status || "queued")}。`,
+      "真实外部抓取、真实触达、真实支付和真实交付均未执行。",
+    ],
+  };
+}
+function renderTaskRunOverview(scheduler) {
+  if (!$("taskRunOverviewList")) { return; }
+  const counts = scheduler?.queue_status_counts || {};
+  const items = Array.isArray(scheduler?.latest_queue_items) ? scheduler.latest_queue_items : [];
+  const latest = items[0] || scheduler?.latest_queue_item || {};
+  const total = queueStatusTotal(counts) || items.length;
+  const queued = Number(counts.queued || 0);
+  $("taskRunMetrics").innerHTML = [
+    `<div class="metric"><strong>${total}</strong><span>队列任务</span></div>`,
+    `<div class="metric"><strong>${queued}</strong><span>排队中</span></div>`,
+    `<div class="metric"><strong>${latest.task_id || "待创建"}</strong><span>最新任务</span></div>`
+  ].join("");
+  if (!items.length) {
+    $("taskRunOverviewNarrative").textContent = "暂无任务运行记录；创建内部任务后会显示队列状态、任务编号、项目编号和阶段2交接状态。";
+    $("taskRunOverviewList").className = "empty-state";
+    $("taskRunOverviewList").textContent = "暂无任务运行记录；在“采集运行”里创建内部任务后显示。";
+    return;
+  }
+  $("taskRunOverviewNarrative").textContent = `已读回 ${items.length} 条最近任务；最新任务 ${latest.task_id || "--"} 当前为${labelOf(latest.status || "--")}，不会触发真实外部抓取。`;
+  $("taskRunOverviewList").className = "compact-card-grid";
+  $("taskRunOverviewList").innerHTML = items.map((item) => {
+    const status = item.status || "--";
+    const warn = status !== "queued" && status !== "completed";
+    return `<div class="stage-card">
+      <strong>${safeText(item.task_id || item.queue_item_id || "--")}</strong>
+      <p>项目：${safeText(item.project_id || "--")} · 地区：${safeText(item.region_code || "--")}</p>
+      ${badge(status, warn ? "warn" : "")}
+      ${badge(item.queue_name || "--")}
+      ${badge(item.stage2_handoff_intent_state || "阶段2交接待读取")}
+      <p>队列编号：${safeText(item.queue_item_id || "--")}</p>
+      <p>来源：${safeText(item.source_registry_id || "--")}；路由：${safeText(item.route_policy_id || "--")}</p>
+      <p>尝试：${safeText(item.attempt_count ?? 0)} / ${safeText(item.max_attempts ?? "--")}；下一次运行：${safeText(item.next_run_at || "--")}</p>
+      <p><strong>下一步</strong> ${status === "queued" ? "等待内部 worker/后续链路消费；当前不会真实外部抓取。" : "查看队列状态、错误和审计读回。"}</p>
+    </div>`;
+  }).join("");
+  if (!selectedAutonomousOpportunityId) {
+    const taskTelemetry = taskOverviewTelemetryFromQueueItem(latest);
+    if (taskTelemetry) { renderStageOverviewTelemetry(taskTelemetry); }
+  }
+}
 async function loadReadiness(writeOutput = true) {
   const readiness = await json("GET", "/operator-console/readiness");
   const scheduler = await json("GET", "/operator-console/scheduler-status");
@@ -1952,7 +2406,7 @@ async function loadReadiness(writeOutput = true) {
   $("capability").textContent = labelOf(readiness.capability_state || "--");
   $("provider").textContent = readiness.provider_status?.mode ? "读回模式" : "读回";
   $("scheduler").textContent = labelOf(scheduler.readiness_state || "--");
-  $("summary").textContent = "运营操作台已就绪。内部测试链路、证据包预览和模拟外发可跑；真实邮件/电话/支付/退款服务商未接入。";
+  $("summary").textContent = "运营操作台已就绪。默认实战搜索已接真实公开列表页候选发现、去重入库和详情页快照读回；真实附件原文、Stage4-9 正式消费、真实邮件/电话/支付/退款服务商仍未接入。";
   $("workbenchStatus").innerHTML = [
     badge("阶段6 产品包"),
     badge("阶段7 客户关系/报价"),
@@ -1971,6 +2425,7 @@ async function loadReadiness(writeOutput = true) {
     badge("证据包预览可打开"),
     badge("真实外发审计未接入", "warn")
   ].join("");
+  renderTaskRunOverview(scheduler);
   renderCapabilityExposure(readiness, scheduler, goLive);
   renderProviderExecutionMatrix(readiness, scheduler, goLive);
   if (writeOutput) { out({ readiness, scheduler, goLive }); }
@@ -2054,27 +2509,27 @@ async function loadRegionAdapters() {
   renderSelectChoices("searchRegion", "searchRegionChoices");
   const searchableCount = (catalog.searchable_region_codes || []).length;
   const dedicatedCount = (catalog.dedicated_local_profile_region_codes || []).length;
-  const localGap = adapters.filter((adapter) => !adapter.dedicated_local_profiles && adapter.commercial_pilot_region);
+  const localGap = adapters.filter((adapter) => adapter.onboarding_required && adapter.commercial_pilot_region);
   $("regionCoverageSummary").innerHTML = [
     `<div class="metric"><strong>${searchableCount}</strong><span>可搜索地区</span></div>`,
     `<div class="metric"><strong>${dedicatedCount}</strong><span>本地专用入口</span></div>`,
     `<div class="metric"><strong>${localGap.length}</strong><span>商业试点待补</span></div>`
   ].join("");
-  $("regionCoverageNarrative").textContent = `登记 ${adapters.length} 个地区；商业试点 ${catalog.commercial_pilot_region_codes?.length || 0} 个；${localGap.length} 个商业试点仍依赖全国兜底，本地专用入口需要继续补。`;
+  $("regionCoverageNarrative").textContent = `登记 ${adapters.length} 个地区；商业试点 ${catalog.commercial_pilot_region_codes?.length || 0} 个；${localGap.length} 个商业试点本省实时源待补，全国平台只用于全国搜索。`;
   const rows = adapters.slice(0, 8).map((adapter) => {
     const gaps = Array.isArray(adapter.coverage_gap_signals) ? adapter.coverage_gap_signals : [];
     const flags = [
-      badge(adapter.dedicated_local_profiles ? "本地入口" : "全国兜底", adapter.dedicated_local_profiles ? "" : "warn"),
+      badge(adapter.dedicated_local_profiles ? "本省实时源" : "本省源待补", adapter.dedicated_local_profiles ? "" : "warn"),
       badge(adapter.commercial_pilot_region ? "商业试点" : "非试点"),
       badge(adapter.onboarding_required ? "待补本地配置" : "配置就绪", adapter.onboarding_required ? "warn" : ""),
       badge(gaps.length ? `覆盖缺口 ${gaps.length}` : "无覆盖缺口", gaps.length ? "warn" : "")
     ].join("");
     return `<div class="stage-card">
       <strong>${adapter.region_code} ${adapter.region_name}</strong>
-      <p>主入口：${adapter.primary_entry_profile_id || "--"}；兜底：${(adapter.fallback_entry_profile_ids || []).join(" / ") || "无"}</p>
+      <p>主入口：${adapter.primary_entry_profile_id || "--"}；备用入口：${(adapter.fallback_entry_profile_ids || []).join(" / ") || "无"}</p>
       ${flags}
       <p><strong>失败分类</strong> ${gaps.length ? gaps.map(labelOf).join(" / ") : "当前无登记缺口"}</p>
-      <p><strong>下一步</strong> ${adapter.onboarding_required ? "补本地 profile、详情页和附件入口，再跑公开源诊断。" : "保持回归验证和公开源诊断。"}</p>
+      <p><strong>下一步</strong> ${adapter.onboarding_required ? "先验真本省官网是否有实时公告列表，再登记 profile、详情页和附件入口。" : "保持真实源诊断和后续详情页抓取验证。"}</p>
     </div>`;
   }).join("");
   $("regionAdapterSummary").className = rows ? "compact-card-grid" : "empty-state";
@@ -2088,9 +2543,9 @@ async function loadAutonomousSearchRuns() {
   const collapsed = Number(payload.duplicate_collapsed_count || 0);
   const updatedAt = payload.last_updated_at || payload.latest_completed_at || payload.latest_requested_at || "暂无运行";
   $("autonomousSearchRunMeta").textContent = collapsed
-    ? `展示最新 ${runs.length} 个商机，已合并 ${collapsed} 条重复运行记录。`
-    : `展示最新 ${runs.length} 个商机。`;
-  $("autonomousSearchPersistence").textContent = `数据来源：${payload.data_source || "OperatorActionRepository"}；原始记录 ${payload.raw_run_count ?? 0} 条，当前商机 ${payload.run_count ?? runs.length} 个；保留状态：${labelOf(payload.retention_state || "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR")}；最近更新时间：${updatedAt}；清空必须点击“清空测试搜索记录”。`;
+    ? `展示最新 ${runs.length} 条搜索记录，已合并 ${collapsed} 条重复运行记录。`
+    : `展示最新 ${runs.length} 条搜索记录。`;
+  $("autonomousSearchPersistence").textContent = `数据来源：${payload.data_source || "OperatorActionRepository"}；原始记录 ${payload.raw_run_count ?? 0} 条，当前搜索记录 ${payload.run_count ?? runs.length} 条；保留状态：${labelOf(payload.retention_state || "PERSISTED_UNTIL_EXPLICIT_OPERATOR_CLEAR")}；最近更新时间：${updatedAt}；清空必须点击“清空测试搜索记录”。`;
   if (!runs.length) {
     $("autonomousSearchRuns").className = "empty-state";
     $("autonomousSearchRuns").textContent = "暂无实战搜索运行记录。";
@@ -2107,14 +2562,16 @@ async function loadAutonomousSearchRuns() {
   }
   $("autonomousSearchRuns").className = "compact-card-grid";
   $("autonomousSearchRuns").innerHTML = runs.slice(0, 8).map((run) => {
+    const sampleMode = isOfflineSample(run);
     const links = [
       run.opportunity_id ? `<a href="#autonomousWorkbench" data-workbench-opportunity="${run.opportunity_id}">工作台</a>` : "",
       run.opportunity_id ? `<a href="/customer-artifact-portal/${encodeURIComponent(run.opportunity_id)}">证据包预览</a>` : ""
     ].filter(Boolean).join(" · ");
     return `<div class="stage-card">
-      <strong>${run.opportunity_id || "--"}</strong>
+      <strong>${sampleMode && run.opportunity_id ? "样本闭环 " + run.opportunity_id : (run.opportunity_id || "--")}</strong>
       <p>${run.project_name || run.query || "--"}</p>
       ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
+      ${badge(sourceModeOf(run) || "--", sampleMode ? "warn" : "")}
       ${badge(run.region_code || "--")}
       ${badge(run.entry_profile_id || "--")}
       <p>${labelOf(run.project_type_label || run.project_type)} · ${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
@@ -2122,6 +2579,97 @@ async function loadAutonomousSearchRuns() {
       <p>${links || "读回路径待生成"}</p>
     </div>`;
   }).join("");
+  return payload;
+}
+function rejectedCountsText(counts) {
+  const entries = Object.entries(counts || {});
+  if (!entries.length) { return "无过滤统计"; }
+  return entries.map(([key, value]) => `${reasonLabel(key)} ${value}`).join(" / ");
+}
+async function loadRealCandidateDiscoveryDiagnostics() {
+  const payload = await json("GET", "/operator-console/real-candidate-discovery-runs");
+  const runs = payload.runs || [];
+  const latest = runs[0] || {};
+  const reports = latest.profile_reports || [];
+  const summary = latest.candidate_discovery_diagnostics || {};
+  $("realCandidateDiscoveryDiagnosticsMeta").textContent = runs.length
+    ? `最近发现批次：${latest.discovery_run_id || "--"}；状态：${labelOf(latest.discovery_state || "--")}；候选 ${latest.candidate_count ?? 0} 条；${summary.headline || "诊断待生成"}`
+    : "暂无真实候选发现运行记录。";
+  if (!runs.length || !reports.length) {
+    $("realCandidateDiscoveryDiagnostics").className = "empty-state";
+    $("realCandidateDiscoveryDiagnostics").textContent = "暂无发现诊断；运行实战搜索后会显示每个来源为什么没有产出候选。";
+    return payload;
+  }
+  $("realCandidateDiscoveryDiagnostics").className = "compact-card-grid";
+  $("realCandidateDiscoveryDiagnostics").innerHTML = reports.map((report) => {
+    const diagnostics = report.candidate_diagnostics || {};
+    const diagnosis = diagnostics.operator_diagnosis || report.operator_diagnosis || [];
+    const rejectedSamples = diagnostics.rejected_samples || [];
+    const sampleText = rejectedSamples.slice(0, 3).map((sample) => {
+      const title = safeText(sample.title || sample.url || "--");
+      return `${reasonLabel(sample.reason)}：${title}`;
+    }).join("<br>");
+    return `<div class="stage-card">
+      <strong>${safeText(report.profile_id || "--")}</strong>
+      ${badge(report.status || "--", report.status === "FETCHED" ? "" : "warn")}
+      ${badge(`链接 ${diagnostics.link_item_count ?? report.same_site_detail_link_count ?? 0}`)}
+      ${badge(`候选 ${report.candidate_count ?? 0}`, (report.candidate_count ?? 0) ? "" : "warn")}
+      <p><strong>来源</strong> ${report.entry_url ? `<a href="${safeText(report.entry_url)}" target="_blank" rel="noopener">${safeText(report.entry_url)}</a>` : "--"}</p>
+      <p><strong>诊断</strong> ${(diagnosis || []).map(reasonLabel).join(" / ") || "暂无诊断"}</p>
+      <p><strong>过滤统计</strong> ${safeText(rejectedCountsText(diagnostics.rejected_counts || report.rejected_counts || {}))}</p>
+      <p><strong>下一步</strong> ${safeText(report.next_action || diagnostics.next_action || "查看来源快照和列表链接样本。")}</p>
+      ${sampleText ? `<p><strong>样例</strong><br>${sampleText}</p>` : ""}
+    </div>`;
+  }).join("");
+  return payload;
+}
+async function loadRealCandidateCatalog() {
+  const payload = await json("GET", "/operator-console/real-candidates");
+  const rows = payload.candidates || [];
+  $("realCandidateCatalogMeta").textContent = `数据来源：${payload.data_source || "OperatorActionRepository"}；去重后 ${payload.candidate_count ?? rows.length} 条，原始事件 ${payload.raw_candidate_event_count ?? 0} 条，已合并重复 ${payload.duplicate_collapsed_count ?? 0} 条。刷新网页不会自动清空。`;
+  if (!rows.length) {
+    $("realCandidateCatalog").className = "empty-state";
+    $("realCandidateCatalog").textContent = "暂无已入库真实候选；运行实战搜索后会显示真实列表页候选、来源网址、快照和去重状态。";
+    return payload;
+  }
+  $("realCandidateCatalog").className = "compact-card-grid";
+  $("realCandidateCatalog").innerHTML = rows.slice(0, 12).map((candidate) => `
+    <div class="stage-card">
+      <strong>${safeText(candidate.project_name || candidate.project_id || "--")}</strong>
+      <p>${safeText(candidate.region_name || candidate.region_code || "--")} · ${safeText(labelOf(candidate.project_type || "--"))} · ${safeText(amountRangeText(candidateRange(candidate)))}</p>
+      ${badge(candidate.dedupe_decision || "已入库")}
+      ${badge(candidate.source_profile_id || "来源待补", candidate.source_profile_id ? "" : "warn")}
+      ${badge(candidate.snapshot_id_optional ? "列表页快照已绑定" : "列表页快照待绑定", candidate.snapshot_id_optional ? "" : "warn")}
+      ${candidate.stage2_detail_snapshot_id_optional ? badge("详情快照已绑定") : ""}
+      <p><strong>来源</strong> ${candidate.source_url ? `<a href="${safeText(candidate.source_url)}" target="_blank" rel="noopener">${safeText(candidate.source_site_name || candidate.source_url)}</a>` : "来源网址待补"}</p>
+      <p><strong>下一步</strong> 查看详情快照读回，把真实详情字段和附件线索送入后续证据回链。</p>
+    </div>
+  `).join("");
+  return payload;
+}
+async function loadRealCandidateStage2Captures() {
+  const payload = await json("GET", "/operator-console/real-candidate-stage2-captures");
+  const rows = payload.captures || [];
+  $("realCandidateStage2CaptureMeta").textContent = `数据来源：${payload.data_source || "OperatorActionRepository"}；候选详情 ${payload.capture_count ?? rows.length} 条，原始事件 ${payload.raw_capture_event_count ?? 0} 条，已合并重复 ${payload.duplicate_collapsed_count ?? 0} 条。`;
+  if (!rows.length) {
+    $("realCandidateStage2Captures").className = "empty-state";
+    $("realCandidateStage2Captures").textContent = "暂无详情页快照；运行实战搜索后会自动尝试抓取真实候选详情页并保存快照。";
+    return payload;
+  }
+  $("realCandidateStage2Captures").className = "compact-card-grid";
+  $("realCandidateStage2Captures").innerHTML = rows.slice(0, 12).map((capture) => `
+    <div class="stage-card">
+      <strong>${safeText(capture.project_name || capture.project_id || "--")}</strong>
+      ${badge(capture.detail_capture_status || "--", capture.detail_snapshot_id_optional ? "" : "warn")}
+      ${badge(capture.stage3_parse_state || "--", String(capture.stage3_parse_state || "").startsWith("PARSED") ? "" : "warn")}
+      ${badge(`附件线索 ${capture.attachment_link_count ?? 0}`)}
+      ${badge(`附件快照 ${capture.attachment_snapshot_count ?? 0}`, (capture.attachment_snapshot_count ?? 0) ? "" : "warn")}
+      <p><strong>来源</strong> ${capture.source_url ? `<a href="${safeText(capture.source_url)}" target="_blank" rel="noopener">${safeText(capture.source_url)}</a>` : "来源网址待补"}</p>
+      <p><strong>快照</strong> ${capture.detail_snapshot_id_optional ? `<a href="/operator-console/real-source-runs/${encodeURIComponent(capture.detail_snapshot_id_optional)}" target="_blank" rel="noopener">${safeText(capture.detail_snapshot_id_optional)}</a>` : "未生成快照"}</p>
+      ${capture.attachment_captures && capture.attachment_captures.length ? `<p><strong>附件原文</strong> ${capture.attachment_captures.map((item) => item.attachment_snapshot_id_optional ? `<a href="/operator-console/real-source-runs/${encodeURIComponent(item.attachment_snapshot_id_optional)}" target="_blank" rel="noopener">${safeText(item.attachment_filename || item.attachment_snapshot_id_optional)}</a>` : safeText(item.attachment_capture_status || "未生成附件快照")).join("、")}</p>` : ""}
+      <p><strong>解析字段</strong> ${safeText((capture.detail_fields && capture.detail_fields.project_name) || capture.detail_title || "--")}</p>
+    </div>
+  `).join("");
   return payload;
 }
 async function clearAutonomousSearchRuns() {
@@ -2144,11 +2692,67 @@ async function loadRealSourceProfiles() {
 }
 async function createTask() {
   const payload = { task_id: $("taskId").value, project_id: $("projectId").value, now: new Date().toISOString() };
-  out(await json("POST", "/operator-console/tasks", payload));
+  const result = await json("POST", "/operator-console/tasks", payload);
+  out(result);
+  await loadReadiness(false);
+  renderStageOverviewTelemetry({
+    direction: "内部任务发起 -> 队列调度 -> 阶段2交接意图 -> 后续采集/闭环",
+    stage_stats: [
+      {
+        stage: 1,
+        name: "调度 / 任务入队",
+        state: result.scheduler_task?.status || "queued",
+        input_count: 1,
+        output_count: 1,
+        produced_count: 1,
+        effective_count: 1,
+        invalid_count: 0,
+        note: `任务 ${result.scheduler_task?.task_id || payload.task_id} 已进入内部队列。`,
+        object_refs: {
+          task_id: result.scheduler_task?.task_id || payload.task_id,
+          project_id: result.scheduler_task?.project_id || payload.project_id,
+          queue_item_id: result.scheduler_task?.queue_item_id,
+          source_registry_id: result.scheduler_task?.source_registry_id,
+          route_policy_id: result.scheduler_task?.route_policy_id,
+        },
+        failure_reasons: result.scheduler_task?.conflict_reasons || [],
+        next_action: "等待内部 worker 或后续采集运行消费；当前不会真实外部抓取。",
+      },
+      {
+        stage: 2,
+        name: "阶段2交接意图",
+        state: result.stage2_handoff_intent?.intent_state || "STAGE2_HANDOFF_READY",
+        input_count: 1,
+        output_count: 1,
+        produced_count: 1,
+        effective_count: 1,
+        invalid_count: 0,
+        note: "阶段2交接对象已生成，但真实外部抓取默认关闭。",
+        object_refs: {
+          handoff_id: result.stage2_handoff_intent?.handoff_id,
+          queue_item_id: result.scheduler_task?.queue_item_id,
+        },
+        failure_reasons: [],
+        next_action: "如需采集，进入“采集运行”选择公开源入口执行受控抓取。",
+      }
+    ],
+    totals: { stage_count: 2, produced_count: 2, effective_count: 2, invalid_count: 0 },
+    logs: [
+      `已创建内部任务 ${result.scheduler_task?.task_id || payload.task_id}。`,
+      `队列编号 ${result.scheduler_task?.queue_item_id || "--"}，状态 ${labelOf(result.scheduler_task?.status || "queued")}。`,
+      "真实外部抓取、真实触达、真实支付和真实交付均未执行。",
+    ],
+  });
+  showView("overview");
+  history.replaceState(null, "", "#overview");
 }
 async function importProject() {
   const payload = { project_id: $("projectId").value, source_mode: "INTERNAL_PROJECT_IMPORT", now: new Date().toISOString() };
-  out(await json("POST", "/operator-console/project-imports", payload));
+  const result = await json("POST", "/operator-console/project-imports", payload);
+  out(result);
+  await loadReadiness(false);
+  showView("overview");
+  history.replaceState(null, "", "#overview");
 }
 async function runAutonomousSearch() {
   const button = $("runAutonomousSearch");
@@ -2181,8 +2785,6 @@ async function runAutonomousSearch() {
     const result = await json("POST", "/operator-console/autonomous-opportunity-search", payload);
     selectedAutonomousOpportunityId = result.opportunity_id || "";
     updateCustomerPortalLink(selectedAutonomousOpportunityId);
-    const accepted = result.search_state === "AUTONOMOUS_SEARCH_ACCEPTED";
-    const closedLoopCount = Number(result.search_scope?.closed_loop_generated_count || 0);
     $("searchResult").className = "";
     renderSearchResultFromRun({
       run_id: result.search_run_id,
@@ -2195,14 +2797,13 @@ async function runAutonomousSearch() {
       project_type_label: result.candidate?.project_type_label,
       amount_range: result.amount_range,
       search_scope: result.search_scope,
+      source_candidate_mode: result.source_candidate_mode,
+      offline_sample_validation: result.data_boundary?.offline_sample_validation,
+      real_market_discovery: result.data_boundary?.real_market_discovery,
+      display_message: result.display_message || result.data_boundary?.display_message,
+      data_boundary: result.data_boundary,
       candidate_options: result.candidate_options || []
     });
-    const searchMessage = closedLoopCount
-      ? `已生成 ${closedLoopCount} 个机会闭环。`
-      : result.search_state === "NO_CANDIDATES"
-        ? "本次没有生成可售机会：默认实战搜索不会合成离线样本，需要真实来源候选或手动打开离线样本验证。"
-        : "本次候选需要复核，未生成可售机会。";
-    $("searchResult").insertAdjacentHTML("afterbegin", `<p class="muted-text">${searchMessage}</p>`);
     out({
       search_state: result.search_state,
       opportunity_id: result.opportunity_id,
@@ -2215,6 +2816,9 @@ async function runAutonomousSearch() {
       raw_json_required: false
     });
     renderStageOverviewTelemetry(result.runtime_flow);
+    await loadRealCandidateDiscoveryDiagnostics();
+    await loadRealCandidateCatalog();
+    await loadRealCandidateStage2Captures();
     await loadAutonomousSearchRuns();
     await loadAutonomousWorkbench(selectedAutonomousOpportunityId);
     return result;
@@ -2301,6 +2905,9 @@ $("selectAllProjectTypes").addEventListener("click", () => setAllSelected("searc
 $("clearProjectTypes").addEventListener("click", () => setAllSelected("searchProjectType", false));
 $("refreshAutonomousSearchRuns").addEventListener("click", async () => out(await loadAutonomousSearchRuns()));
 $("clearAutonomousSearchRuns").addEventListener("click", clearAutonomousSearchRuns);
+$("refreshRealCandidateDiscoveryDiagnostics").addEventListener("click", async () => out(await loadRealCandidateDiscoveryDiagnostics()));
+$("refreshRealCandidateCatalog").addEventListener("click", async () => out(await loadRealCandidateCatalog()));
+$("refreshRealCandidateStage2Captures").addEventListener("click", async () => out(await loadRealCandidateStage2Captures()));
 $("runEntryCapture").addEventListener("click", runEntryCapture);
 $("runAttachmentCapture").addEventListener("click", runAttachmentCapture);
 $("readLatestSourceCapture").addEventListener("click", readLatestSourceCapture);
@@ -2331,7 +2938,7 @@ window.addEventListener("hashchange", () => showView((window.location.hash || "#
 showView((window.location.hash || "#overview").slice(1));
 renderStageOverviewTelemetry();
 renderSelectChoices("searchProjectType", "searchProjectTypeChoices");
-Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability()])
+Promise.all([loadReadiness(false), loadAutonomousWorkbench(), loadRegionAdapters(), loadAutonomousSearchRuns(), loadRealCandidateDiscoveryDiagnostics(), loadRealCandidateCatalog(), loadRealCandidateStage2Captures(), loadRealSourceProfiles(), loadRealSourceRuns(), loadUserAcceptanceContract(), loadAcceptanceGapMatrix(), loadRealWorldSellability()])
   .then(() => { $("output").textContent = "等待操作..."; })
   .catch(out);
 """
@@ -2478,6 +3085,10 @@ const portalLabels = {{
   "auth_required": "需要授权",
   "customer_download_enabled": "客户自助下载已开放",
   "download_enabled": "下载已开放",
+  "NO_CANDIDATES": "未发现候选",
+  "REAL_SOURCE_REQUIRED": "需要真实来源候选",
+  "OFFLINE_SAMPLE_CANDIDATES": "离线样本候选",
+  "EXPLICIT_CANDIDATES": "显式候选",
 }};
 function labelOf(value) {{
   const text = String(value ?? "--");
@@ -2523,7 +3134,7 @@ function rowsHtml(rows) {{
     .map(([label, value]) => `<div class="detail-row"><strong>${{label}}</strong><span>${{valueHtml(value)}}</span></div>`)
     .join("")}}</div>`;
 }}
-function evidenceItemsHtml(items) {{
+function evidenceItemsHtml(items, sampleMode=false, customerJudgement="") {{
   const rows = Array.isArray(items) ? items : [];
   if (!rows.length) {{ return `<div class="empty-state">暂无证据项读回。</div>`; }}
   return `<div class="compact-card-grid">${{rows.map((item) => `
@@ -2531,9 +3142,11 @@ function evidenceItemsHtml(items) {{
       <strong>${{labelOf(item.item_id || item.source_object || "--")}}</strong>
       <p>证据类型：${{labelOf(item.item_id || "--")}}</p>
       <p>线索类型：${{labelOf(item.source_object || "--")}}</p>
+      ${{sampleMode ? badge("样本证据项，非客户交付", "warn") : ""}}
       <p>来源对象：${{valueText(item.source_id)}}</p>
       ${{badge(item.manifest_state || item.status || "--", item.present === false ? "warn" : "")}}
       ${{badge(item.masking_policy || "--")}}
+      <p>客户交付判断：${{safeText(customerJudgement || "客户交付前需要完成真实来源核验。")}}</p>
       <p>来源引用：${{valueText(item.source_refs)}}</p>
       <p>公开来源：${{item.source_url ? `<a href="${{safeText(item.source_url)}}" target="_blank" rel="noopener">${{safeText(item.source_site_name || item.source_profile_id || item.source_url)}}</a>` : "来源网址待读回"}}</p>
     </div>
@@ -2542,10 +3155,13 @@ function evidenceItemsHtml(items) {{
 function renderEvidencePackage(payload, missing=false) {{
   const formal = payload?.source_formal_client_export_page_layer_readiness || {{}};
   const sourceVerification = payload?.source_verification || {{}};
+  const dataBoundary = payload?.data_boundary || {{}};
   const readback = payload?.customer_artifact_readback || {{}};
   const manifest = formal.package_manifest || {{}};
   const pageDraft = formal.page_draft || {{}};
   const sourceUrl = sourceVerification.source_url || "";
+  const sampleMode = dataBoundary["是否离线样本"] === true;
+  const customerJudgement = dataBoundary["客户可交付判断"] || "";
   const evidenceItems = (manifest.evidence_items || []).map((item) => ({{
     ...item,
     source_url: item.source_url || sourceUrl,
@@ -2570,6 +3186,9 @@ function renderEvidencePackage(payload, missing=false) {{
     ["公开来源", sourceVerification.source_site_name || sourceVerification.source_profile_id],
     ["来源网址", sourceVerification.source_url],
     ["验证口径", sourceVerification.verification_hint],
+    ["数据模式", dataBoundary["数据模式"]],
+    ["客户交付判断", dataBoundary["客户可交付判断"]],
+    ["来源网址精度", dataBoundary["来源网址精度"]],
   ]);
   document.getElementById("mailPackagePreview").innerHTML = `
     <div class="stage-card">
@@ -2586,9 +3205,10 @@ function renderEvidencePackage(payload, missing=false) {{
       ["页面草稿", pageDraft.page_draft_id],
       ["版本哈希", hash],
       ["公开来源", sourceVerification.source_url],
+      ["数据真实性", dataBoundary["客户可交付判断"]],
     ])}}
   `;
-  document.getElementById("evidencePackagePreview").innerHTML = evidenceItemsHtml(evidenceItems);
+  document.getElementById("evidencePackagePreview").innerHTML = evidenceItemsHtml(evidenceItems, sampleMode, customerJudgement);
 }}
 function blockedReasonLabel(reason) {{
   const labels = {{
@@ -2667,7 +3287,7 @@ async function loadPortal() {{
     badge("真实下载未执行", "warn")
   ].join("");
   document.getElementById("previewState").innerHTML =
-    `<div class="stage-card"><strong>内部验收可用</strong><p>可验收证据项清单、字段白名单、脱敏、水印、版本哈希、拟邮件附件和审计读回；真实发送能力等邮件服务商接入后再验收。</p>${{badge("内部预览")}} ${{badge("拟邮件包可看")}} ${{badge("真实邮件未接入", "warn")}}</div>`;
+    `<div class="stage-card"><strong>内部验收可用</strong><p>可验收证据项清单、字段白名单、脱敏、水印、版本哈希、拟邮件附件和审计读回；真实发送能力等邮件服务商接入后再验收。</p><p>${{safeText(payload?.data_boundary?.["客户可交付判断"] || "客户交付前需要完成真实来源核验。")}}</p>${{badge("内部预览")}} ${{badge("拟邮件包可看")}} ${{badge("真实邮件未接入", "warn")}}</div>`;
   renderReadbackSummary(payload, false);
 }}
 function renderMissingArtifact(payload) {{
@@ -2716,6 +3336,12 @@ def render_customer_artifact_portal_readback(payload: dict[str, Any]) -> dict[st
     try:
         return _customer_artifact_surface_with_search_context(payload)
     except (TypeError, ValueError) as exc:
+        metadata = _search_run_metadata_for_opportunity(str(payload.get("opportunity_id") or ""))
+        source_verification = _source_verification_from_metadata(metadata)
+        fallback_surface = {
+            "customer_visible_export_enabled": False,
+            "external_release_enabled": False,
+        }
         return {
             "empty_state": True,
             "opportunity_id": str(payload.get("opportunity_id") or ""),
@@ -2729,10 +3355,9 @@ def render_customer_artifact_portal_readback(payload: dict[str, Any]) -> dict[st
                 "internal_blackbox_fields_exposed": False,
             },
             "blocked_reasons": ["stage7_artifact_readback_missing"],
-            "search_run_metadata": _search_run_metadata_for_opportunity(str(payload.get("opportunity_id") or "")),
-            "source_verification": _source_verification_from_metadata(
-                _search_run_metadata_for_opportunity(str(payload.get("opportunity_id") or ""))
-            ),
+            "search_run_metadata": metadata,
+            "source_verification": source_verification,
+            "data_boundary": _localized_data_boundary(fallback_surface, metadata),
         }
 
 

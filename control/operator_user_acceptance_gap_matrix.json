@@ -6,37 +6,37 @@
   "assessmentMethod": "contract_driven_owner_ui_audit",
   "summary": {
     "totalDimensions": 11,
-    "passCount": 11,
-    "partialCount": 0,
+    "passCount": 8,
+    "partialCount": 3,
     "notExposedCount": 0,
     "failCount": 0,
-    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览、能力暴露、真实可卖性一屏判断、阶段1-9对象流读回、显式数据清空控制、地区覆盖缺口复盘、商业钩子卖前边界、中文信息架构和真实服务商放行矩阵；剩余主要是真实可卖交付/真实赚钱交付前的本地适配器、provider sandbox/live pilot 等实际接入任务。",
-    "nextDecision": "下一轮优先推进真实 provider sandbox、重点地区本地入口、点击式深读回和商业钩子转化增强。"
+    "operatorConclusion": "当前操作台和 Stage1-9 内部链路可用于回归、观察和证据包预览；默认实战搜索已接入真实公开列表页候选发现、候选解析、去重入库、Stage1 进料、同站详情页 Stage2 快照、Stage3 parser 读回和同站公开附件原文 Stage2 快照的最小闭环，但 Stage4-9 尚未正式消费真实快照，因此仍不能宣称真实可售。离线样本不能再代表真实实战完成。",
+    "nextDecision": "下一轮优先推进真实详情/附件快照进入 Stage4-9 核验/证据包链路，并继续硬化真实公开来源候选发现器、字段解析和地区适配器；内部/样本链路仅保留为回归模式。"
   },
   "topPriorities": [
     {
       "rank": 1,
+      "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
+      "title": "真实公开来源候选发现器",
+      "reason": "默认实战搜索已具备真实候选发现、详情快照、附件原文快照和 Stage3 读回最小闭环；下一步必须补字段解析硬化和 Stage4-9 快照回链，才能支撑可售证据。"
+    },
+    {
+      "rank": 2,
+      "dimensionId": "UA-11-real-world-sellability",
+      "title": "真实快照进入证据包链路",
+      "reason": "Stage1-9 内部链路能跑，真实详情页和同站附件原文已能进入 Stage2 首段；但真实快照进入核验、证据包链路尚未稳定完成。"
+    },
+    {
+      "rank": 3,
       "dimensionId": "UA-07-governed-outreach-and-delivery",
       "title": "真实 provider sandbox / live pilot",
       "reason": "真实服务商状态已可观察，下一步是接 sandbox 凭证、健康检查、审批审计和小样本 live pilot。"
     },
     {
-      "rank": 2,
+      "rank": 4,
       "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
       "title": "重点地区本地入口补强",
       "reason": "地区覆盖缺口已可见，商业试点地区仍需继续补本地公开源 profile、详情页和附件入口。"
-    },
-    {
-      "rank": 3,
-      "dimensionId": "UA-06-commercial-hook-boundary",
-      "title": "商业钩子转化增强",
-      "reason": "卖前/交付后边界已可见，后续可继续补报价区间、客户模板和成交转化实验。"
-    },
-    {
-      "rank": 4,
-      "dimensionId": "UA-03-stage-observability",
-      "title": "阶段对象点击深读回",
-      "reason": "阶段对象和证据包已可观察，后续可把每个对象升级成可点击的深读回。"
     }
   ],
   "dimensions": [
@@ -44,7 +44,7 @@
       "dimensionId": "UA-01-product-definition-alignment",
       "title": "产品定义一致",
       "status": "PASS",
-      "currentUiState": "操作台首屏已说明内部线索运营平台、情报生产平台、销售作战平台定位，明确交付证据包/机会包/销售推进结果，客户不使用工作台。",
+      "currentUiState": "操作台首屏已说明真实公开市场机会发现 + 证据包商业化运营系统定位，明确交付证据包/机会包/销售推进结果，客户不使用工作台，内部/样本只作为回归模式。",
       "evidenceRefs": [
         "contracts/ui/operator_user_acceptance_contract.json#productDefinition",
         "src/api/routes/operator_frontend.py#topbar",
@@ -60,8 +60,8 @@
     {
       "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
       "title": "市场到机会闭环成立",
-      "status": "PASS",
-      "currentUiState": "实战搜索支持地区多选、项目类型多选、金额区间、候选对象明细、入选理由、来源站点、运行记录、地区覆盖缺口和批量候选复盘；全国兜底与本地入口差异已在 UI 可见。",
+      "status": "PARTIAL",
+      "currentUiState": "实战搜索支持地区多选、项目类型多选、金额区间、真实列表页候选发现、候选对象明细、入选理由、来源站点、运行记录、地区覆盖缺口和批量候选复盘；当前已能把真实列表页候选去重入库并送入 Stage1，并自动尝试同站详情页 Stage2 快照、同站附件原文 Stage2 快照与 Stage3 parser 读回，但客户可售前仍缺 Stage4-9 正式证据回链。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#renderSearchResultFromRun",
         "src/api/routes/operator_frontend.py#renderCandidateCards",
@@ -70,9 +70,12 @@
         "src/api/routes/operator_console.py#autonomous-opportunity-search"
       ],
       "gaps": [
-        "商业试点地区仍需要继续补本地公开源 profile、详情页和附件入口；这属于后续真实覆盖能力，不再是 UI 黑盒阻断。"
+        "真实列表页候选发现器仍是最小闭环，需要继续补更多列表页解析和失败诊断。",
+        "真实详情和附件快照尚未绑定到 Stage4-9 正式证据链。",
+        "商业试点地区仍需要继续补本地公开源 profile、详情页和附件入口。"
       ],
       "nextActions": [
+        "把真实候选详情/附件快照喂给 Stage4-9，并继续硬化字段解析。",
         "按地区覆盖缺口继续补本地 profile 和公开源诊断。",
         "后续把批量候选复盘扩展为可筛选、可标记、可回放。"
       ]
@@ -151,7 +154,7 @@
     {
       "dimensionId": "UA-07-governed-outreach-and-delivery",
       "title": "触达交付受控但不黑盒",
-      "status": "PASS",
+      "status": "PARTIAL",
       "currentUiState": "系统与放行页展示真实邮件/电话触达、CRM/报价、线索包页面交付、收款/支付的逐项服务商放行矩阵，并列出真实触达、真实支付、真实交付、真实退款异常和自动退款的门禁状态与下一步。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#controlled_opening_requirement",
@@ -221,17 +224,20 @@
     {
       "dimensionId": "UA-11-real-world-sellability",
       "title": "真实可卖性可判断",
-      "status": "PASS",
-      "currentUiState": "操作台首页已展示真实可卖性判断：当前能用于内部实战筛选机会、查看证据包和判断销售价值；真实客户触达、支付、交付仍待 provider/sandbox/live pilot 接入。",
+      "status": "PARTIAL",
+      "currentUiState": "操作台首页已展示真实可卖性判断和运行边界；当前能证明内部/样本链路、证据包预览、工作台可观察、真实市场候选进料、同站详情快照读回和同站附件原文快照，但 Stage4-9 消费真实快照和客户可售证据尚未完成。",
       "evidenceRefs": [
         "contracts/ui/operator_user_acceptance_contract.json#UA-11-real-world-sellability",
         "src/api/routes/operator_customer_access.py#preview_operator_real_world_sellability",
         "src/api/routes/operator_frontend.py#renderRealWorldSellability"
       ],
       "gaps": [
+        "默认实战搜索仍需更多真实候选来源和失败诊断硬化，不能把离线样本闭环当成可售完成。",
+        "真实详情页和同站附件原文已接 Stage2 首段，但 Stage4-9 正式消费尚未稳定进入。",
         "真实赚钱交付仍依赖后续真实服务商、重点地区适配器和 live pilot 闭合，不因可卖性面板展示而自动完成。"
       ],
       "nextActions": [
+        "优先补真实快照 Stage4-9 入链、字段解析硬化和更多真实公开来源候选发现器。",
         "在后续轮次把阶段遥测、地区适配、数据控制和真实 provider 状态持续接入该面板。"
       ]
     }

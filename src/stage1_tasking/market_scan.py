@@ -184,6 +184,23 @@ def _key_fields(candidate: Mapping[str, Any]) -> set[str]:
     return fields
 
 
+def _has_real_detail_attachment_evidence(candidate: Mapping[str, Any]) -> bool:
+    if str(candidate.get("source_candidate_mode") or "") != "REAL_PUBLIC_SOURCE_CANDIDATES":
+        return False
+    has_detail = bool(
+        candidate.get("stage2_detail_snapshot_id_optional")
+        or candidate.get("source_document_ref")
+    )
+    has_attachment = _as_int(candidate.get("stage2_attachment_snapshot_count"), 0) > 0
+    return has_detail and has_attachment
+
+
+def _required_key_fields_for_candidate(candidate: Mapping[str, Any], notice_stage: str) -> set[str]:
+    if notice_stage in DISCOVERY_NOTICE_STAGES and _has_real_detail_attachment_evidence(candidate):
+        return {"project_name", "notice_stage"}
+    return set(REQUIRED_KEY_FIELDS)
+
+
 def _controlled_challenge_review_reasons(candidate: Mapping[str, Any]) -> list[str]:
     source_markers = " ".join(
         str(candidate.get(field, ""))
@@ -355,6 +372,7 @@ class Stage1MarketScanEngine:
             or candidate.get("amount")
         )
         minimum_amount = _as_float(payload.get("minimum_amount"), DEFAULT_MINIMUM_AMOUNT)
+        maximum_amount = _as_float(payload.get("maximum_amount"), 0.0)
         notice_stage = _normalize_stage(candidate.get("notice_stage"))
         region_code = str(candidate.get("region_code") or payload.get("region_code") or "UNKNOWN")
         project_type = _normalize_project_type(
@@ -370,6 +388,8 @@ class Stage1MarketScanEngine:
             _as_int(candidate.get("bidder_count")),
         )
         key_fields = _key_fields(candidate)
+        required_key_fields = _required_key_fields_for_candidate(candidate, notice_stage)
+        real_detail_attachment_evidence = _has_real_detail_attachment_evidence(candidate)
         deadline = _parse_time(
             candidate.get("objection_deadline_at_optional")
             or candidate.get("objection_deadline_at")
@@ -379,11 +399,17 @@ class Stage1MarketScanEngine:
         review_reasons.extend(_controlled_challenge_review_reasons(candidate))
         if amount and amount < minimum_amount:
             why_skip.append("amount_below_minimum")
+        if amount and maximum_amount > 0 and amount > maximum_amount:
+            why_skip.append("amount_above_maximum")
         if deadline is not None and deadline < effective_now:
             why_skip.append("objection_window_expired")
-        if competitor_count < 1:
+        if competitor_count < 1 and not (
+            notice_stage in DISCOVERY_NOTICE_STAGES and real_detail_attachment_evidence
+        ):
             why_skip.append("no_competitor_signal")
-        missing_fields = sorted(REQUIRED_KEY_FIELDS - key_fields)
+        elif competitor_count < 1 and notice_stage in DISCOVERY_NOTICE_STAGES and real_detail_attachment_evidence:
+            why_analyze.append("real_detail_attachment_evidence_ready_for_discovery_stage")
+        missing_fields = sorted(required_key_fields - key_fields)
         if missing_fields:
             review_reasons.append("missing_key_fields:" + ",".join(missing_fields))
 
@@ -505,6 +531,8 @@ class Stage1MarketScanEngine:
                 "region_code": region_code,
                 "project_type": project_type,
                 "amount_band": _amount_band(amount, minimum_amount),
+                "minimum_amount": minimum_amount,
+                "maximum_amount": maximum_amount,
                 "notice_stage": notice_stage,
                 "objection_window_state": "ACTIVE"
                 if deadline is not None and deadline >= effective_now

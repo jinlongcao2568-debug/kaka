@@ -671,9 +671,9 @@ tasks:
     target_capability_state: INTERNAL_READY
     required_acceptance_layers: [engineering_regression, capability_state, product_closure]
     completion_must_prove:
-      - "代表性地方平台入口只允许真实官方 URL：北京市主平台、北京工程建设入口、北京经开区分平台、广东省 portal。"
+      - "代表性地方平台入口只允许真实官方 URL：北京市主平台、北京工程建设入口、北京经开区分平台，以及广东、江苏、浙江、山东、湖北、四川省级交易信息入口。"
       - "北京主平台/区级平台这类原始 HTML 可直接拿到正文入口词的页面，必须形成成功 fetch/readback carrier。"
-      - "广东 portal 这类 200 但只返回前端壳页或弱正文的入口，必须明确落到 fail-closed/readback，不得误判为成功列表页。"
+      - "省级实时公告列表必须标记浏览器验真证据；静态 HTML 能解析则进入候选发现，静态抓不到列表时必须标记为浏览器渲染/合法公开接口待接入，不得误判为静态列表成功。"
     targeted_test_expectations:
       - stage2_real_public_url_fetcher
       - product_acceptance_checklist
@@ -686,7 +686,7 @@ tasks:
     controlled_opening_requirement_checks:
       - representative_local_platform_urls_registered
       - beijing_local_platform_html_success_path
-      - guangdong_portal_raw_shell_fail_closed
+      - province_realtime_source_urls_browser_verified
       - no_real_provider_call
   PTL-I100-133D-public-attachment-original-link-fetching:
     target_capability_state: INTERNAL_READY

@@ -196,6 +196,30 @@ class TestStage1MarketScan(unittest.TestCase):
         self.assertEqual(candidate["score_components"]["project_type"], 0)
         self.assertEqual(candidate["market_segment"]["project_type"], "office_supplies")
 
+    def test_market_scan_honors_maximum_amount_range(self) -> None:
+        payload = {
+            **self.payload,
+            "scan_run_id": "MKTSCAN-AMOUNT-RANGE-001",
+            "minimum_amount": 1_000_000,
+            "maximum_amount": 30_000_000,
+            "notice_candidates": [
+                {
+                    **self.payload["notice_candidates"][0],
+                    "notice_id": "NOTICE-ABOVE-MAX-001",
+                    "amount": 50_000_000,
+                }
+            ],
+        }
+
+        scan = Stage1MarketScanEngine().run(payload)
+
+        self.assertEqual(scan["selected_candidate_count"], 0)
+        self.assertEqual(scan["skipped_candidate_count"], 1)
+        candidate = scan["skipped_candidates"][0]
+        self.assertIn("amount_above_maximum", candidate["why_skip"])
+        self.assertEqual(candidate["market_segment"]["minimum_amount"], 1_000_000)
+        self.assertEqual(candidate["market_segment"]["maximum_amount"], 30_000_000)
+
 
 if __name__ == "__main__":
     unittest.main()

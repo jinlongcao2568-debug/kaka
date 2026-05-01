@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+import secrets
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass
-from html import unescape
+from html import escape, unescape
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 from urllib.error import HTTPError
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 from shared.utils import utc_now_iso
@@ -21,10 +24,21 @@ REAL_PUBLIC_ENTRY_FETCHER_ID = "stage2.real_public_entry_url_fetcher.v1"
 REAL_PUBLIC_ENTRY_FETCH_MODE = "REAL_PUBLIC_ENTRY_ALLOWLIST"
 REAL_PUBLIC_ATTACHMENT_FETCH_MODE = "REAL_PUBLIC_ATTACHMENT_ALLOWLIST"
 REAL_PUBLIC_ENTRY_SNAPSHOT_KIND = "real_public_entry_html_snapshot"
+REAL_PUBLIC_DETAIL_SNAPSHOT_KIND = "real_public_detail_html_snapshot"
 REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND = "real_public_attachment_original_file"
 REAL_PUBLIC_ENTRY_USER_AGENT = (
     "AX9S-RealPublicEntryFetcher/0.1 (+public-readonly-validation)"
 )
+HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS = {
+    "JIANGSU-GGZY-HOME",
+}
+PROVINCE_REALTIME_DETAIL_PROFILE_IDS = {
+    "JIANGSU-GGZY-HOME",
+    "ZHEJIANG-GGZY-JYXXGK-LIST",
+    "SHANDONG-GGZY-JYXXGK-LIST",
+    "HUBEI-BIDCLOUD-JYXX-LIST",
+    "SICHUAN-GGZY-TRANSACTION-INFO",
+}
 
 
 @dataclass(frozen=True)
@@ -204,28 +218,76 @@ REAL_PUBLIC_ENTRY_PROFILES: tuple[RealPublicEntryProfile, ...] = (
         browser_verified_evidence="经开区分平台 runtime 直连返回 200，正文可见交易服务、公告和搜索。",
     ),
     RealPublicEntryProfile(
-        profile_id="GUANGDONG-PROVINCIAL-PORTAL",
-        url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index",
+        profile_id="GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+        url="https://ygp.gdzwfw.gov.cn/#/44/jygg",
         site_name="广东省公共资源交易平台",
-        source_family="provincial_bidding_platform",
+        source_family="local_public_resource_trading_center",
         expected_title_contains="广东省公共资源交易平台",
-        visible_entry_markers=("交易服务", "公告", "搜索"),
-        sample_detail_url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index",
-        browser_verified_at="2026-04-28T15:35:00+08:00",
-        browser_verified_evidence="省级总入口 runtime 直连返回 200，但原始 HTML 更接近前端壳页，需要按弱正文/fail-closed 分类。",
-        lightweight_public_entry_markers=("广东省公共资源交易平台", "工程建设", "政府采购"),
+        visible_entry_markers=("交易公开", "工程建设", "招标公告及资格预审", "中标候选人公示"),
+        sample_detail_url="https://ygp.gdzwfw.gov.cn/#/44/jygg",
+        browser_verified_at="2026-05-01T14:50:39+08:00",
+        browser_verified_evidence="浏览器打开 https://ygp.gdzwfw.gov.cn/#/44/jygg，页面标题为广东省公共资源交易平台，广东省项目所属交易公开列表可见 2026-05-01 全省工程建设招标公告。",
+        lightweight_public_entry_markers=("广东省公共资源交易平台",),
     ),
     RealPublicEntryProfile(
-        profile_id="GUANGDONG-YUNFU-PORTAL",
-        url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/445300/index",
-        site_name="广东省公共资源交易平台（云浮）",
-        source_family="provincial_bidding_platform",
-        expected_title_contains="广东省公共资源交易平台",
-        visible_entry_markers=("交易服务", "公告", "搜索"),
-        sample_detail_url="https://ygp.gdzwfw.gov.cn/ggzy-portal/index.html#/440000/index",
-        browser_verified_at="2026-04-28T15:35:00+08:00",
-        browser_verified_evidence="云浮入口 runtime 直连返回 200，但原始 HTML 更接近前端壳页，需要按弱正文/fail-closed 分类。",
-        lightweight_public_entry_markers=("广东省公共资源交易平台", "工程建设", "政府采购"),
+        profile_id="JIANGSU-GGZY-HOME",
+        url="http://jsggzy.jszwfw.gov.cn/",
+        site_name="江苏省公共资源交易网",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="江苏省公共资源交易网",
+        visible_entry_markers=("交易信息", "招标公告", "中标结果公告", "政府采购"),
+        sample_detail_url="http://jsggzy.jszwfw.gov.cn/",
+        browser_verified_at="2026-05-01T14:50:39+08:00",
+        browser_verified_evidence="浏览器打开 http://jsggzy.jszwfw.gov.cn/，首页交易信息可见 2026-04-30 建设工程招标公告和药品耗材采购公告。",
+        lightweight_public_entry_markers=("江苏省公共资源交易网",),
+    ),
+    RealPublicEntryProfile(
+        profile_id="ZHEJIANG-GGZY-JYXXGK-LIST",
+        url="https://ggzy.zj.gov.cn/jyxxgk/list.html",
+        site_name="浙江省公共资源交易服务平台",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="浙江省公共资源交易服务平台",
+        visible_entry_markers=("交易信息公开", "工程建设", "招标公告", "中标结果公告"),
+        sample_detail_url="https://ggzy.zj.gov.cn/jyxxgk/list.html",
+        browser_verified_at="2026-05-01T14:50:39+08:00",
+        browser_verified_evidence="浏览器打开 https://ggzy.zj.gov.cn/jyxxgk/list.html，交易信息公开列表可见 2026-04-30 工程建设项目登记和公告记录。",
+        lightweight_public_entry_markers=("浙江省公共资源交易服务平台",),
+    ),
+    RealPublicEntryProfile(
+        profile_id="SHANDONG-GGZY-JYXXGK-LIST",
+        url="https://ggzyjy.shandong.gov.cn/queryContent-jyxxgk.jspx?channelId=78",
+        site_name="山东省公共资源交易网",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="山东省公共资源交易网",
+        visible_entry_markers=("交易公开", "工程建设", "招标公告", "信息分类"),
+        sample_detail_url="https://ggzyjy.shandong.gov.cn/queryContent-jyxxgk.jspx?channelId=78",
+        browser_verified_at="2026-05-01T14:50:39+08:00",
+        browser_verified_evidence="浏览器打开 https://ggzyjy.shandong.gov.cn/queryContent-jyxxgk.jspx?channelId=78，交易公开列表可见 2026-05-01 山东工程建设招标公告。",
+        lightweight_public_entry_markers=("山东省公共资源交易网",),
+    ),
+    RealPublicEntryProfile(
+        profile_id="HUBEI-BIDCLOUD-JYXX-LIST",
+        url="https://www.hbbidcloud.cn/hubei/jyxx/about.html",
+        site_name="湖北省公共资源交易云平台",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="湖北省公共资源交易云平台",
+        visible_entry_markers=("交易信息", "招标公告", "评标结果公示", "中标结果公告"),
+        sample_detail_url="https://www.hbbidcloud.cn/hubei/jyxx/about.html",
+        browser_verified_at="2026-05-01T14:50:39+08:00",
+        browser_verified_evidence="浏览器打开 https://www.hbbidcloud.cn/hubei/jyxx/about.html，交易信息列表可见 2026-04-30 湖北工程建设招标公告和评标结果。",
+        lightweight_public_entry_markers=("湖北省公共资源交易云平台",),
+    ),
+    RealPublicEntryProfile(
+        profile_id="SICHUAN-GGZY-TRANSACTION-INFO",
+        url="https://ggzyjy.sc.gov.cn/jyxx/transactionInfo.html",
+        site_name="四川省公共资源交易信息网",
+        source_family="local_public_resource_trading_center",
+        expected_title_contains="四川省公共资源交易信息网",
+        visible_entry_markers=("交易信息", "工程建设", "政府采购", "招标公告"),
+        sample_detail_url="https://ggzyjy.sc.gov.cn/jyxx/transactionInfo.html",
+        browser_verified_at="2026-05-01T14:50:39+08:00",
+        browser_verified_evidence="浏览器打开 https://ggzyjy.sc.gov.cn/jyxx/transactionInfo.html，交易信息列表可见 2026-05-01 四川政府采购、国企采购和工程相关公告。",
+        lightweight_public_entry_markers=("四川省公共资源交易信息网",),
     ),
 )
 
@@ -247,8 +309,12 @@ REPRESENTATIVE_LOCAL_PLATFORM_ENTRY_PROFILE_IDS = (
     "BEIJING-PLATFORM-HOME",
     "BEIJING-GCJS-LIST",
     "BEIJING-BDA-HOME",
-    "GUANGDONG-PROVINCIAL-PORTAL",
-    "GUANGDONG-YUNFU-PORTAL",
+    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+    "JIANGSU-GGZY-HOME",
+    "ZHEJIANG-GGZY-JYXXGK-LIST",
+    "SHANDONG-GGZY-JYXXGK-LIST",
+    "HUBEI-BIDCLOUD-JYXX-LIST",
+    "SICHUAN-GGZY-TRANSACTION-INFO",
 )
 PUBLIC_ATTACHMENT_PROFILE_IDS = (
     "BEIJING-STANDARD-BIDDING-PDF",
@@ -261,8 +327,7 @@ DEGRADED_ENTRY_PROFILE_IDS_AFTER_136 = (
     "JZSC-NATIONAL-PROJECT",
     "CREDITCHINA-HOME",
     "GSXT-HOME",
-    "GUANGDONG-PROVINCIAL-PORTAL",
-    "GUANGDONG-YUNFU-PORTAL",
+    "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
 )
 REAL_PUBLIC_ATTACHMENT_PROFILES: tuple[RealPublicAttachmentProfile, ...] = (
     RealPublicAttachmentProfile(
@@ -535,6 +600,47 @@ class RealPublicEntryFetcher:
             lineage_refs=lineage_refs,
         )
 
+    def fetch_candidate_detail_url(
+        self,
+        url: str,
+        *,
+        profile_id: str,
+        lineage_refs: Mapping[str, str] | None = None,
+    ) -> dict[str, Any]:
+        profile = self._resolve_candidate_detail_profile(url, profile_id=profile_id)
+        detail_url = str(url).strip()
+        now = utc_now_iso()
+        try:
+            if _is_guangdong_ygp_hash_detail_url(detail_url, profile_id=profile.profile_id):
+                response = _fetch_guangdong_ygp_detail_api_response(
+                    detail_url,
+                    user_agent=self.user_agent,
+                )
+            else:
+                response = self.transport.fetch(
+                    detail_url,
+                    timeout_seconds=self.timeout_seconds,
+                    user_agent=self.user_agent,
+                )
+        except Exception as exc:  # pragma: no cover - concrete network exceptions vary
+            return self._degraded_detail_carrier(
+                profile,
+                detail_url=detail_url,
+                now=now,
+                reason="fetch_failed",
+                detail=str(exc),
+                lineage_refs=lineage_refs,
+                fetch_attempted=True,
+            )
+
+        return self._detail_carrier_from_response(
+            profile,
+            detail_url=detail_url,
+            response=response,
+            now=now,
+            lineage_refs=lineage_refs,
+        )
+
     def fetch_attachment_original_link(
         self,
         url: str,
@@ -544,6 +650,45 @@ class RealPublicEntryFetcher:
         detail_page_url: str | None = None,
     ) -> dict[str, Any]:
         profile = self._resolve_attachment_profile(url, profile_id=profile_id)
+        now = utc_now_iso()
+        try:
+            response = self.transport.fetch(
+                profile.url,
+                timeout_seconds=self.timeout_seconds,
+                user_agent=self.user_agent,
+            )
+        except Exception as exc:  # pragma: no cover - concrete network exceptions vary
+            return self._degraded_attachment_carrier(
+                profile,
+                now=now,
+                reason="fetch_failed",
+                detail=str(exc),
+                lineage_refs=lineage_refs,
+                detail_page_url=detail_page_url,
+                fetch_attempted=True,
+            )
+
+        return self._attachment_carrier_from_response(
+            profile,
+            response,
+            now=now,
+            lineage_refs=lineage_refs,
+            detail_page_url=detail_page_url,
+        )
+
+    def fetch_same_site_attachment_url(
+        self,
+        url: str,
+        *,
+        parent_profile_id: str,
+        lineage_refs: Mapping[str, str] | None = None,
+        detail_page_url: str | None = None,
+    ) -> dict[str, Any]:
+        profile = self._resolve_same_site_attachment_profile(
+            url,
+            parent_profile_id=parent_profile_id,
+            detail_page_url=detail_page_url,
+        )
         now = utc_now_iso()
         try:
             response = self.transport.fetch(
@@ -586,8 +731,40 @@ class RealPublicEntryFetcher:
             profile = by_id
         if profile is None:
             raise self._boundary_error(url, "url_not_in_real_public_entry_allowlist")
-        if urlsplit(profile.url).scheme != "https":
+        if urlsplit(profile.url).scheme != "https" and profile.profile_id not in HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS:
             raise self._boundary_error(url, "non_https_public_entry_url")
+        return profile
+
+    def _resolve_candidate_detail_profile(
+        self,
+        url: str,
+        *,
+        profile_id: str,
+    ) -> RealPublicEntryProfile:
+        profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID.get(str(profile_id).strip())
+        if profile is None:
+            raise self._boundary_error(url, f"unregistered_profile_id:{profile_id}")
+        detail_url = str(url or "").strip()
+        parsed = urlsplit(detail_url)
+        http_detail_allowed = profile.profile_id in HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS or profile.profile_id in PROVINCE_REALTIME_DETAIL_PROFILE_IDS
+        if parsed.scheme != "https" and not (parsed.scheme == "http" and http_detail_allowed):
+            raise self._boundary_error(url, "non_https_public_detail_url")
+        if (parsed.hostname or "").lower() != profile.host.split(":", 1)[0].lower():
+            raise self._boundary_error(url, "detail_url_host_not_parent_profile")
+        if _is_guangdong_ygp_hash_detail_url(detail_url, profile_id=profile.profile_id):
+            return profile
+        path = parsed.path.lower()
+        allowed_detail_suffixes = (".html", ".htm", ".shtml")
+        if profile.profile_id in PROVINCE_REALTIME_DETAIL_PROFILE_IDS:
+            allowed_detail_suffixes = (*allowed_detail_suffixes, ".jhtml", ".jspx", ".jsp")
+        if not path.endswith(allowed_detail_suffixes):
+            raise self._boundary_error(url, "detail_url_not_html")
+        if path.endswith(("index.html", "deallist.html", "list.html", "about.html", "transactioninfo.html")):
+            raise self._boundary_error(url, "detail_url_points_to_list_or_index")
+        if profile.profile_id == "GGZY-DEAL-LIST" and "/information/deal/html/" not in path:
+            raise self._boundary_error(url, "ggzy_detail_url_pattern_mismatch")
+        if profile.profile_id.startswith("CCGP-") and "/cggg/" not in path:
+            raise self._boundary_error(url, "ccgp_detail_url_pattern_mismatch")
         return profile
 
     def _boundary_error(self, url: str, reason: str) -> RealPublicUrlBoundaryError:
@@ -626,6 +803,57 @@ class RealPublicEntryFetcher:
             raise self._boundary_error(url, "non_https_public_attachment_url")
         return profile
 
+    def _resolve_same_site_attachment_profile(
+        self,
+        url: str,
+        *,
+        parent_profile_id: str,
+        detail_page_url: str | None,
+    ) -> RealPublicAttachmentProfile:
+        parent = REAL_PUBLIC_ENTRY_PROFILE_BY_ID.get(str(parent_profile_id).strip())
+        if parent is None:
+            raise self._boundary_error(url, f"unregistered_parent_profile_id:{parent_profile_id}")
+        attachment_url = str(url or "").strip()
+        parsed = urlsplit(attachment_url)
+        http_attachment_allowed = parent.profile_id in HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS or parent.profile_id in PROVINCE_REALTIME_DETAIL_PROFILE_IDS
+        if parsed.scheme != "https" and not (parsed.scheme == "http" and http_attachment_allowed):
+            raise self._boundary_error(url, "non_https_same_site_attachment_url")
+        if (parsed.hostname or "").lower() != parent.host.split(":", 1)[0].lower():
+            raise self._boundary_error(url, "same_site_attachment_host_not_parent_profile")
+        path = parsed.path.lower()
+        guangdong_file_download = (
+            parent.profile_id == "GUANGDONG-YGP-PROVINCE-TRADING-LIST"
+            and "/ggzy-portal/base/sys-file/download/" in path
+        )
+        if not guangdong_file_download and not path.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip")):
+            raise self._boundary_error(url, "same_site_attachment_url_not_supported_file")
+        if detail_page_url:
+            detail_parsed = urlsplit(str(detail_page_url).strip())
+            allowed_detail_scheme = (
+                detail_parsed.scheme == "https"
+                or (
+                    detail_parsed.scheme == "http"
+                    and (
+                        parent.profile_id in HTTP_PUBLIC_ENTRY_ALLOWLIST_PROFILE_IDS
+                        or parent.profile_id in PROVINCE_REALTIME_DETAIL_PROFILE_IDS
+                    )
+                )
+            )
+            if not allowed_detail_scheme or (detail_parsed.hostname or "").lower() != parent.host.split(":", 1)[0].lower():
+                raise self._boundary_error(url, "same_site_attachment_detail_page_host_mismatch")
+        fingerprint = hashlib.sha1(attachment_url.encode("utf-8")).hexdigest()[:10]
+        return RealPublicAttachmentProfile(
+            profile_id=f"{parent.profile_id}-SAME-SITE-ATTACH-{fingerprint}",
+            url=attachment_url,
+            site_name=parent.site_name,
+            source_family=parent.source_family,
+            detail_page_url_optional=detail_page_url,
+            browser_verified_at=parent.browser_verified_at,
+            browser_verified_evidence=(
+                "由已登记公开入口详情页发现的同站附件链接；父入口已完成浏览器可见性验证。"
+            ),
+        )
+
     def _carrier_from_response(
         self,
         profile: RealPublicEntryProfile,
@@ -661,11 +889,12 @@ class RealPublicEntryFetcher:
             for marker in _CONTROLLED_CHALLENGE_BODY_PATTERNS
             if marker.lower() in text.lower()
         ]
-        same_site_links = _discover_same_site_links(
+        same_site_link_items = _discover_same_site_link_items(
             text,
             base_url=response.final_url or profile.url,
             host=profile.host,
         )
+        same_site_links = [item["url"] for item in same_site_link_items]
         degraded_reasons: list[str] = []
         if response.status_code != 200:
             degraded_reasons.append(f"http_status:{response.status_code}")
@@ -749,6 +978,7 @@ class RealPublicEntryFetcher:
             "missing_lightweight_public_entry_markers": missing_lightweight_markers,
             "entry_validation_level": validation_level,
             "same_site_detail_links": same_site_links,
+            "same_site_detail_link_items": same_site_link_items,
             "sample_detail_url": profile.sample_detail_url,
             "browser_verified": True,
             "browser_verified_at": profile.browser_verified_at,
@@ -811,6 +1041,7 @@ class RealPublicEntryFetcher:
             "missing_lightweight_public_entry_markers": missing_lightweight_markers,
             "entry_validation_level": validation_level,
             "same_site_detail_links": same_site_links,
+            "same_site_detail_link_items": same_site_link_items,
             "sample_detail_url": profile.sample_detail_url,
             "snapshot_id_optional": snapshot_id if manifest_payload else None,
             "manifest_optional": manifest_payload,
@@ -827,6 +1058,215 @@ class RealPublicEntryFetcher:
             "fetch_audit": fetch_audit,
             "failure_taxonomy": failure_taxonomy,
             "transport": fetch_audit["transport"],
+            "controlled_opening_requirements": _controlled_opening_requirements(),
+        }
+
+    def _detail_carrier_from_response(
+        self,
+        profile: RealPublicEntryProfile,
+        *,
+        detail_url: str,
+        response: RealPublicFetchResponse,
+        now: str,
+        lineage_refs: Mapping[str, str] | None,
+    ) -> dict[str, Any]:
+        content = response.content or b""
+        text = _decode_html(content)
+        title = _extract_title(text)
+        sha256 = hashlib.sha256(content).hexdigest()
+        final_url = response.final_url or detail_url
+        parsed_final = urlsplit(final_url)
+        host = parsed_final.netloc.lower() or profile.host
+        same_site_link_items = _discover_same_site_link_items(text, base_url=final_url, host=host)
+        attachment_link_items = _discover_same_site_attachment_link_items(text, base_url=final_url, host=host)
+        entry_unavailable_body_patterns = [
+            marker
+            for marker in _ENTRY_UNAVAILABLE_BODY_PATTERNS
+            if marker.lower() in text.lower()
+        ]
+        controlled_challenge_body_patterns = [
+            marker
+            for marker in _CONTROLLED_CHALLENGE_BODY_PATTERNS
+            if marker.lower() in text.lower()
+        ]
+        degraded_reasons: list[str] = []
+        if response.status_code != 200:
+            degraded_reasons.append(f"http_status:{response.status_code}")
+        if "html" not in (response.content_type or "").lower():
+            degraded_reasons.append("non_html_content_type")
+        if len(content) < 300:
+            degraded_reasons.append("detail_body_too_small")
+        if not title:
+            degraded_reasons.append("detail_title_missing")
+        controlled_challenge_detected = bool(controlled_challenge_body_patterns)
+        if controlled_challenge_detected:
+            degraded_reasons.append(
+                "controlled_challenge_body_pattern:"
+                + ",".join(controlled_challenge_body_patterns)
+            )
+        elif entry_unavailable_body_patterns:
+            degraded_reasons.append(
+                "entry_unavailable_body_pattern:"
+                + ",".join(entry_unavailable_body_patterns)
+            )
+
+        status = (
+            "AUTOMATED_CHALLENGE_RESOLUTION_PENDING"
+            if controlled_challenge_detected
+            else ("DEGRADED" if degraded_reasons else "FETCHED")
+        )
+        validation_level = (
+            "CONTROLLED_CHALLENGE_AUTOMATED_RESUME"
+            if controlled_challenge_detected
+            else ("PUBLIC_DETAIL_HTML" if not degraded_reasons else "FAIL_CLOSED_PUBLIC_DETAIL")
+        )
+        failure_taxonomy = _response_failure_taxonomy(
+            degraded_reasons,
+            http_status=response.status_code,
+            validation_level=validation_level,
+        )
+        snapshot_id = f"REAL-DETAIL-{profile.profile_id}-{sha256[:12]}"
+        fetch_audit = {
+            "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
+            "fetch_mode": "REAL_PUBLIC_DETAIL_SAME_SITE",
+            "fetch_attempted": True,
+            "timeout_seconds": self.timeout_seconds,
+            "user_agent": self.user_agent,
+            "parent_entry_profile_id": profile.profile_id,
+            "parent_entry_url": profile.url,
+            "list_to_detail_capture_enabled": True,
+            "same_site_attachment_link_discovery_enabled": True,
+            "cross_site_discovery_enabled": False,
+            "unapproved_capture_enabled": False,
+            "deep_capture_enabled": False,
+            "real_provider_call_executed": False,
+            "transport": (response.headers or {}).get("x-ax9s-fetch-transport", "unknown"),
+            "primary_transport_error_optional": (response.headers or {}).get("x-ax9s-primary-transport-error"),
+            "entry_validation_level": validation_level,
+            "failure_taxonomy": failure_taxonomy,
+        }
+        raw_metadata = {
+            "entry_profile_id": profile.profile_id,
+            "site_name": profile.site_name,
+            "source_family": profile.source_family,
+            "entry_url": profile.url,
+            "detail_url": detail_url,
+            "final_url": final_url,
+            "title": title,
+            "same_site_detail_links": [item["url"] for item in same_site_link_items],
+            "same_site_detail_link_items": same_site_link_items,
+            "same_site_attachment_links": [item["url"] for item in attachment_link_items],
+            "same_site_attachment_link_items": attachment_link_items,
+            "entry_unavailable_body_patterns_observed": entry_unavailable_body_patterns,
+            "controlled_challenge_body_patterns_observed": controlled_challenge_body_patterns,
+            "degraded_reasons": degraded_reasons,
+        }
+        manifest_payload: dict[str, Any] | None = None
+        if self.repository is not None and status == "FETCHED":
+            manifest = self.repository.save_snapshot(
+                content,
+                snapshot_id=snapshot_id,
+                snapshot_kind=REAL_PUBLIC_DETAIL_SNAPSHOT_KIND,
+                content_type=response.content_type or "text/html",
+                source_url_optional=detail_url,
+                source_family_optional=profile.source_family,
+                lineage_refs={
+                    "entry_profile_id": profile.profile_id,
+                    "parent_entry_url": profile.url,
+                    **{
+                        str(key): str(value)
+                        for key, value in dict(lineage_refs or {}).items()
+                        if value not in (None, "")
+                    },
+                },
+                adapter_id=REAL_PUBLIC_ENTRY_FETCHER_ID,
+                source_visibility_state="PUBLIC_VISIBLE",
+                snapshot_version="real-detail-v1",
+                fetched_at=now,
+                captured_at=now,
+                fetch_mode="REAL_PUBLIC_DETAIL_SAME_SITE",
+                fetch_audit=fetch_audit,
+                raw_snapshot_metadata=raw_metadata,
+                source_health={
+                    "state": "HEALTHY",
+                    "degraded_reasons": degraded_reasons,
+                    "manual_review_required": False,
+                },
+            )
+            manifest_payload = manifest.as_payload()
+
+        return {
+            "detail_fetch_id": snapshot_id,
+            "status": status,
+            "entry_profile_id": profile.profile_id,
+            "parent_entry_url": profile.url,
+            "detail_url": detail_url,
+            "final_url": final_url,
+            "site_name": profile.site_name,
+            "source_family": profile.source_family,
+            "http_status": response.status_code,
+            "content_type": response.content_type,
+            "byte_size": len(content),
+            "sha256": sha256,
+            "title": title,
+            "same_site_detail_links": [item["url"] for item in same_site_link_items],
+            "same_site_detail_link_items": same_site_link_items,
+            "same_site_attachment_links": [item["url"] for item in attachment_link_items],
+            "same_site_attachment_link_items": attachment_link_items,
+            "snapshot_id_optional": snapshot_id if manifest_payload else None,
+            "manifest_optional": manifest_payload,
+            "degraded_reasons": degraded_reasons,
+            "review_required": bool(degraded_reasons) and not controlled_challenge_detected,
+            "automated_challenge_resolution_pending": controlled_challenge_detected,
+            "automated_challenge_resolution_first": controlled_challenge_detected,
+            "resume_requires_human_input": False,
+            "fail_closed": bool(degraded_reasons) and not controlled_challenge_detected,
+            "no_broad_fallback": True,
+            "fetch_audit": fetch_audit,
+            "failure_taxonomy": failure_taxonomy,
+            "transport": fetch_audit["transport"],
+            "controlled_opening_requirements": _controlled_opening_requirements(),
+        }
+
+    def _degraded_detail_carrier(
+        self,
+        profile: RealPublicEntryProfile,
+        *,
+        detail_url: str,
+        now: str,
+        reason: str,
+        detail: str,
+        lineage_refs: Mapping[str, str] | None,
+        fetch_attempted: bool,
+    ) -> dict[str, Any]:
+        return {
+            "detail_fetch_id": f"REAL-DETAIL-{profile.profile_id}-DEGRADED",
+            "status": "DEGRADED",
+            "entry_profile_id": profile.profile_id,
+            "parent_entry_url": profile.url,
+            "detail_url": detail_url,
+            "site_name": profile.site_name,
+            "source_family": profile.source_family,
+            "snapshot_id_optional": None,
+            "degraded_reasons": [reason],
+            "failure_detail_optional": detail,
+            "review_required": True,
+            "fail_closed": True,
+            "no_broad_fallback": True,
+            "lineage_refs": dict(lineage_refs or {}),
+            "fetch_audit": {
+                "fetcher_id": REAL_PUBLIC_ENTRY_FETCHER_ID,
+                "fetch_mode": "REAL_PUBLIC_DETAIL_SAME_SITE",
+                "fetch_attempted": fetch_attempted,
+                "fetched_at": now,
+                "failure_taxonomy": _fetch_failure_taxonomy(detail),
+                "parent_entry_profile_id": profile.profile_id,
+                "parent_entry_url": profile.url,
+                "list_to_detail_capture_enabled": True,
+                "unapproved_capture_enabled": False,
+                "deep_capture_enabled": False,
+                "real_provider_call_executed": False,
+            },
             "controlled_opening_requirements": _controlled_opening_requirements(),
         }
 
@@ -1026,6 +1466,241 @@ class RealPublicEntryFetcher:
         }
 
 
+def _is_guangdong_ygp_hash_detail_url(url: str, *, profile_id: str) -> bool:
+    if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
+        return False
+    parsed = urlsplit(str(url or "").strip())
+    return (
+        parsed.scheme == "https"
+        and parsed.netloc.lower() == "ygp.gdzwfw.gov.cn"
+        and "/new/jygg/" in parsed.fragment
+    )
+
+
+def _as_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _fetch_guangdong_ygp_detail_api_response(
+    detail_url: str,
+    *,
+    user_agent: str,
+) -> RealPublicFetchResponse:
+    route = _parse_guangdong_ygp_detail_route(detail_url)
+    node_id = route.get("nodeId") or _fetch_guangdong_ygp_node_id(route, user_agent=user_agent)
+    api_params = {
+        "nodeId": node_id,
+        "version": route["edition"],
+        "tradingType": route["tradingType"],
+        "noticeId": route["noticeId"],
+        "bizCode": route["bizCode"],
+        "projectCode": route["projectCode"],
+        "siteCode": route["siteCode"],
+    }
+    data = _guangdong_ygp_signed_get_json(
+        "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/trading-notice/new/detail",
+        api_params,
+        user_agent=user_agent,
+    )
+    if _as_int(data.get("errcode"), -1) != 0:
+        raise RuntimeError(f"guangdong_detail_api_error:{data.get('errmsg') or data.get('errcode')}")
+    detail_data = data.get("data")
+    if not isinstance(detail_data, Mapping):
+        raise RuntimeError("guangdong_detail_api_missing_data")
+    html = _guangdong_ygp_detail_html(
+        detail_data,
+        detail_url=detail_url,
+        edition=route["edition"],
+        source=str(route.get("source") or ""),
+        title_details=str(route.get("titleDetails") or ""),
+    )
+    return RealPublicFetchResponse(
+        url=detail_url,
+        status_code=200,
+        content=html.encode("utf-8"),
+        content_type="text/html; charset=utf-8",
+        final_url=detail_url,
+        headers={"x-ax9s-fetch-transport": "guangdong_ygp_public_detail_api"},
+    )
+
+
+def _parse_guangdong_ygp_detail_route(detail_url: str) -> dict[str, str]:
+    parsed = urlsplit(str(detail_url or "").strip())
+    fragment_path, _, fragment_query = parsed.fragment.partition("?")
+    parts = [part for part in fragment_path.split("/") if part]
+    try:
+        new_index = parts.index("new")
+        if parts[new_index + 1] != "jygg":
+            raise ValueError
+        edition = parts[new_index + 2]
+        trading_type = parts[new_index + 3]
+    except (ValueError, IndexError):
+        raise ValueError("guangdong_detail_hash_route_invalid") from None
+    query_values = {
+        key: values[0]
+        for key, values in parse_qs(fragment_query, keep_blank_values=True).items()
+        if values
+    }
+    route = {
+        "edition": edition,
+        "tradingType": trading_type,
+        **query_values,
+    }
+    missing = [
+        key
+        for key in ("noticeId", "bizCode", "projectCode", "siteCode")
+        if not str(route.get(key) or "").strip()
+    ]
+    if missing:
+        raise ValueError("guangdong_detail_query_missing:" + ",".join(missing))
+    return {key: str(value or "") for key, value in route.items()}
+
+
+def _fetch_guangdong_ygp_node_id(route: Mapping[str, str], *, user_agent: str) -> str:
+    params = {
+        "siteCode": str(route.get("siteCode") or ""),
+        "tradingType": str(route.get("tradingType") or ""),
+        "bizCode": str(route.get("bizCode") or ""),
+        "projectCode": str(route.get("projectCode") or ""),
+    }
+    classify = str(route.get("classify") or "")
+    if classify:
+        params["classify"] = classify
+    data = _guangdong_ygp_signed_get_json(
+        "https://ygp.gdzwfw.gov.cn/ggzy-portal/center/apis/trading-notice/new/nodeList",
+        params,
+        user_agent=user_agent,
+    )
+    rows = list(data.get("data") or [])
+    notice_id = str(route.get("noticeId") or "")
+    biz_code = str(route.get("bizCode") or "")
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        if str(row.get("noticeId") or "") == notice_id and str(row.get("selectedBizCode") or "") == biz_code:
+            node_id = str(row.get("nodeId") or "")
+            if node_id:
+                return node_id
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        if _as_int(row.get("dataCount"), 0) > 0:
+            node_id = str(row.get("nodeId") or "")
+            if node_id:
+                return node_id
+    raise RuntimeError("guangdong_node_id_not_found")
+
+
+def _guangdong_ygp_signed_get_json(
+    endpoint: str,
+    params: Mapping[str, Any],
+    *,
+    user_agent: str,
+) -> dict[str, Any]:
+    url = f"{endpoint}?{urlencode(params)}"
+    request = Request(
+        url,
+        headers={
+            "User-Agent": user_agent,
+            "Accept": "application/json, text/plain, */*",
+            "Referer": "https://ygp.gdzwfw.gov.cn/",
+            **_guangdong_ygp_signature_headers(params),
+        },
+    )
+    with urlopen(request, timeout=18) as response:
+        return json.loads(response.read(1_500_000).decode("utf-8", "ignore"))
+
+
+def _guangdong_ygp_signature_headers(params: Mapping[str, Any]) -> dict[str, str]:
+    nonce = secrets.token_urlsafe(18).replace("-", "").replace("_", "")[:16]
+    timestamp_ms = str(int(time.time() * 1000))
+    sorted_query = "&".join(sorted(_guangdong_ygp_query_string(params).split("&")))
+    signature_basis = f"{nonce}k8tUyS$m{unquote(sorted_query)}{timestamp_ms}"
+    return {
+        "X-Dgi-Req-App": "ggzy-portal",
+        "X-Dgi-Req-Nonce": nonce,
+        "X-Dgi-Req-Timestamp": timestamp_ms,
+        "X-Dgi-Req-Signature": hashlib.sha256(signature_basis.encode("utf-8")).hexdigest(),
+    }
+
+
+def _guangdong_ygp_query_string(params: Mapping[str, Any]) -> str:
+    parts: list[str] = []
+    for key, value in params.items():
+        if isinstance(value, bool):
+            text = "true" if value else "false"
+        elif value is None:
+            text = ""
+        else:
+            text = str(value)
+        parts.append(f"{quote(str(key), safe='')}={quote(text, safe='')}")
+    return "&".join(parts)
+
+
+def _guangdong_ygp_detail_html(
+    data: Mapping[str, Any],
+    *,
+    detail_url: str,
+    edition: str,
+    source: str,
+    title_details: str,
+) -> str:
+    title = str(data.get("title") or "")
+    publish_date = str(data.get("publishDate") or "")
+    sections: list[str] = [
+        "<!doctype html><html><head><meta charset=\"utf-8\">",
+        f"<title>{escape(title)}</title>",
+        "</head><body>",
+        f"<h1>{escape(title)}</h1>",
+        f"<p>发布时间：{escape(publish_date)} 来源：{escape(source)} {escape(title_details)}</p>",
+        f"<p>公开来源：<a href=\"{escape(detail_url, quote=True)}\">广东省公共资源交易平台详情页</a></p>",
+    ]
+    for section in list(data.get("tradingNoticeColumnModelList") or []):
+        if not isinstance(section, Mapping):
+            continue
+        name = str(section.get("name") or "公告内容")
+        sections.append(f"<section><h2>{escape(name)}</h2>")
+        for row in list(section.get("multiKeyValueTableList") or []):
+            if isinstance(row, list):
+                for field in row:
+                    if isinstance(field, Mapping) and field.get("isShow") is not False:
+                        label = str(field.get("aliasName") or field.get("key") or field.get("code") or "")
+                        value = str(field.get("value") or "")
+                        if label or value:
+                            sections.append(f"<p><strong>{escape(label)}</strong> {escape(value)}</p>")
+        richtext = str(section.get("richtext") or "")
+        if richtext:
+            sections.append(f"<div class=\"richtext\">{richtext}</div>")
+        table_model = section.get("tradingNoticeTableColumnModel")
+        if isinstance(table_model, Mapping):
+            for row in list(table_model.get("dataList") or []):
+                if isinstance(row, Mapping):
+                    cells = " ".join(f"{escape(str(key))}: {escape(str(value))}" for key, value in row.items())
+                    sections.append(f"<p>{cells}</p>")
+        files = [item for item in list(section.get("noticeFileBOList") or []) if isinstance(item, Mapping)]
+        if files:
+            sections.append("<ul>")
+            for file_item in files:
+                file_name = str(file_item.get("fileName") or "附件")
+                row_guid = str(file_item.get("rowGuid") or "")
+                flow_id = str(file_item.get("flowId") or "")
+                if row_guid and flow_id:
+                    href = (
+                        "https://ygp.gdzwfw.gov.cn/ggzy-portal/base/sys-file/download/"
+                        f"{quote(edition, safe='')}/{quote(row_guid, safe='')}?{quote(flow_id, safe='')}"
+                    )
+                    sections.append(f"<li><a href=\"{escape(href, quote=True)}\">{escape(file_name)}</a></li>")
+                else:
+                    sections.append(f"<li>{escape(file_name)}</li>")
+            sections.append("</ul>")
+        sections.append("</section>")
+    sections.append("</body></html>")
+    return "\n".join(sections)
+
+
 def _decode_html(content: bytes) -> str:
     for encoding in ("utf-8", "gb18030"):
         try:
@@ -1043,30 +1718,122 @@ def _extract_title(text: str) -> str:
 
 
 def _discover_same_site_links(text: str, *, base_url: str, host: str) -> list[str]:
-    links: list[str] = []
+    return [
+        item["url"]
+        for item in _discover_same_site_link_items(text, base_url=base_url, host=host)
+    ]
+
+
+def _discover_same_site_link_items(text: str, *, base_url: str, host: str) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
     seen: set[str] = set()
-    for match in re.finditer(r"href=[\"']([^\"']+)[\"']", text, flags=re.IGNORECASE):
-        href = unescape(match.group(1)).strip()
+    expected_host = host.split(":", 1)[0].lower()
+    anchor_pattern = re.compile(
+        r"<a\b(?P<attrs>[^>]*)>(?P<body>.*?)</a>",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    href_pattern = re.compile(r"href=[\"']([^\"']+)[\"']", flags=re.IGNORECASE)
+    for match in anchor_pattern.finditer(text):
+        href_match = href_pattern.search(match.group("attrs") or "")
+        if not href_match:
+            continue
+        href = unescape(href_match.group(1)).strip()
         if not href or href.startswith(("#", "javascript:", "mailto:")):
             continue
         full = urljoin(base_url, href)
         parsed = urlsplit(full)
-        if parsed.scheme not in {"http", "https"} or parsed.netloc.lower() != host:
+        parsed_host = (parsed.hostname or "").lower()
+        if parsed.scheme not in {"http", "https"} or parsed_host != expected_host:
             continue
         if not (
-            parsed.path.endswith((".html", ".htm", ".shtml"))
+            parsed.path.endswith((".html", ".htm", ".shtml", ".jhtml"))
+            or parsed.path.endswith((".jspx", ".jsp"))
+            or parsed.path.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip"))
             or "/information/" in parsed.path
             or "/cggg/" in parsed.path
             or "/deal/" in parsed.path
+            or "/jyxx" in parsed.path.lower()
+            or "/jyxxgk" in parsed.path.lower()
+            or "/base/sys-file/download/" in parsed.path.lower()
+            or "querycontent" in parsed.path.lower()
         ):
             continue
         clean = full.split("#", 1)[0]
         if clean not in seen:
             seen.add(clean)
-            links.append(clean)
-        if len(links) >= 20:
+            link_text = _clean_anchor_text(match.group("body") or "")
+            items.append({"url": clean, "text": link_text})
+    items.sort(key=_same_site_link_item_priority, reverse=True)
+    return items[:50]
+
+
+def _same_site_link_item_priority(item: Mapping[str, str]) -> int:
+    url = str(item.get("url") or "")
+    text = _clean_anchor_text(str(item.get("text") or ""))
+    lowered = f"{url} {text}".lower()
+    path = urlsplit(url).path.lower()
+    score = 0
+    if "{{" in lowered or "}}" in lowered or "%7b%7b" in lowered:
+        score -= 500
+    if re.search(r"/20[0-9]{6}/", path) or re.search(r"/20[0-9]{4}/", path):
+        score += 180
+    if re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", path):
+        score += 120
+    if any(token in text for token in ("公告", "公示", "招标", "中标", "成交", "评标", "结果", "澄清", "答疑")):
+        score += 70
+    if any(token in text for token in ("工程", "项目", "施工", "监理", "设计", "改造", "建设", "道路", "水利", "公路")):
+        score += 60
+    if len(text) >= 18:
+        score += 20
+    if text.replace(" ", "") in {
+        "首页",
+        "通知公告",
+        "交易公开",
+        "交易信息",
+        "主体信息",
+        "信用信息",
+        "政策文件",
+        "服务指南",
+        "关于我们",
+        "查看更多",
+        "更多",
+        "项目注册",
+        "房建市政",
+        "水利工程",
+        "交通工程",
+    }:
+        score -= 200
+    if path.endswith(("index.html", "list.html", "about.html", "transactioninfo.html")):
+        score -= 100
+    return score
+
+
+def _discover_same_site_attachment_link_items(text: str, *, base_url: str, host: str) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in _discover_same_site_link_items(text, base_url=base_url, host=host):
+        url = item["url"]
+        parsed = urlsplit(url)
+        path = parsed.path.lower()
+        link_text = item.get("text", "")
+        if not (
+            path.endswith((".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip"))
+            or any(token in link_text for token in ("附件", "下载", "招标文件", "采购文件", "结果文件"))
+            or re.search(r"\.(pdf|docx?|xlsx?|zip)$", link_text.strip(), flags=re.IGNORECASE)
+        ):
+            continue
+        if url in seen:
+            continue
+        seen.add(url)
+        items.append({"url": url, "text": link_text})
+        if len(items) >= 10:
             break
-    return links
+    return items
+
+
+def _clean_anchor_text(value: str) -> str:
+    without_tags = re.sub(r"<[^>]+>", " ", value)
+    return " ".join(unescape(without_tags).split())
 
 
 def _parse_curl_headers(header_text: str) -> dict[str, str]:
@@ -1097,6 +1864,8 @@ def _should_try_fetch_fallback(exc: Exception) -> bool:
             "handshake",
             "certificate",
             "eof occurred in violation",
+            "timed out",
+            "timeout",
         )
     )
 
@@ -1177,6 +1946,7 @@ __all__ = [
     "REAL_PUBLIC_ATTACHMENT_PROFILE_BY_ID",
     "REAL_PUBLIC_ATTACHMENT_PROFILE_BY_URL",
     "REAL_PUBLIC_ATTACHMENT_SNAPSHOT_KIND",
+    "REAL_PUBLIC_DETAIL_SNAPSHOT_KIND",
     "REAL_PUBLIC_ENTRY_FETCHER_ID",
     "REAL_PUBLIC_ENTRY_FETCH_MODE",
     "REAL_PUBLIC_ENTRY_PROFILES",
