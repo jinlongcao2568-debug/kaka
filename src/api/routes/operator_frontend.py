@@ -150,6 +150,185 @@ def _safe_filename_token(value: str) -> str:
     return token or "opportunity"
 
 
+OWNER_VISIBLE_LABELS = {
+    "ACTIVE": "启用",
+    "ALLOW": "允许",
+    "APPLIED_TO_DRAFT": "已加到草稿",
+    "APPROVED": "已通过",
+    "AUDITABLE": "可审计",
+    "BUYER_FIT_SCORECARD": "买家匹配评分卡",
+    "COMPREHENSIVE_SCORE": "综合评分",
+    "CONSTRUCTION": "房建工程",
+    "CUSTOMER": "客户",
+    "DEAL": "交易",
+    "DOC": "文档",
+    "DRY_RUN": "试运行",
+    "EMAIL": "邮件",
+    "GET": "读取",
+    "GOVERNMENT": "政府/采购主管",
+    "GRADE_B": "B级机会",
+    "HTML_PAGE": "网页",
+    "INTERNAL": "内部",
+    "INTERNAL DRAFT": "内部草稿",
+    "INTERNAL DRAFT - NOT CUSTOMER RELEASED": "内部草稿，未发客户",
+    "INTERNAL_PROJECT_IMPORT": "内部项目导入",
+    "JSON": "结构化数据",
+    "LIST": "列表",
+    "LIST_TO_DETAIL": "列表到详情",
+    "MANUAL": "人工处理",
+    "MASKING_REQUIRED": "需要脱敏",
+    "NATIONAL": "全国",
+    "NO_RESPONSE": "暂无响应",
+    "OFFLINE_FIXTURE": "离线样本",
+    "OPEN_TENDER": "公开招标",
+    "ORDERED": "已排序",
+    "ORG_EMAIL": "机构邮箱",
+    "OWNER": "运营方",
+    "PAGE_DRAFT_ONLY": "仅页面草稿",
+    "POST": "提交",
+    "PROCUREMENT_NOTICE": "采购公告",
+    "PROVINCIAL": "省级",
+    "PUBLIC_OFFICIAL_SOURCE": "公开官方来源",
+    "PUBLIC_ROLE_CONTACT": "公开角色联系人",
+    "PUBLIC_SITE": "公开网站",
+    "QUALIFIED": "合格机会",
+    "REACHABLE": "可触达",
+    "READY": "已就绪",
+    "READBACK_READY": "读回就绪",
+    "REASONABLE": "合理",
+    "RELEASED": "已发布",
+    "REPLAY_READY": "可回放",
+    "ROOT": "根对象",
+    "SAMPLE": "样本",
+    "SANDBOX_CANDIDATE_READY": "测试候选已就绪",
+    "SANDBOX_DRY_RUN_READBACK": "沙箱试运行读回",
+    "SANITIZED_OFFLINE_INTERNAL": "脱敏离线内部",
+    "SEARCH": "搜索",
+    "SKU": "产品档位",
+    "SLICE": "切片",
+    "T0_CORE": "核心覆盖",
+    "TASK": "任务",
+    "TRACE_PRESENT": "痕迹已记录",
+    "UNASSIGNED": "未分配",
+    "VALID": "有效",
+    "WINDOW_ACTIONABLE": "窗口可行动",
+    "allowed_projection": "允许展示摘要",
+    "allowlist_enforced": "字段白名单已执行",
+    "artifact_manifest_id": "清单编号",
+    "artifact_version_hash": "版本哈希",
+    "auth_required": "需要授权",
+    "buyer_fit_summary": "买家匹配摘要",
+    "crm_quote_workbench": "报价工作台",
+    "crm_quote_workbench_snapshot": "报价工作台快照",
+    "customer_download_enabled": "客户自助下载已开放",
+    "download_enabled": "下载已开放",
+    "evidence_pack_id": "证据包编号",
+    "field_allowlist_masking": "字段白名单与脱敏",
+    "internal_blackbox_fields_exposed": "内部黑箱字段已暴露",
+    "internal_summary_only": "仅内部摘要",
+    "internal_trace_summary": "内部痕迹摘要",
+    "item_id": "证据项编号",
+    "manifest_state": "清单状态",
+    "masked_projection": "脱敏展示",
+    "masking_policy": "脱敏策略",
+    "masking_required": "需要脱敏",
+    "offer_recommendation": "报价建议",
+    "offer_recommendation_snapshot": "报价建议快照",
+    "package_id": "交付包编号",
+    "package_manifest": "证据包清单",
+    "page_draft": "页面草稿",
+    "page_draft_id": "页面草稿编号",
+    "project_name": "项目名称",
+    "region_name": "地区",
+    "saleable_opportunity": "可售机会",
+    "saleable_opportunity_snapshot": "可售机会快照",
+    "source_object": "来源对象",
+    "source_profile_id": "来源配置编号",
+    "source_refs": "来源引用",
+    "source_site_name": "公开来源名称",
+    "source_url": "公开来源网址",
+    "stage7.saleable_opportunity": "阶段7可售机会",
+    "stage7.offer_recommendation": "阶段7报价建议",
+    "stage7.buyer_fit": "阶段7买家匹配",
+    "stage7_actor_profiles": "阶段7联系人画像",
+    "stage7_resolution_trace": "阶段7决策痕迹",
+    "stage7_resolution_trace_snapshot": "阶段7决策痕迹摘要",
+    "summary_only": "仅摘要",
+    "verification_hint": "验证口径",
+    "watermark": "水印",
+    "watermark_text": "水印文字",
+}
+
+
+def _owner_visible_label(value: Any) -> str:
+    text = str(value or "")
+    return OWNER_VISIBLE_LABELS.get(text, text)
+
+
+def _owner_visible_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            _owner_visible_label(key): _owner_visible_value(item)
+            for key, item in value.items()
+            if item not in (None, "")
+        }
+    if isinstance(value, list):
+        return [_owner_visible_value(item) for item in value if item not in (None, "")]
+    if isinstance(value, str):
+        return _owner_visible_label(value)
+    return value
+
+
+def _localized_source_verification(source_verification: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "公开来源网址": str(source_verification.get("source_url") or ""),
+        "公开来源名称": str(source_verification.get("source_site_name") or ""),
+        "来源配置编号": str(source_verification.get("source_profile_id") or ""),
+        "项目名称": str(source_verification.get("project_name") or ""),
+        "地区": str(source_verification.get("region_name") or ""),
+        "项目类型": str(source_verification.get("project_type_label") or ""),
+        "验证口径": str(source_verification.get("verification_hint") or ""),
+    }
+
+
+def _localized_field_policy(policy: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "字段白名单已执行": bool(policy.get("allowlist_enforced", True)),
+        "脱敏必需": bool(policy.get("masking_required", True)),
+        "内部黑箱字段已隐藏": not bool(policy.get("internal_blackbox_fields_exposed", False)),
+        "允许字段": _owner_visible_value(policy.get("allowed_fields") or policy.get("allowlist") or []),
+        "屏蔽字段": _owner_visible_value(policy.get("blocked_fields") or policy.get("blocked") or []),
+    }
+
+
+def _localized_download_auth(download_auth: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "当前下载用途": "内部运营预览，不会真实发送客户",
+        "客户自助下载已开放": bool(download_auth.get("customer_download_enabled") or download_auth.get("download_enabled")),
+        "客户下载需要授权": bool(download_auth.get("auth_required", True)),
+        "真实客户下载已执行": False,
+        "原始授权状态摘要": _owner_visible_value(download_auth),
+    }
+
+
+def _localized_evidence_item(
+    item: Mapping[str, Any],
+    source_verification: Mapping[str, Any],
+) -> dict[str, Any]:
+    return {
+        "证据项编号": _owner_visible_label(item.get("item_id") or ""),
+        "证据类型": _owner_visible_label(item.get("item_id") or item.get("source_object") or ""),
+        "线索类型": _owner_visible_label(item.get("source_object") or ""),
+        "来源对象编号": str(item.get("source_id") or ""),
+        "清单状态": _owner_visible_label(item.get("manifest_state") or item.get("status") or ""),
+        "脱敏策略": _owner_visible_label(item.get("masking_policy") or ""),
+        "来源引用": _owner_visible_value(item.get("source_refs") or []),
+        "公开来源网址": str(item.get("source_url") or source_verification.get("source_url") or ""),
+        "公开来源名称": str(item.get("source_site_name") or source_verification.get("source_site_name") or ""),
+        "来源配置编号": str(item.get("source_profile_id") or source_verification.get("source_profile_id") or ""),
+    }
+
+
 def _internal_evidence_package_download_payload(payload: dict[str, Any]) -> dict[str, Any]:
     surface = _customer_artifact_surface_with_search_context(payload)
     formal = dict(surface.get("source_formal_client_export_page_layer_readiness", {}) or {})
@@ -162,19 +341,21 @@ def _internal_evidence_package_download_payload(payload: dict[str, Any]) -> dict
         row.setdefault("source_url", source_verification.get("source_url"))
         row.setdefault("source_site_name", source_verification.get("source_site_name"))
         row.setdefault("source_profile_id", source_verification.get("source_profile_id"))
-        evidence_items.append(row)
+        evidence_items.append(_localized_evidence_item(row, source_verification))
+    field_policy = dict(surface.get("field_allowlist_masking", {}) or {})
+    download_auth = dict(surface.get("download_auth", {}) or {})
     return {
         "说明": "内部证据包预览文件；用于运营方验收，不会真实发送给客户。",
         "未来交付方式": "成交付款后由系统通过邮件发送证据包。",
         "商机编号": str(payload.get("opportunity_id") or ""),
-        "公开来源验证": source_verification,
+        "公开来源验证": _localized_source_verification(source_verification),
         "证据包": {
             "证据包编号": artifact.get("evidence_pack_id"),
             "交付包编号": artifact.get("package_id"),
             "清单编号": artifact.get("artifact_manifest_id"),
             "版本哈希": artifact.get("artifact_version_hash"),
-            "水印": dict(artifact.get("watermark", {}) or {}),
-            "页面草稿": dict(formal.get("page_draft", {}) or {}),
+            "水印": _owner_visible_value(dict(artifact.get("watermark", {}) or {})),
+            "页面草稿": _owner_visible_value(dict(formal.get("page_draft", {}) or {})),
         },
         "拟邮件发送包": {
             "邮件主题": f"证据包交付 - {payload.get('opportunity_id') or ''}",
@@ -187,9 +368,14 @@ def _internal_evidence_package_download_payload(payload: dict[str, Any]) -> dict
             "真实邮件服务商已接入": False,
         },
         "证据项清单": evidence_items,
-        "字段策略": dict(surface.get("field_allowlist_masking", {}) or {}),
-        "模拟下载审计": dict(surface.get("download_auth", {}) or {}),
-        "原始读回": surface,
+        "字段策略": _localized_field_policy(field_policy),
+        "模拟下载审计": _localized_download_auth(download_auth),
+        "读回摘要": {
+            "候选状态": "可内部预览" if not surface.get("empty_state") else "暂无证据包读回",
+            "客户可见导出已开放": bool(surface.get("customer_visible_export_enabled")),
+            "真实外发已开放": bool(surface.get("external_release_enabled")),
+            "待接或受控原因": _owner_visible_value(list(surface.get("blocked_reasons", []) or [])),
+        },
     }
 
 CONTROLLED_SAMPLE_PAYLOAD = {
@@ -333,6 +519,11 @@ def _page(title: str, body: str, script: str) -> HTMLResponse:
       display: flex;
       flex-direction: column;
       gap: 16px;
+    }}
+    .layout:not(.operator-shell) main {{
+      height: 100vh;
+      overflow: auto;
+      scroll-padding-top: 18px;
     }}
     .topbar {{
       display: flex;
@@ -1092,6 +1283,65 @@ const stateLabels = {
   "approval_and_audit_required_before_any_live_provider_use": "真实服务商使用前需要审批和审计",
   "automated_refund_program_absent_blocked": "自动退款程序未开放",
   "province_platform_missing_detail_or_attachment": "省级平台详情或附件入口待补",
+  "ACTIVE": "启用",
+  "ALLOW": "允许",
+  "APPLIED_TO_DRAFT": "已加到草稿",
+  "APPROVED": "已通过",
+  "AUDITABLE": "可审计",
+  "BEIJING": "北京",
+  "COMPREHENSIVE_SCORE": "综合评分",
+  "CONSTRUCTION": "房建工程",
+  "CUSTOMER": "客户",
+  "DEAL": "交易",
+  "DOC": "文档",
+  "DRY_RUN": "试运行",
+  "EMAIL": "邮件",
+  "GET": "读取",
+  "GGZY": "公共资源交易",
+  "GUANGDONG": "广东",
+  "HAPPY": "样例",
+  "HOME": "首页",
+  "HTML_PAGE": "网页",
+  "INTERNAL": "内部",
+  "INTERNAL_PROJECT_IMPORT": "内部项目导入",
+  "JSON": "结构化数据",
+  "LIST": "列表",
+  "LIST_TO_DETAIL": "列表到详情",
+  "MANUAL": "人工处理",
+  "MASKING_REQUIRED": "需要脱敏",
+  "NATIONAL": "全国",
+  "NO_RESPONSE": "暂无响应",
+  "OFFLINE_FIXTURE": "离线样本",
+  "OPEN_TENDER": "公开招标",
+  "ORDERED": "已排序",
+  "ORG_EMAIL": "机构邮箱",
+  "OWNER": "运营方",
+  "PLATFORM": "平台",
+  "PORTAL": "门户",
+  "POST": "提交",
+  "PROCUREMENT_NOTICE": "采购公告",
+  "PROVINCIAL": "省级",
+  "PUBLIC_OFFICIAL_SOURCE": "公开官方来源",
+  "PUBLIC_ROLE_CONTACT": "公开角色联系人",
+  "PUBLIC_SITE": "公开网站",
+  "REACHABLE": "可触达",
+  "READY": "已就绪",
+  "READBACK_READY": "读回就绪",
+  "REASONABLE": "合理",
+  "RELEASED": "已发布",
+  "REPLAY_READY": "可回放",
+  "ROOT": "根对象",
+  "SAMPLE": "样本",
+  "SANDBOX_CANDIDATE_READY": "测试候选已就绪",
+  "SANDBOX_DRY_RUN_READBACK": "沙箱试运行读回",
+  "SEARCH": "搜索",
+  "SKU": "产品档位",
+  "SLICE": "切片",
+  "T0_CORE": "核心覆盖",
+  "TASK": "任务",
+  "TRACE_PRESENT": "痕迹已记录",
+  "UNASSIGNED": "未分配",
+  "VALID": "有效",
 };
 const projectTypeLabels = {
   "construction": "房建工程",
@@ -1540,7 +1790,7 @@ function renderProviderExecutionMatrix(readiness, scheduler, goLive) {
   }).join("");
   const blocked = provider.summary?.blocked_reasons || [];
   const gateRows = [
-    ["真实触达", controlled.stage8_real_execution_enabled, "provider sandbox + 审批 + 审计 + operator action"],
+    ["真实触达", controlled.stage8_real_execution_enabled, "服务商沙箱 + 审批 + 审计 + 操作确认"],
     ["真实支付", controlled.real_payment_enabled, "支付 sandbox + 订单记录 + 审批 + 审计"],
     ["真实交付", controlled.real_delivery_enabled, "下载授权 + 交付审计 + 客户账号控制"],
     ["真实退款异常", controlled.real_refund_enabled, "人工退款异常队列；自动退款继续排除"],
@@ -2177,23 +2427,79 @@ const portalLabels = {{
   "stage7_resolution_trace.opportunity_policy": "机会判断策略",
   "stage7_resolution_trace.price_resolution": "价格判断痕迹",
   "stage7_resolution_trace.formal_sink_projection": "正式输出投影",
+  "CONSTRUCTION": "房建工程",
+  "CUSTOMER": "客户",
+  "DRAFT": "草稿",
+  "INTERNAL": "内部",
+  "JSON": "结构化数据",
+  "RELEASED": "已发布",
+  "SEARCH": "搜索",
+  "source_url": "公开来源网址",
+  "source_site_name": "公开来源名称",
+  "source_profile_id": "来源配置编号",
+  "source_refs": "来源引用",
+  "source_object": "来源对象",
+  "source_id": "来源对象编号",
+  "item_id": "证据项编号",
+  "manifest_state": "清单状态",
+  "masking_policy": "脱敏策略",
+  "package_manifest": "证据包清单",
+  "page_draft": "页面草稿",
+  "page_draft_id": "页面草稿编号",
+  "artifact_manifest_id": "清单编号",
+  "artifact_version_hash": "版本哈希",
+  "evidence_pack_id": "证据包编号",
+  "package_id": "交付包编号",
+  "watermark": "水印",
+  "watermark_text": "水印文字",
+  "project_name": "项目名称",
+  "region_name": "地区",
+  "project_type_label": "项目类型",
+  "verification_hint": "验证口径",
+  "allowlist_enforced": "字段白名单已执行",
+  "masking_required": "需要脱敏",
+  "internal_blackbox_fields_exposed": "内部黑箱字段已暴露",
+  "auth_required": "需要授权",
+  "customer_download_enabled": "客户自助下载已开放",
+  "download_enabled": "下载已开放",
 }};
 function labelOf(value) {{
   const text = String(value ?? "--");
   return portalLabels[text] || text;
 }}
 function badge(text, kind="") {{ return `<span class="pill ${{kind}}">${{labelOf(text)}}</span>`; }}
+function safeText(value) {{
+  return String(value ?? "--")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}}
+function scalarText(value) {{
+  if (value === undefined || value === null || value === "") {{ return "--"; }}
+  if (Array.isArray(value)) {{ return value.length ? value.map(scalarText).join(" / ") : "--"; }}
+  if (value && typeof value === "object") {{ return objectSummary(value); }}
+  return labelOf(value);
+}}
+function objectSummary(value) {{
+  const entries = Object.entries(value || {{}})
+    .filter(([, item]) => item !== undefined && item !== null && String(item).length);
+  if (!entries.length) {{ return "--"; }}
+  return entries
+    .slice(0, 8)
+    .map(([key, item]) => `${{labelOf(key)}}：${{scalarText(item)}}`)
+    .join("；");
+}}
 function valueText(value) {{
-  if (Array.isArray(value)) {{ return value.length ? value.map(labelOf).join(" / ") : "--"; }}
-  if (value && typeof value === "object") {{ return JSON.stringify(value); }}
-  return value === undefined || value === null || value === "" ? "--" : labelOf(value);
+  return scalarText(value);
 }}
 function valueHtml(value) {{
   const text = valueText(value);
   if (/^https?:\/\//.test(text)) {{
-    return `<a href="${{text}}" target="_blank" rel="noopener">${{text}}</a>`;
+    return `<a href="${{safeText(text)}}" target="_blank" rel="noopener">${{safeText(text)}}</a>`;
   }}
-  return text;
+  return safeText(text);
 }}
 function rowsHtml(rows) {{
   return `<div class="detail-table">${{rows
@@ -2209,11 +2515,11 @@ function evidenceItemsHtml(items) {{
       <strong>${{labelOf(item.item_id || item.source_object || "--")}}</strong>
       <p>证据类型：${{labelOf(item.item_id || "--")}}</p>
       <p>线索类型：${{labelOf(item.source_object || "--")}}</p>
-      <p>来源对象：${{item.source_id || "--"}}</p>
+      <p>来源对象：${{valueText(item.source_id)}}</p>
       ${{badge(item.manifest_state || item.status || "--", item.present === false ? "warn" : "")}}
       ${{badge(item.masking_policy || "--")}}
       <p>来源引用：${{valueText(item.source_refs)}}</p>
-      <p>公开来源：${{item.source_url ? `<a href="${{item.source_url}}" target="_blank" rel="noopener">${{item.source_site_name || item.source_profile_id || item.source_url}}</a>` : "来源网址待读回"}}</p>
+      <p>公开来源：${{item.source_url ? `<a href="${{safeText(item.source_url)}}" target="_blank" rel="noopener">${{safeText(item.source_site_name || item.source_profile_id || item.source_url)}}</a>` : "来源网址待读回"}}</p>
     </div>
   `).join("")}}</div>`;
 }}
@@ -2242,7 +2548,7 @@ function renderEvidencePackage(payload, missing=false) {{
     ["交付包", readback.package_id],
     ["清单", readback.artifact_manifest_id],
     ["版本哈希", hash],
-    ["水印", watermark.watermark_text || "INTERNAL DRAFT"],
+    ["水印", labelOf(watermark.watermark_text || "INTERNAL DRAFT")],
     ["页面草稿", pageDraft.page_draft_id],
     ["项目名称", sourceVerification.project_name],
     ["公开来源", sourceVerification.source_site_name || sourceVerification.source_profile_id],
@@ -2373,6 +2679,18 @@ function renderMissingArtifact(payload) {{
     `<div class="empty-state"><strong>内部预览未形成</strong><p>当前商机缺少阶段7证据包读回。先从实战搜索生成机会闭环，再回到本页验收证据包、字段白名单和模拟下载审计状态。</p></div>`;
   renderReadbackSummary(payload || {{}}, true);
 }}
+function navigateArtifactSection(target) {{
+  const section = document.querySelector(target);
+  if (!section) {{ return; }}
+  section.scrollIntoView({{ block: "start" }});
+  history.replaceState(null, "", target);
+}}
+document.querySelectorAll('nav a[href^="#"]').forEach((link) => {{
+  link.addEventListener("click", (event) => {{
+    event.preventDefault();
+    navigateArtifactSection(link.getAttribute("href"));
+  }});
+}});
 loadPortal().catch(renderMissingArtifact);
 """
     return _page("AX9S 内部证据包预览", body, script)

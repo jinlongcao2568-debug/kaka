@@ -183,6 +183,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "真实执行已关闭",
             "阶段6-9读回",
             "服务商与调度状态",
+            "服务商沙箱 + 审批 + 审计 + 操作确认",
+            "沙箱试运行读回",
             "真实服务商放行矩阵",
             "真实外部动作门禁矩阵",
             "审批审计",
@@ -423,8 +425,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(matrix["contractRef"], "contracts/ui/operator_user_acceptance_contract.json")
         self.assertEqual(matrix["status"], "ACTIVE")
         self.assertEqual(matrix["summary"]["totalDimensions"], 11)
-        self.assertEqual(matrix["summary"]["passCount"], 10)
-        self.assertEqual(matrix["summary"]["partialCount"], 1)
+        self.assertEqual(matrix["summary"]["passCount"], 11)
+        self.assertEqual(matrix["summary"]["partialCount"], 0)
         self.assertEqual(matrix["summary"]["notExposedCount"], 0)
         self.assertEqual(matrix["summary"]["failCount"], 0)
         self.assertIn("真实可卖交付", matrix["summary"]["operatorConclusion"])
@@ -492,10 +494,10 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         )
         self.assertEqual(
             dimensions["UA-10-chinese-information-architecture"]["status"],
-            "PARTIAL",
+            "PASS",
         )
         self.assertIn(
-            "中文信息架构继续收口",
+            "真实 provider sandbox / live pilot",
             [item["title"] for item in matrix["topPriorities"]],
         )
 
@@ -526,6 +528,8 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "读回摘要",
             "renderReadbackSummary",
             "blockedReasonLabel",
+            "objectSummary",
+            "navigateArtifactSection",
             "/customer-artifact-portal-readback/",
             "内部验收可用",
             "renderEvidencePackage",
@@ -577,10 +581,12 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "证据项清单",
             "字段策略",
             "模拟下载审计",
+            "读回摘要",
         ):
             self.assertIn(expected, package)
         self.assertFalse(package["拟邮件发送包"]["真实邮件已发送"])
         self.assertIsInstance(package["证据项清单"], list)
+        self.assertNotIn("原始读回", package)
 
     def test_customer_artifact_portal_download_includes_search_source_context(self) -> None:
         client = TestClient(create_app())
@@ -616,10 +622,11 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(download_response.status_code, 200)
         package = download_response.json()
         self.assertEqual(
-            package["公开来源验证"]["source_url"],
+            package["公开来源验证"]["公开来源网址"],
             readback["source_verification"]["source_url"],
         )
-        self.assertTrue(package["证据项清单"][0]["source_url"])
+        self.assertTrue(package["证据项清单"][0]["公开来源网址"])
+        self.assertNotIn("source_url", package["公开来源验证"])
 
     def test_customer_artifact_portal_exposes_empty_state_for_missing_readback(self) -> None:
         client = TestClient(create_app())

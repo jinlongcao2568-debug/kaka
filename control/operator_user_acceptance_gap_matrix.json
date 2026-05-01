@@ -2,41 +2,41 @@
   "matrixId": "AX9S-OPERATOR-USER-ACCEPTANCE-GAP-MATRIX",
   "contractRef": "contracts/ui/operator_user_acceptance_contract.json",
   "status": "ACTIVE",
-  "updatedAt": "2026-04-30",
+  "updatedAt": "2026-05-01",
   "assessmentMethod": "contract_driven_owner_ui_audit",
   "summary": {
     "totalDimensions": 11,
-    "passCount": 10,
-    "partialCount": 1,
+    "passCount": 11,
+    "partialCount": 0,
     "notExposedCount": 0,
     "failCount": 0,
-    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览、能力暴露、真实可卖性一屏判断、阶段1-9对象流读回、显式数据清空控制、地区覆盖缺口复盘、商业钩子卖前边界和真实服务商放行矩阵；剩余主要是中文信息架构继续收口，以及真实可卖交付/真实赚钱交付前的本地适配器、provider sandbox/live pilot 等实际接入任务。",
-    "nextDecision": "下一轮优先继续减少英文枚举裸露和证据包/服务商术语，同时再推进真实 provider sandbox、重点地区本地入口和 live pilot。"
+    "operatorConclusion": "当前操作台已经具备内部实战搜索、机会查看、证据包预览、能力暴露、真实可卖性一屏判断、阶段1-9对象流读回、显式数据清空控制、地区覆盖缺口复盘、商业钩子卖前边界、中文信息架构和真实服务商放行矩阵；剩余主要是真实可卖交付/真实赚钱交付前的本地适配器、provider sandbox/live pilot 等实际接入任务。",
+    "nextDecision": "下一轮优先推进真实 provider sandbox、重点地区本地入口、点击式深读回和商业钩子转化增强。"
   },
   "topPriorities": [
     {
       "rank": 1,
-      "dimensionId": "UA-10-chinese-information-architecture",
-      "title": "中文信息架构继续收口",
-      "reason": "核心操作链路已经可用，但证据包、服务商、规则标签和部分技术枚举还需要继续中文解释。"
-    },
-    {
-      "rank": 2,
       "dimensionId": "UA-07-governed-outreach-and-delivery",
       "title": "真实 provider sandbox / live pilot",
       "reason": "真实服务商状态已可观察，下一步是接 sandbox 凭证、健康检查、审批审计和小样本 live pilot。"
     },
     {
-      "rank": 3,
+      "rank": 2,
       "dimensionId": "UA-02-autonomous-market-to-opportunity-loop",
       "title": "重点地区本地入口补强",
       "reason": "地区覆盖缺口已可见，商业试点地区仍需继续补本地公开源 profile、详情页和附件入口。"
     },
     {
-      "rank": 4,
+      "rank": 3,
       "dimensionId": "UA-06-commercial-hook-boundary",
       "title": "商业钩子转化增强",
       "reason": "卖前/交付后边界已可见，后续可继续补报价区间、客户模板和成交转化实验。"
+    },
+    {
+      "rank": 4,
+      "dimensionId": "UA-03-stage-observability",
+      "title": "阶段对象点击深读回",
+      "reason": "阶段对象和证据包已可观察，后续可把每个对象升级成可点击的深读回。"
     }
   ],
   "dimensions": [
@@ -117,17 +117,17 @@
       "dimensionId": "UA-05-evidence-package-verifiability",
       "title": "证据包可验收",
       "status": "PASS",
-      "currentUiState": "内部证据包预览和下载已接入，证据包编号、版本哈希、水印、字段策略、公开来源、来源网址和模拟下载审计可见。",
+      "currentUiState": "内部证据包预览和下载已接入，证据包编号、版本哈希、水印、字段策略、公开来源、来源网址、证据类型、线索类型和模拟下载审计均以中文优先展示。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#render_customer_artifact_portal",
         "src/api/routes/operator_frontend.py#render_customer_artifact_portal_download",
         "tests/test_operator_frontend_portal.py#test_customer_artifact_portal_download_returns_internal_evidence_package"
       ],
       "gaps": [
-        "证据项的中文解释可以继续补强，减少技术枚举裸露。"
+        "后续仍可按真实客户模板继续增强证据包排版，但当前 owner 验收不再依赖英文枚举或 raw JSON。"
       ],
       "nextActions": [
-        "继续把证据类型、线索类型、字段策略改成中文优先展示。"
+        "按真实成交材料模板继续优化证据包版式和附件命名。"
       ]
     },
     {
@@ -204,20 +204,18 @@
     {
       "dimensionId": "UA-10-chinese-information-architecture",
       "title": "中文信息架构可读",
-      "status": "PARTIAL",
-      "currentUiState": "一级导航已经收敛，锚点跳转会回到面板顶部，核心状态有中文标签；仍有技术枚举和证据包字段需要继续中文化。",
+      "status": "PASS",
+      "currentUiState": "一级导航已经收敛，锚点跳转会回到面板顶部；操作台、证据包预览、证据包下载和服务商状态均已提供中文优先标签，必要技术编号仅作为可追溯标识保留。",
       "evidenceRefs": [
         "src/api/routes/operator_frontend.py#showView",
         "src/api/routes/operator_frontend.py#stateLabels",
         "src/api/routes/operator_frontend.py#renderUserAcceptanceContract"
       ],
       "gaps": [
-        "部分英文枚举仍直接显示。",
-        "证据包和服务商状态还需要更多中文解释。"
+        "真实 provider、地区适配器和未来客户模板接入时仍需继续维护中文标签表，避免新枚举裸露。"
       ],
       "nextActions": [
-        "继续扩充状态映射和证据类型中文映射。",
-        "按 owner 日常流程重排部分页面文案。"
+        "新增 service/provider/adapter 枚举时同步补中文标签和测试断言。"
       ]
     },
     {
