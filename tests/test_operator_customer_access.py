@@ -280,6 +280,7 @@ class TestOperatorCustomerAccess(unittest.TestCase):
                 "amount_min": 8000000,
                 "amount_max": 30000000,
                 "candidate_count": 3,
+                "allow_offline_sample_candidates": True,
                 "now": "2026-04-30T00:00:00+00:00",
             },
         )

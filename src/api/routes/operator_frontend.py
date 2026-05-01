@@ -1012,6 +1012,10 @@ def render_operator_console(payload: Any) -> HTMLResponse:
                 <input id="searchAmountMinWan" type="number" value="800" aria-label="最低金额（万元）" />
                 <input id="searchAmountMaxWan" type="number" value="3000" aria-label="最高金额（万元）" />
               </div>
+              <label class="check-option">
+                <input id="offlineSampleCandidates" type="checkbox" />
+                <span>使用离线样本验证后续链路（不代表真实市场发现）</span>
+              </label>
               <button id="runAutonomousSearch">搜索并生成机会闭环</button>
             </section>
             <section>
@@ -1447,6 +1451,10 @@ function opportunityActions(opportunityId) {
     <a href="/customer-artifact-portal-download/${encodeURIComponent(opportunityId)}">下载证据包</a>
   </div>`;
 }
+function candidateOpportunityActions(candidate, activeOpportunityId="", selectedProjectId="") {
+  const candidateOpportunityId = candidate.opportunity_id || (activeOpportunityId && candidate.project_id === selectedProjectId ? activeOpportunityId : "");
+  return opportunityActions(candidateOpportunityId);
+}
 function renderCandidateCards(candidates, activeOpportunityId="", selectedProjectId="") {
   const rows = Array.isArray(candidates) ? candidates : [];
   if (!rows.length) {
@@ -1459,9 +1467,10 @@ function renderCandidateCards(candidates, activeOpportunityId="", selectedProjec
       ${badge(candidate.analysis_decision || "--", candidate.selected_for_capture_plan ? "" : "warn")}
       ${badge(candidate.analysis_priority || "--")}
       ${badge(candidate.analysis_score ? `评分 ${candidate.analysis_score}` : "评分 --")}
+      ${badge(candidate.closed_loop_generated ? "已生成机会闭环" : "未生成机会闭环", candidate.closed_loop_generated ? "" : "warn")}
       <p>${candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回"}</p>
       <p><strong>${candidate.selected_for_capture_plan ? "入选理由" : "未入选原因"}</strong> ${candidateDecisionReason(candidate, selectedProjectId)}</p>
-      ${activeOpportunityId && candidate.project_id === selectedProjectId ? opportunityActions(activeOpportunityId) : ""}
+      ${candidateOpportunityActions(candidate, activeOpportunityId, selectedProjectId)}
     </div>
   `).join("")}</div>`;
 }
@@ -1533,7 +1542,7 @@ function renderSearchResultFromRun(run) {
   $("searchResult").className = "";
   $("searchResult").innerHTML = `
     <div class="stage-card">
-      <strong>${run.opportunity_id || "--"}</strong>
+      <strong>${run.opportunity_id || "未生成可售机会"}</strong>
       <p>${run.project_name || run.query || "--"}</p>
       ${badge(run.search_state || "--", run.search_state === "AUTONOMOUS_SEARCH_ACCEPTED" ? "" : "warn")}
       ${badge(run.region_code || "--")}
@@ -2109,7 +2118,7 @@ async function loadAutonomousSearchRuns() {
       ${badge(run.region_code || "--")}
       ${badge(run.entry_profile_id || "--")}
       <p>${labelOf(run.project_type_label || run.project_type)} · ${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
-      <p>候选 ${run.search_scope?.candidate_count ?? (run.candidate_options || []).length ?? 0} · 闭环 ${run.search_scope?.closed_loop_generated_count ?? 1}</p>
+      <p>候选 ${run.search_scope?.candidate_count ?? (run.candidate_options || []).length ?? 0} · 闭环 ${run.search_scope?.closed_loop_generated_count ?? (run.opportunity_id ? 1 : 0)}</p>
       <p>${links || "读回路径待生成"}</p>
     </div>`;
   }).join("");
@@ -2161,6 +2170,7 @@ async function runAutonomousSearch() {
     minimum_amount: normalizedMin,
     maximum_amount: normalizedMax,
     candidate_count: 3,
+    allow_offline_sample_candidates: Boolean($("offlineSampleCandidates")?.checked),
     now: new Date().toISOString()
   };
   button.disabled = true;
@@ -2172,6 +2182,7 @@ async function runAutonomousSearch() {
     selectedAutonomousOpportunityId = result.opportunity_id || "";
     updateCustomerPortalLink(selectedAutonomousOpportunityId);
     const accepted = result.search_state === "AUTONOMOUS_SEARCH_ACCEPTED";
+    const closedLoopCount = Number(result.search_scope?.closed_loop_generated_count || 0);
     $("searchResult").className = "";
     renderSearchResultFromRun({
       run_id: result.search_run_id,
@@ -2186,7 +2197,12 @@ async function runAutonomousSearch() {
       search_scope: result.search_scope,
       candidate_options: result.candidate_options || []
     });
-    $("searchResult").insertAdjacentHTML("afterbegin", `<p class="muted-text">${accepted ? "已生成最高优先级机会闭环。" : "本次候选需要复核。"}</p>`);
+    const searchMessage = closedLoopCount
+      ? `已生成 ${closedLoopCount} 个机会闭环。`
+      : result.search_state === "NO_CANDIDATES"
+        ? "本次没有生成可售机会：默认实战搜索不会合成离线样本，需要真实来源候选或手动打开离线样本验证。"
+        : "本次候选需要复核，未生成可售机会。";
+    $("searchResult").insertAdjacentHTML("afterbegin", `<p class="muted-text">${searchMessage}</p>`);
     out({
       search_state: result.search_state,
       opportunity_id: result.opportunity_id,

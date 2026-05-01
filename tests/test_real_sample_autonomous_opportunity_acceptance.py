@@ -183,6 +183,35 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertTrue(by_code["CN-SC"]["onboarding_required"])
         self.assertFalse(by_code["CN-SC"]["manual_url_picker_primary_flow"])
 
+    def test_operator_autonomous_search_does_not_fabricate_opportunity_by_default(self) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD", "CN-JS"],
+                "query": "公共建筑工程",
+                "project_types": ["construction", "municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "candidate_count": 3,
+                "now": "2026-04-30T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_state"], "NO_CANDIDATES")
+        self.assertEqual(payload["reason"], "real_search_requires_source_candidates_or_explicit_offline_sample_mode")
+        self.assertEqual(payload["search_scope"]["candidate_count"], 0)
+        self.assertEqual(payload["search_scope"]["selected_candidate_count"], 0)
+        self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 0)
+        self.assertEqual(payload["search_scope"]["source_candidate_mode"], "REAL_SOURCE_REQUIRED")
+        self.assertEqual(payload["opportunity_id"], "")
+        self.assertEqual(payload["opportunity_ids"], [])
+        self.assertEqual(payload["candidate_options"], [])
+
     def test_operator_autonomous_search_runs_region_to_workbench_loop(self) -> None:
         client = TestClient(create_app())
 
@@ -196,6 +225,7 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
                 "amount_min": 8000000,
                 "amount_max": 30000000,
                 "candidate_count": 3,
+                "allow_offline_sample_candidates": True,
                 "now": "2026-04-30T00:00:00+00:00",
             },
         )
@@ -284,6 +314,7 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
             "amount_min": 8000000,
             "amount_max": 30000000,
             "candidate_count": 3,
+            "allow_offline_sample_candidates": True,
             "now": "2026-04-30T00:00:00+00:00",
         }
 
@@ -332,6 +363,7 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
                 "amount_min": 8000000,
                 "amount_max": 30000000,
                 "candidate_count": 3,
+                "allow_offline_sample_candidates": True,
                 "now": "2026-04-30T00:00:00+00:00",
             },
         )
@@ -342,10 +374,12 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["search_scope"]["region_codes"], ["CN-GD", "CN-JS"])
         self.assertEqual(payload["search_scope"]["project_types"], ["construction", "municipal"])
         self.assertEqual(payload["search_scope"]["candidate_count"], 4)
-        self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 1)
+        self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 4)
+        self.assertEqual(len(payload["opportunity_ids"]), 4)
         self.assertEqual(payload["region_adapter"]["region_code"], "CN-GD")
         self.assertEqual(payload["candidate"]["project_type"], "construction")
         self.assertEqual(len(payload["candidate_options"]), 4)
+        self.assertTrue(all(candidate["opportunity_id"] for candidate in payload["candidate_options"]))
         self.assertTrue(payload["candidate_options"][0]["project_name"])
         self.assertEqual(payload["runtime_flow"]["stage_stats"][0]["produced_count"], 4)
 

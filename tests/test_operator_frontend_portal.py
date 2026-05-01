@@ -139,6 +139,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "房建工程",
             "市政工程",
             "金额区间（万元）",
+            "使用离线样本验证后续链路（不代表真实市场发现）",
             "搜索并生成机会闭环",
             "搜索运行记录",
             "待读取最新搜索记录",
@@ -600,6 +601,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
                 "amount_min": 8000000,
                 "amount_max": 30000000,
                 "candidate_count": 3,
+                "allow_offline_sample_candidates": True,
                 "now": "2026-04-30T00:00:00+00:00",
             },
         )
