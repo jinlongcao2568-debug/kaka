@@ -103,6 +103,14 @@ REGION_SOURCE_ADAPTERS: tuple[RegionSourceAdapter, ...] = (
         entry_profile_ids=(
             "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
         ),
+        verification_profile_ids=(
+            *NATIONAL_VERIFICATION_PROFILE_IDS,
+            "GUANGDONG-GDCIC-HOME",
+            "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
+            "GUANGDONG-TZXM-HOME",
+            "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY",
+            "GUANGDONG-CREDIT-GD-HOME",
+        ),
         dedicated_local_profiles=True,
         commercial_pilot_region=True,
         coverage_gap_signals=("browser_rendered_realtime_list_required",),

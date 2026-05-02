@@ -64,6 +64,7 @@ def _carrier(
     confidence: float = 0.92,
     provider: str = "stage4-public-verification-readback",
     review_required: bool = False,
+    extra: dict[str, object] | None = None,
 ) -> dict[str, object]:
     source_url = f"https://example.invalid/public/{name}.html"
     snapshot_id = f"SNAP-{name.upper()}"
@@ -98,6 +99,8 @@ def _carrier(
     }
     if role is not None:
         carrier["verification_role"] = role
+    if extra:
+        carrier.update(extra)
     return carrier
 
 
@@ -165,13 +168,29 @@ class ProjectManagerActiveConflictVerticalSliceTests(unittest.TestCase):
                 "source_url",
                 "source_snapshot_id",
                 "verification_run_id",
+                "verification_target_type",
                 "evidence_grade",
                 "confidence",
                 "public_visibility_state",
             },
         )
+        self.assertTrue(readback["project_timeline_evidence_refs"])
+        self.assertIn(
+            "contract_public_info",
+            {
+                ref["verification_target_type"]
+                for ref in readback["project_timeline_evidence_refs"]
+            },
+        )
         self.assertTrue(carrier["same_name_disambiguation"]["registered_unit_match"])
         self.assertTrue(carrier["same_name_disambiguation"]["public_identifier_match"])
+        self.assertEqual(
+            carrier["manager_identity_resolution"]["resolution_route"],
+            "ENTERPRISE_FIRST_PERSONNEL_DETAIL",
+        )
+        self.assertFalse(
+            carrier["manager_identity_resolution"]["broad_name_search_allowed_as_final_proof"]
+        )
         self.assertFalse(carrier["customer_visible"])
         self.assertTrue(carrier["no_legal_conclusion"])
         self.assertEqual(readback["readback_state"], "READBACK_READY")
@@ -197,6 +216,44 @@ class ProjectManagerActiveConflictVerticalSliceTests(unittest.TestCase):
         self.assertFalse(disambiguation["public_identifier_match"])
         self.assertTrue(disambiguation["public_identifier_missing"])
         self.assertIn("same_name_only_not_identity_conclusion", disambiguation["ambiguity_reason"])
+        self.assertFalse(carrier["manager_identity_resolution"]["same_name_only_accepted"])
+
+    def test_registration_timeline_after_current_project_start_requires_review(self) -> None:
+        carriers = [
+            _carrier(
+                "manager-personnel",
+                "personnel_public_record",
+                extra={
+                    "project_manager_registration_at": "2026-06-15",
+                    "certificate_valid_until": "2026-07-01",
+                },
+            ),
+            _carrier(
+                "registered-unit",
+                "enterprise_public_record",
+                role="registered_unit_verification",
+            ),
+        ]
+
+        carrier = Stage4Service().evaluate_project_manager_active_conflict(
+            _parsed_context(current_window={"start_at": "2026-05-01", "end_at": "2026-10-01"}),
+            public_verification_carriers=carriers,
+            possible_conflicting_projects=[_conflict_project()],
+        )
+
+        timeline = carrier["registration_timeline_verification"]
+        self.assertEqual(timeline["verification_scope"], "PROJECT_MANAGER_REGISTRATION_TIMELINE")
+        self.assertEqual(timeline["registration_at"], "2026-06-15")
+        self.assertEqual(timeline["certificate_valid_until"], "2026-07-01")
+        self.assertEqual(timeline["verification_result"], "REVIEW")
+        self.assertIn(
+            "project_manager_registration_after_current_project_start",
+            carrier["failure_reasons"],
+        )
+        self.assertIn(
+            "project_manager_certificate_expires_before_current_project_end",
+            carrier["failure_reasons"],
+        )
 
     def test_missing_completion_acceptance_fails_closed_without_legal_conclusion(self) -> None:
         carrier = Stage4Service().evaluate_project_manager_active_conflict(
@@ -279,12 +336,21 @@ class ProjectManagerActiveConflictVerticalSliceTests(unittest.TestCase):
         modules = {module["module_id"]: module for module in registry["modules"]}
 
         self.assertIn("src/stage4_verification/active_conflict.py", public_slice["current_files"])
+        self.assertIn("src/stage4_verification/jzsc_personnel.py", public_slice["current_files"])
         self.assertIn(
             "tests/test_project_manager_active_conflict_vertical_slice.py",
             public_slice["test_files"],
         )
         self.assertIn(
+            "tests/test_stage4_jzsc_personnel_adapter.py",
+            public_slice["test_files"],
+        )
+        self.assertIn(
             "src/stage4_verification/active_conflict.py",
+            modules["STAGE4-VERIFICATION-ATTACK-SURFACE"]["current_files"],
+        )
+        self.assertIn(
+            "src/stage4_verification/jzsc_personnel.py",
             modules["STAGE4-VERIFICATION-ATTACK-SURFACE"]["current_files"],
         )
 

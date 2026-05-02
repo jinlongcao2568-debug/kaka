@@ -449,8 +449,12 @@ class Stage1MarketScanEngine:
             review_reasons.append("unknown_notice_stage")
 
         if deadline is None:
-            score_components["objection_window"] = 5
-            review_reasons.append("objection_window_unknown")
+            if notice_stage in DISCOVERY_NOTICE_STAGES and real_detail_attachment_evidence:
+                score_components["objection_window"] = 10
+                why_analyze.append("discovery_stage_window_not_required")
+            else:
+                score_components["objection_window"] = 5
+                review_reasons.append("objection_window_unknown")
         elif deadline >= effective_now:
             score_components["objection_window"] = 25
             why_analyze.append("active_objection_window")

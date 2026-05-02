@@ -14,6 +14,7 @@ for search_path in (SRC, ROOT / "tests"):
 from api.routes.stage1 import create_stage1_market_scan, read_stage1_market_scan, register_stage1_routes
 from stage1_tasking.market_scan import Stage1MarketScanEngine
 from stage1_tasking.service import Stage1Service
+from stage2_ingestion.real_candidate_capture import _extract_deadline
 from storage import reset_default_storage
 
 
@@ -219,6 +220,55 @@ class TestStage1MarketScan(unittest.TestCase):
         self.assertIn("amount_above_maximum", candidate["why_skip"])
         self.assertEqual(candidate["market_segment"]["minimum_amount"], 1_000_000)
         self.assertEqual(candidate["market_segment"]["maximum_amount"], 30_000_000)
+
+    def test_real_discovery_tender_with_detail_snapshot_can_enter_analysis_without_objection_deadline(self) -> None:
+        payload = {
+            **self.payload,
+            "scan_run_id": "MKTSCAN-REAL-DISCOVERY-TENDER-001",
+            "minimum_amount": 0,
+            "maximum_amount": 500_000_000,
+            "notice_candidates": [
+                {
+                    "notice_id": "NOTICE-GD-REAL-001",
+                    "project_id": "PROJ-GD-REAL-001",
+                    "project_name": "白坭镇水利设施提升改造工程",
+                    "region_code": "CN-GD",
+                    "project_type": "water_conservancy",
+                    "notice_stage": "tender_notice",
+                    "amount": 44_000_000,
+                    "candidate_company": "",
+                    "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+                    "stage2_detail_snapshot_id_optional": "REAL-DETAIL-GD-001",
+                    "stage2_attachment_snapshot_count": 2,
+                    "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A",
+                    "key_fields_present": ["project_name", "notice_stage"],
+                }
+            ],
+        }
+
+        scan = Stage1MarketScanEngine().run(payload)
+
+        self.assertEqual(scan["selected_candidate_count"], 1)
+        candidate = scan["opportunity_candidates"][0]
+        self.assertEqual(candidate["analysis_decision"], "ANALYZE")
+        self.assertIn("discovery_stage_window_not_required", candidate["why_analyze"])
+        self.assertIn("real_detail_attachment_evidence_ready_for_discovery_stage", candidate["why_analyze"])
+        self.assertNotIn("objection_window_unknown", candidate["review_reasons"])
+        self.assertEqual(candidate["why_skip"], [])
+
+    def test_detail_deadline_parser_does_not_treat_publication_window_as_objection_deadline(self) -> None:
+        deadline, state = _extract_deadline(
+            "公告发布时间 2026-05-01 09:00:00 至 2026-05-21 18:00:00 "
+            "招标文件获取方式 网上获取"
+        )
+        self.assertEqual(deadline, "")
+        self.assertEqual(state, "DETAIL_TEXT_NOT_FOUND")
+
+        deadline, state = _extract_deadline(
+            "公告质疑截止时间 2026-05-11 17:00:00 公告答疑截止时间 2026-05-16 17:00:00"
+        )
+        self.assertEqual(deadline, "2026-05-11T17:00:00+08:00")
+        self.assertEqual(state, "DETAIL_TEXT")
 
 
 if __name__ == "__main__":

@@ -17,6 +17,11 @@ from stage4_verification.hard_defect_strategy import (
     build_evidence_risk_hard_defect_strategy as build_hard_defect_strategy,
     build_evidence_risk_hard_defect_strategy_readback as build_hard_defect_strategy_readback,
 )
+from stage4_verification.jzsc_personnel import (
+    build_jzsc_company_first_capture_plan,
+    build_jzsc_company_personnel_resolution_carrier,
+    build_jzsc_personnel_project_conflict_records,
+)
 from stage4_verification.verification import PublicVerificationAdapter, build_public_verification_readback
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
@@ -461,6 +466,105 @@ class Stage4Service:
         carrier: Mapping[str, Any],
     ) -> Mapping[str, Any]:
         return build_active_conflict_readback(carrier)
+
+    def build_jzsc_project_manager_company_first_readback(
+        self,
+        parsed_context: Mapping[str, Any] | StageBundle,
+        *,
+        target_company_name: str,
+        target_project_manager_name: str,
+        rendered_company_personnel_rows: list[Any],
+        company_personnel_source_url: str,
+        company_personnel_source_snapshot_id: str,
+        rendered_personnel_project_rows: list[Any] | None = None,
+        personnel_project_source_url: str | None = None,
+        personnel_project_source_snapshot_id: str | None = None,
+        target_identifier: str | None = None,
+        base_public_verification_carriers: list[Mapping[str, Any]] | None = None,
+    ) -> Mapping[str, Any]:
+        capture_plan = self.build_jzsc_project_manager_company_first_capture_plan(
+            target_company_name=target_company_name,
+            target_project_manager_name=target_project_manager_name,
+            target_identifier=target_identifier,
+        )
+        personnel_carrier = build_jzsc_company_personnel_resolution_carrier(
+            rendered_company_personnel_rows,
+            target_company_name=target_company_name,
+            target_name=target_project_manager_name,
+            target_identifier=target_identifier,
+            source_url=company_personnel_source_url,
+            source_snapshot_id=company_personnel_source_snapshot_id,
+        )
+        public_verification_carriers = [
+            *[dict(carrier) for carrier in ensure_list(base_public_verification_carriers)],
+            personnel_carrier,
+        ]
+        resolved_identifier = (
+            personnel_carrier.get("project_manager_public_identifier_optional")
+            or target_identifier
+            or target_project_manager_name
+        )
+        conflict_records: list[Mapping[str, Any]] = []
+        if rendered_personnel_project_rows is not None:
+            conflict_records = build_jzsc_personnel_project_conflict_records(
+                rendered_personnel_project_rows,
+                project_manager_name=target_project_manager_name,
+                project_manager_identifier=str(resolved_identifier),
+                registered_unit_name=target_company_name,
+                source_url=personnel_project_source_url or company_personnel_source_url,
+                source_snapshot_id=(
+                    personnel_project_source_snapshot_id
+                    or company_personnel_source_snapshot_id
+                ),
+            )
+        strategy = self.build_evidence_risk_hard_defect_strategy(
+            parsed_context,
+            existing_public_verification_carriers=public_verification_carriers,
+        )
+        active_conflict = self.evaluate_project_manager_active_conflict(
+            parsed_context,
+            public_verification_carriers=public_verification_carriers,
+            possible_conflicting_projects=list(conflict_records),
+        )
+        active_conflict_readback = self.build_project_manager_active_conflict_readback(
+            active_conflict
+        )
+        return {
+            "route": "JZSC_COMPANY_FIRST_PROJECT_MANAGER",
+            "target_company_name": target_company_name,
+            "target_project_manager_name": target_project_manager_name,
+            "resolved_public_identifier_optional": resolved_identifier,
+            "capture_plan": capture_plan,
+            "personnel_carrier": personnel_carrier,
+            "conflict_records": [dict(record) for record in conflict_records],
+            "evidence_risk_hard_defect_strategy": dict(strategy),
+            "project_manager_active_conflict": dict(active_conflict),
+            "project_manager_active_conflict_readback": dict(active_conflict_readback),
+            "next_required_runtime_adapter": (
+                "browser_rendered_jzsc_company_personnel_and_project_pages"
+            ),
+        }
+
+    def build_jzsc_project_manager_company_first_capture_plan(
+        self,
+        *,
+        target_company_name: str,
+        target_project_manager_name: str,
+        target_identifier: str | None = None,
+        entry_url: str | None = None,
+        max_personnel_pages: int = 20,
+        max_project_pages: int = 20,
+    ) -> Mapping[str, Any]:
+        kwargs: dict[str, Any] = {
+            "target_company_name": target_company_name,
+            "target_project_manager_name": target_project_manager_name,
+            "target_identifier": target_identifier,
+            "max_personnel_pages": max_personnel_pages,
+            "max_project_pages": max_project_pages,
+        }
+        if entry_url not in (None, ""):
+            kwargs["entry_url"] = entry_url
+        return build_jzsc_company_first_capture_plan(**kwargs)
 
     def build_evidence_risk_hard_defect_strategy(
         self,

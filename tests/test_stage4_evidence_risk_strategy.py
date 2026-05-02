@@ -127,9 +127,59 @@ class Stage4EvidenceRiskStrategyTests(unittest.TestCase):
                 "public_notice_timeline",
             }.issubset(target_types)
         )
+        active_conflict_target = next(
+            target
+            for target in strategy["strategy_targets"]
+            if target["strategy_key"] == "project_manager_active_conflict"
+        )
+        source_families = active_conflict_target["preferred_source_families"]
+        self.assertLess(
+            source_families.index("public_resource_trading_platform"),
+            source_families.index("national_construction_market_platform"),
+        )
+        self.assertLess(
+            source_families.index("local_housing_construction_permit_platform"),
+            source_families.index("national_construction_market_platform"),
+        )
+        chain_roles = {
+            role["role"]: role
+            for role in active_conflict_target["verification_chain_roles"]
+        }
+        self.assertTrue(
+            {
+                "award_commitment_chain",
+                "performance_time_chain",
+                "contract_filing_chain",
+                "completion_release_chain",
+                "manager_change_chain",
+                "identity_archive_chain",
+                "risk_signal_chain",
+            }.issubset(chain_roles)
+        )
+        self.assertIn("not sole no-risk proof", chain_roles["identity_archive_chain"]["gate_use"])
+        conflict_verification_target = next(
+            target
+            for target in strategy["verification_targets"]
+            if target["strategy_key"] == "project_manager_active_conflict"
+            and target["verification_target_type"] == "contract_public_info"
+        )
+        self.assertIn(
+            "completion_release_chain",
+            {role["role"] for role in conflict_verification_target["verification_chain_roles"]},
+        )
         self.assertEqual(
             strategy["stage5_requested_rule_codes"],
-            ["PM-002", "QUAL-001", "CREDIT-001", "ENG-001", "ENG-002", "PERF-001", "PROC-001", "PROC-002"],
+            [
+                "PM-001",
+                "PM-002",
+                "QUAL-001",
+                "CREDIT-001",
+                "ENG-001",
+                "ENG-002",
+                "PERF-001",
+                "PROC-001",
+                "PROC-002",
+            ],
         )
         self.assertEqual(readback["readback_state"], "READBACK_READY")
         self.assertFalse(readback["fail_closed"])
@@ -157,6 +207,34 @@ class Stage4EvidenceRiskStrategyTests(unittest.TestCase):
             ["public_notice_timeline"],
         )
         self.assertFalse(strategy["fail_closed"])
+
+    def test_project_manager_strategy_uses_manager_or_company_as_conflict_search_identifier(self) -> None:
+        context = {
+            "parse_run_id": "PARSE-PM-SEARCH-146",
+            "snapshot_id": "SNAP-PM-SEARCH-146",
+            "project_id": "PROJECT-PM-SEARCH-146",
+            "source_url": "https://example.invalid/public/project-manager.html",
+            "lineage_status": "NORMALIZED",
+            "conflict_state": "CONSISTENT",
+            "parsed_fields": [
+                _field("project_manager_name", "Li Wei"),
+                _field("project_manager_public_identifier_optional", "CERT-PM-001"),
+                _field("bidder_name", "Alpha Construction Co"),
+            ],
+        }
+
+        strategy = Stage4Service().build_evidence_risk_hard_defect_strategy(context)
+        targets = {
+            target["verification_target_type"]: target
+            for target in strategy["verification_targets"]
+        }
+
+        self.assertEqual(strategy["evidence_risk_state"], READY_FOR_PUBLIC_VERIFICATION)
+        self.assertFalse(strategy["fail_closed"])
+        for target_type in ("performance_public_record", "contract_public_info", "completion_filing"):
+            self.assertEqual(targets[target_type]["target_identifier"], "CERT-PM-001")
+            self.assertFalse(targets[target_type]["missing_identifier"])
+        self.assertNotIn("target_identifier_missing", strategy["fail_closed_reasons"])
 
     def test_weak_or_ambiguous_evidence_fails_closed_to_review(self) -> None:
         strategy = Stage4Service().build_evidence_risk_hard_defect_strategy(_parsed_context(weak=True))

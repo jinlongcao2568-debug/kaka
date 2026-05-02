@@ -371,7 +371,7 @@ degraded_real_public_site_hardening_after_136:
   status: COMPLETED
   trigger_reason: "136 hardened all registered profiles in one batch, but 8 profiles still returned SPA shells, weak bodies, or upstream protection; each needs site-level compliant path hardening or stable fail-closed classification."
   target_capability_state: INTERNAL_READY
-  current_gap: "JZSC, CreditChina, GSXT, and Guangdong/Yunfu entries are still not proven as directly fetchable public content through the owner runtime; they must either be upgraded through compliant public static/lightweight entry paths or remain explicit fail-closed."
+  current_gap: "JZSC, CreditChina, GSXT, and Guangdong/Yunfu entries are still not proven as directly fetchable public content through the owner runtime; they must either be upgraded through compliant public static/lightweight entry paths or remain explicit fail-closed. JZSC company-first project-manager verification now has a formal browser capture plan and readback parser, but the real browser executor remains pending."
   must_prove:
     - degraded_profile_set_is_explicit_from_136_results
     - site_level_public_paths_are_hardened_or_fail_closed
@@ -974,6 +974,20 @@ production_gap_task_map:
       - hard_defect_strategy_selection
       - project_manager_active_conflict_priority
       - evidence_risk_fail_closed_taxonomy
+      - jzsc_company_first_project_manager_capture_plan
+      - jzsc_rendered_personnel_and_project_readback_parser
+      - source_snapshot_required_for_active_conflict_evidence
+      - multi_source_project_manager_verification_chain_matrix
+      - public_notice_award_to_permit_contract_completion_timeline_roles
+      - project_manager_change_notice_and_penalty_signal_chain_roles
+      - stage5_pm_rule_dependency_binding_to_project_timeline_and_risk_signal_refs
+    remaining_runtime_gaps:
+      - browser_rendered_jzsc_company_personnel_and_project_pages_executor
+      - real_jzsc_personnel_detail_snapshot_persistence
+      - province_housing_platform_fallback_for_project_manager_verification
+      - city_housing_permit_contract_completion_adapters_for_pilot_provinces
+      - project_manager_change_notice_discovery_parser_and_readback
+      - local_administrative_penalty_and_supervision_decision_parser
   - gap_group: commercial_value_buyer_fit_and_hook_lead_engine
     packet_ref: PTL-I100-147-commercial-value-buyer-fit-and-hook-lead-engine
     status: COMPLETED

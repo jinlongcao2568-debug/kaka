@@ -2014,6 +2014,13 @@ function renderStageRunBoundary(telemetry) {
   const offlineSample = Boolean(telemetry?.offline_sample_validation) || sourceMode === "OFFLINE_SAMPLE_CANDIDATES";
   const noRealCandidate = sourceMode === "REAL_SOURCE_REQUIRED" || telemetry?.test_path_unblocked === false;
   const customerReady = Boolean(telemetry?.customer_sellable_evidence_ready);
+  const realPublicReadback = telemetry?.real_public_stage4_9_readback || {};
+  const hardDefectPlan = realPublicReadback?.regional_hard_defect_source_plan || telemetry?.data_boundary?.regional_hard_defect_source_plan || {};
+  const hardDefectReadback = realPublicReadback?.regional_hard_defect_source_readback || {};
+  const missingSourceTypes = Array.isArray(hardDefectPlan?.missing_source_types) ? hardDefectPlan.missing_source_types : [];
+  const coveredSourceTypes = Array.isArray(hardDefectReadback?.covered_source_types) ? hardDefectReadback.covered_source_types : [];
+  const queriedSourceTypes = Array.isArray(hardDefectReadback?.queried_source_types) ? hardDefectReadback.queried_source_types : [];
+  const sourceEntries = Array.isArray(hardDefectPlan?.source_entries) ? hardDefectPlan.source_entries : [];
   const parts = [];
   if (noRealCandidate) {
     parts.push("运行边界：默认实战搜索没有读取到真实来源候选，系统没有生成可售机会。");
@@ -2025,6 +2032,18 @@ function renderStageRunBoundary(telemetry) {
     parts.push("运行边界：等待实战搜索或任务运行。");
   }
   if (telemetry?.data_boundary_message) { parts.push(telemetry.data_boundary_message); }
+  if (missingSourceTypes.length) {
+    parts.push(`待补硬伤核验源：${missingSourceTypes.map(labelOf).join("、")}。`);
+  }
+  if (queriedSourceTypes.length) {
+    parts.push(`已查询广东住建源：${queriedSourceTypes.map(labelOf).join("、")}。`);
+  }
+  if (coveredSourceTypes.length) {
+    parts.push(`已命中核验证据：${coveredSourceTypes.map(labelOf).join("、")}。`);
+  }
+  if (sourceEntries.length) {
+    parts.push(`下一批官方入口：${sourceEntries.slice(0, 3).map((entry) => labelOf(entry.source_name || entry.entry_id)).join("、")}。`);
+  }
   if (!customerReady) { parts.push("客户可售证据：未就绪。"); }
   const boundary = $("stageRunBoundary");
   if (!boundary) { return; }
@@ -2176,10 +2195,13 @@ function renderUserAcceptanceContract(contract) {
   const product = contract?.productDefinition || {};
   const authority = contract?.acceptanceAuthority || {};
   const dimensions = Array.isArray(contract?.acceptanceDimensions) ? contract.acceptanceDimensions : [];
+  const hardGates = Array.isArray(contract?.authoritativeHardGates) ? contract.authoritativeHardGates : [];
+  const acceptanceStates = Array.isArray(contract?.realWorldAcceptanceStates) ? contract.realWorldAcceptanceStates : [];
   const priorities = Array.isArray(contract?.currentOptimizationPriorities) ? contract.currentOptimizationPriorities : [];
   $("acceptanceContractSummary").innerHTML = renderRows([
     ["契约编号", contract?.contractId],
     ["状态", contract?.status],
+    ["权威来源", authority.l0AndDSeriesAreAuthoritative ? "L0/D2-D14 为验收硬门" : "未声明"],
     ["平台定位", product.platformType],
     ["售卖对象", product.soldProduct],
     ["主用户", product.primaryUser],
@@ -2200,8 +2222,25 @@ function renderUserAcceptanceContract(contract) {
       <ul>${fail}</ul>
     </div>`;
   }).join("");
+  const gateHtml = hardGates.length
+    ? `<h3>L0/D 权威硬门</h3><div class="stage-grid">${hardGates.map((gate) => `<div class="stage-card">
+        <strong>${safeText(gate.gateId)} ${safeText(gate.title)}</strong>
+        <p>${safeText(gate.requirement)}</p>
+        ${badge("硬门")}
+        <p><strong>失败信号</strong></p>
+        <p>${safeText(gate.failSignal)}</p>
+      </div>`).join("")}</div>`
+    : "";
+  const stateHtml = acceptanceStates.length
+    ? `<h3>真实实战状态分层</h3><div class="stage-grid">${acceptanceStates.map((state) => `<div class="stage-card">
+        <strong>${safeText(state.state)}</strong>
+        <p>${safeText(state.meaning)}</p>
+        <p><strong>最低证据</strong></p>
+        <ul>${renderListItems(state.minimumEvidence)}</ul>
+      </div>`).join("")}</div>`
+    : "";
   $("acceptancePriorityList").innerHTML = priorities.length
-    ? priorities.map((item, index) => `<div>${index + 1}. ${safeText(item)}</div>`).join("")
+    ? `${gateHtml}${stateHtml}<h3>当前优化优先级</h3>` + priorities.map((item, index) => `<div>${index + 1}. ${safeText(item)}</div>`).join("")
     : `<div>暂无优化优先级。</div>`;
 }
 async function loadUserAcceptanceContract() {
@@ -2223,6 +2262,7 @@ function renderListItems(items, emptyText="暂无") {
 function renderAcceptanceGapMatrix(matrix) {
   const summary = matrix?.summary || {};
   const priorities = Array.isArray(matrix?.topPriorities) ? matrix.topPriorities : [];
+  const authorityFindings = Array.isArray(matrix?.authorityFindings) ? matrix.authorityFindings : [];
   const dimensions = Array.isArray(matrix?.dimensions) ? matrix.dimensions : [];
   $("acceptanceGapSummary").innerHTML = renderRows([
     ["矩阵编号", matrix?.matrixId],
@@ -2238,6 +2278,10 @@ function renderAcceptanceGapMatrix(matrix) {
     priorities.length
       ? priorities.map((item) => `<div>${safeText(item.rank)}. ${safeText(item.title)}：${safeText(item.reason)}</div>`).join("")
       : `<div>暂无优先修复项。</div>`
+  }</div><h3>权威复核发现</h3><div class="timeline">${
+    authorityFindings.length
+      ? authorityFindings.map((item) => `<div>${safeText(item.severity)} · ${safeText(item.title)}：${safeText(item.impact)}</div>`).join("")
+      : `<div>暂无权威复核发现。</div>`
   }</div>`;
   $("acceptanceGapMatrix").innerHTML = dimensions.length
     ? dimensions.map((item) => {

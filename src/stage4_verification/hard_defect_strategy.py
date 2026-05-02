@@ -36,12 +36,65 @@ STRATEGY_DEFINITIONS: tuple[dict[str, Any], ...] = (
             "contract_public_info",
             "completion_filing",
         ),
-        "stage5_rule_codes": ("PM-002",),
+        "stage5_rule_codes": ("PM-001", "PM-002"),
         "preferred_source_families": (
+            "public_resource_trading_platform",
+            "local_housing_construction_permit_platform",
+            "local_housing_contract_filing_platform",
+            "local_housing_completion_filing_platform",
+            "local_project_manager_change_notice",
             "national_construction_market_platform",
             "industry_authority_filing_page",
+            "credit_china",
+            "court_execution_publicity",
+            "national_enterprise_credit_publicity_system",
+            "local_administrative_penalty_publicity",
         ),
-        "selection_reason": "project manager field exists; active-project conflict needs public personnel, unit, project, contract, and completion readback",
+        "verification_chain_roles": (
+            {
+                "role": "award_commitment_chain",
+                "source_family": "public_resource_trading_platform",
+                "target_evidence": "bid_candidate_and_award_result_notices",
+                "gate_use": "anchors committed project manager, bidder, award date, amount, and contract period expectation",
+            },
+            {
+                "role": "performance_time_chain",
+                "source_family": "local_housing_construction_permit_platform",
+                "target_evidence": "construction_permit_contract_start_end_and_registered_manager",
+                "gate_use": "proves real performance window instead of relying on award date only",
+            },
+            {
+                "role": "contract_filing_chain",
+                "source_family": "local_housing_contract_filing_platform",
+                "target_evidence": "contract_filing_amount_period_and_parties",
+                "gate_use": "cross-checks permit and award time window for overlap judgement",
+            },
+            {
+                "role": "completion_release_chain",
+                "source_family": "local_housing_completion_filing_platform",
+                "target_evidence": "completion_acceptance_or_filing_release_record",
+                "gate_use": "proves project release; missing release keeps conflict in review",
+            },
+            {
+                "role": "manager_change_chain",
+                "source_family": "local_project_manager_change_notice",
+                "target_evidence": "project_manager_change_notice_and_change_date",
+                "gate_use": "splits the manager responsibility window when a change is publicly recorded",
+            },
+            {
+                "role": "identity_archive_chain",
+                "source_family": "national_construction_market_platform",
+                "target_evidence": "enterprise_personnel_project_archive",
+                "gate_use": "disambiguates identity and supplements history; not sole no-risk proof",
+            },
+            {
+                "role": "risk_signal_chain",
+                "source_family": "credit_or_penalty_publicity",
+                "target_evidence": "credit_penalty_execution_or_local_punishment_record",
+                "gate_use": "feeds risk and commercial hook signals; can be valuable even when not a hard block",
+            },
+        ),
+        "selection_reason": "project manager field exists; active-project conflict needs award, permit, contract, completion/release, manager-change, identity archive, and credit/penalty readback",
         "requires_identity_disambiguation": True,
     },
     {
@@ -76,7 +129,17 @@ STRATEGY_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "stage5_rule_codes": ("CREDIT-001",),
         "preferred_source_families": (
             "credit_china",
+            "court_execution_publicity",
             "national_enterprise_credit_publicity_system",
+            "local_administrative_penalty_publicity",
+        ),
+        "verification_chain_roles": (
+            {
+                "role": "credit_penalty_chain",
+                "source_family": "credit_or_penalty_publicity",
+                "target_evidence": "credit_china_execution_gsxt_or_local_penalty_record",
+                "gate_use": "creates risk evidence and commercial hook signal; source block fails closed to review",
+            },
         ),
         "selection_reason": "credit or penalty field exists; public credit and enterprise registry readback are required",
     },
@@ -93,6 +156,14 @@ STRATEGY_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "required_public_verifications": ("construction_permit", "enterprise_public_record"),
         "stage5_rule_codes": ("ENG-001",),
         "preferred_source_families": ("industry_authority_filing_page",),
+        "verification_chain_roles": (
+            {
+                "role": "performance_time_chain",
+                "source_family": "local_housing_construction_permit_platform",
+                "target_evidence": "construction_permit_contract_start_end_and_registered_manager",
+                "gate_use": "proves actual work window and manager listed on permit",
+            },
+        ),
         "selection_reason": "permit field exists; construction permit filing readback is required",
     },
     {
@@ -108,6 +179,14 @@ STRATEGY_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "required_public_verifications": ("contract_public_info", "enterprise_public_record"),
         "stage5_rule_codes": ("ENG-002",),
         "preferred_source_families": ("industry_authority_filing_page",),
+        "verification_chain_roles": (
+            {
+                "role": "contract_filing_chain",
+                "source_family": "local_housing_contract_filing_platform",
+                "target_evidence": "contract_filing_amount_period_and_parties",
+                "gate_use": "cross-checks award and permit performance dates",
+            },
+        ),
         "selection_reason": "contract field exists; contract public filing readback is required",
     },
     {
@@ -123,6 +202,14 @@ STRATEGY_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "required_public_verifications": ("completion_filing", "enterprise_public_record"),
         "stage5_rule_codes": ("ENG-001",),
         "preferred_source_families": ("industry_authority_filing_page",),
+        "verification_chain_roles": (
+            {
+                "role": "completion_release_chain",
+                "source_family": "local_housing_completion_filing_platform",
+                "target_evidence": "completion_acceptance_or_filing_release_record",
+                "gate_use": "proves release from in-progress conflict; missing release is review, not no-risk",
+            },
+        ),
         "selection_reason": "completion or acceptance field exists; completion filing readback is required",
     },
     {
@@ -205,6 +292,22 @@ def build_evidence_risk_hard_defect_strategy(
     context = _stage3_context(parsed_context)
     parsed_fields = context["parsed_fields"]
     carriers = [_mapping(carrier) for carrier in _as_list(existing_public_verification_carriers)]
+    derived_manager_identifier = _matched_personnel_field_value(
+        carriers,
+        (
+            "project_manager_public_identifier_optional",
+            "resolved_public_identifier_optional",
+            "project_manager_certificate_no_optional",
+            "registration_no",
+            "person_public_id_optional",
+        ),
+    )
+    if derived_manager_identifier and not context.get("project_manager_public_identifier_optional"):
+        context = dict(context)
+        context["project_manager_public_identifier_optional"] = derived_manager_identifier
+        context["project_manager_public_identifier_source"] = (
+            "matched_enterprise_personnel_public_record"
+        )
     selected = _select_strategy_targets(parsed_fields, context)
     verification_targets = _verification_targets(
         selected,
@@ -334,6 +437,10 @@ def _select_strategy_targets(parsed_fields: list[dict[str, Any]], context: Mappi
                 "required_public_verifications": list(definition["required_public_verifications"]),
                 "stage5_rule_codes": list(definition["stage5_rule_codes"]),
                 "preferred_source_families": list(definition["preferred_source_families"]),
+                "verification_chain_roles": [
+                    dict(role)
+                    for role in definition.get("verification_chain_roles", ())
+                ],
                 "matched_field_refs": refs,
                 "public_verification_required": bool(definition["required_public_verifications"]),
                 "selection_reason": definition["selection_reason"],
@@ -370,6 +477,10 @@ def _verification_targets(
                     "hard_defect_family": strategy["hard_defect_family"],
                     "public_verification_required": True,
                     "preferred_source_families": list(strategy["preferred_source_families"]),
+                    "verification_chain_roles": [
+                        dict(role)
+                        for role in strategy.get("verification_chain_roles", [])
+                    ],
                     "existing_verification_run_id_optional": existing.get("verification_run_id"),
                     "existing_verification_result_optional": existing.get("verification_result"),
                     "missing_identifier": not bool(identifier),
@@ -652,15 +763,24 @@ def _target_identifier(
         "contract_public_info": _first_field_value(
             parsed_fields,
             ("contract_record_no", "contract_public_info", "contract_filing_no", "contract_performance_record"),
-        ),
+        )
+        or context.get("project_manager_public_identifier_optional")
+        or context.get("project_manager_name")
+        or context.get("candidate_company_name"),
         "completion_filing": _first_field_value(
             parsed_fields,
             ("completion_filing_no", "completion_acceptance_status", "completion_filing", "acceptance_filing_no"),
-        ),
+        )
+        or context.get("project_manager_public_identifier_optional")
+        or context.get("project_manager_name")
+        or context.get("candidate_company_name"),
         "performance_public_record": _first_field_value(
             parsed_fields,
             ("performance_record_no", "performance_public_record", "performance_filing", "historical_performance"),
-        ),
+        )
+        or context.get("project_manager_public_identifier_optional")
+        or context.get("project_manager_name")
+        or context.get("candidate_company_name"),
         "public_notice_timeline": (
             context.get("project_id")
             or context.get("project_name")
@@ -686,6 +806,27 @@ def _first_carrier_for_type(carriers: list[dict[str, Any]], target_type: str) ->
         if carrier.get("verification_target_type") == target_type:
             return carrier
     return {}
+
+
+def _matched_personnel_field_value(carriers: list[dict[str, Any]], field_names: tuple[str, ...]) -> str:
+    for carrier in carriers:
+        if (
+            carrier.get("verification_target_type") != "personnel_public_record"
+            or carrier.get("verification_result") != "MATCHED"
+            or bool(carrier.get("review_required"))
+        ):
+            continue
+        for field_name in field_names:
+            value = carrier.get(field_name)
+            if value not in (None, ""):
+                return str(value)
+        for matched_row in _as_list(carrier.get("matched_personnel_rows")):
+            row = _mapping(matched_row)
+            for field_name in field_names:
+                value = row.get(field_name)
+                if value not in (None, ""):
+                    return str(value)
+    return ""
 
 
 def _field_ref(field: Mapping[str, Any], fallback_index: int = 0) -> str:

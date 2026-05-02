@@ -149,19 +149,40 @@ def _clean_company_value(value: str) -> str:
 
 
 def _extract_deadline(text: str) -> tuple[str, str]:
-    match = re.search(r"(?:公示|公告|异议)[^。；;\n\r]{0,30}?(\d{4}\s*(?:-|/|年)\s*\d{1,2}\s*(?:-|/|月)\s*\d{1,2}\s*日?)", text)
-    if not match:
-        return "", "DETAIL_TEXT_NOT_FOUND"
-    raw = _clean_text(match.group(1))
-    return _normalize_date_to_iso_end_of_day(raw) or raw, "DETAIL_TEXT"
+    date_pattern = (
+        r"(\d{4}\s*(?:-|/|年)\s*\d{1,2}\s*(?:-|/|月)\s*\d{1,2}(?:\s*日)?"
+        r"(?:\s+\d{1,2}:\d{1,2}(?::\d{1,2})?)?)"
+    )
+    patterns = (
+        rf"(?:异议|质疑|投诉|答疑|澄清)[^。；;\n\r]{{0,20}}?(?:截止|结束)(?:时间)?[:：\s]*{date_pattern}",
+        rf"公告(?:质疑|答疑|异议|投诉)[^。；;\n\r]{{0,10}}?(?:截止|结束)(?:时间)?[:：\s]*{date_pattern}",
+        rf"公示[^。；;\n\r]{{0,20}}?(?:截止|结束|期至)(?:时间)?[:：\s]*{date_pattern}",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        context = _clean_text(match.group(0))
+        if "发布时间" in context or "发布日期" in context:
+            continue
+        raw = _clean_text(match.group(1))
+        return _normalize_date_to_iso_end_of_day(raw) or raw, "DETAIL_TEXT"
+    return "", "DETAIL_TEXT_NOT_FOUND"
 
 
 def _normalize_date_to_iso_end_of_day(value: str) -> str:
-    match = re.search(r"(\d{4})\s*(?:-|/|年)\s*(\d{1,2})\s*(?:-|/|月)\s*(\d{1,2})", value)
+    match = re.search(
+        r"(\d{4})\s*(?:-|/|年)\s*(\d{1,2})\s*(?:-|/|月)\s*(\d{1,2})(?:\s*日)?"
+        r"(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?",
+        value,
+    )
     if not match:
         return ""
     year, month, day = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
-    return f"{year:04d}-{month:02d}-{day:02d}T23:59:59+08:00"
+    hour = int(match.group(4)) if match.group(4) else 23
+    minute = int(match.group(5)) if match.group(5) else 59
+    second = int(match.group(6)) if match.group(6) else 59
+    return f"{year:04d}-{month:02d}-{day:02d}T{hour:02d}:{minute:02d}:{second:02d}+08:00"
 
 
 def _candidate_key_fields(candidate: Mapping[str, Any]) -> list[str]:

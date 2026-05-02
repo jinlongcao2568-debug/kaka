@@ -454,6 +454,24 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertTrue(contract["acceptanceAuthority"]["userAcceptancePrecedesUiRewrite"])
         self.assertTrue(contract["acceptanceAuthority"]["scriptsPassingIsNotEnough"])
         self.assertTrue(contract["acceptanceAuthority"]["ownerMustObserveWithoutRawApi"])
+        self.assertTrue(contract["acceptanceAuthority"]["l0AndDSeriesAreAuthoritative"])
+        self.assertIn("docs/AX9S_实战运行图纸与验收契约.md", contract["ownerDocs"])
+        self.assertIn("docs/AX9S_Stage1-9_实战分支验收矩阵.md", contract["ownerDocs"])
+        self.assertIn("docs/AX9S_Stage4-5_核验与双闸门操作规程.md", contract["ownerDocs"])
+        self.assertIn("docs/D2_正式对象契约与字段字典.md", contract["ownerDocs"])
+        self.assertIn("docs/D3_正式规则码总表与判定说明书.md", contract["ownerDocs"])
+        self.assertIn("docs/D4_OpenAPI接口契约.md", contract["ownerDocs"])
+        self.assertIn("docs/D6_字段策略字典与客户交付字段规范.md", contract["ownerDocs"])
+        self.assertIn("docs/D7_对象级交付矩阵与外发治理规范.md", contract["ownerDocs"])
+        self.assertIn("docs/D14_AI模型治理规范.md", contract["ownerDocs"])
+        hard_gates = {item["gateId"]: item for item in contract["authoritativeHardGates"]}
+        self.assertIn("AUTH-06-public-verification-before-rules", hard_gates)
+        self.assertIn("AUTH-07-dual-gate-required", hard_gates)
+        self.assertIn("AUTH-08-project-fact-and-saleability", hard_gates)
+        real_states = {item["state"]: item for item in contract["realWorldAcceptanceStates"]}
+        self.assertIn("REAL_PUBLIC_REVIEW_REQUIRED", real_states)
+        self.assertIn("REAL_PUBLIC_RESTRICTED_SALEABLE", real_states)
+        self.assertIn("CUSTOMER_DELIVERY_READY", real_states)
         self.assertEqual(
             contract["productDefinition"]["soldProduct"],
             "证据包 / 线索包 / 机会包 / 情报包 / 销售推进结果",
@@ -501,11 +519,13 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         self.assertEqual(matrix["contractRef"], "contracts/ui/operator_user_acceptance_contract.json")
         self.assertEqual(matrix["status"], "ACTIVE")
         self.assertEqual(matrix["summary"]["totalDimensions"], 11)
-        self.assertEqual(matrix["summary"]["passCount"], 8)
-        self.assertEqual(matrix["summary"]["partialCount"], 3)
+        self.assertEqual(matrix["summary"]["passCount"], 3)
+        self.assertEqual(matrix["summary"]["partialCount"], 8)
         self.assertEqual(matrix["summary"]["notExposedCount"], 0)
         self.assertEqual(matrix["summary"]["failCount"], 0)
-        self.assertIn("真实公开列表页候选发现", matrix["summary"]["operatorConclusion"])
+        self.assertIn("L0/D2-D14", matrix["summary"]["operatorConclusion"])
+        self.assertIn("formal real_public readback", matrix["summary"]["operatorConclusion"])
+        self.assertTrue(matrix["authorityFindings"])
         dimensions = {
             item["dimensionId"]: item
             for item in matrix["dimensions"]
@@ -534,7 +554,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             self.assertTrue(item["nextActions"])
         self.assertEqual(
             dimensions["UA-05-evidence-package-verifiability"]["status"],
-            "PASS",
+            "PARTIAL",
         )
         self.assertIn(
             "来源网址",
@@ -550,7 +570,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         )
         self.assertEqual(
             dimensions["UA-03-stage-observability"]["status"],
-            "PASS",
+            "PARTIAL",
         )
         self.assertEqual(
             dimensions["UA-09-data-persistence-and-operator-control"]["status"],
@@ -566,7 +586,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
         )
         self.assertEqual(
             dimensions["UA-06-commercial-hook-boundary"]["status"],
-            "PASS",
+            "PARTIAL",
         )
         self.assertEqual(
             dimensions["UA-07-governed-outreach-and-delivery"]["status"],
@@ -577,7 +597,7 @@ class TestOperatorFrontendPortal(unittest.TestCase):
             "PASS",
         )
         self.assertIn(
-            "真实公开来源候选发现器",
+            "真实候选 Stage4-9 formal 回链",
             [item["title"] for item in matrix["topPriorities"]],
         )
 

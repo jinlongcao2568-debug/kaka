@@ -54,8 +54,10 @@ class ProjectManagerActiveConflictCarrier:
     current_project: dict[str, Any]
     candidate_company: dict[str, Any]
     project_manager: dict[str, Any]
+    manager_identity_resolution: dict[str, Any]
     manager_identity_public_refs: list[dict[str, Any]]
     registered_unit_verification: dict[str, Any]
+    registration_timeline_verification: dict[str, Any]
     possible_conflicting_projects: list[dict[str, Any]]
     conflict_time_window: dict[str, Any]
     current_project_time_window: dict[str, Any]
@@ -76,8 +78,12 @@ class ProjectManagerActiveConflictCarrier:
         payload["current_project"] = dict(self.current_project)
         payload["candidate_company"] = dict(self.candidate_company)
         payload["project_manager"] = dict(self.project_manager)
+        payload["manager_identity_resolution"] = dict(self.manager_identity_resolution)
         payload["manager_identity_public_refs"] = [dict(ref) for ref in self.manager_identity_public_refs]
         payload["registered_unit_verification"] = dict(self.registered_unit_verification)
+        payload["registration_timeline_verification"] = dict(
+            self.registration_timeline_verification
+        )
         payload["possible_conflicting_projects"] = [
             dict(project) for project in self.possible_conflicting_projects
         ]
@@ -101,6 +107,32 @@ def evaluate_project_manager_active_conflict(
     context = _stage3_context(parsed_context)
     conflicts = [_mapping(project) for project in _as_list(possible_conflicting_projects)]
     carriers = _collect_verification_carriers(public_verification_carriers, conflicts)
+    derived_manager_identifier = _matched_personnel_field_value(
+        carriers,
+        (
+            "project_manager_public_identifier_optional",
+            "resolved_public_identifier_optional",
+            "project_manager_certificate_no_optional",
+            "registration_no",
+            "person_public_id_optional",
+        ),
+    )
+    derived_registered_unit = _matched_personnel_field_value(
+        carriers,
+        (
+            "project_manager_registered_unit_optional",
+            "registered_unit_name_optional",
+        ),
+    )
+    if derived_manager_identifier and not context.get("project_manager_public_identifier_optional"):
+        context = dict(context)
+        context["project_manager_public_identifier_optional"] = derived_manager_identifier
+        context["project_manager_public_identifier_source"] = (
+            "matched_enterprise_personnel_public_record"
+        )
+    if derived_registered_unit and not context.get("project_manager_registered_unit_optional"):
+        context = dict(context)
+        context["project_manager_registered_unit_optional"] = derived_registered_unit
 
     current_window = _coerce_time_window(
         context.get("current_project_time_window")
@@ -128,6 +160,12 @@ def evaluate_project_manager_active_conflict(
         for carrier in carriers
         if _target_type(carrier) == "personnel_public_record"
     ]
+    matched_manager_public_refs = [
+        _evidence_ref(carrier)
+        for carrier in carriers
+        if _target_type(carrier) == "personnel_public_record"
+        and _carrier_match_ready(carrier)
+    ]
     registered_unit_verification = _verification_summary(
         _first_carrier(
             carriers,
@@ -135,16 +173,40 @@ def evaluate_project_manager_active_conflict(
             roles=("registered_unit_verification", "candidate_registered_unit"),
         )
     )
+    manager_identity_resolution = _manager_identity_resolution(
+        context=context,
+        carriers=carriers,
+        manager_public_refs=manager_public_refs,
+        matched_manager_public_refs=matched_manager_public_refs,
+        registered_unit_verification=registered_unit_verification,
+    )
+    registration_timeline_verification = _registration_timeline_verification(
+        context=context,
+        carriers=carriers,
+        current_window=current_window,
+    )
 
     failure_reasons: list[str] = []
     if _live_provider_requested(parsed_context, carriers, conflicts):
         failure_reasons.append("provider_reserved_not_live")
     if not _is_complete_time_window(current_window):
         failure_reasons.append("current_project_time_window_missing")
-    if not manager_public_refs:
-        failure_reasons.append("manager_personnel_public_record_verification_missing")
+    if not matched_manager_public_refs:
+        failure_reasons.append(
+            "manager_personnel_public_record_unmatched_or_review_required"
+            if manager_public_refs
+            else "manager_personnel_public_record_verification_missing"
+        )
     if registered_unit_verification.get("verification_result") != "MATCHED":
         failure_reasons.append("registered_unit_verification_missing_or_unmatched")
+    if manager_identity_resolution.get("resolution_state") != "MATCHED":
+        failure_reasons.extend(
+            _as_str_list(manager_identity_resolution.get("failure_reasons"))
+        )
+    if registration_timeline_verification.get("verification_result") != "PASS":
+        failure_reasons.extend(
+            _as_str_list(registration_timeline_verification.get("failure_reasons"))
+        )
     for carrier in carriers:
         if not _carrier_is_public(carrier):
             failure_reasons.append("visibility_or_non_replayable_verification_ref")
@@ -166,13 +228,21 @@ def evaluate_project_manager_active_conflict(
         )
         project_summaries.append(summary)
         disambiguations.append(dict(summary["same_name_disambiguation"]))
+        failure_reasons.extend(_as_str_list(summary.get("failure_reasons")))
         if summary["time_window_missing"]:
             saw_missing_time = True
         if summary["completion_acceptance_missing"]:
             saw_missing_completion = True
-        if summary["overlap_with_current"] and summary["identity_sufficient_for_risk"]:
+        if (
+            summary["overlap_with_current"]
+            and summary["identity_sufficient_for_risk"]
+            and summary["public_evidence_refs"]
+        ):
             saw_overlap_risk = True
-        if summary["overlap_with_current"] and not summary["identity_sufficient_for_risk"]:
+        if summary["overlap_with_current"] and (
+            not summary["identity_sufficient_for_risk"]
+            or not summary["public_evidence_refs"]
+        ):
             saw_ambiguous_overlap = True
 
     if not conflicts:
@@ -227,8 +297,10 @@ def evaluate_project_manager_active_conflict(
         current_project=current_project,
         candidate_company=candidate_company,
         project_manager=project_manager,
+        manager_identity_resolution=manager_identity_resolution,
         manager_identity_public_refs=manager_public_refs,
         registered_unit_verification=registered_unit_verification,
+        registration_timeline_verification=registration_timeline_verification,
         possible_conflicting_projects=project_summaries,
         conflict_time_window=conflict_time_window,
         current_project_time_window=current_window,
@@ -249,6 +321,7 @@ def build_project_manager_active_conflict_readback(carrier: Mapping[str, Any]) -
         "current_project",
         "candidate_company",
         "project_manager",
+        "manager_identity_resolution",
         "possible_conflicting_projects",
         "current_project_time_window",
         "overlap_judgement",
@@ -283,6 +356,15 @@ def build_project_manager_active_conflict_readback(carrier: Mapping[str, Any]) -
         "active_conflict_run_id": carrier.get("active_conflict_run_id"),
         "overlap_judgement": carrier.get("overlap_judgement"),
         "review_required": bool(carrier.get("review_required")),
+        "manager_identity_resolution": dict(
+            _mapping(carrier.get("manager_identity_resolution"))
+        ),
+        "registration_timeline_verification": dict(
+            _mapping(carrier.get("registration_timeline_verification"))
+        ),
+        "project_timeline_evidence_refs": _project_timeline_evidence_refs(evidence_chain),
+        "risk_signal_evidence_refs": _risk_signal_evidence_refs(evidence_chain),
+        "failure_reasons": list(_as_str_list(carrier.get("failure_reasons"))),
     }
 
 
@@ -342,6 +424,188 @@ def _stage3_context(parsed_context: Mapping[str, Any] | Any) -> dict[str, Any]:
             "current_project_end_date",
             "current_action_deadline_at_optional",
         ),
+        "project_manager_registration_at": first(
+            "project_manager_registration_at",
+            "project_manager_registered_at",
+            "registration_at",
+            "registered_at",
+            "certificate_registered_at",
+        ),
+        "project_manager_registration_changed_at": first(
+            "project_manager_registration_changed_at",
+            "project_manager_unit_changed_at",
+            "registration_changed_at",
+            "unit_changed_at",
+        ),
+        "project_manager_certificate_valid_from": first(
+            "project_manager_certificate_valid_from",
+            "certificate_valid_from",
+            "valid_from",
+        ),
+        "project_manager_certificate_valid_until": first(
+            "project_manager_certificate_valid_until",
+            "certificate_valid_until",
+            "valid_until",
+            "certificate_end_at",
+        ),
+    }
+
+
+def _manager_identity_resolution(
+    *,
+    context: Mapping[str, Any],
+    carriers: list[dict[str, Any]],
+    manager_public_refs: list[dict[str, Any]],
+    matched_manager_public_refs: list[dict[str, Any]],
+    registered_unit_verification: Mapping[str, Any],
+) -> dict[str, Any]:
+    enterprise_carrier = _first_carrier(
+        carriers,
+        target_types=("enterprise_public_record", "enterprise_qualification"),
+        roles=("registered_unit_verification", "candidate_registered_unit"),
+    )
+    personnel_carrier = _first_carrier(
+        carriers,
+        target_types=("personnel_public_record",),
+        roles=("manager_identity_verification", "enterprise_personnel_resolution"),
+    )
+    enterprise_verified = registered_unit_verification.get("verification_result") == "MATCHED"
+    personnel_verified = bool(matched_manager_public_refs)
+    failure_reasons: list[str] = []
+    if not enterprise_verified:
+        failure_reasons.append("enterprise_first_record_missing_or_unmatched")
+    if not personnel_verified:
+        failure_reasons.append(
+            "enterprise_personnel_record_unmatched_or_review_required"
+            if manager_public_refs
+            else "enterprise_personnel_record_missing"
+        )
+
+    route_steps = [
+        "candidate_enterprise_public_record",
+        "enterprise_personnel_list_scan",
+        "personnel_detail_identity_match",
+        "registration_timeline_readback",
+    ]
+    return {
+        "resolution_route": "ENTERPRISE_FIRST_PERSONNEL_DETAIL",
+        "route_steps": route_steps,
+        "enterprise_first_required": True,
+        "broad_name_search_allowed_as_final_proof": False,
+        "same_name_only_accepted": False,
+        "candidate_company_name": context.get("candidate_company_name"),
+        "project_manager_name": context.get("project_manager_name"),
+        "enterprise_record_verified": enterprise_verified,
+        "personnel_record_verified": personnel_verified,
+        "enterprise_verification_run_id": (
+            enterprise_carrier.get("verification_run_id") if enterprise_carrier else None
+        ),
+        "personnel_verification_run_id": (
+            personnel_carrier.get("verification_run_id") if personnel_carrier else None
+        ),
+        "personnel_verification_result": (
+            personnel_carrier.get("verification_result") if personnel_carrier else None
+        ),
+        "personnel_review_required": (
+            bool(personnel_carrier.get("review_required")) if personnel_carrier else True
+        ),
+        "resolved_public_identifier_optional": context.get(
+            "project_manager_public_identifier_optional"
+        ),
+        "resolved_public_identifier_source": context.get(
+            "project_manager_public_identifier_source"
+        ),
+        "resolution_state": "MATCHED" if enterprise_verified and personnel_verified else "REVIEW",
+        "failure_reasons": failure_reasons,
+        "review_required": bool(failure_reasons),
+    }
+
+
+def _registration_timeline_verification(
+    *,
+    context: Mapping[str, Any],
+    carriers: list[dict[str, Any]],
+    current_window: Mapping[str, Any],
+) -> dict[str, Any]:
+    registration_at = _first_non_empty(
+        context.get("project_manager_registration_at"),
+        _carrier_field_value(
+            carriers,
+            (
+                "project_manager_registration_at",
+                "project_manager_registered_at",
+                "registration_at",
+                "registered_at",
+                "certificate_registered_at",
+            ),
+        ),
+    )
+    registration_changed_at = _first_non_empty(
+        context.get("project_manager_registration_changed_at"),
+        _carrier_field_value(
+            carriers,
+            (
+                "project_manager_registration_changed_at",
+                "project_manager_unit_changed_at",
+                "registration_changed_at",
+                "unit_changed_at",
+            ),
+        ),
+    )
+    valid_from = _first_non_empty(
+        context.get("project_manager_certificate_valid_from"),
+        _carrier_field_value(
+            carriers,
+            (
+                "project_manager_certificate_valid_from",
+                "certificate_valid_from",
+                "valid_from",
+            ),
+        ),
+    )
+    valid_until = _first_non_empty(
+        context.get("project_manager_certificate_valid_until"),
+        _carrier_field_value(
+            carriers,
+            (
+                "project_manager_certificate_valid_until",
+                "certificate_valid_until",
+                "valid_until",
+                "certificate_end_at",
+            ),
+        ),
+    )
+    current_start = _parse_date(current_window.get("start_at"))
+    current_end = _parse_date(current_window.get("end_at"))
+    registration_date = _parse_date(registration_at)
+    changed_date = _parse_date(registration_changed_at)
+    valid_from_date = _parse_date(valid_from)
+    valid_until_date = _parse_date(valid_until)
+
+    failure_reasons: list[str] = []
+    if not registration_date:
+        failure_reasons.append("project_manager_registration_timeline_missing")
+    if current_start and registration_date and registration_date > current_start:
+        failure_reasons.append("project_manager_registration_after_current_project_start")
+    if current_start and changed_date and changed_date > current_start:
+        failure_reasons.append("project_manager_registered_unit_changed_after_current_project_start")
+    if current_start and valid_from_date and valid_from_date > current_start:
+        failure_reasons.append("project_manager_certificate_valid_after_current_project_start")
+    if current_end and valid_until_date and valid_until_date < current_end:
+        failure_reasons.append("project_manager_certificate_expires_before_current_project_end")
+
+    return {
+        "verification_scope": "PROJECT_MANAGER_REGISTRATION_TIMELINE",
+        "registration_at": _date_text(registration_at),
+        "registration_changed_at": _date_text(registration_changed_at),
+        "certificate_valid_from": _date_text(valid_from),
+        "certificate_valid_until": _date_text(valid_until),
+        "current_project_start_at": _date_text(current_window.get("start_at")),
+        "current_project_end_at": _date_text(current_window.get("end_at")),
+        "verification_result": "PASS" if not failure_reasons else "REVIEW",
+        "failure_reasons": failure_reasons,
+        "review_required": bool(failure_reasons),
+        "no_legal_conclusion": True,
     }
 
 
@@ -385,7 +649,7 @@ def _conflicting_project_summary(
         conflict_manager_identifier=manager_identifier,
         conflict_registered_unit=registered_unit_name,
         manager_verified=bool(
-            _first_carrier(all_carriers, target_types=("personnel_public_record",))
+            _first_matched_carrier(all_carriers, target_types=("personnel_public_record",))
         ),
     )
     identity_sufficient = bool(
@@ -396,7 +660,10 @@ def _conflicting_project_summary(
         )
     )
     project_carriers = _collect_project_carriers(project)
-    evidence_refs = _public_evidence_chain(project_carriers)
+    matched_project_carriers = [
+        carrier for carrier in project_carriers if _carrier_match_ready(carrier)
+    ]
+    evidence_refs = _public_evidence_chain(matched_project_carriers)
     completion_missing = completion_status in (None, "")
     time_missing = not _is_complete_time_window(time_window)
     failure_reasons: list[str] = []
@@ -407,7 +674,11 @@ def _conflicting_project_summary(
     if overlap and not identity_sufficient:
         failure_reasons.append("overlap_but_project_manager_identity_ambiguous")
     if not evidence_refs:
-        failure_reasons.append("conflicting_project_public_record_verification_missing")
+        failure_reasons.append(
+            "conflicting_project_public_record_unmatched_or_review_required"
+            if project_carriers
+            else "conflicting_project_public_record_verification_missing"
+        )
 
     return {
         "project_id": project_id,
@@ -634,6 +905,37 @@ def _public_evidence_chain(carriers: list[dict[str, Any]]) -> list[dict[str, Any
     return _dedupe_refs(refs)
 
 
+def _project_timeline_evidence_refs(evidence_chain: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    project_timeline_types = {
+        "award_result_notice",
+        "bid_candidate_notice",
+        "construction_permit",
+        "contract_public_info",
+        "completion_filing",
+        "performance_public_record",
+        "project_manager_change_notice",
+    }
+    return [
+        dict(ref)
+        for ref in evidence_chain
+        if str(ref.get("verification_target_type") or "") in project_timeline_types
+    ]
+
+
+def _risk_signal_evidence_refs(evidence_chain: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    risk_signal_types = {
+        "administrative_penalty_public_record",
+        "credit_penalty_blacklist",
+        "court_execution_public_record",
+        "complaint_or_supervision_decision",
+    }
+    return [
+        dict(ref)
+        for ref in evidence_chain
+        if str(ref.get("verification_target_type") or "") in risk_signal_types
+    ]
+
+
 def _evidence_ref(carrier: Mapping[str, Any]) -> dict[str, Any]:
     source_refs = [_mapping(ref) for ref in _as_list(carrier.get("source_refs"))]
     snapshot_refs = [_mapping(ref) for ref in _as_list(carrier.get("snapshot_refs"))]
@@ -647,6 +949,7 @@ def _evidence_ref(carrier: Mapping[str, Any]) -> dict[str, Any]:
             snapshot_ref.get("snapshot_id"),
         ),
         "verification_run_id": carrier.get("verification_run_id"),
+        "verification_target_type": carrier.get("verification_target_type"),
         "evidence_grade": carrier.get("evidence_grade"),
         "confidence": _float(carrier.get("confidence"), 0.0),
         "public_visibility_state": _first_non_empty(
@@ -690,14 +993,40 @@ def _first_carrier(
     return None
 
 
+def _first_matched_carrier(
+    carriers: list[dict[str, Any]],
+    *,
+    target_types: tuple[str, ...],
+    roles: tuple[str, ...] = (),
+) -> dict[str, Any] | None:
+    for carrier in carriers:
+        role = str(carrier.get("verification_role") or carrier.get("verification_purpose") or "")
+        if role in roles and _carrier_match_ready(carrier):
+            return carrier
+    for carrier in carriers:
+        if _target_type(carrier) in target_types and _carrier_match_ready(carrier):
+            return carrier
+    return None
+
+
 def _target_type(carrier: Mapping[str, Any]) -> str:
     return str(carrier.get("verification_target_type") or carrier.get("target_type") or "")
+
+
+def _carrier_match_ready(carrier: Mapping[str, Any]) -> bool:
+    return (
+        _carrier_is_public(carrier)
+        and carrier.get("verification_result") == "MATCHED"
+        and not bool(carrier.get("review_required"))
+    )
 
 
 def _carrier_is_public(carrier: Mapping[str, Any]) -> bool:
     ref = _evidence_ref(carrier)
     return (
         bool(carrier.get("public_only", True))
+        and bool(ref.get("source_url"))
+        and bool(ref.get("source_snapshot_id"))
         and ref.get("public_visibility_state") in PUBLIC_VISIBLE_STATES
         and carrier.get("verification_provider", PUBLIC_VERIFICATION_PROVIDER) == PUBLIC_VERIFICATION_PROVIDER
     )
@@ -856,6 +1185,44 @@ def _as_list(value: Any) -> list[Any]:
     if isinstance(value, tuple):
         return list(value)
     return []
+
+
+def _as_str_list(value: Any) -> list[str]:
+    return [str(item) for item in _as_list(value) if item not in (None, "")]
+
+
+def _carrier_field_value(carriers: list[dict[str, Any]], field_names: tuple[str, ...]) -> str:
+    for carrier in carriers:
+        for field_name in field_names:
+            value = carrier.get(field_name)
+            if value not in (None, ""):
+                return str(value)
+        for field_ref in _as_list(carrier.get("parsed_field_refs")):
+            data = _mapping(field_ref)
+            if data.get("field_name") in field_names and data.get("field_value_optional") not in (None, ""):
+                return str(data.get("field_value_optional"))
+        for field_ref in _as_list(carrier.get("parsed_fields")):
+            data = _mapping(field_ref)
+            if data.get("field_name") in field_names and data.get("field_value_optional") not in (None, ""):
+                return str(data.get("field_value_optional"))
+    return ""
+
+
+def _matched_personnel_field_value(carriers: list[dict[str, Any]], field_names: tuple[str, ...]) -> str:
+    for carrier in carriers:
+        if _target_type(carrier) != "personnel_public_record" or not _carrier_match_ready(carrier):
+            continue
+        for field_name in field_names:
+            value = carrier.get(field_name)
+            if value not in (None, ""):
+                return str(value)
+        for matched_row in _as_list(carrier.get("matched_personnel_rows")):
+            row = _mapping(matched_row)
+            for field_name in field_names:
+                value = row.get(field_name)
+                if value not in (None, ""):
+                    return str(value)
+    return ""
 
 
 def _normalize_status(value: Any) -> str | None:

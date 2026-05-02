@@ -312,7 +312,7 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         entry_profile_ids = {profile.profile_id for profile in REAL_PUBLIC_ENTRY_PROFILES}
         attachment_profile_ids = set(PUBLIC_ATTACHMENT_PROFILE_IDS)
 
-        self.assertEqual(len(entry_profile_ids), 18)
+        self.assertEqual(len(entry_profile_ids), 23)
         self.assertEqual(len(attachment_profile_ids), 2)
         self.assertIn("GGZY-DEAL-LIST", entry_profile_ids)
         self.assertIn("CCGP-CENTRAL-NOTICES", entry_profile_ids)
@@ -322,6 +322,11 @@ class Stage2RealPublicUrlFetcherTests(unittest.TestCase):
         self.assertIn("BEIJING-PLATFORM-HOME", entry_profile_ids)
         for profile_id in (
             "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "GUANGDONG-GDCIC-HOME",
+            "GUANGDONG-GDCIC-SKYPT-OPENPLATFORM",
+            "GUANGDONG-TZXM-HOME",
+            "GUANGDONG-ZFCXJST-PENALTY-PUBLICITY",
+            "GUANGDONG-CREDIT-GD-HOME",
             "JIANGSU-GGZY-HOME",
             "ZHEJIANG-GGZY-JYXXGK-LIST",
             "SHANDONG-GGZY-JYXXGK-LIST",

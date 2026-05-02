@@ -1,16 +1,26 @@
 {
-  "contractVersion": "1.0.0",
+  "contractVersion": "1.1.0",
   "contractId": "AX9S-OPERATOR-USER-ACCEPTANCE-CONTRACT",
   "status": "ACTIVE",
   "ownerDocs": [
     "AGENTS.md",
     "docs/L0.md",
+    "docs/AX9S_实战运行图纸与验收契约.md",
+    "docs/AX9S_Stage1-9_实战分支验收矩阵.md",
+    "docs/AX9S_Stage4-5_核验与双闸门操作规程.md",
+    "docs/D2_正式对象契约与字段字典.md",
+    "docs/D3_正式规则码总表与判定说明书.md",
+    "docs/D4_OpenAPI接口契约.md",
     "docs/D5_页面导出与人工复核规范.md",
+    "docs/D6_字段策略字典与客户交付字段规范.md",
+    "docs/D7_对象级交付矩阵与外发治理规范.md",
     "docs/D8_真实竞争者识别可售对象与销售推进规范.md",
     "docs/D9_联系对象与销售触达规范.md",
     "docs/D10_订单支付交付与治理反馈规范.md",
     "docs/D11_测试验收与金标回归清单.md",
     "docs/D13_公开可查边界能力清单.md",
+    "docs/D14_AI模型治理规范.md",
+    "handoff/stage_handoff_catalog.json",
     "control/product_runtime_architecture_map.yaml",
     "control/product_acceptance_checklist.yaml"
   ],
@@ -39,8 +49,114 @@
     "uiMustConsumeCanonicalObjects": true,
     "noSecondJudgmentSystem": true,
     "ownerMustObserveWithoutRawApi": true,
-    "externalLiveActionsRemainGoverned": true
+    "externalLiveActionsRemainGoverned": true,
+    "l0AndDSeriesAreAuthoritative": true,
+    "currentUiStateCannotUpgradeReadiness": true
   },
+  "authoritativeHardGates": [
+    {
+      "gateId": "AUTH-01-stage-main-chain",
+      "title": "九阶段主链不可改写",
+      "requirement": "正式主链必须保持 Stage1 编排 -> Stage2 公开链抓取 -> Stage3 结构化解析 -> Stage4 公开核验 -> Stage5 规则证据双门 -> Stage6 统一事实报告 -> Stage7 可售对象 -> Stage8 触达计划 -> Stage9 订单交付治理回写。",
+      "failSignal": "UI、API、测试或脚本把内部样本链路、单页抓取、销售备注或模型摘要当作正式主链完成。",
+      "sourceRefs": ["L0 K-01", "handoff/stage_handoff_catalog.json", "control/product_runtime_architecture_map.yaml#primary_loop"]
+    },
+    {
+      "gateId": "AUTH-02-formal-object-priority",
+      "title": "正式对象优先级",
+      "requirement": "页面、API、导出和验收必须按 project_fact/legal_action/report_record -> dual gates -> lineage/clock/version -> project_base/public_chain -> governance notes 的优先级消费。",
+      "failSignal": "任何页面或接口绕过 project_fact、field_lineage_record、rule_gate_decision 或 evidence_gate_decision 重新判断项目价值。",
+      "sourceRefs": ["L0 K-04", "D2-R-008", "D5-R-003"]
+    },
+    {
+      "gateId": "AUTH-03-real-public-source-entry",
+      "title": "真实公开来源进料",
+      "requirement": "真实实战必须从公开、可链接、可审计的来源产生候选；全国聚合只能作为发现、去重或补充，不能冒充全量实时来源。",
+      "failSignal": "默认实战搜索只依赖离线样本、显式 URL、过期聚合页或无法审计的候选。",
+      "sourceRefs": ["L0 1.1", "D11-R-054", "D13-R-075"]
+    },
+    {
+      "gateId": "AUTH-04-stage2-original-carrier",
+      "title": "原始载体与时钟版本",
+      "requirement": "Stage2 必须形成 public_chain、clock_chain_profile、notice_version_chain、fixation_bundle 和原始载体引用；发布时间、截止时间、异议窗口不得混淆。",
+      "failSignal": "把公告发布日期、项目编号片段或模型推断当成异议截止时间，导致机会误选或误淘汰。",
+      "sourceRefs": ["D2 Stage2", "D3-R-012", "D13 A-01/A-02"]
+    },
+    {
+      "gateId": "AUTH-05-stage3-field-lineage",
+      "title": "字段血缘不可省略",
+      "requirement": "Stage3 必须产出 project_base、field_lineage_record、bidder_candidate、project_manager 等正式对象；截图、OCR、模型摘要不能替代字段血缘。",
+      "failSignal": "证据包或机会详情只有页面文字、英文 ID 或模型摘要，没有来源切片和字段血缘。",
+      "sourceRefs": ["L0 K-11", "D2 Stage3", "D6"]
+    },
+    {
+      "gateId": "AUTH-06-public-verification-before-rules",
+      "title": "公开核验进入规则证据",
+      "requirement": "Stage4 的 public_attack_surface、focus_bidder_verification_profile、evidence_grade_profile 必须进入 Stage5/6，不能只停留在页面展示。",
+      "failSignal": "真实详情页和附件已经抓取，但 Stage4-9 仍跑内部样本或通用链路，没有消费真实快照。",
+      "sourceRefs": ["L0 13.3", "D13 A-04/A-07/A-08", "D11 P4"]
+    },
+    {
+      "gateId": "AUTH-07-dual-gate-required",
+      "title": "规则门与证据门双门必需",
+      "requirement": "rule_gate_decision 与 evidence_gate_decision 缺一不可；任一 REVIEW 或 BLOCK 都不能直接升级成正式可售结论。",
+      "failSignal": "只有规则命中、单页证据或模型分数就生成正式机会、正式报告、客户证据包或触达建议。",
+      "sourceRefs": ["L0 K-05", "D3 dual_gate", "D11 L0-A-003"]
+    },
+    {
+      "gateId": "AUTH-08-project-fact-and-saleability",
+      "title": "可售机会只能来自统一事实",
+      "requirement": "saleable_opportunity 必须消费 Stage6 project_fact、legal_action_recommendation、真实竞争者、双角色拆分和 buyer_fit；不能从 Stage1 选中候选直接升级。",
+      "failSignal": "真实候选一被选中就显示为可售机会，或没有 project_fact/真实竞争者/买家适配就进入销售闭环。",
+      "sourceRefs": ["L0 K-06", "D8-R-004", "D11 L0-A-004"]
+    },
+    {
+      "gateId": "AUTH-09-contact-and-delivery-governance",
+      "title": "触达交付治理",
+      "requirement": "真实触达、支付、交付、退款必须满足审批、审计、operator action 和 provider/sandbox 状态；自动退款执行保持排除。",
+      "failSignal": "页面按钮或测试绕过 D9/D10 的审批审计，伪装成真实外发、真实支付、真实交付或自动退款已开放。",
+      "sourceRefs": ["D9", "D10", "AGENTS.md#Automation Guardrails"]
+    },
+    {
+      "gateId": "AUTH-10-ai-model-boundary",
+      "title": "模型只能辅助不能裁决",
+      "requirement": "AI 模型可以辅助摘要、解释、草稿和排序，但不能替代事实、核验、规则门、证据门、法律结论、客户交付结论或真实触达决策。",
+      "failSignal": "模型输出直接进入正式对象、客户证据包、法律结论或触达执行，且没有 model_governance_record。",
+      "sourceRefs": ["D14", "L0 K-12", "D11 one_vote_failures"]
+    }
+  ],
+  "realWorldAcceptanceStates": [
+    {
+      "state": "NO_CANDIDATES",
+      "meaning": "没有真实公开候选，不能生成机会或证据包。",
+      "minimumEvidence": ["真实来源查询记录", "失败原因", "地区/类型/金额条件"]
+    },
+    {
+      "state": "REAL_PUBLIC_CANDIDATES_CAPTURED",
+      "meaning": "真实候选、详情页或附件已进入 Stage1-3，可做内部分析。",
+      "minimumEvidence": ["candidate_id", "source_url", "detail_snapshot_id", "field_lineage_record 或 parser readback"]
+    },
+    {
+      "state": "REAL_PUBLIC_REVIEW_REQUIRED",
+      "meaning": "已发现机会线索，但 Stage4-6 或双门尚未闭合，只能内部复核。",
+      "minimumEvidence": ["review_request", "gate_reason", "public_verification_refs"]
+    },
+    {
+      "state": "REAL_PUBLIC_RESTRICTED_SALEABLE",
+      "meaning": "真实快照已形成受限销售承接，但 D8-plus、客户交付、外部触达或治理仍未闭合。",
+      "minimumEvidence": ["project_fact", "rule_gate_decision", "evidence_gate_decision", "restricted saleable_opportunity", "buyer_fit", "withheld_fields"]
+    },
+    {
+      "state": "REAL_PUBLIC_INTERNAL_READY",
+      "meaning": "真实快照已进入 Stage4-7，形成内部证据包、商业钩子和可复核 saleability 判断，但未放行客户交付。",
+      "minimumEvidence": ["project_fact", "rule_gate_decision", "evidence_gate_decision", "saleable_opportunity", "internal evidence package"]
+    },
+    {
+      "state": "CUSTOMER_DELIVERY_READY",
+      "meaning": "完成 D6/D7 字段策略、审批审计、支付交付治理和 release checklist 后，才能进入客户证据包交付。",
+      "minimumEvidence": ["delivery_record", "approval_audit", "field_allowlist", "watermark/version_hash", "provider/governance readback"]
+    }
+  ],
   "acceptanceDimensions": [
     {
       "dimensionId": "UA-01-product-definition-alignment",
@@ -277,12 +393,12 @@
     }
   ],
   "currentOptimizationPriorities": [
-    "优先接入真实公开来源候选发现器：列表页搜索、公告解析、候选去重入库并喂给 Stage1。",
-    "把真实附件原文抓取结果和真实详情快照继续送入 Stage4-9 正式消费，不再用离线样本代表实战完成。",
-    "按地区覆盖缺口补重点地区本地公开源 profile、详情页和附件入口。",
+    "先按 L0/D2-D14 权威硬门复核 UI、API、测试和证据包，不再让临时 UI 矩阵升级 readiness。",
+    "把真实候选详情页、附件原文和 parser readback 接入 Stage4-9 real_public readback，不再用内部样本链路代表实战完成。",
+    "修正公告日期、发布时间、截止时间、异议窗口等时钟字段解析，避免真实机会被误选或误淘汰。",
+    "按 D13 首批地区继续补强 SC/JS/ZJ/SD/GD/HB 的本地公开源 profile、详情页、附件入口和失败诊断。",
+    "把 Stage6 project_fact、Stage5 双门、Stage7 saleable_opportunity 与证据包预览显式关联，避免 Stage1 选中候选直接看起来像正式可售。",
     "把真实服务商 sandbox、健康检查、审批审计和小样本 live pilot 做成可执行接入任务。",
-    "把报价区间、客户模板和成交转化实验接到商业钩子边界卡。",
-    "把阶段对象、机会、证据包、来源站点继续做成可点击深读回。",
     "新增 provider、地区适配器、证据包字段时同步维护中文标签，避免新枚举裸露。"
   ],
   "nonNegotiableFailSignals": [
@@ -291,6 +407,9 @@
     "owner 需要 raw JSON 才能完成日常运营判断。",
     "客户被引导使用工作台而不是接收成交后的证据包。",
     "证据包无法查看、无法下载或无法回到公开来源验证。",
+    "真实候选没有进入 Stage4-9 real_public readback，却被展示成正式可售机会。",
+    "公告发布日期、项目编号或模型推断被当成异议截止时间。",
+    "缺少 project_fact、rule_gate_decision 或 evidence_gate_decision 时生成正式机会或客户交付结论。",
     "真实外部触达、支付、交付或退款绕过审批、审计和 operator action。",
     "自动退款执行被开放。",
     "系统只通过脚本但无法让 owner 判断是否能卖。"

@@ -96,6 +96,11 @@
         "expected_rule_gate_status": "REVIEW"
       },
       {
+        "case_ref": "GC-STAGE5-PM-001-REVIEW",
+        "rule_code": "PM-001",
+        "expected_rule_gate_status": "REVIEW"
+      },
+      {
         "case_ref": "GC-STAGE5-MISSING-DEPENDENCY-REVIEW",
         "rule_code": "PM-002",
         "expected_rule_gate_status": "REVIEW"
@@ -322,6 +327,44 @@
         ],
         "minimum_confidence": 0.6
       },
+      "PM-001": {
+        "enabled": true,
+        "version": "stage5-factory-v1",
+        "priority": 105,
+        "dependency_fields": [
+          "project_manager_id_optional",
+          "verification_profile_id",
+          "project_manager_active_conflict_readback.active_conflict_run_id",
+          "project_manager_active_conflict_readback.registration_timeline_verification.verification_result"
+        ],
+        "dependency_evidence": [
+          "verification_profile_id",
+          "project_manager_active_conflict_readback.active_conflict_run_id",
+          "project_manager_active_conflict_readback.registration_timeline_verification.registration_at",
+          "project_manager_active_conflict_readback.registration_timeline_verification.certificate_valid_until",
+          "project_manager_active_conflict_readback.project_timeline_evidence_refs"
+        ],
+        "input_contract": {
+          "producer_handoff": "H-04-STAGE4-TO-STAGE5",
+          "optional_carrier": "project_manager_active_conflict_readback.registration_timeline_verification"
+        },
+        "output_contract": {
+          "objects": [
+            "rule_hit",
+            "rule_gate_decision",
+            "review_request"
+          ]
+        },
+        "document_term_refs": [
+          "D3-R-029",
+          "D13-R-028"
+        ],
+        "golden_case_refs": [
+          "GC-STAGE5-PM-001-REVIEW",
+          "GC-STAGE5-MISSING-DEPENDENCY-REVIEW"
+        ],
+        "minimum_confidence": 0.6
+      },
       "PM-002": {
         "enabled": true,
         "version": "stage5-factory-v1",
@@ -333,7 +376,9 @@
         ],
         "dependency_evidence": [
           "verification_profile_id",
-          "project_manager_active_conflict_readback.active_conflict_run_id"
+          "project_manager_active_conflict_readback.active_conflict_run_id",
+          "project_manager_active_conflict_readback.project_timeline_evidence_refs",
+          "project_manager_active_conflict_readback.risk_signal_evidence_refs"
         ],
         "input_contract": {
           "producer_handoff": "H-04-STAGE4-TO-STAGE5",

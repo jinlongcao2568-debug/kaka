@@ -508,12 +508,13 @@ stage_module_inventory:
       - "核验结果不得被写成终局违法结论。"
     module_slices:
       - slice_id: stage4.public_verification
-        business_summary: "核验项目、候选对象、人员等公开可查事实。"
+        business_summary: "核验项目、候选对象、人员、公告承诺链、施工许可、合同、竣工、项目经理变更和处罚风险等公开可查事实。"
         implementation_state: PARTIAL_RUNTIME
         current_files:
           - src/stage4_verification/service.py
           - src/stage4_verification/verification.py
           - src/stage4_verification/active_conflict.py
+          - src/stage4_verification/jzsc_personnel.py
           - src/stage4_verification/hard_defect_strategy.py
         handoff_files:
           - handoff/stage4_to_stage5/contract.json
@@ -525,6 +526,7 @@ stage_module_inventory:
           - tests/test_internal_chain.py
           - tests/test_architecture_anti_drift.py
           - tests/test_project_manager_active_conflict_vertical_slice.py
+          - tests/test_stage4_jzsc_personnel_adapter.py
           - tests/test_stage4_evidence_risk_strategy.py
         depends_on_slices:
           - stage3.lineage_candidates_manager
@@ -532,9 +534,10 @@ stage_module_inventory:
           - PTL-S45-rule-evidence-dual-gate
         exit_criteria:
           - "核验输出保持公开来源和证据等级 trace。"
+          - "项目经理冲突不得只依赖四库/JZSC；必须能表达公告、中标、许可、合同、竣工、变更和处罚风险链的核验角色。"
         deferred_gaps: []
       - slice_id: stage4.evidence_risk_hard_defect_strategy
-        business_summary: "根据 Stage3 parsed fields 选择硬伤核验策略、公开核验 targets、Stage5 requested rules 和弱证据 fail-closed taxonomy。"
+        business_summary: "根据 Stage3 parsed fields 选择硬伤核验策略、公开核验 targets、多源核验链角色、Stage5 requested rules 和弱证据 fail-closed taxonomy。"
         implementation_state: INTERNAL_READY_CANDIDATE
         current_files:
           - src/stage4_verification/hard_defect_strategy.py
@@ -554,6 +557,7 @@ stage_module_inventory:
           - PTL-I100-146-evidence-risk-and-hard-defect-verification-strategy
         exit_criteria:
           - "项目经理在建、资质、信用、业绩、许可、合同、履约和程序瑕疵策略可从 parsed fields 自动选择。"
+          - "Stage4 strategy targets 输出 `verification_chain_roles`，让 Stage5 能区分公告承诺链、履约时间链、竣工释放链、项目经理变更链、身份归档链和风险信号链。"
           - "弱证据、同名未消歧、字段冲突、缺 snapshot 或 source slice 必须 fail-closed 到 review。"
           - "LLM 不参与事实、公开核验或规则判定。"
         deferred_gaps:
@@ -1274,6 +1278,7 @@ modules:
       - src/stage4_verification/attack_surface.py
       - src/stage4_verification/verification.py
       - src/stage4_verification/active_conflict.py
+      - src/stage4_verification/jzsc_personnel.py
       - src/stage4_verification/evidence_grade.py
       - handoff/stage4_to_stage5/contract.json
     current_runtime_state: PARTIAL_RUNTIME

@@ -176,7 +176,11 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             self.assertEqual(enriched["project_name"], "北京科技大学煤气管网检测装置采购项目")
             self.assertEqual(enriched["amount"], 12_805_000.0)
             self.assertEqual(enriched["candidate_company"], "北京测试科技有限公司")
-            self.assertEqual(enriched["objection_deadline_at_optional"], "2026-04-30T23:59:59+08:00")
+            self.assertNotIn("objection_deadline_at_optional", enriched)
+            self.assertEqual(
+                result["captures"][0]["detail_fields"]["objection_deadline_parse_state"],
+                "DETAIL_TEXT_NOT_FOUND",
+            )
             self.assertEqual(enriched["candidate_count"], 1)
             self.assertIn("candidate_company", enriched["key_fields_present"])
             self.assertEqual(enriched["source_document_ref"], enriched["stage2_detail_snapshot_id_optional"])

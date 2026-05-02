@@ -63,8 +63,17 @@ class RuleRunner:
             "verification_profile_id",
             "public_attack_surface_id",
         ),
+        "PM-001": (
+            "project_manager_active_conflict_readback.active_conflict_run_id",
+            "project_manager_active_conflict_readback.registration_timeline_verification.registration_at",
+            "project_manager_active_conflict_readback.project_timeline_evidence_refs",
+            "project_manager_id_optional",
+            "verification_profile_id",
+        ),
         "PM-002": (
             "project_manager_active_conflict_readback.active_conflict_run_id",
+            "project_manager_active_conflict_readback.project_timeline_evidence_refs",
+            "project_manager_active_conflict_readback.risk_signal_evidence_refs",
             "project_manager_id_optional",
             "verification_profile_id",
         ),
@@ -523,8 +532,13 @@ class RuleRunner:
 
         return "PASS", "CONFIRMED", [], "STATE-507"
 
-    def _active_conflict_review_reasons(self, *, rule_code: str, inputs: Mapping[str, Any]) -> list[str]:
-        if rule_code != "PM-002":
+    def _project_manager_public_readback_review_reasons(
+        self,
+        *,
+        rule_code: str,
+        inputs: Mapping[str, Any],
+    ) -> list[str]:
+        if rule_code not in {"PM-001", "PM-002"}:
             return []
         carrier = inputs.get("project_manager_active_conflict_readback") or inputs.get(
             "project_manager_active_conflict_carrier"
@@ -532,12 +546,28 @@ class RuleRunner:
         if not isinstance(carrier, Mapping):
             return []
         reasons: list[str] = []
-        if carrier.get("review_required") is True:
+        if rule_code == "PM-002" and carrier.get("review_required") is True:
             reasons.append(f"{rule_code}: project manager active conflict requires manual review")
         if carrier.get("fail_closed") is True or carrier.get("readback_state") == "FAIL_CLOSED_INCOMPLETE_OR_NON_PUBLIC":
             reasons.append(f"{rule_code}: active conflict readback failed closed")
         if carrier.get("no_legal_conclusion") is False or carrier.get("customer_visible") is True:
             reasons.append(f"{rule_code}: active conflict boundary violation")
+        identity_resolution = carrier.get("manager_identity_resolution")
+        if rule_code == "PM-002" and isinstance(identity_resolution, Mapping):
+            for reason in ensure_list(identity_resolution.get("failure_reasons")):
+                if reason not in (None, ""):
+                    reasons.append(f"{rule_code}: identity resolution {reason}")
+        registration_timeline = carrier.get("registration_timeline_verification")
+        if rule_code == "PM-001":
+            if not isinstance(registration_timeline, Mapping):
+                reasons.append(f"{rule_code}: project manager registration timeline missing")
+            elif registration_timeline.get("verification_result") != "PASS":
+                timeline_reasons = ensure_list(registration_timeline.get("failure_reasons"))
+                if not timeline_reasons:
+                    reasons.append(f"{rule_code}: project manager registration timeline review")
+                for reason in timeline_reasons:
+                    if reason not in (None, ""):
+                        reasons.append(f"{rule_code}: registration timeline {reason}")
         return reasons
 
     def _degrade_for_preflight(
@@ -605,7 +635,12 @@ class RuleRunner:
                 preflight_reasons.append(
                     f"{rule_code}: weak evidence confidence {confidence:.2f} below {float(profile['minimum_confidence']):.2f}"
                 )
-            preflight_reasons.extend(self._active_conflict_review_reasons(rule_code=rule_code, inputs=inputs))
+            preflight_reasons.extend(
+                self._project_manager_public_readback_review_reasons(
+                    rule_code=rule_code,
+                    inputs=inputs,
+                )
+            )
             (
                 rule_gate_status_for_hit,
                 rule_hit_state_for_hit,

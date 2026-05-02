@@ -108,6 +108,61 @@ class _FakeReviewCandidateDiscoveryService:
         }
 
 
+class _FakeAcceptedRealCandidateDiscoveryService:
+    def discover(self, payload: dict, *, now: str | None = None) -> dict:
+        return {
+            "surface_id": "operator_real_candidate_discovery",
+            "discovery_run_id": "REAL-CANDIDATE-DISCOVERY-ACCEPTED",
+            "discovery_state": "COMPLETED",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "real_market_discovery": True,
+            "region_codes": list(payload.get("region_codes", []) or []),
+            "project_types": list(payload.get("project_types", []) or []),
+            "candidate_count": 1,
+            "candidates": [
+                {
+                    "notice_id": "NOTICE-REAL-LIST-READY-001",
+                    "project_id": "PROJ-REAL-LIST-READY-001",
+                    "project_name": "广东市政道路工程中标候选人公示",
+                    "region_code": "CN-GD",
+                    "region_name": "广东",
+                    "project_type": "municipal",
+                    "project_type_label": "市政工程",
+                    "notice_stage": "candidate_notice",
+                    "amount": 12_000_000,
+                    "estimated_amount": 12_000_000,
+                    "amount_min": 8_000_000,
+                    "amount_max": 30_000_000,
+                    "candidate_count": 2,
+                    "competitor_count": 2,
+                    "candidate_company": "广东测试建设有限公司",
+                    "key_fields_present": ["project_name", "notice_stage", "candidate_company"],
+                    "objection_deadline_at_optional": "2026-05-08T23:59:59+08:00",
+                    "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?noticeId=ready-001",
+                    "source_family": "local_public_resource_trading_center",
+                    "source_registry_id": "REAL_PUBLIC_LIST_PAGE_DISCOVERY",
+                    "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+                    "source_site_name": "广东省公共资源交易平台",
+                    "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+                    "is_offline_sample_candidate": False,
+                    "sellability_evidence_state": "REAL_LIST_PAGE_CANDIDATE_NEEDS_DETAIL_CAPTURE",
+                    "candidate_key": "real-list-ready-001",
+                    "snapshot_id_optional": "SNAP-GD-READY-LIST",
+                    "market_scan_generated_at": now or "2026-05-01T00:00:00+00:00",
+                }
+            ],
+            "profile_reports": [
+                {
+                    "profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+                    "status": "FETCHED",
+                    "same_site_detail_link_count": 1,
+                    "candidate_count": 1,
+                }
+            ],
+            "repository_backed_readback": True,
+        }
+
+
 class _FakeReviewCandidateStage2CaptureService:
     def capture_candidates(
         self,
@@ -139,6 +194,31 @@ class _FakeReviewCandidateStage2CaptureService:
             "enriched_candidates": enriched,
             "repository_backed_readback": True,
         }
+
+
+def _partial_real_public_stage4_9_readback(*args: object, **kwargs: object) -> dict:
+    return {
+        "surface_id": "operator_real_public_stage4_9_readback",
+        "readback_state": "READBACK_READY",
+        "real_public_stage4_9_chain_state": "INTERNAL_READY",
+        "stage4_public_verification_result": "MATCHED",
+        "stage4_public_verification_readback_state": "READBACK_READY",
+        "stage5_rule_gate_status": "PASS",
+        "stage5_evidence_gate_status": "PASS",
+        "stage6_real_public_product_package_chain_state": "INTERNAL_READY",
+        "stage7_real_public_sales_package_chain_state": "INTERNAL_READY",
+        "stage8_real_public_outreach_chain_state": "INTERNAL_READY",
+        "stage9_real_public_order_payment_delivery_chain_state": "INTERNAL_READY",
+        "formal_real_public_readback_ready": True,
+        "real_public_sellable_gate_ready": False,
+        "customer_sellable_evidence_ready": False,
+        "real_world_hard_defect_gate_state": "PARTIAL_SOURCE_COVERAGE",
+        "remaining_real_world_gaps": [
+            "missing_stage4_5_source_type:construction_permit",
+            "stage4_5_local_housing_contract_completion_pm_change_penalty_adapters_pending",
+        ],
+        "fail_closed_reasons": [],
+    }
 
 
 class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
@@ -402,6 +482,61 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(runs["run_count"], 1)
         self.assertEqual(runs["runs"][0]["source_candidate_mode"], "REAL_PUBLIC_SOURCE_CANDIDATES")
         self.assertEqual(runs["runs"][0]["search_state"], "REVIEW_REQUIRED")
+
+    @patch(
+        "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+        return_value=_FakeAcceptedRealCandidateDiscoveryService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access.RealCandidateStage2CaptureService",
+        return_value=_FakeReviewCandidateStage2CaptureService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
+        side_effect=_partial_real_public_stage4_9_readback,
+    )
+    def test_real_public_search_does_not_accept_when_hard_defect_sources_are_partial(
+        self,
+        _real_public_readback: object,
+        _stage2_capture_service: object,
+        _discovery_service: object,
+    ) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD"],
+                "query": "市政道路",
+                "project_types": ["municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_state"], "REVIEW_REQUIRED")
+        self.assertEqual(payload["capability_state"], "REAL_PUBLIC_STAGE4_5_SOURCE_COVERAGE_PENDING")
+        self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 1)
+        self.assertTrue(payload["opportunity_id"])
+        self.assertEqual(
+            payload["real_public_stage4_9_readback"]["real_public_stage4_9_chain_state"],
+            "INTERNAL_READY",
+        )
+        self.assertFalse(payload["real_public_stage4_9_readback"]["real_public_sellable_gate_ready"])
+        self.assertEqual(
+            payload["closed_loop_results"][0]["real_world_hard_defect_gate_state"],
+            "PARTIAL_SOURCE_COVERAGE",
+        )
+        self.assertEqual(payload["closed_loop_results"][0]["search_state"], "REVIEW_REQUIRED")
+        self.assertIn(
+            "stage4_5_local_housing_contract_completion_pm_change_penalty_adapters_pending",
+            payload["data_boundary"]["remaining_real_world_gaps"],
+        )
+        self.assertFalse(payload["data_boundary"]["customer_sellable_evidence_ready"])
 
     def test_operator_autonomous_search_runs_region_to_workbench_loop(self) -> None:
         client = TestClient(create_app())

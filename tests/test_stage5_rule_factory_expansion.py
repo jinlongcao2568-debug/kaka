@@ -171,7 +171,7 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertEqual(factory["runtime_components"], ["RuleRunner", "EvidenceBuilder", "GateEvaluator"])
         self.assertEqual(factory["selection_policy"]["stage"], 5)
         self.assertEqual(factory["selection_policy"]["default_selection_limit"], 3)
-        for rule_code in ("PROC-001", "PROC-002", "DOC-001", "PM-002"):
+        for rule_code in ("PROC-001", "PROC-002", "DOC-001", "PM-001", "PM-002"):
             binding = bindings[rule_code]
             self.assertTrue(binding["enabled"])
             self.assertEqual(binding["version"], "stage5-factory-v1")
@@ -246,6 +246,30 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
             "active_conflict_run_id": "PMAC-RUN-001",
             "overlap_judgement": "OVERLAP_RISK",
             "review_required": True,
+            "project_timeline_evidence_refs": [
+                {
+                    "verification_run_id": "ST4-PERMIT-001",
+                    "verification_target_type": "construction_permit",
+                    "source_snapshot_id": "SNAP-PERMIT-001",
+                },
+                {
+                    "verification_run_id": "ST4-CONTRACT-001",
+                    "verification_target_type": "contract_public_info",
+                    "source_snapshot_id": "SNAP-CONTRACT-001",
+                },
+                {
+                    "verification_run_id": "ST4-COMPLETION-001",
+                    "verification_target_type": "completion_filing",
+                    "source_snapshot_id": "SNAP-COMPLETION-001",
+                },
+            ],
+            "risk_signal_evidence_refs": [
+                {
+                    "verification_run_id": "ST4-PENALTY-001",
+                    "verification_target_type": "administrative_penalty_public_record",
+                    "source_snapshot_id": "SNAP-PENALTY-001",
+                }
+            ],
         }
         stage4 = stage4_bundle_with_inputs(
             {
@@ -270,9 +294,66 @@ class Stage5RuleFactoryExpansionTests(unittest.TestCase):
         self.assertEqual(pm_trace["rule_code"], "PM-002")
         self.assertEqual(pm_trace["selected_reason"], "selected_requested_rule")
         self.assertIn("PMAC-RUN-001", pm_trace["dependency_evidence"])
+        self.assertIn("ST4-PERMIT-001", pm_trace["dependency_evidence"])
+        self.assertIn("SNAP-CONTRACT-001", pm_trace["dependency_evidence"])
+        self.assertIn("ST4-COMPLETION-001", pm_trace["dependency_evidence"])
+        self.assertIn("SNAP-PENALTY-001", pm_trace["dependency_evidence"])
         self.assertTrue(any("active conflict requires manual review" in reason for reason in pm_trace["blocking_reasons"]))
         self.assertTrue(pm_trace["review_request_target_selected"])
         self.assertNotIn("project_fact", stage5.records)
+
+    def test_requested_registration_timeline_rule_uses_active_conflict_readback(self) -> None:
+        active_conflict_readback = {
+            "readback_state": "READBACK_READY",
+            "replayable": True,
+            "fail_closed": False,
+            "public_only": True,
+            "customer_visible": False,
+            "no_legal_conclusion": True,
+            "missing_required_fields": [],
+            "active_conflict_run_id": "PMAC-RUN-REG-001",
+            "overlap_judgement": "NO_PUBLIC_OVERLAP_EVIDENCE",
+            "review_required": True,
+            "registration_timeline_verification": {
+                "verification_scope": "PROJECT_MANAGER_REGISTRATION_TIMELINE",
+                "registration_at": "2026-06-15",
+                "certificate_valid_until": "2026-07-01",
+                "verification_result": "REVIEW",
+                "failure_reasons": [
+                    "project_manager_registration_after_current_project_start",
+                    "project_manager_certificate_expires_before_current_project_end",
+                ],
+                "review_required": True,
+                "no_legal_conclusion": True,
+            },
+        }
+        stage4 = stage4_bundle_with_inputs(
+            {
+                "stage5_requested_rule_codes": ["PM-001"],
+                "stage5_supported_upstream_objects": [
+                    "project_manager",
+                    "focus_bidder_verification_profile",
+                ],
+                "project_manager_active_conflict_readback": active_conflict_readback,
+            }
+        )
+
+        stage5 = Stage5Service().run(stage4)
+        pm_trace = stage5.inputs["stage5_rule_execution_trace"][0]
+
+        self.assertEqual(stage5.inputs["stage5_rule_codes"], ["PM-001"])
+        self.assertEqual(stage5.record("rule_gate_decision").get("rule_gate_status"), "REVIEW")
+        self.assertIn("review_request", stage5.records)
+        self.assertIn("PMAC-RUN-REG-001", pm_trace["dependency_evidence"])
+        self.assertIn("2026-06-15", pm_trace["dependency_evidence"])
+        self.assertTrue(
+            any(
+                "registration timeline project_manager_registration_after_current_project_start"
+                in reason
+                for reason in pm_trace["blocking_reasons"]
+            )
+        )
+        self.assertTrue(pm_trace["review_request_target_selected"])
 
     def test_missing_dependency_fails_closed_without_bypassing_gates(self) -> None:
         stage4 = stage4_bundle_with_inputs(
