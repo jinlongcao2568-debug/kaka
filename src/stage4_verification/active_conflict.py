@@ -159,6 +159,23 @@ def evaluate_project_manager_active_conflict(
         "registered_unit_optional": context.get("project_manager_registered_unit_optional")
         or context.get("candidate_company_name"),
     }
+    verification_scope_policy = build_stage45_verification_scope_policy(
+        {
+            "project_id": current_project.get("current_project_id"),
+            "project_name": current_project.get("current_project_name"),
+            "candidate_company": candidate_company.get("candidate_company_name"),
+            "project_manager_name": project_manager.get("project_manager_name"),
+            "region_code": context.get("region_code"),
+        }
+    )
+    active_conflict_scope = scope_rule_by_key(
+        verification_scope_policy,
+        "project_manager_active_conflict",
+    )
+    active_conflict_region_discovery = _active_conflict_region_discovery_summary(
+        conflicts,
+        current_region_code=str(context.get("region_code") or ""),
+    )
 
     public_evidence_chain = _public_evidence_chain(carriers)
     manager_public_refs = [
@@ -253,6 +270,7 @@ def evaluate_project_manager_active_conflict(
 
     if not conflicts:
         failure_reasons.append("possible_conflicting_project_public_record_missing")
+        failure_reasons.append("company_manager_project_region_discovery_missing")
     if saw_missing_time:
         failure_reasons.append("conflicting_project_time_window_missing")
     if saw_missing_completion:
@@ -290,20 +308,6 @@ def evaluate_project_manager_active_conflict(
         evidence_strength=evidence_strength,
         review_required=review_required,
     )
-    verification_scope_policy = build_stage45_verification_scope_policy(
-        {
-            "project_id": current_project.get("current_project_id"),
-            "project_name": current_project.get("current_project_name"),
-            "candidate_company": candidate_company.get("candidate_company_name"),
-            "project_manager_name": project_manager.get("project_manager_name"),
-            "region_code": context.get("region_code"),
-        }
-    )
-    active_conflict_scope = scope_rule_by_key(
-        verification_scope_policy,
-        "project_manager_active_conflict",
-    )
-
     return ProjectManagerActiveConflictCarrier(
         active_conflict_run_id=_stable_id(
             "ST4AC",
@@ -331,10 +335,20 @@ def evaluate_project_manager_active_conflict(
         objection_value_summary=objection_value_summary,
         verification_scope_policy={
             **verification_scope_policy,
-            "active_conflict_scope_mode": active_conflict_scope.get("scope_mode", "NATIONAL_REQUIRED"),
+            "active_conflict_scope_mode": active_conflict_scope.get(
+                "scope_mode",
+                "NATIONAL_DISCOVERY_THEN_TARGETED_REGIONAL_VERIFICATION",
+            ),
             "current_region_only_is_insufficient": bool(
                 active_conflict_scope.get("current_region_only_is_insufficient", True)
             ),
+            "targeted_region_verification_required": bool(
+                active_conflict_scope.get("targeted_region_verification_required", True)
+            ),
+            "all_region_bruteforce_required": bool(
+                active_conflict_scope.get("all_region_bruteforce_required", False)
+            ),
+            "active_conflict_region_discovery": active_conflict_region_discovery,
         },
         failure_reasons=failure_reasons,
         review_required=review_required,
@@ -398,6 +412,24 @@ def build_project_manager_active_conflict_readback(carrier: Mapping[str, Any]) -
             _mapping(carrier.get("verification_scope_policy")).get(
                 "current_region_only_is_insufficient",
                 True,
+            )
+        ),
+        "targeted_region_verification_required": bool(
+            _mapping(carrier.get("verification_scope_policy")).get(
+                "targeted_region_verification_required",
+                True,
+            )
+        ),
+        "all_region_bruteforce_required": bool(
+            _mapping(carrier.get("verification_scope_policy")).get(
+                "all_region_bruteforce_required",
+                False,
+            )
+        ),
+        "active_conflict_region_discovery": dict(
+            _mapping(carrier.get("verification_scope_policy")).get(
+                "active_conflict_region_discovery",
+                {},
             )
         ),
         "project_timeline_evidence_refs": _project_timeline_evidence_refs(evidence_chain),
@@ -722,6 +754,12 @@ def _conflicting_project_summary(
     return {
         "project_id": project_id,
         "project_name": project_name,
+        "region_code": _first_non_empty(
+            project.get("region_code"),
+            project.get("project_region_code"),
+            project.get("source_region_code"),
+            project.get("province_code"),
+        ),
         "registered_unit_name": registered_unit_name,
         "project_manager_name": manager_name,
         "project_manager_public_identifier_optional": manager_identifier,
@@ -823,6 +861,55 @@ def _aggregate_disambiguation(items: list[dict[str, Any]]) -> dict[str, Any]:
         "ambiguity_reason": best.get("ambiguity_reason"),
         "confidence": best.get("confidence", 0.0),
         "per_project": [dict(item) for item in items],
+    }
+
+
+def _active_conflict_region_discovery_summary(
+    conflicts: list[Mapping[str, Any]],
+    *,
+    current_region_code: str,
+) -> dict[str, Any]:
+    region_codes = _unique(
+        [
+            _first_non_empty(
+                project.get("region_code"),
+                project.get("project_region_code"),
+                project.get("source_region_code"),
+                project.get("province_code"),
+            )
+            for project in conflicts
+        ]
+    )
+    project_refs = [
+        {
+            "project_id": _first_non_empty(project.get("project_id"), project.get("conflicting_project_id")),
+            "project_name": _first_non_empty(project.get("project_name"), project.get("conflicting_project_name")),
+            "region_code": _first_non_empty(
+                project.get("region_code"),
+                project.get("project_region_code"),
+                project.get("source_region_code"),
+                project.get("province_code"),
+            ),
+        }
+        for project in conflicts
+    ]
+    return {
+        "scope_mode": "NATIONAL_DISCOVERY_THEN_TARGETED_REGIONAL_VERIFICATION",
+        "discovery_completed": bool(conflicts),
+        "candidate_company_first": True,
+        "project_manager_identifier_assisted": True,
+        "all_region_bruteforce_required": False,
+        "targeted_region_verification_required": True,
+        "current_project_region_code": current_region_code,
+        "current_region_only_is_insufficient": True,
+        "discovered_region_codes": region_codes,
+        "discovered_project_count": len(conflicts),
+        "discovered_project_refs": project_refs,
+        "next_step_if_empty": (
+            "run_company_manager_project_region_discovery_before_no_conflict_conclusion"
+            if not conflicts
+            else ""
+        ),
     }
 
 

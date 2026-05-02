@@ -12,6 +12,7 @@ NATIONAL_VERIFICATION_PROFILE_IDS = (
     "CREDITCHINA-HOME",
     "GSXT-HOME",
 )
+ACTIVE_CONFLICT_SCOPE_MODE = "NATIONAL_DISCOVERY_THEN_TARGETED_REGIONAL_VERIFICATION"
 
 
 def build_stage45_verification_scope_policy(candidate: Mapping[str, Any]) -> dict[str, Any]:
@@ -64,8 +65,40 @@ def build_stage45_verification_scope_policy(candidate: Mapping[str, Any]) -> dic
                 rationale="Project manager identity must be resolved by person/company identity, not by the current project province.",
             ),
             _scope_rule(
+                scope_key="company_manager_project_region_discovery",
+                scope_mode=ACTIVE_CONFLICT_SCOPE_MODE,
+                source_types=(
+                    "bid_candidate_notice",
+                    "award_result_notice",
+                    "performance_public_record",
+                    "construction_permit",
+                    "contract_public_info",
+                    "completion_filing",
+                    "project_manager_change_notice",
+                ),
+                primary_regions=("CN-NATIONAL",),
+                supplementary_regions=(region_code,),
+                primary_profiles=NATIONAL_VERIFICATION_PROFILE_IDS[:3],
+                cross_region_required=True,
+                current_region_only_is_insufficient=True,
+                targeted_region_verification_required=True,
+                all_region_bruteforce_required=False,
+                query_sequence=(
+                    "candidate_company_first",
+                    "resolved_project_manager_identifier_or_certificate",
+                    "disambiguated_project_manager_name_fallback",
+                ),
+                discovery_outputs=(
+                    "appeared_region_codes",
+                    "appeared_project_refs",
+                    "candidate_conflict_time_windows",
+                    "company_project_history_refs",
+                ),
+                rationale="Discover where the company and resolved project manager actually appeared before deep-checking regional overlap; national scope is an index-and-target strategy, not a brute-force sweep of every province.",
+            ),
+            _scope_rule(
                 scope_key="project_manager_active_conflict",
-                scope_mode="NATIONAL_REQUIRED",
+                scope_mode=ACTIVE_CONFLICT_SCOPE_MODE,
                 source_types=(
                     "personnel_public_record",
                     "performance_public_record",
@@ -78,7 +111,10 @@ def build_stage45_verification_scope_policy(candidate: Mapping[str, Any]) -> dic
                 primary_profiles=NATIONAL_VERIFICATION_PROFILE_IDS[:3],
                 cross_region_required=True,
                 current_region_only_is_insufficient=True,
-                rationale="A project manager may have active projects outside the current province; no-conflict cannot be concluded from current-region sources only.",
+                targeted_region_verification_required=True,
+                all_region_bruteforce_required=False,
+                required_prior_scope_keys=("company_manager_project_region_discovery",),
+                rationale="A project manager may have active projects outside the current province; first discover actual company/manager appearance regions, then verify those regional records for overlap.",
             ),
             _scope_rule(
                 scope_key="bidder_company_credit_and_penalty",
@@ -111,12 +147,14 @@ def build_stage45_verification_scope_policy(candidate: Mapping[str, Any]) -> dic
         ],
         "expanded_scope_keys": [
             "project_manager_identity",
+            "company_manager_project_region_discovery",
             "project_manager_active_conflict",
             "bidder_company_credit_and_penalty",
         ],
         "no_conflict_conclusion_requires": [
             "project_manager_identity_resolved",
-            "national_person_project_records_queried_or_fail_closed",
+            "company_manager_project_region_discovery_completed",
+            "discovered_regions_targeted_or_fail_closed",
             "current_project_time_window_resolved",
             "conflicting_project_completion_or_change_status_resolved",
             "all_evidence_refs_replayable",
@@ -135,6 +173,11 @@ def _scope_rule(
     primary_profiles: tuple[str, ...] = (),
     cross_region_required: bool = False,
     current_region_only_is_insufficient: bool = False,
+    targeted_region_verification_required: bool = False,
+    all_region_bruteforce_required: bool = False,
+    query_sequence: tuple[str, ...] = (),
+    discovery_outputs: tuple[str, ...] = (),
+    required_prior_scope_keys: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     return {
         "scope_key": scope_key,
@@ -145,6 +188,11 @@ def _scope_rule(
         "primary_profile_ids": list(primary_profiles),
         "cross_region_required": cross_region_required,
         "current_region_only_is_insufficient": current_region_only_is_insufficient,
+        "targeted_region_verification_required": targeted_region_verification_required,
+        "all_region_bruteforce_required": all_region_bruteforce_required,
+        "query_sequence": list(query_sequence),
+        "discovery_outputs": list(discovery_outputs),
+        "required_prior_scope_keys": list(required_prior_scope_keys),
         "rationale": rationale,
     }
 
@@ -157,6 +205,7 @@ def scope_rule_by_key(policy: Mapping[str, Any], scope_key: str) -> dict[str, An
 
 
 __all__ = [
+    "ACTIVE_CONFLICT_SCOPE_MODE",
     "NATIONAL_VERIFICATION_PROFILE_IDS",
     "build_stage45_verification_scope_policy",
     "scope_rule_by_key",

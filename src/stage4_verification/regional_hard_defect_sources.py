@@ -53,6 +53,10 @@ def _build_guangdong_source_plan(
     missing = sorted(required - covered)
     plan_id = build_id("ST4REGSRC", candidate.get("project_id") or "GD", "CN-GD")
     scope_policy = build_stage45_verification_scope_policy({**dict(candidate), "region_code": "CN-GD"})
+    region_discovery_scope = scope_rule_by_key(
+        scope_policy,
+        "company_manager_project_region_discovery",
+    )
     active_conflict_scope = scope_rule_by_key(scope_policy, "project_manager_active_conflict")
     return {
         "source_plan_id": plan_id,
@@ -68,10 +72,41 @@ def _build_guangdong_source_plan(
         "expanded_scope_keys": list(scope_policy.get("expanded_scope_keys", []) or []),
         "fixed_scope_keys": list(scope_policy.get("fixed_scope_keys", []) or []),
         "scope_warnings": [
-            "project_manager_active_conflict_requires_national_scope",
+            "project_manager_active_conflict_requires_national_discovery_then_targeted_regions",
             "current_region_only_cannot_prove_no_active_conflict",
+            "all_region_bruteforce_not_required",
         ],
         "source_entries": [
+            {
+                "entry_id": "NATIONAL-JZSC-COMPANY-MANAGER-REGION-DISCOVERY",
+                "source_profile_id": "JZSC-NATIONAL-COMPANY",
+                "source_profile_ids": [
+                    "JZSC-NATIONAL-COMPANY",
+                    "JZSC-NATIONAL-PERSON",
+                    "JZSC-NATIONAL-PROJECT",
+                ],
+                "source_name": "全国建筑市场监管公共服务平台 / 公司与项目经理出现地区发现",
+                "source_url": "https://jzsc.mohurd.gov.cn/data/company",
+                "source_family": "national_construction_market_platform",
+                "target_source_types": list(region_discovery_scope.get("source_types", []) or []),
+                "query_keys": [
+                    "candidate_company",
+                    "project_manager_name",
+                    "project_manager_certificate_no",
+                    "project_manager_public_identifier",
+                ],
+                "scope_mode": region_discovery_scope.get(
+                    "scope_mode",
+                    "NATIONAL_DISCOVERY_THEN_TARGETED_REGIONAL_VERIFICATION",
+                ),
+                "query_sequence": list(region_discovery_scope.get("query_sequence", []) or []),
+                "discovery_outputs": list(region_discovery_scope.get("discovery_outputs", []) or []),
+                "targeted_region_verification_required": True,
+                "all_region_bruteforce_required": False,
+                "current_region_only_is_insufficient": True,
+                "runtime_status": "NATIONAL_DISCOVERY_ADAPTER_REQUIRED",
+                "next_adapter": "jzsc_company_manager_project_region_discovery",
+            },
             {
                 "entry_id": "NATIONAL-JZSC-PM-ACTIVE-CONFLICT",
                 "source_profile_id": "JZSC-NATIONAL-PERSON",
@@ -89,11 +124,18 @@ def _build_guangdong_source_plan(
                     "project_manager_name",
                     "project_manager_certificate_no",
                     "project_manager_public_identifier",
+                    "discovered_region_codes",
+                    "company_project_history_refs",
                 ],
-                "scope_mode": active_conflict_scope.get("scope_mode", "NATIONAL_REQUIRED"),
+                "scope_mode": active_conflict_scope.get(
+                    "scope_mode",
+                    "NATIONAL_DISCOVERY_THEN_TARGETED_REGIONAL_VERIFICATION",
+                ),
                 "cross_region_required": True,
                 "current_region_only_is_insufficient": True,
-                "runtime_status": "NATIONAL_COMPANY_FIRST_BROWSER_EXECUTOR_PARTIAL",
+                "targeted_region_verification_required": True,
+                "all_region_bruteforce_required": False,
+                "runtime_status": "NATIONAL_DISCOVERY_PARTIAL_TARGETED_REGION_ADAPTER_PENDING",
                 "next_adapter": "jzsc_company_first_project_manager_active_conflict_query",
             },
             {
@@ -181,7 +223,9 @@ def _build_guangdong_source_plan(
         ],
         "no_no-risk_inference_without_sources": True,
         "next_required_runtime_adapters": [
+            "jzsc_company_manager_project_region_discovery",
             "jzsc_company_first_project_manager_active_conflict_query",
+            "targeted_regional_project_overlap_verification_adapter",
             "guangdong_contract_performance_query_adapter",
             "guangdong_investment_project_progress_query_adapter",
             "guangdong_housing_penalty_list_query_adapter",
@@ -215,12 +259,17 @@ def _build_generic_source_plan(
         "expanded_scope_keys": list(scope_policy.get("expanded_scope_keys", []) or []),
         "fixed_scope_keys": list(scope_policy.get("fixed_scope_keys", []) or []),
         "scope_warnings": [
-            "project_manager_active_conflict_requires_national_scope",
+            "project_manager_active_conflict_requires_national_discovery_then_targeted_regions",
             "current_region_only_cannot_prove_no_active_conflict",
+            "all_region_bruteforce_not_required",
         ],
         "source_entries": [],
         "no_no-risk_inference_without_sources": True,
-        "next_required_runtime_adapters": ["region_specific_hard_defect_source_adapter"],
+        "next_required_runtime_adapters": [
+            "jzsc_company_manager_project_region_discovery",
+            "targeted_regional_project_overlap_verification_adapter",
+            "region_specific_hard_defect_source_adapter",
+        ],
     }
 
 
