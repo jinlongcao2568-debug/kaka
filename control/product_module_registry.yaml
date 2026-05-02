@@ -515,6 +515,8 @@ stage_module_inventory:
           - src/stage4_verification/verification.py
           - src/stage4_verification/active_conflict.py
           - src/stage4_verification/jzsc_personnel.py
+          - src/stage4_verification/verification_scope_policy.py
+          - src/stage4_verification/regional_hard_defect_sources.py
           - src/stage4_verification/hard_defect_strategy.py
         handoff_files:
           - handoff/stage4_to_stage5/contract.json
@@ -527,6 +529,8 @@ stage_module_inventory:
           - tests/test_architecture_anti_drift.py
           - tests/test_project_manager_active_conflict_vertical_slice.py
           - tests/test_stage4_jzsc_personnel_adapter.py
+          - tests/test_stage4_verification_scope_policy.py
+          - tests/test_stage4_regional_hard_defect_sources.py
           - tests/test_stage4_evidence_risk_strategy.py
         depends_on_slices:
           - stage3.lineage_candidates_manager
@@ -1279,6 +1283,8 @@ modules:
       - src/stage4_verification/verification.py
       - src/stage4_verification/active_conflict.py
       - src/stage4_verification/jzsc_personnel.py
+      - src/stage4_verification/verification_scope_policy.py
+      - src/stage4_verification/regional_hard_defect_sources.py
       - src/stage4_verification/evidence_grade.py
       - handoff/stage4_to_stage5/contract.json
     current_runtime_state: PARTIAL_RUNTIME

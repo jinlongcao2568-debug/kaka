@@ -9,6 +9,10 @@ from dataclasses import asdict, dataclass
 from datetime import date
 from typing import Any, Mapping
 
+from stage4_verification.verification_scope_policy import (
+    build_stage45_verification_scope_policy,
+    scope_rule_by_key,
+)
 from stage4_verification.verification import PUBLIC_VERIFICATION_PROVIDER
 
 
@@ -67,6 +71,7 @@ class ProjectManagerActiveConflictCarrier:
     evidence_strength: dict[str, Any]
     manual_review_recommendation: dict[str, Any]
     objection_value_summary: dict[str, Any]
+    verification_scope_policy: dict[str, Any]
     failure_reasons: list[str]
     review_required: bool
     public_only: bool = True
@@ -94,6 +99,7 @@ class ProjectManagerActiveConflictCarrier:
         payload["evidence_strength"] = dict(self.evidence_strength)
         payload["manual_review_recommendation"] = dict(self.manual_review_recommendation)
         payload["objection_value_summary"] = dict(self.objection_value_summary)
+        payload["verification_scope_policy"] = dict(self.verification_scope_policy)
         payload["failure_reasons"] = list(self.failure_reasons)
         return payload
 
@@ -284,6 +290,19 @@ def evaluate_project_manager_active_conflict(
         evidence_strength=evidence_strength,
         review_required=review_required,
     )
+    verification_scope_policy = build_stage45_verification_scope_policy(
+        {
+            "project_id": current_project.get("current_project_id"),
+            "project_name": current_project.get("current_project_name"),
+            "candidate_company": candidate_company.get("candidate_company_name"),
+            "project_manager_name": project_manager.get("project_manager_name"),
+            "region_code": context.get("region_code"),
+        }
+    )
+    active_conflict_scope = scope_rule_by_key(
+        verification_scope_policy,
+        "project_manager_active_conflict",
+    )
 
     return ProjectManagerActiveConflictCarrier(
         active_conflict_run_id=_stable_id(
@@ -310,6 +329,13 @@ def evaluate_project_manager_active_conflict(
         evidence_strength=evidence_strength,
         manual_review_recommendation=manual_review_recommendation,
         objection_value_summary=objection_value_summary,
+        verification_scope_policy={
+            **verification_scope_policy,
+            "active_conflict_scope_mode": active_conflict_scope.get("scope_mode", "NATIONAL_REQUIRED"),
+            "current_region_only_is_insufficient": bool(
+                active_conflict_scope.get("current_region_only_is_insufficient", True)
+            ),
+        },
         failure_reasons=failure_reasons,
         review_required=review_required,
     )
@@ -362,6 +388,18 @@ def build_project_manager_active_conflict_readback(carrier: Mapping[str, Any]) -
         "registration_timeline_verification": dict(
             _mapping(carrier.get("registration_timeline_verification"))
         ),
+        "verification_scope_policy": dict(
+            _mapping(carrier.get("verification_scope_policy"))
+        ),
+        "active_conflict_scope_mode": _mapping(
+            carrier.get("verification_scope_policy")
+        ).get("active_conflict_scope_mode"),
+        "current_region_only_is_insufficient": bool(
+            _mapping(carrier.get("verification_scope_policy")).get(
+                "current_region_only_is_insufficient",
+                True,
+            )
+        ),
         "project_timeline_evidence_refs": _project_timeline_evidence_refs(evidence_chain),
         "risk_signal_evidence_refs": _risk_signal_evidence_refs(evidence_chain),
         "failure_reasons": list(_as_str_list(carrier.get("failure_reasons"))),
@@ -401,6 +439,7 @@ def _stage3_context(parsed_context: Mapping[str, Any] | Any) -> dict[str, Any]:
             "candidate_company",
             "company_name",
         ),
+        "region_code": first("region_code", "current_project_region_code", "project_region_code"),
         "project_manager_name": first("project_manager_name", "manager_name"),
         "project_manager_public_identifier_optional": first(
             "project_manager_public_identifier_optional",

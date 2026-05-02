@@ -337,6 +337,7 @@ class ProjectManagerActiveConflictVerticalSliceTests(unittest.TestCase):
 
         self.assertIn("src/stage4_verification/active_conflict.py", public_slice["current_files"])
         self.assertIn("src/stage4_verification/jzsc_personnel.py", public_slice["current_files"])
+        self.assertIn("src/stage4_verification/verification_scope_policy.py", public_slice["current_files"])
         self.assertIn(
             "tests/test_project_manager_active_conflict_vertical_slice.py",
             public_slice["test_files"],
@@ -346,11 +347,19 @@ class ProjectManagerActiveConflictVerticalSliceTests(unittest.TestCase):
             public_slice["test_files"],
         )
         self.assertIn(
+            "tests/test_stage4_verification_scope_policy.py",
+            public_slice["test_files"],
+        )
+        self.assertIn(
             "src/stage4_verification/active_conflict.py",
             modules["STAGE4-VERIFICATION-ATTACK-SURFACE"]["current_files"],
         )
         self.assertIn(
             "src/stage4_verification/jzsc_personnel.py",
+            modules["STAGE4-VERIFICATION-ATTACK-SURFACE"]["current_files"],
+        )
+        self.assertIn(
+            "src/stage4_verification/verification_scope_policy.py",
             modules["STAGE4-VERIFICATION-ATTACK-SURFACE"]["current_files"],
         )
 
