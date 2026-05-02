@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 from dataclasses import dataclass, field
 from io import BytesIO
+from pathlib import Path
 from typing import Callable
 
 
@@ -78,10 +80,12 @@ def extract_image_text_with_ocr(
             warnings=[OCR_REQUIRED, OCR_ENGINE_UNAVAILABLE],
         )
     try:
+        _configure_tesseract(pytesseract)
         image = Image.open(BytesIO(data))
         text = pytesseract.image_to_string(
             image,
-            lang=os.environ.get("AX9S_OCR_LANG", "chi_sim+eng"),
+            lang=_ocr_lang(),
+            config=_tesseract_config(),
         ).strip()
     except Exception as exc:  # pragma: no cover - public images and local OCR vary
         return ExtractedText(
@@ -177,6 +181,7 @@ def _extract_pdf_ocr_text(
             warnings=[OCR_REQUIRED, OCR_ENGINE_UNAVAILABLE],
         )
     try:
+        _configure_tesseract(pytesseract)
         document = fitz.open(stream=data, filetype="pdf")
         page_texts: list[str] = []
         for page in list(document)[:max_pages]:
@@ -184,7 +189,8 @@ def _extract_pdf_ocr_text(
             image = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
             text = pytesseract.image_to_string(
                 image,
-                lang=os.environ.get("AX9S_OCR_LANG", "chi_sim+eng"),
+                lang=_ocr_lang(),
+                config=_tesseract_config(),
             )
             if text.strip():
                 page_texts.append(text.strip())
@@ -247,3 +253,59 @@ def _provided_ocr_text(data: bytes, provider: OcrTextProvider, *, extractor: str
         review_required=True,
         warnings=[OCR_REQUIRED],
     )
+
+
+def _configure_tesseract(pytesseract: object) -> None:
+    command = _tesseract_command()
+    if command:
+        pytesseract.pytesseract.tesseract_cmd = command  # type: ignore[attr-defined]
+
+
+def _tesseract_command() -> str:
+    explicit = os.environ.get("AX9S_TESSERACT_CMD") or os.environ.get("TESSERACT_CMD")
+    candidates = [
+        explicit,
+        shutil.which("tesseract"),
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return str(candidate)
+    return ""
+
+
+def _tesseract_data_dir() -> str:
+    local_app_data = os.environ.get("LOCALAPPDATA") or ""
+    candidates = [
+        os.environ.get("AX9S_TESSDATA_DIR"),
+        os.environ.get("TESSDATA_PREFIX"),
+        str(Path(local_app_data) / "Tesseract-OCR" / "tessdata") if local_app_data else "",
+        r"C:\Program Files\Tesseract-OCR\tessdata",
+        r"C:\Program Files (x86)\Tesseract-OCR\tessdata",
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_dir():
+            return str(candidate)
+    return ""
+
+
+def _tesseract_config() -> str:
+    tessdata_dir = _tesseract_data_dir()
+    return f"--tessdata-dir {tessdata_dir}" if tessdata_dir else ""
+
+
+def _ocr_lang() -> str:
+    configured = os.environ.get("AX9S_OCR_LANG")
+    if configured:
+        return configured
+    tessdata_dir = _tesseract_data_dir()
+    available = {
+        path.stem
+        for path in Path(tessdata_dir).glob("*.traineddata")
+    } if tessdata_dir else set()
+    if {"chi_sim", "eng"}.issubset(available):
+        return "chi_sim+eng"
+    if "chi_sim" in available:
+        return "chi_sim"
+    return "eng"
