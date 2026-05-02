@@ -705,6 +705,8 @@ def _overlay_stage2_capture_on_candidate(
     row["stage2_attachment_snapshot_count"] = len(attachment_snapshot_ids)
     row["stage2_attachment_snapshot_ids"] = attachment_snapshot_ids
     row["stage2_attachment_captures"] = attachment_captures
+    row["attachment_ocr_required_count"] = _as_int(fields.get("attachment_ocr_required_count"), 0)
+    row["attachment_ocr_extracted_count"] = _as_int(fields.get("attachment_ocr_extracted_count"), 0)
     if fields.get("project_name"):
         row["project_name"] = str(fields["project_name"])
     if fields.get("notice_stage"):
@@ -2375,6 +2377,12 @@ def _stage1_6_validation_ledger(
                     "project_manager_certificate_no": sum(1 for row in raw_candidates if row.get("project_manager_certificate_no")),
                     "project_manager_certificate_type": sum(1 for row in raw_candidates if row.get("project_manager_certificate_type")),
                     "project_manager_cert_specialty": sum(1 for row in raw_candidates if row.get("project_manager_cert_specialty")),
+                    "attachment_ocr_required_count": sum(
+                        _as_int(row.get("attachment_ocr_required_count"), 0) for row in raw_candidates
+                    ),
+                    "attachment_ocr_extracted_count": sum(
+                        _as_int(row.get("attachment_ocr_extracted_count"), 0) for row in raw_candidates
+                    ),
                 },
             },
             {

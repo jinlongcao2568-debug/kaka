@@ -1452,6 +1452,8 @@ class RealCandidateStage2CaptureService:
         row["stage2_attachment_snapshot_count"] = len(attachment_snapshot_ids)
         row["stage2_attachment_snapshot_ids"] = attachment_snapshot_ids
         row["stage2_attachment_captures"] = list(capture.get("attachment_captures", []) or [])
+        row["attachment_ocr_required_count"] = _as_int(fields.get("attachment_ocr_required_count"), 0)
+        row["attachment_ocr_extracted_count"] = _as_int(fields.get("attachment_ocr_extracted_count"), 0)
         if fields.get("project_name"):
             row["project_name"] = str(fields["project_name"])
         if fields.get("notice_stage"):

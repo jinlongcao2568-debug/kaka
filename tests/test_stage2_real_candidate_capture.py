@@ -797,6 +797,8 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["candidate_company"], "广东省机电建设有限公司")
         self.assertEqual(enriched["project_manager_name"], "李建国")
         self.assertEqual(enriched["project_manager_certificate_no"], "144202498765")
+        self.assertEqual(enriched["attachment_ocr_required_count"], 1)
+        self.assertEqual(enriched["attachment_ocr_extracted_count"], 1)
         fields = result["captures"][0]["detail_fields"]
         self.assertEqual(fields["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
         self.assertEqual(fields["attachment_ocr_required_count"], 1)
