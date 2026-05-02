@@ -231,45 +231,21 @@ def _company_like_pattern() -> str:
     return rf"((?:（主）|\(主\))?[\u4e00-\u9fffA-Za-z0-9（）()·\-]{{2,80}}?(?:{suffix_pattern}))"
 
 
-def _infer_engineering_work_lane(text: str, fallback_project_type: str) -> dict[str, str]:
+def _infer_engineering_work_lane(
+    text: str,
+    fallback_project_type: str,
+    *,
+    title: str = "",
+) -> dict[str, str]:
+    title_text = _clean_text(title)
+    title_lane = _engineering_lane_from_text(title_text, parse_state="DETAIL_TITLE_ROLE_LANE")
+    if title_lane["engineering_work_lane"] != "unknown_engineering":
+        return title_lane
     haystack = _clean_text(text)
+    text_lane = _engineering_lane_from_text(haystack, parse_state="DETAIL_TEXT_ROLE_LANE")
+    if text_lane["engineering_work_lane"] != "unknown_engineering":
+        return text_lane
     project_type = str(fallback_project_type or "").strip().lower()
-    if any(token in haystack for token in ("监理", "总监理工程师", "总监")):
-        return {
-            "engineering_work_lane": "supervision",
-            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
-            "engineering_role_route": "chief_supervision_engineer_identity_chain",
-        }
-    if any(token in haystack for token in ("工程总承包", "设计施工总承包", "EPC", "施工总承包", "施工", "建安", "安装", "装修")):
-        return {
-            "engineering_work_lane": "construction_or_epc",
-            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
-            "engineering_role_route": "project_manager_identity_chain",
-        }
-    if "勘察设计" in haystack or ("勘察" in haystack and "设计" in haystack):
-        return {
-            "engineering_work_lane": "survey_design",
-            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
-            "engineering_role_route": "survey_design_responsible_person_identity_chain",
-        }
-    if "勘察" in haystack:
-        return {
-            "engineering_work_lane": "survey",
-            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
-            "engineering_role_route": "survey_lead_identity_chain",
-        }
-    if "设计" in haystack:
-        return {
-            "engineering_work_lane": "design",
-            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
-            "engineering_role_route": "design_lead_identity_chain",
-        }
-    if any(token in haystack for token in ("设备", "材料", "采购", "服务")):
-        return {
-            "engineering_work_lane": "supplier_service",
-            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
-            "engineering_role_route": "supplier_qualification_credit_chain",
-        }
     if project_type in {"construction", "municipal", "highway", "water", "water_conservancy", "building"}:
         return {
             "engineering_work_lane": "construction_or_epc",
@@ -280,6 +256,68 @@ def _infer_engineering_work_lane(text: str, fallback_project_type: str) -> dict[
         return {
             "engineering_work_lane": "supplier_service",
             "engineering_work_lane_parse_state": "PROJECT_TYPE_FALLBACK_LANE",
+            "engineering_role_route": "supplier_qualification_credit_chain",
+        }
+    return {
+        "engineering_work_lane": "unknown_engineering",
+        "engineering_work_lane_parse_state": "DETAIL_TEXT_NOT_CLASSIFIED",
+        "engineering_role_route": "review_required_before_role_gate",
+    }
+
+
+def _engineering_lane_from_text(text: str, *, parse_state: str) -> dict[str, str]:
+    if not text:
+        return {
+            "engineering_work_lane": "unknown_engineering",
+            "engineering_work_lane_parse_state": "DETAIL_TEXT_NOT_CLASSIFIED",
+            "engineering_role_route": "review_required_before_role_gate",
+        }
+    if any(token in text for token in ("造价咨询", "第三方监测", "检测服务", "监测及检测", "咨询服务")):
+        return {
+            "engineering_work_lane": "supplier_service",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "supplier_qualification_credit_chain",
+        }
+    if any(token in text for token in ("勘察设计施工总承包", "设计施工总承包", "EPC", "工程总承包", "施工总承包")):
+        return {
+            "engineering_work_lane": "construction_or_epc",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "project_manager_identity_chain",
+        }
+    if "勘察设计" in text or ("勘察" in text and "设计" in text and "施工" not in text):
+        return {
+            "engineering_work_lane": "survey_design",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "survey_design_responsible_person_identity_chain",
+        }
+    if any(token in text for token in ("施工监理", "工程监理", "监理服务", "总监理工程师", "总监")):
+        return {
+            "engineering_work_lane": "supervision",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "chief_supervision_engineer_identity_chain",
+        }
+    if "勘察" in text:
+        return {
+            "engineering_work_lane": "survey",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "survey_lead_identity_chain",
+        }
+    if "设计" in text:
+        return {
+            "engineering_work_lane": "design",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "design_lead_identity_chain",
+        }
+    if any(token in text for token in ("施工", "建安", "安装", "装修")):
+        return {
+            "engineering_work_lane": "construction_or_epc",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "project_manager_identity_chain",
+        }
+    if any(token in text for token in ("设备", "材料", "采购", "服务")):
+        return {
+            "engineering_work_lane": "supplier_service",
+            "engineering_work_lane_parse_state": parse_state,
             "engineering_role_route": "supplier_qualification_credit_chain",
         }
     return {
@@ -300,6 +338,55 @@ def _extract_role_name_by_patterns(text: str, patterns: tuple[str, ...]) -> tupl
             continue
         return candidate_name, "DETAIL_TEXT_ROLE_CONTEXT"
     return "", "DETAIL_TEXT_NOT_FOUND"
+
+
+def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
+    company_pattern = _company_like_pattern()
+    patterns = (
+        rf"(?:项目负责人姓名及资格证书\s*编号|项目负责人姓名及资格证书编号|项目负责人姓名/资格证书编号)"
+        rf".{{0,260}}?{company_pattern}.{{0,260}}?"
+        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[A-Za-z0-9\-]{{5,40}})",
+        rf"(?:项目负责人姓名|项目负责人).{{0,220}}?{company_pattern}.{{0,220}}?"
+        rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[A-Za-z0-9\-]{{5,40}})",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        name = _clean_text(match.group("name")).strip(" ：:，,；;。")
+        cert = _clean_text(match.group("cert")).strip(" ：:，,；;。")
+        if not _looks_like_person_name(name):
+            continue
+        return {
+            "primary_responsible_person_name": name,
+            "project_manager_certificate_no": cert,
+            "parse_state": "DETAIL_TEXT_CANDIDATE_ROLE_CERT_TABLE",
+        }
+    body_match = re.search(
+        r"(?:项目负责人姓名及资格证书\s*编号|项目负责人姓名及资格证书编号|项目负责人姓名/资格证书编号|项目负责人)"
+        r"(?P<body>.{0,420})",
+        text,
+    )
+    if body_match:
+        body = body_match.group("body")
+        for match in re.finditer(
+            r"(?:\d[\d,.]*\s*(?:元|%)?\s+){1,4}(?P<name>[\u4e00-\u9fff·]{2,8})(?:\s*/\s*(?P<cert>[A-Za-z0-9\-]{5,40}))?",
+            body,
+        ):
+            name = _clean_text(match.group("name")).strip(" ：:，,；;。")
+            if not _looks_like_person_name(name):
+                continue
+            cert = _clean_text(match.group("cert") or "").strip(" ：:，,；;。")
+            return {
+                "primary_responsible_person_name": name,
+                "project_manager_certificate_no": cert,
+                "parse_state": "DETAIL_TEXT_CANDIDATE_ROLE_TABLE",
+            }
+    return {
+        "primary_responsible_person_name": "",
+        "project_manager_certificate_no": "",
+        "parse_state": "DETAIL_TEXT_NOT_FOUND",
+    }
 
 
 def _lane_primary_role(work_lane: str) -> str:
@@ -502,6 +589,10 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
         primary_state = str(summary_table["parse_state"])
         primary_role = _lane_primary_role(work_lane)
     else:
+        table_role = _extract_candidate_table_responsible_person(search_text)
+        table_role_name = str(table_role.get("primary_responsible_person_name") or "")
+        table_role_cert = str(table_role.get("project_manager_certificate_no") or "")
+        table_role_state = str(table_role.get("parse_state") or "DETAIL_TEXT_NOT_FOUND")
         supervision_patterns = (
             r"(?:总监理工程师姓名|总监理工程师|总监|监理负责人)(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
             r"(?:拟派)?(?:项目|标段|监理)负责人(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
@@ -551,6 +642,10 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
             primary_name = construction_manager_name
             primary_state = construction_manager_state
             primary_role = "project_manager"
+        elif table_role_name:
+            primary_name = table_role_name
+            primary_state = table_role_state
+            primary_role = _lane_primary_role(work_lane)
     if primary_name and not primary_role:
         primary_role = _lane_primary_role(work_lane)
     if primary_name:
@@ -589,6 +684,9 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
             certificate_no = _clean_text(match.group(1)).strip(" ：:，,；;。")
             certificate_state = "DETAIL_TEXT_CANDIDATE_TABLE"
             break
+    if not certificate_no and "table_role_cert" in locals() and table_role_cert:
+        certificate_no = table_role_cert
+        certificate_state = table_role_state
     identity = _extract_project_manager_certificate_identity(certificate_search_text or search_text)
     return {
         "primary_responsible_role": primary_role,
@@ -1232,6 +1330,7 @@ class RealCandidateStage2CaptureService:
         work_lane = _infer_engineering_work_lane(
             f"{title} {text[:2000]}",
             str(candidate.get("project_type") or ""),
+            title=title,
         )
         project_manager_identity = _extract_project_manager(
             text,
