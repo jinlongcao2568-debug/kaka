@@ -195,6 +195,10 @@ def _has_real_detail_attachment_evidence(candidate: Mapping[str, Any]) -> bool:
     return has_detail and has_attachment
 
 
+def _is_real_public_candidate(candidate: Mapping[str, Any]) -> bool:
+    return str(candidate.get("source_candidate_mode") or "") == "REAL_PUBLIC_SOURCE_CANDIDATES"
+
+
 def _required_key_fields_for_candidate(candidate: Mapping[str, Any], notice_stage: str) -> set[str]:
     if notice_stage in DISCOVERY_NOTICE_STAGES and _has_real_detail_attachment_evidence(candidate):
         return {"project_name", "notice_stage"}
@@ -486,7 +490,13 @@ class Stage1MarketScanEngine:
 
         score = sum(score_components.values())
         analyze_threshold = _as_int(payload.get("analysis_score_threshold"), DEFAULT_ANALYZE_SCORE)
-        if why_skip:
+        if why_skip and _is_real_public_candidate(candidate):
+            review_reasons.extend(f"source_candidate_preserved_for_review:{reason}" for reason in why_skip)
+            why_skip = []
+            decision = "REVIEW"
+            priority = "REVIEW"
+            selected = False
+        elif why_skip:
             decision = "SKIP"
             priority = "SKIPPED"
             selected = False

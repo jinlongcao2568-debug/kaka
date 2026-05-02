@@ -221,6 +221,40 @@ class TestStage1MarketScan(unittest.TestCase):
         self.assertEqual(candidate["market_segment"]["minimum_amount"], 1_000_000)
         self.assertEqual(candidate["market_segment"]["maximum_amount"], 30_000_000)
 
+    def test_real_public_candidates_are_preserved_for_review_instead_of_skipped(self) -> None:
+        payload = {
+            **self.payload,
+            "scan_run_id": "MKTSCAN-REAL-PRESERVE-001",
+            "minimum_amount": 1_000_000,
+            "maximum_amount": 30_000_000,
+            "notice_candidates": [
+                {
+                    **self.payload["notice_candidates"][0],
+                    "notice_id": "NOTICE-REAL-ABOVE-MAX-001",
+                    "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+                    "amount": 50_000_000,
+                    "objection_deadline_at_optional": "2026-04-20T00:00:00+00:00",
+                }
+            ],
+        }
+
+        scan = Stage1MarketScanEngine().run(payload)
+
+        self.assertEqual(scan["selected_candidate_count"], 0)
+        self.assertEqual(scan["skipped_candidate_count"], 0)
+        self.assertEqual(scan["review_candidate_count"], 1)
+        candidate = scan["review_candidates"][0]
+        self.assertEqual(candidate["analysis_decision"], "REVIEW")
+        self.assertIn(
+            "source_candidate_preserved_for_review:amount_above_maximum",
+            candidate["review_reasons"],
+        )
+        self.assertIn(
+            "source_candidate_preserved_for_review:objection_window_expired",
+            candidate["review_reasons"],
+        )
+        self.assertEqual(candidate["why_skip"], [])
+
     def test_real_discovery_tender_with_detail_snapshot_can_enter_analysis_without_objection_deadline(self) -> None:
         payload = {
             **self.payload,

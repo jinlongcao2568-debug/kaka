@@ -28,8 +28,10 @@ REAL_PUBLIC_SOURCE_CANDIDATE_MODE = "REAL_PUBLIC_SOURCE_CANDIDATES"
 REAL_CANDIDATE_DISCOVERY_RUN_WORK_ITEM_ID = "operator-real-candidate-discovery-runs"
 REAL_CANDIDATE_DISCOVERY_CANDIDATE_WORK_ITEM_ID = "operator-real-candidate-discovery-candidates"
 
-DEFAULT_DISCOVERY_CANDIDATE_LIMIT = 20
+DEFAULT_DISCOVERY_CANDIDATE_LIMIT = 100
 DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION = 3
+GUANGDONG_DISCOVERY_PAGE_SIZE = 50
+MAX_GUANGDONG_DISCOVERY_PAGES = 3
 
 _PROJECT_TYPE_LABELS = {
     "construction": "房建工程",
@@ -467,7 +469,7 @@ def _url_decode_for_guangdong_signature(value: str) -> str:
 def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
     endpoint = "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items"
     start_date, end_date = _date_window_from_now(now)
-    payload = {
+    base_payload = {
         "type": "trading-type",
         "openConvert": False,
         "keyword": "",
@@ -478,45 +480,61 @@ def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
         "projectType": "",
         "publishStartTime": "",
         "publishEndTime": "",
-        "pageNo": 1,
-        "pageSize": 20,
+        "pageSize": GUANGDONG_DISCOVERY_PAGE_SIZE,
     }
-    request = Request(
-        endpoint,
-        data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
-        headers={
-            "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/plain, */*",
-            "Referer": "https://ygp.gdzwfw.gov.cn/",
-            **_guangdong_ygp_signature_headers(payload),
-        },
-        method="POST",
-    )
-    try:
-        with urlopen(request, timeout=18) as response:
-            raw = response.read(1_500_000).decode("utf-8", "ignore")
-        data = json.loads(raw)
-    except Exception as exc:  # pragma: no cover - public network failures vary
-        return {
-            "state": "FAILED",
-            "endpoint": endpoint,
-            "items": [],
-            "error_optional": str(exc),
-            "query_window": {"start_date": start_date, "end_date": end_date},
-        }
-
-    page_data = list(((data.get("data") or {}).get("pageData") or []))
-    items = _link_items_from_guangdong_ygp_records(page_data)
+    all_records: list[Any] = []
+    total = ""
+    page_errors: list[str] = []
+    for page_no in range(1, MAX_GUANGDONG_DISCOVERY_PAGES + 1):
+        payload = {**base_payload, "pageNo": page_no}
+        request = Request(
+            endpoint,
+            data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+            headers={
+                "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/plain, */*",
+                "Referer": "https://ygp.gdzwfw.gov.cn/",
+                **_guangdong_ygp_signature_headers(payload),
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=18) as response:
+                raw = response.read(1_500_000).decode("utf-8", "ignore")
+            data = json.loads(raw)
+        except Exception as exc:  # pragma: no cover - public network failures vary
+            page_errors.append(f"page_{page_no}:{exc}")
+            if not all_records:
+                return {
+                    "state": "FAILED",
+                    "endpoint": endpoint,
+                    "items": [],
+                    "error_optional": str(exc),
+                    "query_window": {"start_date": start_date, "end_date": end_date},
+                    "page_size": GUANGDONG_DISCOVERY_PAGE_SIZE,
+                    "attempted_pages": page_no,
+                }
+            break
+        page_data = list(((data.get("data") or {}).get("pageData") or []))
+        total = str((data.get("data") or {}).get("total") or total or "")
+        if not page_data:
+            break
+        all_records.extend(page_data)
+        if len(page_data) < GUANGDONG_DISCOVERY_PAGE_SIZE:
+            break
+    items = _link_items_from_guangdong_ygp_records(all_records)
     return {
         "state": "FETCHED" if items else "EMPTY",
         "endpoint": endpoint,
         "items": items,
-        "error_optional": "",
+        "error_optional": ";".join(page_errors),
         "query_window": {"start_date": start_date, "end_date": end_date},
         "api_time_filter_state": "local_publish_time_filter_after_default_recent_list",
-        "record_count": len(page_data),
-        "total": str((data.get("data") or {}).get("total") or ""),
+        "page_size": GUANGDONG_DISCOVERY_PAGE_SIZE,
+        "attempted_pages": min(MAX_GUANGDONG_DISCOVERY_PAGES, max(1, (len(all_records) + GUANGDONG_DISCOVERY_PAGE_SIZE - 1) // GUANGDONG_DISCOVERY_PAGE_SIZE)),
+        "record_count": len(all_records),
+        "total": total,
     }
 
 
@@ -947,6 +965,13 @@ def _operator_diagnosis_for_profile(
         diagnoses.append("all_or_some_links_filtered_by_project_type")
     if rejected.get("amount_below_minimum") or rejected.get("amount_above_maximum"):
         diagnoses.append("all_or_some_links_filtered_by_amount_range")
+    preserved = dict(diagnostics.get("preserved_filter_counts", {}) or {})
+    if preserved.get("published_outside_discovery_window"):
+        diagnoses.append("some_candidates_preserved_with_old_publish_time_review")
+    if preserved.get("project_type_mismatch"):
+        diagnoses.append("some_candidates_preserved_with_project_type_review")
+    if preserved.get("amount_below_minimum") or preserved.get("amount_above_maximum"):
+        diagnoses.append("some_candidates_preserved_with_amount_range_review")
     if link_count and not accepted and rejected.get("navigation_or_template_link"):
         diagnoses.append("links_present_but_navigation_or_template_only")
     if link_count and not accepted and (
@@ -962,6 +987,7 @@ def _operator_diagnosis_for_profile(
 def _next_action_for_profile_diagnostics(diagnostics: Mapping[str, Any]) -> str:
     diagnoses = set(str(item) for item in list(diagnostics.get("operator_diagnosis", []) or []))
     rejected = dict(diagnostics.get("rejected_counts", {}) or {})
+    preserved = dict(diagnostics.get("preserved_filter_counts", {}) or {})
     if _as_int(diagnostics.get("accepted_candidate_count"), 0):
         return "继续抓取详情页和附件，进入 Stage2-9。"
     if "province_realtime_source_not_registered" in diagnoses:
@@ -976,6 +1002,8 @@ def _next_action_for_profile_diagnostics(diagnostics: Mapping[str, Any]) -> str:
         return "扩展列表标题项目类型识别词，或调整本次项目类型筛选。"
     if rejected.get("amount_below_minimum") or rejected.get("amount_above_maximum"):
         return "放宽金额区间或改进列表/详情金额解析，再重新运行。"
+    if preserved:
+        return "候选未在源头丢弃；带复核标签进入候选池，下一步抓详情页/附件后再按窗口、金额、项目类型判断。"
     if rejected.get("navigation_or_template_link"):
         return "当前抓到的是栏目导航或前端模板占位链接；下一步接真实列表数据接口或浏览器渲染后的公告行。"
     if rejected.get("not_candidate_detail_url"):
@@ -985,6 +1013,7 @@ def _next_action_for_profile_diagnostics(diagnostics: Mapping[str, Any]) -> str:
 
 def _discovery_diagnostics_summary(profile_reports: list[dict[str, Any]]) -> dict[str, Any]:
     rejected_totals: dict[str, int] = {}
+    preserved_filter_totals: dict[str, int] = {}
     diagnosis_totals: dict[str, int] = {}
     link_item_count = 0
     accepted_candidate_count = 0
@@ -994,6 +1023,8 @@ def _discovery_diagnostics_summary(profile_reports: list[dict[str, Any]]) -> dic
         accepted_candidate_count += _as_int(diagnostics.get("accepted_candidate_count"), 0)
         for key, value in dict(diagnostics.get("rejected_counts", {}) or {}).items():
             rejected_totals[str(key)] = rejected_totals.get(str(key), 0) + _as_int(value, 0)
+        for key, value in dict(diagnostics.get("preserved_filter_counts", {}) or {}).items():
+            preserved_filter_totals[str(key)] = preserved_filter_totals.get(str(key), 0) + _as_int(value, 0)
         for item in list(diagnostics.get("operator_diagnosis", []) or []):
             text = str(item)
             diagnosis_totals[text] = diagnosis_totals.get(text, 0) + 1
@@ -1014,6 +1045,7 @@ def _discovery_diagnostics_summary(profile_reports: list[dict[str, Any]]) -> dic
         "link_item_count": link_item_count,
         "accepted_candidate_count": accepted_candidate_count,
         "rejected_totals": rejected_totals,
+        "preserved_filter_totals": preserved_filter_totals,
         "diagnosis_totals": diagnosis_totals,
         "headline": headline,
     }
@@ -1378,6 +1410,8 @@ class RealPublicCandidateDiscoveryService:
                         "public_api_url": diagnostics.get("public_api_url"),
                         "public_api_total": diagnostics.get("public_api_total"),
                         "public_api_row_count": diagnostics.get("public_api_row_count"),
+                        "public_api_page_size": diagnostics.get("public_api_page_size"),
+                        "public_api_attempted_pages": diagnostics.get("public_api_attempted_pages"),
                         "candidate_diagnostics": diagnostics,
                         "operator_diagnosis": diagnostics.get("operator_diagnosis"),
                         "next_action": diagnostics.get("next_action"),
@@ -1492,6 +1526,10 @@ class RealPublicCandidateDiscoveryService:
             "profile_api_endpoint": str(api_discovery.get("endpoint") or ""),
             "profile_api_link_count": len(api_link_items),
             "profile_api_error_optional": str(api_discovery.get("error_optional") or ""),
+            "public_api_total": api_discovery.get("total"),
+            "public_api_row_count": api_discovery.get("record_count"),
+            "public_api_page_size": api_discovery.get("page_size"),
+            "public_api_attempted_pages": api_discovery.get("attempted_pages"),
             "accepted_candidate_count": 0,
             "rejected_counts": {},
             "rejected_samples": [],
@@ -1550,9 +1588,16 @@ class RealPublicCandidateDiscoveryService:
                 reject("non_actionable_notice_state", item=item)
                 continue
             published_at = str(item.get("published_at") or "").strip()
-            if not _is_published_within_discovery_window(published_at, now=now):
-                reject("published_outside_discovery_window", item=item, extra={"published_at": published_at})
-                continue
+            discovery_review_reasons: list[str] = []
+            discovery_filter_tags: list[str] = []
+            publication_window_state = (
+                "WITHIN_RECENT_DISCOVERY_WINDOW"
+                if _is_published_within_discovery_window(published_at, now=now)
+                else "OUTSIDE_RECENT_DISCOVERY_WINDOW"
+            )
+            if publication_window_state == "OUTSIDE_RECENT_DISCOVERY_WINDOW":
+                discovery_review_reasons.append("published_outside_recent_discovery_window")
+                discovery_filter_tags.append("published_outside_discovery_window")
             if not _is_candidate_detail_url(source_url, title, profile_id):
                 reject("not_candidate_detail_url", item=item)
                 continue
@@ -1568,27 +1613,20 @@ class RealPublicCandidateDiscoveryService:
                 continue
             project_type, project_type_parse_state = _infer_project_type(analysis_text, requested_project_types)
             if requested_project_types and project_type not in requested_project_types:
-                reject(
-                    "project_type_mismatch",
-                    item=item,
-                    extra={"project_type": project_type, "requested_project_types": list(requested_project_types)},
-                )
-                continue
+                discovery_review_reasons.append("project_type_outside_requested_scope")
+                discovery_filter_tags.append("project_type_mismatch")
             amount, amount_parse_state = _extract_amount(analysis_text)
             if amount is not None and amount_min is not None and amount < amount_min:
-                reject(
-                    "amount_below_minimum",
-                    item=item,
-                    extra={"amount": amount, "amount_min": amount_min},
-                )
-                continue
+                discovery_review_reasons.append("amount_below_requested_minimum")
+                discovery_filter_tags.append("amount_below_minimum")
             if amount is not None and amount_max is not None and amount > amount_max:
-                reject(
-                    "amount_above_maximum",
-                    item=item,
-                    extra={"amount": amount, "amount_max": amount_max},
-                )
-                continue
+                discovery_review_reasons.append("amount_above_requested_maximum")
+                discovery_filter_tags.append("amount_above_maximum")
+            if discovery_filter_tags:
+                preserved_counts = dict(diagnostics.get("preserved_filter_counts", {}) or {})
+                for tag in discovery_filter_tags:
+                    preserved_counts[tag] = _as_int(preserved_counts.get(tag), 0) + 1
+                diagnostics["preserved_filter_counts"] = preserved_counts
             notice_stage = _infer_notice_stage(analysis_text)
             has_candidate_signal = notice_stage in {"candidate_notice", "award_result", "result_notice", "bid_result"}
             key_fields_present = ["project_name", "notice_stage"]
@@ -1639,9 +1677,12 @@ class RealPublicCandidateDiscoveryService:
                     "entry_fetch_status": str(carrier.get("status") or ""),
                     "snapshot_id_optional": str(carrier.get("snapshot_id_optional") or ""),
                     "published_at_optional": published_at,
-                    "publication_window_state": "WITHIN_RECENT_DISCOVERY_WINDOW"
+                    "publication_window_state": publication_window_state
                     if published_at
                     else "PUBLISH_TIME_NOT_EXPOSED_BY_LIST",
+                    "discovery_preserved_after_filter_review": bool(discovery_review_reasons),
+                    "discovery_review_reasons": discovery_review_reasons,
+                    "discovery_filter_tags": discovery_filter_tags,
                     "market_scan_generated_at": now,
                     "discovered_at": now,
                     "query_match_state": "TITLE_MATCH" if query_match else "LIST_PAGE_CANDIDATE",

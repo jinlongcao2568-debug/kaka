@@ -298,8 +298,8 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
 
         self.assertEqual(result["surface_id"], "operator_real_candidate_discovery")
         self.assertEqual(result["source_candidate_mode"], REAL_PUBLIC_SOURCE_CANDIDATE_MODE)
-        self.assertEqual(result["candidate_count"], 1)
-        self.assertEqual(result["persisted_candidate_count"], 1)
+        self.assertEqual(result["candidate_count"], 2)
+        self.assertEqual(result["persisted_candidate_count"], 2)
         self.assertEqual(len(fetcher.calls), 3)
 
         candidate = result["candidates"][0]
@@ -311,10 +311,14 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["snapshot_id_optional"], "SNAP-GGZY-DEAL-LIST")
         self.assertIn("candidate_company", candidate["key_fields_present"])
 
+        preserved = next(candidate for candidate in result["candidates"] if candidate["region_code"] == "CN-JS")
+        self.assertTrue(preserved["discovery_preserved_after_filter_review"])
+        self.assertIn("project_type_outside_requested_scope", preserved["discovery_review_reasons"])
+
         catalog = list_persisted_real_candidates()
         self.assertEqual(catalog["surface_id"], "operator_real_candidate_catalog")
-        self.assertEqual(catalog["candidate_count"], 1)
-        self.assertEqual(catalog["candidates"][0]["source_url"], candidate["source_url"])
+        self.assertEqual(catalog["candidate_count"], 2)
+        self.assertIn(candidate["source_url"], {item["source_url"] for item in catalog["candidates"]})
 
         second = service.discover(
             {
@@ -326,11 +330,11 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
             },
             now="2026-05-01T00:01:00+00:00",
         )
-        self.assertEqual(second["candidate_count"], 1)
-        self.assertEqual(second["duplicate_candidate_count"], 1)
+        self.assertEqual(second["candidate_count"], 2)
+        self.assertEqual(second["duplicate_candidate_count"], 2)
 
         deduped = list_persisted_real_candidates()
-        self.assertEqual(deduped["candidate_count"], 1)
+        self.assertEqual(deduped["candidate_count"], 2)
         self.assertGreaterEqual(deduped["raw_candidate_event_count"], 2)
         self.assertGreaterEqual(deduped["duplicate_collapsed_count"], 1)
 
@@ -544,7 +548,7 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertIn("ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A", candidate["source_url"])
         self.assertIn("noticeId=3fd848f3-3ef4-4240-9417-bded006b182d-3C14", candidate["source_url"])
 
-    def test_real_candidate_discovery_filters_published_outside_recent_window(self) -> None:
+    def test_real_candidate_discovery_preserves_old_publish_time_for_review(self) -> None:
         service = RealPublicCandidateDiscoveryService(
             fetcher=FakeGuangdongShellFetcher(),
             repository=RealPublicCandidateRepository(),
@@ -564,10 +568,17 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
             now="2026-05-01T00:00:00+00:00",
         )
 
-        self.assertEqual(result["candidate_count"], 1)
-        self.assertNotIn("旧水利设施", result["candidates"][0]["project_name"])
-        rejected = result["profile_reports"][0]["rejected_counts"]
-        self.assertEqual(rejected["published_outside_discovery_window"], 1)
+        self.assertEqual(result["candidate_count"], 2)
+        old_candidate = next(candidate for candidate in result["candidates"] if "旧水利设施" in candidate["project_name"])
+        self.assertEqual(old_candidate["publication_window_state"], "OUTSIDE_RECENT_DISCOVERY_WINDOW")
+        self.assertTrue(old_candidate["discovery_preserved_after_filter_review"])
+        self.assertIn("published_outside_recent_discovery_window", old_candidate["discovery_review_reasons"])
+        preserved = result["profile_reports"][0]["candidate_diagnostics"]["preserved_filter_counts"]
+        self.assertEqual(preserved["published_outside_discovery_window"], 1)
+        self.assertEqual(
+            result["candidate_discovery_diagnostics"]["preserved_filter_totals"]["published_outside_discovery_window"],
+            1,
+        )
 
 
 if __name__ == "__main__":
