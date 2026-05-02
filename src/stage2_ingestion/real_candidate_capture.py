@@ -5,11 +5,11 @@ import json
 import re
 import time
 from html import unescape
-from io import BytesIO
 from typing import Any, Mapping
 
 from shared.utils import utc_now_iso
 from stage2_ingestion.service import Stage2Service
+from stage3_parsing.ocr_text import extract_pdf_text_with_ocr
 from stage3_parsing.service import Stage3Service
 from storage.db import PersistedOperatorAction
 from storage.repositories.object_storage_repo import ObjectStorageRepository
@@ -75,23 +75,11 @@ def _decode_snapshot_text(readback: Mapping[str, Any]) -> str:
 def _extract_pdf_text(data: bytes) -> tuple[str, str]:
     if not data.startswith(b"%PDF"):
         return "", "NOT_PDF"
-    try:
-        from pypdf import PdfReader
-    except Exception as exc:  # pragma: no cover - dependency availability is environment-specific
-        return "", f"PDF_TEXT_EXTRACTOR_UNAVAILABLE:{type(exc).__name__}"
-    try:
-        reader = PdfReader(BytesIO(data))
-        page_texts: list[str] = []
-        for page in list(reader.pages)[:30]:
-            text = page.extract_text() or ""
-            if text.strip():
-                page_texts.append(text)
-        extracted = "\n".join(page_texts).strip()
-    except Exception as exc:  # pragma: no cover - malformed public PDFs vary
-        return "", f"PDF_TEXT_EXTRACT_FAILED:{type(exc).__name__}"
-    if not extracted:
-        return "", "PDF_TEXT_EMPTY"
-    return extracted, "PDF_TEXT_EXTRACTED"
+    result = extract_pdf_text_with_ocr(data)
+    state = result.state
+    if result.text and result.warnings:
+        state = f"{state}:{':'.join(result.warnings)}"
+    return result.text, state
 
 
 def _parser_fields_by_name(parser_carrier: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -1238,6 +1226,12 @@ class RealCandidateStage2CaptureService:
             detail_fields["attachment_text_parse_states"] = attachment_text_states
             detail_fields["attachment_text_merge_state"] = (
                 "ATTACHMENT_TEXT_MERGED" if attachment_text else "ATTACHMENT_TEXT_NOT_EXTRACTED"
+            )
+            detail_fields["attachment_ocr_required_count"] = sum(
+                1 for state in attachment_text_states if "OCR_REQUIRED" in state
+            )
+            detail_fields["attachment_ocr_extracted_count"] = sum(
+                1 for state in attachment_text_states if "OCR" in state and "EXTRACTED" in state
             )
         capture = {
             **base_capture,

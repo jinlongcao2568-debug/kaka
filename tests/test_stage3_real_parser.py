@@ -7,6 +7,7 @@ import unittest
 import zipfile
 from io import BytesIO
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,11 +26,13 @@ from stage2_ingestion.service import Stage2Service
 from stage3_parsing.real_parser import (
     ATTACHMENT_TYPE_UNKNOWN,
     OCR_LOW_CONFIDENCE,
+    OCR_REQUIRED,
     PDF_TEXT_UNAVAILABLE,
     UNSUPPORTED_CONTENT_TYPE,
     UNVERIFIED_STATE,
     WORD_PARSE_FAILED,
 )
+from stage3_parsing.ocr_text import ExtractedText, PDF_TEXT_OCR_EXTRACTED
 from stage3_parsing.service import Stage3Service
 from storage.db import DatabaseSession
 from storage.repositories.object_storage_repo import ObjectStorageRepository
@@ -370,6 +373,42 @@ class Stage3RealParserTests(unittest.TestCase):
         self.assertTrue(carrier["review_required"])
         self.assertEqual(carrier["parsed_fields"], [])
         self.assertIn(OCR_LOW_CONFIDENCE, carrier["parse_error_taxonomy"])
+        self.assertIn(OCR_REQUIRED, carrier["parse_error_taxonomy"])
+
+    def test_empty_pdf_can_use_ocr_fallback_but_keeps_review_state(self) -> None:
+        with patch(
+            "stage3_parsing.real_parser.extract_pdf_text_with_ocr",
+            return_value=ExtractedText(
+                text="项目名称: 扫描件道路工程\n项目负责人: 张建明\n注册编号: 144202412345",
+                state=PDF_TEXT_OCR_EXTRACTED,
+                extractor="provided_pdf_ocr",
+                confidence=0.62,
+                review_required=True,
+                warnings=[OCR_REQUIRED],
+            ),
+        ):
+            carrier = self._parse(
+                data=_build_blank_pdf_bytes(),
+                snapshot_id="SNAP-STAGE3-PDF-OCR-1",
+                content_type="application/pdf",
+                source_url="sandbox://local-public-resource-trading-centers/notices/scanned.pdf",
+                snapshot_kind="raw_pdf",
+            )
+
+        self._assert_unverified_internal_carrier(carrier)
+        self.assertEqual(carrier["attachment_type"], "PDF")
+        self.assertEqual(carrier["parse_state"], "PARSED_WITH_REVIEW")
+        self.assertTrue(carrier["review_required"])
+        self.assertIn("extract_pdf_ocr_text", carrier["parser_audit"]["parser_steps"])
+        fields = {field["field_name"]: field for field in carrier["parsed_fields"]}
+        self.assertEqual(fields["project_name"]["field_value_optional"], "扫描件道路工程")
+        self.assertEqual(fields["project_manager_name"]["field_value_optional"], "张建明")
+        self.assertEqual(
+            fields["project_manager_public_identifier_optional"]["field_value_optional"],
+            "144202412345",
+        )
+        self.assertTrue(fields["project_name"]["review_required"])
+        self.assertIn(OCR_REQUIRED, fields["project_name"]["parse_warnings"])
 
     def test_word_docx_attachment_extracts_structured_fields_with_locator(self) -> None:
         carrier = self._parse(
@@ -579,6 +618,18 @@ def _build_text_pdf_bytes(lines: list[str]) -> bytes:
         page.drawString(72, y, line)
         y -= 24
     page.save()
+    return buffer.getvalue()
+
+
+def _build_blank_pdf_bytes() -> bytes:
+    try:
+        from pypdf import PdfWriter
+    except Exception as exc:  # pragma: no cover - optional test dependency
+        raise unittest.SkipTest(f"pypdf unavailable: {exc}") from exc
+    buffer = BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    writer.write(buffer)
     return buffer.getvalue()
 
 

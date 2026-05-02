@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,7 @@ from stage2_ingestion.real_public_url_fetcher import (
     RealPublicEntryFetcher,
     RealPublicFetchResponse,
 )
+from stage3_parsing.ocr_text import ExtractedText, OCR_REQUIRED, PDF_TEXT_OCR_EXTRACTED
 from storage import reset_default_storage
 from storage.db import DatabaseSession
 from storage.repositories.object_storage_repo import ObjectStorageRepository
@@ -378,6 +380,20 @@ def _build_text_pdf_bytes(lines: list[str]) -> bytes:
     return buffer.getvalue()
 
 
+def _build_blank_pdf_bytes() -> bytes:
+    try:
+        from pypdf import PdfWriter
+    except Exception as exc:  # pragma: no cover - optional test dependency
+        raise unittest.SkipTest(f"pypdf unavailable: {exc}") from exc
+    from io import BytesIO
+
+    buffer = BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    writer.write(buffer)
+    return buffer.getvalue()
+
+
 class RealCandidateStage2CaptureTests(unittest.TestCase):
     def setUp(self) -> None:
         reset_default_storage()
@@ -722,6 +738,70 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         fields = result["captures"][0]["detail_fields"]
         self.assertEqual(fields["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
         self.assertTrue(any("PDF_TEXT_EXTRACTED" in state for state in fields["attachment_text_parse_states"]))
+
+    def test_pdf_attachment_ocr_text_fills_missing_project_manager_with_review_counters(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_pdf_ocr_manager.htm"
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.pdf"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_unit_name_table_with_pdf_attachment_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=_build_blank_pdf_bytes(),
+                    content_type="application/pdf",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-pdf-ocr-manager-001",
+            "notice_id": "NOTICE-GD-PDF-OCR-MANAGER-001",
+            "project_id": "PROJ-GD-PDF-OCR-MANAGER-001",
+            "project_name": "广东扫描件项目评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir, patch(
+            "stage2_ingestion.real_candidate_capture.extract_pdf_text_with_ocr",
+            return_value=ExtractedText(
+                text="第一中标候选人: 广东省机电建设有限公司\n项目负责人: 李建国\n注册编号: 144202498765",
+                state=PDF_TEXT_OCR_EXTRACTED,
+                extractor="provided_pdf_ocr",
+                confidence=0.62,
+                review_required=True,
+                warnings=[OCR_REQUIRED],
+            ),
+        ):
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["candidate_company"], "广东省机电建设有限公司")
+        self.assertEqual(enriched["project_manager_name"], "李建国")
+        self.assertEqual(enriched["project_manager_certificate_no"], "144202498765")
+        fields = result["captures"][0]["detail_fields"]
+        self.assertEqual(fields["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
+        self.assertEqual(fields["attachment_ocr_required_count"], 1)
+        self.assertEqual(fields["attachment_ocr_extracted_count"], 1)
+        self.assertTrue(any(PDF_TEXT_OCR_EXTRACTED in state for state in fields["attachment_text_parse_states"]))
 
     def test_candidate_summary_table_extracts_company_and_project_manager(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_summary_table.htm"

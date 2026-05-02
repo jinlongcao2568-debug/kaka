@@ -55,7 +55,7 @@
 | 列表入口抓取 | 访问省级列表页或公开接口，保存入口快照/运行记录 | entry snapshot, source profile | 入口公开可访问，可回放 | SPA 壳、验证码、412/521、限流进入 fail-closed/readback | `PARTIAL` | `CODE_CONFIRMED` | `real_public_url_fetcher.py` |
 | 详情页抓取 | 对候选详情 URL 抓取 HTML/API detail | detail snapshot id | 详情快照与候选一一对应 | 详情无法抓取不得伪造成已解析正文 | `PARTIAL` | `CODE_CONFIRMED` | `RealCandidateStage2CaptureService` |
 | 附件抓取 | 发现并抓取 PDF/DOC/XLS/ZIP 等公告附件 | attachment snapshot ids | 附件原文可回放、有 hash/来源 | 附件缺失进入 review，不得用截图替代 | `PARTIAL` | `CODE_CONFIRMED` | `fetch_attachment_original_link` |
-| PDF 附件文本入 Stage3 | 对可抽取文本的 PDF 附件执行 Stage3 解析，并把附件文本合并回候选详情字段抽取；`PDF_TEXT_EMPTY` 必须显式计入 OCR 待办 | `attachment_snapshot_ids`, `PDF`, `project_manager_name`, `project_manager_public_identifier_optional`, `attachment_text_parse_states` | PDF 有可抽取文本时产出字段血缘；详情页缺项目负责人时可由附件补齐；扫描件不得被静默当作无负责人 | PDF 无文本/损坏/扫描件进入 review/OCR_REQUIRED，不得伪造字段；项目编号/招标编号不得当证书号 | `PARTIAL` | `CODE_CONFIRMED` | `stage3_parsing/real_parser.py`, `stage2_ingestion/real_candidate_capture.py` |
+| PDF 附件文本入 Stage3 | 对可抽取文本的 PDF 附件执行 Stage3 解析，并把附件文本合并回候选详情字段抽取；`PDF_TEXT_EMPTY` 进入 OCR fallback，OCR 引擎不可用时必须显式计入 `OCR_REQUIRED` | `attachment_snapshot_ids`, `PDF`, `project_manager_name`, `project_manager_public_identifier_optional`, `attachment_text_parse_states`, `attachment_ocr_required_count` | PDF 有可抽取文本时产出字段血缘；详情页缺项目负责人时可由附件补齐；OCR 成功字段保持 review；扫描件不得被静默当作无负责人 | PDF 无文本/损坏/扫描件进入 review/OCR_REQUIRED，不得伪造字段；项目编号/招标编号不得当证书号；本机缺 OCR 引擎时不得声明已完成扫描件识别 | `PARTIAL` | `CODE_CONFIRMED` | `stage3_parsing/ocr_text.py`, `stage3_parsing/real_parser.py`, `stage2_ingestion/real_candidate_capture.py` |
 | 时钟链 | 区分公告发布日期、发布时间、投标截止、异议截止、质疑截止、开标时间 | `clock_chain_profile`, deadline fields | 每个时间字段有标签来源和优先级 | 无明确截止标签只能 unknown/review | `PARTIAL` | `AUTHORITY` | `real_candidate_capture.py` |
 | 版本链 | 识别变更、补遗、澄清、中标候选、中标结果、合同公告 | `notice_version_chain` | 有版本优先级和当前有效版本 | 版本冲突进入 review | `PARTIAL` | `AUTHORITY` | `Stage2Service` |
 | challenge 处理 | 登录/验证码/风控/限流/SPA 壳分类 | challenge state | 自动化能力可作为目标；真实三方执行需授权和审计 | 不得把 challenge 当成功 | `PARTIAL` | `AUTHORITY` | `real_public_url_fetcher.py` |
@@ -227,6 +227,7 @@ Stage4/5 的更细操作规程见：`docs/AX9S_Stage4-5_核验与双闸门操作
 - `负责人` 无项目/拟派/标段/施工/监理/设计/勘察上下文：不得归一为负责人字段。
 - 勘察/设计/监理公告不因缺施工项目经理而失败；必须按 lane 抽取 `chief_supervision_engineer_name`、`design_lead_name`、`survey_lead_name` 或 `primary_responsible_person_name`。
 - 广东 PDF/详情表格中 `项目负责人姓名及资格证书编号`、`项目总负责人姓名及资格证书编号` 可按 `公司 + 报价 + 姓名/证书号` 或 `公司 + 报价 + 姓名 证书号` 补 `primary_responsible_person_name` 和 `project_manager_certificate_no`；只有 `项目负责人/项目总负责人` 的表格可按 `公司 + 报价 + 姓名` 补负责人姓名，但证书号保持缺失并进入 Stage4 身份补全。
+- PDF 无内嵌文本时必须先尝试 OCR fallback；OCR 字段只能 `PARSED_WITH_REVIEW` 或 review 字段入链，不能直接作为 PASS 事实。若运行环境缺 `pytesseract`/Tesseract，状态必须显示 `OCR_REQUIRED/OCR_ENGINE_UNAVAILABLE`。
 - 服务/咨询类项目的 `项目总负责人` 进入 `primary_responsible_role=service_project_lead`，不得直接等同施工项目经理；后续双闸门按公告业务 lane 选择可用核验源。
 - 建造师/注册建造师/注册建筑师/注册结构工程师/注册土木工程师/注册公用设备工程师/注册电气工程师归入证书类型，机电/市政/建筑/公路/水利/土木/岩土/结构/给排水/暖通/电气归入证书专业，工程师/高级工程师归入职称；这些字段不得单独当姓名。
 - 金额跨标段：按 lot/package 拆分，不能把总金额直接套到单标段。

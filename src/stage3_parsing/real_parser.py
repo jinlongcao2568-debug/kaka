@@ -16,6 +16,12 @@ from shared.model_assist_governance import (
     build_parser_model_assist,
 )
 from shared.utils import utc_now_iso
+from stage3_parsing.ocr_text import (
+    OCR_REQUIRED,
+    PDF_TEXT_OCR_EXTRACTED,
+    extract_image_text_with_ocr,
+    extract_pdf_text_with_ocr,
+)
 from storage.repositories.object_storage_repo import ObjectStorageRepository
 
 
@@ -221,26 +227,45 @@ class Stage3RealParser:
                     fallback_steps=fallback_steps,
                 )
             elif detection.attachment_type == "PDF":
-                pdf_text, pdf_state = _extract_pdf_text(data)
-                if pdf_text:
-                    parser_steps.append("extract_pdf_text")
+                pdf_result = extract_pdf_text_with_ocr(data)
+                if pdf_result.text:
+                    parser_steps.append(
+                        "extract_pdf_ocr_text"
+                        if pdf_result.state == PDF_TEXT_OCR_EXTRACTED
+                        else "extract_pdf_text"
+                    )
                     parsed_fields = _extract_fields_from_text(
-                        pdf_text,
+                        pdf_result.text,
                         source_file_ref=source_file_ref,
                         locator_type="pdf_text",
-                        base_locator={"source": "pdf_text", "extractor": "pypdf"},
-                        confidence=0.74,
+                        base_locator={"source": "pdf_text", "extractor": pdf_result.extractor},
+                        confidence=pdf_result.confidence,
+                        review_required=pdf_result.review_required,
+                        parse_warnings=pdf_result.warnings,
                     )
                 else:
-                    _add_error(parser_errors, PDF_TEXT_UNAVAILABLE, pdf_state)
+                    _add_error(parser_errors, PDF_TEXT_UNAVAILABLE, pdf_result.state)
+                    if OCR_REQUIRED in pdf_result.warnings or OCR_REQUIRED in pdf_result.state:
+                        _add_error(parser_errors, OCR_REQUIRED, pdf_result.state)
+                        fallback_steps.append("degrade_to_review:ocr_required")
                     fallback_steps.append("degrade_to_review:pdf_text_unavailable")
             elif detection.attachment_type == "SCANNED_IMAGE":
-                _add_error(
-                    parser_errors,
-                    OCR_LOW_CONFIDENCE,
-                    "ocr engine is not enabled; scanned image remains review-only",
-                )
-                fallback_steps.append("degrade_to_review:ocr_unavailable_or_low_confidence")
+                image_result = extract_image_text_with_ocr(data)
+                if image_result.text:
+                    parser_steps.append("extract_image_ocr_text")
+                    parsed_fields = _extract_fields_from_text(
+                        image_result.text,
+                        source_file_ref=source_file_ref,
+                        locator_type="ocr_text",
+                        base_locator={"source": "ocr_text", "extractor": image_result.extractor},
+                        confidence=image_result.confidence,
+                        review_required=image_result.review_required,
+                        parse_warnings=image_result.warnings,
+                    )
+                else:
+                    _add_error(parser_errors, OCR_LOW_CONFIDENCE, image_result.state)
+                    _add_error(parser_errors, OCR_REQUIRED, image_result.state)
+                    fallback_steps.append("degrade_to_review:ocr_unavailable_or_low_confidence")
             elif detection.attachment_type == "WORD_DOCX":
                 parsed_fields = self._parse_docx(
                     data,
@@ -642,6 +667,8 @@ def _extract_fields_from_text(
     locator_type: str,
     base_locator: Mapping[str, Any],
     confidence: float,
+    review_required: bool = False,
+    parse_warnings: list[str] | None = None,
 ) -> list[ParsedField]:
     search_text = re.sub(r"[ \t]+", " ", str(text or ""))
     fields: list[ParsedField] = []
@@ -671,6 +698,8 @@ def _extract_fields_from_text(
                 source_slice=source_slice,
                 locator=locator,
                 confidence=confidence,
+                review_required=review_required,
+                parse_warnings=list(parse_warnings or []),
             )
         )
     return fields
@@ -939,23 +968,8 @@ def _decode_text(data: bytes) -> str:
 
 
 def _extract_pdf_text(data: bytes) -> tuple[str, str]:
-    try:
-        from pypdf import PdfReader
-    except Exception as exc:  # pragma: no cover - dependency availability is environment-specific
-        return "", f"PDF_TEXT_EXTRACTOR_UNAVAILABLE:{type(exc).__name__}"
-    try:
-        reader = PdfReader(BytesIO(data))
-        page_texts: list[str] = []
-        for page in list(reader.pages)[:30]:
-            text = page.extract_text() or ""
-            if text.strip():
-                page_texts.append(text)
-        extracted = "\n".join(page_texts).strip()
-    except Exception as exc:  # pragma: no cover - malformed public PDFs vary
-        return "", f"PDF_TEXT_EXTRACT_FAILED:{type(exc).__name__}"
-    if not extracted:
-        return "", "PDF_TEXT_EMPTY"
-    return extracted, "PDF_TEXT_EXTRACTED"
+    result = extract_pdf_text_with_ocr(data)
+    return result.text, result.state
 
 
 def _failure_code_for_attachment(attachment_type: str) -> str:
@@ -1030,6 +1044,7 @@ __all__ = [
     "ENCODING_DECODE_FAILED",
     "EXCEL_SHEET_AMBIGUOUS",
     "OCR_LOW_CONFIDENCE",
+    "OCR_REQUIRED",
     "PARSER_VERSION",
     "PDF_TEXT_UNAVAILABLE",
     "TABLE_EXTRACTION_AMBIGUOUS",
