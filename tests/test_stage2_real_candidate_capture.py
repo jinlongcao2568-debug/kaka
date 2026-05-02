@@ -331,6 +331,34 @@ def _generic_responsible_person_detail_html() -> bytes:
     return html.encode("utf-8")
 
 
+def _digital_system_service_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>智慧景区数字化提升项目评标报告</title></head>
+      <body>
+        <h1>智慧景区数字化提升项目评标报告</h1>
+        <p>第一中标候选人 广州翼然科技股份有限公司 投标报价 6800000.00 元</p>
+        <p>项目内容包括数字化平台、软件系统和设备集成服务。</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _shipbuilding_service_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>新建1艘4000载重吨级集装箱海船项目评标报告</title></head>
+      <body>
+        <h1>新建1艘4000载重吨级集装箱海船项目评标报告</h1>
+        <p>第一中标候选人 广东南祥造船有限公司 投标报价 18000000.00 元</p>
+        <p>服务内容包括船舶建造、设备供货和试航验收。</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
 def _project_code_without_manager_detail_html() -> bytes:
     html = """
     <html>
@@ -1291,6 +1319,91 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched.get("primary_responsible_person_name", ""), "")
         self.assertEqual(enriched["project_manager_name_parse_state"], "DETAIL_TEXT_NOT_FOUND")
         self.assertEqual(enriched["project_manager_cert_specialty_parse_state"], "DETAIL_TEXT_NOT_FOUND")
+
+    def test_digital_system_project_uses_supplier_service_priority_class(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/digital-system-service-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_digital_system_service_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-digital-system-service-001",
+            "notice_id": "NOTICE-GD-DIGITAL-SYSTEM-SERVICE-001",
+            "project_id": "PROJ-GD-DIGITAL-SYSTEM-SERVICE-001",
+            "project_name": "智慧景区数字化提升项目评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "supplier_service")
+        self.assertEqual(enriched["opportunity_priority_class"], "D_LOW_SUPPLIER_SERVICE")
+        self.assertEqual(enriched["expected_responsible_role_field"], "not_required_for_supplier_service")
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
+
+    def test_shipbuilding_project_uses_supplier_service_priority_class(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/shipbuilding-service-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_shipbuilding_service_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-shipbuilding-service-001",
+            "notice_id": "NOTICE-GD-SHIPBUILDING-SERVICE-001",
+            "project_id": "PROJ-GD-SHIPBUILDING-SERVICE-001",
+            "project_name": "新建1艘4000载重吨级集装箱海船项目评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "supplier_service")
+        self.assertEqual(enriched["opportunity_priority_class"], "D_LOW_SUPPLIER_SERVICE")
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
 
     def test_project_or_tender_number_is_not_project_manager_certificate(self) -> None:
         detail_url = "https://ygp.gdzwfw.gov.cn/notice/project-code-only-001.html"

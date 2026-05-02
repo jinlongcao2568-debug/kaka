@@ -280,7 +280,7 @@ def _engineering_lane_from_text(text: str, *, parse_state: str) -> dict[str, str
             "engineering_work_lane_parse_state": parse_state,
             "engineering_role_route": "chief_supervision_engineer_identity_chain",
         }
-    if any(token in text for token in ("造价咨询", "第三方监测", "检测服务", "监测及检测", "咨询服务")):
+    if _looks_like_supplier_or_service_lane(text):
         return {
             "engineering_work_lane": "supplier_service",
             "engineering_work_lane_parse_state": parse_state,
@@ -315,6 +315,36 @@ def _engineering_lane_from_text(text: str, *, parse_state: str) -> dict[str, str
         "engineering_work_lane_parse_state": "DETAIL_TEXT_NOT_CLASSIFIED",
         "engineering_role_route": "review_required_before_role_gate",
     }
+
+
+def _looks_like_supplier_or_service_lane(text: str) -> bool:
+    supplier_tokens = (
+        "造价咨询",
+        "第三方监测",
+        "检测服务",
+        "监测及检测",
+        "咨询服务",
+        "设备采购",
+        "材料采购",
+        "货物采购",
+        "普通服务",
+        "船舶",
+        "海船",
+        "集装箱船",
+        "集装箱海船",
+    )
+    digital_tokens = (
+        "数字化",
+        "信息化",
+        "智慧系统",
+        "智慧平台",
+        "管理系统",
+        "软件系统",
+        "信息系统",
+        "系统建设项目",
+        "平台建设项目",
+    )
+    return any(token in text for token in supplier_tokens + digital_tokens)
 
 
 def _extract_role_name_by_patterns(text: str, patterns: tuple[str, ...]) -> tuple[str, str]:
