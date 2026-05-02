@@ -163,6 +163,26 @@ class _FakeAcceptedRealCandidateDiscoveryService:
         }
 
 
+class _FakeTwoAcceptedRealCandidateDiscoveryService:
+    def discover(self, payload: dict, *, now: str | None = None) -> dict:
+        base = _FakeAcceptedRealCandidateDiscoveryService().discover(payload, now=now)
+        first = dict(base["candidates"][0])
+        second = {
+            **first,
+            "notice_id": "NOTICE-REAL-LIST-READY-002",
+            "project_id": "PROJ-REAL-LIST-READY-002",
+            "project_name": "广东市政道路工程中标候选人公示二",
+            "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?noticeId=ready-002",
+            "candidate_key": "real-list-ready-002",
+            "snapshot_id_optional": "SNAP-GD-READY-LIST-002",
+        }
+        base["candidate_count"] = 2
+        base["candidates"] = [first, second]
+        base["profile_reports"][0]["same_site_detail_link_count"] = 2
+        base["profile_reports"][0]["candidate_count"] = 2
+        return base
+
+
 class _FakeReviewCandidateStage2CaptureService:
     def capture_candidates(
         self,
@@ -196,11 +216,51 @@ class _FakeReviewCandidateStage2CaptureService:
         }
 
 
+class _FakePartialCandidateStage2CaptureService:
+    def capture_candidates(
+        self,
+        candidates: list[dict],
+        *,
+        now: str | None = None,
+        detail_capture_limit: int = 5,
+        attachment_capture_limit: int = 2,
+    ) -> dict:
+        enriched = []
+        for index, candidate in enumerate(candidates):
+            row = dict(candidate)
+            if index == 0:
+                row["stage2_detail_capture_state"] = "FETCHED"
+                row["stage2_detail_snapshot_id_optional"] = "REAL-DETAIL-GGZY-DEAL-LIST-001"
+                row["stage3_detail_parse_state"] = "PARSED_WITH_REVIEW"
+            else:
+                row["stage2_detail_capture_state"] = "PENDING_TIME_BUDGET"
+                row["stage3_detail_parse_state"] = "PENDING_DETAIL_CAPTURE"
+            row["stage2_attachment_link_count"] = 0
+            row["stage2_attachment_snapshot_count"] = 0
+            enriched.append(row)
+        return {
+            "surface_id": "operator_real_candidate_stage2_capture",
+            "detail_capture_attempted_count": 1,
+            "detail_snapshot_count": 1,
+            "pending_detail_capture_count": max(len(enriched) - 1, 0),
+            "stage3_parse_success_count": 1,
+            "stage3_parse_failed_count": 0,
+            "attachment_link_count": 0,
+            "attachment_capture_attempted_count": 0,
+            "attachment_snapshot_count": 0,
+            "captures": [],
+            "enriched_candidates": enriched,
+            "repository_backed_readback": True,
+        }
+
+
 def _partial_real_public_stage4_9_readback(*args: object, **kwargs: object) -> dict:
     return {
         "surface_id": "operator_real_public_stage4_9_readback",
         "readback_state": "READBACK_READY",
         "real_public_stage4_9_chain_state": "INTERNAL_READY",
+        "real_public_stage1_6_chain_state": "INTERNAL_READY",
+        "stage1_6_closed_loop_ready": True,
         "stage4_public_verification_result": "MATCHED",
         "stage4_public_verification_readback_state": "READBACK_READY",
         "stage5_rule_gate_status": "PASS",
@@ -518,12 +578,20 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["search_state"], "REVIEW_REQUIRED")
-        self.assertEqual(payload["capability_state"], "REAL_PUBLIC_STAGE4_5_SOURCE_COVERAGE_PENDING")
-        self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 1)
-        self.assertTrue(payload["opportunity_id"])
+        self.assertEqual(payload["search_state"], "STAGE1_6_INTERNAL_READY")
+        self.assertEqual(
+            payload["capability_state"],
+            "REAL_PUBLIC_STAGE1_6_INTERNAL_READY_SOURCE_COVERAGE_PENDING",
+        )
+        self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 0)
+        self.assertEqual(payload["search_scope"]["stage1_6_closed_loop_count"], 1)
+        self.assertEqual(payload["opportunity_id"], "")
         self.assertEqual(
             payload["real_public_stage4_9_readback"]["real_public_stage4_9_chain_state"],
+            "INTERNAL_READY",
+        )
+        self.assertEqual(
+            payload["real_public_stage4_9_readback"]["real_public_stage1_6_chain_state"],
             "INTERNAL_READY",
         )
         self.assertFalse(payload["real_public_stage4_9_readback"]["real_public_sellable_gate_ready"])
@@ -531,12 +599,100 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
             payload["closed_loop_results"][0]["real_world_hard_defect_gate_state"],
             "PARTIAL_SOURCE_COVERAGE",
         )
-        self.assertEqual(payload["closed_loop_results"][0]["search_state"], "REVIEW_REQUIRED")
+        self.assertEqual(payload["closed_loop_results"][0]["search_state"], "STAGE1_6_INTERNAL_READY")
+        self.assertTrue(payload["closed_loop_results"][0]["stage1_6_closed_loop_ready"])
         self.assertIn(
             "stage4_5_local_housing_contract_completion_pm_change_penalty_adapters_pending",
             payload["data_boundary"]["remaining_real_world_gaps"],
         )
         self.assertFalse(payload["data_boundary"]["customer_sellable_evidence_ready"])
+
+    @patch(
+        "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+        return_value=_FakeTwoAcceptedRealCandidateDiscoveryService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access.RealCandidateStage2CaptureService",
+        return_value=_FakeReviewCandidateStage2CaptureService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
+        side_effect=_partial_real_public_stage4_9_readback,
+    )
+    def test_real_public_search_keeps_all_candidates_when_stage1_6_budget_expires(
+        self,
+        _real_public_readback: object,
+        _stage2_capture_service: object,
+        _discovery_service: object,
+    ) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD"],
+                "query": "市政道路",
+                "project_types": ["municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "stage1_6_time_budget_seconds": 0,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_scope"]["candidate_count"], 2)
+        self.assertEqual(payload["search_scope"]["selected_candidate_count"], 2)
+        self.assertEqual(payload["search_scope"]["stage1_6_attempted_count"], 1)
+        self.assertEqual(payload["search_scope"]["stage1_6_pending_count"], 1)
+        self.assertTrue(payload["search_scope"]["stage1_6_time_budget_exhausted"])
+        self.assertEqual(len(payload["closed_loop_results"]), 2)
+        self.assertEqual(payload["closed_loop_results"][1]["search_state"], "STAGE1_6_PENDING_TIME_BUDGET")
+        self.assertTrue(payload["candidate_options"][1]["stage1_6_time_budget_pending"])
+
+    @patch(
+        "api.routes.operator_customer_access.RealPublicCandidateDiscoveryService",
+        return_value=_FakeTwoAcceptedRealCandidateDiscoveryService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access.RealCandidateStage2CaptureService",
+        return_value=_FakePartialCandidateStage2CaptureService(),
+    )
+    @patch(
+        "api.routes.operator_customer_access._build_real_public_stage4_9_readback_from_candidate",
+        side_effect=_partial_real_public_stage4_9_readback,
+    )
+    def test_real_public_search_keeps_stage2_pending_candidates_out_of_stage1_6(
+        self,
+        _real_public_readback: object,
+        _stage2_capture_service: object,
+        _discovery_service: object,
+    ) -> None:
+        client = TestClient(create_app())
+
+        response = client.request(
+            "POST",
+            "/operator-console/autonomous-opportunity-search",
+            json={
+                "region_codes": ["CN-GD"],
+                "query": "市政道路",
+                "project_types": ["municipal"],
+                "amount_min": 8000000,
+                "amount_max": 30000000,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["search_scope"]["candidate_count"], 2)
+        self.assertEqual(payload["search_scope"]["stage1_6_attempted_count"], 1)
+        self.assertEqual(payload["search_scope"]["stage1_6_pending_count"], 1)
+        self.assertEqual(payload["search_scope"]["stage2_detail_pending_for_stage1_6_count"], 1)
+        self.assertEqual(payload["closed_loop_results"][1]["search_state"], "STAGE2_DETAIL_CAPTURE_PENDING")
+        self.assertTrue(payload["candidate_options"][1]["stage2_detail_capture_pending"])
 
     def test_operator_autonomous_search_runs_region_to_workbench_loop(self) -> None:
         client = TestClient(create_app())

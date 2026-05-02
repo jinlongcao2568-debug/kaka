@@ -236,6 +236,45 @@ class Stage4EvidenceRiskStrategyTests(unittest.TestCase):
             self.assertFalse(targets[target_type]["missing_identifier"])
         self.assertNotIn("target_identifier_missing", strategy["fail_closed_reasons"])
 
+    def test_company_only_context_starts_enterprise_credit_and_performance_precheck(self) -> None:
+        context = {
+            "parse_run_id": "PARSE-COMPANY-FIRST-146",
+            "snapshot_id": "SNAP-COMPANY-FIRST-146",
+            "project_id": "PROJECT-COMPANY-FIRST-146",
+            "source_url": "https://example.invalid/public/company-first.html",
+            "lineage_status": "NORMALIZED",
+            "conflict_state": "CONSISTENT",
+            "parsed_fields": [
+                _field("project_name", "City school renovation supervision"),
+                _field("candidate_company_name", "Alpha Construction Co"),
+            ],
+        }
+
+        strategy = Stage4Service().build_evidence_risk_hard_defect_strategy(context)
+        strategy_keys = {target["strategy_key"] for target in strategy["strategy_targets"]}
+        targets = {
+            target["verification_target_type"]: target
+            for target in strategy["verification_targets"]
+        }
+
+        self.assertEqual(strategy["evidence_risk_state"], READY_FOR_PUBLIC_VERIFICATION)
+        self.assertFalse(strategy["fail_closed"])
+        self.assertTrue(
+            {
+                "enterprise_qualification",
+                "credit_penalty_blacklist",
+                "performance_public_record",
+            }.issubset(strategy_keys)
+        )
+        for target_type in (
+            "enterprise_public_record",
+            "enterprise_qualification",
+            "credit_penalty_blacklist",
+            "performance_public_record",
+        ):
+            self.assertEqual(targets[target_type]["target_identifier"], "Alpha Construction Co")
+            self.assertFalse(targets[target_type]["missing_identifier"])
+
     def test_weak_or_ambiguous_evidence_fails_closed_to_review(self) -> None:
         strategy = Stage4Service().build_evidence_risk_hard_defect_strategy(_parsed_context(weak=True))
         readback = Stage4Service().build_evidence_risk_hard_defect_strategy_readback(strategy)

@@ -1744,10 +1744,15 @@ function renderCandidateCards(candidates, activeOpportunityId="", selectedProjec
       ${isOfflineSample(candidate) ? badge("离线样本，不可客户交付", "warn") : badge(candidate.source_candidate_mode || "真实候选待核验")}
       ${badge(candidate.analysis_score ? `评分 ${candidate.analysis_score}` : "评分 --")}
       ${badge(candidate.closed_loop_generated ? (isOfflineSample(candidate) ? "已生成样本闭环" : "已生成机会闭环") : "未生成机会闭环", candidate.closed_loop_generated ? "" : "warn")}
+      ${candidate.closed_loop_state ? badge(`闭环 ${labelOf(candidate.closed_loop_state)}`, candidate.closed_loop_state === "STAGE1_6_INTERNAL_READY" ? "" : "warn") : ""}
+      ${candidate.stage2_detail_capture_pending ? badge("详情待继续", "warn") : ""}
+      ${candidate.stage1_6_time_budget_pending ? badge("Stage1-6待继续", "warn") : ""}
       ${candidate.stage2_detail_capture_state ? badge(`详情 ${candidate.stage2_detail_capture_state}`, candidate.stage2_detail_snapshot_id_optional ? "" : "warn") : ""}
       ${candidate.stage3_detail_parse_state ? badge(`解析 ${candidate.stage3_detail_parse_state}`, String(candidate.stage3_detail_parse_state).startsWith("PARSED") ? "" : "warn") : ""}
       ${candidate.publication_window_state ? badge(labelOf(candidate.publication_window_state)) : ""}
       <p>${candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回"}</p>
+      ${candidate.candidate_company || candidate.project_manager_name || candidate.project_manager_certificate_no ? `<p><strong>核验对象</strong> 企业：${safeText(candidate.candidate_company || "待解析")}；项目经理：${safeText(candidate.project_manager_name || "待解析")}；证书：${safeText(candidate.project_manager_certificate_no || "待解析")}</p>` : ""}
+      ${candidate.candidate_company_parse_state || candidate.project_manager_name_parse_state || candidate.project_manager_certificate_no_parse_state ? `<p><strong>核验字段解析</strong> 企业：${safeText(labelOf(candidate.candidate_company_parse_state || "--"))}；项目经理：${safeText(labelOf(candidate.project_manager_name_parse_state || "--"))}；证书：${safeText(labelOf(candidate.project_manager_certificate_no_parse_state || "--"))}</p>` : ""}
       ${candidate.source_url ? `<p><strong>来源网址</strong> <a href="${safeText(candidate.source_url)}" target="_blank" rel="noopener">${safeText(candidate.source_url)}</a></p>` : ""}
       ${candidate.published_at_optional ? `<p><strong>发布时间</strong> ${safeText(candidate.published_at_optional)}</p>` : ""}
       ${candidate.amount_parse_state || candidate.region_parse_state ? `<p><strong>解析状态</strong> 金额：${safeText(labelOf(candidate.amount_parse_state || "--"))}；地区：${safeText(labelOf(candidate.region_parse_state || "--"))}</p>` : ""}

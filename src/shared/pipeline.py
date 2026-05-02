@@ -61,4 +61,28 @@ def run_internal_chain(payload: Mapping[str, Any], settings: Any | None = None) 
     }
 
 
-__all__ = ["run_internal_chain"]
+def run_internal_chain_until_stage6(payload: Mapping[str, Any], settings: Any | None = None) -> Dict[str, StageBundle]:
+    store = ContractStore.default(settings)
+    stage1 = Stage1Service(settings).run(payload)
+    _validate_handoff(store, stage1, 2)
+    stage2 = Stage2Service(settings).run(stage1)
+    _validate_handoff(store, stage2, 3)
+    stage3 = Stage3Service(settings).run(stage2)
+    _validate_handoff(store, stage3, 4)
+    stage4 = Stage4Service(settings).run(stage3)
+    _validate_handoff(store, stage4, 5)
+    stage5 = Stage5Service(settings).run(stage4)
+    _validate_handoff(store, stage5, 6)
+    stage6 = Stage6Service(settings).run(stage5)
+
+    return {
+        "stage1": stage1,
+        "stage2": stage2,
+        "stage3": stage3,
+        "stage4": stage4,
+        "stage5": stage5,
+        "stage6": stage6,
+    }
+
+
+__all__ = ["run_internal_chain", "run_internal_chain_until_stage6"]

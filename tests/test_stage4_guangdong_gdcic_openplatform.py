@@ -172,6 +172,46 @@ class GuangdongGdcicOpenplatformAdapterTests(unittest.TestCase):
         self.assertEqual(blacklist["coverage_state"], "QUERY_REPLAYABLE_NO_MATCH")
         self.assertTrue(readback["no_no-risk_inference_without_sources"])
 
+    def test_uses_guangdong_trade_source_url_project_code_before_name_lookup(self) -> None:
+        requested_project_codes: list[str] = []
+
+        def fake_get_json(url: str, params: Mapping[str, str]) -> Mapping[str, Any]:
+            endpoint = url.replace("https://skypt.gdcic.net/api", "")
+            if endpoint == "/openplatform/project/list":
+                return {"msg": "success", "code": 0, "total": 0, "rows": []}
+            requested_project_codes.append(str(params.get("projectCode") or params.get("prjNum") or ""))
+            if endpoint == "/openplatform/constructionPermit/list":
+                return {
+                    "msg": "success",
+                    "code": 0,
+                    "total": 1,
+                    "rows": [
+                        {
+                            "projectName": "广东市政道路工程",
+                            "projectCode": "E4401002701502243001",
+                            "constructionPermitCode": "440100202605010101",
+                        }
+                    ],
+                }
+            return {"msg": "success", "code": 0, "total": 0, "rows": []}
+
+        readback = query_guangdong_gdcic_openplatform_hard_defect_sources(
+            {
+                "project_id": "PROJ-GD-URL-CODE",
+                "project_name": "广东市政道路工程",
+                "candidate_company": "广东测试建设有限公司",
+                "region_code": "CN-GD",
+                "source_url": "https://ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A?noticeId=abc&projectCode=E4401002701502243001&bizCode=3C42",
+            },
+            http_get_json=fake_get_json,
+            now="2026-05-02T10:00:00+08:00",
+        )
+
+        self.assertEqual(readback["project_codes"][0], "E4401002701502243001")
+        self.assertNotIn("gdcic_project_code_not_resolved", readback["failure_reasons"])
+        self.assertIn("E4401002701502243001", requested_project_codes)
+        self.assertIn("construction_permit", readback["covered_source_types"])
+
     def test_missing_project_name_fails_closed_without_broad_project_query(self) -> None:
         readback = query_guangdong_gdcic_openplatform_hard_defect_sources(
             {

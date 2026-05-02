@@ -721,14 +721,9 @@ def _context_triggers_definition(context: Mapping[str, Any], definition: Mapping
     key = definition.get("strategy_key")
     if key == "project_manager_active_conflict":
         return bool(context.get("project_manager_name"))
-    if key in {
-        "enterprise_qualification",
-        "credit_penalty_blacklist",
-        "construction_permit",
-        "contract_public_info",
-        "completion_filing",
-        "performance_public_record",
-    }:
+    if key in {"enterprise_qualification", "credit_penalty_blacklist", "performance_public_record"}:
+        return bool(context.get("candidate_company_name"))
+    if key in {"construction_permit", "contract_public_info", "completion_filing"}:
         return False
     if key == "procedure_public_notice_timeline":
         return context.get("conflict_state") not in (None, "", "CONSISTENT")

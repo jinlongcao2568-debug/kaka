@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from shared.utils import build_id, utc_now_iso
@@ -139,7 +139,7 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
 
     source_results: list[dict[str, Any]] = []
     failure_reasons: list[str] = []
-    project_codes: list[str] = []
+    project_codes: list[str] = _candidate_project_codes(candidate)
 
     if project_name:
         lookup = _execute_query(
@@ -151,7 +151,10 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
             captured_at=captured_at,
         )
         source_results.append(lookup)
-        project_codes = _extract_project_codes(lookup.get("matched_records_preview") or lookup.get("rows") or [])
+        project_codes = [
+            *project_codes,
+            *_extract_project_codes(lookup.get("matched_records_preview") or lookup.get("rows") or []),
+        ]
     else:
         failure_reasons.append("project_name_missing_for_gdcic_project_lookup")
 
@@ -512,6 +515,36 @@ def _url_with_query(url: str, params: Mapping[str, str]) -> str:
 
 def _clean_text(value: Any) -> str:
     return " ".join(str(value or "").split())
+
+
+def _candidate_project_codes(candidate: Mapping[str, Any]) -> list[str]:
+    codes: list[str] = []
+    for key in (
+        "projectCode",
+        "project_code",
+        "source_project_code",
+        "gdcic_project_code",
+        "project_public_code",
+    ):
+        value = _clean_text(candidate.get(key))
+        if value:
+            codes.append(value)
+    source_url = str(candidate.get("source_url") or "")
+    if source_url:
+        parsed_url = urlparse(source_url)
+        query_texts = [parsed_url.query]
+        if "?" in parsed_url.fragment:
+            query_texts.append(parsed_url.fragment.split("?", 1)[1])
+        query: dict[str, list[str]] = {}
+        for query_text in query_texts:
+            for key, values in parse_qs(query_text).items():
+                query.setdefault(key, []).extend(values)
+        for key in ("projectCode", "project_code", "prjNum", "projectId"):
+            for value in query.get(key, []):
+                cleaned = _clean_text(value)
+                if cleaned:
+                    codes.append(cleaned)
+    return list(dict.fromkeys(codes))
 
 
 def _normalize(value: Any) -> str:
