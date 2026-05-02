@@ -35,6 +35,7 @@
 | 分支 | 具体动作 | 关键字段/对象 | PASS | REVIEW/BLOCK | 当前状态 | 可信等级 | 代码入口 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 输入归一 | 地区多选、项目类型多选、金额区间、关键词、时间窗口归一 | `region_codes`, `project_types`, `amount_min/max`, `now` | 支持多地区多类型批量运行 | 输入缺失进入默认或 review，不得静默造样本 | `IMPLEMENTED` | `CODE_CONFIRMED` | `operator_customer_access.py::run_operator_autonomous_opportunity_search` |
+| 广东跑通验收上限 | 广东 Stage1-6 跑通阶段默认最多取 30 条真实候选、最多读取广东公开 API 第 1 页 50 条原始记录，并在验收账本记录是否截断 | `stage1_6_validation_caps`, `candidate_limit_source`, `candidate_limit_truncated_count` | 30 条有效候选 / 1 页 50 条原始记录只是验收运行上限，不代表源头只有 30 条；必须记录上限来源、截断数量和页数 | 隐藏截断、把上限当业务过滤、只挑少量好跑样本均不得通过 | `IMPLEMENTED` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `real_candidate_discovery.py`, `operator_customer_access.py` |
 | 来源蓝图 | 按地区/类型/金额选择省级平台、全国聚合、核验源、信用源、地方住建源 | source blueprint, capture plan | 明确为什么选或跳过每个来源 | 全国聚合不得被当成全量实时源 | `PARTIAL` | `AUTHORITY` | `stage1_tasking/source_blueprint.py` |
 | 真实候选发现 | 从真实公开列表页/API 获取候选 | `notice_candidates`, source URL, profile id | 候选可链接、可审计、有来源 profile；金额、项目类型、发布时间只打复核标签，不在发现阶段源头删除 | 无候选返回 `NO_CANDIDATES`，不得合成机会；导航、模板、废标/终止等明确无效链接可剔除 | `PARTIAL` | `CODE_CONFIRMED` | `RealPublicCandidateDiscoveryService` |
 | 候选批量分流 | 对所有候选按中标候选公示/异议窗口做第一层分流，并保留地区、类型、金额、公告阶段和字段完整度评分 | selected/skipped/review candidates | 中标候选公示/异议窗口层通过者批量入后续链路；金额、项目类型、竞争者和字段缺失只作为复核/优先级标签；真实公开候选不得因此在源头丢弃 | 不能固定挑 1 个迎合结果；只有明确非项目公告、重复、废标/终止、窗口明确过期才可不进闭环 | `PARTIAL` | `CODE_CONFIRMED` | `Stage1MarketScanEngine` |
@@ -53,6 +54,7 @@
 | 列表入口抓取 | 访问省级列表页或公开接口，保存入口快照/运行记录 | entry snapshot, source profile | 入口公开可访问，可回放 | SPA 壳、验证码、412/521、限流进入 fail-closed/readback | `PARTIAL` | `CODE_CONFIRMED` | `real_public_url_fetcher.py` |
 | 详情页抓取 | 对候选详情 URL 抓取 HTML/API detail | detail snapshot id | 详情快照与候选一一对应 | 详情无法抓取不得伪造成已解析正文 | `PARTIAL` | `CODE_CONFIRMED` | `RealCandidateStage2CaptureService` |
 | 附件抓取 | 发现并抓取 PDF/DOC/XLS/ZIP 等公告附件 | attachment snapshot ids | 附件原文可回放、有 hash/来源 | 附件缺失进入 review，不得用截图替代 | `PARTIAL` | `CODE_CONFIRMED` | `fetch_attachment_original_link` |
+| PDF 附件文本入 Stage3 | 对可抽取文本的 PDF 附件执行 Stage3 解析，并把附件文本合并回候选详情字段抽取 | `attachment_snapshot_ids`, `PDF`, `project_manager_name`, `project_manager_public_identifier_optional` | PDF 有可抽取文本时产出字段血缘；详情页缺项目负责人时可由附件补齐 | PDF 无文本/损坏/扫描件进入 review，不得伪造字段；项目编号/招标编号不得当证书号 | `IMPLEMENTED` | `CODE_CONFIRMED` | `stage3_parsing/real_parser.py`, `stage2_ingestion/real_candidate_capture.py` |
 | 时钟链 | 区分公告发布日期、发布时间、投标截止、异议截止、质疑截止、开标时间 | `clock_chain_profile`, deadline fields | 每个时间字段有标签来源和优先级 | 无明确截止标签只能 unknown/review | `PARTIAL` | `AUTHORITY` | `real_candidate_capture.py` |
 | 版本链 | 识别变更、补遗、澄清、中标候选、中标结果、合同公告 | `notice_version_chain` | 有版本优先级和当前有效版本 | 版本冲突进入 review | `PARTIAL` | `AUTHORITY` | `Stage2Service` |
 | challenge 处理 | 登录/验证码/风控/限流/SPA 壳分类 | challenge state | 自动化能力可作为目标；真实三方执行需授权和审计 | 不得把 challenge 当成功 | `PARTIAL` | `AUTHORITY` | `real_public_url_fetcher.py` |
@@ -70,6 +72,7 @@
 | 候选/中标单位解析 | 解析第一候选、第二候选、排序、报价 | `bidder_candidate` | 候选集完整或明确不完整 | 只拿第一名但未说明候选集状态不得 PASS | `PARTIAL` | `AUTHORITY` | `Stage3Service` |
 | 项目经理解析 | 解析姓名、注册专业、等级、单位、证书号/公开 ID、来源切片 | `project_manager` | 至少姓名 + 单位/证书/专业之一进入后续消歧 | 只有姓名也可进入 review，但不能 PASS | `PARTIAL` | `AUTHORITY` | `Stage3Service` |
 | 项目负责人别名与证书身份归一 | `项目经理/项目负责人/拟派项目负责人/总监理工程师` 归一为 `project_manager_name`；`负责人` 只有带项目/拟派/标段/施工/监理上下文才归一；`一级/二级/注册建造师` 归一为 `project_manager_certificate_type`；机电/市政/建筑/公路/水利/土木等归一为 `project_manager_cert_specialty`；工程师/高级工程师只进职称字段 | `project_manager_name`, `project_manager_certificate_type`, `project_manager_cert_specialty`, `project_manager_professional_title` | 字段有上下文、source slice 和 parse state；证书类型/专业只作身份辅助，不替代姓名 | 泛化 `负责人`、把建造师/工程师当姓名、把职称当项目经理均进入 review 或不得入主链 | `PARTIAL` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `real_candidate_capture.py` |
+| 项目负责人误抓防护 | 项目负责人姓名必须像自然人；公司、集团、设计、建设、工程、咨询、管理、有限等组织词不得进入项目负责人字段 | `project_manager_name_parse_state`, `project_manager_certificate_no_parse_state` | 无自然人上下文时保持空值/待补，不把项目编号、招标编号当证书号 | 用 `JG2026`、项目编号、公司片段填充负责人或证书号不得通过 | `IMPLEMENTED` | `CODE_CONFIRMED` | `real_candidate_capture.py` |
 | 字段血缘 | 每个字段保留 source file、slice、hash、locator、confidence | `field_lineage_record` | 可回到原始页面/附件 | 无血缘不得进入外部证据 | `PARTIAL` | `AUTHORITY` | `contracts/schemas/field_lineage_record.schema.json` |
 | 解析置信度 | 低置信度、冲突字段、同名字段进入 review | confidence, parse warnings | 低置信不会升级事实 | 解析冲突不允许静默消解 | `PARTIAL` | `AUTHORITY` | real parser |
 | 模型辅助 | LLM 只可辅助抽取/摘要，不做事实裁决 | model governance | 进入正式链路需 `model_governance_record` | 无治理记录不得入正式对象 | `PARTIAL` | `AUTHORITY` | D14 |

@@ -37,6 +37,18 @@ FIELD_LABELS: dict[str, tuple[str, ...]] = {
     "tenderer_or_purchaser": ("招标人", "采购人", "建设单位", "招标单位", "采购单位"),
     "announcement_title": ("公告标题", "公告名称", "标题"),
     "announcement_date": ("公告日期", "发布日期", "发布时间", "公示日期"),
+    "candidate_company": ("中标候选人", "第一中标候选人", "中标单位", "单位名称", "投标人名称", "候选人名称"),
+    "project_manager_name": (
+        "项目经理姓名",
+        "项目负责人姓名",
+        "拟派项目负责人姓名",
+        "总监理工程师姓名",
+        "项目经理",
+        "项目负责人",
+        "拟派项目负责人",
+        "总监理工程师",
+    ),
+    "project_manager_public_identifier_optional": ("注册编号", "注册证书编号", "证书编号", "注册号"),
 }
 
 DATE_VALUE_RE = re.compile(
@@ -209,12 +221,19 @@ class Stage3RealParser:
                     fallback_steps=fallback_steps,
                 )
             elif detection.attachment_type == "PDF":
-                _add_error(
-                    parser_errors,
-                    PDF_TEXT_UNAVAILABLE,
-                    "pdf text extraction dependency is not enabled in this parser seam",
-                )
-                fallback_steps.append("degrade_to_review:pdf_text_unavailable")
+                pdf_text, pdf_state = _extract_pdf_text(data)
+                if pdf_text:
+                    parser_steps.append("extract_pdf_text")
+                    parsed_fields = _extract_fields_from_text(
+                        pdf_text,
+                        source_file_ref=source_file_ref,
+                        locator_type="pdf_text",
+                        base_locator={"source": "pdf_text", "extractor": "pypdf"},
+                        confidence=0.74,
+                    )
+                else:
+                    _add_error(parser_errors, PDF_TEXT_UNAVAILABLE, pdf_state)
+                    fallback_steps.append("degrade_to_review:pdf_text_unavailable")
             elif detection.attachment_type == "SCANNED_IMAGE":
                 _add_error(
                     parser_errors,
@@ -265,7 +284,7 @@ class Stage3RealParser:
             parsed_fields = []
 
         review_required = bool(parser_errors) or any(field.review_required for field in parsed_fields)
-        if not parsed_fields and detection.attachment_type in {"HTML", "WORD_DOCX", "EXCEL_XLSX"}:
+        if not parsed_fields and detection.attachment_type in {"HTML", "PDF", "WORD_DOCX", "EXCEL_XLSX"}:
             review_required = True
             fallback_steps.append("degrade_to_review:no_field_candidates")
         parse_state = "PARSED"
@@ -624,16 +643,16 @@ def _extract_fields_from_text(
     base_locator: Mapping[str, Any],
     confidence: float,
 ) -> list[ParsedField]:
-    normalized = _normalize_text(text)
+    search_text = re.sub(r"[ \t]+", " ", str(text or ""))
     fields: list[ParsedField] = []
     for field_name, labels in FIELD_LABELS.items():
         pattern = re.compile(
             rf"(?P<label>{'|'.join(re.escape(label) for label in labels)})\s*[:：]\s*(?P<value>[^\n\r;；。]+)"
         )
-        match = pattern.search(normalized)
+        match = pattern.search(search_text)
         if not match:
             continue
-        value = _field_value_for_name(field_name, match.group("value"))
+        value = _field_value_for_name(field_name, _trim_value_before_next_label(match.group("value")))
         if not value:
             continue
         source_slice = _normalize_text(match.group(0))
@@ -655,6 +674,16 @@ def _extract_fields_from_text(
             )
         )
     return fields
+
+
+def _trim_value_before_next_label(value: str) -> str:
+    labels = sorted(
+        {label for labels in FIELD_LABELS.values() for label in labels},
+        key=len,
+        reverse=True,
+    )
+    pattern = rf"\s+(?:{'|'.join(re.escape(label) for label in labels)})\s*[:：]"
+    return re.split(pattern, value, maxsplit=1)[0]
 
 
 def _field_from_tag_records(
@@ -907,6 +936,26 @@ def _decode_text(data: bytes) -> str:
         except UnicodeDecodeError:
             continue
     raise UnicodeDecodeError("utf-8", data, 0, min(len(data), 1), "decode failed")
+
+
+def _extract_pdf_text(data: bytes) -> tuple[str, str]:
+    try:
+        from pypdf import PdfReader
+    except Exception as exc:  # pragma: no cover - dependency availability is environment-specific
+        return "", f"PDF_TEXT_EXTRACTOR_UNAVAILABLE:{type(exc).__name__}"
+    try:
+        reader = PdfReader(BytesIO(data))
+        page_texts: list[str] = []
+        for page in list(reader.pages)[:30]:
+            text = page.extract_text() or ""
+            if text.strip():
+                page_texts.append(text)
+        extracted = "\n".join(page_texts).strip()
+    except Exception as exc:  # pragma: no cover - malformed public PDFs vary
+        return "", f"PDF_TEXT_EXTRACT_FAILED:{type(exc).__name__}"
+    if not extracted:
+        return "", "PDF_TEXT_EMPTY"
+    return extracted, "PDF_TEXT_EXTRACTED"
 
 
 def _failure_code_for_attachment(attachment_type: str) -> str:

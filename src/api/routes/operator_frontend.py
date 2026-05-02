@@ -1832,6 +1832,41 @@ function renderCandidateBatchReview(run) {
     `).join("")}</div>
   `;
 }
+function renderStage16ValidationLedger(run) {
+  const ledger = run?.stage1_6_validation_ledger || run?.search_scope?.stage1_6_validation_ledger || run?.data_boundary?.stage1_6_validation_ledger || {};
+  const stages = Array.isArray(ledger.stage_counts) ? ledger.stage_counts : [];
+  if (!stages.length) {
+    return `<div class="empty-state">暂无 Stage1-6 验收账本。</div>`;
+  }
+  const caps = ledger.caps || {};
+  const capText = [
+    caps.candidate_limit ? `候选上限 ${caps.candidate_limit}` : "",
+    caps.guangdong_page_limit ? `广东页数 ${caps.guangdong_page_limit}` : "",
+    caps.guangdong_page_size ? `每页 ${caps.guangdong_page_size}` : "",
+    caps.candidate_limit_truncated_count ? `截断 ${caps.candidate_limit_truncated_count}` : "未截断",
+    caps.stage1_6_time_budget_exhausted ? "Stage1-6时间用尽" : ""
+  ].filter(Boolean).join(" · ");
+  return `
+    <div class="stage-card">
+      <strong>广东 Stage1-6 验收账本</strong>
+      <p>${safeText(capText || "未设置运行上限")}；模式：${safeText(ledger.ledger_scope || "--")}</p>
+      ${badge(ledger.validation_mode ? "跑通验收模式" : "普通运行", ledger.validation_mode ? "" : "warn")}
+      ${caps.candidate_limit_source ? badge(caps.candidate_limit_source) : ""}
+    </div>
+    <div class="compact-card-grid">${stages.map((stage) => `
+      <div class="stage-card">
+        <strong>Stage${safeText(stage.stage)} ${safeText(stage.name || "")}</strong>
+        <p>输入 ${safeText(stage.input_count ?? 0)} · 有效 ${safeText(stage.effective_count ?? 0)} · 无效 ${safeText(stage.invalid_count ?? 0)} · 待处理 ${safeText(stage.pending_count ?? 0)}</p>
+        ${badge(stage.state || "待运行", stage.invalid_count || stage.pending_count ? "warn" : "")}
+        ${stage.identity_resolution_required_count ? badge(`身份补全 ${stage.identity_resolution_required_count}`, "warn") : ""}
+        ${stage.evidence_readback_ready_count !== undefined ? badge(`证据读回 ${stage.evidence_readback_ready_count}`) : ""}
+        ${stage.failure_reasons && Object.keys(stage.failure_reasons).length ? `<p><strong>失败原因</strong> ${safeText(Object.entries(stage.failure_reasons).map(([name, count]) => `${name} ${count}`).join(" / "))}</p>` : ""}
+        ${stage.review_reasons && Object.keys(stage.review_reasons).length ? `<p><strong>复核原因</strong> ${safeText(Object.entries(stage.review_reasons).map(([name, count]) => `${name} ${count}`).join(" / "))}</p>` : ""}
+        ${stage.field_counts ? `<p><strong>字段</strong> ${safeText(Object.entries(stage.field_counts).map(([name, count]) => `${labelOf(name)} ${count}`).join(" / "))}</p>` : ""}
+      </div>
+    `).join("")}</div>
+  `;
+}
 function renderSearchResultFromRun(run) {
   if (!run) {
     $("searchResult").className = "empty-state";
@@ -1867,6 +1902,8 @@ function renderSearchResultFromRun(run) {
       <p class="muted-text">${safeText(scope.stage1_policy || "Stage1 不是单选代表，而是按中标候选公示/异议窗口分流候选；未进入闭环者保留原因。")}</p>
       ${opportunityActions(run.opportunity_id, sampleMode)}
     </div>
+    <h3>广东 Stage1-6 验收账本</h3>
+    ${renderStage16ValidationLedger(run)}
     <h3>候选对象明细</h3>
     ${renderCandidateCards(run.candidate_options || [], run.opportunity_id || "", scope.selected_project_id || run.project_id || "")}
     <h3>批量候选复盘与失败分类</h3>

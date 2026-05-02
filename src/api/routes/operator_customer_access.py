@@ -2176,6 +2176,169 @@ def _build_real_public_stage1_6_acceptance_surface(
     }
 
 
+def _status_counts(rows: list[Mapping[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        value = str(row.get(key) or "UNKNOWN")
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
+def _stage1_6_validation_ledger(
+    *,
+    real_candidate_discovery: Mapping[str, Any],
+    real_candidate_stage2_capture: Mapping[str, Any],
+    raw_candidates: list[dict[str, Any]],
+    selected_candidate_count: int,
+    closed_loop_results: list[dict[str, Any]],
+    stage1_6_attempted_count: int,
+    stage1_6_pending_count: int,
+    stage2_detail_pending_for_stage1_6_count: int,
+    stage1_6_time_budget_seconds: float | None,
+    stage1_6_time_budget_exhausted: bool,
+) -> dict[str, Any]:
+    discovery = dict(real_candidate_discovery or {})
+    stage2 = dict(real_candidate_stage2_capture or {})
+    diagnostics = dict(discovery.get("candidate_discovery_diagnostics", {}) or {})
+    profile_reports = [
+        dict(item)
+        for item in list(discovery.get("profile_reports", []) or [])
+        if isinstance(item, Mapping)
+    ]
+    readbacks = [
+        dict(item.get("real_public_stage4_9_readback", {}) or {})
+        for item in closed_loop_results
+        if isinstance(item, Mapping)
+    ]
+    stage5_rule_counts = _status_counts(readbacks, "stage5_rule_gate_status")
+    stage5_evidence_counts = _status_counts(readbacks, "stage5_evidence_gate_status")
+    stage6_counts = _status_counts(readbacks, "stage6_real_public_product_package_chain_state")
+    stage4_identity_required_count = sum(
+        1 for readback in readbacks if bool(readback.get("jzsc_company_first_identity_resolution_required"))
+    )
+    stage4_remaining_gap_counts: dict[str, int] = {}
+    stage4_fail_reason_counts: dict[str, int] = {}
+    for readback in readbacks:
+        for gap in list(readback.get("remaining_real_world_gaps", []) or []):
+            text = str(gap)
+            if text:
+                stage4_remaining_gap_counts[text] = stage4_remaining_gap_counts.get(text, 0) + 1
+        for reason in list(readback.get("fail_closed_reasons", []) or []):
+            text = str(reason)
+            if text:
+                stage4_fail_reason_counts[text] = stage4_fail_reason_counts.get(text, 0) + 1
+    stage1_caps = dict(discovery.get("stage1_6_validation_caps", {}) or {})
+    stage1_candidate_count = _as_int(discovery.get("candidate_count"), len(raw_candidates))
+    stage2_attempted = _as_int(stage2.get("detail_capture_attempted_count"), 0)
+    stage2_snapshot_count = _as_int(stage2.get("detail_snapshot_count"), 0)
+    stage3_success = _as_int(stage2.get("stage3_parse_success_count"), 0)
+    return {
+        "surface_id": "guangdong_stage1_6_validation_ledger",
+        "ledger_scope": "GUANGDONG_STAGE1_6_REAL_PUBLIC_VALIDATION",
+        "validation_mode": bool(discovery.get("stage1_6_validation_mode")),
+        "caps": {
+            "candidate_limit": stage1_caps.get("candidate_limit")
+            or discovery.get("candidate_limit_effective")
+            or "ALL_FETCHED_WINDOW_CANDIDATES",
+            "candidate_limit_source": stage1_caps.get("candidate_limit_source")
+            or discovery.get("candidate_limit_source")
+            or "",
+            "guangdong_page_limit": stage1_caps.get("guangdong_page_limit") or "",
+            "guangdong_page_size": stage1_caps.get("guangdong_page_size") or "",
+            "candidate_limit_truncated_count": _as_int(
+                stage1_caps.get("candidate_limit_truncated_count"),
+                _as_int(diagnostics.get("candidate_limit_truncated_count"), 0),
+            ),
+            "stage1_6_time_budget_seconds": stage1_6_time_budget_seconds,
+            "stage1_6_time_budget_exhausted": stage1_6_time_budget_exhausted,
+        },
+        "stage_counts": [
+            {
+                "stage": 1,
+                "name": "真实候选发现",
+                "input_count": _as_int(diagnostics.get("link_item_count"), 0),
+                "effective_count": stage1_candidate_count,
+                "invalid_count": sum(_as_int(value, 0) for value in dict(diagnostics.get("rejected_totals", {}) or {}).values()),
+                "pending_count": _as_int(diagnostics.get("candidate_limit_truncated_count"), 0),
+                "state": str(discovery.get("discovery_state") or "NOT_RUN"),
+                "failure_reasons": dict(diagnostics.get("rejected_totals", {}) or {}),
+                "review_reasons": dict(diagnostics.get("preserved_filter_totals", {}) or {}),
+                "notes": [
+                    str(diagnostics.get("headline") or ""),
+                    f"profile_reports={len(profile_reports)}",
+                ],
+            },
+            {
+                "stage": 2,
+                "name": "详情页/附件快照",
+                "input_count": len(raw_candidates),
+                "effective_count": stage2_snapshot_count,
+                "invalid_count": _as_int(stage2.get("detail_capture_failed_count"), 0),
+                "pending_count": _as_int(stage2.get("pending_detail_capture_count"), 0),
+                "state": str(stage2.get("capture_execution_strategy") or "NOT_RUN"),
+                "failure_reasons": dict(stage2.get("detail_capture_failure_summary", {}) or {}),
+                "notes": [
+                    f"attempted={stage2_attempted}",
+                    f"attachments={_as_int(stage2.get('attachment_snapshot_count'), 0)}",
+                ],
+            },
+            {
+                "stage": 3,
+                "name": "字段解析与归一",
+                "input_count": stage2_snapshot_count,
+                "effective_count": stage3_success,
+                "invalid_count": _as_int(stage2.get("stage3_parse_failed_count"), 0),
+                "pending_count": max(stage2_snapshot_count - stage3_success, 0),
+                "state": "PARSED" if stage3_success else "NOT_READY",
+                "field_counts": {
+                    "candidate_company": sum(1 for row in raw_candidates if row.get("candidate_company")),
+                    "project_manager_name": sum(1 for row in raw_candidates if row.get("project_manager_name")),
+                    "project_manager_certificate_no": sum(1 for row in raw_candidates if row.get("project_manager_certificate_no")),
+                    "project_manager_certificate_type": sum(1 for row in raw_candidates if row.get("project_manager_certificate_type")),
+                    "project_manager_cert_specialty": sum(1 for row in raw_candidates if row.get("project_manager_cert_specialty")),
+                },
+            },
+            {
+                "stage": 4,
+                "name": "公开核验与项目经理身份补全",
+                "input_count": selected_candidate_count,
+                "effective_count": stage1_6_attempted_count,
+                "invalid_count": sum(stage4_fail_reason_counts.values()),
+                "pending_count": stage1_6_pending_count,
+                "state": "PARTIAL_SOURCE_COVERAGE",
+                "identity_resolution_required_count": stage4_identity_required_count,
+                "remaining_gap_counts": stage4_remaining_gap_counts,
+                "failure_reasons": stage4_fail_reason_counts,
+            },
+            {
+                "stage": 5,
+                "name": "规则门/证据门",
+                "input_count": stage1_6_attempted_count,
+                "effective_count": sum(1 for item in closed_loop_results if item.get("stage1_6_closed_loop_ready")),
+                "invalid_count": sum(count for status, count in stage5_evidence_counts.items() if status not in {"PASS", "UNKNOWN"}),
+                "pending_count": stage1_6_pending_count,
+                "rule_gate_counts": stage5_rule_counts,
+                "evidence_gate_counts": stage5_evidence_counts,
+            },
+            {
+                "stage": 6,
+                "name": "产品包/证据包读回",
+                "input_count": stage1_6_attempted_count,
+                "effective_count": sum(1 for item in closed_loop_results if item.get("stage1_6_closed_loop_ready")),
+                "invalid_count": sum(count for status, count in stage6_counts.items() if status not in {"INTERNAL_READY", "UNKNOWN"}),
+                "pending_count": stage1_6_pending_count + stage2_detail_pending_for_stage1_6_count,
+                "package_state_counts": stage6_counts,
+                "evidence_readback_ready_count": sum(
+                    1
+                    for readback in readbacks
+                    if str(readback.get("source_snapshot_id") or "").strip()
+                    and dict(readback.get("source_refs", {}) or {})
+                ),
+            },
+        ],
+    }
+
+
 def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> dict[str, Any]:
     now = str(payload.get("now") or utc_now_iso())
     all_region_codes = [
@@ -2315,6 +2478,18 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
         resolved = resolved_by_region.get(str(primary_region_code)) or _resolve_entry_profile_for_search(primary_region_code)
         region_adapter = dict(resolved["region_adapter"])
         entry_profile = dict(resolved["entry_profile"])
+        validation_ledger = _stage1_6_validation_ledger(
+            real_candidate_discovery=real_candidate_discovery,
+            real_candidate_stage2_capture=real_candidate_stage2_capture,
+            raw_candidates=[],
+            selected_candidate_count=0,
+            closed_loop_results=[],
+            stage1_6_attempted_count=0,
+            stage1_6_pending_count=0,
+            stage2_detail_pending_for_stage1_6_count=0,
+            stage1_6_time_budget_seconds=None,
+            stage1_6_time_budget_exhausted=False,
+        )
         result = {
             "surface_id": "operator_autonomous_opportunity_search",
             "search_state": "NO_CANDIDATES",
@@ -2340,6 +2515,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "real_market_discovery": False,
                 "real_candidate_discovery_attempted": discovery_attempted,
                 "offline_sample_candidates_enabled": False,
+                "stage1_6_validation_ledger": validation_ledger,
             },
             "data_boundary": {
                 "source_candidate_mode": no_candidate_mode,
@@ -2347,8 +2523,10 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "real_candidate_discovery_attempted": discovery_attempted,
                 "offline_sample_validation": False,
                 "customer_sellable_evidence_ready": False,
+                "stage1_6_validation_ledger": validation_ledger,
                 "display_message": no_candidate_message,
             },
+            "stage1_6_validation_ledger": validation_ledger,
             "real_candidate_discovery": real_candidate_discovery,
             "real_candidate_stage2_capture": real_candidate_stage2_capture,
             "market_scan": {
@@ -3014,6 +3192,18 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             if primary_real_public_stage1_6_chain_state == "INTERNAL_READY"
             else "REAL_PUBLIC_STAGE1_6_REVIEW_REQUIRED"
         )
+    validation_ledger = _stage1_6_validation_ledger(
+        real_candidate_discovery=real_candidate_discovery,
+        real_candidate_stage2_capture=real_candidate_stage2_capture,
+        raw_candidates=raw_candidates,
+        selected_candidate_count=len(selected),
+        closed_loop_results=closed_loop_results,
+        stage1_6_attempted_count=stage1_6_attempted_count,
+        stage1_6_pending_count=stage1_6_pending_count,
+        stage2_detail_pending_for_stage1_6_count=stage2_detail_pending_for_stage1_6_count,
+        stage1_6_time_budget_seconds=stage1_6_time_budget_seconds,
+        stage1_6_time_budget_exhausted=stage1_6_time_budget_exhausted,
+    )
     response = {
         "surface_id": "operator_autonomous_opportunity_search",
         "search_state": search_state,
@@ -3093,6 +3283,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "real_market_discovery": not offline_sample_mode,
             "real_candidate_discovery_attempted": bool(real_candidate_discovery),
             "offline_sample_candidates_enabled": offline_sample_mode,
+            "stage1_6_validation_ledger": validation_ledger,
             "real_public_stage4_9_chain_state": primary_real_public_chain_state,
             "real_public_stage1_6_chain_state": primary_real_public_stage1_6_chain_state,
             "real_world_hard_defect_gate_state": primary_real_public_stage4_9_readback.get(
@@ -3111,6 +3302,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "stage1_6_pending_count": stage1_6_pending_count,
             "stage2_detail_pending_for_stage1_6_count": stage2_detail_pending_for_stage1_6_count,
             "stage1_6_time_budget_exhausted": stage1_6_time_budget_exhausted,
+            "stage1_6_validation_ledger": validation_ledger,
             "real_world_hard_defect_gate_state": primary_real_public_stage4_9_readback.get(
                 "real_world_hard_defect_gate_state"
             ),
@@ -3142,6 +3334,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 else "显式候选已进入内部闭环；客户可交付前仍需核验真实来源详情页、附件和证据回链。"
             ),
         },
+        "stage1_6_validation_ledger": validation_ledger,
         "market_scan": market_scan,
         "source_blueprint_plan": source_blueprint,
         "acceptance": acceptance,

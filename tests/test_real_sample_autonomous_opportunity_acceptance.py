@@ -641,6 +641,17 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         )
         self.assertEqual(payload["closed_loop_results"][0]["search_state"], "STAGE1_6_INTERNAL_READY")
         self.assertTrue(payload["closed_loop_results"][0]["stage1_6_closed_loop_ready"])
+        ledger = payload["stage1_6_validation_ledger"]
+        self.assertEqual(ledger["surface_id"], "guangdong_stage1_6_validation_ledger")
+        self.assertEqual(len(ledger["stage_counts"]), 6)
+        self.assertEqual(ledger["stage_counts"][0]["effective_count"], 1)
+        self.assertEqual(ledger["stage_counts"][1]["effective_count"], 1)
+        self.assertEqual(ledger["stage_counts"][2]["effective_count"], 1)
+        self.assertEqual(ledger["stage_counts"][5]["effective_count"], 1)
+        self.assertEqual(
+            payload["search_scope"]["stage1_6_validation_ledger"]["stage_counts"][0]["effective_count"],
+            1,
+        )
         self.assertIn(
             "stage4_5_local_housing_contract_completion_pm_change_penalty_adapters_pending",
             payload["data_boundary"]["remaining_real_world_gaps"],

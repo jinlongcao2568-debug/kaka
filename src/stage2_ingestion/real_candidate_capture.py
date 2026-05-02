@@ -5,6 +5,7 @@ import json
 import re
 import time
 from html import unescape
+from io import BytesIO
 from typing import Any, Mapping
 
 from shared.utils import utc_now_iso
@@ -69,6 +70,28 @@ def _decode_snapshot_text(readback: Mapping[str, Any]) -> str:
         except UnicodeDecodeError:
             continue
     return bytes(data).decode("utf-8", errors="replace")
+
+
+def _extract_pdf_text(data: bytes) -> tuple[str, str]:
+    if not data.startswith(b"%PDF"):
+        return "", "NOT_PDF"
+    try:
+        from pypdf import PdfReader
+    except Exception as exc:  # pragma: no cover - dependency availability is environment-specific
+        return "", f"PDF_TEXT_EXTRACTOR_UNAVAILABLE:{type(exc).__name__}"
+    try:
+        reader = PdfReader(BytesIO(data))
+        page_texts: list[str] = []
+        for page in list(reader.pages)[:30]:
+            text = page.extract_text() or ""
+            if text.strip():
+                page_texts.append(text)
+        extracted = "\n".join(page_texts).strip()
+    except Exception as exc:  # pragma: no cover - malformed public PDFs vary
+        return "", f"PDF_TEXT_EXTRACT_FAILED:{type(exc).__name__}"
+    if not extracted:
+        return "", "PDF_TEXT_EMPTY"
+    return extracted, "PDF_TEXT_EXTRACTED"
 
 
 def _parser_fields_by_name(parser_carrier: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
@@ -252,6 +275,14 @@ def _looks_like_person_name(value: str) -> bool:
         "经理",
         "建造师",
         "工程师",
+        "公司",
+        "集团",
+        "设计",
+        "建设",
+        "工程",
+        "咨询",
+        "管理",
+        "有限",
         "注册",
         "证书",
         "资格",
@@ -381,15 +412,18 @@ def _extract_project_manager(text: str) -> dict[str, str]:
     certificate_state = "DETAIL_TEXT_NOT_FOUND"
     cert_patterns = (
         r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号)\s*[:：]?\s*([A-Za-z0-9\-]{4,40})",
-        r"(?:编号|证号)\s*[:：]\s*([A-Za-z0-9\-]{4,40})",
+        r"(?:证号)\s*[:：]\s*([A-Za-z0-9\-]{4,40})",
     )
+    certificate_search_text = search_text if manager_name else _project_manager_certificate_context(search_text)
     for pattern in cert_patterns:
-        match = re.search(pattern, search_text)
+        if not certificate_search_text:
+            break
+        match = re.search(pattern, certificate_search_text)
         if match:
             certificate_no = _clean_text(match.group(1)).strip(" ：:，,；;。")
             certificate_state = "DETAIL_TEXT_CANDIDATE_TABLE"
             break
-    identity = _extract_project_manager_certificate_identity(search_text)
+    identity = _extract_project_manager_certificate_identity(certificate_search_text or search_text)
     return {
         "project_manager_name": manager_name,
         "project_manager_name_parse_state": manager_state,
@@ -397,6 +431,21 @@ def _extract_project_manager(text: str) -> dict[str, str]:
         "project_manager_certificate_no_parse_state": certificate_state,
         **identity,
     }
+
+
+def _project_manager_certificate_context(text: str) -> str:
+    patterns = (
+        r"(?:项目负责人|项目经理|拟派项目负责人|总监理工程师|建造师|注册证书|资格证书)[^。；;\n\r]{0,140}",
+        r"[^。；;\n\r]{0,80}(?:注册编号|注册证书编号|证书编号|证号|注册号)[^。；;\n\r]{0,80}",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        context = match.group(0)
+        if any(token in context for token in ("项目负责人", "项目经理", "拟派", "总监", "建造师", "监理工程师", "注册证书")):
+            return context
+    return ""
 
 
 def _extract_deadline(text: str) -> tuple[str, str]:
@@ -823,12 +872,6 @@ class RealCandidateStage2CaptureService:
             parser_carrier = dict(
                 self.stage3_service.parse_raw_snapshot(snapshot_id, repository=self.object_repository)
             )
-        detail_fields = self._detail_fields(
-            candidate=candidate,
-            detail_carrier=detail_carrier,
-            parser_carrier=parser_carrier,
-            readback_text=readback_text,
-        )
         attachment_link_items = list(detail_carrier.get("same_site_attachment_link_items", []) or [])
         attachment_captures = self._capture_same_site_attachments(
             attachment_link_items,
@@ -839,6 +882,21 @@ class RealCandidateStage2CaptureService:
             detail_snapshot_id=snapshot_id,
             limit=attachment_capture_limit,
         )
+        attachment_text, attachment_text_states = self._attachment_text_bundle(attachment_captures)
+        combined_readback_text = "\n".join(
+            part for part in (readback_text, attachment_text) if str(part or "").strip()
+        )
+        detail_fields = self._detail_fields(
+            candidate=candidate,
+            detail_carrier=detail_carrier,
+            parser_carrier=parser_carrier,
+            readback_text=combined_readback_text or readback_text,
+        )
+        if attachment_text_states:
+            detail_fields["attachment_text_parse_states"] = attachment_text_states
+            detail_fields["attachment_text_merge_state"] = (
+                "ATTACHMENT_TEXT_MERGED" if attachment_text else "ATTACHMENT_TEXT_NOT_EXTRACTED"
+            )
         capture = {
             **base_capture,
             "detail_capture_status": str(detail_carrier.get("status") or "UNKNOWN"),
@@ -861,6 +919,42 @@ class RealCandidateStage2CaptureService:
         }
         capture["capture_record"] = self.repository.persist_capture(candidate=candidate, capture=capture, now=captured_at)
         return capture
+
+    def _attachment_text_bundle(self, attachment_captures: list[Mapping[str, Any]]) -> tuple[str, list[str]]:
+        texts: list[str] = []
+        states: list[str] = []
+        for attachment in attachment_captures:
+            snapshot_id = str(attachment.get("attachment_snapshot_id_optional") or "").strip()
+            if not snapshot_id:
+                continue
+            try:
+                readback = self.object_repository.replay_snapshot(snapshot_id)
+            except Exception as exc:  # pragma: no cover - repository corruption varies
+                states.append(f"{snapshot_id}:READBACK_FAILED:{type(exc).__name__}")
+                continue
+            data = readback.get("bytes")
+            if not isinstance(data, (bytes, bytearray)):
+                states.append(f"{snapshot_id}:READBACK_BYTES_MISSING")
+                continue
+            content_type = str(
+                attachment.get("content_type")
+                or readback.get("content_type")
+                or dict(readback.get("manifest", {}) or {}).get("content_type")
+                or ""
+            ).lower()
+            blob = bytes(data)
+            if "pdf" in content_type or blob.startswith(b"%PDF"):
+                text, state = _extract_pdf_text(blob)
+                states.append(f"{snapshot_id}:{state}")
+                if text:
+                    texts.append(text)
+                continue
+            text = _decode_snapshot_text(readback)
+            state = "ATTACHMENT_TEXT_EXTRACTED" if text.strip() else "ATTACHMENT_TEXT_EMPTY"
+            states.append(f"{snapshot_id}:{state}")
+            if text.strip():
+                texts.append(text)
+        return "\n".join(texts), states
 
     def _capture_same_site_attachments(
         self,

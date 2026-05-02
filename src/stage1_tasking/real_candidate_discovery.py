@@ -29,8 +29,9 @@ REAL_CANDIDATE_DISCOVERY_RUN_WORK_ITEM_ID = "operator-real-candidate-discovery-r
 REAL_CANDIDATE_DISCOVERY_CANDIDATE_WORK_ITEM_ID = "operator-real-candidate-discovery-candidates"
 
 DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION = 3
+GUANGDONG_STAGE1_6_VALIDATION_CANDIDATE_LIMIT = 30
 GUANGDONG_DISCOVERY_PAGE_SIZE = 50
-MAX_GUANGDONG_DISCOVERY_PAGES = 3
+MAX_GUANGDONG_DISCOVERY_PAGES = 1
 GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS = "3C42"
 GUANGDONG_YGP_TRADING_PROCESS_PRIORITY = (
     ("candidate_publicity", GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS),
@@ -185,6 +186,10 @@ def _positive_int_or_none(value: Any) -> int | None:
     except (TypeError, ValueError):
         return None
     return parsed if parsed > 0 else None
+
+
+def _is_guangdong_stage1_6_validation_scope(region_codes: list[str]) -> bool:
+    return bool(region_codes) and all(str(code).upper() == "CN-GD" for code in region_codes)
 
 
 def _as_string_list(value: Any, default: list[str]) -> list[str]:
@@ -565,6 +570,8 @@ def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
             and process_attempts[-1].get("record_count")
         ),
         "page_size": GUANGDONG_DISCOVERY_PAGE_SIZE,
+        "page_limit": MAX_GUANGDONG_DISCOVERY_PAGES,
+        "candidate_record_window_cap": GUANGDONG_DISCOVERY_PAGE_SIZE * MAX_GUANGDONG_DISCOVERY_PAGES,
         "attempted_pages": sum(_as_int(item.get("attempted_pages"), 0) for item in process_attempts),
         "record_count": len(all_records),
         "total": total_by_process.get("candidate_publicity") or total_by_process.get("recent_all_fallback") or "",
@@ -1066,10 +1073,12 @@ def _discovery_diagnostics_summary(profile_reports: list[dict[str, Any]]) -> dic
     diagnosis_totals: dict[str, int] = {}
     link_item_count = 0
     accepted_candidate_count = 0
+    candidate_limit_truncated_count = 0
     for report in profile_reports:
         diagnostics = dict(report.get("candidate_diagnostics", {}) or {})
         link_item_count += _as_int(diagnostics.get("link_item_count"), 0)
         accepted_candidate_count += _as_int(diagnostics.get("accepted_candidate_count"), 0)
+        candidate_limit_truncated_count += _as_int(report.get("candidate_limit_truncated_count"), 0)
         for key, value in dict(diagnostics.get("rejected_counts", {}) or {}).items():
             rejected_totals[str(key)] = rejected_totals.get(str(key), 0) + _as_int(value, 0)
         for key, value in dict(diagnostics.get("preserved_filter_counts", {}) or {}).items():
@@ -1093,6 +1102,7 @@ def _discovery_diagnostics_summary(profile_reports: list[dict[str, Any]]) -> dic
         "profile_count": len(profile_reports),
         "link_item_count": link_item_count,
         "accepted_candidate_count": accepted_candidate_count,
+        "candidate_limit_truncated_count": candidate_limit_truncated_count,
         "rejected_totals": rejected_totals,
         "preserved_filter_totals": preserved_filter_totals,
         "diagnosis_totals": diagnosis_totals,
@@ -1129,6 +1139,10 @@ class RealPublicCandidateRepository:
                 _first_present(result.get("amount_max"), payload.get("amount_max"), payload.get("maximum_amount"))
             ),
             "source_candidate_mode": REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
+            "candidate_limit_source": str(result.get("candidate_limit_source") or ""),
+            "candidate_limit_effective": _present_text(result.get("candidate_limit_effective")),
+            "stage1_6_validation_mode": str(bool(result.get("stage1_6_validation_mode"))).lower(),
+            "stage1_6_validation_caps_json": _json_text(result.get("stage1_6_validation_caps") or {}),
             "profile_reports_json": _json_text(result.get("profile_reports") or []),
             "candidate_discovery_diagnostics_json": _json_text(result.get("candidate_discovery_diagnostics") or {}),
         }
@@ -1320,6 +1334,10 @@ class RealPublicCandidateRepository:
             "amount_min": refs.get("amount_min"),
             "amount_max": refs.get("amount_max"),
             "source_candidate_mode": refs.get("source_candidate_mode"),
+            "candidate_limit_source": refs.get("candidate_limit_source"),
+            "candidate_limit_effective": refs.get("candidate_limit_effective"),
+            "stage1_6_validation_mode": refs.get("stage1_6_validation_mode") == "true",
+            "stage1_6_validation_caps": _json_value(refs.get("stage1_6_validation_caps_json"), {}),
             "profile_reports": _json_value(refs.get("profile_reports_json"), []),
             "candidate_discovery_diagnostics": _json_value(refs.get("candidate_discovery_diagnostics_json"), {}),
             "requested_at": action.requested_at,
@@ -1367,7 +1385,17 @@ class RealPublicCandidateDiscoveryService:
         if amount_min is not None and amount_max is not None and amount_max < amount_min:
             amount_min, amount_max = amount_max, amount_min
         raw_candidate_limit = _first_present(payload.get("discovery_candidate_limit"), payload.get("candidate_limit"))
-        candidate_limit = _positive_int_or_none(raw_candidate_limit)
+        explicit_candidate_limit = _positive_int_or_none(raw_candidate_limit)
+        guangdong_stage1_6_validation_scope = _is_guangdong_stage1_6_validation_scope(region_codes)
+        candidate_limit = explicit_candidate_limit
+        candidate_limit_source = (
+            "EXPLICIT_LIMIT"
+            if explicit_candidate_limit is not None
+            else "ALL_FETCHED_WINDOW_CANDIDATES"
+        )
+        if candidate_limit is None and guangdong_stage1_6_validation_scope:
+            candidate_limit = GUANGDONG_STAGE1_6_VALIDATION_CANDIDATE_LIMIT
+            candidate_limit_source = "GUANGDONG_STAGE1_6_VALIDATION_DEFAULT"
         profile_limit = max(1, _as_int(payload.get("discovery_profile_limit_per_region"), DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION))
         query = str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or "").strip()
         run_id = str(payload.get("candidate_discovery_run_id") or build_id("REAL-CANDIDATE-DISCOVERY", _hash_text(discovered_at, 12)))
@@ -1440,7 +1468,17 @@ class RealPublicCandidateDiscoveryService:
                 parsed = list(parsed_result["candidates"])
                 diagnostics = dict(parsed_result["diagnostics"])
                 new_rows: list[dict[str, Any]] = []
-                for row in parsed:
+                candidate_limit_truncated_count = 0
+                for index, row in enumerate(parsed):
+                    if (
+                        (candidate_limit is not None and len(candidates) >= candidate_limit)
+                        or (
+                            per_region_candidate_limit is not None
+                            and region_candidate_count >= per_region_candidate_limit
+                        )
+                    ):
+                        candidate_limit_truncated_count = max(len(parsed) - index, 0)
+                        break
                     key = str(row.get("candidate_key") or _candidate_key(row))
                     if key in seen_candidate_keys:
                         continue
@@ -1455,6 +1493,7 @@ class RealPublicCandidateDiscoveryService:
                             and region_candidate_count >= per_region_candidate_limit
                         )
                     ):
+                        candidate_limit_truncated_count = max(len(parsed) - index - 1, 0)
                         break
                 profile_reports.append(
                     {
@@ -1475,6 +1514,10 @@ class RealPublicCandidateDiscoveryService:
                         "public_api_total": diagnostics.get("public_api_total"),
                         "public_api_row_count": diagnostics.get("public_api_row_count"),
                         "public_api_page_size": diagnostics.get("public_api_page_size"),
+                        "public_api_page_limit": diagnostics.get("public_api_page_limit"),
+                        "public_api_candidate_record_window_cap": diagnostics.get(
+                            "public_api_candidate_record_window_cap"
+                        ),
                         "public_api_attempted_pages": diagnostics.get("public_api_attempted_pages"),
                         "candidate_diagnostics": diagnostics,
                         "operator_diagnosis": diagnostics.get("operator_diagnosis"),
@@ -1482,7 +1525,11 @@ class RealPublicCandidateDiscoveryService:
                         "rejected_counts": diagnostics.get("rejected_counts"),
                         "candidate_count": len(new_rows),
                         "accepted_candidate_count": len(parsed),
-                        "duplicate_filtered_count": max(len(parsed) - len(new_rows), 0),
+                        "candidate_limit_truncated_count": candidate_limit_truncated_count,
+                        "duplicate_filtered_count": max(
+                            len(parsed) - len(new_rows) - candidate_limit_truncated_count,
+                            0,
+                        ),
                     }
                 )
             if candidate_limit is not None and len(candidates) >= candidate_limit:
@@ -1504,10 +1551,28 @@ class RealPublicCandidateDiscoveryService:
             "amount_min": amount_min,
             "amount_max": amount_max,
             "query": query,
-            "candidate_limit_explicit": candidate_limit is not None,
+            "candidate_limit_explicit": explicit_candidate_limit is not None,
+            "candidate_limit_source": candidate_limit_source,
             "candidate_limit_effective": candidate_limit
             if candidate_limit is not None
             else "ALL_FETCHED_WINDOW_CANDIDATES",
+            "stage1_6_validation_mode": guangdong_stage1_6_validation_scope,
+            "stage1_6_validation_caps": {
+                "candidate_limit": candidate_limit
+                if candidate_limit is not None
+                else "ALL_FETCHED_WINDOW_CANDIDATES",
+                "candidate_limit_source": candidate_limit_source,
+                "guangdong_page_limit": MAX_GUANGDONG_DISCOVERY_PAGES
+                if guangdong_stage1_6_validation_scope
+                else "",
+                "guangdong_page_size": GUANGDONG_DISCOVERY_PAGE_SIZE
+                if guangdong_stage1_6_validation_scope
+                else "",
+                "candidate_limit_truncated_count": sum(
+                    _as_int(row.get("candidate_limit_truncated_count"), 0)
+                    for row in profile_reports
+                ),
+            },
             "candidate_count": len(candidates),
             "candidates": candidates,
             "profile_reports": profile_reports,
@@ -1597,6 +1662,8 @@ class RealPublicCandidateDiscoveryService:
             "public_api_total": api_discovery.get("total"),
             "public_api_row_count": api_discovery.get("record_count"),
             "public_api_page_size": api_discovery.get("page_size"),
+            "public_api_page_limit": api_discovery.get("page_limit"),
+            "public_api_candidate_record_window_cap": api_discovery.get("candidate_record_window_cap"),
             "public_api_attempted_pages": api_discovery.get("attempted_pages"),
             "public_api_trading_process_strategy": api_discovery.get("trading_process_strategy"),
             "public_api_primary_trading_process": api_discovery.get("primary_trading_process"),

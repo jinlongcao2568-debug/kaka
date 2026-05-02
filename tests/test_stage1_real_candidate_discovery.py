@@ -263,6 +263,57 @@ def fake_guangdong_candidate_publicity_api_link_discoverer(profile_id: str, *, n
     }
 
 
+def fake_guangdong_many_candidate_publicity_api_link_discoverer(profile_id: str, *, now: str) -> dict:
+    if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
+        return {"state": "UNSUPPORTED", "items": []}
+    records = []
+    for index in range(35):
+        records.append(
+            {
+                "docId": f"gd-eval-report-many-{index:03d}",
+                "noticeId": f"gd-eval-report-many-{index:03d}-3C42",
+                "noticeSecondType": "A",
+                "noticeSecondTypeDesc": "工程建设",
+                "noticeThirdType": "2",
+                "noticeThirdTypeDesc": "评标报告",
+                "projectType": "A02",
+                "projectTypeName": "市政",
+                "siteName": "霞山区",
+                "siteCode": "440803",
+                "regionCode": "440800",
+                "regionName": "湛江市",
+                "noticeTitle": f"霞山区市政道路工程{index:03d}中标候选人公示",
+                "projectCode": f"E4408000001000{index:04d}",
+                "publishDate": "20260501004038",
+                "edition": "v3",
+                "tradingProcess": "3C42",
+                "datasetName": "评标报告",
+                "pubServicePlat": "广东省公共资源交易平台",
+                "noticeNature": "正常公告",
+                "_ax9s_query_process_label": "candidate_publicity",
+                "_ax9s_query_trading_process": "3C42",
+            }
+        )
+    return {
+        "state": "FETCHED",
+        "endpoint": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
+        "items": _link_items_from_guangdong_ygp_records(records),
+        "record_count": len(records),
+        "page_size": 50,
+        "page_limit": 1,
+        "attempted_pages": 1,
+        "candidate_record_window_cap": 50,
+        "process_attempts": [
+            {
+                "process_label": "candidate_publicity",
+                "trading_process": "3C42",
+                "record_count": len(records),
+                "attempted_pages": 1,
+            }
+        ],
+    }
+
+
 def fake_guangdong_api_link_discoverer_with_expired_notice(profile_id: str, *, now: str) -> dict:
     if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
         return {"state": "UNSUPPORTED", "items": []}
@@ -625,6 +676,43 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["source_dataset_name"], "评标报告")
         self.assertEqual(candidate["source_query_process_label"], "candidate_publicity")
         self.assertIn("noticeId=gd-eval-report-001-3C42", candidate["source_url"])
+
+    def test_guangdong_stage1_6_validation_defaults_to_30_candidates_and_one_page_window(self) -> None:
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeGuangdongShellFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangdong_many_candidate_publicity_api_link_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "amount_min": 0,
+                "amount_max": 200_000_000,
+                "discovery_profile_limit_per_region": 1,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertFalse(result["candidate_limit_explicit"])
+        self.assertEqual(result["candidate_limit_source"], "GUANGDONG_STAGE1_6_VALIDATION_DEFAULT")
+        self.assertEqual(result["candidate_limit_effective"], 30)
+        self.assertTrue(result["stage1_6_validation_mode"])
+        self.assertEqual(result["candidate_count"], 30)
+        self.assertEqual(result["stage1_6_validation_caps"]["candidate_limit_truncated_count"], 5)
+        report = result["profile_reports"][0]
+        self.assertEqual(report["accepted_candidate_count"], 35)
+        self.assertEqual(report["candidate_count"], 30)
+        self.assertEqual(report["candidate_limit_truncated_count"], 5)
+        self.assertEqual(report["public_api_page_limit"], 1)
+        self.assertEqual(report["public_api_page_size"], 50)
+        self.assertEqual(report["public_api_candidate_record_window_cap"], 50)
+        self.assertEqual(
+            result["candidate_discovery_diagnostics"]["candidate_limit_truncated_count"],
+            5,
+        )
 
     def test_real_candidate_discovery_preserves_old_publish_time_for_review(self) -> None:
         service = RealPublicCandidateDiscoveryService(

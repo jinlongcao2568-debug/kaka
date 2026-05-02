@@ -326,6 +326,35 @@ class Stage3RealParserTests(unittest.TestCase):
             carrier["parser_audit"]["fallback_steps"],
         )
 
+    def test_pdf_text_attachment_extracts_stage3_fields(self) -> None:
+        carrier = self._parse(
+            data=_build_text_pdf_bytes(
+                [
+                    "项目名称: 广东机电安装工程",
+                    "第一中标候选人: 广东省机电建设有限公司",
+                    "项目负责人: 张建明",
+                    "注册编号: 144202412345",
+                ]
+            ),
+            snapshot_id="SNAP-STAGE3-PDF-TEXT-1",
+            content_type="application/pdf",
+            source_url="sandbox://local-public-resource-trading-centers/notices/text.pdf",
+            snapshot_kind="raw_pdf",
+        )
+
+        self._assert_unverified_internal_carrier(carrier)
+        self.assertEqual(carrier["attachment_type"], "PDF")
+        self.assertEqual(carrier["parse_state"], "PARSED")
+        self.assertFalse(carrier["review_required"])
+        self.assertIn("extract_pdf_text", carrier["parser_audit"]["parser_steps"])
+        fields = {field["field_name"]: field for field in carrier["parsed_fields"]}
+        self.assertEqual(fields["project_name"]["field_value_optional"], "广东机电安装工程")
+        self.assertEqual(fields["project_manager_name"]["field_value_optional"], "张建明")
+        self.assertEqual(
+            fields["project_manager_public_identifier_optional"]["field_value_optional"],
+            "144202412345",
+        )
+
     def test_ocr_scanned_image_degrades_to_review_without_low_confidence_facts(self) -> None:
         carrier = self._parse(
             data=b"\x89PNG\r\n\x1a\nscanned-bytes",
@@ -532,6 +561,25 @@ def _real_public_profile_html(profile_id: str) -> bytes:
 
 def _pdf_like_attachment(profile_id: str) -> bytes:
     return b"%PDF-1.4\n" + (f"{profile_id} public attachment\n".encode("utf-8") * 60)
+
+
+def _build_text_pdf_bytes(lines: list[str]) -> bytes:
+    try:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        from reportlab.pdfgen import canvas
+    except Exception as exc:  # pragma: no cover - optional test rendering dependency
+        raise unittest.SkipTest(f"reportlab unavailable: {exc}") from exc
+    buffer = BytesIO()
+    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    page = canvas.Canvas(buffer)
+    page.setFont("STSong-Light", 12)
+    y = 780
+    for line in lines:
+        page.drawString(72, y, line)
+        y -= 24
+    page.save()
+    return buffer.getvalue()
 
 
 if __name__ == "__main__":

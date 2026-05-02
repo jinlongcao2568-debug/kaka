@@ -150,6 +150,27 @@ def _unit_name_table_detail_html() -> bytes:
     return html.encode("utf-8")
 
 
+def _unit_name_table_with_pdf_attachment_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东机电安装工程评标报告</title></head>
+      <body>
+        <h1>广东机电安装工程评标报告</h1>
+        <section><h2>公告内容</h2>
+          <table>
+            <thead><tr><th>序号</th><th>单位名称</th><th>报价（元）</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>广东省机电建设有限公司</td><td>12000000.0</td></tr>
+            </tbody>
+          </table>
+          <p><a href="https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.pdf">评标报告（隐去评标委员会姓名版）.pdf</a></p>
+        </section>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
 def _candidate_summary_table_detail_html() -> bytes:
     html = """
     <html>
@@ -214,6 +235,55 @@ def _generic_responsible_person_detail_html() -> bytes:
     </html>
     """
     return html.encode("utf-8")
+
+
+def _project_code_without_manager_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广州装修工程评标报告</title></head>
+      <body>
+        <h1>广州装修工程评标报告</h1>
+        <p>第一中标候选人 广州装修工程有限公司 投标报价 10000000.00 元</p>
+        <p>招标编号：JG2026-11144 项目编号：E4401000000000001</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _company_fragment_after_manager_label_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>绿色化工基础设施勘察设计评标报告</title></head>
+      <body>
+        <h1>绿色化工基础设施勘察设计评标报告</h1>
+        <p>第一中标候选人 中国华西工程设计建设有限公司</p>
+        <p>项目负责人 一方设计集团有限公司 质量承诺 合格</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _build_text_pdf_bytes(lines: list[str]) -> bytes:
+    try:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+        from reportlab.pdfgen import canvas
+    except Exception as exc:  # pragma: no cover - optional test rendering dependency
+        raise unittest.SkipTest(f"reportlab unavailable: {exc}") from exc
+    from io import BytesIO
+
+    buffer = BytesIO()
+    pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    page = canvas.Canvas(buffer)
+    page.setFont("STSong-Light", 12)
+    y = 780
+    for line in lines:
+        page.drawString(72, y, line)
+        y -= 24
+    page.save()
+    return buffer.getvalue()
 
 
 class RealCandidateStage2CaptureTests(unittest.TestCase):
@@ -500,6 +570,67 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["candidate_company"], "深圳科宇工程顾问有限公司")
         self.assertEqual(enriched["candidate_company_parse_state"], "DETAIL_TEXT_UNIT_NAME_TABLE")
 
+    def test_pdf_attachment_text_fills_missing_project_manager_from_guangdong_detail(self) -> None:
+        detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_pdf_manager.htm"
+        attachment_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/files/gd-manager.pdf"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_unit_name_table_with_pdf_attachment_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+                attachment_url: RealPublicFetchResponse(
+                    url=attachment_url,
+                    status_code=200,
+                    content=_build_text_pdf_bytes(
+                        [
+                            "第一中标候选人: 广东省机电建设有限公司",
+                            "项目负责人: 张建明",
+                            "注册编号: 144202412345",
+                            "一级建造师 机电工程 职称: 高级工程师",
+                        ]
+                    ),
+                    content_type="application/pdf",
+                    final_url=attachment_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-pdf-manager-001",
+            "notice_id": "NOTICE-GD-PDF-MANAGER-001",
+            "project_id": "PROJ-GD-PDF-MANAGER-001",
+            "project_name": "广东机电安装工程评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "CCGP-CENTRAL-NOTICES",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["candidate_company"], "广东省机电建设有限公司")
+        self.assertEqual(enriched["project_manager_name"], "张建明")
+        self.assertEqual(enriched["project_manager_certificate_no"], "144202412345")
+        self.assertEqual(enriched["project_manager_certificate_type"], "一级建造师")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "机电")
+        fields = result["captures"][0]["detail_fields"]
+        self.assertEqual(fields["attachment_text_merge_state"], "ATTACHMENT_TEXT_MERGED")
+        self.assertTrue(any("PDF_TEXT_EXTRACTED" in state for state in fields["attachment_text_parse_states"]))
+
     def test_candidate_summary_table_extracts_company_and_project_manager(self) -> None:
         detail_url = "https://www.ccgp.gov.cn/cggg/zygg/zbgg/202604/t20260430_summary_table.htm"
         transport = FakeRealPublicFetchTransport(
@@ -678,6 +809,87 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched.get("project_manager_name", ""), "")
         self.assertEqual(enriched["project_manager_name_parse_state"], "DETAIL_TEXT_NOT_FOUND")
         self.assertEqual(enriched["project_manager_cert_specialty_parse_state"], "DETAIL_TEXT_NOT_FOUND")
+
+    def test_project_or_tender_number_is_not_project_manager_certificate(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/project-code-only-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_project_code_without_manager_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-project-code-only-001",
+            "notice_id": "NOTICE-GD-PROJECT-CODE-ONLY-001",
+            "project_id": "PROJ-GD-PROJECT-CODE-ONLY-001",
+            "project_name": "广州装修工程评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
+        self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
+        self.assertEqual(enriched["project_manager_certificate_no_parse_state"], "DETAIL_TEXT_NOT_FOUND")
+
+    def test_company_fragment_after_manager_label_is_not_project_manager_name(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/company-fragment-manager-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_company_fragment_after_manager_label_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-company-fragment-manager-001",
+            "notice_id": "NOTICE-GD-COMPANY-FRAGMENT-MANAGER-001",
+            "project_id": "PROJ-GD-COMPANY-FRAGMENT-MANAGER-001",
+            "project_name": "绿色化工基础设施勘察设计评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
+        self.assertEqual(enriched["project_manager_name_parse_state"], "DETAIL_TEXT_NOT_FOUND")
 
 
 if __name__ == "__main__":
