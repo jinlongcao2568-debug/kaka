@@ -1154,6 +1154,21 @@ def _enrich_stage3_parsed_carrier_from_candidate(
     add_field("candidate_company", candidate.get("candidate_company"), confidence=0.84)
     add_field("project_manager_name", candidate.get("project_manager_name"), confidence=0.82)
     add_field(
+        "project_manager_certificate_type",
+        candidate.get("project_manager_certificate_type"),
+        confidence=0.78,
+    )
+    add_field(
+        "project_manager_cert_specialty",
+        candidate.get("project_manager_cert_specialty"),
+        confidence=0.78,
+    )
+    add_field(
+        "project_manager_professional_title",
+        candidate.get("project_manager_professional_title"),
+        confidence=0.72,
+    )
+    add_field(
         "project_manager_public_identifier_optional",
         candidate.get("project_manager_certificate_no")
         or candidate.get("project_manager_public_identifier_optional"),
@@ -1169,6 +1184,9 @@ def _enrich_stage3_parsed_carrier_from_candidate(
     enriched["project_name"] = str(candidate.get("project_name") or enriched.get("project_name") or "")
     enriched["candidate_company_name"] = str(candidate.get("candidate_company") or "")
     enriched["project_manager_name"] = str(candidate.get("project_manager_name") or "")
+    enriched["project_manager_certificate_type"] = str(candidate.get("project_manager_certificate_type") or "")
+    enriched["project_manager_cert_specialty"] = str(candidate.get("project_manager_cert_specialty") or "")
+    enriched["project_manager_professional_title"] = str(candidate.get("project_manager_professional_title") or "")
     if candidate.get("project_manager_certificate_no"):
         enriched["project_manager_public_identifier_optional"] = str(
             candidate.get("project_manager_certificate_no")
@@ -1176,6 +1194,71 @@ def _enrich_stage3_parsed_carrier_from_candidate(
     enriched["lineage_status"] = str(enriched.get("lineage_status") or "NORMALIZED")
     enriched["conflict_state"] = str(enriched.get("conflict_state") or "CONSISTENT")
     return enriched
+
+
+def _build_project_manager_identity_resolution_plan(candidate: Mapping[str, Any]) -> dict[str, Any]:
+    company_name = str(
+        candidate.get("candidate_company")
+        or candidate.get("candidate_company_name")
+        or candidate.get("bidder_name")
+        or ""
+    ).strip()
+    manager_name = str(candidate.get("project_manager_name") or candidate.get("manager_name") or "").strip()
+    manager_identifier = str(
+        candidate.get("project_manager_certificate_no")
+        or candidate.get("project_manager_public_identifier_optional")
+        or candidate.get("project_manager_public_identifier")
+        or ""
+    ).strip()
+    if not company_name or not manager_name or manager_identifier:
+        return {}
+
+    plan = dict(
+        Stage4Service().build_jzsc_project_manager_company_first_capture_plan(
+            target_company_name=company_name,
+            target_project_manager_name=manager_name,
+            target_identifier=None,
+        )
+    )
+    plan.update(
+        {
+            "resolution_state": "JZSC_COMPANY_FIRST_REQUIRED",
+            "resolution_reason": "notice_has_company_and_project_manager_but_missing_certificate_no",
+            "company_first_required": True,
+            "broad_name_search_allowed_as_final_proof": False,
+            "target_company_name": company_name,
+            "target_project_manager_name": manager_name,
+            "stage3_required_inputs": {
+                "candidate_company": company_name,
+                "project_manager_name": manager_name,
+                "project_manager_certificate_no": "",
+                "project_manager_certificate_type": str(candidate.get("project_manager_certificate_type") or ""),
+                "project_manager_cert_specialty": str(candidate.get("project_manager_cert_specialty") or ""),
+                "project_manager_professional_title": str(
+                    candidate.get("project_manager_professional_title") or ""
+                ),
+            },
+            "required_writeback_fields": [
+                "project_manager_public_identifier_optional",
+                "project_manager_certificate_no_optional",
+                "project_manager_certificate_type",
+                "project_manager_cert_specialty",
+                "project_manager_certificate_valid_from",
+                "project_manager_certificate_valid_until",
+                "project_manager_person_detail_url",
+                "source_url",
+                "source_snapshot_id",
+            ],
+            "downstream_resume_targets": [
+                "personnel_public_record",
+                "performance_public_record",
+                "contract_public_info",
+                "completion_filing",
+                "project_manager_change_notice",
+            ],
+        }
+    )
+    return plan
 
 
 def _public_verification_refs(carrier: Mapping[str, Any]) -> list[str]:
@@ -1415,11 +1498,6 @@ def _build_real_public_stage4_9_readback_from_candidate(
         covered_source_types=covered_source_types,
     )
     remaining_source_types = list(regional_source_plan.get("missing_source_types", []) or [])
-    real_world_gate_state = (
-        "READY_FOR_SELLABLE_EVIDENCE_REVIEW"
-        if formal_chain_state == "INTERNAL_READY" and not remaining_source_types
-        else "PARTIAL_SOURCE_COVERAGE"
-    )
     remaining_real_world_gaps = [
         f"missing_stage4_5_source_type:{source_type}"
         for source_type in remaining_source_types
@@ -1428,6 +1506,20 @@ def _build_real_public_stage4_9_readback_from_candidate(
         remaining_real_world_gaps.append(
             "stage4_5_local_housing_contract_completion_pm_change_penalty_adapters_pending"
         )
+    identity_resolution_plan = _build_project_manager_identity_resolution_plan(candidate)
+    identity_resolution_required = bool(identity_resolution_plan)
+    if identity_resolution_required:
+        remaining_real_world_gaps.append(
+            "project_manager_certificate_missing_jzsc_company_first_identity_resolution_pending"
+        )
+        fail_closed_reasons.append(
+            "project_manager_certificate_missing_requires_jzsc_company_first_resolution"
+        )
+    real_world_gate_state = (
+        "READY_FOR_SELLABLE_EVIDENCE_REVIEW"
+        if formal_chain_state == "INTERNAL_READY" and not remaining_real_world_gaps
+        else "PARTIAL_SOURCE_COVERAGE"
+    )
     regional_failures = list(regional_source_readback.get("failure_reasons", []) or [])
     return {
         "surface_id": "operator_real_public_stage4_9_readback",
@@ -1477,6 +1569,12 @@ def _build_real_public_stage4_9_readback_from_candidate(
                 "evidence_risk_state": hard_defect_readback.get("evidence_risk_state"),
                 "verification_target_count": hard_defect_readback.get("verification_target_count"),
             },
+            "stage4_jzsc_company_first_identity_resolution": {
+                "capture_plan_id": identity_resolution_plan.get("capture_plan_id"),
+                "resolution_state": identity_resolution_plan.get("resolution_state"),
+                "target_company_name": identity_resolution_plan.get("target_company_name"),
+                "target_project_manager_name": identity_resolution_plan.get("target_project_manager_name"),
+            },
             "stage6": dict(stage6_summary.get("source_refs", {}) or {}),
             "stage7": dict(stage7_summary.get("source_refs", {}) or {}),
             "stage8": dict(stage8_summary.get("source_refs", {}) or {}),
@@ -1486,9 +1584,19 @@ def _build_real_public_stage4_9_readback_from_candidate(
         "real_public_sellable_gate_ready": formal_chain_state == "INTERNAL_READY" and not remaining_real_world_gaps,
         "customer_sellable_evidence_ready": False,
         "real_world_hard_defect_gate_state": real_world_gate_state,
+        "project_manager_identifier_resolution_state": (
+            "JZSC_COMPANY_FIRST_REQUIRED" if identity_resolution_required else "NOT_REQUIRED"
+        ),
+        "project_manager_identifier_resolution_next_action": (
+            "先用候选公司进入四库企业页，在企业人员列表中查项目负责人，拿证书号/人员公开ID后再继续在建、合同、业绩和变更核验。"
+            if identity_resolution_required
+            else ""
+        ),
+        "jzsc_company_first_identity_resolution_required": identity_resolution_required,
+        "jzsc_company_first_identity_resolution_plan": identity_resolution_plan,
         "regional_hard_defect_source_plan": regional_source_plan,
         "regional_hard_defect_source_readback": regional_source_readback,
-        "remaining_real_world_gaps": remaining_real_world_gaps,
+        "remaining_real_world_gaps": list(dict.fromkeys(remaining_real_world_gaps)),
         "fail_closed_reasons": list(
             dict.fromkeys(
                 str(reason)
@@ -1686,6 +1794,15 @@ def _build_autonomous_runtime_flow(
                 "real_public_verification_result": real_public_readback.get("stage4_public_verification_result"),
                 "real_public_chain_state": real_public_chain_state,
                 "real_world_hard_defect_gate_state": real_public_readback.get("real_world_hard_defect_gate_state"),
+                "project_manager_identifier_resolution_state": real_public_readback.get(
+                    "project_manager_identifier_resolution_state"
+                ),
+                "jzsc_company_first_identity_resolution_required": real_public_readback.get(
+                    "jzsc_company_first_identity_resolution_required"
+                ),
+                "jzsc_company_first_capture_plan_id": dict(
+                    real_public_readback.get("jzsc_company_first_identity_resolution_plan", {}) or {}
+                ).get("capture_plan_id"),
                 "regional_hard_defect_source_plan_id": dict(
                     real_public_readback.get("regional_hard_defect_source_plan", {}) or {}
                 ).get("source_plan_id"),
@@ -1860,6 +1977,17 @@ def _candidate_option_surface(
                 "project_manager_certificate_no": str(
                     raw.get("project_manager_certificate_no") or row.get("project_manager_certificate_no") or ""
                 ),
+                "project_manager_certificate_type": str(
+                    raw.get("project_manager_certificate_type") or row.get("project_manager_certificate_type") or ""
+                ),
+                "project_manager_cert_specialty": str(
+                    raw.get("project_manager_cert_specialty") or row.get("project_manager_cert_specialty") or ""
+                ),
+                "project_manager_professional_title": str(
+                    raw.get("project_manager_professional_title")
+                    or row.get("project_manager_professional_title")
+                    or ""
+                ),
                 "amount_min": amount_min,
                 "amount_max": amount_max,
                 "analysis_score": row.get("analysis_score"),
@@ -1887,6 +2015,15 @@ def _candidate_option_surface(
                 "project_manager_name_parse_state": str(raw.get("project_manager_name_parse_state") or ""),
                 "project_manager_certificate_no_parse_state": str(
                     raw.get("project_manager_certificate_no_parse_state") or ""
+                ),
+                "project_manager_certificate_type_parse_state": str(
+                    raw.get("project_manager_certificate_type_parse_state") or ""
+                ),
+                "project_manager_cert_specialty_parse_state": str(
+                    raw.get("project_manager_cert_specialty_parse_state") or ""
+                ),
+                "project_manager_professional_title_parse_state": str(
+                    raw.get("project_manager_professional_title_parse_state") or ""
                 ),
                 "source_trading_process": str(raw.get("source_trading_process") or ""),
                 "source_dataset_name": str(raw.get("source_dataset_name") or ""),
@@ -2979,6 +3116,18 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             ),
             "remaining_real_world_gaps": list(
                 primary_real_public_stage4_9_readback.get("remaining_real_world_gaps", []) or []
+            ),
+            "project_manager_identifier_resolution_state": primary_real_public_stage4_9_readback.get(
+                "project_manager_identifier_resolution_state"
+            ),
+            "project_manager_identifier_resolution_next_action": primary_real_public_stage4_9_readback.get(
+                "project_manager_identifier_resolution_next_action"
+            ),
+            "jzsc_company_first_identity_resolution_required": primary_real_public_stage4_9_readback.get(
+                "jzsc_company_first_identity_resolution_required"
+            ),
+            "jzsc_company_first_identity_resolution_plan": dict(
+                primary_real_public_stage4_9_readback.get("jzsc_company_first_identity_resolution_plan", {}) or {}
             ),
             "regional_hard_defect_source_plan": dict(
                 primary_real_public_stage4_9_readback.get("regional_hard_defect_source_plan", {}) or {}

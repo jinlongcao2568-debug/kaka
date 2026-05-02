@@ -210,7 +210,11 @@ def _company_like_pattern() -> str:
 
 def _extract_candidate_summary_table(text: str) -> dict[str, str]:
     company_pattern = _company_like_pattern()
-    manager_header = r"(?:项目经理姓名|项目负责人|拟派项目负责人姓名|总监理工程师姓名)"
+    manager_header = (
+        r"(?:项目经理姓名|项目负责人|拟派项目负责人姓名|总监理工程师姓名|"
+        r"项目经理|拟派项目负责人|总监理工程师|"
+        r"(?:拟派)?(?:项目|标段|施工|监理)负责人)"
+    )
     vertical_patterns = (
         rf"中标候选人单位\s+投标报价(?:[（(]元[）)]|（元）|\(元\))?\s+{manager_header}\s+第一中标候选人\s+(?P<company>{company_pattern})\s+[0-9,，.]+\s+(?P<manager>[\u4e00-\u9fff·]{{2,8}})",
         rf"第一中标候选人\s+(?P<company>{company_pattern})\s+[0-9,，.]+\s+(?P<manager>[\u4e00-\u9fff·]{{2,8}})\s+第二中标候选人",
@@ -238,6 +242,100 @@ def _extract_candidate_summary_table(text: str) -> dict[str, str]:
     return {}
 
 
+def _looks_like_person_name(value: str) -> bool:
+    name = _clean_text(value).strip(" ：:，,；;。")
+    if not re.fullmatch(r"[\u4e00-\u9fff·]{2,8}", name):
+        return False
+    non_name_tokens = (
+        "项目",
+        "负责人",
+        "经理",
+        "建造师",
+        "工程师",
+        "注册",
+        "证书",
+        "资格",
+        "资质",
+        "专业",
+        "标段",
+        "施工",
+        "监理",
+    )
+    return not any(token in name for token in non_name_tokens)
+
+
+def _extract_project_manager_certificate_identity(text: str) -> dict[str, str]:
+    result = {
+        "project_manager_certificate_type": "",
+        "project_manager_certificate_type_parse_state": "DETAIL_TEXT_NOT_FOUND",
+        "project_manager_cert_specialty": "",
+        "project_manager_cert_specialty_parse_state": "DETAIL_TEXT_NOT_FOUND",
+        "project_manager_professional_title": "",
+        "project_manager_professional_title_parse_state": "DETAIL_TEXT_NOT_FOUND",
+    }
+
+    certificate_type_patterns = (
+        (r"一级注册建造师|一级建造师", "一级建造师"),
+        (r"二级注册建造师|二级建造师", "二级建造师"),
+        (r"注册建造师", "注册建造师"),
+        (r"注册监理工程师|监理工程师注册证书", "注册监理工程师"),
+        (r"注册电气工程师(?:（[^）]+）)?", None),
+        (r"注册(?:土木|结构|公用设备|造价|安全)工程师", None),
+    )
+    certificate_context = ""
+    for pattern, canonical in certificate_type_patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        result["project_manager_certificate_type"] = canonical or _clean_text(match.group(0))
+        result["project_manager_certificate_type_parse_state"] = "DETAIL_TEXT_CERTIFICATE_CONTEXT"
+        start = max(match.start() - 20, 0)
+        end = min(match.end() + 50, len(text))
+        certificate_context = text[start:end]
+        break
+
+    if not certificate_context:
+        context_match = re.search(r"(?:注册专业|证书专业|专业|证书|建造师)[^。；;\n\r]{0,60}", text)
+        certificate_context = context_match.group(0) if context_match else ""
+
+    specialty_aliases = (
+        ("机电工程", "机电"),
+        ("机电", "机电"),
+        ("市政公用工程", "市政"),
+        ("市政", "市政"),
+        ("建筑工程", "建筑"),
+        ("房屋建筑", "建筑"),
+        ("建筑", "建筑"),
+        ("公路工程", "公路"),
+        ("公路", "公路"),
+        ("水利水电工程", "水利"),
+        ("水利", "水利"),
+        ("土木工程", "土木"),
+        ("土木", "土木"),
+        ("供配电", "电气"),
+        ("电气", "电气"),
+    )
+    for raw, canonical in specialty_aliases:
+        if raw not in certificate_context:
+            continue
+        result["project_manager_cert_specialty"] = canonical
+        result["project_manager_cert_specialty_parse_state"] = "DETAIL_TEXT_CERTIFICATE_CONTEXT"
+        break
+
+    title_patterns = (
+        r"(?:职称|技术职称|职称证书)\s*[:：]?\s*(正高级工程师|高级工程师|工程师|助理工程师)",
+        r"(正高级工程师|高级工程师|工程师|助理工程师)\s*(?:职称|职称证书)",
+    )
+    for pattern in title_patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        result["project_manager_professional_title"] = _clean_text(match.group(1))
+        result["project_manager_professional_title_parse_state"] = "DETAIL_TEXT_TITLE_CONTEXT"
+        break
+    return result
+
+
 def _clean_company_value(value: str) -> str:
     text = value.strip()
     text = re.split(
@@ -250,15 +348,8 @@ def _clean_company_value(value: str) -> str:
     return text.strip(" ：:，,；;。")
 
 
-def _extract_project_manager(text: str) -> tuple[str, str, str, str]:
+def _extract_project_manager(text: str) -> dict[str, str]:
     summary_table = _extract_candidate_summary_table(text)
-    if summary_table.get("project_manager_name"):
-        return (
-            str(summary_table["project_manager_name"]),
-            str(summary_table["parse_state"]),
-            "",
-            "DETAIL_TEXT_NOT_FOUND",
-        )
     candidate_section = _section_between(
         text,
         start_tokens=("第一中标候选人", "第一成交候选人", "第一候选人"),
@@ -267,14 +358,23 @@ def _extract_project_manager(text: str) -> tuple[str, str, str, str]:
     search_text = candidate_section or text
     manager_name = ""
     manager_state = "DETAIL_TEXT_NOT_FOUND"
-    manager_patterns = (
-        r"(?:拟派项目负责人姓名|项目负责人姓名|项目经理姓名|总监理工程师姓名)\s+(?:资格能力条件\s+)?([\u4e00-\u9fff·]{2,8})",
-        r"(?:拟派项目负责人|项目负责人|项目经理|总监理工程师)[:：\s]+([\u4e00-\u9fff·]{2,8})",
-    )
-    for pattern in manager_patterns:
-        match = re.search(pattern, search_text)
-        if match:
-            manager_name = _clean_text(match.group(1)).strip(" ：:，,；;。")
+    if summary_table.get("project_manager_name"):
+        manager_name = str(summary_table["project_manager_name"])
+        manager_state = str(summary_table["parse_state"])
+    else:
+        manager_patterns = (
+            r"(?:拟派项目负责人姓名|项目负责人姓名|项目经理姓名|总监理工程师姓名)\s+(?:资格能力条件\s+)?([\u4e00-\u9fff·]{2,8})",
+            r"(?:拟派项目负责人|项目负责人|项目经理|总监理工程师)[:：\s]+(?:资格能力条件\s+)?([\u4e00-\u9fff·]{2,8})",
+            r"(?:拟派)?(?:项目|标段|施工|监理)负责人(?:姓名)?[:：\s]+(?:资格能力条件\s+)?([\u4e00-\u9fff·]{2,8})",
+        )
+        for pattern in manager_patterns:
+            match = re.search(pattern, search_text)
+            if not match:
+                continue
+            candidate_name = _clean_text(match.group(1)).strip(" ：:，,；;。")
+            if not _looks_like_person_name(candidate_name):
+                continue
+            manager_name = candidate_name
             manager_state = "DETAIL_TEXT_CANDIDATE_TABLE"
             break
     certificate_no = ""
@@ -289,7 +389,14 @@ def _extract_project_manager(text: str) -> tuple[str, str, str, str]:
             certificate_no = _clean_text(match.group(1)).strip(" ：:，,；;。")
             certificate_state = "DETAIL_TEXT_CANDIDATE_TABLE"
             break
-    return manager_name, manager_state, certificate_no, certificate_state
+    identity = _extract_project_manager_certificate_identity(search_text)
+    return {
+        "project_manager_name": manager_name,
+        "project_manager_name_parse_state": manager_state,
+        "project_manager_certificate_no": certificate_no,
+        "project_manager_certificate_no_parse_state": certificate_state,
+        **identity,
+    }
 
 
 def _extract_deadline(text: str) -> tuple[str, str]:
@@ -336,7 +443,15 @@ def _candidate_key_fields(candidate: Mapping[str, Any]) -> list[str]:
         fields.update(str(item) for item in existing if item)
     elif isinstance(existing, str):
         fields.update(item.strip() for item in existing.split(",") if item.strip())
-    for key in ("project_name", "notice_stage", "candidate_company", "project_manager_name"):
+    for key in (
+        "project_name",
+        "notice_stage",
+        "candidate_company",
+        "project_manager_name",
+        "project_manager_certificate_no",
+        "project_manager_certificate_type",
+        "project_manager_cert_specialty",
+    ):
         if candidate.get(key):
             fields.add(key)
     return sorted(fields)
@@ -824,12 +939,7 @@ class RealCandidateStage2CaptureService:
         )
         amount, amount_state = _extract_amount(text)
         candidate_company, candidate_company_state = _extract_candidate_company(text)
-        (
-            project_manager_name,
-            project_manager_name_state,
-            project_manager_certificate_no,
-            project_manager_certificate_no_state,
-        ) = _extract_project_manager(text)
+        project_manager_identity = _extract_project_manager(text)
         deadline, deadline_state = _extract_deadline(text)
         notice_stage = _infer_notice_stage(f"{title} {text[:2000]}", str(candidate.get("notice_stage") or ""))
         return {
@@ -839,10 +949,24 @@ class RealCandidateStage2CaptureService:
             "amount_parse_state": amount_state,
             "candidate_company": candidate_company,
             "candidate_company_parse_state": candidate_company_state,
-            "project_manager_name": project_manager_name,
-            "project_manager_name_parse_state": project_manager_name_state,
-            "project_manager_certificate_no": project_manager_certificate_no,
-            "project_manager_certificate_no_parse_state": project_manager_certificate_no_state,
+            "project_manager_name": project_manager_identity["project_manager_name"],
+            "project_manager_name_parse_state": project_manager_identity["project_manager_name_parse_state"],
+            "project_manager_certificate_no": project_manager_identity["project_manager_certificate_no"],
+            "project_manager_certificate_no_parse_state": project_manager_identity[
+                "project_manager_certificate_no_parse_state"
+            ],
+            "project_manager_certificate_type": project_manager_identity["project_manager_certificate_type"],
+            "project_manager_certificate_type_parse_state": project_manager_identity[
+                "project_manager_certificate_type_parse_state"
+            ],
+            "project_manager_cert_specialty": project_manager_identity["project_manager_cert_specialty"],
+            "project_manager_cert_specialty_parse_state": project_manager_identity[
+                "project_manager_cert_specialty_parse_state"
+            ],
+            "project_manager_professional_title": project_manager_identity["project_manager_professional_title"],
+            "project_manager_professional_title_parse_state": project_manager_identity[
+                "project_manager_professional_title_parse_state"
+            ],
             "objection_deadline_at_optional": deadline,
             "objection_deadline_parse_state": deadline_state,
             "parser_project_name": _field_value(fields, "project_name"),
@@ -898,6 +1022,33 @@ class RealCandidateStage2CaptureService:
         else:
             row["project_manager_certificate_no_parse_state"] = (
                 fields.get("project_manager_certificate_no_parse_state") or "DETAIL_TEXT_NOT_FOUND"
+            )
+        if fields.get("project_manager_certificate_type"):
+            row["project_manager_certificate_type"] = str(fields["project_manager_certificate_type"])
+            row["project_manager_certificate_type_parse_state"] = (
+                fields.get("project_manager_certificate_type_parse_state") or "DETAIL_TEXT"
+            )
+        else:
+            row["project_manager_certificate_type_parse_state"] = (
+                fields.get("project_manager_certificate_type_parse_state") or "DETAIL_TEXT_NOT_FOUND"
+            )
+        if fields.get("project_manager_cert_specialty"):
+            row["project_manager_cert_specialty"] = str(fields["project_manager_cert_specialty"])
+            row["project_manager_cert_specialty_parse_state"] = (
+                fields.get("project_manager_cert_specialty_parse_state") or "DETAIL_TEXT"
+            )
+        else:
+            row["project_manager_cert_specialty_parse_state"] = (
+                fields.get("project_manager_cert_specialty_parse_state") or "DETAIL_TEXT_NOT_FOUND"
+            )
+        if fields.get("project_manager_professional_title"):
+            row["project_manager_professional_title"] = str(fields["project_manager_professional_title"])
+            row["project_manager_professional_title_parse_state"] = (
+                fields.get("project_manager_professional_title_parse_state") or "DETAIL_TEXT"
+            )
+        else:
+            row["project_manager_professional_title_parse_state"] = (
+                fields.get("project_manager_professional_title_parse_state") or "DETAIL_TEXT_NOT_FOUND"
             )
         if fields.get("objection_deadline_at_optional"):
             row["objection_deadline_at_optional"] = str(fields["objection_deadline_at_optional"])

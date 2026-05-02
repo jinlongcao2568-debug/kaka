@@ -187,6 +187,35 @@ def _transposed_candidate_table_detail_html() -> bytes:
     return html.encode("utf-8")
 
 
+def _contextual_manager_alias_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东机电安装工程中标候选人公示</title></head>
+      <body>
+        <h1>广东机电安装工程中标候选人公示</h1>
+        <p>第一中标候选人 广东省机电建设有限公司 投标报价 12000000.00 元</p>
+        <p>施工负责人：张建明 一级建造师 机电工程 职称：高级工程师</p>
+        <p>公示结束时间：2026年05月08日</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _generic_responsible_person_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东材料采购中标公告</title></head>
+      <body>
+        <h1>广东材料采购中标公告</h1>
+        <p>中标供应商名称：广东建筑工程有限公司</p>
+        <p>采购负责人：王五 联系电话 020-00000000</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
 class RealCandidateStage2CaptureTests(unittest.TestCase):
     def setUp(self) -> None:
         reset_default_storage()
@@ -552,6 +581,103 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["candidate_company"], "肇庆市盛建工程建设有限公司")
         self.assertEqual(enriched["project_manager_name"], "刘忠贵")
         self.assertEqual(enriched["candidate_company_parse_state"], "DETAIL_TEXT_TRANSPOSED_CANDIDATE_TABLE")
+
+    def test_contextual_responsible_person_alias_and_certificate_identity_are_normalized(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/alias-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_contextual_manager_alias_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-alias-001",
+            "notice_id": "NOTICE-GD-ALIAS-001",
+            "project_id": "PROJ-GD-ALIAS-001",
+            "project_name": "广东机电安装工程中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+
+            result = service.capture_candidates(
+                [candidate],
+                now="2026-05-01T00:00:00+00:00",
+                detail_capture_limit=1,
+            )
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["candidate_company"], "广东省机电建设有限公司")
+        self.assertEqual(enriched["project_manager_name"], "张建明")
+        self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
+        self.assertEqual(enriched["project_manager_certificate_type"], "一级建造师")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "机电")
+        self.assertEqual(enriched["project_manager_professional_title"], "高级工程师")
+        self.assertIn("project_manager_certificate_type", enriched["key_fields_present"])
+        self.assertIn("project_manager_cert_specialty", enriched["key_fields_present"])
+
+    def test_generic_responsible_person_without_project_context_is_not_project_manager(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/generic-person-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_generic_responsible_person_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-generic-person-001",
+            "notice_id": "NOTICE-GD-GENERIC-PERSON-001",
+            "project_id": "PROJ-GD-GENERIC-PERSON-001",
+            "project_name": "广东材料采购中标公告",
+            "region_code": "CN-GD",
+            "project_type": "procurement",
+            "notice_stage": "award_result",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+
+            result = service.capture_candidates(
+                [candidate],
+                now="2026-05-01T00:00:00+00:00",
+                detail_capture_limit=1,
+            )
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
+        self.assertEqual(enriched["project_manager_name_parse_state"], "DETAIL_TEXT_NOT_FOUND")
+        self.assertEqual(enriched["project_manager_cert_specialty_parse_state"], "DETAIL_TEXT_NOT_FOUND")
 
 
 if __name__ == "__main__":

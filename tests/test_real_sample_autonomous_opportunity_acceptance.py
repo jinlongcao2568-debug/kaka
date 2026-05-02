@@ -20,6 +20,7 @@ from api.main import create_app
 from api.projections import build_real_sample_autonomous_opportunity_acceptance_surface
 from api.routes.operator_customer_access import (
     OPERATOR_CUSTOMER_ACCESS_ROUTES,
+    _build_project_manager_identity_resolution_plan,
     list_operator_region_adapters,
     preview_real_sample_autonomous_opportunity_acceptance,
 )
@@ -284,6 +285,45 @@ def _partial_real_public_stage4_9_readback(*args: object, **kwargs: object) -> d
 class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
     def setUp(self) -> None:
         reset_default_storage()
+
+    def test_missing_project_manager_certificate_generates_jzsc_company_first_resolution_plan(self) -> None:
+        plan = _build_project_manager_identity_resolution_plan(
+            {
+                "candidate_company": "广东省机电建设有限公司",
+                "project_manager_name": "张建明",
+                "project_manager_certificate_type": "一级建造师",
+                "project_manager_cert_specialty": "机电",
+                "project_manager_professional_title": "高级工程师",
+            }
+        )
+
+        self.assertEqual(plan["resolution_state"], "JZSC_COMPANY_FIRST_REQUIRED")
+        self.assertEqual(
+            plan["capture_plan_type"],
+            "JZSC_COMPANY_FIRST_PROJECT_MANAGER_VERIFICATION",
+        )
+        self.assertTrue(plan["company_first_required"])
+        self.assertFalse(plan["broad_name_search_allowed_as_final_proof"])
+        self.assertEqual(
+            plan["stage3_required_inputs"]["project_manager_cert_specialty"],
+            "机电",
+        )
+        self.assertIn(
+            "project_manager_public_identifier_optional",
+            plan["required_writeback_fields"],
+        )
+        self.assertIn("contract_public_info", plan["downstream_resume_targets"])
+
+    def test_present_project_manager_certificate_does_not_generate_jzsc_resolution_plan(self) -> None:
+        plan = _build_project_manager_identity_resolution_plan(
+            {
+                "candidate_company": "广东省机电建设有限公司",
+                "project_manager_name": "张建明",
+                "project_manager_certificate_no": "粤1442020202100011",
+            }
+        )
+
+        self.assertEqual(plan, {})
 
     def _run_real_sample_acceptance_payload(self) -> dict[str, object]:
         real_sample_payload = copy.deepcopy(

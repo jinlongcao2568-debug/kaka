@@ -69,6 +69,7 @@
 | 项目基础解析 | 解析项目名、地区、类型、金额、公告阶段、采购/招标方式 | `project_base` | 字段有 source slice | 关键字段缺失进入 parser review | `PARTIAL` | `CODE_CONFIRMED` | `Stage3Service`, real parser |
 | 候选/中标单位解析 | 解析第一候选、第二候选、排序、报价 | `bidder_candidate` | 候选集完整或明确不完整 | 只拿第一名但未说明候选集状态不得 PASS | `PARTIAL` | `AUTHORITY` | `Stage3Service` |
 | 项目经理解析 | 解析姓名、注册专业、等级、单位、证书号/公开 ID、来源切片 | `project_manager` | 至少姓名 + 单位/证书/专业之一进入后续消歧 | 只有姓名也可进入 review，但不能 PASS | `PARTIAL` | `AUTHORITY` | `Stage3Service` |
+| 项目负责人别名与证书身份归一 | `项目经理/项目负责人/拟派项目负责人/总监理工程师` 归一为 `project_manager_name`；`负责人` 只有带项目/拟派/标段/施工/监理上下文才归一；`一级/二级/注册建造师` 归一为 `project_manager_certificate_type`；机电/市政/建筑/公路/水利/土木等归一为 `project_manager_cert_specialty`；工程师/高级工程师只进职称字段 | `project_manager_name`, `project_manager_certificate_type`, `project_manager_cert_specialty`, `project_manager_professional_title` | 字段有上下文、source slice 和 parse state；证书类型/专业只作身份辅助，不替代姓名 | 泛化 `负责人`、把建造师/工程师当姓名、把职称当项目经理均进入 review 或不得入主链 | `PARTIAL` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `real_candidate_capture.py` |
 | 字段血缘 | 每个字段保留 source file、slice、hash、locator、confidence | `field_lineage_record` | 可回到原始页面/附件 | 无血缘不得进入外部证据 | `PARTIAL` | `AUTHORITY` | `contracts/schemas/field_lineage_record.schema.json` |
 | 解析置信度 | 低置信度、冲突字段、同名字段进入 review | confidence, parse warnings | 低置信不会升级事实 | 解析冲突不允许静默消解 | `PARTIAL` | `AUTHORITY` | real parser |
 | 模型辅助 | LLM 只可辅助抽取/摘要，不做事实裁决 | model governance | 进入正式链路需 `model_governance_record` | 无治理记录不得入正式对象 | `PARTIAL` | `AUTHORITY` | D14 |
@@ -83,6 +84,7 @@ Stage4/5 的更细操作规程见：`docs/AX9S_Stage4-5_核验与双闸门操作
 | 企业主体核验 | 先用候选/中标公司全称或统一信用代码查企业 | 四库一平台企业页、GSXT、地方住建 | `enterprise_public_record` | 企业主体匹配且来源公开 | 查不到不能说企业不存在，只能 review/换源 | `PARTIAL` | `AUTHORITY` | `PublicVerificationAdapter` |
 | 企业资质核验 | 查资质类别、等级、有效期、证书状态 | 四库一平台、地方住建、公告附件 | `enterprise_qualification` | 资质满足招标要求且时间有效 | 资质字段缺失/过期/不匹配进入 review/block | `PARTIAL` | `AUTHORITY` | `hard_defect_strategy.py` |
 | 项目经理企业内消歧 | 企业页进入注册人员/项目负责人列表，必要时翻页找姓名 | 四库企业人员列表、地方住建人员页 | `personnel_public_record` | 公司 + 姓名 + 证书/公开 ID/专业/等级匹配，且人员 carrier 必须 `MATCHED` / `review_required=false` / 有 URL 与 snapshot；企业内唯一匹配时派生证书编号给后续核验 | 只搜姓名、只看第一页、同名未消歧、注册单位冲突、缺快照或人员 carrier 为 REVIEW 不得 PASS | `PARTIAL` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `active_conflict.py` 已生成企业优先 identity carrier；JZSC 渲染行 adapter 已覆盖匹配/同名 review/证书编号派生；JZSC 公司优先浏览器采集计划已固化；真实浏览器执行器待补 |
+| 公告缺证书编号的身份补全 | 中标候选公示只有候选公司 + 项目经理/项目负责人姓名时，不直接判项目经理核验失败；必须生成四库企业优先采集计划：先查企业、翻企业人员列表、找到项目负责人、派生证书号/人员公开 ID 后再恢复后续核验 | JZSC 企业页、人员列表、人员详情 | `jzsc_company_first_identity_resolution_plan` | 计划包含公司、人员、翻页、人员详情、写回字段和后续恢复目标 | 只搜姓名、跳过企业人员列表、缺证书时继续判 PASS 均不得通过 | `PARTIAL` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `operator_customer_access.py`, `jzsc_personnel.py` |
 | 项目经理详情核验 | 打开人员详情，核对注册单位、证书号、专业、等级、注册状态、有效期 | 四库人员详情、地方住建人员详情 | personnel detail snapshot | 消除同名歧义并可回放 | 同名多、单位不符、证书不明进入 `AMBIGUOUS_PUBLIC_MATCH` | `PARTIAL` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `manager_identity_resolution` 已禁止姓名泛搜作为最终证明；详情页抓取待补 |
 | 注册时间/变更时间核验 | 比较注册时间、变更时间与投标截止、资格审查、中标候选公示时间 | 人员详情、变更记录、公告时钟链 | registration timeline | 时间覆盖关键节点 | 刚注册/晚于关键节点进入 Stage5 规则判断，不在 Stage4 下最终结论 | `PARTIAL` | `PRODUCT_HYPOTHESIS + CODE_CONFIRMED` | `registration_timeline_verification` 已进 Stage4 failure reasons；PM-001 requested rule binding 已补；真实页面字段待补 |
 | 在建冲突核验 | 查该人员参与项目、企业项目、公告承诺、施工许可、合同、竣工/验收、项目经理变更状态 | 省市公共资源平台、地方住建施工许可/合同备案/竣工备案/项目经理变更公告、四库项目页 | `performance_public_record`, `construction_permit`, `contract_public_info`, `completion_filing`, `project_manager_change_notice` | 有项目和时间窗口可比较，项目记录绑定已消歧证书编号/人员公开 ID，且项目公开 carrier 为 `MATCHED` / 有 URL 与 snapshot；变更公告可切分责任窗口 | 无项目记录不等于无冲突；缺许可/合同/竣工/变更/快照或项目 carrier REVIEW 进入 review | `PARTIAL` | `CODE_CONFIRMED + AUTHORITY` | `active_conflict.py` 已消费冲突项目；JZSC 人员项目行 adapter 已生成项目/合同/竣工 carrier；多源链角色已进 strategy metadata；真实地方住建/变更发现器待补 |
@@ -208,12 +210,15 @@ Stage4/5 的更细操作规程见：`docs/AX9S_Stage4-5_核验与双闸门操作
 **正常路线**
 1. 解析项目名、地区、项目类型、金额、公告阶段、投标/异议/开标时钟。
 2. 解析候选/中标单位、报价、排名、联合体、否决投标信息。
-3. 解析项目经理姓名、证书、注册专业、等级、注册单位、人员公开标识。
+3. 解析项目经理姓名、证书、注册专业、等级、注册单位、人员公开标识；项目负责人类别名必须先做上下文归一，建造师/专业工程师/职称只作为身份辅助字段。
 4. 给每个字段生成 source slice、hash、locator、confidence。
 5. 输出 `project_base`、`bidder_candidate`、`project_manager`、`field_lineage_record`。
 
 **分支路线**
 - 只有项目经理姓名：允许进入 Stage4 review，但不能形成核验 PASS。
+- 有候选公司 + 项目经理/项目负责人姓名但公告缺证书编号：必须进入 `JZSC_COMPANY_FIRST_REQUIRED`，先查四库企业人员列表取得证书号/人员公开 ID，再恢复在建、合同、业绩、变更核验。
+- `负责人` 无项目/拟派/标段/施工/监理上下文：不得归一为项目经理。
+- 建造师/注册建造师归入证书类型，机电/市政/建筑/公路/水利/土木归入证书专业，工程师/高级工程师归入职称；这些字段不得单独当项目经理姓名。
 - 金额跨标段：按 lot/package 拆分，不能把总金额直接套到单标段。
 - 多候选人：保留候选集合，不只拿第一名。
 - 字段冲突：生成 conflict state，交给 Stage4/5，不在 parser 静默改写。
@@ -236,6 +241,7 @@ Stage4/5 的更细操作规程见：`docs/AX9S_Stage4-5_核验与双闸门操作
 **分支路线**
 - 企业未匹配：不能判定人员不存在，进入企业主体 review。
 - 人员同名：必须用公司、证书、专业、等级、人员 ID 消歧。
+- 公告缺证书编号：不得直接判死；生成四库公司优先查人计划，企业内唯一人员记录把证书编号/人员公开 ID 写回 `project_manager_public_identifier_optional` 后再继续。
 - 人员公开记录未 `MATCHED` 或仍需 review：不得满足身份链，只能进入 `manager_personnel_public_record_unmatched_or_review_required`。
 - 企业内人员唯一匹配后必须把证书编号或人员公开 ID 作为后续查询主键，合同/业绩/在建查询不得退回姓名泛搜。
 - 人员刚注册/变更：不在 Stage4 下结论，输出注册时间 carrier 给 Stage5。
