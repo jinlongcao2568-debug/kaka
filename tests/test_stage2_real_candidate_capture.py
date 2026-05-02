@@ -276,7 +276,7 @@ def _survey_design_candidate_table_with_certificate_detail_html() -> bytes:
         <h1>广东医院项目勘察设计评标报告</h1>
         <p>无排序的三名定标候选人名单：</p>
         <p>定标候选人名称 投标下浮率及投标报价 项目负责人姓名及资格证书 编号</p>
-        <p>(主)广东海外建筑设计院有限公司;(成)建材广州工程勘测院有限公司 勘察费下浮率 0.26%，设计费下浮率 0.26%/4214214.48 元 杨昕/20114411031</p>
+        <p>(主)广东海外建筑设计院 有限公司;(成)建材广州工程勘测院有限公司 勘察费下浮率 0.26%，设计费下浮率 0.26%/4214214.48 元 杨昕/20114411031</p>
         <p>(主)广东粤建设计研究院有限公司;(成)顺驰勘测有限公司 勘察费下浮率 0.50%，设计费下浮率 0.35%/4209398.55 元 冯浩/20074401484</p>
       </body>
     </html>
@@ -294,6 +294,21 @@ def _survey_design_candidate_table_without_certificate_detail_html() -> bytes:
         <p>定标候选人名称 投标总报价（元） 下浮率（%） 项目负责人</p>
         <p>一方设计集团有限 公司 3426871.63 0.03 何勇均</p>
         <p>中都工程设计有限 公司 3427557.21 0.01 陈睿</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _service_project_total_responsible_table_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>高州排水管线工程监理造价咨询评标报告</title></head>
+      <body>
+        <h1>高州排水管线工程监理造价咨询评标报告</h1>
+        <p>推荐排名 中标候选人名称 投标报价（元） 项目总负责人姓名及资格证书编号</p>
+        <p>第一中标候选人 深圳市昊源建设监理有限公司 2316935.04 梅琦枫 44044619</p>
+        <p>第二中标候选人 五洲工程顾问集团有限公司 2486348.80 王涛 33042716</p>
       </body>
     </html>
     """
@@ -1017,7 +1032,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "survey_design")
-        self.assertEqual(enriched["candidate_company"], "(主)广东海外建筑设计院")
+        self.assertEqual(enriched["candidate_company"], "(主)广东海外建筑设计院有限公司")
         self.assertEqual(enriched["primary_responsible_role"], "survey_design_project_lead")
         self.assertEqual(enriched["primary_responsible_person_name"], "杨昕")
         self.assertEqual(enriched.get("project_manager_name", ""), "")
@@ -1070,6 +1085,53 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["primary_responsible_person_name"], "何勇均")
         self.assertEqual(enriched.get("project_manager_name", ""), "")
         self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
+        self.assertEqual(
+            enriched["primary_responsible_person_name_parse_state"],
+            "DETAIL_TEXT_CANDIDATE_ROLE_TABLE",
+        )
+
+    def test_service_project_total_responsible_table_extracts_name_and_certificate(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/service-total-responsible-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_service_project_total_responsible_table_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-service-total-responsible-001",
+            "notice_id": "NOTICE-GD-SERVICE-TOTAL-RESPONSIBLE-001",
+            "project_id": "PROJ-GD-SERVICE-TOTAL-RESPONSIBLE-001",
+            "project_name": "高州排水管线工程监理造价咨询评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "supplier_service")
+        self.assertEqual(enriched["candidate_company"], "深圳市昊源建设监理有限公司")
+        self.assertEqual(enriched["primary_responsible_role"], "service_project_lead")
+        self.assertEqual(enriched["primary_responsible_person_name"], "梅琦枫")
+        self.assertEqual(enriched["project_manager_certificate_no"], "44044619")
         self.assertEqual(
             enriched["primary_responsible_person_name_parse_state"],
             "DETAIL_TEXT_CANDIDATE_ROLE_TABLE",
