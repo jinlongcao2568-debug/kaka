@@ -716,6 +716,28 @@ def _overlay_stage2_capture_on_candidate(
     if fields.get("candidate_company"):
         row["candidate_company"] = str(fields["candidate_company"])
         row["candidate_company_parse_state"] = fields.get("candidate_company_parse_state") or "DETAIL_TEXT"
+    for key in (
+        "engineering_work_lane",
+        "engineering_work_lane_parse_state",
+        "engineering_role_route",
+        "primary_responsible_role",
+        "primary_responsible_person_name",
+        "primary_responsible_person_name_parse_state",
+        "chief_supervision_engineer_name",
+        "chief_supervision_engineer_name_parse_state",
+        "design_lead_name",
+        "design_lead_name_parse_state",
+        "survey_lead_name",
+        "survey_lead_name_parse_state",
+        "project_manager_certificate_type",
+        "project_manager_certificate_type_parse_state",
+        "project_manager_cert_specialty",
+        "project_manager_cert_specialty_parse_state",
+        "project_manager_professional_title",
+        "project_manager_professional_title_parse_state",
+    ):
+        if fields.get(key):
+            row[key] = str(fields[key])
     if fields.get("project_manager_name"):
         row["project_manager_name"] = str(fields["project_manager_name"])
         row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"
@@ -739,7 +761,19 @@ def _overlay_stage2_capture_on_candidate(
             if value
         ]
     key_fields = set(str(item) for item in list(row.get("key_fields_present", []) or []) if item)
-    for key in ("project_name", "notice_stage", "candidate_company", "project_manager_name"):
+    for key in (
+        "project_name",
+        "notice_stage",
+        "candidate_company",
+        "engineering_work_lane",
+        "primary_responsible_person_name",
+        "project_manager_name",
+        "chief_supervision_engineer_name",
+        "design_lead_name",
+        "survey_lead_name",
+        "project_manager_certificate_type",
+        "project_manager_cert_specialty",
+    ):
         if row.get(key):
             key_fields.add(key)
     row["key_fields_present"] = sorted(key_fields)
@@ -1152,7 +1186,14 @@ def _enrich_stage3_parsed_carrier_from_candidate(
     add_field("project_name", candidate.get("project_name"), confidence=0.86)
     add_field("candidate_company_name", candidate.get("candidate_company"), confidence=0.84)
     add_field("candidate_company", candidate.get("candidate_company"), confidence=0.84)
+    add_field("engineering_work_lane", candidate.get("engineering_work_lane"), confidence=0.78)
+    add_field("engineering_role_route", candidate.get("engineering_role_route"), confidence=0.78)
+    add_field("primary_responsible_role", candidate.get("primary_responsible_role"), confidence=0.78)
+    add_field("primary_responsible_person_name", candidate.get("primary_responsible_person_name"), confidence=0.78)
     add_field("project_manager_name", candidate.get("project_manager_name"), confidence=0.82)
+    add_field("chief_supervision_engineer_name", candidate.get("chief_supervision_engineer_name"), confidence=0.8)
+    add_field("design_lead_name", candidate.get("design_lead_name"), confidence=0.8)
+    add_field("survey_lead_name", candidate.get("survey_lead_name"), confidence=0.8)
     add_field(
         "project_manager_certificate_type",
         candidate.get("project_manager_certificate_type"),
@@ -1183,7 +1224,14 @@ def _enrich_stage3_parsed_carrier_from_candidate(
     enriched["project_id"] = str(candidate.get("project_id") or enriched.get("project_id") or "")
     enriched["project_name"] = str(candidate.get("project_name") or enriched.get("project_name") or "")
     enriched["candidate_company_name"] = str(candidate.get("candidate_company") or "")
+    enriched["engineering_work_lane"] = str(candidate.get("engineering_work_lane") or "")
+    enriched["engineering_role_route"] = str(candidate.get("engineering_role_route") or "")
+    enriched["primary_responsible_role"] = str(candidate.get("primary_responsible_role") or "")
+    enriched["primary_responsible_person_name"] = str(candidate.get("primary_responsible_person_name") or "")
     enriched["project_manager_name"] = str(candidate.get("project_manager_name") or "")
+    enriched["chief_supervision_engineer_name"] = str(candidate.get("chief_supervision_engineer_name") or "")
+    enriched["design_lead_name"] = str(candidate.get("design_lead_name") or "")
+    enriched["survey_lead_name"] = str(candidate.get("survey_lead_name") or "")
     enriched["project_manager_certificate_type"] = str(candidate.get("project_manager_certificate_type") or "")
     enriched["project_manager_cert_specialty"] = str(candidate.get("project_manager_cert_specialty") or "")
     enriched["project_manager_professional_title"] = str(candidate.get("project_manager_professional_title") or "")
@@ -1973,6 +2021,19 @@ def _candidate_option_surface(
                 "project_type_label": _project_type_label(str(row.get("project_type") or raw.get("project_type") or "")),
                 "amount": row.get("amount"),
                 "candidate_company": str(raw.get("candidate_company") or row.get("candidate_company") or ""),
+                "engineering_work_lane": str(raw.get("engineering_work_lane") or row.get("engineering_work_lane") or ""),
+                "engineering_role_route": str(raw.get("engineering_role_route") or row.get("engineering_role_route") or ""),
+                "primary_responsible_role": str(
+                    raw.get("primary_responsible_role") or row.get("primary_responsible_role") or ""
+                ),
+                "primary_responsible_person_name": str(
+                    raw.get("primary_responsible_person_name") or row.get("primary_responsible_person_name") or ""
+                ),
+                "chief_supervision_engineer_name": str(
+                    raw.get("chief_supervision_engineer_name") or row.get("chief_supervision_engineer_name") or ""
+                ),
+                "design_lead_name": str(raw.get("design_lead_name") or row.get("design_lead_name") or ""),
+                "survey_lead_name": str(raw.get("survey_lead_name") or row.get("survey_lead_name") or ""),
                 "project_manager_name": str(raw.get("project_manager_name") or row.get("project_manager_name") or ""),
                 "project_manager_certificate_no": str(
                     raw.get("project_manager_certificate_no") or row.get("project_manager_certificate_no") or ""
@@ -2012,6 +2073,15 @@ def _candidate_option_surface(
                 "amount_parse_state": str(raw.get("amount_parse_state") or ""),
                 "region_parse_state": str(raw.get("region_parse_state") or ""),
                 "candidate_company_parse_state": str(raw.get("candidate_company_parse_state") or ""),
+                "engineering_work_lane_parse_state": str(raw.get("engineering_work_lane_parse_state") or ""),
+                "primary_responsible_person_name_parse_state": str(
+                    raw.get("primary_responsible_person_name_parse_state") or ""
+                ),
+                "chief_supervision_engineer_name_parse_state": str(
+                    raw.get("chief_supervision_engineer_name_parse_state") or ""
+                ),
+                "design_lead_name_parse_state": str(raw.get("design_lead_name_parse_state") or ""),
+                "survey_lead_name_parse_state": str(raw.get("survey_lead_name_parse_state") or ""),
                 "project_manager_name_parse_state": str(raw.get("project_manager_name_parse_state") or ""),
                 "project_manager_certificate_no_parse_state": str(
                     raw.get("project_manager_certificate_no_parse_state") or ""
@@ -2292,6 +2362,15 @@ def _stage1_6_validation_ledger(
                 "state": "PARSED" if stage3_success else "NOT_READY",
                 "field_counts": {
                     "candidate_company": sum(1 for row in raw_candidates if row.get("candidate_company")),
+                    "engineering_work_lane": sum(1 for row in raw_candidates if row.get("engineering_work_lane")),
+                    "primary_responsible_person_name": sum(
+                        1 for row in raw_candidates if row.get("primary_responsible_person_name")
+                    ),
+                    "chief_supervision_engineer_name": sum(
+                        1 for row in raw_candidates if row.get("chief_supervision_engineer_name")
+                    ),
+                    "design_lead_name": sum(1 for row in raw_candidates if row.get("design_lead_name")),
+                    "survey_lead_name": sum(1 for row in raw_candidates if row.get("survey_lead_name")),
                     "project_manager_name": sum(1 for row in raw_candidates if row.get("project_manager_name")),
                     "project_manager_certificate_no": sum(1 for row in raw_candidates if row.get("project_manager_certificate_no")),
                     "project_manager_certificate_type": sum(1 for row in raw_candidates if row.get("project_manager_certificate_type")),

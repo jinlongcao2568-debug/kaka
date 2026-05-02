@@ -231,12 +231,98 @@ def _company_like_pattern() -> str:
     return rf"((?:（主）|\(主\))?[\u4e00-\u9fffA-Za-z0-9（）()·\-]{{2,80}}?(?:{suffix_pattern}))"
 
 
+def _infer_engineering_work_lane(text: str, fallback_project_type: str) -> dict[str, str]:
+    haystack = _clean_text(text)
+    project_type = str(fallback_project_type or "").strip().lower()
+    if any(token in haystack for token in ("监理", "总监理工程师", "总监")):
+        return {
+            "engineering_work_lane": "supervision",
+            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
+            "engineering_role_route": "chief_supervision_engineer_identity_chain",
+        }
+    if any(token in haystack for token in ("工程总承包", "设计施工总承包", "EPC", "施工总承包", "施工", "建安", "安装", "装修")):
+        return {
+            "engineering_work_lane": "construction_or_epc",
+            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
+            "engineering_role_route": "project_manager_identity_chain",
+        }
+    if "勘察设计" in haystack or ("勘察" in haystack and "设计" in haystack):
+        return {
+            "engineering_work_lane": "survey_design",
+            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
+            "engineering_role_route": "survey_design_responsible_person_identity_chain",
+        }
+    if "勘察" in haystack:
+        return {
+            "engineering_work_lane": "survey",
+            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
+            "engineering_role_route": "survey_lead_identity_chain",
+        }
+    if "设计" in haystack:
+        return {
+            "engineering_work_lane": "design",
+            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
+            "engineering_role_route": "design_lead_identity_chain",
+        }
+    if any(token in haystack for token in ("设备", "材料", "采购", "服务")):
+        return {
+            "engineering_work_lane": "supplier_service",
+            "engineering_work_lane_parse_state": "DETAIL_TEXT_ROLE_LANE",
+            "engineering_role_route": "supplier_qualification_credit_chain",
+        }
+    if project_type in {"construction", "municipal", "highway", "water", "water_conservancy", "building"}:
+        return {
+            "engineering_work_lane": "construction_or_epc",
+            "engineering_work_lane_parse_state": "PROJECT_TYPE_FALLBACK_LANE",
+            "engineering_role_route": "project_manager_identity_chain",
+        }
+    if project_type in {"procurement", "goods", "service"}:
+        return {
+            "engineering_work_lane": "supplier_service",
+            "engineering_work_lane_parse_state": "PROJECT_TYPE_FALLBACK_LANE",
+            "engineering_role_route": "supplier_qualification_credit_chain",
+        }
+    return {
+        "engineering_work_lane": "unknown_engineering",
+        "engineering_work_lane_parse_state": "DETAIL_TEXT_NOT_CLASSIFIED",
+        "engineering_role_route": "review_required_before_role_gate",
+    }
+
+
+def _extract_role_name_by_patterns(text: str, patterns: tuple[str, ...]) -> tuple[str, str]:
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        candidate_name = _clean_text(match.group("name") if "name" in match.groupdict() else match.group(1))
+        candidate_name = candidate_name.strip(" ：:，,；;。")
+        if not _looks_like_person_name(candidate_name):
+            continue
+        return candidate_name, "DETAIL_TEXT_ROLE_CONTEXT"
+    return "", "DETAIL_TEXT_NOT_FOUND"
+
+
+def _lane_primary_role(work_lane: str) -> str:
+    if work_lane == "supervision":
+        return "chief_supervision_engineer"
+    if work_lane == "design":
+        return "design_lead"
+    if work_lane == "survey":
+        return "survey_lead"
+    if work_lane == "survey_design":
+        return "survey_design_project_lead"
+    if work_lane == "supplier_service":
+        return "supplier_responsible_contact_review_only"
+    return "project_manager"
+
+
 def _extract_candidate_summary_table(text: str) -> dict[str, str]:
     company_pattern = _company_like_pattern()
     manager_header = (
         r"(?:项目经理姓名|项目负责人|拟派项目负责人姓名|总监理工程师姓名|"
-        r"项目经理|拟派项目负责人|总监理工程师|"
-        r"(?:拟派)?(?:项目|标段|施工|监理)负责人)"
+        r"项目经理|拟派项目负责人|总监理工程师|总监|"
+        r"设计负责人|项目设计负责人|勘察负责人|项目勘察负责人|"
+        r"(?:拟派)?(?:项目|标段|施工|监理|设计|勘察)负责人)"
     )
     vertical_patterns = (
         rf"中标候选人单位\s+投标报价(?:[（(]元[）)]|（元）|\(元\))?\s+{manager_header}\s+第一中标候选人\s+(?P<company>{company_pattern})\s+[0-9,，.]+\s+(?P<manager>[\u4e00-\u9fff·]{{2,8}})",
@@ -310,8 +396,12 @@ def _extract_project_manager_certificate_identity(text: str) -> dict[str, str]:
         (r"二级注册建造师|二级建造师", "二级建造师"),
         (r"注册建造师", "注册建造师"),
         (r"注册监理工程师|监理工程师注册证书", "注册监理工程师"),
+        (r"一级注册建筑师|一级建筑师", "一级注册建筑师"),
+        (r"二级注册建筑师|二级建筑师", "二级注册建筑师"),
+        (r"注册建筑师", "注册建筑师"),
+        (r"注册土木工程师[（(]岩土[）)]|注册岩土工程师", "注册土木工程师（岩土）"),
         (r"注册电气工程师(?:（[^）]+）)?", None),
-        (r"注册(?:土木|结构|公用设备|造价|安全)工程师", None),
+        (r"注册(?:土木|结构|公用设备|造价|安全)工程师(?:（[^）]+）)?", None),
     )
     certificate_context = ""
     for pattern, canonical in certificate_type_patterns:
@@ -341,8 +431,17 @@ def _extract_project_manager_certificate_identity(text: str) -> dict[str, str]:
         ("公路", "公路"),
         ("水利水电工程", "水利"),
         ("水利", "水利"),
+        ("岩土工程", "岩土"),
+        ("岩土", "岩土"),
         ("土木工程", "土木"),
         ("土木", "土木"),
+        ("结构工程", "结构"),
+        ("结构", "结构"),
+        ("给水排水", "给排水"),
+        ("给排水", "给排水"),
+        ("暖通空调", "暖通"),
+        ("暖通", "暖通"),
+        ("动力", "动力"),
         ("供配电", "电气"),
         ("电气", "电气"),
     )
@@ -379,7 +478,7 @@ def _clean_company_value(value: str) -> str:
     return text.strip(" ：:，,；;。")
 
 
-def _extract_project_manager(text: str) -> dict[str, str]:
+def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str]:
     summary_table = _extract_candidate_summary_table(text)
     candidate_section = _section_between(
         text,
@@ -389,32 +488,99 @@ def _extract_project_manager(text: str) -> dict[str, str]:
     search_text = candidate_section or text
     manager_name = ""
     manager_state = "DETAIL_TEXT_NOT_FOUND"
+    primary_name = ""
+    primary_state = "DETAIL_TEXT_NOT_FOUND"
+    primary_role = ""
+    chief_supervision_engineer_name = ""
+    chief_supervision_engineer_state = "DETAIL_TEXT_NOT_FOUND"
+    design_lead_name = ""
+    design_lead_state = "DETAIL_TEXT_NOT_FOUND"
+    survey_lead_name = ""
+    survey_lead_state = "DETAIL_TEXT_NOT_FOUND"
     if summary_table.get("project_manager_name"):
-        manager_name = str(summary_table["project_manager_name"])
-        manager_state = str(summary_table["parse_state"])
+        primary_name = str(summary_table["project_manager_name"])
+        primary_state = str(summary_table["parse_state"])
+        primary_role = _lane_primary_role(work_lane)
     else:
-        manager_patterns = (
-            r"(?:拟派项目负责人姓名|项目负责人姓名|项目经理姓名|总监理工程师姓名)\s+(?:资格能力条件\s+)?([\u4e00-\u9fff·]{2,8})",
-            r"(?:拟派项目负责人|项目负责人|项目经理|总监理工程师)[:：\s]+(?:资格能力条件\s+)?([\u4e00-\u9fff·]{2,8})",
-            r"(?:拟派)?(?:项目|标段|施工|监理)负责人(?:姓名)?[:：\s]+(?:资格能力条件\s+)?([\u4e00-\u9fff·]{2,8})",
+        supervision_patterns = (
+            r"(?:总监理工程师姓名|总监理工程师|总监|监理负责人)(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
+            r"(?:拟派)?(?:项目|标段|监理)负责人(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
         )
-        for pattern in manager_patterns:
-            match = re.search(pattern, search_text)
-            if not match:
-                continue
-            candidate_name = _clean_text(match.group(1)).strip(" ：:，,；;。")
-            if not _looks_like_person_name(candidate_name):
-                continue
-            manager_name = candidate_name
-            manager_state = "DETAIL_TEXT_CANDIDATE_TABLE"
-            break
+        chief_supervision_engineer_name, chief_supervision_engineer_state = _extract_role_name_by_patterns(
+            search_text,
+            supervision_patterns,
+        )
+        design_patterns = (
+            r"(?:设计负责人|项目设计负责人|设计项目负责人|建筑专业负责人|结构专业负责人)(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
+        )
+        design_lead_name, design_lead_state = _extract_role_name_by_patterns(search_text, design_patterns)
+        survey_patterns = (
+            r"(?:勘察负责人|项目勘察负责人|勘察项目负责人|岩土负责人)(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
+        )
+        survey_lead_name, survey_lead_state = _extract_role_name_by_patterns(search_text, survey_patterns)
+        construction_patterns = (
+            r"(?:拟派项目负责人姓名|项目负责人姓名|项目经理姓名)\s+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
+            r"(?:拟派项目负责人|项目负责人|项目经理)[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
+            r"(?:拟派)?(?:项目|标段|施工)负责人(?:姓名)?[:：\s]+(?:资格能力条件\s+)?(?P<name>[\u4e00-\u9fff·]{2,8})",
+        )
+        construction_manager_name, construction_manager_state = _extract_role_name_by_patterns(
+            search_text,
+            construction_patterns,
+        )
+        if work_lane == "supervision" and chief_supervision_engineer_name:
+            primary_name = chief_supervision_engineer_name
+            primary_state = chief_supervision_engineer_state
+            primary_role = "chief_supervision_engineer"
+        elif work_lane == "design" and design_lead_name:
+            primary_name = design_lead_name
+            primary_state = design_lead_state
+            primary_role = "design_lead"
+        elif work_lane == "survey" and survey_lead_name:
+            primary_name = survey_lead_name
+            primary_state = survey_lead_state
+            primary_role = "survey_lead"
+        elif work_lane == "survey_design" and (design_lead_name or survey_lead_name):
+            primary_name = design_lead_name or survey_lead_name
+            primary_state = design_lead_state if design_lead_name else survey_lead_state
+            primary_role = "design_lead" if design_lead_name else "survey_lead"
+        elif construction_manager_name and work_lane in {"design", "survey", "survey_design"}:
+            primary_name = construction_manager_name
+            primary_state = construction_manager_state
+            primary_role = _lane_primary_role(work_lane)
+        elif construction_manager_name:
+            primary_name = construction_manager_name
+            primary_state = construction_manager_state
+            primary_role = "project_manager"
+    if primary_name and not primary_role:
+        primary_role = _lane_primary_role(work_lane)
+    if primary_name:
+        if work_lane == "supervision":
+            chief_supervision_engineer_name = chief_supervision_engineer_name or primary_name
+            chief_supervision_engineer_state = (
+                chief_supervision_engineer_state
+                if chief_supervision_engineer_state != "DETAIL_TEXT_NOT_FOUND"
+                else primary_state
+            )
+            manager_name = primary_name
+            manager_state = primary_state
+        elif work_lane == "design":
+            design_lead_name = design_lead_name or primary_name
+            design_lead_state = design_lead_state if design_lead_state != "DETAIL_TEXT_NOT_FOUND" else primary_state
+        elif work_lane == "survey":
+            survey_lead_name = survey_lead_name or primary_name
+            survey_lead_state = survey_lead_state if survey_lead_state != "DETAIL_TEXT_NOT_FOUND" else primary_state
+        elif work_lane == "survey_design":
+            pass
+        elif work_lane != "supplier_service":
+            manager_name = primary_name
+            manager_state = primary_state
     certificate_no = ""
     certificate_state = "DETAIL_TEXT_NOT_FOUND"
     cert_patterns = (
         r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号)\s*[:：]?\s*([A-Za-z0-9\-]{4,40})",
         r"(?:证号)\s*[:：]\s*([A-Za-z0-9\-]{4,40})",
     )
-    certificate_search_text = search_text if manager_name else _project_manager_certificate_context(search_text)
+    certificate_search_text = search_text if primary_name or manager_name else _project_manager_certificate_context(search_text)
     for pattern in cert_patterns:
         if not certificate_search_text:
             break
@@ -425,6 +591,15 @@ def _extract_project_manager(text: str) -> dict[str, str]:
             break
     identity = _extract_project_manager_certificate_identity(certificate_search_text or search_text)
     return {
+        "primary_responsible_role": primary_role,
+        "primary_responsible_person_name": primary_name,
+        "primary_responsible_person_name_parse_state": primary_state,
+        "chief_supervision_engineer_name": chief_supervision_engineer_name,
+        "chief_supervision_engineer_name_parse_state": chief_supervision_engineer_state,
+        "design_lead_name": design_lead_name,
+        "design_lead_name_parse_state": design_lead_state,
+        "survey_lead_name": survey_lead_name,
+        "survey_lead_name_parse_state": survey_lead_state,
         "project_manager_name": manager_name,
         "project_manager_name_parse_state": manager_state,
         "project_manager_certificate_no": certificate_no,
@@ -435,7 +610,7 @@ def _extract_project_manager(text: str) -> dict[str, str]:
 
 def _project_manager_certificate_context(text: str) -> str:
     patterns = (
-        r"(?:项目负责人|项目经理|拟派项目负责人|总监理工程师|建造师|注册证书|资格证书)[^。；;\n\r]{0,140}",
+        r"(?:项目负责人|项目经理|拟派项目负责人|总监理工程师|设计负责人|勘察负责人|建造师|注册建筑师|注册结构工程师|注册土木工程师|注册电气工程师|注册公用设备工程师|注册证书|资格证书)[^。；;\n\r]{0,140}",
         r"[^。；;\n\r]{0,80}(?:注册编号|注册证书编号|证书编号|证号|注册号)[^。；;\n\r]{0,80}",
     )
     for pattern in patterns:
@@ -443,7 +618,23 @@ def _project_manager_certificate_context(text: str) -> str:
         if not match:
             continue
         context = match.group(0)
-        if any(token in context for token in ("项目负责人", "项目经理", "拟派", "总监", "建造师", "监理工程师", "注册证书")):
+        if any(
+            token in context
+            for token in (
+                "项目负责人",
+                "项目经理",
+                "拟派",
+                "总监",
+                "设计负责人",
+                "勘察负责人",
+                "建造师",
+                "监理工程师",
+                "注册建筑师",
+                "注册结构工程师",
+                "注册土木工程师",
+                "注册证书",
+            )
+        ):
             return context
     return ""
 
@@ -496,7 +687,12 @@ def _candidate_key_fields(candidate: Mapping[str, Any]) -> list[str]:
         "project_name",
         "notice_stage",
         "candidate_company",
+        "engineering_work_lane",
+        "primary_responsible_person_name",
         "project_manager_name",
+        "chief_supervision_engineer_name",
+        "design_lead_name",
+        "survey_lead_name",
         "project_manager_certificate_no",
         "project_manager_certificate_type",
         "project_manager_cert_specialty",
@@ -1033,16 +1229,37 @@ class RealCandidateStage2CaptureService:
         )
         amount, amount_state = _extract_amount(text)
         candidate_company, candidate_company_state = _extract_candidate_company(text)
-        project_manager_identity = _extract_project_manager(text)
+        work_lane = _infer_engineering_work_lane(
+            f"{title} {text[:2000]}",
+            str(candidate.get("project_type") or ""),
+        )
+        project_manager_identity = _extract_project_manager(
+            text,
+            work_lane=str(work_lane.get("engineering_work_lane") or ""),
+        )
         deadline, deadline_state = _extract_deadline(text)
         notice_stage = _infer_notice_stage(f"{title} {text[:2000]}", str(candidate.get("notice_stage") or ""))
         return {
             "project_name": title,
             "notice_stage": notice_stage,
+            **work_lane,
             "amount": amount,
             "amount_parse_state": amount_state,
             "candidate_company": candidate_company,
             "candidate_company_parse_state": candidate_company_state,
+            "primary_responsible_role": project_manager_identity["primary_responsible_role"],
+            "primary_responsible_person_name": project_manager_identity["primary_responsible_person_name"],
+            "primary_responsible_person_name_parse_state": project_manager_identity[
+                "primary_responsible_person_name_parse_state"
+            ],
+            "chief_supervision_engineer_name": project_manager_identity["chief_supervision_engineer_name"],
+            "chief_supervision_engineer_name_parse_state": project_manager_identity[
+                "chief_supervision_engineer_name_parse_state"
+            ],
+            "design_lead_name": project_manager_identity["design_lead_name"],
+            "design_lead_name_parse_state": project_manager_identity["design_lead_name_parse_state"],
+            "survey_lead_name": project_manager_identity["survey_lead_name"],
+            "survey_lead_name_parse_state": project_manager_identity["survey_lead_name_parse_state"],
             "project_manager_name": project_manager_identity["project_manager_name"],
             "project_manager_name_parse_state": project_manager_identity["project_manager_name_parse_state"],
             "project_manager_certificate_no": project_manager_identity["project_manager_certificate_no"],
@@ -1103,6 +1320,22 @@ class RealCandidateStage2CaptureService:
             row["candidate_company_parse_state"] = fields.get("candidate_company_parse_state") or "DETAIL_TEXT"
         else:
             row["candidate_company_parse_state"] = fields.get("candidate_company_parse_state") or "DETAIL_TEXT_NOT_FOUND"
+        for key in (
+            "engineering_work_lane",
+            "engineering_work_lane_parse_state",
+            "engineering_role_route",
+            "primary_responsible_role",
+            "primary_responsible_person_name",
+            "primary_responsible_person_name_parse_state",
+            "chief_supervision_engineer_name",
+            "chief_supervision_engineer_name_parse_state",
+            "design_lead_name",
+            "design_lead_name_parse_state",
+            "survey_lead_name",
+            "survey_lead_name_parse_state",
+        ):
+            if fields.get(key):
+                row[key] = str(fields[key])
         if fields.get("project_manager_name"):
             row["project_manager_name"] = str(fields["project_manager_name"])
             row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"

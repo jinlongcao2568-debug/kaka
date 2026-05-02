@@ -38,6 +38,7 @@
 | 广东跑通验收上限 | 广东 Stage1-6 跑通阶段默认最多取 30 条真实候选、最多读取广东公开 API 第 1 页 50 条原始记录，并在验收账本记录是否截断 | `stage1_6_validation_caps`, `candidate_limit_source`, `candidate_limit_truncated_count` | 30 条有效候选 / 1 页 50 条原始记录只是验收运行上限，不代表源头只有 30 条；必须记录上限来源、截断数量和页数 | 隐藏截断、把上限当业务过滤、只挑少量好跑样本均不得通过 | `IMPLEMENTED` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `real_candidate_discovery.py`, `operator_customer_access.py` |
 | 来源蓝图 | 按地区/类型/金额选择省级平台、全国聚合、核验源、信用源、地方住建源 | source blueprint, capture plan | 明确为什么选或跳过每个来源 | 全国聚合不得被当成全量实时源 | `PARTIAL` | `AUTHORITY` | `stage1_tasking/source_blueprint.py` |
 | 真实候选发现 | 从真实公开列表页/API 获取候选 | `notice_candidates`, source URL, profile id | 候选可链接、可审计、有来源 profile；金额、项目类型、发布时间只打复核标签，不在发现阶段源头删除 | 无候选返回 `NO_CANDIDATES`，不得合成机会；导航、模板、废标/终止等明确无效链接可剔除 | `PARTIAL` | `CODE_CONFIRMED` | `RealPublicCandidateDiscoveryService` |
+| 工程业务类型分流 | 对施工/EPC、监理、设计、勘察、勘察设计、设备材料、服务采购分别打 lane，不在源头把非施工项目硬过滤 | `engineering_work_lane`, `engineering_role_route` | 类型只决定后续核验链和优先级；勘察/设计/监理仍可进入候选池和字段统计 | 把所有公告都套项目经理/建造师规则，或因为没有项目经理就源头丢弃，不得通过 | `IMPLEMENTED` | `CODE_CONFIRMED + USER_FIELD_EXPERIENCE` | `real_candidate_capture.py` |
 | 候选批量分流 | 对所有候选按中标候选公示/异议窗口做第一层分流，并保留地区、类型、金额、公告阶段和字段完整度评分 | selected/skipped/review candidates | 中标候选公示/异议窗口层通过者批量入后续链路；金额、项目类型、竞争者和字段缺失只作为复核/优先级标签；真实公开候选不得因此在源头丢弃 | 不能固定挑 1 个迎合结果；只有明确非项目公告、重复、废标/终止、窗口明确过期才可不进闭环 | `PARTIAL` | `CODE_CONFIRMED` | `Stage1MarketScanEngine` |
 | 试点地区覆盖 | SC/JS/ZJ/SD/GD/HB 本地 profile 分别运行 | region adapter, profile id | 每省显示真实实现状态 | SD/HB 不得显示为与 GD/JS/ZJ/SC 同等可跑 | `PARTIAL` | `CODE_CONFIRMED` | `region_adapters.py` |
 | 运行持久化 | 保存搜索条件、候选、选择、失败原因 | search run record | 刷新后可读回 | 页面内存丢失不得作为正式记录 | `PARTIAL` | `CODE_CONFIRMED` | `OperatorActionRepository` |
@@ -71,7 +72,9 @@
 | 项目基础解析 | 解析项目名、地区、类型、金额、公告阶段、采购/招标方式 | `project_base` | 字段有 source slice | 关键字段缺失进入 parser review | `PARTIAL` | `CODE_CONFIRMED` | `Stage3Service`, real parser |
 | 候选/中标单位解析 | 解析第一候选、第二候选、排序、报价 | `bidder_candidate` | 候选集完整或明确不完整 | 只拿第一名但未说明候选集状态不得 PASS | `PARTIAL` | `AUTHORITY` | `Stage3Service` |
 | 项目经理解析 | 解析姓名、注册专业、等级、单位、证书号/公开 ID、来源切片 | `project_manager` | 至少姓名 + 单位/证书/专业之一进入后续消歧 | 只有姓名也可进入 review，但不能 PASS | `PARTIAL` | `AUTHORITY` | `Stage3Service` |
-| 项目负责人别名与证书身份归一 | `项目经理/项目负责人/拟派项目负责人/总监理工程师` 归一为 `project_manager_name`；`负责人` 只有带项目/拟派/标段/施工/监理上下文才归一；`一级/二级/注册建造师` 归一为 `project_manager_certificate_type`；机电/市政/建筑/公路/水利/土木等归一为 `project_manager_cert_specialty`；工程师/高级工程师只进职称字段 | `project_manager_name`, `project_manager_certificate_type`, `project_manager_cert_specialty`, `project_manager_professional_title` | 字段有上下文、source slice 和 parse state；证书类型/专业只作身份辅助，不替代姓名 | 泛化 `负责人`、把建造师/工程师当姓名、把职称当项目经理均进入 review 或不得入主链 | `PARTIAL` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `real_candidate_capture.py` |
+| 项目负责人别名与证书身份归一 | 施工/EPC lane 下 `项目经理/项目负责人/拟派项目负责人/施工负责人` 归一为 `project_manager_name`；监理 lane 下 `总监理工程师/总监/监理负责人` 同步进入 `chief_supervision_engineer_name` 和兼容字段 `project_manager_name`；`负责人` 只有带项目/拟派/标段/施工/监理上下文才可进入人员字段；`一级/二级/注册建造师` 归一为证书类型；机电/市政/建筑/公路/水利/土木等归一为专业；工程师/高级工程师只进职称字段 | `project_manager_name`, `chief_supervision_engineer_name`, `project_manager_certificate_type`, `project_manager_cert_specialty`, `project_manager_professional_title` | 字段有上下文、source slice 和 parse state；证书类型/专业只作身份辅助，不替代姓名 | 泛化 `负责人`、把建造师/工程师当姓名、把职称当项目经理均进入 review 或不得入主链 | `PARTIAL` | `USER_FIELD_EXPERIENCE + CODE_CONFIRMED` | `real_candidate_capture.py` |
+| 设计/勘察角色归一 | 设计 lane 解析 `设计负责人/项目设计负责人/建筑专业负责人/结构专业负责人` 为 `design_lead_name`；勘察 lane 解析 `勘察负责人/项目勘察负责人/岩土负责人` 为 `survey_lead_name`；勘察设计 lane 先进入 `primary_responsible_person_name`，有明确标签再落具体角色 | `engineering_work_lane`, `primary_responsible_role`, `primary_responsible_person_name`, `design_lead_name`, `survey_lead_name` | 不把设计/勘察负责人误判成施工项目经理；角色字段和 lane 可回放 | 设计/勘察项目缺项目经理不得直接算抽取失败；但缺对应负责人要进入 role review | `IMPLEMENTED` | `CODE_CONFIRMED + USER_FIELD_EXPERIENCE` | `real_candidate_capture.py` |
+| 注册建筑师/注册工程师身份辅助 | 注册建筑师、注册结构工程师、注册土木工程师（岩土）、注册公用设备工程师、注册电气工程师等归入证书身份辅助字段；给排水、暖通、动力、岩土、结构、电气等归入专业 | `project_manager_certificate_type`, `project_manager_cert_specialty`, `project_manager_professional_title` | 设计/勘察/监理公告可形成身份补全目标 | 把注册证书类型当姓名、把职称当证书号不得通过 | `IMPLEMENTED` | `CODE_CONFIRMED + USER_FIELD_EXPERIENCE` | `real_candidate_capture.py` |
 | 项目负责人误抓防护 | 项目负责人姓名必须像自然人；公司、集团、设计、建设、工程、咨询、管理、有限等组织词不得进入项目负责人字段 | `project_manager_name_parse_state`, `project_manager_certificate_no_parse_state` | 无自然人上下文时保持空值/待补，不把项目编号、招标编号当证书号 | 用 `JG2026`、项目编号、公司片段填充负责人或证书号不得通过 | `IMPLEMENTED` | `CODE_CONFIRMED` | `real_candidate_capture.py` |
 | 字段血缘 | 每个字段保留 source file、slice、hash、locator、confidence | `field_lineage_record` | 可回到原始页面/附件 | 无血缘不得进入外部证据 | `PARTIAL` | `AUTHORITY` | `contracts/schemas/field_lineage_record.schema.json` |
 | 解析置信度 | 低置信度、冲突字段、同名字段进入 review | confidence, parse warnings | 低置信不会升级事实 | 解析冲突不允许静默消解 | `PARTIAL` | `AUTHORITY` | real parser |
@@ -213,15 +216,16 @@ Stage4/5 的更细操作规程见：`docs/AX9S_Stage4-5_核验与双闸门操作
 **正常路线**
 1. 解析项目名、地区、项目类型、金额、公告阶段、投标/异议/开标时钟。
 2. 解析候选/中标单位、报价、排名、联合体、否决投标信息。
-3. 解析项目经理姓名、证书、注册专业、等级、注册单位、人员公开标识；项目负责人类别名必须先做上下文归一，建造师/专业工程师/职称只作为身份辅助字段。
+3. 解析项目经理/总监理工程师/设计负责人/勘察负责人等角色姓名、证书、注册专业、等级、注册单位、人员公开标识；项目负责人类别名必须先按业务 lane 做上下文归一，建造师/专业工程师/职称只作为身份辅助字段。
 4. 给每个字段生成 source slice、hash、locator、confidence。
 5. 输出 `project_base`、`bidder_candidate`、`project_manager`、`field_lineage_record`。
 
 **分支路线**
 - 只有项目经理姓名：允许进入 Stage4 review，但不能形成核验 PASS。
 - 有候选公司 + 项目经理/项目负责人姓名但公告缺证书编号：必须进入 `JZSC_COMPANY_FIRST_REQUIRED`，先查四库企业人员列表取得证书号/人员公开 ID，再恢复在建、合同、业绩、变更核验。
-- `负责人` 无项目/拟派/标段/施工/监理上下文：不得归一为项目经理。
-- 建造师/注册建造师归入证书类型，机电/市政/建筑/公路/水利/土木归入证书专业，工程师/高级工程师归入职称；这些字段不得单独当项目经理姓名。
+- `负责人` 无项目/拟派/标段/施工/监理/设计/勘察上下文：不得归一为负责人字段。
+- 勘察/设计/监理公告不因缺施工项目经理而失败；必须按 lane 抽取 `chief_supervision_engineer_name`、`design_lead_name`、`survey_lead_name` 或 `primary_responsible_person_name`。
+- 建造师/注册建造师/注册建筑师/注册结构工程师/注册土木工程师/注册公用设备工程师/注册电气工程师归入证书类型，机电/市政/建筑/公路/水利/土木/岩土/结构/给排水/暖通/电气归入证书专业，工程师/高级工程师归入职称；这些字段不得单独当姓名。
 - 金额跨标段：按 lot/package 拆分，不能把总金额直接套到单标段。
 - 多候选人：保留候选集合，不只拿第一名。
 - 字段冲突：生成 conflict state，交给 Stage4/5，不在 parser 静默改写。

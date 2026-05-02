@@ -223,6 +223,51 @@ def _contextual_manager_alias_detail_html() -> bytes:
     return html.encode("utf-8")
 
 
+def _supervision_chief_engineer_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东学校扩建工程监理中标候选人公示</title></head>
+      <body>
+        <h1>广东学校扩建工程监理中标候选人公示</h1>
+        <p>第一中标候选人 广东省工程监理有限公司 投标报价 980000.00 元</p>
+        <p>总监理工程师：李明 注册监理工程师 注册号: 44030186 职称：高级工程师</p>
+        <p>公示结束时间：2026年05月08日</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _design_lead_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东产业园更新改造设计中标候选人公示</title></head>
+      <body>
+        <h1>广东产业园更新改造设计中标候选人公示</h1>
+        <p>第一中标候选人 广东省建筑设计研究院有限公司 投标报价 3200000.00 元</p>
+        <p>设计负责人：王磊 一级注册建筑师 建筑工程 职称：高级工程师</p>
+        <p>公示结束时间：2026年05月08日</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _survey_lead_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东地下管网勘察中标候选人公示</title></head>
+      <body>
+        <h1>广东地下管网勘察中标候选人公示</h1>
+        <p>第一中标候选人 广东岩土工程勘察有限公司 投标报价 2100000.00 元</p>
+        <p>勘察负责人：赵岩 注册土木工程师（岩土） 岩土工程 职称：工程师</p>
+        <p>公示结束时间：2026年05月08日</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
 def _generic_responsible_person_detail_html() -> bytes:
     html = """
     <html>
@@ -764,6 +809,144 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertIn("project_manager_certificate_type", enriched["key_fields_present"])
         self.assertIn("project_manager_cert_specialty", enriched["key_fields_present"])
 
+    def test_supervision_chief_engineer_is_lane_specific_and_backfilled_to_project_manager_chain(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/supervision-chief-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_supervision_chief_engineer_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-supervision-chief-001",
+            "notice_id": "NOTICE-GD-SUPERVISION-CHIEF-001",
+            "project_id": "PROJ-GD-SUPERVISION-CHIEF-001",
+            "project_name": "广东学校扩建工程监理中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "supervision")
+        self.assertEqual(enriched["primary_responsible_role"], "chief_supervision_engineer")
+        self.assertEqual(enriched["primary_responsible_person_name"], "李明")
+        self.assertEqual(enriched["chief_supervision_engineer_name"], "李明")
+        self.assertEqual(enriched["project_manager_name"], "李明")
+        self.assertEqual(enriched["project_manager_certificate_no"], "44030186")
+        self.assertEqual(enriched["project_manager_certificate_type"], "注册监理工程师")
+        self.assertEqual(enriched["project_manager_professional_title"], "高级工程师")
+
+    def test_design_lead_is_not_forced_into_construction_project_manager(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/design-lead-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_design_lead_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-design-lead-001",
+            "notice_id": "NOTICE-GD-DESIGN-LEAD-001",
+            "project_id": "PROJ-GD-DESIGN-LEAD-001",
+            "project_name": "广东产业园更新改造设计中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "design")
+        self.assertEqual(enriched["primary_responsible_role"], "design_lead")
+        self.assertEqual(enriched["primary_responsible_person_name"], "王磊")
+        self.assertEqual(enriched["design_lead_name"], "王磊")
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
+        self.assertEqual(enriched["project_manager_certificate_type"], "一级注册建筑师")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "建筑")
+        self.assertEqual(enriched["project_manager_professional_title"], "高级工程师")
+
+    def test_survey_lead_and_registered_geotechnical_identity_are_normalized(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/survey-lead-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_survey_lead_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-survey-lead-001",
+            "notice_id": "NOTICE-GD-SURVEY-LEAD-001",
+            "project_id": "PROJ-GD-SURVEY-LEAD-001",
+            "project_name": "广东地下管网勘察中标候选人公示",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "survey")
+        self.assertEqual(enriched["primary_responsible_role"], "survey_lead")
+        self.assertEqual(enriched["primary_responsible_person_name"], "赵岩")
+        self.assertEqual(enriched["survey_lead_name"], "赵岩")
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
+        self.assertEqual(enriched["project_manager_certificate_type"], "注册土木工程师（岩土）")
+        self.assertEqual(enriched["project_manager_cert_specialty"], "岩土")
+        self.assertEqual(enriched["project_manager_professional_title"], "工程师")
+
     def test_generic_responsible_person_without_project_context_is_not_project_manager(self) -> None:
         detail_url = "https://ygp.gdzwfw.gov.cn/notice/generic-person-001.html"
         transport = FakeRealPublicFetchTransport(
@@ -806,7 +989,9 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             )
 
         enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "supplier_service")
         self.assertEqual(enriched.get("project_manager_name", ""), "")
+        self.assertEqual(enriched.get("primary_responsible_person_name", ""), "")
         self.assertEqual(enriched["project_manager_name_parse_state"], "DETAIL_TEXT_NOT_FOUND")
         self.assertEqual(enriched["project_manager_cert_specialty_parse_state"], "DETAIL_TEXT_NOT_FOUND")
 
