@@ -253,9 +253,43 @@ class TestStage1MarketScan(unittest.TestCase):
             "source_candidate_preserved_for_review:objection_window_expired",
             candidate["review_reasons"],
         )
+        self.assertIn("candidate_publicity_window_expired", candidate["review_reasons"])
         self.assertEqual(candidate["why_skip"], [])
 
-    def test_real_discovery_tender_with_detail_snapshot_can_enter_analysis_without_objection_deadline(self) -> None:
+    def test_real_public_candidate_notice_window_passes_even_when_amount_or_fields_need_review(self) -> None:
+        payload = {
+            **self.payload,
+            "scan_run_id": "MKTSCAN-REAL-CANDIDATE-WINDOW-001",
+            "minimum_amount": 1_000_000,
+            "maximum_amount": 30_000_000,
+            "notice_candidates": [
+                {
+                    **self.payload["notice_candidates"][0],
+                    "notice_id": "NOTICE-REAL-CANDIDATE-WINDOW-001",
+                    "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+                    "amount": 50_000_000,
+                    "candidate_company": "",
+                    "key_fields_present": ["project_name", "notice_stage"],
+                    "objection_deadline_at_optional": "2026-05-02T00:00:00+00:00",
+                }
+            ],
+        }
+
+        scan = Stage1MarketScanEngine().run(payload)
+
+        self.assertEqual(scan["selected_candidate_count"], 1)
+        self.assertEqual(scan["review_candidate_count"], 0)
+        candidate = scan["opportunity_candidates"][0]
+        self.assertEqual(candidate["analysis_decision"], "ANALYZE")
+        self.assertTrue(candidate["selected_for_capture_plan"])
+        self.assertIn("candidate_publicity_window_layer_pass", candidate["why_analyze"])
+        self.assertIn("source_candidate_review_tag:amount_above_maximum", candidate["review_reasons"])
+        self.assertIn("missing_key_fields:candidate_company", candidate["review_reasons"])
+        self.assertEqual(candidate["why_skip"], [])
+        self.assertEqual(candidate["market_segment"]["candidate_publicity_window_state"], "ACTIVE")
+        self.assertTrue(candidate["market_segment"]["candidate_publicity_first_layer_pass"])
+
+    def test_real_discovery_tender_with_detail_snapshot_stays_review_until_candidate_publicity(self) -> None:
         payload = {
             **self.payload,
             "scan_run_id": "MKTSCAN-REAL-DISCOVERY-TENDER-001",
@@ -282,11 +316,12 @@ class TestStage1MarketScan(unittest.TestCase):
 
         scan = Stage1MarketScanEngine().run(payload)
 
-        self.assertEqual(scan["selected_candidate_count"], 1)
-        candidate = scan["opportunity_candidates"][0]
-        self.assertEqual(candidate["analysis_decision"], "ANALYZE")
-        self.assertIn("discovery_stage_window_not_required", candidate["why_analyze"])
-        self.assertIn("real_detail_attachment_evidence_ready_for_discovery_stage", candidate["why_analyze"])
+        self.assertEqual(scan["selected_candidate_count"], 0)
+        self.assertEqual(scan["review_candidate_count"], 1)
+        candidate = scan["review_candidates"][0]
+        self.assertEqual(candidate["analysis_decision"], "REVIEW")
+        self.assertFalse(candidate["selected_for_capture_plan"])
+        self.assertIn("not_candidate_publicity_stage", candidate["review_reasons"])
         self.assertNotIn("objection_window_unknown", candidate["review_reasons"])
         self.assertEqual(candidate["why_skip"], [])
 

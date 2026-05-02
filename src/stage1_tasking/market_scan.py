@@ -33,6 +33,14 @@ DISCOVERY_NOTICE_STAGES = {
     "procurement_notice",
     "correction_notice",
 }
+CANDIDATE_PUBLICITY_NOTICE_STAGES = {
+    "candidate_notice",
+    "candidate_publicity",
+}
+PASSING_CANDIDATE_PUBLICITY_WINDOW_STATES = {
+    "ACTIVE",
+    "PENDING_DETAIL_CLOCK",
+}
 REQUIRED_KEY_FIELDS = {
     "project_name",
     "candidate_company",
@@ -197,6 +205,21 @@ def _has_real_detail_attachment_evidence(candidate: Mapping[str, Any]) -> bool:
 
 def _is_real_public_candidate(candidate: Mapping[str, Any]) -> bool:
     return str(candidate.get("source_candidate_mode") or "") == "REAL_PUBLIC_SOURCE_CANDIDATES"
+
+
+def _candidate_publicity_window_state(
+    *,
+    notice_stage: str,
+    deadline: datetime | None,
+    effective_now: datetime,
+) -> str:
+    if notice_stage not in CANDIDATE_PUBLICITY_NOTICE_STAGES:
+        return "NOT_CANDIDATE_PUBLICITY_STAGE"
+    if deadline is None:
+        return "PENDING_DETAIL_CLOCK"
+    if deadline >= effective_now:
+        return "ACTIVE"
+    return "EXPIRED"
 
 
 def _required_key_fields_for_candidate(candidate: Mapping[str, Any], notice_stage: str) -> set[str]:
@@ -399,6 +422,15 @@ class Stage1MarketScanEngine:
             or candidate.get("objection_deadline_at")
             or candidate.get("challenge_deadline_at")
         )
+        is_real_public_candidate = _is_real_public_candidate(candidate)
+        candidate_publicity_window_state = _candidate_publicity_window_state(
+            notice_stage=notice_stage,
+            deadline=deadline,
+            effective_now=effective_now,
+        )
+        candidate_publicity_layer_pass = (
+            candidate_publicity_window_state in PASSING_CANDIDATE_PUBLICITY_WINDOW_STATES
+        )
 
         review_reasons.extend(_controlled_challenge_review_reasons(candidate))
         if amount and amount < minimum_amount:
@@ -456,6 +488,9 @@ class Stage1MarketScanEngine:
             if notice_stage in DISCOVERY_NOTICE_STAGES and real_detail_attachment_evidence:
                 score_components["objection_window"] = 10
                 why_analyze.append("discovery_stage_window_not_required")
+            elif notice_stage in CANDIDATE_PUBLICITY_NOTICE_STAGES and is_real_public_candidate:
+                score_components["objection_window"] = 12
+                review_reasons.append("candidate_publicity_window_deadline_pending_detail")
             else:
                 score_components["objection_window"] = 5
                 review_reasons.append("objection_window_unknown")
@@ -490,12 +525,36 @@ class Stage1MarketScanEngine:
 
         score = sum(score_components.values())
         analyze_threshold = _as_int(payload.get("analysis_score_threshold"), DEFAULT_ANALYZE_SCORE)
-        if why_skip and _is_real_public_candidate(candidate):
-            review_reasons.extend(f"source_candidate_preserved_for_review:{reason}" for reason in why_skip)
+        if is_real_public_candidate and candidate_publicity_layer_pass:
+            if why_skip:
+                review_reasons.extend(f"source_candidate_review_tag:{reason}" for reason in why_skip)
+            if score < analyze_threshold:
+                review_reasons.append("score_below_analysis_threshold_priority_tag")
+            why_skip = []
+            decision = "ANALYZE"
+            selected = True
+            why_analyze.append("candidate_publicity_window_layer_pass")
+            if candidate_publicity_window_state == "PENDING_DETAIL_CLOCK":
+                why_analyze.append("candidate_publicity_deadline_pending_detail_capture")
+            if score >= 85:
+                priority = "HIGH"
+            elif score >= 65:
+                priority = "MEDIUM"
+            else:
+                priority = "LOW"
+        elif is_real_public_candidate:
+            if why_skip:
+                review_reasons.extend(f"source_candidate_preserved_for_review:{reason}" for reason in why_skip)
             why_skip = []
             decision = "REVIEW"
             priority = "REVIEW"
             selected = False
+            if candidate_publicity_window_state == "EXPIRED":
+                review_reasons.append("candidate_publicity_window_expired")
+            elif candidate_publicity_window_state == "NOT_CANDIDATE_PUBLICITY_STAGE":
+                review_reasons.append("not_candidate_publicity_stage")
+            if not review_reasons:
+                review_reasons.append("candidate_publicity_window_layer_not_passed")
         elif why_skip:
             decision = "SKIP"
             priority = "SKIPPED"
@@ -553,6 +612,8 @@ class Stage1MarketScanEngine:
                 else "EXPIRED"
                 if deadline is not None
                 else "UNKNOWN",
+                "candidate_publicity_window_state": candidate_publicity_window_state,
+                "candidate_publicity_first_layer_pass": candidate_publicity_layer_pass,
                 "competitor_signal": "MULTI_COMPETITOR"
                 if competitor_count >= 3
                 else "SINGLE_COMPETITOR"
@@ -623,7 +684,9 @@ class Stage1MarketScanEngine:
             "source_policy": {
                 "manual_url_selection_as_primary_flow": False,
                 "market_segment_selection_source": "market_scan_policy",
-                "region_project_type_amount_stage_window_competitor_filter": True,
+                "candidate_publicity_window_first_layer_filter": True,
+                "region_project_type_amount_stage_window_competitor_filter": False,
+                "region_project_type_amount_competitor_review_tags": True,
                 "project_type_selection_source": "market_scan_project_type_policy",
                 "priority_engineering_project_types": sorted(PRIORITY_ENGINEERING_PROJECT_TYPES),
             },

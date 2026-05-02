@@ -37,7 +37,7 @@
 | 输入归一 | 地区多选、项目类型多选、金额区间、关键词、时间窗口归一 | `region_codes`, `project_types`, `amount_min/max`, `now` | 支持多地区多类型批量运行 | 输入缺失进入默认或 review，不得静默造样本 | `IMPLEMENTED` | `CODE_CONFIRMED` | `operator_customer_access.py::run_operator_autonomous_opportunity_search` |
 | 来源蓝图 | 按地区/类型/金额选择省级平台、全国聚合、核验源、信用源、地方住建源 | source blueprint, capture plan | 明确为什么选或跳过每个来源 | 全国聚合不得被当成全量实时源 | `PARTIAL` | `AUTHORITY` | `stage1_tasking/source_blueprint.py` |
 | 真实候选发现 | 从真实公开列表页/API 获取候选 | `notice_candidates`, source URL, profile id | 候选可链接、可审计、有来源 profile；金额、项目类型、发布时间只打复核标签，不在发现阶段源头删除 | 无候选返回 `NO_CANDIDATES`，不得合成机会；导航、模板、废标/终止等明确无效链接可剔除 | `PARTIAL` | `CODE_CONFIRMED` | `RealPublicCandidateDiscoveryService` |
-| 候选批量分流 | 对所有候选按地区、类型、金额、公告阶段、时间窗口评分并分流 | selected/skipped/review candidates | 通过者批量入后续链路；真实公开候选遇到金额/窗口/类型不确定或不匹配时进入 REVIEW，不直接源头丢弃 | 不能固定挑 1 个迎合结果；只有明确非项目公告、重复、废标/终止才可跳过 | `PARTIAL` | `CODE_CONFIRMED` | `Stage1MarketScanEngine` |
+| 候选批量分流 | 对所有候选按中标候选公示/异议窗口做第一层分流，并保留地区、类型、金额、公告阶段和字段完整度评分 | selected/skipped/review candidates | 中标候选公示/异议窗口层通过者批量入后续链路；金额、项目类型、竞争者和字段缺失只作为复核/优先级标签；真实公开候选不得因此在源头丢弃 | 不能固定挑 1 个迎合结果；只有明确非项目公告、重复、废标/终止、窗口明确过期才可不进闭环 | `PARTIAL` | `CODE_CONFIRMED` | `Stage1MarketScanEngine` |
 | 试点地区覆盖 | SC/JS/ZJ/SD/GD/HB 本地 profile 分别运行 | region adapter, profile id | 每省显示真实实现状态 | SD/HB 不得显示为与 GD/JS/ZJ/SC 同等可跑 | `PARTIAL` | `CODE_CONFIRMED` | `region_adapters.py` |
 | 运行持久化 | 保存搜索条件、候选、选择、失败原因 | search run record | 刷新后可读回 | 页面内存丢失不得作为正式记录 | `PARTIAL` | `CODE_CONFIRMED` | `OperatorActionRepository` |
 
@@ -171,7 +171,7 @@ Stage4/5 的更细操作规程见：`docs/AX9S_Stage4-5_核验与双闸门操作
 1. Owner 选择地区、项目类型、金额区间、关键词和时间窗口。
 2. 系统按地区展开 profile，不把全国聚合当唯一来源。
 3. 每个地区分别产生候选列表。
-4. 候选进入批量过滤，不固定挑一个结果。
+4. 候选进入公示/异议窗口第一层分流，不固定挑一个结果；金额、类型、字段完整度只作为复核和优先级标签。
 5. 通过候选进入 Stage2；未通过候选保存 skipped reason。
 
 **分支路线**

@@ -1534,10 +1534,22 @@ function reasonLabel(value) {
   if (text.startsWith("missing_key_fields:")) {
     return `缺关键字段：${text.replace("missing_key_fields:", "").replaceAll(",", "、")}`;
   }
+  if (text.startsWith("source_candidate_review_tag:")) {
+    return `真实候选复核标签：${reasonLabel(text.replace("source_candidate_review_tag:", ""))}`;
+  }
+  if (text.startsWith("source_candidate_preserved_for_review:")) {
+    return `真实候选保留复核：${reasonLabel(text.replace("source_candidate_preserved_for_review:", ""))}`;
+  }
   const labels = {
     amount_below_minimum: "金额低于搜索下限",
     amount_above_maximum: "金额高于搜索上限",
     objection_window_expired: "异议/公告窗口已过",
+    candidate_publicity_window_expired: "中标候选公示/异议窗口已过",
+    candidate_publicity_window_deadline_pending_detail: "公示/异议截止待详情页确认",
+    candidate_publicity_window_layer_pass: "通过中标候选公示窗口层",
+    candidate_publicity_deadline_pending_detail_capture: "公示截止待详情页补链",
+    not_candidate_publicity_stage: "不是中标候选公示阶段",
+    score_below_analysis_threshold_priority_tag: "评分仅作优先级标签",
     no_competitor_signal: "缺少候选公司/竞争信号",
     score_below_analysis_threshold: "评分低于自动闭环阈值",
     project_type_not_engineering: "项目类型不是工程类",
@@ -1550,11 +1562,11 @@ function reasonLabel(value) {
     province_realtime_source_not_registered: "本省实时来源未登记",
     candidate_links_accepted: "已接受候选链接",
     all_or_some_links_filtered_by_region: "部分/全部链接被地区过滤",
-    all_or_some_links_filtered_by_project_type: "部分/全部链接被项目类型过滤",
-    all_or_some_links_filtered_by_amount_range: "部分/全部链接被金额区间过滤",
+    all_or_some_links_filtered_by_project_type: "部分链接带项目类型复核标签",
+    all_or_some_links_filtered_by_amount_range: "部分链接带金额区间复核标签",
     links_present_but_navigation_or_template_only: "只有栏目导航或模板占位链接",
     links_present_but_not_candidate_detail_pages: "有链接但不是候选详情页",
-    links_present_but_no_candidate_after_filters: "有链接但过滤后无候选",
+    links_present_but_no_candidate_after_filters: "有链接但未形成可入池候选",
     candidate_discovery_no_issue_detected: "未检测到明确解析问题",
     non_mapping_link_item: "链接对象格式异常",
     missing_source_url: "链接缺少 URL",
@@ -1750,7 +1762,7 @@ function candidateDecisionReason(candidate, selectedProjectId="") {
     return `离线样本命中地区、项目类型和金额区间，评分 ${candidate.analysis_score ?? "--"}；只验证后续链路，不代表真实市场机会。`;
   }
   if (candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId) {
-    return `通过当前时间窗口、地区、项目类型、金额区间和证据字段过滤，评分 ${candidate.analysis_score ?? "--"}，进入来源蓝图和闭环生成。`;
+    return `通过中标候选公示/异议窗口第一层分流，评分 ${candidate.analysis_score ?? "--"}；金额、类型和证据字段作为复核/优先级标签，进入来源蓝图和闭环生成。`;
   }
   if ((candidate.why_skip || []).length) {
     return `跳过：${reasonListText(candidate.why_skip)}；评分 ${candidate.analysis_score ?? "--"}。`;
@@ -1771,7 +1783,7 @@ function candidateFailureCategory(candidate, selectedProjectId="") {
     return "样本闭环，非真实可售";
   }
   if (candidate.selected_for_capture_plan || candidate.project_id === selectedProjectId) {
-    return "通过过滤，进入闭环";
+    return "通过窗口分流，进入闭环";
   }
   if (!candidate.source_url && !candidate.source_profile_id) {
     return "来源缺口";
@@ -1846,8 +1858,8 @@ function renderSearchResultFromRun(run) {
       ${badge(run.region_code || "--")}
       ${badge(run.project_type_label || run.project_type || "--")}
       <p>金额区间：${amountRangeText(run.amount_range || {minimum: run.amount_min, maximum: run.amount_max})}</p>
-      <p>候选对象：${scope.candidate_count ?? (run.candidate_options || []).length ?? 0}；通过过滤：${scope.selected_candidate_count ?? "--"}；生成闭环：${closedCount}</p>
-      <p class="muted-text">${safeText(scope.stage1_policy || "Stage1 不是单选代表，而是批量过滤候选；未通过者保留原因。")}</p>
+      <p>候选对象：${scope.candidate_count ?? (run.candidate_options || []).length ?? 0}；进入闭环：${scope.selected_candidate_count ?? "--"}；生成闭环：${closedCount}</p>
+      <p class="muted-text">${safeText(scope.stage1_policy || "Stage1 不是单选代表，而是按中标候选公示/异议窗口分流候选；未进入闭环者保留原因。")}</p>
       ${opportunityActions(run.opportunity_id, sampleMode)}
     </div>
     <h3>候选对象明细</h3>
@@ -2627,7 +2639,7 @@ async function loadAutonomousSearchRuns() {
 }
 function rejectedCountsText(counts) {
   const entries = Object.entries(counts || {});
-  if (!entries.length) { return "无过滤统计"; }
+  if (!entries.length) { return "无剔除统计"; }
   return entries.map(([key, value]) => `${reasonLabel(key)} ${value}`).join(" / ");
 }
 async function loadRealCandidateDiscoveryDiagnostics() {
@@ -2660,7 +2672,7 @@ async function loadRealCandidateDiscoveryDiagnostics() {
       ${badge(`候选 ${report.candidate_count ?? 0}`, (report.candidate_count ?? 0) ? "" : "warn")}
       <p><strong>来源</strong> ${report.entry_url ? `<a href="${safeText(report.entry_url)}" target="_blank" rel="noopener">${safeText(report.entry_url)}</a>` : "--"}</p>
       <p><strong>诊断</strong> ${(diagnosis || []).map(reasonLabel).join(" / ") || "暂无诊断"}</p>
-      <p><strong>过滤统计</strong> ${safeText(rejectedCountsText(diagnostics.rejected_counts || report.rejected_counts || {}))}</p>
+      <p><strong>剔除统计</strong> ${safeText(rejectedCountsText(diagnostics.rejected_counts || report.rejected_counts || {}))}</p>
       <p><strong>下一步</strong> ${safeText(report.next_action || diagnostics.next_action || "查看来源快照和列表链接样本。")}</p>
       ${sampleText ? `<p><strong>样例</strong><br>${sampleText}</p>` : ""}
     </div>`;

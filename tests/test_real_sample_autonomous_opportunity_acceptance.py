@@ -720,7 +720,10 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertEqual(payload["search_scope"]["candidate_count"], 4)
         self.assertEqual(payload["search_scope"]["selected_candidate_count"], 4)
         self.assertEqual(payload["search_scope"]["closed_loop_generated_count"], 4)
-        self.assertEqual(payload["search_scope"]["selection_semantics"], "PASSED_FILTERS_NOT_SINGLE_PICK")
+        self.assertEqual(
+            payload["search_scope"]["selection_semantics"],
+            "CANDIDATE_PUBLICITY_WINDOW_LAYER_NOT_SINGLE_PICK",
+        )
         self.assertIn("所有候选", payload["search_scope"]["stage1_policy"])
         self.assertEqual(len(payload["opportunity_ids"]), 4)
         self.assertEqual(payload["region_adapter"]["region_code"], "CN-GD")

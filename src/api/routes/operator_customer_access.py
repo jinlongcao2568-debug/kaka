@@ -1387,7 +1387,7 @@ def _build_autonomous_runtime_flow(
     if review_candidates:
         stage1_reasons.append(f"{review_candidates} 个候选进入复核")
     if skipped_candidates:
-        stage1_reasons.append(f"{skipped_candidates} 个候选被过滤")
+        stage1_reasons.append(f"{skipped_candidates} 个候选进入跳过/无效队列")
     stage2_reasons = [] if capture_steps else ["未生成公开来源采集步骤"]
     source_profile_id = str(candidate.get("source_profile_id") or "")
     source_candidate_mode = str(candidate.get("source_candidate_mode") or "EXPLICIT_CANDIDATES")
@@ -1425,7 +1425,7 @@ def _build_autonomous_runtime_flow(
             invalid_count=review_candidates + skipped_candidates,
             input_count=input_candidates,
             output_count=selected_candidates,
-            note="按地区、项目类型、金额区间和竞争信号筛选机会。",
+            note="按中标候选公示/异议窗口做第一层分流；金额、项目类型和竞争信号只作为复核与优先级标签。",
             object_refs={
                 "scan_run_id": market_scan.get("scan_run_id"),
                 "selected_project_id": candidate.get("project_id"),
@@ -1437,7 +1437,7 @@ def _build_autonomous_runtime_flow(
                 "project_types": requested_project_types_text,
             },
             failure_reasons=stage1_reasons,
-            next_action="保留所有通过过滤的候选并进入来源蓝图。",
+            next_action="保留所有候选分流结果；通过公示/异议窗口层的候选进入来源蓝图。",
         ),
         _runtime_stage(
             stage=2,
@@ -1618,7 +1618,7 @@ def _build_autonomous_runtime_flow(
         },
         "logs": [
             "收到搜索条件并生成候选项目。",
-            f"阶段1 过滤后通过 {selected_candidates}/{input_candidates} 个候选机会。",
+            f"阶段1 公示/异议窗口分流后进入闭环 {selected_candidates}/{input_candidates} 个候选机会。",
             f"阶段2 生成 {len(capture_steps)} 个采集计划步骤。",
             (
                 f"真实详情快照已进入 Stage4-9 读回，链路状态 {real_public_chain_state}。"
@@ -1881,7 +1881,7 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             else "real_search_requires_source_candidates_or_explicit_offline_sample_mode"
         )
         no_candidate_message = (
-            "已调用真实公开列表页候选发现器，但本次没有解析到符合地区、类型和金额区间的候选；没有生成机会。"
+            "已调用真实公开列表页候选发现器，但本次没有解析到可入池的真实公告候选；没有生成机会。"
             if discovery_attempted
             else "默认实战搜索未读取到真实来源候选，因此没有生成机会；系统没有合成样本机会。"
         )
@@ -1908,8 +1908,8 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "candidate_count": 0,
                 "selected_candidate_count": 0,
                 "closed_loop_generated_count": 0,
-                "selection_semantics": "PASSED_FILTERS_NOT_SINGLE_PICK",
-                "stage1_policy": "所有候选先进入当前时间窗口、地区、项目类型、金额区间、公告状态和证据字段过滤；通过者批量进入后续闭环，未通过者保留原因。",
+                "selection_semantics": "CANDIDATE_PUBLICITY_WINDOW_LAYER_NOT_SINGLE_PICK",
+                "stage1_policy": "所有候选先入池，真实候选优先保留；Stage1 以中标候选公示/异议窗口作第一层分流，金额、项目类型、证据字段只作为复核/优先级标签；明确无效链接才跳过。",
                 "source_candidate_mode": no_candidate_mode,
                 "real_market_discovery": False,
                 "real_candidate_discovery_attempted": discovery_attempted,
@@ -2079,8 +2079,8 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "candidate_count": len(raw_candidates),
                 "selected_candidate_count": len(selected),
                 "closed_loop_generated_count": 0,
-                "selection_semantics": "PASSED_FILTERS_NOT_SINGLE_PICK",
-                "stage1_policy": "所有候选先进入当前时间窗口、地区、项目类型、金额区间、公告状态和证据字段过滤；通过者批量进入后续闭环，未通过者保留原因。",
+                "selection_semantics": "CANDIDATE_PUBLICITY_WINDOW_LAYER_NOT_SINGLE_PICK",
+                "stage1_policy": "所有候选先入池，真实候选优先保留；Stage1 以中标候选公示/异议窗口作第一层分流，金额、项目类型、证据字段只作为复核/优先级标签；明确无效链接才跳过。",
                 "stage2_detail_snapshot_count": _as_int(
                     real_candidate_stage2_capture.get("detail_snapshot_count"), 0
                 ),
@@ -2379,8 +2379,8 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "candidate_count": len(raw_candidates),
             "selected_candidate_count": len(selected),
             "closed_loop_generated_count": closed_loop_generated_count,
-            "selection_semantics": "PASSED_FILTERS_NOT_SINGLE_PICK",
-            "stage1_policy": "所有候选先进入当前时间窗口、地区、项目类型、金额区间、公告状态和证据字段过滤；通过者批量进入后续闭环，未通过者保留原因。",
+            "selection_semantics": "CANDIDATE_PUBLICITY_WINDOW_LAYER_NOT_SINGLE_PICK",
+            "stage1_policy": "所有候选先入池，真实候选优先保留；Stage1 以中标候选公示/异议窗口作第一层分流，金额、项目类型、证据字段只作为复核/优先级标签；明确无效链接才跳过。",
             "stage2_detail_snapshot_count": _as_int(
                 real_candidate_stage2_capture.get("detail_snapshot_count"), 0
             ),
