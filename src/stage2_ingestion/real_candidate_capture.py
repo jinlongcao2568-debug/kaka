@@ -357,7 +357,9 @@ def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
         cert = _clean_text(match.group("cert")).strip(" ：:，,；;。")
         if not _looks_like_person_name(name):
             continue
+        company = _clean_company_value(_clean_text(match.group(1))) if match.lastindex else ""
         return {
+            "candidate_company": company,
             "primary_responsible_person_name": name,
             "project_manager_certificate_no": cert,
             "parse_state": "DETAIL_TEXT_CANDIDATE_ROLE_CERT_TABLE",
@@ -370,19 +372,25 @@ def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
     if body_match:
         body = body_match.group("body")
         for match in re.finditer(
-            r"(?:\d[\d,.]*\s*(?:元|%)?\s+){1,4}(?P<name>[\u4e00-\u9fff·]{2,8})(?:\s*/\s*(?P<cert>[A-Za-z0-9\-]{5,40}))?",
+            r"(?P<company>[\u4e00-\u9fffA-Za-z0-9（）()·\-\s]{2,100}?"
+            r"(?:有限\s*公司|股份\s*有限公司|集团\s*有限公司|设计院|研究院|事务所|联合体))"
+            r"\s+(?:\d[\d,.]*\s*(?:元|%)?\s+){1,4}"
+            r"(?P<name>[\u4e00-\u9fff·]{2,8})(?:\s*/\s*(?P<cert>[A-Za-z0-9\-]{5,40}))?",
             body,
         ):
             name = _clean_text(match.group("name")).strip(" ：:，,；;。")
             if not _looks_like_person_name(name):
                 continue
             cert = _clean_text(match.group("cert") or "").strip(" ：:，,；;。")
+            company = _clean_company_value(_clean_text(match.group("company")))
             return {
+                "candidate_company": company,
                 "primary_responsible_person_name": name,
                 "project_manager_certificate_no": cert,
                 "parse_state": "DETAIL_TEXT_CANDIDATE_ROLE_TABLE",
             }
     return {
+        "candidate_company": "",
         "primary_responsible_person_name": "",
         "project_manager_certificate_no": "",
         "parse_state": "DETAIL_TEXT_NOT_FOUND",
@@ -555,6 +563,7 @@ def _extract_project_manager_certificate_identity(text: str) -> dict[str, str]:
 
 def _clean_company_value(value: str) -> str:
     text = value.strip()
+    text = re.sub(r"(有限|股份|集团)\s+(公司)", r"\1\2", text)
     text = re.split(
         r"\s+(?:中标|成交|预算|采购|合同|公告|附件|金额|项目名称|采购人|供应商地址|地址|投标报价|报价)",
         text,
@@ -590,6 +599,7 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
         primary_role = _lane_primary_role(work_lane)
     else:
         table_role = _extract_candidate_table_responsible_person(search_text)
+        table_role_company = str(table_role.get("candidate_company") or "")
         table_role_name = str(table_role.get("primary_responsible_person_name") or "")
         table_role_cert = str(table_role.get("project_manager_certificate_no") or "")
         table_role_state = str(table_role.get("parse_state") or "DETAIL_TEXT_NOT_FOUND")
@@ -698,6 +708,9 @@ def _extract_project_manager(text: str, *, work_lane: str = "") -> dict[str, str
         "design_lead_name_parse_state": design_lead_state,
         "survey_lead_name": survey_lead_name,
         "survey_lead_name_parse_state": survey_lead_state,
+        "candidate_company_from_responsible_table": str(
+            table_role_company if "table_role_company" in locals() else ""
+        ),
         "project_manager_name": manager_name,
         "project_manager_name_parse_state": manager_state,
         "project_manager_certificate_no": certificate_no,
@@ -1336,6 +1349,12 @@ class RealCandidateStage2CaptureService:
             text,
             work_lane=str(work_lane.get("engineering_work_lane") or ""),
         )
+        responsible_table_company = str(
+            project_manager_identity.get("candidate_company_from_responsible_table") or ""
+        )
+        if responsible_table_company:
+            candidate_company = responsible_table_company
+            candidate_company_state = project_manager_identity["primary_responsible_person_name_parse_state"]
         deadline, deadline_state = _extract_deadline(text)
         notice_stage = _infer_notice_stage(f"{title} {text[:2000]}", str(candidate.get("notice_stage") or ""))
         return {

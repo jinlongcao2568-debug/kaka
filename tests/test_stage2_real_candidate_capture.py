@@ -1017,6 +1017,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "survey_design")
+        self.assertEqual(enriched["candidate_company"], "(主)广东海外建筑设计院")
         self.assertEqual(enriched["primary_responsible_role"], "survey_design_project_lead")
         self.assertEqual(enriched["primary_responsible_person_name"], "杨昕")
         self.assertEqual(enriched.get("project_manager_name", ""), "")
@@ -1064,6 +1065,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "survey_design")
+        self.assertEqual(enriched["candidate_company"], "一方设计集团有限公司")
         self.assertEqual(enriched["primary_responsible_role"], "survey_design_project_lead")
         self.assertEqual(enriched["primary_responsible_person_name"], "何勇均")
         self.assertEqual(enriched.get("project_manager_name", ""), "")
