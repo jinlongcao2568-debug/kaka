@@ -976,6 +976,11 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "supervision")
+        self.assertEqual(enriched["opportunity_priority_class"], "B_HIGH_SUPERVISION")
+        self.assertEqual(enriched["verification_priority_band"], "B")
+        self.assertEqual(enriched["expected_responsible_role_field"], "chief_supervision_engineer_name_or_primary_responsible_person_name")
+        self.assertTrue(enriched["expected_responsible_role_present"])
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
         self.assertEqual(enriched["primary_responsible_role"], "chief_supervision_engineer")
         self.assertEqual(enriched["primary_responsible_person_name"], "李明")
         self.assertEqual(enriched["chief_supervision_engineer_name"], "李明")
@@ -1022,6 +1027,12 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "design")
+        self.assertEqual(enriched["opportunity_priority_class"], "C_MEDIUM_DESIGN_SURVEY")
+        self.assertEqual(
+            enriched["expected_responsible_role_field"],
+            "design_lead_name_or_survey_lead_name_or_primary_responsible_person_name",
+        )
+        self.assertTrue(enriched["expected_responsible_role_present"])
         self.assertEqual(enriched["primary_responsible_role"], "design_lead")
         self.assertEqual(enriched["primary_responsible_person_name"], "王磊")
         self.assertEqual(enriched["design_lead_name"], "王磊")
@@ -1068,6 +1079,9 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "survey")
+        self.assertEqual(enriched["opportunity_priority_class"], "C_MEDIUM_DESIGN_SURVEY")
+        self.assertEqual(enriched["verification_priority_band"], "C")
+        self.assertTrue(enriched["expected_responsible_role_present"])
         self.assertEqual(enriched["primary_responsible_role"], "survey_lead")
         self.assertEqual(enriched["primary_responsible_person_name"], "赵岩")
         self.assertEqual(enriched["survey_lead_name"], "赵岩")
@@ -1114,6 +1128,8 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "survey_design")
+        self.assertEqual(enriched["opportunity_priority_class"], "C_MEDIUM_DESIGN_SURVEY")
+        self.assertTrue(enriched["expected_responsible_role_present"])
         self.assertEqual(enriched["candidate_company"], "(主)广东海外建筑设计院有限公司")
         self.assertEqual(enriched["primary_responsible_role"], "survey_design_project_lead")
         self.assertEqual(enriched["primary_responsible_person_name"], "杨昕")
@@ -1162,6 +1178,8 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "survey_design")
+        self.assertEqual(enriched["opportunity_priority_class"], "C_MEDIUM_DESIGN_SURVEY")
+        self.assertTrue(enriched["expected_responsible_role_present"])
         self.assertEqual(enriched["candidate_company"], "一方设计集团有限公司")
         self.assertEqual(enriched["primary_responsible_role"], "survey_design_project_lead")
         self.assertEqual(enriched["primary_responsible_person_name"], "何勇均")
@@ -1209,10 +1227,13 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
 
         enriched = result["enriched_candidates"][0]
-        self.assertEqual(enriched["engineering_work_lane"], "supplier_service")
+        self.assertEqual(enriched["engineering_work_lane"], "supervision")
+        self.assertEqual(enriched["opportunity_priority_class"], "B_HIGH_SUPERVISION")
+        self.assertTrue(enriched["expected_responsible_role_present"])
         self.assertEqual(enriched["candidate_company"], "深圳市昊源建设监理有限公司")
-        self.assertEqual(enriched["primary_responsible_role"], "service_project_lead")
+        self.assertEqual(enriched["primary_responsible_role"], "chief_supervision_engineer")
         self.assertEqual(enriched["primary_responsible_person_name"], "梅琦枫")
+        self.assertEqual(enriched["chief_supervision_engineer_name"], "梅琦枫")
         self.assertEqual(enriched["project_manager_certificate_no"], "44044619")
         self.assertEqual(
             enriched["primary_responsible_person_name_parse_state"],
@@ -1262,6 +1283,10 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "supplier_service")
+        self.assertEqual(enriched["opportunity_priority_class"], "D_LOW_SUPPLIER_SERVICE")
+        self.assertEqual(enriched["expected_responsible_role_field"], "not_required_for_supplier_service")
+        self.assertTrue(enriched["expected_responsible_role_present"])
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
         self.assertEqual(enriched.get("project_manager_name", ""), "")
         self.assertEqual(enriched.get("primary_responsible_person_name", ""), "")
         self.assertEqual(enriched["project_manager_name_parse_state"], "DETAIL_TEXT_NOT_FOUND")
@@ -1304,6 +1329,15 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
 
         enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "construction_or_epc")
+        self.assertEqual(enriched["opportunity_priority_class"], "A_HIGH_CONSTRUCTION_EPC")
+        self.assertEqual(
+            enriched["expected_responsible_role_field"],
+            "project_manager_name_or_primary_responsible_person_name",
+        )
+        self.assertFalse(enriched["expected_responsible_role_present"])
+        self.assertTrue(enriched["responsible_role_gap_review_required"])
+        self.assertEqual(enriched["responsible_role_gap_code"], "A_ROLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY")
         self.assertEqual(enriched.get("project_manager_name", ""), "")
         self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
         self.assertEqual(enriched["project_manager_certificate_no_parse_state"], "DETAIL_TEXT_NOT_FOUND")
@@ -1346,6 +1380,11 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
 
         enriched = result["enriched_candidates"][0]
         self.assertEqual(enriched["engineering_work_lane"], "survey_design")
+        self.assertEqual(enriched["opportunity_priority_class"], "C_MEDIUM_DESIGN_SURVEY")
+        self.assertEqual(
+            enriched["responsible_role_gap_code"],
+            "C_DESIGN_SURVEY_RESPONSIBLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY",
+        )
         self.assertEqual(enriched.get("project_manager_name", ""), "")
         self.assertEqual(enriched["project_manager_name_parse_state"], "DETAIL_TEXT_NOT_FOUND")
 

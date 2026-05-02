@@ -1459,6 +1459,25 @@ const stateLabels = {
   "approval_and_audit_required_before_any_live_provider_use": "真实服务商使用前需要审批和审计",
   "automated_refund_program_absent_blocked": "自动退款程序未开放",
   "province_platform_missing_detail_or_attachment": "省级平台详情或附件入口待补",
+  "A_HIGH_CONSTRUCTION_EPC": "A类高优先：施工/EPC",
+  "B_HIGH_SUPERVISION": "B类高优先：监理",
+  "C_MEDIUM_DESIGN_SURVEY": "C类中优先：设计/勘察",
+  "D_LOW_SUPPLIER_SERVICE": "D类低优先：设备材料/服务采购",
+  "REVIEW_UNCLASSIFIED_ENGINEERING": "工程类型待复核",
+  "project_manager_active_conflict_certificate_qualification_performance_chain": "项目经理在建/证书/资质/业绩链",
+  "chief_supervision_engineer_registration_supervision_qualification_performance_chain": "总监理工程师注册/资质/业绩链",
+  "design_survey_responsible_person_registration_qualification_performance_chain": "设计勘察负责人注册/资质/业绩链",
+  "supplier_qualification_performance_price_credit_chain": "供应商资格/业绩/价格/信用链",
+  "classify_engineering_lane_before_role_gate": "先复核工程类型再核验角色",
+  "project_manager_name_or_primary_responsible_person_name": "项目经理/项目负责人",
+  "chief_supervision_engineer_name_or_primary_responsible_person_name": "总监理工程师/监理负责人",
+  "design_lead_name_or_survey_lead_name_or_primary_responsible_person_name": "设计/勘察负责人",
+  "not_required_for_supplier_service": "供应商类不要求项目经理",
+  "review_required_before_role_gate": "角色门前需要复核",
+  "A_ROLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY": "A类缺负责人：需企业优先补全",
+  "B_CHIEF_SUPERVISION_ENGINEER_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY": "B类缺总监：需企业优先补全",
+  "C_DESIGN_SURVEY_RESPONSIBLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY": "C类缺设计/勘察负责人：需企业优先补全",
+  "ENGINEERING_LANE_UNCLASSIFIED_REQUIRES_REVIEW": "工程类型未分类：需复核",
   "ACTIVE": "启用",
   "ALLOW": "允许",
   "APPLIED_TO_DRAFT": "已加到草稿",
@@ -1749,10 +1768,13 @@ function renderCandidateCards(candidates, activeOpportunityId="", selectedProjec
       ${candidate.stage1_6_time_budget_pending ? badge("Stage1-6待继续", "warn") : ""}
       ${candidate.stage2_detail_capture_state ? badge(`详情 ${candidate.stage2_detail_capture_state}`, candidate.stage2_detail_snapshot_id_optional ? "" : "warn") : ""}
       ${candidate.stage3_detail_parse_state ? badge(`解析 ${candidate.stage3_detail_parse_state}`, String(candidate.stage3_detail_parse_state).startsWith("PARSED") ? "" : "warn") : ""}
+      ${candidate.opportunity_priority_class ? badge(candidate.opportunity_priority_class, candidate.responsible_role_gap_review_required ? "warn" : "") : ""}
+      ${candidate.responsible_role_gap_code ? badge(candidate.responsible_role_gap_code, "warn") : ""}
       ${candidate.publication_window_state ? badge(labelOf(candidate.publication_window_state)) : ""}
       <p>${candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回"}</p>
-      ${candidate.candidate_company || candidate.project_manager_name || candidate.project_manager_certificate_no ? `<p><strong>核验对象</strong> 企业：${safeText(candidate.candidate_company || "待解析")}；项目经理：${safeText(candidate.project_manager_name || "待解析")}；证书：${safeText(candidate.project_manager_certificate_no || "待解析")}；类型：${safeText(candidate.project_manager_certificate_type || "待解析")}；专业：${safeText(candidate.project_manager_cert_specialty || "待解析")}；职称：${safeText(candidate.project_manager_professional_title || "待解析")}</p>` : ""}
-      ${candidate.candidate_company_parse_state || candidate.project_manager_name_parse_state || candidate.project_manager_certificate_no_parse_state ? `<p><strong>核验字段解析</strong> 企业：${safeText(labelOf(candidate.candidate_company_parse_state || "--"))}；项目经理：${safeText(labelOf(candidate.project_manager_name_parse_state || "--"))}；证书：${safeText(labelOf(candidate.project_manager_certificate_no_parse_state || "--"))}；类型：${safeText(labelOf(candidate.project_manager_certificate_type_parse_state || "--"))}；专业：${safeText(labelOf(candidate.project_manager_cert_specialty_parse_state || "--"))}；职称：${safeText(labelOf(candidate.project_manager_professional_title_parse_state || "--"))}</p>` : ""}
+      ${candidate.opportunity_priority_class || candidate.verification_focus || candidate.expected_responsible_role_field ? `<p><strong>分级核验</strong> 等级：${safeText(labelOf(candidate.opportunity_priority_class || "--"))}；核验链：${safeText(labelOf(candidate.verification_focus || "--"))}；预期角色：${safeText(labelOf(candidate.expected_responsible_role_field || "--"))}；角色状态：${candidate.expected_responsible_role_present ? "已满足" : "待企业优先补全"}</p>` : ""}
+      ${candidate.candidate_company || candidate.primary_responsible_person_name || candidate.project_manager_certificate_no ? `<p><strong>核验对象</strong> 企业：${safeText(candidate.candidate_company || "待解析")}；主负责人：${safeText(candidate.primary_responsible_person_name || "待解析")}；项目经理：${safeText(candidate.project_manager_name || "待解析")}；总监：${safeText(candidate.chief_supervision_engineer_name || "待解析")}；设计负责人：${safeText(candidate.design_lead_name || "待解析")}；勘察负责人：${safeText(candidate.survey_lead_name || "待解析")}；证书：${safeText(candidate.project_manager_certificate_no || "待解析")}</p>` : ""}
+      ${candidate.candidate_company_parse_state || candidate.project_manager_name_parse_state || candidate.project_manager_certificate_no_parse_state ? `<p><strong>核验字段解析</strong> 企业：${safeText(labelOf(candidate.candidate_company_parse_state || "--"))}；主负责人：${safeText(labelOf(candidate.primary_responsible_person_name_parse_state || "--"))}；项目经理：${safeText(labelOf(candidate.project_manager_name_parse_state || "--"))}；证书：${safeText(labelOf(candidate.project_manager_certificate_no_parse_state || "--"))}；类型：${safeText(labelOf(candidate.project_manager_certificate_type_parse_state || "--"))}；专业：${safeText(labelOf(candidate.project_manager_cert_specialty_parse_state || "--"))}；职称：${safeText(labelOf(candidate.project_manager_professional_title_parse_state || "--"))}</p>` : ""}
       ${candidate.source_url ? `<p><strong>来源网址</strong> <a href="${safeText(candidate.source_url)}" target="_blank" rel="noopener">${safeText(candidate.source_url)}</a></p>` : ""}
       ${candidate.published_at_optional ? `<p><strong>发布时间</strong> ${safeText(candidate.published_at_optional)}</p>` : ""}
       ${candidate.amount_parse_state || candidate.region_parse_state ? `<p><strong>解析状态</strong> 金额：${safeText(labelOf(candidate.amount_parse_state || "--"))}；地区：${safeText(labelOf(candidate.region_parse_state || "--"))}</p>` : ""}
@@ -1863,6 +1885,8 @@ function renderStage16ValidationLedger(run) {
         ${stage.failure_reasons && Object.keys(stage.failure_reasons).length ? `<p><strong>失败原因</strong> ${safeText(Object.entries(stage.failure_reasons).map(([name, count]) => `${name} ${count}`).join(" / "))}</p>` : ""}
         ${stage.review_reasons && Object.keys(stage.review_reasons).length ? `<p><strong>复核原因</strong> ${safeText(Object.entries(stage.review_reasons).map(([name, count]) => `${name} ${count}`).join(" / "))}</p>` : ""}
         ${stage.field_counts ? `<p><strong>字段</strong> ${safeText(Object.entries(stage.field_counts).map(([name, count]) => `${labelOf(name)} ${count}`).join(" / "))}</p>` : ""}
+        ${stage.priority_class_counts && Object.keys(stage.priority_class_counts).length ? `<p><strong>分级</strong> ${safeText(Object.entries(stage.priority_class_counts).map(([name, count]) => `${labelOf(name)} ${count}`).join(" / "))}</p>` : ""}
+        ${stage.responsible_role_gap_counts && Object.keys(stage.responsible_role_gap_counts).length ? `<p><strong>角色缺口</strong> ${safeText(Object.entries(stage.responsible_role_gap_counts).map(([name, count]) => `${labelOf(name)} ${count}`).join(" / "))}</p>` : ""}
       </div>
     `).join("")}</div>
   `;

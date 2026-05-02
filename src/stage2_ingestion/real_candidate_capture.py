@@ -262,12 +262,6 @@ def _engineering_lane_from_text(text: str, *, parse_state: str) -> dict[str, str
             "engineering_work_lane_parse_state": "DETAIL_TEXT_NOT_CLASSIFIED",
             "engineering_role_route": "review_required_before_role_gate",
         }
-    if any(token in text for token in ("造价咨询", "第三方监测", "检测服务", "监测及检测", "咨询服务")):
-        return {
-            "engineering_work_lane": "supplier_service",
-            "engineering_work_lane_parse_state": parse_state,
-            "engineering_role_route": "supplier_qualification_credit_chain",
-        }
     if any(token in text for token in ("勘察设计施工总承包", "设计施工总承包", "EPC", "工程总承包", "施工总承包")):
         return {
             "engineering_work_lane": "construction_or_epc",
@@ -285,6 +279,12 @@ def _engineering_lane_from_text(text: str, *, parse_state: str) -> dict[str, str
             "engineering_work_lane": "supervision",
             "engineering_work_lane_parse_state": parse_state,
             "engineering_role_route": "chief_supervision_engineer_identity_chain",
+        }
+    if any(token in text for token in ("造价咨询", "第三方监测", "检测服务", "监测及检测", "咨询服务")):
+        return {
+            "engineering_work_lane": "supplier_service",
+            "engineering_work_lane_parse_state": parse_state,
+            "engineering_role_route": "supplier_qualification_credit_chain",
         }
     if "勘察" in text:
         return {
@@ -424,6 +424,71 @@ def _lane_primary_role(work_lane: str) -> str:
     if work_lane == "supplier_service":
         return "service_project_lead"
     return "project_manager"
+
+
+def _verification_priority_profile(
+    *,
+    work_lane: str,
+    identity: Mapping[str, Any],
+) -> dict[str, Any]:
+    primary_name = str(identity.get("primary_responsible_person_name") or "")
+    project_manager_name = str(identity.get("project_manager_name") or "")
+    chief_supervision_name = str(identity.get("chief_supervision_engineer_name") or "")
+    design_lead_name = str(identity.get("design_lead_name") or "")
+    survey_lead_name = str(identity.get("survey_lead_name") or "")
+
+    if work_lane == "construction_or_epc":
+        present = bool(project_manager_name or primary_name)
+        return {
+            "opportunity_priority_class": "A_HIGH_CONSTRUCTION_EPC",
+            "verification_priority_band": "A",
+            "verification_focus": "project_manager_active_conflict_certificate_qualification_performance_chain",
+            "expected_responsible_role_field": "project_manager_name_or_primary_responsible_person_name",
+            "expected_responsible_role_present": present,
+            "responsible_role_gap_code": "" if present else "A_ROLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY",
+            "responsible_role_gap_review_required": not present,
+        }
+    if work_lane == "supervision":
+        present = bool(chief_supervision_name or primary_name)
+        return {
+            "opportunity_priority_class": "B_HIGH_SUPERVISION",
+            "verification_priority_band": "B",
+            "verification_focus": "chief_supervision_engineer_registration_supervision_qualification_performance_chain",
+            "expected_responsible_role_field": "chief_supervision_engineer_name_or_primary_responsible_person_name",
+            "expected_responsible_role_present": present,
+            "responsible_role_gap_code": "" if present else "B_CHIEF_SUPERVISION_ENGINEER_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY",
+            "responsible_role_gap_review_required": not present,
+        }
+    if work_lane in {"design", "survey", "survey_design"}:
+        present = bool(design_lead_name or survey_lead_name or primary_name)
+        return {
+            "opportunity_priority_class": "C_MEDIUM_DESIGN_SURVEY",
+            "verification_priority_band": "C",
+            "verification_focus": "design_survey_responsible_person_registration_qualification_performance_chain",
+            "expected_responsible_role_field": "design_lead_name_or_survey_lead_name_or_primary_responsible_person_name",
+            "expected_responsible_role_present": present,
+            "responsible_role_gap_code": "" if present else "C_DESIGN_SURVEY_RESPONSIBLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY",
+            "responsible_role_gap_review_required": not present,
+        }
+    if work_lane == "supplier_service":
+        return {
+            "opportunity_priority_class": "D_LOW_SUPPLIER_SERVICE",
+            "verification_priority_band": "D",
+            "verification_focus": "supplier_qualification_performance_price_credit_chain",
+            "expected_responsible_role_field": "not_required_for_supplier_service",
+            "expected_responsible_role_present": True,
+            "responsible_role_gap_code": "",
+            "responsible_role_gap_review_required": False,
+        }
+    return {
+        "opportunity_priority_class": "REVIEW_UNCLASSIFIED_ENGINEERING",
+        "verification_priority_band": "REVIEW",
+        "verification_focus": "classify_engineering_lane_before_role_gate",
+        "expected_responsible_role_field": "review_required_before_role_gate",
+        "expected_responsible_role_present": False,
+        "responsible_role_gap_code": "ENGINEERING_LANE_UNCLASSIFIED_REQUIRES_REVIEW",
+        "responsible_role_gap_review_required": True,
+    }
 
 
 def _extract_candidate_summary_table(text: str) -> dict[str, str]:
@@ -822,6 +887,10 @@ def _candidate_key_fields(candidate: Mapping[str, Any]) -> list[str]:
         "notice_stage",
         "candidate_company",
         "engineering_work_lane",
+        "opportunity_priority_class",
+        "verification_priority_band",
+        "expected_responsible_role_field",
+        "responsible_role_gap_code",
         "primary_responsible_person_name",
         "project_manager_name",
         "chief_supervision_engineer_name",
@@ -1378,6 +1447,10 @@ class RealCandidateStage2CaptureService:
             text,
             work_lane=str(work_lane.get("engineering_work_lane") or ""),
         )
+        priority_profile = _verification_priority_profile(
+            work_lane=str(work_lane.get("engineering_work_lane") or ""),
+            identity=project_manager_identity,
+        )
         responsible_table_company = str(
             project_manager_identity.get("candidate_company_from_responsible_table") or ""
         )
@@ -1390,6 +1463,7 @@ class RealCandidateStage2CaptureService:
             "project_name": title,
             "notice_stage": notice_stage,
             **work_lane,
+            **priority_profile,
             "amount": amount,
             "amount_parse_state": amount_state,
             "candidate_company": candidate_company,
@@ -1473,6 +1547,11 @@ class RealCandidateStage2CaptureService:
             "engineering_work_lane",
             "engineering_work_lane_parse_state",
             "engineering_role_route",
+            "opportunity_priority_class",
+            "verification_priority_band",
+            "verification_focus",
+            "expected_responsible_role_field",
+            "responsible_role_gap_code",
             "primary_responsible_role",
             "primary_responsible_person_name",
             "primary_responsible_person_name_parse_state",
@@ -1485,6 +1564,8 @@ class RealCandidateStage2CaptureService:
         ):
             if fields.get(key):
                 row[key] = str(fields[key])
+        row["expected_responsible_role_present"] = bool(fields.get("expected_responsible_role_present"))
+        row["responsible_role_gap_review_required"] = bool(fields.get("responsible_role_gap_review_required"))
         if fields.get("project_manager_name"):
             row["project_manager_name"] = str(fields["project_manager_name"])
             row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"

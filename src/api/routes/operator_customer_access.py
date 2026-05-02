@@ -722,6 +722,11 @@ def _overlay_stage2_capture_on_candidate(
         "engineering_work_lane",
         "engineering_work_lane_parse_state",
         "engineering_role_route",
+        "opportunity_priority_class",
+        "verification_priority_band",
+        "verification_focus",
+        "expected_responsible_role_field",
+        "responsible_role_gap_code",
         "primary_responsible_role",
         "primary_responsible_person_name",
         "primary_responsible_person_name_parse_state",
@@ -740,6 +745,10 @@ def _overlay_stage2_capture_on_candidate(
     ):
         if fields.get(key):
             row[key] = str(fields[key])
+    if "expected_responsible_role_present" in fields:
+        row["expected_responsible_role_present"] = bool(fields.get("expected_responsible_role_present"))
+    if "responsible_role_gap_review_required" in fields:
+        row["responsible_role_gap_review_required"] = bool(fields.get("responsible_role_gap_review_required"))
     if fields.get("project_manager_name"):
         row["project_manager_name"] = str(fields["project_manager_name"])
         row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"
@@ -768,6 +777,10 @@ def _overlay_stage2_capture_on_candidate(
         "notice_stage",
         "candidate_company",
         "engineering_work_lane",
+        "opportunity_priority_class",
+        "verification_priority_band",
+        "expected_responsible_role_field",
+        "responsible_role_gap_code",
         "primary_responsible_person_name",
         "project_manager_name",
         "chief_supervision_engineer_name",
@@ -1190,6 +1203,11 @@ def _enrich_stage3_parsed_carrier_from_candidate(
     add_field("candidate_company", candidate.get("candidate_company"), confidence=0.84)
     add_field("engineering_work_lane", candidate.get("engineering_work_lane"), confidence=0.78)
     add_field("engineering_role_route", candidate.get("engineering_role_route"), confidence=0.78)
+    add_field("opportunity_priority_class", candidate.get("opportunity_priority_class"), confidence=0.78)
+    add_field("verification_priority_band", candidate.get("verification_priority_band"), confidence=0.78)
+    add_field("verification_focus", candidate.get("verification_focus"), confidence=0.78)
+    add_field("expected_responsible_role_field", candidate.get("expected_responsible_role_field"), confidence=0.78)
+    add_field("responsible_role_gap_code", candidate.get("responsible_role_gap_code"), confidence=0.76)
     add_field("primary_responsible_role", candidate.get("primary_responsible_role"), confidence=0.78)
     add_field("primary_responsible_person_name", candidate.get("primary_responsible_person_name"), confidence=0.78)
     add_field("project_manager_name", candidate.get("project_manager_name"), confidence=0.82)
@@ -1228,6 +1246,13 @@ def _enrich_stage3_parsed_carrier_from_candidate(
     enriched["candidate_company_name"] = str(candidate.get("candidate_company") or "")
     enriched["engineering_work_lane"] = str(candidate.get("engineering_work_lane") or "")
     enriched["engineering_role_route"] = str(candidate.get("engineering_role_route") or "")
+    enriched["opportunity_priority_class"] = str(candidate.get("opportunity_priority_class") or "")
+    enriched["verification_priority_band"] = str(candidate.get("verification_priority_band") or "")
+    enriched["verification_focus"] = str(candidate.get("verification_focus") or "")
+    enriched["expected_responsible_role_field"] = str(candidate.get("expected_responsible_role_field") or "")
+    enriched["expected_responsible_role_present"] = bool(candidate.get("expected_responsible_role_present"))
+    enriched["responsible_role_gap_code"] = str(candidate.get("responsible_role_gap_code") or "")
+    enriched["responsible_role_gap_review_required"] = bool(candidate.get("responsible_role_gap_review_required"))
     enriched["primary_responsible_role"] = str(candidate.get("primary_responsible_role") or "")
     enriched["primary_responsible_person_name"] = str(candidate.get("primary_responsible_person_name") or "")
     enriched["project_manager_name"] = str(candidate.get("project_manager_name") or "")
@@ -2025,6 +2050,25 @@ def _candidate_option_surface(
                 "candidate_company": str(raw.get("candidate_company") or row.get("candidate_company") or ""),
                 "engineering_work_lane": str(raw.get("engineering_work_lane") or row.get("engineering_work_lane") or ""),
                 "engineering_role_route": str(raw.get("engineering_role_route") or row.get("engineering_role_route") or ""),
+                "opportunity_priority_class": str(
+                    raw.get("opportunity_priority_class") or row.get("opportunity_priority_class") or ""
+                ),
+                "verification_priority_band": str(
+                    raw.get("verification_priority_band") or row.get("verification_priority_band") or ""
+                ),
+                "verification_focus": str(raw.get("verification_focus") or row.get("verification_focus") or ""),
+                "expected_responsible_role_field": str(
+                    raw.get("expected_responsible_role_field") or row.get("expected_responsible_role_field") or ""
+                ),
+                "expected_responsible_role_present": bool(
+                    raw.get("expected_responsible_role_present") or row.get("expected_responsible_role_present")
+                ),
+                "responsible_role_gap_code": str(
+                    raw.get("responsible_role_gap_code") or row.get("responsible_role_gap_code") or ""
+                ),
+                "responsible_role_gap_review_required": bool(
+                    raw.get("responsible_role_gap_review_required") or row.get("responsible_role_gap_review_required")
+                ),
                 "primary_responsible_role": str(
                     raw.get("primary_responsible_role") or row.get("primary_responsible_role") or ""
                 ),
@@ -2304,6 +2348,17 @@ def _stage1_6_validation_ledger(
     stage2_attempted = _as_int(stage2.get("detail_capture_attempted_count"), 0)
     stage2_snapshot_count = _as_int(stage2.get("detail_snapshot_count"), 0)
     stage3_success = _as_int(stage2.get("stage3_parse_success_count"), 0)
+
+    def count_by(key: str, *, include_empty: bool = False) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for row in raw_candidates:
+            value = str(row.get(key) or "")
+            if not value and not include_empty:
+                continue
+            label = value or "EMPTY"
+            counts[label] = counts.get(label, 0) + 1
+        return counts
+
     return {
         "surface_id": "guangdong_stage1_6_validation_ledger",
         "ledger_scope": "GUANGDONG_STAGE1_6_REAL_PUBLIC_VALIDATION",
@@ -2365,6 +2420,15 @@ def _stage1_6_validation_ledger(
                 "field_counts": {
                     "candidate_company": sum(1 for row in raw_candidates if row.get("candidate_company")),
                     "engineering_work_lane": sum(1 for row in raw_candidates if row.get("engineering_work_lane")),
+                    "opportunity_priority_class": sum(
+                        1 for row in raw_candidates if row.get("opportunity_priority_class")
+                    ),
+                    "expected_responsible_role_present": sum(
+                        1 for row in raw_candidates if row.get("expected_responsible_role_present")
+                    ),
+                    "responsible_role_gap_review_required": sum(
+                        1 for row in raw_candidates if row.get("responsible_role_gap_review_required")
+                    ),
                     "primary_responsible_person_name": sum(
                         1 for row in raw_candidates if row.get("primary_responsible_person_name")
                     ),
@@ -2384,6 +2448,8 @@ def _stage1_6_validation_ledger(
                         _as_int(row.get("attachment_ocr_extracted_count"), 0) for row in raw_candidates
                     ),
                 },
+                "priority_class_counts": count_by("opportunity_priority_class"),
+                "responsible_role_gap_counts": count_by("responsible_role_gap_code"),
             },
             {
                 "stage": 4,
