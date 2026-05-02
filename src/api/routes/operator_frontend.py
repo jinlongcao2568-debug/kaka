@@ -2829,7 +2829,6 @@ async function runAutonomousSearch() {
     amount_max: normalizedMax,
     minimum_amount: normalizedMin,
     maximum_amount: normalizedMax,
-    candidate_count: 3,
     allow_offline_sample_candidates: Boolean($("offlineSampleCandidates")?.checked),
     now: new Date().toISOString()
   };

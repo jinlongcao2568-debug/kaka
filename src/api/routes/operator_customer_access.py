@@ -716,6 +716,14 @@ def _overlay_stage2_capture_on_candidate(
     if fields.get("candidate_company"):
         row["candidate_company"] = str(fields["candidate_company"])
         row["candidate_company_parse_state"] = fields.get("candidate_company_parse_state") or "DETAIL_TEXT"
+    if fields.get("project_manager_name"):
+        row["project_manager_name"] = str(fields["project_manager_name"])
+        row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"
+    if fields.get("project_manager_certificate_no"):
+        row["project_manager_certificate_no"] = str(fields["project_manager_certificate_no"])
+        row["project_manager_certificate_no_parse_state"] = (
+            fields.get("project_manager_certificate_no_parse_state") or "DETAIL_TEXT"
+        )
     if fields.get("objection_deadline_at_optional"):
         row["objection_deadline_at_optional"] = str(fields["objection_deadline_at_optional"])
     if detail_snapshot_id:
@@ -731,7 +739,7 @@ def _overlay_stage2_capture_on_candidate(
             if value
         ]
     key_fields = set(str(item) for item in list(row.get("key_fields_present", []) or []) if item)
-    for key in ("project_name", "notice_stage", "candidate_company"):
+    for key in ("project_name", "notice_stage", "candidate_company", "project_manager_name"):
         if row.get(key):
             key_fields.add(key)
     row["key_fields_present"] = sorted(key_fields)
@@ -800,7 +808,7 @@ def _first_present(*values: Any) -> Any:
     return None
 
 
-def _as_int(value: Any, default: int) -> int:
+def _as_int(value: Any, default: Any) -> Any:
     try:
         return int(value)
     except (TypeError, ValueError):
@@ -1656,6 +1664,10 @@ def _candidate_option_surface(
                 "project_type_label": _project_type_label(str(row.get("project_type") or raw.get("project_type") or "")),
                 "amount": row.get("amount"),
                 "candidate_company": str(raw.get("candidate_company") or row.get("candidate_company") or ""),
+                "project_manager_name": str(raw.get("project_manager_name") or row.get("project_manager_name") or ""),
+                "project_manager_certificate_no": str(
+                    raw.get("project_manager_certificate_no") or row.get("project_manager_certificate_no") or ""
+                ),
                 "amount_min": amount_min,
                 "amount_max": amount_max,
                 "analysis_score": row.get("analysis_score"),
@@ -1680,6 +1692,13 @@ def _candidate_option_surface(
                 "amount_parse_state": str(raw.get("amount_parse_state") or ""),
                 "region_parse_state": str(raw.get("region_parse_state") or ""),
                 "candidate_company_parse_state": str(raw.get("candidate_company_parse_state") or ""),
+                "project_manager_name_parse_state": str(raw.get("project_manager_name_parse_state") or ""),
+                "project_manager_certificate_no_parse_state": str(
+                    raw.get("project_manager_certificate_no_parse_state") or ""
+                ),
+                "source_trading_process": str(raw.get("source_trading_process") or ""),
+                "source_dataset_name": str(raw.get("source_dataset_name") or ""),
+                "source_query_process_label": str(raw.get("source_query_process_label") or ""),
                 "stage2_detail_capture_state": str(raw.get("stage2_detail_capture_state") or ""),
                 "stage2_detail_snapshot_id_optional": str(raw.get("stage2_detail_snapshot_id_optional") or ""),
                 "stage3_detail_parse_state": str(raw.get("stage3_detail_parse_state") or ""),
@@ -1857,13 +1876,17 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 raw_candidates,
                 now=now,
                 detail_capture_limit=_as_int(
-                    payload.get("detail_capture_limit")
-                    or payload.get("real_candidate_detail_capture_limit"),
+                    _first_present(
+                        payload.get("detail_capture_limit"),
+                        payload.get("real_candidate_detail_capture_limit"),
+                    ),
                     DEFAULT_DETAIL_CAPTURE_LIMIT,
                 ),
                 attachment_capture_limit=_as_int(
-                    payload.get("attachment_capture_limit")
-                    or payload.get("real_candidate_attachment_capture_limit"),
+                    _first_present(
+                        payload.get("attachment_capture_limit"),
+                        payload.get("real_candidate_attachment_capture_limit"),
+                    ),
                     DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
                 ),
             )
@@ -2084,11 +2107,41 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                 "stage2_detail_snapshot_count": _as_int(
                     real_candidate_stage2_capture.get("detail_snapshot_count"), 0
                 ),
+                "stage2_existing_capture_reused_count": _as_int(
+                    real_candidate_stage2_capture.get("existing_capture_reused_count"), 0
+                ),
+                "stage2_new_detail_capture_attempted_count": _as_int(
+                    real_candidate_stage2_capture.get("new_detail_capture_attempted_count"), 0
+                ),
+                "stage2_pending_detail_capture_count": _as_int(
+                    real_candidate_stage2_capture.get("pending_detail_capture_count"), 0
+                ),
+                "stage2_pending_detail_capture_reason": str(
+                    real_candidate_stage2_capture.get("pending_detail_capture_reason") or ""
+                ),
+                "stage2_capture_execution_strategy": str(
+                    real_candidate_stage2_capture.get("capture_execution_strategy") or ""
+                ),
+                "stage2_detail_capture_time_budget_seconds": real_candidate_stage2_capture.get(
+                    "detail_capture_time_budget_seconds"
+                ),
+                "stage2_detail_capture_time_budget_exhausted": bool(
+                    real_candidate_stage2_capture.get("detail_capture_time_budget_exhausted")
+                ),
+                "stage2_detail_failed_count": _as_int(
+                    real_candidate_stage2_capture.get("detail_capture_failed_count"), 0
+                ),
                 "stage3_parse_success_count": _as_int(
                     real_candidate_stage2_capture.get("stage3_parse_success_count"), 0
                 ),
+                "stage3_parse_failed_count": _as_int(
+                    real_candidate_stage2_capture.get("stage3_parse_failed_count"), 0
+                ),
                 "stage2_attachment_snapshot_count": _as_int(
                     real_candidate_stage2_capture.get("attachment_snapshot_count"), 0
+                ),
+                "stage2_detail_failure_summary": dict(
+                    real_candidate_stage2_capture.get("detail_capture_failure_summary", {}) or {}
                 ),
                 "source_candidate_mode": source_candidate_mode,
                 "real_market_discovery": source_candidate_mode == REAL_PUBLIC_SOURCE_CANDIDATE_MODE,
@@ -2159,10 +2212,39 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
                             "attachment_link_count": real_candidate_stage2_capture.get("attachment_link_count"),
                             "attachment_snapshot_count": real_candidate_stage2_capture.get("attachment_snapshot_count"),
                             "stage3_parse_success_count": real_candidate_stage2_capture.get("stage3_parse_success_count"),
+                            "existing_capture_reused_count": real_candidate_stage2_capture.get(
+                                "existing_capture_reused_count"
+                            ),
+                            "new_detail_capture_attempted_count": real_candidate_stage2_capture.get(
+                                "new_detail_capture_attempted_count"
+                            ),
+                            "pending_detail_capture_count": real_candidate_stage2_capture.get(
+                                "pending_detail_capture_count"
+                            ),
+                            "pending_detail_capture_reason": real_candidate_stage2_capture.get(
+                                "pending_detail_capture_reason"
+                            ),
+                            "capture_execution_strategy": real_candidate_stage2_capture.get(
+                                "capture_execution_strategy"
+                            ),
+                            "detail_capture_time_budget_seconds": real_candidate_stage2_capture.get(
+                                "detail_capture_time_budget_seconds"
+                            ),
+                            "detail_capture_time_budget_exhausted": real_candidate_stage2_capture.get(
+                                "detail_capture_time_budget_exhausted"
+                            ),
+                            "detail_capture_failed_count": real_candidate_stage2_capture.get("detail_capture_failed_count"),
+                            "stage3_parse_failed_count": real_candidate_stage2_capture.get("stage3_parse_failed_count"),
+                            "detail_capture_failure_summary": real_candidate_stage2_capture.get(
+                                "detail_capture_failure_summary"
+                            ),
                         },
                         failure_reasons=[]
-                        if real_candidate_stage2_capture.get("detail_snapshot_count")
-                        else ["detail_snapshot_missing_or_degraded"],
+                        if not real_candidate_stage2_capture.get("detail_capture_failed_count")
+                        else list(
+                            dict(real_candidate_stage2_capture.get("detail_capture_failure_summary", {}) or {}).keys()
+                        )
+                        or ["detail_snapshot_missing_or_degraded"],
                         next_action="把 detail/attachment snapshot 的解析字段作为 Stage4-9 正式输入。",
                     )
                 ],
@@ -2384,11 +2466,41 @@ def run_operator_autonomous_opportunity_search(payload: Mapping[str, Any]) -> di
             "stage2_detail_snapshot_count": _as_int(
                 real_candidate_stage2_capture.get("detail_snapshot_count"), 0
             ),
+            "stage2_existing_capture_reused_count": _as_int(
+                real_candidate_stage2_capture.get("existing_capture_reused_count"), 0
+            ),
+            "stage2_new_detail_capture_attempted_count": _as_int(
+                real_candidate_stage2_capture.get("new_detail_capture_attempted_count"), 0
+            ),
+            "stage2_pending_detail_capture_count": _as_int(
+                real_candidate_stage2_capture.get("pending_detail_capture_count"), 0
+            ),
+            "stage2_pending_detail_capture_reason": str(
+                real_candidate_stage2_capture.get("pending_detail_capture_reason") or ""
+            ),
+            "stage2_capture_execution_strategy": str(
+                real_candidate_stage2_capture.get("capture_execution_strategy") or ""
+            ),
+            "stage2_detail_capture_time_budget_seconds": real_candidate_stage2_capture.get(
+                "detail_capture_time_budget_seconds"
+            ),
+            "stage2_detail_capture_time_budget_exhausted": bool(
+                real_candidate_stage2_capture.get("detail_capture_time_budget_exhausted")
+            ),
+            "stage2_detail_failed_count": _as_int(
+                real_candidate_stage2_capture.get("detail_capture_failed_count"), 0
+            ),
             "stage3_parse_success_count": _as_int(
                 real_candidate_stage2_capture.get("stage3_parse_success_count"), 0
             ),
+            "stage3_parse_failed_count": _as_int(
+                real_candidate_stage2_capture.get("stage3_parse_failed_count"), 0
+            ),
             "stage2_attachment_snapshot_count": _as_int(
                 real_candidate_stage2_capture.get("attachment_snapshot_count"), 0
+            ),
+            "stage2_detail_failure_summary": dict(
+                real_candidate_stage2_capture.get("detail_capture_failure_summary", {}) or {}
             ),
             "selected_project_id": candidate.get("project_id"),
             "primary_project_id": candidate.get("project_id"),

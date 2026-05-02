@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import time
 from html import unescape
 from typing import Any, Mapping
 
@@ -16,8 +17,9 @@ from storage.repositories.operator_action_repo import OperatorActionRepository
 
 REAL_CANDIDATE_STAGE2_CAPTURE_WORK_ITEM_ID = "operator-real-candidate-stage2-captures"
 REAL_CANDIDATE_STAGE2_CAPTURE_MODE = "REAL_PUBLIC_CANDIDATE_DETAIL_CAPTURE"
-DEFAULT_DETAIL_CAPTURE_LIMIT = 20
-DEFAULT_ATTACHMENT_CAPTURE_LIMIT = 2
+DEFAULT_DETAIL_CAPTURE_LIMIT: int | None = None
+DEFAULT_ATTACHMENT_CAPTURE_LIMIT: int | None = None
+DEFAULT_DETAIL_CAPTURE_TIME_BUDGET_SECONDS = 90.0
 
 
 def _as_int(value: Any, default: int) -> int:
@@ -122,6 +124,32 @@ def _infer_notice_stage(text: str, fallback: str) -> str:
 
 
 def _extract_candidate_company(text: str) -> tuple[str, str]:
+    summary_table = _extract_candidate_summary_table(text)
+    if summary_table.get("candidate_company"):
+        return str(summary_table["candidate_company"]), str(summary_table["parse_state"])
+    unit_name_section = _section_between(
+        text,
+        start_tokens=("单位名称", "投标人名称", "候选人名称"),
+        end_tokens=("公告附件", "相关附件", "异议受理", "公示时间", "公示结束", "附件"),
+    )
+    if unit_name_section:
+        company = _first_company_like_text(unit_name_section)
+        if company:
+            return company, "DETAIL_TEXT_UNIT_NAME_TABLE"
+    candidate_section = _section_between(
+        text,
+        start_tokens=("第一中标候选人", "第一成交候选人", "第一候选人"),
+        end_tokens=("第二中标候选人", "第二成交候选人", "第二候选人", "中标候选人响应招标文件要求的资格能力条件"),
+    )
+    if candidate_section:
+        normalized_section = re.sub(
+            r"(?:投标报价|报价|评标情况|质量承诺|工期|资质资格|业绩|资格能力条件|拟派项目负责人姓名|项目负责人姓名|注册编号|注册编\s*号)",
+            " ",
+            candidate_section,
+        )
+        company = _first_company_like_text(normalized_section)
+        if company:
+            return company, "DETAIL_TEXT_CANDIDATE_TABLE"
     patterns = (
         r"(?:中标|成交)\s*(?:供应商|单位|人|候选人)(?:名称)?[:：\s]+([^，。,；;\n\r]{2,80})",
         r"第一(?:中标|成交)?候选人[:：\s]+([^，。,；;\n\r]{2,80})",
@@ -137,15 +165,131 @@ def _extract_candidate_company(text: str) -> tuple[str, str]:
     return "", "DETAIL_TEXT_NOT_FOUND"
 
 
+def _section_between(text: str, *, start_tokens: tuple[str, ...], end_tokens: tuple[str, ...]) -> str:
+    start_positions = [text.find(token) for token in start_tokens if text.find(token) >= 0]
+    if not start_positions:
+        return ""
+    start = min(start_positions)
+    end_candidates = [
+        text.find(token, start + 1)
+        for token in end_tokens
+        if text.find(token, start + 1) >= 0
+    ]
+    end = min(end_candidates) if end_candidates else min(len(text), start + 900)
+    return text[start:end]
+
+
+def _first_company_like_text(text: str) -> str:
+    pattern = _company_like_pattern()
+    for match in re.finditer(pattern, text):
+        value = _clean_company_value(_clean_text(match.group(1)))
+        if value and not any(token in value for token in ("投标报价", "质量承诺", "工期", "资质资格", "项目负责人")):
+            return value
+    return ""
+
+
+def _company_like_pattern() -> str:
+    company_suffix = (
+        "有限责任公司",
+        "股份有限公司",
+        "集团有限公司",
+        "工程建设有限公司",
+        "建设管理有限公司",
+        "工程咨询有限公司",
+        "监理有限公司",
+        "有限公司",
+        "集团",
+        "设计院",
+        "研究院",
+        "事务所",
+        "联合体",
+    )
+    suffix_pattern = "|".join(re.escape(item) for item in company_suffix)
+    return rf"((?:（主）|\(主\))?[\u4e00-\u9fffA-Za-z0-9（）()·\-]{{2,80}}?(?:{suffix_pattern}))"
+
+
+def _extract_candidate_summary_table(text: str) -> dict[str, str]:
+    company_pattern = _company_like_pattern()
+    manager_header = r"(?:项目经理姓名|项目负责人|拟派项目负责人姓名|总监理工程师姓名)"
+    vertical_patterns = (
+        rf"中标候选人单位\s+投标报价(?:[（(]元[）)]|（元）|\(元\))?\s+{manager_header}\s+第一中标候选人\s+(?P<company>{company_pattern})\s+[0-9,，.]+\s+(?P<manager>[\u4e00-\u9fff·]{{2,8}})",
+        rf"第一中标候选人\s+(?P<company>{company_pattern})\s+[0-9,，.]+\s+(?P<manager>[\u4e00-\u9fff·]{{2,8}})\s+第二中标候选人",
+    )
+    for pattern in vertical_patterns:
+        match = re.search(pattern, text)
+        if match:
+            return {
+                "candidate_company": _clean_company_value(_clean_text(match.group("company"))),
+                "project_manager_name": _clean_text(match.group("manager")).strip(" ：:，,；;。"),
+                "parse_state": "DETAIL_TEXT_CANDIDATE_SUMMARY_TABLE",
+            }
+    transposed = re.search(
+        rf"中标候选人\s+第一中标候选人\s+第二中标候选人\s+第三中标候选人\s+单位名称\s+(?P<companies>.+?)\s+{manager_header}\s+(?P<managers>[\u4e00-\u9fff·\s]{{5,40}})",
+        text,
+    )
+    if transposed:
+        company = _first_company_like_text(transposed.group("companies"))
+        manager_match = re.search(r"([\u4e00-\u9fff·]{2,8})", transposed.group("managers"))
+        return {
+            "candidate_company": company,
+            "project_manager_name": _clean_text(manager_match.group(1)).strip(" ：:，,；;。") if manager_match else "",
+            "parse_state": "DETAIL_TEXT_TRANSPOSED_CANDIDATE_TABLE",
+        }
+    return {}
+
+
 def _clean_company_value(value: str) -> str:
     text = value.strip()
     text = re.split(
-        r"\s+(?:中标|成交|预算|采购|合同|公告|附件|金额|项目名称|采购人|供应商地址|地址)",
+        r"\s+(?:中标|成交|预算|采购|合同|公告|附件|金额|项目名称|采购人|供应商地址|地址|投标报价|报价)",
         text,
         maxsplit=1,
     )[0]
+    text = re.sub(r"^(?:投标报价|报价|第一(?:中标|成交)?候选人)\s*", "", text)
     text = re.split(r"(?:中标|成交)[（(]", text, maxsplit=1)[0]
     return text.strip(" ：:，,；;。")
+
+
+def _extract_project_manager(text: str) -> tuple[str, str, str, str]:
+    summary_table = _extract_candidate_summary_table(text)
+    if summary_table.get("project_manager_name"):
+        return (
+            str(summary_table["project_manager_name"]),
+            str(summary_table["parse_state"]),
+            "",
+            "DETAIL_TEXT_NOT_FOUND",
+        )
+    candidate_section = _section_between(
+        text,
+        start_tokens=("第一中标候选人", "第一成交候选人", "第一候选人"),
+        end_tokens=("第二中标候选人", "第二成交候选人", "第二候选人", "中标候选人响应招标文件要求的资格能力条件"),
+    )
+    search_text = candidate_section or text
+    manager_name = ""
+    manager_state = "DETAIL_TEXT_NOT_FOUND"
+    manager_patterns = (
+        r"(?:拟派项目负责人姓名|项目负责人姓名|项目经理姓名|总监理工程师姓名)\s+(?:资格能力条件\s+)?([\u4e00-\u9fff·]{2,8})",
+        r"(?:拟派项目负责人|项目负责人|项目经理|总监理工程师)[:：\s]+([\u4e00-\u9fff·]{2,8})",
+    )
+    for pattern in manager_patterns:
+        match = re.search(pattern, search_text)
+        if match:
+            manager_name = _clean_text(match.group(1)).strip(" ：:，,；;。")
+            manager_state = "DETAIL_TEXT_CANDIDATE_TABLE"
+            break
+    certificate_no = ""
+    certificate_state = "DETAIL_TEXT_NOT_FOUND"
+    cert_patterns = (
+        r"(?:注册编号|注册编\s*号|注册证书编号|证书编号|注册号)\s*[:：]?\s*([A-Za-z0-9\-]{4,40})",
+        r"(?:编号|证号)\s*[:：]\s*([A-Za-z0-9\-]{4,40})",
+    )
+    for pattern in cert_patterns:
+        match = re.search(pattern, search_text)
+        if match:
+            certificate_no = _clean_text(match.group(1)).strip(" ：:，,；;。")
+            certificate_state = "DETAIL_TEXT_CANDIDATE_TABLE"
+            break
+    return manager_name, manager_state, certificate_no, certificate_state
 
 
 def _extract_deadline(text: str) -> tuple[str, str]:
@@ -192,10 +336,25 @@ def _candidate_key_fields(candidate: Mapping[str, Any]) -> list[str]:
         fields.update(str(item) for item in existing if item)
     elif isinstance(existing, str):
         fields.update(item.strip() for item in existing.split(",") if item.strip())
-    for key in ("project_name", "notice_stage", "candidate_company"):
+    for key in ("project_name", "notice_stage", "candidate_company", "project_manager_name"):
         if candidate.get(key):
             fields.add(key)
     return sorted(fields)
+
+
+def _capture_failure_summary(captures: list[Mapping[str, Any]]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for capture in captures:
+        if capture.get("detail_snapshot_id_optional"):
+            continue
+        reasons = list(capture.get("detail_capture_failure_reasons", []) or [])
+        reasons.extend(str(item) for item in list(capture.get("detail_degraded_reasons", []) or []) if str(item))
+        if not reasons:
+            reasons = [str(capture.get("detail_capture_status") or "detail_snapshot_missing")]
+        for reason in reasons:
+            key = str(reason or "unknown_detail_capture_failure")
+            summary[key] = summary.get(key, 0) + 1
+    return summary
 
 
 class RealCandidateStage2CaptureRepository:
@@ -324,37 +483,90 @@ class RealCandidateStage2CaptureService:
         candidates: list[dict[str, Any]],
         *,
         now: str | None = None,
-        detail_capture_limit: int = DEFAULT_DETAIL_CAPTURE_LIMIT,
-        attachment_capture_limit: int = DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
+        detail_capture_limit: int | None = DEFAULT_DETAIL_CAPTURE_LIMIT,
+        attachment_capture_limit: int | None = DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
+        reuse_existing_captures: bool = True,
+        reparse_existing_snapshots: bool = True,
+        detail_capture_time_budget_seconds: float | None = DEFAULT_DETAIL_CAPTURE_TIME_BUDGET_SECONDS,
     ) -> dict[str, Any]:
         captured_at = now or utc_now_iso()
-        limit = max(0, detail_capture_limit)
-        attachment_limit = max(0, attachment_capture_limit)
+        limit = len(candidates) if detail_capture_limit is None else max(0, detail_capture_limit)
+        attachment_limit = attachment_capture_limit if attachment_capture_limit is None else max(0, attachment_capture_limit)
         enriched: list[dict[str, Any]] = []
         captures: list[dict[str, Any]] = []
         by_key: dict[str, dict[str, Any]] = {}
+        existing_by_key = self._existing_successful_captures(candidates) if reuse_existing_captures else {}
+        reused_count = 0
+        new_attempt_count = 0
+        started_at_monotonic = time.monotonic()
+        time_budget_exhausted = False
         for index, candidate in enumerate(candidates):
             row = dict(candidate)
             row.setdefault("candidate_key", _candidate_key(row))
-            if index < limit:
+            candidate_key = str(row.get("candidate_key") or "")
+            existing_capture = existing_by_key.get(candidate_key)
+            if existing_capture:
+                if reparse_existing_snapshots:
+                    existing_capture = self._refresh_capture_fields_from_snapshot(row, existing_capture)
+                captures.append(existing_capture)
+                by_key[candidate_key] = existing_capture
+                row = self._enrich_candidate(row, existing_capture)
+                reused_count += 1
+            elif new_attempt_count < limit:
+                if (
+                    detail_capture_time_budget_seconds is not None
+                    and time.monotonic() - started_at_monotonic >= detail_capture_time_budget_seconds
+                ):
+                    time_budget_exhausted = True
+                    enriched.append(row)
+                    continue
                 capture = self.capture_candidate(
                     row,
                     now=captured_at,
                     attachment_capture_limit=attachment_limit,
                 )
                 captures.append(capture)
-                by_key[str(row.get("candidate_key") or "")] = capture
+                by_key[candidate_key] = capture
                 row = self._enrich_candidate(row, capture)
+                new_attempt_count += 1
             enriched.append(row)
         return {
             "surface_id": "operator_real_candidate_stage2_capture",
             "capture_mode": REAL_CANDIDATE_STAGE2_CAPTURE_MODE,
             "capture_limit": limit,
+            "capture_limit_source": "ALL_INPUT_CANDIDATES"
+            if detail_capture_limit is None
+            else "EXPLICIT_LIMIT",
+            "capture_execution_strategy": "ALL_CANDIDATES_RESUMABLE_WITH_TIME_BUDGET",
+            "detail_capture_time_budget_seconds": detail_capture_time_budget_seconds,
+            "detail_capture_time_budget_exhausted": time_budget_exhausted,
             "attachment_capture_limit": attachment_limit,
+            "attachment_capture_limit_source": "ALL_SAME_SITE_ATTACHMENTS"
+            if attachment_capture_limit is None
+            else "EXPLICIT_LIMIT",
+            "existing_capture_reused_count": reused_count,
+            "existing_capture_reparse_enabled": reparse_existing_snapshots,
+            "new_detail_capture_attempted_count": new_attempt_count,
             "input_candidate_count": len(candidates),
             "detail_capture_attempted_count": len(captures),
+            "pending_detail_capture_count": max(len(candidates) - len(captures), 0),
+            "pending_detail_capture_reason": "detail_capture_time_budget_exhausted"
+            if time_budget_exhausted
+            else "explicit_capture_limit"
+            if max(len(candidates) - len(captures), 0)
+            else "",
+            "detail_capture_failed_count": sum(
+                1 for item in captures if not item.get("detail_snapshot_id_optional")
+            ),
             "detail_snapshot_count": sum(1 for item in captures if item.get("detail_snapshot_id_optional")),
             "stage3_parse_success_count": sum(1 for item in captures if str(item.get("stage3_parse_state") or "").startswith("PARSED")),
+            "stage3_parse_failed_count": sum(
+                1
+                for item in captures
+                if item.get("detail_snapshot_id_optional")
+                and not str(item.get("stage3_parse_state") or "").startswith("PARSED")
+            ),
+            "detail_capture_failure_summary": _capture_failure_summary(captures),
             "attachment_link_count": sum(_as_int(item.get("attachment_link_count"), 0) for item in captures),
             "attachment_capture_attempted_count": sum(_as_int(item.get("attachment_capture_attempted_count"), 0) for item in captures),
             "attachment_snapshot_count": sum(_as_int(item.get("attachment_snapshot_count"), 0) for item in captures),
@@ -368,12 +580,65 @@ class RealCandidateStage2CaptureService:
             "external_release_enabled": False,
         }
 
+    def _existing_successful_captures(self, candidates: list[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+        if not candidates:
+            return {}
+        catalog = self.repository.list_captures(limit=max(len(candidates) * 3, 100))
+        requested_keys = {
+            str(candidate.get("candidate_key") or _candidate_key(candidate))
+            for candidate in candidates
+            if str(candidate.get("candidate_key") or _candidate_key(candidate)).strip()
+        }
+        existing: dict[str, dict[str, Any]] = {}
+        for capture in list(catalog.get("captures", []) or []):
+            key = str(capture.get("candidate_key") or "")
+            if (
+                key in requested_keys
+                and key not in existing
+                and str(capture.get("detail_snapshot_id_optional") or "").strip()
+            ):
+                existing[key] = dict(capture)
+        return existing
+
+    def _refresh_capture_fields_from_snapshot(
+        self,
+        candidate: Mapping[str, Any],
+        capture: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        snapshot_id = str(capture.get("detail_snapshot_id_optional") or "").strip()
+        if not snapshot_id:
+            return dict(capture)
+        try:
+            replay = self.object_repository.replay_snapshot(snapshot_id)
+            readback_text = _decode_snapshot_text(replay)
+            parser_carrier = dict(
+                self.stage3_service.parse_raw_snapshot(snapshot_id, repository=self.object_repository)
+            )
+        except Exception:
+            return dict(capture)
+        refreshed = dict(capture)
+        detail_carrier = {
+            "title": capture.get("detail_title") or capture.get("project_name") or candidate.get("project_name"),
+        }
+        refreshed["detail_fields"] = self._detail_fields(
+            candidate=candidate,
+            detail_carrier=detail_carrier,
+            parser_carrier=parser_carrier,
+            readback_text=readback_text,
+        )
+        refreshed["stage3_parse_state"] = str(parser_carrier.get("parse_state") or capture.get("stage3_parse_state") or "NOT_RUN")
+        refreshed["stage3_parse_error_taxonomy"] = list(
+            parser_carrier.get("parse_error_taxonomy", []) or capture.get("stage3_parse_error_taxonomy", []) or []
+        )
+        refreshed["parsed_field_count"] = len(parser_carrier.get("parsed_fields", []) or [])
+        return refreshed
+
     def capture_candidate(
         self,
         candidate: Mapping[str, Any],
         *,
         now: str | None = None,
-        attachment_capture_limit: int = DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
+        attachment_capture_limit: int | None = DEFAULT_ATTACHMENT_CAPTURE_LIMIT,
     ) -> dict[str, Any]:
         captured_at = now or utc_now_iso()
         candidate_key = str(candidate.get("candidate_key") or _candidate_key(candidate))
@@ -491,10 +756,11 @@ class RealCandidateStage2CaptureService:
         parent_profile_id: str,
         detail_page_url: str,
         detail_snapshot_id: str,
-        limit: int,
+        limit: int | None,
     ) -> list[dict[str, Any]]:
         captures: list[dict[str, Any]] = []
-        for item in attachment_link_items[: max(0, limit)]:
+        selected_items = attachment_link_items if limit is None else attachment_link_items[: max(0, limit)]
+        for item in selected_items:
             link = dict(item or {}) if isinstance(item, Mapping) else {"url": str(item or "")}
             attachment_url = str(link.get("url") or "").strip()
             if not attachment_url:
@@ -558,6 +824,12 @@ class RealCandidateStage2CaptureService:
         )
         amount, amount_state = _extract_amount(text)
         candidate_company, candidate_company_state = _extract_candidate_company(text)
+        (
+            project_manager_name,
+            project_manager_name_state,
+            project_manager_certificate_no,
+            project_manager_certificate_no_state,
+        ) = _extract_project_manager(text)
         deadline, deadline_state = _extract_deadline(text)
         notice_stage = _infer_notice_stage(f"{title} {text[:2000]}", str(candidate.get("notice_stage") or ""))
         return {
@@ -567,6 +839,10 @@ class RealCandidateStage2CaptureService:
             "amount_parse_state": amount_state,
             "candidate_company": candidate_company,
             "candidate_company_parse_state": candidate_company_state,
+            "project_manager_name": project_manager_name,
+            "project_manager_name_parse_state": project_manager_name_state,
+            "project_manager_certificate_no": project_manager_certificate_no,
+            "project_manager_certificate_no_parse_state": project_manager_certificate_no_state,
             "objection_deadline_at_optional": deadline,
             "objection_deadline_parse_state": deadline_state,
             "parser_project_name": _field_value(fields, "project_name"),
@@ -609,6 +885,20 @@ class RealCandidateStage2CaptureService:
             row["candidate_company_parse_state"] = fields.get("candidate_company_parse_state") or "DETAIL_TEXT"
         else:
             row["candidate_company_parse_state"] = fields.get("candidate_company_parse_state") or "DETAIL_TEXT_NOT_FOUND"
+        if fields.get("project_manager_name"):
+            row["project_manager_name"] = str(fields["project_manager_name"])
+            row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"
+        else:
+            row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT_NOT_FOUND"
+        if fields.get("project_manager_certificate_no"):
+            row["project_manager_certificate_no"] = str(fields["project_manager_certificate_no"])
+            row["project_manager_certificate_no_parse_state"] = (
+                fields.get("project_manager_certificate_no_parse_state") or "DETAIL_TEXT"
+            )
+        else:
+            row["project_manager_certificate_no_parse_state"] = (
+                fields.get("project_manager_certificate_no_parse_state") or "DETAIL_TEXT_NOT_FOUND"
+            )
         if fields.get("objection_deadline_at_optional"):
             row["objection_deadline_at_optional"] = str(fields["objection_deadline_at_optional"])
         if detail_snapshot_id:
@@ -652,6 +942,7 @@ def list_real_candidate_stage2_captures(*, limit: int = 100) -> dict[str, Any]:
 __all__ = [
     "DEFAULT_DETAIL_CAPTURE_LIMIT",
     "DEFAULT_ATTACHMENT_CAPTURE_LIMIT",
+    "DEFAULT_DETAIL_CAPTURE_TIME_BUDGET_SECONDS",
     "REAL_CANDIDATE_STAGE2_CAPTURE_MODE",
     "REAL_CANDIDATE_STAGE2_CAPTURE_WORK_ITEM_ID",
     "RealCandidateStage2CaptureRepository",

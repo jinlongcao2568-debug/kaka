@@ -218,6 +218,51 @@ def fake_guangdong_api_link_discoverer(profile_id: str, *, now: str) -> dict:
     }
 
 
+def fake_guangdong_candidate_publicity_api_link_discoverer(profile_id: str, *, now: str) -> dict:
+    if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
+        return {"state": "UNSUPPORTED", "items": []}
+    records = [
+        {
+            "docId": "gd-eval-report-001",
+            "noticeId": "gd-eval-report-001-3C42",
+            "noticeSecondType": "A",
+            "noticeSecondTypeDesc": "工程建设",
+            "noticeThirdType": "2",
+            "noticeThirdTypeDesc": "评标报告",
+            "projectType": "A02",
+            "projectTypeName": "市政",
+            "siteName": "霞山区",
+            "siteCode": "440803",
+            "regionCode": "440800",
+            "regionName": "湛江市",
+            "noticeTitle": "霞山区农村供水一体化工程监理评标报告",
+            "projectCode": "E4408000001000001001",
+            "publishDate": "20260501004038",
+            "edition": "v3",
+            "tradingProcess": "3C42",
+            "datasetName": "评标报告",
+            "pubServicePlat": "广东省公共资源交易平台",
+            "noticeNature": "正常公告",
+            "_ax9s_query_process_label": "candidate_publicity",
+            "_ax9s_query_trading_process": "3C42",
+        }
+    ]
+    return {
+        "state": "FETCHED",
+        "endpoint": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
+        "items": _link_items_from_guangdong_ygp_records(records),
+        "record_count": len(records),
+        "process_attempts": [
+            {
+                "process_label": "candidate_publicity",
+                "trading_process": "3C42",
+                "record_count": 1,
+                "attempted_pages": 1,
+            }
+        ],
+    }
+
+
 def fake_guangdong_api_link_discoverer_with_expired_notice(profile_id: str, *, now: str) -> dict:
     if profile_id != "GUANGDONG-YGP-PROVINCE-TRADING-LIST":
         return {"state": "UNSUPPORTED", "items": []}
@@ -298,6 +343,8 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
 
         self.assertEqual(result["surface_id"], "operator_real_candidate_discovery")
         self.assertEqual(result["source_candidate_mode"], REAL_PUBLIC_SOURCE_CANDIDATE_MODE)
+        self.assertTrue(result["candidate_limit_explicit"])
+        self.assertEqual(result["candidate_limit_effective"], 5)
         self.assertEqual(result["candidate_count"], 2)
         self.assertEqual(result["persisted_candidate_count"], 2)
         self.assertEqual(len(fetcher.calls), 3)
@@ -331,6 +378,8 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
             now="2026-05-01T00:01:00+00:00",
         )
         self.assertEqual(second["candidate_count"], 2)
+        self.assertFalse(second["candidate_limit_explicit"])
+        self.assertEqual(second["candidate_limit_effective"], "ALL_FETCHED_WINDOW_CANDIDATES")
         self.assertEqual(second["duplicate_candidate_count"], 2)
 
         deduped = list_persisted_real_candidates()
@@ -547,6 +596,35 @@ class RealCandidateDiscoveryTests(unittest.TestCase):
         self.assertEqual(candidate["publication_window_state"], "WITHIN_RECENT_DISCOVERY_WINDOW")
         self.assertIn("ygp.gdzwfw.gov.cn/#/44/new/jygg/v3/A", candidate["source_url"])
         self.assertIn("noticeId=3fd848f3-3ef4-4240-9417-bded006b182d-3C14", candidate["source_url"])
+
+    def test_guangdong_candidate_publicity_process_maps_eval_report_to_stage1_window(self) -> None:
+        service = RealPublicCandidateDiscoveryService(
+            fetcher=FakeGuangdongShellFetcher(),
+            repository=RealPublicCandidateRepository(),
+            profile_api_link_discoverer=fake_guangdong_candidate_publicity_api_link_discoverer,
+        )
+
+        result = service.discover(
+            {
+                "region_codes": ["CN-GD"],
+                "project_types": ["municipal"],
+                "amount_min": 0,
+                "amount_max": 200_000_000,
+                "discovery_profile_limit_per_region": 1,
+                "discovery_candidate_limit": 5,
+                "now": "2026-05-01T00:00:00+00:00",
+            },
+            now="2026-05-01T00:00:00+00:00",
+        )
+
+        self.assertEqual(result["discovery_state"], "COMPLETED")
+        self.assertEqual(result["candidate_count"], 1)
+        candidate = result["candidates"][0]
+        self.assertEqual(candidate["notice_stage"], "candidate_notice")
+        self.assertEqual(candidate["source_trading_process"], "3C42")
+        self.assertEqual(candidate["source_dataset_name"], "评标报告")
+        self.assertEqual(candidate["source_query_process_label"], "candidate_publicity")
+        self.assertIn("noticeId=gd-eval-report-001-3C42", candidate["source_url"])
 
     def test_real_candidate_discovery_preserves_old_publish_time_for_review(self) -> None:
         service = RealPublicCandidateDiscoveryService(

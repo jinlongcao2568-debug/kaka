@@ -7,7 +7,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from html import unescape
 from typing import Any, Mapping
-from urllib.parse import quote, unquote, urlencode, urljoin, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 from shared.utils import build_id, utc_now_iso
@@ -28,10 +28,14 @@ REAL_PUBLIC_SOURCE_CANDIDATE_MODE = "REAL_PUBLIC_SOURCE_CANDIDATES"
 REAL_CANDIDATE_DISCOVERY_RUN_WORK_ITEM_ID = "operator-real-candidate-discovery-runs"
 REAL_CANDIDATE_DISCOVERY_CANDIDATE_WORK_ITEM_ID = "operator-real-candidate-discovery-candidates"
 
-DEFAULT_DISCOVERY_CANDIDATE_LIMIT = 100
 DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION = 3
 GUANGDONG_DISCOVERY_PAGE_SIZE = 50
 MAX_GUANGDONG_DISCOVERY_PAGES = 3
+GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS = "3C42"
+GUANGDONG_YGP_TRADING_PROCESS_PRIORITY = (
+    ("candidate_publicity", GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS),
+    ("recent_all_fallback", ""),
+)
 
 _PROJECT_TYPE_LABELS = {
     "construction": "房建工程",
@@ -175,6 +179,14 @@ def _as_int(value: Any, default: int) -> int:
         return default
 
 
+def _positive_int_or_none(value: Any) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
 def _as_string_list(value: Any, default: list[str]) -> list[str]:
     if value is None:
         return list(default)
@@ -244,9 +256,9 @@ def _title_from_url(url: str) -> str:
 
 def _infer_notice_stage(text: str) -> str:
     normalized = str(text or "").replace(" ", "")
-    if any(token in normalized for token in ("候选人", "中标候选", "成交候选")):
+    if any(token in normalized for token in ("候选人", "中标候选", "成交候选", "评标报告", "评标结果公示")):
         return "candidate_notice"
-    if any(token in normalized for token in ("中标", "成交", "结果", "评标结果")):
+    if any(token in normalized for token in ("中标结果", "成交结果", "结果公告", "中标公告", "成交公告")):
         return "award_result"
     if any(token in normalized for token in ("更正", "变更", "澄清", "答疑", "补遗")):
         return "correction_notice"
@@ -483,58 +495,80 @@ def _discover_guangdong_ygp_api_link_items(*, now: str) -> dict[str, Any]:
         "pageSize": GUANGDONG_DISCOVERY_PAGE_SIZE,
     }
     all_records: list[Any] = []
-    total = ""
+    total_by_process: dict[str, str] = {}
+    process_attempts: list[dict[str, Any]] = []
     page_errors: list[str] = []
-    for page_no in range(1, MAX_GUANGDONG_DISCOVERY_PAGES + 1):
-        payload = {**base_payload, "pageNo": page_no}
-        request = Request(
-            endpoint,
-            data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
-            headers={
-                "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/plain, */*",
-                "Referer": "https://ygp.gdzwfw.gov.cn/",
-                **_guangdong_ygp_signature_headers(payload),
-            },
-            method="POST",
+    for process_label, trading_process in GUANGDONG_YGP_TRADING_PROCESS_PRIORITY:
+        process_records: list[Any] = []
+        attempted_pages = 0
+        for page_no in range(1, MAX_GUANGDONG_DISCOVERY_PAGES + 1):
+            payload = {**base_payload, "tradingProcess": trading_process, "pageNo": page_no}
+            request = Request(
+                endpoint,
+                data=json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+                headers={
+                    "User-Agent": "AX9S-RealPublicCandidateDiscovery/0.1 (+public-readonly-validation)",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json, text/plain, */*",
+                    "Referer": "https://ygp.gdzwfw.gov.cn/",
+                    **_guangdong_ygp_signature_headers(payload),
+                },
+                method="POST",
+            )
+            attempted_pages = page_no
+            try:
+                with urlopen(request, timeout=18) as response:
+                    raw = response.read(1_500_000).decode("utf-8", "ignore")
+                data = json.loads(raw)
+            except Exception as exc:  # pragma: no cover - public network failures vary
+                page_errors.append(f"{process_label}:page_{page_no}:{exc}")
+                break
+            page_data = list(((data.get("data") or {}).get("pageData") or []))
+            total_by_process[process_label] = str((data.get("data") or {}).get("total") or "")
+            if not page_data:
+                break
+            for record in page_data:
+                row = dict(record) if isinstance(record, Mapping) else record
+                if isinstance(row, dict):
+                    row["_ax9s_query_process_label"] = process_label
+                    row["_ax9s_query_trading_process"] = trading_process
+                process_records.append(row)
+            if len(page_data) < GUANGDONG_DISCOVERY_PAGE_SIZE:
+                break
+        process_attempts.append(
+            {
+                "process_label": process_label,
+                "trading_process": trading_process,
+                "attempted_pages": attempted_pages,
+                "record_count": len(process_records),
+                "total": total_by_process.get(process_label, ""),
+            }
         )
-        try:
-            with urlopen(request, timeout=18) as response:
-                raw = response.read(1_500_000).decode("utf-8", "ignore")
-            data = json.loads(raw)
-        except Exception as exc:  # pragma: no cover - public network failures vary
-            page_errors.append(f"page_{page_no}:{exc}")
-            if not all_records:
-                return {
-                    "state": "FAILED",
-                    "endpoint": endpoint,
-                    "items": [],
-                    "error_optional": str(exc),
-                    "query_window": {"start_date": start_date, "end_date": end_date},
-                    "page_size": GUANGDONG_DISCOVERY_PAGE_SIZE,
-                    "attempted_pages": page_no,
-                }
-            break
-        page_data = list(((data.get("data") or {}).get("pageData") or []))
-        total = str((data.get("data") or {}).get("total") or total or "")
-        if not page_data:
-            break
-        all_records.extend(page_data)
-        if len(page_data) < GUANGDONG_DISCOVERY_PAGE_SIZE:
-            break
+        if process_records:
+            all_records.extend(process_records)
+            if process_label == "candidate_publicity":
+                break
     items = _link_items_from_guangdong_ygp_records(all_records)
     return {
-        "state": "FETCHED" if items else "EMPTY",
+        "state": "FETCHED" if items else "FAILED" if page_errors else "EMPTY",
         "endpoint": endpoint,
         "items": items,
         "error_optional": ";".join(page_errors),
         "query_window": {"start_date": start_date, "end_date": end_date},
-        "api_time_filter_state": "local_publish_time_filter_after_default_recent_list",
+        "api_time_filter_state": "candidate_publicity_process_first_then_recent_fallback",
+        "trading_process_strategy": "candidate_publicity_first",
+        "process_attempts": process_attempts,
+        "primary_trading_process": GUANGDONG_CANDIDATE_PUBLICITY_TRADING_PROCESS,
+        "fallback_recent_all_used": bool(
+            process_attempts
+            and process_attempts[-1].get("process_label") == "recent_all_fallback"
+            and process_attempts[-1].get("record_count")
+        ),
         "page_size": GUANGDONG_DISCOVERY_PAGE_SIZE,
-        "attempted_pages": min(MAX_GUANGDONG_DISCOVERY_PAGES, max(1, (len(all_records) + GUANGDONG_DISCOVERY_PAGE_SIZE - 1) // GUANGDONG_DISCOVERY_PAGE_SIZE)),
+        "attempted_pages": sum(_as_int(item.get("attempted_pages"), 0) for item in process_attempts),
         "record_count": len(all_records),
-        "total": total,
+        "total": total_by_process.get("candidate_publicity") or total_by_process.get("recent_all_fallback") or "",
+        "total_by_process": total_by_process,
     }
 
 
@@ -571,6 +605,10 @@ def _link_items_from_guangdong_ygp_records(records: list[Any]) -> list[dict[str,
                 "summary": " ".join(_clean_text(part) for part in summary_parts if _clean_text(part)),
                 "published_at": _format_guangdong_publish_date(record.get("publishDate")),
                 "categorynum": str(record.get("noticeThirdType") or ""),
+                "trading_process": str(record.get("tradingProcess") or record.get("_ax9s_query_trading_process") or ""),
+                "dataset_name": str(record.get("datasetName") or ""),
+                "notice_third_type_desc": str(record.get("noticeThirdTypeDesc") or ""),
+                "query_process_label": str(record.get("_ax9s_query_process_label") or ""),
                 "source_api": "https://ygp.gdzwfw.gov.cn/ggzy-portal/search/v2/items",
                 "source_record_id": str(record.get("docId") or notice_id),
             }
@@ -856,7 +894,7 @@ def _is_candidate_detail_url(url: str, title: str, profile_id: str) -> bool:
         return (
             "ygp.gdzwfw.gov.cn" in urlsplit(url).netloc.lower()
             and "/jygg" in url
-            and _is_real_notice_candidate_title(title)
+            and (_is_real_notice_candidate_title(title) or _is_guangdong_ygp_structured_notice_url(url))
         )
     if profile_id in _PROVINCE_REALTIME_PROFILE_IDS:
         host = urlsplit(url).netloc.lower()
@@ -880,6 +918,17 @@ def _is_candidate_detail_url(url: str, title: str, profile_id: str) -> bool:
             token in path for token in ("notice", "jygg", "ggzy", "bulletin")
         )
     return path.endswith((".html", ".htm", ".shtml")) and not path.endswith(("index.html", "deallist.html"))
+
+
+def _is_guangdong_ygp_structured_notice_url(url: str) -> bool:
+    parsed = urlsplit(str(url or "").strip())
+    if parsed.netloc.lower() != "ygp.gdzwfw.gov.cn":
+        return False
+    fragment_path, _, fragment_query = parsed.fragment.partition("?")
+    if "/jygg/" not in fragment_path:
+        return False
+    query_values = parse_qs(fragment_query, keep_blank_values=True)
+    return all(str((query_values.get(key) or [""])[0]).strip() for key in ("noticeId", "projectCode", "bizCode"))
 
 
 def _candidate_key(candidate: Mapping[str, Any]) -> str:
@@ -1317,12 +1366,15 @@ class RealPublicCandidateDiscoveryService:
         )
         if amount_min is not None and amount_max is not None and amount_max < amount_min:
             amount_min, amount_max = amount_max, amount_min
-        candidate_limit = max(1, _as_int(payload.get("discovery_candidate_limit") or payload.get("candidate_limit"), DEFAULT_DISCOVERY_CANDIDATE_LIMIT))
+        raw_candidate_limit = _first_present(payload.get("discovery_candidate_limit"), payload.get("candidate_limit"))
+        candidate_limit = _positive_int_or_none(raw_candidate_limit)
         profile_limit = max(1, _as_int(payload.get("discovery_profile_limit_per_region"), DEFAULT_DISCOVERY_PROFILE_LIMIT_PER_REGION))
         query = str(payload.get("query") or payload.get("project_keyword") or payload.get("keyword") or "").strip()
         run_id = str(payload.get("candidate_discovery_run_id") or build_id("REAL-CANDIDATE-DISCOVERY", _hash_text(discovered_at, 12)))
         per_region_candidate_limit = (
-            candidate_limit
+            None
+            if candidate_limit is None
+            else candidate_limit
             if len(region_codes) <= 1
             else max(1, (candidate_limit + len(region_codes) - 1) // len(region_codes))
         )
@@ -1339,7 +1391,13 @@ class RealPublicCandidateDiscoveryService:
                 profile_reports.append(_source_not_configured_report(region_code, adapter))
                 continue
             for profile_id in profile_ids:
-                if len(candidates) >= candidate_limit or region_candidate_count >= per_region_candidate_limit:
+                if (
+                    (candidate_limit is not None and len(candidates) >= candidate_limit)
+                    or (
+                        per_region_candidate_limit is not None
+                        and region_candidate_count >= per_region_candidate_limit
+                    )
+                ):
                     break
                 profile = REAL_PUBLIC_ENTRY_PROFILE_BY_ID.get(profile_id)
                 if profile is None:
@@ -1390,7 +1448,13 @@ class RealPublicCandidateDiscoveryService:
                     new_rows.append(row)
                     candidates.append(row)
                     region_candidate_count += 1
-                    if len(candidates) >= candidate_limit or region_candidate_count >= per_region_candidate_limit:
+                    if (
+                        (candidate_limit is not None and len(candidates) >= candidate_limit)
+                        or (
+                            per_region_candidate_limit is not None
+                            and region_candidate_count >= per_region_candidate_limit
+                        )
+                    ):
                         break
                 profile_reports.append(
                     {
@@ -1421,7 +1485,7 @@ class RealPublicCandidateDiscoveryService:
                         "duplicate_filtered_count": max(len(parsed) - len(new_rows), 0),
                     }
                 )
-            if len(candidates) >= candidate_limit:
+            if candidate_limit is not None and len(candidates) >= candidate_limit:
                 break
 
         persist_result = self.repository.persist_candidates(
@@ -1440,6 +1504,10 @@ class RealPublicCandidateDiscoveryService:
             "amount_min": amount_min,
             "amount_max": amount_max,
             "query": query,
+            "candidate_limit_explicit": candidate_limit is not None,
+            "candidate_limit_effective": candidate_limit
+            if candidate_limit is not None
+            else "ALL_FETCHED_WINDOW_CANDIDATES",
             "candidate_count": len(candidates),
             "candidates": candidates,
             "profile_reports": profile_reports,
@@ -1530,6 +1598,10 @@ class RealPublicCandidateDiscoveryService:
             "public_api_row_count": api_discovery.get("record_count"),
             "public_api_page_size": api_discovery.get("page_size"),
             "public_api_attempted_pages": api_discovery.get("attempted_pages"),
+            "public_api_trading_process_strategy": api_discovery.get("trading_process_strategy"),
+            "public_api_primary_trading_process": api_discovery.get("primary_trading_process"),
+            "public_api_fallback_recent_all_used": bool(api_discovery.get("fallback_recent_all_used")),
+            "public_api_process_attempts": list(api_discovery.get("process_attempts", []) or []),
             "accepted_candidate_count": 0,
             "rejected_counts": {},
             "rejected_samples": [],
@@ -1680,6 +1752,10 @@ class RealPublicCandidateDiscoveryService:
                     "publication_window_state": publication_window_state
                     if published_at
                     else "PUBLISH_TIME_NOT_EXPOSED_BY_LIST",
+                    "source_trading_process": str(item.get("trading_process") or ""),
+                    "source_dataset_name": str(item.get("dataset_name") or ""),
+                    "source_notice_third_type_desc": str(item.get("notice_third_type_desc") or ""),
+                    "source_query_process_label": str(item.get("query_process_label") or ""),
                     "discovery_preserved_after_filter_review": bool(discovery_review_reasons),
                     "discovery_review_reasons": discovery_review_reasons,
                     "discovery_filter_tags": discovery_filter_tags,
