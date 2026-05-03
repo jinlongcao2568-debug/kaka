@@ -194,7 +194,21 @@ def _first_company_like_text(text: str) -> str:
     pattern = _company_like_pattern()
     for match in re.finditer(pattern, text):
         value = _clean_company_value(_clean_text(match.group(1)))
-        if value and not any(token in value for token in ("投标报价", "质量承诺", "工期", "资质资格", "项目负责人")):
+        if value and not any(
+            token in value
+            for token in (
+                "投标报价",
+                "质量承诺",
+                "工期",
+                "资质资格",
+                "项目负责人",
+                "资格要求",
+                "可由",
+                "须无",
+                "截标",
+                "系统上所报",
+            )
+        ):
             return value
     return ""
 
@@ -370,6 +384,9 @@ def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
         rf"(?:项目总负责人姓名|项目总负责人|项目负责人姓名|项目负责人).{{0,220}}?{company_pattern}.{{0,220}}?"
         rf"(?P<name>[\u4e00-\u9fff·]{{2,8}})\s*/\s*(?P<cert>[A-Za-z0-9\-]{{5,40}})",
     )
+    body_result = _extract_candidate_role_table_body(text)
+    if body_result.get("primary_responsible_person_name"):
+        return body_result
     for pattern in patterns:
         match = re.search(pattern, text)
         if not match:
@@ -387,20 +404,56 @@ def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
             "project_manager_certificate_no": cert,
             "parse_state": "DETAIL_TEXT_CANDIDATE_ROLE_CERT_TABLE",
         }
-    body_match = re.search(
+    return {
+        "candidate_company": "",
+        "primary_responsible_person_name": "",
+        "project_manager_certificate_no": "",
+        "parse_state": "DETAIL_TEXT_NOT_FOUND",
+    }
+
+
+def _extract_candidate_role_table_body(text: str) -> dict[str, str]:
+    body_pattern = (
         r"(?:项目总负责人姓名及资格证书\s*编号|项目总负责人姓名及资格证书编号|"
         r"项目负责人姓名及资格证书\s*编号|项目负责人姓名及资格证书编号|项目负责人姓名/资格证书编号|"
         r"项目总负责人|项目负责人)"
-        r"(?P<body>.{0,420})",
-        text,
+        r"(?P<body>.{0,800})"
     )
-    if body_match:
-        body = body_match.group("body")
+    for body_match in re.finditer(body_pattern, text):
+        context_start = max(0, body_match.start() - 180)
+        context = text[context_start : body_match.start()] + body_match.group("body")[:160]
+        if not any(token in context for token in ("中标候选", "成交候选", "定标候选", "评标结果", "候选人名称", "无排序")):
+            continue
+        body = _normalize_candidate_role_table_body(body_match.group("body"))
+        company_matches = list(re.finditer(_candidate_role_company_pattern(), body))
+        if not company_matches:
+            continue
+        second_candidate_pos = min(
+            [pos for pos in (body.find("第二中标候选人"), body.find("第二成交候选人"), body.find("第二候选人")) if pos >= 0],
+            default=-1,
+        )
+        if 0 <= second_candidate_pos < company_matches[0].start():
+            continue
+        for company_match in company_matches:
+            company = _clean_company_value(_clean_text(company_match.group("company")))
+            if not _looks_like_table_candidate_company(company):
+                continue
+            tail = body[company_match.end() : company_match.end() + 360]
+            for role_match in re.finditer(_candidate_role_amount_person_pattern(), tail):
+                name = _clean_text(role_match.group("name")).strip(" ：:，,；;。")
+                if not _looks_like_person_name(name):
+                    continue
+                cert = _clean_text(role_match.group("cert") or "").strip(" ：:，,；;。")
+                return {
+                    "candidate_company": company,
+                    "primary_responsible_person_name": name,
+                    "project_manager_certificate_no": cert,
+                    "parse_state": "DETAIL_TEXT_CANDIDATE_ROLE_CERT_TABLE"
+                    if cert
+                    else "DETAIL_TEXT_CANDIDATE_ROLE_TABLE",
+                }
         for match in re.finditer(
-            r"(?P<company>[\u4e00-\u9fffA-Za-z0-9（）()·\-\s]{2,100}?"
-            r"(?:有限\s*公司|股份\s*有限公司|集团\s*有限公司|设计院(?!\s*有限\s*公司)|研究院(?!\s*有限\s*公司)|事务所|联合体))"
-            r"\s+(?:\d[\d,.]*\s*(?:元|%)?\s+){1,4}"
-            r"(?P<name>[\u4e00-\u9fff·]{2,8})(?:(?:\s*/\s*|\s+)(?P<cert>[A-Za-z0-9\-]{5,40}))?",
+            _candidate_role_table_row_pattern(),
             body,
         ):
             name = _clean_text(match.group("name")).strip(" ：:，,；;。")
@@ -424,6 +477,55 @@ def _extract_candidate_table_responsible_person(text: str) -> dict[str, str]:
     }
 
 
+def _normalize_candidate_role_table_body(body: str) -> str:
+    text = str(body or "")
+    text = re.sub(r"(有限|股份|集团)\s+(公司)", r"\1\2", text)
+    text = re.sub(r"(设计院|研究院|勘测院|勘察院|规划院)\s+(有限(?:责任)?公司)", r"\1\2", text)
+    text = re.sub(r"(勘测|勘察|规划|设计)\s+(院)", r"\1\2", text)
+    text = re.sub(r"(工程)\s+(技术有限公司)", r"\1\2", text)
+    return text
+
+
+def _candidate_role_company_pattern() -> str:
+    company_suffix = (
+        r"设计院\s*有限(?:\s*责任)?\s*公司",
+        r"研究院\s*有限(?:\s*责任)?\s*公司",
+        r"有限\s*责任\s*公司",
+        r"股份\s*有限公司",
+        r"集团\s*有限公司",
+        r"工程建设\s*有限公司",
+        r"建设管理\s*有限公司",
+        r"工程咨询\s*有限公司",
+        r"监理\s*有限公司",
+        r"有限\s*公司",
+        r"事务所",
+        r"联合体",
+    )
+    company_unit = (
+        rf"(?:（主）|\(主\)|（成）|\(成\))?"
+        rf"[\u4e00-\u9fffA-Za-z0-9（）()·\-]{{2,100}}?"
+        rf"(?:{'|'.join(company_suffix)})"
+    )
+    return rf"(?P<company>{company_unit}(?:[;；、，,]\s*{company_unit})*)(?!\s*[;；、，,])"
+
+
+def _candidate_role_amount_person_pattern() -> str:
+    return (
+        r"(?:\d[\d,.]*\s*(?:元|%)?(?:[/／]\s*\d[\d,.]*\s*(?:元)?)?[\s，,、]*){1,6}"
+        r"(?P<name>[\u4e00-\u9fff·]{2,8})"
+        r"(?:(?:\s*/\s*|\s+)(?P<cert>[A-Za-z0-9\-]{5,40}))?"
+    )
+
+
+def _candidate_role_table_row_pattern() -> str:
+    consortium = _candidate_role_company_pattern()
+    return (
+        rf"{consortium}"
+        rf".{{0,220}}"
+        rf"{_candidate_role_amount_person_pattern()}"
+    )
+
+
 def _looks_like_table_candidate_company(value: str) -> bool:
     company = _clean_text(value)
     if not company:
@@ -438,6 +540,11 @@ def _looks_like_table_candidate_company(value: str) -> bool:
         "项目负责人",
         "注册编号",
         "证书编号",
+        "资格要求",
+        "可由",
+        "须无",
+        "截标",
+        "系统上所报",
     )
     return not any(token in company for token in invalid_tokens)
 
@@ -564,6 +671,21 @@ def _looks_like_person_name(value: str) -> bool:
         "项目",
         "负责人",
         "经理",
+        "公示",
+        "结束",
+        "时间",
+        "可由",
+        "联合体",
+        "须无",
+        "需具备",
+        "系统",
+        "所报",
+        "个月",
+        "不得",
+        "变更",
+        "下浮",
+        "报价",
+        "投标",
         "建造师",
         "工程师",
         "公司",

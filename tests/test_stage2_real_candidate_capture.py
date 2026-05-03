@@ -286,6 +286,23 @@ def _survey_design_candidate_table_with_certificate_detail_html() -> bytes:
     return html.encode("utf-8")
 
 
+def _survey_design_role_table_after_irrelevant_header_html() -> bytes:
+    html = """
+    <html>
+      <head><title>广东医院项目勘察设计评标报告</title></head>
+      <body>
+        <h1>广东医院项目勘察设计评标报告</h1>
+        <p>项目负责人联系方式由招标人另行通知，本段不是候选表。</p>
+        <p>无排序的三名定标候选人名单：</p>
+        <p>定标候选人名称 投标下浮率及投标报价 项目负责人姓名及资格证书 编号</p>
+        <p>(主)广东海外建筑设计院有限 公司;(成)建材广州工程勘测院有限公司 勘察费下浮率 0.26%， 设计费下浮率 0.26%/4214214.48 元 杨昕/20114411031</p>
+        <p>(主)广东粤建设计研究院有限公司;(成)顺驰勘测有限公司 勘察费下浮率 0.50%， 设计费下浮率 0.35%/4209398.55 元 冯浩/20074401484</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
 def _survey_design_candidate_table_without_certificate_detail_html() -> bytes:
     html = """
     <html>
@@ -325,6 +342,22 @@ def _generic_responsible_person_detail_html() -> bytes:
         <h1>广东材料采购中标公告</h1>
         <p>中标供应商名称：广东建筑工程有限公司</p>
         <p>采购负责人：王五 联系电话 020-00000000</p>
+      </body>
+    </html>
+    """
+    return html.encode("utf-8")
+
+
+def _tender_qualification_role_requirement_detail_html() -> bytes:
+    html = """
+    <html>
+      <head><title>福田中心区照明整治工程EPC总承包招标公告</title></head>
+      <body>
+        <h1>福田中心区照明整治工程EPC总承包招标公告</h1>
+        <p>招标公告</p>
+        <p>资格要求：拟派项目负责人须无在建工程，项目负责人可由联合体成员委派。</p>
+        <p>项目负责人 可由联合体 3 截标时系统上所报 个月内不得变更。</p>
+        <p>本公告仅为资格要求，不包含结果公示表。</p>
       </body>
     </html>
     """
@@ -1158,7 +1191,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["engineering_work_lane"], "survey_design")
         self.assertEqual(enriched["opportunity_priority_class"], "C_MEDIUM_DESIGN_SURVEY")
         self.assertTrue(enriched["expected_responsible_role_present"])
-        self.assertEqual(enriched["candidate_company"], "(主)广东海外建筑设计院有限公司")
+        self.assertEqual(enriched["candidate_company"], "(主)广东海外建筑设计院有限公司;(成)建材广州工程勘测院有限公司")
         self.assertEqual(enriched["primary_responsible_role"], "survey_design_project_lead")
         self.assertEqual(enriched["primary_responsible_person_name"], "杨昕")
         self.assertEqual(enriched.get("project_manager_name", ""), "")
@@ -1167,6 +1200,49 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
             enriched["primary_responsible_person_name_parse_state"],
             "DETAIL_TEXT_CANDIDATE_ROLE_CERT_TABLE",
         )
+
+    def test_survey_design_role_table_skips_earlier_irrelevant_project_manager_header(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/survey-design-table-late-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_survey_design_role_table_after_irrelevant_header_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-survey-design-table-late-001",
+            "notice_id": "NOTICE-GD-SURVEY-DESIGN-TABLE-LATE-001",
+            "project_id": "PROJ-GD-SURVEY-DESIGN-TABLE-LATE-001",
+            "project_name": "广东医院项目勘察设计评标报告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "candidate_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "survey_design")
+        self.assertEqual(enriched["candidate_company"], "(主)广东海外建筑设计院有限公司;(成)建材广州工程勘测院有限公司")
+        self.assertEqual(enriched["primary_responsible_person_name"], "杨昕")
+        self.assertEqual(enriched["project_manager_certificate_no"], "20114411031")
+        self.assertFalse(enriched["responsible_role_gap_review_required"])
 
     def test_survey_design_candidate_table_extracts_project_lead_without_certificate_no(self) -> None:
         detail_url = "https://ygp.gdzwfw.gov.cn/notice/survey-design-table-no-cert-001.html"
@@ -1265,7 +1341,7 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched["project_manager_certificate_no"], "44044619")
         self.assertEqual(
             enriched["primary_responsible_person_name_parse_state"],
-            "DETAIL_TEXT_CANDIDATE_ROLE_TABLE",
+            "DETAIL_TEXT_CANDIDATE_ROLE_CERT_TABLE",
         )
 
     def test_generic_responsible_person_without_project_context_is_not_project_manager(self) -> None:
@@ -1319,6 +1395,52 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertEqual(enriched.get("primary_responsible_person_name", ""), "")
         self.assertEqual(enriched["project_manager_name_parse_state"], "DETAIL_TEXT_NOT_FOUND")
         self.assertEqual(enriched["project_manager_cert_specialty_parse_state"], "DETAIL_TEXT_NOT_FOUND")
+
+    def test_tender_qualification_text_is_not_candidate_role_table(self) -> None:
+        detail_url = "https://ygp.gdzwfw.gov.cn/notice/epc-tender-requirement-001.html"
+        transport = FakeRealPublicFetchTransport(
+            {
+                detail_url: RealPublicFetchResponse(
+                    url=detail_url,
+                    status_code=200,
+                    content=_tender_qualification_role_requirement_detail_html(),
+                    content_type="text/html; charset=utf-8",
+                    final_url=detail_url,
+                ),
+            }
+        )
+        candidate = {
+            "candidate_key": "gd-epc-tender-requirement-001",
+            "notice_id": "NOTICE-GD-EPC-TENDER-REQUIREMENT-001",
+            "project_id": "PROJ-GD-EPC-TENDER-REQUIREMENT-001",
+            "project_name": "福田中心区照明整治工程EPC总承包招标公告",
+            "region_code": "CN-GD",
+            "project_type": "construction",
+            "notice_stage": "tender_notice",
+            "source_url": detail_url,
+            "source_profile_id": "GUANGDONG-YGP-PROVINCE-TRADING-LIST",
+            "source_candidate_mode": "REAL_PUBLIC_SOURCE_CANDIDATES",
+            "key_fields_present": ["project_name", "notice_stage"],
+            "candidate_count": 0,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            service = RealCandidateStage2CaptureService(
+                stage2_service=FakeStage2Service(transport),
+                object_repository=_repo(tmp_dir),
+                repository=RealCandidateStage2CaptureRepository(),
+            )
+            result = service.capture_candidates([candidate], now="2026-05-01T00:00:00+00:00")
+
+        enriched = result["enriched_candidates"][0]
+        self.assertEqual(enriched["engineering_work_lane"], "construction_or_epc")
+        self.assertEqual(enriched["opportunity_priority_class"], "A_HIGH_CONSTRUCTION_EPC")
+        self.assertFalse(enriched["expected_responsible_role_present"])
+        self.assertTrue(enriched["responsible_role_gap_review_required"])
+        self.assertEqual(enriched["responsible_role_gap_code"], "A_ROLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY")
+        self.assertNotEqual(enriched.get("candidate_company", ""), "可由联合体")
+        self.assertEqual(enriched.get("primary_responsible_person_name", ""), "")
+        self.assertEqual(enriched.get("project_manager_name", ""), "")
 
     def test_digital_system_project_uses_supplier_service_priority_class(self) -> None:
         detail_url = "https://ygp.gdzwfw.gov.cn/notice/digital-system-service-001.html"
