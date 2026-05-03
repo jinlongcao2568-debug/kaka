@@ -545,6 +545,131 @@ class Stage4Service:
             ),
         }
 
+    def run_jzsc_company_first_rendered_readback(
+        self,
+        parsed_context: Mapping[str, Any] | StageBundle,
+        *,
+        target_company_name: str,
+        target_project_manager_name: str,
+        rendered_company_personnel_rows: list[Any] | None = None,
+        company_personnel_source_url: str | None = None,
+        company_personnel_source_snapshot_id: str | None = None,
+        rendered_personnel_project_rows: list[Any] | None = None,
+        personnel_project_source_url: str | None = None,
+        personnel_project_source_snapshot_id: str | None = None,
+        target_identifier: str | None = None,
+        base_public_verification_carriers: list[Mapping[str, Any]] | None = None,
+    ) -> Mapping[str, Any]:
+        company_name = str(target_company_name or "").strip()
+        manager_name = str(target_project_manager_name or "").strip()
+        company_source_url = str(company_personnel_source_url or "").strip()
+        company_snapshot_id = str(company_personnel_source_snapshot_id or "").strip()
+        project_source_url = str(personnel_project_source_url or "").strip()
+        project_snapshot_id = str(personnel_project_source_snapshot_id or "").strip()
+        personnel_rows = list(rendered_company_personnel_rows or [])
+        project_rows_supplied = rendered_personnel_project_rows is not None
+        project_rows = list(rendered_personnel_project_rows or [])
+        capture_plan = self.build_jzsc_project_manager_company_first_capture_plan(
+            target_company_name=company_name,
+            target_project_manager_name=manager_name,
+            target_identifier=target_identifier,
+        )
+        fail_closed_reasons: list[str] = []
+        if not company_name:
+            fail_closed_reasons.append("target_company_name_missing")
+        if not manager_name:
+            fail_closed_reasons.append("target_project_manager_name_missing")
+        if not personnel_rows:
+            fail_closed_reasons.append("rendered_personnel_rows_missing")
+        if not company_source_url:
+            fail_closed_reasons.append("company_personnel_source_url_missing")
+        if not company_snapshot_id:
+            fail_closed_reasons.append("company_personnel_source_snapshot_missing")
+        if project_rows:
+            if not project_source_url:
+                fail_closed_reasons.append("personnel_project_source_url_missing_for_project_rows")
+            if not project_snapshot_id:
+                fail_closed_reasons.append("personnel_project_source_snapshot_missing_for_project_rows")
+
+        adapter_base: dict[str, Any] = {
+            "adapter_id": "stage4.jzsc_company_first_rendered.v1",
+            "route": "JZSC_COMPANY_FIRST_PROJECT_MANAGER",
+            "source_family": "national_construction_market_platform",
+            "browser_required": True,
+            "live_browser_executed": False,
+            "rendered_snapshot_input_required": True,
+            "target_company_name": company_name,
+            "target_project_manager_name": manager_name,
+            "target_identifier_optional": target_identifier,
+            "capture_plan": capture_plan,
+            "rendered_company_personnel_row_count": len(personnel_rows),
+            "rendered_personnel_project_row_count": len(project_rows),
+            "rendered_personnel_project_rows_supplied": project_rows_supplied,
+            "company_personnel_source_url": company_source_url,
+            "company_personnel_source_snapshot_id": company_snapshot_id,
+            "personnel_project_source_url": project_source_url,
+            "personnel_project_source_snapshot_id": project_snapshot_id,
+            "fail_closed_reasons": list(dict.fromkeys(fail_closed_reasons)),
+            "next_required_runtime_adapter": (
+                "browser_rendered_jzsc_company_personnel_and_project_pages"
+            ),
+        }
+
+        if fail_closed_reasons:
+            personnel_carrier: Mapping[str, Any] | None = None
+            if company_name and manager_name:
+                personnel_carrier = build_jzsc_company_personnel_resolution_carrier(
+                    personnel_rows,
+                    target_company_name=company_name,
+                    target_name=manager_name,
+                    target_identifier=target_identifier,
+                    source_url=company_source_url,
+                    source_snapshot_id=company_snapshot_id,
+                )
+            return {
+                **adapter_base,
+                "adapter_state": "FAIL_CLOSED",
+                "readback_state": "REVIEW_REQUIRED",
+                "identity_resolution_state": "NOT_RUN_FAIL_CLOSED",
+                "personnel_carrier": dict(personnel_carrier or {}),
+                "conflict_records": [],
+                "evidence_risk_hard_defect_strategy": {},
+                "project_manager_active_conflict": {},
+                "project_manager_active_conflict_readback": {},
+                "customer_sellable_evidence_ready": False,
+                "no_name_only_final_proof": True,
+            }
+
+        readback = dict(
+            self.build_jzsc_project_manager_company_first_readback(
+                parsed_context,
+                target_company_name=company_name,
+                target_project_manager_name=manager_name,
+                rendered_company_personnel_rows=personnel_rows,
+                company_personnel_source_url=company_source_url,
+                company_personnel_source_snapshot_id=company_snapshot_id,
+                rendered_personnel_project_rows=project_rows if project_rows_supplied else None,
+                personnel_project_source_url=personnel_project_source_url,
+                personnel_project_source_snapshot_id=personnel_project_source_snapshot_id,
+                target_identifier=target_identifier,
+                base_public_verification_carriers=base_public_verification_carriers,
+            )
+        )
+        personnel_carrier = dict(readback.get("personnel_carrier") or {})
+        personnel_result = str(personnel_carrier.get("verification_result") or "")
+        identity_state = "MATCHED" if personnel_result == "MATCHED" else "REVIEW_REQUIRED"
+        return {
+            **adapter_base,
+            **readback,
+            "adapter_id": adapter_base["adapter_id"],
+            "adapter_state": "READBACK_READY",
+            "readback_state": "READBACK_READY",
+            "identity_resolution_state": identity_state,
+            "fail_closed_reasons": list(dict.fromkeys(fail_closed_reasons)),
+            "customer_sellable_evidence_ready": False,
+            "no_name_only_final_proof": True,
+        }
+
     def build_jzsc_project_manager_company_first_capture_plan(
         self,
         *,

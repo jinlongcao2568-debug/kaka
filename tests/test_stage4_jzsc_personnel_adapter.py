@@ -583,6 +583,164 @@ class Stage4JzscPersonnelAdapterTests(unittest.TestCase):
             "鲁1372017201820810",
         )
 
+    def test_stage4_rendered_adapter_entrypoint_builds_readback_from_captured_rows(self) -> None:
+        result = Stage4Service().run_jzsc_company_first_rendered_readback(
+            {
+                "parse_run_id": "PARSE-JZSC-RENDERED-ADAPTER",
+                "snapshot_id": "SNAP-JZSC-CURRENT-NOTICE-ADAPTER",
+                "source_url": "https://example.invalid/current-notice.html",
+                "lineage_status": "NORMALIZED",
+                "conflict_state": "CONSISTENT",
+                "parsed_fields": [
+                    {
+                        "field_name": "current_project_id",
+                        "field_value_optional": "PRJ-JZSC-CURRENT",
+                    },
+                    {
+                        "field_name": "candidate_company_name",
+                        "field_value_optional": "Alpha Construction Co",
+                    },
+                    {
+                        "field_name": "project_manager_name",
+                        "field_value_optional": "陈庆丽",
+                    },
+                ],
+                "current_project_time_window": {
+                    "start_at": "2026-05-01",
+                    "end_at": "2026-10-01",
+                },
+            },
+            target_company_name="Alpha Construction Co",
+            target_project_manager_name="陈庆丽",
+            rendered_company_personnel_rows=RENDERED_COMPANY_PERSONNEL_ROWS,
+            company_personnel_source_url="https://jzsc.mohurd.gov.cn/data/company/detail?id=alpha",
+            company_personnel_source_snapshot_id="SNAP-JZSC-COMPANY-PERSONNEL-ADAPTER",
+            rendered_personnel_project_rows=RENDERED_PERSONNEL_PROJECT_ROWS,
+            personnel_project_source_url="https://jzsc.mohurd.gov.cn/data/person/detail?id=person-chen-qingli",
+            personnel_project_source_snapshot_id="SNAP-JZSC-PERSON-PROJECTS-ADAPTER",
+            base_public_verification_carriers=[_registered_unit_carrier()],
+        )
+
+        self.assertEqual(result["adapter_id"], "stage4.jzsc_company_first_rendered.v1")
+        self.assertEqual(result["adapter_state"], "READBACK_READY")
+        self.assertEqual(result["identity_resolution_state"], "MATCHED")
+        self.assertEqual(result["fail_closed_reasons"], [])
+        self.assertEqual(result["rendered_company_personnel_row_count"], 1)
+        self.assertEqual(result["rendered_personnel_project_row_count"], 1)
+        self.assertEqual(result["personnel_carrier"]["verification_result"], "MATCHED")
+        self.assertEqual(
+            result["project_manager_active_conflict"]["overlap_judgement"],
+            "OVERLAP_RISK",
+        )
+        self.assertFalse(result["customer_sellable_evidence_ready"])
+        self.assertTrue(result["no_name_only_final_proof"])
+
+    def test_stage4_rendered_adapter_fails_closed_when_personnel_rows_missing(self) -> None:
+        result = Stage4Service().run_jzsc_company_first_rendered_readback(
+            {
+                "parse_run_id": "PARSE-JZSC-MISSING-ROWS",
+                "parsed_fields": [
+                    {
+                        "field_name": "candidate_company_name",
+                        "field_value_optional": "Alpha Construction Co",
+                    },
+                    {
+                        "field_name": "project_manager_name",
+                        "field_value_optional": "陈庆丽",
+                    },
+                ],
+            },
+            target_company_name="Alpha Construction Co",
+            target_project_manager_name="陈庆丽",
+            rendered_company_personnel_rows=[],
+            company_personnel_source_url="https://jzsc.mohurd.gov.cn/data/company/detail?id=alpha",
+            company_personnel_source_snapshot_id="SNAP-JZSC-COMPANY-PERSONNEL-MISSING",
+        )
+
+        self.assertEqual(result["adapter_state"], "FAIL_CLOSED")
+        self.assertEqual(result["readback_state"], "REVIEW_REQUIRED")
+        self.assertEqual(result["identity_resolution_state"], "NOT_RUN_FAIL_CLOSED")
+        self.assertIn("rendered_personnel_rows_missing", result["fail_closed_reasons"])
+        self.assertEqual(result["conflict_records"], [])
+        self.assertEqual(result["evidence_risk_hard_defect_strategy"], {})
+        self.assertFalse(result["customer_sellable_evidence_ready"])
+
+    def test_stage4_rendered_adapter_requires_project_snapshot_for_project_rows(self) -> None:
+        result = Stage4Service().run_jzsc_company_first_rendered_readback(
+            {
+                "parse_run_id": "PARSE-JZSC-PROJECT-SNAPSHOT-MISSING",
+                "parsed_fields": [
+                    {
+                        "field_name": "candidate_company_name",
+                        "field_value_optional": "Alpha Construction Co",
+                    },
+                    {
+                        "field_name": "project_manager_name",
+                        "field_value_optional": "陈庆丽",
+                    },
+                ],
+            },
+            target_company_name="Alpha Construction Co",
+            target_project_manager_name="陈庆丽",
+            rendered_company_personnel_rows=RENDERED_COMPANY_PERSONNEL_ROWS,
+            company_personnel_source_url="https://jzsc.mohurd.gov.cn/data/company/detail?id=alpha",
+            company_personnel_source_snapshot_id="SNAP-JZSC-COMPANY-PERSONNEL-OK",
+            rendered_personnel_project_rows=RENDERED_PERSONNEL_PROJECT_ROWS,
+        )
+
+        self.assertEqual(result["adapter_state"], "FAIL_CLOSED")
+        self.assertIn(
+            "personnel_project_source_url_missing_for_project_rows",
+            result["fail_closed_reasons"],
+        )
+        self.assertIn(
+            "personnel_project_source_snapshot_missing_for_project_rows",
+            result["fail_closed_reasons"],
+        )
+        self.assertEqual(result["conflict_records"], [])
+
+    def test_stage4_rendered_adapter_keeps_same_name_ambiguity_in_review(self) -> None:
+        result = Stage4Service().run_jzsc_company_first_rendered_readback(
+            {
+                "parse_run_id": "PARSE-JZSC-AMBIGUOUS",
+                "parsed_fields": [
+                    {
+                        "field_name": "current_project_id",
+                        "field_value_optional": "PRJ-JZSC-CURRENT",
+                    },
+                    {
+                        "field_name": "candidate_company_name",
+                        "field_value_optional": "Alpha Construction Co",
+                    },
+                    {
+                        "field_name": "project_manager_name",
+                        "field_value_optional": "郭敏锋",
+                    },
+                ],
+                "current_project_time_window": {
+                    "start_at": "2026-05-01",
+                    "end_at": "2026-10-01",
+                },
+            },
+            target_company_name="Alpha Construction Co",
+            target_project_manager_name="郭敏锋",
+            rendered_company_personnel_rows=RENDERED_PERSONNEL_ROWS,
+            company_personnel_source_url="https://jzsc.mohurd.gov.cn/data/company/detail?id=alpha",
+            company_personnel_source_snapshot_id="SNAP-JZSC-COMPANY-PERSONNEL-AMBIGUOUS",
+        )
+
+        self.assertEqual(result["adapter_state"], "READBACK_READY")
+        self.assertEqual(result["identity_resolution_state"], "REVIEW_REQUIRED")
+        self.assertEqual(result["personnel_carrier"]["verification_result"], "REVIEW_REQUIRED")
+        self.assertEqual(
+            result["personnel_carrier"]["failure_reason_optional"],
+            AMBIGUOUS_PUBLIC_MATCH,
+        )
+        self.assertIn(
+            "manager_personnel_public_record_unmatched_or_review_required",
+            result["project_manager_active_conflict"]["failure_reasons"],
+        )
+
     def test_ambiguous_rendered_personnel_row_does_not_satisfy_identity_resolution(self) -> None:
         personnel_carrier = build_jzsc_personnel_list_carrier(
             RENDERED_PERSONNEL_ROWS,
