@@ -1400,6 +1400,106 @@ def _build_project_manager_identity_resolution_plan(candidate: Mapping[str, Any]
     return plan
 
 
+def _stage4_responsible_role_writeback(
+    candidate: Mapping[str, Any],
+    regional_source_readback: Mapping[str, Any],
+) -> dict[str, Any]:
+    if candidate.get("primary_responsible_person_name") or candidate.get("project_manager_name"):
+        return {
+            "writeback_state": "NOT_REQUIRED_STAGE3_ROLE_ALREADY_PRESENT",
+            "writeback_fields": {},
+            "review_required": False,
+        }
+    completion = dict(regional_source_readback.get("responsible_role_identity_completion") or {})
+    identities = [
+        dict(item)
+        for item in list(completion.get("identity_candidates") or [])
+        if isinstance(item, Mapping)
+    ]
+    if not completion:
+        return {
+            "writeback_state": "NOT_RUN_NO_REGIONAL_IDENTITY_COMPLETION",
+            "writeback_fields": {},
+            "review_required": True,
+        }
+    if str(completion.get("completion_state") or "") != "RESPONSIBLE_ROLE_CANDIDATE_FOUND":
+        return {
+            "writeback_state": "RESPONSIBLE_ROLE_NOT_FOUND_IN_STAGE4_SOURCES",
+            "writeback_fields": {},
+            "completion_state": completion.get("completion_state"),
+            "review_required": True,
+            "next_action": completion.get("next_action"),
+        }
+    if len(identities) != 1:
+        return {
+            "writeback_state": "RESPONSIBLE_ROLE_WRITEBACK_REVIEW_REQUIRED_AMBIGUOUS",
+            "writeback_fields": {},
+            "completion_state": completion.get("completion_state"),
+            "candidate_count": len(identities),
+            "identity_candidates": identities[:5],
+            "review_required": True,
+            "next_action": "operator_or_stage4_disambiguation_required_before_writeback",
+        }
+    identity = identities[0]
+    person_name = str(identity.get("person_name") or "").strip()
+    if not person_name:
+        return {
+            "writeback_state": "RESPONSIBLE_ROLE_WRITEBACK_SKIPPED_EMPTY_PERSON_NAME",
+            "writeback_fields": {},
+            "review_required": True,
+        }
+    expected_role = str(
+        identity.get("expected_role")
+        or completion.get("expected_responsible_role")
+        or candidate.get("primary_responsible_role")
+        or "project_manager"
+    )
+    fields: dict[str, Any] = {
+        "primary_responsible_person_name": person_name,
+        "primary_responsible_person_name_parse_state": "STAGE4_PUBLIC_RECORD_RESPONSIBLE_ROLE_CANDIDATE",
+        "primary_responsible_role": expected_role,
+    }
+    if expected_role == "chief_supervision_engineer":
+        fields["chief_supervision_engineer_name"] = person_name
+        fields["chief_supervision_engineer_name_parse_state"] = "STAGE4_PUBLIC_RECORD_RESPONSIBLE_ROLE_CANDIDATE"
+        fields["project_manager_name"] = person_name
+        fields["project_manager_name_parse_state"] = "STAGE4_PUBLIC_RECORD_RESPONSIBLE_ROLE_CANDIDATE"
+    elif expected_role in {"design_or_survey_lead", "design_lead", "survey_lead"}:
+        if expected_role == "design_lead":
+            fields["design_lead_name"] = person_name
+            fields["design_lead_name_parse_state"] = "STAGE4_PUBLIC_RECORD_RESPONSIBLE_ROLE_CANDIDATE"
+        elif expected_role == "survey_lead":
+            fields["survey_lead_name"] = person_name
+            fields["survey_lead_name_parse_state"] = "STAGE4_PUBLIC_RECORD_RESPONSIBLE_ROLE_CANDIDATE"
+        else:
+            fields["design_lead_name"] = person_name
+            fields["design_lead_name_parse_state"] = "STAGE4_PUBLIC_RECORD_RESPONSIBLE_ROLE_CANDIDATE_NEEDS_ROLE_DISAMBIGUATION"
+    else:
+        fields["project_manager_name"] = person_name
+        fields["project_manager_name_parse_state"] = "STAGE4_PUBLIC_RECORD_RESPONSIBLE_ROLE_CANDIDATE"
+    return {
+        "writeback_state": "RESPONSIBLE_ROLE_WRITEBACK_CANDIDATE_FROM_STAGE4_SOURCE",
+        "writeback_fields": fields,
+        "completion_state": completion.get("completion_state"),
+        "identity_candidate": identity,
+        "review_required": True,
+        "no_name_only_final_proof": True,
+        "next_action": "run_company_first_identifier_resolution_before_sellable_evidence",
+    }
+
+
+def _candidate_with_stage4_responsible_role_writeback(
+    candidate: Mapping[str, Any],
+    writeback: Mapping[str, Any],
+) -> dict[str, Any]:
+    enriched = dict(candidate)
+    fields = dict(writeback.get("writeback_fields") or {})
+    for key, value in fields.items():
+        if value not in (None, ""):
+            enriched[key] = value
+    return enriched
+
+
 def _public_verification_refs(carrier: Mapping[str, Any]) -> list[str]:
     refs: list[str] = []
     for key in (
@@ -1624,6 +1724,11 @@ def _build_real_public_stage4_9_readback_from_candidate(
                 repository=repository,
             )
         )
+    responsible_role_writeback = _stage4_responsible_role_writeback(candidate, regional_source_readback)
+    candidate_for_identity = _candidate_with_stage4_responsible_role_writeback(
+        candidate,
+        responsible_role_writeback,
+    )
     covered_source_types = {
         str(stage4_verification.get("verification_target_type") or ""),
         *[
@@ -1633,7 +1738,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
         ],
     }
     regional_source_plan = build_regional_hard_defect_source_plan(
-        candidate,
+        candidate_for_identity,
         covered_source_types=covered_source_types,
     )
     remaining_source_types = list(regional_source_plan.get("missing_source_types", []) or [])
@@ -1645,7 +1750,7 @@ def _build_real_public_stage4_9_readback_from_candidate(
         remaining_real_world_gaps.append(
             "stage4_5_local_housing_contract_completion_pm_change_penalty_adapters_pending"
         )
-    identity_resolution_plan = _build_project_manager_identity_resolution_plan(candidate)
+    identity_resolution_plan = _build_project_manager_identity_resolution_plan(candidate_for_identity)
     identity_resolution_required = bool(identity_resolution_plan)
     if identity_resolution_required:
         remaining_real_world_gaps.append(
@@ -1708,6 +1813,13 @@ def _build_real_public_stage4_9_readback_from_candidate(
                 "adapter_id": regional_source_readback.get("adapter_id"),
                 "covered_source_types": list(regional_source_readback.get("covered_source_types", []) or []),
                 "queried_source_types": list(regional_source_readback.get("queried_source_types", []) or []),
+                "responsible_role_identity_completion_state": dict(
+                    regional_source_readback.get("responsible_role_identity_completion", {}) or {}
+                ).get("completion_state"),
+            },
+            "stage4_responsible_role_writeback": {
+                "writeback_state": responsible_role_writeback.get("writeback_state"),
+                "review_required": responsible_role_writeback.get("review_required"),
             },
             "stage4_hard_defect_strategy": {
                 "strategy_run_id": hard_defect_readback.get("strategy_run_id"),
@@ -1744,6 +1856,10 @@ def _build_real_public_stage4_9_readback_from_candidate(
         ),
         "jzsc_company_first_identity_resolution_required": identity_resolution_required,
         "jzsc_company_first_identity_resolution_plan": identity_resolution_plan,
+        "stage4_responsible_role_identity_completion": dict(
+            regional_source_readback.get("responsible_role_identity_completion", {}) or {}
+        ),
+        "stage4_responsible_role_writeback": responsible_role_writeback,
         "regional_hard_defect_source_plan": regional_source_plan,
         "regional_hard_defect_source_readback": regional_source_readback,
         "remaining_real_world_gaps": list(dict.fromkeys(remaining_real_world_gaps)),

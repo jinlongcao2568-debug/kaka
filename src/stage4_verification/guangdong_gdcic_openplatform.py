@@ -321,6 +321,12 @@ def _expected_responsible_role(candidate: Mapping[str, Any]) -> str:
         or ""
     )
     if explicit:
+        if explicit == "chief_supervision_engineer":
+            return "chief_supervision_engineer"
+        if explicit in {"design_lead", "survey_lead", "survey_design_project_lead"}:
+            return "design_or_survey_lead"
+        if explicit in {"project_manager", "construction_project_manager"}:
+            return "project_manager"
         return explicit
     expected_field = _clean_text(candidate.get("expected_responsible_role_field"))
     if "chief_supervision" in expected_field or "总监" in expected_field:

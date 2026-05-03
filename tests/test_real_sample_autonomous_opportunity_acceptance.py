@@ -20,7 +20,9 @@ from api.main import create_app
 from api.projections import build_real_sample_autonomous_opportunity_acceptance_surface
 from api.routes.operator_customer_access import (
     OPERATOR_CUSTOMER_ACCESS_ROUTES,
+    _candidate_with_stage4_responsible_role_writeback,
     _build_project_manager_identity_resolution_plan,
+    _stage4_responsible_role_writeback,
     list_operator_region_adapters,
     preview_real_sample_autonomous_opportunity_acceptance,
 )
@@ -352,6 +354,46 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
         self.assertFalse(plan["broad_name_search_allowed_as_final_proof"])
         self.assertIn("primary_responsible_person_name", plan["required_writeback_fields"])
         self.assertIn("construction_permit", plan["downstream_resume_targets"])
+
+    def test_stage4_responsible_role_candidate_writeback_feeds_jzsc_resolution_plan(self) -> None:
+        candidate = {
+            "candidate_company": "广东省机电建设有限公司",
+            "project_name": "广东机电安装工程评标报告",
+            "primary_responsible_role": "project_manager",
+            "stage4_identity_completion_required": True,
+        }
+        regional_readback = {
+            "responsible_role_identity_completion": {
+                "completion_state": "RESPONSIBLE_ROLE_CANDIDATE_FOUND",
+                "expected_responsible_role": "project_manager",
+                "identity_candidates": [
+                    {
+                        "person_name": "张三",
+                        "role_text": "项目经理",
+                        "registered_or_project_unit": "广东省机电建设有限公司",
+                        "source_type": "personnel_public_record",
+                        "source_url": "https://skypt.gdcic.net/openplatform/project",
+                        "source_snapshot_id": "SNAP-GDGDCIC-001",
+                    }
+                ],
+            }
+        }
+
+        writeback = _stage4_responsible_role_writeback(candidate, regional_readback)
+        enriched = _candidate_with_stage4_responsible_role_writeback(candidate, writeback)
+        plan = _build_project_manager_identity_resolution_plan(enriched)
+
+        self.assertEqual(
+            writeback["writeback_state"],
+            "RESPONSIBLE_ROLE_WRITEBACK_CANDIDATE_FROM_STAGE4_SOURCE",
+        )
+        self.assertEqual(enriched["project_manager_name"], "张三")
+        self.assertEqual(plan["resolution_state"], "JZSC_COMPANY_FIRST_REQUIRED")
+        self.assertEqual(plan["target_project_manager_name"], "张三")
+        self.assertEqual(
+            plan["resolution_reason"],
+            "notice_has_company_and_project_manager_but_missing_certificate_no",
+        )
 
     def _run_real_sample_acceptance_payload(self) -> dict[str, object]:
         real_sample_payload = copy.deepcopy(
