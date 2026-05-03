@@ -155,6 +155,17 @@ class GuangdongGdcicOpenplatformAdapterTests(unittest.TestCase):
         self.assertIn("contract_public_info", readback["covered_source_types"])
         self.assertIn("completion_filing", readback["covered_source_types"])
         self.assertIn("personnel_public_record", readback["covered_source_types"])
+        identity_completion = readback["responsible_role_identity_completion"]
+        self.assertEqual(
+            identity_completion["completion_state"],
+            "RESPONSIBLE_ROLE_CANDIDATE_FOUND",
+        )
+        self.assertEqual(identity_completion["identity_candidates"][0]["person_name"], "张三")
+        self.assertEqual(identity_completion["identity_candidates"][0]["role_text"], "项目经理")
+        self.assertEqual(
+            identity_completion["next_action"],
+            "write_back_responsible_role_then_run_company_first_identifier_resolution",
+        )
         self.assertIn(
             "administrative_penalty_public_record",
             readback["covered_source_types"],

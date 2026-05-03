@@ -1278,6 +1278,7 @@ def _build_project_manager_identity_resolution_plan(candidate: Mapping[str, Any]
         or candidate.get("bidder_name")
         or ""
     ).strip()
+    project_name = str(candidate.get("project_name") or "").strip()
     manager_name = str(candidate.get("project_manager_name") or candidate.get("manager_name") or "").strip()
     manager_identifier = str(
         candidate.get("project_manager_certificate_no")
@@ -1285,8 +1286,71 @@ def _build_project_manager_identity_resolution_plan(candidate: Mapping[str, Any]
         or candidate.get("project_manager_public_identifier")
         or ""
     ).strip()
-    if not company_name or not manager_name or manager_identifier:
+    if not company_name or manager_identifier:
         return {}
+    if not manager_name:
+        if not bool(candidate.get("stage4_identity_completion_required")):
+            return {}
+        completion_targets = list(candidate.get("stage4_identity_completion_targets") or [])
+        if not completion_targets:
+            completion_targets = [
+                {
+                    "source_family": "guangdong_gdcic_openplatform",
+                    "query_order": "project_name_then_candidate_company",
+                    "target_evidence": "project_public_record_construction_permit_contract_completion_personnel_or_performance",
+                },
+                {
+                    "source_family": "jzsc_company_first",
+                    "query_order": "candidate_company_first_then_personnel_or_project_records",
+                    "target_evidence": "registered_personnel_project_records_and_public_identifier",
+                },
+            ]
+        return {
+            "resolution_state": "STAGE4_COMPANY_PROJECT_FIRST_RESPONSIBLE_ROLE_DISCOVERY_REQUIRED",
+            "resolution_reason": "notice_has_company_but_missing_responsible_role_name",
+            "company_first_required": True,
+            "project_first_allowed": True,
+            "broad_name_search_allowed_as_final_proof": False,
+            "target_company_name": company_name,
+            "target_project_name": project_name,
+            "target_responsible_role": str(
+                candidate.get("primary_responsible_role")
+                or candidate.get("expected_responsible_role_field")
+                or "project_manager"
+            ),
+            "stage4_identity_completion_route": str(
+                candidate.get("stage4_identity_completion_route")
+                or "STAGE4_COMPANY_PROJECT_FIRST_PUBLIC_RECORD_LOOKUP"
+            ),
+            "responsible_role_gap_root_cause": str(candidate.get("responsible_role_gap_root_cause") or ""),
+            "stage4_identity_completion_targets": completion_targets,
+            "stage3_required_inputs": {
+                "candidate_company": company_name,
+                "project_name": project_name,
+                "project_manager_name": "",
+                "project_manager_certificate_no": "",
+                "responsible_role_gap_root_cause": str(candidate.get("responsible_role_gap_root_cause") or ""),
+            },
+            "required_writeback_fields": [
+                "primary_responsible_person_name",
+                "project_manager_name",
+                "chief_supervision_engineer_name",
+                "design_lead_name",
+                "survey_lead_name",
+                "project_manager_public_identifier_optional",
+                "project_manager_certificate_no_optional",
+                "source_url",
+                "source_snapshot_id",
+            ],
+            "downstream_resume_targets": [
+                "personnel_public_record",
+                "project_public_record",
+                "construction_permit",
+                "contract_public_info",
+                "completion_filing",
+                "project_manager_change_notice",
+            ],
+        }
 
     plan = dict(
         Stage4Service().build_jzsc_project_manager_company_first_capture_plan(
@@ -1585,10 +1649,16 @@ def _build_real_public_stage4_9_readback_from_candidate(
     identity_resolution_required = bool(identity_resolution_plan)
     if identity_resolution_required:
         remaining_real_world_gaps.append(
-            "project_manager_certificate_missing_jzsc_company_first_identity_resolution_pending"
+            "responsible_role_missing_company_project_first_identity_completion_pending"
+            if identity_resolution_plan.get("resolution_state")
+            == "STAGE4_COMPANY_PROJECT_FIRST_RESPONSIBLE_ROLE_DISCOVERY_REQUIRED"
+            else "project_manager_certificate_missing_jzsc_company_first_identity_resolution_pending"
         )
         fail_closed_reasons.append(
-            "project_manager_certificate_missing_requires_jzsc_company_first_resolution"
+            str(
+                identity_resolution_plan.get("resolution_reason")
+                or "project_manager_certificate_missing_requires_jzsc_company_first_resolution"
+            )
         )
     real_world_gate_state = (
         "READY_FOR_SELLABLE_EVIDENCE_REVIEW"
@@ -1660,10 +1730,15 @@ def _build_real_public_stage4_9_readback_from_candidate(
         "customer_sellable_evidence_ready": False,
         "real_world_hard_defect_gate_state": real_world_gate_state,
         "project_manager_identifier_resolution_state": (
-            "JZSC_COMPANY_FIRST_REQUIRED" if identity_resolution_required else "NOT_REQUIRED"
+            str(identity_resolution_plan.get("resolution_state") or "JZSC_COMPANY_FIRST_REQUIRED")
+            if identity_resolution_required
+            else "NOT_REQUIRED"
         ),
         "project_manager_identifier_resolution_next_action": (
-            "先用候选公司进入四库企业页，在企业人员列表中查项目负责人，拿证书号/人员公开ID后再继续在建、合同、业绩和变更核验。"
+            "先用候选公司和项目名进入地方住建/三库项目记录；若公告未披露负责人，则先从项目公开记录补负责人，再用公司优先进入四库企业人员页拿证书号/人员公开ID。"
+            if identity_resolution_plan.get("resolution_state")
+            == "STAGE4_COMPANY_PROJECT_FIRST_RESPONSIBLE_ROLE_DISCOVERY_REQUIRED"
+            else "先用候选公司进入四库企业页，在企业人员列表中查项目负责人，拿证书号/人员公开ID后再继续在建、合同、业绩和变更核验。"
             if identity_resolution_required
             else ""
         ),

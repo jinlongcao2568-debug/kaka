@@ -238,6 +238,7 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
         if reason
     ]
     failure_reasons = _dedupe([*failure_reasons, *query_failures])
+    identity_completion = _responsible_role_identity_completion(source_results, candidate=candidate)
     return {
         "source_readback_id": run_id,
         "adapter_id": ADAPTER_ID,
@@ -256,12 +257,132 @@ def query_guangdong_gdcic_openplatform_hard_defect_sources(
         "covered_source_types": covered,
         "queried_source_types": queried,
         "source_results": source_results,
+        "responsible_role_identity_completion": identity_completion,
         "failure_reasons": failure_reasons,
         "public_only": True,
         "customer_visible": False,
         "no_legal_conclusion": True,
         "no_no-risk_inference_without_sources": True,
     }
+
+
+def _responsible_role_identity_completion(
+    source_results: list[dict[str, Any]],
+    *,
+    candidate: Mapping[str, Any],
+) -> dict[str, Any]:
+    expected_role = _expected_responsible_role(candidate)
+    candidates: list[dict[str, Any]] = []
+    for result in source_results:
+        if result.get("source_type") not in {"personnel_public_record", "performance_public_record"}:
+            continue
+        for row in list(result.get("matched_records_preview") or []):
+            identity = _role_identity_preview(
+                row,
+                expected_role=expected_role,
+                source_type=str(result.get("source_type") or ""),
+                source_url=str(result.get("source_url") or ""),
+                snapshot_id=str(result.get("snapshot_id") or ""),
+            )
+            if identity:
+                candidates.append(identity)
+    unique_candidates = _unique_identity_candidates(candidates)
+    if unique_candidates:
+        state = "RESPONSIBLE_ROLE_CANDIDATE_FOUND"
+        next_action = "write_back_responsible_role_then_run_company_first_identifier_resolution"
+    else:
+        state = "RESPONSIBLE_ROLE_NOT_FOUND_IN_QUERIED_PROJECT_RECORDS"
+        next_action = "continue_jzsc_company_first_or_local_professional_registration_lookup"
+    return {
+        "completion_state": state,
+        "expected_responsible_role": expected_role,
+        "candidate_count": len(unique_candidates),
+        "identity_candidates": unique_candidates[:5],
+        "required_writeback_fields": [
+            "primary_responsible_person_name",
+            "project_manager_name",
+            "chief_supervision_engineer_name",
+            "design_lead_name",
+            "survey_lead_name",
+            "project_manager_public_identifier_optional",
+            "project_manager_certificate_no_optional",
+            "source_url",
+            "source_snapshot_id",
+        ],
+        "next_action": next_action,
+        "no_name_only_final_proof": True,
+    }
+
+
+def _expected_responsible_role(candidate: Mapping[str, Any]) -> str:
+    explicit = _clean_text(
+        candidate.get("primary_responsible_role")
+        or candidate.get("target_responsible_role")
+        or ""
+    )
+    if explicit:
+        return explicit
+    expected_field = _clean_text(candidate.get("expected_responsible_role_field"))
+    if "chief_supervision" in expected_field or "总监" in expected_field:
+        return "chief_supervision_engineer"
+    if "design" in expected_field or "survey" in expected_field or "设计" in expected_field or "勘察" in expected_field:
+        return "design_or_survey_lead"
+    return "project_manager"
+
+
+def _role_identity_preview(
+    row: Mapping[str, Any],
+    *,
+    expected_role: str,
+    source_type: str,
+    source_url: str,
+    snapshot_id: str,
+) -> dict[str, Any]:
+    person_name = _clean_text(
+        row.get("memberName")
+        or row.get("personName")
+        or row.get("projectManager")
+        or row.get("directorName")
+    )
+    role_text = _clean_text(row.get("position") or row.get("role") or row.get("postName"))
+    if not person_name:
+        return {}
+    if role_text and not _role_text_matches(expected_role, role_text):
+        return {}
+    return {
+        "person_name": person_name,
+        "role_text": role_text,
+        "expected_role": expected_role,
+        "registered_or_project_unit": _clean_text(row.get("orgName") or row.get("entName") or row.get("corpName")),
+        "source_type": source_type,
+        "source_url": source_url,
+        "source_snapshot_id": snapshot_id,
+        "identity_state": "CANDIDATE_REQUIRES_DISAMBIGUATION",
+    }
+
+
+def _role_text_matches(expected_role: str, role_text: str) -> bool:
+    if expected_role == "chief_supervision_engineer":
+        return any(token in role_text for token in ("总监", "监理"))
+    if expected_role == "design_or_survey_lead":
+        return any(token in role_text for token in ("设计", "勘察", "负责人", "专业负责人"))
+    return any(token in role_text for token in ("项目经理", "项目负责人", "施工负责人", "建造师", "负责人"))
+
+
+def _unique_identity_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    unique: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        key = "|".join(
+            (
+                str(candidate.get("person_name") or ""),
+                str(candidate.get("role_text") or ""),
+                str(candidate.get("registered_or_project_unit") or ""),
+                str(candidate.get("source_type") or ""),
+            )
+        )
+        if key and key not in unique:
+            unique[key] = candidate
+    return list(unique.values())
 
 
 def _execute_query(

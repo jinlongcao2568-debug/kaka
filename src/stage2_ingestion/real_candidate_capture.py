@@ -628,6 +628,172 @@ def _verification_priority_profile(
     }
 
 
+def _responsible_role_gap_diagnostics(
+    *,
+    text: str,
+    title: str,
+    work_lane: str,
+    priority_profile: Mapping[str, Any],
+    candidate_company: str,
+) -> dict[str, Any]:
+    if not priority_profile.get("responsible_role_gap_review_required"):
+        return {
+            "responsible_role_gap_root_cause": "",
+            "responsible_role_gap_source_evidence": "",
+            "responsible_role_gap_token_hits": [],
+            "stage4_identity_completion_required": False,
+            "stage4_identity_completion_route": "",
+            "stage4_identity_completion_targets": [],
+            "stage4_identity_completion_blocker": "",
+        }
+
+    cleaned_text = _clean_text(text)
+    token_hits = _responsible_role_token_hits(cleaned_text)
+    has_text = bool(cleaned_text.strip())
+    if token_hits and _responsible_role_tokens_are_requirement_only(cleaned_text):
+        root_cause = "RESPONSIBLE_ROLE_ONLY_IN_TENDER_REQUIREMENT_NOT_ASSIGNMENT"
+        source_evidence = "role_tokens_appear_only_in_tender_qualification_requirement"
+        route = "WAIT_FOR_CANDIDATE_NOTICE_OR_STAGE4_PROJECT_RECORD_LOOKUP"
+        blocker = "role_mentioned_as_requirement_not_assigned_person"
+    elif token_hits:
+        root_cause = "ROLE_TOKEN_PRESENT_PARSER_MISSED_OR_COMPLEX_TABLE"
+        source_evidence = "captured_text_contains_responsible_role_tokens"
+        route = "STAGE3_DEEP_TABLE_PARSE_THEN_STAGE4_COMPANY_FIRST"
+        blocker = "role_tokens_present_but_not_structured"
+    elif has_text:
+        root_cause = "CAPTURED_TEXT_HAS_NO_RESPONSIBLE_ROLE_FIELD"
+        source_evidence = "detail_and_attachment_text_replayable_but_no_responsible_role_tokens"
+        route = "STAGE4_COMPANY_PROJECT_FIRST_PUBLIC_RECORD_LOOKUP"
+        blocker = "responsible_role_name_missing_in_stage3_source_text"
+    else:
+        root_cause = "NO_REPLAYABLE_TEXT_FOR_RESPONSIBLE_ROLE"
+        source_evidence = "detail_and_attachment_text_missing_or_unreadable"
+        route = "RECAPTURE_OR_OCR_THEN_STAGE4_COMPANY_PROJECT_FIRST"
+        blocker = "source_text_not_replayable"
+
+    targets = _stage4_identity_completion_targets(
+        title=title,
+        work_lane=work_lane,
+        candidate_company=candidate_company,
+        expected_field=str(priority_profile.get("expected_responsible_role_field") or ""),
+        route=route,
+    )
+    return {
+        "responsible_role_gap_root_cause": root_cause,
+        "responsible_role_gap_source_evidence": source_evidence,
+        "responsible_role_gap_token_hits": token_hits,
+        "stage4_identity_completion_required": True,
+        "stage4_identity_completion_route": route,
+        "stage4_identity_completion_targets": targets,
+        "stage4_identity_completion_blocker": blocker,
+    }
+
+
+def _responsible_role_token_hits(text: str) -> list[str]:
+    tokens = (
+        "项目经理",
+        "项目负责人",
+        "拟派项目负责人",
+        "施工负责人",
+        "总监理工程师",
+        "总监",
+        "监理负责人",
+        "设计负责人",
+        "勘察负责人",
+        "项目设计负责人",
+        "项目勘察负责人",
+        "建造师",
+        "注册建造师",
+        "注册监理工程师",
+        "注册建筑师",
+        "注册结构工程师",
+        "注册土木工程师",
+        "注册电气工程师",
+        "注册公用设备工程师",
+        "证书编号",
+        "注册编号",
+        "资格能力条件",
+        "拟派人员",
+    )
+    return [token for token in tokens if token in text]
+
+
+def _responsible_role_tokens_are_requirement_only(text: str) -> bool:
+    requirement_tokens = (
+        "资格要求",
+        "投标人资格",
+        "须无在建",
+        "无在建工程",
+        "可由联合体",
+        "不得变更",
+        "截标时",
+        "需具备",
+    )
+    assignment_tokens = (
+        "第一中标候选人",
+        "第一成交候选人",
+        "定标候选人名称",
+        "中标候选人名称",
+        "候选人名称",
+        "评标结果",
+        "项目负责人姓名",
+        "项目总负责人姓名",
+        "总监理工程师姓名",
+    )
+    return any(token in text for token in requirement_tokens) and not any(
+        token in text for token in assignment_tokens
+    )
+
+
+def _stage4_identity_completion_targets(
+    *,
+    title: str,
+    work_lane: str,
+    candidate_company: str,
+    expected_field: str,
+    route: str,
+) -> list[dict[str, str]]:
+    if work_lane == "supplier_service":
+        return []
+    role_target = {
+        "supervision": "chief_supervision_engineer",
+        "design": "design_lead",
+        "survey": "survey_lead",
+        "survey_design": "survey_or_design_project_lead",
+    }.get(work_lane, "project_manager")
+    base = {
+        "project_name": title,
+        "candidate_company": candidate_company,
+        "expected_responsible_role_field": expected_field,
+        "target_responsible_role": role_target,
+        "completion_route": route,
+    }
+    targets = [
+        {
+            **base,
+            "source_family": "guangdong_gdcic_openplatform",
+            "query_order": "project_name_then_candidate_company",
+            "target_evidence": "project_public_record_construction_permit_contract_completion_personnel_or_performance",
+        },
+        {
+            **base,
+            "source_family": "jzsc_company_first",
+            "query_order": "candidate_company_first_then_personnel_or_project_records",
+            "target_evidence": "registered_personnel_project_records_and_public_identifier",
+        },
+    ]
+    if work_lane in {"supervision", "design", "survey", "survey_design"}:
+        targets.append(
+            {
+                **base,
+                "source_family": "local_industry_or_professional_registration",
+                "query_order": "candidate_company_then_role_specific_registration",
+                "target_evidence": "role_specific_registration_or_public_project_assignment",
+            }
+        )
+    return targets
+
+
 def _extract_candidate_summary_table(text: str) -> dict[str, str]:
     company_pattern = _company_like_pattern()
     manager_header = (
@@ -1043,6 +1209,8 @@ def _candidate_key_fields(candidate: Mapping[str, Any]) -> list[str]:
         "verification_priority_band",
         "expected_responsible_role_field",
         "responsible_role_gap_code",
+        "responsible_role_gap_root_cause",
+        "stage4_identity_completion_route",
         "primary_responsible_person_name",
         "project_manager_name",
         "chief_supervision_engineer_name",
@@ -1332,6 +1500,12 @@ class RealCandidateStage2CaptureService:
         except Exception:
             return dict(capture)
         refreshed = dict(capture)
+        attachment_text, attachment_text_states = self._attachment_text_bundle(
+            list(capture.get("attachment_captures", []) or [])
+        )
+        combined_readback_text = "\n".join(
+            part for part in (readback_text, attachment_text) if str(part or "").strip()
+        )
         detail_carrier = {
             "title": capture.get("detail_title") or capture.get("project_name") or candidate.get("project_name"),
         }
@@ -1339,8 +1513,19 @@ class RealCandidateStage2CaptureService:
             candidate=candidate,
             detail_carrier=detail_carrier,
             parser_carrier=parser_carrier,
-            readback_text=readback_text,
+            readback_text=combined_readback_text or readback_text,
         )
+        if attachment_text_states:
+            refreshed["detail_fields"]["attachment_text_parse_states"] = attachment_text_states
+            refreshed["detail_fields"]["attachment_text_merge_state"] = (
+                "ATTACHMENT_TEXT_MERGED" if attachment_text else "ATTACHMENT_TEXT_NOT_EXTRACTED"
+            )
+            refreshed["detail_fields"]["attachment_ocr_required_count"] = sum(
+                1 for state in attachment_text_states if "OCR_REQUIRED" in state
+            )
+            refreshed["detail_fields"]["attachment_ocr_extracted_count"] = sum(
+                1 for state in attachment_text_states if "OCR" in state and "EXTRACTED" in state
+            )
         refreshed["stage3_parse_state"] = str(parser_carrier.get("parse_state") or capture.get("stage3_parse_state") or "NOT_RUN")
         refreshed["stage3_parse_error_taxonomy"] = list(
             parser_carrier.get("parse_error_taxonomy", []) or capture.get("stage3_parse_error_taxonomy", []) or []
@@ -1609,6 +1794,13 @@ class RealCandidateStage2CaptureService:
         if responsible_table_company:
             candidate_company = responsible_table_company
             candidate_company_state = project_manager_identity["primary_responsible_person_name_parse_state"]
+        role_gap_diagnostics = _responsible_role_gap_diagnostics(
+            text=text,
+            title=title,
+            work_lane=str(work_lane.get("engineering_work_lane") or ""),
+            priority_profile=priority_profile,
+            candidate_company=candidate_company,
+        )
         deadline, deadline_state = _extract_deadline(text)
         notice_stage = _infer_notice_stage(f"{title} {text[:2000]}", str(candidate.get("notice_stage") or ""))
         return {
@@ -1616,6 +1808,7 @@ class RealCandidateStage2CaptureService:
             "notice_stage": notice_stage,
             **work_lane,
             **priority_profile,
+            **role_gap_diagnostics,
             "amount": amount,
             "amount_parse_state": amount_state,
             "candidate_company": candidate_company,
@@ -1704,6 +1897,10 @@ class RealCandidateStage2CaptureService:
             "verification_focus",
             "expected_responsible_role_field",
             "responsible_role_gap_code",
+            "responsible_role_gap_root_cause",
+            "responsible_role_gap_source_evidence",
+            "stage4_identity_completion_route",
+            "stage4_identity_completion_blocker",
             "primary_responsible_role",
             "primary_responsible_person_name",
             "primary_responsible_person_name_parse_state",
@@ -1716,8 +1913,11 @@ class RealCandidateStage2CaptureService:
         ):
             if fields.get(key):
                 row[key] = str(fields[key])
+        row["responsible_role_gap_token_hits"] = list(fields.get("responsible_role_gap_token_hits") or [])
+        row["stage4_identity_completion_targets"] = list(fields.get("stage4_identity_completion_targets") or [])
         row["expected_responsible_role_present"] = bool(fields.get("expected_responsible_role_present"))
         row["responsible_role_gap_review_required"] = bool(fields.get("responsible_role_gap_review_required"))
+        row["stage4_identity_completion_required"] = bool(fields.get("stage4_identity_completion_required"))
         if fields.get("project_manager_name"):
             row["project_manager_name"] = str(fields["project_manager_name"])
             row["project_manager_name_parse_state"] = fields.get("project_manager_name_parse_state") or "DETAIL_TEXT"

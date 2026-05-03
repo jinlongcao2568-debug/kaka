@@ -325,6 +325,34 @@ class RealSampleAutonomousOpportunityAcceptanceTests(unittest.TestCase):
 
         self.assertEqual(plan, {})
 
+    def test_missing_responsible_role_generates_company_project_first_completion_plan(self) -> None:
+        plan = _build_project_manager_identity_resolution_plan(
+            {
+                "candidate_company": "广东省机电建设有限公司",
+                "project_name": "广东机电安装工程评标报告",
+                "primary_responsible_role": "project_manager",
+                "stage4_identity_completion_required": True,
+                "stage4_identity_completion_route": "STAGE4_COMPANY_PROJECT_FIRST_PUBLIC_RECORD_LOOKUP",
+                "responsible_role_gap_root_cause": "CAPTURED_TEXT_HAS_NO_RESPONSIBLE_ROLE_FIELD",
+            }
+        )
+
+        self.assertEqual(
+            plan["resolution_state"],
+            "STAGE4_COMPANY_PROJECT_FIRST_RESPONSIBLE_ROLE_DISCOVERY_REQUIRED",
+        )
+        self.assertEqual(plan["target_company_name"], "广东省机电建设有限公司")
+        self.assertEqual(plan["target_project_name"], "广东机电安装工程评标报告")
+        self.assertEqual(
+            plan["stage4_identity_completion_route"],
+            "STAGE4_COMPANY_PROJECT_FIRST_PUBLIC_RECORD_LOOKUP",
+        )
+        self.assertTrue(plan["company_first_required"])
+        self.assertTrue(plan["project_first_allowed"])
+        self.assertFalse(plan["broad_name_search_allowed_as_final_proof"])
+        self.assertIn("primary_responsible_person_name", plan["required_writeback_fields"])
+        self.assertIn("construction_permit", plan["downstream_resume_targets"])
+
     def _run_real_sample_acceptance_payload(self) -> dict[str, object]:
         real_sample_payload = copy.deepcopy(
             load_fixture("stage1_to_stage5_real_source_vertical_slice_proc_national_html.json")

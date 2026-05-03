@@ -1478,6 +1478,22 @@ const stateLabels = {
   "B_CHIEF_SUPERVISION_ENGINEER_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY": "B类缺总监：需企业优先补全",
   "C_DESIGN_SURVEY_RESPONSIBLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY": "C类缺设计/勘察负责人：需企业优先补全",
   "ENGINEERING_LANE_UNCLASSIFIED_REQUIRES_REVIEW": "工程类型未分类：需复核",
+  "CAPTURED_TEXT_HAS_NO_RESPONSIBLE_ROLE_FIELD": "快照文本未披露负责人字段",
+  "ROLE_TOKEN_PRESENT_PARSER_MISSED_OR_COMPLEX_TABLE": "存在角色词但表格解析未命中",
+  "RESPONSIBLE_ROLE_ONLY_IN_TENDER_REQUIREMENT_NOT_ASSIGNMENT": "角色词只出现在资格要求中，不是已任命负责人",
+  "NO_REPLAYABLE_TEXT_FOR_RESPONSIBLE_ROLE": "无可回放文本，需重抓/OCR",
+  "detail_and_attachment_text_replayable_but_no_responsible_role_tokens": "详情/附件可回放，但未出现负责人角色词",
+  "captured_text_contains_responsible_role_tokens": "快照中出现负责人角色词",
+  "role_tokens_appear_only_in_tender_qualification_requirement": "角色词只作为招标资格要求出现",
+  "detail_and_attachment_text_missing_or_unreadable": "详情/附件文本缺失或不可读",
+  "STAGE4_COMPANY_PROJECT_FIRST_PUBLIC_RECORD_LOOKUP": "Stage4 按公司+项目优先补全",
+  "STAGE3_DEEP_TABLE_PARSE_THEN_STAGE4_COMPANY_FIRST": "先深解析表格，再转公司优先核验",
+  "WAIT_FOR_CANDIDATE_NOTICE_OR_STAGE4_PROJECT_RECORD_LOOKUP": "等候候选结果或查公开项目记录",
+  "RECAPTURE_OR_OCR_THEN_STAGE4_COMPANY_PROJECT_FIRST": "先重抓/OCR，再转公司+项目补全",
+  "responsible_role_name_missing_in_stage3_source_text": "Stage3源文本未给负责人姓名",
+  "role_tokens_present_but_not_structured": "角色词存在但未结构化",
+  "role_mentioned_as_requirement_not_assigned_person": "角色仅是资格条件，不是人员身份",
+  "source_text_not_replayable": "源文本不可回放",
   "ACTIVE": "启用",
   "ALLOW": "允许",
   "APPLIED_TO_DRAFT": "已加到草稿",
@@ -1773,6 +1789,8 @@ function renderCandidateCards(candidates, activeOpportunityId="", selectedProjec
       ${candidate.publication_window_state ? badge(labelOf(candidate.publication_window_state)) : ""}
       <p>${candidate.source_site_name || candidate.source_profile_id || candidate.source_url || "来源待读回"}</p>
       ${candidate.opportunity_priority_class || candidate.verification_focus || candidate.expected_responsible_role_field ? `<p><strong>分级核验</strong> 等级：${safeText(labelOf(candidate.opportunity_priority_class || "--"))}；核验链：${safeText(labelOf(candidate.verification_focus || "--"))}；预期角色：${safeText(labelOf(candidate.expected_responsible_role_field || "--"))}；角色状态：${candidate.expected_responsible_role_present ? "已满足" : "待企业优先补全"}</p>` : ""}
+      ${candidate.responsible_role_gap_root_cause || candidate.stage4_identity_completion_route ? `<p><strong>角色缺口根因</strong> ${safeText(labelOf(candidate.responsible_role_gap_root_cause || "--"))}；证据：${safeText(labelOf(candidate.responsible_role_gap_source_evidence || "--"))}；下一步：${safeText(labelOf(candidate.stage4_identity_completion_route || "--"))}；阻塞：${safeText(labelOf(candidate.stage4_identity_completion_blocker || "--"))}</p>` : ""}
+      ${Array.isArray(candidate.responsible_role_gap_token_hits) && candidate.responsible_role_gap_token_hits.length ? `<p><strong>角色词命中</strong> ${safeText(candidate.responsible_role_gap_token_hits.join(" / "))}</p>` : ""}
       ${candidate.candidate_company || candidate.primary_responsible_person_name || candidate.project_manager_certificate_no ? `<p><strong>核验对象</strong> 企业：${safeText(candidate.candidate_company || "待解析")}；主负责人：${safeText(candidate.primary_responsible_person_name || "待解析")}；项目经理：${safeText(candidate.project_manager_name || "待解析")}；总监：${safeText(candidate.chief_supervision_engineer_name || "待解析")}；设计负责人：${safeText(candidate.design_lead_name || "待解析")}；勘察负责人：${safeText(candidate.survey_lead_name || "待解析")}；证书：${safeText(candidate.project_manager_certificate_no || "待解析")}</p>` : ""}
       ${candidate.candidate_company_parse_state || candidate.project_manager_name_parse_state || candidate.project_manager_certificate_no_parse_state ? `<p><strong>核验字段解析</strong> 企业：${safeText(labelOf(candidate.candidate_company_parse_state || "--"))}；主负责人：${safeText(labelOf(candidate.primary_responsible_person_name_parse_state || "--"))}；项目经理：${safeText(labelOf(candidate.project_manager_name_parse_state || "--"))}；证书：${safeText(labelOf(candidate.project_manager_certificate_no_parse_state || "--"))}；类型：${safeText(labelOf(candidate.project_manager_certificate_type_parse_state || "--"))}；专业：${safeText(labelOf(candidate.project_manager_cert_specialty_parse_state || "--"))}；职称：${safeText(labelOf(candidate.project_manager_professional_title_parse_state || "--"))}</p>` : ""}
       ${candidate.source_url ? `<p><strong>来源网址</strong> <a href="${safeText(candidate.source_url)}" target="_blank" rel="noopener">${safeText(candidate.source_url)}</a></p>` : ""}

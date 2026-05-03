@@ -1438,6 +1438,11 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertFalse(enriched["expected_responsible_role_present"])
         self.assertTrue(enriched["responsible_role_gap_review_required"])
         self.assertEqual(enriched["responsible_role_gap_code"], "A_ROLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY")
+        self.assertEqual(enriched["responsible_role_gap_root_cause"], "RESPONSIBLE_ROLE_ONLY_IN_TENDER_REQUIREMENT_NOT_ASSIGNMENT")
+        self.assertEqual(
+            enriched["stage4_identity_completion_route"],
+            "WAIT_FOR_CANDIDATE_NOTICE_OR_STAGE4_PROJECT_RECORD_LOOKUP",
+        )
         self.assertNotEqual(enriched.get("candidate_company", ""), "可由联合体")
         self.assertEqual(enriched.get("primary_responsible_person_name", ""), "")
         self.assertEqual(enriched.get("project_manager_name", ""), "")
@@ -1573,6 +1578,18 @@ class RealCandidateStage2CaptureTests(unittest.TestCase):
         self.assertFalse(enriched["expected_responsible_role_present"])
         self.assertTrue(enriched["responsible_role_gap_review_required"])
         self.assertEqual(enriched["responsible_role_gap_code"], "A_ROLE_MISSING_REQUIRES_COMPANY_FIRST_IDENTITY")
+        self.assertEqual(enriched["responsible_role_gap_root_cause"], "CAPTURED_TEXT_HAS_NO_RESPONSIBLE_ROLE_FIELD")
+        self.assertEqual(
+            enriched["responsible_role_gap_source_evidence"],
+            "detail_and_attachment_text_replayable_but_no_responsible_role_tokens",
+        )
+        self.assertEqual(
+            enriched["stage4_identity_completion_route"],
+            "STAGE4_COMPANY_PROJECT_FIRST_PUBLIC_RECORD_LOOKUP",
+        )
+        self.assertTrue(enriched["stage4_identity_completion_required"])
+        self.assertEqual(enriched["responsible_role_gap_token_hits"], [])
+        self.assertGreaterEqual(len(enriched["stage4_identity_completion_targets"]), 2)
         self.assertEqual(enriched.get("project_manager_name", ""), "")
         self.assertEqual(enriched.get("project_manager_certificate_no", ""), "")
         self.assertEqual(enriched["project_manager_certificate_no_parse_state"], "DETAIL_TEXT_NOT_FOUND")
